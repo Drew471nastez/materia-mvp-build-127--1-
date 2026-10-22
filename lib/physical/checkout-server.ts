@@ -58,6 +58,7 @@ import type { Db } from "./auth"
 import { priceCheckout, quoteCheckout, readItems, type PricedCheckout } from "./checkout-pricing-server"
 import { readAddress } from "./address"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
+import { businessFromFields, type BusinessDetails } from "@/lib/checkout/business"
 import { isPickupOptionId } from "./pickup"
 import { addOrderEvent } from "./events-server"
 import { enqueueJob, queueLowStockAlerts, queueOrderConfirmation, queueForwarding } from "./jobs-server"
@@ -134,6 +135,12 @@ export interface StartInput {
   buyerSignedIn?: boolean
   /** That account's address, proven by its sign in code: what it already owns is left out (lib/checkout/owned). Never a typed email. */
   ownerEmail?: string | null
+  /**
+   * "Buying for a business", already checked by the caller (lib/checkout/business checkBusiness) and only where the
+   * store offers company invoices: kept on the checkout and written on every order line it becomes, as a basket of
+   * downloads keeps it, so the invoice and the seller's copy are made out to the company.
+   */
+  business?: BusinessDetails | null
 }
 
 export type StartResult =
@@ -433,6 +440,12 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     database without SQL part 109's column only loses the yes, never the
     checkout.
   */
+  /* The company the buyer bought for, the same way: a database without SQL part 257's column loses it, never the checkout. Before the order can be placed below (a free or cash order is completed in this same call). */
+  const business = input.business ? businessFromFields(input.business) : null
+  if (business) {
+    const { error: businessError } = await db.from("commerce_checkouts").update({ business_details: business }).eq("id", checkoutId)
+    if (businessError) console.warn("[physical] company details not kept on the checkout:", businessError.code)
+  }
   /* The cart's attributes, the same way: a database without SQL part 164's column loses them, never the checkout. */
   const attributes = cartAttributes(input.cartAttributes)
   if (attributes) {
@@ -1048,6 +1061,17 @@ export async function completeCheckout(
     }
     await db.rpc("increment_product_sales", { p_product_id: l.product_id })
     await db.from("analytics_events").insert({ creator_id: co.creator_id, product_id: l.product_id, event_type: "purchase" })
+  }
+
+  /*
+    THE COMPANY ON EVERY LINE this call wrote, from the checkout (SQL part 257), exactly as a basket of downloads keeps
+    it (lib/checkout/fulfil-cart-session.ts, part 36's orders.business_details): the invoice, the receipt and the
+    seller's copy of the invoice read it from the order. A database without the column refuses this write alone.
+  */
+  const company = businessFromFields(co.business_details)
+  if (company && created.length) {
+    const { error: companyError } = await db.from("orders").update({ business_details: company }).in("id", created.map((x) => x.orderId))
+    if (companyError) console.warn("[physical] company details not kept on the order:", companyError.code)
   }
 
   const { data: firstOrder } = await db.from("orders").select("id").eq("receipt_token", cartReceiptToken(sessionId, 0)).maybeSingle()

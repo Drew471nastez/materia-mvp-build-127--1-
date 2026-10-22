@@ -65,7 +65,7 @@ check("a store that chose either way is left as it chose", (sql.match(/NOT \((pu
 check("writes only that key, adding a settings row only where a store with company orders had none", /checkout = public\.store_settings\.checkout \|\| '\{"businessInvoice": true\}'::jsonb/.test(sql) && !/DELETE|DROP|orders SET/i.test(sql))
 check("reads only the columns that exist (parts 32, 36, 153)", /column_name = 'business_details'/.test(sql) && /column_name = 'creator_id'/.test(sql) && /column_name = 'legal'/.test(sql))
 check("the migration copy is the same", existsSync("supabase/migrations/20270205_company_invoices_setting.sql") && read("supabase/migrations/20270205_company_invoices_setting.sql") === sql)
-check("the check after knows it", /as p256_company_invoices_setting/.test(read("supabase/sql/run-now/99_check_after.sql")))
+check("the check after knows it", /as p256_company_invoices_setting[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 check("the README and the bundles carry it", /`256_company_invoices_setting\.sql`/.test(read("supabase/sql/run-now/README.md")) && /-- part 256_company_invoices_setting\.sql/.test(read("supabase/sql/run-four/3_of_4_latest.sql")) && /"256_company_invoices_setting\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
 
 console.log("\nThe words")
@@ -74,6 +74,81 @@ check("Help says where it is turned on", /Company invoices in Settings > Checkou
 for (const lang of ["es", "fr", "de", "pt-BR", "it", "pl"]) {
   const cat = read(`lib/i18n/catalog/${lang}.ts`)
   check(`  ${lang}: the switch is translated`, /"Company invoices": "/.test(cat) && /"Adds “Buying for a business” to checkout\./.test(cat))
+}
+
+console.log("\nA cart that ships keeps the company too, on every order line (SQL part 257)")
+{
+  const site = read("app/api/checkout/site/route.ts")
+  const server = read("lib/physical/checkout-server.ts")
+  check("the website's checkout hands it to a cart that ships, as checked and only where the switch is on", /if \(ships\) return shippedIntent\(request, admin, site, body, contact, origin, attribution, business\?\.ok \? business\.value : null\)/.test(site) && /paymentMethods: body\.paymentMethods,\s*business,\s*\}\)/.test(site))
+  check("  and to cash on delivery, by the same rule", /contact\.config\.businessInvoice && body\.business !== undefined && body\.business !== null \? checkBusiness\(body\.business\) : null/.test(site) && /business: business\?\.ok \? business\.value : null,\s*cashOnDelivery: true,/.test(site))
+  check("the held checkout keeps it before a free or cash order is placed in the same call", server.indexOf('update({ business_details: business })') > 0 && server.indexOf('update({ business_details: business })') < server.indexOf("const done = await completeCheckout"))
+  const sql = read("supabase/sql/run-now/257_checkout_business_details.sql")
+  check("part 257: one column on the checkout, shaped like the order's, no rows changed", /ADD COLUMN IF NOT EXISTS business_details jsonb/.test(sql) && /pg_column_size\(business_details\) <= 4096\)\) NOT VALID/.test(sql) && !/UPDATE|DELETE/i.test(sql) && sql.trimEnd().endsWith("notify pgrst, 'reload schema';"))
+  check("  its migration copy, its column in the check after, its README row", read("supabase/migrations/20270205_b_checkout_business_details.sql") === sql && /as p257_checkout_business_details;/.test(read("supabase/sql/run-now/99_check_after.sql")) && /`257_checkout_business_details\.sql`/.test(read("supabase/sql/run-now/README.md")))
+
+  /* The paid checkout, for real: completeCheckout against a small stand in for the database. */
+  type Row = Record<string, unknown>
+  const company = { company: "Globex SRL", taxId: "RO12345678", country: "RO", line1: "Strada Lungă 4", line2: "", city: "Cluj-Napoca", postalCode: "400001", region: "Cluj" }
+  function standIn(co: Row) {
+    const orders: Row[] = []
+    const writes: { table: string; values: Row; ids: unknown }[] = []
+    const from = (table: string) => {
+      const q: { op: string; values?: Row; filters: [string, string, unknown][]; select?: string } = { op: "select", filters: [] }
+      const run = async (): Promise<{ data: unknown; error: null }> => {
+        if (table === "commerce_checkouts" && q.op === "select") return { data: co, error: null }
+        if (table === "commerce_checkouts" && q.op === "update") return { data: [], error: null }
+        if (table === "orders" && q.op === "insert") {
+          const row = { ...q.values, id: `o${orders.length + 1}` }
+          orders.push(row)
+          return { data: { id: row.id }, error: null }
+        }
+        if (table === "orders" && q.op === "update") {
+          const ids = q.filters.find((f) => f[0] === "id" && f[1] === "in")?.[2] as string[] | undefined
+          if (q.values && "business_details" in q.values) writes.push({ table, values: q.values, ids })
+          for (const o of orders) if (ids?.includes(o.id as string)) Object.assign(o, q.values)
+          return { data: null, error: null }
+        }
+        return { data: null, error: null }
+      }
+      const b: Record<string, unknown> = {
+        select: (s?: string) => ((q.select = s), b),
+        insert: (v: Row) => ((q.op = "insert"), (q.values = v), b),
+        update: (v: Row) => ((q.op = "update"), (q.values = v), b),
+        upsert: (v: Row) => ((q.op = "upsert"), (q.values = v), b),
+        delete: () => ((q.op = "delete"), b),
+        eq: (k: string, v: unknown) => (q.filters.push([k, "eq", v]), b),
+        in: (k: string, v: unknown) => (q.filters.push([k, "in", v]), b),
+        is: (k: string, v: unknown) => (q.filters.push([k, "is", v]), b),
+        neq: () => b, gt: () => b, gte: () => b, lt: () => b, lte: () => b, not: () => b, or: () => b, order: () => b, limit: () => b, range: () => b,
+        maybeSingle: () => run(),
+        single: () => run(),
+        then: (ok: (v: unknown) => unknown, bad?: (e: unknown) => unknown) => run().then(ok, bad),
+      }
+      return b
+    }
+    return { db: { from, rpc: async () => ({ data: null, error: null }) }, orders, writes }
+  }
+  const line = (type: string, title: string, unit: number, ships: boolean) => ({ product_id: `p-${title}`, variant_id: null, title, variant_name: null, sku: null, image_url: null, type, unit_cents: unit, quantity: 1, discount_cents: 0, requires_shipping: ships, location_id: null, weight_grams: ships ? 300 : 0, fulfillment_method: ships ? "self" : null })
+  const checkout = (lines: Row[], business: unknown): Row => ({ id: "co1", creator_id: "c1", status: "paid", provider: "stripe", buyer_email: "ana@globex.test", buyer_name: "Ana Pop", buyer_id: null, currency: "RON", lines, shipping_cents: 1999, shipping_discount_cents: 0, tax_cents: 0, total_cents: 13999, platform_fee_cents: 0, shipping_rate: { tax_included: true }, shipping_address: { country: "RO" }, stripe_session_id: "pi_test_1", receipt_token: "r1", origin: null, attribution: null, business_details: business })
+  try {
+    const { completeCheckout } = await import("@/lib/physical/checkout-server")
+    const paid = { checkoutId: "co1", sessionId: "pi_test_1", paymentIntentId: "pi_test_1", facts: null, baseUrl: "https://storelib.test" }
+    const shipped = standIn(checkout([line("physical", "Mug", 12000, true)], company))
+    await completeCheckout(shipped.db, paid)
+    check("a shipped cart: the order line carries the company", shipped.orders.length === 1 && (shipped.orders[0].business_details as { company?: string } | undefined)?.company === "Globex SRL" && (shipped.orders[0].business_details as { taxId?: string }).taxId === "RO12345678", shipped.orders.map((o) => o.business_details))
+    const mixed = standIn(checkout([line("physical", "Mug", 12000, true), line("digital", "Recipes", 2000, false)], company))
+    await completeCheckout(mixed.db, paid)
+    check("a mixed cart: the line that ships and the download both carry it, in one write", mixed.orders.length === 2 && mixed.orders.every((o) => (o.business_details as { company?: string } | undefined)?.company === "Globex SRL") && mixed.writes.length === 1 && (mixed.writes[0].ids as string[]).length === 2, mixed.writes)
+    const none = standIn(checkout([line("physical", "Mug", 12000, true)], null))
+    await completeCheckout(none.db, paid)
+    check("a buyer who did not ask for an invoice: nothing written", none.orders.length === 1 && none.writes.length === 0 && !("business_details" in none.orders[0]))
+    const junk = standIn(checkout([line("physical", "Mug", 12000, true)], { company: "" }))
+    await completeCheckout(junk.db, paid)
+    check("  nor for a stored value that is not a company", junk.writes.length === 0)
+  } catch (e) {
+    check("the paid checkout can be driven here", false, e instanceof Error ? e.message.slice(0, 300) : String(e))
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
