@@ -7,25 +7,50 @@ import { orderStoreUrl } from "@/lib/physical/store-link"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { customerEmailCopyReady, loadCustomerEmailCopy, saveCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
 import { CUSTOMER_EMAILS } from "@/lib/emails/customer-catalog"
+import { buyerEmailLanguage, emailLanguageFor, websiteEmailLanguages } from "@/lib/emails/words-server"
+import { loadCheckoutConfig } from "@/lib/store/settings-server"
+import { communitiesEnabled } from "@/lib/communities/flag"
 import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any
+
 /**
- * Settings › Customer emails, in one read: the store's name, logo, contact
- * and website as every email signs with them (so the page draws each
- * preview itself, at once, with lib/emails/customer-catalog.ts), and the
- * store's own words for any email it changed (lib/emails/customer-custom.ts).
+ * Emails › Customer emails (and Settings › Customer emails), in one read:
+ * what every email signs with, so the page draws each preview itself, at
+ * once, with lib/emails/customer-catalog.ts.
  *
- *   GET                      { shop, copy, ready }
+ *   shop         the store's name, logo, contact and website: a website
+ *                order's emails are signed with them
+ *   creator      the creator's name and photo: a download bought on Storelib
+ *                is signed with them (lib/emails/buyer-channel.ts)
+ *   languages    the website's own language and its other published ones;
+ *                `language` is the email words in the website's own
+ *   copy         the store's own words for any email it changed
+ *   communities  the owner's communities, whose emails are in the same list
+ *   reminder     whether the checkout reminder is on (Settings › Checkout)
+ *
+ *   GET                      all of the above
+ *   GET ?lang=fr             { language }: the email words in one published language, for a preview in it
+ *   GET ?channel=storelib    { language }: the words an email bought on Storelib is written in (English)
  *   PUT { id, copy }         one email's words; `copy: null` puts it back to the default
  */
-export async function GET() {
+export async function GET(request: Request) {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [identity, store, selling, copy, ready, look, website] = await Promise.all([
+  const q = new URL(request.url).searchParams
+  const asked = q.get("lang")
+  /* Bought on Storelib: English, with the store's own English checkout words (lib/emails/words-server.ts buyerEmailLanguage). */
+  if (q.get("channel") === "storelib") return physicalJson({ language: await buyerEmailLanguage(c.creatorId, "storelib", null).catch(() => ({ lang: "en", words: {}, own: true })) })
+  if (asked) {
+    const language = await emailLanguageFor(c.creatorId, asked).catch(() => ({ lang: "en", words: {}, own: true }))
+    return physicalJson({ language })
+  }
+  const [identity, store, selling, copy, ready, look, website, languages, language, checkout, communities] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
     storeIdentity(db, c.creatorId).catch(() => null),
     /* The store's selling currency, the one its customer emails are written in (never the payout currency). */
@@ -35,6 +60,10 @@ export async function GET() {
     loadBrand(db, c.creatorId).catch(() => null),
     /* The live website, as the sent emails link it (lib/physical/store-link.ts), never the creator page. */
     orderStoreUrl({ creator_id: c.creatorId }),
+    websiteEmailLanguages(c.creatorId),
+    emailLanguageFor(c.creatorId, null).catch(() => ({ lang: "en", words: {}, own: true })),
+    loadCheckoutConfig(db, c.creatorId).catch(() => null),
+    ownCommunities(db, c.creatorId),
   ])
   return physicalJson({
     shop: {
@@ -42,13 +71,32 @@ export async function GET() {
       supportEmail: store?.email || identity.replyTo || null,
       storeUrl: website || null,
       logoUrl: store?.logoUrl ?? null,
+      logoFrom: store?.logoFrom ?? null,
       phone: store?.phone ?? null,
       currency: selling.currency,
       accent: look?.accent ?? null,
     },
+    creator: { name: identity.fromName || look?.creatorName || store?.name || "", photoUrl: look?.avatarUrl ?? null, logoUrl: look?.logoUrl ?? null },
+    languages,
+    language,
     copy,
     ready,
+    reminder: checkout ? checkout.abandonedRecovery : null,
+    communities,
   })
+}
+
+/** The owner's communities, by name, while communities are on. A read that fails lists none. */
+async function ownCommunities(db: Db, creatorId: string): Promise<Array<{ id: string; name: string; slug: string }>> {
+  try {
+    if (!(await communitiesEnabled())) return []
+    const first = await db.from("communities").select("id, name, slug").eq("creator_id", creatorId).is("deleted_at", null).order("name")
+    const read = first.error ? await db.from("communities").select("id, name, slug").eq("creator_id", creatorId).order("name") : first
+    if (read.error) return []
+    return ((read.data ?? []) as Array<{ id: string; name: string | null; slug: string | null }>).map((r) => ({ id: r.id, name: r.name || "", slug: r.slug || r.id }))
+  } catch {
+    return []
+  }
 }
 
 export async function PUT(request: Request) {

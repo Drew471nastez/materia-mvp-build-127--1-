@@ -211,16 +211,18 @@ async function main() {
     check("the words are checked: too long is refused, empty keeps Storelib's", "error" in t.wordsInput({ subject: "x".repeat(121) }) && t.emptyWords(t.wordsInput({ subject: "", heading: "" }) as never) && !t.isEditableEmail("event_ticket"))
     check("sendCommunityEmail puts the community's words in the event", /wordsPayload\(await emailWordsFor\(db, input\.communityId, kind\)\)/.test(emailSrc))
     const panel = read("components/community/creator/settings-section.tsx")
-    check("Settings has Member emails, for the owner and admins", /value: "emails"[^\n]*needs: "manage_settings"/.test(panel) && /"emails",/.test(read("components/community/creator/logic.ts")))
+    /* Changed on purpose: member emails are managed in Emails › Customer emails › Communities with the store's other emails; the community's old settings link opens them there (still the owner and admins: every route keeps the settings permission). */
+    check("Member emails are in Emails, and the old settings link goes there", !/value: "emails"/.test(panel) && /if \(emailsTabAsked\(query\.tab\)\) redirect\(communityEmailsHref\(ctx\.community\.id\)\)/.test(read("app/app/community/[id]/settings/page.tsx")) && /CommunityEmails/.test(read("components/app/settings/customer-emails-panel.tsx")))
     const routes = ["app/api/app/community/[id]/emails/route.ts", "app/api/app/community/[id]/emails/templates/route.ts", "app/api/app/community/[id]/emails/preview/route.ts"].map((f) => code(f))
     check("every member emails route needs the settings permission", routes.every((r) => /requireCreatorCommunity\(id, "manage_settings"\)/.test(r)))
-    check("the preview draws in a sandboxed frame", /sandbox=""/.test(read("components/community/creator/member-emails-panel.tsx")))
+    /* Changed on purpose: drawn in the shared preview frame (components/app/emails/email-parts.tsx), sandboxed, no scripts. */
+    check("the preview draws in a sandboxed frame", /sandbox="allow-same-origin"/.test(read("components/app/emails/email-parts.tsx")) && /PreviewFrame/.test(read("components/app/emails/community-emails.tsx")))
     const agSql = read("supabase/migrations/20270201_round_ag.sql")
     check("the SQL: broadcasts and templates, server only", /CREATE TABLE IF NOT EXISTS public\.community_broadcasts/.test(agSql) && /CREATE TABLE IF NOT EXISTS public\.community_email_templates/.test(agSql) && /community_broadcasts ENABLE ROW LEVEL SECURITY/.test(agSql) && /community_email_templates ENABLE ROW LEVEL SECURITY/.test(agSql))
   }
 
   console.log("\nCopy")
-  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts", "lib/communities/server/module-sales.ts", "lib/communities/server/broadcasts.ts", "lib/communities/server/email-templates.ts", "components/community/creator/member-emails-panel.tsx"]
+  const mine = ["components/community/creator/settings-section.tsx", "lib/memberships/plan.ts", "supabase/migrations/20270201_round_ag.sql", "lib/account/delete-account.ts", "app/admin/_console/actions.tsx", "components/notifications/web-push-prompt.tsx", "lib/explore/discover-mode-cookie.ts", "lib/communities/client/place-cache.ts", "lib/media/image-fallback.ts", "components/storefront/creator-language.tsx", "lib/tax/report.ts", "lib/tax/report-model.ts", "lib/communities/server/module-sales.ts", "lib/communities/server/broadcasts.ts", "lib/communities/server/email-templates.ts", "components/app/emails/community-emails.tsx"]
   const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
   check("no em dash and no banned word", offenders.length === 0, offenders)
 

@@ -112,7 +112,8 @@ console.log("\nEvery email reads the one rule")
   /* Changed on purpose: a logo set in Settings › Store details goes first on receipts, then the same rule. */
   check("the receipt's picture is the rule's", /senderPicture\(\{ photoUrl: photo, logoUrl: brand\?\.logoUrl \}\)/.test(email) && /sellerPicture: pictureOf\(brand\?\.avatarUrl \?\? v\.seller\.avatarUrl\)/.test(email))
   /* The refund email is drawn by lib/emails/notices.ts in the shared layout, which escapes every address it draws. */
-  check("the refund email sizes the picture it is handed and passes it to the layout", /const sellerAvatarSrc = emailImageSrc\(sellerAvatarUrl, 36\)/.test(email) && /sellerPictureUrl: sellerAvatarSrc/.test(email))
+  /* Changed on purpose: a website order's refund is signed by the shop (its logo), one on Storelib by the creator's picture the caller hands; either is sized the same way (lib/emails/buyer-channel.ts). */
+  check("the refund email sizes the picture it is handed and passes it to the layout", /const sellerAvatarSrc = emailImageSrc\(signer\?\.pictureUrl \?\? sellerAvatarUrl, 36\)/.test(email) && /sellerPictureUrl: sellerAvatarSrc/.test(email))
   const refundRoute = read("app/api/stripe/refund/route.ts")
   check("a creator's refund no longer falls back to the copy in creators.avatar_url", !/creator\.avatar_url/.test(refundRoute) && /senderPicture\(/.test(refundRoute))
   check("and the other two refund paths pass the same picture", /senderPicture\(/.test(read("lib/stripe/refund-sync.ts")) && /senderPicture\(/.test(read("app/api/admin/orders/refund/route.ts")))

@@ -263,7 +263,8 @@ async function main() {
   const { CUSTOMER_EMAILS, previewCustomerEmail, SAMPLE_DATE } = await import("@/lib/emails/customer-catalog")
   const { DEFAULT_COPY, COPY_FIELDS, resolveCopy, itemsText } = await import("@/lib/emails/customer-custom")
   const { buyerReceiptEmailHtml, buyerReceiptEmailText } = await import("@/lib/receipts/email")
-  const { withReceiptCopy } = await import("@/lib/email")
+  const { buildReceiptEmail } = await import("@/lib/receipts/receipt-mail")
+  const { loadCustomerEmailCopy } = await import("@/lib/emails/customer-copy-server")
   const { checkoutReminderEmail } = await import("@/lib/physical/email-templates")
   const { physicalSaleFacts, withPhysicalSale, sellerCommerceEmail, lowStockEmail } = await import("@/lib/notify/seller-commerce")
   const { renderEmail } = await import("@/lib/notify/templates")
@@ -272,10 +273,12 @@ async function main() {
 
   /* Every email in the list has a word of its own for each of the four parts; the Button is never empty. */
   console.log("\nEvery email in Settings has its four parts, the Button included\n")
-  check("nineteen emails are listed (Delivery issue among them), each with defaults for subject, heading, text and button", CUSTOMER_EMAILS.length === 19 && CUSTOMER_EMAILS.some((e) => e.id === "delivery_issue") && !CUSTOMER_EMAILS.some((e) => e.id === "delivery_problem") && CUSTOMER_EMAILS.every((e) => COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id]?.[f] === "string")))
-  check("every button has words by default (the owner's screenshot had an empty Button)", CUSTOMER_EMAILS.every((e) => DEFAULT_COPY[e.id].button.trim().length > 0), CUSTOMER_EMAILS.filter((e) => !DEFAULT_COPY[e.id].button).map((e) => e.id))
-  /* The checkout reminder and Payment failed come before there is an order, so they carry no order date. */
-  check("each previews with the sample order's date", CUSTOMER_EMAILS.filter((e) => e.id !== "checkout_reminder" && e.id !== "payment_failed").every((e) => previewCustomerEmail(e.id, { name: "Astrid" })!.html.includes(SAMPLE_DATE)))
+  /* Changed on purpose: the digital Refund is listed too (Emails › Customer emails › Digital products); it is drawn and sent by lib/emails/notices.ts buyerRefundMail and has no words to edit, so the four parts are checked on the editable ones. */
+  const editable = CUSTOMER_EMAILS.filter((e) => e.editable)
+  check("twenty emails are listed (Delivery issue and the digital Refund among them), each editable one with defaults for subject, heading, text and button", CUSTOMER_EMAILS.length === 20 && editable.length === 19 && CUSTOMER_EMAILS.some((e) => e.id === "delivery_issue") && !CUSTOMER_EMAILS.some((e) => e.id === "delivery_problem") && editable.every((e) => COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id]?.[f] === "string")))
+  check("every button has words by default (the owner's screenshot had an empty Button)", editable.every((e) => DEFAULT_COPY[e.id].button.trim().length > 0), editable.filter((e) => !DEFAULT_COPY[e.id].button).map((e) => e.id))
+  /* The checkout reminder and Payment failed come before there is an order, so they carry no order date. Changed on purpose: a download's receipt and refund write the day as their sender does (US order, "October 10, 2026", "Oct 10, 2026"), so the preview is the sent email. */
+  check("each previews with the sample order's date", CUSTOMER_EMAILS.filter((e) => e.id !== "checkout_reminder" && e.id !== "payment_failed" && e.family === "physical").every((e) => previewCustomerEmail(e.id, { name: "Astrid" })!.html.includes(SAMPLE_DATE)) && previewCustomerEmail("receipt", { name: "Astrid" })!.html.includes("October 10, 2026") && previewCustomerEmail("digital_refund", { name: "Astrid" })!.html.includes("Oct 10, 2026"))
 
   /* ── The real send, every buyer email, with the store's own words saved ── */
   console.log("\nWhat is saved in Settings is what is sent\n")
@@ -334,9 +337,11 @@ async function main() {
     const rdb = new FakeDb()
     seed(rdb, { receipt: { subject: "Your {{shop_name}} receipt, {{customer_name}}", heading: "Thanks a lot", body: "Here it is: {{items}}", button: "Open it" } })
     const model: any = { firstName: "Maria", sellerName: "Astrid Studio", orderNumber: "#1001", dateText: "10 October 2026", items: [{ title: "Bread course", variantName: null, amountText: "$49.00", note: null }], subtotalText: null, tipText: null, totalText: "$49.00", refundedText: null, link: "https://storelib.com/receipt/x", buttonLabel: "View your receipt", supportEmail: "hello@astrid.test" }
-    const subject = await withReceiptCopy(rdb, CREATOR, model, "Your receipt for Bread course")
-    const html = buyerReceiptEmailHtml(model)
-    check("receipt: the saved subject, heading, text and button are on the receipt", subject === "Your Astrid Studio receipt, Maria" && html.includes("Thanks a lot") && html.includes("Here it is: Bread course") && html.includes("Open it") && buyerReceiptEmailText(model).includes("Here it is: Bread course"), subject)
+    /* Changed on purpose: the receipt is built by lib/receipts/receipt-mail.ts buildReceiptEmail (the sender and the preview alike), from the words read the same way. */
+    const built = buildReceiptEmail(model, null, (await loadCustomerEmailCopy(rdb, CREATOR)).receipt)
+    const subject = built.subject
+    const html = built.html
+    check("receipt: the saved subject, heading, text and button are on the receipt", subject === "Your Astrid Studio receipt, Maria" && html.includes("Thanks a lot") && html.includes("Here it is: Bread course") && html.includes("Open it") && built.text.includes("Here it is: Bread course") && buyerReceiptEmailHtml(built.model) === html && buyerReceiptEmailText(built.model) === built.text, subject)
     const words = resolveCopy({ subject: "Come back to {{items}}", heading: "Still there?", body: "Your cart waits, {{customer_name}}.", button: "Back to it" }, { customer_name: "Maria", shop_name: "Astrid Studio", items: itemsText(["Mug"]) })
     const rem = checkoutReminderEmail({ shopName: "Astrid Studio", buyerFirstName: "Maria", lines: [{ title: "Mug", variantName: null, quantity: 1, cents: 0, imageUrl: null }], checkoutUrl: "https://storelib.com/checkout?x", unsubscribeUrl: "https://storelib.com/unsubscribe/t", copy: words })
     check("checkout reminder: the saved words are in it", rem.subject === "Come back to Mug" && rem.html.includes("Still there?") && rem.html.includes("Your cart waits, Maria.") && rem.html.includes("Back to it"))
@@ -530,7 +535,9 @@ async function main() {
     check("Emails has a Customer emails tab", /\{ id: "customer", label: "Customer emails" \}/.test(home) && /"customer"/.test(read("app/app/emails/emails-data.ts")) && /"customer"/.test(read("app/app/emails/page.tsx")))
     check("  showing the same list and editor as Settings", /tab === "customer" \? <CustomerEmailsPanel bare \/>/.test(home) && /CUSTOMER_EMAILS_PATH/.test(read("app/app/emails/emails-data.ts")))
     const panel = read("components/app/settings/customer-emails-panel.tsx")
-    check("the preview is drawn in place, never a new srcDoc", /documentElement\.innerHTML = innerOf\(html\)/.test(panel) && !/srcDoc=/.test(panel))
+    /* Changed on purpose: the preview frame is shared with the community emails (components/app/emails/email-parts.tsx). */
+    const parts = read("components/app/emails/email-parts.tsx")
+    check("the preview is drawn in place, never a new srcDoc", /documentElement\.innerHTML = innerOf\(html\)/.test(parts) && !/srcDoc=/.test(panel + parts) && /PreviewFrame/.test(panel))
     check("the phone sheet has one fixed height, and the panes slide", /height: PHONE_SHEET_HEIGHT, maxHeight: PHONE_SHEET_HEIGHT/.test(panel) && /w-\[200%\]/.test(panel) && /translate3d\(-50%,0,0\)/.test(panel))
     check("fields are 16px on a phone", /text-\[16px\] sm:text-\[14px\]/.test(panel))
     check("a placeholder goes in at the cursor, and the cursor stands after it", /setSelectionRange\(c\.at, c\.at\)/.test(panel) && /onPointerDown=\{\(e\) => e\.preventDefault\(\)\}/.test(panel))

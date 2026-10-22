@@ -49,7 +49,7 @@ import { storeOf } from "@/lib/notify/store"
 import type { DomainEventName } from "@/lib/notify/types"
 import { communitiesEnabled } from "../flag"
 import { missing, nowIso, reasonOf, type Db } from "./db"
-import { emailWordsFor, wordsPayload } from "./email-templates"
+import { communityEmailPayload, emailWordsFor, wordsPayload } from "./email-templates"
 
 export const COMMUNITY_EMAIL_KINDS = ["welcome", "announcement", "event_reminder", "invite", "course_available", "join_approved", "report_digest", "event_ticket", "event_ticket_invite", "event_refund", "event_cancelled", "broadcast"] as const
 export type CommunityEmailKind = (typeof COMMUNITY_EMAIL_KINDS)[number]
@@ -223,13 +223,9 @@ export async function sendCommunityEmail(
       userId: kind === "invite" ? null : (input.userId ?? null),
       entityType: "community",
       entityId: input.communityId,
+      /* The same payload its preview in Emails draws (./email-templates.ts communityEmailPayload), with the address and the key. */
       payload: {
-        ...plainData(input.data),
-        communityId: input.communityId,
-        communityName: community.name,
-        communitySlug: community.slug,
-        ...(community.creatorName ? { creatorName: community.creatorName } : {}),
-        ...words,
+        ...communityEmailPayload(plainData(input.data), input.communityId, community, words),
         recipientEmail,
         dedupeKey: key.slice(0, 200),
       },

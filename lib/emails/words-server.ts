@@ -14,6 +14,7 @@ import { cachedTranslations } from "@/lib/markets/server"
 import { emailWordsIn } from "@/lib/markets/checkout-words"
 import { checkoutOverrides } from "@/lib/checkout-text/server"
 import { isBuiltInWordKey, isEnglish, translationMap } from "@/lib/markets/translate"
+import { ownWordsApply, type BuyerChannel } from "./buyer-channel"
 
 export interface EmailLanguage {
   lang: string
@@ -37,4 +38,24 @@ export async function emailLanguageFor(creatorId: string, asked: unknown): Promi
   if (isEnglish(lang)) return { lang, words: emailWordsIn(lang, null, await overridesRead), own: true }
   const [rows, overrides] = await Promise.all([cachedTranslations(creatorId, lang).catch(() => []), overridesRead])
   return { lang, words: emailWordsIn(lang, translationMap(rows.filter((r) => r.status === "approved" && isBuiltInWordKey(r.key))), overrides), own: true }
+}
+
+/**
+ * THE LANGUAGE BY WHERE THEY BOUGHT (lib/emails/buyer-channel.ts). On the
+ * website: the language they used there, or the website's own. Anywhere on
+ * Storelib (the creator page, Explore, a community): English, with the
+ * store's own English checkout words where an email says the same sentence,
+ * and the store's own email wording only when the website is written in
+ * English too (it is written in the website's language).
+ */
+export async function buyerEmailLanguage(creatorId: string, channel: BuyerChannel, asked: unknown): Promise<EmailLanguage> {
+  if (channel === "website") return emailLanguageFor(creatorId, asked)
+  const [langs, overrides] = await Promise.all([siteLanguages(creatorId).catch(() => null), checkoutOverrides(creatorId, "en").catch(() => ({}) as Record<string, string>)])
+  return { lang: "en", words: emailWordsIn("en", null, overrides), own: ownWordsApply("en", langs?.defaultLanguage) }
+}
+
+/** The website's published languages, its own first, for the previews in Emails. */
+export async function websiteEmailLanguages(creatorId: string): Promise<{ defaultLanguage: string; others: string[] }> {
+  const langs = await siteLanguages(creatorId).catch(() => null)
+  return { defaultLanguage: langs?.defaultLanguage || "en", others: langs?.others ?? [] }
 }

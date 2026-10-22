@@ -437,6 +437,9 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
       attachments,
       /* The code, for the seller's order summary: the rows keep only what was charged. */
       sale: { couponCode: m.coupon_code || null, discountCents: Math.max(0, Number.parseInt(m.discount_cents || "0", 10) || 0) },
+      /* Where it was bought: the receipt's language and who signs it (lib/emails/buyer-channel.ts). */
+      source,
+      origin,
     })
   })
 

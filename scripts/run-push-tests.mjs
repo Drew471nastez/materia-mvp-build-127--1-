@@ -564,6 +564,11 @@ const SUITES = [
   "tests/physical-setup-t.test.ts",
   "tests/physical-readiness.test.ts",
   "tests/emails-t.test.ts",
+  /* Emails › Customer emails in three families, the language and the signature by where it was bought, previews that are the sent email; scripts/check-emails-families.mjs measures the switch and the lists. */
+  "tests/emails-families.test.ts",
+  "tests/emails-language.test.ts",
+  "tests/emails-identity.test.ts",
+  "tests/emails-preview.test.ts",
   "tests/files-t.test.ts",
   "tests/files-inventory-v.test.ts",
   "tests/activity-t.test.ts",
