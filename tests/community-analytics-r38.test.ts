@@ -407,7 +407,8 @@ async function main() {
   const commerce = raw("app/app/analytics/commerce-reports.tsx")
   check("the fill is the light grey gradient the rows had before round 34, class for class", reports.includes('"bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)]"'))
   check("no violet fill left: no ROW_BAR, no Fill in the accent", !/ROW_BAR|rgba\(139,92,246,0\.10\)/.test(reports) && !/<(Report)?Fill[^>]*ACCENT/.test(reports + commerce))
-  check("the community's top posts use the same fill", /data-fill="grey"[\s\S]{0,120}GREY_FILL/.test(sectionSrc))
+  /* Changed on purpose (round 39): the top posts are Analytics' own rows (ReportList), so their fill is the rows' GREY_FILL itself. */
+  check("the community's top posts use the same fill", /function PostList[\s\S]{0,200}<ReportList/.test(sectionSrc) && /data-fill="grey"/.test(reports))
   check("dark: a graphite step for [data-fill=\"grey\"], never violet", /\[data-fill="grey"\][^{]*\{\s*background-image: linear-gradient\(180deg, #2a2a2f 0%, #242428 100%\) !important;/.test(raw("app/theme-dark.css")))
 
   console.log("\npart 274")

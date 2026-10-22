@@ -50,6 +50,9 @@ const SOURCE: Record<string, Mark> = {
   social: glyph("social"),
   /* Storelib Explore, the marketplace: a search of Storelib's own. */
   explore: glyph("search"),
+  /* A community's own two (round 39): the store's other Storelib pages, a link; the Storelib app, a phone. */
+  storelib: glyph("link"),
+  app: glyph("mobile"),
 }
 
 const DEVICE: Record<string, Mark> = {
@@ -186,7 +189,8 @@ const FACE = "#e6e8ee"
  * a phone has a screen, a monitor has a stand, an envelope has a flap.
  */
 function Glyph({ name }: { name: GlyphName }) {
-  const common = { viewBox: "0 0 16 16", className: "h-3.5 w-3.5", "aria-hidden": true } as const
+  /* data-glyph: the dark look turns the two inks round (scripts/gen-theme-dark.mjs), so a body stays a body on a dark tile. */
+  const common = { viewBox: "0 0 16 16", className: "h-3.5 w-3.5", "aria-hidden": true, "data-glyph": name } as const
   switch (name) {
     case "mobile":
       return (
