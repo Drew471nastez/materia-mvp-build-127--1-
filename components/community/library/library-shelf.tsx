@@ -152,8 +152,7 @@ function ItemCard({ item, shelf }: { item: LibraryCardView; shelf: LibraryShelfD
               itemId={item.id}
               title={item.title}
               priceLabel={item.priceLabel as string}
-              buttonLabel={item.priceLabel as string}
-              className="relative z-10 inline-flex h-9 items-center rounded-lg border border-[#1a1a2e] bg-[#1a1a2e] px-3 text-[13px] font-semibold tabular-nums text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18)] outline-none hover:bg-[#2b2b42] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 active:opacity-80 disabled:opacity-60"
+              className="relative z-10 inline-flex h-10 items-center rounded-lg border border-[#1a1a2e] bg-[#1a1a2e] px-3 text-[13px] font-semibold tabular-nums text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18)] outline-none hover:bg-[#2b2b42] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 active:opacity-80 disabled:opacity-60 sm:h-9"
             />
           ) : lock ? (
             <span className="inline-flex min-w-0 items-center gap-1.5 text-[13px] font-medium text-[#4b5563]" data-library-lock="">

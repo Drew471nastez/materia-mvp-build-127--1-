@@ -337,8 +337,8 @@ export function LibraryEditor({ item, data, onBack, onSaved, onDeleted }: { item
         <p className={HINT}>
           {resource
             ? typed && typed >= 50
-              ? tt("Members pay {amount} once, inside the community. It becomes a product of the community, so each sale is an order with a receipt and a place in the buyer's Storelib library. It is not listed in your store.", { amount: programPrice(typed, item.currency) })
-              : tt("Members pay once, inside the community. Each sale is an order with a receipt and a place in the buyer's Storelib library. It is not listed in your store.")
+              ? tt("Members pay {amount} once, here. Each sale is an order with a receipt, kept in the buyer's Storelib library. Your store does not list it.", { amount: programPrice(typed, item.currency) })
+              : tt("Members pay once, here. Each sale is an order with a receipt, kept in the buyer's Storelib library. Your store does not list it.")
             : form.price.trim() && typed
               ? tt("Members pay {amount} here. Your store keeps its own price.", { amount: programPrice(typed, item.currency) })
               : productPrice

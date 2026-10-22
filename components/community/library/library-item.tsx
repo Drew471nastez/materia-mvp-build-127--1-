@@ -95,7 +95,7 @@ export function LibraryItem({ data }: { data: LibraryItemData }) {
           ) : item.libraryProductHref ? (
             <p className="mt-3 text-[13.5px] text-[#4b5563]" data-library-owned="">
               {tt("Yours. It is in your Storelib library too, with the receipt.")}{" "}
-              <a href={item.libraryProductHref} className="font-medium text-[#1a1a2e] underline decoration-[#d1d5db] underline-offset-2 hover:decoration-[#1a1a2e]">
+              <a href={item.libraryProductHref} className="inline-flex min-h-10 items-center font-medium text-[#1a1a2e] underline decoration-[#d1d5db] underline-offset-2 hover:decoration-[#1a1a2e] sm:min-h-0">
                 {tt("Open your library")}
               </a>
             </p>

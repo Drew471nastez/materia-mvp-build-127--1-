@@ -37,7 +37,7 @@ import { PlaceIcon } from "@/components/community/member/place-icons"
 import { usePhone } from "@/components/community/learn/builder-parts"
 import { Empty, ListCard, ListNote, RowMenu, buttonPrimary, buttonSecondary, send } from "@/components/community/creator/parts"
 import { ROW_PRESS, RowControls, RowOpen, rowPress } from "@/components/community/creator/rows"
-import { MUTED, PHONE_LIST, TABLE, TD, TH, TR } from "@/components/community/creator/ui-kit"
+import { MUTED, PHONE_LIST, TABLE, TD, TH, TR, count } from "@/components/community/creator/ui-kit"
 import { LIBRARY_ITEMS_MAX, SECTION_NAME_MAX } from "@/lib/communities/library"
 import { tt } from "@/lib/i18n/text"
 import { accessLine, type AdminLibraryData, type AdminLibraryItem } from "./model"
@@ -179,7 +179,8 @@ export function LibraryAdmin({ communityId, initial = null, initialOpenId = null
       />
 
       {data.enabled && canSwitch ? (
-        <button type="button" className="text-[13px] font-medium text-[#6b7280] underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]" onClick={() => void flip(false)} disabled={switching} data-library-turn-off="">
+        <button type="button" className="inline-flex min-h-10 items-center text-[13px] font-medium text-[#6b7280] underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e] sm:min-h-0"
+          onClick={() => void flip(false)} disabled={switching} data-library-turn-off="">
           {tt("Turn the Library off")}
         </button>
       ) : null}
@@ -391,8 +392,10 @@ function ItemList({
                 <tr>
                   <th className={TH}>{tt("Item")}</th>
                   <th className={cn(TH, "w-[112px]")}>{tt("Status")}</th>
-                  <th className={cn(TH, "w-[18%]")}>{tt("Who can open it")}</th>
-                  <th className={cn(TH, "w-[22%]")}>{tt("So far")}</th>
+                  <th className={cn(TH, "w-[19%]")}>{tt("Who can open it")}</th>
+                  <th className={cn(TH, "w-[84px] text-right")}>{tt("Views")}</th>
+                  <th className={cn(TH, "w-[104px] text-right")}>{tt("Downloads")}</th>
+                  <th className={cn(TH, "w-[96px] text-right")}>{tt("Sales")}</th>
                   <th className={cn(TH, "w-[60px]")} aria-label={tt("Actions")} />
                 </tr>
               </thead>
@@ -418,8 +421,19 @@ function ItemList({
                           <td className={cn(TD, cell, "truncate tabular-nums", MUTED)} style={style} title={accessLine(i, data.tiers)}>
                             {accessLine(i, data.tiers)}
                           </td>
-                          <td className={cn(TD, cell, "truncate tabular-nums", MUTED)} style={style}>
-                            {statsLine(i)}
+                          <td className={cn(TD, cell, "text-right tabular-nums")} style={style} data-library-views="">
+                            {count(i.stats.views)}
+                          </td>
+                          <td className={cn(TD, cell, "text-right tabular-nums")} style={style} data-library-downloads="">
+                            {count(i.stats.downloads)}
+                          </td>
+                          <td className={cn(TD, cell, "text-right tabular-nums")} style={style} data-library-sales="">
+                            {i.mode === "paid" || i.stats.sales ? (
+                              <>
+                                <span className="block">{count(i.stats.sales)}</span>
+                                {i.stats.revenueLabel ? <span className={cn("block text-[12px]", MUTED)}>{i.stats.revenueLabel}</span> : null}
+                              </>
+                            ) : null}
                           </td>
                           <td className={cn(TD, cell)} style={style}>
                             <RowControls className="justify-end">
@@ -454,11 +468,12 @@ function ItemList({
                     <Thumb item={i} w="w-[64px]" />
                     <RowOpen label={tt("Edit {title}", { title: i.title })} className="min-w-0 flex-1">
                       <span className="line-clamp-2 text-[15px] font-semibold leading-5 text-[#1a1a2e]">{i.title}</span>
-                      <span className="mt-1 line-clamp-2 text-[13px] leading-[18px] tabular-nums text-[#6b7280]">
+                      <span className="mt-1 block truncate text-[13px] leading-[18px] tabular-nums text-[#6b7280]">
                         <StatusDot status={i.status} />
                         <span aria-hidden> · </span>
                         {accessLine(i, data.tiers)}
-                        <span aria-hidden> · </span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-[13px] leading-[18px] tabular-nums text-[#6b7280]" data-library-stats-line="">
                         {statsLine(i)}
                       </span>
                     </RowOpen>
