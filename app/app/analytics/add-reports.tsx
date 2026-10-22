@@ -146,7 +146,7 @@ export function ReportCheckbox({ on }: { on: boolean }) {
     <span aria-hidden data-checkbox={on ? "on" : "off"} className="relative grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[5px] border border-[#c9ccd2] bg-white shadow-[inset_0_1px_1px_rgba(16,24,40,0.06)]">
       <span
         className={cn(
-          "absolute -inset-px grid place-items-center rounded-[5px] bg-[#1a1a2e] text-white transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none",
+          "absolute -inset-px grid place-items-center rounded-[5px] bg-[#1a1a2e] text-white transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none",
           on ? "scale-100 opacity-100" : "scale-75 opacity-0",
         )}
       >
@@ -260,7 +260,14 @@ export function ReportPicker({
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} data-add-reports-dialog="" className="w-[calc(100%-32px)] max-w-[440px] gap-0 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-0 shadow-[0_24px_64px_-12px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)]">
+      <DialogContent
+        showCloseButton={false}
+        data-add-reports-dialog=""
+        /* Focus on the dialog itself, not on the first row: a ring round "Page views" read as a choice already made. Tab still walks the rows. */
+        onOpenAutoFocus={(e) => {
+          e.preventDefault()
+          ;(e.currentTarget as HTMLElement | null)?.focus({ preventScroll: true })
+        }} className="w-[calc(100%-32px)] max-w-[440px] gap-0 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-0 shadow-[0_24px_64px_-12px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)]">
         <div className="border-b border-[#eef0f2] px-5 py-4">
           <DialogTitle className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Add report")}</DialogTitle>
           <DialogDescription className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Each report is a card on this page.")}</DialogDescription>

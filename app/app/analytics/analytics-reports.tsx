@@ -146,7 +146,7 @@ function Tabs<T extends string>({ value, options, onChange, label }: { value: T;
               aria-hidden
               data-segment-pill=""
               className={cn(
-                "absolute inset-0 rounded-[7px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.10),0_0_0_0.5px_rgba(17,24,39,0.06)] transition-[opacity,transform] duration-200 motion-reduce:transition-none",
+                "absolute inset-0 rounded-[7px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.10),0_0_0_0.5px_rgba(17,24,39,0.06)] transition-[opacity,scale] duration-200 motion-reduce:transition-none",
                 on ? "scale-100 opacity-100" : "scale-[0.92] opacity-0",
               )}
               style={{ transitionTimingFunction: EASE }}

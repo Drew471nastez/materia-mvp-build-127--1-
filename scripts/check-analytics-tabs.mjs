@@ -24,6 +24,7 @@
  *
  *   PROBE_CSS=source node scripts/check-analytics-tabs.mjs
  *   PAGE_ROOT=<other checkout> ...   measures that checkout's app/ and components/
+ *   SHOTS=<dir> ...                  keeps a screenshot of the page and the picker
  *   EXPECT=fast ...                  fails unless the switchers are on the first
  *                                    paint, nothing shifts and no switch drops
  *                                    a frame past 50ms
@@ -157,6 +158,8 @@ try {
       return { paint: f.paint && +f.paint.toFixed(0), metricTabs: f.metric && +f.metric.toFixed(0), switchers: all && +all.t.toFixed(0), switcherCount: final.n, firstPaintSwitchers: f.switchers[0] ? f.switchers[0].n : 0, addedReports: f.added && +f.added.toFixed(0), figures: f.figures && +f.figures.toFixed(0), moved: Object.entries(window.__moves).filter(([, m]) => m.moved > 1).map(([k, m]) => k + ":" + m.moved), cls: +window.__cls.toFixed(4), shifts: window.__shifts.slice(0, 6) }
     })
     console.log("  load:", JSON.stringify(load))
+    /* SHOTS=<dir>: the page as the seller sees it, whole, for the visual review. */
+    if (process.env.SHOTS) { mkdirSync(process.env.SHOTS, { recursive: true }); const undo = await p.evaluate(() => { const sc = document.querySelector(".page-scroll"); const box = sc.parentElement; const was = [sc.style.cssText, box.style.cssText]; sc.style.height = "auto"; sc.style.overflow = "visible"; box.style.height = "auto"; return was }); await p.screenshot({ path: join(process.env.SHOTS, `analytics-${vp.width}.png`), fullPage: true }); await p.evaluate((was) => { const sc = document.querySelector(".page-scroll"); sc.style.cssText = was[0]; sc.parentElement.style.cssText = was[1] }, undo) }
     expect(load.switchers !== null && load.switchers - load.paint < 50, "every switcher is on the first paint, not after the answer", { paint: load.paint, switchers: load.switchers, onFirstPaint: load.firstPaintSwitchers, final: load.switcherCount })
     expect(load.addedReports !== null && load.addedReports - load.paint < 50, "the reports the seller added are there on the first paint", load.addedReports)
     expect(load.cls < 0.01, "nothing shifts while the page loads", load.cls)
@@ -200,6 +203,7 @@ try {
     const picker = await p.evaluate(() => ({ dialog: !!document.querySelector("[data-add-reports-dialog]"), sheet: !!document.querySelector("[data-add-reports-sheet]"), rows: document.querySelectorAll("[data-report-choice]").length, checked: [...document.querySelectorAll("[data-report-choice][aria-checked=true]")].map((b) => b.getAttribute("data-report-choice")) }))
     expect(vp.isMobile ? picker.sheet && !picker.dialog : picker.dialog && !picker.sheet, vp.isMobile ? "Add more opens the bottom sheet" : "Add more opens the dialog", picker)
     expect(picker.checked.join() === "pageviews,clicks", "the picker starts from what is added", picker.checked)
+    if (process.env.SHOTS) await p.screenshot({ path: join(process.env.SHOTS, `analytics-picker-${vp.width}.png`) })
     await p.evaluate(() => document.querySelector("[data-report-choice=sessions]").click())
     await sleep(200)
     const inFrames = await p.evaluate(() => new Promise((resolve) => {
