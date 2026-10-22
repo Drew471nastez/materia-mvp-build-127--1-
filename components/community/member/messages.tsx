@@ -29,10 +29,17 @@
  * under your last message once they read it, typing, a mute per chat. Groups
  * are made here (New message, New group) as the community's Chat settings
  * allow, and their people are managed from the group's header.
+ *
+ * ROUND 39 (the owner: "some creators there recommended, so I can create
+ * conversations with them; make sure the search is smooth and clean"). New
+ * message is a picker over the list (people-picker.tsx): the team and the
+ * people the member deals with suggested before anything is typed, a search
+ * that answers as it is typed, one person for a conversation or several for
+ * a group. Its Suggested list is read as the panel opens.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { BellOff, Check, ChevronLeft, LogOut, MoreHorizontal, PenSquare, Search, UserPlus, Users, X } from "lucide-react"
+import { BellOff, ChevronLeft, LogOut, MoreHorizontal, PenSquare, Search, UserPlus, X } from "lucide-react"
 import { Spinner } from "./place-spinner"
 import { MemberAvatar } from "./member-avatar"
 import { createClient } from "@/lib/supabase/client"
@@ -47,6 +54,7 @@ import { RoleBadge } from "./role-badge"
 import { ChatSurface, MuteButton, type StreamHandlers } from "./chat-surface"
 import { chatCacheKey, keepList, keepValue, keptList, keptValue, warmChat } from "./chat-core"
 import { ReportDialog, type ReportTargetRef } from "./dialogs"
+import { NewMessagePicker, warmPeople } from "./people-picker"
 import type { ChatIntroView, ChatLine } from "./view-types"
 
 export const MESSAGES_EVENT = "storelib:community-messages"
@@ -155,8 +163,6 @@ type Intro = ChatIntroView & { canStartGroups?: boolean }
 
 type View =
   | { kind: "list" }
-  | { kind: "new" }
-  | { kind: "newGroup" }
   | { kind: "thread"; id: string; other: Person | null }
   | { kind: "group"; id: string; name: string }
   | { kind: "groupInfo"; id: string; name: string }
@@ -249,6 +255,8 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
   const [leaving, setLeaving] = useState(false)
   const [view, setView] = useState<View>({ kind: "list" })
   const [back, setBack] = useState(false)
+  /* New message (round 39): a picker over the list, not a screen of its own. */
+  const [picking, setPicking] = useState(false)
   /* Kept for the tab (round 38): a conversation opened again has its rules, names and switches in its first frame. */
   const [intro, setIntroRaw] = useState<Intro | null>(() => keptValue<Intro>(`intro:${communityId}`))
   const setIntro = useCallback(
@@ -271,13 +279,15 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
       setShown(false)
       setLeaving(false)
       setView({ kind: "list" })
+      setPicking(false)
     }, EXIT_MS)
     return () => window.clearTimeout(t)
   }, [open, shown])
 
-  /* What chat allows here (rules, groups, who can be messaged), once per opening. */
+  /* What chat allows here (rules, groups, who can be messaged), once per opening; and New message's Suggested list, ahead. */
   useEffect(() => {
     if (!open) return
+    warmPeople(communityId)
     let gone = false
     void api<Intro>(`${apiBase(communityId)}/chat`).then((r) => {
       if (!gone && r.ok) setIntro(r.data)
@@ -292,6 +302,7 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
     if (!open || (!start?.userId && !start?.groupId)) return
     let gone = false
     setView({ kind: "list" })
+    setPicking(false)
     if (start.groupId) {
       setBack(false)
       setView({ kind: "group", id: start.groupId, name: "Group" })
@@ -348,13 +359,27 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
       <GroupThread key={view.id} communityId={communityId} userId={userId} intro={intro} id={view.id} name={view.name} onBack={list} onClose={onClose} onRead={onRead} onInfo={(name) => go({ kind: "groupInfo", id: view.id, name })} back={back} />
     ) : view.kind === "groupInfo" ? (
       <GroupInfo communityId={communityId} slug={slug} userId={userId} id={view.id} onBack={() => go({ kind: "group", id: view.id, name: view.name }, true)} onLeft={list} back={back} />
-    ) : view.kind === "new" ? (
-      <NewMessage communityId={communityId} userId={userId} intro={intro} onBack={list} onGroup={() => go({ kind: "newGroup" })} onPick={(c) => go({ kind: "thread", id: c.id, other: c.other })} back={back} />
-    ) : view.kind === "newGroup" ? (
-      <NewGroup communityId={communityId} userId={userId} onBack={() => go({ kind: "new" }, true)} onMade={(g) => go({ kind: "group", id: g.id, name: g.name })} back={back} />
     ) : (
-      <Inbox communityId={communityId} userId={userId} onClose={onClose} onNew={() => go({ kind: "new" })} onOpen={(c) => go({ kind: "thread", id: c.id, other: c.other })} onOpenGroup={(g) => go({ kind: "group", id: g.id, name: g.name })} back={back} phone={phone} />
+      <Inbox communityId={communityId} userId={userId} onClose={onClose} onNew={() => setPicking(true)} onOpen={(c) => go({ kind: "thread", id: c.id, other: c.other })} onOpenGroup={(g) => go({ kind: "group", id: g.id, name: g.name })} back={back} phone={phone} />
     )
+
+  const picker = (
+    <NewMessagePicker
+      communityId={communityId}
+      open={picking && view.kind === "list"}
+      onClose={() => setPicking(false)}
+      dmPolicy={intro?.dmPolicy ?? null}
+      canStartGroups={!!intro?.canStartGroups}
+      onConversation={(c) => {
+        setPicking(false)
+        go({ kind: "thread", id: c.id, other: c.other as Person | null })
+      }}
+      onGroup={(g) => {
+        setPicking(false)
+        go({ kind: "group", id: g.id, name: g.name })
+      }}
+    />
+  )
 
   return createPortal(
     phone ? (
@@ -368,6 +393,7 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
         }`}
       >
         {body}
+        {picker}
       </div>
     ) : (
       <>
@@ -383,6 +409,7 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
           }`}
         >
           {body}
+          {picker}
         </div>
       </>
     ),
@@ -658,112 +685,6 @@ function PersonRow({ m, right, onClick, disabled }: { m: MemberView; right?: Rea
       </span>
       {right}
     </button>
-  )
-}
-
-/* ── picking somebody to write to ──────────────────────────────────────── */
-
-function NewMessage({ communityId, userId, intro, onBack, onPick, onGroup, back }: { communityId: string; userId: string | null; intro: Intro | null; onBack: () => void; onPick: (c: { id: string; other: Person | null }) => void; onGroup: () => void; back: boolean }) {
-  const [q, setQ] = useState("")
-  const { found, busy } = useMemberSearch(communityId, userId, q)
-  const [opening, setOpening] = useState<string | null>(null)
-
-  const pick = async (m: MemberView) => {
-    if (opening) return
-    setOpening(m.userId)
-    const r = await api<{ conversation: { id: string; other: Person | null } }>(`${apiBase(communityId)}/dms`, { body: { userId: m.userId } })
-    setOpening(null)
-    if (!r.ok) return toast(r.error)
-    onPick(r.data.conversation)
-  }
-
-  return (
-    <div className={`flex min-h-0 flex-1 flex-col ${slideClass(back)}`}>
-      <Bar title={<h2 className="px-1 text-[17px] font-semibold text-[#1a1a2e]">New message</h2>} onBack={onBack} />
-      <div className="px-3 pb-2 pt-3">
-        <SearchField q={q} setQ={setQ} />
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-3">
-        {intro?.canStartGroups && !q.trim() ? (
-          <button type="button" onClick={onGroup} className={ROW} data-messages-new-group="">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f1f2f4] text-[#1a1a2e]">
-              <Users className="h-[18px] w-[18px]" />
-            </span>
-            <span className="text-[14.5px] font-medium text-[#1a1a2e]">New group</span>
-          </button>
-        ) : null}
-        {!q.trim() ? (
-          <p className="px-4 py-8 text-center text-[13.5px] text-[#9ca3af]">{intro?.dmPolicy === "staff" ? "In this community you can message the admins and moderators." : intro?.dmPolicy === "off" ? "Messages between members are turned off here." : "Type a name to find someone."}</p>
-        ) : found.length === 0 && !busy ? (
-          <p className="px-4 py-8 text-center text-[13.5px] text-[#9ca3af]">Nobody by that name here.</p>
-        ) : (
-          <ul>
-            {found.map((m) => (
-              <li key={m.userId}>
-                <PersonRow m={m} onClick={() => void pick(m)} disabled={!!opening} right={opening === m.userId ? <Spinner size={16} /> : null} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* ── a new group ───────────────────────────────────────────────────────── */
-
-function NewGroup({ communityId, userId, onBack, onMade, back }: { communityId: string; userId: string | null; onBack: () => void; onMade: (g: { id: string; name: string }) => void; back: boolean }) {
-  const [name, setName] = useState("")
-  const [q, setQ] = useState("")
-  const [picked, setPicked] = useState<MemberView[]>([])
-  const [busy, setBusy] = useState(false)
-  const { found } = useMemberSearch(communityId, userId, q)
-  const toggle = (m: MemberView) => setPicked((cur) => (cur.some((x) => x.userId === m.userId) ? cur.filter((x) => x.userId !== m.userId) : [...cur, m]))
-  const make = async () => {
-    if (busy || !name.trim() || !picked.length) return
-    setBusy(true)
-    const r = await api<{ group: { id: string; name: string } }>(`${apiBase(communityId)}/groups`, { body: { name: name.trim(), userIds: picked.map((m) => m.userId) } })
-    setBusy(false)
-    if (!r.ok) return toast(r.error)
-    onMade(r.data.group)
-  }
-  return (
-    <div className={`flex min-h-0 flex-1 flex-col ${slideClass(back)}`} data-messages-group-form="">
-      <Bar
-        title={<h2 className="px-1 text-[17px] font-semibold text-[#1a1a2e]">New group</h2>}
-        onBack={onBack}
-        right={
-          <button type="button" onClick={() => void make()} disabled={busy || !name.trim() || !picked.length} className="mr-1 h-9 rounded-full bg-[#1a1a2e] px-4 text-[13.5px] font-medium text-white transition-opacity disabled:opacity-30" data-messages-group-make="">
-            {busy ? "Making..." : "Make"}
-          </button>
-        }
-      />
-      <div className="space-y-2.5 px-3 pb-2 pt-3">
-        <input value={name} onChange={(e) => setName(e.target.value.slice(0, 80))} placeholder="Group name" aria-label="Group name" className="h-11 w-full rounded-xl border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd3] sm:h-10 sm:text-[14.5px]" />
-        {picked.length ? (
-          <div className="flex flex-wrap gap-1.5">
-            {picked.map((m) => (
-              <button key={m.userId} type="button" onClick={() => toggle(m)} className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[#f1f2f4] pl-1 pr-2.5 text-[13px] text-[#1a1a2e]">
-                <MemberAvatar src={m.avatarUrl} name={m.name} alt="" size={24} />
-                {m.name.split(" ")[0]}
-                <X className="h-3.5 w-3.5 text-[#6b7280]" />
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <SearchField q={q} setQ={setQ} label="Add people" />
-      </div>
-      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-3">
-        {found.map((m) => {
-          const on = picked.some((x) => x.userId === m.userId)
-          return (
-            <li key={m.userId}>
-              <PersonRow m={m} onClick={() => toggle(m)} right={<span className={`flex h-6 w-6 items-center justify-center rounded-full border ${on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#d1d5db]"}`}>{on ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}</span>} />
-            </li>
-          )
-        })}
-      </ul>
-    </div>
   )
 }
 

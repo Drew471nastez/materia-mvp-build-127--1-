@@ -644,6 +644,9 @@ const SUITES = [
   "tests/community-chat-r38.test.ts",
   /* Round 38: community chat speed (kept pages and list, asked for early, no spinner) and rich content (signed link cards, YouTube, GIFs, video, emoji). */
   "tests/community-chat-speed-r38.test.ts",
+  /* Round 39: New message's suggested people (the team, the people the member deals with, never the blocked or refused) and its search, a post sent in a message (only one the sender may see, its card per reader, "Post not available" otherwise). */
+  "tests/community-people-r39.test.ts",
+  "tests/community-post-card-r39.test.ts",
   "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
   "tests/communities-plans-af.test.ts",

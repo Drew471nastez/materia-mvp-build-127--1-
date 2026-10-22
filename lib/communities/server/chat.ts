@@ -45,6 +45,7 @@ import { touchMember } from "./activity"
 import { screenEdit, screenWrite } from "./safety"
 import { chatGate, everyMessageListeners } from "./chat-settings"
 import { chatMediaOf, checkChatMedia } from "./chat-media"
+import { checkPostShare, postCardOf, sharedPostViews, withPost } from "./chat-post"
 import { pushChatMessage } from "./chat-push"
 import { resolveMentions, snippet } from "./mentions"
 import { notifyMember } from "./notify"
@@ -113,7 +114,7 @@ async function likedBy(db: Db, viewerId: string | null, ids: string[]): Promise<
 }
 
 async function toViews(db: Db, community: Pick<CommunityRow, "id">, viewer: Viewer, rows: Row[]): Promise<ChatMessageView[]> {
-  const [authors, replies, liked] = await Promise.all([
+  const [authors, replies, liked, posts] = await Promise.all([
     authorViews(
       db,
       community.id,
@@ -121,6 +122,7 @@ async function toViews(db: Db, community: Pick<CommunityRow, "id">, viewer: View
     ),
     replyPreviews(db, community.id, "community_messages", rows.map((r) => r.reply_to_id), new Map(rows.map((r) => [r.id, r]))),
     likedBy(db, viewer.userId, rows.map((r) => r.id)),
+    sharedPostViews(db, community.id, viewer, rows.map((r) => (r.status === "published" ? r.attachments : null))),
   ])
   const moderator = can(viewer.role, "moderate_content", viewer.perms)
   return rows.map((r) => {
@@ -135,6 +137,7 @@ async function toViews(db: Db, community: Pick<CommunityRow, "id">, viewer: View
       author: r.author_id ? (authors.get(r.author_id) ?? null) : null,
       mine,
       attachments: live ? chatMediaOf(r.attachments) : [],
+      ...withPost(postCardOf(posts, r.attachments, live)),
       replyToId: r.reply_to_id,
       replyTo: r.reply_to_id ? (replies.get(r.reply_to_id) ?? null) : null,
       clientId: r.client_id ?? null,
@@ -265,7 +268,11 @@ export async function postMessage(w: WriteContext, space: SpaceRow, raw: unknown
   const media = await checkChatMedia(db, community, viewer, r.attachments, gate.settings)
   if (!media.ok) return refused(media)
   const attachments = media.value
-  if (!body && !attachments.length) return { ok: false, error: "Write a message first.", status: 400 }
+  /* Round 39: a post the sender may see, kept by its id alone (./chat-post.ts). */
+  const shared = await checkPostShare(db, community, viewer, r.attachments)
+  if (!shared.ok) return refused(shared)
+  const stored = shared.value ? [...attachments, shared.value] : attachments
+  if (!body && !stored.length) return { ok: false, error: "Write a message first.", status: 400 }
   if (body.length > LENGTHS.messageBody.max) return { ok: false, error: "Keep the message under 4,000 characters.", status: 400 }
   /* The channel's own slow mode, for members (the team is never slowed). */
   const team = viewer.role ? ROLE_RANK[viewer.role] >= ROLE_RANK.moderator : false
@@ -281,7 +288,7 @@ export async function postMessage(w: WriteContext, space: SpaceRow, raw: unknown
   }
   const screen = await screenWrite(w, "message", { text: body, media: attachments })
   if (!screen.ok) return refused(screen)
-  const row = { community_id: community.id, space_id: space.id, author_id: viewer.userId, body, reply_to_id: replyTo?.id ?? null, ...(attachments.length ? { attachments } : {}) }
+  const row = { community_id: community.id, space_id: space.id, author_id: viewer.userId, body, reply_to_id: replyTo?.id ?? null, ...(stored.length ? { attachments: stored } : {}) }
   let { data, error } = await db
     .from("community_messages")
     .insert(clientId ? { ...row, client_id: clientId } : row)

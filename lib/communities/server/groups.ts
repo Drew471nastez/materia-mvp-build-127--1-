@@ -33,6 +33,7 @@ import { touchMember } from "./activity"
 import { screenEdit, screenWrite } from "./safety"
 import { blockedAmong, chatGate, chatMemberStates, loadChatSettings } from "./chat-settings"
 import { chatMediaOf, checkChatMedia } from "./chat-media"
+import { checkPostShare, postCardOf, sharedPostViews, withPost } from "./chat-post"
 import { pushChatMessage } from "./chat-push"
 import { replyPreviews } from "./chat"
 import { mutedOf } from "./direct"
@@ -302,7 +303,11 @@ export async function leaveGroup(db: Db, community: CommunityRow, viewer: Viewer
 
 async function toViews(db: Db, communityId: string, rows: GroupMessageRow[], viewer: Viewer, manage: boolean): Promise<GroupMessageView[]> {
   const me = viewer.userId ?? ""
-  const [authors, replies] = await Promise.all([authorViews(db, communityId, rows.map((r) => r.author_id)), replyPreviews(db, communityId, "community_chat_group_messages", rows.map((r) => r.reply_to_id), new Map(rows.map((r) => [r.id, r])))])
+  const [authors, replies, posts] = await Promise.all([
+    authorViews(db, communityId, rows.map((r) => r.author_id)),
+    replyPreviews(db, communityId, "community_chat_group_messages", rows.map((r) => r.reply_to_id), new Map(rows.map((r) => [r.id, r]))),
+    sharedPostViews(db, communityId, viewer, rows.map((r) => (r.status === "published" ? r.attachments : null))),
+  ])
   return rows.map((r) => {
     const live = r.status === "published"
     const mine = !!me && r.author_id === me
@@ -316,6 +321,7 @@ async function toViews(db: Db, communityId: string, rows: GroupMessageRow[], vie
       mine,
       body: live ? r.body : "",
       attachments: live ? chatMediaOf(r.attachments) : [],
+      ...withPost(postCardOf(posts, r.attachments, live)),
       replyTo: r.reply_to_id ? (replies.get(r.reply_to_id) ?? null) : null,
       clientId: r.client_id,
       createdAt: r.created_at,
@@ -373,7 +379,11 @@ export async function sendGroupMessage(db: Db, community: CommunityRow, viewer: 
   const media = await checkChatMedia(db, community, viewer, r.attachments, gate.settings)
   if (!media.ok) return refused(media)
   const attachments: PostMedia[] = media.value
-  if (!body && !attachments.length) return { ok: false, error: "Write a message first.", status: 400 }
+  /* Round 39: a post the sender may see, kept by its id alone (./chat-post.ts). */
+  const shared = await checkPostShare(db, community, viewer, r.attachments)
+  if (!shared.ok) return refused(shared)
+  const stored = shared.value ? [...attachments, shared.value] : attachments
+  if (!body && !stored.length) return { ok: false, error: "Write a message first.", status: 400 }
   if (body.length > LENGTHS.messageBody.max) return { ok: false, error: "Keep the message under 4,000 characters.", status: 400 }
   let replyTo: { id: string; author_id: string | null } | null = null
   if (typeof r.replyToId === "string" && UUID.test(r.replyToId)) {
@@ -384,7 +394,7 @@ export async function sendGroupMessage(db: Db, community: CommunityRow, viewer: 
   if (!screen.ok) return refused(screen)
   const { data, error } = await db
     .from("community_chat_group_messages")
-    .insert({ group_id: opened.group.id, community_id: community.id, author_id: viewer.userId, body, ...(attachments.length ? { attachments } : {}), reply_to_id: replyTo?.id ?? null, client_id: clientId })
+    .insert({ group_id: opened.group.id, community_id: community.id, author_id: viewer.userId, body, ...(stored.length ? { attachments: stored } : {}), reply_to_id: replyTo?.id ?? null, client_id: clientId })
     .select(MESSAGE_COLUMNS)
     .single()
   if (error?.code === "23505" && clientId) {
@@ -396,7 +406,7 @@ export async function sendGroupMessage(db: Db, community: CommunityRow, viewer: 
     return { ok: false, error: "The message did not send. Try again.", status: missing(error) ? 503 : 500 }
   }
   const row = data as GroupMessageRow
-  const line = body || attachmentLine(attachments) || "Message"
+  const line = body || attachmentLine(stored) || "Message"
   await Promise.all([
     db.from("community_chat_groups").update({ last_message_at: row.created_at, last_author_id: viewer.userId, last_body: preview(line), updated_at: row.created_at }).eq("id", opened.group.id).then(
       () => undefined,
