@@ -1085,14 +1085,27 @@ export function FilesLibrary({
     if (f) setOpen(f)
   }, [openId, files])
 
+  /*
+    DELETE NEVER BREAKS WHAT SHOWS A FILE (round 39, lib/files/keep.ts). A
+    file nothing uses is removed; one a product, a page or anything else
+    still shows is taken out of Files and kept where it shows. Both leave
+    the list. Only before SQL part 280 can one stay in it (`kept`), with the
+    server's note saying where it is used.
+  */
   const remove = async (f: LibraryFile) => {
     setDeleting(true)
-    const r = await api("/api/files", { method: "DELETE", body: { bucket: f.bucket, path: f.path } })
+    const r = await api<RemoveAnswer>("/api/files", { method: "DELETE", body: { bucket: f.bucket, path: f.path } })
     setDeleting(false)
     if ("error" in r) {
       toast.error(r.error)
       return
     }
+    if (r.data.kept?.some((k) => k.id === f.id)) {
+      setConfirming(null)
+      toast.error(r.data.note ?? tt("This file is still used, so it stays."))
+      return
+    }
+    const keptThere = !!r.data.hidden?.some((k) => k.id === f.id)
     usage.delete(f.id)
     /* Deleted from the details view: the next file in the grid opens in its place, as a photo viewer does. */
     const at = shown.findIndex((x) => x.id === f.id)
@@ -1102,22 +1115,30 @@ export function FilesLibrary({
     setConfirming(null)
     if (after) setOpen(after)
     setOpen((o) => (o?.id === f.id ? null : o))
-    toast.success(tt("Deleted"))
+    toast.success(keptThere ? tt("Removed from Files. It stays where it's used.") : tt("Deleted"))
   }
 
   /* Several at once (Files, Select, Delete): the API takes up to MAX_DELETE_AT_ONCE (100) a request. */
   const removeMany = async (list: LibraryFile[]) => {
     setDeleting(true)
     const done = new Set<string>()
+    let keptThere = 0
+    const notes: string[] = []
     let failed: string | null = null
     for (let i = 0; i < list.length && !failed; i += 100) {
       const part = list.slice(i, i + 100)
-      const r = await api("/api/files", { method: "DELETE", body: { files: part.map((f) => ({ bucket: f.bucket, path: f.path })) } })
+      const r = await api<RemoveAnswer>("/api/files", { method: "DELETE", body: { files: part.map((f) => ({ bucket: f.bucket, path: f.path })) } })
       if ("error" in r) failed = r.error
-      else part.forEach((f) => done.add(f.id))
+      else {
+        const stays = new Set((r.data.kept ?? []).map((k) => k.id))
+        part.forEach((f) => !stays.has(f.id) && done.add(f.id))
+        keptThere += r.data.hidden?.length ?? 0
+        if (r.data.note) notes.push(r.data.note)
+      }
     }
     setDeleting(false)
     if (done.size) {
+      done.forEach((id) => usage.delete(id))
       setFiles((all) => all?.filter((x) => !done.has(x.id)) ?? null)
       setTicked(tickedRef.current.filter((id) => !done.has(id)))
     }
@@ -1127,7 +1148,10 @@ export function FilesLibrary({
     }
     setConfirmingMany(null)
     stopSelecting()
-    toast.success(done.size === 1 ? tt("Deleted") : tt("{size} files deleted", { size: done.size }))
+    if (notes.length) toast.error(notes[0])
+    if (!done.size) return
+    const said = done.size === 1 ? tt("Deleted") : tt("{size} files deleted", { size: done.size })
+    toast.success(keptThere ? `${said}. ${tt("{count, plural, one {# is still used, so it stays where it shows.} other {# are still used, so they stay where they show.}}", { count: keptThere })}` : said)
   }
 
   /* ── The swap ── */
@@ -1607,6 +1631,8 @@ function useLastOpen<T>(value: T | null): T | null {
 */
 
 type Use = { kind: string; label: string; href: string }
+/** What Delete answers (app/api/files DELETE): removed, taken out of Files and kept, or kept in Files before part 280. */
+type RemoveAnswer = { deleted?: string[]; hidden?: { id: string; uses: Use[] }[]; kept?: { id: string; uses: Use[] }[]; note?: string | null }
 /** Where each file is used, asked once per opening of Files. Cleared for a file when it is deleted. */
 const usage = new Map<string, Promise<Use[] | null>>()
 function usageOf(f: LibraryFile): Promise<Use[] | null> {
@@ -2055,7 +2081,7 @@ function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile |
             <div className="mt-3 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2.5 text-[13.5px] leading-5 text-[#92400e]" data-file-confirm-in-use="">
               <p className="font-medium">{tt("{count, plural, one {Used in # place} other {Used in # places}}", { count: inUse.length })}</p>
               <p className="mt-0.5 break-words">{inUse.slice(0, 4).map((u) => u.label).join(", ")}{inUse.length > 4 ? tt(" and {count} more", { count: inUse.length - 4 }) : ""}</p>
-              <p className="mt-1">{tt("Those places will show nothing where it was.")}</p>
+              <p className="mt-1">{tt("It leaves Files and stays in those places.")}</p>
             </div>
           ) : (
             <p className="mt-2 break-words text-[14px] leading-[20px] text-[#6b7280]">
@@ -2067,7 +2093,7 @@ function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile |
               {tt("Cancel")}
             </button>
             <button type="button" className={cn(BTN_PRIMARY, "bg-[#b42318] hover:bg-[#9a1d14] max-sm:h-11 max-sm:flex-1")} onClick={() => onConfirm(f)} disabled={busy} data-file-confirm-delete="">
-              {busy ? tt("Deleting") : tt("Delete")}
+              {busy ? tt("Deleting") : inUse ? tt("Remove from Files") : tt("Delete")}
             </button>
           </div>
         </div>
@@ -2095,7 +2121,7 @@ function ConfirmDeleteMany({ files, busy, onClose, onConfirm }: { files: Library
       {list ? (
         <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm-many="">
           <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{title}</SheetDialogTitle>
-          <p className="mt-2 text-[14px] leading-[20px] text-[#6b7280]">{tt("They are removed from your files, and anything that still shows one of them will show nothing.")}</p>
+          <p className="mt-2 text-[14px] leading-[20px] text-[#6b7280]">{tt("They are removed from your files. Any that a product, your website or anything else still uses stay there.")}</p>
           <div className="mt-5 flex gap-2 sm:justify-end">
             <button type="button" className={cn(BTN_SECONDARY, "max-sm:h-11 max-sm:flex-1")} onClick={onClose} disabled={busy}>
               {tt("Cancel")}
