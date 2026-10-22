@@ -124,6 +124,9 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "checkout/site/route.ts": "a website's own checkout, a buyer paying (who may be a guest): only on a host that is a creator's published website, whose shop it is (siteOfRequest, from the database), every price the server's and another shop's products refused; an account first comes from the website's own signed session cookie when the store asks for one; the payment is confirmed with its client secret, which only the paying page holds; rate limited like the other payment routes",
   "receipt/[token]/assets/route.ts": "the receipt token in the path is the credential",
   "receipt/view/route.ts": "the receipt token is the credential",
+  /* Round 39: a guest's browser keeps what it bought (lib/receipts/guest-access.ts). */
+  "receipt/remember/route.ts": "the receipt token is the credential; it writes only this browser's signed httpOnly grant for that payment's paid lines, rate limited, and answers nothing about the order",
+  "receipt/open/route.ts": "the browser's signed guest grant is the credential, checked against its order's token and status; it only redirects to that order's receipt",
   "receipt/contact/route.ts": "the receipt token and order id are the credential; it only writes to the seller, Reply-To the order's own address, rate limited",
   "onepage/download/route.ts": "the download token is the credential",
   "onepage/download/[token]/route.ts": "the download token is the credential",
