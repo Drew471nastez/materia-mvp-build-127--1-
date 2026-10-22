@@ -234,22 +234,3 @@ export function takeBatch<T extends { community_id: string }>(waiting: readonly 
 export function broadcastFinished(a: { fanned_out_at: string | null }, waiting: number): boolean {
   return !!a.fanned_out_at && waiting === 0
 }
-
-/** One line the admin reads for when an automation sends. */
-export function triggerLine(a: { trigger: AutomationTrigger; triggerLevel: number | null; triggerDays: number | null; sendAt: string | null; target: AutomationTarget }, channelName?: string | null): string {
-  const where = a.target === "channel" ? ` in #${channelName || "a channel"}` : ""
-  switch (a.trigger) {
-    case "join":
-      return `When someone joins${where}`
-    case "level":
-      return `When a member reaches level ${a.triggerLevel ?? 2}${where}`
-    case "days":
-      return `${a.triggerDays ?? 1} ${(a.triggerDays ?? 1) === 1 ? "day" : "days"} after someone joins${where}`
-    case "paid_start":
-      return `When a paid membership starts${where}`
-    case "paid_cancel":
-      return `When a paid membership is cancelled${where}`
-    case "broadcast":
-      return a.target === "channel" ? `Once${where}` : "Once, to members"
-  }
-}
