@@ -58,6 +58,8 @@ export interface ReceiptEmailModel {
   sellerPicture?: SenderPicture | null
   orderNumber: string
   dateText: string
+  /** When it was bought, for the date in the email's own language (lib/receipts/receipt-mail.ts); dateText is used without it. */
+  dateIso?: string | null
   items: Array<{
     title: string
     variantName: string | null

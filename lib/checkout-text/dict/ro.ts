@@ -875,6 +875,27 @@ const ro: Record<string, string> = {
   "Tap a star to start": "Atinge o stea ca să începi",
   "Turn off review emails": "Oprește e-mailurile despre recenzii",
   "You get this because you bought from {shop}.": "Primești acest e-mail pentru că ai cumpărat de la {shop}.",
+  /* A download's refund email (lib/emails/notices.ts buyerRefundEmail), for a website order in Romanian. */
+  "Your {amount} refund for {product} has been processed": "Rambursarea de {amount} pentru {product} a fost procesată",
+  "Refund": "Rambursare",
+  "Product": "Produs",
+  "Order date": "Data comenzii",
+  "Refund date": "Data rambursării",
+  "Not given": "Nespecificat",
+  "Order": "Comandă",
+  "{store} refunded {amount} for {product}. You don't need to do anything.": "{store} ți-a rambursat {amount} pentru {product}. Nu trebuie să faci nimic.",
+  "Your refund is on its way": "Rambursarea ta este pe drum",
+  "Banks usually take 5 to 10 business days to show it on your statement.": "De obicei, băncile au nevoie de 5–10 zile lucrătoare ca să apară în extras.",
+  "The downloads for this product stopped working with the refund.": "Descărcările pentru acest produs nu mai funcționează după rambursare.",
+  "Sold by {store} through Storelib.": "Vândut de {store} prin Storelib.",
+  "Contact {store}": "Contactează {store}",
+  "Or write to {email}.": "Sau scrie la {email}.",
+  "Questions? Write to {store} at {email}": "Întrebări? Scrie-i lui {store} la {email}",
+  "Requested by you": "La cererea ta",
+  "Charged twice": "Plată dublă",
+  "Payment not made by the card's owner": "Plată făcută fără acordul titularului cardului",
+  "Payment not completed": "Plată nefinalizată",
+  "Not known": "Necunoscută",
 }
 
 export default ro

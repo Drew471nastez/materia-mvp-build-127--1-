@@ -95,8 +95,8 @@ const TABS = [
   { id: "checkout", get label() { return tt("Checkout") }, icon: ShoppingCart, group: "store", get line() { return tt("Accounts, news box and what is asked") } },
   /* Where products are listed: the Online store, the Creator page, Explore and the store's own (components/app/settings/channels-panel.tsx). */
   { id: "channels", get label() { return tt("Sales channels") }, icon: Share2, group: "store", get line() { return tt("Where your products are listed") } },
-  /* Every email a buyer gets from the store, with a preview (components/app/settings/customer-emails-panel.tsx). */
-  { id: "emails", get label() { return tt("Customer emails") }, icon: Mail, group: "store", get line() { return tt("What buyers get from you, and when") } },
+  /* Every email a buyer or a member gets, digital products, physical products and communities apart, with a preview (components/app/settings/customer-emails-panel.tsx). */
+  { id: "emails", get label() { return tt("Customer emails") }, icon: Mail, group: "store", get line() { return tt("What buyers and members get, and when") } },
   /* The store's own tax regions and rates, for every product (components/app/settings/taxes-panel.tsx). */
   { id: "taxes", get label() { return tt("Taxes") }, icon: Receipt, group: "store", get line() { return tt("Tax you charge, by country") } },
   /* The website's languages, and the countries it sells to with their currency (components/app/settings/markets-panel.tsx, lib/markets). */

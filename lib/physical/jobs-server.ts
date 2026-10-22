@@ -20,7 +20,8 @@ import https from "node:https"
 import type net from "node:net"
 import { after } from "next/server"
 import { et, inEmailLanguage } from "@/lib/emails/words"
-import { emailLanguageFor } from "@/lib/emails/words-server"
+import { buyerEmailLanguage } from "@/lib/emails/words-server"
+import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { publicLookup, publicUrlProblem } from "@/lib/api/public-fetch"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
@@ -613,7 +614,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
     await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "email.held", message: `An email to the buyer was held: this order already sent ${BUYER_EMAILS_PER_ORDER_PER_DAY} today.`, key: `email_held:${co.id}:${new Date().toISOString().slice(0, 13)}` })
     return
   }
-  const [identity, store, zone, look, language] = await Promise.all([resolveCreatorIdentity(db, co.creator_id), storeIdentity(db, co.creator_id), creatorTimeZone(db, co.creator_id), loadBrand(db, co.creator_id).catch(() => null), emailLanguageFor(co.creator_id, co.origin?.lang)])
+  const [identity, store, zone, look, language] = await Promise.all([resolveCreatorIdentity(db, co.creator_id), storeIdentity(db, co.creator_id), creatorTimeZone(db, co.creator_id), loadBrand(db, co.creator_id).catch(() => null), buyerEmailLanguage(co.creator_id, buyerChannel({ family: "physical", surface: co.origin?.surface, lang: co.origin?.lang }), co.origin?.lang)])
   /* In the language the order was placed in (lib/emails/words.ts): each email is built inside it. */
   const say = <T,>(build: () => T): T => inEmailLanguage(language.lang, language.words, build)
   /* When it was placed, in the store's own time zone, on every email about it. */

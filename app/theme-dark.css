@@ -298,7 +298,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 848 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 847 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -763,7 +763,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#f0f0f2\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#f0f1f3\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#f1f2f4\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#f4f5f6\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-black\/\[0\.06\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.014); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-neutral-100 > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .fill-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *) { fill: #ececee; }

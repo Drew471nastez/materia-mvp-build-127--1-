@@ -826,6 +826,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         baseUrl,
         variantName: variantName || null,
         sale: { couponCode: metadata.coupon_code || null, discountCents: Math.max(0, Number.parseInt(metadata.discount_cents || "0", 10) || 0) },
+        /* Where it was bought: the receipt's language and who signs it (lib/emails/buyer-channel.ts). */
+        source: orderSourceFrom(metadata),
+        origin: orderOriginFrom(metadata),
       })
 
       try {

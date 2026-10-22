@@ -46,7 +46,7 @@ import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, St
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
 import { CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
-import { visibleCustomerEmails } from "@/lib/emails/customer-catalog"
+import { emailsOf } from "@/lib/emails/customer-catalog"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
@@ -272,7 +272,7 @@ export function EmailsHome(props: EmailsHomeProps) {
           {tab === "subscribers" ? <SubscribersTable {...props} /> : null}
           {tab === "messages" ? <MessagesTable {...props} /> : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
-          {/* The emails a buyer gets from the store: the same list, editor and saved words as Settings › Customer emails. */}
+          {/* The emails buyers and members get, in three families: the same list, editor and saved words as Settings › Customer emails. */}
           {tab === "customer" ? <CustomerEmailsPanel bare /> : null}
           {tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
         </section>
@@ -419,9 +419,10 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
   }
   if (p.tab === "customer") {
     const c = p.customerEmails
-    const listed = visibleCustomerEmails(p.physical)
+    /* Every family the list shows: digital products, physical products while they are on, communities when there is one. */
+    const listed = emailsOf("all", p.physical).filter((e) => e.family !== "communities" || (c?.communities?.length ?? 0) > 0)
     return [
-      { label: tt("Emails"), help: tt("The emails your buyers get from your store: receipts, order and shipping updates, returns and the checkout reminder."), value: n(listed.length) },
+      { label: tt("Emails"), help: tt("The emails your buyers and members get: digital products, physical products and communities, each apart."), value: n(listed.length) },
       { label: tt("Edited"), help: tt("Emails you changed the words of. The rest go out with the default words."), value: c ? n(listed.filter((e) => c.copy[e.id]).length) : "–" },
       { label: tt("Replies go to"), help: tt("Your store's contact email, from Settings › Store details. A buyer who answers an email writes to it."), value: c?.shop.supportEmail || "–" },
     ]
