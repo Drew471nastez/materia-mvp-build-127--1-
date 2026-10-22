@@ -6,6 +6,10 @@
  *   /community/salajanywood/about      the real About page (components/community/public/sales-page.tsx) in the visitor's
  *                                      bar and columns (the preview's own chrome, the same classes as public-frame.tsx)
  *
+ * Round 37: the stand-in /app frame carries what the real one does for a page layer to hide ([data-shell-chrome] on the
+ * header and the rail, [data-app-nav-pill] on the pill), the Overview is a section the shell holds beside the Page (a
+ * tall stand-in, to see Back return to its scroll), and the app's history tracker counts the moves, as in /app.
+ *
  * ?members=1 makes a community of one member (no Membership section); ?plain=1 an older plain text description; ?dark=1
  * puts the dark look on <html> before the first paint.
  */
@@ -13,6 +17,7 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { allowedActions } from "@/lib/communities/permissions"
 import { CommunityShell, SectionSeed } from "@/components/community/creator/community-shell"
+import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { ToastHost } from "@/components/community/creator/parts"
 import { PageEditor } from "@/components/community/creator/page-editor/page-editor"
 import { PreviewChrome } from "@/components/community/creator/page-editor/preview-chrome"
@@ -153,12 +158,25 @@ function App() {
   if (state.pathname.startsWith("/app/")) {
     return (
       <div className="h-svh overflow-hidden bg-[#131316]">
-        <header className="fixed inset-x-0 top-0 z-30 h-[68px] bg-[#131316] md:h-[58px]" />
-        <aside className="fixed bottom-0 left-0 top-[58px] hidden w-[240px] bg-[#131316] md:block" />
+        <AppHistoryTracker />
+        <header data-shell-chrome="" data-probe-app-header="" className="fixed inset-x-0 top-0 z-50 h-[68px] bg-[#131316] md:h-[58px]" />
+        <aside data-shell-chrome="" data-probe-app-rail="" className="fixed bottom-0 left-0 top-[58px] z-40 hidden w-[240px] bg-[#131316] md:block" />
+        <div data-app-nav-pill="" className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex justify-center pb-4 md:hidden">
+          <span className="h-14 w-60 rounded-full bg-[#131316]" />
+        </div>
         <main className="h-svh overflow-hidden bg-[#f8f9fa] pt-[68px] md:bg-white md:pl-[240px] md:pt-[58px]">
           <div className="app-content-scroll h-[calc(100svh-68px)] overflow-hidden md:h-[calc(100svh-58px)]">
             <ToastHost>
               <CommunityShell head={head}>
+                <SectionSeed id="overview">
+                  <div data-probe-overview="" className="space-y-4">
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <section key={i} className="h-40 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 text-[14px] text-[#6b7280]">
+                        Overview card {i + 1}
+                      </section>
+                    ))}
+                  </div>
+                </SectionSeed>
                 <SectionSeed id="page">
                   <PageEditor head={head} data={settings} preview={sales} creatorId="c1" />
                 </SectionSeed>

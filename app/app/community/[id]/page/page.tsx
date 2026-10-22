@@ -17,7 +17,7 @@ export default async function CommunityPageEditorPage({ params }: { params: Prom
   if (!ctx) return null
   return (
     <SectionSeed id="page">
-      <Suspense fallback={<SectionFrame id="page" />}>{pageBody(ctx)}</Suspense>
+      <Suspense fallback={<SectionFrame id="page" facts={{ title: ctx.community.name }} />}>{pageBody(ctx)}</Suspense>
     </SectionSeed>
   )
 }

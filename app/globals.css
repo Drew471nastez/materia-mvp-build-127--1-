@@ -3788,6 +3788,11 @@ html.capacitor .app-content-scroll {
   html:has([data-page-layer=""]) [data-app-nav-pill] {
     visibility: hidden;
   }
+  /* The same from the class every page layer at every width holds (lib/ui/layers.ts), for one drawn without
+     components/app/page-layer.tsx: the community's Page editor (round 37, page-editor/screen.tsx). */
+  html.has-page-layer [data-app-nav-pill] {
+    visibility: hidden;
+  }
 
   /* The pill's room at the foot of a layer that keeps it, on whichever box
      actually scrolls: the layer's own scroller, or a page that scrolls in a
