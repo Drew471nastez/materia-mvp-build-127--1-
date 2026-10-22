@@ -11,12 +11,14 @@ import { createRoot } from "react-dom/client"
 import { ChatView } from "@/components/community/member/chat"
 import { ViewportVars } from "@/components/viewport-vars"
 import { Toasts } from "@/components/community/member/toast"
+import { ChatPanel } from "@/components/community/creator/chat-panel"
+import type { CommunityHead } from "@/components/community/creator/view-types"
 import type { ChatMessageView, SpaceView } from "@/components/community/member/view-types"
 import type { ViewerView } from "@/lib/communities/types"
 
 declare global {
   interface Window {
-    __probe: { communityId: string; me: { id: string; name: string }; messages: ChatMessageView[]; hasMore: boolean; rules?: string }
+    __probe: { communityId: string; me: { id: string; name: string }; messages: ChatMessageView[]; hasMore: boolean; rules?: string; panel?: boolean }
   }
 }
 
@@ -47,9 +49,22 @@ function App() {
   )
 }
 
+/* Settings > Chat, as /app draws a settings panel: the page container and the panel. */
+function Panel() {
+  const head = { id: p.communityId, slug: "studio-notes", name: "Studio Notes", can: { manage_settings: true, mute: true } } as unknown as CommunityHead
+  return (
+    <div className="min-h-svh bg-[#f8f9fa]">
+      <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 lg:px-8" data-probe-panel="">
+        <h1 className="mb-4 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Chat</h1>
+        <ChatPanel head={head} />
+      </div>
+    </div>
+  )
+}
+
 createRoot(document.getElementById("app")!).render(
   <>
     <ViewportVars />
-    <App />
+    {p.panel ? <Panel /> : <App />}
   </>,
 )

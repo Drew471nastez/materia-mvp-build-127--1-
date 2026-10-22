@@ -134,9 +134,9 @@ export function ChatPanel({ head }: { head: CommunityHead }) {
     <div className="space-y-4" data-chat-settings="">
       {!d.ready ? <Notice tone="warn">{tt("Chat settings need the database update for chat (run-now part 270). Until it runs, chat works as before, without groups, rules or slow mode per channel.")}</Notice> : null}
 
-      <EditorCard title={tt("Chat")} hint={tt("Chat channels and messages between members. Turned off, nothing in them is deleted.")}>
+      <EditorCard>
         <div className="-my-1 divide-y divide-[#f1f2f4]">
-          <Toggle checked={d.chatEnabled} onChange={(v) => void flipChat(v)} disabled={!canEdit} title={tt("Chat")} hint={tt("Members see the chat channels and the Messages button.")} />
+          <Toggle checked={d.chatEnabled} onChange={(v) => void flipChat(v)} disabled={!canEdit} title={tt("Chat")} hint={tt("Chat channels and messages between members. Turned off, nothing in them is deleted.")} />
           <div className="py-3" data-chat-channels="">
             <div className="flex items-center justify-between gap-3">
               <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("Channels")}</p>
@@ -149,7 +149,9 @@ export function ChatPanel({ head }: { head: CommunityHead }) {
                 {d.channels.map((c) => (
                   <li key={c.id} className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                     <span className="min-w-0 truncate text-[14px] text-[#1a1a2e]">#{c.name}</span>
-                    <div className="w-full sm:w-48">
+                    <div className="flex w-full items-center gap-2 sm:w-auto">
+                      <span className="shrink-0 text-[12.5px] text-[#6b7280]">{tt("Slow mode")}</span>
+                      <div className="min-w-0 flex-1 sm:w-40 sm:flex-none">
                       <ChoicePicker
                         id={`slow-${c.id}`}
                         name={`slow-${c.id}`}
@@ -158,10 +160,11 @@ export function ChatPanel({ head }: { head: CommunityHead }) {
                         value={String(c.slowMode)}
                         onChange={(v) => void slow(c.id, Number(v))}
                         placeholder={tt("Slow mode")}
-                        fieldLabel={c.slowMode ? tt("Slow mode: {time}", { time: slowLabel(c.slowMode) }) : tt("No slow mode")}
+                        fieldLabel={c.slowMode ? slowLabel(c.slowMode) : tt("No slow mode")}
                         fieldMuted={!c.slowMode}
                         fieldClassName="h-10 rounded-lg border-[#e1e3e7] sm:h-9"
                       />
+                      </div>
                     </div>
                   </li>
                 ))}

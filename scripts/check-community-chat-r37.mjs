@@ -166,6 +166,8 @@ function makeServer(seed) {
       return
     }
     if (path === "/chat" && method === "POST") return json({ version: 1 })
+    if (url.pathname === `/api/app/community/${CID}/chat` && method === "GET") return json({ ready: true, chatEnabled: true, settings: { dmPolicy: "everyone", groupsPolicy: "members", attachmentsEnabled: true, pushPreviews: true, rules: "Be kind.\nNo selling in chat.", rulesVersion: 2 }, channels: [{ id: SPACE, name: "general", slug: "general", slowMode: 0 }, { id: "5a5a5a5a-0000-4000-8000-000000000002", name: "wins", slug: "wins", slowMode: 30 }], restricted: [{ userId: PEOPLE.b.id, name: PEOPLE.b.name, avatarUrl: null, chatMutedUntil: new Date(Date.now() + 86400000).toISOString(), chatBannedAt: null, reason: null }], canEdit: true, canModerate: true })
+    if (url.pathname === `/api/app/community/${CID}/chat` && method === "PATCH") { const b = JSON.parse(r.postData() || "{}"); s.panelPatches = [...(s.panelPatches || []), b]; return json({ settings: { dmPolicy: "everyone", groupsPolicy: "members", attachmentsEnabled: true, pushPreviews: true, rules: "Be kind.\nNo selling in chat.", rulesVersion: 2, ...b } }) }
     if (path.startsWith("/chat/prefs")) return json({ notify: "default", mutedUntil: null })
     if (path.endsWith("/read")) return json({ ok: true })
     if (path.startsWith("/members")) return json({ members: [] })
@@ -360,6 +362,43 @@ for (const [label, viewport] of [
   await R.page.waitForSelector("[data-chat-form]", { timeout: 3000 }).catch(() => null)
   expect(!!(await R.page.$("[data-chat-form]")), "I agree brings the box back")
   await R.page.close()
+}
+
+/* SETTINGS > CHAT, for the admins. */
+for (const [label, viewport] of [
+  ["desktop-1440", { width: 1440, height: 900, deviceScaleFactor: 1 }],
+  ["phone-390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+]) {
+  console.log(`\nSettings > Chat, ${label}`)
+  const ps = makeServer([])
+  const page = await browser.newPage()
+  await page.setViewport(viewport)
+  const errors = []
+  page.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
+  await page.evaluateOnNewDocument((p) => {
+    window.__probe = p
+  }, { communityId: CID, me: PEOPLE.a, messages: [], hasMore: false, panel: true })
+  await page.setRequestInterception(true)
+  page.on("request", (r) => {
+    if (r.url().startsWith(`${ORIGIN}/api/`)) return void ps.handle("a", r)
+    if (r.isNavigationRequest()) return void r.respond({ status: 200, contentType: "text/html", body: html })
+    r.continue().catch(() => {})
+  })
+  await page.goto(`${ORIGIN}/app/community/studio-notes/settings?tab=chat`, { waitUntil: "load" })
+  await page.waitForSelector("[data-chat-settings]", { timeout: 5000 }).catch(() => null)
+  expect(!!(await page.$("[data-chat-settings]")), "the panel draws from its route")
+  expect((await page.$$eval("[data-chat-channels] li", (l) => l.length)) === 2, "each chat channel with its slow mode")
+  expect((await page.$$eval("[data-chat-restricted] li", (l) => l.length)) === 1, "who is kept out of chat, with a way back")
+  const staff = await page.$$("[role=radiogroup] [role=radio], [role=radiogroup] button")
+  if (staff.length > 1) {
+    await staff[1].click()
+    await sleep(200)
+  }
+  expect((ps.panelPatches || []).some((b) => b.dmPolicy === "staff"), "a choice saves when it is picked", ps.panelPatches)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "nothing scrolls sideways")
+  expect(errors.length === 0, "no page errors", errors.slice(0, 2))
+  await page.screenshot({ path: join(shots, `${label}-settings-chat.png`), fullPage: true })
+  await page.close()
 }
 
 await browser.close()
