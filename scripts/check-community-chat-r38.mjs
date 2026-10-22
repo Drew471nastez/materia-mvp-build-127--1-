@@ -519,6 +519,9 @@ for (const [label, viewport] of [
   }
 }
 
+/* The numbers, kept before the rich content is looked at (a run on older code stops there). */
+writeFileSync(join(shots, "numbers.json"), JSON.stringify(report, null, 2))
+
 /* ── RICH CONTENT, light and dark ───────────────────────────────────────── */
 for (const [label, viewport] of [
   ["desktop-1440", { width: 1440, height: 900, deviceScaleFactor: 1 }],
@@ -559,7 +562,7 @@ for (const [label, viewport] of [
     expect(rich.emoji && rich.attach, "the box has emoji and attachments", rich)
     await page.screenshot({ path: join(shots, `${label}-${theme}-rich.png`) })
     /* And a screen further up: the YouTube still and the link card. */
-    await page.$eval("[data-community-messages] [data-chat-embed]", (e) => e.scrollIntoView({ block: "start" }))
+    await page.$eval("[data-community-messages] [data-chat-embed]", (e) => e.scrollIntoView({ block: "start" })).catch(() => null)
     await sleep(250)
     await page.screenshot({ path: join(shots, `${label}-${theme}-links.png`) })
     await page.$eval("[data-community-messages] [data-chat-list]", (el) => (el.scrollTop = el.scrollHeight))
@@ -574,7 +577,7 @@ for (const [label, viewport] of [
       })
       expect(!!frame && frame.src.startsWith("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"), "a press plays it in the youtube-nocookie player", frame)
       /* Emoji: the button draws the picker, open, on its first press; a pick goes into the box. */
-      await page.$eval("[data-community-messages] [data-chat-emoji]", (b) => b.click())
+      await page.$eval("[data-community-messages] [data-chat-emoji]", (b) => b.click()).catch(() => null)
       const grid = await sel(page, "[data-emoji-grid] button[data-emoji]", 4000)
       let picked = null
       if (grid) {
@@ -613,7 +616,6 @@ for (const [label, viewport] of [
   }
 }
 
-writeFileSync(join(shots, "numbers.json"), JSON.stringify(report, null, 2))
 await browser.close()
 if (!process.env.KEEP_STUBS) rmSync(stubs, { recursive: true, force: true })
 console.log(`\nPictures and numbers: ${shots}`)
