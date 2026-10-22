@@ -777,12 +777,23 @@ export async function cachedShopProducts(creatorId: string): Promise<ProductCard
  */
 export async function revalidatePublishedSite(creatorId: string): Promise<void> {
   /**
-   * The second argument is how long the purge itself is remembered, and it
-   * has to outlive the entries it is purging or a stale one could survive
-   * its own invalidation. It is `SITE_TTL` exactly, which is what those
-   * entries are held for.
+   * EXPIRED AT ONCE, NOT MARKED STALE. The second argument is when the
+   * entries under the tag stop being served at all. With `{ expire: 3600 }`
+   * (what this said before) Next 16 marks every entry stale now and keeps
+   * serving it for the hour while it is read again behind the visitor
+   * (next/dist/server/lib/incremental-cache/tags-manifest.external.js:
+   * `stale` now, `expired` an hour on). So the first request after a
+   * Publish, on every page Next draws per request (the cart, search, an
+   * imported theme's pages, the language and market copies the purge below
+   * does not name), read the OLD live release pointer and drew the old
+   * theme, and the refresh after it drew the new one: the owner's "back
+   * from checkout shows my old theme until I refresh".
+   *
+   * `expire: 0` is a miss for every entry written before now, in the data
+   * cache and in every rendered page that carries the tag, on every server.
+   * The next visitor pays one read; nobody is served the previous release.
    */
-  revalidateTag(creatorSiteTag(creatorId), { expire: SITE_TTL })
+  revalidateTag(creatorSiteTag(creatorId), { expire: 0 })
 
   /**
    * AND THE RENDERED PAGE, which is a second cache and was not being told.

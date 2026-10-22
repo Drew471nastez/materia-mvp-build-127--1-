@@ -18,7 +18,7 @@ import { createHash, randomUUID } from "node:crypto"
 import { blobGroups, buildManifest, filesOf, pageRowsOf, readManifest, RELEASES_KEPT, settingsRowOf, sha256Hex } from "../lib/website-builder/site-releases"
 import { livePointer, pruneReleases, readBlobs, readLivePointer, readReleaseManifest, recordRelease, releasesKnownMissing, releasesMissing, resetReleasesMissing } from "../lib/website-builder/site-releases-server"
 import { sourcesFromFiles } from "../lib/website-builder/storefront-render"
-import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, markedThemeAddress, publicAnswer, readStrangerMarker, strangerAddress, strangerCookies, strangerMarker, strangerPage, type StrangerRequest } from "../lib/storelib-theme/compat/anonymous-cache"
+import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, markedThemeAddress, publicAnswer, readStrangerMarker, strangerAddress, strangerCookies, strangerMarker, strangerPage, type StrangerRequest } from "../lib/storelib-theme/compat/anonymous-cache"
 import { CART_COOKIE, answer, type SiteData } from "../lib/storelib-theme/compat/site"
 import { CompatTheme, wrapCompatTemplate } from "../lib/storelib-theme/compat/theme"
 import { sessionCookieName, HINT_COOKIE } from "../lib/site-accounts/session"
@@ -354,7 +354,7 @@ async function main() {
     check("not held: one that sets a cookie or changes the cart", !publicAnswer({ ...page, setsCookie: true }) && !publicAnswer({ ...page, changesCart: true }))
     check("not held: the cart, checkout, account and password pages (no-store)", !publicAnswer({ ...page, cacheControl: "private, no-store" }))
     check("not held: a 404, a redirect, JSON, a POST", !publicAnswer({ ...page, status: 404 }) && !publicAnswer({ ...page, status: 303 }) && !publicAnswer({ ...page, type: "application/json" }) && !publicAnswer({ ...page, method: "POST" }))
-    check("held a minute, never served stale (a background refresh would miss the proxy), by country and how it was asked for, never by cookie (Vercel's CDN stores nothing that varies by Cookie)", /* Changed on purpose (no stale-while-revalidate on compat pages; W1: no Vary: Cookie, the marker keeps strangers apart). */ PUBLIC_PAGE_CACHE === "public, s-maxage=60" && PUBLIC_PAGE_VARY === "X-Vercel-IP-Country, CF-IPCountry, Sec-Fetch-Dest")
+    check("held by the hold alone, never by a CDN a Publish cannot reach: the browser told what any page of the theme says, the hold told apart by a header never sent on", /* Changed on purpose (tests/publish-shows-new-release.test.ts: a CDN copy showed the previous theme after a Publish). */ PUBLIC_PAGE_CACHE === "private, no-cache" && SHAREABLE_HEADER === "x-storelib-shareable")
 
     /* A stranger's page, drawn twice, is the same page; a visitor's cart is drawn into it, which is why a cart cookie keeps a page private. */
     const section = (type: string, markup: string) => `${wrapCompatTemplate(markup)}\n\n<schema>\n${JSON.stringify({ type, name: type, settings: [] })}\n</schema>\n`
@@ -387,7 +387,7 @@ async function main() {
     const proxy = read("proxy.ts")
     check("the proxy marks a stranger's page, and refuses a marked address typed at the API", proxy.includes("strangerMarker({ host: siteHostOf(request.headers), country, locale, market })") && proxy.includes("if (markedThemeAddress(pathname)) return new NextResponse"))
     check("  a website with a password is never marked", proxy.includes("protectedSite = gate.protected") && proxy.includes("    protectedSite,\n"))
-    check("  the front page says its own header, over next.config's landing page rule", proxy.includes('} else r.headers.set("Cache-Control", "private, no-cache")'))
+    check("  the front page says its own header, over next.config's landing page rule", proxy.includes('if (asked === "/" && page === "/") r.headers.set("Cache-Control", marker ? PUBLIC_PAGE_CACHE : "private, no-cache")'))
   }
 
   console.log("\nThe SQL part")

@@ -19,8 +19,9 @@ import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
-import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, markedThemeAddress, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
-import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
+import { PUBLIC_PAGE_CACHE, markedThemeAddress, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
+import { forgetSharedSiteFacts, rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
+import { SITE_FRESH_PARAM } from "@/lib/website-builder/live-release-script"
 import { SITE_COUNTRY_HEADER, SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
 import { countryOfCurrency, resolveMarketCountries } from "@/lib/markets/market-countries"
 import { COUNTRY_COOKIE, FORGET_COUNTRY_COOKIE, readCountryCookie, seenCountry, visitorCountryFrom } from "@/lib/markets/visitor-country"
@@ -314,7 +315,7 @@ function startSiteQuestions(
 ): Promise<{ blocked: NextResponse | null; protected: boolean }> | null {
   if (/\.[a-z0-9]{1,8}$/i.test(pathname) || policyAddress(pathname)) return null
   if (PLATFORM_APEX_PATHS.some((r) => pathname === r || pathname.startsWith(`${r}/`))) return null
-  if (compatAnswers(pathname, request)) void compatSiteFor(name).catch(() => false)
+  if (compatAnswers(pathname, request)) void compatSiteFor(name, asksFresh(request)).catch(() => false)
   void hasLiveAiSite(name).catch(() => false)
   if (connectedDomain) void hasPublishedWebsite(name).catch(() => false)
   return passwordPageFor(request, name, host, pathname, search)
@@ -655,9 +656,28 @@ async function inSiteLanguage(username: string, pathname: string, request?: Next
  */
 const compatHeld = new Map<string, { at: number; value: boolean }>()
 const compatAsked = new Map<string, Promise<boolean>>()
-async function compatSiteFor(username: string): Promise<boolean> {
+/*
+  ASKED AGAIN WHEN A RENDERER SAYS THE ANSWER IS OLD: a Publish that
+  switched between a Storelib theme and an imported one, seen by the
+  renderer this server sent the visitor to by the answer it held
+  (lib/website-builder/live-release-script.ts SITE_FRESH_PARAM). At most
+  once a second a name, so the address cannot be used to make every request
+  a read of the database.
+*/
+const compatForced = new Map<string, number>()
+const FORCED_GAP_MS = 1_000
+/** The request came back from a renderer that found the other kind of theme live. */
+const asksFresh = (request: NextRequest) => request.nextUrl.searchParams.has(SITE_FRESH_PARAM)
+async function compatSiteFor(username: string, fresh = false): Promise<boolean> {
   const lower = username.toLowerCase()
-  const hit = compatHeld.get(lower)
+  let hit = compatHeld.get(lower)
+  if (fresh && hit && Date.now() - (compatForced.get(lower) ?? 0) > FORCED_GAP_MS && !compatAsked.has(lower)) {
+    if (compatForced.size > 5000) compatForced.clear()
+    compatForced.set(lower, Date.now())
+    compatHeld.delete(lower)
+    forgetSharedSiteFacts(lower)
+    hit = undefined
+  }
   if (hit && Date.now() - hit.at < 20_000) return hit.value
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -805,7 +825,7 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
     }
   }
   /*
-    A STRANGER'S PAGE, HELD BY THE CDN FOR A MINUTE (lib/storelib-theme/
+    A STRANGER'S PAGE, DRAWN ONCE A MINUTE FOR EVERY STRANGER (lib/storelib-theme/
     compat/anonymous-cache.ts): a GET for a page, with no cookie that could
     change it, on a website without a password, where no language is being
     offered. It goes to an address of its own, marked with the host, the
@@ -857,15 +877,12 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
     landing page's `public, s-maxage=3600`) matches the path the browser
     asked for, on every host, and a header set on this rewrite is the one
     that wins over it (the built website's front page does the same, above).
-    So `/` says outright what the handler would: a stranger's front page a
-    minute in the CDN, anybody else's private.
+    So `/` says outright what the handler would: private, for a stranger
+    too. A stranger's front page is drawn once a minute by the hold
+    (lib/storelib-theme/compat/stranger-hold.ts), which Publish clears; a
+    CDN copy it could not clear showed the previous theme after a Publish.
   */
-  if (asked === "/" && page === "/") {
-    if (marker) {
-      r.headers.set("Cache-Control", PUBLIC_PAGE_CACHE)
-      r.headers.set("Vary", PUBLIC_PAGE_VARY)
-    } else r.headers.set("Cache-Control", "private, no-cache")
-  }
+  if (asked === "/" && page === "/") r.headers.set("Cache-Control", marker ? PUBLIC_PAGE_CACHE : "private, no-cache")
   /*
     No Cache-Control here: the handler sets its own on every answer (a page
     "private, no-cache", which keeps the browser's back/forward cache on; the
@@ -1679,7 +1696,7 @@ async function routeRequest(request: NextRequest) {
       /* Every question this page asks below, started together (startSiteQuestions). */
       const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
       /* An imported Shopify theme answers its own addresses, its cart's /cart.js and /checkout included. */
-      if (compatAnswers(pathname, request) && (await compatSiteFor(subdomain)) && !(await hasLiveAiSite(subdomain))) {
+      if (compatAnswers(pathname, request) && (await compatSiteFor(subdomain, asksFresh(request))) && !(await hasLiveAiSite(subdomain))) {
         return compatRewrite(request, subdomain, host, pathname, search)
       }
       /* Shopify's address for a policy, on a site of Storelib's own: the same policy at Storelib's. */
@@ -2185,7 +2202,7 @@ async function routeRequest(request: NextRequest) {
     // Pages only, like the subdomain branch: an asset request must not cost
     // two database lookups, and a site's assets are Next's own anyway.
     /* An imported Shopify theme answers its own addresses on a connected domain too. */
-    if (domainPurpose === "website" && compatAnswers(pathname, request) && (await compatSiteFor(username)) && !(await hasLiveAiSite(username))) {
+    if (domainPurpose === "website" && compatAnswers(pathname, request) && (await compatSiteFor(username, asksFresh(request))) && !(await hasLiveAiSite(username))) {
       return compatRewrite(request, username, host, pathname, search)
     }
     if (domainPurpose === "website" && policyAddress(pathname)) return NextResponse.redirect(new URL(`${policyAddress(pathname)}${search}`, request.url), { status: 308 })

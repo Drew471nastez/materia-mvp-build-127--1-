@@ -220,7 +220,7 @@ async function main() {
 
     const proxy = read("proxy.ts")
     const sub = proxy.indexOf('if (pathname.startsWith("/order-help/")) return NextResponse.next()')
-    check("the website's host serves /order-help (before its pages and an imported theme get the path)", sub > 0 && sub < proxy.indexOf("compatAnswers(pathname, request) && (await compatSiteFor(subdomain))"))
+    check("the website's host serves /order-help (before its pages and an imported theme get the path)", sub > 0 && sub < proxy.indexOf("compatAnswers(pathname, request) && (await compatSiteFor(subdomain, asksFresh(request)))"))
     check("  an imported theme never answers it", /if \(pathname\.startsWith\("\/order-help\/"\)\) return false/.test(proxy))
     check("  a connected domain lets it through as a platform path", /"\/order-help",/.test(proxy))
     check("links already sent on storelib.com keep working: the page is the same route", /export default async function OrderHelpPage/.test(read("app/order-help/[id]/page.tsx")))
