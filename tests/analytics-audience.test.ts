@@ -146,7 +146,7 @@ console.log("\nPart 253")
   check("the same text as the migration", part === read("supabase/migrations/20270201_z6_analytics_audience.sql"))
   check("server only, not SECURITY DEFINER", !/SECURITY DEFINER/.test(part.split("\n").find((l) => l.startsWith("CREATE OR REPLACE FUNCTION")) ?? "SECURITY DEFINER") && /REVOKE ALL ON FUNCTION public\.analytics_audience\([^)]*\) FROM PUBLIC, anon, authenticated;/.test(part) && /TO service_role;/.test(part))
   check("every read is the creator's own rows", /WHERE a\.creator_id = p_creator_id /.test(part))
-  check("listed in the README and checked after", /`253_analytics_audience\.sql`/.test(read("supabase/sql/run-now/README.md")) && /as p253_analytics_audience;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("listed in the README and checked after", /`253_analytics_audience\.sql`/.test(read("supabase/sql/run-now/README.md")) && /* Changed on purpose (live speed, Oct 21): part 257 checked after it. */ /as p253_analytics_audience[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 }
 
 const PSQL = ["/usr/bin/psql", "/usr/lib/postgresql/16/bin/psql"].find((p) => existsSync(p))
