@@ -1,33 +1,25 @@
 import "server-only"
 
 /**
- * THE START OF EVERY ROUND 37 CHAT ROUTE, IN ONE PLACE: communities on, a
- * signed in active member of this community (requireMember, with "view" to
- * read and "chat" to write, so a muted or banned member is refused there),
- * and the member's rate limit for the kind of call. A route then checks the
- * chat itself (a group the member is in, a conversation they are part of).
+ * WHAT EVERY ROUND 37 CHAT ROUTE SHARES. Each route checks, in its own
+ * body so tests/communities-security.test.ts can read it: communities on,
+ * a signed in active member of this community (requireMember, with "view"
+ * to read and "chat" to write, so a muted or banned member is refused
+ * there), then the member's rate limit for the kind of call (chatLimit).
+ * A route then checks the chat itself (a group the member is in, a
+ * conversation they are part of).
  */
 import { NextResponse } from "next/server"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { requireCommunitiesOn } from "../flag"
 import { RATE_LIMITS, rateBucket, type RateBucket } from "../limits"
-import { requireMember } from "./context"
-import { admin, type Db } from "./db"
-import { NO_STORE, memberSubject, sessionUserId } from "./feed"
+import type { requireMember } from "./context"
+import { NO_STORE, memberSubject } from "./feed"
 
 export type ChatRouteGate = Exclude<Awaited<ReturnType<typeof requireMember>>, NextResponse>
 
-export async function chatRoute(communityId: string, action: "view" | "chat", bucket?: RateBucket): Promise<{ db: Db; gate: ChatRouteGate } | NextResponse> {
-  const off = await requireCommunitiesOn()
-  if (off) return off
-  const db = admin()
-  const gate = await requireMember(db, communityId, await sessionUserId(), action)
-  if (gate instanceof NextResponse) return gate
-  if (bucket) {
-    const limited = await rateLimit({ bucket: rateBucket(bucket), subjects: [memberSubject(String(gate.viewer.userId))], windows: RATE_LIMITS[bucket], message: "Slow down a little. Try again in a moment." })
-    if (limited) return limited
-  }
-  return { db, gate }
+/** The member's rate limit for one kind of chat call; null when within it, or the 429 to return. */
+export async function chatLimit(gate: ChatRouteGate, bucket: RateBucket): Promise<NextResponse | null> {
+  return rateLimit({ bucket: rateBucket(bucket), subjects: [memberSubject(String(gate.viewer.userId))], windows: RATE_LIMITS[bucket], message: "Slow down a little. Try again in a moment." })
 }
 
 export function notFound(): NextResponse {

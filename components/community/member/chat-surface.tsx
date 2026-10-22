@@ -48,6 +48,7 @@ import { ActionMenuAt, type ActionMenuItem, type ActionMenuPlace } from "@/compo
 import { CHAT_ATTACHMENTS_MAX, attachmentLine, firstSettled, lastSettled, localDay, mergeMessages, newClientId, sameBubbleGroup, typingLine, type ChatKind } from "@/lib/communities/chat-rules"
 import { fileSizeLabel, type ViewerItem } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
+import { hapticTap } from "@/lib/native-bridge"
 import type { ChatIntroView, ChatLine } from "./view-types"
 import { api, apiBase } from "./api"
 import { inline } from "./body-text"
@@ -719,11 +720,7 @@ function Bubble({
     if (e.pointerType === "mouse" || !hasActions) return
     const t = window.setTimeout(() => {
       press.current = null
-      try {
-        navigator.vibrate?.(8)
-      } catch {
-        /* No haptics here. */
-      }
+      hapticTap("soft")
       if (ref.current) onMenu(m, ref.current)
     }, LONG_PRESS_MS)
     press.current = { t, x: e.clientX, y: e.clientY }

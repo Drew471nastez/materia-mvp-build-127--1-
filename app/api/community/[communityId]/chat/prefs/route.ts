@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server"
+import { requireCommunitiesOn } from "@/lib/communities/flag"
+import { requireMember } from "@/lib/communities/server/context"
+import { admin } from "@/lib/communities/server/db"
+import { readJson, sessionUserId } from "@/lib/communities/server/feed"
 import { chatSpace } from "@/lib/communities/server/chat"
 import { myChatPref, setChatPref } from "@/lib/communities/server/chat-settings"
-import { chatRoute, notFound, ok, refusal } from "@/lib/communities/server/chat-routes"
+import { chatLimit, notFound, ok, refusal } from "@/lib/communities/server/chat-routes"
 import { conversationOf } from "@/lib/communities/server/direct"
-import { readJson } from "@/lib/communities/server/feed"
 import { groupOf } from "@/lib/communities/server/groups"
 import type { Db } from "@/lib/communities/server/db"
 import type { ChatRouteGate } from "@/lib/communities/server/chat-routes"
@@ -24,23 +27,31 @@ async function inChat(db: Db, gate: ChatRouteGate, type: unknown, id: unknown): 
 
 /** GET ?type=space|dm|group&id=: { notify, mutedUntil } for the viewer. */
 export async function GET(request: Request, { params }: Params) {
+  const off = await requireCommunitiesOn()
+  if (off) return off
   const { communityId } = await params
-  const r = await chatRoute(communityId, "view")
-  if (r instanceof NextResponse) return r
+  const db = admin()
+  const gate = await requireMember(db, communityId, await sessionUserId(), "view")
+  if (gate instanceof NextResponse) return gate
   const sp = new URL(request.url).searchParams
   const type = sp.get("type")
   const id = sp.get("id")
-  if (!(await inChat(r.db, r.gate, type, id))) return notFound()
-  return ok(await myChatPref(r.db, String(r.gate.viewer.userId), type as "space" | "dm" | "group", String(id)))
+  if (!(await inChat(db, gate, type, id))) return notFound()
+  return ok(await myChatPref(db, String(gate.viewer.userId), type as "space" | "dm" | "group", String(id)))
 }
 
 /** POST { type, id, notify: "default"|"all"|"mentions"|"none", muteMinutes?: number }: the viewer's own choice for one chat. */
 export async function POST(request: Request, { params }: Params) {
+  const off = await requireCommunitiesOn()
+  if (off) return off
   const { communityId } = await params
-  const r = await chatRoute(communityId, "view", "chatPrefs")
-  if (r instanceof NextResponse) return r
+  const db = admin()
+  const gate = await requireMember(db, communityId, await sessionUserId(), "view")
+  if (gate instanceof NextResponse) return gate
+  const limited = await chatLimit(gate, "chatPrefs")
+  if (limited) return limited
   const body = await readJson(request)
-  if (!(await inChat(r.db, r.gate, body.type, body.id))) return notFound()
-  const done = await setChatPref(r.db, String(r.gate.viewer.userId), r.gate.community.id, body.type, body.id, body)
+  if (!(await inChat(db, gate, body.type, body.id))) return notFound()
+  const done = await setChatPref(db, String(gate.viewer.userId), gate.community.id, body.type, body.id, body)
   return done.ok ? ok(done.value) : refusal(done)
 }

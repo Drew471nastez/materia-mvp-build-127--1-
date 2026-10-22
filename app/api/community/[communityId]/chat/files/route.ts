@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server"
+import { requireCommunitiesOn } from "@/lib/communities/flag"
+import { requireMember } from "@/lib/communities/server/context"
+import { admin } from "@/lib/communities/server/db"
+import { NO_STORE, sessionUserId } from "@/lib/communities/server/feed"
 import { chatSpace } from "@/lib/communities/server/chat"
 import { chatMediaOf } from "@/lib/communities/server/chat-media"
-import { chatRoute, notFound } from "@/lib/communities/server/chat-routes"
+import { chatLimit, notFound } from "@/lib/communities/server/chat-routes"
 import { conversationOf } from "@/lib/communities/server/direct"
-import { NO_STORE } from "@/lib/communities/server/feed"
 import { groupOf } from "@/lib/communities/server/groups"
 import { signCommunityFile } from "@/lib/communities/server/post-files"
 
@@ -14,6 +17,8 @@ type Params = { params: Promise<{ communityId: string }> }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TABLES = { space: "community_messages", dm: "community_direct_messages", group: "community_chat_group_messages" } as const
+/** The column that says which chat a row of each table belongs to. */
+const PLACE = { space: "space_id", dm: "conversation_id", group: "group_id" } as const
 
 /**
  * GET ?chat=space|dm|group&message=<id>&asset=<id>
@@ -24,16 +29,20 @@ const TABLES = { space: "community_messages", dm: "community_direct_messages", g
  * saved under its name; a video plays from it in the chat.
  */
 export async function GET(request: Request, { params }: Params) {
+  const off = await requireCommunitiesOn()
+  if (off) return off
   const { communityId } = await params
   const sp = new URL(request.url).searchParams
   const chat = sp.get("chat") as keyof typeof TABLES | null
   const messageId = sp.get("message") ?? ""
   const assetId = (sp.get("asset") ?? "").toLowerCase()
   if (!chat || !(chat in TABLES) || !UUID.test(messageId) || !UUID.test(assetId)) return notFound()
-  const r = await chatRoute(communityId, "view", "chatFile")
-  if (r instanceof NextResponse) return r
-  const { db, gate } = r
-  const { data } = await db.from(TABLES[chat]).select("*").eq("id", messageId).eq("community_id", gate.community.id).maybeSingle()
+  const db = admin()
+  const gate = await requireMember(db, communityId, await sessionUserId(), "view")
+  if (gate instanceof NextResponse) return gate
+  const limited = await chatLimit(gate, "chatFile")
+  if (limited) return limited
+  const { data } = await db.from(TABLES[chat]).select(`status, author_id, attachments, ${PLACE[chat]}`).eq("id", messageId).eq("community_id", gate.community.id).maybeSingle()
   const row = data as { status?: string; author_id?: string | null; attachments?: unknown; space_id?: string; conversation_id?: string; group_id?: string } | null
   if (!row || row.status !== "published") return notFound()
   const allowed =

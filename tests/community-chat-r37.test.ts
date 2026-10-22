@@ -161,18 +161,19 @@ console.log("\nAuthorization")
     "app/api/community/[communityId]/groups/[groupId]/read/route.ts",
     "app/api/community/[communityId]/groups/[groupId]/messages/[messageId]/route.ts",
   ]
+  /* Changed on purpose (round 37 merge): each route shows its gate in its own body (communities-security reads it there), the rate limit by chatLimit. */
   const ungated = routes.filter((f) => {
     const s = code(f)
     const handlers = (s.match(/export async function (GET|POST|PATCH|DELETE)/g) ?? []).length
-    return handlers === 0 || (s.match(/await chatRoute\(communityId, "(view|chat)"/g) ?? []).length !== handlers
+    return handlers === 0 || (s.match(/const off = await requireCommunitiesOn\(\)\s*if \(off\) return off/g) ?? []).length !== handlers || (s.match(/const gate = await requireMember\(db, communityId, await sessionUserId\(\), "(view|chat)"\)\s*if \(gate instanceof NextResponse\) return gate/g) ?? []).length !== handlers
   })
   check("every new member route starts with the member gate (communities on, active member, rate limit)", ungated.length === 0, ungated)
   const helper = code("lib/communities/server/chat-routes.ts")
-  check("  which is requireCommunitiesOn, requireMember and rateLimit", /requireCommunitiesOn\(\)/.test(helper) && /requireMember\(db, communityId, await sessionUserId\(\), action\)/.test(helper) && /rateLimit\(\{ bucket: rateBucket\(bucket\)/.test(helper))
+  check("  and the rate limit is chatLimit, which is rateLimit by the member", /export async function chatLimit\(gate: ChatRouteGate, bucket: RateBucket\)/.test(helper) && /rateLimit\(\{ bucket: rateBucket\(bucket\)/.test(helper))
   const groupRoutes = routes.filter((f) => f.includes("[groupId]")).map(code)
-  check("every group route opens only a group the viewer is in", groupRoutes.every((s) => s.split("export async function").slice(1).every((h) => /const opened = await groupOf\(r\.db, r\.gate\.community, r\.gate\.viewer, groupId\)\s*if \(!opened\) return notFound\(\)/.test(h))))
+  check("every group route opens only a group the viewer is in", groupRoutes.every((s) => s.split("export async function").slice(1).every((h) => /const opened = await groupOf\(db, gate\.community, gate\.viewer, groupId\)\s*if \(!opened\) return notFound\(\)/.test(h))))
   const writes = ["app/api/community/[communityId]/groups/route.ts", "app/api/community/[communityId]/groups/[groupId]/route.ts"].map(code)
-  check("sends and group changes need the chat action (a community mute or ban stops them)", writes.every((s) => /chatRoute\(communityId, "chat", "(groupMake|dm|groupChange)"\)/.test(s)))
+  check("sends and group changes need the chat action (a community mute or ban stops them)", writes.every((s) => /requireMember\(db, communityId, await sessionUserId\(\), "chat"\)[\s\S]{0,120}chatLimit\(gate, "(groupMake|dm|groupChange)"\)/.test(s)))
   const groups = code("lib/communities/server/groups.ts")
   check("groupOf needs the viewer's own membership row and an open group", /\.eq\("group_id", groupId\)\.eq\("user_id", viewer\.userId\)/.test(groups) && /group\.archived_at \|\| !m/.test(groups))
   check("group writes go through chatGate; people added are active members nobody blocked", (groups.match(/await chatGate\(db, community, viewer\)/g) ?? []).length >= 3 && /blockedAmong\(db, by, list\)/.test(groups) && /states\.get\(id\)\?\.active/.test(groups))
@@ -190,7 +191,7 @@ console.log("\nAuthorization")
   const files = code("app/api/community/[communityId]/chat/files/route.ts")
   check("a chat file is signed only for someone in that chat, named on that message", /chatSpace\(db, gate\.community, gate\.viewer, row\.space_id\)/.test(files) && /conversationOf\(db, gate\.community, gate\.viewer, row\.conversation_id\)/.test(files) && /groupOf\(db, gate\.community, gate\.viewer, row\.group_id\)/.test(files) && /signCommunityFile\(/.test(files))
   const prefs = code("app/api/community/[communityId]/chat/prefs/route.ts")
-  check("a mute is only set on a chat the viewer is in", /if \(!\(await inChat\(r\.db, r\.gate, body\.type, body\.id\)\)\) return notFound\(\)/.test(prefs))
+  check("a mute is only set on a chat the viewer is in", /if \(!\(await inChat\(db, gate, body\.type, body\.id\)\)\) return notFound\(\)/.test(prefs))
 }
 
 /* ── THE SCREEN ────────────────────────────────────────────────────────── */
