@@ -355,6 +355,12 @@ export function CheckoutPreviewDocument() {
       e.stopPropagation()
       post({ channel: CHECKOUT_PREVIEW_CHANNEL, kind: "pick", id: hit.id })
     }
+    /* A button the page keeps off (Pay while the card form loads) takes no click, so its press is read as the finger lifts. */
+    const onUp = (e: PointerEvent) => {
+      if (hands > 0 || !(e.target as Element | null)?.closest?.("button:disabled")) return
+      const hit = pickAt(e.target, texts)
+      if (hit) post({ channel: CHECKOUT_PREVIEW_CHANNEL, kind: "pick", id: hit.id })
+    }
     let frame = 0
     let last: EventTarget | null = null
     const onMove = (e: PointerEvent) => {
@@ -370,10 +376,12 @@ export function CheckoutPreviewDocument() {
     }
     const onLeave = () => ring("hover", null)
     document.addEventListener("click", onClick, true)
+    document.addEventListener("pointerup", onUp, true)
     document.addEventListener("pointermove", onMove, { passive: true })
     document.documentElement.addEventListener("pointerleave", onLeave)
     return () => {
       document.removeEventListener("click", onClick, true)
+      document.removeEventListener("pointerup", onUp, true)
       document.removeEventListener("pointermove", onMove)
       document.documentElement.removeEventListener("pointerleave", onLeave)
       if (frame) cancelAnimationFrame(frame)

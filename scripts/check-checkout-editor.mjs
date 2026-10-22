@@ -249,8 +249,10 @@ for (const [label, vp] of VIEWPORTS) {
   /* ── Typing shows in the checkout ── */
   let typedAt = 0
   if (phone) {
-    /* Words pressed in the frame: the Pay button's. */
-    await frame.evaluate(() => document.querySelector("[data-pay]").click())
+    /* Words pressed in the frame: the Pay button's, a real tap (Pay is off while the card form loads, and a press on it still opens its field). */
+    const box = await frame.evaluate(() => { const r = document.querySelector("[data-pay]").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+    const at = await p.evaluate(() => { const r = document.querySelector("[data-checkout-preview-frame]").getBoundingClientRect(); return { x: r.left, y: r.top } })
+    await p.touchscreen.tap(at.x + box.x, at.y + box.y)
     await p.waitForSelector("[data-checkout-text-sheet=one] input", { timeout: 4000 }).catch(() => null)
     await sleep(450)
     const opened = await p.evaluate(() => document.activeElement?.id)
@@ -263,14 +265,15 @@ for (const [label, vp] of VIEWPORTS) {
     await p.focus("#ct-buttons\\.pay_amount")
   }
   const typing = await frames(p, async () => {
-    typedAt = Date.now()
     await p.keyboard.type("Buy now {amount}", { delay: 25 })
-  }, 300)
+    /* Timed from the last key: until the closing brace the words would be refused, and the default shows. */
+    typedAt = Date.now()
+  }, 0)
   const seenAfter = await frame
     .waitForFunction(() => document.querySelector("[data-pay]")?.textContent.startsWith("Buy now"), { timeout: 3000 })
     .then(() => Date.now() - typedAt)
     .catch(() => null)
-  expect(seenAfter !== null, "what is typed is on the checkout's Pay button", seenAfter === null ? "never" : `${seenAfter} ms after the first key, typing 16 keys`)
+  expect(seenAfter !== null, "what is typed is on the checkout's Pay button", seenAfter === null ? "never" : `${seenAfter} ms after the last key`)
   console.log(`        while typing: ${typing.frames} frames, p50 ${typing.p50} ms, p95 ${typing.p95} ms, max ${typing.max} ms, ${typing.over25} over 25 ms`)
   const ringed = await frame.evaluate(() => {
     const r = document.querySelector('[data-preview-layer="focus"]')

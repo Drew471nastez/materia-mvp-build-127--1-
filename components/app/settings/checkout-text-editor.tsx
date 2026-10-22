@@ -259,6 +259,9 @@ export function CheckoutTextEditor({ onClose }: { onClose: (changed: number) => 
   stateRef.current = state
   const onShown = React.useCallback((id: string, v: boolean) => setShown((s) => (s[id] === v ? s : { ...s, [id]: v })), [])
 
+  /* The rows call through refs, so a row whose own text did not change is not drawn again on every key (TextRow is memoised). */
+  const latest = React.useRef({ choose, settle })
+  latest.current = { choose, settle }
   const rowProps = (i: Item) => ({
     item: i,
     value: draft[i.id] ?? "",
@@ -268,8 +271,8 @@ export function CheckoutTextEditor({ onClose }: { onClose: (changed: number) => 
       setSavedNote(null)
       setDraft((d) => ({ ...d, [i.id]: v }))
     },
-    onFocus: () => choose(i.id),
-    onSettle: (keep: boolean) => void settle(i, keep),
+    onFocus: () => latest.current.choose(i.id),
+    onSettle: (keep: boolean) => void latest.current.settle(i, keep),
   })
 
   const groups = data ? data.groups.map((g) => ({ g, items: data.items.filter((i) => i.group === g.id) })).filter((x) => x.items.length) : []
@@ -435,7 +438,10 @@ export function CheckoutTextEditor({ onClose }: { onClose: (changed: number) => 
   )
 }
 
-function TextRow({
+/** Drawn again only when what it shows changes: its text, its check, whether it is the one chosen. */
+const TextRow = React.memo(TextRowView, (a, b) => a.item === b.item && a.value === b.value && a.problem === b.problem && a.absent === b.absent && a.focused === b.focused && a.autoFocus === b.autoFocus)
+
+function TextRowView({
   item,
   value,
   problem,
