@@ -48,6 +48,7 @@ import { useStorelibPage } from "../storelib-sources"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { desktopDrawerEdge, desktopMenu, drawerClosedTransform, headerBorderHere, headerMenuBlocks, headerMenuHandleOf, isMenuButton, logoFontStack as wordmarkFont, logoParts, mobileMenuStyle, searchMode, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
 import { MENU_DRAWER_MAX_WIDTH, drawerEdgeHere, menuDrawerExists } from "@/lib/website-builder/header-drawers"
+import { ProductImg, isDarkColor } from "@/components/media/missing-image"
 
 // ── Header color schemes ─────────────────────────────────────
 type HeaderColorScheme = ColorSchemeKey
@@ -672,10 +673,7 @@ function HeaderSearchPanel({
                             className="h-11 w-11 shrink-0 overflow-hidden"
                             style={{ background: scheme.inset_border, borderRadius: 8 }}
                           >
-                            {h.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={h.image} alt="" className="h-full w-full object-cover" loading="lazy" />
-                            ) : null}
+                            <ProductImg src={h.image} className="h-full w-full object-cover" loading="lazy" dark={isDarkColor(scheme.bg)} />
                           </span>
                           <span className="min-w-0 flex-1 truncate text-[14px] font-medium">{h.title}</span>
                           {h.price && <span className="shrink-0 text-[13px] opacity-70 tabular-nums">{h.price}</span>}
@@ -926,10 +924,7 @@ function CartDrawerInner({
                       className="shrink-0 h-[64px] w-[64px] overflow-hidden rounded-lg"
                       style={{ background: scheme.inset_border }}
                     >
-                      {l.thumbnailUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={l.thumbnailUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
-                      ) : null}
+                      <ProductImg src={l.thumbnailUrl} className="h-full w-full object-cover" loading="lazy" dark={isDarkColor(scheme.bg)} />
                     </a>
                     <div className="min-w-0 flex-1">
                       <a href={`/products/${l.slug}`} onClick={stop} className="block text-[14px] font-medium leading-snug line-clamp-2">

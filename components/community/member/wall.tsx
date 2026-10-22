@@ -12,10 +12,11 @@
  * right under it the places in the community, each a quiet grey tile with
  * its icon (place-icons.tsx, drawn by hand on one grid in round 11; the open
  * one's tile is white with a hairline and a one pixel shadow, its icon a
- * touch heavier), a word and a chevron. Right: the next event, then the top contributors (or the most
+ * touch heavier), a word and a chevron. Under them (round 39, on the right
+ * until then): the next event, then the top contributors (or the most
  * active), each only when there is something real to show (lib/communities/
- * server/wall.ts). From 1024px to 1279px all of it stacks in the left
- * column. Invite is in the bar's "..." menu now, not on the card.
+ * server/wall.ts), at the card's width. Invite is in the bar's "..." menu
+ * now, not on the card.
  *
  * Calm on purpose: white cards on the page's #f8f9fa, hairlines, ink for
  * words and icons, no colour that is not the community's own, no violet. A face, a name
@@ -146,9 +147,13 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
           is asked for at once (it was lazy: a beat late, then a cut), at the column's 280px from the optimiser (the
           browser picks 560 on a sharp screen, never the full upload), and it fades in once decoded over a ground of its
           own size (SoftImg), so nothing jumps and nothing pops.
+
+          ROUND 39: NOT THE PHONE'S WIDTH ON A PHONE. The left column is not drawn below 1024px, and an eager picture is
+          fetched even where it is not drawn: with "100vw" a phone asked for the 828px file, first in line, for a cover
+          nobody sees, ahead of the feed's own pictures. Below 1024px it asks for the smallest file the slot offers.
         */
         <Link href={base} tabIndex={-1} aria-hidden className="block aspect-[16/9] w-full overflow-hidden bg-[#f1f2f4]">
-          <SoftImg src={community.coverUrl} width={280} sizes="(max-width: 1023px) 100vw, 280px" eager fetchPriority="high" style={community.coverPosition ? { objectPosition: community.coverPosition } : undefined} className="h-full w-full object-cover" data-wall-cover="" />
+          <SoftImg src={community.coverUrl} width={280} sizes="(max-width: 1023px) 1px, 280px" eager fetchPriority="high" style={community.coverPosition ? { objectPosition: community.coverPosition } : undefined} className="h-full w-full object-cover" data-wall-cover="" />
         </Link>
       ) : null}
       <div className="px-4 pb-4 pt-3.5">
@@ -222,7 +227,7 @@ const TILE_ON = "border-[#e3e5e9] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba
  * WHICH PLACE IS MARKED, shared by the frame (shell-frame.tsx) with the two
  * things that mark it: the list in the left column and the row of tabs. A
  * context rather than a prop, so moving to another place redraws those two
- * and nothing else of the frame (the bar, the card, the right column keep
+ * and nothing else of the frame (the bar and the left column's cards keep
  * their props and are memoised).
  */
 export interface PlaceState {
@@ -375,6 +380,6 @@ function WallContributorsCardInner({ slug, data, viewAllHref }: { slug: string; 
   )
 }
 
-/* The right column's cards, memoised like the community card: their facts are the visit's, not the page's. */
+/* The left column's cards under the community card, memoised like it: their facts are the visit's, not the page's. */
 export const WallUpcoming = memo(WallUpcomingInner)
 export const WallContributorsCard = memo(WallContributorsCardInner)

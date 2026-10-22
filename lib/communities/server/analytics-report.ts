@@ -516,7 +516,7 @@ function trafficRows(cur: Record<TrafficDimension, Counts>, prev: Record<Traffic
 
 /* ── Money ───────────────────────────────────────────────────────────── */
 
-type MembershipRow = { id: string; buyer_id: string | null; status: string; billing_interval: string; amount_cents: number; currency: string | null; created_at: string; started_at: string | null; canceled_at: string | null; ended_at: string | null; trial_end: string | null }
+type MembershipRow = { id: string; buyer_id: string | null; product_id?: string | null; status: string; billing_interval: string; amount_cents: number; currency: string | null; created_at: string; started_at: string | null; canceled_at: string | null; ended_at: string | null; trial_end: string | null }
 
 async function pages<T extends { id: string | number }>(ask: (after: string | number | null) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>, what: string): Promise<T[] | null> {
   const out: T[] = []
@@ -536,17 +536,23 @@ async function pages<T extends { id: string | number }>(ask: (after: string | nu
   return out
 }
 
-/** The products that sell this community: its paid tiers (recurring or once) and the products made for it. */
-async function sellingProducts(db: Db, communityId: string): Promise<{ all: string[]; recurring: string[] }> {
+/**
+ * The products that sell this community: its paid tiers (recurring or once) and the products made for it, with the
+ * name each is sold under (round 39, Revenue by plan): the tier's own name, else the product's title.
+ */
+async function sellingProducts(db: Db, communityId: string): Promise<{ all: string[]; recurring: string[]; names: Map<string, string> }> {
   const [tiers, made] = await Promise.all([
-    db.from("community_tiers").select("product_id, billing").eq("community_id", communityId).eq("kind", "paid").limit(50),
-    db.from("products").select("id, type").eq("community_id", communityId).limit(200),
+    db.from("community_tiers").select("product_id, billing, name").eq("community_id", communityId).eq("kind", "paid").limit(50),
+    db.from("products").select("id, type, title").eq("community_id", communityId).limit(200),
   ])
-  const t = ((tiers.data as { product_id: string | null; billing: string | null }[] | null) ?? []).filter((x) => x.product_id)
-  const m = (made.error ? [] : (made.data as { id: string; type: string | null }[] | null) ?? [])
+  const t = ((tiers.data as { product_id: string | null; billing: string | null; name?: string | null }[] | null) ?? []).filter((x) => x.product_id)
+  const m = (made.error ? [] : (made.data as { id: string; type: string | null; title?: string | null }[] | null) ?? [])
   const all = [...new Set([...t.map((x) => x.product_id as string), ...m.map((x) => x.id)])]
   const recurring = [...new Set([...t.filter((x) => x.billing === "recurring").map((x) => x.product_id as string), ...m.filter((x) => x.type === "membership").map((x) => x.id)])]
-  return { all, recurring }
+  const names = new Map<string, string>()
+  for (const x of m) if (x.title?.trim()) names.set(x.id, x.title.trim())
+  for (const x of t) if (x.name?.trim()) names.set(x.product_id as string, x.name.trim())
+  return { all, recurring, names }
 }
 
 /** Paying at a moment: started, not ended, out of any trial. */
@@ -569,6 +575,8 @@ interface MoneyWindow {
   newPaid: number[]
   cancellations: number[]
   bySource: { memberships: number; programs: number; tickets: number }
+  /** Round 39: each product's net from its orders in the period, and who pays for it at the period's end. */
+  byPlan: Map<string, { cents: number; paying: number }>
   upgradesOf: MembershipRow[]
   payingAtStart: number
 }
@@ -576,9 +584,15 @@ interface MoneyWindow {
 /** A program or a single module sold (parts 102 and 217): its row is marked revoked when the payment is refunded in full. */
 type ContentSale = { created_at: string; amount_cents: number | null; currency: string | null; revoked_at?: string | null }
 
-function moneyWindow(span: Span, starts: number[], members: MembershipRow[], orders: { created_at: string; amount_cents: number | null; refund_amount_cents: number | null; status: string }[], programs: ContentSale[], tickets: { paid_at: string; amount_cents: number | null; refunded_at: string | null }[]): MoneyWindow {
+function moneyWindow(span: Span, starts: number[], members: MembershipRow[], orders: { created_at: string; amount_cents: number | null; refund_amount_cents: number | null; status: string; product_id?: string | null }[], programs: ContentSale[], tickets: { paid_at: string; amount_cents: number | null; refunded_at: string | null }[]): MoneyWindow {
   const n = starts.length
-  const w: MoneyWindow = { revenue: new Array(n).fill(0), mrr: new Array(n).fill(0), subscribers: new Array(n).fill(0), newPaid: new Array(n).fill(0), cancellations: new Array(n).fill(0), bySource: { memberships: 0, programs: 0, tickets: 0 }, upgradesOf: [], payingAtStart: 0 }
+  const w: MoneyWindow = { revenue: new Array(n).fill(0), mrr: new Array(n).fill(0), subscribers: new Array(n).fill(0), newPaid: new Array(n).fill(0), cancellations: new Array(n).fill(0), bySource: { memberships: 0, programs: 0, tickets: 0 }, byPlan: new Map(), upgradesOf: [], payingAtStart: 0 }
+  const plan = (id: string | null | undefined) => {
+    if (!id) return null
+    let x = w.byPlan.get(id)
+    if (!x) w.byPlan.set(id, (x = { cents: 0, paying: 0 }))
+    return x
+  }
   const inSpan = (at: number) => at >= span.start && at < span.end
   const at = (iso: string) => {
     const t = Date.parse(iso)
@@ -590,6 +604,8 @@ function moneyWindow(span: Span, starts: number[], members: MembershipRow[], ord
     const net = lineMoney(o as never).net
     w.revenue[i] += net
     w.bySource.memberships += net
+    const p = plan(o.product_id)
+    if (p) p.cents += net
   }
   for (const p of programs) {
     const i = at(p.created_at)
@@ -616,6 +632,10 @@ function moneyWindow(span: Span, starts: number[], members: MembershipRow[], ord
       }
     }
     if (payingAt(m, span.start - 1)) w.payingAtStart += 1
+    if (n > 0 && payingAt(m, ends[n - 1])) {
+      const p = plan(m.product_id)
+      if (p) p.paying += 1
+    }
     if (m.status !== "incomplete") {
       const s = at(m.started_at ?? m.created_at)
       if (s >= 0) {
@@ -638,14 +658,14 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
   const [members, orders, programs, tickets, refunds, why] = await Promise.all([
     products.recurring.length
       ? pages<MembershipRow>((after) => {
-          let q = db.from("memberships").select("id, buyer_id, status, billing_interval, amount_cents, currency, created_at, started_at, canceled_at, ended_at, trial_end").in("product_id", products.recurring)
+          let q = db.from("memberships").select("id, buyer_id, product_id, status, billing_interval, amount_cents, currency, created_at, started_at, canceled_at, ended_at, trial_end").in("product_id", products.recurring)
           if (after !== null) q = q.gt("id", after)
           return q.order("id", { ascending: true }).limit(PAGE)
         }, "memberships")
       : Promise.resolve([] as MembershipRow[]),
     products.all.length
-      ? pages<{ id: string; created_at: string; amount_cents: number | null; refund_amount_cents: number | null; status: string; currency: string | null }>((after) => {
-          let q = db.from("orders").select("id, created_at, amount_cents, refund_amount_cents, status, currency").in("product_id", products.all).in("status", ["completed", "refunded"]).gte("created_at", from).lt("created_at", to)
+      ? pages<{ id: string; created_at: string; amount_cents: number | null; refund_amount_cents: number | null; status: string; currency: string | null; product_id?: string | null }>((after) => {
+          let q = db.from("orders").select("id, product_id, created_at, amount_cents, refund_amount_cents, status, currency").in("product_id", products.all).in("status", ["completed", "refunded"]).gte("created_at", from).lt("created_at", to)
           if (after !== null) q = q.gt("id", after)
           return q.order("id", { ascending: true }).limit(PAGE)
         }, "orders")
@@ -736,6 +756,15 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
     churnRate: rate(cancelled, c.payingAtStart),
     refunds: { count: (refunds?.length ?? 0) + otherRefunds.length, totalCents: (refunds ?? []).reduce((t, o) => t + lineMoney({ ...o, status: "refunded" } as never).refunded, 0) + otherRefunds.reduce((t, x) => t + Math.max(0, num(x.amount_cents)), 0) },
     bySource: (["memberships", "programs", "tickets"] as const).map((key) => ({ key, cents: c.bySource[key] })).filter((x) => x.cents > 0),
+    /*
+      REVENUE BY PLAN (round 39): each tier or product that sells the community, by the name it is sold under, with its
+      net from this period's orders (refunds taken off, as in Revenue) and the members paying for it at the period's
+      end. Programs, modules and tickets are not plans: they stay in By source.
+    */
+    byPlan: [...c.byPlan]
+      .filter(([, x]) => x.cents !== 0 || x.paying > 0)
+      .map(([key, x]) => ({ key, label: products.names.get(key) ?? "", cents: x.cents, paying: x.paying, ...(p ? { previous: p.byPlan.get(key)?.cents ?? 0 } : {}) }))
+      .sort((a, b) => b.cents - a.cents || b.paying - a.paying || a.label.localeCompare(b.label)),
     reasons: (why?.counts ?? []).filter((x) => x.count > 0).map((x) => ({ reason: x.reason ?? "none", count: x.count })).sort((a, b) => b.count - a.count),
   }
 }

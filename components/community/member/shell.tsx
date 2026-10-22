@@ -35,7 +35,7 @@ import type { ShellSection } from "./view-types"
 
 async function CommunityShellAsync({ community, viewer, active, children }: { community: CommunityRow; viewer: Viewer; active?: ShellSection; children: React.ReactNode }) {
   /* The member links (round 26): read here, for a member or staff only, and never by the visitor's shell below. */
-  const [data, topBar, wall, memberLinks] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer), wallData(admin(), community, viewer), memberLinksForViewer(community, viewer)])
+  const [data, topBar, wall, memberLinks] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer), wallData(admin(), community, viewer, Date.now(), { cached: true }), memberLinksForViewer(community, viewer)])
   return (
     <>
       <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} wall={wall} active={active} chatSpaces={data.spaces.filter((s) => s.kind === "chat").map((s) => s.slug)} memberLinks={memberLinks}>

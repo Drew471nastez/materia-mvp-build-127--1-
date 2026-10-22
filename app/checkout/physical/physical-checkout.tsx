@@ -32,6 +32,7 @@ import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-conf
 import { CheckoutPhone } from "../parts/phone-input"
 import { ChevronDown, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ProductImg } from "@/components/media/missing-image"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import { cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/website-builder/cart"
 import { decodeItems, type LinkItem } from "@/lib/physical/cart-link"
@@ -503,14 +504,7 @@ export function PhysicalCheckout({
           return (
             <li key={`${l.productId}:${l.variantId}`} className="flex items-start gap-3">
               <div className="relative shrink-0">
-                {l.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={l.imageUrl} alt="" className="h-16 w-16 rounded-xl border border-[#e5e7eb] object-cover" />
-                ) : (
-                  <div className="grid h-16 w-16 place-items-center rounded-xl border border-[#e5e7eb] bg-[#f3f4f6]">
-                    <ShoppingBag className="h-5 w-5 text-[#9ca3af]" />
-                  </div>
-                )}
+                <ProductImg src={l.imageUrl} className="h-16 w-16 rounded-xl border border-[#e5e7eb] object-cover" />
                 <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-[#6b7280] px-1 text-[11px] font-semibold text-white">{l.quantity}</span>
               </div>
               <div className="min-w-0 flex-1">

@@ -162,7 +162,7 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
 
   return (
     <div
-      className="flex h-[calc(100dvh-var(--community-top,0px)-88px)] min-h-[420px] flex-col pb-3 max-sm:fixed max-sm:inset-x-0 max-sm:z-[35] max-sm:min-h-0 max-sm:bg-white max-sm:pb-0 max-sm:[--chat-top:var(--community-top,99px)] max-sm:top-[calc(var(--vv-top,0px)+var(--chat-top))] max-sm:h-[calc(var(--vv-h,100dvh)-var(--chat-top))] max-sm:[html[data-keyboard=open]_&]:z-[45] max-sm:[html[data-keyboard=open]_&]:[--chat-top:0px] lg:h-[calc(100dvh-var(--community-top,0px)-104px)] lg:max-w-[760px] lg:pb-6"
+      className="flex h-[calc(100dvh-var(--community-top,0px)-88px)] min-h-[420px] flex-col pb-3 max-sm:fixed max-sm:inset-x-0 max-sm:z-[35] max-sm:min-h-0 max-sm:bg-white max-sm:pb-0 max-sm:[--chat-top:var(--community-top,99px)] max-sm:top-[calc(var(--vv-top,0px)+var(--chat-top))] max-sm:h-[calc(var(--vv-h,100dvh)-var(--chat-top))] max-sm:[html[data-keyboard=open]_&]:z-[45] max-sm:[html[data-keyboard=open]_&]:[--chat-top:0px] lg:h-[calc(100dvh-var(--community-top,0px)-104px)] lg:pb-6"
       data-chat=""
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-2xl sm:border sm:border-[#e5e7eb]/80">

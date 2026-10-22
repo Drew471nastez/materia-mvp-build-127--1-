@@ -17,7 +17,8 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { ChevronDown, Package, Tag, X } from "lucide-react"
+import { ChevronDown, Tag, X } from "lucide-react"
+import { MissingImage } from "@/components/media/missing-image"
 import { cn } from "@/lib/utils"
 import { Reveal, Spinner, TextInput, useCheckoutCurrency, useCurrencyMark, useMoney } from "./ui"
 import { useCheckoutLang, useCountryName, useCt } from "./words"
@@ -57,9 +58,7 @@ export function LineItem({
         {product.thumbnail_url ? (
           <Image src={product.thumbnail_url} alt="" fill sizes="48px" className="object-cover" />
         ) : (
-          <span className="flex h-full items-center justify-center">
-            <Package className="h-5 w-5 text-[#c4c7cd]" strokeWidth={1.5} />
-          </span>
+          <MissingImage />
         )}
       </div>
       <div className="min-w-0 flex-1">

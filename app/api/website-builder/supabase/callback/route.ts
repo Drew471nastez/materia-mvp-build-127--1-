@@ -9,6 +9,7 @@ import { NextResponse } from "next/server"
 import { open, seal } from "@/lib/ai-keys/crypto"
 import { verifyState } from "@/lib/github-sync/core"
 import { ownInstall } from "@/lib/github-sync/own-install"
+import { handBackToApp } from "@/lib/connect/app-return"
 import {
   COOKIE_PATH,
   TOKEN_COOKIE,
@@ -36,6 +37,9 @@ export async function GET(req: Request) {
   const q = new URL(req.url).searchParams
   const state = verifyState(q.get("state"), cfg?.clientSecret)
   if (!cfg || !state) return back(req, null, "expired")
+  /* Started in the phone app, and this is its in-app browser: finished in the app, where the verifier cookie is (lib/connect/app-return.ts). */
+  const handBack = handBackToApp(req, state)
+  if (handBack) return handBack
 
   const own = await ownInstall(state.installId)
   if (!own || own.creatorId !== state.creatorId) return back(req, null, "expired")

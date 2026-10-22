@@ -18,12 +18,14 @@ import "server-only"
  * with at most ACTIVITY_SCAN rows looked at, events on (community_id,
  * starts_at). Ten members or ten thousand, the same few reads.
  */
+import { unstable_cache } from "next/cache"
+import { cache } from "react"
 import { evaluateAccess } from "../access"
 import { can } from "../permissions"
 import type { CommunityRow } from "../types"
 import type { WallContributors, WallData, WallEvent, WallFace } from "@/components/community/member/view-types"
 import type { Viewer } from "./context"
-import { missing, nowIso, reasonOf, type Db } from "./db"
+import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { authorViews } from "./directory"
 import { accessOf } from "./feed"
 import { leaderboard } from "./points"
@@ -208,9 +210,54 @@ export function eventHrefFor(community: Pick<CommunityRow, "id" | "slug" | "even
   return app && community.events_enabled && can(viewer.active ? viewer.role : null, "manage_events") ? `${app}/events?new=1` : null
 }
 
-/** All of the wall's side columns for one member, in one go. */
-export async function wallData(db: Db, community: CommunityRow, viewer: Viewer, now: number = Date.now()): Promise<WallData> {
-  const [stats, faces, upcoming, contributors] = await Promise.all([communityStats(db, community, now), recentFaces(db, community.id), upcomingEvent(db, community, viewer, now), topContributors(db, community, now)])
+/**
+ * THE COMMUNITY'S OWN FACTS, HELD FOR WALL_CACHE_S (round 39). Who is online, how many admins, the faces of who was here
+ * last and the top contributors are the same for every member of a community, and they were the longest chain of reads
+ * before a community's frame could be drawn: the leaderboard, then who those people are (scripts/measure-community-
+ * member-server.mjs). So they are read once per community and held for half a minute, for every member, on the server's
+ * data cache. That is their freshness: the online count is a heartbeat a minute anyway, and a list over thirty days
+ * moves slowly. The member count is the community row's, read fresh with every page. Never anything about the viewer:
+ * the next event is checked against their access, so it is read for each of them, beside this.
+ */
+export const WALL_CACHE_S = 30
+
+export interface WallCommunityFacts {
+  online: number | null
+  admins: number | null
+  faces: WallFace[]
+  contributors: WallContributors | null
+}
+
+async function readWallCommunity(db: Db, community: Pick<CommunityRow, "id" | "member_count" | "gamification_enabled">, now: number): Promise<WallCommunityFacts> {
+  const [stats, faces, contributors] = await Promise.all([communityStats(db, community, now), recentFaces(db, community.id), topContributors(db, community, now)])
+  return { online: stats.online, admins: stats.admins, faces, contributors }
+}
+
+/** The held copy for the shell; `db` given (the suites, a script) reads it fresh from that database instead. */
+export function wallCommunity(community: Pick<CommunityRow, "id" | "member_count" | "gamification_enabled">, now: number = Date.now(), db?: Db): Promise<WallCommunityFacts> {
+  if (db) return readWallCommunity(db, community, now)
+  const key = { id: community.id, member_count: community.member_count, gamification_enabled: community.gamification_enabled }
+  return unstable_cache(() => readWallCommunity(admin(), key, Date.now()), ["community-wall", community.id, community.gamification_enabled ? "points" : "activity"], { revalidate: WALL_CACHE_S, tags: [`community-wall:${community.id}`] })()
+}
+
+/**
+ * The held copy, once per request (React's cache), so the community's page can ask for it the moment it knows the
+ * community (components/community/member/data.ts memberPage), beside the viewer's standing, and the frame takes the
+ * same answer: when nothing is held yet, the reads run while the standing is read rather than after it.
+ */
+const wallCommunityForRequest = cache((id: string, memberCount: number, gamification: boolean) => wallCommunity({ id, member_count: memberCount, gamification_enabled: gamification }))
+
+/** Starts this request's copy of the community's own facts. */
+export function warmWall(community: Pick<CommunityRow, "id" | "member_count" | "gamification_enabled">): void {
+  wallCommunityForRequest(community.id, community.member_count ?? 0, !!community.gamification_enabled).catch(() => undefined)
+}
+
+/** All of the wall's side columns for one member, in one go. `cached` (the shell) takes the community's own facts from WALL_CACHE_S's copy. */
+export async function wallData(db: Db, community: CommunityRow, viewer: Viewer, now: number = Date.now(), opts: { cached?: boolean } = {}): Promise<WallData> {
+  const shared$ = opts.cached ? wallCommunityForRequest(community.id, community.member_count ?? 0, !!community.gamification_enabled) : wallCommunity(community, now, db)
+  const [shared, upcoming] = await Promise.all([shared$, upcomingEvent(db, community, viewer, now)])
+  const stats = { members: Math.max(0, community.member_count ?? 0), online: shared.online, admins: shared.admins }
+  const { faces, contributors } = shared
   return {
     card: { stats, faces, more: Math.max(0, stats.members - faces.length), settingsHref: settingsHrefFor(community, viewer) },
     upcoming,

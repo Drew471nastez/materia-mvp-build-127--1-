@@ -149,6 +149,70 @@ function visibleKeysFor(mode: "store" | "onepage", metric: string, onePage: stri
 
 /* ─── The frame: recharts lays out the grid and the dates, and nothing else ── */
 
+/** The least room between two dates along the bottom, as recharts' minTickGap had it. */
+const DATE_GAP = 18
+
+/*
+  THE DATES ARE MEASURED ON A CANVAS (round 39). recharts thinned them with
+  interval "preserveStartEnd" and drew each with its <Text>, and both measure
+  a word by writing it into a hidden span and reading its box: one forced
+  layout of the whole page per word. In the community admin, where every
+  section the owner opened is in the page, the first open of Analytics spent
+  540ms in those reads (scripts/check-community-admin-round39.mjs PROFILE).
+  The widest date is read from a canvas, which lays nothing out, and each
+  date is drawn as plain SVG text. Which are drawn: the first, the last, and
+  as many between as leave DATE_GAP, spread evenly (recharts' rule left an
+  uneven gap beside either end on a phone).
+*/
+let measure: CanvasRenderingContext2D | null | undefined
+function labelWidth(text: string): number {
+  if (measure === undefined) {
+    try {
+      measure = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d")
+      if (measure) measure.font = "11px Inter, ui-sans-serif, system-ui, sans-serif"
+    } catch {
+      measure = null
+    }
+  }
+  return measure ? measure.measureText(text).width : text.length * 6.5
+}
+
+interface DateTickProps {
+  widest: number
+  /** Where the plot starts: the first and the last date are kept inside it, as recharts' preserveStartEnd kept them. */
+  plotLeft: number
+  x?: number
+  y?: number
+  index?: number
+  visibleTicksCount?: number
+  /** The plot's width, which recharts hands every tick. */
+  width?: number
+  payload?: { value?: string | number }
+}
+
+/** One date under the plot, or nothing when its neighbours need the room. */
+function DateTick({ widest, plotLeft, x = 0, y = 0, index = 0, visibleTicksCount = 1, width = 0, payload }: DateTickProps) {
+  const last = visibleTicksCount - 1
+  const spacing = last > 0 ? width / last : width
+  /*
+    The fewest points two drawn dates are apart: a date and DATE_GAP, and half a date more, for an end pulled in to
+    fit. Then the dates are spread evenly from the first to the last, never closer than that.
+  */
+  const apart = spacing > 0 ? Math.max(1, Math.ceil((widest * 1.5 + DATE_GAP) / spacing)) : 1
+  const gaps = last > 0 ? Math.max(1, Math.floor(last / apart)) : 0
+  const j = gaps > 0 ? Math.round((index * gaps) / last) : 0
+  const shown = index === 0 || index === last || (gaps > 1 && Math.round((j * last) / gaps) === index)
+  if (!shown) return null
+  const text = String(payload?.value ?? "")
+  const half = labelWidth(text) / 2
+  const at = index === last && last > 0 ? Math.min(x, plotLeft + width - half) : index === 0 ? Math.max(x, plotLeft + half) : x
+  return (
+    <text x={at} y={y} dy="0.71em" textAnchor="middle" fontSize={11} fill="#9ca3af" className="recharts-cartesian-axis-tick-value">
+      {text}
+    </text>
+  )
+}
+
 interface FrameProps {
   /** The dates along the bottom, one per point. */
   dates: string[]
@@ -166,6 +230,7 @@ interface FrameProps {
  */
 const Frame = memo(function Frame({ dates, top, ticks, plotLeft }: FrameProps) {
   const data = useMemo(() => dates.map((date) => ({ date })), [dates])
+  const widest = useMemo(() => Math.max(0, ...dates.map(labelWidth)), [dates])
   return (
     <ResponsiveContainer width="100%" height={CHART_H}>
       <AreaChart data={data} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
@@ -180,11 +245,10 @@ const Frame = memo(function Frame({ dates, top, ticks, plotLeft }: FrameProps) {
         <XAxis
           dataKey="date"
           height={XAXIS_H}
-          tick={{ fontSize: 11, fill: "#9ca3af" }}
+          tick={<DateTick widest={widest} plotLeft={plotLeft} />}
           tickLine={false}
           axisLine={false}
-          interval="preserveStartEnd"
-          minTickGap={18}
+          interval={0}
         />
         {/*
           THE SCALE IS GIVEN, NOT GUESSED: a domain with headroom and the

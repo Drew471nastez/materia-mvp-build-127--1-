@@ -135,7 +135,8 @@ async function main() {
   check("their own are removed, one storage call per bucket", mine.ok && mine.removed === 3 && removed.length === 2 && removed[0].length === 2, removed)
   check("an empty or huge list is refused", !(await deleteLibraryFiles(del, owner, [])).ok && !(await deleteLibraryFiles(del, owner, Array.from({ length: 101 }, () => ({ bucket: "store-builder-images", path: "user-1/files/a.png" })))).ok)
   const route = read("app/api/files/route.ts")
-  check("the API takes { files } as well as one", /if \(body && Array\.isArray\(body\.files\)\)/.test(route) && /deleteLibraryFiles\(c\.db, \{ userId: c\.userId, creatorId: c\.creatorId \}, body\.files\)/.test(route))
+  /* Changed on purpose (round 39): one or several go through removeFromFiles (lib/files/keep.ts), which keeps a file still in use. */
+  check("the API takes { files } as well as one", /const many = !!body && Array\.isArray\(body\.files\)/.test(route) && /removeFromFiles\(c\.db, \{ userId: c\.userId, creatorId: c\.creatorId \}, list\)/.test(route))
 
   console.log("\nCopy")
   const words = [["un", "lock"], ["ele", "vate"], ["seam", "less"], ["power", "ful"], ["effort", "less"], ["super", "charge"], ["trans", "form"]].map((w) => w.join(""))

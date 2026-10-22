@@ -19,6 +19,7 @@ import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityJsonLd, communityMetadata } from "@/components/community/public/seo"
 import { communityDomainOrigin } from "@/lib/custom-domains/community-server"
 import { communityDeleting, communitySummary } from "@/lib/communities/server/community-summary"
+import { memberPage } from "@/components/community/member/data"
 
 /**
  * ===========================================================================
@@ -67,6 +68,17 @@ export default async function CommunityPage({
   */
   const [on, { slug }, query, { user }] = await Promise.all([communitiesEnabled(), params, searchParams, currentUserForRequest()])
   if (!on) notFound()
+  /*
+    ROUND 39: A MEMBER'S HOME IS THE FEED, SO IT IS NOT READ AS A SALES PAGE FIRST. The sales page's load (the community
+    again, who is looking again, its plans, its products, its creator) ran before every member's feed, eight round trips
+    before the feed's own read could start (scripts/measure-community-member-server.mjs). The community's layout has
+    already read the community and the viewer for this request (memberPage, one per request), so a member goes straight
+    to the feed; the seller check is asked beside it. Anybody else, and the owner's preview of the plans, as before.
+  */
+  if (user && query.preview !== "plans") {
+    const [page, seller] = await Promise.all([memberPage(slug), sellerAccessForRequest(user.id)])
+    if (page.state === "member" && page.community && page.viewer) return memberHome(page.community.slug, slug, query, user, hasSellerAccess(seller))
+  }
   const load = await loadSalesPage(slug, user?.id ?? null)
   if (!load) notFound()
   /* One address per community: /community/MyClub is /community/myclub. */
@@ -111,42 +123,8 @@ export default async function CommunityPage({
   /* A member's home is the member area's (components/community/member/feed-page.tsx): it draws the shell and the feed. */
   /* Pull to refresh: the member frame wraps the feed (community-pull-refresh.tsx, scope community-feed). */
   if (load.viewer.active) {
-    if (user) {
-      const seller = hasSellerAccess(await sellerAccessForRequest(user.id))
-      const gate = welcomeGate(`/community/${load.community.slug}`, { createdAt: user.created_at, meta: user.user_metadata as Record<string, unknown>, seller, intent: null })
-      if (gate) redirect(gate)
-    }
-    /*
-      ROUND 15: THE HOME ADDRESS HOLDS THREE PLACES. The feed, a person's profile inside the community (?profile=<handle> or
-      ?profile=me, the owner's own address) and, on a phone, a space (?space=<slug>). The page seeds the shell with the one
-      the address names (components/community/member/place-page.tsx).
-    */
-    /*
-      ROUND 16: MY OWN PROFILE IS THE ACCOUNT PAGE. ?profile=me opened round 15's card inside the community; the owner wants
-      their account page, as it was, so a fresh load goes there before anything is drawn (inside the shell the place does the
-      same, components/community/member/member-profile.tsx). Somebody else's ?profile=<handle> stays a place here.
-    */
-    if (typeof query.profile === "string" && query.profile.trim().toLowerCase() === "me") redirect("/account")
-    /*
-      ROUND AG: A PLAN PICKED BEFORE SIGNING IN, BY SOMEBODY ALREADY IN (a free member who chose a paid plan on the page).
-      Their upgrade goes on in the Membership page, which holds the same picker and checkout, with the pick in the address.
-    */
-    const flowAsk = typeof query.join === "string" ? query.join : null
-    if (flowAsk === "pick" || flowAsk === "plans" || flowAsk === "pay") {
-      const keep = new URLSearchParams()
-      for (const k of ["join", "plan", "interval"]) {
-        const v = query[k]
-        if (typeof v === "string") keep.set(k, v)
-      }
-      redirect(`/community/${load.community.slug}/membership?${keep.toString()}`)
-    }
-    const search = new URLSearchParams()
-    for (const k of ["profile", "space"]) {
-      const v = query[k]
-      if (typeof v === "string") search.set(k, v)
-    }
-    const place = placeFromUrl(`/community/${load.community.slug}`, search.toString()) ?? { kind: "feed" as const }
-    return <PlacePage slug={load.community.slug} place={place} />
+    const seller = user ? hasSellerAccess(await sellerAccessForRequest(user.id)) : false
+    return memberHome(load.community.slug, slug, query, user, seller)
   }
 
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
@@ -159,4 +137,58 @@ export default async function CommunityPage({
       <CommunitySalesPage data={{ ...load.data, extras, askWhy }} />
     </>
   )
+}
+
+/**
+ * A member's home address: the feed, a person's profile inside the community or, on a phone, a space (round 15), after
+ * the welcome gate and the redirects the address asks for. Shared by the member found from the request's own memberPage
+ * (round 39) and the one found by the sales page's load.
+ */
+function memberHome(
+  communitySlug: string,
+  slug: string,
+  query: Record<string, string | string[] | undefined>,
+  user: { created_at: string; user_metadata: unknown } | null,
+  seller: boolean,
+) {
+  const home = `/community/${communitySlug}`
+  /* One address per community: /community/MyClub is /community/myclub. */
+  if (communitySlug !== slug) permanentRedirect(home)
+  /* Back from signing up with ?join=1, already in: the flag is dropped so it is not pressed again. */
+  if (query.join === "1") redirect(query.welcome === "1" ? `${home}?welcome=1` : home)
+  if (user) {
+    const gate = welcomeGate(home, { createdAt: user.created_at, meta: user.user_metadata as Record<string, unknown>, seller, intent: null })
+    if (gate) redirect(gate)
+  }
+  /*
+    ROUND 15: THE HOME ADDRESS HOLDS THREE PLACES. The feed, a person's profile inside the community (?profile=<handle> or
+    ?profile=me, the owner's own address) and, on a phone, a space (?space=<slug>). The page seeds the shell with the one
+    the address names (components/community/member/place-page.tsx).
+  */
+  /*
+    ROUND 16: MY OWN PROFILE IS THE ACCOUNT PAGE. ?profile=me opened round 15's card inside the community; the owner wants
+    their account page, as it was, so a fresh load goes there before anything is drawn (inside the shell the place does the
+    same, components/community/member/member-profile.tsx). Somebody else's ?profile=<handle> stays a place here.
+  */
+  if (typeof query.profile === "string" && query.profile.trim().toLowerCase() === "me") redirect("/account")
+  /*
+    ROUND AG: A PLAN PICKED BEFORE SIGNING IN, BY SOMEBODY ALREADY IN (a free member who chose a paid plan on the page).
+    Their upgrade goes on in the Membership page, which holds the same picker and checkout, with the pick in the address.
+  */
+  const flowAsk = typeof query.join === "string" ? query.join : null
+  if (flowAsk === "pick" || flowAsk === "plans" || flowAsk === "pay") {
+    const keep = new URLSearchParams()
+    for (const k of ["join", "plan", "interval"]) {
+      const v = query[k]
+      if (typeof v === "string") keep.set(k, v)
+    }
+    redirect(`${home}/membership?${keep.toString()}`)
+  }
+  const search = new URLSearchParams()
+  for (const k of ["profile", "space"]) {
+    const v = query[k]
+    if (typeof v === "string") search.set(k, v)
+  }
+  const place = placeFromUrl(home, search.toString()) ?? { kind: "feed" as const }
+  return <PlacePage slug={communitySlug} place={place} />
 }

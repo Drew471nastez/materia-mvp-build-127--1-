@@ -77,6 +77,12 @@ export interface MoneyReport {
   refunds: { count: number; totalCents: number }
   /** Where the revenue came from: memberships and purchases, programs, event tickets. */
   bySource: { key: "memberships" | "programs" | "tickets"; cents: number }[]
+  /**
+   * Round 39: each tier or product that sells the community, by the name it is sold under ("" when it has none), with
+   * its net from the period's orders, the members paying for it at the period's end, and the period before's net.
+   * Absent on an answer kept from before.
+   */
+  byPlan?: { key: string; label: string; cents: number; paying: number; previous?: number }[]
   reasons: { reason: string; count: number }[]
 }
 

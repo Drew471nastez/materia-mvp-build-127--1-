@@ -5,7 +5,8 @@
  * itself, so a probe draws the same markup with an order of its own
  * (scripts/render-buyer27.tsx).
  */
-import { Check, Package } from "lucide-react"
+import { Check } from "lucide-react"
+import { ProductImg } from "@/components/media/missing-image"
 import { addressLines } from "@/lib/physical/address"
 import { deliveryEstimate } from "@/lib/physical/rates"
 import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
@@ -92,14 +93,7 @@ export function ThanksView({ order, shopUrl, lang, words, map }: { order: Summar
             {order.lines.map((l, i) => (
               <li key={i} className="flex items-start gap-3.5">
                 <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-black/[0.06] bg-white">
-                  {l.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={l.imageUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="flex h-full items-center justify-center">
-                      <Package className="h-5 w-5 text-[#c4c7cd]" strokeWidth={1.5} />
-                    </span>
-                  )}
+                  <ProductImg src={l.imageUrl} className="h-full w-full object-cover" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{titleOf(l)}</p>

@@ -160,7 +160,8 @@ async function main() {
     check(`${kind}'s page is PlacePage and nothing else`, new RegExp(`<PlacePage slug=\\{slug\\} place=\\{\\{ kind: "${kind}" \\}\\} />`).test(code(file)))
   }
   check("a space's page, a program's and an event's seed the shell too", /place=\{\{ kind: "space"/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")) && /place=\{\{ kind: "program"/.test(code("app/(marketing)/community/[slug]/(member)/learn/[programId]/page.tsx")) && /place=\{\{ kind: "event"/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/page.tsx")))
-  check("the home address seeds the place it names (feed, ?profile=, ?space=)", /placeFromUrl\(`\/community\/\$\{load\.community\.slug\}`, search\.toString\(\)\)/.test(code("app/(marketing)/community/[slug]/page.tsx")))
+  /* Changed on purpose (round 39): in memberHome, whichever way the member was found. */
+  check("the home address seeds the place it names (feed, ?profile=, ?space=)", /placeFromUrl\(home, search\.toString\(\)\)/.test(code("app/(marketing)/community/[slug]/page.tsx")) && /const home = `\/community\/\$\{communitySlug\}`/.test(code("app/(marketing)/community/[slug]/page.tsx")))
   check("About, for a member, is a place in the shell", /<PlacePage slug=\{load\.community\.slug\} place=\{\{ kind: "about" \}\} \/>/.test(code("app/(marketing)/community/[slug]/about/page.tsx")))
   check("the old /members/<id> goes to ?profile=<handle>, inside the community", /redirect\(ref \? placeHref\(page\.community\.slug, \{ kind: "profile", ref \}\)/.test(code("app/(marketing)/community/[slug]/(member)/members/[userId]/page.tsx")))
   check("the loader covers every kind of place", ["feed", "saved", "space", "learn", "program", "calendar", "event", "members", "leaderboard", "about", "notifications", "membership", "profile"].every((k) => places.includes(`case "${k}":`)))

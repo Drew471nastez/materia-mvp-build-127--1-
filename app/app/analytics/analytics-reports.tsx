@@ -27,10 +27,11 @@
  * (./add-reports). They are never lines on the chart.
  *
  * NOTHING SCROLLS INSIDE A CARD. A list shows its top five and opens the rest
- * in a dialog, so a wheel or a thumb over a card always moves the page.
+ * in a dialog, so a wheel or a thumb over a card always moves the page. A
+ * long list's dialog has a search above its rows (round 39, AllRows).
  *
- * MOTION IS TRANSFORM AND OPACITY, but for the fills. A switcher's pill
- * fades in under the tab, a card arrives by rising and fading, and a card
+ * MOTION IS TRANSFORM AND OPACITY, but for the fills. A switcher's one pill
+ * slides to the tab chosen (round 39), a card arrives by rising and fading, and a card
  * moved in the order slides from where it was (FLIP). A fill (GREY_FILL)
  * grows its own width: it is placed on its own (absolute, or a box nothing
  * else depends on), so nothing around it is laid out again, and its rounded
@@ -48,7 +49,7 @@
  */
 
 import * as React from "react"
-import { MoreHorizontal } from "lucide-react"
+import { MoreHorizontal, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Shimmer, ShimmerBlock, ShimmerSwap } from "@/components/ui/shimmer"
 import type { BreakdownRow, FunnelStep, Headline, Reports, Series } from "@/lib/analytics/reports"
@@ -83,6 +84,8 @@ export const GREY_FILL =
  */
 const GREY_FILL_THIN = "bg-[linear-gradient(180deg,#e8eaee_0%,#dcdfe4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_0_0_1px_rgba(16,24,40,0.04)]"
 const EASE = "cubic-bezier(0.32,0.72,0,1)"
+/** A switcher's white pill. */
+const PILL = "rounded-[7px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.10),0_0_0_0.5px_rgba(17,24,39,0.06)]"
 
 /* The store's own currency (Settings › Languages & Currency), set by AnalyticsReports from the /app layout's: lei for a store in lei. */
 let reportCurrency = "USD"
@@ -137,12 +140,42 @@ function Card({
 }
 
 /**
- * A SWITCHER: Polaris's segmented control in Storelib's greys. The chosen
- * tab's white pill fades and settles in (opacity and scale), the others'
- * fade out, so a switch is two compositor layers and no layout. Arrow keys
+ * A SWITCHER: Polaris's segmented control in Storelib's greys. Arrow keys
  * move between tabs, as a tablist's should.
+ *
+ * ONE WHITE PILL THAT SLIDES (round 39, the owner: "switching between pill
+ * shapes smooth clean"). It was a pill per tab, the chosen one fading and
+ * settling in (opacity and scale from 92%) while the one before faded out:
+ * filmed, two half pills on screen at once for 200ms, the new one growing
+ * out of nothing. Now there is one pill, under the tab chosen, and a switch
+ * slides it to the next tab and gives it that tab's width, 200ms on the
+ * /app curve. It is placed on its own (absolute), so its width moves nothing
+ * else, and it moves by `translate`, the property the transition names.
+ * Until the first measure (the server's markup) the chosen tab draws its own
+ * pill where the sliding one will be. With reduced motion it is simply there.
  */
 function Tabs<T extends string>({ value, options, onChange, label }: { value: T; options: Array<{ value: T; label: string }>; onChange: (v: T) => void; label?: string }) {
+  const list = React.useRef<HTMLDivElement>(null)
+  const [thumb, setThumb] = React.useState<{ x: number; w: number; glide: boolean } | null>(null)
+  const was = React.useRef<T | null>(null)
+  const shape = options.map((o) => `${o.value}:${o.label}`).join("|")
+  React.useLayoutEffect(() => {
+    const el = list.current
+    if (!el) return
+    const place = (glide: boolean) => {
+      const on = el.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+      if (!on) return
+      const x = on.offsetLeft
+      const w = on.offsetWidth
+      setThumb((t) => (t && t.x === x && t.w === w ? t : { x, w, glide }))
+    }
+    place(was.current !== null && was.current !== value && !reduceMotion())
+    was.current = value
+    /* The words' widths change once the font is in, or in another language: placed again, at once. */
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(() => place(false)) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [value, shape])
   const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return
     const i = options.findIndex((o) => o.value === value)
@@ -153,7 +186,16 @@ function Tabs<T extends string>({ value, options, onChange, label }: { value: T;
     el?.focus()
   }
   return (
-    <div role="tablist" aria-label={label} data-segmented="" onKeyDown={onKey} className="inline-flex shrink-0 items-center gap-0.5 rounded-[10px] bg-[#f1f2f4] p-[3px]">
+    <div ref={list} role="tablist" aria-label={label} data-segmented="" onKeyDown={onKey} className="relative inline-flex shrink-0 items-center gap-0.5 rounded-[10px] bg-[#f1f2f4] p-[3px]">
+      {thumb ? (
+        <span
+          aria-hidden
+          data-segment-pill=""
+          data-glide={thumb.glide ? "" : undefined}
+          className={cn(PILL, "absolute inset-y-[3px] left-0", thumb.glide && "transition-[translate,width] duration-200 motion-reduce:transition-none")}
+          style={{ width: thumb.w, translate: `${thumb.x}px 0`, transitionTimingFunction: EASE }}
+        />
+      ) : null}
       {options.map((o) => {
         const on = o.value === value
         return (
@@ -166,16 +208,8 @@ function Tabs<T extends string>({ value, options, onChange, label }: { value: T;
             onClick={() => onChange(o.value)}
             className="group relative h-8 cursor-pointer rounded-[7px] px-3 text-[12.5px] font-medium outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[0_0_0_2px_rgba(139,92,246,0.4)] sm:h-7 sm:px-2.5 sm:text-[12px]"
           >
-            <span
-              aria-hidden
-              data-segment-pill=""
-              className={cn(
-                "absolute inset-0 rounded-[7px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.10),0_0_0_0.5px_rgba(17,24,39,0.06)] transition-[opacity,scale] duration-200 motion-reduce:transition-none",
-                on ? "scale-100 opacity-100" : "scale-[0.92] opacity-0",
-              )}
-              style={{ transitionTimingFunction: EASE }}
-            />
-            <span className={cn("relative whitespace-nowrap", on ? "text-[#1a1a2e]" : "text-[#6b7280] group-hover:text-[#1a1a2e]")}>{o.label}</span>
+            {on && !thumb ? <span aria-hidden data-segment-pill="" className={cn(PILL, "absolute inset-0")} /> : null}
+            <span className={cn("relative whitespace-nowrap transition-colors duration-200 motion-reduce:transition-none", on ? "text-[#1a1a2e]" : "text-[#6b7280] group-hover:text-[#1a1a2e]")}>{o.label}</span>
           </button>
         )
       })}
@@ -235,6 +269,8 @@ interface ListRow {
   /** What else there is to know, beside the name: "148 visitors", "Studio". */
   note?: string | null
   code?: string
+  /** Round 39: a row that is a thing of its own (a community's post) opens it, in a new tab. */
+  href?: string
 }
 
 function RowChange({ value, previous }: { value: number; previous: number | undefined }) {
@@ -279,9 +315,15 @@ function Row({ r, max, format, lead, previous }: { r: ListRow; max: number; form
         <Fill share={r.value / max} className="absolute inset-y-0 left-0 rounded-md" />
         <div className="relative flex min-w-0 items-center gap-2 pl-1">
           {lead && "flag" in lead ? <Flag code={r.code ?? r.key} /> : lead ? <SourceIcon kind={lead.icon} value={r.key} /> : null}
-          <span className={cn("min-w-0 truncate text-[13px] text-[#303036]", !lead && "pl-1.5")} title={r.label}>
-            {r.label}
-          </span>
+          {r.href ? (
+            <a href={r.href} target="_blank" rel="noopener noreferrer" className={cn("min-w-0 truncate text-[13px] text-[#303036] underline-offset-2 hover:underline", !lead && "pl-1.5")} title={r.label}>
+              {r.label}
+            </a>
+          ) : (
+            <span className={cn("min-w-0 truncate text-[13px] text-[#303036]", !lead && "pl-1.5")} title={r.label}>
+              {r.label}
+            </span>
+          )}
           {r.note ? <span className="min-w-0 max-w-[45%] shrink truncate pr-2 text-[12px] tabular-nums text-[#9ca3af]">{r.note}</span> : null}
         </div>
       </div>
@@ -328,19 +370,63 @@ function List({
           {tt("View all {length}", { length: rows.length })}
         </button>
       ) : null}
-      <Dialog open={all} onOpenChange={setAll}>
-        <DialogContent className="max-h-[80vh] w-[calc(100%-32px)] max-w-[480px] gap-0 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-0">
-          <div className="border-b border-[#eef0f2] px-5 py-4">
-            <DialogTitle className="text-[15px] font-semibold text-[#1a1a2e]">{title}</DialogTitle>
-          </div>
-          <ol className="max-h-[calc(80vh-64px)] overflow-y-auto px-5 py-2">
-            {rows.map((r) => (
-              <Row key={r.key} r={r} max={max} format={format} lead={lead} previous={before(r)} />
-            ))}
-          </ol>
-        </DialogContent>
-      </Dialog>
+      <AllRows open={all} onOpenChange={setAll} title={title} rows={rows} render={(r) => <Row key={r.key} r={r} max={max} format={format} lead={lead} previous={before(r)} />} />
     </>
+  )
+}
+
+/** A list long enough to be looked through gets a search above it. */
+const SEARCH_FROM = 9
+
+/** Lower case and without accents, so "sao" finds São Paulo. */
+const folded = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+
+/**
+ * EVERY ROW OF A LIST, in the /app dialog: its name and how many there are,
+ * a search when there are more than a glance takes in (SEARCH_FROM), and
+ * the rows as the card draws them, scrolling inside the dialog. The search
+ * keeps the dialog's height, so the rows never jump while one types; a
+ * search that finds nothing says so in the rows' place.
+ */
+function AllRows({ open, onOpenChange, title, rows, render }: { open: boolean; onOpenChange: (v: boolean) => void; title: string; rows: ListRow[]; render: (r: ListRow) => React.ReactNode }) {
+  const [query, setQuery] = React.useState("")
+  React.useEffect(() => {
+    if (!open) setQuery("")
+  }, [open])
+  const q = folded(query.trim())
+  const found = q ? rows.filter((r) => folded(`${r.label} ${r.note ?? ""}`).includes(q)) : rows
+  const searchable = rows.length >= SEARCH_FROM
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-all-rows="" className={cn("w-[calc(100%-32px)] max-w-[480px] gap-0 overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white p-0", searchable ? "h-[min(80vh,640px)] grid-rows-[auto_auto_minmax(0,1fr)]" : "max-h-[80vh]")}>
+        <div className="flex items-baseline gap-2 border-b border-[#eef0f2] px-5 py-4 pr-12">
+          <DialogTitle className="min-w-0 truncate text-[15px] font-semibold text-[#1a1a2e]">{title}</DialogTitle>
+          <span className="shrink-0 text-[13px] tabular-nums text-[#9ca3af]">{fmtCount(rows.length)}</span>
+        </div>
+        {searchable ? (
+          <label data-all-search="" className="mx-5 mt-3 flex h-10 cursor-text items-center gap-2 rounded-lg bg-[#f4f5f7] pl-3 pr-1 transition-[background-color,box-shadow] duration-150 focus-within:bg-white focus-within:shadow-[inset_0_0_0_1px_#d1d5db,0_0_0_3px_rgba(17,24,39,0.05)] sm:h-9">
+            <Search className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
+            <input
+              type="search"
+              enterKeyHint="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label={tt("Search {list}", { list: title })}
+              placeholder={tt("Search")}
+              className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[13px] [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query ? (
+              <button type="button" aria-label={tt("Clear search")} onClick={() => setQuery("")} className="grid h-8 w-8 shrink-0 cursor-pointer place-items-center rounded-md text-[#9ca3af] hover:text-[#4b5563]">
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
+          </label>
+        ) : null}
+        <ol className={cn("overflow-y-auto overscroll-contain px-5 py-2", searchable ? "min-h-0" : "max-h-[calc(80vh-64px)]")} data-all-list="">
+          {found.length ? found.map(render) : <li className="flex h-24 items-center justify-center text-center text-[13px] text-[#6b7280]">{tt("Nothing matches “{query}”.", { query: query.trim() })}</li>}
+        </ol>
+      </DialogContent>
+    </Dialog>
   )
 }
 
