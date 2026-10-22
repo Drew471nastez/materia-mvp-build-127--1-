@@ -634,6 +634,15 @@ ${SCOPE} .bg-white:is(.rounded-2xl, .rounded-xl, .rounded-\\[20px\\], .rounded-\
 ${SCOPE} :is([role="menu"], [role="listbox"]:not([aria-orientation="horizontal"]), [role="dialog"], [data-account-menu])${OWN} {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 48px -12px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06);
 }
+/*
+  THE GREY FILL (round 38, the owner: "that light gray gradient, not the purple one"): a share bar behind a list row
+  in Analytics (app/app/analytics/analytics-reports.tsx GREY_FILL). Dark, it is a neutral graphite step with the same
+  lit top edge, never violet and never a white wash.
+*/
+${SCOPE} [data-fill="grey"]${OWN} {
+  background-image: linear-gradient(180deg, #2a2a2f 0%, #242428 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.3) !important;
+}
 /* Pictures sit a touch below full brightness on the dark ground, never washed. */
 ${SCOPE} img:not([data-keep-bright])${OWN} {
   filter: brightness(0.96);

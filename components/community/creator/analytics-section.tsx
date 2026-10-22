@@ -67,7 +67,7 @@ import { DateRangePicker } from "@/components/app/date-range-picker"
 import { usePeriodParams } from "@/components/app/use-period-params"
 import { AnalyticsChartWithTooltip, type AnalyticsChartData } from "@/components/app/analytics-chart"
 import { ChartLegend, CompareContext, PercentChangeIndicator } from "@/app/app/analytics/analytics-client"
-import { ReportBody, ReportCard, ReportComparedContext, ReportEmpty, ReportList, ReportTabs, type ReportListRow } from "@/app/app/analytics/analytics-reports"
+import { GREY_FILL, ReportBody, ReportCard, ReportComparedContext, ReportEmpty, ReportList, ReportTabs, type ReportListRow } from "@/app/app/analytics/analytics-reports"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { longDate, presetRange, rangeLabel, type PresetId } from "@/lib/date-range/range"
 import { bucketLabel, bucketStarts, grainFor } from "@/lib/analytics/buckets"
@@ -807,7 +807,8 @@ function PostList({ posts, slug }: { posts: CommunityReport["topPosts"]; slug: s
             <div
               aria-hidden
               data-bar=""
-              className="absolute inset-y-1 left-0 rounded-md bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)] group-hover:brightness-[0.975]"
+              data-fill="grey"
+              className={cn("absolute inset-y-1 left-0 rounded-md group-hover:brightness-[0.975]", GREY_FILL)}
               style={{ width: `${Math.max(2, ((p.reactions + p.comments) / max) * 100)}%` }}
             />
             <a href={`/community/${slug}/post/${p.id}`} target="_blank" rel="noopener noreferrer" className="relative flex h-10 min-w-0 items-center pl-2.5 text-[13px] text-[#303036] hover:underline" title={p.title}>
