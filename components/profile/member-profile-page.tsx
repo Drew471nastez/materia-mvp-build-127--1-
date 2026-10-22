@@ -229,7 +229,6 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
         profile={{ display_name: profile.name, avatar_url: profile.avatarUrl, username: profile.username, created_at: profile.joinedAt }}
         products={[]}
         productCount={0}
-        followerCount={profile.followers}
         ownerActions={isSelf ? <PersonOwnerActions /> : null}
         followRow={
           <ProfileSocial

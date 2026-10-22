@@ -172,9 +172,8 @@ function Creator() {
         profile={{ display_name: "Calvin", avatar_url: FACE, username: "calvin", created_at: "2026-09-26" } as never}
         productCount={0}
         globalSettings={defaultGlobalStoreSettings as never}
-        followerCount={3}
         surface={{ textColor: chrome.text, mutedColor: chrome.muted, avatarBorderColor: chrome.avatarBorder }}
-        followRow={<ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Calvin" followers={3} following={2} viewerFollowing={false} signedIn isSelf={owner} />}
+        followRow={owner ? null : <ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Calvin" showCounts={false} viewerFollowing={false} signedIn isSelf={false} />}
       />
       <div data-probe-catalogue="">
         {owner ? <FirstProductPrompt scheme={chrome.action} /> : null}

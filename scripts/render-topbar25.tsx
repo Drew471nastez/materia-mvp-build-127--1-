@@ -94,7 +94,6 @@ function Page() {
           creator={{ id: "c1", bio: "Building cool stuff on the internet...CEO @Storelib" } as never}
           products={[]}
           productCount={0}
-          followerCount={5}
           surface={storefrontHeaderSurface(chrome)}
         />
       </div>

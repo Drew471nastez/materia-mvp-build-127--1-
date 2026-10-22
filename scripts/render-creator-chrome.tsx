@@ -94,7 +94,6 @@ const parts = SCHEMES.map((preset) => {
           creator={{ id: "c1", bio: "Building cool stuff on the internet" } as never}
           products={[]}
           productCount={0}
-          followerCount={2}
           surface={{ textColor: chrome.text, mutedColor: chrome.muted }}
         />
       </div>
