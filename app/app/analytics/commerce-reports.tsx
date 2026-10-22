@@ -332,7 +332,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
                       {money(c.total)} <span className="text-[12px] text-[#9ca3af]">· {tt("{count, plural, one {# order} other {# orders}}", { count: c.orders })}</span>
                     </span>
                   </div>
-                  <ReportFill share={c.total / channelMax} color={ACCENT} track="#f1f2f4" className="mt-1.5 h-1.5 rounded-full" />
+                  <ReportFill share={c.total / channelMax} thin className="mt-1.5 h-1.5 rounded-full" />
                 </div>
               ))}
             </div>

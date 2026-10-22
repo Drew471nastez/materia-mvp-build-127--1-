@@ -29,11 +29,22 @@
  * NOTHING SCROLLS INSIDE A CARD. A list shows its top five and opens the rest
  * in a dialog, so a wheel or a thumb over a card always moves the page.
  *
- * MOTION IS TRANSFORM AND OPACITY. A bar grows by sliding in from its left
- * (translateX inside its own track), a switcher's pill fades in under the
- * tab, a card arrives by rising and fading, and a card moved in the order
- * slides from where it was (FLIP). Nothing animates a width, a height or a
- * filter, so every frame is the compositor's.
+ * MOTION IS TRANSFORM AND OPACITY, but for the fills. A switcher's pill
+ * fades in under the tab, a card arrives by rising and fading, and a card
+ * moved in the order slides from where it was (FLIP). A fill (GREY_FILL)
+ * grows its own width: it is placed on its own (absolute, or a box nothing
+ * else depends on), so nothing around it is laid out again, and its rounded
+ * end and its soft edge stay whole, which a slide inside a clipped track
+ * could not keep.
+ *
+ * ROUND 38, THE OWNER: "the progress fills in the analytics in /app and in
+ * the community: back in the day it was that light gray gradient, not the
+ * purple one. Fully get rid of it." Every fill in these cards (the rows of
+ * every list, the funnel's steps, the sales channels, the community's lists
+ * and its top posts) is GREY_FILL again, the exact classes the rows had
+ * before round 34 (commit 2d229d8b's parent), and none is violet. The
+ * chart's line and the added reports' columns are data on a chart, not
+ * fills: they stay the accent.
  */
 
 import * as React from "react"
@@ -54,10 +65,23 @@ import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { formatCurrency } from "@/lib/markets/money"
 
-/** Storelib's accent, the one every /app screen uses: the funnel's bars and the added reports' columns. */
+/** Storelib's accent, the one every /app screen uses: the added reports' columns. */
 const ACCENT = "#8b5cf6"
-/** The quiet bar behind a list row: the accent at a tenth, flat, never a gradient. */
-const ROW_BAR = "rgba(139,92,246,0.10)"
+/**
+ * THE FILL: the light grey gradient the rows had before round 34, class for
+ * class (commit 2d229d8b's parent, app/app/analytics/analytics-reports.tsx),
+ * with its lit top edge, its hairline and its soft shadow. Every share bar
+ * in /app Analytics and in a community's Analytics is this; the dark look's
+ * neutral is scripts/gen-theme-dark.mjs's [data-fill="grey"].
+ */
+export const GREY_FILL =
+  "bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)]"
+/**
+ * The same grey a step deeper, for a thin bar with no name on it (the
+ * funnel's steps, the sales channels): at 6px the row's grey all but
+ * vanishes on the white card, measured in the round 38 probe's shots.
+ */
+const GREY_FILL_THIN = "bg-[linear-gradient(180deg,#e8eaee_0%,#dcdfe4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_0_0_1px_rgba(16,24,40,0.04)]"
 const EASE = "cubic-bezier(0.32,0.72,0,1)"
 
 /* The store's own currency (Settings › Languages & Currency), set by AnalyticsReports from the /app layout's: lei for a store in lei. */
@@ -181,21 +205,21 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * A FILL BAR: its track, and the fill slid in from the left to its share
- * (translateX, so it animates on the compositor and keeps its rounded end
- * at every size). `share` is 0 to 1.
+ * A FILL: GREY_FILL at its share of the width, grown from the left (its
+ * width, 500ms, on a box placed on its own). `share` is 0 to 1; `min` keeps
+ * a counted row visible.
  */
-function Fill({ share, color, className, track, min = 0.02 }: { share: number; color: string; className?: string; track?: string; min?: number }) {
+function Fill({ share, className, min = 0.02, thin = false }: { share: number; className?: string; min?: number; thin?: boolean }) {
   const s = Math.max(min, Math.min(1, Number.isFinite(share) ? share : 0))
   return (
-    <div aria-hidden className={cn("overflow-hidden", className)} style={track ? { background: track } : undefined}>
-      <div
-        data-bar=""
-        data-share={s.toFixed(3)}
-        className="h-full w-full rounded-[inherit] transition-transform duration-500 motion-reduce:transition-none"
-        style={{ background: color, transform: `translateX(${((s - 1) * 100).toFixed(2)}%)`, transitionTimingFunction: EASE }}
-      />
-    </div>
+    <div
+      aria-hidden
+      data-bar=""
+      data-fill="grey"
+      data-share={s.toFixed(3)}
+      className={cn(thin ? GREY_FILL_THIN : GREY_FILL, "transition-[width,filter] duration-500 group-hover:brightness-[0.975] motion-reduce:transition-none", className)}
+      style={{ width: `${(s * 100).toFixed(2)}%`, transitionTimingFunction: EASE }}
+    />
   )
 }
 
@@ -252,7 +276,7 @@ function Row({ r, max, format, lead, previous }: { r: ListRow; max: number; form
   return (
     <li className="group flex h-10 items-center gap-3" data-row-key={r.key}>
       <div className="relative flex h-8 min-w-0 flex-1 items-center">
-        <Fill share={r.value / max} color={ROW_BAR} className="absolute inset-0 rounded-md" />
+        <Fill share={r.value / max} className="absolute inset-y-0 left-0 rounded-md" />
         <div className="relative flex min-w-0 items-center gap-2 pl-1">
           {lead && "flag" in lead ? <Flag code={r.code ?? r.key} /> : lead ? <SourceIcon kind={lead.icon} value={r.key} /> : null}
           <span className={cn("min-w-0 truncate text-[13px] text-[#303036]", !lead && "pl-1.5")} title={r.label}>
@@ -377,7 +401,7 @@ function Funnel({ steps }: { steps: FunnelStep[] }) {
                   {!s.recorded ? "" : s.rate !== null ? fmtPct(s.rate) : ""}
                 </span>
               </div>
-              <Fill share={s.recorded ? s.value / top : 0} min={s.recorded ? 0.015 : 0} color={ACCENT} track="#f1f2f4" className="mt-1 h-[6px] rounded-full" />
+              <Fill share={s.recorded ? s.value / top : 0} min={s.recorded ? 0.015 : 0} thin className="mt-1 h-[6px] rounded-full" />
             </li>
           )
         })}

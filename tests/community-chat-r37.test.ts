@@ -230,7 +230,7 @@ console.log("\nPart 270")
   check("a retried send is one row: client_id unique per author on all three message tables", ["community_chat_group_messages", "community_messages", "community_direct_messages"].every((t) => new RegExp(`CREATE UNIQUE INDEX IF NOT EXISTS ${t}_client_key ON public\\.${t} \\(author_id, client_id\\) WHERE client_id IS NOT NULL`).test(sql)))
   check("safe to run again: every create checks first", sql.split("\n").filter((l) => /^CREATE (TABLE|INDEX|UNIQUE INDEX) /.test(l) && !/IF NOT EXISTS/.test(l)).length === 0 && sql.split("\n").filter((l) => /^CREATE POLICY/.test(l)).length === 0 && sql.includes("DROP TRIGGER IF EXISTS community_chat_group_members_count ON public.community_chat_group_members;\nCREATE TRIGGER community_chat_group_members_count"))
   check("one statement per line, the note first", sql.split("\n")[0].startsWith("/*") && sql.trimEnd().endsWith("notify pgrst, 'reload schema';"))
-  check("a README row and a check column", read("supabase/sql/run-now/README.md").includes("| `270_community_chat_realtime.sql` |") && /as p270_community_chat_realtime;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("a README row and a check column", read("supabase/sql/run-now/README.md").includes("| `270_community_chat_realtime.sql` |") && /as p270_community_chat_realtime[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
   check("copy: no em dash, no banned word", !/—/.test(sql) && !/\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(sql + code("components/community/member/chat-surface.tsx") + code("components/community/creator/chat-panel.tsx")))
 }
 

@@ -131,9 +131,8 @@ function Creator() {
         profile={{ display_name: "Calvin Reyes", avatar_url: FACE, username: "calvin", created_at: "2025-01-04" } as never}
         productCount={0}
         globalSettings={defaultGlobalStoreSettings as never}
-        followerCount={128}
         surface={storefrontHeaderSurface(chrome)}
-        followRow={<ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Calvin" followers={128} following={41} viewerFollowing={false} signedIn isSelf={false} location={locationLine({ city: "Lisbon", country: "PT" })} />}
+        followRow={<ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Calvin" showCounts={false} viewerFollowing={false} signedIn isSelf={false} location={locationLine({ city: "Lisbon", country: "PT" })} />}
       />
       {tabs.length ? <StorefrontTabs tabs={tabs} surface={storefrontTabsSurface(chrome)} /> : null}
       <div data-probe-about="">

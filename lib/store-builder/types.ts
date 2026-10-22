@@ -474,6 +474,7 @@ export interface ShopHeaderSettings {
    * anything to disappear.
    */
   showReviews?: boolean
+  /** Read by nothing since round 38: a creator page shows no followers or following at all. Kept so stored configs still type. */
   showFollowers?: boolean
   /*
     showCategory and showNicheTags were here. They switched a category pill

@@ -73,7 +73,6 @@ export interface EditProfileButtonProps {
    */
   display?: {
     showReviews?: boolean
-    showFollowers?: boolean
     showTotalSalesBadge?: boolean
     showSocialMedia?: boolean
   }
@@ -139,7 +138,6 @@ export function EditProfileButton({
   const [links, setLinks] = React.useState<Record<string, string>>(() => ({ ...socialLinks }))
   const [shown, setShown] = React.useState<Record<string, boolean>>(() => ({
     showReviews: display?.showReviews ?? true,
-    showFollowers: display?.showFollowers ?? true,
     showTotalSalesBadge: display?.showTotalSalesBadge ?? true,
     showSocialMedia: display?.showSocialMedia ?? true,
   }))
@@ -201,7 +199,6 @@ export function EditProfileButton({
       setLinks({ ...saved.socialLinks })
       setShown({
         showReviews: saved.display?.showReviews ?? true,
-        showFollowers: saved.display?.showFollowers ?? true,
         showTotalSalesBadge: saved.display?.showTotalSalesBadge ?? true,
         showSocialMedia: saved.display?.showSocialMedia ?? true,
       })
@@ -513,6 +510,9 @@ export function EditProfileButton({
               who wanted their followers shown and their rating hidden had to
               choose between everything and nothing. Each item is its own now.
 
+              No Followers switch (round 38): a creator page never shows
+              followers or following, so there is nothing to switch.
+
               Each row says what it does rather than naming the field, because
               "showTotalSalesBadge" is a column name and "Sales count" is what
               a person is deciding about.
@@ -523,7 +523,6 @@ export function EditProfileButton({
                 {(
                   [
                     ["showReviews", "Rating and reviews"],
-                    ["showFollowers", "Followers"],
                     ["showTotalSalesBadge", "Sales count"],
                     ["showSocialMedia", "Social links"],
                   ] as const

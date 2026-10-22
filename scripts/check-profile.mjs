@@ -445,8 +445,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         }
       })
       expect(geo.row && Math.abs(geo.actionsCx - geo.w / 2) <= 2, "the follow block sits under the bio, centred", geo)
-      expect(geo.counts === "1.3k followers · 64 following" && geo.countsH <= 24 && geo.countButtons === 0, "followers and following: one quiet line, nothing to press", geo)
-      expect(geo.metaFollowers === 0, "the follower count is printed once", geo.metaFollowers)
+      /* Changed on purpose (round 38): followers and following only on profiles, never on a creator page. */
+      expect(geo.counts === undefined && geo.countsH === null, "no followers or following on a creator page", geo)
+      expect(geo.metaFollowers === 0, "and none in the meta row either", geo.metaFollowers)
       const look = () =>
         p.evaluate(() => {
           const b = document.querySelector("[data-storefront-follow] [data-follow-button]")

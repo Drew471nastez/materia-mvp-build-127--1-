@@ -483,14 +483,18 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * looked up by `profile.id`, so it cannot start any earlier.
    */
   /*
-    STARTED WITH THE BATCH BELOW, AWAITED WHERE THEY ALWAYS WERE. How many
-    this creator follows, whether the viewer follows them, where they are
-    from and which products are off this page need only the profile, the
-    creator and the viewer, all known or in flight by now. They waited for
-    the whole batch and then for each other: two more round trips in a row
-    on every visit (lib/perf/optimizations.ts). Same reads, same answers.
+    STARTED WITH THE BATCH BELOW, AWAITED WHERE THEY ALWAYS WERE. Whether
+    the viewer follows them, where they are from and which products are off
+    this page need only the profile, the creator and the viewer, all known or
+    in flight by now. They waited for the whole batch and then for each
+    other: two more round trips in a row on every visit
+    (lib/perf/optimizations.ts). Same reads, same answers.
+
+    NO FOLLOWER OR FOLLOWING COUNT IS READ HERE. The owner (round 38):
+    followers and following live on personal profiles and member profiles
+    inside communities, not on creator pages. So neither count is queried;
+    Follow itself stays.
   */
-  const followingPromise = Promise.resolve(supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id))
   const viewerFollowsPromise = viewerPromise.then(({ data }) =>
     data.user && data.user.id !== profile.id
       ? supabase.from("follows").select("id").eq("follower_id", data.user.id).eq("following_id", profile.id).maybeSingle().then((r) => !!r.data)
@@ -504,7 +508,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     {
       data: { user: viewer },
     },
-    { count: followerCount },
     { data: creatorReviews, error: creatorReviewsError },
     viewerBoughtFromCreator,
   ] = await Promise.all([
@@ -541,14 +544,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      * but a button that fails.
      */
     viewerPromise,
-    /**
-     * How many people follow this creator. A follow points at their PROFILE
-     * rather than their creator row — a person is the thing you follow — so
-     * this counts against `profile.id`.
-     *
-     * `head: true` means the rows never travel; only the count does.
-     */
-    supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
     /**
      * The reviews behind the rating in the meta row. Capped, because the tab
      * shows the most recent rather than the complete history and a creator
@@ -625,14 +620,12 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   ])
   const pageHost = await pageHostPromise
   /*
-    THE OTHER HALF OF THE FOLLOW GRAPH, AND THE VIEWER'S PLACE IN IT: how
-    many people this creator follows and whether the viewer follows them.
-    Started after the batch because the second needs the viewer, which the
+    THE VIEWER'S PLACE IN THE FOLLOW GRAPH: whether the viewer follows this
+    creator. Started after the batch because it needs the viewer, which the
     batch has just settled. No Message: the owner asked for only Follow on
     creator pages for now, so nothing looks for a shared community.
   */
-  const [{ count: followingCount }, viewerFollowsCreator, requestHeaders, place] = await Promise.all([
-    followingPromise,
+  const [viewerFollowsCreator, requestHeaders, place] = await Promise.all([
     viewerFollowsPromise,
     headers(),
     /* Where they are from, under their name (round 12, run-now part 98); none before it runs (lib/profile/location). */
@@ -758,28 +751,32 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * component, not even hidden.
    */
   /**
-   * FOLLOWERS, FOLLOWING AND FOLLOW under the creator's name, the same block
-   * a member's profile has (components/profile/profile-social), drawn in the
+   * WHERE THEY ARE FROM AND FOLLOW under the creator's name, the same block a
+   * member's profile has (components/profile/profile-social), drawn in the
    * page's own colours. Not in the editor's canvas, where the page is being
-   * edited rather than visited. The counts follow the creator's Show
-   * followers switch; the button is there either way.
+   * edited rather than visited.
+   *
+   * NO FOLLOWERS OR FOLLOWING ON A CREATOR PAGE (round 38). The owner: "I
+   * want followers and following to only be inside profiles, inside
+   * communities, not in creator pages at all". So the counts are never
+   * drawn here, whatever the old Show followers switch says; the button
+   * stays. The owner sees no Follow on their own page, so with no place to
+   * show either there is nothing to draw.
    */
-  const buildFollowRow = (headerSettings?: ShopHeaderSettings, scheme?: ActionScheme | null) => {
+  const buildFollowRow = (scheme?: ActionScheme | null) => {
     if (embedded) return null
-    const showCounts = headerSettings?.showFollowers ?? true
-    if (viewerIsOwner && !showCounts) return null
+    const location = locationLine(place)
+    if (viewerIsOwner && !location) return null
     return (
       <ProfileSocial
         tone="storefront"
         userId={profile.id}
         name={profile.display_name || username}
-        followers={followerCount ?? 0}
-        following={followingCount ?? 0}
         viewerFollowing={viewerFollowsCreator}
         signedIn={!!viewer}
         isSelf={viewerIsOwner}
-        showCounts={showCounts}
-        location={locationLine(place)}
+        showCounts={false}
+        location={location}
         /* Follow in the creator's own button colours, the scheme they picked in the page editor. */
         scheme={scheme ?? null}
       />
@@ -816,7 +813,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         }}
         display={{
           showReviews: headerSettings?.showReviews,
-          showFollowers: headerSettings?.showFollowers,
           // The sales badge needs both flags to be on, so the switch has to
           // show the AND of them or it lies about its own state.
           showTotalSalesBadge:
@@ -1438,8 +1434,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           ownerActions={buildOwnerActions(headerSettings, savedPreset, schemeRoots)}
           reviewCount={creatorReviewCount}
           reviewAverage={creatorRating}
-          followerCount={followerCount ?? 0}
-          followRow={buildFollowRow(headerSettings, chrome.action)}
+          followRow={buildFollowRow(chrome.action)}
           badges={creatorBadges(profile)}
           /**
            * The scheme's type colours. Without these the block reads its own
@@ -1765,8 +1760,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         ownerActions={buildOwnerActions(defaultShopHeaderSettings)}
         reviewCount={creatorReviewCount}
         reviewAverage={creatorRating}
-        followerCount={followerCount ?? 0}
-        followRow={buildFollowRow(defaultShopHeaderSettings, resolveStorefrontChrome(undefined).action)}
+        followRow={buildFollowRow(resolveStorefrontChrome(undefined).action)}
         badges={creatorBadges(profile)}
       />
 

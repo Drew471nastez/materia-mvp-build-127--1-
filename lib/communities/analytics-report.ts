@@ -152,6 +152,12 @@ export interface CommunityReport {
    */
   live: { members: number; active1: number; active7: number; active30: number; stickiness: number | null }
   /**
+   * Round 38: the owner is one of the members in Members, and left out of
+   * Active members and Engagement (and of what Engagement divides), so a
+   * share of members is taken of the others. Absent on an older answer.
+   */
+  ownerLeftOut?: boolean
+  /**
    * The members active in the period, split by when they joined: inside the
    * period (new) or before it (returning). Null before part 184 (no member
    * days to count from).
