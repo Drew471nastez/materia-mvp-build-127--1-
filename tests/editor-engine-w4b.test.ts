@@ -165,7 +165,7 @@ console.log("\nN2  A COMMITTED CHANGE IS DRAWN BY ITS SECTION BEFORE THE DEFERRE
   resetLive()
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("the editor echoes a section's and a block's committed setting, after the same-value check", /if \(current && sameSettingValue\(current\.settings\?\.\[key\], value\)\) return\s*\/\*[^*]*\*\/\s*if \(current\) echoSectionSetting\(sectionId, key, value\)/.test(editor) && /if \(block\) echoBlockSetting\(sectionId, blockKey, key, value\)/.test(editor))
-  check("and checks every echo against its own state after each render", /useLayoutEffect\(\(\) => \{\s*reconcileEchoes\(\(id\) => sectionsRef\.current\.find\(\(s\) => s\.id === id\)\)\s*\}\)/.test(editor))
+  check("and checks every echo against its own state after each render", /* Changed on purpose (round ed-1022): the theme's echo too (live-settings.ts reconcileThemeEcho). */ /useLayoutEffect\(\(\) => \{\s*reconcileEchoes\(\(id\) => sectionsRef\.current\.find\(\(s\) => s\.id === id\)\)\s*reconcileThemeEcho\(settingsRef\.current as Record<string, unknown>\)\s*\}\)/.test(editor))
   const live = read("lib/website-builder/live-settings.ts")
   check("a section draws the echo under a finger's value, and lets go of it once its copy has caught up", /withLive\(withLive\(section, e\), o\)/.test(live) && /if \(e && echoes\.get\(section\.id\) === e && settled\(section, e\)\) echoes\.delete\(section\.id\)/.test(live))
 }

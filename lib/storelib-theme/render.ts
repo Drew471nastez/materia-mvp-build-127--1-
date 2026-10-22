@@ -86,21 +86,37 @@ export interface Rendered {
  * code is added here, to every price the page was handed, once per list.
  * Off, the lists go through untouched.
  */
-/* The store's currency (lib/store/shop-money.ts): a price written "RON 48.00" names it already, and is left as it is. */
+/*
+  THE CODE OF THE CURRENCY THE PRICE IS WRITTEN IN. Each card says which
+  (`settings.currency`: the store's own, from Settings › Country & Currency,
+  or the market's once lib/markets/pricing.ts pricesInMarket has converted
+  it); the deployment's (lib/store/shop-money.ts) only when a card does not.
+  It was always the deployment's, and only after a price that began with a
+  dollar sign: a store selling in lei, euros or pounds turned Show currency
+  codes on and no card changed, in the builder or on the website, and a
+  dollar store on a lei deployment was labelled RON.
+*/
 const SHOP_CURRENCY_CODE = SHOP_CURRENCY
 const coded = new WeakMap<object, unknown>()
 
-function withCode(price: unknown): unknown {
-  if (typeof price !== "string" || price === "" || price.includes(SHOP_CURRENCY_CODE)) return price
-  return price.replace(/^(\$[\d,]+(?:\.\d+)?)/, `$1 ${SHOP_CURRENCY_CODE}`)
+/** "$48.00" to "$48.00 USD", "48,00 lei" to "48,00 lei RON", as Shopify's money_with_currency: the amount as written, then the code. */
+export function withCurrencyCode(price: unknown, code: unknown): unknown {
+  if (typeof price !== "string" || price.trim() === "") return price
+  const c = typeof code === "string" && /^[A-Z]{3}$/.test(code) ? code : SHOP_CURRENCY_CODE
+  /* A price that names its code already ("RON 48.00") is left as it is. */
+  if (new RegExp(`(^|[^A-Z])${c}([^A-Z]|$)`).test(price)) return price
+  /* Words with no amount in them ("Free") are not a price to label. */
+  if (!/\d/.test(price)) return price
+  return `${price.trim()} ${c}`
 }
 
 function codedCard<T extends { settings: Record<string, unknown> }>(card: T): T {
   const s = card.settings
+  const code = s.currency
   const variants = Array.isArray(s.variants)
-    ? (s.variants as Record<string, unknown>[]).map((v) => ({ ...v, price: withCode(v.price), compare_price: withCode(v.compare_price) }))
+    ? (s.variants as Record<string, unknown>[]).map((v) => ({ ...v, price: withCurrencyCode(v.price, code), compare_price: withCurrencyCode(v.compare_price, code) }))
     : s.variants
-  return { ...card, settings: { ...s, price: withCode(s.price), compare_price: withCode(s.compare_price), ...(variants !== undefined ? { variants } : {}) } }
+  return { ...card, settings: { ...s, price: withCurrencyCode(s.price, code), compare_price: withCurrencyCode(s.compare_price, code), ...(variants !== undefined ? { variants } : {}) } }
 }
 
 function codedList<T extends { settings: Record<string, unknown> }>(list: T[] | undefined): T[] | undefined {

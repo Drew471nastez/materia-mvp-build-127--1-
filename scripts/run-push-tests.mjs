@@ -48,6 +48,8 @@ const SUITES = [
   /* Round X3: light or dark in Website Settings (the shared choice), the quieter language chip, Copy under the creator's message, a product's translations one language at a time; scripts/check-ui-polish-x.mjs measures them. */
   "tests/ui-polish-x.test.ts",
   "tests/shop-money.test.ts",
+  /* Round ed-1022: every edit on the canvas at once (the ease, the overlay kept after a drag, the currency code, variables-only theme values); scripts/check-editor-live.mjs measures them. */
+  "tests/editor-live-updates.test.ts",
   "tests/store-currency.test.ts",
   "tests/round-am.test.ts",
   "tests/round-an.test.ts",
