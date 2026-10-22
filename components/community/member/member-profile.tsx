@@ -84,7 +84,7 @@ import { LevelBadge } from "./level-badge"
 import { RoleBadge } from "./role-badge"
 import { toast } from "./toast"
 import { ICON_BTN } from "./ui"
-import { openMessages, warmConversation } from "./messages"
+import { openMessages, warmConversation } from "./messages-signal"
 
 export interface MemberProfilePlaceProps {
   /** The community the place is in (the shell's community: only these are read). */

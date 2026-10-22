@@ -91,7 +91,8 @@ import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
 import { useCommunityAppearance } from "@/lib/communities/client/appearance-choice"
 import "../community-theme.css"
-import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
+import { MESSAGES_EVENT, useUnreadMessages } from "./messages-signal"
+import { MessagesPanelLazy } from "./messages-lazy"
 import { FULL_ON_HOVER, navEntries, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
 import { toast, Toasts } from "./toast"
@@ -720,7 +721,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
 
         {community.archived ? null : <InviteSheet open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
         <PersonCardLayer communityId={community.id} canMessage={canMessage} />
-        {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
+        {canMessage ? <MessagesPanelLazy communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
         {viewer.active ? <WebPushPrompt communityName={community.name} joinedAt={viewer.joinedAt ?? null} placement="floating" /> : null}
         <Toasts />
       </div>

@@ -118,13 +118,15 @@ async function main() {
     check("a row already kept up to its newest message is not asked for again", /if \(newest && lastAt && Date\.parse\(newest\) >= Date\.parse\(lastAt\)\) return/.test(core))
     check("one time formatter for every bubble", /CLOCK \?\?= new Intl\.DateTimeFormat/.test(core) && !/toLocaleTimeString/.test(core))
     const msgs = code("components/community/member/messages.tsx")
+    /* Changed on purpose (round 39): the badge's number, its kept list and the conversation's key live in messages-signal.ts, so community pages load without the panel. */
+    const signal = code("components/community/member/messages-signal.ts")
     check("the list: kept per community and member, drawn from the kept copy, refreshed quietly", /useState<InboxData \| null>\(\(\) => keptList<InboxData>\(communityId, userId\)\)/.test(msgs) && /keepList\(communityId, userId, next\)/.test(msgs) && !/let inboxKept/.test(msgs))
-    check("and read before the panel first opens, from the badge's own ask", /keepList\(communityId, userId, \{ conversations: r\.data\.conversations/.test(msgs) && /if \(!userId \|\| initial === null \|\| keptList\(communityId, userId\)\) return/.test(msgs))
+    check("and read before the panel first opens, from the badge's own ask", /keepList\(communityId, userId, \{ conversations: r\.data\.conversations/.test(signal) && /if \(!userId \|\| initial === null \|\| keptList\(communityId, userId\)\) return/.test(signal))
     check("rows asked for on hover, touch and focus, and the top rows as the list is drawn", (msgs.match(/onPointerEnter=\{\(\) => warm\(/g) ?? []).length === 2 && (msgs.match(/onTouchStart=\{\(\) => warm\(/g) ?? []).length === 2 && /const WARM_TOP = 3/.test(msgs))
     check("the list's skeleton is row shaped and only for a list never read", /data-messages-skeleton=""/.test(msgs) && /rows === null && !failed \?/.test(msgs))
     check("the stream's join does not ask for the list a second time", /if \(Date\.now\(\) - askedAt\.current > 2000\) void load\(\)/.test(msgs))
     /* Changed on purpose (round 39): the key is built in one place (dmWithKey), which the hover's ask fills too. */
-    check("a conversation opened from a profile again opens at once", /keptValue<\{ id: string; other: Person \| null \}>\(dmWithKey\(communityId, start\.userId!\)\)/.test(msgs) && /return `dm-with:\$\{communityId\}:\$\{userId\}`/.test(msgs))
+    check("a conversation opened from a profile again opens at once", /keptValue<\{ id: string; other: Person \| null \}>\(dmWithKey\(communityId, start\.userId!\)\)/.test(msgs) && /return `dm-with:\$\{communityId\}:\$\{userId\}`/.test(signal))
     const s = code("components/community/member/chat-surface.tsx")
     check("no spinner anywhere in the chat screen", !/Spinner/.test(s) && !/place-spinner/.test(s))
     check("a cold open draws skeleton bubbles where the messages land", /\{!loaded && items\.length === 0 \? \(\s*<SkeletonBubbles \/>/.test(s) && /h-\[34px\] rounded-\[18px\]/.test(s))

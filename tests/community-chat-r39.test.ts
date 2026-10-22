@@ -146,7 +146,7 @@ async function main() {
     check("a private channel; its own member says here while the page is visible, and leaves when hidden", /supabase\.channel\(topic, \{ config: \{ private: true, presence: \{ key: me \?\? "" \} \} \}\)/.test(p) && /if \(document\.visibilityState === "visible"\) void Promise\.resolve\(channel\.track\(/.test(p) && /channel\.untrack\(\)/.test(p))
     check("one channel per topic for the page, kept a moment after the last user leaves", /const WATCHED = new Map<string, Watch>\(\)/.test(p) && /if \(mine\.users > 0 \|\| WATCHED\.get\(topic\) !== mine\) return/.test(p))
     const m = code("components/community/member/messages.tsx")
-    check("every member page with messages on says its member is here", /useBeHere\(communityId, userId, initial !== null\)/.test(m))
+    check("every member page with messages on says its member is here", /useBeHere\(communityId, userId, initial !== null\)/.test(code("components/community/member/messages-signal.ts")))
     check("the header: typing, else online or last seen, else the @name, on one line of fixed height; a dot on the picture while online", /\{typing \? "typing" : status \|\| \(other\.username \? `@\$\{other\.username\}` : ""\)\}/.test(m) && /block h-4 truncate text-\[12px\] leading-4/.test(m) && /data-online-dot=""/.test(m))
     check("typing reaches the header from the chat (and stays above the box)", /onTypingChange=\{setTyping\}/.test(m) && /onTypingChange\?\.\(typingKey \? typingKey\.split\("\\u0000"\) : \[\]\)/.test(code("components/community/member/chat-surface.tsx")) && /data-chat-typing=""/.test(code("components/community/member/chat-surface.tsx")))
   }
@@ -160,11 +160,22 @@ async function main() {
     check("its first frame is drawn at the start, then it moves; it goes a beat after the motion ends", /void box\.current\?\.getBoundingClientRect\(\)\s*const raf = requestAnimationFrame\(\(\) => setPhase\("in"\)\)/.test(m) && /\(phone \? SHEET_OUT_MS : EXIT_MS\) \+ 40/.test(m))
   }
 
+  console.log("\nEvery community page loads without the panel")
+  {
+    const frame = code("components/community/member/shell-frame.tsx")
+    const sig = code("components/community/member/messages-signal.ts")
+    check("the frame takes the number and the event from messages-signal.ts, and the panel through its lazy loader", /import \{ MESSAGES_EVENT, useUnreadMessages \} from "\.\/messages-signal"/.test(frame) && /<MessagesPanelLazy /.test(frame) && !/from "\.\/messages"/.test(frame))
+    check("the signal module never reaches for the panel or the chat screen", !/from "\.\/(messages|chat-surface|lightbox|chat-rich)"/.test(sig) && !/import\(/.test(sig))
+    check("the panel is its own chunk, fetched when the page is idle and drawn from the first opening on", /lazy\(\(\) => import\("\.\/messages"\)\.then\(\(m\) => \(\{ default: m\.MessagesPanel \}\)\)\)/.test(code("components/community/member/messages-lazy.tsx")) && /import type \{ MessagesPanel as Panel \} from "\.\/messages"/.test(code("components/community/member/messages-lazy.tsx")))
+    check("profiles and the members list open conversations through the signal module too", ["member-profile.tsx", "members.tsx"].every((f) => /import \{ openMessages, warmConversation \} from "\.\/messages-signal"/.test(code(`components/community/member/${f}`))))
+  }
+
   console.log("\nOpening a conversation from a profile")
   {
     const m = code("components/community/member/messages.tsx")
-    check("hovered, touched or focused: the conversation found without making one, with its newest page, once a person", /api<[^>]*>\(`\$\{apiBase\(communityId\)\}\/dms\?with=\$\{encodeURIComponent\(userId\)\}`\)/.test(m) && /WARMED\.has\(key\)/.test(m) && /keepAnswered\(chatCacheKey\(me, "dm", r\.data\.conversation\.id\), r\.data\.page\)/.test(m))
-    check("pressed cold: its header at once from the person the button knew, made or found with its page in one answer", /setView\(\{ kind: "opening", other: start\.person \?\? null \}\)/.test(m) && /\{ body: \{ userId, page: true \} \}/.test(m) && /setView\(\{ kind: "thread", id: c\.id, other: c\.other \?\? start\.person \?\? null, still: true \}\)/.test(m))
+    const sig = code("components/community/member/messages-signal.ts")
+    check("hovered, touched or focused: the conversation found without making one, with its newest page, once a person", /api<[^>]*>\(`\$\{apiBase\(communityId\)\}\/dms\?with=\$\{encodeURIComponent\(userId\)\}`\)/.test(sig) && /WARMED\.has\(key\)/.test(sig) && /keepAnswered\(chatCacheKey\(me, "dm", r\.data\.conversation\.id\), r\.data\.page\)/.test(sig))
+    check("pressed cold: its header at once from the person the button knew, made or found with its page in one answer", /setView\(\{ kind: "opening", other: start\.person \?\? null \}\)/.test(m) && /\{ body: \{ userId, page: true \} \}/.test(sig) && /setView\(\{ kind: "thread", id: c\.id, other: c\.other \?\? start\.person \?\? null, still: true \}\)/.test(m))
     check("the conversation takes the opening's place without sliding", /\$\{still \? "" : slideClass\(back\)\}/.test(m))
     const profile = code("components/community/member/member-profile.tsx")
     check("the profile's and the members list's Message buttons ask ahead", /onPointerEnter=\{data\.message\.can \? \(\) => warmConversation\(community\.id, null, person\.userId\) : undefined\}/.test(profile) && /onTouchStart=\{data\.message\.can/.test(profile) && /warmConversation\(communityId, null, m\.userId\)/.test(code("components/community/member/members.tsx")))
