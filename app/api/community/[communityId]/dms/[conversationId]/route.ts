@@ -4,7 +4,7 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
-import { conversationOf, listDirectMessages, sendDirectMessage } from "@/lib/communities/server/direct"
+import { conversationMarks, conversationOf, listDirectMessages, sendDirectMessage } from "@/lib/communities/server/direct"
 import { NO_STORE, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
 
 export const runtime = "nodejs"
@@ -23,7 +23,12 @@ export async function GET(request: Request, { params }: Params) {
   const conversation = await conversationOf(db, gate.community, gate.viewer, conversationId)
   if (!conversation) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
   const sp = new URL(request.url).searchParams
-  return NextResponse.json(await listDirectMessages(db, conversation, gate.viewer, { before: sp.get("before"), after: sp.get("after") }), { headers: NO_STORE })
+  /* Round 39: the newest page and a catch up carry the other person's delivered mark and when they were last here. */
+  const [page, marks] = await Promise.all([
+    listDirectMessages(db, conversation, gate.viewer, { before: sp.get("before"), after: sp.get("after") }),
+    sp.get("before") ? Promise.resolve(null) : conversationMarks(db, conversation, gate.viewer),
+  ])
+  return NextResponse.json({ ...page, ...(marks ?? {}) }, { headers: NO_STORE })
 }
 
 /** POST { body }: { message }. 30 a minute and 500 a day per member. */

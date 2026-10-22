@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
-import { listConversations, openConversation } from "@/lib/communities/server/direct"
+import { listConversations, markDelivered, openConversation } from "@/lib/communities/server/direct"
 import { listGroups } from "@/lib/communities/server/groups"
 import { NO_STORE, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
 
@@ -22,6 +22,9 @@ export async function GET(_request: Request, { params }: Params) {
   const gate = await requireMember(db, communityId, await sessionUserId(), "view")
   if (gate instanceof NextResponse) return gate
   const [direct, groups] = await Promise.all([listConversations(db, gate.community, gate.viewer), listGroups(db, gate.community, gate.viewer)])
+  /* Round 39: what this list holds has reached the member's screen; "delivered" for its senders, after the answer has gone. */
+  const userId = gate.viewer.userId
+  after(() => markDelivered(db, gate.community.id, userId))
   return NextResponse.json({ ...direct, groups: groups.groups, unread: direct.unread + groups.groups.filter((g) => g.unread).length }, { headers: NO_STORE })
 }
 
