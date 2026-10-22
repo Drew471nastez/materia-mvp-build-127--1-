@@ -86,6 +86,7 @@ import { countryName, sourceName } from "@/lib/analytics/reports"
 import { reportNow } from "@/lib/analytics/report-cache"
 import { askCommunityReport, communityAsk, keptCommunityReport, sameReport, warmCommunityReport, FRESH_MS, type CommunityAsk, type ShownReport } from "@/lib/communities/client/report-cache"
 import type { CommunityReport, Figure, Line, ReportRow } from "@/lib/communities/analytics-report"
+import { FIGURES, SHOWN_MAX, defaultShown, shownFigures, type FigureKey } from "@/lib/communities/analytics-figures"
 import type { AnalyticsView, CommunityHead } from "./view-types"
 import { Notice } from "./parts"
 import { MoreHorizontal } from "lucide-react"
@@ -243,12 +244,9 @@ function useCommunityReport(ask: CommunityAsk, refresh: number): ReportState {
 
 /* ── The figures ─────────────────────────────────────────────────────── */
 
-/** The figures the chart can show, in the order of their tabs. */
-export type FigureKey = "members" | "joined" | "active" | "visitors" | "joinRate" | "engagement" | "churn" | "revenue"
-export const FIGURES: readonly FigureKey[] = ["members", "joined", "active", "visitors", "joinRate", "engagement", "churn", "revenue"]
+/* The figures the chart can show, in the order of their tabs, and the five in the row (round 38): lib/communities/analytics-figures. */
+export { FIGURES, SHOWN_MAX, defaultShown, shownFigures, type FigureKey }
 const FIGURE_KEY = "storelib:community-analytics-figure"
-/** At most this many figures in the row (round 38); the rest are in the menu at its end. */
-export const SHOWN_MAX = 5
 /** The figures the owner put in the row, in their places, kept in this browser. */
 const SHOWN_KEY = "storelib:community-analytics-shown"
 /** Round 33's section addresses (#traffic, #growth...), still opening the figure they were about. */
@@ -341,32 +339,6 @@ function useFigure(): [FigureKey, (k: FigureKey) => void] {
     }
   }, [])
   return [key, choose]
-}
-
-/**
- * THE FIVE IN THE ROW, from the figures this answer has (`available`, in
- * FIGURES order). The owner's own row when they chose one (each still
- * there, in its place), filled up from the defaults; a figure opened from
- * the address that is not among them stands in the last place.
- */
-export function defaultShown(available: readonly FigureKey[], sells: boolean): FigureKey[] {
-  /* In the order of FIGURES, so the row reads the same way it always has. */
-  return pickShown(available, ["members", "active", "visitors", "engagement", sells ? "revenue" : "joinRate"]).sort((a, b) => FIGURES.indexOf(a) - FIGURES.indexOf(b))
-}
-
-export function shownFigures(available: readonly FigureKey[], saved: readonly string[] | null, sells: boolean, open: FigureKey | null): FigureKey[] {
-  const base = saved && saved.length ? pickShown(available, [...saved.filter((k): k is FigureKey => FIGURES.includes(k as FigureKey)), ...defaultShown(available, sells)]) : defaultShown(available, sells)
-  if (open && available.includes(open) && !base.includes(open)) base[base.length - 1] = open
-  return base
-}
-
-function pickShown(available: readonly FigureKey[], wanted: readonly FigureKey[]): FigureKey[] {
-  const out: FigureKey[] = []
-  for (const k of [...wanted, ...available]) {
-    if (out.length >= SHOWN_MAX) break
-    if (available.includes(k) && !out.includes(k)) out.push(k)
-  }
-  return out
 }
 
 /** The owner's row as kept in this browser; null until read, or with none kept. Never a reason for the page to break. */
@@ -527,7 +499,9 @@ function tabsOf(r: CommunityReport | null, currency: string, runsToToday: boolea
   const since = (day: string | null | undefined) => (day ? tt("Counted since {date}.", { date: longDate(day) }) : null)
   const net = f ? (f.joined.value ?? 0) - (f.left.value ?? 0) : 0
   const membersEnd = f?.members.value ?? null
-  const activeShare = f && f.active.value !== null && membersEnd ? Math.round((f.active.value / membersEnd) * 1000) / 10 : null
+  /* Of the members other than the owner, when the answer leaves the owner out of Active members (part 274). */
+  const membersBeside = membersEnd !== null && r?.ownerLeftOut ? Math.max(0, membersEnd - 1) : membersEnd
+  const activeShare = f && f.active.value !== null && membersBeside ? Math.round((f.active.value / membersBeside) * 1000) / 10 : null
   const visitNote = r && !counted.visitsByHour ? tt("Visits older than three days are counted by day, not by hour.") : since(r?.countedSince.visits)
   const m = r?.money ?? null
   const out: TabSpec[] = [

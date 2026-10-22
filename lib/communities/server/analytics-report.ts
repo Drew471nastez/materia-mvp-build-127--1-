@@ -14,18 +14,23 @@ import "server-only"
  *
  *   Joined, left       community_activity (joined, left), the owner's own
  *                      join left out
+ *   Churn              members who left and had been members when the
+ *                      period began (no join of theirs earlier in it), each
+ *                      person once, over the members there were then (part
+ *                      274's left_of_start; before it, every leave)
  *   Members            members now, less every join and plus every leave
  *                      after the end of each bucket (membersLine)
  *   Posts, comments,   the posts, comments and reactions made in each
  *   reactions          bucket, whatever became of them since (the nightly
  *                      count's rule), except one the safety check held back
  *                      before anybody saw it (round 37)
- *   Active members     members with an hour in community_member_hours (part
- *                      271) in the bucket, so a day is the viewer's day;
+ *   Active members     members other than the owner (part 274) with an hour
+ *                      in community_member_hours (part 271) in the bucket, so a day is the viewer's day;
  *                      before the hours, a day in community_member_days
  *                      (part 184). Their page's heartbeat or anything they did
  *   Engagement         members who posted, commented or reacted (from those
- *                      rows, part 271), over the members there were at the
+ *                      rows, part 271), the owner never one of them (part
+ *                      274), over the members other than the owner at the
  *                      end of the bucket
  *   Visits             one a visitor a UTC day (part 87), each in the bucket
  *                      of the moment it came: the visit rows for the days
@@ -36,7 +41,9 @@ import "server-only"
  *                      people who were not members yet
  *   Money              the community's orders (memberships and purchases,
  *                      renewals included, less refunds; a disputed one is no
- *                      sale), programs sold, event tickets less refunds;
+ *                      sale), programs and single modules sold (one taken
+ *                      back by a full refund is no sale), event tickets less
+ *                      refunds;
  *                      monthly revenue and subscribers at the end of each
  *                      bucket from the memberships' own dates
  *
@@ -44,6 +51,14 @@ import "server-only"
  * 271), one call a period. Before part 184 has run, the joins and leaves
  * are read from community_activity here and the rest from the nightly rows
  * (community_daily_stats), so the screen keeps what it showed before.
+ *
+ * ROUND 38'S AUDIT, every figure against rows worked out by hand
+ * (tests/community-analytics-r38.test.ts): churn counted a member who
+ * joined and left inside the period, over members who were not there when
+ * it began (it could pass 100%); the owner was an active member and one who
+ * took part, so a community where only the owner posted read as engaged;
+ * modules sold one by one were no revenue at all, and a program refunded in
+ * full stayed revenue; the refunds line counted orders only.
  *
  * WHAT IS NOT COUNTED, ON PURPOSE (round 37's audit): the owner and the
  * store's own account looking at their community; a page drawn ahead of a
@@ -118,6 +133,8 @@ interface Counted {
   /** Joins a visitor made themselves (part 271), what the join rate divides; null before that part. */
   joinedByVisit: Counts | null
   left: Counts
+  /** Leaves by members who were there when the bucket began (part 274); null before that part. */
+  leftOfStart: Counts | null
   posts: Counts
   comments: Counts
   reactions: Counts
@@ -125,7 +142,8 @@ interface Counted {
   lessons: Counts
   contributors: Counts | null
   active: Counts | null
-  totals: { contributors: number; posters: number; commenters: number; reactors: number; active: number; courses: number } | null
+  /** `leftOfStart`: the members there when the period began who left in it, each once (part 274); null before that part. */
+  totals: { contributors: number; posters: number; commenters: number; reactors: number; active: number; courses: number; leftOfStart: number | null } | null
   activeSince: string | null
   topContributors?: { user_id: string; posts: number; comments: number }[]
   topSpaces?: { id: string; name: string; slug: string; posts: number; comments: number }[]
@@ -166,6 +184,7 @@ async function counted(db: Db, communityId: string, span: Span, timeZone: string
       joined: countsOf(d.joined),
       joinedByVisit: d.joined_by_visit && typeof d.joined_by_visit === "object" ? countsOf(d.joined_by_visit) : null,
       left: countsOf(d.left),
+      leftOfStart: d.left_of_start && typeof d.left_of_start === "object" ? countsOf(d.left_of_start) : null,
       posts: countsOf(d.posts),
       comments: countsOf(d.comments),
       reactions: countsOf(d.reactions),
@@ -173,7 +192,7 @@ async function counted(db: Db, communityId: string, span: Span, timeZone: string
       lessons: countsOf(d.lessons),
       contributors: countsOf(d.contributors),
       active: d.active === null || d.active === undefined ? null : countsOf(d.active),
-      totals: t ? { contributors: num(t.contributors), posters: num(t.posters), commenters: num(t.commenters), reactors: num(t.reactors), active: num(t.active), courses: num(t.courses) } : null,
+      totals: t ? { contributors: num(t.contributors), posters: num(t.posters), commenters: num(t.commenters), reactors: num(t.reactors), active: num(t.active), courses: num(t.courses), leftOfStart: t.left_of_start === undefined || t.left_of_start === null ? null : num(t.left_of_start) } : null,
       activeSince: typeof d.active_since === "string" ? d.active_since : null,
       topContributors: Array.isArray(d.top_contributors) ? (d.top_contributors as Counted["topContributors"]) : undefined,
       topSpaces: Array.isArray(d.top_spaces) ? (d.top_spaces as Counted["topSpaces"]) : undefined,
@@ -203,10 +222,20 @@ function dayRange(keys: string[], grain: Grain, now: number): { from: string; to
 
 type DailyRow = { day: string; members: number; new_members: number; left_members: number; active_members: number; posts: number; comments: number; reactions: number }
 
-/** Joins and leaves by the viewer's buckets, read from the activity rows themselves. */
-async function joinsAndLeaves(db: Db, communityId: string, ownerId: string | null, span: Span, starts: number[]): Promise<{ joined: number[]; left: number[] }> {
+/**
+ * Joins and leaves by the viewer's buckets, read from the activity rows
+ * themselves, with part 274's rule for churn: a leave by somebody with no
+ * join earlier in the bucket (or the period) was a member when it began.
+ */
+async function joinsAndLeaves(db: Db, communityId: string, ownerId: string | null, span: Span, starts: number[]): Promise<{ joined: number[]; left: number[]; leftOfStart: number[]; leftOfStartTotal: number }> {
   const joined = new Array<number>(starts.length).fill(0)
   const left = new Array<number>(starts.length).fill(0)
+  const leftOfStart = new Array<number>(starts.length).fill(0)
+  /* Who joined so far, by bucket and in the whole period; who already counted as leaving. */
+  const joinedIn = new Set<string>()
+  const joinedAny = new Set<string>()
+  const leftIn = new Set<string>()
+  const leftAny = new Set<string>()
   let after: number | null = null
   for (let page = 0; page < MAX_PAGES; page++) {
     let q = db.from("community_activity").select("id, kind, user_id, created_at").eq("community_id", communityId).in("kind", ["joined", "left"]).gte("created_at", iso(span.start)).lt("created_at", iso(span.end))
@@ -216,17 +245,29 @@ async function joinsAndLeaves(db: Db, communityId: string, ownerId: string | nul
       if (!missing(error)) console.error(`[communities] report joins: ${reasonOf(error)}`)
       break
     }
-    const rows = (data as { id: number; kind: string; user_id: string | null; created_at: string }[] | null) ?? []
+    const rows = ((data as { id: number; kind: string; user_id: string | null; created_at: string }[] | null) ?? []).slice().sort((x, y) => Date.parse(x.created_at) - Date.parse(y.created_at) || x.id - y.id)
     for (const r of rows) {
       const i = bucketIndex(starts, Date.parse(r.created_at))
       if (i < 0) continue
-      if (r.kind === "joined" && r.user_id !== ownerId) joined[i] += 1
-      else if (r.kind === "left") left[i] += 1
+      if (r.kind === "joined" && r.user_id !== ownerId) {
+        joined[i] += 1
+        if (r.user_id) {
+          joinedIn.add(`${i}:${r.user_id}`)
+          joinedAny.add(r.user_id)
+        }
+      } else if (r.kind === "left") {
+        left[i] += 1
+        if (r.user_id && !joinedIn.has(`${i}:${r.user_id}`) && !leftIn.has(`${i}:${r.user_id}`)) {
+          leftOfStart[i] += 1
+          leftIn.add(`${i}:${r.user_id}`)
+        }
+        if (r.user_id && !joinedAny.has(r.user_id)) leftAny.add(r.user_id)
+      }
     }
     if (rows.length < PAGE) break
     after = rows[rows.length - 1].id
   }
-  return { joined, left }
+  return { joined, left, leftOfStart, leftOfStartTotal: leftAny.size }
 }
 
 /** The nightly rows in a period's buckets, and today so far from live counts. */
@@ -272,7 +313,7 @@ async function fromDailyRows(db: Db, communityId: string, ownerId: string | null
   }
   const jl = await joinsAndLeaves(db, communityId, ownerId, span, starts)
   const toCounts = (xs: number[]) => Object.fromEntries(keys.map((k, i) => [k, xs[i]]))
-  return { joined: toCounts(jl.joined), joinedByVisit: null, left: toCounts(jl.left), posts, comments, reactions, rsvps: {}, lessons: {}, contributors: null, active: grain === "hour" ? null : active, totals: null, activeSince: null }
+  return { joined: toCounts(jl.joined), joinedByVisit: null, left: toCounts(jl.left), leftOfStart: toCounts(jl.leftOfStart), posts, comments, reactions, rsvps: {}, lessons: {}, contributors: null, active: grain === "hour" ? null : active, totals: { contributors: 0, posters: 0, commenters: 0, reactors: 0, active: 0, courses: 0, leftOfStart: jl.leftOfStartTotal }, activeSince: null }
 }
 
 /* ── Visits (parts 87, 184 and 271) ──────────────────────────────────── */
@@ -532,7 +573,10 @@ interface MoneyWindow {
   payingAtStart: number
 }
 
-function moneyWindow(span: Span, starts: number[], members: MembershipRow[], orders: { created_at: string; amount_cents: number | null; refund_amount_cents: number | null; status: string }[], programs: { created_at: string; amount_cents: number | null }[], tickets: { paid_at: string; amount_cents: number | null; refunded_at: string | null }[]): MoneyWindow {
+/** A program or a single module sold (parts 102 and 217): its row is marked revoked when the payment is refunded in full. */
+type ContentSale = { created_at: string; amount_cents: number | null; currency: string | null; revoked_at?: string | null }
+
+function moneyWindow(span: Span, starts: number[], members: MembershipRow[], orders: { created_at: string; amount_cents: number | null; refund_amount_cents: number | null; status: string }[], programs: ContentSale[], tickets: { paid_at: string; amount_cents: number | null; refunded_at: string | null }[]): MoneyWindow {
   const n = starts.length
   const w: MoneyWindow = { revenue: new Array(n).fill(0), mrr: new Array(n).fill(0), subscribers: new Array(n).fill(0), newPaid: new Array(n).fill(0), cancellations: new Array(n).fill(0), bySource: { memberships: 0, programs: 0, tickets: 0 }, upgradesOf: [], payingAtStart: 0 }
   const inSpan = (at: number) => at >= span.start && at < span.end
@@ -549,7 +593,8 @@ function moneyWindow(span: Span, starts: number[], members: MembershipRow[], ord
   }
   for (const p of programs) {
     const i = at(p.created_at)
-    if (i < 0) continue
+    /* Taken back by a full refund (learn-checkout, module-sales revokeRefunded*): no sale, as a refunded ticket. */
+    if (i < 0 || p.revoked_at) continue
     const cents = Math.max(0, num(p.amount_cents))
     w.revenue[i] += cents
     w.bySource.programs += cents
@@ -605,14 +650,23 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
           return q.order("id", { ascending: true }).limit(PAGE)
         }, "orders")
       : Promise.resolve([]),
-    /* Programs sold on their own (part 102): one row per buyer and program, few enough to read in one go. */
+    /*
+      Programs sold on their own (part 102) and single modules of a program
+      (part 217, round 38: they were never counted): one row per buyer and
+      program or module, few enough to read in one go. A row taken back by a
+      full refund carries revoked_at.
+    */
     (async () => {
-      const { data, error } = await db.from("community_program_access").select("created_at, amount_cents, currency").eq("community_id", communityId).eq("source", "purchase").gte("created_at", from).lt("created_at", to).limit(10_000)
-      if (error) {
-        if (!missing(error)) console.error(`[communities] report programs: ${reasonOf(error)}`)
-        return null
+      const sold = async (table: string) => {
+        const { data, error } = await db.from(table).select("created_at, amount_cents, currency, revoked_at").eq("community_id", communityId).eq("source", "purchase").gte("created_at", from).lt("created_at", to).limit(10_000)
+        if (error) {
+          if (!missing(error)) console.error(`[communities] report ${table}: ${reasonOf(error)}`)
+          return null
+        }
+        return (data as ContentSale[] | null) ?? []
       }
-      return (data as { created_at: string; amount_cents: number | null; currency: string | null }[] | null) ?? []
+      const [programRows, moduleRows] = await Promise.all([sold("community_program_access"), sold("community_module_access")])
+      return programRows === null && moduleRows === null ? null : [...(programRows ?? []), ...(moduleRows ?? [])]
     })(),
     pages<{ id: string; paid_at: string; amount_cents: number | null; refunded_at: string | null; currency: string | null }>((after) => {
       let q = db.from("community_event_tickets").select("id, paid_at, amount_cents, refunded_at, currency").eq("community_id", communityId).eq("source", "purchase").gte("paid_at", from).lt("paid_at", to)
@@ -628,6 +682,26 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
       : Promise.resolve([]),
     cancellationsWithReasons(db, communityId, { since: iso(cur.span.start), until: to, limit: 5 }).catch(() => null),
   ])
+  /*
+    THE REFUNDS LINE COUNTS EVERY PAYMENT GIVEN BACK IN THE PERIOD (round
+    38): orders, as before, and now event tickets, programs and modules,
+    each by when it was given back.
+  */
+  const [ticketRefunds, contentRefunds] = await Promise.all([
+    (async () => {
+      const { data, error } = await db.from("community_event_tickets").select("amount_cents").eq("community_id", communityId).eq("source", "purchase").gte("refunded_at", iso(cur.span.start)).lt("refunded_at", to).limit(10_000)
+      return error ? [] : ((data as { amount_cents: number | null }[] | null) ?? [])
+    })(),
+    (async () => {
+      const back = async (table: string) => {
+        const { data, error } = await db.from(table).select("amount_cents").eq("community_id", communityId).eq("source", "purchase").gte("revoked_at", iso(cur.span.start)).lt("revoked_at", to).limit(10_000)
+        return error ? [] : ((data as { amount_cents: number | null }[] | null) ?? [])
+      }
+      const [a, b] = await Promise.all([back("community_program_access"), back("community_module_access")])
+      return [...a, ...b]
+    })(),
+  ])
+  const otherRefunds = [...ticketRefunds, ...contentRefunds]
   const soldAnything = products.all.length > 0 || (programs?.length ?? 0) > 0 || (tickets?.length ?? 0) > 0
   if (!soldAnything) return null
   const ms = members ?? []
@@ -660,7 +734,7 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
     lines: { revenue: line("revenue"), mrr: line("mrr"), subscribers: line("subscribers"), newPaid: line("newPaid"), cancellations: line("cancellations") },
     upgrades,
     churnRate: rate(cancelled, c.payingAtStart),
-    refunds: { count: refunds?.length ?? 0, totalCents: (refunds ?? []).reduce((t, o) => t + lineMoney({ ...o, status: "refunded" } as never).refunded, 0) },
+    refunds: { count: (refunds?.length ?? 0) + otherRefunds.length, totalCents: (refunds ?? []).reduce((t, o) => t + lineMoney({ ...o, status: "refunded" } as never).refunded, 0) + otherRefunds.reduce((t, x) => t + Math.max(0, num(x.amount_cents)), 0) },
     bySource: (["memberships", "programs", "tickets"] as const).map((key) => ({ key, cents: c.bySource[key] })).filter((x) => x.cents > 0),
     reasons: (why?.counts ?? []).filter((x) => x.count > 0).map((x) => ({ reason: x.reason ?? "none", count: x.count })).sort((a, b) => b.count - a.count),
   }
@@ -812,16 +886,19 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
   const owner = community.owner_user_id ?? null
   const n = cur.keys.length
 
-  const activeSince = (days: number) => headCount(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", id).eq("status", "active").or(`last_seen_at.gte.${iso(now - days * DAY)},last_active_at.gte.${iso(now - days * DAY)}`))
+  /* Here lately: members, never the owner (round 38), as the active members of the chart. */
+  const activeSince = (days: number) => headCount(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", id).eq("status", "active").neq("role", "owner").or(`last_seen_at.gte.${iso(now - days * DAY)},last_active_at.gte.${iso(now - days * DAY)}`))
   const after = (kind: "joined" | "left", from: number) => {
     let x = db.from("community_activity").select("id", { count: "exact", head: true }).eq("community_id", id).eq("kind", kind).gte("created_at", iso(from))
     if (kind === "joined" && owner) x = x.neq("user_id", owner)
     return headCount(x)
   }
-  const [a, b, membersNow, active1, active7, active30, joinedAfter, leftAfter, joinedAfterPrev, leftAfterPrev] = await Promise.all([
+  const [a, b, membersNow, ownerMembers, active1, active7, active30, joinedAfter, leftAfter, joinedAfterPrev, leftAfterPrev] = await Promise.all([
     counted(db, id, span, tz, grain, true),
     prevSpan ? counted(db, id, prevSpan, tz, grain, false) : Promise.resolve(null),
     headCount(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", id).eq("status", "active")),
+    /* Whether the owner is one of the members counted (a member row of their own): left out of what engagement divides. */
+    headCount(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", id).eq("status", "active").eq("role", "owner")),
     activeSince(1),
     activeSince(7),
     activeSince(30),
@@ -853,11 +930,26 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
   const lessons = lineFor((c) => c.lessons)
   /* Members when each bucket began: its end, less who joined in it, plus who left in it. */
   const startsOf = (m: number[], j: number[], l: number[]) => m.map((x, i) => x - (j[i] ?? 0) + (l[i] ?? 0))
-  const churnLine = (m: number[], j: number[], l: number[]) => startsOf(m, j, l).map((s, i) => rate(l[i] ?? 0, s))
+  /*
+    CHURN IS OF THE MEMBERS AT THE START (round 38): who left and had been a
+    member when the bucket began, over the members there were then. Someone
+    who joined and left inside it is in neither (part 274; the fallback
+    counts the same from the rows). Without part 274, every leave, as before.
+  */
+  const leftOfStart = lineFor((c) => c.leftOfStart ?? c.left)
+  const churnLine = (m: number[], j: number[], l: number[], ls: number[]) => startsOf(m, j, l).map((s, i) => rate(ls[i] ?? 0, s))
+  const leftOfStartTotal = (c: Counted | null, l: number[] | null) => (c?.totals?.leftOfStart ?? (l ? sum(l) : 0))
 
   const [visitsCur, visitsPrev] = await Promise.all([visitsOf(db, id, span, grain, cur.starts, cur.keys, now), prev && prevSpan && prevKeys ? visitsOf(db, id, prevSpan, grain, prev.starts, prevKeys, now) : Promise.resolve(null)])
 
-  const engagementLine = (c: number[], m: number[]) => c.map((x, i) => rate(x, m[i]))
+  /*
+    THE OWNER IS NOT ONE OF THE MEMBERS WHO TOOK PART (part 274), so they are
+    not one of the members it divides by either. With part 271 alone the
+    owner is still counted among those who took part, and in what it divides.
+  */
+  const ownerOut = ready && ca?.leftOfStart !== null && ca?.leftOfStart !== undefined ? Math.min(1, ownerMembers) : 0
+  const others = (m: number | null | undefined) => (m === null || m === undefined ? m : Math.max(0, m - ownerOut))
+  const engagementLine = (c: number[], m: number[]) => c.map((x, i) => rate(x, others(m[i])))
   const activeCounted = ready ? ca?.active !== null : grain !== "hour"
   const activeFigure = ready || grain !== "hour"
   /*
@@ -873,7 +965,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     members: { current: members.cur, previous: alignTo(members.prev, n) },
     joined: { current: joined.cur, previous: alignTo(joined.prev, n) },
     left: { current: left.cur, previous: alignTo(left.prev, n) },
-    churn: { current: churnLine(members.cur, joined.cur, left.cur), previous: members.prev && joined.prev && left.prev ? alignTo(churnLine(members.prev, joined.prev, left.prev), n) : null },
+    churn: { current: churnLine(members.cur, joined.cur, left.cur, leftOfStart.cur), previous: members.prev && joined.prev && left.prev ? alignTo(churnLine(members.prev, joined.prev, left.prev, leftOfStart.prev ?? left.prev), n) : null },
     prospects: { current: visitsCur.hourly === false ? new Array(n).fill(null) : visitsCur.prospects, previous: visitsCur.hourly === false || prevVisits?.hourly === false ? null : alignTo(prevVisits?.prospects, n) },
     rsvps: { current: ready ? rsvps.cur : new Array(n).fill(null), previous: ready && rsvps.prev ? alignTo(rsvps.prev, n) : null },
     lessons: { current: ready ? lessons.cur : new Array(n).fill(null), previous: ready && lessons.prev ? alignTo(lessons.prev, n) : null },
@@ -892,7 +984,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
   const prospectsPrev = prevVisits ? sum(prevVisits.prospects) : null
   const countedFrom = visitsCur.since ? (grain === "hour" ? null : dayKey(visitsCur.since, grain)) : null
   /* Unique members active in the whole period (part 184), not a sum of days, which would count a member once a day. */
-  const activeTotal = ready ? (ca?.totals?.active ?? null) : span.end >= now - 60_000 ? await headCount(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", id).eq("status", "active").or(`last_seen_at.gte.${iso(span.start)},last_active_at.gte.${iso(span.start)}`)) : null
+  const activeTotal = ready ? (ca?.totals?.active ?? null) : span.end >= now - 60_000 ? await headCount(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", id).eq("status", "active").neq("role", "owner").or(`last_seen_at.gte.${iso(span.start)},last_active_at.gte.${iso(span.start)}`)) : null
   const activePrev = prevActive ? (cb?.totals?.active ?? null) : null
   const membersEnd = lastOf(members.cur)
   const membersPrevEnd = lastOf(members.prev)
@@ -901,7 +993,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     joined: { value: total(joined.cur), previous: total(joined.prev) },
     left: { value: total(left.cur), previous: total(left.prev) },
     /* Member churn: who left in the period over the members there were when it began (the paid churn rate is the money's). */
-    churn: { value: rate(sum(left.cur), startsOf(members.cur, joined.cur, left.cur)[0]), previous: members.prev && joined.prev && left.prev ? rate(sum(left.prev), startsOf(members.prev, joined.prev, left.prev)[0]) : null },
+    churn: { value: rate(leftOfStartTotal(ca, left.cur), startsOf(members.cur, joined.cur, left.cur)[0]), previous: members.prev && joined.prev && left.prev ? rate(leftOfStartTotal(cb, left.prev), startsOf(members.prev, joined.prev, left.prev)[0]) : null },
     visits: { value: visitsCur.counted ? visitsTotal : null, previous: prevVisits ? sum(prevVisits.visits) : null },
     prospects: { value: visitsCur.counted ? prospectsTotal : null, previous: prospectsPrev },
     rsvps: { value: ready ? sum(rsvps.cur) : null, previous: ready && rsvps.prev ? sum(rsvps.prev) : null },
@@ -913,7 +1005,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     posts: { value: total(posts.cur), previous: total(posts.prev) },
     comments: { value: total(comments.cur), previous: total(comments.prev) },
     reactions: { value: total(reactions.cur), previous: total(reactions.prev) },
-    engagement: { value: ready ? rate(ca?.totals?.contributors ?? 0, membersEnd) : null, previous: ready && cb?.totals ? rate(cb.totals.contributors, membersPrevEnd) : null },
+    engagement: { value: ready ? rate(ca?.totals?.contributors ?? 0, others(membersEnd)) : null, previous: ready && cb?.totals ? rate(cb.totals.contributors, others(membersPrevEnd)) : null },
   }
 
   const firstKey = cur.keys[0] ?? ""
@@ -945,6 +1037,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
       active: ready ? sinceInside(activeFrom ?? iso(now).slice(0, 10), firstDayOf(firstKey)) : null,
     },
     live: { members: membersNow, active1, active7, active30, stickiness: rate(active1, active30) },
+    ownerLeftOut: ownerOut > 0,
     activeSplit,
     leaveReasons,
     people: { posters: ca?.totals?.posters ?? 0, commenters: ca?.totals?.commenters ?? 0, reactors: ca?.totals?.reactors ?? 0 },
