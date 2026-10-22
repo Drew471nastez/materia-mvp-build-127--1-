@@ -241,3 +241,25 @@ export function splitDays(fromDay: string, toDayExclusive: string, rolled: Reado
   }
   return { rollup, raw }
 }
+
+/**
+ * A view opened from Storelib Explore (the marketplace): its source_category.
+ * Explore's pages leave a mark in the tab (components/analytics/explore-mark)
+ * that the view tracker sends as `via: "explore"`; lib/analytics/collect
+ * records this instead of the referrer's category, which a route change from
+ * Explore would otherwise inherit from the visit's first page.
+ */
+export const EXPLORE_SOURCE = "explore"
+/** How long after the last Explore page a view still came from it. */
+export const EXPLORE_MARK_MS = 30 * 60_000
+export const EXPLORE_MARK_KEY = "sl_explore_at"
+
+/** Whether this tab was on Explore within EXPLORE_MARK_MS. Browser storage; false when it cannot be read. */
+export function cameFromExplore(storage: Pick<Storage, "getItem"> | null | undefined, now = Date.now()): boolean {
+  try {
+    const at = Number(storage?.getItem(EXPLORE_MARK_KEY))
+    return Number.isFinite(at) && at > 0 && now - at >= 0 && now - at < EXPLORE_MARK_MS
+  } catch {
+    return false
+  }
+}

@@ -220,6 +220,8 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const limitLoaded = React.useRef(onOrderLimitLoaded)
   limitLoaded.current = onOrderLimitLoaded
   const currency = useStoreCurrency()
+  /* The currency these prices were loaded in: a save after the store's currency changed is refused, never written over the converted prices (lib/store/currency-guard). */
+  const [formCurrency] = React.useState(currency)
   const [loading, setLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [ctx, setCtx] = React.useState<Context>({ locations: [], profiles: [], settings: DEFAULT_SETTINGS })
@@ -561,6 +563,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
           ...(orderLimit && !orderLimitProblem(orderLimit) ? { maxPerOrder: orderLimit.on ? Number(orderLimit.count) : null } : {}),
           options: opts,
           variants,
+          formCurrency,
         },
       })
       if (!res.ok) return res.error

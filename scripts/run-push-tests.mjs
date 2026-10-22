@@ -56,6 +56,8 @@ const SUITES = [
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
   "tests/checkout-text.test.ts",
+  /* Round chk-1021: "Buying for a business" only where the store turns on Company invoices, in every checkout and route; SQL part 256. */
+  "tests/checkout-company-invoice.test.ts",
   "tests/order-emails-language.test.ts",
   "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",
@@ -189,6 +191,9 @@ const SUITES = [
   "tests/analytics-completeness.test.ts",
   /* Round Z6: operating systems, referrers by company (official marks), page titles, the five step funnel, physical and digital sales, and the physical checkout's steps tracked (scripts/check-analytics-reports.mjs measures the cards). */
   "tests/analytics-audience.test.ts",
+  /* Round ana-1021: a visitor's browser to the seller's report through the real tracker, collect, the reports' answer and a database fake (every surface, bots, repeats, orders); every timeframe, the comparison, product and place on every number, the seller's clock, the sections a seller sees and the reports they add (scripts/check-analytics-tabs.mjs measures the tabs, shifts and switching). */
+  "tests/analytics-e2e.test.ts",
+  "tests/analytics-filters.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
   "tests/library-depth.test.ts",
@@ -568,6 +573,11 @@ const SUITES = [
   "tests/physical-setup-t.test.ts",
   "tests/physical-readiness.test.ts",
   "tests/emails-t.test.ts",
+  /* Emails › Customer emails in three families, the language and the signature by where it was bought, previews that are the sent email; scripts/check-emails-families.mjs measures the switch and the lists. */
+  "tests/emails-families.test.ts",
+  "tests/emails-language.test.ts",
+  "tests/emails-identity.test.ts",
+  "tests/emails-preview.test.ts",
   "tests/files-t.test.ts",
   "tests/files-inventory-v.test.ts",
   "tests/activity-t.test.ts",
@@ -760,6 +770,8 @@ const SUITES = [
   "tests/live-first-load-w.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
   "tests/live-speed-x.test.ts",
+  /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */
+  "tests/live-speed-imported.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
@@ -803,6 +815,8 @@ const STRICT_SUITES = [
   "tests/e2e24.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
   "tests/e2e-store-currency.test.ts",
+  /* A euro store moves to lei: what converts and what stays (plans, offers, smart collections, part 258), More currencies from the new base, caches expired, orders and totals never relabelled or added across currencies (tests/_journey) */
+  "tests/store-currency-change.test.ts",
   /* One lei store with the marketplace in dollars for it alone: website, shared link and Explore purchases, stale and missing rates, a refund, emails, ledger, chart and Payouts (tests/_journey) */
   "tests/e2e-marketplace-usd.test.ts",
   /* Round AO: the price audit and restore scripts, as separate processes over HTTP against the journey database (tests/_journey) */

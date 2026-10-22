@@ -55,10 +55,12 @@ const expect = (ok, what, got) => {
 const PRODUCT = { id: PRODUCT_ID, title: "Brand Content Guide", slug: "brand-guide", description: null, price_cents: 4900, thumbnail_url: null, type: "digital", status: "published", creator_id: "c0000000-0000-4000-8000-000000000001", pay_what_you_want: false }
 const CREATOR = { id: PRODUCT.creator_id, user_id: "u0000000-0000-4000-8000-000000000001", slug: "luca" }
 const PROFILE = { display_name: "Luca Dragoste", avatar_url: null, username: "luca" }
+/* The store offers company invoices (Settings › Checkout, off by default), so "Buying for a business" is on its checkout. */
+const SETTINGS = { checkout: { businessInvoice: true } }
 const db = createServer((req, res) => {
   const table = (req.url || "").split("/rest/v1/")[1]?.split("?")[0]
   const single = String(req.headers.accept || "").includes("vnd.pgrst.object")
-  const rows = table === "products" ? [PRODUCT] : table === "creators" ? [CREATOR] : table === "profiles" ? [PROFILE] : []
+  const rows = table === "products" ? [PRODUCT] : table === "creators" ? [CREATOR] : table === "profiles" ? [PROFILE] : table === "store_settings" ? [SETTINGS] : []
   if (single && !rows[0]) {
     res.writeHead(406, { "content-type": "application/json" })
     return res.end(JSON.stringify({ code: "PGRST116", message: "no rows" }))

@@ -315,7 +315,11 @@ function startSiteQuestions(
 ): Promise<{ blocked: NextResponse | null; protected: boolean }> | null {
   if (/\.[a-z0-9]{1,8}$/i.test(pathname) || policyAddress(pathname)) return null
   if (PLATFORM_APEX_PATHS.some((r) => pathname === r || pathname.startsWith(`${r}/`))) return null
-  if (compatAnswers(pathname, request)) void compatSiteFor(name, asksFresh(request)).catch(() => false)
+  if (compatAnswers(pathname, request)) {
+    void compatSiteFor(name, asksFresh(request)).catch(() => false)
+    /* An imported theme's page asks for the website's languages and markets next (compatRewrite): asked now, beside the rest. */
+    void siteLocalizationFor(name).catch(() => null)
+  }
   void hasLiveAiSite(name).catch(() => false)
   if (connectedDomain) void hasPublishedWebsite(name).catch(() => false)
   return passwordPageFor(request, name, host, pathname, search)
@@ -404,7 +408,11 @@ async function websiteDomainOf(name: string): Promise<string | null> {
     const { facts, failed } = await siteFactsFor(db, lower)
     if (failed) return hit?.host ?? null
     let host: string | null = null
-    if (facts.creatorId && facts.published) {
+    if (facts.creatorId && facts.published && facts.extras) {
+      /* Read with the facts, in the same round trip (SQL part 257). */
+      const row = facts.extras.websiteDomain
+      if (row?.domain && row.ssl_status !== "failed") host = servedAt(row.domain)
+    } else if (facts.creatorId && facts.published) {
       const { data, error } = await db
         .from("custom_domains")
         .select("domain, ssl_status")
@@ -451,10 +459,19 @@ interface SiteLocalization {
 }
 const NO_LOCALIZATION: SiteLocalization = { languages: [], markets: [], starts: [] }
 const localizationHeld = new Map<string, { at: number; value: SiteLocalization }>()
-async function siteLocalizationFor(username: string): Promise<SiteLocalization> {
+/* A read already under way is shared: the page's questions start it (startSiteQuestions) and the rewrite asks again. */
+const localizationAsked = new Map<string, Promise<SiteLocalization>>()
+function siteLocalizationFor(username: string): Promise<SiteLocalization> {
   const lower = username.toLowerCase()
   const hit = localizationHeld.get(lower)
-  if (hit && Date.now() - hit.at < 30_000) return hit.value
+  if (hit && Date.now() - hit.at < 30_000) return Promise.resolve(hit.value)
+  const asking = localizationAsked.get(lower)
+  if (asking) return asking
+  const read = readSiteLocalization(lower, hit).finally(() => localizationAsked.delete(lower))
+  localizationAsked.set(lower, read)
+  return read
+}
+async function readSiteLocalization(lower: string, hit: { at: number; value: SiteLocalization } | undefined): Promise<SiteLocalization> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !supabaseKey) return NO_LOCALIZATION
@@ -464,11 +481,17 @@ async function siteLocalizationFor(username: string): Promise<SiteLocalization> 
     if (failed) return hit?.value ?? NO_LOCALIZATION
     let value = NO_LOCALIZATION
     if (facts.creatorId) {
-      /* With Show visitors their own language (part 173); a database without its column is read as before, with it off. */
-      let { data, error } = await db.from("store_localization").select("default_language, languages, markets, visitor_language").eq("creator_id", facts.creatorId).maybeSingle()
-      if (error && /visitor_language/.test(error.message ?? "")) ({ data, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", facts.creatorId).maybeSingle())
-      /* Part 136 not run, or no row: one language, the store's prices. Another error keeps what was known. */
-      if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? NO_LOCALIZATION
+      /* Read with the facts, in the same round trip, when SQL part 257 has run (lib/website-builder/route-facts.ts); else on its own, as before. */
+      const extras = facts.extras
+      let data: unknown = extras ? extras.localization : null
+      if (!extras) {
+        /* With Show visitors their own language (part 173); a database without its column is read as before, with it off. */
+        let { data: read, error } = await db.from("store_localization").select("default_language, languages, markets, visitor_language").eq("creator_id", facts.creatorId).maybeSingle()
+        if (error && /visitor_language/.test(error.message ?? "")) ({ data: read, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", facts.creatorId).maybeSingle())
+        /* Part 136 not run, or no row: one language, the store's prices. Another error keeps what was known. */
+        if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? NO_LOCALIZATION
+        data = read
+      }
       const row = data as { default_language?: string; visitor_language?: boolean | null; languages?: { code?: unknown; published?: unknown }[]; markets?: { id?: unknown; countries?: unknown; currency?: unknown; language?: unknown; active?: unknown; primary?: unknown; rest?: unknown }[] } | null
       const def = (row?.default_language ?? "").toLowerCase()
       const languages = (Array.isArray(row?.languages) ? row!.languages : [])
@@ -480,21 +503,21 @@ async function siteLocalizationFor(username: string): Promise<SiteLocalization> 
         as the page this sends the visitor to reads them (lib/markets/live.ts).
       */
       const rawMarkets = (Array.isArray(row?.markets) ? row!.markets : []).filter((m) => m && typeof m === "object")
-      const own = rawMarkets.some((m) => m.primary !== true)
-        ? await db
-            .from("store_settings")
-            .select("default_country, currency")
-            .eq("creator_id", facts.creatorId)
-            .maybeSingle()
-            .then(
-              /* No country set: the one whose currency the store sells in (RON: Romania), so the store's own visitors are never put in another currency. */
-              (r) => {
-                const d = r.data as { default_country?: unknown; currency?: unknown } | null
-                return (typeof d?.default_country === "string" && d.default_country) || countryOfCurrency(d?.currency)
-              },
-              () => null,
-            )
-        : null
+      /* No country set: the one whose currency the store sells in (RON: Romania), so the store's own visitors are never put in another currency. */
+      const ownOf = (d: { default_country?: unknown; currency?: unknown } | null) => (typeof d?.default_country === "string" && d.default_country) || countryOfCurrency(d?.currency)
+      const own = !rawMarkets.some((m) => m.primary !== true)
+        ? null
+        : extras
+          ? ownOf(extras.store)
+          : await db
+              .from("store_settings")
+              .select("default_country, currency")
+              .eq("creator_id", facts.creatorId)
+              .maybeSingle()
+              .then(
+                (r) => ownOf(r.data as { default_country?: unknown; currency?: unknown } | null),
+                () => null,
+              )
       const placed = resolveMarketCountries(
         rawMarkets.map((m) => ({ ...m, countries: (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string"), primary: m.primary === true, active: m.active !== false, rest: m.rest === true, currency: typeof m.currency === "string" && m.currency ? m.currency : null })),
         typeof own === "string" ? own : null,
@@ -1688,13 +1711,20 @@ async function routeRequest(request: NextRequest) {
       if (pathname.startsWith("/review/")) return NextResponse.next()
       /* A buyer's conversation with the shop about an order: its own page, on the website's host, where its emails send the buyer (app/order-help, lib/support/cases-server.ts). */
       if (pathname.startsWith("/order-help/")) return NextResponse.next()
+      /*
+        Every question this page asks below, started together
+        (startSiteQuestions), and before the domain question rather than
+        after it: they need nothing it answers, and waiting for it put two
+        more round trips in a row before a subdomain's page. A page sent on
+        to the website's domain leaves them unread, held for its next visit.
+      */
+      const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
+      gateAsked?.catch(() => null)
       /* A website with its own domain connected is at that domain: a page opened at the Storelib address is sent there (lib/custom-domains/subdomain-redirect.ts). */
       if (sendsToDomain({ method: request.method, pathname, search, fetchDest: request.headers.get("sec-fetch-dest") })) {
         const domain = await websiteDomainOf(subdomain)
         if (domain) return NextResponse.redirect(domainAddress(domain, pathname, search), { status: 302 })
       }
-      /* Every question this page asks below, started together (startSiteQuestions). */
-      const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
       /* An imported Shopify theme answers its own addresses, its cart's /cart.js and /checkout included. */
       if (compatAnswers(pathname, request) && (await compatSiteFor(subdomain, asksFresh(request))) && !(await hasLiveAiSite(subdomain))) {
         return compatRewrite(request, subdomain, host, pathname, search)
@@ -2595,8 +2625,10 @@ async function routeRequest(request: NextRequest) {
     */
     /* And the page a website's cover is taken of, shown small on the owner's Website page while its photograph is on its way (a pass for one install, two minutes). */
     /* And Settings' Google Analytics check, a blank page that loads the store's tag in a hidden frame of the settings page (app/api/store/ga-check). */
+    /* And the checkout text editor's preview, the website's own checkout in a frame of Settings (app/checkout/preview): it reads nothing and draws only what its parent on this origin posts to it. */
     const framableWhenEmbedded =
       url.pathname === "/onepage-preview" ||
+      url.pathname === "/checkout/preview" ||
       url.pathname === "/api/store/ga-check" ||
       url.pathname.startsWith("/cover-render/") ||
       /* The theme marketplace's live preview (app/(site)/theme-preview), framed by storelib.com/themes/<slug>. */

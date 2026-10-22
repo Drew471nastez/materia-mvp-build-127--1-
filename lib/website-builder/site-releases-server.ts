@@ -186,11 +186,11 @@ export async function releaseFiles(manifest: ReleaseManifest): Promise<Record<st
 }
 
 /** The live release a creator's website is drawn from: its id and manifest, for the published install `installId`. Null: draw from the rows. */
-export async function liveRelease(creatorId: string, installId: string | null, tags: string[]): Promise<{ id: string; manifest: ReleaseManifest } | null> {
+export async function liveRelease(creatorId: string, installId: string | null, tags: string[]): Promise<{ id: string; installId: string; manifest: ReleaseManifest } | null> {
   const pointer = await livePointer(creatorId, tags)
   if (!pointer || (installId !== null && pointer.installId !== installId)) return null
   const manifest = await releaseManifest(pointer.releaseId)
-  return manifest ? { id: pointer.releaseId, manifest } : null
+  return manifest ? { id: pointer.releaseId, installId: pointer.installId, manifest } : null
 }
 
 // ── Writing ──────────────────────────────────────────────────────────────────

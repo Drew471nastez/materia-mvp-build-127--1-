@@ -8,8 +8,34 @@ import "server-only"
  */
 
 import type { Db } from "./auth"
+import { inStoreCurrency } from "@/lib/money/report-currency-server"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+
+/* One unit of each checkout's currency, converted: its day's factor into the store's (see inStoreFactors). */
+const UNIT = 1_000_000
+
+/**
+ * Each paid checkout's factor into the store's currency, from its own day's
+ * ECB rate (lib/money/report-currency-server): 1 for one already in it, null
+ * for one no rate converts. A store that changed from euros to lei has euro
+ * checkouts beside lei ones, and their cents were added up as one number.
+ */
+export async function inStoreFactors(db: Db, creatorId: string, rows: { id: string; currency?: string | null; paid_at?: string | null; created_at?: string | null }[], storeCurrency: string): Promise<Map<string, number | null>> {
+  const probes = rows.map((r) => ({ id: r.id, created_at: r.paid_at || r.created_at || new Date().toISOString(), currency: r.currency ?? null, amount_cents: UNIT }))
+  const factors = new Map<string, number | null>(rows.map((r) => [r.id, null]))
+  try {
+    const done = await inStoreCurrency(db, creatorId, probes, storeCurrency)
+    for (const r of done.rows) factors.set(r.id, (r.amount_cents ?? 0) / UNIT)
+  } catch {
+    /* No rates: only the checkouts in the store's currency count. */
+    for (const r of rows) if (!r.currency || r.currency.toUpperCase() === storeCurrency.toUpperCase()) factors.set(r.id, 1)
+  }
+  return factors
+}
 
 export interface PhysicalAnalytics {
+  /** The store's currency, which every amount here is in. */
+  currency: string
   /** Paid checkouts in the period. */
   orders: number
   /** What was charged less what was refunded. */
@@ -47,14 +73,37 @@ export interface PhysicalAnalytics {
 export async function physicalAnalytics(db: Db, creatorId: string, sinceIso: string, lowStockDefault = 5, untilIso?: string): Promise<PhysicalAnalytics> {
   let paid = db
     .from("commerce_checkouts")
-    .select("id, total_cents, refunded_cents, shipping_cents, shipping_discount_cents, tax_cents, lines, fulfillment_status, return_status, paid_at, fulfilled_at, delivered_at, shipping_address")
+    .select("id, currency, total_cents, refunded_cents, shipping_cents, shipping_discount_cents, tax_cents, lines, fulfillment_status, return_status, paid_at, fulfilled_at, delivered_at, shipping_address")
     .eq("creator_id", creatorId)
     .in("status", ["paid", "partially_refunded", "refunded"])
     .gte("paid_at", sinceIso)
   /* The period's end, when the page names one (Analytics' own range). */
   if (untilIso) paid = paid.lt("paid_at", untilIso)
   const { data: checkouts } = await paid.limit(10000)
-  const rows = (checkouts ?? []) as Record<string, any>[]
+  const charged = (checkouts ?? []) as Record<string, any>[]
+  /*
+    EVERY AMOUNT IN THE STORE'S CURRENCY. Each checkout's money is converted
+    at its own day's rate; one no rate converts still counts as an order and
+    its units, but its money is left out rather than added in its own cents.
+  */
+  const currency = (await readStoreCurrency(db, creatorId)).currency
+  const factors = await inStoreFactors(db, creatorId, charged as { id: string; currency?: string | null; paid_at?: string | null }[], currency)
+  const scale = (v: unknown, f: number) => Math.round((typeof v === "number" && Number.isFinite(v) ? v : 0) * f)
+  const rows = charged.map((r) => {
+    const f = factors.get(r.id) ?? 0
+    if (f === 1) return r
+    return {
+      ...r,
+      total_cents: scale(r.total_cents, f),
+      refunded_cents: scale(r.refunded_cents, f),
+      shipping_cents: scale(r.shipping_cents, f),
+      shipping_discount_cents: scale(r.shipping_discount_cents, f),
+      tax_cents: scale(r.tax_cents, f),
+      lines: Array.isArray(r.lines) ? (r.lines as Record<string, any>[]).map((l) => ({ ...l, unit_cents: scale(l.unit_cents, f), discount_cents: scale(l.discount_cents, f) })) : r.lines,
+      unconverted: f === 0,
+    }
+  })
+  const priced = rows.filter((r) => !r.unconverted)
   let units = 0
   const byProduct = new Map<string, { id: string; title: string; units: number; revenueCents: number; orders: number }>()
   const byCountry = new Map<string, { code: string; orders: number; revenueCents: number }>()
@@ -152,11 +201,12 @@ export async function physicalAnalytics(db: Db, creatorId: string, sinceIso: str
   const netCents = Math.max(0, revenueCents - refundedCents)
   const startedCheckouts = Math.max(startedCount ?? 0, rows.length)
   return {
+    currency,
     orders: rows.length,
     netCents,
-    averageOrderCents: rows.length ? Math.round(netCents / rows.length) : null,
+    averageOrderCents: priced.length ? Math.round(netCents / priced.length) : null,
     refundedCents,
-    refunds: rows.filter((r) => (r.refunded_cents ?? 0) > 0).length,
+    refunds: charged.filter((r) => (r.refunded_cents ?? 0) > 0).length,
     startedCheckouts,
     checkoutConversion: startedCheckouts ? rows.length / startedCheckouts : null,
     productViews,

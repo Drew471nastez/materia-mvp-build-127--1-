@@ -48,6 +48,8 @@ const SOURCE: Record<string, Mark> = {
   affiliate: glyph("link"),
   referral: glyph("globe"),
   social: glyph("social"),
+  /* Storelib Explore, the marketplace: a search of Storelib's own. */
+  explore: glyph("search"),
 }
 
 const DEVICE: Record<string, Mark> = {

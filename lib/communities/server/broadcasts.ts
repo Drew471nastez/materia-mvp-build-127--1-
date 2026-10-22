@@ -74,7 +74,7 @@ export function nextBroadcastAt(lastAt: string | null | undefined, now = Date.no
   return next > now ? new Date(next).toISOString() : null
 }
 
-/** What the Member emails panel shows: who it reaches, when the next can go, the last few sent. */
+/** What Email your members shows (Emails › Customer emails › Communities): who it reaches, when the next can go, the last few sent. */
 export async function loadMemberEmails(db: Db, communityId: string): Promise<MemberEmailsView> {
   const [list, audience] = await Promise.all([
     db.from("community_broadcasts").select("id, subject, status, sent_count, created_at, sent_at, author_id").eq("community_id", communityId).order("created_at", { ascending: false }).limit(5),

@@ -52,7 +52,7 @@ function main() {
   /* Changed on purpose: "Remove the Upgrade to Pro in Getting started." */
   check("seven steps, Upgrade to Pro not among them", /SETUP_ORDER: readonly SetupStepId\[\] = \["signup", "guide", "product", "payments", "store", "sale", "domain"\]/.test(progress) && !/label: "Upgrade to Pro"/.test(progress))
   check("signing up is always done", /signup: \{ id: "signup", label: "Sign up", done: true/.test(progress))
-  check("Home works them out from the account's facts", /homeProgress\(facts\)/.test(dash) && /<HomeCards progress=\{progress\}/.test(dash))
+  check("Home works them out from the account's facts", /homeProgress\(facts(, storeCurrencyCode)?\)/.test(dash) && /<HomeCards progress=\{progress\}/.test(dash))
   check("the website builder is a page in the shell, as the sidebar opens it now", /href: "\/app\/website-builder"/.test(progress) && !/hardNavigation/.test(cards) && !/<a\s+href/.test(cards))
   check("the purple bar counts the same steps", /const completedSteps = progress\.completed/.test(dash) && /const totalSteps = progress\.total/.test(dash))
   check("and its Continue points at Getting started", /onClick=\{bumpGettingStarted\}/.test(dash))

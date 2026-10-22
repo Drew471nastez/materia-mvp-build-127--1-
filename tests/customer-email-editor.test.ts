@@ -26,7 +26,8 @@ const SHOP = { name: "Astrid Studio", supportEmail: "hello@astrid.studio", curre
 
 console.log("\nEvery email in Settings can be changed, and has defaults\n")
 {
-  check("every listed email has default words for all four parts", CUSTOMER_EMAILS.every((e) => DEFAULT_COPY[e.id] && COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id][f] === "string")))
+  /* Changed on purpose: the digital Refund is listed with nothing to edit (its words are Storelib's, drawn by lib/emails/notices.ts); every email that can be edited has its four parts. */
+  check("every listed email has default words for all four parts", CUSTOMER_EMAILS.filter((e) => e.editable).every((e) => DEFAULT_COPY[e.id] && COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id][f] === "string")) && CUSTOMER_EMAILS.filter((e) => !e.editable).map((e) => e.id).join() === "digital_refund")
   check("every listed email draws a preview", CUSTOMER_EMAILS.every((e) => !!previewCustomerEmail(e.id, SHOP)?.html))
   check("the checkout reminder is listed for every store; shipping ones only with physical commerce", visibleCustomerEmails(false).some((e) => e.id === "checkout_reminder") && !visibleCustomerEmails(false).some((e) => e.id === "shipping_confirmation") && visibleCustomerEmails(true).some((e) => e.id === "shipping_confirmation"))
   const words = Object.values(DEFAULT_COPY).flatMap((c) => Object.values(c)).join(" ")
@@ -113,7 +114,8 @@ console.log("\nSaved per store, used by the senders\n")
     ["refund", /copy: copyFor\("refund", co\.lines\)/],
   ] as const) check(`  ${template} passes them to its template`, pattern.test(jobs))
   const email = read("lib/email.tsx")
-  check("the receipt sender and the receipt copy both use the store's receipt words", (email.match(/await withReceiptCopy\(/g) ?? []).length === 2 && /resolveCopy\(saved\.receipt,/.test(email))
+  /* Changed on purpose: both build through lib/receipts/receipt-mail.ts buildReceiptEmail, which applies the words (only in the website's own language), the same build the preview draws. */
+  check("the receipt sender and the receipt copy both use the store's receipt words", (email.match(/buildReceiptEmail\(model, language, saved\.receipt\)/g) ?? []).length === 2 && /resolveCopy\(saved, \{ customer_name: model\.firstName/.test(read("lib/receipts/receipt-mail.ts")))
   check("the checkout reminder uses its words", /resolveCopy\(saved\.checkout_reminder,/.test(read("lib/automations/abandoned-reminder.ts")))
   const server = read("lib/emails/customer-copy-server.ts")
   check("saved on the caller's own store_settings row, read back cleaned", /from\("store_settings"\)\.upsert\(\{ creator_id: creatorId, customer_emails: next/.test(server) && /readSavedCopy\(data\?\.customer_emails\)/.test(server))
@@ -138,7 +140,9 @@ console.log("\nThe sheet opens at once, as a bottom sheet on a phone\n")
   check("Send test, on every email, with the words on screen", /data-email-test=""/.test(panel) && /\/api\/store\/emails\/test/.test(panel) && /copy: draft/.test(panel))
   const test = read("app/api/store/emails/test/route.ts")
   check("  only to the inbox of the person who pressed it, rate limited, marked [Test]", /await shopCaller\(\)/.test(test) && /getUserById\(c\.userId\)/.test(test) && /bucket: "customer-email-test"/.test(test) && /subject: `\[Test\] \$\{mail\.subject\}`/.test(test) && /maskEmail\(to\)/.test(test))
-  check("  drawn by the same template as the real email, with the store's logo", /previewCustomerEmail\(\s*id,/.test(test) && /logoUrl: store\?\.logoUrl/.test(test))
+  /* Changed on purpose: drawn by lib/emails/customer-preview-server.ts, where it was bought and in the language picked, as the preview on screen. */
+  const previewServer = read("lib/emails/customer-preview-server.ts")
+  check("  drawn by the same template as the real email, with the store's logo", /storePreview\(db, c\.creatorId, id, words,/.test(test) && /previewCustomerEmail\(\s*id,/.test(previewServer) && /logoUrl: store\?\.logoUrl/.test(previewServer))
   check("the receipt email shows the same picture as the receipt page: logo, else website logo, else profile photo", /storeIdentity\(admin, params\.creatorId as string, \{ logoOnly: true \}\)/.test(read("lib/email.tsx")) && /store\.logoFrom === "profile" \? senderPicture\(\{ photoUrl: store\.logoUrl \}\)/.test(read("lib/email.tsx")))
 }
 

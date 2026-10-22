@@ -4,6 +4,8 @@ import { AnalyticsClient } from "./analytics-client"
 import { pageUser } from "@/lib/auth/page-user"
 import { creatorProperties } from "@/lib/analytics/report-read"
 import type { CreatorProperties } from "@/lib/analytics/properties"
+import { readReportLayout } from "@/lib/analytics/report-layout"
+import type { CommunityPlace } from "./community-reports"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
 
@@ -18,9 +20,18 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Who is asking, what they sell, and which places they have (the property
- * filter lists only those: lib/analytics/properties). Every figure on the
- * page is counted by app/api/analytics/reports, so nothing else is read here.
+ * Who is asking, what they sell, which places they have (the property
+ * filter lists only those: lib/analytics/properties), the communities they
+ * run and the reports they added (lib/analytics/report-layout). What they
+ * sell and have decides the sections (lib/analytics/sections); the reports
+ * they added are on the first paint because they are read here. Every
+ * figure on the page is counted by app/api/analytics/reports, commerce and
+ * the communities' own route, so nothing else is read here.
+ *
+ * ONE ROUND TRIP BEFORE THE CREATOR IS KNOWN, ONE AFTER. Everything that can
+ * be found from the signed in user is asked for at once: the creator, the
+ * products, the communities and the added reports, each through its
+ * creator's user id. Only the places need the creator's id.
  */
 export default async function AnalyticsPage() {
   const adminSupabase = createAdminClient()
@@ -38,9 +49,20 @@ export default async function AnalyticsPage() {
     are read through their creator's user id; an install where the two are
     not joined reads them by the creator's id once it is known.
   */
-  const [{ data: creator, error: creatorError }, joined] = await Promise.all([
+  const [{ data: creator, error: creatorError }, joined, communityRows, savedReports] = await Promise.all([
     adminSupabase.from("creators").select("id").eq("user_id", user.id).single(),
     adminSupabase.from("products").select("id, title, thumbnail_url, type, creators!inner(user_id)").eq("creators.user_id", user.id),
+    /* Published and archived communities: a draft has had no visitor, as a draft website is not a place. */
+    adminSupabase
+      .from("communities")
+      .select("id, name, slug, status, creators!inner(user_id)")
+      .eq("creators.user_id", user.id)
+      .is("deleted_at", null)
+      .in("status", ["published", "archived"])
+      .order("created_at", { ascending: true })
+      .limit(12)
+      .then((r) => (r.error ? [] : ((r.data ?? []) as Array<{ id: string; name: string | null; slug: string | null }>)), () => []),
+    readReportLayout(adminSupabase, user.id),
   ])
 
   if (creatorError || !creator) {
@@ -56,5 +78,6 @@ export default async function AnalyticsPage() {
   ])
 
   /* Pulled down on a phone, the page asks again in place, under its purple bar: the products here, the figures in the client (analytics-client.tsx). */
-  return <AnalyticsClient creatorId={creator.id} userId={user.id} products={productsData || []} properties={properties} />
+  const communities: CommunityPlace[] = communityRows.map((c) => ({ id: String(c.id), name: (c.name || "").trim() || "Community", slug: c.slug ?? null }))
+  return <AnalyticsClient creatorId={creator.id} userId={user.id} products={productsData || []} properties={properties} communities={communities} savedReports={savedReports} />
 }

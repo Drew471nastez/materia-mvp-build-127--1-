@@ -62,7 +62,7 @@ export function OfferEditor({
   kind,
   products,
   collections,
-  currency,
+  currency: currencyNow,
   physical,
   settingsReady,
   onRequestClose,
@@ -85,12 +85,14 @@ export function OfferEditor({
   settingsReady: boolean
   onRequestClose: (dirty: boolean) => void
   /** Saves, and answers with what went wrong, or null. */
-  onSave: (id: string | null, body: ReturnType<typeof bodyOf>) => Promise<string | null>
+  onSave: (id: string | null, body: ReturnType<typeof bodyOf> & { formCurrency: string }) => Promise<string | null>
   onDelete: (offer: Offer) => void
   onClosed: () => void
   leaveMs: number
 }) {
   const phone = usePhone()
+  /* The currency this offer's amounts were typed in, kept while it is open: a save after the store's currency changed is refused (lib/store/currency-guard), never written over the converted amounts. */
+  const [currency] = React.useState(currencyNow)
   const [d, setD] = React.useState<Draft>(() => draftOf(offer, kind, currency))
   const [initial] = React.useState(() => JSON.stringify(draftOf(offer, kind, currency)))
   const dirty = JSON.stringify(d) !== initial
@@ -126,7 +128,7 @@ export function OfferEditor({
     }
     setBusy(true)
     setError(null)
-    const problem = await onSave(offer?.id ?? null, bodyOf(d, currency))
+    const problem = await onSave(offer?.id ?? null, { ...bodyOf(d, currency), formCurrency: currency })
     setBusy(false)
     if (problem) setError(problem)
   }

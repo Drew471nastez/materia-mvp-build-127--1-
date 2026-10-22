@@ -16,6 +16,7 @@
  * draw exactly what is sent.
  */
 import { emailDocument, emailKit, emailText, identity, platformEmail, type EmailSender } from "./layout"
+import { emailLanguage, et, inEmailLanguage } from "./words"
 
 type Mail = { subject: string; html: string; text: string }
 
@@ -97,49 +98,101 @@ export interface RefundFacts {
   orderRef: string
 }
 
-/** The buyer's: from the store, with how long the bank takes and who to ask. */
+/**
+ * The buyer's: from the store, with how long the bank takes and who to ask.
+ * Written through et() (lib/emails/words.ts), so a refund for an order on
+ * the store's website reads in the buyer's language, like its receipt; each
+ * sentence is a line of Translate › Order emails.
+ */
 export function buyerRefundEmail(p: RefundFacts & { contactEmail: string; sellerPictureUrl?: string | null }): Mail {
   const store = clean(p.storeName, 80) || "Store"
   const product = clean(p.productTitle)
-  const subject = `Your ${p.amount} refund for ${product} has been processed`
+  const subject = et("Your {amount} refund for {product} has been processed", { amount: p.amount, product })
   const sender: EmailSender = { kind: "store", name: store, pictureUrl: p.sellerPictureUrl ?? null, picture: "avatar" }
   const k = emailKit(sender)
   const facts = [
-    { label: "Refund", value: p.amount },
-    { label: "Product", value: product },
-    { label: "Order date", value: p.orderDate },
-    { label: "Refund date", value: p.refundDate },
-    { label: "Reason", value: clean(p.reason) || "Not given" },
-    { label: "Order", value: p.orderRef },
+    { label: et("Refund"), value: p.amount },
+    { label: et("Product"), value: product },
+    { label: et("Order date"), value: p.orderDate },
+    { label: et("Refund date"), value: p.refundDate },
+    { label: et("Reason"), value: clean(p.reason) || et("Not given") },
+    { label: et("Order"), value: p.orderRef },
   ]
-  const lead = `${store} refunded ${p.amount} for ${product}. You don't need to do anything.`
+  const lead = et("{store} refunded {amount} for {product}. You don't need to do anything.", { store, amount: p.amount, product })
+  const heading = et("Your refund is on its way")
+  const bank = et("Banks usually take 5 to 10 business days to show it on your statement.")
+  const downloads = et("The downloads for this product stopped working with the refund.")
+  const sold = et("Sold by {store} through Storelib.", { store })
   const html = emailDocument({
     sender,
     subject,
     preview: lead,
     rows: [
-      k.heading("Your refund is on its way"),
+      k.heading(heading),
       k.text(lead),
       k.facts(facts),
-      k.notice({ text: "Banks usually take 5 to 10 business days to show it on your statement." }),
-      k.small("The downloads for this product stopped working with the refund.", { below: 20 }),
-      k.button(`Contact ${store}`, `mailto:${p.contactEmail}`),
-      k.smallHtml(`Or write to ${identity(p.contactEmail, false)}.`),
+      k.notice({ text: bank }),
+      k.small(downloads, { below: 20 }),
+      k.button(et("Contact {store}", { store }), `mailto:${p.contactEmail}`),
+      k.smallHtml(et("Or write to {email}.", { email: identity(p.contactEmail, false) })),
     ],
-    footer: { reason: `You're getting this email because of your order with ${store}.`, legal: `Sold by ${store} through Storelib.` },
+    footer: { reason: et("You're getting this email because of your order with {shop}.", { shop: store }), legal: sold },
   })
-  const text = emailText(
-    [
-      "Your refund is on its way",
-      lead,
-      facts.map((f) => `${f.label}: ${f.value}`).join("\n"),
-      "Banks usually take 5 to 10 business days to show it on your statement.",
-      "The downloads for this product stopped working with the refund.",
-      `Questions? Write to ${store} at ${p.contactEmail}`,
-    ],
-    [store, `Sold by ${store} through Storelib.`],
-  )
+  const text = emailText([heading, lead, facts.map((f) => `${f.label}: ${f.value}`).join("\n"), bank, downloads, et("Questions? Write to {store} at {email}", { store, email: p.contactEmail })], [store, sold])
   return { subject, html, text }
+}
+
+/** Stripe's reason codes as words a buyer reads ("requested_by_customer" was sent as it is); anything else as the seller wrote it. */
+function refundReason(reason: string): string {
+  switch ((reason || "").trim()) {
+    case "requested_by_customer":
+      return et("Requested by you")
+    case "duplicate":
+      return et("Charged twice")
+    case "fraudulent":
+      return et("Payment not made by the card's owner")
+    case "expired_uncaptured_charge":
+      return et("Payment not completed")
+    default:
+      return reason
+  }
+}
+
+/** "#1A2B3C4D", the short reference a refund names the order by. */
+export function refundOrderRef(orderId: string): string {
+  return `#${orderId.slice(0, 8).toUpperCase()}`
+}
+
+/**
+ * THE BUYER'S REFUND, BUILT ONE WAY FOR THE INBOX AND THE PREVIEW: the
+ * amount and the days written in the email's language, then the email
+ * inside it. lib/email.tsx sendRefundEmails and Emails › Customer emails ›
+ * Refund (lib/emails/customer-catalog.ts) both call this.
+ */
+export function buyerRefundMail(
+  p: { storeName: string; productTitle: string; amountCents: number; currency: string; orderId: string; reason: string; orderDate?: string | null; refundDate: string; contactEmail: string; sellerPictureUrl?: string | null },
+  language?: { lang: string; words: Record<string, string> | null } | null,
+): Mail {
+  return inEmailLanguage(language?.lang, language?.words, () => {
+    const locale = emailLanguage() === "en" ? "en-US" : [emailLanguage(), "en-US"]
+    const day = (iso: string | null | undefined) => {
+      const at = iso ? new Date(iso) : null
+      if (!at || Number.isNaN(at.getTime())) return et("Not known")
+      return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" }).format(at)
+    }
+    const amount = new Intl.NumberFormat(locale, { style: "currency", currency: p.currency }).format(p.amountCents / 100)
+    return buyerRefundEmail({
+      storeName: p.storeName,
+      reason: refundReason(p.reason),
+      productTitle: p.productTitle,
+      amount,
+      orderDate: day(p.orderDate),
+      refundDate: day(p.refundDate),
+      orderRef: refundOrderRef(p.orderId),
+      contactEmail: p.contactEmail,
+      sellerPictureUrl: p.sellerPictureUrl ?? null,
+    })
+  })
 }
 
 /** The seller's: from Storelib, with what it does to their payout. */

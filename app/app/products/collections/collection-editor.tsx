@@ -52,6 +52,7 @@ import {
   type CollectionProduct,
 } from "./collection-parts"
 import { tt } from "@/lib/i18n/text"
+import { useMoneyMark } from "@/lib/store/currency-context"
 import { Rich } from "@/lib/i18n/rich"
 
 /** On a phone the sheet is the form's height whatever is in it, so switching between picking and rules never moves its top edge. */
@@ -415,6 +416,8 @@ function RuleRow({
   /* A saved rule from before these choices keeps its own comparison. */
   if (!ops.includes(rule.op)) ops.push(rule.op)
   const money = rule.field === "price" || rule.field === "compare_at_price"
+  /* The store's own currency mark, before or after the amount ("$30", "30 lei"), as every price field in /app writes it. */
+  const mark = useMoneyMark("text-[16px] text-[#9ca3af] sm:text-[14px]")
   const n = index + 1
   return (
     <div data-condition="" className="grid grid-cols-2 gap-2 border-[#eef0f2] p-3 [div+&]:border-t sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1.15fr)_auto] sm:items-center sm:p-2.5">
@@ -446,7 +449,7 @@ function RuleRow({
           </select>
         ) : (
           <span className="relative block min-w-0 flex-1">
-            {money ? <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[16px] text-[#9ca3af] sm:text-[14px]">$</span> : null}
+            {money ? mark.node : null}
             <input
               value={rule.value}
               onChange={(e) => onValue(e.target.value)}
@@ -455,7 +458,8 @@ function RuleRow({
               placeholder={money ? "30" : rule.field === "weight" ? tt("Grams") : rule.field === "inventory" ? "10" : rule.field === "tag" ? "summer" : rule.field === "category" ? tt("T-Shirts") : tt("Word")}
               autoComplete="off"
               list={rule.field === "category" ? `collection-categories-${n}` : undefined}
-              className={cn(FIELD, money && "pl-7", NUMERIC_FIELDS.has(rule.field) && "tabular-nums")}
+              style={money ? mark.pad : undefined}
+              className={cn(FIELD, NUMERIC_FIELDS.has(rule.field) && "tabular-nums")}
             />
             {/* The product categories the editor files products under, things that ship first while they can be sold (lib/products/category-groups.ts). */}
             {rule.field === "category" ? (

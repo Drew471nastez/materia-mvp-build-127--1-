@@ -50,7 +50,8 @@ import type { HomeProgress, ProgressItem } from "@/lib/home/progress"
 import { APP_PAGE_KEPT_MS, prefetchAppPage } from "@/lib/ui/app-navigation"
 import { PayPalMark, StripeMark, VisaMark } from "./payment-marks"
 import { tt } from "@/lib/i18n/text"
-import { appLocale } from "@/lib/i18n/format"
+import { useStoreCurrency } from "@/lib/store/currency-context"
+import { shopAmountIn } from "@/lib/store/shop-money"
 
 export const GETTING_STARTED_ID = "getting-started"
 
@@ -322,12 +323,12 @@ export function GettingStartedCard({
   )
 }
 
-/** "3/10", or "$120/$1,000" for money. */
-function countText(item: ProgressItem): string | null {
+/** "3/10", or "$120/$1,000" for money, in the store's currency ("120 lei/1,000 lei"): the revenue it counts is in it. */
+function countText(item: ProgressItem, currency: string): string | null {
   if (item.done || item.target == null || item.target <= 1) return null
   const current = item.current ?? 0
   if (item.unit === "cents") {
-    const money = (cents: number) => `$${Math.floor(cents / 100).toLocaleString(appLocale())}`
+    const money = (cents: number) => shopAmountIn(Math.floor(cents / 100), currency)
     return `${money(current)}/${money(item.target)}`
   }
   return `${current}/${item.target}`
@@ -345,7 +346,7 @@ function ProgressRow({
   onShare?: () => void
 }) {
   const row = `flex h-9 w-full items-center gap-2.5 rounded-[10px] px-2.5 text-left outline-none transition-colors duration-150 hover:bg-[#f5f6f7] focus-visible:bg-[#f5f6f7] [-webkit-tap-highlight-color:transparent]`
-  const count = countText(item)
+  const count = countText(item, useStoreCurrency())
   const body: ReactNode = (
     <>
       {item.done ? (

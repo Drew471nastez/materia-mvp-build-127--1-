@@ -2213,7 +2213,7 @@ const COMMUNITY_ENTRIES: Record<
 
 /**
  * ROUND AG: A COMMUNITY'S OWN WORDS. An owner may change the subject, the heading and add an opening line to the
- * community emails they send (Settings, Member emails; lib/communities/server/email-templates.ts). sendCommunityEmail puts
+ * community emails they send (Emails › Customer emails › Communities; lib/communities/server/email-templates.ts). sendCommunityEmail puts
  * them in the event as tplSubject, tplHeading and tplIntro; {community} and {creator} become the community's name and its
  * owner's. Everything else (the button, the facts, the note on why it came) stays Storelib's, so an email always says what
  * it is for and how to turn it off.

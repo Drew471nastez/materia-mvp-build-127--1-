@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
-import { readStoreCurrency } from "@/lib/store/selling-currency-read"
-import { resolveCreatorIdentity } from "@/lib/email"
-import { storeIdentity } from "@/lib/store/identity-server"
-import { orderStoreUrl } from "@/lib/physical/store-link"
-import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { loadCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
-import { CUSTOMER_EMAILS, previewCustomerEmail } from "@/lib/emails/customer-catalog"
+import { CUSTOMER_EMAILS } from "@/lib/emails/customer-catalog"
+import { storePreview } from "@/lib/emails/customer-preview-server"
 import { readCopy } from "@/lib/emails/customer-custom"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
 import { rateLimit } from "@/lib/api/rate-limit"
@@ -22,7 +18,7 @@ export const dynamic = "force-dynamic"
  * who pressed the button, never to anyone else. A sample order, and
  * "[Test]" in front of the subject so it is never mistaken for a real one.
  *
- *   POST { id, copy? }   ->   { sentTo }   (the address, masked)
+ *   POST { id, copy?, channel?, lang? }   ->   { sentTo }   (the address, masked)
  *
  * Ten an hour a person: a test is for looking, not for sending mail.
  */
@@ -49,33 +45,12 @@ export async function POST(request: Request) {
   if (!to) return physicalJson({ error: "Your account has no email address to send the test to." }, 400)
 
   const db = c.db
-  const [identity, store, selling, look, saved, website] = await Promise.all([
-    resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
-    storeIdentity(db, c.creatorId).catch(() => null),
-    /* The store's selling currency, the one its customer emails are written in (never the payout currency). */
-    readStoreCurrency(db, c.creatorId),
-    loadBrand(db, c.creatorId).catch(() => null),
-    loadCustomerEmailCopy(db, c.creatorId),
-    /* The live website, as the sent emails link it (lib/physical/store-link.ts), never the creator page. */
-    orderStoreUrl({ creator_id: c.creatorId }),
-  ])
+  const saved = await loadCustomerEmailCopy(db, c.creatorId)
   /* The words being typed, when the editor sent them and they are valid; else what is saved. */
   const typed = body?.copy && typeof body.copy === "object" ? readCopy(id, body.copy) : null
   const words = typed?.ok ? typed.copy : saved[id]
-  const name = store?.name || identity.fromName || "Your store"
-  const mail = previewCustomerEmail(
-    id,
-    {
-      name,
-      supportEmail: store?.email || identity.replyTo || null,
-      storeUrl: website || null,
-      logoUrl: store?.logoUrl ?? null,
-      phone: store?.phone ?? null,
-      currency: selling.currency,
-      accent: look?.accent ?? null,
-    },
-    words,
-  )
+  /* As the preview showed it: where it was bought and the language picked there (lib/emails/buyer-channel.ts). */
+  const { name, mail } = await storePreview(db, c.creatorId, id, words, { channel: body?.channel === "storelib" ? "storelib" : "website", lang: typeof body?.lang === "string" ? body.lang : null })
   if (!mail) return physicalJson({ error: "That email was not found." }, 404)
 
   const sent = await sendEmail({

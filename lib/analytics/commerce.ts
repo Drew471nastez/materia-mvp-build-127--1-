@@ -24,6 +24,7 @@
  */
 import { decodeOrigin } from "@/lib/orders/order-source"
 import { counts, orderProperty, type PropertySelector } from "@/lib/analytics/properties"
+import { bucketIndex, bucketStarts, grainFor, type Grain } from "@/lib/analytics/buckets"
 
 export interface CommerceOrderRow {
   id: string
@@ -45,6 +46,8 @@ export interface CommerceOrderRow {
   product_id?: string | null
   property_type?: string | null
   property_id?: string | null
+  /** The shipped order this line is part of (commerce_checkouts), for how long it took to ship. */
+  checkout_id?: string | null
 }
 
 /**
@@ -178,34 +181,26 @@ export interface CommercePoint {
   aov: number
 }
 
-/** A bucket size for a period: days up to two months, weeks up to a year, then months. */
-export function grainFor(span: { start: number; end: number }): "day" | "week" | "month" {
-  const days = (span.end - span.start) / 86_400_000
-  return days <= 62 ? "day" : days <= 370 ? "week" : "month"
-}
+/**
+ * THE SAME BUCKETS AS THE CHART ABOVE (lib/analytics/buckets): hours for a
+ * day or two, days up to three months, then months, each starting at the
+ * seller's own midnight in their time zone. These were UTC days, so in
+ * Bucharest an order at 01:30 landed on the day before, and Today was
+ * drawn as days.
+ */
+export { grainFor }
 
-function bucketStart(t: number, grain: "day" | "week" | "month"): number {
-  const d = new Date(t)
-  if (grain === "month") return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)
-  const day = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
-  if (grain === "day") return day
-  const dow = (d.getUTCDay() + 6) % 7
-  return day - dow * 86_400_000
-}
-
-export function seriesOf(rows: CommerceOrderRow[], span: { start: number; end: number }, grain = grainFor(span)): CommercePoint[] {
-  const buckets = new Map<number, CommerceOrderRow[]>()
-  for (let t = bucketStart(span.start, grain); t < span.end; ) {
-    buckets.set(t, [])
-    const d = new Date(t)
-    t = grain === "month" ? Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1) : t + (grain === "week" ? 7 : 1) * 86_400_000
-  }
+export function seriesOf(rows: CommerceOrderRow[], span: { start: number; end: number }, timeZone = "UTC", grain: Grain = grainFor(span)): CommercePoint[] {
+  const starts = bucketStarts(span, grain, timeZone)
+  const lists: CommerceOrderRow[][] = starts.map(() => [])
   for (const r of rows) {
-    const k = bucketStart(Date.parse(r.created_at), grain)
-    if (buckets.has(k)) buckets.get(k)!.push(r)
+    const at = Date.parse(r.created_at)
+    if (!(at >= span.start && at < span.end)) continue
+    const i = bucketIndex(starts, at)
+    if (i >= 0) lists[i].push(r)
   }
-  return [...buckets.entries()].map(([t, list]) => {
-    const b = breakdownOf(list)
+  return starts.map((t, i) => {
+    const b = breakdownOf(lists[i])
     return { t, total: b.total, orders: b.orders, aov: b.aov }
   })
 }

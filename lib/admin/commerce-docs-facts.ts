@@ -107,6 +107,7 @@ const CHECKOUT_LABELS: Record<keyof CheckoutConfig, string> = {
   codCountries: "Where",
   codFeeCents: "Fee",
   codInstructions: "Note for the buyer",
+  businessInvoice: "Company invoices",
 }
 
 const word = (v: unknown): string => {

@@ -48,54 +48,62 @@ const button = 32
 const line = 120
 
 export const EDITABLE_TEXTS: readonly EditableText[] = [
+  /*
+    Changed on purpose (round chk-1021): each note says where the website's
+    checkout really shows its text, as the preview (./preview.ts) proved it,
+    and two texts a store's words never reached are gone: "Secure checkout"
+    (only on a checkout with no website to go back to) and "Add a tip" (the
+    storelib.com checkout's, which is not drawn in a store's words). The
+    thank you page's own heading is here now, which it never was.
+  */
   { id: "header.pay_shop", source: "Pay {shop}", group: "header", note: "Above the total at the top. A verb: pay this store.", max: label },
-  { id: "header.secure", source: "Secure checkout", group: "header", note: "Next to the lock in the top bar.", max: label },
-  { id: "header.back_to", source: "Back to {site}", group: "header", note: "The link back to your website.", max: label },
-  { id: "header.details", source: "Details", group: "header", note: "Phone only: opens the order details.", max: 24 },
+  { id: "header.back_to", source: "Back to {site}", group: "header", note: "The back button at the top left: read aloud, and shown when it's hovered.", max: label },
+  { id: "header.details", source: "Details", group: "header", note: "Phone only: opens the order details under the total.", max: 24 },
   { id: "header.hide_details", source: "Hide details", group: "header", note: "Phone only: closes the order details.", max: 24 },
 
   { id: "contact.heading", source: "Contact information", group: "contact", note: "Heading above the email field.", max: label },
-  { id: "contact.email", source: "Email", group: "contact", note: "The email field's label.", max: 24 },
-  { id: "contact.phone", source: "Phone", group: "contact", note: "The phone field's label.", max: 24 },
-  { id: "contact.phone_optional", source: "Phone (optional)", group: "contact", note: "The phone field's label when it's optional.", max: label },
-  { id: "contact.sign_in", source: "Sign in", group: "contact", note: "Link for customers with an account.", max: 24 },
+  { id: "contact.email", source: "Email", group: "contact", note: "The email field, read aloud.", max: 24 },
+  { id: "contact.phone", source: "Phone", group: "contact", note: "The phone field and its placeholder, when you require it. Orders that ship.", max: 24 },
+  { id: "contact.phone_optional", source: "Phone (optional)", group: "contact", note: "The phone field when it's optional. Orders that ship.", max: label },
+  { id: "contact.sign_in", source: "Sign in", group: "contact", note: "The button when buyers must sign in first.", max: 24 },
 
   { id: "delivery.heading", source: "Delivery", group: "delivery", note: "Heading above the address.", max: label },
-  { id: "delivery.or_pickup", source: "Delivery or pickup", group: "delivery", note: "Heading when pickup is offered too.", max: label },
-  { id: "delivery.ship", source: "Ship", group: "delivery", note: "Choice: have it delivered. A verb.", max: 24 },
+  { id: "delivery.or_pickup", source: "Delivery or pickup", group: "delivery", note: "Read aloud above Ship and Pick up, when you offer pickup.", max: label },
+  { id: "delivery.ship", source: "Ship", group: "delivery", note: "Choice: have it delivered, when you offer pickup. A verb.", max: 24 },
   { id: "delivery.pick_up", source: "Pick up", group: "delivery", note: "Choice: collect it yourself. A verb.", max: 24 },
   { id: "delivery.method", source: "Shipping method", group: "delivery", note: "Heading above the delivery options.", max: label },
   { id: "delivery.note", source: "Add a note for the shop", group: "delivery", note: "Opens the order note field.", max: label },
   { id: "delivery.note_hint", source: "Gift wrap, delivery instructions...", group: "delivery", note: "Placeholder inside the order note field.", max: 60 },
 
-  { id: "payment.heading", source: "Payment method", group: "payment", note: "Heading above the payment form.", max: label },
-  { id: "payment.express", source: "Express checkout", group: "payment", note: "Above the Apple Pay and Google Pay buttons.", max: label },
-  { id: "payment.how", source: "How to pay", group: "payment", note: "Heading when card and cash on delivery are both offered.", max: label },
-  { id: "payment.cod", source: "Cash on delivery", group: "payment", note: "The cash on delivery choice.", max: label },
+  { id: "payment.heading", source: "Payment method", group: "payment", note: "Heading above the card form.", max: label },
+  { id: "payment.express", source: "Express checkout", group: "payment", note: "Read aloud above the Apple Pay and Google Pay buttons.", max: label },
+  { id: "payment.how", source: "How to pay", group: "payment", note: "Read aloud above Card and Cash on delivery.", max: label },
+  { id: "payment.cod", source: "Cash on delivery", group: "payment", note: "The choice beside Card, when you take cash on delivery.", max: label },
 
   { id: "buttons.pay_amount", source: "Pay {amount}", group: "buttons", note: "The main button. {amount} is filled in by checkout and must stay.", max: button },
-  { id: "buttons.place_order", source: "Place order", group: "buttons", note: "The main button for cash on delivery.", max: button },
+  { id: "buttons.place_order", source: "Place order", group: "buttons", note: "The main button for cash on delivery or a free order that ships.", max: button },
   { id: "buttons.get_free", source: "Get it free", group: "buttons", note: "The main button when the order is free.", max: button },
   { id: "buttons.apply", source: "Apply", group: "buttons", note: "Applies a discount code. A verb.", max: 16 },
   { id: "buttons.add_code", source: "Add promotion code", group: "buttons", note: "Opens the discount code field.", max: label },
-  { id: "buttons.continue", source: "Continue shopping", group: "buttons", note: "Back to the website after an empty cart.", max: label },
-  { id: "buttons.edit", source: "Edit", group: "buttons", note: "Changes a line's size or option. A verb.", max: 16 },
+  { id: "buttons.continue", source: "Continue shopping", group: "buttons", note: "Back to your website: top right on a computer, and on the thank you page.", max: label },
+  { id: "buttons.edit", source: "Edit", group: "buttons", note: "Changes a line's size or option, when it has options. A verb.", max: 16 },
   { id: "buttons.remove", source: "Remove", group: "buttons", note: "Takes a line out of the order. A verb.", max: 16 },
 
   { id: "summary.subtotal", source: "Subtotal", group: "summary", note: "Items before shipping and discounts.", max: 24 },
   { id: "summary.shipping", source: "Shipping", group: "summary", note: "The shipping row in the summary.", max: 24 },
   { id: "summary.discount", source: "Discount", group: "summary", note: "The discount row in the summary.", max: 24 },
-  { id: "summary.discount_code", source: "Discount code", group: "summary", note: "The discount code field's label.", max: label },
+  { id: "summary.discount_code", source: "Discount code", group: "summary", note: "The discount code field, read aloud.", max: label },
   { id: "summary.enter_code", source: "Enter discount code", group: "summary", note: "Placeholder inside the discount code field.", max: label },
   { id: "summary.total", source: "Total due", group: "summary", note: "The last row: what the buyer pays.", max: 24 },
-  { id: "summary.tip", source: "Add a tip", group: "summary", note: "Heading above the tip choices.", max: label },
   { id: "summary.free", source: "Free", group: "summary", note: "Shown instead of a price of zero (free shipping).", max: 16 },
 
-  { id: "messages.thanks_name", source: "Thank you, {name}!", group: "messages", note: "Heading after the order, with the buyer's name.", max: 60 },
-  { id: "messages.thanks", source: "Thank you!", group: "messages", note: "Heading after the order, without a name.", max: 60 },
-  { id: "messages.confirmed", source: "Your order is confirmed", group: "messages", note: "Under the thank you heading.", max: 80 },
-  { id: "messages.placed", source: "Order placed", group: "messages", note: "After a cash on delivery order.", max: 60 },
-  { id: "messages.empty_cart", source: "Your cart is empty.", group: "messages", note: "When nothing is left to pay for.", max: 80 },
+  { id: "messages.thanks_order_name", source: "Thank you, {name}", group: "messages", note: "Heading on the thank you page after paying, with the buyer's name.", max: 60 },
+  { id: "messages.thanks_order", source: "Thank you for your order", group: "messages", note: "Heading on the thank you page when the name isn't known.", max: 60 },
+  { id: "messages.thanks_name", source: "Thank you, {name}!", group: "messages", note: "Heading on the order page right after a shipped order is paid.", max: 60 },
+  { id: "messages.thanks", source: "Thank you!", group: "messages", note: "The same heading when the name isn't known.", max: 60 },
+  { id: "messages.confirmed", source: "Your order is confirmed", group: "messages", note: "Heading on the order page until the order ships.", max: 80 },
+  { id: "messages.placed", source: "Order placed", group: "messages", note: "After a cash on delivery order is placed.", max: 60 },
+  { id: "messages.empty_cart", source: "Your cart is empty.", group: "messages", note: "When Pay is pressed with nothing left to pay for.", max: 80 },
   { id: "messages.email_invalid", source: "Enter a valid email address.", group: "messages", note: "Under the email field when it's not an email.", max: line },
   { id: "messages.name_missing", source: "Enter your name.", group: "messages", note: "Under the name field when it's empty.", max: line },
   { id: "messages.street_missing", source: "Enter the street address.", group: "messages", note: "Under the address field when it's empty.", max: line },

@@ -241,7 +241,7 @@ async function main() {
     check("a day is the ECB's calendar day", dayOf("2026-10-18T23:30:00Z") === "2026-10-18")
     check("the revenue chart is in the store's currency", /inStoreCurrency\(adminSupabase, creator\.id/.test(code("app/api/stripe/revenue-chart/route.ts")) && !/salesCurrencyOf/.test(code("app/api/stripe/revenue-chart/route.ts")))
     check("Payouts' 1099-K years are converted to dollars, not relabelled", /taxYearsInUsd\(/.test(code("app/app/payouts/page.tsx")) && /taxYearsInUsd\(/.test(code("app/api/stripe/payouts/route.ts")) && /inStoreCurrency\(adminSupabase, creator\.id,[\s\S]{0,400}?"USD"\)/.test(code("app/api/stripe/tax-summary/route.ts")))
-    check("Analytics says when sales were converted", /data-analytics-converted/.test(code("app/app/analytics/analytics-reports.tsx")) && /conversion: o\.conversion/.test(code("app/api/analytics/reports/route.ts")))
+    check("Analytics says when sales were converted", /data-analytics-converted/.test(code("app/app/analytics/analytics-reports.tsx")) && /* Changed on purpose: the answer is counted in lib/analytics/report-answer.ts. */ /conversion: o\.conversion/.test(code("lib/analytics/report-answer.ts")))
   }
 
   console.log("\nNo guessed currency, no made-up rate")

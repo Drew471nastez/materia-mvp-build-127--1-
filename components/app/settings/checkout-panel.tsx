@@ -24,7 +24,9 @@
  *                         (#abandoned-checkouts)
  *   cash on delivery, cancellations   physical orders only
  *   customer information  the name as one field or two, and whether company,
- *                         phone and the second address line are asked for
+ *                         phone and the second address line are asked for;
+ *                         and company invoices, the "Buying for a business"
+ *                         box, off until the store turns it on
  *
  * Saved as each one changes, the way Shopify's checkout settings are; a
  * line at the foot says when the last change was kept.
@@ -253,6 +255,15 @@ export function CheckoutPanel() {
               </Row>
             </>
           ) : null}
+          {/* Off until turned on: most buyers are people, and the box is one more thing to read before Pay (lib/store/checkout-config.ts businessInvoice). */}
+          <div className="border-t border-[#f0f1f3] pt-3.5" data-business-invoice-setting="">
+            <Toggle
+              label={tt("Company invoices")}
+              description={tt("Adds “Buying for a business” to checkout. A buyer who ticks it enters the company's name, tax number and address, and the invoice is made out to the company.")}
+              checked={config.businessInvoice}
+              onChange={(v) => change({ businessInvoice: v })}
+            />
+          </div>
         </div>
       </Card>
 

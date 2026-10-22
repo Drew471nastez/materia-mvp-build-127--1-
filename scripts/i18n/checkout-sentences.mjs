@@ -66,7 +66,7 @@ export function scan() {
 }
 
 /* A buyer's emails (lib/emails/words.ts): every et("…") in the files that build them. */
-const EMAIL_FILES = ["lib/physical/email-templates.ts", "lib/emails/layout.ts", "lib/receipts/email.ts", "lib/email.tsx", "lib/physical/jobs-server.ts", "lib/reviews/request-email.ts"]
+const EMAIL_FILES = ["lib/physical/email-templates.ts", "lib/emails/layout.ts", "lib/receipts/email.ts", "lib/receipts/receipt-mail.ts", "lib/emails/notices.ts", "lib/email.tsx", "lib/physical/jobs-server.ts", "lib/reviews/request-email.ts"]
 const EMAIL_CALL = /\bet\(\s*("(?:[^"\\\n]|\\.)*"|`(?:[^`\\$]|\\.)*`)/g
 
 export function scanEmails() {

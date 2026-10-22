@@ -78,6 +78,8 @@ export interface ReportMoneyRow {
   shipping_cents?: number | null
   fee_cents?: number | null
   application_fee_cents?: number | null
+  /* A line's list price (Analytics' sales breakdown reads it for gross and discounts): in the order's currency like the rest. */
+  unit_price_cents?: number | null
 }
 
 export interface ReportConversion<T> {
@@ -93,7 +95,7 @@ export interface ReportConversion<T> {
   left?: T[]
 }
 
-const MONEY_KEYS = ["amount_cents", "refund_amount_cents", "tip_cents", "tax_cents", "shipping_cents", "fee_cents", "application_fee_cents"] as const
+const MONEY_KEYS = ["amount_cents", "refund_amount_cents", "tip_cents", "tax_cents", "shipping_cents", "fee_cents", "application_fee_cents", "unit_price_cents"] as const
 
 /** "RON" from "ron", null for anything that is not a currency code. */
 export function codeOf(raw: unknown): string | null {

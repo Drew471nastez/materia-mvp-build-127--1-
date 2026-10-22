@@ -32,6 +32,9 @@ import { decodeItems } from "@/lib/physical/cart-link"
 import { checkoutReminderEmail, type EmailLine } from "@/lib/physical/email-templates"
 import { loadCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
 import { itemsText, resolveCopy } from "@/lib/emails/customer-custom"
+import { inEmailLanguage } from "@/lib/emails/words"
+import { buyerEmailLanguage } from "@/lib/emails/words-server"
+import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { startCheckoutUrl, type CheckoutStart } from "./abandoned"
 import { ownCheckoutUrl } from "./supabase-store"
 
@@ -94,8 +97,12 @@ export async function sendCheckoutReminder(db: Db, s: CheckoutStart, unsubscribe
   ])
   const shopName = store?.name || identity.fromName || "Storelib"
   const unsubscribeUrl = unsubscribePageFor(unsubscribeToken)
-  const copy = resolveCopy(saved.checkout_reminder, { customer_name: s.first_name, shop_name: shopName, items: itemsText(left.lines.map((l) => l.title)) })
-  const mail = checkoutReminderEmail({
+  /* A checkout on the website reads in the language it was in; one on Storelib in English (lib/emails/buyer-channel.ts). */
+  const origin = s.source_detail && typeof s.source_detail === "object" ? (s.source_detail as { surface?: unknown; lang?: unknown }) : null
+  const channel = buyerChannel({ family: "digital", surface: origin?.surface, lang: origin?.lang, siteBase: typeof s.basket?.site === "string" ? `https://${s.basket.site}` : null })
+  const language = await buyerEmailLanguage(s.creator_id, channel, origin?.lang).catch(() => ({ lang: "en", words: {} as Record<string, string>, own: true }))
+  const copy = language.own ? resolveCopy(saved.checkout_reminder, { customer_name: s.first_name, shop_name: shopName, items: itemsText(left.lines.map((l) => l.title)) }) : undefined
+  const mail = inEmailLanguage(language.lang, language.words, () => checkoutReminderEmail({
     shopName,
     buyerFirstName: s.first_name,
     lines: left.lines,
@@ -103,7 +110,7 @@ export async function sendCheckoutReminder(db: Db, s: CheckoutStart, unsubscribe
     unsubscribeUrl,
     brand: { logoUrl: store?.logoUrl ?? null, email: store?.email ?? null, phone: store?.phone ?? null, websiteUrl: website || null },
     copy,
-  })
+  }))
   const sent = await sendEmail({
     from: buildFromHeader(shopName),
     to: s.email,

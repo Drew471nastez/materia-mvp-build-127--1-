@@ -53,14 +53,17 @@ console.log("\nThe order confirmation, Shopify's way\n")
 
 console.log("\nSettings › Customer emails\n")
 {
-  check("every email a buyer gets, the shipped ones only with physical products on", visibleCustomerEmails(false).map((e) => e.id).join() === "receipt,checkout_reminder" && visibleCustomerEmails(true).length === CUSTOMER_EMAILS.length)
+  /* Changed on purpose: a download's Refund is listed under Digital products too (lib/emails/customer-catalog.ts). */
+  check("every email a buyer gets, the shipped ones only with physical products on", visibleCustomerEmails(false).map((e) => e.id).join() === "receipt,digital_refund,checkout_reminder" && visibleCustomerEmails(true).length === CUSTOMER_EMAILS.length)
   const drawn = CUSTOMER_EMAILS.map((e) => ({ id: e.id, mail: previewCustomerEmail(e.id, { name: "Angus Farm", supportEmail: "hello@angus.ro", storeUrl: "https://storelib.com/angus", currency: "EUR" }) }))
   check("each one previews through the template that sends it, with the store's name", drawn.every((d) => !!d.mail && d.mail.html.includes("Angus Farm") && d.mail.subject.length > 0), drawn.filter((d) => !d.mail || !d.mail.html.includes("Angus Farm")).map((d) => d.id))
   check("  an id that isn't one draws nothing", previewCustomerEmail("nope", { name: "X" }) === null)
   const route = read("app/api/store/emails/preview/route.ts")
   check("the preview is the owner's", /shopCaller\(\)/.test(route))
   const panel = read("components/app/settings/customer-emails-panel.tsx")
-  check("shown in a frame that runs no script", /sandbox="allow-same-origin"/.test(panel) && !/allow-scripts/.test(panel))
+  /* Changed on purpose: the frame is shared with the community emails (components/app/emails/email-parts.tsx). */
+  const parts = read("components/app/emails/email-parts.tsx")
+  check("shown in a frame that runs no script", /sandbox="allow-same-origin"/.test(parts) && !/allow-scripts/.test(panel + parts) && /PreviewFrame/.test(panel))
   check("Settings has it, for every store", /\{ id: "emails", label: "Customer emails"/.test(read("components/app/settings-form-new.tsx")))
 }
 

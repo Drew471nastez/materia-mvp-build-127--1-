@@ -291,7 +291,8 @@ async function main() {
     check("a pointer read that failed throws, so it is never held as 'no release'", threw && !releasesKnownMissing())
 
     const compat = read("lib/website-builder/compat-site.ts")
-    check("compat-site: a preview never reads a release", /const release = draft \? null : await liveRelease\(creator\.creatorId, row\.id, siteTags\)/.test(compat))
+    /* Changed on purpose (live speed, Oct 21): the live site asks for its release beside the install, not after it; a preview still never reads one, and only a release of the install published now is drawn from. */
+    check("compat-site: a preview never reads a release", /const releaseAsked = live \? quiet\(liveRelease\(creator\.creatorId, null, siteTags\)\) : null/.test(compat) && /const asked = draft \? null : await \(releaseAsked \?\? liveRelease\(creator\.creatorId, row\.id, siteTags\)\)/.test(compat) && /const release = asked && asked\.installId === row\.id \? asked : null/.test(compat))
     check("  the files fall back to the rows when the release cannot be read", compat.includes("(release ? await releaseFiles(release.manifest) : null) ?? liveFiles(admin, row.id, rowsKey)") && compat.includes("rowsHeld.set(heldKey, rows)"))
     check("  without a release, the rows' keys and reads of before", compat.includes("const heldKey = release ? `${row.id}:release:${release.id}` : rowsKey") && compat.includes("const rowsKey = `${row.id}:${version}`") && compat.includes('heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)'))
     check("  the theme held on this server is keyed by what it was drawn from", compat.includes("const slot = `${drawnFrom}|${key}`"))
@@ -330,9 +331,13 @@ async function main() {
       ["the guest wishlist", `${GUEST_COOKIE}=[]`],
       ["a checkout country", `${CHECKOUT_COUNTRY_COOKIE}=RO`],
       ["a discount code hold", `${HOLD_COOKIE}=h`],
-      ["a cookie nobody listed", "whatever=1"],
+      ["a cookie of Storelib's own nobody listed", "sl_something_new=1"],
+      ["an app cookie of Storelib's own", "storelib_language=fr"],
     ]
     for (const [what, cookie] of cookies) check(`private with ${what} (${cookie.split("=")[0]})`, !with_({ cookie: `_ga=1; ${cookie}` }) && !strangerCookies(cookie))
+    /* Changed on purpose (live speed, Oct 21): a cookie Storelib's server never reads (the theme's, an app's, a tool's) no longer makes a page private; Storelib's tracker ids and the consent choice neither. Every one of these used to send a visitor's second page, and every page of a visitor who came back, to a draw of their own. */
+    check("a stranger still with a cookie nobody listed that is not Storelib's", with_({ cookie: "whatever=1; recently_viewed=a,b; __kla_id=x; _shopify_y=1" }))
+    check("  and with Storelib's tracker ids, the consent choice and a purchase's device", with_({ cookie: "materia_visitor=v_1; sl_asid=s_1; storelib_consent=2.p0.a1.x; materia_session=f" }))
     for (const path of ["/cart", "/cart/", "/cart.js", "/cart/add.js", "/cart/change", "/checkout", "/account", "/account/login", "/account/orders/1", "/password", "/search", "/search/suggest", "/localization", "/wishlist", "/preview/tok/", "/products/hat.json", "/products.json", "/sitemap.xml", "/~anon~x"])
       check(`private: ${path}`, !with_({ path }) && !strangerAddress(path, new URLSearchParams()))
     check("private: a section rendering request", !with_({ query: new URLSearchParams("section_id=header") }) && !with_({ query: new URLSearchParams("sections=a,b") }))

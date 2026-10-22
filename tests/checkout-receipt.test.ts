@@ -338,7 +338,8 @@ async function main() {
   console.log("\nThe page")
   {
     const client = read("app/checkout/checkout-client.tsx")
-    check("the company is sent only while the box is ticked", /business: businessOn \? business : null/.test(client))
+    /* Changed on purpose: the box is the store's choice now (Settings › Checkout › Company invoices, off by default), so it is sent only while ticked on a checkout that offers it. */
+    check("the company is sent only while the box is ticked, on a checkout that offers it", /business: businessOn && checkoutConfig\.businessInvoice \? business : null/.test(client))
     check("  and a free order sends none", /delete body\.business/.test(client))
     check("the server checks it with the same rules", /checkBusiness\(body\.business\)/.test(read("app/api/checkout/stripe-session/route.ts")))
     check("the checkout's history entry is not scrolled back part way down", /history\.scrollRestoration = "manual"/.test(client) && /window\.scrollTo\(0, 0\)/.test(client) && /history\.scrollRestoration = "auto"/.test(client))
@@ -348,7 +349,8 @@ async function main() {
     check("every box has a placeholder", (fields.match(/placeholder=\{/g) ?? []).length === 7 && /Select a country/.test(fields))
     const fulfil = read("lib/checkout/fulfil-payment.ts")
     check("the emailed PDF is dated from the order row, not the clock", /created_at: order\.created_at \?\?/.test(fulfil) && !/created_at: new Date\(\)\.toISOString\(\)/.test(fulfil))
-    check("the basket's hosted page offers the business box, and opens without it if refused", /tax_id_collection: \{ enabled: true \}/.test(read("app/api/checkout/cart/route.ts")) && /delete params\.tax_id_collection/.test(read("app/api/checkout/cart/route.ts")))
+    /* Changed on purpose: only where the store offers company invoices (businessInvoice). */
+    check("the basket's hosted page offers the business box where the store offers invoices, and opens without it if refused", /\.\.\.\(businessInvoice \? \{ tax_id_collection: \{ enabled: true \} \} : \{\}\)/.test(read("app/api/checkout/cart/route.ts")) && /delete params\.tax_id_collection/.test(read("app/api/checkout/cart/route.ts")))
     check("the creator's copy carries the buyer's number and company", /invoiceNumber\(first\.id, first\.created_at\)/.test(read("app/api/invoice/route.ts")) && /companyOf\(lines\)/.test(read("app/api/invoice/route.ts")))
     check("part 35 adds the column the company is kept in", /ADD COLUMN IF NOT EXISTS business_details jsonb/.test(read("supabase/sql/run-now/36_order_business_details.sql")))
   }

@@ -40,6 +40,13 @@ import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/
 import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compat/script-order"
 import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
+import { siteLanguages } from "@/lib/markets/live"
+
+/** A promise started ahead of where it is awaited, never reported as unhandled when the answer leaves first. */
+function quietly<T>(p: Promise<T>): Promise<T> {
+  p.catch(() => {})
+  return p
+}
 import { liveSiteFor } from "@/lib/website-builder/live-release"
 import { freshAddress, liveReleaseScript } from "@/lib/website-builder/live-release-script"
 
@@ -134,6 +141,19 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     tried again in a moment, never cached, when there is no last good copy
     to serve (lib/website-builder/compat-site.ts).
   */
+  /*
+    ASKED BESIDE THE SITE, NOT AFTER IT: the website's languages (which the
+    draw lays over it) and, for a page, the store's analytics tags. Each
+    needs only the creator, and each was a round trip of its own after the
+    whole site had been read. Not for a preview, which shows neither.
+  */
+  const creatorAsked = token ? null : quietly(creatorByName(username).catch(() => null))
+  const languagesAsked = creatorAsked ? quietly(creatorAsked.then(async (c) => (c ? { creatorId: c.creatorId, value: await siteLanguages(c.creatorId) } : null))) : null
+  const pageAsked = req.method === "GET" && !/\.(js|json)$/.test(segments[segments.length - 1] ?? "") && req.headers.get("x-requested-with") !== "XMLHttpRequest" && !(req.headers.get("accept") ?? "").includes("application/json")
+  const trackingAsked = creatorAsked && pageAsked ? quietly(creatorAsked.then(async (c) => (c ? { creatorId: c.creatorId, value: await publishedTracking(createAdminClient(), c.creatorId).catch(() => null) } : null))) : null
+  /* Each early answer only for the site that was found (the same name's creator; never a last good copy's other one). */
+  const forSite = <T,>(asked: Promise<{ creatorId: string; value: T } | null> | null, creatorId: string): Promise<T | undefined> | undefined =>
+    asked ? asked.then((a) => (a && a.creatorId === creatorId ? a.value : undefined)) : undefined
   let found: Awaited<ReturnType<typeof compatSiteByName>>
   try {
     found = await compatSiteByName(username, host, token)
@@ -176,7 +196,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
         told: token ? null : req.headers.get(SITE_COUNTRY_HEADER),
         seen: seenCountry(req.headers),
       })
-  found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry) }
+  found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry, forSite(languagesAsked, found.site.creatorId)) }
 
   const cookie = stranger ? undefined : req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
   const { cart, note, attributes } = readCartCookie(cookie)
@@ -277,7 +297,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     /* The page's product by its id from the lists already held: its full read (description, each variant's stock) ran once to draw the page and is not run again for the tags. */
     const productId = productIdForPath(found.site, sitePath)
     const markerRead = liveSiteFor(found.site.creatorId).then((l) => l?.marker ?? null, () => null)
-    const stored = await publishedTracking(createAdminClient(), found.site.creatorId).catch(() => null)
+    const early = await forSite(trackingAsked, found.site.creatorId)
+    const stored = early !== undefined ? early : await publishedTracking(createAdminClient(), found.site.creatorId).catch(() => null)
     /* The store's Google Analytics with the page's product named, its pixels, Storelib's tracker and the visitor's language offer (lib/store/compat-page-tags.ts). */
     const t = readTracking(stored)
     const named = productId && (t.ga4 || t.google_ads) ? await gaProductFor(found.site.creatorId, null, productId) : null

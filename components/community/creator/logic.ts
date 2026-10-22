@@ -1132,7 +1132,6 @@ export const SETTINGS_TABS = [
   "advanced",
   "roles",
   "policies",
-  "emails",
   "gamification",
   "notifications",
   /* round32: features panels */
@@ -1175,10 +1174,6 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
     case "pricing":
     case "tiers":
       return "access"
-    case "email":
-    case "broadcast":
-    case "templates":
-      return "emails"
     default:
       /* Nothing named, or a page tab (the server sends those on to the Page section first): the first panel. */
       return (SETTINGS_TABS as readonly string[]).includes(raw ?? "") ? (raw as SettingsTab) : "access"
@@ -1291,6 +1286,22 @@ export function sectionRestarts(before: string | null | undefined, after: string
 }
 
 /** Whether the settings address names a panel (?tab=). A phone opens on the list of panels when it does not. */
+/**
+ * MEMBER EMAILS LIVE IN EMAILS NOW (Emails › Customer emails › Communities). An address from before that asked for them
+ * in the community's settings (?tab=emails, email, broadcast, templates: a bookmark, an old email, a notice) opens them
+ * there, on this community.
+ */
+const EMAIL_TABS = new Set(["emails", "email", "broadcast", "templates"])
+
+export function emailsTabAsked(raw: string | undefined | null): boolean {
+  return typeof raw === "string" && EMAIL_TABS.has(raw.trim().toLowerCase())
+}
+
+/** Where a community's emails are managed: Emails, the Communities family, this community chosen. */
+export function communityEmailsHref(communityId: string): string {
+  return `/app/emails?tab=customer&kind=communities&community=${encodeURIComponent(communityId)}`
+}
+
 export function settingsTabAsked(raw: string | undefined | null): boolean {
   return typeof raw === "string" && raw.trim() !== ""
 }
