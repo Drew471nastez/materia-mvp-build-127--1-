@@ -307,7 +307,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 852 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 853 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -742,6 +742,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[preview-card\]\:bg-\[\#eceef1\]:not([data-own-look], [data-own-look] *)[data-preview-card] { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=checked\]\:bg-\[\#111113\]:not([data-own-look], [data-own-look] *)[data-state="checked"] { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *)[data-state="open"] { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:bg-\[\#f8f9fa\]:not([data-own-look], [data-own-look] *)[data-state="open"] { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:border-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[data-state="open"] { border-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:border-\[\#eceef1\]:not([data-own-look], [data-own-look] *)[data-state="open"] { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[data-state="open"] { color: #ececee; }

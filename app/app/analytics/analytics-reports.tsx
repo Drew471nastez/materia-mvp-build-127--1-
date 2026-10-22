@@ -76,6 +76,12 @@ const ACCENT = "#8b5cf6"
  */
 export const GREY_FILL =
   "bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)]"
+/**
+ * The same grey a step deeper, for a thin bar with no name on it (the
+ * funnel's steps, the sales channels): at 6px the row's grey all but
+ * vanishes on the white card, measured in the round 38 probe's shots.
+ */
+const GREY_FILL_THIN = "bg-[linear-gradient(180deg,#e8eaee_0%,#dcdfe4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.6),inset_0_0_0_1px_rgba(16,24,40,0.04)]"
 const EASE = "cubic-bezier(0.32,0.72,0,1)"
 
 /* The store's own currency (Settings › Languages & Currency), set by AnalyticsReports from the /app layout's: lei for a store in lei. */
@@ -203,7 +209,7 @@ function Empty({ children }: { children: React.ReactNode }) {
  * width, 500ms, on a box placed on its own). `share` is 0 to 1; `min` keeps
  * a counted row visible.
  */
-function Fill({ share, className, min = 0.02 }: { share: number; className?: string; min?: number }) {
+function Fill({ share, className, min = 0.02, thin = false }: { share: number; className?: string; min?: number; thin?: boolean }) {
   const s = Math.max(min, Math.min(1, Number.isFinite(share) ? share : 0))
   return (
     <div
@@ -211,7 +217,7 @@ function Fill({ share, className, min = 0.02 }: { share: number; className?: str
       data-bar=""
       data-fill="grey"
       data-share={s.toFixed(3)}
-      className={cn(GREY_FILL, "transition-[width,filter] duration-500 group-hover:brightness-[0.975] motion-reduce:transition-none", className)}
+      className={cn(thin ? GREY_FILL_THIN : GREY_FILL, "transition-[width,filter] duration-500 group-hover:brightness-[0.975] motion-reduce:transition-none", className)}
       style={{ width: `${(s * 100).toFixed(2)}%`, transitionTimingFunction: EASE }}
     />
   )
@@ -395,7 +401,7 @@ function Funnel({ steps }: { steps: FunnelStep[] }) {
                   {!s.recorded ? "" : s.rate !== null ? fmtPct(s.rate) : ""}
                 </span>
               </div>
-              <Fill share={s.recorded ? s.value / top : 0} min={s.recorded ? 0.015 : 0} className="mt-1 h-[6px] rounded-full" />
+              <Fill share={s.recorded ? s.value / top : 0} min={s.recorded ? 0.015 : 0} thin className="mt-1 h-[6px] rounded-full" />
             </li>
           )
         })}

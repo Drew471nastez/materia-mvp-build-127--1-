@@ -45,6 +45,17 @@
  *                  paid members. Always the same height (the reports' fixed
  *                  body), so choosing a figure never moves the page.
  *
+ * ROUND 38, THE OWNER: "too many stats in the chart, 1 2 3 4 5 6 7 8. I
+ * want to limit things up to 5 maximum." So the row holds five figures
+ * (SHOWN_MAX): Members, Active members, Visitors, Engagement and Revenue
+ * for a community that sells, Join rate for one that does not
+ * (defaultShown). The others are one quiet menu away, at the row's end
+ * (FigureMenu, the /app action list: a menu on a computer, a sheet on a
+ * phone): choosing one puts it in place of the figure on screen, and the
+ * row is kept for this browser (SHOWN_KEY). A figure opened from the
+ * address (#churn) stands in the last place until another is chosen. The
+ * same five on a phone, in the row that scrolls; the menu stays at its end.
+ *
  * NOTHING DRAWN THAT WAS NOT COUNTED. Every number is the server's
  * (lib/communities/server/analytics-report.ts) from rows; a figure the
  * database cannot count yet (SQL part 184) has no tab, and one whose
@@ -77,6 +88,8 @@ import { askCommunityReport, communityAsk, keptCommunityReport, sameReport, warm
 import type { CommunityReport, Figure, Line, ReportRow } from "@/lib/communities/analytics-report"
 import type { AnalyticsView, CommunityHead } from "./view-types"
 import { Notice } from "./parts"
+import { MoreHorizontal } from "lucide-react"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 
 /* ── Words ───────────────────────────────────────────────────────────── */
 
@@ -234,6 +247,10 @@ function useCommunityReport(ask: CommunityAsk, refresh: number): ReportState {
 export type FigureKey = "members" | "joined" | "active" | "visitors" | "joinRate" | "engagement" | "churn" | "revenue"
 export const FIGURES: readonly FigureKey[] = ["members", "joined", "active", "visitors", "joinRate", "engagement", "churn", "revenue"]
 const FIGURE_KEY = "storelib:community-analytics-figure"
+/** At most this many figures in the row (round 38); the rest are in the menu at its end. */
+export const SHOWN_MAX = 5
+/** The figures the owner put in the row, in their places, kept in this browser. */
+const SHOWN_KEY = "storelib:community-analytics-shown"
 /** Round 33's section addresses (#traffic, #growth...), still opening the figure they were about. */
 const OLD_HASH: Record<string, FigureKey> = { growth: "members", traffic: "visitors", engagement: "engagement", content: "engagement", revenue: "revenue" }
 
@@ -291,7 +308,7 @@ function axisMaxOf(tabs: TabSpec[]): Partial<Record<Kind, number>> {
 
 /** /app Analytics' card around its figures and chart (app/app/analytics/analytics-client), class for class. */
 export const TREND_CARD = "relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden"
-/** Each figure's room: an equal share of the row, never under 124px, so eight fit the page's width and a phone scrolls them sideways. */
+/** Each figure's room: an equal share of the row, never under 124px, so five fit the page's width and a phone scrolls them sideways. */
 const STRIP_TAB = "min-w-[124px] flex-1 basis-0 shrink-0"
 
 /** The dates under a chart, for the period an answer was counted for, in the viewer's language. */
@@ -324,6 +341,56 @@ function useFigure(): [FigureKey, (k: FigureKey) => void] {
     }
   }, [])
   return [key, choose]
+}
+
+/**
+ * THE FIVE IN THE ROW, from the figures this answer has (`available`, in
+ * FIGURES order). The owner's own row when they chose one (each still
+ * there, in its place), filled up from the defaults; a figure opened from
+ * the address that is not among them stands in the last place.
+ */
+export function defaultShown(available: readonly FigureKey[], sells: boolean): FigureKey[] {
+  /* In the order of FIGURES, so the row reads the same way it always has. */
+  return pickShown(available, ["members", "active", "visitors", "engagement", sells ? "revenue" : "joinRate"]).sort((a, b) => FIGURES.indexOf(a) - FIGURES.indexOf(b))
+}
+
+export function shownFigures(available: readonly FigureKey[], saved: readonly string[] | null, sells: boolean, open: FigureKey | null): FigureKey[] {
+  const base = saved && saved.length ? pickShown(available, [...saved.filter((k): k is FigureKey => FIGURES.includes(k as FigureKey)), ...defaultShown(available, sells)]) : defaultShown(available, sells)
+  if (open && available.includes(open) && !base.includes(open)) base[base.length - 1] = open
+  return base
+}
+
+function pickShown(available: readonly FigureKey[], wanted: readonly FigureKey[]): FigureKey[] {
+  const out: FigureKey[] = []
+  for (const k of [...wanted, ...available]) {
+    if (out.length >= SHOWN_MAX) break
+    if (available.includes(k) && !out.includes(k)) out.push(k)
+  }
+  return out
+}
+
+/** The owner's row as kept in this browser; null until read, or with none kept. Never a reason for the page to break. */
+function useSavedShown(): [string[] | null, (next: string[] | null) => void] {
+  const [saved, setSaved] = React.useState<string[] | null>(null)
+  React.useLayoutEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SHOWN_KEY)
+      const xs = raw ? (JSON.parse(raw) as unknown) : null
+      if (Array.isArray(xs) && xs.every((x) => typeof x === "string")) setSaved(xs.slice(0, SHOWN_MAX))
+    } catch {
+      /* Private window, or nothing kept: the defaults. */
+    }
+  }, [])
+  const save = React.useCallback((next: string[] | null) => {
+    setSaved(next)
+    try {
+      if (next) window.localStorage.setItem(SHOWN_KEY, JSON.stringify(next))
+      else window.localStorage.removeItem(SHOWN_KEY)
+    } catch {
+      /* Kept for this visit only. */
+    }
+  }, [])
+  return [saved, save]
 }
 
 /**
@@ -386,9 +453,31 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
   const formatMoney = React.useCallback((cents: number) => formatCurrency((cents || 0) / 100, currency.toUpperCase(), appLocale()), [currency])
 
   const [figure, setFigure] = useFigure()
+  const [saved, saveShown] = useSavedShown()
   const tabs = React.useMemo(() => tabsOf(r, currency, drawnPeriod.end >= today), [r, currency, drawnPeriod.end, today])
   /* Before the first answer every tab but Revenue is drawn soft, so the row has its shape; a figure this community has no tab for falls back to Members. */
   const chosen = tabs.find((t) => t.key === figure) ?? tabs[0]
+  const sells = tabs.some((t) => t.key === "revenue")
+  const available = React.useMemo(() => tabs.map((t) => t.key), [tabs])
+  const shownKeys = shownFigures(available, saved, sells, chosen.key)
+  const shownKey = shownKeys.join(",")
+  const row = React.useMemo(() => shownKey.split(",").map((k) => tabs.find((t) => t.key === k)).filter((t): t is TabSpec => !!t), [shownKey, tabs])
+  /* A figure from the menu takes the place of the one on screen, and is the one on screen. */
+  const swapIn = React.useCallback(
+    (next: FigureKey) => {
+      const row = shownFigures(available, saved, sells, chosen.key)
+      const at = row.indexOf(chosen.key)
+      if (!row.includes(next)) row[at >= 0 ? at : row.length - 1] = next
+      saveShown(row.join(",") === defaultShown(available, sells).join(",") ? null : row)
+      setFigure(next)
+    },
+    [available, saved, sells, chosen.key, saveShown, setFigure],
+  )
+  const resetShown = React.useCallback(() => {
+    saveShown(null)
+    const row = defaultShown(available, sells)
+    if (!row.includes(chosen.key)) setFigure(row[0])
+  }, [available, sells, chosen.key, saveShown, setFigure])
 
   /*
     A NEW PERIOD THAT TAKES A WHILE. What is on screen stays sharp and where
@@ -413,7 +502,7 @@ export function AnalyticsSection({ head }: { head: CommunityHead; initial?: Anal
           ) : null}
 
           <div className={cn("mt-4", dim)} style={dimDelay} data-analytics-trends="">
-            <FigureCard tabs={tabs} chosen={chosen} onSelect={setFigure} labels={labels} cold={cold} formatMoney={formatMoney} compareLabel={compareLabel} legend={<ChartLegend range={drawnPeriod} compare={drawnCompared} />} />
+            <FigureCard tabs={tabs} shown={row} custom={saved !== null && shownKey !== defaultShown(available, sells).join(",")} onSwap={swapIn} onReset={resetShown} chosen={chosen} onSelect={setFigure} labels={labels} cold={cold} formatMoney={formatMoney} compareLabel={compareLabel} legend={<ChartLegend range={drawnPeriod} compare={drawnCompared} />} />
           </div>
 
           <div className={cn("mt-4", dim)} style={dimDelay} data-analytics-lists="">
@@ -492,6 +581,10 @@ function tabsOf(r: CommunityReport | null, currency: string, runsToToday: boolea
  */
 function FigureCard({
   tabs,
+  shown,
+  custom,
+  onSwap,
+  onReset,
   chosen,
   onSelect,
   labels,
@@ -500,7 +593,14 @@ function FigureCard({
   compareLabel,
   legend,
 }: {
+  /** Every figure this answer has: the axis is as wide on each. */
   tabs: TabSpec[]
+  /** The five in the row. */
+  shown: TabSpec[]
+  /** The row is the owner's own, not the defaults. */
+  custom: boolean
+  onSwap: (k: FigureKey) => void
+  onReset: () => void
   chosen: TabSpec
   onSelect: (k: FigureKey) => void
   labels: string[]
@@ -509,15 +609,17 @@ function FigureCard({
   compareLabel: string | null
   legend: React.ReactNode
 }) {
-  const strip = useTabStrip<HTMLDivElement>(chosen.key, tabs.map((t) => t.key))
+  const strip = useTabStrip<HTMLDivElement>(chosen.key, shown.map((t) => t.key))
+  const hidden = tabs.filter((t) => !shown.some((x) => x.key === t.key))
   const rows = React.useMemo(() => chartRows(labels, cold ? null : chosen.line, chosen.kind), [labels, cold, chosen.line, chosen.kind])
   const seriesLabels = React.useMemo(() => ({ views: chosen.label, revenue: chosen.label, conversion: chosen.label }), [chosen.label])
   const axisMax = React.useMemo(() => (cold ? undefined : axisMaxOf(tabs)), [cold, tabs])
   const noteRoom = tabs.some((t) => t.note)
   return (
     <section className={TREND_CARD} data-trend="figures" aria-label={tt("Figures")}>
-      <div ref={strip} role="tablist" aria-label={tt("Figures")} data-scroll-x="" className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide" style={TAB_STRIP_STYLE}>
-        {tabs.map((t) => (
+      <div className="flex">
+      <div ref={strip} role="tablist" aria-label={tt("Figures")} data-scroll-x="" data-shown={shown.map((t) => t.key).join(" ")} className="relative flex min-w-0 flex-1 divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide" style={TAB_STRIP_STYLE}>
+        {shown.map((t) => (
           <MetricTab
             key={t.key}
             tab={t.key}
@@ -531,6 +633,8 @@ function FigureCard({
             onSelect={() => onSelect(t.key)}
           />
         ))}
+      </div>
+      {hidden.length ? <FigureMenu chosen={chosen} hidden={hidden} cold={cold} custom={custom} onSwap={onSwap} onReset={onReset} /> : null}
       </div>
       <div className="border-t border-[#e5e7eb]/60 px-2 pt-7 pb-3 sm:px-4 sm:pb-4" data-chart-for={chosen.key}>
         <AnalyticsChartWithTooltip
@@ -552,6 +656,40 @@ function FigureCard({
         ) : null}
       </div>
     </section>
+  )
+}
+
+/**
+ * THE OTHER FIGURES, at the end of the row: the /app action list (a menu on
+ * a computer, a sheet on a phone), each with its number for the period.
+ * Choosing one puts it in place of the figure on screen. Outside the row's
+ * scroll, so a phone always has it at hand.
+ */
+function FigureMenu({ chosen, hidden, cold, custom, onSwap, onReset }: { chosen: TabSpec; hidden: TabSpec[]; cold: boolean; custom: boolean; onSwap: (k: FigureKey) => void; onReset: () => void }) {
+  const items = React.useMemo<ActionMenuItem[]>(() => {
+    const out: ActionMenuItem[] = hidden.map((t, i) => ({ id: `figure-${t.key}`, label: t.label, hint: cold ? undefined : t.value, section: i === 0 ? tt("In place of {figure}", { figure: chosen.label }) : undefined, onClick: () => onSwap(t.key) }))
+    if (custom) out.push({ id: "figures-default", label: tt("Default figures"), separatorBefore: true, onClick: onReset })
+    return out
+  }, [hidden, cold, custom, chosen.label, onSwap, onReset])
+  return (
+    <div className="flex shrink-0 items-stretch border-l border-[#e5e7eb]/60">
+      <ResponsiveActionMenu
+        title={tt("Other figures")}
+        items={items}
+        menuWidth="w-60"
+        trigger={
+          <button
+            type="button"
+            data-figure-menu=""
+            aria-label={tt("Other figures")}
+            title={tt("Other figures")}
+            className="grid w-11 cursor-pointer place-items-center text-[#9ca3af] outline-none transition-colors duration-150 hover:bg-[#f8f9fa] hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_rgba(139,92,246,0.4)] active:bg-[#f1f2f4] data-[state=open]:bg-[#f8f9fa] data-[state=open]:text-[#1a1a2e] [-webkit-tap-highlight-color:transparent]"
+          >
+            <MoreHorizontal className="h-4 w-4" aria-hidden />
+          </button>
+        }
+      />
+    </div>
   )
 }
 

@@ -85,8 +85,9 @@ writeFileSync(join(dir, "next-image.js"), `import * as React from "react"
 export default function Image({ src, alt, fill, sizes, priority, ...rest }) { return React.createElement("img", { src, alt, ...rest }) }
 `)
 
-const FIGURES = ["members", "joined", "active", "visitors", "joinRate", "engagement", "churn", "revenue"]
-const LABELS = ["Members", "New members", "Active members", "Visitors", "Join rate", "Engagement", "Churn", "Revenue"]
+/* Changed on purpose (round 38): five figures in the row, the other three in the menu at its end (scripts/check-community-analytics-round38.mjs measures the menu). */
+const FIGURES = ["members", "active", "visitors", "engagement", "revenue"]
+const LABELS = ["Members", "Active members", "Visitors", "Engagement", "Revenue"]
 const GROUP = { members: "members", joined: "members", churn: "members", active: "active", visitors: "visitors", joinRate: "visitors", engagement: "engagement", revenue: "revenue" }
 
 /* What the page shows now. */
@@ -229,14 +230,14 @@ try {
     expect(look.controls?.children === 1, "the period's row holds the picker alone", look.controls)
     expect(!look.overview && !look.sections, "no overview of figures and no sections' tabs", { overview: look.overview, sections: look.sections })
     expect(look.charts === 1 && !look.placeholder && look.line.length > 10, "one chart, with a line", { charts: look.charts, placeholder: look.placeholder })
-    expect(look.tabs.map((t) => t.label).join("|") === LABELS.join("|"), "its tabs: Members, New members, Active members, Visitors, Join rate, Engagement, Churn, Revenue", look.tabs.map((t) => t.label))
+    expect(look.tabs.map((t) => t.label).join("|") === LABELS.join("|"), "its tabs (changed on purpose, round 38: five): Members, Active members, Visitors, Engagement, Revenue", look.tabs.map((t) => t.label))
     expect(look.tabs.every((t) => t.clipped === false && t.labelClipped === false), "no number or name cut off", look.tabs.filter((t) => t.clipped || t.labelClipped).map((t) => t.key))
     expect(look.tabs.every((t) => t.h >= 64), "each tab 64px or taller", Math.min(...look.tabs.map((t) => t.h)))
     if (phone) {
       expect(look.strip.scroll > 0 && look.scrollW <= look.vw, "on a phone the tabs scroll inside their row, never the page", { strip: look.strip.scroll, scrollW: look.scrollW, vw: look.vw })
       expect(look.card.x >= 0 && look.card.right <= look.vw, "the chart card fits the screen", look.card)
     } else {
-      expect(look.strip.scroll <= 0 && look.tabs.every((t) => t.right <= look.card.right), "all eight in one row, none off the side", { strip: look.strip.scroll, right: look.tabs.map((t) => t.right), card: look.card.right })
+      expect(look.strip.scroll <= 0 && look.tabs.every((t) => t.right <= look.card.right), "all five in one row, none off the side", { strip: look.strip.scroll, right: look.tabs.map((t) => t.right), card: look.card.right })
     }
     expect(look.details && look.details.y >= look.card.bottom + 8 && look.details.y <= look.card.bottom + 24, "one details card, 16px under the chart", { card: look.card?.bottom, details: look.details?.y })
     expect(look.detailsGroup === "members" && look.rows > 0, "Members first, with how people joined", { group: look.detailsGroup, rows: look.rows })
