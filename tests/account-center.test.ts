@@ -172,7 +172,8 @@ console.log("\nThe buyer tab bar and every internal link")
   const offenders: string[] = []
   for (const f of [...walk("app"), ...walk("components"), ...walk("lib")]) {
     if (allowed.has(f)) continue
-    const src = stripComments(read(f))
+    /* Changed on purpose (round 39): a community's own Library (/community/<slug>/library, /api/community/<id>/library, /app/community/<slug>/library) is built from that community's slug, id or base; those are not the old buyer /library. */
+    const src = stripComments(read(f)).replace(/\$\{(?:base|head\.id|communityId|slug|community\.slug|data\.slug|data\.communityId)\}\/library(?![\w-])/g, "")
     const m = src.match(/["'`}]\/library(?![\w-])|\.com\/library(?![\w-])/)
     if (m) offenders.push(`${f}: ${m[0]}`)
   }

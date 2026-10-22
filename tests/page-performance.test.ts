@@ -2052,6 +2052,8 @@ check(
           if (/\.storage\./.test(target)) continue
           /* Changed on purpose: Promise.all over builders is a real Promise, so its .catch() is correct (lib/physical/tracking/accounts-server.ts, 62e142c2f). */
           if (/^Promise\.(all|allSettled)\(/.test(target)) continue
+          /* Changed on purpose (round 39): Promise.resolve(builder) makes a real Promise of it, so its .catch() is correct (lib/communities/server/direct.ts). */
+          if (/^Promise\.resolve\(/.test(target)) continue
           if (/\.(json|text|arrayBuffer)\(\)$/.test(target.trim())) continue
           offenders.push(`${rel}:${i + 1}  ${lines[i].trim().slice(0, 84)}`)
         }

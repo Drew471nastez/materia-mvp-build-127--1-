@@ -290,7 +290,7 @@ async function main() {
     check("its old address redirects to the person's own page (a member asking; no handle, the member list)", /page\.state !== "member" \|\| !page\.community \|\| !page\.viewer\) notFound\(\)/.test(old) && /const ref = await profileRef\(admin\(\), page\.community, page\.viewer, userId\)/.test(old) && /redirect\(ref \? placeHref\(page\.community\.slug, \{ kind: "profile", ref \}\) : `\$\{base\}\/members`\)/.test(old))
     check("and an old ?message=1 link opens the conversation in the community instead", /query\.message === "1" && userId !== page\.viewer\.userId\) redirect\(`\$\{base\}\?dm=\$\{userId\}`\)/.test(old))
     check("names come with a handle: anybody without one is given one when a page of people is read", /ensureUsernames\(db, unnamed\)/.test(code("lib/communities/server/directory.ts")))
-    check("a member row offers Message beside the name when chat is on", /openMessages\(\{ userId: m\.userId \}\)/.test(code("components/community/member/members.tsx")))
+    check("a member row offers Message beside the name when chat is on", /openMessages\(\{ userId: m\.userId[,} ]/.test(code("components/community/member/members.tsx")) /* Changed on purpose (round 39): it also hands the person, so the panel draws their header at once */)
   }
 
   /* ── The gallery ─────────────────────────────────────────────────────── */

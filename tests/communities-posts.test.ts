@@ -384,7 +384,8 @@ async function main() {
 
   /* ── Messages ───────────────────────────────────────────────────────── */
   console.log("\nMessages between members")
-  const dm = code("components/community/member/messages.tsx")
+  /* Changed on purpose (round 39): the unread badge's stream moved to messages-signal.ts, so every community page has it without loading the panel. */
+  const dm = code("components/community/member/messages.tsx") + "\n" + code("components/community/member/messages-signal.ts")
   check("every message stream joins as the member (the token first), not as a visitor", /await realtimeAuth\(supabase\)\s*if \(gone\) return\s*channel = supabase/.test(dm) && (dm.match(/liveStream\(/g) || []).length >= 4 && !/\.channel\(`community-dm[^`]*`\)\s*\.on\([^)]*\)[\s\S]{0,400}\.subscribe\(\)\s*\} catch/.test(dm))
   check("with a net under each: the page asks again while the stream is not joined", /if \(!joined && document\.visibilityState === "visible"\) poll\(\)/.test(dm) && /joined = status === "SUBSCRIBED"/.test(dm))
   check("chat spaces have the same net", /if \(!joined && document\.visibilityState === "visible"\) void catchUp\(\)/.test(code("components/community/member/chat.tsx")))
