@@ -280,6 +280,9 @@ async function main() {
   const header = readCode("components/platform/platform-header-client.tsx")
   check("sign out clears the record every reader listens to, before anything else", /await supabase\.auth\.signOut\(\{ scope: "local" \}\)\s*clearAuthSnapshot\(\)/.test(header))
   check("a failed profile read still tells the tab bar and the menus who is signed in", /if \(profileErr\) \{[\s\S]{0,1600}writeAuthSnapshot\(\{\s*signedIn: true,\s*userId: user\.id/.test(header))
+  const cc = readCode("lib/auth/continue-client.ts")
+  check("signing in writes the header's record before the next page paints, so its tab bar line sees it (SIGNED_IN_BOOT)",
+    /if \(session\?\.user\?\.id\) rememberSignedIn\(session\.user\.id\)/.test(cc) && /writeAuthSnapshot\(\{\s*signedIn: true,\s*userId,/.test(cc) && /localStorage\.getItem\('_sl_auth_v1'\)/.test(readSource("components/nav/buyer-tab-bar.tsx")))
   check("a sign in or out without a page load refreshes the page and the router's five minute copies",
     /if \(\(event === "SIGNED_IN" \|\| event === "SIGNED_OUT"\) && nowId !== was\) router\.refresh\(\)/.test(header) && /dynamic: 300/.test(readSource("next.config.mjs")))
   check("the receipt and the product page hold the server's answer", /<ViewerSync serverSignedIn=\{viewer\.signedIn\} \/>/.test(receiptView) && (product.match(/<ViewerSync serverSignedIn=\{!!user\} \/>/g) ?? []).length === 2)
