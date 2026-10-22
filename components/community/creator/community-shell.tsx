@@ -74,6 +74,7 @@ import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSec
 import { nameCoverGradient } from "@/lib/communities/cover-gradient"
 import { FRAME_GRACE_MS, SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionOnScreen, sectionRestarts, sectionStale, tabRevealLeft, tabsMore, type AdminSection } from "./logic"
 import { SectionFrame, type SectionFrameFacts } from "./section-frame"
+import { OWN_SCREEN_ATTR } from "./page-editor/screen"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -119,6 +120,8 @@ export function frameFacts(head: CommunityHead, search: string): SectionFrameFac
     settingsList: !new URLSearchParams(search).get("tab")?.trim(),
     /* The Overview's money figures are for a community that charges, seen by whoever may price it (overview.tsx). */
     figures: head.access === "paid" && head.can.manage_pricing === true ? 4 : 3,
+    /* The Page editor's own bar names the community while its reads are on their way (round 37). */
+    title: head.name,
   }
 }
 
@@ -716,7 +719,8 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     lastFramed.current = framed
     if (!was || framed === was || was !== shown) return
     const screen = pane.current?.querySelector<HTMLElement>(`[data-section-screen="${was}"][data-section-kept]`)
-    if (!screen || typeof screen.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    /* The fill is opacity alone, but a section that owns the whole screen (the Page editor, page-editor/screen.tsx) is simply there. */
+    if (!screen || ownsScreen(screen) || typeof screen.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     screen.animate([{ opacity: SECTION_ARRIVE_FROM }, { opacity: 1 }], { duration: SECTION_FILL_MS, easing: SECTION_ARRIVE_EASE })
   }, [framed, shown])
 
@@ -772,6 +776,11 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
       </Host.Provider>
     </ToastHost>
   )
+}
+
+/** A section drawn over the whole window (page-editor/screen.tsx OWN_SCREEN_ATTR): no arrival plays on it. */
+function ownsScreen(screen: HTMLElement): boolean {
+  return !!screen.querySelector(`[${OWN_SCREEN_ATTR}]`)
 }
 
 /**

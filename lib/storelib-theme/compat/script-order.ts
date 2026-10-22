@@ -93,7 +93,7 @@ export function scriptHost(src: string): string {
 }
 
 /* Storelib's own scripts that depend on nothing the theme defines: they may run where they are. */
-const OWN_STANDALONE = /\sdata-storelib-(?:head|track|tag|vitals|navigation|language-suggest|later|prerender|loading)\b/i
+const OWN_STANDALONE = /\sdata-storelib-(?:head|track|tag|vitals|navigation|language-suggest|later|prerender|loading|release)\b/i
 
 /*
   STILL BEING READ, AS FAR AS THE MOVED SCRIPTS CAN TELL. Each of them used

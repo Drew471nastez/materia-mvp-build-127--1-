@@ -3788,6 +3788,11 @@ html.capacitor .app-content-scroll {
   html:has([data-page-layer=""]) [data-app-nav-pill] {
     visibility: hidden;
   }
+  /* The same from the class every page layer at every width holds (lib/ui/layers.ts), for one drawn without
+     components/app/page-layer.tsx: the community's Page editor (round 37, page-editor/screen.tsx). */
+  html.has-page-layer [data-app-nav-pill] {
+    visibility: hidden;
+  }
 
   /* The pill's room at the foot of a layer that keeps it, on whichever box
      actually scrolls: the layer's own scroller, or a page that scrolls in a
@@ -7497,6 +7502,18 @@ html[data-tab-hidden] .ask-step-mark[data-state="running"] .ask-step-dot { anima
   isolation: isolate;
   --sl-vh: 1cqh;
   --sl-vw: 1cqw;
+}
+/*
+  A page change in the editor is the live site's cut (canvas-still.ts).
+  The page being left is a picture until the next one is drawn, and then
+  the next one is shown whole. A fade here is the white frame and the two
+  pages at once. These rules only exist while that swap runs.
+*/
+html[data-canvas-swap]::view-transition-group(root),
+html[data-canvas-swap]::view-transition-old(root),
+html[data-canvas-swap]::view-transition-new(root) {
+  animation: none !important;
+  mix-blend-mode: normal;
 }
 /*
   The page inside is the container its sections answer to (the same size as

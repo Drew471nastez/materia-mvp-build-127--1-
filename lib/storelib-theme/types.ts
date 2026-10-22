@@ -264,6 +264,8 @@ export interface CompiledBlock {
   cssTemplate?: unknown
   /** The blocks its template places itself, with `content_for "block"`. */
   statics: { type: string; id: string }[]
+  /** As CompiledSection's. */
+  schemeVars?: true
   sourceHash: string
 }
 
@@ -367,6 +369,8 @@ export interface CompiledSection {
   script: string | null
   /** The theme blocks its template places itself, with `content_for "block"`. */
   statics?: { type: string; id: string }[]
+  /** It reads its scheme only where a variable can stand in for a colour (scheme-vars.ts): the builder's canvas draws it with `var(--scheme-*)`. */
+  schemeVars?: true
   /** SHA-256 of the source it came from, for caching. */
   sourceHash: string
 }

@@ -125,16 +125,19 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     check("a server error is never drawn as an empty page (an autosave would write it)", /if \(res\.status >= 500\) throw new Error/.test(editor))
     check("a page or product that cannot be opened lets go of the sidebar and the canvas, and says so", /pageOpenFailed\(err\)/.test(editor) && /function pageOpenFailed\(err: unknown\) \{[\s\S]{0,300}setSectionsLoading\(false\)[\s\S]{0,80}setCanvasLoading\(false\)[\s\S]{0,80}openingPage\.current = false/.test(editor))
     check("a product opened from the address never holds the canvas for good", /\}, CANVAS_HOLD_CAP_MS\)/.test(editor))
-    check("another page: the one being left is held over it and crossfaded off (a page of Storelib's own)",
-      /if \(!importedTheme\.current\) holdCanvasStill\(\(\) => currentPageRef\.current === page\)\s*setCurrentPage\(page\)/.test(editor) &&
-        /if \(!importedTheme\.current\) holdCanvasStill\(\(\) => selectedProductIdRef\.current === productId\)/.test(editor))
-    check("  and the new page is not faded up from white under it", /if \(document\.querySelector\(`\[\$\{CANVAS_STILL_ATTR\}\]`\)\) return/.test(editor))
+    check("another page: the one being left stays until the next is drawn, then a cut (a page of Storelib's own)",
+      /if \(!importedTheme\.current\) swapCanvasPage\(show\)/.test(editor) &&
+        /swapCanvasPage\(show\)/.test(editor) &&
+        /setCurrentPage\(page\)/.test(editor) &&
+        /setSelectedProductPage\(productTitle\)/.test(editor))
+    check("  and the new page is not faded up from white under it", !/page\.animate\(\[\{ opacity: 0\.35 \}/.test(editor))
     check("an imported theme's canvas code on its way shows the outline, never a white page, and a long wait offers a reload",
       /dynamic\(\(\) => loadCompatCanvas\(\)\.then\(\(m\) => m\.CompatCanvas\), \{ ssr: false, loading: \(\) => <CompatCanvasWaiting \/> \}\)/.test(editor) &&
         /export function CompatCanvasWaiting\(\)/.test(read("components/website-builder/canvas-problem.tsx")) && /window\.location\.reload\(\)/.test(read("components/website-builder/canvas-problem.tsx")))
     const still = code("lib/website-builder/canvas-still.ts")
-    check("the copy is laid inside the canvas frame, scrolled where the page was, taking no presses", /host\.append\(copy\)/.test(still) && /copy\.scrollTop = root\.scrollTop/.test(still) && /pointer-events:none/.test(still) && /copy\.inert = true/.test(still))
-    check("  it waits for the new page and its first pictures, each for a bounded time, then fades", /STILL_WAIT_MS = 350/.test(still) && /STILL_ARRIVE_MS = 1500/.test(still) && /img\.decode\(\)/.test(still) && /const cap = window\.setTimeout\(done,/.test(still))
+    check("the fallback copy is laid in the host the editor leaves alone, scrolled where the page was, taking no presses", /host\.append\(copy\)/.test(still) && /copy\.scrollTop = root\.scrollTop/.test(still) && /pointer-events:none/.test(still) && /copy\.inert = true/.test(still) && /data-canvas-still-host/.test(still))
+    check("  it waits for the new page and its first pictures, each for a bounded time, then cuts", /STILL_WAIT_MS = 350/.test(still) && /STILL_ARRIVE_MS = 1500/.test(still) && /img\.decode\(\)/.test(still) && /const cap = window\.setTimeout\(done,/.test(still) && !/\.animate\(/.test(still))
+    check("  the browser's own picture of the page being left is held, and the handover is not a fade", /startViewTransition/.test(still) && /flushSync\(apply\)/.test(still) && /html\.setAttribute\(SWAP_ATTR, ""\)/.test(still))
   }
 
   console.log("\nThe Website page's cover\n")

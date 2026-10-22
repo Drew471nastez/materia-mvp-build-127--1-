@@ -2,7 +2,7 @@
 
 /**
  * ===========================================================================
- *  THE PAGE EDITOR (round 33, rebuilt round 26)
+ *  THE PAGE EDITOR (round 33, rebuilt round 26, its own screen round 37)
  * ===========================================================================
  * /app/community/<slug>/page. The owner, round 26: "currently not
  * responsive, occupies too much space, overly complicated; the preview
@@ -13,18 +13,25 @@
  * editing panel or drawer and a usable full width preview. Avoid nested
  * scroll containers. Preview as visitor."
  *
+ * ITS OWN SCREEN (round 37, the owner: "make sure it's full screen like I'm
+ * getting inside of the creator page"). Over the whole window at every
+ * width (./screen.tsx): one bar of its own, the stage under it, the panel
+ * beside it or the drawer at the foot. Nothing of /app or the community's
+ * admin is drawn while it is up. Back returns to the section it was opened
+ * from as it was left.
+ *
  *   THE STAGE     the About page itself (components/community/public/
  *                 sales-page.tsx) drawn from the draft (./draft.ts
  *                 previewData) into a frame of its own (./preview-frame.tsx:
- *                 the pane's width, at least 1280, or a phone), under one row
- *                 of controls: Computer
- *                 or Phone, As a visitor, the state of the save, Full screen,
- *                 the panel, Save and Publish. It is as tall as the screen
- *                 below the admin's tabs (measured once, useStage), and stays
- *                 there while the panel beside it scrolls with the page: the
- *                 only scroll inside it is the page's own.
+ *                 the pane's width, at least 1280, or a phone), under the
+ *                 editor's bar: the way back and the community, Computer or
+ *                 Phone, As a visitor, the dark look, the state of the save,
+ *                 the panel, Save and Publish. It fills what the bar leaves
+ *                 (over the drawer, what is above its head: useDrawerRoom);
+ *                 the only scroll inside it is the page's own.
  *   THE PANEL     beside the stage: the six groups (./panels.tsx), one open
- *                 at a time, in the page's own scroll (no second scroll box).
+ *                 at a time, flush to the right edge from the bar to the foot,
+ *                 its list the one thing in it that scrolls (round 37).
  *                 Hidden with one press, the stage then takes the whole
  *                 width. Round 27: as wide as the creator drags it (300 to
  *                 560px, the edge between it and the stage is the handle,
@@ -32,7 +39,7 @@
  *                 is dragged the page in the frame is only scaled, and laid
  *                 out once at the end (./preview-frame.tsx).
  *   THE DRAWER    only where the editor itself is narrower than SIDE_MIN
- *                 (a phone, a tablet upright beside the rail): the groups in
+ *                 (a phone, a narrow window): the groups in
  *                 a drawer docked at the foot (./drawer.tsx), dragged
  *                 between its head, half the screen and nearly all of it,
  *                 never covering the page with a dimmed layer.
@@ -44,7 +51,8 @@
  * phone's bar. The editor is measured instead (the rail open or folded, the
  * zoom, the shell's gutters all in it): the panel sits beside the page
  * wherever there is room for both, 300px of panel and 340 of page.
- *   FULL SCREEN   the stage alone over the whole window (Escape leaves).
+ *   FULL SCREEN   round 37: the whole editor is; the panel hidden leaves
+ *                 the page alone under the bar, so there is no second one.
  *   AS A VISITOR  the page as somebody signed out sees it: no outlines, no
  *                 Edit badges, no placeholders for empty parts; the gallery
  *                 and the questions work, links and Join do not.
@@ -54,7 +62,8 @@
  *                 draftProblems names (opening the group it is in). Saving,
  *                 Saved with a check, Unsaved changes, or what went wrong,
  *                 always beside it. Ctrl or Cmd S saves. Leaving with changes
- *                 asks first.
+ *                 asks first: the bar's Back (Discard changes?), and a reload
+ *                 or a closed tab (beforeunload).
  *   PUBLISH       a draft community has Publish beside Save (Save and
  *                 publish while something is unsaved): the same request as
  *                 the bar's Publish (PATCH { publish: true },
@@ -67,9 +76,8 @@
  * (lib/communities/page-look.ts dominantColour); a new logo reads it again.
  */
 import * as React from "react"
-import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { ChevronDown, Eye, Maximize2, Minimize2, Monitor, Moon, PanelRightClose, PanelRightOpen, Pencil, Smartphone, Sun } from "lucide-react"
+import { ChevronDown, Eye, Monitor, Moon, PanelRightClose, PanelRightOpen, Pencil, Smartphone, Sun } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { announceCommunityUpdated } from "@/lib/communities/updated-signal"
@@ -80,13 +88,16 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { JoinSurface } from "@/components/community/public/join-controls"
 import type { SalesPageData } from "@/components/community/public/types"
-import { COMMUNITY_STATE_WORD, buttonPrimary, buttonSecondary, card, communityState, errorText, send, useToast } from "../parts"
+import { CommunityStatusBadge, buttonPrimary, buttonSecondary, card, communityState, errorText, send } from "../parts"
+import { nameCoverGradient } from "@/lib/communities/cover-gradient"
+import { useConfirm } from "@/app/app/products/new/confirm-sheet"
 import type { CommunityHead, SettingsData } from "../view-types"
 import { GROUP_BLOCKS, PAGE_BLOCKS, PAGE_GROUPS, changedBody, draftOf, draftProblems, groupOf, isPageBlock, previewData, type DraftProblem, type PageBlock, type PageDraft, type PageGroup } from "./draft"
 import { BLOCK_INFO, GROUP_INFO, GroupFields, groupSummary, type PanelProps } from "./panels"
 import { PreviewDocument, PreviewFrame, type Device } from "./preview-frame"
 import { PreviewChrome } from "./preview-chrome"
 import { EditorDrawer } from "./drawer"
+import { EditorBar, EditorScreen, useLeaveEditor } from "./screen"
 import { HANDLE_W, PANEL_DEFAULT, PANEL_KEY, PANEL_MAX, PANEL_MIN, modeFor, panelWidthFor, type Detent, type EditorMode } from "./layout"
 
 /*
@@ -132,75 +143,41 @@ function useEditorMode(root: React.RefObject<HTMLDivElement | null>, apply: (wid
 }
 
 /**
- * THE STAGE'S HEIGHT, MEASURED ONCE AND SHARED (CLAUDE.md: "measure it once"). The pane the admin scrolls in
- * (community-shell.tsx .orders-pane), the row of tabs that sticks at its top, and on a narrow screen the drawer's head
- * at the foot, read from the page itself and handed to CSS as two numbers on the editor: --pe-top (where the stage
- * sticks, under the tabs) and --pe-stage-h (its height). Beside the panel the stage fills the pane under the tabs once
- * the bar with the name has scrolled away; over the drawer it fills what is left above the drawer's head as the page
- * opens, so the card is whole without a scroll, and it keeps that height whatever the drawer does (the drawer moves over
- * it; nothing in the frame is laid out again).
+ * THE PAGE ABOVE THE DRAWER (round 37: the editor owns the screen). Beside the panel the stage is simply the room under
+ * the bar. Over the drawer it ends where the drawer's head begins, read from the drawer's own measure (./drawer.tsx
+ * data-peek-top, CLAUDE.md: "measure it once"), so the card is whole as the page opens. A keyboard lifts the drawer and
+ * not the page: the drawer moves over it, and nothing in the frame is laid out again.
  */
-function useStage(root: React.RefObject<HTMLDivElement | null>, side: boolean, raised: boolean) {
+function useDrawerRoom(root: React.RefObject<HTMLDivElement | null>, drawer: boolean) {
   React.useLayoutEffect(() => {
     const el = root.current
     if (!el) return
-    const pane = el.closest<HTMLElement>(".orders-pane") ?? (document.scrollingElement as HTMLElement | null)
-    if (!pane) return
-    /*
-      THE DRAWER RAISED (round 26): the page is what the creator is changing, so it stays in sight above the drawer. The
-      bar with the community's name scrolls away (the tabs stay) and the part being edited is brought into what is left
-      (./preview-frame.tsx focus). At the foot again, the pane goes back to the top.
-    */
-    const header = pane.querySelector<HTMLElement>("[data-community-header]")?.offsetHeight ?? 0
-    if (!side) pane.scrollTo({ top: raised ? header : 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
+    if (!drawer) {
+      el.style.removeProperty("--pe-drawer-room")
+      return
+    }
     let raf = 0
     const read = () => {
       raf = 0
       if (!el.getClientRects().length) return
-      const tabs = pane.querySelector<HTMLElement>("[data-community-tabs-bar]")
-      const tabsH = tabs?.offsetHeight ?? 0
-      const paneRect = pane.getBoundingClientRect()
-      const paneH = pane.clientHeight || window.innerHeight
-      let h: number
-      if (side) {
-        /*
-          Stuck under the tabs, the stage may reach no lower than the end of the section's content (the shell keeps 48px
-          and the save bars' room under it): any lower, and at the end of a long panel the row it sticks in would push it
-          up under the tabs.
-        */
-        const body = el.closest<HTMLElement>("[data-community-body]")
-        const foot = body ? parseFloat(getComputedStyle(body).paddingBottom) || 0 : 16
-        h = paneH - tabsH - 12 - Math.max(16, foot)
-      } else {
-        const stage = el.querySelector<HTMLElement>("[data-page-stage]")
-        const drawer = el.querySelector<HTMLElement>("[data-page-drawer]")
-        /* Where the stage starts in the pane's content: on the screen with the pane at its top. */
-        const top = stage ? stage.getBoundingClientRect().top - paneRect.top + pane.scrollTop : tabsH
-        const peekTop = Number(drawer?.dataset.peekTop) || paneRect.bottom - 80
-        h = peekTop - (paneRect.top + top) - 12
-      }
-      el.style.setProperty("--pe-top", `${tabsH + 12}px`)
-      el.style.setProperty("--pe-stage-h", `${Math.round(Math.max(side ? 420 : 240, h))}px`)
+      const peek = Number(el.querySelector<HTMLElement>("[data-page-drawer]")?.dataset.peekTop)
+      if (!peek) return
+      const kb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kb-inset")) || 0
+      const room = el.getBoundingClientRect().bottom - (peek + kb) + 8
+      el.style.setProperty("--pe-drawer-room", `${Math.max(0, Math.round(room))}px`)
     }
     const soon = () => {
       if (!raf) raf = requestAnimationFrame(read)
     }
     read()
-    const ro = new ResizeObserver(soon)
-    ro.observe(pane)
-    const tabs = pane.querySelector<HTMLElement>("[data-community-tabs-bar]")
-    if (tabs) ro.observe(tabs)
     window.addEventListener("resize", soon)
-    window.visualViewport?.addEventListener("resize", soon)
-    el.addEventListener("page-drawer:measured", soon)
+    el.addEventListener("page-drawer:measured", read)
     return () => {
       if (raf) cancelAnimationFrame(raf)
-      ro.disconnect()
       window.removeEventListener("resize", soon)
-      window.visualViewport?.removeEventListener("resize", soon)
-      el.removeEventListener("page-drawer:measured", soon)
+      el.removeEventListener("page-drawer:measured", read)
     }
-  }, [root, side, raised])
+  }, [root, drawer])
 }
 
 /** The logo's commonest saturated colour, or null (no logo, or nothing but greys in it). */
@@ -271,7 +248,6 @@ const iconButton = "inline-flex h-10 w-10 shrink-0 items-center justify-center r
 
 export function PageEditor({ head, data, preview, creatorId, clicks = null }: { head: CommunityHead; data: SettingsData; preview: SalesPageData | null; creatorId: string; /** Round 26: how often members opened each member link, when it is counted. */ clicks?: Record<string, number> | null }) {
   const router = useRouter()
-  const toast = useToast()
   const root = React.useRef<HTMLDivElement>(null)
   const side = React.useRef<HTMLElement>(null)
   /* The panel's width: what the creator dragged it to (remembered), kept to what the editor's width leaves (panelWidthFor). */
@@ -309,9 +285,8 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
   React.useLayoutEffect(() => {
     if (panel && mode === "side") applyPanel(editorWidth.current || root.current?.clientWidth || 0)
   }, [panel, mode, applyPanel])
-  const [full, setFull] = React.useState(false)
   const [detent, setDetent] = React.useState<Detent>("peek")
-  useStage(root, wide, !wide && detent !== "peek")
+  useDrawerRoom(root, !wide)
   const [phase, setPhase] = React.useState<SaveState>("idle")
   const [error, setError] = React.useState<string | null>(null)
   const [uploads, setUploads] = React.useState<{ cover: boolean; gallery: boolean }>({ cover: false, gallery: false })
@@ -415,13 +390,12 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
       const el = root.current?.ownerDocument.getElementById(`pe-field-${b}`)
       if (!el || !el.getClientRects().length) return
       /*
-        Only the box the field is in moves: the drawer's list on a phone, the admin's pane beside the stage on a computer
-        (to just under its tabs). scrollIntoView would also move the drawer itself and the page around the frame.
+        Only the box the field is in moves: the drawer's list on a phone, the panel's own list beside the stage (round 37).
+        scrollIntoView would also move the drawer itself and the page around the frame.
       */
-      const box = el.closest<HTMLElement>("[data-page-sheet-body]") ?? el.closest<HTMLElement>(".orders-pane")
+      const box = el.closest<HTMLElement>("[data-page-sheet-body]") ?? el.closest<HTMLElement>("[data-page-side-body]")
       if (!box) return
-      const under = box.matches(".orders-pane") ? (box.querySelector<HTMLElement>("[data-community-tabs-bar]")?.offsetHeight ?? 0) + 12 : 0
-      const delta = el.getBoundingClientRect().top - box.getBoundingClientRect().top - under
+      const delta = el.getBoundingClientRect().top - box.getBoundingClientRect().top
       box.scrollTo({ top: Math.max(0, box.scrollTop + delta), behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })
     }, wide ? 0 : 340)
     return () => window.clearTimeout(t)
@@ -446,7 +420,6 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
       if (!isPageBlock(b)) return
       setPicked(b)
       openGroup(groupOf(b), b)
-      setFull(false)
       if (modeRef.current === "side") setPanel(true)
       else {
         setDetent((d) => (d === "peek" ? "half" : d))
@@ -498,7 +471,6 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
     }
     setSaved(sent)
     setPhase("saved")
-    toast(tt("Saved"))
     router.refresh()
     announceCommunityUpdated(head.id)
     return true
@@ -514,7 +486,6 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
       return setError(errorText(res.data.error, tt("It could not be published. Try again.")))
     }
     setPhase("saved")
-    toast(tt("Published. Your page is live."))
     router.refresh()
     announceCommunityUpdated(head.id)
   }
@@ -523,22 +494,11 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
     setError(null)
     setBadLinks(0)
   }
-  /* Full screen takes the focus to its own way out, and gives it back to the button that opened it. */
-  React.useEffect(() => {
-    if (!full) return
-    const opener = document.activeElement as HTMLElement | null
-    const t = window.setTimeout(() => document.querySelector<HTMLElement>("[data-page-stage][data-page-full] [data-page-full-toggle]")?.focus(), 0)
-    return () => {
-      window.clearTimeout(t)
-      window.setTimeout(() => (opener && opener.isConnected ? opener : root.current?.querySelector<HTMLElement>("[data-page-full-toggle]"))?.focus(), 0)
-    }
-  }, [full])
   /* Ctrl or Cmd S, while this section is the one on screen. */
   const saveRef = React.useRef(save)
   saveRef.current = save
   React.useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && full) setFull(false)
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === "s") {
         if (!root.current?.getClientRects().length) return
         e.preventDefault()
@@ -547,7 +507,7 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
     }
     window.addEventListener("keydown", key)
     return () => window.removeEventListener("keydown", key)
-  }, [full])
+  }, [])
 
   const labels = React.useMemo(() => Object.fromEntries(PAGE_BLOCKS.map((b) => [b, BLOCK_INFO[b].title])), [])
   const panelProps: PanelProps = {
@@ -592,8 +552,9 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
             ? { tone: "dirty", text: tt("Unsaved changes") }
             : phase === "saved"
               ? { tone: "saved", text: tt("Saved") }
-              : { tone: "idle", text: COMMUNITY_STATE_WORD[state] }
-  const dot = { error: "bg-[#d92d20]", busy: "bg-[#e8a400] animate-pulse motion-reduce:animate-none", dirty: "bg-[#e8a400]", saved: "bg-[#22a06b]", idle: state === "published" ? "bg-[#22a06b]" : "bg-[#9ca3af]" }[status.tone]
+              : /* Round 37: the community's state is the badge in the bar; here, only the save's. */
+              { tone: "idle", text: tt("All changes saved") }
+  const dot = { error: "bg-[#d92d20]", busy: "bg-[#e8a400] animate-pulse motion-reduce:animate-none", dirty: "bg-[#e8a400]", saved: "bg-[#22a06b]", idle: "bg-[#9ca3af]" }[status.tone]
   /* The state of the save, as a line (the toolbar, the panel) or inside a button (the drawer's head): the same words. */
   const statusParts = (
     <>
@@ -658,47 +619,71 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
     </div>
   )
 
+  /* ── Leaving: back to the community's admin where the owner was, asking first when something is not saved ── */
+  const [ask, confirmSheet] = useConfirm()
+  const leaveEditor = useLeaveEditor(React.useCallback((href: string) => router.push(href, { scroll: false }), [router]))
+  const leave = async () => {
+    if (busy) return
+    if (dirty || uploading) {
+      const yes = await ask({ title: tt("Discard changes?"), body: tt("Your edits since the last save will be lost."), confirm: tt("Discard"), cancel: tt("Keep editing") })
+      if (!yes) return
+      reset()
+    }
+    leaveEditor()
+  }
+
   /*
-    ONE ROW, AS WIDE AS THE STAGE. It is a size container: what it shows follows its own width (the panel dragged, the
-    window, the zoom), and where the save buttons do not fit beside the view's controls they go to a second row, on the
-    right, rather than off the edge.
+    THE BAR (round 37): the screen's only chrome. The way back and the community on the left; the preview's controls
+    (Computer or Phone, as a visitor, the dark look); beside the panel the state of the save, the panel, Save and Publish.
+    A size container: the words beside the icons go where the bar has no room for them, so a phone keeps the icons and
+    the name. On a phone Save lives in the drawer's head, under the thumb.
   */
-  const toolbar = (
-    <div className="@container min-w-0 shrink-0" data-page-toolbar-box="">
-      <div className="flex min-h-11 min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 py-0.5 sm:gap-x-2" data-page-toolbar="">
+  const logo = head.logoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={head.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-[9px] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.06)] max-sm:hidden" data-page-editor-logo="" />
+  ) : (
+    <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-[9px] text-[14px] font-semibold text-white shadow-[0_0_0_1px_rgba(16,24,40,0.06)] [text-shadow:0_1px_1px_rgba(0,0,0,0.18)] max-sm:hidden" style={{ backgroundImage: nameCoverGradient(head.name) }} data-page-editor-logo="">
+      {(Array.from(head.name.trim())[0] || "C").toUpperCase()}
+    </span>
+  )
+  const title = (
+    <div className="flex min-w-0 flex-1 items-center gap-2.5" data-page-editor-title="">
+      {logo}
+      <div className="flex min-w-0 flex-col items-start gap-0.5 @min-[560px]:flex-row @min-[560px]:items-center @min-[560px]:gap-2">
+        <h1 className="max-w-full truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]" title={head.name}>
+          {head.name}
+        </h1>
+        <CommunityStatusBadge state={state} />
+      </div>
+    </div>
+  )
+  const barControls = (
+    <>
+      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5" data-page-toolbar="">
         {deviceSwitch}
-        <button type="button" onClick={() => setVisitor((v) => !v)} aria-pressed={visitor} className={cn(iconButton, "w-auto gap-1.5 px-2.5 text-[13px] font-medium sm:w-auto")} data-page-visitor="" title={tt("See the page as a visitor who is not signed in")} aria-label={tt("As a visitor")}>
+        <button type="button" onClick={() => setVisitor((v) => !v)} aria-pressed={visitor} className={cn(iconButton, "@min-[900px]:w-auto @min-[900px]:gap-1.5 @min-[900px]:px-2.5 text-[13px] font-medium")} data-page-visitor="" title={tt("See the page as a visitor who is not signed in")} aria-label={tt("As a visitor")}>
           <Eye aria-hidden className="h-4 w-4" />
-          <span className="@max-[640px]:hidden">{tt("As a visitor")}</span>
+          <span className="@max-[899px]:hidden">{tt("As a visitor")}</span>
         </button>
         <button type="button" onClick={() => setDark((v) => !v)} aria-pressed={dark} aria-label={dark ? tt("Show the page in the light look") : tt("Show the page in the dark look")} title={dark ? tt("Show the page in the light look") : tt("Show the page in the dark look")} className={iconButton} data-page-look="">
           {dark ? <Sun aria-hidden className="h-4 w-4" /> : <Moon aria-hidden className="h-4 w-4" />}
         </button>
-        <div className="min-w-0 flex-1 px-1 @max-[520px]:hidden">{wide || full ? statusLine : null}</div>
-        <span className="flex-1 @min-[520px]:hidden" />
-        <button type="button" onClick={() => setFull((f) => !f)} aria-pressed={full} aria-label={full ? tt("Leave full screen") : tt("Full screen preview")} title={full ? tt("Leave full screen") : tt("Full screen preview")} className={iconButton} data-page-full-toggle="">
-          {full ? <Minimize2 aria-hidden className="h-4 w-4" /> : <Maximize2 aria-hidden className="h-4 w-4" />}
-        </button>
-        {wide && !full ? (
+      </div>
+      {wide ? (
+        <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 @min-[1100px]:flex-1" data-page-editor-save-row="">
+          <div className="min-w-0 px-1 @max-[979px]:hidden">{statusLine}</div>
           <button type="button" onClick={() => setPanel((p) => !p)} aria-pressed={!panel} aria-expanded={panel} aria-controls="pe-side" aria-label={panel ? tt("Hide the editing panel") : tt("Show the editing panel")} title={panel ? tt("Hide the editing panel") : tt("Show the editing panel")} className={iconButton} data-page-panel-toggle="">
             {panel ? <PanelRightClose aria-hidden className="h-4 w-4" /> : <PanelRightOpen aria-hidden className="h-4 w-4" />}
           </button>
-        ) : null}
-        {wide || full ? saveButtons : null}
-      </div>
-    </div>
+          {saveButtons}
+        </div>
+      ) : null}
+    </>
   )
 
+  /* The page itself, filling what the bar leaves (above the drawer's head on a phone). */
   const stage = (
-    <div
-      className={cn("flex min-w-0 flex-col gap-2", full ? "fixed inset-0 z-[90] bg-[#f8f9fa] p-3 pt-[max(12px,env(safe-area-inset-top))] sm:p-4" : wide ? "sticky top-[var(--pe-top,64px)] h-[var(--pe-stage-h,calc(100dvh-160px))] flex-1" : "h-[var(--pe-stage-h,calc(100dvh-260px))]")}
-      data-page-stage=""
-      data-page-full={full ? "" : undefined}
-      role={full ? "dialog" : undefined}
-      aria-modal={full ? true : undefined}
-      aria-label={full ? tt("Preview of your page") : undefined}
-    >
-      {toolbar}
+    <div className={cn("flex min-h-0 min-w-0 flex-1 flex-col p-2 sm:p-3", wide ? (panel ? "pr-0 sm:pr-0" : "") : "pb-[var(--pe-drawer-room,96px)] sm:pb-[var(--pe-drawer-room,96px)]")} data-page-stage="">
       <section className={cn(card, "min-h-0 flex-1 overflow-hidden")} aria-label={tt("Your page")} data-page-preview-card="">
         {shown ? (
           <PreviewFrame device={device} selected={visitor ? null : picked} labels={labels} onPick={pick} focus={focus} visitor={visitor} dark={dark}>
@@ -806,11 +791,13 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
   }
 
   return (
-    <div ref={root} data-page-editor="" data-mode={mode} data-device={device} data-visitor={visitor ? "" : undefined} data-panel={wide ? (panel ? "open" : "hidden") : "drawer"} className="min-w-0">
+    <EditorScreen ref={root} data-page-editor="" data-mode={mode} data-device={device} data-visitor={visitor ? "" : undefined} data-panel={wide ? (panel ? "open" : "hidden") : "drawer"}>
+      <EditorBar onBack={() => void leave()} title={title}>
+        {barControls}
+      </EditorBar>
       {wide ? (
-        <div className="flex items-start">
-          {full ? <div className="sticky top-[var(--pe-top,64px)] h-[var(--pe-stage-h,calc(100dvh-160px))] min-w-0 flex-1" /> : null}
-          {full ? createPortal(stage, document.body) : stage}
+        <div className="flex min-h-0 flex-1" data-page-editor-body="">
+          {stage}
           {panel ? (
             <>
               {/*
@@ -830,36 +817,36 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
                 onPointerDown={startResize}
                 onKeyDown={resizeKey}
                 onDoubleClick={() => resizeTo(PANEL_DEFAULT, true)}
-                className="group/resize relative w-4 shrink-0 cursor-col-resize touch-none self-stretch outline-none [-webkit-tap-highlight-color:transparent]"
+                className="group/resize relative flex w-3 shrink-0 cursor-col-resize touch-none items-center justify-center outline-none sm:w-4 [-webkit-tap-highlight-color:transparent]"
                 data-page-resize=""
               >
-                <div className="sticky top-[var(--pe-top,64px)] flex h-[var(--pe-stage-h,calc(100dvh-160px))] items-center justify-center">
-                  <span aria-hidden className="h-full w-px bg-transparent transition-colors duration-150 group-hover/resize:bg-[#d4d6db] group-focus-visible/resize:bg-[#1a1a2e]/40 group-data-[active]/resize:bg-[#1a1a2e]/50 motion-reduce:transition-none" />
-                  <span aria-hidden className="absolute h-9 w-[5px] rounded-full bg-[#d9dce1] transition-colors duration-150 group-hover/resize:bg-[#9ca3af] group-focus-visible/resize:bg-[#1a1a2e] group-data-[active]/resize:bg-[#1a1a2e] motion-reduce:transition-none" />
-                </div>
+                <span aria-hidden className="absolute inset-y-3 left-1/2 w-px -translate-x-1/2 bg-transparent transition-colors duration-150 group-hover/resize:bg-[#d4d6db] group-focus-visible/resize:bg-[#1a1a2e]/40 group-data-[active]/resize:bg-[#1a1a2e]/50 motion-reduce:transition-none" />
+                <span aria-hidden className="absolute h-9 w-[5px] rounded-full bg-[#d9dce1] transition-colors duration-150 group-hover/resize:bg-[#9ca3af] group-focus-visible/resize:bg-[#1a1a2e] group-data-[active]/resize:bg-[#1a1a2e] motion-reduce:transition-none" />
               </div>
-              <aside ref={side} id="pe-side" className={cn(card, "w-[360px] min-w-[300px] max-w-[560px] shrink-0 overflow-hidden")} aria-label={tt("Edit page")} data-page-side="">
-                <div className="flex items-center gap-2 border-b border-[#f1f2f4] py-2 pl-4 pr-2 sm:pl-5">
+              {/* Flush to the right edge, the height of the screen under the bar; its list is the one thing in it that scrolls. */}
+              <aside ref={side} id="pe-side" className="flex w-[360px] min-w-[300px] max-w-[560px] shrink-0 flex-col bg-white pr-[env(safe-area-inset-right,0px)] shadow-[inset_1px_0_0_#e5e7eb]" aria-label={tt("Edit page")} data-page-side="">
+                <div className="flex shrink-0 items-center gap-2 border-b border-[#f1f2f4] py-2 pl-4 pr-2 sm:pl-5">
                   <h2 className="min-w-0 flex-1 text-[15px] font-semibold leading-6 text-[#1a1a2e]">{tt("Edit page")}</h2>
                   <button type="button" onClick={() => setPanel(false)} className={iconButton} aria-label={tt("Hide the editing panel")} title={tt("Hide the editing panel")}>
                     <PanelRightClose aria-hidden className="h-4 w-4" />
                   </button>
                 </div>
-                {groups}
-                {error ? (
-                  <p role="alert" className="border-t border-[#f1f2f4] px-4 py-3 text-[13px] text-[#b42318] sm:px-5" data-page-panel-error="">
-                    {error}
-                  </p>
-                ) : null}
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom,0px)]" data-page-side-body="">
+                  {groups}
+                  {error ? (
+                    <p role="alert" className="border-t border-[#f1f2f4] px-4 py-3 text-[13px] text-[#b42318] sm:px-5" data-page-panel-error="">
+                      {error}
+                    </p>
+                  ) : null}
+                </div>
               </aside>
             </>
           ) : null}
         </div>
       ) : (
         <>
-          {full ? <div className="h-[var(--pe-stage-h,calc(100dvh-260px))]" /> : null}
-          {full ? createPortal(stage, document.body) : stage}
-          {/* A narrow editor: the groups in a drawer docked at the foot, its head the name, the state and Save. */}
+          {stage}
+          {/* A narrow screen: the groups in a drawer docked at the foot, its head the name, the state and Save. */}
           <EditorDrawer
             detent={detent}
             onDetent={setDetent}
@@ -909,6 +896,7 @@ export function PageEditor({ head, data, preview, creatorId, clicks = null }: { 
           </EditorDrawer>
         </>
       )}
-    </div>
+      {confirmSheet}
+    </EditorScreen>
   )
 }

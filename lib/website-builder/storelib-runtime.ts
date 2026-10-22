@@ -202,6 +202,8 @@ export function renderStorelibSection(
    * theme's own `shop` and nobody signed in.
    */
   globals?: StorefrontGlobals,
+  /** The builder's canvas only: scheme colours printed as the variables the section's root holds (lib/storelib-theme/scheme-vars.ts). */
+  opts?: { schemeVariables?: boolean },
 ): StorelibRendered {
   const c = compiledSection(section.type, overrides)
   if (c.ok === false) return c
@@ -226,6 +228,7 @@ export function renderStorelibSection(
     data,
     globals,
     blocks: blockLookup(overrides),
+    ...(opts?.schemeVariables ? { schemeVariables: true } : {}),
   })
   return {
     ok: true,

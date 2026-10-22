@@ -26,6 +26,10 @@ import { useEffect, useRef } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { inPlaceTarget, plainPress, setSiteNavigator, viewportPrefetchBudget } from "@/lib/website-builder/site-navigation"
 import { preloadSectionRenderers } from "@/components/website-builder/sections/lazy-section"
+import { releaseChangedBeforeLink, type ReleaseWatch } from "@/lib/website-builder/live-release-script"
+
+/** The page's release watch, when its layout wrote one (app/(site)/w/[username]/layout.tsx). */
+const releaseWatch = () => (window as unknown as { __storelibRelease?: ReleaseWatch }).__storelibRelease
 
 /** The website's languages, from the hreflang links its pages carry (lib/markets/live.ts). */
 function siteLanguages(): string[] {
@@ -86,7 +90,19 @@ export function SiteLinks() {
       with reduced motion asked for, and not for a change of query alone,
       which keeps the same page.
     */
+    /*
+      A PUBLISH SINCE THIS PAGE WAS LOADED: the link opens as a whole page,
+      so neither this document nor a page the router fetched ahead of the
+      Publish is shown again (lib/website-builder/live-release-script.ts).
+      Asked only when the last answer is old, and never waited on for long.
+    */
     const go = (to: string) => {
+      void releaseChangedBeforeLink(releaseWatch()).then((outdated) => {
+        if (outdated) window.location.assign(to)
+        else goInPlace(to)
+      })
+    }
+    const goInPlace = (to: string) => {
       const doc = document as ViewTransitionDocument
       const samePath = to.split(/[?#]/)[0] === window.location.pathname
       const off =
@@ -117,6 +133,9 @@ export function SiteLinks() {
     const fetched = new Set<string>()
     let renderersAsked = false
     const ahead = (path: string) => {
+      /* The first sign of interest asks what is live too, so the press finds the answer waiting. */
+      const watch = releaseWatch()
+      if (watch?.due()) void watch.changed()
       if (!renderersAsked) {
         renderersAsked = true
         void preloadSectionRenderers()
