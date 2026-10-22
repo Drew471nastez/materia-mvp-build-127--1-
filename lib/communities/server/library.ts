@@ -263,7 +263,7 @@ async function storeCurrency(db: Db, creatorId: string | null): Promise<string> 
 const priceLabelOf = (cents: number | null, currency: string | null) => (cents ? programPrice(cents, currency) : null)
 
 function lockOf(gate: LibraryGate, viewer: Pick<Viewer, "level">, tierNames: Map<string, string>): LibraryLock | null {
-  if (gate.open) return null
+  if (!("reason" in gate)) return null
   if (gate.reason === "paid") return { reason: "paid" }
   if (gate.reason === "level") return { reason: "level", level: gate.level, viewerLevel: viewer.level || 1 }
   if (gate.reason === "tier") return { reason: "tier", tiers: gate.tierIds.map((id) => tierNames.get(id)).filter((n): n is string => !!n) }
@@ -402,7 +402,7 @@ export async function libraryItemPage(db: Db, community: CommunityRow, viewer: V
   const links = row.kind === "resource" ? linksOf(row).map((l, i) => ({ label: linkLabel(l), host: open ? linkHost(l.url) : "", href: open ? libraryLinkHref(community.id, row.id, i) : null })) : []
   const sections = row.section_id ? await readSections(db, community.id) : []
   const descriptionHtml = row.description && looksLikeHtml(row.description) ? cleanStoredHtml(row.description) : null
-  const paidLock = !gate.open && gate.reason === "paid"
+  const paidLock = "reason" in gate && gate.reason === "paid"
   const canBuy = paidLock && opts.canBuy ? await opts.canBuy().catch(() => false) : false
   return {
     communityId: community.id,
@@ -450,7 +450,7 @@ export async function signItemFile(db: Db, community: CommunityRow, row: Library
   const { data: asset } = await db.from("digital_assets").select("id, file_path, file_name, mime_type, file_size, storage_bucket, scan_status, product_id, uploaded_by").eq("id", id).eq("product_id", row.product_id).maybeSingle()
   if (!asset?.file_path) return { ok: false, status: 404, error: "File not found" }
   const checked = await gateDownload(db as SupabaseClient, asset, { isCreator: opts.creator === true })
-  if (!checked.ok) return { ok: false, status: checked.status, error: checked.error }
+  if ("error" in checked) return { ok: false, status: checked.status, error: checked.error }
   const signed = await generateSignedDownloadUrl(db as SupabaseClient, asset.file_path, SIGNED_DOWNLOAD_SECONDS, asset.storage_bucket ?? undefined, asset.file_name)
   return signed ? { ok: true, url: signed.url } : { ok: false, status: 502, error: "The file could not be opened. Try again in a moment." }
 }

@@ -153,7 +153,9 @@ export function libraryGate(item: LibraryRule, v: LibraryViewer): LibraryGate {
 
 /** On the shelf at all: a private item off the viewer's list and a draft (for a member) are not there. */
 export function onShelf(gate: LibraryGate): boolean {
-  return gate.open || (gate.reason !== "private" && gate.reason !== "draft" && gate.reason !== "not_member")
+  /* "in", not gate.open: the narrowing has to hold in the push suites' non-strict build too. */
+  if (!("reason" in gate)) return true
+  return gate.reason !== "private" && gate.reason !== "draft" && gate.reason !== "not_member"
 }
 
 /* ── Links ──────────────────────────────────────────────────────────────── */

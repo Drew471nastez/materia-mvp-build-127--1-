@@ -218,7 +218,7 @@ export async function startLibraryCheckout(db: Db, deps: LibraryCheckoutDeps, a:
   const access = await itemAccess(db, community, viewer, a.itemId)
   if (!access) return refuse(404, "not_found", "That is not in the Library.")
   if (access.gate.open) return refuse(409, "already_yours", "This is yours already.")
-  if (access.gate.reason !== "paid") return refuse(403, "closed", "This is not for sale to you.")
+  if (!("reason" in access.gate) || access.gate.reason !== "paid") return refuse(403, "closed", "This is not for sale to you.")
   const creatorId = community.creator_id
   if (!creatorId) return refuse(409, "seller_unavailable", "This community cannot take payments right now. Nothing was charged.")
   const product = productToSell(access.row, access.product, creatorId)
