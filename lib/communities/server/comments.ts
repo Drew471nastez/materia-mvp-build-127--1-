@@ -27,6 +27,7 @@ import "server-only"
  * carries something is refused with a sentence.
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { toStorageUrl } from "@/lib/storage/media-url"
 import { storedObjectSize } from "@/lib/storage/upload-guard"
 import { LENGTHS, mentionsEveryone } from "../limits"
 import { can, type RolePermissions } from "../permissions"
@@ -151,7 +152,8 @@ export async function checkCommentMedia(db: Db, community: Pick<CommunityRow, "i
   const folder = memberPictureFolder(viewer.userId, community.id)
   const paths: string[] = []
   for (const p of pictures) {
-    const h = new URL(p.url).hostname.toLowerCase()
+    /* Storelib's address for the picture is storage's under another name (round 39): checked as storage's. */
+    const h = new URL(toStorageUrl(p.url)).hostname.toLowerCase()
     const path = picturePathOf(p.url)
     if (!(host ? h === host : h.endsWith(".supabase.co")) || !path || !path.startsWith(folder) || path.slice(folder.length).includes("/")) {
       return { ok: false, error: "That picture could not be added. Upload it again.", status: 400 }

@@ -121,10 +121,20 @@ async function referencesSince(admin: SupabaseClient, communityId: string, autho
     commentRows = again.data as unknown[]
   } else if (comments.error) return null
   if (mine.error || orphaned.error || messages.error) return null
+  /*
+    A conversation's and a group's messages carry pictures too (round 39): read like a channel's, or every picture sent
+    in a direct message went after the grace. Before part 270 they carry none; any other failure keeps everything.
+  */
+  const [direct, grouped] = await Promise.all([
+    admin.from("community_direct_messages").select("body, attachments").eq("community_id", communityId).or(by).gte("created_at", sinceIso).limit(5000),
+    admin.from("community_chat_group_messages").select("body, attachments").eq("community_id", communityId).or(by).gte("created_at", sinceIso).limit(5000),
+  ])
+  if ((direct.error && !missing(direct.error)) || (grouped.error && !missing(grouped.error))) return null
+  const chatRows = [...(direct.error ? [] : (direct.data ?? [])), ...(grouped.error ? [] : (grouped.data ?? []))]
   /* A read that came back full may have left a reference out: keep everything rather than guess. */
   const waitingRows = waiting.error ? [] : (waiting.data ?? [])
-  if ([mine.data, orphaned.data, commentRows, messages.data, waitingRows].some((d) => Array.isArray(d) && d.length >= 5000)) return null
-  return JSON.stringify([mine.data ?? [], orphaned.data ?? [], commentRows ?? [], messages.data ?? [], waitingRows])
+  if ([mine.data, orphaned.data, commentRows, messages.data, waitingRows, direct.data, grouped.data].some((d) => Array.isArray(d) && d.length >= 5000)) return null
+  return JSON.stringify([mine.data ?? [], orphaned.data ?? [], commentRows ?? [], messages.data ?? [], waitingRows, chatRows])
 }
 
 /** Pictures uploaded for a community and never used. */
@@ -235,6 +245,11 @@ async function sweepFiles(admin: SupabaseClient, summary: OrphanSummary, stopAt:
         /* A scheduled post or a draft carrying it (round 27, part 222); before that part there are none. */
         const scheduled = await admin.from("community_scheduled_posts").select("id").eq("community_id", c.id).contains("media", carries).limit(1)
         if (!(scheduled.error && missing(scheduled.error))) reads.push(scheduled)
+        /* A direct or group message carrying it (round 39); before part 270 there are none. */
+        for (const table of ["community_direct_messages", "community_chat_group_messages"]) {
+          const held = await admin.from(table).select("id").eq("community_id", c.id).contains("attachments", carries).limit(1)
+          if (!(held.error && missing(held.error))) reads.push(held)
+        }
         if (reads.some((r) => r.error || !Array.isArray(r.data) || r.data.length)) {
           summary.files.kept++
           continue
