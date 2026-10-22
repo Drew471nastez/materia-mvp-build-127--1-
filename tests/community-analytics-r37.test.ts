@@ -176,7 +176,7 @@ function reference(t: Record<string, Row[]>, args: Record<string, any>) {
     for (const r of rows) (sets[r.b] ??= new Set()).add(r.user_id)
     return Object.fromEntries(Object.entries(sets).map(([k, s]) => [k, s.size]))
   }
-  const b = (r: Row) => ({ ...r, b: toChar(Date.parse(r.created_at), grain, tz) })
+  const b = (r: Row): Row => ({ ...r, b: toChar(Date.parse(r.created_at), grain, tz) })
   const act = (t.community_activity ?? []).filter(inside).map(b)
   const sourceOf = (u: string) => t.community_members.find((m) => m.user_id === u)?.source ?? "free"
   const posts = (t.community_feed_posts ?? []).filter(inside).filter((r) => !HELD(r)).map(b)
