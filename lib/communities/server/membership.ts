@@ -135,6 +135,16 @@ async function afterJoin(db: Db, row: MemberRow, input: GrantInput): Promise<voi
     targetId: row.user_id,
     detail: { source: row.source, tierId: row.tier_id, role: row.role },
   })
+  /*
+    Round 38: the community's automated messages for a join, and for a paid membership that starts with it
+    (./chat-automations.ts), each once per member by its unique key. Never throws.
+  */
+  if (row.role === "member") try {
+    const { automationsOnEvent } = await import("./chat-automations")
+    await automationsOnEvent(db, row.community_id, row.user_id, PAID.includes(row.source) ? [{ kind: "join" }, { kind: "paid_start" }] : [{ kind: "join" }])
+  } catch (e) {
+    console.error(`[communities] automated messages on join: ${reasonOf(e)}`)
+  }
   /* The community's welcome message, once per member, when it has one (round 32, ./onboarding-checklist.ts). Never throws. */
   try {
     const { welcomeNewMember } = await import("./onboarding-checklist")

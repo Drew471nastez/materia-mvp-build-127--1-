@@ -68,7 +68,7 @@ export async function awardPoints(db: Db, a: AwardInput): Promise<AwardResult> {
     const after = await memberLevel(db, a.communityId, a.userId)
     const level = after?.level ?? before.level
     const leveledUp = level > before.level
-    if (leveledUp) await announceLevel(db, a.communityId, a.userId, level)
+    if (leveledUp) await announceLevel(db, a.communityId, a.userId, level, before.level)
     return { awarded: true, level, leveledUp }
   } catch (e) {
     console.error(`[communities] points ${a.sourceKey}: ${reasonOf(e)}`)
@@ -76,8 +76,15 @@ export async function awardPoints(db: Db, a: AwardInput): Promise<AwardResult> {
   }
 }
 
-async function announceLevel(db: Db, communityId: string, userId: string, level: number): Promise<void> {
+async function announceLevel(db: Db, communityId: string, userId: string, level: number, before: number): Promise<void> {
   await recordActivity(db, { communityId, userId, kind: "level_up", targetType: "level", targetId: String(level) })
+  /* Round 38: the community's automated messages for each level reached on the way, once per member (./chat-automations.ts). Never throws. */
+  try {
+    const { automationsOnEvent } = await import("./chat-automations")
+    await automationsOnEvent(db, communityId, userId, [{ kind: "level", before, after: level }])
+  } catch (e) {
+    console.error(`[communities] automated messages on a level: ${reasonOf(e)}`)
+  }
   const [{ data: community }, { data: named }] = await Promise.all([
     db.from("communities").select("slug, name").eq("id", communityId).maybeSingle(),
     db.from("community_levels").select("name").eq("community_id", communityId).eq("level", level).maybeSingle(),

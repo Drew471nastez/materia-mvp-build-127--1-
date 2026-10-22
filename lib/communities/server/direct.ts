@@ -186,8 +186,7 @@ async function dmVerdict(db: Db, community: Pick<CommunityRow, "id" | "owner_use
 
 async function mayMessage(db: Db, community: Pick<CommunityRow, "id" | "owner_user_id">, viewer: Viewer, otherId: string, replying = false): Promise<Checked<true>> {
   const d = await dmVerdict(db, community, viewer, otherId, replying)
-  if (d.gone) return { ok: false, error: d.error, status: 404 }
-  return "error" in d ? { ok: false, error: d.error, status: 403 } : { ok: true, value: true }
+  return "error" in d ? { ok: false, error: d.error, status: d.gone ? 404 : 403 } : { ok: true, value: true }
 }
 
 /** The other person started this conversation: an answer, not a start. */
