@@ -24,13 +24,14 @@
  */
 import * as React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Check } from "lucide-react"
 import { countryName } from "@/lib/checkout/countries"
 import { countryOf } from "@/lib/account/country"
 import { suggestedCurrencyFor, unsupportedLocalCurrency } from "@/lib/store/selling-currency"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { STORE_CURRENCY_EVENT } from "@/lib/store/currency-context"
-import { BTN_PRIMARY, BTN_SECONDARY, Card, Field, Notice, SelectInput, api, peekGet } from "@/components/physical/ui"
+import { BTN_PRIMARY, BTN_SECONDARY, Card, Field, Notice, SelectInput, api, peekGet, rereadKept } from "@/components/physical/ui"
 import { CountryFlag, CountryPicker } from "./country-picker"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -76,9 +77,18 @@ export function CountryCurrency() {
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [editing, setEditing] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
-  /* Every price field under /app takes its currency from the layout (app/app/layout.tsx LiveStoreCurrency): told at once when it changes. */
+  const router = useRouter()
+  /*
+    Every price field under /app takes its currency from the layout (app/app/layout.tsx LiveStoreCurrency): told at once when it changes.
+    The pages the router kept (five minutes, next.config staleTimes) were drawn in the old currency, with the old prices: refreshed, so
+    Orders, Products or Payouts opened next are drawn again. Settings' kept reads (shipping rates, the cash on delivery fee, taxes) too.
+  */
   const changed = (next: CurrencyState) => {
-    if (next.currency !== data?.currency) window.dispatchEvent(new CustomEvent(STORE_CURRENCY_EVENT, { detail: next.currency }))
+    if (next.currency !== data?.currency) {
+      window.dispatchEvent(new CustomEvent(STORE_CURRENCY_EVENT, { detail: next.currency }))
+      rereadKept()
+      router.refresh()
+    }
     setData(next)
   }
 

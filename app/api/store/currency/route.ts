@@ -10,7 +10,9 @@ import { SELLING_CURRENCIES, canSellIn, currencyLabel, suggestedCurrencyFor, uns
 import { latestRates, refreshRates } from "@/lib/markets/fx-server"
 import { exchangeRate, fxFresh, type FxRates } from "@/lib/markets/money"
 import { localizationTag } from "@/lib/markets/server"
-import { creatorTag } from "@/lib/commerce/product-page-cache"
+import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
+import { marketsForNewBase } from "@/lib/markets/base-change"
+import { storeCurrencyNow } from "@/lib/store/currency-guard"
 import { creatorShopTag, revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
 
@@ -36,6 +38,10 @@ export const dynamic = "force-dynamic"
  *          (store_change_currency, SQL part 176), once per key.
  *
  * Orders, refunds, invoices and payouts keep the currency they were made in.
+ * Membership and community plans are priced and billed in US dollars
+ * (lib/money/product-currency), so they are not counted or converted (SQL
+ * part 258); offers' fixed amounts and smart collections' price conditions
+ * are.
  */
 
 type Db = Awaited<ReturnType<typeof readyCaller>>["db"]
@@ -65,21 +71,25 @@ const count = async (q: PromiseLike<{ count: number | null; error: unknown }>) =
   }
 }
 
+/* Membership and community plans are in US dollars whatever the store sells in: never counted or converted here (lib/money/product-currency). */
+const PLAN_TYPES = "(membership,community)"
+
 /** How many prices the store owns, table by table: what a change touches. */
 async function catalogCounts(db: Db, creatorId: string) {
-  const [products, variants, rates, coupons] = await Promise.all([
-    count(db.from("products").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)),
-    count(db.from("product_variants").select("id, products!inner(creator_id)", { count: "exact", head: true }).eq("products.creator_id", creatorId)),
+  const [products, variants, rates, coupons, offers] = await Promise.all([
+    count(db.from("products").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).not("type", "in", PLAN_TYPES)),
+    count(db.from("product_variants").select("id, products!inner(creator_id, type)", { count: "exact", head: true }).eq("products.creator_id", creatorId).not("products.type", "in", PLAN_TYPES)),
     count(db.from("shipping_rates").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)),
     count(db.from("coupons").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("discount_type", "fixed")),
+    count(db.from("store_offers").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("discount_type", "fixed")),
   ])
-  return { products, variants, shippingRates: rates, coupons, total: products + variants + rates + coupons }
+  return { products, variants, shippingRates: rates, coupons, offers, total: products + variants + rates + coupons + offers }
 }
 
 /** Whether there is anything priced, cheaply: options belong to products, so they are not counted here. */
 async function quickCounts(db: Db, creatorId: string) {
   const [products, rates, coupons] = await Promise.all([
-    count(db.from("products").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)),
+    count(db.from("products").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).not("type", "in", PLAN_TYPES)),
     count(db.from("shipping_rates").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)),
     count(db.from("coupons").select("id", { count: "exact", head: true }).eq("creator_id", creatorId).eq("discount_type", "fixed")),
   ])
@@ -94,15 +104,15 @@ async function undoable(db: Db, creatorId: string) {
   try {
     const { data, error } = await db
       .from("store_currency_changes")
-      .select("id, from_currency, to_currency, mode, created_at, restored_at")
+      .select("id, from_currency, to_currency, mode, rate, created_at, restored_at")
       .eq("creator_id", creatorId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
-    const row = data as { id: string; from_currency: string; to_currency: string; mode: string; created_at: string; restored_at: string | null } | null
+    const row = data as { id: string; from_currency: string; to_currency: string; mode: string; rate?: number | string | null; created_at: string; restored_at: string | null } | null
     if (error || !row || row.restored_at) return null
     if (Date.now() - Date.parse(row.created_at) > UNDO_HOURS * 3_600_000) return null
-    return { id: row.id, from: row.from_currency, to: row.to_currency, mode: row.mode, at: row.created_at }
+    return { id: row.id, from: row.from_currency, to: row.to_currency, mode: row.mode, rate: Number(row.rate) || null, at: row.created_at }
   } catch {
     return null
   }
@@ -141,6 +151,11 @@ export async function GET(request: Request) {
   } catch (r) {
     return r as NextResponse
   }
+  /* `?only=currency`: what a price form checks before it saves (lib/store/currency-guard), without the counts. */
+  if (new URL(request.url).searchParams.get("only") === "currency") {
+    const now = await storeCurrencyNow(c.db, c.creatorId)
+    return now ? physicalJson({ currency: now }) : physicalJson({ error: "Could not read the store's currency." }, 503)
+  }
   return physicalJson(await state(c.db, c.creatorId, request.headers))
 }
 
@@ -151,7 +166,7 @@ async function preview(db: Db, creatorId: string, to: string) {
   const counts = await catalogCounts(db, creatorId)
   const fx = await freshRates(db)
   const rate = fx ? exchangeRate(fx, from, to) : null
-  const { data } = await db.from("products").select("title, price_cents").eq("creator_id", creatorId).gt("price_cents", 0).order("updated_at", { ascending: false }).limit(3)
+  const { data } = await db.from("products").select("title, price_cents").eq("creator_id", creatorId).not("type", "in", PLAN_TYPES).gt("price_cents", 0).order("updated_at", { ascending: false }).limit(3)
   const examples = ((data ?? []) as { title: string | null; price_cents: number }[]).map((p) => ({
     title: p.title || "Product",
     before: p.price_cents,
@@ -246,23 +261,68 @@ export async function PUT(request: Request) {
         return physicalJson({ error: "Your currency could not be changed. Nothing was changed. Try again in a moment." }, 500)
       }
       await recordActivity(c.db, c, { action: "settings.currency", subjectLabel: `${store.currency} to ${to}`, meta: { from: store.currency, to, mode, rate, asOf, changes: (data as { counts?: unknown } | null)?.counts ?? null } })
+      /* A retry of the same press converted nothing again, so the markets are not moved twice. */
+      if ((data as { repeat?: boolean } | null)?.repeat !== true) await moveMarkets(c.db, c.creatorId, { from: store.currency, to, mode, rate })
     }
-    await refreshPages(c.creatorId)
+    await refreshPages(c.db, c.creatorId)
   }
   return physicalJson(await state(c.db, c.creatorId, request.headers))
 }
 
-/** Every page that shows a price, now rather than in a few minutes. */
-async function refreshPages(creatorId: string) {
+/**
+ * MORE CURRENCIES FROM THE NEW BASE. A market's own exchange rate is how much
+ * of its currency one unit of the store's is, so it means nothing once the
+ * store's currency is another (lib/markets/base-change). Rescaled when the
+ * prices were converted, dropped (the day's rate from the new currency) when
+ * they kept their amounts. Never fails the change.
+ */
+async function moveMarkets(db: Db, creatorId: string, change: { from: string; to: string; mode: string; rate: number | null }) {
   try {
-    revalidateTag(storeCurrencyTag(creatorId), "max")
-    revalidateTag(creatorShopTag(creatorId), "max")
-    revalidateTag(creatorTag(creatorId), "max")
-    revalidateTag(localizationTag(creatorId), "max")
+    const { data, error } = await db.from("store_localization").select("markets").eq("creator_id", creatorId).maybeSingle()
+    if (error || !data) return
+    const moved = marketsForNewBase((data as { markets?: unknown }).markets, { from: change.from, to: change.to, mode: change.mode === "convert" ? "convert" : "keep", rate: change.rate })
+    if (!moved.changed) return
+    await db.from("store_localization").update({ markets: moved.markets, updated_at: new Date().toISOString() }).eq("creator_id", creatorId)
+  } catch {
+    /* Markets keep their saved rates; the settings show them to change by hand. */
+  }
+}
+
+/**
+ * Every page that shows a price, now rather than in a few minutes.
+ *
+ * EXPIRED, NOT STALE. `revalidateTag(tag, "max")` in Next 16 marks an entry
+ * stale and hands the NEXT visitor the old copy while a new one is drawn: the
+ * first page after a change showed the old currency (the /app layout's price
+ * fields, a product page, the website's cart). `{ expire: 0 }` drops it, so
+ * the first read after a change is the new currency. A product's own page is
+ * cached by its id and its address, not by its store (lib/commerce/
+ * product-page-cache), so converted prices are cleared product by product.
+ */
+async function refreshPages(db: Db, creatorId: string) {
+  const now = { expire: 0 }
+  try {
+    revalidateTag(storeCurrencyTag(creatorId), now)
+    revalidateTag(creatorShopTag(creatorId), now)
+    revalidateTag(creatorTag(creatorId), now)
+    revalidateTag(localizationTag(creatorId), now)
     exploreCatalogueTakenDown()
-    await revalidatePublishedSite(creatorId)
   } catch {
     /* The pages catch up on their own within a few minutes. */
+  }
+  try {
+    const { data } = await db.from("products").select("id, slug").eq("creator_id", creatorId).limit(2000)
+    for (const p of (data ?? []) as { id: string; slug: string | null }[]) {
+      revalidateTag(productTag(p.id), now)
+      if (p.slug) revalidateTag(productTag(p.slug), now)
+    }
+  } catch {
+    /* Each product page is held a minute at most (PRODUCT_CACHE_TTL). */
+  }
+  try {
+    await revalidatePublishedSite(creatorId)
+  } catch {
+    /* The website's pages are held a minute at most. */
   }
 }
 
@@ -287,6 +347,8 @@ export async function PATCH(request: Request) {
     return physicalJson({ error: "That could not be undone. Nothing was changed. Try again in a moment." }, 500)
   }
   await recordActivity(c.db, c, { action: "settings.currency", subjectLabel: `${latest.to} back to ${latest.from}`, meta: { undo: id, from: latest.to, to: latest.from } })
-  await refreshPages(c.creatorId)
+  /* The markets' own rates go back with the prices: a converted change is undone at the inverse of its rate. */
+  await moveMarkets(c.db, c.creatorId, { from: latest.to, to: latest.from, mode: latest.mode, rate: latest.rate ? 1 / latest.rate : null })
+  await refreshPages(c.db, c.creatorId)
   return physicalJson(await state(c.db, c.creatorId, request.headers))
 }

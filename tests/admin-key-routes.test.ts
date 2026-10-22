@@ -93,6 +93,7 @@ const PROOFS: [string, RegExp][] = [
  * already public.
  */
 const PUBLIC_BY_DESIGN: Record<string, string> = {
+  "cart/prices/route.ts": "a website visitor's saved cart priced again after the store changed its currency: answers only the published prices of that store's own products, the same every product page shows, and changes nothing (checkout prices the order again)",
   // Sign-up and password recovery: the caller has no session yet, by definition.
   "team/join/sign-in/route.ts": "Log in to accept on a team invite: before there is a session by definition; reads only the invite the link's token names, keeps that token in a short lived httpOnly cookie for after sign in, and changes nothing",
   "team/join/switch/route.ts": "Use another account on a team invite: signs the browser's own session out (POST from Storelib's own page only) and sends it to sign in as the invited email; it reads only the invite the link's token names, nothing else",

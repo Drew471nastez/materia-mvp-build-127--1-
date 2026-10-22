@@ -83,7 +83,9 @@ import { saveVariants } from "./variant-save"
 import { PhysicalProductCards, type OrderLimitDraft, type PhysicalEditorHandle } from "@/components/physical/product-cards"
 import { Reveal } from "@/components/physical/ui"
 import { currencyMark, formatStoreMoney, markInset } from "@/lib/store/currency"
-import { StoreCurrencyProvider } from "@/lib/store/currency-context"
+import { STORE_CURRENCY_EVENT, StoreCurrencyProvider } from "@/lib/store/currency-context"
+import { currencyChangedSince } from "@/lib/store/currency-guard"
+import { storeCurrencyOf } from "@/lib/store/currency"
 import { ReadinessNote } from "@/components/physical/readiness-banner"
 import { msg, tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
@@ -284,7 +286,26 @@ let carriedNotice: string | null = null
 let carriedSavedAt: number | null = null
 let carriedScrollTop: number | null = null
 
-export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digital" }: { creator: EditorCreator; loaded: LoadedProduct | null; startAs?: "digital" | "course" | "physical" }) {
+/**
+ * THE EDITOR ACROSS A CHANGE OF THE STORE'S CURRENCY. Converting the
+ * currency rewrites every price in the database, and an editor left open
+ * holds the old numbers. When the page is drawn again in another currency
+ * (Settings calls router.refresh), an editor with nothing unsaved is
+ * mounted again on the converted prices; one with unsaved changes stays,
+ * says so, and refuses to save (saveProduct below asks the store's currency
+ * first), so old prices are never written back.
+ */
+export function ProductEditorAcrossCurrency({ id, creator, loaded }: { id: string; creator: EditorCreator; loaded: LoadedProduct | null }) {
+  const [shown, setShown] = useState({ creator, loaded })
+  const dirty = useRef(false)
+  const onDirty = useCallback((d: boolean) => {
+    dirty.current = d
+  }, [])
+  if (storeCurrencyOf(creator.currency) !== storeCurrencyOf(shown.creator.currency) && !dirty.current) setShown({ creator, loaded })
+  return <ProductEditor key={`${id}:${storeCurrencyOf(shown.creator.currency)}`} creator={shown.creator} loaded={shown.loaded} onDirty={onDirty} />
+}
+
+export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digital", onDirty }: { creator: EditorCreator; loaded: LoadedProduct | null; startAs?: "digital" | "course" | "physical"; onDirty?: (dirty: boolean) => void }) {
   const router = useRouter()
   /* The form's first frame is the saved product (./editor-form.ts). Read once:
      a server render after a save hands new props that must not reset it. */
@@ -297,6 +318,16 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const [error, setError] = useState<string | null>(null)
   const creatorId = loadedCreator.id
   const creator = loadedCreator
+  /* The currency every price here was loaded in (ProductEditorAcrossCurrency above). */
+  const loadedCurrency = storeCurrencyOf(loadedCreator.currency)
+  React.useEffect(() => {
+    const on = (e: Event) => {
+      const next = (e as CustomEvent<string>).detail
+      if (currencyChangedSince(loadedCurrency, typeof next === "string" ? next : null)) setError(tt("Your store currency changed. Reload to see the converted prices."))
+    }
+    window.addEventListener(STORE_CURRENCY_EVENT, on)
+    return () => window.removeEventListener(STORE_CURRENCY_EVENT, on)
+  }, [loadedCurrency])
   /* Every price field in the store's currency (lib/store/currency.ts): $ before the number, lei after it. */
   const priceMark = useMemo(() => {
     const mark = currencyMark(creator.currency)
@@ -372,6 +403,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  /* Told to the page around it, which mounts the editor again on converted prices only when nothing would be lost (ProductEditorAcrossCurrency). */
+  useEffect(() => onDirty?.(hasUnsavedChanges), [hasUnsavedChanges, onDirty])
   /* The Sales channels card, saved after the product (./sales-channels-card). */
   const channelsRef = useRef<SalesChannelsHandle>(null)
   /* Every question the editor asks (leave, delete a file, a very large upload). */
@@ -842,6 +875,20 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     if (!creatorId) return null
     setIsSaving(true)
     setError(null)
+    /*
+      PRICES TYPED IN ANOTHER CURRENCY ARE NEVER WRITTEN BACK. The store's
+      currency is asked first: converted since this editor loaded (here or
+      in another tab), the save is refused rather than putting the old
+      numbers over the converted ones. A read that fails refuses nothing.
+    */
+    const now = await fetch("/api/store/currency?only=currency", { cache: "no-store", credentials: "same-origin" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ currency?: string }>) : null))
+      .catch(() => null)
+    if (currencyChangedSince(loadedCurrency, now?.currency ?? null)) {
+      setError(tt("Your store currency changed. Reload to see the converted prices."))
+      setIsSaving(false)
+      return null
+    }
 
     const supabase = createClient()
     /* Said once the save is done, when the sales limit could not be kept. */
@@ -1116,7 +1163,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     } finally {
       setIsSaving(false)
     }
-  }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, variants, whatsIncluded, faqs, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, digitalFiles.length, limitSalesEnabled, salesLimit, showToast])
+  }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, variants, whatsIncluded, faqs, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, digitalFiles.length, limitSalesEnabled, salesLimit, showToast, loadedCurrency])
 
   // Process image to fit 1280x720 canvas (for non-widescreen images)
   const processImageToWidescreen = async (file: File): Promise<{ processedFile: File; wasProcessed: boolean; originalRatio: string }> => {

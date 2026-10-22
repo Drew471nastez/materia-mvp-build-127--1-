@@ -24,6 +24,7 @@ import { salesStandings } from "@/lib/products/sales-standings"
 import { ownedKey, ownedLines } from "./owned"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { productPriceCurrency } from "@/lib/money/product-currency"
+import { shopMoneyIn } from "@/lib/store/shop-money"
 import { MARKETPLACE_CURRENCY, RATES_PAUSED_MESSAGE, couponValueInUsd, gateOpenFor, toUsdMinor, marketplaceAmounts, resolveMarketplaceGate, pricingContextOf, type PriceSource, type PricingContext } from "@/lib/money/marketplace"
 import type { FxRates } from "@/lib/markets/money"
 import { applyOffers, stackWithCode, type AppliedOffer, type Offer, type OfferLine } from "@/lib/offers/offers"
@@ -72,13 +73,15 @@ export function totalsOf(baseCents: number, discountCents: number, tipCents: num
 export function baseFor(
   owner: { price_cents?: number | null; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null },
   customPriceCents: unknown,
+  /** The currency the minimum is in, for the sentence a refusal says: "The lowest price is 25.00 lei." */
+  currency = "USD",
 ): { ok: true; cents: number } | { ok: false; error: string } {
   if (!owner.pay_what_you_want) return { ok: true, cents: Math.max(0, Math.round(Number(owner.price_cents) || 0)) }
   const min = Math.max(0, Math.round(Number(owner.pwyw_min_price_cents) || 0))
   if (customPriceCents === undefined || customPriceCents === null || customPriceCents === "") return { ok: true, cents: min }
   const custom = wholeCents(customPriceCents, 0, MAX_PWYW_CENTS)
   if (custom === null) return { ok: false, error: "Enter a price in whole cents." }
-  if (custom < min) return { ok: false, error: `The lowest price is $${(min / 100).toFixed(2)}.` }
+  if (custom < min) return { ok: false, error: `The lowest price is ${shopMoneyIn(min, currency)}.` }
   return { ok: true, cents: custom }
 }
 
@@ -248,7 +251,7 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
   }
 
   /* A pay-what-you-want amount is in the currency the buyer was shown, and held to the minimum in it. */
-  const base = baseFor(charged, req.customPriceCents)
+  const base = baseFor(charged, req.customPriceCents, currency)
   if (base.ok === false) return { ok: false, status: 400, error: base.error }
   const baseCents = base.cents
 
@@ -515,7 +518,12 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
        minimum refuses the basket with the reason, rather than charging
        something the buyer did not choose. */
     const priced = baseFor(variant ?? product, want.customPriceCents)
-    if (priced.ok === false) return { ok: false, status: 400, error: `${product.title}: ${priced.error}` }
+    if (priced.ok === false) {
+      /* Said in the currency the product is priced in (the store's, or dollars for a plan), read only when there is something to refuse. */
+      const own = productPriceCurrency(product, (await readStoreCurrency(db, product.creator_id)).currency)
+      const said = baseFor(variant ?? product, want.customPriceCents, own)
+      return { ok: false, status: 400, error: `${product.title}: ${said.ok === false ? said.error : priced.error}` }
+    }
     const priceCents = priced.cents
     /* A free product is a download, not a payment. It has no place in a
        basket that is going to a card form, and Stripe will not take a zero

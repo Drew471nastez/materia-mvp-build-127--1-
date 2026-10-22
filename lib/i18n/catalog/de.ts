@@ -3992,6 +3992,8 @@ const words: Record<string, string> = {
  "Main goal": "Hauptziel",
  "Main menu": "Hauptmenü",
  "Make ${value} in sales": "Mach ${value} Umsatz",
+ "Make {amount} in sales": "Mach {amount} Umsatz",
+ "Your store currency changed. Reload to see the converted prices.": "Die Währung deines Shops wurde geändert. Lade neu, um die umgerechneten Preise zu sehen.",
  "Make a list in Klaviyo first (Audience › Lists & segments), then check again.": "Leg zuerst eine Liste in Klaviyo an (Audience › Lists & segments) und prüf dann erneut.",
  "Make a look in Storelib Reviews": "Stil in Storelib Reviews erstellen",
  "Make a member": "Zum Mitglied machen",

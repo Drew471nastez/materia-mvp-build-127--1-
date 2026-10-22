@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { currencyRefusal } from "@/lib/store/currency-guard"
 import { readCouponInput, type CouponValues } from "@/lib/checkout/coupons"
 import { freeShippingCode } from "@/lib/physical/coupon-options"
 import { TAKEN, codeTaken, productsAreTheirs, signedInCreator, writeCoupon } from "../write"
@@ -23,6 +24,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   } catch {
     return NextResponse.json({ error: "Nothing to save." }, { status: 400 })
   }
+
+  /* Amounts typed before the store's currency was converted are never saved over the converted ones (lib/store/currency-guard). */
+  const moved = await currencyRefusal(who.supabase, who.creatorId, (body as { formCurrency?: unknown } | null)?.formCurrency)
+  if (moved) return NextResponse.json({ error: moved, code: "currency_changed" }, { status: 409 })
 
   const { data: saved } = await who.supabase
     .from("coupons")

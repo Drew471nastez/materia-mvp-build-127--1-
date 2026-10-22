@@ -50,6 +50,14 @@ export interface CartLine {
    */
   customPriceCents?: number
   quantity: number
+  /**
+   * The store's currency `priceCents` was read in (upper case). A store that
+   * changes its currency converts its prices, so a line kept from before
+   * would show the old number with the new currency's mark: such a line,
+   * and one saved before this field existed, is priced again from the
+   * server when the cart is read (cartNeedsReprice, repricedLines).
+   */
+  currency?: string
 }
 
 /** More than this in one basket is a script, not a shopper. */
@@ -155,6 +163,7 @@ export function parseCart(raw: string | null | undefined): CartLine[] {
         ? { customPriceCents: row.customPriceCents }
         : {}),
       quantity: digital ? 1 : Math.max(1, Math.min(MAX_QUANTITY, quantity)),
+      ...(typeof row.currency === "string" && /^[A-Za-z]{3}$/.test(row.currency) ? { currency: row.currency.toUpperCase() } : {}),
     })
     if (out.length >= MAX_LINES) break
   }
@@ -177,4 +186,43 @@ export function checkoutItems(lines: CartLine[]): Array<{ productId: string; var
     quantity: l.quantity,
     ...(typeof l.customPriceCents === "number" ? { customPriceCents: l.customPriceCents } : {}),
   }))
+}
+
+/* ─── After the store's currency changed ───────────────────────────────── */
+
+/** Whether a line was priced in another currency than the store's now, or before lines said one. */
+export function cartNeedsReprice(lines: CartLine[], storeCurrency: string | null | undefined): boolean {
+  const now = (storeCurrency || "").toUpperCase()
+  if (!/^[A-Z]{3}$/.test(now)) return false
+  return lines.some((l) => l.currency !== now)
+}
+
+/** What the server answers for one line (app/api/cart/prices): its price now, or null when it can no longer be bought. */
+export interface LinePrice {
+  productId: string
+  variantId: string | null
+  priceCents: number | null
+}
+
+/**
+ * The lines priced again in `currency`. A line whose product is gone is
+ * dropped, as checkout would drop it. A pay what you want amount was named
+ * in the old currency, so it is not kept: the line is its minimum until the
+ * buyer names another. A line the answer does not mention is left as it is.
+ */
+export function repricedLines(lines: CartLine[], prices: LinePrice[], currency: string): CartLine[] {
+  const now = currency.toUpperCase()
+  const byKey = new Map(prices.map((p) => [lineKey(p), p]))
+  const out: CartLine[] = []
+  for (const l of lines) {
+    const p = byKey.get(lineKey(l))
+    if (!p) {
+      out.push(l)
+      continue
+    }
+    if (p.priceCents === null) continue
+    const { customPriceCents: _named, ...rest } = l
+    out.push({ ...rest, priceCents: Math.max(0, Math.round(p.priceCents)), currency: now })
+  }
+  return out
 }

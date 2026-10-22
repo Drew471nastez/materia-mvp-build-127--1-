@@ -65,11 +65,11 @@ import {
   type OrderRow,
   type View,
 } from "./order-view"
-import { readMetrics, type MetricReading } from "./metrics"
+import { moneyFrom, readMetrics, type MetricReading } from "./metrics"
 import { ordersCurrency } from "./money"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
-import { daySpan, inReportingCurrency, needsConversion, type ReportMoneyRow } from "@/lib/money/report-currency"
-import { dayRatesBetween } from "@/lib/markets/fx-server"
+import { codeOf, needsConversion, type ReportMoneyRow } from "@/lib/money/report-currency"
+import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import { buildIndex, orderNumbered, ordersWithin, type IndexRow, type IndexedOrder, type OrderIndex } from "./order-index"
 import { OrdersReadError, attachCheckouts, readCreatorProducts, toOrderRow, type CreatorProduct } from "./load-rows"
 
@@ -470,10 +470,14 @@ async function readFigures(db: Db, scope: OrderScope, creatorId: string, index: 
 
 /**
  * The five figures in the store's currency. Orders already in it are added
- * as they are. Orders in another currency are converted at that day's ECB
- * rate, and only when every one of them converts: a missing rate leaves the
- * sum in the currency most orders were charged in, rather than a mix or a
- * guess. The order rows themselves are not rewritten.
+ * as they are. Orders in another currency (charged before the store changed
+ * its currency, or in a market's) are converted at their own day's ECB rate
+ * (lib/money/report-currency-server). One no rate converts is left out of
+ * the money, never added in its own cents: a store that moved from euros to
+ * lei used to see its euro cents summed as lei whenever a single day had no
+ * rate. Orders and customers still count every order. The figures are always
+ * labelled in the store's currency, also for a period with no orders (that
+ * used to read "$0.00" in a lei store). The order rows are not rewritten.
  */
 async function metricsInStore(
   db: Db,
@@ -483,19 +487,24 @@ async function metricsInStore(
   numbers: Record<string, number>,
   req: ListingRequest,
 ): Promise<{ metrics: MetricReading[]; currency: string }> {
-  const asCharged = () => ({ metrics: readMetrics(orders, req.window, req.previous, req.timeZone), currency: ordersCurrency(orders) })
+  const read = (list: Order[]) => readMetrics(list, req.window, req.previous, req.timeZone)
+  const store = (await readStoreCurrency(db, creatorId).catch(() => null))?.currency ?? ordersCurrency(orders)
+  if (!needsConversion(raw, store)) return { metrics: read(orders), currency: store }
+  /* Every order in one other currency: added as charged and said in it, which mixes nothing, when not every one converts. */
+  const charged = new Set(raw.map((r) => codeOf(r.currency)).filter((c): c is string => !!c))
+  const single = charged.size === 1 ? [...charged][0] : null
+  let inStore: ReportMoneyRow[]
   try {
-    const store = (await readStoreCurrency(db, creatorId)).currency
-    if (!needsConversion(raw, store)) return asCharged()
-    const span = daySpan(raw)
-    const days = span ? await dayRatesBetween(span.from, span.to, db) : []
-    const done = inReportingCurrency(raw, store, days)
-    if (done.unconverted > 0 || done.rows.length !== raw.length) return asCharged()
-    const converted = groupOrders(done.rows.map((r) => toOrderRow(r, undefined)), numbers)
-    return { metrics: readMetrics(converted, req.window, req.previous, req.timeZone), currency: store }
+    const done = await inStoreCurrency(db, creatorId, raw, store)
+    if (done.unconverted > 0 && single) return { metrics: read(orders), currency: single }
+    inStore = done.rows
   } catch {
-    return asCharged()
+    if (single) return { metrics: read(orders), currency: single }
+    /* No rates to be had: the money is what was charged in the store's currency, the rest left out. */
+    inStore = raw.filter((r) => !codeOf(r.currency) || codeOf(r.currency) === store)
   }
+  const money = groupOrders(inStore.map((r) => toOrderRow(r, undefined)), numbers)
+  return { metrics: moneyFrom(read(orders), read(money)), currency: store }
 }
 
 /* ─── The tabs ────────────────────────────────────────────────────────── */

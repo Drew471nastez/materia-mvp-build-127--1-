@@ -40,6 +40,7 @@ import { appLocale } from "@/lib/i18n/format"
 import { formatOrderMoney, orderCurrency } from "@/lib/orders/money"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { productPriceCurrency } from "@/lib/money/product-currency"
 
 export type SearchGroupId = "orders" | "customers" | "products" | "collections" | "coupons" | "emails" | "automations"
 
@@ -157,19 +158,22 @@ interface ProductIndex {
   title: string
   status: string
   price_cents: number | null
+  /** A membership or community plan's price is in US dollars whatever the store sells in (lib/money/product-currency). */
+  type?: string | null
 }
 
 async function readProducts(db: Db, creatorId: string): Promise<ProductIndex[]> {
   const rows = await readWithFallback(
     "products",
     (columns) => db.from("products").select(columns).eq("creator_id", creatorId),
-    "id, title, status, price_cents",
+    "id, title, status, price_cents, type",
   )
   return rows.map((p) => ({
     id: text(p.id),
     title: text(p.title) || tt("Untitled product"),
     status: text(p.status),
     price_cents: typeof p.price_cents === "number" ? p.price_cents : null,
+    type: typeof p.type === "string" ? p.type : null,
   }))
 }
 
@@ -449,7 +453,7 @@ function productHits(products: ProductIndex[], q: string, currency: string): Sea
     .map((p) => ({
       id: p.id,
       title: p.title,
-      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? shopPrice(p.price_cents / 100, currency) : tt("Free")) : ""]
+      detail: [sentenceCase(p.status), p.price_cents != null ? (p.price_cents > 0 ? shopPrice(p.price_cents / 100, productPriceCurrency(p, currency)) : tt("Free")) : ""]
         .filter(Boolean)
         .join(" · "),
       href: `/app/products/${encodeURIComponent(p.id)}`,

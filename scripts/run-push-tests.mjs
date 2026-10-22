@@ -807,6 +807,8 @@ const STRICT_SUITES = [
   "tests/e2e24.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
   "tests/e2e-store-currency.test.ts",
+  /* A euro store moves to lei: what converts and what stays (plans, offers, smart collections, part 258), More currencies from the new base, caches expired, orders and totals never relabelled or added across currencies (tests/_journey) */
+  "tests/store-currency-change.test.ts",
   /* One lei store with the marketplace in dollars for it alone: website, shared link and Explore purchases, stale and missing rates, a refund, emails, ledger, chart and Payouts (tests/_journey) */
   "tests/e2e-marketplace-usd.test.ts",
   /* Round AO: the price audit and restore scripts, as separate processes over HTTP against the journey database (tests/_journey) */
