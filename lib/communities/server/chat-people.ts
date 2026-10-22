@@ -250,12 +250,12 @@ export async function sharePostToChats(db: Db, community: CommunityRow, viewer: 
   if (!community.chat_enabled) return { ok: false, error: "Messages are turned off in this community.", status: 403 }
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const targets = shareTargetsOf(r.targets)
-  if (!targets.ok) return targets
+  if ("error" in targets) return targets
   const note = cleanText(r.note, SHARE_NOTE_MAX)
   if (note.length > SHARE_NOTE_MAX) return { ok: false, error: "Keep the note under 1,000 characters.", status: 400 }
   /* The post first, once, so a post the sender cannot see is one clear refusal rather than one per chat. */
   const post = await checkPostShare(db, community, viewer, [{ type: "post", postId: r.postId }])
-  if (!post.ok) return post
+  if ("error" in post) return post
   if (!post.value) return { ok: false, error: "Pick a post to send.", status: 400 }
   const base = typeof r.clientId === "string" && /^[A-Za-z0-9_-]{8,48}$/.test(r.clientId) ? r.clientId : null
   const results: ShareResult[] = []
@@ -274,24 +274,24 @@ async function sendOne(db: Db, community: CommunityRow, viewer: Viewer, t: Targe
       let conversationId = t.id
       if (t.kind === "person") {
         const opened = await openConversation(db, community, viewer, t.id)
-        if (!opened.ok) return failed(opened.error)
+        if ("error" in opened) return failed(opened.error)
         conversationId = opened.value.id
       }
       const conversation = await conversationOf(db, community, viewer, conversationId)
       if (!conversation) return failed("That conversation is gone.")
       const sent = await sendDirectMessage(db, community, viewer, conversation, message)
-      return sent.ok ? { kind: t.kind, id: t.id, chatId: conversation.id, ok: true } : failed(sent.error, conversation.id)
+      return "error" in sent ? failed(sent.error, conversation.id) : { kind: t.kind, id: t.id, chatId: conversation.id, ok: true }
     }
     if (t.kind === "group") {
       const opened = await groupOf(db, community, viewer, t.id)
       if (!opened) return failed("You are not in that group.")
       const sent = await sendGroupMessage(db, community, viewer, opened, message)
-      return sent.ok ? { kind: t.kind, id: t.id, chatId: t.id, ok: true } : failed(sent.error, t.id)
+      return "error" in sent ? failed(sent.error, t.id) : { kind: t.kind, id: t.id, chatId: t.id, ok: true }
     }
     const space = await chatSpace(db, community, viewer, t.id)
     if (!space) return failed("That channel is not here.")
     const sent = await postMessage({ db, community, viewer }, space, message)
-    return sent.ok ? { kind: t.kind, id: t.id, chatId: t.id, ok: true } : failed(sent.error, t.id)
+    return "error" in sent ? failed(sent.error, t.id) : { kind: t.kind, id: t.id, chatId: t.id, ok: true }
   } catch (e) {
     if (missing(e as { code?: string })) return failed("Messages are not set up yet.")
     return failed("That did not send. Try again.")

@@ -209,7 +209,7 @@ function namesLine(names: string[]): string {
 export async function createGroup(db: Db, community: CommunityRow, viewer: Viewer, raw: unknown): Promise<Checked<{ id: string; name: string }>> {
   if (!viewer.userId) return { ok: false, error: "Sign in first.", status: 401 }
   const gate = await chatGate(db, community, viewer)
-  if (!gate.ok) return gate
+  if ("error" in gate) return gate
   const role: Role | null = viewer.userId === community.owner_user_id ? "owner" : viewer.role
   if (!groupCreateAllowed(gate.settings.groupsPolicy, role)) return { ok: false, error: gate.settings.groupsPolicy === "off" ? "Groups are turned off in this community." : "Only the team can start groups in this community.", status: 403 }
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
@@ -253,7 +253,7 @@ export async function updateGroup(db: Db, community: CommunityRow, viewer: Viewe
   if (!viewer.userId) return { ok: false, error: "Sign in first.", status: 401 }
   if (!managesGroup(opened.me, viewer.role)) return { ok: false, error: "Only the group's owner can change it.", status: 403 }
   const gate = await chatGate(db, community, viewer)
-  if (!gate.ok) return gate
+  if ("error" in gate) return gate
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const me = await nameOf(db, community.id, viewer.userId)
   if (r.name !== undefined) {
@@ -391,7 +391,7 @@ export async function sendGroupMessage(db: Db, community: CommunityRow, viewer: 
     if (data && (data as GroupMessageRow).group_id === opened.group.id) return { ok: true, value: (await toViews(db, community.id, [data as GroupMessageRow], viewer, manage))[0] }
   }
   const gate = await chatGate(db, community, viewer)
-  if (!gate.ok) return gate
+  if ("error" in gate) return gate
   const body = cleanText(r.body, LENGTHS.messageBody.max)
   const media = await checkChatMedia(db, community, viewer, r.attachments, gate.settings)
   if (!media.ok) return refused(media)
