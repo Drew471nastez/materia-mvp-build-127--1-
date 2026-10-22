@@ -326,7 +326,7 @@ function Editor({ base, data, communityName, draft, onChange, onClose, onSaved }
   React.useEffect(() => {
     if (!key || !draft) return setAudience(null)
     const t = window.setTimeout(async () => {
-      const res = await send<{ audience: number | null }>(base, "POST", { action: "preview", ...payloadOf({ ...draft, name: draft.name || "Preview", body: draft.body || "Preview" }) })
+      const res = await send<{ audience: number | null }>(base, "POST", { action: "preview", ...payloadOf({ ...draft, name: draft.name || "Preview", body: draft.body || "Preview" }) }) // i18n-ignore
       setAudience(res.ok ? res.data.audience : null)
     }, 250)
     return () => window.clearTimeout(t)
