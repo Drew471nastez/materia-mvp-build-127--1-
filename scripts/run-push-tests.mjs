@@ -644,6 +644,8 @@ const SUITES = [
   "tests/community-chat-r38.test.ts",
   /* Round 38: community chat speed (kept pages and list, asked for early, no spinner) and rich content (signed link cards, YouTube, GIFs, video, emoji). */
   "tests/community-chat-speed-r38.test.ts",
+  /* Round 39: pictures in chat (both picture addresses read by the folder check), the box's one row, sent, delivered and seen, presence, the panel's motion, a conversation found on hover, part 275. */
+  "tests/community-chat-r39.test.ts",
   "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
   "tests/communities-plans-af.test.ts",

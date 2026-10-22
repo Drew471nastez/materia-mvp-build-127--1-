@@ -547,3 +547,36 @@ export function typingLine(names: readonly string[]): string {
   if (n.length === 2) return `${n[0]} and ${n[1]} are typing`
   return `${n.length} people are typing`
 }
+
+/*
+  ===========================================================================
+   AN OWN MESSAGE'S STATE ONCE THE SERVER HAS IT (round 39)
+  ===========================================================================
+  sent        the server has it (one tick)
+  delivered   the other side's Storelib has it: part 275's delivered mark, or their read mark, is at or past it (two ticks)
+  seen        they read past it (two lit ticks; "Seen" under the last one)
+  In a group: delivered once anybody has it, seen once everybody read it, and "Seen by N" under the last one counts the
+  people who read it. Sending and Not sent are the bubble's own (SendState) and come before any of these.
+*/
+export type MessageTick = "sent" | "delivered" | "seen"
+export interface ReadMark {
+  read: string | null
+  delivered: string | null
+}
+
+const markAt = (iso: string | null | undefined): number => (iso ? Date.parse(iso) || 0 : 0)
+
+/** A message's tick and how many of the others read it, from their marks (a conversation has one, a group one each). */
+export function messageTick(createdAt: string, marks: readonly ReadMark[]): { tick: MessageTick; readers: number; of: number } {
+  const c = Date.parse(createdAt)
+  const readers = marks.filter((m) => markAt(m.read) >= c).length
+  const got = marks.some((m) => Math.max(markAt(m.read), markAt(m.delivered)) >= c)
+  return { tick: marks.length && readers === marks.length ? "seen" : got ? "delivered" : "sent", readers, of: marks.length }
+}
+
+/** The line under the last own message: "Seen" in a conversation; "Seen by N" or "Seen by everyone" in a group; empty before anybody read it. */
+export function seenLineOf(state: { readers: number; of: number } | null, group: boolean): string {
+  if (!state || !state.readers) return ""
+  if (!group) return "Seen"
+  return state.readers === state.of && state.of > 1 ? "Seen by everyone" : `Seen by ${state.readers}`
+}

@@ -212,7 +212,8 @@ console.log("\nThe chat screen")
   check("the read mark is renewed while the chat is open (no push for what is on screen)", /window\.setInterval\(\(\) => mark\(true\), VIEWING_BEAT_MS\)/.test(core))
   const msgs = code("components/community/member/messages.tsx")
   check("groups listen to their own rows", /"community_chat_group_messages",\s*`group_id=eq\.\$\{id\}`/.test(msgs) && /"community_chat_groups", `community_id=eq\.\$\{communityId\}`/.test(msgs))
-  check("Seen follows the other person's read mark live", /`id=eq\.\$\{id\}`/.test(msgs) && /setOtherReadAt\(read\)/.test(msgs))
+  /* Changed on purpose (round 39): the row's read mark and its delivered mark (part 275) both go to the marks the ticks read. */
+  check("Seen follows the other person's read mark live", /`id=eq\.\$\{id\}`/.test(msgs) && /take\(\{ otherReadAt: a \? row\.b_read_at : row\.a_read_at, otherDeliveredAt: a \? row\.b_delivered_at : row\.a_delivered_at \}\)/.test(msgs))
 }
 
 /* ── SQL ───────────────────────────────────────────────────────────────── */

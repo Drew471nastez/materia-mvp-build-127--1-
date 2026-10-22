@@ -69,7 +69,7 @@
 import { Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { ArrowDown, ArrowUp, Bell, BellOff, Check, CheckCheck, Clock, Copy, CornerUpLeft, FileText, Flag, Heart, MoreHorizontal, Paperclip, Pencil, RotateCw, Shield, Smile, Trash2, X } from "lucide-react"
 import { ActionMenuAt, type ActionMenuItem, type ActionMenuPlace } from "@/components/ui/responsive-action-menu"
-import { CHAT_ATTACHMENTS_MAX, attachmentLine, firstSettled, lastSettled, localDay, mergeMessages, newClientId, sameBubbleGroup, typingLine, type ChatKind } from "@/lib/communities/chat-rules"
+import { CHAT_ATTACHMENTS_MAX, attachmentLine, firstSettled, lastSettled, localDay, mergeMessages, messageTick, newClientId, sameBubbleGroup, seenLineOf, typingLine, type ChatKind, type MessageTick, type ReadMark } from "@/lib/communities/chat-rules"
 import { chatVideoOf, firstLink, type ChatLinkCard } from "@/lib/communities/chat-links"
 import { fileSizeLabel, type ViewerItem } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
@@ -591,22 +591,8 @@ export function ChatSurface(p: ChatSurfaceProps) {
     with "Seen by N" under the last one. A channel has no ticks (everybody reads it).
   */
   const tickOf = useMemo(() => {
-    const at = (iso: string | null | undefined) => (iso ? Date.parse(iso) || 0 : 0)
-    if (p.groupMarks) {
-      const marks = p.groupMarks.map((r) => ({ read: at(r.read), got: Math.max(at(r.read), at(r.delivered)) }))
-      return (created: string): { tick: Tick; readers: number; of: number } => {
-        const c = Date.parse(created)
-        const readers = marks.filter((x) => x.read >= c).length
-        return { tick: marks.length && readers === marks.length ? "seen" : marks.some((x) => x.got >= c) ? "delivered" : "sent", readers, of: marks.length }
-      }
-    }
-    if (p.otherReadAt === undefined) return null
-    const read = at(p.otherReadAt)
-    const got = Math.max(read, at(p.otherDeliveredAt))
-    return (created: string): { tick: Tick; readers: number; of: number } => {
-      const c = Date.parse(created)
-      return { tick: read >= c ? "seen" : got >= c ? "delivered" : "sent", readers: read >= c ? 1 : 0, of: 1 }
-    }
+    const marks: ReadMark[] | null = p.groupMarks ?? (p.otherReadAt === undefined ? null : [{ read: p.otherReadAt ?? null, delivered: p.otherDeliveredAt ?? null }])
+    return marks ? (created: string) => messageTick(created, marks) : null
   }, [p.groupMarks, p.otherReadAt, p.otherDeliveredAt])
 
   const lastMineId = useMemo(() => {
@@ -614,8 +600,7 @@ export function ChatSurface(p: ChatSurfaceProps) {
     return null
   }, [items])
   const lastMine = lastMineId ? items.find((m) => m.id === lastMineId) : undefined
-  const lastState = lastMine && tickOf ? tickOf(lastMine.createdAt) : null
-  const seenLine = !lastState || !lastState.readers ? null : p.groupMarks ? (lastState.readers === lastState.of && lastState.of > 1 ? "Seen by everyone" : `Seen by ${lastState.readers}`) : "Seen"
+  const seenLine = seenLineOf(lastMine && tickOf ? tickOf(lastMine.createdAt) : null, !!p.groupMarks) || null
 
   const typingText = typingLine(typing.names)
   const onTypingChange = p.onTypingChange
@@ -835,9 +820,6 @@ interface BubbleActs {
 /** How long a send may take before its bubble shows the clock: most land first, and show none. */
 const PENDING_CLOCK_MS = 400
 
-/** An own message's state once the server has it (round 39). */
-type Tick = "sent" | "delivered" | "seen"
-
 const Bubble = memo(function Bubble({
   m,
   first,
@@ -862,7 +844,7 @@ const Bubble = memo(function Bubble({
   last: boolean
   showAuthor: boolean
   flash: boolean
-  tick: Tick | null
+  tick: MessageTick | null
   seenLine: string | null
   reactions: boolean
   communityId: string

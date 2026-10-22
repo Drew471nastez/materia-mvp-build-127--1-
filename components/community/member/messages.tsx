@@ -321,8 +321,8 @@ export function useUnreadMessages(communityId: string, userId: string | null, in
   On a computer the panel fades in as it settles 8px down and from 98% (its top right corner, where the bar's button
   is), and goes the same way faster. On a phone it is a full screen sheet that rises from the foot and goes back down,
   the motion of every other screen over the community (page-sheet.ts: the opened post, the composer), where it slid in
-  from the right before. Both are transitions of opacity, `translate` and `scale` alone (never `transform`, which a
-  transition naming it would not move, tests/motion-properties.test.ts), from a first frame drawn at the start (no
+  from the right before. Both are transitions of opacity, `translate` and `scale` alone (the standalone properties
+  Tailwind's translate and scale classes write, tests/motion-properties.test.ts), from a first frame drawn at the start (no
   flash at full strength), and a close that is pressed again midway turns back from where it is. Reduced motion: a
   fade, nothing moves.
 */

@@ -123,7 +123,8 @@ async function main() {
     check("rows asked for on hover, touch and focus, and the top rows as the list is drawn", (msgs.match(/onPointerEnter=\{\(\) => warm\(/g) ?? []).length === 2 && (msgs.match(/onTouchStart=\{\(\) => warm\(/g) ?? []).length === 2 && /const WARM_TOP = 3/.test(msgs))
     check("the list's skeleton is row shaped and only for a list never read", /data-messages-skeleton=""/.test(msgs) && /rows === null && !failed \?/.test(msgs))
     check("the stream's join does not ask for the list a second time", /if \(Date\.now\(\) - askedAt\.current > 2000\) void load\(\)/.test(msgs))
-    check("a conversation opened from a profile again opens at once", /keptValue<\{ id: string; other: Person \| null \}>\(`dm-with:/.test(msgs))
+    /* Changed on purpose (round 39): the key is built in one place (dmWithKey), which the hover's ask fills too. */
+    check("a conversation opened from a profile again opens at once", /keptValue<\{ id: string; other: Person \| null \}>\(dmWithKey\(communityId, start\.userId!\)\)/.test(msgs) && /return `dm-with:\$\{communityId\}:\$\{userId\}`/.test(msgs))
     const s = code("components/community/member/chat-surface.tsx")
     check("no spinner anywhere in the chat screen", !/Spinner/.test(s) && !/place-spinner/.test(s))
     check("a cold open draws skeleton bubbles where the messages land", /\{!loaded && items\.length === 0 \? \(\s*<SkeletonBubbles \/>/.test(s) && /h-\[34px\] rounded-\[18px\]/.test(s))
@@ -142,7 +143,8 @@ async function main() {
     const s = code("components/community/member/chat-surface.tsx")
     check("emoji and GIF tools are their own chunks, loaded after the chat is up", /const EmojiTool = lazy\(\(\) => import\("@\/components\/app\/rich-text\/emoji-picker"\)/.test(s) && /const GifTool = lazy\(\(\) => import\("\.\/media-gif"\)/.test(s) && !/^import .*emoji-picker/m.test(s) && !/^import .*media-gif/m.test(s))
     check("the emoji picker is drawn on the first press, already open", /<EmojiTool [^>]*startOpen/.test(s) && /<ToolStandIn onPress=\{\(\) => setEmoji\(true\)\} \/>/.test(s) && /startOpen = false/.test(code("components/app/rich-text/emoji-picker.tsx")))
-    check("a GIF search only when GIFs are connected, sent as it is picked", /hideWhenOff onPick=\{\(gif\) => onSend\("", \[gif\]\)\}/.test(s) && /if \(hideWhenOff && connected !== true\) return null/.test(code("components/community/member/media-gif.tsx")))
+    /* Changed on purpose (round 39): the button carries the box's own GIF icon (mark) in place of bold letters. */
+    check("a GIF search only when GIFs are connected, sent as it is picked", /hideWhenOff mark=\{<GifGlyph \/>\} onPick=\{\(gif\) => onSend\("", \[gif\]\)\}/.test(s) && /if \(hideWhenOff && connected !== true\) return null/.test(code("components/community/member/media-gif.tsx")))
     check("an uploaded GIF is a GIF in the viewer (never the optimizer's one frame)", /a\.type === "image" && isGifPicture\(a\)\) list\.push\(\{ kind: "gif"/.test(s))
     check("a video is a video in the tray and in the bubble, played from the file picked while it is sent", /data-chat-upload-video=""/.test(s) && /keepLocalVideo\(media\.assetId, item\.preview\)/.test(s) && /<ChatVideo key=\{f\.assetId\}/.test(s))
     check("the link being written is previewed, and goes with the message signed as the server sent it", /useLinkDraft\(communityId, draftUrl\)/.test(s) && /\{ type: "link", \.\.\.linkCard \} as PostMedia/.test(s) && /ready\.length < CHAT_ATTACHMENTS_MAX/.test(s))
