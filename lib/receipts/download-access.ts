@@ -94,7 +94,7 @@ export async function resolveDownloadAccess(
   if (!receiptOrder && input.guestOrders?.length) {
     /* The paid one first: a variant bought twice, once refunded, still opens. */
     const mine = input.guestOrders.filter((o) => o.product_id === asset.product_id)
-    receiptOrder = (mine.find((o) => canDeliver(o)) ?? mine[0] ?? null) as typeof receiptOrder
+    receiptOrder = mine.find((o) => canDeliver(o)) ?? mine[0] ?? null
   }
 
   let isCreator = false

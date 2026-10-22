@@ -1,0 +1,32 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true, "incremental": false },
+  "include": ["next-env.d.ts", "types/**/*.d.ts"],
+  "files": [
+    "lib/receipts/guest-access.ts",
+    "lib/receipts/guest-access-server.ts",
+    "app/api/receipt/remember/route.ts",
+    "app/api/receipt/open/route.ts",
+    "app/api/download/[assetId]/route.ts",
+    "app/api/purchases/verify/route.ts",
+    "app/api/purchases/claim/route.ts",
+    "lib/orders/attach-guest-orders.ts",
+    "app/auth/continue/route.ts",
+    "lib/checkout/fulfil-payment.ts",
+    "lib/checkout/fulfil-cart-session.ts",
+    "app/api/auth/account-origin/route.ts",
+    "app/(auth)/signup/page.tsx",
+    "app/(auth)/login/page.tsx",
+    "lib/auth/existing-account.ts",
+    "app/receipt/[token]/receipt-view.tsx",
+    "app/receipt/[token]/page.tsx",
+    "app/(marketing)/p/[slug]/page.tsx",
+    "components/checkout/guest-owned-actions.tsx",
+    "components/auth/viewer-sync.tsx",
+    "lib/auth/viewer-sync.ts",
+    "components/platform/platform-header-client.tsx",
+    "components/checkout/purchase-sync-provider.tsx",
+    "app/account/library/layout.tsx",
+    "lib/receipts/download-access.ts"
+  ]
+}

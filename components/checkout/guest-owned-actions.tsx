@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
+import { tt } from "@/lib/i18n/text"
 
 interface GuestOwnedActionsProps {
   /** The order this browser's signed note names (lib/receipts/guest-access.ts). Never its receipt token. */
@@ -55,9 +56,9 @@ export function GuestOwnedActions({ orderId, maskedEmail, signedIn, backgroundCo
         router.refresh()
         return
       }
-      setNote(res.status === 409 ? "This order is already in another account." : "It was not added. Try again in a minute.")
+      setNote(res.status === 409 ? tt("This order is already in another account.") : tt("It was not added. Try again in a minute."))
     } catch {
-      setNote("No connection. Try again.")
+      setNote(tt("No connection. Try again."))
     } finally {
       setAdding(false)
     }
@@ -74,27 +75,27 @@ export function GuestOwnedActions({ orderId, maskedEmail, signedIn, backgroundCo
   return (
     <div data-guest-owned="" className="space-y-2">
       <a href={`/api/receipt/open?order=${encodeURIComponent(orderId)}`} data-open-receipt="" className={button} style={style}>
-        Open receipt
+        {tt("Open receipt")}
       </a>
       {signedIn ? (
         <button type="button" onClick={add} disabled={adding} data-guest-add="" className={`${button} disabled:opacity-60`} style={style}>
-          {adding ? "Adding" : "Add to library"}
+          {adding ? tt("Adding") : tt("Add to library")}
         </button>
       ) : null}
       <p className="text-center text-[13px] leading-snug" style={muted} role={note ? "status" : undefined}>
         {note ??
           (signedIn ? (
-            maskedEmail ? `Bought without an account, with ${maskedEmail}.` : "Bought without an account."
+            maskedEmail ? tt("Bought without an account, with {email}.", { email: maskedEmail }) : tt("Bought without an account.")
           ) : (
             <>
-              {maskedEmail ? `Bought without an account, with ${maskedEmail}. ` : "Bought without an account. "}
+              {maskedEmail ? tt("Bought without an account, with {email}.", { email: maskedEmail }) : tt("Bought without an account.")}{" "}
               <a
                 href={saveHref}
                 data-guest-save=""
                 className="font-medium underline underline-offset-2"
                 style={{ color: paint(textColor, "ink") || "inherit" }}
               >
-                Save it to your account
+                {tt("Save it to your account")}
               </a>
             </>
           ))}

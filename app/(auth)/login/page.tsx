@@ -25,6 +25,8 @@ import { readCarry, withCarry } from "@/lib/auth/continue"
 import { inviteEmailFrom } from "@/lib/team/invite-links"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 import { EXISTS_PARAM, takeExistingEmail } from "@/lib/auth/existing-account"
+import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 /**
  * ===========================================================================
@@ -788,17 +790,17 @@ function LoginFormContent() {
         <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up auth-card">
           <AuthLogo />
 
-          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{cameFromSignUp && !inviteEmail ? "Sign in" : "Welcome back"}</h1>
+          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{cameFromSignUp && !inviteEmail ? tt("Sign in") : "Welcome back"}</h1>
           {/* Sell on Storelib: says the setup comes next, so nobody wonders whether the click was lost. */}
           {/* Sent from Create account: the address has an account, so this is a sign in, and the page says so (lib/auth/existing-account.ts). */}
           {cameFromSignUp && !inviteEmail ? (
             <p data-existing-account="" role="status" className="mb-8 text-[15px] text-neutral-600">
               {existingEmail ? (
                 <>
-                  <span className="font-medium text-neutral-900 [overflow-wrap:anywhere]">{existingEmail}</span> already has a Storelib account. Sign in to continue.
+                  <Rich text={tt("{email} already has a Storelib account. Sign in to continue.")} parts={{ email: <span className="font-medium text-neutral-900 [overflow-wrap:anywhere]">{existingEmail}</span> }} />
                 </>
               ) : (
-                "This email already has a Storelib account. Sign in to continue."
+                tt("This email already has a Storelib account. Sign in to continue.")
               )}
             </p>
           ) : (

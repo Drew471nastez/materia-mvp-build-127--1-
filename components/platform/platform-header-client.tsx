@@ -1402,13 +1402,14 @@ export function PlatformHeaderClient({
             read, so a profile read that failed left them saying Log in
             under a header that showed the person's photo.
           */
-          const was = readAuthSnapshot()
+          const known = readAuthSnapshot()
+          const was = known && known.userId === user.id ? known : null
           writeAuthSnapshot({
             signedIn: true,
             userId: user.id,
-            avatarUrl: was?.userId === user.id ? was.avatarUrl : null,
-            displayName: was?.userId === user.id ? was.displayName : null,
-            username: was?.userId === user.id ? was.username : null,
+            avatarUrl: was ? was.avatarUrl : null,
+            displayName: was ? was.displayName : null,
+            username: was ? was.username : null,
             isSeller: state === "seller",
           })
         } else {
