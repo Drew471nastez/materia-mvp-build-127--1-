@@ -27,6 +27,7 @@ import { Section, buttonPrimary, card } from "./parts"
 import { Shimmer, ShimmerBlock, ShimmerRows, ShimmerChart } from "@/components/ui/shimmer"
 import type { AdminSection } from "./logic"
 import { figureColumns } from "./overview"
+import { PageEditorFrame } from "./page-editor/screen"
 
 /**
  * Posts' Scheduled and drafts card before its rows are here (round 33): its own title and words, the room of its button
@@ -66,6 +67,8 @@ export interface SectionFrameFacts {
   settingsList?: boolean
   /** Overview (round 26): how many figures it draws, four for a community that sells and three otherwise (four when not said). */
   figures?: number
+  /** Page (round 37): the community's name, for the editor's own bar. */
+  title?: string
 }
 
 /** Settings' list of panels on a phone, in its three groups: a group's name over a card of 60px rows. */
@@ -232,18 +235,8 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
       )
       break
     case "page":
-      /* The Page editor: the page's preview, and from 1280px the panel beside it (round 26: a drawer below that, page-editor/**). */
-      body = (
-        <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6" data-frame-page="">
-          <section className={cn(card, "h-[min(72vh,760px)] overflow-hidden p-3")} data-frame-card="">
-            <Shimmer className="h-full">
-              <ShimmerBlock className="h-full w-full rounded-xl" />
-            </Shimmer>
-          </section>
-          <PanelFrame rows={5} className="hidden xl:block" />
-        </div>
-      )
-      break
+      /* Round 37: the Page editor owns the screen, so its frame does too (page-editor/screen.tsx), and returns on its own. */
+      return <PageEditorFrame name={facts.title} />
     case "settings":
       body = (
         <div className="lg:grid lg:grid-cols-[208px_minmax(0,1fr)] lg:items-start lg:gap-8">

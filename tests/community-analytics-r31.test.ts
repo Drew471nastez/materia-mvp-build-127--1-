@@ -100,7 +100,8 @@ async function main() {
   check("the second time today it is known, and nothing is asked", (await recordMemberDay(md, CID, UID(5), NOW + 3_600_000)) === "known" && md.log.filter((l) => l.table === "community_member_days").length === 1)
   check("tomorrow is another row", (await recordMemberDay(md, CID, UID(5), NOW + 86_400_000)) === "written" && md.tables.community_member_days.length === 2)
   const noTable = fakeDb({}, { failWith: { community_member_days: { code: "42P01", message: "missing" } } })
-  check("before part 184 it is skipped, then not asked again", (await recordMemberDay(noTable, CID, UID(6), NOW)) === "skipped" && (await recordMemberDay(noTable, CID, UID(7), NOW)) === "skipped" && noTable.log.length <= 1)
+  /* Changed on purpose (round 37): the hour's row (part 271, community_member_hours) is written beside the day's, so only the day table's asks are counted here. */
+  check("before part 184 it is skipped, then not asked again", (await recordMemberDay(noTable, CID, UID(6), NOW)) === "skipped" && (await recordMemberDay(noTable, CID, UID(7), NOW)) === "skipped" && noTable.log.filter((l) => l.table === "community_member_days").length <= 1)
   resetMemberDays()
   check("the heartbeat writes it beside the minute's mark", /Promise\.all\(\[touchPresence\(db, gate\.community\.id, String\(gate\.viewer\.userId\)\), recordMemberDay\(db, gate\.community\.id, String\(gate\.viewer\.userId\)\)\]\)/.test(raw("app/api/community/[communityId]/presence/route.ts")))
   check("and so does anything a member does, but not leaving", /a\.kind === "left" \? null : recordMemberDay\(db, a\.communityId, a\.userId\)/.test(raw("lib/communities/server/activity.ts")))

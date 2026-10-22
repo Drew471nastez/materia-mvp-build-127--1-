@@ -226,11 +226,18 @@ async function main() {
     const editor = code("components/community/creator/page-editor/page-editor.tsx")
     /* Round 27 (E27): side or drawer by the editor's own width, the drawer docked (tests/editor27.test.ts has the rest). */
     check("the panel beside the stage where there is room; below it the drawer", /export const SIDE_MIN = 640/.test(code("components/community/creator/page-editor/layout.ts")) && /<EditorDrawer/.test(editor))
-    check("the panel is in the page's own scroll (no second scroll box), the stage sticks under the tabs", /<aside ref=\{side\} id="pe-side" className=\{cn\(card, "w-\[360px\]/.test(editor) && !/data-page-side[^>]*overflow-y-auto/.test(editor) && /sticky top-\[var\(--pe-top/.test(editor))
-    check("the stage's height is measured once and shared as CSS numbers", /--pe-stage-h/.test(editor) && /--pe-top/.test(editor) && /function useStage/.test(editor))
-    check("full screen, as a visitor, the dark look, the panel hidden", /data-page-full-toggle/.test(editor) && /data-page-visitor/.test(editor) && /data-page-look/.test(editor) && /data-page-panel-toggle/.test(editor))
+    /*
+      Changed on purpose (round 37): the editor owns the screen (page-editor/screen.tsx), so there is no page scroll for the
+      panel to share and no tabs for the stage to stick under. The panel runs from the editor's bar to the foot, its list
+      the one thing in it that scrolls; the stage fills what the bar leaves, and over the drawer it ends at the drawer's
+      head, read from the drawer's own measure. The whole editor is full screen, so the Full screen button went.
+    */
+    check("the panel is flush beside the stage, its list the one scroll in it", /<aside ref=\{side\} id="pe-side" className="flex w-\[360px\]/.test(editor) && /data-page-side-body=""/.test(editor) && !/sticky top-\[var\(--pe-top/.test(editor))
+    check("the stage over the drawer ends at the drawer's head, measured once by the drawer and shared as a CSS number", /function useDrawerRoom/.test(editor) && /dataset\.peekTop/.test(editor) && /--pe-drawer-room/.test(editor) && !/function useStage/.test(editor))
+    check("its own screen, as a visitor, the dark look, the panel hidden", /<EditorScreen ref=\{root\} data-page-editor=""/.test(editor) && !/data-page-full-toggle/.test(editor) && /data-page-visitor/.test(editor) && /data-page-look/.test(editor) && /data-page-panel-toggle/.test(editor))
     check("Publish beside Save for a draft, through the same request as the bar's", /\{ publish: true \}/.test(editor) && /canPublish/.test(editor))
-    check("Ctrl or Cmd S saves; leaving with changes asks", /e\.key\.toLowerCase\(\) === "s"/.test(editor) && /beforeunload/.test(editor))
+    /* Changed on purpose (round 37): the bar's Back asks too (the product editor's question), then goes back where the owner was. */
+    check("Ctrl or Cmd S saves; leaving with changes asks", /e\.key\.toLowerCase\(\) === "s"/.test(editor) && /beforeunload/.test(editor) && /if \(dirty \|\| uploading\) \{\s*const yes = await ask\(\{ title: "Discard changes\?"/.test(editor) && /leaveEditor\(\)/.test(editor))
     const frame = code("components/community/creator/page-editor/preview-frame.tsx")
     check("as a visitor nothing leaves the page or joins, and no outlines are drawn", /const NEVER_ACTS = 'a\[href\], \[data-page-block="join"\]/.test(frame) && /\{visitor \? null : <Hotspots doc=\{doc\} \/>\}/.test(frame))
     const panels = code("components/community/creator/page-editor/panels.tsx")

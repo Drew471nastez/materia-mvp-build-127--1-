@@ -149,11 +149,18 @@ async function main() {
     check("the panel's edge: a separator with pointer capture, one write a frame, the keyboard's arrows, a double press resets", /role="separator"/.test(editor) && /setPointerCapture/.test(editor) && /requestAnimationFrame\(frame\)/.test(editor) && /ArrowLeft/.test(editor) && /onDoubleClick=\{\(\) => resizeTo\(PANEL_DEFAULT, true\)\}/.test(editor))
     check("its width remembered, written to the panel without a render", /localStorage\.setItem\(PANEL_KEY/.test(editor) && /el\.style\.width = `\$\{width\}px`/.test(editor))
     check("the framed page is memoised, so the drawer or the panel moving never draws it again", /const FramedPage = React\.memo\(/.test(editor))
-    check("the row of controls follows its own width (container queries) and wraps rather than cut", /@container/.test(editor) && /flex-wrap/.test(editor) && !/xl:max-2xl:hidden/.test(editor))
+    /*
+      Changed on purpose (round 37): the row of controls is the editor's own bar (page-editor/screen.tsx EditorBar), a size
+      container whose words go where it has no room, so it never wraps or cuts (scripts/check-page-editor-round33.mjs FULL
+      measures it at 1440, 1280 and 390: nothing scrolls sideways in it).
+    */
+    const bar = code("components/community/creator/page-editor/screen.tsx")
+    check("the row of controls follows its own width (container queries) and never cuts", /@container/.test(bar) && /@max-\[899px\]:hidden/.test(editor) && /@max-\[760px\]:hidden/.test(editor) && !/xl:max-2xl:hidden/.test(editor))
     const drawer = code("components/community/creator/page-editor/drawer.tsx")
     check("the drawer: pointer events, a translate written on the move, the builder's snap and release, never modal", /addEventListener\("pointermove", move\)/.test(drawer) && /el\.style\.translate = `0 \$\{at\}px`/.test(drawer) && /snapTarget\(/.test(drawer) && /snapMotion\(/.test(drawer) && /releaseVelocity\(/.test(drawer) && !/aria-modal/.test(drawer) && !/scrim/i.test(drawer.replace(/\/\*[\s\S]*?\*\//g, "")))
     check("a finger's tap on the drawer's head is taken on the lift, and a click that still follows is let go", /isTap\(\{ distance: Math\.hypot/.test(drawer) && /pressed\.click\(\)/.test(drawer) && /performance\.now\(\) - took\.at > CLICK_AFTER_MS/.test(drawer))
-    check("the drawer stays clear of the navigation pill and the keyboard", /var\(--app-nav-top/.test(drawer) && /var\(--kb-inset/.test(drawer))
+    /* Changed on purpose (round 37): over the editor's own screen there is no navigation pill, only the home indicator and the keyboard. */
+    check("the drawer stays clear of the home indicator and the keyboard, and reaches up to the editor's bar", /bottom-\[max\(var\(--kb-inset,0px\),calc\(env\(safe-area-inset-bottom,0px\)\+8px\)\)\]/.test(drawer) && !/var\(--app-nav-top/.test(drawer) && /\[data-page-editor-bar\]/.test(drawer))
     const frame = code("components/community/creator/page-editor/preview-frame.tsx")
     check("while it moves the box is only moved and scaled, on its own layer; at rest laid out again", /b\.style\.willChange = "translate, scale"/.test(frame) && /b\.style\.translate = `\$\{tx\}px 0`/.test(frame) && /b\.style\.scale = String\(k\)/.test(frame) && /window\.setTimeout\(settleNow, SETTLE_MS\)/.test(frame))
     check("outlines: an inset line on the screen's pixels, never a border Chromium rounds", /boxShadow: `inset 0 0 0 \$\{lw\}px/.test(frame) && /const unit = 1 \/ \(scale \* dpr\)/.test(frame) && !/border: `\$\{lw\}px solid/.test(frame))

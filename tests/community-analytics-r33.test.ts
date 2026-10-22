@@ -264,14 +264,13 @@ async function main() {
   const s = code("components/community/creator/analytics-section.tsx")
   const controls = /data-analytics-controls=""[\s\S]*?<\/div>/.exec(s)?.[0] ?? ""
   check("the period sits alone: no Google Analytics beside it", /<DateRangePicker /.test(controls) && !/Ga|google/i.test(controls))
-  check("no Connect Google Analytics anywhere; a connected one is a quiet line under Traffic", !/Connect Google Analytics/.test(s) && /\{shownSection === "traffic" \? <GaLine ga=\{r\?\.ga \?\? null\} \/> : null\}/.test(s) && /if \(!ga\?\.id\) return null/.test(s))
-  check("an overview of the period's figures before the sections", s.indexOf("<Overview figures={overview}") > 0 && s.indexOf("<Overview figures={overview}") < s.indexOf("<SectionTabs value={shownSection}"))
-  check("its six: members, active members, engagement, join rate, monthly revenue, member churn", ['key: "members"', 'key: "active"', 'key: "engagement"', 'key: "joinRate"', 'key: "mrr"', 'key: "churn"'].every((k) => s.slice(s.indexOf("const overview"), s.indexOf("const dim")).includes(k)))
-  check("each opens its section on its own figure", /onOpen: open\("traffic", \(\) => setTrafficTab\("joinRate"\)\)/.test(s) && /onOpen: open\("growth", \(\) => setGrowthTab\("churn"\)\)/.test(s))
-  check("all of them at once on a phone: two to a row, never off the side", /"grid grid-cols-2 gap-px bg-\[#e5e7eb\]\/60 md:grid-cols-3"/.test(s))
-  check("the five sections, Analytics' own tabs, Revenue only for a community that sells", /const SECTIONS: readonly SectionId\[\] = \["growth", "traffic", "engagement", "content", "revenue"\]/.test(s) && /SECTIONS\.filter\(\(s\) => s !== "revenue" \|\| !r \|\| sells\)/.test(s))
-  check("an address ending in #traffic opens Traffic, and the choice is kept for the tab", /window\.location\.hash/.test(s) && /window\.sessionStorage\.setItem\(SECTION_KEY, next\)/.test(s))
-  check("a chart per section", ['name="growth"', 'name="traffic"', 'name="activity"', 'name="content"', 'name="money"'].every((x) => s.includes(x)))
+  /* Changed on purpose (round 37): the owner asked for the chart and its switchers only. The six figure overview and the five sections' tabs are gone; the figure tabs over the one chart are the overview, and one details card follows the figure chosen. */
+  check("no Connect Google Analytics anywhere; a connected one is a quiet line under the details", !/Connect Google Analytics/.test(s) && /<\/div>\s*<GaLine ga=\{r\?\.ga \?\? null\} \/>/.test(s) && /if \(!ga\?\.id\) return null/.test(s))
+  check("no overview row and no section tabs any more", !/<Overview |<SectionTabs |const SECTIONS\b/.test(s))
+  check("the figures: members, new members, active members, visitors, join rate, engagement, churn, revenue", /export const FIGURES: readonly FigureKey\[\] = \["members", "joined", "active", "visitors", "joinRate", "engagement", "churn", "revenue"\]/.test(s))
+  check("one chart for every figure", (s.match(/<AnalyticsChartWithTooltip/g) ?? []).length === 1)
+  check("a figure the database cannot count has no tab; Revenue only for a community that sells", /if \(counted\.visits\) \{/.test(s) && /if \(counted\.engagement\) out\.push/.test(s) && /if \(m\) \{\s*const mrr/.test(s))
+  check("an address ending in #visitors (or round 33's #traffic) opens that figure, and the choice is kept for the tab", /window\.location\.hash/.test(s) && /traffic: "visitors"/.test(s) && /window\.sessionStorage\.setItem\(FIGURE_KEY, next\)/.test(s))
   check("the Storelib app named as a source", /if \(key === "app"\) return tt\("Storelib app"\)/.test(raw("components/community/creator/analytics-section.tsx")))
 
   /* ── Copy and client code ────────────────────────────────────────────── */

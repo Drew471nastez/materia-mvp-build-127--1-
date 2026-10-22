@@ -18,24 +18,42 @@ import "server-only"
  *                      after the end of each bucket (membersLine)
  *   Posts, comments,   the posts, comments and reactions made in each
  *   reactions          bucket, whatever became of them since (the nightly
- *                      count's rule)
- *   Active members     members with a day in community_member_days (part
- *                      184): their page's heartbeat or anything they did
- *   Engagement         members who posted, commented or reacted, over the
- *                      members there were at the end of the bucket
- *   Visits             one a visitor a day (part 87), added up each night
- *                      with how they came (part 184), today from the day
- *                      rows themselves; a join rate is joins over visits
- *                      from people who were not members yet
+ *                      count's rule), except one the safety check held back
+ *                      before anybody saw it (round 37)
+ *   Active members     members with an hour in community_member_hours (part
+ *                      271) in the bucket, so a day is the viewer's day;
+ *                      before the hours, a day in community_member_days
+ *                      (part 184). Their page's heartbeat or anything they did
+ *   Engagement         members who posted, commented or reacted (from those
+ *                      rows, part 271), over the members there were at the
+ *                      end of the bucket
+ *   Visits             one a visitor a UTC day (part 87), each in the bucket
+ *                      of the moment it came: the visit rows for the days
+ *                      they are kept, the nightly hours (part 271) before
+ *                      that, and before the hours the nightly day counts by
+ *                      their noon (visitsOf). A join rate is the joins a
+ *                      visitor made themselves (part 271) over visits from
+ *                      people who were not members yet
  *   Money              the community's orders (memberships and purchases,
- *                      less refunds), programs sold, event tickets less
- *                      refunds; monthly revenue and subscribers at the end
- *                      of each bucket from the memberships' own dates
+ *                      renewals included, less refunds; a disputed one is no
+ *                      sale), programs sold, event tickets less refunds;
+ *                      monthly revenue and subscribers at the end of each
+ *                      bucket from the memberships' own dates
  *
- * All of the counting by bucket is community_analytics (SQL part 184), one
- * call a period. Before that part has run, the joins and leaves are read
- * from community_activity here and the rest from the nightly rows
+ * All of the counting by bucket is community_analytics (SQL parts 184 and
+ * 271), one call a period. Before part 184 has run, the joins and leaves
+ * are read from community_activity here and the rest from the nightly rows
  * (community_daily_stats), so the screen keeps what it showed before.
+ *
+ * WHAT IS NOT COUNTED, ON PURPOSE (round 37's audit): the owner and the
+ * store's own account looking at their community; a page drawn ahead of a
+ * click (a prefetch) or by a program (a crawler, a link preview, a headless
+ * browser); a second visit the same UTC day, whatever the device, for a
+ * signed in visitor. Two limits remain, and are said here so nobody reads
+ * them as bugs: a visitor on the community's own domain is never signed in
+ * there, so they count as a visitor who is not a member yet (and a member
+ * signed out on storelib.com too); and the same person signed out on two
+ * browsers is two visitors.
  */
 import { bucketStarts, bucketIndex, type Grain, type Span } from "@/lib/analytics/buckets"
 import { monthlyValue } from "@/lib/memberships/state"
@@ -64,7 +82,8 @@ import {
   type ReportRow,
   type TrafficReport,
 } from "../analytics-report"
-import { countVisits, TRAFFIC_DIMENSIONS, type TrafficDimension, type VisitRow } from "./analytics"
+import { countVisits, NOT_HELD, TRAFFIC_DIMENSIONS, type TrafficDimension, type VisitRow } from "./analytics"
+import { VIEW_DAYS_KEPT } from "./views"
 import { joinStats, loadEventMoney } from "./stats"
 import { cancellationsWithReasons } from "./membership-lifecycle"
 import { missing, reasonOf, type Db } from "./db"
@@ -96,6 +115,8 @@ type Counts = Record<string, number>
 /** What community_analytics answers for one period (SQL part 184). */
 interface Counted {
   joined: Counts
+  /** Joins a visitor made themselves (part 271), what the join rate divides; null before that part. */
+  joinedByVisit: Counts | null
   left: Counts
   posts: Counts
   comments: Counts
@@ -143,6 +164,7 @@ async function counted(db: Db, communityId: string, span: Span, timeZone: string
     const t = (d.totals ?? null) as Record<string, unknown> | null
     return {
       joined: countsOf(d.joined),
+      joinedByVisit: d.joined_by_visit && typeof d.joined_by_visit === "object" ? countsOf(d.joined_by_visit) : null,
       left: countsOf(d.left),
       posts: countsOf(d.posts),
       comments: countsOf(d.comments),
@@ -240,7 +262,7 @@ async function fromDailyRows(db: Db, communityId: string, ownerId: string | null
   if (span.end > todayStart) {
     const from = iso(Math.max(todayStart, span.start))
     const c = (table: string) => db.from(table).select("id", { count: "exact", head: true }).eq("community_id", communityId).gte("created_at", from).lt("created_at", iso(span.end))
-    const [p, cm, re] = await Promise.all([headCount(c("community_feed_posts")), headCount(c("community_feed_comments")), headCount(c("community_reactions"))])
+    const [p, cm, re] = await Promise.all([headCount(c("community_feed_posts").or(NOT_HELD)), headCount(c("community_feed_comments").or(NOT_HELD)), headCount(c("community_reactions"))])
     const i = bucketIndex(starts, Math.min(now, span.end - 1))
     if (i >= 0) {
       posts[keys[i]] = (posts[keys[i]] ?? 0) + p
@@ -250,10 +272,10 @@ async function fromDailyRows(db: Db, communityId: string, ownerId: string | null
   }
   const jl = await joinsAndLeaves(db, communityId, ownerId, span, starts)
   const toCounts = (xs: number[]) => Object.fromEntries(keys.map((k, i) => [k, xs[i]]))
-  return { joined: toCounts(jl.joined), left: toCounts(jl.left), posts, comments, reactions, rsvps: {}, lessons: {}, contributors: null, active: grain === "hour" ? null : active, totals: null, activeSince: null }
+  return { joined: toCounts(jl.joined), joinedByVisit: null, left: toCounts(jl.left), posts, comments, reactions, rsvps: {}, lessons: {}, contributors: null, active: grain === "hour" ? null : active, totals: null, activeSince: null }
 }
 
-/* ── Visits (parts 87 and 184) ───────────────────────────────────────── */
+/* ── Visits (parts 87, 184 and 271) ──────────────────────────────────── */
 
 interface Visits {
   counted: boolean
@@ -261,29 +283,44 @@ interface Visits {
   visits: number[]
   prospects: number[]
   traffic: Record<TrafficDimension, Counts>
-  /** False for an hour chart of days whose rows are gone (older than three days): counted by day, so the hours have no line. */
+  /** False for an hour chart of days counted only by day (before part 271, older than the days the visit rows are kept): the hours have no line. */
   hourly?: boolean
 }
 
 const emptyTraffic = (): Record<TrafficDimension, Counts> => ({ source: {}, referrer: {}, device: {}, country: {} })
 
-/** A period's visits by bucket and by where they came from. */
+/**
+ * A PERIOD'S VISITS BY BUCKET, IN THE VIEWER'S OWN HOURS (round 37). Each
+ * visit is one row a visitor a UTC day (part 87), kept VIEW_DAYS_KEPT days
+ * with the moment it came. Three sources, each for the days it is exact for:
+ *
+ *   the visit rows      every UTC day from VIEW_DAYS_KEPT days ago: each
+ *                       visit goes in the bucket its own moment falls in
+ *   the hours (271)     older days, from the first day the nightly count
+ *                       kept them: each hour's visitors in the bucket that
+ *                       hour falls in, so a day starts at midnight where the
+ *                       viewer is, not in London
+ *   the day counts      older days from before part 271: the whole UTC day
+ *                       in the bucket its noon falls in (an hour chart of
+ *                       such a day has no line, only its total)
+ *
+ * Where visitors came from (sources, sites, devices, countries) is kept by
+ * the UTC day for older days and placed by the same noon rule.
+ */
 async function visitsOf(db: Db, communityId: string, span: Span, grain: Grain, starts: number[], keys: string[], now: number): Promise<Visits> {
   const out: Visits = { counted: false, since: null, visits: new Array(keys.length).fill(0), prospects: new Array(keys.length).fill(0), traffic: emptyTraffic() }
-  if (grain === "hour" && span.start < now - 3 * DAY + 60 * 60_000) {
-    /* A day or two from before the day rows' three days: only the nightly counts are left, by day. */
-    const byDay = [...new Set(keys.map((k) => k.slice(0, 10)))]
-    const d = await visitsOf(db, communityId, span, "day", byDay.map((k) => Date.parse(`${k}T00:00:00.000Z`)), byDay, now)
-    return { ...d, visits: [sum(d.visits), ...new Array(keys.length - 1).fill(0)], prospects: [sum(d.prospects), ...new Array(keys.length - 1).fill(0)], hourly: false }
-  }
-  const range = dayRange(keys, grain, now)
   const today = iso(now).slice(0, 10)
+  const fromDay = iso(span.start).slice(0, 10)
+  const toDay = iso(Math.min(span.end, now + 1) - 1).slice(0, 10)
+  /* From this UTC day on, every visit row is still there (the cron deletes the days before it). */
+  const keptFrom = iso(now - VIEW_DAYS_KEPT * DAY).slice(0, 10)
+  const keptStart = Date.parse(`${keptFrom}T00:00:00.000Z`)
   const { data: dayRows, error } = await db
     .from("community_daily_stats")
     .select("day, visitors, prospects")
     .eq("community_id", communityId)
-    .gte("day", range.from)
-    .lte("day", range.to)
+    .gte("day", fromDay)
+    .lte("day", toDay)
     .not("visitors", "is", null)
     .order("day", { ascending: true })
     .limit(800)
@@ -292,54 +329,102 @@ async function visitsOf(db: Db, communityId: string, span: Span, grain: Grain, s
     return out
   }
   out.counted = true
-  const rolled = new Set<string>()
-  const index = new Map(keys.map((k, i) => [k, i]))
-  const put = (k: string | null, v: number, p: number) => {
-    const i = k === null ? undefined : index.get(k)
-    if (i === undefined) return false
+  const counted = new Set<string>()
+  const add = (i: number, v: number, p: number) => {
+    if (i < 0 || i >= keys.length) return
     out.visits[i] += v
     out.prospects[i] += p
-    return true
   }
-  if (grain !== "hour") {
-    for (const r of (dayRows as { day: string; visitors: number; prospects: number | null }[] | null) ?? []) {
-      if (put(dayKey(r.day, grain), num(r.visitors), num(r.prospects))) rolled.add(r.day.slice(0, 10))
+  /* A whole UTC day's count goes where its noon falls. */
+  const noon = (day: string) => {
+    const t = Date.parse(`${day.slice(0, 10)}T12:00:00.000Z`)
+    return t >= span.start && t < span.end ? t : null
+  }
+
+  /* The first UTC day the hours hold whole (part 271); null before that part, or before its first night. */
+  let hoursFrom: string | null = null
+  const first = await db.from("community_visit_hours").select("hour").eq("community_id", communityId).order("hour", { ascending: true }).limit(1)
+  if (!first.error) {
+    const h = (first.data as { hour: string }[] | null)?.[0]?.hour
+    if (h) hoursFrom = iso(Date.parse(h)).slice(0, 10)
+  } else if (!missing(first.error)) console.error(`[communities] report visit hours: ${reasonOf(first.error)}`)
+  const byHours = (day: string) => hoursFrom !== null && day >= hoursFrom
+  let byDayOnly = false
+
+  for (const r of (dayRows as { day: string; visitors: number; prospects: number | null }[] | null) ?? []) {
+    const d = r.day.slice(0, 10)
+    counted.add(d)
+    if (d >= keptFrom || byHours(d)) continue
+    if (grain === "hour") {
+      /* An hour chart of a day counted only by day: its total, no line. */
+      byDayOnly = true
+      add(0, num(r.visitors), num(r.prospects))
+      continue
     }
-    if (rolled.size) {
-      const lines: { day: string; dimension: TrafficDimension; key: string; visitors: number }[] = []
-      for (let page = 0; page < 20; page++) {
-        const { data, error: e } = await db
-          .from("community_daily_traffic")
-          .select("day, dimension, key, visitors")
-          .eq("community_id", communityId)
-          .gte("day", range.from)
-          .lte("day", range.to)
-          .order("day", { ascending: true })
-          .order("dimension", { ascending: true })
-          .order("key", { ascending: true })
-          .range(page * PAGE, page * PAGE + PAGE - 1)
-        if (e) break
-        const got = (data as typeof lines | null) ?? []
-        lines.push(...got)
-        if (got.length < PAGE) break
+    const t = noon(d)
+    if (t !== null) add(bucketIndex(starts, t), num(r.visitors), num(r.prospects))
+  }
+
+  /* Older days the hours hold: each hour where it falls in the viewer's day. */
+  if (hoursFrom !== null) {
+    const from = Math.max(span.start, Date.parse(`${hoursFrom}T00:00:00.000Z`))
+    const to = Math.min(span.end, keptStart)
+    for (let page = 0; from < to && page < 20; page++) {
+      const { data, error: e } = await db
+        .from("community_visit_hours")
+        .select("hour, visitors, prospects")
+        .eq("community_id", communityId)
+        .gte("hour", iso(from))
+        .lt("hour", iso(to))
+        .order("hour", { ascending: true })
+        .range(page * PAGE, page * PAGE + PAGE - 1)
+      if (e) {
+        if (!missing(e)) console.error(`[communities] report visit hours: ${reasonOf(e)}`)
+        break
       }
-      for (const l of lines) {
-        const k = dayKey(l.day, grain)
-        if (k === null || !index.has(k) || !TRAFFIC_DIMENSIONS.includes(l.dimension)) continue
-        out.traffic[l.dimension][l.key] = (out.traffic[l.dimension][l.key] ?? 0) + num(l.visitors)
-      }
+      const got = (data as { hour: string; visitors: number; prospects: number }[] | null) ?? []
+      for (const h of got) add(bucketIndex(starts, Date.parse(h.hour)), num(h.visitors), num(h.prospects))
+      if (got.length < PAGE) break
     }
   }
-  /* The days the night has not added up yet (today, and yesterday until the count runs), and every day of an hour chart: the day rows themselves, kept three days. */
-  const liveFrom = iso(Math.max(span.start, now - 3 * DAY))
-  if (span.end > Date.parse(liveFrom)) {
+
+  /* Where older days' visitors came from: kept by the UTC day, placed by its noon. */
+  const oldTo = keptFrom > fromDay ? iso(keptStart - DAY).slice(0, 10) : null
+  if (oldTo !== null && counted.size) {
+    const lines: { day: string; dimension: TrafficDimension; key: string; visitors: number }[] = []
+    for (let page = 0; page < 20; page++) {
+      const { data, error: e } = await db
+        .from("community_daily_traffic")
+        .select("day, dimension, key, visitors")
+        .eq("community_id", communityId)
+        .gte("day", fromDay)
+        .lte("day", oldTo < toDay ? oldTo : toDay)
+        .order("day", { ascending: true })
+        .order("dimension", { ascending: true })
+        .order("key", { ascending: true })
+        .range(page * PAGE, page * PAGE + PAGE - 1)
+      if (e) break
+      const got = (data as typeof lines | null) ?? []
+      lines.push(...got)
+      if (got.length < PAGE) break
+    }
+    for (const l of lines) {
+      if ((grain !== "hour" && noon(l.day) === null) || !TRAFFIC_DIMENSIONS.includes(l.dimension)) continue
+      out.traffic[l.dimension][l.key] = (out.traffic[l.dimension][l.key] ?? 0) + num(l.visitors)
+    }
+  }
+
+  /* The last VIEW_DAYS_KEPT days: the visit rows themselves, each in the bucket of the moment it came. */
+  const liveFrom = Math.max(span.start, keptStart)
+  if (span.end > liveFrom) {
     const rows: (VisitRow & { day: string; created_at: string })[] = []
     for (let page = 0; page < 20; page++) {
       const { data, error: e } = await db
         .from("community_view_days")
         .select("day, created_at, source, referrer, device, country, member")
         .eq("community_id", communityId)
-        .gte("created_at", liveFrom)
+        .gte("day", keptFrom)
+        .gte("created_at", iso(liveFrom))
         .lt("created_at", iso(span.end))
         .order("created_at", { ascending: true })
         .range(page * PAGE, page * PAGE + PAGE - 1)
@@ -351,20 +436,18 @@ async function visitsOf(db: Db, communityId: string, span: Span, grain: Grain, s
       rows.push(...got)
       if (got.length < PAGE) break
     }
-    /* A day's rows go where the nightly count would put them (its UTC date), an hour chart's by the hour they came. */
-    const fresh = rows.filter((r) => grain === "hour" || !rolled.has(r.day.slice(0, 10)))
-    const counted: typeof fresh = []
-    for (const r of fresh) {
-      const i = grain === "hour" ? bucketIndex(starts, Date.parse(r.created_at)) : index.get(dayKey(r.day, grain) ?? "") ?? -1
+    const inside: typeof rows = []
+    for (const r of rows) {
+      const i = bucketIndex(starts, Date.parse(r.created_at))
       if (i < 0 || i >= keys.length) continue
-      counted.push(r)
-      out.visits[i] += 1
-      if (r.member !== true) out.prospects[i] += 1
+      inside.push(r)
+      add(i, 1, r.member === true ? 0 : 1)
+      counted.add(r.day.slice(0, 10))
     }
-    const t = countVisits(counted)
+    const t = countVisits(inside)
     for (const d of TRAFFIC_DIMENSIONS) for (const [k, v] of Object.entries(t.counts[d])) out.traffic[d][k] = (out.traffic[d][k] ?? 0) + v
-    for (const r of counted) rolled.add(r.day.slice(0, 10))
   }
+  if (byDayOnly) out.hourly = false
   /*
     COUNTING BEGAN INSIDE THIS PERIOD: say from when, so the days before it
     are not read as nobody. The nightly count writes every day once it has
@@ -372,12 +455,12 @@ async function visitsOf(db: Db, communityId: string, span: Span, grain: Grain, s
     began; with nothing in the period at all, the first day it ever wrote
     says whether that is "nobody came" or "not counted yet".
   */
-  let first = rolled.size ? [...rolled].sort()[0] : null
-  if (!first) {
+  let since = counted.size ? [...counted].sort()[0] : null
+  if (!since) {
     const { data: earliest } = await db.from("community_daily_stats").select("day").eq("community_id", communityId).not("visitors", "is", null).order("day", { ascending: true }).limit(1)
-    first = (earliest as { day: string }[] | null)?.[0]?.day?.slice(0, 10) ?? today
+    since = (earliest as { day: string }[] | null)?.[0]?.day?.slice(0, 10) ?? today
   }
-  out.since = first > range.from ? first : null
+  out.since = since > fromDay ? since : null
   return out
 }
 
@@ -757,6 +840,8 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     prev: cb && prevKeys ? lineOf(prevKeys, pick(cb)) : null,
   })
   const joined = lineFor((c) => c.joined)
+  /* What the join rate divides (part 271): the joins a visitor made themselves, never one the team, Storelib or a product made. Before that part, every join. */
+  const visitJoins = ca?.joinedByVisit ? lineFor((c) => c.joinedByVisit ?? c.joined) : joined
   const left = lineFor((c) => c.left)
   const members = { cur: membersLine(membersNow, joined.cur, left.cur, joinedAfter, leftAfter), prev: joined.prev && left.prev ? membersLine(membersNow, joined.prev, left.prev, joinedAfterPrev, leftAfterPrev) : null }
   const posts = lineFor((c) => c.posts)
@@ -793,7 +878,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     rsvps: { current: ready ? rsvps.cur : new Array(n).fill(null), previous: ready && rsvps.prev ? alignTo(rsvps.prev, n) : null },
     lessons: { current: ready ? lessons.cur : new Array(n).fill(null), previous: ready && lessons.prev ? alignTo(lessons.prev, n) : null },
     visits: { current: visitsCur.hourly === false ? new Array(n).fill(null) : visitsCur.visits, previous: visitsCur.hourly === false || prevVisits?.hourly === false ? null : alignTo(prevVisits?.visits, n) },
-    joinRate: { current: visitsCur.hourly === false ? new Array(n).fill(null) : joined.cur.map((j, i) => rate(j, visitsCur.prospects[i])), previous: prevVisits && prevVisits.hourly !== false && visitsCur.hourly !== false ? alignTo(joined.prev?.map((j, i) => rate(j, prevVisits.prospects[i])), n) : null },
+    joinRate: { current: visitsCur.hourly === false ? new Array(n).fill(null) : visitJoins.cur.map((j, i) => rate(j, visitsCur.prospects[i])), previous: prevVisits && prevVisits.hourly !== false && visitsCur.hourly !== false ? alignTo(visitJoins.prev?.map((j, i) => rate(j, prevVisits.prospects[i])), n) : null },
     active: { current: activeCounted ? activeLine.cur : new Array(n).fill(null), previous: activeCounted && (prevActive || !ready) ? alignTo(activeLine.prev, n) : null },
     posts: { current: posts.cur, previous: alignTo(posts.prev, n) },
     comments: { current: comments.cur, previous: alignTo(comments.prev, n) },
@@ -822,7 +907,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     rsvps: { value: ready ? sum(rsvps.cur) : null, previous: ready && rsvps.prev ? sum(rsvps.prev) : null },
     lessons: { value: ready ? sum(lessons.cur) : null, previous: ready && lessons.prev ? sum(lessons.prev) : null },
     /* Joins over visits from non-members, both from the buckets visits were counted in: joins before counting began had no visits to come from. */
-    joinRate: { value: rate(sum(joined.cur.filter((_, i) => countedFrom === null || cur.keys[i] >= countedFrom)), prospectsTotal), previous: prospectsPrev === null ? null : rate(total(joined.prev) ?? 0, prospectsPrev) },
+    joinRate: { value: rate(sum(visitJoins.cur.filter((_, i) => countedFrom === null || cur.keys[i] >= countedFrom)), prospectsTotal), previous: prospectsPrev === null ? null : rate(total(visitJoins.prev) ?? 0, prospectsPrev) },
     /* Unique members in the period: counted for an hour chart too (from whole days), though its line is by day only. */
     active: { value: activeFigure ? activeTotal : null, previous: activeFigure ? activePrev : null },
     posts: { value: total(posts.cur), previous: total(posts.prev) },

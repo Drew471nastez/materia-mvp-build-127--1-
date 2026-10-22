@@ -248,6 +248,7 @@ function AnalyticsChartWithTooltipInner({
   compareLabel = null,
   color = CHART_COLORS.views,
   seriesLabels,
+  axisMax,
 }: {
   chartDisplayData: AnalyticsChartData[]
   analyticsMode: "store" | "onepage"
@@ -271,6 +272,13 @@ function AnalyticsChartWithTooltipInner({
   color?: string
   /** A series under another name in the readout: a form's "clicks" are Submissions. */
   seriesLabels?: Partial<Record<string, string>>
+  /**
+   * The highest number each kind of figure reaches across every tab, for a
+   * page whose tabs hand the chart one figure at a time (a community's
+   * Analytics): the axis is made as wide as the widest of them, so a tab
+   * never moves the plot sideways. Left out, the series' own numbers decide.
+   */
+  axisMax?: Partial<Record<AxisKind, number>>
 }) {
   const visibleKeys = useMemo(
     () => visibleKeysFor(analyticsMode, chartMetricFilter, onePageChartFilter),
@@ -304,8 +312,12 @@ function AnalyticsChartWithTooltipInner({
       const sc = fixedScale(maxOf(chartDisplayData, keys), kind === "count")
       return axisWidth(sc.ticks.map(tickFor(kind, sc.step, currency)), 11, 8)
     })
-    return Math.max(axisWidth(axisLabels, 11, 8), ...widths)
-  }, [analyticsMode, chartDisplayData, axisLabels, currency])
+    const given = (Object.entries(axisMax ?? {}) as [AxisKind, number][]).map(([kind, max]) => {
+      const sc = fixedScale(Math.max(0, max || 0), kind === "count")
+      return axisWidth(sc.ticks.map(tickFor(kind, sc.step, currency)), 11, 8)
+    })
+    return Math.max(axisWidth(axisLabels, 11, 8), ...widths, ...given)
+  }, [analyticsMode, chartDisplayData, axisLabels, axisMax, currency])
 
   /*
     THE LINES: the chosen metric in the first slot whatever it is, so a tab

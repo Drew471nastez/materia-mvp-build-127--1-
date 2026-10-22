@@ -117,7 +117,9 @@ function main() {
   check("the setup list is still the server's", nextSteps({ paid: false, paymentsReady: true, published: true, members: 5, invites: 1, posts: 0, courses: 0, events: 0, customized: true, rules: 1, classroomEnabled: false, eventsEnabled: false }, "/b").some((s) => s.id === "welcome"))
 
   console.log("\nFRAME AND STATE")
-  check("the Page frame draws the editor's side panel from 1280px, as the editor does", /xl:grid xl:grid-cols-\[minmax\(0,1fr\)_380px\][^"]*" data-frame-page=""/.test(frame) && /<PanelFrame rows=\{5\} className="hidden xl:block" \/>/.test(frame))
+  /* Changed on purpose (round 37): the Page editor owns the screen, and so does its frame (page-editor/screen.tsx PageEditorFrame): its bar, the page's card, the panel from 640px as the editor's SIDE_MIN. */
+  const editorScreen = code("components/community/creator/page-editor/screen.tsx")
+  check("the Page frame is the editor's own screen, the panel beside the page from 640px as the editor's", /case "page":\s*return <PageEditorFrame name=\{facts\.title\} \/>/.test(frame) && /export function PageEditorFrame/.test(editorScreen) && /<aside className="hidden w-\[360px\][^"]*sm:flex"/.test(editorScreen))
   check("a community being deleted says when, and that Settings keeps it, before the archived line", /\) : deleting \? \(/.test(shell) && shell.indexOf(") : deleting ? (") < shell.indexOf(") : head.archived ? (") && /Deleting on [^\n]*Members can read it until then\. Keep it from Settings\.[^\n]*shortDate\(deleting\.deleteAt\)|Deleting on [^\n]*shortDate\(deleting\.deleteAt\)[^\n]*Keep it from Settings\./.test(shell))
 
   console.log("\nMEMBERS")
