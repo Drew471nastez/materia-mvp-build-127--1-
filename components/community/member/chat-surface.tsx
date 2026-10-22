@@ -101,6 +101,8 @@ export interface ChatSurfaceProps {
 }
 
 const AT_BOTTOM_PX = 120
+/** How far back a catch up asks, so a message written a moment before the newest one shown is never skipped. */
+export const CATCH_UP_OVERLAP_MS = 15_000
 const LONG_PRESS_MS = 420
 
 function usePhone(): boolean {
@@ -200,9 +202,16 @@ export function ChatSurface(p: ChatSurfaceProps) {
     }
   }, [url, p.initial])
 
+  /*
+    A LITTLE BEFORE THE NEWEST, NOT AFTER IT (measured, scripts/check-community-chat-r37.mjs ORDER): two people writing at
+    once, the reader's own message can come back from its send before somebody else's message that the server wrote a few
+    milliseconds earlier reaches the page. Asking only for what is after the newest one shown would skip that one for good.
+    So the page asks from CATCH_UP_OVERLAP_MS before it; what it already has is matched by id and drawn once.
+  */
   const catchUp = useCallback(async () => {
     const last = lastSettled(latest.current)
-    const r = await api<{ messages: ChatLine[] } & Record<string, unknown>>(`${url}${last ? `${url.includes("?") ? "&" : "?"}after=${encodeURIComponent(last.createdAt)}` : ""}`)
+    const from = last ? new Date(Date.parse(last.createdAt) - CATCH_UP_OVERLAP_MS).toISOString() : null
+    const r = await api<{ messages: ChatLine[] } & Record<string, unknown>>(`${url}${from ? `${url.includes("?") ? "&" : "?"}after=${encodeURIComponent(from)}` : ""}`)
     if (!r.ok) return
     onPageRef.current?.(r.data)
     merge(r.data.messages, "theirs")
@@ -316,10 +325,9 @@ export function ChatSurface(p: ChatSurfaceProps) {
     async (item: ChatItem) => {
       const r = await api<{ message: ChatLine }>(url, { body: item.sendBody })
       if (!r.ok) {
-        const code = (r as { code?: string }).code
         if (r.status === 409) setNeedsRules(true)
         setItems((cur) => cur.map((m) => (m.id === item.id ? { ...m, state: "failed", error: r.error } : m)))
-        if (code !== "rules" && r.status !== 409) toast(r.error)
+        /* The bubble itself says Not sent, with its way to try again: no second word about it. */
         return
       }
       setItems((cur) => mergeMessages(cur.filter((m) => m.id !== item.id), [r.data.message]))
@@ -797,6 +805,7 @@ function Bubble({
             Not sent. Tap to try again
           </button>
         ) : null}
+        {m.state === "failed" && m.error && !/did not send/i.test(m.error) ? <p className="max-w-[260px] px-1 text-right text-[11.5px] leading-snug text-[#6b7280]" data-chat-why="">{m.error}</p> : null}
         {reactions && (m.reactionCount ?? 0) > 0 ? (
           <button type="button" onClick={() => onLike?.()} className={`-mt-1.5 flex h-6 items-center gap-1 rounded-full border border-white bg-[#f1f2f4] px-2 text-[11.5px] font-medium shadow-[0_1px_2px_rgba(16,24,40,0.08)] ${m.reacted ? "text-[#e11d48]" : "text-[#6b7280]"}`} data-chat-likes="">
             <Heart className="h-3 w-3" fill={m.reacted ? "currentColor" : "none"} />
@@ -1086,7 +1095,8 @@ function Composer({
           </>
         ) : null}
         <div
-          className="min-w-0 flex-1"
+          className="min-w-0 flex-1 rounded-[20px] border border-transparent bg-[#f3f4f6] transition-[border-color,background-color] focus-within:border-[#e3e5e8] focus-within:bg-white"
+          data-chat-field=""
           onPaste={(e) => {
             const files = [...e.clipboardData.files]
             if (files.length && attachments) {
@@ -1121,7 +1131,7 @@ function Composer({
                 } else onCancelReply()
               }
             }}
-            className="block max-h-40 min-h-10 w-full resize-none rounded-[20px] border border-transparent bg-[#f3f4f6] px-4 py-2 text-[16px] leading-6 text-[#1a1a2e] outline-none transition-[border-color,background-color] placeholder:text-[#9ca3af] focus:border-[#e3e5e8] focus:bg-white sm:text-[15px]"
+            className="max-h-40 min-h-[38px] px-4 py-[7px] text-[16px] leading-6 text-[#1a1a2e] sm:text-[15px]"
           />
         </div>
         <button
