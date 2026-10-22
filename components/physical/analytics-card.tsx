@@ -19,11 +19,15 @@ import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ReportList, ReportTabs, type ReportListRow } from "@/app/app/analytics/analytics-reports"
 import { countryName } from "@/lib/analytics/reports"
-import { api, useShopMoney } from "./ui"
+import { api } from "./ui"
+import { shopMoneyIn } from "@/lib/store/shop-money"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
 interface Data {
+  /** The store's currency the server counted every amount in. */
+  currency?: string
   orders: number
   netCents?: number
   averageOrderCents?: number | null
@@ -60,9 +64,12 @@ const pct = (f: number | null | undefined) => (f === null || f === undefined ? "
 const hours = (h: number | null | undefined) => (h === null || h === undefined ? "–" : h < 48 ? `${Math.round(h)} h` : tt("{value} days", { value: Math.round(h / 24) }))
 
 export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: number } | null }) {
-  const money = useShopMoney()
+  /* Written in the currency the server counted in; a change of the store's currency asks again rather than relabel the old amounts. */
+  const storeCurrency = useStoreCurrency()
   const enabled = usePhysicalCommerceEnabled()
   const [data, setData] = React.useState<Data | null>(null)
+  const counted = data?.currency || storeCurrency
+  const money = React.useCallback((cents: number) => shopMoneyIn(cents, counted), [counted])
   const [loading, setLoading] = React.useState(true)
   const [tab, setTab] = React.useState<Tab>("products")
   const query = span ? `from=${Math.floor(span.start)}&to=${Math.ceil(span.end)}` : "days=30"
@@ -78,7 +85,7 @@ export function PhysicalAnalyticsCard({ span }: { span?: { start: number; end: n
     return () => {
       gone = true
     }
-  }, [enabled, query])
+  }, [enabled, query, storeCurrency])
   if (!enabled) return null
   const d = data ?? EMPTY
   const net = d.netCents ?? d.revenueCents

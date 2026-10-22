@@ -32,6 +32,7 @@ import { CollectionCover, StatusMark, countWords, howWords, picturesOf, type Col
 import { pressMark } from "@/lib/press-mark"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 
 /* The products page's own measures (../products-client.tsx), so the two pages are one place. */
 const BAR_BUTTON_SIZE = "lg:h-[35px] lg:px-[13px] lg:text-[14.5px]"
@@ -70,6 +71,14 @@ export interface SaveBody {
 
 export function CollectionsClient({ initialCollections, products }: { initialCollections: Collection[]; products: CollectionProduct[] }) {
   const [list, setList] = React.useState(initialCollections)
+  /* The server's list again (a refresh: a change of the store's currency converts price conditions): it is the truth from here, as Coupons does. */
+  const [seen, setSeen] = React.useState(initialCollections)
+  if (seen !== initialCollections) {
+    setSeen(initialCollections)
+    setList(initialCollections)
+  }
+  /* A price condition is in the store's currency: "Price is less than 30 lei". */
+  const storeCurrency = useStoreCurrency()
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   const [notice, say] = usePill()
   const [ask, confirmSheet] = useConfirm()
@@ -200,7 +209,7 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
                         )}
                         <span className="tabular-nums">{countWords(c.productIds.length)}</span>
                         <Sep />
-                        <span>{howWords(c)}</span>
+                        <span>{howWords(c, storeCurrency)}</span>
                       </span>
                     </span>
                   </li>
@@ -240,7 +249,7 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
                           </button>
                         </div>
                       </td>
-                      <td className="hidden truncate bg-white px-3 text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">{howWords(c)}</td>
+                      <td className="hidden truncate bg-white px-3 text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">{howWords(c, storeCurrency)}</td>
                       <td className="whitespace-nowrap bg-white px-3 group-hover:bg-[#fafafb] lg:px-[13px]">
                         <StatusMark published={c.published} strong={c.published} />
                       </td>

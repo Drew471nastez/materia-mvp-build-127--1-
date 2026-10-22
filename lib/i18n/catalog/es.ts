@@ -4226,6 +4226,7 @@ const words: Record<string, string> = {
  "Main goal": "Objetivo principal",
  "Main menu": "Menú principal",
  "Make ${value} in sales": "Vende ${value}",
+ "Make {amount} in sales": "Vende {amount}",
  "Make a list in Klaviyo first (Audience › Lists & segments), then check again.": "Crea primero una lista en Klaviyo (Audience › Lists & segments) y vuelve a comprobar.",
  "Make a member": "Hacer miembro",
  "Make a moderator": "Hacer moderador",

@@ -53,6 +53,7 @@ import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
 import { MorphLines } from "@/components/app/morph-lines"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 
 /** How tall the chart is, and the band under the plot that holds the dates. */
 const CHART_H = 200
@@ -226,8 +227,8 @@ const METRICS_OF: Record<"store" | "onepage", Array<{ keys: Key[]; kind: AxisKin
   ],
 }
 
-const tickFor = (kind: AxisKind, step: number) => (v: number) =>
-  kind === "percent" ? compactPercent(v / 100) : kind === "money" ? compactMoney(v, step) : compactCount(v)
+const tickFor = (kind: AxisKind, step: number, currency?: string) => (v: number) =>
+  kind === "percent" ? compactPercent(v / 100) : kind === "money" ? compactMoney(v, step, currency) : compactCount(v)
 
 function maxOf(data: AnalyticsChartData[], keys: Key[]): number {
   let max = 0
@@ -285,10 +286,11 @@ function AnalyticsChartWithTooltipInner({
     [chartDisplayData, visibleKeys, compareKey, isPercent, isMoney],
   )
 
-  /** One formatter, used to write the numbers on the axis and to measure how wide they are. */
+  /** One formatter, used to write the numbers on the axis and to measure how wide they are. Money in the store's currency (/app's LiveStoreCurrency). */
+  const currency = useStoreCurrency()
   const axisTick = useCallback(
-    (v: number) => tickFor(isPercent ? "percent" : isMoney ? "money" : "count", scale.step)(v),
-    [isPercent, isMoney, scale.step],
+    (v: number) => tickFor(isPercent ? "percent" : isMoney ? "money" : "count", scale.step, currency)(v),
+    [isPercent, isMoney, scale.step, currency],
   )
   const axisLabels = useMemo(() => scale.ticks.map(axisTick), [scale.ticks, axisTick])
   /*
@@ -300,10 +302,10 @@ function AnalyticsChartWithTooltipInner({
   const plotLeft = useMemo(() => {
     const widths = METRICS_OF[analyticsMode].map(({ keys, kind }) => {
       const sc = fixedScale(maxOf(chartDisplayData, keys), kind === "count")
-      return axisWidth(sc.ticks.map(tickFor(kind, sc.step)), 11, 8)
+      return axisWidth(sc.ticks.map(tickFor(kind, sc.step, currency)), 11, 8)
     })
     return Math.max(axisWidth(axisLabels, 11, 8), ...widths)
-  }, [analyticsMode, chartDisplayData, axisLabels])
+  }, [analyticsMode, chartDisplayData, axisLabels, currency])
 
   /*
     THE LINES: the chosen metric in the first slot whatever it is, so a tab

@@ -1036,7 +1036,8 @@ export function DashboardClient({
         : readFacts,
     [readFacts, homeAnswer?.allTime, totals.totalOrders, totals.totalRevenue],
   )
-  const progress = useMemo(() => homeProgress(facts), [facts])
+  /* The revenue goal is said in the store's currency, which the revenue is counted in. */
+  const progress = useMemo(() => homeProgress(facts, storeCurrencyCode), [facts, storeCurrencyCode])
   const hasProducts = facts.products > 0
   const hasPayouts = facts.paymentsReady
   /**

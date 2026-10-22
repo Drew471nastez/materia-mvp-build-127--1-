@@ -75,6 +75,8 @@ export function TaxesPanel() {
   const [error, setError] = React.useState<string | null>(null)
   const [creating, setCreating] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<string | null>(null)
+  /* Read with every other hook, before the early returns below: a hook after them ran only once the setup had come. */
+  const liveCurrency = useStoreCurrencyIfSet()
   /* What the overview says, read again whenever the setup changes, so the status line under Tax is never behind a switch. */
   const overview = useTaxOverview(setup ? `${setup.enabled}:${setup.digital}:${setup.regions.length}` : "")
 
@@ -113,7 +115,6 @@ export function TaxesPanel() {
     /* No outline of itself: the settings fade in when they come (settings-content-in). */
     return <div className="min-h-[360px]" aria-busy="true" />
   }
-  const liveCurrency = useStoreCurrencyIfSet()
   const currency = (liveCurrency || setup.currency || "USD").toUpperCase()
   const suggested = setup.detectedCountry && !setup.regions.some((r) => r.country === setup.detectedCountry) ? setup.detectedCountry : null
 
