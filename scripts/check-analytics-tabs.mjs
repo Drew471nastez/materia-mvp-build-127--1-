@@ -159,7 +159,7 @@ try {
     })
     console.log("  load:", JSON.stringify(load))
     /* SHOTS=<dir>: the page as the seller sees it, whole, for the visual review. */
-    if (process.env.SHOTS) { mkdirSync(process.env.SHOTS, { recursive: true }); const undo = await p.evaluate(() => { const sc = document.querySelector(".page-scroll"); const box = sc.parentElement; const was = [sc.style.cssText, box.style.cssText]; sc.style.height = "auto"; sc.style.overflow = "visible"; box.style.height = "auto"; return was }); await p.screenshot({ path: join(process.env.SHOTS, `analytics-${vp.width}.png`), fullPage: true }); await p.evaluate((was) => { const sc = document.querySelector(".page-scroll"); sc.style.cssText = was[0]; sc.parentElement.style.cssText = was[1] }, undo) }
+    if (process.env.SHOTS) { mkdirSync(process.env.SHOTS, { recursive: true }); const tall = await p.evaluate(() => document.querySelector(".page-scroll").scrollHeight + 60); await p.setViewport({ ...vp, height: tall }); await sleep(400); await p.screenshot({ path: join(process.env.SHOTS, `analytics-${vp.width}.png`) }); await p.setViewport(vp); await sleep(400) }
     expect(load.switchers !== null && load.switchers - load.paint < 50, "every switcher is on the first paint, not after the answer", { paint: load.paint, switchers: load.switchers, onFirstPaint: load.firstPaintSwitchers, final: load.switcherCount })
     expect(load.addedReports !== null && load.addedReports - load.paint < 50, "the reports the seller added are there on the first paint", load.addedReports)
     expect(load.cls < 0.01, "nothing shifts while the page loads", load.cls)
@@ -194,7 +194,11 @@ try {
     expect(sw.max < 50 || cpu > 1, "no switch drops a frame past 50ms", sw.max)
     expect(sw.cls < 0.01, "switching shifts nothing", sw.cls)
 
-    /* Add report: the picker, a report added, moved and removed, in place. */
+    /* Add report: the picker, a report added, moved and removed, in place. An older checkout (PAGE_ROOT) without it is measured for the rest. */
+    const hasPicker = await p.evaluate(() => !!document.querySelector("[data-add-more]"))
+    if (!hasPicker) console.log("  note  no Add more on this page: the picker is not measured")
+    let inFrames = null
+    if (hasPicker) {
     const reads = () => p.evaluate(() => ({ reports: window.__fetches.filter((f) => f.url.includes("/api/analytics/reports")).length, puts: window.__fetches.filter((f) => f.method === "PUT").map((f) => f.body) }))
     const order = () => p.evaluate(() => [...document.querySelectorAll("[data-analytics-cards] [data-report-menu]")].map((b) => b.getAttribute("data-report-menu")))
     const r0 = await reads()
@@ -206,7 +210,7 @@ try {
     if (process.env.SHOTS) await p.screenshot({ path: join(process.env.SHOTS, `analytics-picker-${vp.width}.png`) })
     await p.evaluate(() => document.querySelector("[data-report-choice=sessions]").click())
     await sleep(200)
-    const inFrames = await p.evaluate(() => new Promise((resolve) => {
+    inFrames = await p.evaluate(() => new Promise((resolve) => {
       const t0 = performance.now()
       document.querySelector("[data-add-reports-save]").click()
       let n = 0
@@ -235,6 +239,7 @@ try {
     const r2 = await reads()
     expect((await order()).join() === "pageviews,sessions" && /^\{"reports":\["pageviews","sessions"\]\}$/.test(r2.puts[r2.puts.length - 1] || ""), "Remove report takes it off and saves the rest in their order", { order: await order(), put: r2.puts[r2.puts.length - 1] })
     expect(r2.reports === r0.reports, "moving and removing read nothing again", r2.reports - r0.reports)
+    }
 
     expect(errors.length === 0, "no errors", errors.slice(0, 3))
     results[vp.width] = { load, switching: sw, added: inFrames }
