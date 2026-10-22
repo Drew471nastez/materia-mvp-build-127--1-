@@ -440,7 +440,8 @@ change values, not the file: each value is in \`config/settings.json\`${shopify 
 default you leave as it is stays the default.${shopify ? ` To draw one of
 these where the theme wants it, declare its id in
 \`shopify/config/settings_schema.json\`: the builder then shows it there and
-leaves it out of Hover and focus, and the value stays where it is.` : ""} Menus
+leaves it out of Hover and focus, and the value stays where it is. Storelib's
+comment on that commit says where each one now shows.` : ""} Menus
 are \`menus\` in the same file, as Navigation in the builder shows them.${shopify ? " Colour schemes are under \`\"shopify\"\` by the theme's own setting id, usually \`color_schemes\`." : ` Colour schemes are \`color_schemes\`: a built-in one keeps there only what differs from its colours, which \`${PLATFORM_SETTINGS_PATH}\` lists.`}
 
 ## Live preview in the builder

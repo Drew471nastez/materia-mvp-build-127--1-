@@ -34,6 +34,7 @@ import { applyPush, exportSite, platformDefinitionNote, type GitHubLink } from "
 import { PLATFORM_SETTINGS_PATH, readsBack, roleOf } from "@/lib/github-sync/layout"
 import { agentsGuide } from "@/lib/github-sync/core"
 import {
+  placementNotes,
   LIVE_PREVIEW_EVENTS,
   checkPlatformValues,
   compatThemeGroups,
@@ -294,6 +295,26 @@ async function main() {
     check("checkPlatformValues takes a value its control takes", checkPlatformValues({ shopify: { storelib_button_hover_effect: "lift" } }, {}, "shopify").notes.length === 0)
     check("platformSettingsDoc is the same for the same theme", JSON.stringify(platformSettingsDoc("shopify")) === JSON.stringify(platformSettingsDoc("shopify")))
     check("LIVE_PREVIEW_EVENTS names the two canvas events", LIVE_PREVIEW_EVENTS.map((e) => e.event).join() === "storelib:settings-change,storelib:section-load")
+  }
+
+  {
+    console.log("\nA push that places Storelib's settings is told where each now shows")
+    const schema = (groups: Record<string, string[]>) => JSON.stringify(Object.entries(groups).map(([name, ids]) => ({ name, settings: ids.map((id) => ({ id, type: "color", label: id })) })))
+    const none = schema({ Buttons: ["button_radius"] })
+    const three = schema({ Buttons: ["storelib_button_hover_bg", "storelib_button_hover_text", "storelib_button_hover_effect"] })
+    const all = schema({ Buttons: ["storelib_button_hover_bg", "storelib_button_hover_text", "storelib_button_hover_border", "storelib_button_hover_effect"], Links: ["storelib_link_hover"], "Form fields": ["storelib_input_border", "storelib_input_focus", "storelib_input_radius"] })
+    const placed = placementNotes(none, three)
+    check("each id the theme now declares: shown in its group, out of Hover and focus", placed.length === 3 && placed.every((n) => /now shows in Theme settings › Buttons/.test(n) && /no longer in Hover and focus/.test(n)), placed)
+    check("  the panel stays while it still has settings of its own", !placed.some((n) => /is no longer shown/.test(n)))
+    const moved = placementNotes(three, all)
+    check("placing the rest says each group, and that the panel is gone", moved.some((n) => /storelib_link_hover.*Links/.test(n)) && moved.some((n) => /storelib_input_radius.*Form fields/.test(n)) && moved.some((n) => /Hover and focus is no longer shown/.test(n)), moved)
+    check("  ids already placed are not said again", !moved.some((n) => /storelib_button_hover_bg/.test(n)))
+    const back = placementNotes(three, none)
+    check("an id the theme stops declaring is said to be back in Hover and focus", back.length === 3 && back.every((n) => /shows in Hover and focus again/.test(n)), back)
+    check("an unchanged schema says nothing", placementNotes(three, three).length === 0)
+    check("a schema that does not read says nothing", placementNotes(three, "{not json").length === 3 && placementNotes("{", "{").length === 0)
+    const src = (await import("node:fs")).readFileSync("lib/github-sync/sync.ts", "utf8")
+    check("the push writes these notes on the commit for shopify/config/settings_schema.json", /f\.path === SETTINGS_SCHEMA_FILE\) for \(const note of placementNotes\(snap\.files\[f\.path\]/.test(src))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

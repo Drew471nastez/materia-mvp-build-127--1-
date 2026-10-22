@@ -110,6 +110,49 @@ export function compatPlatformGroup(declared: ReadonlySet<string>): PanelGroup |
   return kept.length ? { name: HOVER_GROUP.name, settings: kept } : null
 }
 
+/** The group of a theme's settings_schema.json each Storelib setting it declares sits in: id to group name. */
+function placedIn(text: string | null | undefined): Map<string, string> {
+  const out = new Map<string, string>()
+  let groups: unknown
+  try {
+    groups = typeof text === "string" && text.trim() ? JSON.parse(text) : []
+  } catch {
+    return out
+  }
+  if (!Array.isArray(groups)) return out
+  const mine = new Set(HOVER_GROUP.settings.filter((f) => f.type !== "header").map((f) => f.id))
+  for (const g of groups) {
+    if (!isObj(g) || !Array.isArray(g.settings)) continue
+    const name = typeof g.name === "string" && g.name.trim() ? g.name.trim() : "a group of its own"
+    for (const f of g.settings) if (isObj(f) && typeof f.id === "string" && mine.has(f.id) && !out.has(f.id)) out.set(f.id, name)
+  }
+  return out
+}
+
+/**
+ * What a push of an imported theme's settings_schema.json is told about
+ * Storelib's own settings: each one the theme now places, and the group it
+ * shows in; each one it stopped placing, back in Hover and focus; and when
+ * the theme places them all, that the panel is gone.
+ */
+export function placementNotes(beforeText: string | null | undefined, afterText: string | null | undefined): string[] {
+  const before = placedIn(beforeText)
+  const after = placedIn(afterText)
+  const label = (id: string) => {
+    const f = HOVER_GROUP.settings.find((x) => x.id === id) as { label?: unknown } | undefined
+    return typeof f?.label === "string" && f.label ? ` (${f.label})` : ""
+  }
+  const notes: string[] = []
+  for (const [id, group] of after) {
+    if (before.get(id) !== group) notes.push(`\`${id}\`${label(id)} now shows in Theme settings › ${group}, where this file puts it, and no longer in ${HOVER_GROUP.name}`)
+  }
+  for (const id of before.keys()) {
+    if (!after.has(id)) notes.push(`\`${id}\`${label(id)} is no longer declared here, so it shows in ${HOVER_GROUP.name} again`)
+  }
+  if (notes.length && !compatPlatformGroup(new Set(after.keys()))) notes.push(`${HOVER_GROUP.name} is no longer shown: this theme places every one of its settings`)
+  return notes
+}
+
 /** The groups Theme settings lists for an imported theme: the theme's own panel, then what is left of Storelib's. */
 export function compatThemeGroups(panel: PanelGroup[]): PanelGroup[] {
   const own = Array.isArray(panel) ? panel : []
