@@ -29,9 +29,8 @@
 
 import { resolveSectionColors, type SchemeColorKey } from "@/lib/storelib-theme/color-schemes"
 import { houseStyleFindings, readHouseStyle } from "./house-style"
-import { schemaOf, type SchemaMap } from "./schemas"
+import { blockCatalogFor, schemaOf, type SchemaMap } from "./schemas"
 import type { BlockInstance, SchemaField, SectionInstance } from "../types"
-import { themeBlockCatalog } from "../storelib-schemas"
 import type { ThemeState } from "./operations"
 
 export interface Finding {
@@ -484,7 +483,7 @@ const MEDIA_TYPES = new Set(["image_picker", "video_picker", "video_url", "image
 
 function themeBlockTexts(section: SectionInstance, schemas?: SchemaMap): { block: BlockInstance; texts: string[] }[] | null {
   if (!schemaOf(schemas, section.type)?.accepts?.length) return null
-  const catalog = themeBlockCatalog()
+  const catalog = blockCatalogFor(schemas)
   const out: { block: BlockInstance; texts: string[] }[] = []
   const walk = (list: BlockInstance[] | undefined) => {
     for (const block of list ?? []) {

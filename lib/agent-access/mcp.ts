@@ -171,7 +171,7 @@ export const PROJECT_TOOLS = [
   },
   {
     name: "storelib_read_project",
-    description: "The whole project in one read: the site brief, every page, the creator's own section types, and what is open in the builder right now.",
+    description: "The whole project in one read: the site brief, every page, the creator's own section types, the theme blocks Add block offers, where each part of Theme settings is (Storelib's own settings, menus, colour schemes), and what is open in the builder right now.",
     inputSchema: NONE,
   },
   {
@@ -223,7 +223,7 @@ export const PROJECT_TOOLS = [
   },
   {
     name: "storelib_update_styles",
-    description: "Change settings: colours, colour scheme, button colours and hover, spacing, alignment, type, backgrounds. scope \"section\" (section_id), \"block\" (section_id, block_id) or \"theme\" for the whole site. Checked against what the section declares. A restore point is taken first.",
+    description: "Change settings: colours, colour scheme, button colours and hover, spacing, alignment, type, backgrounds. scope \"section\" (section_id), \"block\" (section_id, block_id) or \"theme\" for the whole site: the theme's settings, its own config/settings_schema.json ones included, menus, colour schemes, and on an imported theme Storelib's Hover and focus (storelib_* ids). Checked against what the section or theme declares. A restore point is taken first.",
     inputSchema: {
       type: "object",
       properties: { scope: { type: "string", enum: ["section", "block", "theme"] }, page: PAGE, section_id: { type: "string" }, block_id: { type: "string" }, settings: SETTINGS },

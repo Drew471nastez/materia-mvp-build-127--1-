@@ -307,9 +307,60 @@ export async function setStatus(
   })
 }
 
-/** A comment on a commit: every file a push could not bring in, each with its line and its fix. */
-export async function commentOnCommit(token: string, repo: string, sha: string, body: string) {
-  await call(`/repos/${repo}/commits/${encodeURIComponent(sha)}/comments`, token, { method: "POST", body: { body: body.slice(0, 60_000) }, step: "status" })
+/**
+ * A comment on a commit: what a push brought in, and every file it could not,
+ * each with its line and its fix. Its address, for the status's Details link:
+ * a comment is read with the repository's Contents access, which anyone who
+ * can read the code has, where the builder's address needs a Storelib login.
+ */
+export async function commentOnCommit(token: string, repo: string, sha: string, body: string): Promise<{ html_url: string | null }> {
+  const made = await call<{ html_url?: string } | undefined>(`/repos/${repo}/commits/${encodeURIComponent(sha)}/comments`, token, { method: "POST", body: { body: body.slice(0, 60_000) }, step: "status" })
+  return { html_url: typeof made?.html_url === "string" ? made.html_url : null }
+}
+
+/** The ref Storelib keeps its word on each push in, as git notes. */
+export const NOTES_REF = "refs/notes/storelib"
+
+/**
+ * The same words as a git note on the commit, in refs/notes/storelib, so an
+ * agent with nothing but a clone reads them:
+ *
+ *   git fetch origin refs/notes/storelib:refs/notes/storelib
+ *   git notes --ref=storelib show <commit>
+ *
+ * A notes commit is a tree with one file per annotated commit, named by its
+ * sha. Built on the ref's head and moved forward; one retry when another
+ * note landed in between. Never on a branch, so no push of it is read.
+ */
+export async function noteOnCommit(token: string, repo: string, sha: string, text: string): Promise<void> {
+  for (let round = 0; round < 2; round++) {
+    let head: string | null = null
+    try {
+      const ref = await call<{ object: { sha: string } }>(`/repos/${repo}/git/ref/notes/storelib`, token, { step: "ref" })
+      head = ref.object.sha
+    } catch (e) {
+      if (!(e instanceof GitHubError && (e.status === 404 || e.status === 409))) throw e
+    }
+    const base = head ? (await call<{ tree: { sha: string } }>(`/repos/${repo}/git/commits/${head}`, token, { step: "commit" })).tree.sha : undefined
+    const tree = await call<{ sha: string }>(`/repos/${repo}/git/trees`, token, {
+      method: "POST",
+      body: { ...(base ? { base_tree: base } : {}), tree: [{ path: sha, mode: "100644", type: "blob", content: text.slice(0, 60_000) }] },
+      step: "tree",
+    })
+    const commit = await call<{ sha: string }>(`/repos/${repo}/git/commits`, token, {
+      method: "POST",
+      body: { message: `Storelib: what it took from ${sha.slice(0, 7)}`, tree: tree.sha, parents: head ? [head] : [] },
+      step: "commit",
+    })
+    try {
+      if (head) await call(`/repos/${repo}/git/refs/notes/storelib`, token, { method: "PATCH", body: { sha: commit.sha, force: false }, step: "write-ref" })
+      else await call(`/repos/${repo}/git/refs`, token, { method: "POST", body: { ref: NOTES_REF, sha: commit.sha }, step: "write-ref" })
+      return
+    } catch (e) {
+      if (round === 0 && e instanceof GitHubError && e.status === 422) continue
+      throw e
+    }
+  }
 }
 
 /** One change in a commit: a file's new text or bytes, or its removal. */

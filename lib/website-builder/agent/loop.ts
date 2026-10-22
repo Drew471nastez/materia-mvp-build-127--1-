@@ -57,10 +57,10 @@ import {
 } from "./operations"
 import { describeHouseStyle, readHouseStyle } from "./house-style"
 import { blockAt, countAll, resolvePath } from "../block-tree"
-import { addableBlocks, themeBlockCatalog } from "../storelib-schemas"
+import { addableBlocks } from "../storelib-schemas"
 import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import { describeFindings, reviewSections } from "./review"
-import { nameOf as typeName, schemaMapFor, schemaOf, type SchemaMap } from "./schemas"
+import { blockCatalogFor, nameOf as typeName, schemaMapFor, schemaOf, type SchemaMap } from "./schemas"
 import { ASK_TOOL, questionText, readAsk } from "./ask"
 import { applySourceEdits } from "./code-edits"
 import { describeRecent, lastQuestion, type RecentMessage } from "./memory"
@@ -3297,7 +3297,7 @@ function execute(
       const parentPath = parentKey ? resolvePath(section.blocks, parentKey) : []
       if (!parentPath) return { output: `${section.type} has no block "${parentKey}" to add inside. Its blocks are listed by read_section.` }
       const parentBlock = parentPath.length ? blockAt(section.blocks, parentPath)?.block ?? null : null
-      const catalog = themeBlockCatalog()
+      const catalog = blockCatalogFor(schemas)
       const specs = parentBlock
         ? addableBlocks({ accepts: catalog[parentBlock.type]?.accepts }, catalog)
         : blockSpecs(section.type, schemas)

@@ -9,7 +9,12 @@
  * change. Now the repository is the theme:
  *
  *   README.md, AGENTS.md, CLAUDE.md, storelib.json   written by Storelib
- *   config/settings.json        the theme's settings          (read back)
+ *   config/settings.json        the theme's settings, every   (read back)
+ *                               one of Storelib's own with
+ *                               its default written out
+ *   config/storelib_settings_   what Storelib adds to Theme   (reference)
+ *     schema.json               settings: ids, types, labels,
+ *                               options, defaults, groups
  *   config/settings_schema.json what those settings are       (read back:
  *                               the theme's own groups over
  *                               Storelib's, see lib/storelib-
@@ -33,6 +38,17 @@ import { sectionsFromTemplate } from "@/lib/storelib-theme/package"
 import { inGroup, splitGroups } from "@/lib/storelib-theme/section-groups"
 import { FOOTER_GROUP_PATH, HEADER_GROUP_PATH, OVERLAY_GROUP_PATH, packageFilesFromPages } from "@/lib/website-builder/theme-pages"
 import type { Template } from "@/lib/storelib-theme/types"
+import {
+  COMPAT_PANEL_PATH,
+  LIVE_PREVIEW_EVENTS,
+  PLATFORM_SETTINGS_PATH,
+  compatPlatformGroup,
+  declaredIds,
+  platformSettingsDoc,
+  readPanel,
+  withPlatformValues,
+  type ThemeKind,
+} from "@/lib/storelib-theme/platform-settings"
 
 /** Written into storelib.json, so a tool can tell what it is reading. */
 export const REPO_FORMAT = "storelib-repo/1"
@@ -51,6 +67,7 @@ export const SETTINGS_SCHEMA_PATH = "config/settings_schema.json"
 /** Shopify's name for the values file: taken as config/settings.json is, with what it leaves out kept. */
 export const SETTINGS_DATA_PATH = "config/settings_data.json"
 export const MANIFEST_PATH = "storelib.json"
+export { PLATFORM_SETTINGS_PATH }
 export const GENERATED = new Set(["README.md", "AGENTS.md", "CLAUDE.md", MANIFEST_PATH])
 const GROUP_FILES: Record<string, "header" | "footer" | "overlay"> = {
   [HEADER_GROUP_PATH]: "header",
@@ -112,6 +129,8 @@ export function roleOf(path: string, opts: { compat: boolean }): RepoRole {
   if (!safeRepoThemePath(path)) return "outside"
   if (GENERATED.has(path)) return "generated"
   if (path === SETTINGS_PATH) return "settings"
+  /* What Storelib adds to Theme settings: its own, to read; the values are in config/settings.json. */
+  if (path === PLATFORM_SETTINGS_PATH) return "reference"
   /* Shopify's name for the values file, read into the same settings (lib/storelib-theme/theme-config.ts). */
   if (path === SETTINGS_DATA_PATH && !opts.compat) return "settings"
   /* The theme's own Theme settings, over Storelib's: read back like any theme file. */
@@ -175,6 +194,8 @@ export interface ThemeSnapshot {
   media?: Record<string, Uint8Array>
   /** Pictures that could not be fetched, by name, with why. */
   mediaSkipped?: { name: string; reason: string }[]
+  /** `settings.menus` are the store's (store_menus), shared by every theme: a change to them is written there too. */
+  storeMenus?: boolean
 }
 
 export interface RepoFile {
@@ -217,6 +238,25 @@ export function overridesOf(snap: Pick<ThemeSnapshot, "files" | "defaults" | "re
 const json = (v: unknown) => JSON.stringify(v, null, 2) + "\n"
 
 /**
+ * What Storelib's own settings are for this theme: which kind, the ids an
+ * imported theme's panel declares itself (those are the theme's, and leave
+ * Storelib's group), a Storelib theme's own settings_schema.json.
+ */
+export function platformContext(snap: Pick<ThemeSnapshot, "compat" | "files">): { kind: ThemeKind; declared: Set<string>; themeSchemaText: string | null } {
+  return {
+    kind: snap.compat ? "shopify" : "storelib",
+    declared: snap.compat ? declaredIds(readPanel(snap.files[COMPAT_PANEL_PATH])) : new Set<string>(),
+    themeSchemaText: snap.compat ? null : (snap.files[SETTINGS_SCHEMA_PATH] ?? null),
+  }
+}
+
+/** The settings as config/settings.json holds them: the builder's, with Storelib's defaults written out. */
+export function repoSettings(snap: Pick<ThemeSnapshot, "compat" | "files" | "settings">): Record<string, unknown> {
+  const ctx = platformContext(snap)
+  return withPlatformValues(snap.settings ?? {}, ctx.kind, ctx)
+}
+
+/**
  * Every file of the theme as the repository holds it, plus what was left
  * out and why. Deterministic: the same theme gives the same bytes, so an
  * export of a site that has not changed sends nothing.
@@ -257,8 +297,19 @@ export function themeFiles(
   /* The theme's own file when it has one (put above, with its other files); Storelib's groups, to start from, when it has none. */
   if (!snap.compat && snap.settingsSchema !== undefined && !(SETTINGS_SCHEMA_PATH in snap.files)) put({ path: SETTINGS_SCHEMA_PATH, text: json(snap.settingsSchema), role: "theme-file" })
 
-  /* The settings and the pages, as the builder has them. */
-  put({ path: SETTINGS_PATH, text: json(snap.settings ?? {}), role: "settings" })
+  /* The settings and the pages, as the builder has them; Storelib's own settings with their defaults, and what they are. */
+  const platform = platformContext(snap)
+  put({ path: SETTINGS_PATH, text: json(repoSettings(snap)), role: "settings" })
+  put({ path: PLATFORM_SETTINGS_PATH, text: json(platformSettingsDoc(platform.kind, platform)), role: "reference" })
+  /* An imported theme's panel as the builder lists it: the theme's groups, then Storelib's, saying whose it is. */
+  if (snap.compat && typeof snap.files[COMPAT_PANEL_PATH] === "string") {
+    const own = readPanel(snap.files[COMPAT_PANEL_PATH])
+    const mine = compatPlatformGroup(platform.declared)
+    if (own.length || mine) {
+      const listed = [...own, ...(mine ? [{ name: mine.name, source: "storelib", defined_in: PLATFORM_SETTINGS_PATH, values_in: `${SETTINGS_PATH} under "shopify"`, settings: mine.settings }] : [])]
+      put({ path: COMPAT_PANEL_PATH, text: json(listed), role: "reference" })
+    }
+  }
   for (const [path, text] of Object.entries(packageFilesFromPages(snap.pages))) put({ path, text, role: roleOf(path, compat) })
 
   /* An imported theme's pictures, fetched by the caller. */
@@ -308,7 +359,20 @@ export function themeFiles(
     reads_back: snap.compat
       ? ["config/settings.json", "templates/*.json", "sections/*-group.json", "sections/*.storelib", "blocks/*.storelib", "snippets/*.storelib", "layout/*.storelib", "shopify/** (pictures excepted)"]
       : ["config/settings.json", "config/settings_data.json", "config/settings_schema.json", "templates/*.json", "sections/*-group.json", "sections/*.storelib", "blocks/*.storelib", "assets/*", "locales/*"],
-    reference_only: ["README.md", "AGENTS.md", "CLAUDE.md", "storelib.json", ...(snap.compat ? ["shopify/assets/<pictures>", "shopify/config/assets.json", "shopify/config/settings_panel.json"] : ["sections/<type>.json"])],
+    reference_only: ["README.md", "AGENTS.md", "CLAUDE.md", "storelib.json", PLATFORM_SETTINGS_PATH, ...(snap.compat ? ["shopify/assets/<pictures>", "shopify/config/assets.json", "shopify/config/settings_panel.json"] : ["sections/<type>.json"])],
+    platform_settings: {
+      defined_in: PLATFORM_SETTINGS_PATH,
+      values_in: SETTINGS_PATH,
+      values_at: snap.compat ? "shopify" : "",
+      panels: (platformSettingsDoc(platform.kind, platform).panels as { name: string; shown: boolean }[]).filter((p) => p.shown).map((p) => p.name),
+      theme_placement: snap.compat
+        ? "A storelib_* id the theme's shopify/config/settings_schema.json declares is drawn where the theme puts it and left out of Storelib's panel."
+        : "config/settings_schema.json may move, relabel or change the default of a Storelib setting; it keeps its id, type and group.",
+    },
+    live_preview: {
+      about: "Events the builder's canvas dispatches when the creator changes something, so a script can redraw in place.",
+      events: LIVE_PREVIEW_EVENTS.map((e) => ({ ...e })),
+    },
     edited_built_ins: overrides.map((o) => o.path),
     left_out: skipped.map((s) => s.path).sort(),
   }
@@ -477,6 +541,7 @@ export function repoReadme(opts: { siteName: string; branch: string; root: strin
         ["blocks/, snippets/, layout/", "The theme's blocks, snippets and page shell, the same way.", "Yes"],
         ["shopify/", "The theme's own files as they were imported: templates for account pages, config, locales, CSS, JavaScript and fonts. `shopify/config/settings_schema.json` is the theme settings; the builder's Theme settings are made from it.", "Yes, pictures excepted"],
         ["shopify/assets/<pictures>", "The theme's pictures and videos, to look at. Upload a new one in Storelib's Files.", "No"],
+        ["config/storelib_settings_schema.json", "The settings Storelib adds to Theme settings (Hover and focus): ids, types, labels, options, defaults and the group each shows in. Their values are in `config/settings.json` under `shopify`.", "No, the values are"],
       ]
     : [
         ["config/settings.json", "The theme settings' values: colours, fonts, logo, menus. A `config/settings_data.json` in the usual theme shape, `{ \"current\": { ... } }`, is taken the same way, and what it leaves out stays as it is.", "Yes"],
@@ -486,6 +551,7 @@ export function repoReadme(opts: { siteName: string; branch: string; root: strin
         ["sections/*.storelib", "Every section: Storelib's built-in ones and this site's own.", "Yes"],
         ["sections/<type>.json", "A built-in section Storelib draws itself. Its schema is here to read.", "No"],
         ["blocks/*.storelib", "Theme blocks any section can hold.", "Yes"],
+        ["config/storelib_settings_schema.json", "Storelib's own Theme settings: ids, types, labels, options, defaults and the group each shows in. Their values are in `config/settings.json`.", "No, the values are"],
       ]
   const edited = opts.overrides.length
     ? `\nThis site has its own copy of ${opts.overrides.length === 1 ? "one built-in file" : `${opts.overrides.length} built-in files`}: ${opts.overrides.map((o) => `\`${o.path}\``).join(", ")}.\n`
@@ -514,6 +580,18 @@ ${opts.compat
     ? "Every section here is the theme's own. Change it in place."
     : "Edit it in place, for example `sections/hero.storelib`. Storelib keeps your version as this site's own copy and draws it on this site only; every other Storelib site keeps the built-in one. In the builder it is marked Edited in GitHub, with Reset to Storelib's version. A built-in Storelib draws itself (a `sections/<type>.json` here) changes the same way: write `sections/<type>.storelib` with the same setting ids."}
 ${edited}
+## Settings Storelib adds
+
+${opts.compat
+    ? "Theme settings in the builder show the theme's own groups and then Storelib's Hover and focus: buttons on hover (background, text, border, effect), links on hover, and fields (border, focus ring, corner radius)."
+    : "Theme settings in the builder are Storelib's groups (logo, colours, type, buttons, layout, cards, cart, social links, cookies, animations, menus) with this theme's `config/settings_schema.json` laid over them."} \`config/storelib_settings_schema.json\` lists each one with its id, type, label, options, default and group. Their values are in \`config/settings.json\`${opts.compat ? " under `shopify`" : ""}, each written out, defaults included; change a value there and push.${opts.compat ? " If the theme's own `shopify/config/settings_schema.json` declares one of these ids, the builder draws it where the theme puts it instead." : ""}
+
+## Live preview
+
+In the builder, a change is drawn in the canvas without reloading the page. A script of the theme's hears it:
+
+${LIVE_PREVIEW_EVENTS.map((e) => `- \`${e.event}\`: ${e.when}`).join("\n")}
+
 ## Adding a section
 
 Add \`sections/<type>.storelib\` (lower case, digits, \`_\` and \`-\`). To put it on a page, add it to that page's \`templates/<page>.json\` in the same push, or leave that to the creator in the builder. The format is at https://storelib.com/developers/sections, and the schema settings at https://storelib.com/developers/schema.

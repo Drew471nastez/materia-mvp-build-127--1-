@@ -27,12 +27,12 @@
  */
 
 import { SECTION_ANIMATION_OPTIONS, isChromeType } from "../section-anchors"
-import { nameOf, schemaOf, type SchemaMap } from "./schemas"
+import { blockCatalogFor, nameOf, schemaOf, type SchemaMap } from "./schemas"
 import { THEME_SETTINGS_GROUPS } from "../theme-settings-schema"
 import type { ThemeSettingsGroup } from "../types"
 import type { BlockInstance, BlockSchema, SchemaField, SectionInstance } from "../types"
 import { blockAt, countAll, freshBlocks, insertAt, moveAt, removeAt, resolvePath, updateAt } from "../block-tree"
-import { addableBlocks, themeBlockCatalog } from "../storelib-schemas"
+import { addableBlocks } from "../storelib-schemas"
 import { acceptsType } from "@/lib/storelib-theme/schema/validate"
 
 /** The theme state an operation acts on. Exactly what the editor holds. */
@@ -406,7 +406,7 @@ function writableFields(type: string, schemas?: SchemaMap): SchemaField[] {
 }
 
 function writableBlockFields(sectionType: string, blockType: string, schemas?: SchemaMap): SchemaField[] {
-  return ((blockSpecs(sectionType, schemas).find((b) => b.type === blockType) ?? themeBlockCatalog()[blockType])?.fields ?? []).filter(
+  return ((blockSpecs(sectionType, schemas).find((b) => b.type === blockType) ?? blockCatalogFor(schemas)[blockType])?.fields ?? []).filter(
     (f) => !NOT_A_SETTING.has(f.type),
   )
 }
@@ -444,6 +444,7 @@ export function describeField(f: SchemaField): string {
         const values = (f.options ?? []).map((o) => o.value)
         return values.length > 0 ? `one of ${values.join(" | ")}` : "a string"
       }
+      case "checkbox":
       case "toggle":
         return "true or false"
       case "range":
@@ -558,6 +559,8 @@ export function checkSettings(
         break
       }
 
+      /* Shopify's name for the same control: a theme's own settings_schema.json writes it. */
+      case "checkbox":
       case "toggle": {
         if (typeof value === "string" && (value === "true" || value === "false")) {
           notes.push(`${id}: "${value}" read as ${value === "true"}`)
@@ -627,13 +630,13 @@ export function checkSettings(
 export function blockSpecs(sectionType: string, schemas?: SchemaMap): BlockSchema[] {
   const schema = schemaOf(schemas, sectionType)
   if (schema?.blocks?.length) return schema.blocks
-  return addableBlocks(schema, themeBlockCatalog())
+  return addableBlocks(schema, blockCatalogFor(schemas))
 }
 
 /** The schema of a block of `type` placed directly in the section (parentType null) or inside a block of `parentType`. */
 export function blockSpecFor(sectionType: string, parentType: string | null, type: string, schemas?: SchemaMap): BlockSchema | undefined {
   if (parentType === null) return blockSpecs(sectionType, schemas).find((b) => b.type === type)
-  const catalog = themeBlockCatalog()
+  const catalog = blockCatalogFor(schemas)
   const parent = catalog[parentType]
   return parent?.accepts?.length && acceptsType(parent.accepts, type) ? catalog[type] : undefined
 }
@@ -726,7 +729,7 @@ export function describeSection(section: SectionInstance, schemas?: SchemaMap): 
     )
     const blocks = section.blocks ?? []
     /* Blocks inside blocks, indented, each with the path the block tools take. */
-    const catalog = themeBlockCatalog()
+    const catalog = blockCatalogFor(schemas)
     const lines: string[] = []
     const walk = (list: BlockInstance[], above: string[], indent: string) => {
       list.forEach((b, i) => {
