@@ -1405,6 +1405,16 @@ html.capacitor body {
   [data-wb-full] #wb-preview-root .wb-ring { opacity: 0 !important; }
   @keyframes wb-ring-in { from { opacity: 0; } }
   /*
+   * A SECTION BEING EDITED HOLDS STILL (lib/website-builder/edit-still.ts).
+   * Its buttons and colours do not ease towards a value under a finger, so
+   * the canvas shows each value in the frame it arrives in. The selection
+   * ring keeps its own fade.
+   */
+  #wb-preview-root :is([data-wb-still], [data-wb-still-theme]),
+  #wb-preview-root :is([data-wb-still], [data-wb-still-theme]) :not(.wb-ring),
+  #wb-preview-root :is([data-wb-still], [data-wb-still-theme]) :not(.wb-ring)::before,
+  #wb-preview-root :is([data-wb-still], [data-wb-still-theme]) :not(.wb-ring)::after { transition: none !important; }
+  /*
    * THE FIELD A CANVAS CLICK LANDED ON (editor page.tsx, fieldFocus). A violet
    * ring round the field, held for a moment and then faded, 1600ms in all
    * (FIELD_FLASH_MS). An outline, so it takes no room and moves nothing.

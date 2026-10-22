@@ -73,8 +73,10 @@ import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { THEME_ROOT_ATTRIBUTE, themeVars } from "@/lib/website-builder/theme-css"
+import { holdStill, STILL_THEME_ATTR } from "@/lib/website-builder/edit-still"
+import { changedThemeKeys, drawnByVariablesAlone } from "@/lib/website-builder/theme-variables-only"
 import { schemeColoursOnly, schemeVarWriter, type SchemeRoot } from "@/lib/website-builder/scheme-var-patch"
-import { deferLive, echoBlockSetting, echoSectionSetting, isLive, reconcileEchoes, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
+import { deferLive, echoBlockSetting, echoSectionSetting, echoThemeSetting, isLive, reconcileEchoes, reconcileThemeEcho, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
 import { useOnScreenSections } from "@/lib/website-builder/on-screen-sections"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { PAGE_META } from "@/lib/website-builder/types"
@@ -3756,6 +3758,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* A change drawn ahead of the deferred canvas is only ever what the editor holds now (lib/website-builder/live-settings.ts, echoes). */
   useLayoutEffect(() => {
     reconcileEchoes((id) => sectionsRef.current.find((s) => s.id === id))
+    reconcileThemeEcho(settingsRef.current as Record<string, unknown>)
   })
   const settingsRef = useRef(settingsDraft)
   settingsRef.current = settingsDraft
@@ -5246,6 +5249,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* The favicon is one value in Website settings and in an imported theme's own settings (lib/website-builder/favicon-sync.ts): a write of one carries the other. */
     const follows = faviconFollows(settingsRef.current as Record<string, unknown>, key, value)
     if (sameSettingValue(settingsRef.current[key], value) && !follows) return
+    /* Drawn on the sections on screen now, ahead of the deferred canvas (live-settings.ts, echoThemeSetting). An imported theme's canvas draws its page whole either way. */
+    if (!compatInstall) echoThemeSetting(key, value)
     debouncedPushUndo(`theme:${key}`)
     setSettingsDraft(prev => ({ ...prev, [key]: value, ...faviconFollows(prev as Record<string, unknown>, key, value) }))
 
@@ -12145,9 +12150,11 @@ function canvasThemePatcher(get: {
     the committed theme for it (byVariables).
   */
   const schemes = schemeVarWriter()
+  const committedVars = new WeakMap<object, Record<string, string>>()
   const letGo = (el: HTMLElement, keys: Set<string>) => {
     for (const k of keys) el.style.removeProperty(k)
     written.delete(el)
+    holdStill(el, STILL_THEME_ATTR, false)
   }
   const patch = (theme: ThemeSettingsValues) => {
     const root = document.querySelector<HTMLElement>(`#wb-preview-root [${THEME_ROOT_ATTRIBUTE}]`)
@@ -12172,7 +12179,9 @@ function canvasThemePatcher(get: {
       schemes.write(base as unknown as Record<string, unknown>, theme as unknown as Record<string, unknown>, roots)
     } else schemes.letGo(base as unknown as Record<string, unknown>)
     const want = themeVars(theme)
-    const was = themeVars(base)
+    /* The committed theme's, once per theme: a drag patches against the same one every move. */
+    let was = committedVars.get(base)
+    if (!was) committedVars.set(base, (was = themeVars(base)))
     const changed = Object.keys(want).filter((k) => want[k] !== was[k])
     /* A variable written in terms of a changed one is substituted where it is declared, so it is written again there too. */
     for (const [k, v] of Object.entries(want)) if (!changed.includes(k) && changed.some((c) => v.includes(`var(${c})`))) changed.push(k)
@@ -12191,6 +12200,8 @@ function canvasThemePatcher(get: {
         own.add(k)
       }
       written.set(el, own)
+      /* Its buttons and colours drawn at the value, not eased towards it (lib/website-builder/edit-still.ts). */
+      holdStill(el, STILL_THEME_ATTR, true)
     }
     for (const [el, keys] of [...written]) if (!seen.has(el)) letGo(el, keys)
     if (root && changed.includes("--theme-bg")) {
@@ -12325,7 +12336,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
       settingsOf: (id) => sectionsNowRef.current.find((s) => s.id === id)?.settings as Record<string, unknown> | undefined,
     }),
   )
-  const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
+  /* With a committed theme setting's echo too: the sections on screen show a switch or a choice before the page is drawn again whole. */
+  const theme = useLiveTheme(committedTheme, patchCanvasThemeVars, { echoes: true })
   /*
     And only by the sections on screen while it is live: the rest keep the
     committed theme, so their memo holds, until the commit draws the page
@@ -12336,8 +12348,18 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   const onScreen = useOnScreenSections(sectionIds, themeLive, CANVAS_ON_SCREEN)
   idsRef.current = sectionIds
   onScreenRef.current = onScreen
+  /*
+    A value the page only reads as a variable (a corner radius, a page width)
+    is the variables alone: no section is drawn again for it, every section
+    keeps the committed theme until the release draws the page once
+    (lib/website-builder/theme-variables-only.ts).
+  */
+  const variablesAlone = useMemo(
+    () => themeLive && drawnByVariablesAlone(changedThemeKeys(theme as Record<string, unknown>, committedTheme as Record<string, unknown>), sources),
+    [themeLive, theme, committedTheme, sources],
+  )
   /* A section whose scheme colours are written as its variables keeps the committed theme too (canvasThemePatcher, A SCHEME COLOUR, ONLY ITS VARIABLES). */
-  const themeFor = (id: string) => (!themeLive || (onScreen(id) && !patchCanvasThemeVars.byVariables(id)) ? theme : committedTheme)
+  const themeFor = (id: string) => (!themeLive || (!variablesAlone && onScreen(id) && !patchCanvasThemeVars.byVariables(id)) ? theme : committedTheme)
   /**
    * The same navigate, already marked as coming from the site's navigation.
    * Memoised, because it is handed to every chrome section on every render
