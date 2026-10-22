@@ -176,9 +176,9 @@ async function cookies() {
 
 async function headers() {
   section("What a page says about how it may be kept")
-  const { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY } = await import("@/lib/storelib-theme/compat/anonymous-cache")
-  check("a stranger's page: a minute on the CDN, never served stale (a background refresh would miss the proxy)", PUBLIC_PAGE_CACHE === "public, s-maxage=60")
-  check("  by country and how it was asked for, never by Cookie (Vercel's CDN stores nothing that varies by it)", PUBLIC_PAGE_VARY === "X-Vercel-IP-Country, CF-IPCountry, Sec-Fetch-Dest" && !/cookie/i.test(PUBLIC_PAGE_VARY))
+  const { PUBLIC_PAGE_CACHE } = await import("@/lib/storelib-theme/compat/anonymous-cache")
+  /* Changed on purpose: main moved a stranger's page from the CDN to the server's hold, which Publish expires at once (anonymous-cache.ts, "No longer the CDN's"). The cookie rule above still decides who reaches that hold. */
+  check("a stranger's page: held on the server under the site's tag, never by a shared cache Publish can't reach", PUBLIC_PAGE_CACHE === "private, no-cache")
 }
 
 /* ── 3. Round trips, and where each page went ────────────────────────────── */
