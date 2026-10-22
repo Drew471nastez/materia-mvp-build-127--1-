@@ -257,6 +257,15 @@ html[data-sl-dark] [data-member-profile] [data-profile-top-bar] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) :is([role="menu"], [role="listbox"]:not([aria-orientation="horizontal"]), [role="dialog"], [data-account-menu]):not([data-own-look], [data-own-look] *) {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 18px 48px -12px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06);
 }
+/*
+  THE GREY FILL (round 38, the owner: "that light gray gradient, not the purple one"): a share bar behind a list row
+  in Analytics (app/app/analytics/analytics-reports.tsx GREY_FILL). Dark, it is a neutral graphite step with the same
+  lit top edge, never violet and never a white wash.
+*/
+:is(html[data-sl-dark], [data-community-theme="dark"]) [data-fill="grey"]:not([data-own-look], [data-own-look] *) {
+  background-image: linear-gradient(180deg, #2a2a2f 0%, #242428 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 0 1px rgba(255,255,255,0.04), 0 1px 2px rgba(0,0,0,0.3) !important;
+}
 /* Pictures sit a touch below full brightness on the dark ground, never washed. */
 :is(html[data-sl-dark], [data-community-theme="dark"]) img:not([data-keep-bright]):not([data-own-look], [data-own-look] *) {
   filter: brightness(0.96);
@@ -733,6 +742,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[preview-card\]\:bg-\[\#eceef1\]:not([data-own-look], [data-own-look] *)[data-preview-card] { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=checked\]\:bg-\[\#111113\]:not([data-own-look], [data-own-look] *)[data-state="checked"] { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:bg-\[\#f1f2f4\]:not([data-own-look], [data-own-look] *)[data-state="open"] { background-color: #25252a; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:bg-\[\#f8f9fa\]:not([data-own-look], [data-own-look] *)[data-state="open"] { background-color: #25252a; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:border-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[data-state="open"] { border-color: rgba(255,255,255,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:border-\[\#eceef1\]:not([data-own-look], [data-own-look] *)[data-state="open"] { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=open\]\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[data-state="open"] { color: #ececee; }
@@ -1035,7 +1045,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.9\)\,0_0_0_1px_rgba\(15\,23\,42\,0\.07\)\,0_1px_2px_rgba\(15\,23\,42\,0\.10\)\,0_2px_6px_-2px_rgba\(15\,23\,42\,0\.12\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.072),0 0 0 1px rgba(15,23,42,0.07),0 1px 2px rgba(15,23,42,0.10),0 2px 6px -2px rgba(15,23,42,0.12); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.9\)\,0_1px_2px_rgba\(15\,23\,42\,0\.06\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.072),0 1px 2px rgba(15,23,42,0.06); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.9\)\,0_1px_2px_rgba\(16\,24\,40\,0\.08\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.072),0 1px 2px rgba(16,24,40,0.08); }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.95\)\,inset_0_0_0_1px_rgba\(16\,24\,40\,0\.045\)\,0_1px_2px_rgba\(16\,24\,40\,0\.05\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.076),inset 0 0 0 1px rgba(16,24,40,0.045),0 1px 2px rgba(16,24,40,0.05); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_1\.5px_rgba\(15\,23\,42\,0\.07\)\,inset_0_-1px_0_rgba\(255\,255\,255\,0\.45\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 1.5px rgba(15,23,42,0.07),inset 0 -1px 0 rgba(255,255,255,0.036); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_2px_rgba\(0\,0\,0\,0\.45\)\,inset_0_0_0_0\.5px_rgba\(255\,255\,255\,0\.06\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 2px rgba(0,0,0,0.45),inset 0 0 0 0.5px rgba(255,255,255,0.005); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_2px_rgba\(0\,0\,0\,0\.5\)\,0_0_0_0\.5px_rgba\(0\,0\,0\,0\.5\)\,0_1px_0_rgba\(255\,255\,255\,0\.6\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 2px rgba(0,0,0,0.5),0 0 0 0.5px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.048); }
