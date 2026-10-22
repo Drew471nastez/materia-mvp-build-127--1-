@@ -52,7 +52,7 @@ export const MISSING_INK = "#9ca3af"
 
 /** The camera (lucide's), in the middle third of a 100 by 100 square, transparent around it. */
 export const CAMERA_PATHS = `<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>`
-const FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><g transform="translate(34 34) scale(1.3333)" fill="none" stroke="${MISSING_INK}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${CAMERA_PATHS}</g></svg>`
+const FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><svg x="34" y="34" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="${MISSING_INK}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${CAMERA_PATHS}</svg></svg>`
 
 /** What a failed picture is pointed at. A data address: nothing to fetch, nothing that can fail again. */
 export const FALLBACK_SRC = `data:image/svg+xml,${encodeURIComponent(FALLBACK_SVG)}`

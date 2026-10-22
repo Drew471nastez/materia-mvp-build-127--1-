@@ -2104,7 +2104,7 @@ function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile |
   )
 }
 
-/** Several at once (Files, Select): how many, and that anything still showing them will show nothing. */
+/** Several at once (Files, Select): how many, and that any still in use stay where they show. */
 function ConfirmDeleteMany({ files, busy, onClose, onConfirm }: { files: LibraryFile[] | null; busy: boolean; onClose: () => void; onConfirm: (list: LibraryFile[]) => void }) {
   const phone = usePhoneNow()
   const list = useLastOpen(files)
