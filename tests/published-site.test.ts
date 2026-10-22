@@ -194,7 +194,7 @@ function main() {
       const renamed = cache.indexOf('["site-renamed", lower]')
       return /revalidate: NAME_TTL/.test(cache.slice(named, named + 200)) && /revalidate: NAME_TTL/.test(cache.slice(renamed, renamed + 200))
     })())
-    check("the purge outlives what it is purging", /revalidateTag\(creatorSiteTag\(creatorId\), \{ expire: SITE_TTL \}\)/.test(cache))
+    check("the purge expires what it purges at once (a stale entry is the old theme for one more visitor)", /revalidateTag\(creatorSiteTag\(creatorId\), \{ expire: 0 \}\)/.test(cache))
 
     /**
      * THE ONE LINE THAT WOULD TURN ALL OF THIS OFF WITHOUT SAYING SO. Read

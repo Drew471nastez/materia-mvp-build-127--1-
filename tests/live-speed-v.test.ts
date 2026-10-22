@@ -96,7 +96,7 @@ function cacheRules() {
 function publishClears() {
   section("Publish, and a product saved, clear what was held")
   const site = code("lib/website-builder/published-site.ts")
-  check("Publish clears the site's data", /revalidateTag\(creatorSiteTag\(creatorId\), \{ expire: SITE_TTL \}\)/.test(site))
+  check("Publish expires the site's data at once, never stale-while-revalidate", /revalidateTag\(creatorSiteTag\(creatorId\), \{ expire: 0 \}\)/.test(site))
   check("and every rendered page, at every name the site answers to", /for \(const name of await siteNames\(creatorId\)\) revalidatePath\(`\/w\/\$\{name\}`, "layout"\)/.test(site))
   const publish = code("app/api/website-builder/themes/[installId]/publish/route.ts")
   check("the publish route calls it", /await revalidatePublishedSite\(creator\.id\)/.test(publish))
@@ -133,7 +133,7 @@ async function databaseBudget() {
   check("Publish purges the rendered site at its name", nextCache.purgedPaths.some((p) => p.path === `/w/${SITE.username}` && p.type === "layout"), nextCache.purgedPaths)
   const afterPublish = await visit(() => publishedSiteByName(SITE.username, "home"))
   await settle()
-  check("and the site's data is read again for the next visitor (in the background at most)", afterPublish.foreground + afterPublish.background > 0)
+  check("and the site's data is read again for the next visitor, before it is served", afterPublish.foreground > 0, afterPublish)
 
   /*
     ROUND 36: HOW MANY OF THEM IN A ROW. The count above is what the

@@ -121,6 +121,11 @@ export function siteFactsFor(db: Db, name: string, now = Date.now()): Promise<Si
   return read
 }
 
+/** The shared read for one name, forgotten: the next question about it reads again (proxy.ts, a renderer saying the answer is old). */
+export function forgetSharedSiteFacts(name: string) {
+  shared.delete(name.toLowerCase())
+}
+
 /** For tests: forget everything held. */
 export function forgetSiteFacts() {
   shared.clear()
