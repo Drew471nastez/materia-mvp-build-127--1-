@@ -204,7 +204,7 @@ import { themeCountries } from "@/lib/markets/compat-prices"
 import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
 import type { LanguageSwitchPreview, SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import type { CompatMarkets } from "@/components/website-builder/compat/compat-canvas"
-import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
+import { CanvasStillHost, swapCanvasPage } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
 
@@ -4693,21 +4693,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * the canvas goes from the old page straight to the new one with no
        * frame in between.
        *
-       * And the old one is held over it, copied, until the new one is drawn
-       * with its first pictures in, then faded off it (lib/website-builder/
-       * canvas-still.ts). Not over an imported theme's canvas, whose frames
-       * cross-fade on their own (compat-canvas.tsx).
+       * And the old one stays on screen, whole, until this one is drawn with
+       * its first pictures in, and then this one replaces it in one frame
+       * (lib/website-builder/canvas-still.ts). The same cut the live site
+       * makes. Not over an imported theme's canvas, whose frames hand over
+       * on their own (compat-canvas.tsx).
        */
-      if (!importedTheme.current) holdCanvasStill(() => currentPageRef.current === page)
-      setCurrentPage(page)
-      setSelectedProductPage(null)
-      setSelectedProductId(null)
-      setEditAllProductPages(false)
-      setSections(merged)
-      updatePageUrl(page)
-
-      setSectionsLoading(false)
-      setCanvasLoading(false)
+      const show = () => {
+        setCurrentPage(page)
+        setSelectedProductPage(null)
+        setSelectedProductId(null)
+        setEditAllProductPages(false)
+        setSections(merged)
+        updatePageUrl(page)
+        setSectionsLoading(false)
+        setCanvasLoading(false)
+      }
+      if (!importedTheme.current) swapCanvasPage(show)
+      else show()
     } catch (err) {
       /* The page you were on stays, and says why it is still there; the sidebar's skeleton and the canvas's hold go. */
       pageOpenFailed(err)
@@ -4753,32 +4756,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        being fetched ends now, before the one move it was protecting. */
     openingPage.current = false
     document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
-  }, [currentPage, selectedProductPage])
-  /**
-   * ANOTHER PAGE FADES IN, briefly, rather than replacing the last one in a
-   * single frame. Opacity only, on the page inside the canvas, never below a
-   * third: it is the same canvas, showing a different page. Not on the
-   * editor's first draw, which is not a change of page.
-   */
-  const pageShown = useRef<string | null>(null)
-  useLayoutEffect(() => {
-    const key = `${currentPage}|${selectedProductPage ?? ""}`
-    const before = pageShown.current
-    pageShown.current = key
-    if (before === null || before === key) return
-    /*
-      NOT FOR AN IMPORTED THEME. Its canvas still shows the page being left
-      at this moment (the next one is drawing under it, compat-canvas.tsx)
-      and swaps them itself once the next is drawn, so this dimmed the old
-      page to a third and brought it back, a white flash over About before
-      Home had even appeared (scripts/check-canvas20.ts).
-    */
-    if (importedTheme.current) return
-    const page = document.getElementById("wb-preview-root")?.firstElementChild as HTMLElement | null
-    const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
-    /* The page being left is held over this one and fades off it (canvas-still.ts): fading this one up as well showed the white behind both. */
-    if (document.querySelector(`[${CANVAS_STILL_ATTR}]`)) return
-    if (page && !calm && typeof page.animate === "function") page.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "ease-out" })
   }, [currentPage, selectedProductPage])
   /* Opened by a link to one of its sections (`/about#section-x`): from the
      top down to it, once the canvas has drawn it. The canvas draws a
@@ -4896,16 +4873,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Splice home's header/footer around this product template
     const merged = mergeWithHomeHeaderFooter(pageSections, homeHF)
 
-    /** One commit: the page, the product it is showing, and its sections, under the page being left (see handlePageChange). */
-    if (!importedTheme.current) holdCanvasStill(() => selectedProductIdRef.current === productId)
-    setSelectedProductPage(productTitle)
-    setSelectedProductId(productId)
-    setCurrentPage("product")
-    setSections(merged)
-    updatePageUrl("product", slugForUrl)
-
-    setSectionsLoading(false)
-    setCanvasLoading(false)
+    /** One commit: the page, the product it is showing, and its sections. The page being left stays until this one is drawn, then this one replaces it in one frame (see handlePageChange). */
+    const show = () => {
+      setSelectedProductPage(productTitle)
+      setSelectedProductId(productId)
+      setCurrentPage("product")
+      setSections(merged)
+      updatePageUrl("product", slugForUrl)
+      setSectionsLoading(false)
+      setCanvasLoading(false)
+    }
+    if (!importedTheme.current) swapCanvasPage(show)
+    else show()
   }
 
   // ── Editor-internal navigation ─────────────────────────────
@@ -11568,6 +11547,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           </div>
           {!isMobileView && <CanvasScrollbar targetId="wb-preview-root" />}
+          {/* The page being left, held here until the next one is drawn (canvas-still.ts). */}
+          <CanvasStillHost />
           {/* end of the rounded clipping wrapper */}
           </div>
           {/* The selected section's own toolbar, over the canvas. Only with

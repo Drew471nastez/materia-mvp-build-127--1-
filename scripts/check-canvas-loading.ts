@@ -22,10 +22,11 @@
  *     a page (no white, no outline), and the page changes
  *
  * And the builder's own theme (no imported theme), with its sections answered
- * slowly: a page opened from the switcher is held under the page it replaces
- * and crossfaded (lib/website-builder/canvas-still.ts), never faded up from
- * white; and a page whose sections answer 500 says so and leaves the page on
- * screen.
+ * slowly: a page opened from the switcher keeps the page it replaces whole
+ * until the next one is drawn, then replaces it in one frame
+ * (lib/website-builder/canvas-still.ts), never faded up from white and never
+ * with both pages on screen; and a page whose sections answer 500 says so
+ * and leaves the page on screen.
  *
  * Prints what it measured. Exits 1 on any failure.
  */
@@ -33,7 +34,6 @@ import { createServer } from "node:http"
 import { readFileSync } from "node:fs"
 import JSZip from "jszip"
 import puppeteer, { type Page } from "puppeteer-core"
-import { convertShopifyTheme } from "../lib/storelib-theme/shopify/convert"
 
 let failed = 0
 const check = (label: string, ok: boolean, detail = "") => {
@@ -43,25 +43,28 @@ const check = (label: string, ok: boolean, detail = "") => {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 async function main() {
+  /* ONLY=native measures the builder's own theme and needs no imported zip. */
+  const only = process.env.ONLY ?? ""
   const zipPath = process.argv[2]
-  if (!zipPath) { console.log("usage: npx tsx scripts/check-canvas-loading.ts <theme.zip>"); process.exit(2) }
+  if (!zipPath && only !== "native") { console.log("usage: npx tsx scripts/check-canvas-loading.ts <theme.zip>"); process.exit(2) }
   const { bundle, css } = (await import("./editor-probe-harness.mjs")) as { bundle: string; css: string }
-  const r = await convertShopifyTheme(await JSZip.loadAsync(readFileSync(zipPath)))
-  if (!r.ok) throw new Error(r.error)
-  const sources = Object.fromEntries(Object.entries(r.theme.files).filter(([p]) => p.endsWith(".storelib")))
-  const files = Object.fromEntries(Object.entries(r.theme.files).filter(([p, t]) => p.startsWith("shopify/") && !t.startsWith("base64:") && !/^shopify\/locales\/(?!.*\.default(\.schema)?\.json$)/.test(p)))
-  const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections]))
-  const compat = { settings: r.theme.settings, pages, sources, files }
+  const r = zipPath ? await (await import("../lib/storelib-theme/shopify/convert")).convertShopifyTheme(await JSZip.loadAsync(readFileSync(zipPath))) : null
+  if (r && !r.ok) throw new Error(r.error)
+  const themeFiles = r && r.ok ? r.theme.files : {}
+  const sources = Object.fromEntries(Object.entries(themeFiles).filter(([p]) => p.endsWith(".storelib")))
+  const files = Object.fromEntries(Object.entries(themeFiles).filter(([p, t]) => p.startsWith("shopify/") && !t.startsWith("base64:") && !/^shopify\/locales\/(?!.*\.default(\.schema)?\.json$)/.test(p)))
+  const pages = Object.fromEntries((r && r.ok ? r.theme.pages : []).map((p) => [p.page_key, p.sections]))
+  const compat = r && r.ok ? { settings: r.theme.settings, pages, sources, files } : null
   /* The first deferred script the theme's layout asks for: the one made to stall. */
-  const layout = String(Object.entries(r.theme.files).find(([p]) => /(^|\/)layout\/theme\.(liquid|storelib)$/.test(p))?.[1] ?? "")
+  const layout = String(Object.entries(themeFiles).find(([p]) => /(^|\/)layout\/theme\.(liquid|storelib)$/.test(p))?.[1] ?? "")
   const stallName = /['"]([\w.-]+\.js)['"]\s*\|\s*asset_url[^>]*>\s*<\/script>/.exec(layout)?.[1] ?? /['"]([\w.-]+\.js)['"]\s*\|\s*asset_url/.exec(layout)?.[1] ?? null
-  console.log(`${r.theme.name}: the canvas through a bad network${stallName ? ` (stalled script: ${stallName})` : ""}`)
+  console.log(`${r && r.ok ? r.theme.name : "native"}: the canvas through a bad network${stallName ? ` (stalled script: ${stallName})` : ""}`)
 
   let stall: string | null = null
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
     if (url.pathname === "/" || url.pathname === "/native") {
-      const head = url.pathname === "/native" ? "" : `window.PROBE_COMPAT=${JSON.stringify(compat).replace(/</g, "\\u003c")};`
+      const head = url.pathname === "/native" || !compat ? "" : `window.PROBE_COMPAT=${JSON.stringify(compat).replace(/</g, "\\u003c")};`
       const extra = url.searchParams.get("g") ?? ""
       res.writeHead(200, { "Content-Type": "text/html" })
       res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}</style></head><body><div id="app"></div><script>window.PROBE_SHORT=false;${head}${extra}</script><script src="/editor-probe.js"></script></body></html>`)
@@ -77,7 +80,7 @@ async function main() {
       const name = decodeURIComponent(asset[1])
       /* Never answered: the browser waits on it for as long as the page is open. */
       if (stall && name === stall) return
-      const text = r.theme.files[`shopify/assets/${name}`]
+      const text = themeFiles[`shopify/assets/${name}`]
       if (text === undefined) { res.writeHead(404, { "Access-Control-Allow-Origin": "*" }); res.end(); return }
       const type = name.endsWith(".css") ? "text/css" : name.endsWith(".js") ? "text/javascript" : name.endsWith(".svg") ? "image/svg+xml" : "text/plain"
       res.writeHead(200, { "Content-Type": type, "Access-Control-Allow-Origin": "*" })
@@ -118,7 +121,6 @@ async function main() {
   const drawn = (s: Awaited<ReturnType<typeof state>>) => s.frame && s.outline === "gone"
 
   /* ONLY=compat or ONLY=native runs the one half. */
-  const only = process.env.ONLY ?? ""
   try {
     if (only !== "native") {
     {
@@ -256,12 +258,15 @@ async function main() {
       const first = frames[0]?.types ?? ""
       const last = frames[frames.length - 1]?.types ?? ""
       const switched = frames.findIndex((f) => f.types !== first)
-      const heldAtSwitch = switched >= 0 && frames[switched].still && frames[switched].stillOpacity > 0.95
-      /* What is seen through: the copy over the page, or the page itself. White shows where both are faint. */
-      const faintest = Math.min(...frames.slice(Math.max(0, switched)).map((f) => (f.still ? 1 - (1 - f.stillOpacity) * (1 - f.pageOpacity) : f.pageOpacity)))
+      const at = switched >= 0 ? frames[switched] : null
+      /* A cut: the frame the page changes, the page on screen is whole. A fallback copy, if it is still up, is opaque. A fade of either is the white frame and the two pages at once. */
+      const heldAtSwitch = !!at && at.pageOpacity > 0.95 && (!at.still || at.stillOpacity > 0.95)
+      const faint = frames.filter((f) => f.pageOpacity < 0.95 && !(f.still && f.stillOpacity > 0.95))
+      const ghost = frames.filter((f) => f.still && f.stillOpacity > 0.04 && f.stillOpacity < 0.96)
       check("the builder's own theme: a page opened from the switcher changes the page", !!picked && last !== first && /about_image/.test(last), `${picked ?? "nothing"}: ${first} to ${last}`)
-      check("  the page being left is held over it, whole, on the frame it changes", heldAtSwitch, switched >= 0 ? JSON.stringify(frames[switched]) : "never switched")
-      check("  the canvas is never faded toward white", faintest > 0.95, `least opaque frame ${faintest.toFixed(2)}`)
+      check("  the page being left is held whole until the next one replaces it in one frame", heldAtSwitch, at ? JSON.stringify(at) : "never switched")
+      check("  the canvas is never faded toward white", faint.length === 0, `${faint.length} faint frames`)
+      check("  and the two pages are never on screen together", ghost.length === 0, `${ghost.length} blended frames`)
       const held = frames.filter((f) => f.still)
       const heldMs = held.length ? Math.round(held[held.length - 1].t - held[0].t) : 0
       check("  and the copy is gone afterwards", !frames[frames.length - 1].still, `held for ${heldMs}ms`)

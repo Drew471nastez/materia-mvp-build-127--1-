@@ -1,6 +1,6 @@
 /**
  * ===========================================================================
- *  AN IMPORTED THEME'S PAGE, HELD BY THE CDN FOR A STRANGER
+ *  AN IMPORTED THEME'S PAGE, DRAWN ONCE FOR EVERY STRANGER
  * ===========================================================================
  * Every page of an imported Shopify theme was drawn per request and sent
  * `private, no-cache`, so nothing was held anywhere and a visitor's first
@@ -16,9 +16,10 @@
  * that no other request is ever rewritten to. The handler, seeing the
  * marker, reads no cookie at all and takes the country, language and market
  * from the marker rather than from headers, so what is held under an address
- * is drawn from that address alone. It is then sent `public, s-maxage=60,
- * stale-while-revalidate=300` only if the answer is a plain page
- * (publicAnswer): a 200 page of HTML that set no cookie and changed no cart.
+ * is drawn from that address alone. It is then shared only if the answer is
+ * a plain page (publicAnswer): a 200 page of HTML that set no cookie and
+ * changed no cart. (It was held by the CDN too, until a Publish showed it
+ * could not be reached there: see below.)
  * A request typed straight at a marked address is refused by the proxy
  * before any cache is asked.
  *
@@ -52,19 +53,22 @@
  *   - a page the proxy is offering a language on (it sets a cookie)
  *   - the empty-the-cart link (?sl_cart=clear), which sets the cart cookie
  *
- * PUBLISH DOES NOT REACH IT. revalidateTag clears Storelib's data caches,
- * not a CDN's copy of a dynamic route's answer, so a page held here shows
- * the old site for up to its sixty seconds after a Publish (then one more
- * request while it is drawn again, stale-while-revalidate). That is the same
- * minute a built website's front page already has; it is why s-maxage stays
- * at sixty.
+ * NO LONGER THE CDN'S, ONLY THE HOLD'S. Publish could not reach a CDN copy:
+ * revalidateTag clears Next's caches, not a CDN's copy of a route's answer,
+ * so after every Publish a stranger was shown the previous theme for up to
+ * its sixty seconds. The marked address and every rule above still decide
+ * what is one stranger's page for everybody; what keeps it now is the hold
+ * (./stranger-hold.ts), in Next's data cache under the site's tag, which
+ * Publish expires at once on every server (lib/website-builder/
+ * published-site.ts revalidatePublishedSite). The page is still drawn once a
+ * minute rather than once a visit; the browser is told what any page of the
+ * theme says.
  */
 
-/** What a stranger's page is sent with. */
-/* No stale-while-revalidate: a background refresh on the CDN does not pass through the proxy again, so the handler would refuse it (its seal expired) and could replace a good copy with a 404. A minute, then drawn fresh. */
-export const PUBLIC_PAGE_CACHE = "public, s-maxage=60"
-/** And what it varies by: never Cookie, which Vercel's CDN refuses to store at all (see above). */
-export const PUBLIC_PAGE_VARY = "X-Vercel-IP-Country, CF-IPCountry, Sec-Fetch-Dest"
+/** What a stranger's page is sent with: what every page of a theme says (./site.ts pageHtml), which keeps Back and Forward instant and no shared cache holds. */
+export const PUBLIC_PAGE_CACHE = "private, no-cache"
+/** Said by the handler between its draw and the hold (never sent on): this answer may be handed to every stranger at its marked address. */
+export const SHAREABLE_HEADER = "x-storelib-shareable"
 
 /**
  * WHICH COOKIES MAKE A PAGE SOMEBODY'S. A page is drawn by Storelib's server,

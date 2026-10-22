@@ -96,7 +96,7 @@ function cacheRules() {
 function publishClears() {
   section("Publish, and a product saved, clear what was held")
   const site = code("lib/website-builder/published-site.ts")
-  check("Publish clears the site's data", /revalidateTag\(creatorSiteTag\(creatorId\), \{ expire: SITE_TTL \}\)/.test(site))
+  check("Publish expires the site's data at once, never stale-while-revalidate", /revalidateTag\(creatorSiteTag\(creatorId\), \{ expire: 0 \}\)/.test(site))
   check("and every rendered page, at every name the site answers to", /for \(const name of await siteNames\(creatorId\)\) revalidatePath\(`\/w\/\$\{name\}`, "layout"\)/.test(site))
   const publish = code("app/api/website-builder/themes/[installId]/publish/route.ts")
   check("the publish route calls it", /await revalidatePublishedSite\(creator\.id\)/.test(publish))
@@ -133,7 +133,7 @@ async function databaseBudget() {
   check("Publish purges the rendered site at its name", nextCache.purgedPaths.some((p) => p.path === `/w/${SITE.username}` && p.type === "layout"), nextCache.purgedPaths)
   const afterPublish = await visit(() => publishedSiteByName(SITE.username, "home"))
   await settle()
-  check("and the site's data is read again for the next visitor (in the background at most)", afterPublish.foreground + afterPublish.background > 0)
+  check("and the site's data is read again for the next visitor, before it is served", afterPublish.foreground > 0, afterPublish)
 
   /*
     ROUND 36: HOW MANY OF THEM IN A ROW. The count above is what the
@@ -190,7 +190,7 @@ async function strangerHold() {
   check("an answer that is not everybody's is drawn for each visitor, never reused", privateDraws === 2 && again.held === false)
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   check("the route checks the seal and the marker before it looks anything up", /if \(!\(await siteSealed\(req\.headers\.get\(SITE_SEAL_HEADER\), username, host\)\)\) return handle\(req, ctx\)/.test(route) && /stranger\.host !== host/.test(route))
-  check("and shares only a plain 200 marked public with no cookie", /share: res\.status === 200 && res\.headers\.get\("Cache-Control"\) === PUBLIC_PAGE_CACHE && !res\.headers\.has\("Set-Cookie"\)/.test(route))
+  check("and shares only a plain 200 the handler marked shareable, with no cookie", /share: res\.status === 200 && res\.headers\.get\(SHAREABLE_HEADER\) === "1" && res\.headers\.get\("Cache-Control"\) === PUBLIC_PAGE_CACHE && !res\.headers\.has\("Set-Cookie"\)/.test(route))
   check("GET goes through the hold; POST and HEAD never do", /export const GET = timed\("sites", "\/api\/site-theme\/site", handleHeld\)/.test(route) && /export const POST = timedHandle/.test(route) && /export const HEAD = handle/.test(route))
 }
 
