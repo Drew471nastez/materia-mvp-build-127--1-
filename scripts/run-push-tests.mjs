@@ -701,6 +701,8 @@ const SUITES = [
   "tests/community-analytics-r33.test.ts",
   /* Round 38: churn of the members at the start, the owner out of active members and engagement, modules and refunds in revenue (SQL part 274), five figures in the row, the grey fills (scripts/check-community-analytics-round38.mjs measures them). */
   "tests/community-analytics-r38.test.ts",
+  /* Round 39: the community Library: who opens an item, files and links only through routes that ask again, the admin's items and sections, a sold item through Storelib's own checkout (orders, receipts, the buyer's library), refunds, the places and the tab (SQL part 278; scripts/check-community-library-r39.mjs measures the screens). */
+  "tests/community-library-r39.test.ts",
   /* Round 32: questions before joining, a new member's first steps and welcome message, scheduled posts and drafts, inviting a list (SQL parts 186 to 188). */
   "tests/community-features-round32.test.ts",
   /* Round 26: the admin's Posts: one writer that posts, schedules in the creator's zone and keeps team drafts (part 194), the writer's slide, the community's own post popup (scripts/check-posts26.mjs films them). */
