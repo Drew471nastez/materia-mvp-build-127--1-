@@ -11,7 +11,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { allOwned, digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checkout/site-quote-server"
 import { packItems } from "@/lib/checkout/cart-items"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
-import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
+import { businessToMetadata, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
 import { METADATA_TOO_LARGE_MESSAGE, fitStripeMetadata } from "@/lib/checkout/stripe-metadata"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
@@ -310,8 +310,9 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   })
   if (limited) return limited
 
+  /* Company details only where the store offers company invoices (Settings › Checkout, businessInvoice): otherwise they are not asked for, and anything sent is ignored. */
   let business: ReturnType<typeof checkBusiness> | null = null
-  if (body.business !== undefined && body.business !== null) {
+  if (contact.config.businessInvoice && body.business !== undefined && body.business !== null) {
     business = checkBusiness(body.business)
     if (business.ok === false) return json({ error: business.error, field: business.field }, 400)
   }
@@ -319,7 +320,8 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   const origin = originFor(site, body)
   const attribution = await attributionForCheckout(admin, { creatorId: site.creatorId, source: "website", origin, sent: body.origin })
 
-  if (ships) return shippedIntent(request, admin, site, body, contact, origin, attribution)
+  /* A cart that ships, or ships with downloads in it: the company goes on the held checkout and on every order line it becomes. */
+  if (ships) return shippedIntent(request, admin, site, body, contact, origin, attribution, business?.ok ? business.value : null)
 
   if (decision.kind === "refuse" || priced.ok === false) return json({ error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }, decision.kind === "refuse" ? decision.status : 400)
   if (decision.kind === "free") return json({ error: "This order is free. Press Get it free.", free: true }, 409)
@@ -498,7 +500,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
 }
 
 /** A cart that ships: the held checkout, paid in Storelib's form (lib/physical/checkout-server, intent). */
-async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckout, body: Body, contact: Contact, origin: OrderOrigin, attribution: Awaited<ReturnType<typeof attributionForCheckout>>) {
+async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckout, body: Body, contact: Contact, origin: OrderOrigin, attribution: Awaited<ReturnType<typeof attributionForCheckout>>, business: BusinessDetails | null) {
   const { abandonCheckout, startCheckout } = await import("@/lib/physical/checkout-server")
   /* The order changed since the last Pay (the address, the delivery, the code): that checkout lets go of its stock first. */
   if (typeof body.replaces === "string" && body.replaces && body.replaces !== body.clientKey) {
@@ -533,6 +535,7 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
     emailOptIn: contact.optedIn,
     intent: true,
     paymentMethods: body.paymentMethods,
+    business,
   })
   if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
   /* Nothing to pay after all (a code took it to 0): startCheckout has placed it as a free order. Its thank you page, so Place order is never pressed for it a second time. */
@@ -668,6 +671,9 @@ async function cashOnDelivery(request: Request, admin: Admin, site: SiteOfChecko
     message: "Too many orders placed just now. Wait a few minutes and try again.",
   })
   if (limited) return limited
+  /* The company, as a card payment takes it: only where the store offers company invoices, checked by the same rule. */
+  const business = contact.config.businessInvoice && body.business !== undefined && body.business !== null ? checkBusiness(body.business) : null
+  if (business && business.ok === false) return json({ error: business.error, field: business.field }, 400)
   const origin = originFor(site, body)
   const attribution = await attributionForCheckout(admin, { creatorId: site.creatorId, source: "website", origin, sent: body.origin })
   const wholeCart = body.wholeCart === true
@@ -703,6 +709,7 @@ async function cashOnDelivery(request: Request, admin: Admin, site: SiteOfChecko
     config: contact.config,
     emailOptIn: contact.optedIn,
     intent: true,
+    business: business?.ok ? business.value : null,
     cashOnDelivery: true,
   })
   if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)

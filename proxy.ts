@@ -2608,8 +2608,10 @@ async function routeRequest(request: NextRequest) {
     */
     /* And the page a website's cover is taken of, shown small on the owner's Website page while its photograph is on its way (a pass for one install, two minutes). */
     /* And Settings' Google Analytics check, a blank page that loads the store's tag in a hidden frame of the settings page (app/api/store/ga-check). */
+    /* And the checkout text editor's preview, the website's own checkout in a frame of Settings (app/checkout/preview): it reads nothing and draws only what its parent on this origin posts to it. */
     const framableWhenEmbedded =
       url.pathname === "/onepage-preview" ||
+      url.pathname === "/checkout/preview" ||
       url.pathname === "/api/store/ga-check" ||
       url.pathname.startsWith("/cover-render/") ||
       /* The theme marketplace's live preview (app/(site)/theme-preview), framed by storelib.com/themes/<slug>. */

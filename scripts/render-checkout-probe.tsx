@@ -7,6 +7,7 @@
  */
 import * as React from "react"
 import CheckoutPageClient from "@/app/checkout/checkout-client"
+import { checkoutConfig } from "@/lib/store/checkout-config"
 
 declare global {
   interface Window {
@@ -46,6 +47,8 @@ export function boot(render: (el: React.ReactElement) => void) {
       creator={{ id: "c1", name: "Andrew Rullz", avatar_url: null, username: "andrewrullz" }}
       userEmail={null}
       isLoggedIn={false}
+      /* The store offers company invoices (Settings › Checkout, off by default): the probe measures "Buying for a business". */
+      checkoutConfig={checkoutConfig({ businessInvoice: true })}
       selectedVariant={free ? null : { id: "v1", name: "Pro licence", description: null, priceCents: 4900 }}
       allVariants={free ? [] : [
         { id: "v0", name: "Personal", description: null, priceCents: 2900 },

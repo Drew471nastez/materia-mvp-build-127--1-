@@ -7,6 +7,7 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 import CheckoutPageClient from "@/app/checkout/checkout-client"
+import { checkoutConfig } from "@/lib/store/checkout-config"
 
 createRoot(document.getElementById("app")!).render(
   <CheckoutPageClient
@@ -22,5 +23,7 @@ createRoot(document.getElementById("app")!).render(
     creator={{ id: "c1", name: "Luca Dragoste", avatar_url: null, username: "lucadragoste" }}
     userEmail={null}
     isLoggedIn={false}
+    /* The store offers company invoices (Settings › Checkout, off by default): the probe measures "Buying for a business". */
+    checkoutConfig={checkoutConfig({ businessInvoice: true })}
   />,
 )

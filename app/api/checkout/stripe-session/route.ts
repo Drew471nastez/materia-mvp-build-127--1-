@@ -84,11 +84,7 @@ async function handlePOST(request: Request) {
   })
   if (limited) return limited
 
-  let business: ReturnType<typeof checkBusiness> | null = null
-  if (body.business !== undefined && body.business !== null) {
-    business = checkBusiness(body.business)
-    if (business.ok === false) return NextResponse.json({ error: business.error, field: business.field }, { status: 400 })
-  }
+  let business: ReturnType<typeof checkBusiness> | null = body.business !== undefined && body.business !== null ? checkBusiness(body.business) : null
 
   const supabase = await createClient()
   const admin = createAdminClient()
@@ -127,6 +123,9 @@ async function handlePOST(request: Request) {
   const checkoutConfig = await loadCheckoutConfig(admin, creator.id)
   if (checkoutConfig.requireAccount && !user) return NextResponse.json({ error: "Sign in or create an account to check out.", code: "account_required" }, { status: 401 })
   if (checkoutConfig.requireConfirmedEmail && !user?.email_confirmed_at) return NextResponse.json({ error: "Confirm your email address to check out.", code: "email_unconfirmed" }, { status: 403 })
+  /* Company details only where the store offers company invoices (Settings › Checkout, businessInvoice): otherwise anything sent is ignored, never refused. */
+  if (!checkoutConfig.businessInvoice) business = null
+  if (business && business.ok === false) return NextResponse.json({ error: business.error, field: business.field }, { status: 400 })
   /* A product that sells a community tier: signed in, approved first when the community asks, never twice (lib/communities/server/join.ts). */
   if ((product as { community_id?: string | null }).community_id) {
     const { checkoutGate } = await import("@/lib/communities/server/join")

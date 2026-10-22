@@ -52,6 +52,16 @@ export interface CheckoutConfig {
   codFeeCents: number
   /** What the buyer reads under Cash on delivery at checkout and in the order email ("Have the exact amount ready"). "" for none. */
   codInstructions: string
+  /**
+   * "Buying for a business" at checkout: a buyer adds the company's name,
+   * tax number and address and gets an invoice made out to the company.
+   * Off until the seller turns it on (Settings › Checkout › Customer
+   * information); every checkout hides the box and every route that takes
+   * the payment ignores company details while it is off. SQL part 256 turned
+   * it on for the stores that had already had a company order or had filled
+   * in their own tax number for invoices.
+   */
+  businessInvoice: boolean
 }
 
 /** The largest cash on delivery fee, in hundredths: a fee, not a second price. */
@@ -72,6 +82,7 @@ export const DEFAULT_CHECKOUT: CheckoutConfig = {
   codCountries: [],
   codFeeCents: 0,
   codInstructions: "",
+  businessInvoice: false,
 }
 
 const RULES: FieldRule[] = ["off", "optional", "required"]
@@ -97,6 +108,7 @@ export function checkoutConfig(raw: unknown): CheckoutConfig {
     codCountries: countries(o.codCountries),
     codFeeCents: cents(o.codFeeCents, COD_FEE_MAX_CENTS),
     codInstructions: typeof o.codInstructions === "string" ? o.codInstructions.replace(/\s+/g, " ").trim().slice(0, COD_INSTRUCTIONS_MAX) : "",
+    businessInvoice: bool(o.businessInvoice, DEFAULT_CHECKOUT.businessInvoice),
   }
 }
 
