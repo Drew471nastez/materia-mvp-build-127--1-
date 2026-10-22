@@ -64,10 +64,30 @@ export function useBuyerTabsWhere(pathname: string): BuyerTabsWhere {
 }
 
 const readSignedIn = () => !!readAuthSnapshot()?.signedIn
+const unknown = () => null
 
-/** The same question, answered: true where the bar is drawn. */
+/**
+ * Whether somebody is signed in, as the header's record says (lib/auth/auth-snapshot.ts), or null where that cannot be
+ * known: on the server and while the page wakes up (round 39). The bar is then drawn marked for the record to settle
+ * before the first paint (components/nav/buyer-tab-bar.tsx), never guessed one way and corrected the other.
+ */
+export function useSignedInKnown(): boolean | null {
+  return useSyncExternalStore(subscribeAuthSnapshot, readSignedIn, unknown)
+}
+
+const noSubscribe = () => () => {}
+/* The class the root layout's first script puts on <html> in the app, before anything paints (app/layout.tsx). */
+const readNative = () => document.documentElement.classList.contains("capacitor")
+
+/** Inside the Storelib app (the Capacitor shell), or null where that cannot be known yet (the server, the page waking up). */
+export function useNativeShell(): boolean | null {
+  return useSyncExternalStore(noSubscribe, readNative, unknown)
+}
+
+/** The same question, answered: true where the bar is drawn (or, before the page is awake, may be: see useSignedInKnown). */
 export function useBuyerTabsHere(pathname: string): boolean {
   const exploreMarketplaceEnabled = useExploreMarketplaceEnabled()
-  const signedIn = useSyncExternalStore(subscribeAuthSnapshot, readSignedIn, () => false)
-  return buyerTabsBelongOn(pathname, { ...useBuyerTabsWhere(pathname), exploreMarketplaceEnabled, signedIn })
+  const signedIn = useSignedInKnown()
+  const native = useNativeShell()
+  return buyerTabsBelongOn(pathname, { ...useBuyerTabsWhere(pathname), exploreMarketplaceEnabled, signedIn: signedIn ?? undefined, native: native ?? false })
 }

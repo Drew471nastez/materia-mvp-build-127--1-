@@ -167,6 +167,17 @@ export function isBuyerPath(pathname: string, exploreMarketplaceEnabled = true):
  *   sellerSite      their subdomain. That is their site rather than
  *                   Storelib browsing, so nothing of ours goes over it.
  *   customDomain    their own domain, where none of this is drawn at all.
+ *
+ * SIGNED IN ONLY, IN A BROWSER (round 39, the owner: "inside Storelib when
+ * logged out it should not have on mobile the mobile bottom navigation
+ * bar"). Somebody signed out reads Storelib in a phone's browser with the
+ * header alone, on every page. `signedIn` left out (the server, and the
+ * page waking up, which cannot know) draws the bar marked for the person's
+ * own record to settle before the first paint (components/nav/
+ * buyer-tab-bar.tsx, SIGNED IN BEFORE THE FIRST PAINT). The app keeps the
+ * bar signed out too (`native`): it has no browser around it, and its
+ * signed-out start is Explore (lib/native-resume.ts), where the bar is the
+ * way to Library and Profile's Log in.
  */
 export function buyerTabsBelongOn(
   pathname: string,
@@ -179,8 +190,10 @@ export function buyerTabsBelongOn(
     sellerSite?: boolean
     customDomain?: boolean
     exploreMarketplaceEnabled?: boolean
-    /** False on a phone browser: a visitor reads About/join without Storelib's tab bar over it. */
+    /** False: signed out, and no bar in a browser (round 39). Left out: not known yet, the page decides before it paints. */
     signedIn?: boolean
+    /** Inside the Storelib app (the Capacitor shell), where the bar stays for somebody signed out outside a community. */
+    native?: boolean
   } = {},
 ): boolean {
   const exploreOn = where.exploreMarketplaceEnabled !== false
@@ -188,6 +201,7 @@ export function buyerTabsBelongOn(
   /* /account/continue is a redirect, never a page anybody sees. */
   if (under(pathname, "/account/continue")) return false
   if (where.sellerSite) return false
+  if (where.signedIn === false && !where.native) return false
   /* Inside a community, the bar for signed-in members only; visitors keep the join page clear. */
   if (communityOf(pathname)) return where.signedIn !== false
   if (under(pathname, "/community")) return false

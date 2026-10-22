@@ -8103,6 +8103,14 @@ html.capacitor .home-card li > :is(a, button):active {
   --buyer-tabs-bar: 56px;
   --buyer-tabs-room: calc(var(--buyer-tabs-bar) + env(safe-area-inset-bottom, 0px));
 }
+/* SIGNED IN ONLY, IN A BROWSER (round 39, components/nav/buyer-tab-bar.tsx
+   SIGNED IN BEFORE THE FIRST PAINT). The server draws the bar and its room
+   pending; the line printed before them marks <html> for somebody signed
+   in. Anybody else's first paint has neither the bar nor the room it keeps
+   at the foot of the page. The app keeps both. */
+html:not([data-sl-signed-in]):not(.capacitor) [data-tabs-auth="pending"] {
+  display: none;
+}
 @media (max-width: 767px) {
   html[data-buyer-tabs="shown"] {
     --buyer-tabs-h: var(--buyer-tabs-room);
