@@ -146,8 +146,9 @@ function draw(data: PlaceData, slug: string, communityId: string, renderProfile?
         channels alone, the main one first, and none at all when there is one channel (one group, as Telegram has it).
       */
       const channels = data.chatTab ? chatTabChannels(data.spaces, data.chatTab) : null
+      /* Round 39: the chat has the page's whole column (nothing is drawn to its right any more), not a 760px strip of it. */
       return (
-        <div className="max-w-[760px]">
+        <div data-chat-place="">
           {channels ? (
             channels.length > 1 ? (
               <div className="max-sm:hidden">

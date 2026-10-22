@@ -12,10 +12,11 @@
  * right under it the places in the community, each a quiet grey tile with
  * its icon (place-icons.tsx, drawn by hand on one grid in round 11; the open
  * one's tile is white with a hairline and a one pixel shadow, its icon a
- * touch heavier), a word and a chevron. Right: the next event, then the top contributors (or the most
+ * touch heavier), a word and a chevron. Under them (round 39, on the right
+ * until then): the next event, then the top contributors (or the most
  * active), each only when there is something real to show (lib/communities/
- * server/wall.ts). From 1024px to 1279px all of it stacks in the left
- * column. Invite is in the bar's "..." menu now, not on the card.
+ * server/wall.ts), at the card's width. Invite is in the bar's "..." menu
+ * now, not on the card.
  *
  * Calm on purpose: white cards on the page's #f8f9fa, hairlines, ink for
  * words and icons, no colour that is not the community's own, no violet. A face, a name
@@ -222,7 +223,7 @@ const TILE_ON = "border-[#e3e5e9] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba
  * WHICH PLACE IS MARKED, shared by the frame (shell-frame.tsx) with the two
  * things that mark it: the list in the left column and the row of tabs. A
  * context rather than a prop, so moving to another place redraws those two
- * and nothing else of the frame (the bar, the card, the right column keep
+ * and nothing else of the frame (the bar and the left column's cards keep
  * their props and are memoised).
  */
 export interface PlaceState {
@@ -375,6 +376,6 @@ function WallContributorsCardInner({ slug, data, viewAllHref }: { slug: string; 
   )
 }
 
-/* The right column's cards, memoised like the community card: their facts are the visit's, not the page's. */
+/* The left column's cards under the community card, memoised like it: their facts are the visit's, not the page's. */
 export const WallUpcoming = memo(WallUpcomingInner)
 export const WallContributorsCard = memo(WallContributorsCardInner)

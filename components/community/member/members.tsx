@@ -175,7 +175,8 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
   ]
 
   return (
-    <div className="max-w-[760px]" data-members="">
+    /* Round 39: the whole page column, as the leaderboard and the feed have it (no right column beside it any more). */
+    <div data-members="">
       <PageTitle title="Members" detail={memberCountLabel(memberCount)} />
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <label className="relative flex-1">
