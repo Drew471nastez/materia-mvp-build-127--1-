@@ -30,6 +30,7 @@ import { blockScope, scopeCss } from "./css"
 import { parseSchemaJson, parseStorelib } from "./parse"
 import { checkScript } from "./script"
 import { compileTemplate, contentForRefs, pathRefs, pathsRead, type CompiledTemplate } from "./template"
+import { readsSchemeAsVariables, schemeFollowingSettings } from "../scheme-vars"
 
 export function sourceHash(source: string): string {
   return createHash("sha256").update(source, "utf8").digest("hex")
@@ -287,6 +288,7 @@ function compileSectionUnguarded(source: string, opts: CompileOptions = {}): Res
       cssTemplate,
       script,
       statics: staticsOf((template as { ok: true; value: CompiledTemplate }).value),
+      ...(readsSchemeAsVariables(src.template.text, src.style.text, schemeFollowingSettings([...schema.value.settings, ...(schema.value.blocks ?? []).flatMap((b) => b.settings ?? [])])) ? { schemeVars: true as const } : {}),
       sourceHash: sourceHash(source),
     },
     warnings: warnings.length ? warnings : undefined,
@@ -415,6 +417,7 @@ function compileBlockUnguarded(source: string, opts: CompileOptions & { type: st
       css,
       cssTemplate,
       statics: staticsOf(tpl),
+      ...(readsSchemeAsVariables(src.template.text, src.style.text, schemeFollowingSettings(s.settings)) ? { schemeVars: true as const } : {}),
       sourceHash: sourceHash(source),
     },
     ...(schema.warnings?.length ? { warnings: schema.warnings } : {}),

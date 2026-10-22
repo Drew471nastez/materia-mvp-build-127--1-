@@ -414,6 +414,9 @@ function defaultLocalePath(files: Record<string, string>, schema: boolean): stri
 /** See renderDocument: a container the page focused itself shows no focus ring. */
 export const FOCUS_RING_FIX = `<style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style>`
 
+/* A theme's default locale, its schema's locale and its settings schema, by the files object they were read from (CompatTheme's constructor). */
+const filesRead = new WeakMap<object, { locale: O | null; lang: string; schemaLocale: O | null; settingsSchema: O[] }>()
+
 export class CompatTheme {
   private parsed = new Map<string, Parsed | null>()
   private schemas = new Map<string, O>()
@@ -453,12 +456,23 @@ export class CompatTheme {
   readonly diagnostics = new Set<string>()
 
   constructor(public readonly files: Record<string, string>, public readonly settingsValues: O, private opts: CompatThemeOptions) {
-    const localePath = defaultLocalePath(files, false)
-    this.locale = parseJsonLoose(files[localePath ?? ""]) as O | null
-    this.lang = localePath?.match(/^locales\/([^.]+)\./)?.[1] ?? "en"
-    this.schemaLocale = parseJsonLoose(files[defaultLocalePath(files, true) ?? ""]) as O | null
-    const ss = parseJsonLoose(files["config/settings_schema.json"])
-    this.settingsSchema = Array.isArray(ss) ? (ss as O[]) : []
+    /* Read once per files object: only ever read, never written (the builder makes a theme per value a slider passes). */
+    let read = filesRead.get(files)
+    if (!read) {
+      const localePath = defaultLocalePath(files, false)
+      const ss = parseJsonLoose(files["config/settings_schema.json"])
+      read = {
+        locale: parseJsonLoose(files[localePath ?? ""]) as O | null,
+        lang: localePath?.match(/^locales\/([^.]+)\./)?.[1] ?? "en",
+        schemaLocale: parseJsonLoose(files[defaultLocalePath(files, true) ?? ""]) as O | null,
+        settingsSchema: Array.isArray(ss) ? (ss as O[]) : [],
+      }
+      filesRead.set(files, read)
+    }
+    this.locale = read.locale
+    this.lang = read.lang
+    this.schemaLocale = read.schemaLocale
+    this.settingsSchema = read.settingsSchema
   }
 
   // ── Reading files ──
@@ -1253,6 +1267,29 @@ export class CompatTheme {
     const bodyAttrs = html.match(/<body\b([^>]*)>/i)?.[1] ?? ""
     const body = html.match(/<body\b[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? ""
     return { headStyles, headLinks, htmlAttrs, bodyAttrs, wrappers: { header: ancestorsOf(body, MARK("header")), content: ancestorsOf(body, MARK("content")), footer: ancestorsOf(body, MARK("footer")) } }
+  }
+
+  /**
+   * The layout drawn without its sections and without the page's content:
+   * what it prints of its own (its <style> blocks of variables and colour
+   * schemes among it), as renderDocument draws it, before finish(). The
+   * builder's canvas writes these styles while a theme setting moves under a
+   * finger (compat-canvas.tsx, A THEME VALUE THAT ONLY CSS READS); null when
+   * the layout cannot be read.
+   */
+  layoutAlone(ctx: Ctx, layout?: string): string | null {
+    const path = (layout && layout !== "theme" ? this.fileFor("layout", layout) : null) ?? this.fileFor("layout", "theme")
+    const tree = path ? this.tree(path) : null
+    if (!tree) return null
+    const c = ctx.child({ content_for_layout: "" })
+    const env = { ...c.env, sections: () => "", section: () => "" }
+    const cc = new Ctx(c.globals, env, { registers: c.registers, steps: c.steps, out: c.out })
+    cc.registers.drawnIds = new Set<string>()
+    try {
+      return this.finish(renderTree(tree, cc))
+    } catch {
+      return null
+    }
   }
 
   /** The font stylesheets the theme's font settings need. */
