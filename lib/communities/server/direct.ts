@@ -315,6 +315,9 @@ export async function mutedOf(db: Db, userId: string, chatType: "dm" | "group" |
 export async function unreadConversations(db: Db, community: CommunityRow, viewer: Viewer): Promise<number | null> {
   if (!viewer.userId || !community.chat_enabled) return null
   const me = viewer.userId
+  /* Round 39: the groups beside the one to one conversations, not after them: neither needs the other. */
+  const groups = unreadGroups(db, community.id, me)
+  groups.catch(() => undefined)
   try {
     const { data, error } = await db
       .from("community_conversations")
@@ -327,7 +330,7 @@ export async function unreadConversations(db: Db, community: CommunityRow, viewe
       .limit(INBOX_MAX)
     if (error) return null
     const direct = ((data as ConversationRow[] | null) ?? []).filter((r) => isUnread(r, me)).length
-    return direct + (await unreadGroups(db, community.id, me))
+    return direct + (await groups)
   } catch {
     return null
   }

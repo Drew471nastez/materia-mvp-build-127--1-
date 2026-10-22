@@ -235,6 +235,54 @@ export const isNativePlatform = () => false
     expect(errors.length === 0, `${kind}: no page errors`, errors)
     await p.close()
   }
+  /*
+    PERF: the frame drawn from nothing (the probe's page is client rendered, so this is the frame's own work, not the
+    server's: scripts/measure-community-member-server.mjs has that), at full speed and with the CPU slowed four times,
+    at 1440 and on the phone. Time to the first post (or chat message) on screen, the layout's shifts after the first
+    paint (CLS, every shift counted), and the main thread's long tasks.
+  */
+  console.log("\nPERF: the frame from nothing, 1x and 4x CPU")
+  const perf = []
+  for (const [kind, path, sel] of [["feed", "/community/clay-studio?case=feed", "[data-post]"], ["chat", "/community/clay-studio/space/kiln-room?case=chat", "[data-chat-message]"], ["members", "/community/clay-studio/members?case=members", "[data-members] a, [data-members] li"]]) {
+    for (const [vpName, vp] of [["1440", { width: 1440, height: 900, deviceScaleFactor: 1 }], ["390", PHONE]]) {
+      for (const rate of [1, 4]) {
+        const p = await browser.newPage()
+        await p.setViewport(vp)
+        const cdp = await p.target().createCDPSession()
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate })
+        await p.evaluateOnNewDocument((sel) => {
+          window.__perf = { cls: 0, shifts: [], long: 0, first: null }
+          new PerformanceObserver((l) => { for (const e of l.getEntries()) { window.__perf.cls += e.value; window.__perf.shifts.push({ t: Math.round(e.startTime), v: +e.value.toFixed(4), who: (e.sources || []).map((s) => s.node && s.node.nodeType === 1 ? s.node.tagName.toLowerCase() + [...s.node.attributes].filter((a) => a.name.startsWith("data-")).map((a) => `[${a.name}]`).join("") : "").slice(0, 3) }) } }).observe({ type: "layout-shift", buffered: true })
+          new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__perf.long += e.duration }).observe({ type: "longtask", buffered: true })
+          const look = () => { const el = document.querySelector(sel); const r = el?.getBoundingClientRect(); if (r && r.height > 0 && r.top < innerHeight) { window.__perf.first = Math.round(performance.now()); return } requestAnimationFrame(look) }
+          requestAnimationFrame(look)
+        }, sel)
+        const { p: pp, errors } = await (async () => {
+          const errors = []
+          p.on("pageerror", (e) => errors.push(String(e).slice(0, 200)))
+          await p.setRequestInterception(true)
+          p.on("request", (r) => {
+            const url = r.url()
+            if (url.startsWith(`${ORIGIN}/api/`)) return void r.respond({ status: 200, contentType: "application/json", body: url.includes("/messages") ? JSON.stringify({ messages: [], hasMore: false }) : "{}" })
+            if (url.startsWith(`${ORIGIN}/`)) return void r.respond({ status: 200, contentType: "text/html", body: page })
+            if (url.startsWith("data:")) return void r.continue()
+            return void r.respond({ status: 204, body: "" })
+          })
+          await p.goto(`${ORIGIN}${path}`, { waitUntil: "load" })
+          await sleep(rate === 4 ? 3000 : 1500)
+          return { p, errors }
+        })()
+        const m = await pp.evaluate(() => window.__perf)
+        perf.push({ kind, vp: vpName, cpu: `${rate}x`, firstMs: m.first, cls: +m.cls.toFixed(4), longMs: Math.round(m.long), shifts: m.shifts.slice(0, 4) })
+        console.log(`  ${kind.padEnd(8)} ${vpName.padEnd(5)} ${rate}x   first ${String(m.first).padStart(5)}ms   CLS ${m.cls.toFixed(4)}   long tasks ${Math.round(m.long)}ms${m.shifts.length ? `   shifts ${JSON.stringify(m.shifts.slice(0, 3))}` : ""}`)
+        if (!BEFORE) expect(m.cls < 0.02, `${kind} ${vpName} ${rate}x: the frame does not shift once drawn`, m.cls)
+        if (errors.length) console.log(`    page errors: ${JSON.stringify(errors)}`)
+        await pp.close()
+      }
+    }
+  }
+  if (process.env.PERF_JSON) writeFileSync(process.env.PERF_JSON, JSON.stringify(perf, null, 2))
+
   console.log(`\n  feed's column: ${JSON.stringify(feedMain)}`)
   console.log(`  pictures: ${shots}`)
   await browser.close()

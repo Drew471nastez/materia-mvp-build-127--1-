@@ -98,7 +98,7 @@ import { CommunityTopBar, TOP_BAR_GROUND } from "./top-bar"
 import { whenIdle } from "./feed-cache"
 import { enterCommunityContext } from "@/lib/nav/community-context"
 import { rememberCommunityChrome } from "@/lib/nav/community-chrome-cache"
-import { InviteSheet } from "./invite-sheet"
+import type { InviteSheet as InviteSheetView } from "./invite-sheet"
 import { preloadSearchIndex } from "./search"
 import { press, TAB, TAB_OFF, TAB_ON } from "./ui"
 import { CLICK_AFTER_MS, isTap, pressShowsAtOnce, type Press } from "./chip-hit"
@@ -213,6 +213,22 @@ const ABOUT_BOX = "max-sm:-mx-4 max-sm:-mt-4 [&_[data-community-sales]]:bg-trans
 */
 const GUTTER = "html{scrollbar-gutter:stable}html{overscroll-behavior-y:none}"
 
+/*
+  THE INVITE SHEET ON DEMAND (round 39). It opens from one row of the "..." menu, and its code rode on every community
+  page's first load (scripts/measure-community-js-r39.mjs). It is asked for once the frame is idle, and by the press
+  itself when that comes first; the sheet opens as soon as its code is here.
+*/
+let InviteSheetCode: typeof InviteSheetView | null = null
+let inviteAsked: Promise<typeof InviteSheetView> | null = null
+const loadInviteSheet = () =>
+  (inviteAsked ??= import("./invite-sheet").then(
+    (m) => (InviteSheetCode = m.InviteSheet),
+    (e) => {
+      inviteAsked = null
+      throw e
+    },
+  ))
+
 /** What ?dm= may carry: an id's characters and nothing else. The server checks it is somebody here. */
 const DM_TARGET = /^[0-9a-z-]{1,64}$/i
 
@@ -295,7 +311,21 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const [chat, setChat] = useState<{ userId?: string; groupId?: string } | null>(null)
   /* The invite sheet, opened from "Invite people" in the bar's "..." menu (round 9; the card and the tabs had it in round 8). */
   const [inviting, setInviting] = useState(false)
-  const openInvite = useCallback(() => setInviting(true), [])
+  /* Drawn shut once its code is here, so opening it is the sheet's own entrance, as before. */
+  const [Invite, setInvite] = useState<typeof InviteSheetView | null>(() => InviteSheetCode)
+  const openInvite = useCallback(() => {
+    if (InviteSheetCode) {
+      setInvite(() => InviteSheetCode)
+      return setInviting(true)
+    }
+    loadInviteSheet().then(
+      (code) => {
+        setInvite(() => code)
+        requestAnimationFrame(() => setInviting(true))
+      },
+      () => toast("Could not open invites. Check your connection and try again."),
+    )
+  }, [])
   const canInvite = !!viewer.can.invite && !community.archived
   /* The creator side's list of invites, for whoever has it (the owner, or a creator account that runs this community). */
   const manageInvites = canInvite && (viewer.isOwner || viewer.isCreatorAccount) ? `/app/community/${community.slug}/members` : null
@@ -468,8 +498,10 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
       whenIdle(() => {
         /* What the search knows before a key is pressed (round 10), so its first results come at once. */
         void preloadSearchIndex(community.id)
+        /* The invite sheet's code, so Invite people opens at once (round 39). */
+        if (!community.archived) loadInviteSheet().then((code) => setInvite(() => code), () => undefined)
       }),
-    [community.id],
+    [community.id, community.archived],
   )
 
   /*
@@ -709,7 +741,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
           </div>
         </div>
 
-        {community.archived ? null : <InviteSheet open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
+        {community.archived || !Invite ? null : <Invite open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
         <PersonCardLayer communityId={community.id} canMessage={canMessage} />
         {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
         {viewer.active ? <WebPushPrompt communityName={community.name} joinedAt={viewer.joinedAt ?? null} placement="floating" /> : null}

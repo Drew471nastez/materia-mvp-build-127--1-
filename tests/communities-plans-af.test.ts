@@ -271,7 +271,8 @@ async function main() {
   {
     const gate = code("lib/communities/server/join.ts")
     check("a free member may buy a paid plan (an upgrade); somebody paying or running the community may not", /const paying = \(PAID_SOURCES as readonly string\[\]\)\.includes/.test(gate) && /if \(paying \|\| staff\)/.test(gate))
-    check("a plan picked before signing in, by somebody already in, goes on in the Membership page", /redirect\(`\/community\/\$\{load\.community\.slug\}\/membership\?\$\{keep\.toString\(\)\}`\)/.test(code("app/(marketing)/community/[slug]/page.tsx")))
+    /* Changed on purpose (round 39): a member's home address is drawn by memberHome, whichever way the member was found. */
+    check("a plan picked before signing in, by somebody already in, goes on in the Membership page", /const home = `\/community\/\$\{communitySlug\}`/.test(code("app/(marketing)/community/[slug]/page.tsx")) && /redirect\(`\$\{home\}\/membership\?\$\{keep\.toString\(\)\}`\)/.test(code("app/(marketing)/community/[slug]/page.tsx")))
     const jc = code("components/community/public/join-controls.tsx")
     check("inside, a free member's Upgrade opens the paid plans or the one checkout", /export function UpgradeButton/.test(jc) && /<UpgradeButton \/>/.test(code("components/community/member/membership.tsx")) && /o\.kind === "paid" && !!o\.checkout/.test(jc))
     check("an upgrade the bank checks is confirmed in Stripe's own window, then finished by the server", /confirmCardPayment\(r\.data\.needsAction\.clientSecret\)/.test(code("components/community/membership/change-plan.tsx")) && /finish: true/.test(code("components/community/membership/change-plan.tsx")))

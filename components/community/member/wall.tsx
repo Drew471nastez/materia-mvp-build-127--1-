@@ -147,9 +147,13 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
           is asked for at once (it was lazy: a beat late, then a cut), at the column's 280px from the optimiser (the
           browser picks 560 on a sharp screen, never the full upload), and it fades in once decoded over a ground of its
           own size (SoftImg), so nothing jumps and nothing pops.
+
+          ROUND 39: NOT THE PHONE'S WIDTH ON A PHONE. The left column is not drawn below 1024px, and an eager picture is
+          fetched even where it is not drawn: with "100vw" a phone asked for the 828px file, first in line, for a cover
+          nobody sees, ahead of the feed's own pictures. Below 1024px it asks for the smallest file the slot offers.
         */
         <Link href={base} tabIndex={-1} aria-hidden className="block aspect-[16/9] w-full overflow-hidden bg-[#f1f2f4]">
-          <SoftImg src={community.coverUrl} width={280} sizes="(max-width: 1023px) 100vw, 280px" eager fetchPriority="high" style={community.coverPosition ? { objectPosition: community.coverPosition } : undefined} className="h-full w-full object-cover" data-wall-cover="" />
+          <SoftImg src={community.coverUrl} width={280} sizes="(max-width: 1023px) 1px, 280px" eager fetchPriority="high" style={community.coverPosition ? { objectPosition: community.coverPosition } : undefined} className="h-full w-full object-cover" data-wall-cover="" />
         </Link>
       ) : null}
       <div className="px-4 pb-4 pt-3.5">

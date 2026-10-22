@@ -124,34 +124,47 @@ async function ruleProductIds(db: Db, communityId: string): Promise<string[]> {
 export async function viewerContext(db: Db, community: CommunityRow, userId: string | null): Promise<Viewer> {
   if (!userId) return { ...NOBODY }
   const isOwner = community.owner_user_id === userId
-  let member: MemberRow | null = null
-  try {
-    member = await reconcileAccess(db, community.id, userId)
-    /* The owner's own row, made again if it was ever lost. */
-    if (isOwner && (!member || member.role !== "owner" || member.status !== "active")) {
-      member = (await grantMembership(db, { communityId: community.id, userId, source: "owner", role: "owner", status: "active" })) ?? member
+  /*
+    ROUND 39: THREE QUESTIONS AT ONCE. Their standing here, whether the store's own account is looking, and the products
+    the community's rules can name were asked one after the other, four round trips before any page of a community (and
+    every request through requireMember) could go on. None needs another's answer.
+  */
+  const standing = (async (): Promise<MemberRow | null> => {
+    let member: MemberRow | null = null
+    try {
+      member = await reconcileAccess(db, community.id, userId)
+      /* The owner's own row, made again if it was ever lost. */
+      if (isOwner && (!member || member.role !== "owner" || member.status !== "active")) {
+        member = (await grantMembership(db, { communityId: community.id, userId, source: "owner", role: "owner", status: "active" })) ?? member
+      }
+    } catch (e) {
+      console.error(`[communities] viewer ${userId} in ${community.id}: ${reasonOf(e)}`)
     }
-  } catch (e) {
-    console.error(`[communities] viewer ${userId} in ${community.id}: ${reasonOf(e)}`)
-  }
+    return member
+  })()
 
-  let isCreatorAccount = isOwner
-  if (!isCreatorAccount && community.creator_id) {
+  const creatorAccount = (async (): Promise<boolean> => {
+    if (isOwner) return true
+    if (!community.creator_id) return false
     try {
       const { data } = await db.from("creators").select("user_id").eq("id", community.creator_id).maybeSingle()
-      isCreatorAccount = data?.user_id === userId
+      return data?.user_id === userId
     } catch {
       /* A visitor, as far as this page knows. */
+      return false
     }
-  }
+  })()
 
-  let owned: string[] = []
-  try {
-    const ids = await ruleProductIds(db, community.id)
-    owned = ids.length ? await ownedProductIds(db, userId, ids) : []
-  } catch {
-    owned = []
-  }
+  const ownedIds = (async (): Promise<string[]> => {
+    try {
+      const ids = await ruleProductIds(db, community.id)
+      return ids.length ? await ownedProductIds(db, userId, ids) : []
+    } catch {
+      return []
+    }
+  })()
+
+  const [member, isCreatorAccount, owned] = await Promise.all([standing, creatorAccount, ownedIds])
 
   const active = member?.status === "active"
   const role: Role | null = active ? (member?.role ?? null) : null
