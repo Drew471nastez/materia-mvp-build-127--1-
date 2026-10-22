@@ -351,7 +351,7 @@ export function ChatPanel({ head }: { head: CommunityHead }) {
             <p className="mt-1.5 text-[12.5px] text-[#6b7280]">{dmLine}</p>
           </div>
           {s.dmPolicy !== "off" && s.dmPolicy !== "everyone" ? (
-            <div className="-my-1">
+            <div>
               <Toggle checked={s.dmToStaff} disabled={!canEdit} onChange={(v) => void patch({ dmToStaff: v })} title={tt("Members can message the team")} hint={tt("The owner, admins and moderators, whatever the rule above says.")} />
             </div>
           ) : null}

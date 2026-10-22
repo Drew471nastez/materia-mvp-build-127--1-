@@ -232,7 +232,6 @@ export function AutomationsPanel({ head }: { head: CommunityHead }) {
       {!d.ready ? <Notice tone="warn">{tt("Automated messages need the database update for chat (run-now part 272).")}</Notice> : null}
       {d.ready && !d.chatEnabled ? <Notice tone="info">{tt("Chat is off in this community, so nothing is sent until it is on again.")}</Notice> : null}
       <EditorCard
-        title={tt("Automated messages")}
         hint={tt("Sent by someone on the team into each member's messages, or into a channel. Each member gets each one once.")}
         action={
           d.canEdit && d.ready ? (
@@ -260,7 +259,7 @@ export function AutomationsPanel({ head }: { head: CommunityHead }) {
                     <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[#4b5563] [overflow-wrap:anywhere]">{a.body}</p>
                     <p className="mt-1.5 flex flex-wrap gap-x-3 text-[12.5px] tabular-nums text-[#6b7280]" data-automation-counts="">
                       <span className={a.status === "paused" ? "font-medium text-[#92400e]" : "font-medium text-[#1a1a2e]"}>{statusWord(a)}</span>
-                      <span>{tt("{n} sent", { n: a.sent })}</span>
+                      {a.sent || a.status !== "scheduled" ? <span>{tt("{n} sent", { n: a.sent })}</span> : null}
                       {a.pending ? <span>{tt("{n} waiting", { n: a.pending })}</span> : null}
                       {a.failed ? <span className="text-[#b42318]">{tt("{n} not sent", { n: a.failed })}</span> : null}
                     </p>
@@ -457,7 +456,7 @@ function Editor({ base, data, communityName, draft, onChange, onClose, onSaved }
                   <input type="time" value={draft.time} onChange={(e) => set({ time: e.target.value })} className={cn(field, "h-11 w-auto sm:h-10")} aria-label={tt("Time")} />
                 </div>
               ) : null}
-              <p className="mt-1.5 text-[12.5px] text-[#6b7280]">{tt("It goes out in batches over a few minutes, never twice to the same member.")}</p>
+              <p className="mt-1.5 text-[12.5px] text-[#6b7280]">{tt("It goes out in small batches, never twice to the same member.")}</p>
             </div>
           </div>
         ) : null}

@@ -149,11 +149,15 @@ function draw(data: PlaceData, slug: string, communityId: string, renderProfile?
       return (
         <div className="max-w-[760px]">
           {channels ? (
-            channels.length > 1 ? <SpaceChips slug={slug} spaces={channels} active={data.space.slug} noAll /> : null
+            channels.length > 1 ? (
+              <div className="max-sm:hidden">
+                <SpaceChips slug={slug} spaces={channels} active={data.space.slug} noAll />
+              </div>
+            ) : null
           ) : (
             <SpaceChips slug={slug} spaces={data.spaces} active={data.space.slug} editHref={adminHref(slug, data.viewer, "manage_spaces", "spaces")} />
           )}
-          <ChatView communityId={communityId} slug={slug} space={data.space} viewer={data.viewer} initial={data.first} readOnly={data.readOnly} intro={data.intro} />
+          <ChatView communityId={communityId} slug={slug} space={data.space} viewer={data.viewer} initial={data.first} readOnly={data.readOnly} intro={data.intro} channels={channels} />
         </div>
       )
     }

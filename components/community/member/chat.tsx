@@ -37,6 +37,7 @@ import { SpaceIcon } from "./space-icon"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
 import { ChatSurface, MuteButton, type StreamHandlers } from "./chat-surface"
+import { SpaceChips } from "./space-chips"
 import type { ChatIntroView, ChatLine, ChatMessageView, SpaceView } from "./view-types"
 
 /** Messages from one person within this long of each other are drawn as one group. */
@@ -64,9 +65,14 @@ export interface ChatViewProps {
   initial: { messages: ChatMessageView[]; hasMore: boolean }
   readOnly?: boolean
   intro?: ChatIntroView | null
+  /**
+   * Round 38, the Chat tab with several channels: on a phone the channel covers the page under the bar, chips and all,
+   * so the channels ride under its name instead (from 640px they stay above the chat, place-views.tsx).
+   */
+  channels?: SpaceView[] | null
 }
 
-export function ChatView({ communityId, slug, space, viewer, initial, readOnly = false, intro = null }: ChatViewProps) {
+export function ChatView({ communityId, slug, space, viewer, initial, readOnly = false, intro = null, channels = null }: ChatViewProps) {
   const [report, setReport] = useState<ReportTargetRef | null>(null)
   const base = apiBase(communityId)
 
@@ -190,6 +196,11 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
               </div>
               {me ? <MuteButton communityId={communityId} kind="space" chatId={space.id} /> : null}
             </header>
+            {channels && channels.length > 1 ? (
+              <div className="shrink-0 border-b border-[#eceef1] px-4 pt-2 sm:hidden max-sm:[html[data-keyboard=open]_&]:hidden [&_[data-space-chips]]:mb-1.5" data-chat-channels-phone="">
+                <SpaceChips slug={slug} spaces={channels} active={space.slug} noAll />
+              </div>
+            ) : null}
             {pinned ? (
               /* Round 38: the message the team pinned, one line under the channel's name, as Telegram shows it. */
               <div className="flex shrink-0 items-center gap-2.5 border-b border-[#eceef1] bg-[#fafafb] px-4 py-2" data-chat-pinned={pinned.id}>

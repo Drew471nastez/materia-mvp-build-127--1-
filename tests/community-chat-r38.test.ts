@@ -153,7 +153,7 @@ async function main() {
     const chats = new Set(["lounge", "news"])
     check("a chat channel lights Chat; a feed space stays Community; without the tab nothing changes", placeTab({ kind: "space", slug: "news" }, chats) === "chat" && placeTab({ kind: "space", slug: "general" }, chats) === "home" && placeTab({ kind: "space", slug: "news" }) === "home")
     const views = code("components/community/member/place-views.tsx")
-    check("one channel: no chips at all (one group chat); several: no All chip", /channels\.length > 1 \? <SpaceChips slug=\{slug\} spaces=\{channels\} active=\{data\.space\.slug\} noAll \/> : null/.test(views))
+    check("one channel: no chips at all (one group chat); several: no All chip, above the chat from 640px and under its name on a phone", /channels\.length > 1 \? \(\s*<div className="max-sm:hidden">\s*<SpaceChips slug=\{slug\} spaces=\{channels\} active=\{data\.space\.slug\} noAll \/>/.test(views) && /channels=\{channels\}/.test(views) && /data-chat-channels-phone=""/.test(code("components/community/member/chat.tsx")))
   }
 
   console.log("\nMessage from a profile and the members list")

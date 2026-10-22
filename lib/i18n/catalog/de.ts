@@ -3099,7 +3099,7 @@ const words: Record<string, string> = {
  "From a level": "Ab einem Level",
  "Hi {first_name}, welcome to {community}! Say hello in the chat and tell us what brought you here.": "Hallo {first_name}, willkommen bei {community}! Sag Hallo im Chat und erzähl uns, was dich hergeführt hat.",
  "How Ana reads it": "So liest Ana sie",
- "It goes out in batches over a few minutes, never twice to the same member.": "Sie geht in Schüben über ein paar Minuten raus, nie zweimal an dasselbe Mitglied.",
+ "It goes out in small batches, never twice to the same member.": "Sie geht in kleinen Schüben raus, nie zweimal an dasselbe Mitglied.",
  "Members after some days here": "Mitglieder nach einigen Tagen hier",
  "Members can message the team": "Mitglieder können dem Team schreiben",
  "Members from a level": "Mitglieder ab einem Level",
