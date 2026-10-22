@@ -62,6 +62,10 @@ export function ScheduledFrame() {
 export interface SectionFrameFacts {
   /** Posts: the writer's card above the list (the section draws it for whoever may post somewhere). */
   composer?: boolean
+  /** Members (round 37): how many the community has, for the frame's rows. */
+  members?: number
+  /** Posts (round 37): the Scheduled and drafts card, drawn for whoever may post even with no writer's card (as composer when not said). */
+  scheduled?: boolean
   /** Settings: the address names no panel, so a phone opens on the list of panels (settings-section.tsx). */
   settingsList?: boolean
   /** Overview (round 26): how many figures it draws, four for a community that sells and three otherwise (four when not said). */
@@ -192,7 +196,7 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
               </Shimmer>
             </section>
           ) : null}
-          {facts.composer ? <ScheduledFrame /> : null}
+          {(facts.scheduled ?? facts.composer) ? <ScheduledFrame /> : null}
           <ListFrame words={[64, 64]} rows={6} rowHeight={92} />
         </>
       )
@@ -201,20 +205,18 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
       body = <ListFrame words={[120]} action={112} rows={4} rowHeight={68} lead />
       break
     case "classroom":
-      body = (
-        <>
-          <Shimmer className="flex min-h-[44px] items-center">
-            <ShimmerBlock className="h-4 w-28 rounded-full" />
-          </Shimmer>
-          <ListFrame words={[]} rows={3} rowHeight={72} />
-        </>
-      )
+      /*
+        Learn's list card (components/community/learn/learn-builder.tsx): the count and New program in its head, a row per
+        program. Round 37: no heading line above it any more, which put the card 60px lower than the list it gives way to.
+      */
+      body = <ListFrame words={[]} action={128} rows={3} rowHeight={76} />
       break
     case "events":
       body = <ListFrame words={[72, 44]} action={104} rows={4} rowHeight={76} />
       break
     case "members":
-      body = <ListFrame words={[52, 60, 52, 52]} action={96} toolbar rows={8} rowHeight={64} lead />
+      /* As many rows as there are members, up to 12 (round 37): enough to reach past the foot of any screen, so the list never grows into view under the frame. */
+      body = <ListFrame words={[52, 60, 52, 52]} action={96} toolbar rows={Math.max(1, Math.min(12, facts.members ?? 8))} rowHeight={64} lead />
       break
     case "moderation":
       body = <ListFrame words={[60, 64, 72, 40]} rows={5} rowHeight={84} />

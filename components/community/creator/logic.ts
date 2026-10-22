@@ -1249,6 +1249,25 @@ export function sectionMove(target: AdminSection, facts: { active: AdminSection;
   return "fetch"
 }
 
+/**
+ * ROUND 37, THE OWNER: "switching between pages is not smooth and clean, it has bumps". Filmed
+ * (scripts/check-community-admin-round37.mjs), a section opened for the first time showed its frame for one to four
+ * frames and then the section, in cards of another size: the router answers a section read ahead within a frame or two,
+ * and the section's own first render takes the rest. So the section on screen stays while the one pressed is on its
+ * way, for this long at most; the tab is lit at once. It arrives in one change, from the section before to the section
+ * pressed. Only a section slower than this shows its frame.
+ */
+export const FRAME_GRACE_MS = 160
+
+/**
+ * The section drawn in the pane: the one whose tab is lit, unless it is not here yet and the press was a moment ago
+ * (FRAME_GRACE_MS), when the one before it stays. `here` is the shell holding it, or the router's slot drawing it.
+ */
+export function sectionOnScreen(lit: AdminSection, facts: { here: boolean; grace: { id: AdminSection; from: AdminSection } | null }): AdminSection {
+  if (facts.here || !facts.grace || facts.grace.id !== lit) return lit
+  return facts.grace.from
+}
+
 /** Whether a section shown from what the shell holds is read again behind it: marked stale by a change elsewhere, or simply old. */
 export function sectionStale(held: { at: number; stale: boolean } | null | undefined, now: number, fresh: number = SECTION_FRESH_MS): boolean {
   if (!held) return false

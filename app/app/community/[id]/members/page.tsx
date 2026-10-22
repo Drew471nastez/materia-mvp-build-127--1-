@@ -14,9 +14,10 @@ export default async function CommunityMembersPage({ params, searchParams }: { p
   const ctx = await sectionPage(id, "remove_member")
   if (!ctx) return null
   const openInvite = sp.invite === "1" && can(ctx.role, "invite", ctx.viewer.perms)
+  /* The frame has as many rows as the shell's own frame draws (community-shell frameFacts, round 37), so the hand over moves nothing. */
   return (
     <SectionSeed id="members" stamp={openInvite ? "invite" : ""}>
-      <Suspense fallback={<SectionFrame id="members" />}>
+      <Suspense fallback={<SectionFrame id="members" facts={{ members: ctx.community.member_count }} />}>
         {membersBody({ ctx, sp, openInvite })}
       </Suspense>
     </SectionSeed>
