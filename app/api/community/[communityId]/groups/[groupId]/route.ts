@@ -4,7 +4,7 @@ import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { readJson, sessionUserId } from "@/lib/communities/server/feed"
 import { chatLimit, notFound, ok, refusal } from "@/lib/communities/server/chat-routes"
-import { groupDetail, groupOf, leaveGroup, listGroupMessages, sendGroupMessage, updateGroup } from "@/lib/communities/server/groups"
+import { groupDetail, groupMarks, groupOf, leaveGroup, listGroupMessages, sendGroupMessage, updateGroup } from "@/lib/communities/server/groups"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -22,8 +22,13 @@ export async function GET(request: Request, { params }: Params) {
   const opened = await groupOf(db, gate.community, gate.viewer, groupId)
   if (!opened) return notFound()
   const sp = new URL(request.url).searchParams
-  const [page, group] = await Promise.all([listGroupMessages(db, opened, gate.viewer, { before: sp.get("before"), after: sp.get("after") }), sp.get("detail") ? groupDetail(db, gate.community, gate.viewer, opened) : Promise.resolve(undefined)])
-  return ok({ ...page, ...(group ? { group } : {}) })
+  /* Round 39: the newest page and a catch up carry the others' read and delivered marks (the sender's ticks, "Seen by N"). */
+  const [page, group, marks] = await Promise.all([
+    listGroupMessages(db, opened, gate.viewer, { before: sp.get("before"), after: sp.get("after") }),
+    sp.get("detail") ? groupDetail(db, gate.community, gate.viewer, opened) : Promise.resolve(undefined),
+    sp.get("before") ? Promise.resolve(undefined) : groupMarks(db, opened, gate.viewer),
+  ])
+  return ok({ ...page, ...(group ? { group } : {}), ...(marks ? { marks } : {}) })
 }
 
 /** POST { body, attachments?, replyToId?, clientId? }: { message }. As fast as a conversation: 30 a minute, 500 a day. */

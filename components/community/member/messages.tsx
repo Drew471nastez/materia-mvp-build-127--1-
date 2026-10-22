@@ -37,98 +37,29 @@
  * that answers as it is typed, one person for a conversation or several for
  * a group. Its Suggested list is read as the panel opens.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { BellOff, ChevronLeft, LogOut, MoreHorizontal, PenSquare, Search, UserPlus, X } from "lucide-react"
 import { Spinner } from "./place-spinner"
 import { MemberAvatar } from "./member-avatar"
-import { createClient } from "@/lib/supabase/client"
 import type { MemberView } from "@/lib/communities/types"
+import { typingLine } from "@/lib/communities/chat-rules"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { api, apiBase } from "./api"
-import { realtimeAuth } from "./realtime"
 import { memberHref } from "./person-href"
 import { toast } from "./toast"
 import { RoleBadge } from "./role-badge"
-import { ChatSurface, MuteButton, type StreamHandlers } from "./chat-surface"
-import { chatCacheKey, keepList, keepValue, keptList, keptValue, warmChat } from "./chat-core"
+import { ChatSurface, MuteButton, SkeletonBubbles, type StreamHandlers } from "./chat-surface"
+import { cachedPage, chatCacheKey, keepList, keepValue, keptList, keptValue, warmChat } from "./chat-core"
+import { lastSeenLine, useOnline } from "./chat-presence"
 import { ReportDialog, type ReportTargetRef } from "./dialogs"
 import { NewMessagePicker, warmPeople } from "./people-picker"
 import type { ChatIntroView, ChatLine } from "./view-types"
+import { conversationWith, dmWithKey, liveStream, type Person } from "./messages-signal"
 
-export const MESSAGES_EVENT = "storelib:community-messages"
-
-type LiveTable = "community_conversations" | "community_direct_messages" | "community_chat_groups" | "community_chat_group_messages" | "community_chat_group_members"
-
-/**
- * A realtime stream that works for a signed in member, with a net under it.
- * The join waits for the member's token (./realtime realtimeAuth): joined as
- * a visitor, part 83's policy sends nothing and messages never arrived
- * until the panel was opened again (round 7). If the stream is not joined
- * after a few seconds, or drops, `poll` runs every `everyMs` while the page
- * is visible, so a message still arrives without a reload.
- */
-export function liveStream(
-  name: string,
-  table: LiveTable,
-  filter: string,
-  onChange: (payload: { eventType: string; new?: Record<string, unknown> }) => void,
-  poll: () => void,
-  everyMs: number,
-): () => void {
-  let supabase: ReturnType<typeof createClient> | null = null
-  let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
-  let gone = false
-  let joined = false
-  let timer: number | undefined
-  const tick = () => {
-    window.clearTimeout(timer)
-    timer = window.setTimeout(() => {
-      if (gone) return
-      if (!joined && document.visibilityState === "visible") poll()
-      tick()
-    }, everyMs)
-  }
-  void (async () => {
-    try {
-      supabase = createClient()
-      await realtimeAuth(supabase)
-      if (gone) return
-      channel = supabase
-        .channel(name)
-        .on("postgres_changes", { event: "*", schema: "public", table, filter }, onChange)
-        .subscribe((status: string) => {
-          const was = joined
-          joined = status === "SUBSCRIBED"
-          /* Joined again after a drop: whatever happened meanwhile. */
-          if (joined && !was) poll()
-        })
-    } catch {
-      /* No realtime here: the net below carries it. */
-    }
-  })()
-  tick()
-  return () => {
-    gone = true
-    window.clearTimeout(timer)
-    if (supabase && channel) supabase.removeChannel(channel)
-  }
-}
-
-/** Opens the panel, on a member's conversation when `userId` is given, on a group when `groupId` is. */
-export function openMessages(detail: { userId?: string; groupId?: string } = {}) {
-  if (typeof window === "undefined") return
-  window.dispatchEvent(new CustomEvent(MESSAGES_EVENT, { detail }))
-}
-
-interface Person {
-  id: string
-  name: string
-  username: string | null
-  avatarUrl: string | null
-  role: string | null
-}
+/* Round 39: the parts every community page needs live in messages-signal.ts (the frame loads this panel when it is first opened); named here too for those that import them from the panel. */
+export { MESSAGES_EVENT, conversationWith, liveStream, openMessages, useUnreadMessages, warmConversation } from "./messages-signal"
 
 interface Conversation {
   id: string
@@ -163,7 +94,8 @@ type Intro = ChatIntroView & { canStartGroups?: boolean }
 
 type View =
   | { kind: "list" }
-  | { kind: "thread"; id: string; other: Person | null }
+  | { kind: "thread"; id: string; other: Person | null; still?: boolean }
+  | { kind: "opening"; other: Person | null }
   | { kind: "group"; id: string; name: string }
   | { kind: "groupInfo"; id: string; name: string }
 
@@ -189,74 +121,39 @@ function ago(iso: string | null): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-/* ── the button's number, kept live while the panel is shut ─────────────── */
-
-/**
- * How many conversations and groups have something unread, from realtime:
- * any change to one of the member's conversations or groups asks the server
- * again (debounced), so a message arriving lights the badge without a reload.
- */
-export function useUnreadMessages(communityId: string, userId: string | null, initial: number | null): [number | null, () => void] {
-  const [count, setCount] = useState(initial)
-  useEffect(() => setCount(initial), [initial])
-  const refresh = useCallback(async () => {
-    const r = await api<{ ready: boolean; unread: number; conversations?: Conversation[]; groups?: Group[] }>(`${apiBase(communityId)}/dms`)
-    if (!r.ok || !r.data.ready) return
-    setCount(r.data.unread)
-    /* The same answer is the panel's list (round 38): kept, so opening the panel draws it at once. */
-    if (Array.isArray(r.data.conversations)) keepList(communityId, userId, { conversations: r.data.conversations, groups: r.data.groups ?? [] })
-  }, [communityId, userId])
-  /*
-    THE LIST BEFORE THE PANEL OPENS (round 38): once per tab and community, while the page is idle, the list is read
-    and kept (one ask, the one the badge makes anyway), so the first press on the chat button draws rows, not a
-    skeleton.
-  */
-  useEffect(() => {
-    if (!userId || initial === null || keptList(communityId, userId)) return
-    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
-    const go = () => void refresh()
-    if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(go, { timeout: 4000 })
-      return () => w.cancelIdleCallback?.(id)
-    }
-    const t = window.setTimeout(go, 1500)
-    return () => window.clearTimeout(t)
-  }, [communityId, userId, initial, refresh])
-
-  useEffect(() => {
-    if (!userId || initial === null) return
-    let timer: number | undefined
-    const later = () => {
-      window.clearTimeout(timer)
-      timer = window.setTimeout(() => void refresh(), 250)
-    }
-    const stop = liveStream(`community-dm-inbox:${communityId}:${userId}`, "community_conversations", `community_id=eq.${communityId}`, later, () => void refresh(), 45_000)
-    const stopGroups = liveStream(`community-group-inbox:${communityId}:${userId}`, "community_chat_groups", `community_id=eq.${communityId}`, later, () => undefined, 60_000)
-    const onVisible = () => document.visibilityState === "visible" && void refresh()
-    document.addEventListener("visibilitychange", onVisible)
-    return () => {
-      window.clearTimeout(timer)
-      document.removeEventListener("visibilitychange", onVisible)
-      stop()
-      stopGroups()
-    }
-  }, [communityId, userId, initial, refresh])
-  return [count, refresh]
-}
 
 /* ── the panel ─────────────────────────────────────────────────────────── */
 
+/*
+  ===========================================================================
+   COMING AND GOING (round 39, the owner: "the appearing and disappearing of the chat modal must feel smoother")
+  ===========================================================================
+  On a computer the panel fades in as it settles 8px down and from 98% (its top right corner, where the bar's button
+  is), and goes the same way faster. On a phone it is a full screen sheet that rises from the foot and goes back down,
+  the motion of every other screen over the community (page-sheet.ts: the opened post, the composer), where it slid in
+  from the right before. Both are transitions of opacity, `translate` and `scale` alone (the standalone properties
+  Tailwind's translate and scale classes write, tests/motion-properties.test.ts), from a first frame drawn at the start (no
+  flash at full strength), and a close that is pressed again midway turns back from where it is. Reduced motion: a
+  fade, nothing moves.
+*/
 const ENTER_MS = 240
-const EXIT_MS = 180
+const EXIT_MS = 170
+const SHEET_IN_MS = 380
+const SHEET_OUT_MS = 260
 
-export function MessagesPanel({ communityId, slug, userId, open, onClose, start, onRead }: { communityId: string; slug: string; userId: string | null; open: boolean; onClose: () => void; start: { userId?: string; groupId?: string } | null; onRead: () => void }) {
+type Phase = "from" | "in" | "out"
+
+type Start = { userId?: string; groupId?: string; person?: Person } | null
+
+export function MessagesPanel({ communityId, slug, userId, open, onClose, start, onRead }: { communityId: string; slug: string; userId: string | null; open: boolean; onClose: () => void; start: Start; onRead: () => void }) {
   const phone = usePhone()
   const [shown, setShown] = useState(open)
-  const [leaving, setLeaving] = useState(false)
+  const [phase, setPhase] = useState<Phase>("from")
   const [view, setView] = useState<View>({ kind: "list" })
   const [back, setBack] = useState(false)
   /* New message (round 39): a picker over the list, not a screen of its own. */
   const [picking, setPicking] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
   /* Kept for the tab (round 38): a conversation opened again has its rules, names and switches in its first frame. */
   const [intro, setIntroRaw] = useState<Intro | null>(() => keptValue<Intro>(`intro:${communityId}`))
   const setIntro = useCallback(
@@ -270,18 +167,29 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
   useEffect(() => {
     if (open) {
       setShown(true)
-      setLeaving(false)
       return
     }
     if (!shown) return
-    setLeaving(true)
-    const t = window.setTimeout(() => {
-      setShown(false)
-      setLeaving(false)
-      setView({ kind: "list" })
-      setPicking(false)
-    }, EXIT_MS)
+    setPhase("out")
+    const t = window.setTimeout(
+      () => {
+        setShown(false)
+        setPhase("from")
+        setView({ kind: "list" })
+        setPicking(false)
+      },
+      /* A beat after the motion ends, so the last frames are drawn before it goes (never cut at a third of its strength). */
+      (phone ? SHEET_OUT_MS : EXIT_MS) + 40,
+    )
     return () => window.clearTimeout(t)
+  }, [open, shown, phone])
+
+  /* In: the first frame is drawn where the motion starts, then it moves (one read of the box between, so the browser has the start to move from). */
+  useLayoutEffect(() => {
+    if (!open || !shown) return
+    void box.current?.getBoundingClientRect()
+    const raf = requestAnimationFrame(() => setPhase("in"))
+    return () => cancelAnimationFrame(raf)
   }, [open, shown])
 
   /* What chat allows here (rules, groups, who can be messaged), once per opening; and New message's Suggested list, ahead. */
@@ -297,35 +205,40 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
     }
   }, [open, communityId, setIntro])
 
-  /* Opened on a member: their conversation, made on the server if new (and kept for the tab, so the next time opens it at once). Opened on a group: that group. */
+  /*
+    Opened on a member: their conversation, at once when it is kept (asked for on the button's hover, or opened before
+    in this tab); otherwise its header straight away, from the person the button already knew, while its id is asked
+    for, and its messages in that same place when it comes (round 39: the list was drawn meanwhile). Opened on a group:
+    that group.
+  */
   useEffect(() => {
     if (!open || (!start?.userId && !start?.groupId)) return
     let gone = false
-    setView({ kind: "list" })
+    setBack(false)
     setPicking(false)
     if (start.groupId) {
-      setBack(false)
       setView({ kind: "group", id: start.groupId, name: "Group" })
       return
     }
-    const known = keptValue<{ id: string; other: Person | null }>(`dm-with:${communityId}:${start.userId}`)
+    const known = keptValue<{ id: string; other: Person | null }>(dmWithKey(communityId, start.userId!))
     if (known) {
-      setBack(false)
-      setView({ kind: "thread", id: known.id, other: known.other })
+      setView({ kind: "thread", id: known.id, other: known.other ?? start.person ?? null })
       return
     }
-    void (async () => {
-      const r = await api<{ conversation: { id: string; other: Person | null } }>(`${apiBase(communityId)}/dms`, { body: { userId: start.userId } })
+    setView({ kind: "opening", other: start.person ?? null })
+    void conversationWith(communityId, start.userId!, userId).then((c) => {
       if (gone) return
-      if (!r.ok) return toast(r.error)
-      keepValue(`dm-with:${communityId}:${start.userId}`, r.data.conversation)
-      setBack(false)
-      setView({ kind: "thread", id: r.data.conversation.id, other: r.data.conversation.other })
-    })()
+      if ("error" in c) {
+        toast(c.error)
+        setView({ kind: "list" })
+        return
+      }
+      setView({ kind: "thread", id: c.id, other: c.other ?? start.person ?? null, still: true })
+    })
     return () => {
       gone = true
     }
-  }, [open, start, communityId])
+  }, [open, start, communityId, userId])
 
   useEffect(() => {
     if (!open) return
@@ -354,7 +267,9 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
 
   const body =
     view.kind === "thread" ? (
-      <Thread key={view.id} communityId={communityId} slug={slug} userId={userId} intro={intro} id={view.id} other={view.other} onBack={list} onClose={onClose} onRead={onRead} back={back} />
+      <Thread key={view.id} communityId={communityId} slug={slug} userId={userId} intro={intro} id={view.id} other={view.other} onBack={list} onClose={onClose} onRead={onRead} back={back} still={!!view.still} />
+    ) : view.kind === "opening" ? (
+      <OpeningThread slug={slug} other={view.other} onBack={list} onClose={onClose} />
     ) : view.kind === "group" ? (
       <GroupThread key={view.id} communityId={communityId} userId={userId} intro={intro} id={view.id} name={view.name} onBack={list} onClose={onClose} onRead={onRead} onInfo={(name) => go({ kind: "groupInfo", id: view.id, name })} back={back} />
     ) : view.kind === "groupInfo" ? (
@@ -381,15 +296,19 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
     />
   )
 
+  const at = phase === "in" ? "in" : "away"
   return createPortal(
     phone ? (
       <div
+        ref={box}
         role="dialog"
         aria-modal="true"
         aria-label="Messages"
         data-community-messages="phone"
-        className={`fixed inset-x-0 top-[var(--vv-top,0px)] z-[120] flex h-[var(--vv-h,100dvh)] flex-col bg-white ease-sheet [backface-visibility:hidden] ${
-          leaving ? "animate-out slide-out-to-right duration-200" : "animate-in slide-in-from-right duration-[240ms]"
+        data-phase={phase}
+        style={{ transitionDuration: `${phase === "out" ? SHEET_OUT_MS : SHEET_IN_MS}ms` }}
+        className={`fixed inset-x-0 top-[var(--vv-top,0px)] z-[120] flex h-[var(--vv-h,100dvh)] flex-col bg-white shadow-[0_-8px_30px_-12px_rgba(17,24,39,0.18)] transition-[translate,opacity] ease-sheet [backface-visibility:hidden] motion-reduce:translate-y-0 ${
+          at === "in" ? "translate-y-0 opacity-100" : "translate-y-full motion-reduce:opacity-0"
         }`}
       >
         {body}
@@ -400,12 +319,14 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
         {/* No dark scrim: the page stays as it was. A click outside closes it. */}
         <div aria-hidden className="fixed inset-0 z-[110]" onClick={onClose} />
         <div
+          ref={box}
           role="dialog"
           aria-label="Messages"
           data-community-messages="panel"
-          style={{ animationDuration: `${leaving ? EXIT_MS : ENTER_MS}ms` }}
-          className={`fixed bottom-4 right-4 top-[calc(var(--community-top,64px)+8px)] z-[120] flex w-[420px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-16px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)] ease-sheet ${
-            leaving ? "animate-out fade-out-0 slide-out-to-right-3" : "animate-in fade-in-0 slide-in-from-right-3"
+          data-phase={phase}
+          style={{ transitionDuration: `${phase === "out" ? EXIT_MS : ENTER_MS}ms` }}
+          className={`fixed bottom-4 right-4 top-[calc(var(--community-top,64px)+8px)] z-[120] flex w-[420px] max-w-[calc(100vw-32px)] origin-top-right flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_24px_60px_-16px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)] transition-[opacity,translate,scale] ease-sheet motion-reduce:translate-y-0 motion-reduce:scale-100 ${
+            at === "in" ? "translate-y-0 scale-100 opacity-100" : "-translate-y-2 scale-[0.98] opacity-0"
           }`}
         >
           {body}
@@ -416,6 +337,57 @@ export function MessagesPanel({ communityId, slug, userId, open, onClose, start,
     document.body,
   )
 }
+
+/** A conversation whose id is on its way (round 39): its header from the person the button knew, and the shape of messages where they will land. */
+function OpeningThread({ slug, other, onBack, onClose }: { slug: string; other: Person | null; onBack: () => void; onClose: () => void }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" data-thread-opening="">
+      <Bar
+        onBack={onBack}
+        onClose={onClose}
+        right={
+          <>
+            <span aria-hidden className="h-10 w-10 shrink-0" />
+            <span aria-hidden className="h-10 w-10 shrink-0" />
+          </>
+        }
+        title={other ? <PersonTitle slug={slug} other={other} status="" online={false} typing={false} /> : <span className="mx-1 block h-4 w-32 rounded-full bg-[#eceef1]" />} />
+      <div className="flex min-h-0 flex-1 flex-col justify-end px-2.5 pb-2 pt-3 sm:px-4">
+        <SkeletonBubbles />
+      </div>
+      <div className="shrink-0 border-t border-[#eceef1] bg-white px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 sm:px-3 sm:pb-3">
+        <div className="flex items-end gap-1.5">
+          <span className="h-10 w-10 shrink-0" />
+          <span className="h-10 min-w-0 flex-1 rounded-[20px] bg-[#f3f4f6]" />
+          <span className="h-10 w-10 shrink-0 rounded-full bg-[#1a1a2e] opacity-30" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** The other person in a conversation's bar: their picture (with a dot while they are here), name, and one quiet line. */
+function PersonTitle({ slug, other, status, online, typing }: { slug: string; other: Person; status: string; online: boolean; typing: boolean }) {
+  return (
+    <a href={memberHref(slug, { id: other.id, username: other.username })} data-person-link="" className="flex min-w-0 items-center gap-2.5 rounded-lg px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
+      <span className="relative shrink-0">
+        <MemberAvatar src={other.avatarUrl} name={other.name} alt="" size={32} />
+        {online ? <span aria-hidden className="absolute -bottom-px -right-px h-2.5 w-2.5 rounded-full bg-[#22a06b] ring-2 ring-white animate-in fade-in-0 zoom-in-50 duration-200 motion-reduce:animate-none" data-online-dot="" /> : null}
+      </span>
+      <span className="min-w-0">
+        <span className="flex items-center gap-1.5">
+          <span className="truncate text-[15px] font-semibold text-[#1a1a2e]">{other.name}</span>
+          <RoleBadge role={other.role as never} size="xs" />
+        </span>
+        {/* Typing, then online or when they were last here, then their @name: one quiet line that never changes the bar's height. */}
+        <span className={`block h-4 truncate text-[12px] leading-4 transition-colors duration-150 ${typing || online ? "text-[#22a06b]" : "text-[#9ca3af]"}`} data-chat-status="">
+          {typing ? "typing" : status || (other.username ? `@${other.username}` : "")}
+        </span>
+      </span>
+    </a>
+  )
+}
+
 
 function Bar({ title, onBack, onClose, right }: { title: React.ReactNode; onBack?: () => void; onClose?: () => void; right?: React.ReactNode }) {
   return (
@@ -690,9 +662,23 @@ function PersonRow({ m, right, onClick, disabled }: { m: MemberView; right?: Rea
 
 /* ── one conversation ──────────────────────────────────────────────────── */
 
-function Thread({ communityId, slug, userId, intro, id, other, onBack, onClose, onRead, back }: { communityId: string; slug: string; userId: string | null; intro: Intro | null; id: string; other: Person | null; onBack: () => void; onClose: () => void; onRead: () => void; back: boolean }) {
+/** The later of a mark kept and one just read (a mark never goes back: an older answer arriving late changes nothing). */
+function later(a: string | null, b: unknown): string | null {
+  return typeof b === "string" && (!a || Date.parse(b) > Date.parse(a)) ? b : a
+}
+
+function Thread({ communityId, slug, userId, intro, id, other, onBack, onClose, onRead, back, still = false }: { communityId: string; slug: string; userId: string | null; intro: Intro | null; id: string; other: Person | null; onBack: () => void; onClose: () => void; onRead: () => void; back: boolean; still?: boolean }) {
   const base = `${apiBase(communityId)}/dms/${id}`
-  const [otherReadAt, setOtherReadAt] = useState<string | null>(null)
+  /* The other side's marks (round 39): read, delivered, and their last heartbeat, from the kept page at once. */
+  const [marks, setMarks] = useState<{ read: string | null; delivered: string | null; seen: string | null }>(() => {
+    const extra = cachedPage(chatCacheKey(userId, "dm", id))?.extra ?? {}
+    const s = (v: unknown) => (typeof v === "string" ? v : null)
+    return { read: s(extra.otherReadAt), delivered: s(extra.otherDeliveredAt), seen: s(extra.otherSeenAt) }
+  })
+  const take = useCallback((d: Record<string, unknown>) => setMarks((m) => ({ read: later(m.read, d.otherReadAt), delivered: later(m.delivered, d.otherDeliveredAt), seen: later(m.seen, d.otherSeenAt) })), [])
+  const [typing, setTyping] = useState<string[]>([])
+  const presence = useOnline(communityId, userId, other?.id ?? null)
+  const status = lastSeenLine(presence, marks.seen)
   const [blocked, setBlocked] = useState(false)
   const [report, setReport] = useState<ReportTargetRef | null>(null)
 
@@ -714,15 +700,15 @@ function Thread({ communityId, slug, userId, intro, id, other, onBack, onClose, 
         () => h.changed(),
         5_000,
       )
-      /* The conversation's own row: when the other person reads it, "Seen". */
+      /* The conversation's own row: when the other person's Storelib has it, two ticks; when they read it, "Seen". */
       const stopRow = liveStream(
         `community-dm-row:${id}`,
         "community_conversations",
         `id=eq.${id}`,
         (payload) => {
           const row = payload.new ?? {}
-          const read = row.user_a === userId ? row.b_read_at : row.a_read_at
-          if (typeof read === "string") setOtherReadAt(read)
+          const a = row.user_a === userId
+          take({ otherReadAt: a ? row.b_read_at : row.a_read_at, otherDeliveredAt: a ? row.b_delivered_at : row.a_delivered_at })
         },
         () => undefined,
         60_000,
@@ -732,7 +718,7 @@ function Thread({ communityId, slug, userId, intro, id, other, onBack, onClose, 
         stopRow()
       }
     },
-    [id, userId],
+    [id, userId, take],
   )
 
   const block = async () => {
@@ -751,7 +737,8 @@ function Thread({ communityId, slug, userId, intro, id, other, onBack, onClose, 
     : []
 
   return (
-    <div className={`flex min-h-0 flex-1 flex-col ${slideClass(back)}`} data-thread={id}>
+    /* `still`: it takes the place of its own header and skeleton drawn while its id was asked for (OpeningThread), so nothing slides. */
+    <div className={`flex min-h-0 flex-1 flex-col ${still ? "" : slideClass(back)}`} data-thread={id}>
       <ChatSurface
         communityId={communityId}
         kind="dm"
@@ -764,8 +751,10 @@ function Thread({ communityId, slug, userId, intro, id, other, onBack, onClose, 
         subscribe={subscribe}
         showAuthors={false}
         intro={intro}
-        otherReadAt={otherReadAt}
-        onPage={(d) => typeof d.otherReadAt === "string" && setOtherReadAt(d.otherReadAt)}
+        otherReadAt={marks.read}
+        otherDeliveredAt={marks.delivered}
+        onPage={take}
+        onTypingChange={setTyping}
         onRead={onRead}
         closed={blocked ? "You blocked this member. Unblock them to send a message." : null}
         placeholder={other ? `Message ${other.name.split(" ")[0]}` : "Message"}
@@ -781,16 +770,7 @@ function Thread({ communityId, slug, userId, intro, id, other, onBack, onClose, 
             }
             title={
               other ? (
-                <a href={memberHref(slug, { id: other.id, username: other.username })} data-person-link="" className="flex min-w-0 items-center gap-2.5 rounded-lg px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
-                  <MemberAvatar src={other.avatarUrl} name={other.name} alt="" size={32} />
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-1.5">
-                      <span className="truncate text-[15px] font-semibold text-[#1a1a2e]">{other.name}</span>
-                      <RoleBadge role={other?.role as never} size="xs" />
-                    </span>
-                    {other.username ? <span className="block truncate text-[12px] leading-4 text-[#9ca3af]">@{other.username}</span> : null}
-                  </span>
-                </a>
+                <PersonTitle slug={slug} other={other} status={status.text} online={status.online} typing={typing.length > 0} />
               ) : (
                 <span className="px-1 text-[15px] font-semibold text-[#1a1a2e]">Former member</span>
               )
@@ -837,9 +817,19 @@ function GroupThread({ communityId, userId, intro, id, name, onBack, onClose, on
     }
   }, [base, id])
 
+  /* The others' read and delivered marks (round 39), from the kept page at once, then each page and each change to a member's row. */
+  type Mark = { userId: string; read: string | null; delivered: string | null }
+  const [marks, setMarks] = useState<Mark[] | null>(() => {
+    const kept = cachedPage(chatCacheKey(userId, "group", id))?.extra?.marks
+    return Array.isArray(kept) ? (kept as Mark[]) : null
+  })
+  const [typing, setTyping] = useState<string[]>([])
+  const onPage = useCallback((d: Record<string, unknown>) => {
+    if (Array.isArray(d.marks)) setMarks(d.marks as Mark[])
+  }, [])
   const subscribe = useCallback(
-    (h: StreamHandlers) =>
-      liveStream(
+    (h: StreamHandlers) => {
+      const stop = liveStream(
         `community-group:${id}`,
         "community_chat_group_messages",
         `group_id=eq.${id}`,
@@ -849,8 +839,26 @@ function GroupThread({ communityId, userId, intro, id, name, onBack, onClose, on
         },
         () => h.changed(),
         5_000,
-      ),
-    [id],
+      )
+      const stopMarks = liveStream(
+        `community-group-marks:${id}`,
+        "community_chat_group_members",
+        `group_id=eq.${id}`,
+        (payload) => {
+          const row = payload.new ?? {}
+          if (payload.eventType !== "UPDATE" || typeof row.user_id !== "string" || row.user_id === userId) return
+          const who = row.user_id
+          setMarks((cur) => (cur ? cur.map((m) => (m.userId === who ? { userId: who, read: later(m.read, row.last_read_at), delivered: later(m.delivered, row.delivered_at) } : m)) : cur))
+        },
+        () => undefined,
+        60_000,
+      )
+      return () => {
+        stop()
+        stopMarks()
+      }
+    },
+    [id, userId],
   )
   const title = detail?.name ?? name
 
@@ -868,6 +876,9 @@ function GroupThread({ communityId, userId, intro, id, name, onBack, onClose, on
         subscribe={subscribe}
         showAuthors
         intro={intro}
+        groupMarks={marks}
+        onPage={onPage}
+        onTypingChange={setTyping}
         onRead={onRead}
         onReport={(m: ChatLine) => m.author && setReport({ type: "member", id: m.author.id, what: m.author.name })}
         placeholder={`Message ${title}`}
@@ -881,7 +892,9 @@ function GroupThread({ communityId, userId, intro, id, name, onBack, onClose, on
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#ede9fe] text-[14px] font-semibold text-[#6d28d9]">{title.slice(0, 1).toUpperCase()}</span>
                 <span className="min-w-0">
                   <span className="block truncate text-[15px] font-semibold text-[#1a1a2e]">{title}</span>
-                  <span className="block truncate text-[12px] leading-4 text-[#9ca3af]">{detail ? `${detail.memberCount} people` : " "}</span>
+                  <span className={`block h-4 truncate text-[12px] leading-4 ${typing.length ? "text-[#22a06b]" : "text-[#9ca3af]"}`} data-chat-status="">
+                    {typing.length ? typingLine(typing) : detail ? `${detail.memberCount} people` : " "}
+                  </span>
                 </span>
               </button>
             }

@@ -25,7 +25,7 @@ import { COUNTRIES } from "@/lib/checkout/countries"
 import type { MemberView, Role } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
-import { openMessages } from "./messages"
+import { openMessages, warmConversation } from "./messages-signal"
 import { toast } from "./toast"
 import { dmButtonReason, type DmStartView } from "@/lib/communities/chat-rules"
 import { memberHref } from "./person-href"
@@ -226,7 +226,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
         <ul ref={listRef} className={`${CARD} mt-4 divide-y divide-[#f0f1f3] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)]`} data-member-list="">
           {members.map((m) => (
             <li key={m.userId}>
-              <MemberRow m={m} slug={slug} canMessage={canMessage && m.userId !== meId} dmStart={dmStart} />
+              <MemberRow m={m} slug={slug} canMessage={canMessage && m.userId !== meId} dmStart={dmStart} communityId={communityId} />
             </li>
           ))}
         </ul>
@@ -242,7 +242,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
   )
 }
 
-export function MemberRow({ m, slug, canMessage = false, dmStart = null }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio" | "hasStorefront" | "location">; slug: string; canMessage?: boolean; dmStart?: DmStartView | null }) {
+export function MemberRow({ m, slug, canMessage = false, dmStart = null, communityId = null }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio" | "hasStorefront" | "location">; slug: string; canMessage?: boolean; dmStart?: DmStartView | null; /** Round 39: the conversation asked for while the pointer rests on Message. */ communityId?: string | null }) {
   /* Round 38: the admins' rule for starting a conversation (a level, days here, the team only), read for this row's role. Their own choice is told on the press. */
   const why = canMessage ? dmButtonReason(dmStart, m.role ?? "member") : null
   return (
@@ -267,7 +267,8 @@ export function MemberRow({ m, slug, canMessage = false, dmStart = null }: { m: 
     {canMessage ? (
       <button
         type="button"
-        onClick={() => (why ? toast(why) : openMessages({ userId: m.userId }))}
+        onClick={() => (why ? toast(why) : openMessages({ userId: m.userId, person: { id: m.userId, name: m.name, username: m.username ?? null, avatarUrl: m.avatarUrl ?? null, role: m.role ?? null } }))}
+        onPointerEnter={why || !communityId ? undefined : () => warmConversation(communityId, null, m.userId)}
         aria-label={why ? `Message ${m.name}: ${why}` : `Message ${m.name}`}
         aria-disabled={why ? true : undefined}
         title={why ?? undefined}

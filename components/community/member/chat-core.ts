@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { VIEWING_BEAT_MS, typingTopic, type ChatKind, type SendState } from "@/lib/communities/chat-rules"
+import type { PostMedia } from "@/lib/communities/types"
 import type { ChatLine } from "./view-types"
 import { api } from "./api"
 import { realtimeAuth } from "./realtime"
@@ -34,6 +35,8 @@ export type ChatItem = ChatLine & {
   error?: string
   /** What the send carried, for a retry. */
   sendBody?: Record<string, unknown>
+  /** Round 39: sent while its pictures or files were going up; their answers (again: each failed one uploaded once more), null while any is missing. */
+  upload?: (again: boolean) => Promise<PostMedia[] | null>
 }
 
 /*
@@ -167,6 +170,15 @@ export function prefetchPage(key: string, url: string, opts: { force?: boolean }
   })
   ASKING.set(key, ask)
   return ask
+}
+
+/** A chat's newest page that came with another answer (round 39: a conversation opened or found ahead), kept as if it had been asked for. */
+export function keepAnswered(key: string, raw: unknown): void {
+  if (!raw || typeof raw !== "object") return
+  const { messages, hasMore, ...extra } = raw as { messages?: unknown; hasMore?: unknown } & Record<string, unknown>
+  if (!Array.isArray(messages)) return
+  FRESH.set(key, Date.now())
+  keepPage(key, messages as ChatLine[], !!hasMore, extra)
 }
 
 /** The kept chat's newest settled message time, to tell whether a list row has moved past what is kept. */

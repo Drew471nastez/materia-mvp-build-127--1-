@@ -69,10 +69,11 @@
 import { Suspense, lazy, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { ArrowDown, ArrowUp, Bell, BellOff, Check, CheckCheck, Clock, Copy, CornerUpLeft, FileText, Flag, Heart, MoreHorizontal, Paperclip, Pencil, RotateCw, Shield, Smile, Trash2, X } from "lucide-react"
 import { ActionMenuAt, type ActionMenuItem, type ActionMenuPlace } from "@/components/ui/responsive-action-menu"
-import { CHAT_ATTACHMENTS_MAX, attachmentLine, firstSettled, lastSettled, localDay, mergeMessages, newClientId, sameBubbleGroup, typingLine, type ChatKind } from "@/lib/communities/chat-rules"
+import { CHAT_ATTACHMENTS_MAX, attachmentLine, firstSettled, lastSettled, localDay, mergeMessages, messageTick, newClientId, sameBubbleGroup, seenLineOf, typingLine, type ChatKind, type MessageTick, type ReadMark } from "@/lib/communities/chat-rules"
 import { chatVideoOf, firstLink, type ChatLinkCard } from "@/lib/communities/chat-links"
 import { fileSizeLabel, type ViewerItem } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
+import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { hapticTap } from "@/lib/native-bridge"
 import type { ChatIntroView, ChatLine } from "./view-types"
 import { api, apiBase } from "./api"
@@ -83,7 +84,7 @@ import { ChatPostCard } from "./chat-post-card"
 import { ConfirmDialog, type ConfirmState } from "./dialogs"
 import { Lightbox } from "./lightbox"
 import { MemberAvatar } from "./member-avatar"
-import { localPicture, stopUpload, uploadCommunityFile, uploadKindOf, uploadPicture } from "./media-upload"
+import { localPicture, stopUpload, uploadCommunityFile, uploadKindOf, uploadPicture, type UploadKind } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { toast } from "./toast"
 
@@ -123,6 +124,12 @@ export interface ChatSurfaceProps {
   attachments?: boolean
   /** A conversation: when the other person last read it, for "Seen". */
   otherReadAt?: string | null
+  /** A conversation: when the other person's Storelib last had it (part 275), for "delivered". */
+  otherDeliveredAt?: string | null
+  /** A group: each other person's read and delivered marks, for the ticks and "Seen by N". */
+  groupMarks?: { read: string | null; delivered: string | null }[] | null
+  /** Who is typing here, for the header (round 39). */
+  onTypingChange?: (names: string[]) => void
   renderAvatar?: (m: ChatLine) => React.ReactNode
   renderName?: (m: ChatLine) => React.ReactNode
   onReport?: (m: ChatLine) => void
@@ -196,6 +203,19 @@ interface TrayItem {
   media: PostMedia | null
   failed: string | null
   ctrl: AbortController
+  /** Round 39: the file picked, its upload's answer (null when it failed or was stopped), and a picture's size once read. */
+  file: File
+  done: Promise<PostMedia | null>
+  w: number
+  h: number
+}
+
+/** What a bubble draws for a file still going up (round 39): the picture or video picked, or the file's name and size. */
+function placeholderOf(t: TrayItem): PostMedia {
+  if (t.kind === "image" && t.preview) return { type: "image", url: t.preview, ...(t.w && t.h ? { w: t.w, h: t.h } : {}) }
+  const assetId = `local-${t.key}`
+  if (t.kind === "video" && t.preview) keepLocalVideo(assetId, t.preview)
+  return { type: "file", assetId, name: t.name, size: t.file.size }
 }
 
 export function ChatSurface(p: ChatSurfaceProps) {
@@ -435,8 +455,23 @@ export function ChatSurface(p: ChatSurfaceProps) {
     [url],
   )
 
+  /* A message sent while its pictures were going up: on screen already; to the server once they are in (or Not sent, to try again). */
+  const deliver = useCallback(
+    async (item: ChatItem, again: boolean) => {
+      const real = item.upload ? await item.upload(again) : null
+      if (!real) {
+        setItems((cur) => cur.map((m) => (m.id === item.id ? { ...m, state: "failed", error: "A picture or file did not upload. Try again." } : m)))
+        return
+      }
+      const next: ChatItem = { ...item, attachments: real, sendBody: { ...item.sendBody, attachments: real }, upload: undefined }
+      setItems((cur) => cur.map((m) => (m.id === item.id ? { ...m, attachments: real, sendBody: next.sendBody, upload: undefined } : m)))
+      void post(next)
+    },
+    [post],
+  )
+
   const send = useCallback(
-    (text: string, media: PostMedia[]) => {
+    (text: string, media: PostMedia[], finish?: (again: boolean) => Promise<PostMedia[] | null>) => {
       if (!me) return
       const body = text.trim()
       if (!body && !media.length) return
@@ -458,20 +493,21 @@ export function ChatSurface(p: ChatSurfaceProps) {
         canModerate: false,
         state: "sending",
         sendBody,
+        ...(finish ? { upload: finish } : {}),
       }
       atBottom.current = true
       setReply(null)
       setUnseen(0)
       setItems((cur) => mergeMessages(cur, [item]))
       typing.stop()
-      void post(item)
+      void (finish ? deliver(item, false) : post(item))
     },
-    [me, reply, post, typing],
+    [me, reply, post, deliver, typing],
   )
 
   const retry = (m: ChatItem) => {
     setItems((cur) => cur.map((x) => (x.id === m.id ? { ...x, state: "sending", error: undefined } : x)))
-    void post(m)
+    void (m.upload ? deliver(m, true) : post(m))
   }
 
   const saveEdit = async (text: string) => {
@@ -579,22 +615,30 @@ export function ChatSurface(p: ChatSurfaceProps) {
 
   /* ── Drawing ─────────────────────────────────────────────────────────── */
 
-  const lastMineSeen = useMemo(() => {
-    if (!p.otherReadAt) return null
-    const read = Date.parse(p.otherReadAt)
-    for (let i = items.length - 1; i >= 0; i--) {
-      const m = items[i]
-      if (m.mine && !m.state) return Date.parse(m.createdAt) <= read ? m.id : null
-    }
-    return null
-  }, [items, p.otherReadAt])
+  /*
+    EACH OWN MESSAGE'S STATE (round 39): sending (the clock, only once a send takes a moment), sent (one tick: the
+    server has it), delivered (two ticks: the other person's Storelib has it, part 275's mark or their read mark),
+    seen (two lit ticks: they read past it). In a group, delivered once anybody has it and seen once everybody read it,
+    with "Seen by N" under the last one. A channel has no ticks (everybody reads it).
+  */
+  const tickOf = useMemo(() => {
+    const marks: ReadMark[] | null = p.groupMarks ?? (p.otherReadAt === undefined ? null : [{ read: p.otherReadAt ?? null, delivered: p.otherDeliveredAt ?? null }])
+    return marks ? (created: string) => messageTick(created, marks) : null
+  }, [p.groupMarks, p.otherReadAt, p.otherDeliveredAt])
 
   const lastMineId = useMemo(() => {
     for (let i = items.length - 1; i >= 0; i--) if (items[i].mine && !items[i].state) return items[i].id
     return null
   }, [items])
+  const lastMine = lastMineId ? items.find((m) => m.id === lastMineId) : undefined
+  const seenLine = seenLineOf(lastMine && tickOf ? tickOf(lastMine.createdAt) : null, !!p.groupMarks) || null
 
   const typingText = typingLine(typing.names)
+  const onTypingChange = p.onTypingChange
+  const typingKey = typing.names.join("\u0000")
+  useEffect(() => {
+    onTypingChange?.(typingKey ? typingKey.split("\u0000") : [])
+  }, [typingKey, onTypingChange])
 
   return (
     <div
@@ -660,8 +704,8 @@ export function ChatSurface(p: ChatSurfaceProps) {
                   last={last}
                   showAuthor={p.showAuthors && !m.mine}
                   flash={flash === m.id}
-                  seen={m.id === lastMineSeen}
-                  delivered={m.id === lastMineId && p.otherReadAt !== undefined}
+                  tick={m.mine && !m.state && tickOf ? tickOf(m.createdAt).tick : null}
+                  seenLine={m.id === lastMineId ? seenLine : null}
                   reactions={!!p.reactions}
                   communityId={communityId}
                   kind={kind}
@@ -760,7 +804,7 @@ const SKELETON: [mine: boolean, width: number][] = [
   [true, 58],
   [true, 30],
 ]
-function SkeletonBubbles() {
+export function SkeletonBubbles() {
   return (
     <div className="flex flex-col" data-chat-skeleton="" role="status" aria-label="Loading messages">
       {SKELETON.map(([mine, width], i) => (
@@ -813,8 +857,8 @@ const Bubble = memo(function Bubble({
   last,
   showAuthor,
   flash,
-  seen,
-  delivered,
+  tick,
+  seenLine,
   reactions,
   communityId,
   kind,
@@ -831,8 +875,8 @@ const Bubble = memo(function Bubble({
   last: boolean
   showAuthor: boolean
   flash: boolean
-  seen: boolean
-  delivered: boolean
+  tick: MessageTick | null
+  seenLine: string | null
   reactions: boolean
   communityId: string
   kind: ChatKind
@@ -878,7 +922,15 @@ const Bubble = memo(function Bubble({
     <span className={`ml-2 inline-flex translate-y-[3px] items-center gap-0.5 whitespace-nowrap align-baseline text-[11px] ${mine ? "text-white/60" : "text-[#8a8f98]"}`}>
       {m.editedAt ? "edited " : ""}
       {clock ?? ""}
-      {mine ? m.state === "sending" ? (slow ? <Clock className="h-3.5 w-3.5 p-px" aria-label="Sending" /> : <span className="inline-block h-3.5 w-3.5" aria-label="Sending" />) : m.state === "failed" ? null : seen ? <CheckCheck className="h-3.5 w-3.5" aria-label="Seen" /> : delivered ? <Check className="h-3.5 w-3.5" aria-label="Sent" /> : null : null}
+      {mine ? (
+        m.state === "sending" ? (
+          slow ? <Clock className="h-3.5 w-3.5 p-px" aria-label="Sending" /> : <span className="inline-block h-3.5 w-3.5" aria-label="Sending" />
+        ) : m.state === "failed" ? null : tick ? (
+          <span className={`inline-flex transition-colors duration-200 ${tick === "seen" ? (onlyPics ? "text-white" : "text-[#c4b5fd]") : ""}`} data-tick={tick}>
+            {tick === "sent" ? <Check className="h-3.5 w-3.5" aria-label="Sent" /> : <CheckCheck className="h-3.5 w-3.5" aria-label={tick === "seen" ? "Seen" : "Delivered"} />}
+          </span>
+        ) : null
+      ) : null}
     </span>
   )
 
@@ -974,7 +1026,7 @@ const Bubble = memo(function Bubble({
             {m.reactionCount}
           </button>
         ) : null}
-        {seen && last ? <span className="mt-0.5 px-1 text-[11px] text-[#9ca3af]" data-chat-seen="">Seen</span> : null}
+        {seenLine ? <span className="mt-0.5 px-1 text-[11px] text-[#9ca3af] animate-in fade-in-0 duration-200 motion-reduce:animate-none" data-chat-seen="">{seenLine}</span> : null}
       </div>
       {hasActions && !phone ? (
         <div className={`flex shrink-0 items-center self-center opacity-0 transition-opacity duration-100 focus-within:opacity-100 group-hover/msg:opacity-100 ${mine ? "order-first" : ""}`} data-chat-menu="">
@@ -992,15 +1044,29 @@ const Bubble = memo(function Bubble({
   )
 })
 
+/*
+  A PICTURE IN A BUBBLE, AT THE SIZE IT IS DRAWN (round 39). The one just sent is drawn from the file picked
+  (localPicture), the same pixels before and after the server's copy takes its place. Any other is asked of the image
+  optimizer at the bubble's width (300px, a grid's square 150px) and twice that for a sharp screen, never the 2560px
+  upload; a GIF uploaded from the device is drawn as it is (the optimizer keeps one frame).
+*/
+function pictureSources(a: Extract<PostMedia, { type: "image" | "gif" }>, width: number, widths: number[]): { src: string; srcSet: string | undefined } {
+  if (a.type === "gif" || isGifPicture(a)) return { src: a.url, srcSet: undefined }
+  const local = localPicture(a.url)
+  if (local) return { src: local, srcSet: undefined }
+  const srcSet = optimizedSrcSet(a.url, widths)
+  return srcSet ? { src: optimizedImageUrl(a.url, width), srcSet } : { src: a.url, srcSet: undefined }
+}
+
 function Pictures({ m, pics, onOpen, rounded }: { m: ChatItem; pics: PostMedia[]; onOpen: (m: ChatItem, index: number) => void; rounded: boolean }) {
   const all = m.attachments
   if (pics.length === 1) {
     const a = pics[0] as Extract<PostMedia, { type: "image" | "gif" }>
     const ratio = a.w && a.h ? Math.min(1.8, Math.max(0.7, a.w / a.h)) : 4 / 3
-    const src = a.type === "image" ? (localPicture(a.url) ?? a.url) : a.url
+    const p = pictureSources(a, 300, [384, 640, 828])
     return (
       <button type="button" onClick={() => onOpen(m, all.indexOf(a))} className={`block w-[min(300px,68vw)] overflow-hidden bg-[#e9eaee] ${rounded ? "my-1 rounded-xl" : ""}`} style={{ aspectRatio: String(ratio) }} data-chat-picture="">
-        <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
+        <img src={p.src} srcSet={p.srcSet} sizes={p.srcSet ? "min(300px, 68vw)" : undefined} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
       </button>
     )
   }
@@ -1008,10 +1074,10 @@ function Pictures({ m, pics, onOpen, rounded }: { m: ChatItem; pics: PostMedia[]
     <div className={`grid w-[min(300px,68vw)] grid-cols-2 gap-0.5 overflow-hidden ${rounded ? "my-1 rounded-xl" : ""}`} data-chat-pictures="">
       {pics.slice(0, 4).map((x, i) => {
         const a = x as Extract<PostMedia, { type: "image" | "gif" }>
-        const src = a.type === "image" ? (localPicture(a.url) ?? a.url) : a.url
+        const p = pictureSources(a, 150, [256, 384])
         return (
           <button key={`${a.url}-${i}`} type="button" onClick={() => onOpen(m, all.indexOf(a))} className="relative aspect-square overflow-hidden bg-[#e9eaee]">
-            <img src={src} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
+            <img src={p.src} srcSet={p.srcSet} sizes={p.srcSet ? "min(150px, 34vw)" : undefined} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" draggable={false} />
             {i === 3 && pics.length > 4 ? <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[18px] font-semibold text-white">+{pics.length - 4}</span> : null}
           </button>
         )
@@ -1049,7 +1115,28 @@ function RulesGate({ communityId, rules, onAccepted }: { communityId: string; ru
 
 /* ── The box at the bottom ─────────────────────────────────────────────── */
 
-const TOOL = "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors hover:bg-[#e9eaee] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+/*
+  THE BOX, ONE ROW (round 39, the owner: "look how ugly the GIF/emoji buttons sit"). Attach, the field, Send; inside the
+  field the words, then GIF and emoji at its right end. Every button is the same 40px circle with a 20px mark, on the
+  field's middle while it holds one line and at its foot as it grows. The words' box is as wide as the field
+  (MentionTextarea's wrapper takes the room): it was as wide as its own default, which left GIF and emoji floating in
+  the middle of a wide field (measured, scripts/check-community-chat-r39.mjs: words 235px of a 642px field at 1440).
+  The field's outline when focused is an inset ring, so focusing it never changes its height.
+*/
+const ICON = "flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [&_svg]:h-5 [&_svg]:w-5"
+const TOOL = `${ICON} hover:bg-[#e6e8eb] [[data-chat-field]:focus-within_&]:hover:bg-[#f1f2f4]`
+
+/** GIF as an icon, drawn like the emoji button's mark (a 2px line at 24, the letters inside), never bold letters in the field. */
+function GifGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden data-chat-gif-glyph="">
+      <rect x="2" y="4.5" width="20" height="15" rx="4" stroke="currentColor" strokeWidth="1.9" />
+      <text x="12" y="15.4" textAnchor="middle" fontSize="8.4" fontWeight="700" fill="currentColor" style={{ fontFamily: "Inter, system-ui, sans-serif", letterSpacing: "0.2px" }}>
+        GIF
+      </text>
+    </svg>
+  )
+}
 
 /**
  * The emoji button until it is first pressed: the same size and mark as the picker's own, which takes its place,
@@ -1060,7 +1147,7 @@ const TOOL = "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center r
 function ToolStandIn({ onPress }: { onPress?: () => void }) {
   return (
     <button type="button" aria-label="Emoji" tabIndex={-1} disabled={!onPress} onMouseDown={(e) => e.preventDefault()} onClick={onPress} className={`${TOOL} disabled:cursor-default`} data-chat-emoji="">
-      <Smile aria-hidden className="h-[18px] w-[18px] sm:h-4 sm:w-4" strokeWidth={2} />
+      <Smile aria-hidden strokeWidth={2} />
     </button>
   )
 }
@@ -1091,7 +1178,7 @@ function Composer({
   editing: ChatItem | null
   onCancelReply: () => void
   onCancelEdit: () => void
-  onSend: (text: string, media: PostMedia[]) => void
+  onSend: (text: string, media: PostMedia[], finish?: (again: boolean) => Promise<PostMedia[] | null>) => void
   onSaveEdit: (text: string) => void
   onTyping: () => void
   onFocus: () => void
@@ -1125,6 +1212,13 @@ function Composer({
     if (reply) requestAnimationFrame(() => box.current?.focus())
   }, [reply])
 
+  /* One file up: a picture through the picture pipeline (made lighter first, media-compress.ts), anything else through the community's file route. */
+  const upload = useCallback(
+    (f: File, what: UploadKind, key: string, ctrl: AbortController, onProgress?: (n: number) => void): Promise<PostMedia> =>
+      what === "image" ? uploadPicture(f, me?.id ?? "", communityId, { key, onProgress }) : uploadCommunityFile({ communityId, file: f, onProgress, signal: ctrl.signal }),
+    [me?.id, communityId],
+  )
+
   const add = useCallback(
     (files: File[]) => {
       if (!me || !attachments) return
@@ -1133,25 +1227,32 @@ function Composer({
       for (const f of files.slice(0, room)) {
         const key = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
         const what = uploadKindOf(f)
-        const isPic = what === "image"
         /* A video is a file to the server (the community's file folder, played from its signed address); here it is a video, drawn from the file picked. */
-        const item: TrayItem = { key, name: f.name, kind: what, preview: what === "file" ? null : URL.createObjectURL(f), progress: 0, media: null, failed: null, ctrl: new AbortController() }
-        setTray((cur) => [...cur, item])
+        const preview = what === "file" ? null : URL.createObjectURL(f)
+        const ctrl = new AbortController()
         const progress = (n: number) => setTray((cur) => cur.map((x) => (x.key === key ? { ...x, progress: n } : x)))
-        const done = (media: PostMedia) => {
-          if (media.type === "file" && item.kind === "video" && item.preview) keepLocalVideo(media.assetId, item.preview)
-          setTray((cur) => cur.map((x) => (x.key === key ? { ...x, progress: 100, media } : x)))
+        const done = upload(f, what, key, ctrl, progress).then(
+          (media) => {
+            if (media.type === "file" && what === "video" && preview) keepLocalVideo(media.assetId, preview)
+            setTray((cur) => cur.map((x) => (x.key === key ? { ...x, progress: 100, media } : x)))
+            return media
+          },
+          (e: unknown) => {
+            const msg = e instanceof Error ? e.message : "That did not upload."
+            if (msg !== "Upload stopped" && !ctrl.signal.aborted) setTray((cur) => cur.map((x) => (x.key === key ? { ...x, failed: msg } : x)))
+            return null
+          },
+        )
+        setTray((cur) => [...cur, { key, name: f.name, kind: what, preview, progress: 0, media: null, failed: null, ctrl, file: f, done, w: 0, h: 0 }])
+        /* Its shape, so the bubble of a message sent before it finishes uploading is the right size from its first frame. */
+        if (what === "image" && preview) {
+          const img = new Image()
+          img.onload = () => setTray((cur) => cur.map((x) => (x.key === key ? { ...x, w: img.naturalWidth, h: img.naturalHeight } : x)))
+          img.src = preview
         }
-        const fail = (e: unknown) => {
-          const msg = e instanceof Error ? e.message : "That did not upload."
-          if (msg === "Upload stopped" || item.ctrl.signal.aborted) return
-          setTray((cur) => cur.map((x) => (x.key === key ? { ...x, failed: msg } : x)))
-        }
-        if (isPic) void uploadPicture(f, me.id, communityId, { key, onProgress: progress }).then(done, fail)
-        else void uploadCommunityFile({ communityId, file: f, onProgress: progress, signal: item.ctrl.signal }).then(done, fail)
       }
     },
-    [me, attachments, tray.length, communityId],
+    [me, attachments, tray.length, upload],
   )
 
   /* Files dropped anywhere on this chat. */
@@ -1176,9 +1277,14 @@ function Composer({
     })
   }
 
-  const uploading = tray.some((t) => !t.media && !t.failed)
-  const ready = tray.filter((t) => t.media).map((t) => t.media as PostMedia)
-  const canSend = editing ? !!text.trim() || !!editing.attachments.length : (!!text.trim() || ready.length > 0) && !uploading
+  /*
+    SEND WHILE IT UPLOADS (round 39, the owner: "attaching things must feel smooth"). Send no longer waits, dimmed, for
+    the tray: pressed while a picture is still going up, the message is on screen at once with the picture picked in
+    its bubble, and goes to the server when its uploads are in (ChatSurface deliver). A tile that failed stays behind in
+    the tray with its reason and is not sent.
+  */
+  const live = tray.filter((t) => !t.failed)
+  const canSend = editing ? !!text.trim() || !!editing.attachments.length : !!text.trim() || live.length > 0
 
   /* A link in the words: its card, read by the server a moment after typing stops, shown above the box; the cross sends without it. */
   const draftUrl = useMemo(() => (editing ? null : firstLink(text)), [text, editing])
@@ -1215,10 +1321,20 @@ function Composer({
       return
     }
     if (!canSend) return
-    const withCard = linkCard && ready.length < CHAT_ATTACHMENTS_MAX ? [...ready, { type: "link", ...linkCard } as PostMedia] : ready
-    onSend(text, withCard)
+    const link = linkCard && live.length < CHAT_ATTACHMENTS_MAX ? [{ type: "link", ...linkCard } as PostMedia] : []
+    if (live.every((t) => t.media)) onSend(text, [...live.map((t) => t.media as PostMedia), ...link])
+    else {
+      const first = live.map((t) => (t.media ? Promise.resolve(t.media) : t.done))
+      /* The uploads' answers; sent again, each one that failed is uploaded once more. Null while any is missing. */
+      const finish = async (again: boolean): Promise<PostMedia[] | null> => {
+        const all = await Promise.all(first.map(async (p, i) => (await p) ?? (again ? await upload(live[i].file, live[i].kind, `${live[i].key}-again`, new AbortController()).catch(() => null) : null)))
+        return all.some((m) => !m) ? null : [...(all as PostMedia[]), ...link]
+      }
+      onSend(text, [...live.map((t) => t.media ?? placeholderOf(t)), ...link], finish)
+    }
     setText("")
-    setTray([])
+    /* Failed tiles stay, with their reason; the rest went with the message. */
+    setTray((cur) => cur.filter((t) => t.failed))
     setDropped(null)
     /* The keyboard stays up on a phone: the box keeps its focus. */
     requestAnimationFrame(() => box.current?.focus())
@@ -1260,7 +1376,7 @@ function Composer({
       {tray.length ? (
         <div className="mb-2 flex gap-2 overflow-x-auto px-1 pb-1 pt-1" data-chat-tray="">
           {tray.map((t) => (
-            <div key={t.key} className="relative shrink-0" data-chat-upload={t.media ? "done" : t.failed ? "failed" : "sending"}>
+            <div key={t.key} className="relative shrink-0 animate-in fade-in-0 zoom-in-95 duration-150 motion-reduce:animate-none" data-chat-upload={t.media ? "done" : t.failed ? "failed" : "sending"}>
               {t.preview && t.kind === "video" ? (
                 <video src={`${t.preview}#t=0.1`} muted playsInline preload="metadata" className={`h-16 w-16 rounded-xl bg-black object-cover ${t.media ? "" : "opacity-70"}`} data-chat-upload-video="" />
               ) : t.preview ? (
@@ -1292,10 +1408,10 @@ function Composer({
               aria-label="Attach pictures or files"
               onClick={() => file.current?.click()}
               onPointerDown={(e) => e.preventDefault()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+              className={`${ICON} hover:bg-[#f1f2f4]`}
               data-chat-attach=""
             >
-              <Paperclip className="h-5 w-5" />
+              <Paperclip aria-hidden strokeWidth={2} />
             </button>
             <input
               ref={file}
@@ -1310,7 +1426,7 @@ function Composer({
           </>
         ) : null}
         <div
-          className="flex min-w-0 flex-1 items-end rounded-[20px] border border-transparent bg-[#f3f4f6] transition-[border-color,background-color] focus-within:border-[#e3e5e8] focus-within:bg-white"
+          className="flex min-w-0 flex-1 items-end rounded-[20px] bg-[#f3f4f6] transition-[background-color,box-shadow] duration-150 focus-within:bg-white focus-within:shadow-[inset_0_0_0_1px_#e3e5e8]"
           data-chat-field=""
           onPaste={(e) => {
             const files = [...e.clipboardData.files]
@@ -1346,13 +1462,14 @@ function Composer({
                 } else onCancelReply()
               }
             }}
-            className="max-h-40 min-h-[38px] py-[7px] pl-4 pr-1 text-[16px] leading-6 text-[#1a1a2e] sm:text-[15px]"
+            wrapClassName="min-w-0 flex-1"
+            className="max-h-40 min-h-[38px] pb-1.5 pl-4 pr-1 pt-2 text-[16px] leading-6 text-[#1a1a2e] sm:text-[15px]"
           />
           {!editing ? (
-            <div className="flex shrink-0 items-center pb-px pr-1" data-chat-tools="">
+            <div className="flex shrink-0 items-center" data-chat-tools="">
               {tools && attachments ? (
                 <Suspense fallback={null}>
-                  <GifTool communityId={communityId} className={TOOL} hideWhenOff onPick={(gif) => onSend("", [gif])} />
+                  <GifTool communityId={communityId} className={`${TOOL} animate-in fade-in-0 duration-150 motion-reduce:animate-none`} hideWhenOff mark={<GifGlyph />} onPick={(gif) => onSend("", [gif])} />
                 </Suspense>
               ) : null}
               {emoji ? (
@@ -1373,7 +1490,7 @@ function Composer({
           className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#1a1a2e] text-white outline-none transition-[background-color,scale,opacity] hover:bg-[#2b2b42] active:scale-[0.92] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 disabled:cursor-default disabled:opacity-30"
           data-chat-send=""
         >
-          {/* Uploading, the button waits, dimmed: each picture in the tray shows its own progress. */}
+          {/* Round 39: pressable while pictures are still going up; the message waits for them in its own bubble. */}
           {editing ? <Check className="h-[18px] w-[18px]" strokeWidth={2.5} /> : <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />}
         </button>
       </div>

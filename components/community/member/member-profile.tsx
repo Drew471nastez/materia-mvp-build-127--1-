@@ -84,7 +84,7 @@ import { LevelBadge } from "./level-badge"
 import { RoleBadge } from "./role-badge"
 import { toast } from "./toast"
 import { ICON_BTN } from "./ui"
-import { openMessages } from "./messages"
+import { openMessages, warmConversation } from "./messages-signal"
 
 export interface MemberProfilePlaceProps {
   /** The community the place is in (the shell's community: only these are read). */
@@ -266,7 +266,11 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
               type="button"
               aria-disabled={data.message.can ? undefined : true}
               aria-describedby={data.message.can ? undefined : "member-profile-message-why"}
-              onClick={() => (data.message?.can ? openMessages({ userId: person.userId }) : toast(data.message?.reason || "You can't message this member."))}
+              onClick={() => (data.message?.can ? openMessages({ userId: person.userId, person: { id: person.userId, name: person.name, username: person.username ?? null, avatarUrl: person.avatarUrl ?? null, role: person.role ?? null } }) : toast(data.message?.reason || "You can't message this member."))}
+              /* Round 39: the conversation and its messages asked for while the pointer rests here, so the press opens it drawn. */
+              onPointerEnter={data.message.can ? () => warmConversation(community.id, null, person.userId) : undefined}
+              onTouchStart={data.message.can ? () => warmConversation(community.id, null, person.userId) : undefined}
+              onFocus={data.message.can ? () => warmConversation(community.id, null, person.userId) : undefined}
               className={cn(SECONDARY, data.message.can ? "" : "cursor-default text-[#9ca3af] shadow-none pointer-fine:hover:bg-white active:bg-white")}
               data-member-profile-message={data.message.can ? "on" : "off"}
             >

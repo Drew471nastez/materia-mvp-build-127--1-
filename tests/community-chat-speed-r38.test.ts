@@ -118,12 +118,15 @@ async function main() {
     check("a row already kept up to its newest message is not asked for again", /if \(newest && lastAt && Date\.parse\(newest\) >= Date\.parse\(lastAt\)\) return/.test(core))
     check("one time formatter for every bubble", /CLOCK \?\?= new Intl\.DateTimeFormat/.test(core) && !/toLocaleTimeString/.test(core))
     const msgs = code("components/community/member/messages.tsx")
+    /* Changed on purpose (round 39): the badge's number, its kept list and the conversation's key live in messages-signal.ts, so community pages load without the panel. */
+    const signal = code("components/community/member/messages-signal.ts")
     check("the list: kept per community and member, drawn from the kept copy, refreshed quietly", /useState<InboxData \| null>\(\(\) => keptList<InboxData>\(communityId, userId\)\)/.test(msgs) && /keepList\(communityId, userId, next\)/.test(msgs) && !/let inboxKept/.test(msgs))
-    check("and read before the panel first opens, from the badge's own ask", /keepList\(communityId, userId, \{ conversations: r\.data\.conversations/.test(msgs) && /if \(!userId \|\| initial === null \|\| keptList\(communityId, userId\)\) return/.test(msgs))
+    check("and read before the panel first opens, from the badge's own ask", /keepList\(communityId, userId, \{ conversations: r\.data\.conversations/.test(signal) && /if \(!userId \|\| initial === null \|\| keptList\(communityId, userId\)\) return/.test(signal))
     check("rows asked for on hover, touch and focus, and the top rows as the list is drawn", (msgs.match(/onPointerEnter=\{\(\) => warm\(/g) ?? []).length === 2 && (msgs.match(/onTouchStart=\{\(\) => warm\(/g) ?? []).length === 2 && /const WARM_TOP = 3/.test(msgs))
     check("the list's skeleton is row shaped and only for a list never read", /data-messages-skeleton=""/.test(msgs) && /rows === null && !failed \?/.test(msgs))
     check("the stream's join does not ask for the list a second time", /if \(Date\.now\(\) - askedAt\.current > 2000\) void load\(\)/.test(msgs))
-    check("a conversation opened from a profile again opens at once", /keptValue<\{ id: string; other: Person \| null \}>\(`dm-with:/.test(msgs))
+    /* Changed on purpose (round 39): the key is built in one place (dmWithKey), which the hover's ask fills too. */
+    check("a conversation opened from a profile again opens at once", /keptValue<\{ id: string; other: Person \| null \}>\(dmWithKey\(communityId, start\.userId!\)\)/.test(msgs) && /return `dm-with:\$\{communityId\}:\$\{userId\}`/.test(signal))
     const s = code("components/community/member/chat-surface.tsx")
     check("no spinner anywhere in the chat screen", !/Spinner/.test(s) && !/place-spinner/.test(s))
     check("a cold open draws skeleton bubbles where the messages land", /\{!loaded && items\.length === 0 \? \(\s*<SkeletonBubbles \/>/.test(s) && /h-\[34px\] rounded-\[18px\]/.test(s))
@@ -132,7 +135,8 @@ async function main() {
     check("the newest bubbles first, the rest when the page is idle", /const FIRST_DRAW = 24/.test(s) && /items\.slice\(-tail\)/.test(s) && /if \(!el \|\| !root \|\| !hasMore \|\| tail !== null/.test(s))
     check("bubbles memoised, keyed by the client id, their handlers one object that never changes", /const Bubble = memo\(function Bubble/.test(s) && /key=\{m\.clientId \? `c:\$\{m\.clientId\}` : m\.id\}/.test(s) && /const acts = useMemo<BubbleActs>\(/.test(s))
     check("sending: full strength, the clock only after a moment", !/opacity-70"/.test(s.slice(s.indexOf("const Bubble = memo"), s.indexOf("function Pictures"))) && /PENDING_CLOCK_MS = 400/.test(s))
-    check("round 37's send stands: on screen at once, a client id, retried under the same id", /state: "sending",/.test(s) && /clientId = newClientId\(\)/.test(s) && /const retry = \(m: ChatItem\)[\s\S]{0,200}void post\(m\)/.test(s))
+    /* Changed on purpose (round 39): a message sent while its pictures upload is retried through its uploads first. */
+    check("round 37's send stands: on screen at once, a client id, retried under the same id", /state: "sending",/.test(s) && /clientId = newClientId\(\)/.test(s) && /const retry = \(m: ChatItem\)[\s\S]{0,200}void \(m\.upload \? deliver\(m, true\) : post\(m\)\)/.test(s))
     check("no catch up while the first page is on its way", /if \(!last && !loadedRef\.current\) return/.test(s))
   }
 
@@ -142,10 +146,12 @@ async function main() {
     const s = code("components/community/member/chat-surface.tsx")
     check("emoji and GIF tools are their own chunks, loaded after the chat is up", /const EmojiTool = lazy\(\(\) => import\("@\/components\/app\/rich-text\/emoji-picker"\)/.test(s) && /const GifTool = lazy\(\(\) => import\("\.\/media-gif"\)/.test(s) && !/^import .*emoji-picker/m.test(s) && !/^import .*media-gif/m.test(s))
     check("the emoji picker is drawn on the first press, already open", /<EmojiTool [^>]*startOpen/.test(s) && /<ToolStandIn onPress=\{\(\) => setEmoji\(true\)\} \/>/.test(s) && /startOpen = false/.test(code("components/app/rich-text/emoji-picker.tsx")))
-    check("a GIF search only when GIFs are connected, sent as it is picked", /hideWhenOff onPick=\{\(gif\) => onSend\("", \[gif\]\)\}/.test(s) && /if \(hideWhenOff && connected !== true\) return null/.test(code("components/community/member/media-gif.tsx")))
+    /* Changed on purpose (round 39): the button carries the box's own GIF icon (mark) in place of bold letters. */
+    check("a GIF search only when GIFs are connected, sent as it is picked", /hideWhenOff mark=\{<GifGlyph \/>\} onPick=\{\(gif\) => onSend\("", \[gif\]\)\}/.test(s) && /if \(hideWhenOff && connected !== true\) return null/.test(code("components/community/member/media-gif.tsx")))
     check("an uploaded GIF is a GIF in the viewer (never the optimizer's one frame)", /a\.type === "image" && isGifPicture\(a\)\) list\.push\(\{ kind: "gif"/.test(s))
-    check("a video is a video in the tray and in the bubble, played from the file picked while it is sent", /data-chat-upload-video=""/.test(s) && /keepLocalVideo\(media\.assetId, item\.preview\)/.test(s) && /<ChatVideo key=\{f\.assetId\}/.test(s))
-    check("the link being written is previewed, and goes with the message signed as the server sent it", /useLinkDraft\(communityId, draftUrl\)/.test(s) && /\{ type: "link", \.\.\.linkCard \} as PostMedia/.test(s) && /ready\.length < CHAT_ATTACHMENTS_MAX/.test(s))
+    /* Changed on purpose (round 39): the upload's answer is one promise per tile (sent with the message while it is still going up), and a video sent before it is in plays from the file picked too. */
+    check("a video is a video in the tray and in the bubble, played from the file picked while it is sent", /data-chat-upload-video=""/.test(s) && /keepLocalVideo\(media\.assetId, preview\)/.test(s) && /keepLocalVideo\(assetId, t\.preview\)/.test(s) && /<ChatVideo key=\{f\.assetId\}/.test(s))
+    check("the link being written is previewed, and goes with the message signed as the server sent it", /useLinkDraft\(communityId, draftUrl\)/.test(s) && /\{ type: "link", \.\.\.linkCard \} as PostMedia/.test(s) && /live\.length < CHAT_ATTACHMENTS_MAX/.test(s))
     const rich = code("components/community/member/chat-rich.tsx")
     check("a video by link: a still and a button, the player only after a press, youtube-nocookie", /\{playing \? \(\s*<iframe\s*src=\{embedPlayerSrc\(video\)\}/.test(rich) && /referrerPolicy="strict-origin-when-cross-origin"/.test(rich) && /youtube-nocookie/.test(read("lib/communities/post-media.ts")))
     check("cards and links open safely in a new tab; outside pictures send no referrer", (rich.match(/rel="noopener noreferrer nofollow ugc"/g) ?? []).length === 2 && (rich.match(/target="_blank"/g) ?? []).length === 2 && (rich.match(/referrerPolicy="no-referrer"/g) ?? []).length >= 3)

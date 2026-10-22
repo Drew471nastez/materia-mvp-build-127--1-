@@ -203,7 +203,7 @@ async function files() {
     const before = raw("supabase/sql/run-now/18_storage_cleanup_functions.sql").split("\n")[1]
     check("storage_object_referenced is part 18's, with file_details skipped and nothing else changed", fn === before.replace("'admin_moderation_log']", "'admin_moderation_log', 'file_details']") && fn !== before)
     check("  still the server's only", /revoke all on function public\.storage_object_referenced\(text, text\) from public, anon, authenticated;/.test(part) && /grant execute on function public\.storage_object_referenced\(text, text\) to service_role;/.test(part))
-    check("listed in the README and checked after", /`280_files_keep_what_is_used\.sql`/.test(raw("supabase/sql/run-now/README.md")) && /as p280_files_keep_what_is_used;/.test(raw("supabase/sql/run-now/99_check_after.sql")))
+    check("listed in the README and checked after", /`280_files_keep_what_is_used\.sql`/.test(raw("supabase/sql/run-now/README.md")) && /as p280_files_keep_what_is_used[,;]/.test(raw("supabase/sql/run-now/99_check_after.sql")))
     check("carried into the four files", raw("supabase/sql/run-four/3_of_4_latest.sql").includes("-- part 280_files_keep_what_is_used.sql"))
     check("the daily cleanup still only removes what its own rules allow", /"removed-image": \{ buckets: \["product-images"\]/.test(raw("lib/storage/cleanup.ts")))
   }

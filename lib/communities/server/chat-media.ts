@@ -33,6 +33,7 @@ import "server-only"
  * team can always send them.
  */
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { toStorageUrl } from "@/lib/storage/media-url"
 import { storedObjectSize } from "@/lib/storage/upload-guard"
 import { CHAT_ATTACHMENTS_MAX, isStaffRole, type ChatSettings } from "../chat-rules"
 import { cleanChatCard, siteOf } from "../chat-links"
@@ -99,7 +100,8 @@ export async function checkChatMedia(db: Db, community: CommunityRow, viewer: Vi
     const folder = memberPictureFolder(viewer.userId, community.id)
     const paths: string[] = []
     for (const p of pictures) {
-      const h = new URL(p.url).hostname.toLowerCase()
+      /* Storelib's address for the picture is storage's under another name (round 39): checked as storage's. */
+      const h = new URL(toStorageUrl(p.url)).hostname.toLowerCase()
       const path = picturePathOf(p.url)
       if (!(host ? h === host : h.endsWith(".supabase.co")) || !path || !path.startsWith(folder) || path.slice(folder.length).includes("/")) return { ok: false, error: "That picture could not be added. Upload it again.", status: 400 }
       paths.push(path)

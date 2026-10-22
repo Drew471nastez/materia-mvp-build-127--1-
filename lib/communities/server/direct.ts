@@ -262,6 +262,27 @@ export async function openConversation(db: Db, community: CommunityRow, viewer: 
   return { ok: true, value: { id, other } }
 }
 
+/**
+ * Round 39: the viewer's conversation with another member when there is one, never made, never counted against
+ * starting conversations; what a Message button asks while the pointer rests on it.
+ */
+export async function findConversation(db: Db, community: CommunityRow, viewer: Viewer, otherId: unknown): Promise<ConversationRow | null> {
+  if (!viewer.userId || !community.chat_enabled || typeof otherId !== "string" || !UUID.test(otherId) || otherId === viewer.userId) return null
+  try {
+    const pair = pairOf(viewer.userId, otherId)
+    const { data, error } = await db.from("community_conversations").select(CONVERSATION_COLUMNS).eq("community_id", community.id).eq("user_a", pair.user_a).eq("user_b", pair.user_b).maybeSingle()
+    return error ? null : ((data as ConversationRow | null) ?? null)
+  } catch {
+    return null
+  }
+}
+
+/** A conversation's newest page with the other side's marks: what the conversation's own GET answers with no cursor. */
+export async function newestPage(db: Db, conversation: ConversationRow, viewer: Viewer): Promise<Record<string, unknown>> {
+  const [page, marks] = await Promise.all([listDirectMessages(db, conversation, viewer, {}), conversationMarks(db, conversation, viewer)])
+  return { ...page, ...marks }
+}
+
 /** The viewer's conversations that have a message in them, newest first, and how many are unread. */
 export async function listConversations(db: Db, community: CommunityRow, viewer: Viewer): Promise<{ ready: boolean; conversations: ConversationView[]; unread: number }> {
   if (!viewer.userId || !community.chat_enabled) return { ready: false, conversations: [], unread: 0 }
@@ -408,6 +429,42 @@ export async function listDirectMessages(db: Db, conversation: ConversationRow, 
     console.error(`[communities] messages read: ${reasonOf(e)}`)
     return { messages: [], hasMore: false, otherReadAt }
   }
+}
+
+/*
+  ===========================================================================
+   DELIVERED, AND WHEN THE OTHER PERSON WAS LAST HERE (round 39, part 275)
+  ===========================================================================
+  A message is delivered once the recipient's own Storelib has it: their list of conversations was read (the badge's
+  realtime nudge reads it on every member page, so this is the moment the message reached their screen), or they
+  opened it (read implies delivered). community_mark_delivered writes, in one call, "delivered up to now" on each of
+  their conversations and groups with something newer from somebody else, and nothing when there is nothing new, so
+  the realtime update it causes reaches the sender once. Before part 275 there is no mark and messages stay "sent".
+*/
+
+/** Marks what the viewer's client now has as delivered. Never throws; a database before part 275 does nothing. */
+export async function markDelivered(db: Db, communityId: string, userId: string | null): Promise<void> {
+  if (!userId) return
+  try {
+    const { error } = await db.rpc("community_mark_delivered", { p_community: communityId, p_user: userId })
+    if (error && !missing(error)) console.error(`[communities] delivered mark: ${reasonOf(error)}`)
+  } catch (e) {
+    console.error(`[communities] delivered mark: ${reasonOf(e)}`)
+  }
+}
+
+/** The other person's delivered mark on this conversation, and their last heartbeat in the community (presence's fallback). */
+export async function conversationMarks(db: Db, conversation: ConversationRow, viewer: Viewer): Promise<{ otherDeliveredAt: string | null; otherSeenAt: string | null }> {
+  const me = viewer.userId ?? ""
+  const other = otherOf(conversation, me)
+  const [marks, seen] = await Promise.all([
+    Promise.resolve(db.from("community_conversations").select("a_delivered_at, b_delivered_at").eq("id", conversation.id).maybeSingle()).catch(() => ({ data: null, error: null })),
+    Promise.resolve(db.from("community_members").select("last_seen_at").eq("community_id", conversation.community_id).eq("user_id", other).maybeSingle()).catch(() => ({ data: null, error: null })),
+  ])
+  const row = (marks.error ? null : marks.data) as { a_delivered_at?: string | null; b_delivered_at?: string | null } | null
+  const otherDeliveredAt = (conversation.user_a === me ? row?.b_delivered_at : row?.a_delivered_at) ?? null
+  const otherSeenAt = ((seen.error ? null : seen.data) as { last_seen_at?: string | null } | null)?.last_seen_at ?? null
+  return { otherDeliveredAt, otherSeenAt }
 }
 
 /** The viewer has seen this conversation up to now. */

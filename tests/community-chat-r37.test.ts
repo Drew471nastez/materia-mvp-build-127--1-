@@ -199,7 +199,8 @@ console.log("\nThe chat screen")
 {
   const s = code("components/community/member/chat-surface.tsx")
   check("one merge for every arrival (send, stream, catch up, older)", (s.match(/mergeMessages\(/g) ?? []).length >= 4 && !/\.\.\.cur, \.\.\.fresh/.test(s))
-  check("sending: on screen at once, a client id, retried under the same id", /state: "sending",/.test(s) && /clientId = newClientId\(\)/.test(s) && /const retry = \(m: ChatItem\)[\s\S]{0,200}void post\(m\)/.test(s))
+  /* Changed on purpose (round 39): a message sent while its pictures upload is retried through its uploads (deliver), then posted under the same id. */
+  check("sending: on screen at once, a client id, retried under the same id", /state: "sending",/.test(s) && /clientId = newClientId\(\)/.test(s) && /const retry = \(m: ChatItem\)[\s\S]{0,200}void \(m\.upload \? deliver\(m, true\) : post\(m\)\)/.test(s))
   check("scrolled up, new messages gather in a pill; at the bottom it stays there", /setUnseen\(\(n\) => n \+ fresh\)/.test(s) && /data-chat-pill=""/.test(s) && /if \(atBottom\.current\) el\.scrollTop = el\.scrollHeight/.test(s))
   check("older messages keep the reader's place", /keepFrom\.current = el\.scrollHeight - el\.scrollTop/.test(s) && /el\.scrollTop = el\.scrollHeight - keepFrom\.current/.test(s))
   check("pictures have their box before they load", /style=\{\{ aspectRatio: String\(ratio\) \}\}/.test(s) && /aspect-square/.test(s))
@@ -212,7 +213,8 @@ console.log("\nThe chat screen")
   check("the read mark is renewed while the chat is open (no push for what is on screen)", /window\.setInterval\(\(\) => mark\(true\), VIEWING_BEAT_MS\)/.test(core))
   const msgs = code("components/community/member/messages.tsx")
   check("groups listen to their own rows", /"community_chat_group_messages",\s*`group_id=eq\.\$\{id\}`/.test(msgs) && /"community_chat_groups", `community_id=eq\.\$\{communityId\}`/.test(msgs))
-  check("Seen follows the other person's read mark live", /`id=eq\.\$\{id\}`/.test(msgs) && /setOtherReadAt\(read\)/.test(msgs))
+  /* Changed on purpose (round 39): the row's read mark and its delivered mark (part 275) both go to the marks the ticks read. */
+  check("Seen follows the other person's read mark live", /`id=eq\.\$\{id\}`/.test(msgs) && /take\(\{ otherReadAt: a \? row\.b_read_at : row\.a_read_at, otherDeliveredAt: a \? row\.b_delivered_at : row\.a_delivered_at \}\)/.test(msgs))
 }
 
 /* ── SQL ───────────────────────────────────────────────────────────────── */

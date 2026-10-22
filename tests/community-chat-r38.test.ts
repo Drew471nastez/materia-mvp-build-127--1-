@@ -159,7 +159,8 @@ async function main() {
   console.log("\nMessage from a profile and the members list")
   {
     const profile = code("components/community/member/member-profile.tsx")
-    check("a Message button beside Follow opens the conversation; greyed, it says why and stays put", /data-member-profile-message=/.test(profile) && /openMessages\(\{ userId: person\.userId \}\)/.test(profile) && /aria-disabled=\{data\.message\.can \? undefined : true\}/.test(profile) && /data-member-profile-message-why=""/.test(profile))
+    /* Changed on purpose (round 39): the press hands the panel the person too, so the conversation's header is drawn at once. */
+    check("a Message button beside Follow opens the conversation; greyed, it says why and stays put", /data-member-profile-message=/.test(profile) && /openMessages\(\{ userId: person\.userId, person: \{ id: person\.userId,/.test(profile) && /aria-disabled=\{data\.message\.can \? undefined : true\}/.test(profile) && /data-member-profile-message-why=""/.test(profile))
     const direct = code("lib/communities/server/direct.ts")
     check("the profile asks the server's own decision (dmDecision through dmVerdict), and an existing conversation always opens", /export async function messageButton\(/.test(direct) && /if \(existing\) return \{ can: true, reason: null \}/.test(direct) && /const d = await dmVerdict\(db, community, viewer, otherId, false\)/.test(direct))
     check("a send answering a conversation the other started is a reply (no threshold)", /mayMessage\(db, community, viewer, other, answering\(conversation, viewer\.userId\)\)/.test(direct))
