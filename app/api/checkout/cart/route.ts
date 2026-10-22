@@ -252,10 +252,13 @@ async function handlePOST(request: Request) {
     one, as every other checkout asks (lib/store/checkout-config). The
     addresses it hands back above go to checkouts that ask on their own.
   */
-  const config = (coupon && totalCents === 0) || ui ? await loadCheckoutConfig(admin, creatorId) : null
-  if (config) {
+  /* Company invoices (Settings › Checkout, businessInvoice): Stripe's page below asks for a tax number only where the store offers them. */
+  let businessInvoice = false
+  if ((coupon && totalCents === 0) || ui) {
+    const config = await loadCheckoutConfig(admin, creatorId)
     if (config.requireAccount && !user) return NextResponse.json({ error: "Sign in or create an account to check out.", code: "account_required" }, { status: 401 })
     if (config.requireConfirmedEmail && !user?.email_confirmed_at) return NextResponse.json({ error: "Confirm your email address to check out.", code: "email_unconfirmed" }, { status: 403 })
+    businessInvoice = config.businessInvoice
   }
   if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, siteOrigin: siteServes ? siteOrigin : undefined, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
 
@@ -408,7 +411,7 @@ async function handlePOST(request: Request) {
          is made out to (lib/checkout/fulfil-cart-session). The single
          product checkout asks the same on its own page. Only where the
          store offers company invoices (Settings › Checkout, businessInvoice). */
-      ...(config?.businessInvoice ? { tax_id_collection: { enabled: true } } : {}),
+      ...(businessInvoice ? { tax_id_collection: { enabled: true } } : {}),
       line_items: [...lines.flatMap((l) =>
         chargeUnits(l.item).map((part) => ({
           quantity: part.quantity,

@@ -177,5 +177,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "245", file: "245_price_corrections.sql", sha256: "a4013f33c2ab3fc84dc078c16173ddbc21dfd9f4cba680c3d86c5d25bb871e78" },
   { part: "252", file: "252_theme_marketplace_and_plan_overrides.sql", sha256: "eb32aeb3b3bb61e161d40572b03ad31e396502a8b35fb2b463044183ba1ebe02" },
   { part: "253", file: "253_analytics_audience.sql", sha256: "3416d9b85c004861fae4a0a2912c43a3e27af776a7dd33f3b7830237c9f6a5d2" },
-  { part: "256", file: "256_company_invoices_setting.sql", sha256: "95eaa25ab469219d81f4c0c86fa29da6a1c8382f051c643ad307655b37af1059" },
+  { part: "256", file: "256_company_invoices_setting.sql", sha256: "22efee92c499c6d83c1bf6738378e3828ccd779d7e73ea614d2d3cac76ac7795" },
 ]

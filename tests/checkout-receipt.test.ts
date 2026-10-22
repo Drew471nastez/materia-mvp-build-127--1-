@@ -350,7 +350,7 @@ async function main() {
     const fulfil = read("lib/checkout/fulfil-payment.ts")
     check("the emailed PDF is dated from the order row, not the clock", /created_at: order\.created_at \?\?/.test(fulfil) && !/created_at: new Date\(\)\.toISOString\(\)/.test(fulfil))
     /* Changed on purpose: only where the store offers company invoices (businessInvoice). */
-    check("the basket's hosted page offers the business box where the store offers invoices, and opens without it if refused", /\.\.\.\(config\?\.businessInvoice \? \{ tax_id_collection: \{ enabled: true \} \} : \{\}\)/.test(read("app/api/checkout/cart/route.ts")) && /delete params\.tax_id_collection/.test(read("app/api/checkout/cart/route.ts")))
+    check("the basket's hosted page offers the business box where the store offers invoices, and opens without it if refused", /\.\.\.\(businessInvoice \? \{ tax_id_collection: \{ enabled: true \} \} : \{\}\)/.test(read("app/api/checkout/cart/route.ts")) && /delete params\.tax_id_collection/.test(read("app/api/checkout/cart/route.ts")))
     check("the creator's copy carries the buyer's number and company", /invoiceNumber\(first\.id, first\.created_at\)/.test(read("app/api/invoice/route.ts")) && /companyOf\(lines\)/.test(read("app/api/invoice/route.ts")))
     check("part 35 adds the column the company is kept in", /ADD COLUMN IF NOT EXISTS business_details jsonb/.test(read("supabase/sql/run-now/36_order_business_details.sql")))
   }
