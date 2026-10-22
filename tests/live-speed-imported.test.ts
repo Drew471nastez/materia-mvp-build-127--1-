@@ -212,7 +212,8 @@ async function roundTrips() {
 
   const first = await visit(() => siteVisit("https://maya.storelib.com/collections/maya-best"))
   await settle()
-  check("the first stranger's page is drawn: 200, public for a minute", first.value?.status === 200 && first.value.cache === "public, s-maxage=60" && first.value.marked, first.value && { status: first.value.status, cache: first.value.cache, marked: first.value.marked })
+  /* Changed on purpose: main keeps a stranger's page in the server's hold, not the CDN (anonymous-cache.ts), so it is sent private. */
+  check("the first stranger's page is drawn: 200, marked for the hold, sent private", first.value?.status === 200 && first.value.cache === "private, no-cache" && first.value.marked, first.value && { status: first.value.status, cache: first.value.cache, marked: first.value.marked })
   check("  within 60 round trips on a cold server", first.foreground <= 60, first.foreground)
   check("  at most 16 of them in a row (it was 20)", inARow(first.trips) <= 16, { inARow: inARow(first.trips), tables: first.trips.map((t) => t.table) })
   console.log(`        measured: ${first.foreground} round trips, ${inARow(first.trips)} in a row, for a cold first page`)
@@ -223,7 +224,7 @@ async function roundTrips() {
 
   const returning = await visit(() => siteVisit("https://maya.storelib.com/collections/maya-best", RETURNING))
   await settle()
-  check("a returning visitor's next page is the same held copy: no round trip, public", returning.value?.marked === true && returning.value.held === "hit" && returning.foreground === 0 && returning.value.cache === "public, s-maxage=60", { marked: returning.value?.marked, held: returning.value?.held, trips: returning.trips.map((t) => t.table), cache: returning.value?.cache })
+  check("a returning visitor's next page is the same held copy: no round trip", returning.value?.marked === true && returning.value.held === "hit" && returning.foreground === 0 && returning.value.cache === "private, no-cache", { marked: returning.value?.marked, held: returning.value?.held, trips: returning.trips.map((t) => t.table), cache: returning.value?.cache })
   check("  and the same page a stranger gets", returning.value?.body === again.value?.body)
 
   const cart = await visit(() => siteVisit("https://maya.storelib.com/collections/maya-best", `${RETURNING}; sl_theme_cart=`))

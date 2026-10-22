@@ -254,7 +254,7 @@ export function ReportPicker({
         <div className="px-1 pb-3" data-add-reports-sheet="">
           <Choices options={options} picked={picked} toggle={toggle} />
         </div>
-        <div className="sticky bottom-0 border-t border-[#eef0f2] bg-white px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">{footer}</div>
+        <div data-panel-foot="" className="sticky bottom-0 border-t border-[#eef0f2] bg-white px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">{footer}</div>
       </BottomSheet>
     )
   }
