@@ -1,13 +1,28 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { canDeliver, isPlausibleToken } from "@/lib/receipts/rules"
+import { canDeliver, isPlausibleToken, isUuid } from "@/lib/receipts/rules"
+import { attachLine, grantLine, normaliseEmail } from "@/lib/orders/attach-guest-orders"
+import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
+import { heldGrants } from "@/lib/receipts/guest-access-server"
+import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 
 /**
  * Moves a guest order into the signed-in person's library. The receipt token
  * is the proof of purchase, the same as on the receipt page, so whoever holds
- * it may attach the order to their account, once. An order already on
- * another account stays there.
+ * it may attach the order to their account, once, by pressing Add to
+ * library. An order already on another account stays there.
+ *
+ * Two other proofs, both of the same purchase:
+ *
+ *   { orderId }            an order this browser holds a signed guest grant
+ *                          for (lib/receipts/guest-access.ts), from Add to
+ *                          library on a product page bought as a guest.
+ *   { receiptToken,        what the library asks by itself, with no press,
+ *     match: "email" }     for receipts this browser kept: attached ONLY when
+ *                          the order was paid with the account's own address,
+ *                          so the next person to sign in on a shared computer
+ *                          does not collect the last one's purchases.
  *
  * The entitlement written carries the order's variant. Without it an
  * entitlement reads as "the whole product", which would hand a buyer of the
@@ -16,8 +31,11 @@ import { canDeliver, isPlausibleToken } from "@/lib/receipts/rules"
  */
 export async function POST(request: Request) {
   try {
-    const { receiptToken } = await request.json().catch(() => ({}))
-    if (!isPlausibleToken(receiptToken)) {
+    const body = await request.json().catch(() => ({}))
+    const receiptToken: unknown = body?.receiptToken
+    const orderId: unknown = body?.orderId
+    const sameEmailOnly = body?.match === "email"
+    if (!isPlausibleToken(receiptToken) && !isUuid(orderId)) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
@@ -31,17 +49,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
     }
 
-    const { data: order } = await admin
-      .from("orders")
-      .select("*, product:products(creator_id)")
-      .eq("receipt_token", receiptToken)
-      .maybeSingle()
+    const limited = await rateLimit({ bucket: "purchase-claim", subjects: [addressSubject(request), `user:${user.id}`], windows: [{ limit: 60, seconds: 600 }] })
+    if (limited) return limited
+
+    let order: any = null
+    if (isPlausibleToken(receiptToken)) {
+      const { data } = await admin.from("orders").select("*, product:products(creator_id)").eq("receipt_token", receiptToken).maybeSingle()
+      order = data
+    } else {
+      /* Only an order this browser's signed grant names, and that grant must hold. */
+      const held = await heldGrants(admin, guestAccessFromCookieHeader(request.headers.get("cookie")))
+      const mine = held.open.find((o) => String(o.id).toLowerCase() === String(orderId).toLowerCase())
+      if (mine) {
+        const { data } = await admin.from("orders").select("*, product:products(creator_id)").eq("id", mine.id).maybeSingle()
+        order = data
+      }
+    }
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
     if (order.buyer_id && order.buyer_id !== user.id) {
       return NextResponse.json({ error: "This order is already in another account" }, { status: 409 })
+    }
+    if (sameEmailOnly && normaliseEmail(order.buyer_email) !== normaliseEmail(user.email)) {
+      return NextResponse.json({ error: "Paid with another email" }, { status: 409 })
     }
 
     /*
@@ -65,56 +97,20 @@ export async function POST(request: Request) {
         /*
           CLAIMED BY THIS REQUEST, OR NOT AT ALL. Two accounts claiming at
           once both pass the check above; the update filtered on an empty
-          buyer matches for one of them, and `.select` says which. The other
-          gets no entitlement: an entitlement with no order of its own would
-          decide access forever, refunds included.
+          buyer matches for one of them (lib/orders/attach-guest-orders
+          attachLine). The other gets no entitlement: an entitlement with no
+          order of its own would decide access forever, refunds included.
         */
-        const { data: won, error: updateError } = await admin
-          .from("orders")
-          .update({ buyer_id: user.id })
-          .eq("id", line.id)
-          .is("buyer_id", null)
-          .select("id")
-        if (updateError) {
-          console.error("[purchases/claim] could not attach order", line.id)
-          return NextResponse.json({ error: "Failed to claim order" }, { status: 500 })
-        }
-        if (!won || won.length === 0) {
-          if (line.id === order.id) return NextResponse.json({ error: "This order is already in another account" }, { status: 409 })
-          continue
-        }
+        const won = await attachLine(admin, user.id, line)
+        if (!won && line.id === order.id) return NextResponse.json({ error: "This order is already in another account" }, { status: 409 })
+        continue
       }
-      if (canDeliver(line)) await grant(admin, user.id, line)
+      if (canDeliver(line)) await grantLine(admin, user.id, line)
     }
 
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error("[purchases/claim] failed:", error instanceof Error ? error.message : error)
     return NextResponse.json({ error: "Failed to claim order" }, { status: 500 })
-  }
-}
-
-/** The entitlement for one paid line, carrying its variant. */
-async function grant(admin: any, userId: string, line: any) {
-  const product: any = Array.isArray(line.product) ? line.product[0] : line.product
-  const creatorId = product?.creator_id
-  if (!creatorId) return
-  let q = admin.from("entitlements").select("id").eq("buyer_id", userId).eq("product_id", line.product_id)
-  q = line.variant_id ? q.eq("variant_id", line.variant_id) : q.is("variant_id", null)
-  const { data: existing, error: readError } = await q.maybeSingle()
-  if (existing) return
-  const row = {
-    buyer_id: userId,
-    creator_id: creatorId,
-    product_id: line.product_id,
-    variant_id: line.variant_id ?? null,
-    community_access: false,
-  }
-  const { error: insertError } = await admin.from("entitlements").insert(row)
-  /* A database from before entitlements had variant_id: the order row,
-     which the download route reads first, still carries the variant. */
-  if (insertError && readError) {
-    const { variant_id: _drop, ...legacy } = row
-    await admin.from("entitlements").insert(legacy)
   }
 }

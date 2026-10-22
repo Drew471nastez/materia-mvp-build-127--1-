@@ -310,6 +310,13 @@ function SheetLogOut({ onPress }: { onPress: () => void }) {
 export async function endStorelibSession(router: { push: (href: string) => void; refresh: () => void }) {
   const supabase = createClient()
   await supabase.auth.signOut({ scope: "local" })
+  /*
+    EVERY READER OF "WHO IS SIGNED IN" HEARS IT NOW, not when a header that
+    may not be on this page notices: the phone's tab bar, a community's bar
+    and the account menu read this record (lib/auth/auth-snapshot.ts), and
+    it was only ever cleared by the header's own re-read.
+  */
+  clearAuthSnapshot()
   forgetPlaces()
   try { localStorage.removeItem("_sl_avatar") } catch {}
   if (isNativePlatform()) {
@@ -1389,6 +1396,21 @@ export function PlatformHeaderClient({
           setIsCreator(state === "seller")
           setHasCompletedSellerOnboarding(state === "seller")
           setSellerState(state)
+          /*
+            STILL SIGNED IN, AND THE REST OF THE PAGE IS TOLD SO. Only the
+            branch below wrote the record the tab bar and the account menu
+            read, so a profile read that failed left them saying Log in
+            under a header that showed the person's photo.
+          */
+          const was = readAuthSnapshot()
+          writeAuthSnapshot({
+            signedIn: true,
+            userId: user.id,
+            avatarUrl: was?.userId === user.id ? was.avatarUrl : null,
+            displayName: was?.userId === user.id ? was.displayName : null,
+            username: was?.userId === user.id ? was.username : null,
+            isSeller: state === "seller",
+          })
         } else {
           const pd = (profileData as Profile) ?? null
           setProfile(pd)

@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { addressSubject, emailSubject, rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
+
+/** Twenty looks in ten minutes and a hundred a day: a person mistyping is far under, a list is far over. */
+const ACCOUNT_ORIGIN_LIMITS = [
+  { limit: 20, seconds: 600 },
+  { limit: 100, seconds: 86400 },
+] as const
 
 function getProviders(user: any): Set<string> {
   const providers = new Set<string>()
@@ -59,6 +66,22 @@ export async function POST(request: Request) {
     if (!email) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
+
+    /*
+      WHETHER AN ADDRESS HAS AN ACCOUNT IS ANSWERED HERE, ON PURPOSE: the
+      sign up form says "this email has an account, sign in instead" and the
+      login form names the way in. It was answered without limit, so the
+      route was an address checker for anyone with a list, and each call can
+      page through the whole user table (findAuthUserByEmail). A person types
+      an address a few times; a list is hundreds. Per caller and per address.
+    */
+    const limited = await rateLimit({
+      bucket: "account-origin",
+      subjects: [addressSubject(request), emailSubject(email)],
+      windows: ACCOUNT_ORIGIN_LIMITS,
+      message: "Too many tries just now. Wait a minute and try again.",
+    })
+    if (limited) return limited
 
     const adminSupabase = createAdminClient()
     const user = await findAuthUserByEmail(adminSupabase, email)

@@ -81,7 +81,8 @@ export default async function LibraryLayout({ children }: { children: React.Reac
   /* The email must be verified before anything bought is handed over. The row is the one the profile above already read. */
   const gateCheck = await profileForRequest(user.id)
   if (!gateCheck?.email_verified) {
-    redirect(`/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`)
+    /* The library is where they come back to once the code is in (lib/auth/continue.ts follows `next`). */
+    redirect(`/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}&next=${encodeURIComponent(LIBRARY_HOME)}`)
   }
 
   return (

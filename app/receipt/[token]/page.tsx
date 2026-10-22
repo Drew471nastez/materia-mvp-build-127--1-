@@ -9,7 +9,9 @@ import { isPlausibleToken } from "@/lib/receipts/rules"
 import { withDiscount, withinTime } from "@/lib/receipts/discount"
 import { invoiceForReceipt } from "@/lib/checkout/invoice"
 import type { ReceiptViewer } from "@/lib/receipts/view"
-import { getStoreUrl } from "@/lib/url-helpers"
+import { getCanonicalSiteUrl, getStoreUrl } from "@/lib/url-helpers"
+import { verifiedAccountForEmail } from "@/lib/orders/attach-guest-orders"
+import { isPlatformDomain } from "@/lib/platform/header-props"
 import { ReceiptView } from "./receipt-view"
 import { buyerCaseLink, casesReady, openCaseFor } from "@/lib/support/cases-server"
 import { appUrl } from "@/lib/notify/urls"
@@ -75,7 +77,9 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
     /* A guest, which is who most receipts are for. */
   }
 
-  const locale = localeFrom((await headers()).get("accept-language"))
+  const requestHeaders = await headers()
+  const locale = localeFrom(requestHeaders.get("accept-language"))
+  const account = viewer.signedIn ? null : await accountDoor(admin, token, loaded.view.buyer.unclaimed)
 
   /* A code's saving lives on the payment, not the order row: the invoice
      reads it from Stripe, and the receipt asks the invoice. Bounded, so a
@@ -93,8 +97,32 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
   /* In the language an email link names, or the one the buyer bought in on the store's website (kept with the order), or the one they chose there; English for an order from storelib.com, or when the website has none of them published. */
   const asked = lang ?? bought?.lang ?? (await cookies()).get("sl_lang")?.value ?? null
   const language = bought?.creatorId && asked ? await checkoutLanguage(bought.creatorId, null, asked).catch(() => null) : null
-  const view = <ReceiptView receipt={receipt} viewer={viewer} locale={language && language.lang !== "en" ? language.lang : locale} storeHref={storeHref} help={help} />
+  const view = <ReceiptView receipt={receipt} viewer={viewer} locale={language && language.lang !== "en" ? language.lang : locale} storeHref={storeHref} help={help} account={account} />
   return language ? <CheckoutWords lang={language.lang} words={language.words}>{view}</CheckoutWords> : view
+}
+
+/**
+ * The way into an account, for a signed out visitor (ReceiptView `account`).
+ *
+ *   base    "" on Storelib's own host. On a creator's website (the receipt is
+ *           served there after the website's checkout) nobody can be signed
+ *           in, because the session is storelib.com's alone, and /login on
+ *           the website's host is the website's page or none: so the links
+ *           go to Storelib, and come back to this receipt there.
+ *   exists  the order's address has a CONFIRMED account, so the door is Sign
+ *           in. Said only to whoever holds this receipt's token, about the
+ *           address the order was paid with; a guest order of an address
+ *           with an account joins it at the sign in (/auth/continue).
+ */
+async function accountDoor(admin: ReturnType<typeof createAdminClient>, token: string, unclaimed: boolean): Promise<{ base: string; exists: boolean }> {
+  const base = (await isPlatformDomain()) ? "" : getCanonicalSiteUrl().replace(/[/]$/, "")
+  if (!unclaimed) return { base, exists: true }
+  try {
+    const { data } = await admin.from("orders").select("buyer_email").eq("receipt_token", token).maybeSingle()
+    return { base, exists: !!(await verifiedAccountForEmail(admin, data?.buyer_email)) }
+  } catch {
+    return { base, exists: false }
+  }
 }
 
 /** The seller, and the language the order's checkout was drawn in (lib/orders/order-source.ts OrderOrigin.lang) when it was kept. */

@@ -49,6 +49,7 @@ import { invoiceFilename, invoiceForOrder, renderInvoicePdf, type OrderRow } fro
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { SALE_HOLDER_KEY } from "./sales-limit"
 import { SOLD_OUT_REASON, refundOverLimit } from "./sold-out-refund"
+import { verifiedAccountForEmail } from "@/lib/orders/attach-guest-orders"
 
 type Db = FulfilContext["admin"]
 
@@ -96,8 +97,9 @@ export async function fulfilCartSession(
   const buyerEmail = (metadata.buyer_email || session.customer_details?.email || "").toLowerCase().trim() || null
   let buyerId = metadata.buyer_id || opts.viewerId || null
   if (!buyerId && buyerEmail) {
-    const { data: profile } = await admin.from("profiles").select("id").eq("email", buyerEmail).maybeSingle()
-    if (profile) buyerId = profile.id
+    /* A confirmed address only (lib/orders/attach-guest-orders.ts verifiedAccountForEmail). */
+    const account = await verifiedAccountForEmail(admin, buyerEmail)
+    if (account) buyerId = account
   }
   const name = (session.customer_details?.name ?? "").trim()
   const firstName = name ? name.split(/\s+/)[0] : null
@@ -212,8 +214,9 @@ export async function fulfilCartPayment(
   const buyerEmail = (metadata.buyer_email || "").toLowerCase().trim() || null
   let buyerId = metadata.buyer_id || null
   if (!buyerId && buyerEmail) {
-    const { data: profile } = await admin.from("profiles").select("id").eq("email", buyerEmail).maybeSingle()
-    if (profile) buyerId = profile.id
+    /* A confirmed address only (lib/orders/attach-guest-orders.ts verifiedAccountForEmail). */
+    const account = await verifiedAccountForEmail(admin, buyerEmail)
+    if (account) buyerId = account
   }
   const sessionId = pi.id
   const sessionFingerprint = cartFingerprint(sessionId)
