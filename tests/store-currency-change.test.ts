@@ -40,6 +40,8 @@ import { lineBreakdown } from "@/lib/analytics/commerce"
 import { challenges, NO_FACTS } from "@/lib/home/progress"
 import { baseFor } from "@/lib/checkout/pricing"
 import { stripComments } from "./_source"
+import { CURRENCY_CHANGED, currencyChangedSince } from "@/lib/store/currency-guard"
+import { cartNeedsReprice, parseCart, repricedLines, serializeCart, type CartLine } from "@/lib/website-builder/cart"
 
 let passed = 0
 let failed = 0
@@ -132,6 +134,48 @@ async function main() {
   check("Languages & Currency reads RON as the base", m1.json?.baseCurrency === "RON", m1.json?.baseCurrency)
   check("the pound market's own rate is rescaled from the new base: a visitor in the UK sees the same pounds", ukAfter && Math.abs(ukAfter.rate - Number((0.85 / rate).toPrecision(6))) < 1e-9, ukAfter)
   check("the same press again converts nothing twice", (await j.call("PUT /api/store/currency", { as: seller, body: { currency: "RON", mode: "convert", rate, asOf: preview.json?.asOf, key: "carla-ron-0001" } })).status === 200 && row("products", ebook.id).price_cents === Math.round(1000 * rate))
+
+  section("3b. A price form opened before the change never writes its old prices back")
+  check("the guard: a form loaded in EUR saving into a RON store is refused, one that says nothing is not", currencyChangedSince("EUR", "RON") && currencyChangedSince("eur", "RON") && !currencyChangedSince("RON", "RON") && !currencyChangedSince(undefined, "RON") && !currencyChangedSince("EUR", null))
+  const only = await j.call("GET /api/store/currency?only=currency", { as: seller })
+  check("the editor asks the store's currency before it saves, cheaply", only.status === 200 && only.json?.currency === "RON" && only.json?.catalog === undefined, only.json)
+  const staleCoupon = await j.call("POST /api/coupons", { as: seller, body: { code: "OLD5", discount_type: "fixed", discount_value: 5, formCurrency: "EUR" } })
+  check("a coupon typed in euros is refused with what to do", staleCoupon.status === 409 && staleCoupon.json?.error === CURRENCY_CHANGED && !j.rows("coupons").some((c) => c.code === "OLD5"), { status: staleCoupon.status, body: staleCoupon.json })
+  const freshCoupon = await j.call("POST /api/coupons", { as: seller, body: { code: "NEW5", discount_type: "fixed", discount_value: 5, formCurrency: "RON" } })
+  check("  one typed in lei is saved", freshCoupon.status === 200 || freshCoupon.status === 201, { status: freshCoupon.status, body: freshCoupon.json })
+  const couponId = j.rows("coupons").find((c) => c.code === "NEW5")?.id
+  const staleEdit = await j.call(`PUT /api/coupons/${couponId}`, { as: seller, body: { code: "NEW5", discount_type: "fixed", discount_value: 1, formCurrency: "EUR" } })
+  check("  and an edit from a form opened in euros is refused, the saved amount untouched", staleEdit.status === 409 && Number(j.rows("coupons").find((c) => c.id === couponId)?.discount_value) === 5, { status: staleEdit.status, body: staleEdit.json })
+  const offerBefore = row("store_offers", offer.id).discount_value
+  const staleOffer = await j.call("PUT /api/store/offers", { as: seller, body: { id: offer.id, kind: "checkout", title: "Add on", productIds: [ebook.id], discountType: "fixed", discountValue: 500, placements: ["checkout"], formCurrency: "EUR" } })
+  check("an offer edited in euros is refused, its converted amount kept", staleOffer.status === 409 && staleOffer.json?.error === CURRENCY_CHANGED && row("store_offers", offer.id).discount_value === offerBefore, { status: staleOffer.status, body: staleOffer.json })
+  await j.call("POST /api/physical/onboarding", { as: seller, body: { model: "self" } })
+  const [mug] = j.db.insert("products", { creator_id: creator.id, type: "physical", title: "Mug", slug: "mug", status: "published", price_cents: 4978, thumbnail_url: "https://cdn.example.com/m.jpg" }, {})
+  const staleVariants = await j.call(`PUT /api/physical/products/${mug.id}`, { as: seller, body: { variants: [{ options: [], priceCents: 1000 }], formCurrency: "EUR" } })
+  check("a shipped product's options saved from an editor opened in euros are refused", staleVariants.status === 409 && staleVariants.json?.error === CURRENCY_CHANGED && row("products", mug.id).price_cents === 4978, { status: staleVariants.status, body: staleVariants.json })
+  const editor = src("app/app/products/new/product-editor.tsx")
+  check("the product editor asks the store's currency first and refuses a save loaded in another", /fetch\("\/api\/store\/currency\?only=currency"/.test(editor) && /if \(currencyChangedSince\(loadedCurrency, now\?\.currency \?\? null\)\)/.test(editor))
+  check("  says so the moment Settings changes it", /window\.addEventListener\(STORE_CURRENCY_EVENT, on\)/.test(editor) && /Your store currency changed\. Reload to see the converted prices\./.test(editor))
+  check("  and is mounted again on the converted prices when nothing is unsaved", /export function ProductEditorAcrossCurrency/.test(editor) && /!dirty\.current\) setShown/.test(editor) && /<ProductEditorAcrossCurrency key=\{id\}/.test(src("app/app/products/[id]/page.tsx")))
+  check("offers, coupons and shipped product options send the currency they were loaded in, kept while open", /const \[currency\] = React\.useState\(currencyNow\)/.test(src("app/app/offers/offer-editor.tsx")) && /formCurrency: currency/.test(src("app/app/offers/offer-editor.tsx")) && /const \[currency\] = useState\(currencyNow\)/.test(src("app/app/coupons/coupon-editor.tsx")) && /formCurrency: currency/.test(src("app/app/coupons/coupon-editor.tsx")) && /const \[formCurrency\] = React\.useState\(currency\)/.test(src("components/physical/product-cards.tsx")) && /variants,\s*formCurrency,/.test(src("components/physical/product-cards.tsx")))
+
+  section("3c. A website cart saved before the change is priced again, not relabelled")
+  const euroLine: CartLine = { productId: ebook.id as string, variantId: null, title: "Ebook", variantName: null, priceCents: 1000, thumbnailUrl: null, slug: "ebook", digital: true, quantity: 1, currency: "EUR" }
+  const oldLine = { ...euroLine, currency: undefined }
+  check("a line keeps the currency it was priced in through storage", parseCart(serializeCart([euroLine]))[0]?.currency === "EUR" && parseCart(JSON.stringify([{ ...euroLine, currency: "ron" }]))[0]?.currency === "RON")
+  check("a line in another currency, or saved before lines said one, is priced again; one in the store's is not", cartNeedsReprice([euroLine], "RON") && cartNeedsReprice(parseCart(JSON.stringify([oldLine])), "RON") && !cartNeedsReprice([{ ...euroLine, currency: "RON" }], "RON") && !cartNeedsReprice([euroLine], null))
+  const prices = await j.call("POST /api/cart/prices", { body: { shopId: creator.id, items: [{ productId: ebook.id, variantId: null }, { productId: club.id, variantId: null }, { productId: "00000000-0000-4000-8000-0000000000ff", variantId: null }] } })
+  const priceOf = (id: unknown) => (prices.json?.lines ?? []).find((l: any) => l.productId === id)?.priceCents
+  check("the server prices a saved cart again in the store's currency, with no session", prices.status === 200 && prices.json?.currency === "RON" && priceOf(ebook.id) === Math.round(1000 * rate), prices.json)
+  check("  a product no longer for sale answers nothing to buy", priceOf("00000000-0000-4000-8000-0000000000ff") === null)
+  const otherShop = await j.call("POST /api/cart/prices", { body: { shopId: "00000000-0000-4000-8000-0000000000aa", items: [{ productId: ebook.id, variantId: null }] } })
+  check("  and never prices another store's product", otherShop.status === 200 && otherShop.json?.lines?.[0]?.priceCents === null, otherShop.json)
+  const named = { ...euroLine, productId: "p2", customPriceCents: 700 }
+  const repriced = repricedLines([euroLine, named, { ...euroLine, productId: "gone" }], [{ productId: euroLine.productId, variantId: null, priceCents: Math.round(1000 * rate) }, { productId: "p2", variantId: null, priceCents: 300 }, { productId: "gone", variantId: null, priceCents: null }], "RON")
+  check("repriced: the new price and currency, a pay what you want amount named in euros dropped to the minimum, a gone product removed", repriced.length === 2 && repriced[0].priceCents === Math.round(1000 * rate) && repriced[0].currency === "RON" && repriced[1].priceCents === 300 && repriced[1].customPriceCents === undefined)
+  const cart = src("components/website-builder/site-cart.tsx")
+  check("the website's cart asks once when a saved line is in another currency, and stamps what it adds", /cartNeedsReprice\(kept, storeCurrency\)/.test(cart) && /fetch\("\/api\/cart\/prices"/.test(cart) && /repricedLines\(now, priced, at\)/.test(cart) && /\{ \.\.\.line, currency: storeCurrency \}/.test(cart))
+  check("  told the store's currency by the page", /<SiteCartProvider [^>]*currency=\{storefront\?\.currency\}/.test(src("components/website-builder/theme/ThemePage.tsx")))
 
   section("4. Orders keep their currency; totals are never added cent for cent")
   const ord = (id: string, at: number, cents: number, currency: string) =>

@@ -12,6 +12,7 @@ import { exchangeRate, fxFresh, type FxRates } from "@/lib/markets/money"
 import { localizationTag } from "@/lib/markets/server"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { marketsForNewBase } from "@/lib/markets/base-change"
+import { storeCurrencyNow } from "@/lib/store/currency-guard"
 import { creatorShopTag, revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
 
@@ -149,6 +150,11 @@ export async function GET(request: Request) {
     c = await readyCaller()
   } catch (r) {
     return r as NextResponse
+  }
+  /* `?only=currency`: what a price form checks before it saves (lib/store/currency-guard), without the counts. */
+  if (new URL(request.url).searchParams.get("only") === "currency") {
+    const now = await storeCurrencyNow(c.db, c.creatorId)
+    return now ? physicalJson({ currency: now }) : physicalJson({ error: "Could not read the store's currency." }, 503)
   }
   return physicalJson(await state(c.db, c.creatorId, request.headers))
 }

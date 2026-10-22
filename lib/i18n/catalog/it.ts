@@ -4227,6 +4227,7 @@ const words: Record<string, string> = {
  "Main menu": "Menu principale",
  "Make ${value} in sales": "Vendi per ${value}",
  "Make {amount} in sales": "Vendi per {amount}",
+ "Your store currency changed. Reload to see the converted prices.": "La valuta del tuo negozio è cambiata. Ricarica per vedere i prezzi convertiti.",
  "Make a list in Klaviyo first (Audience › Lists & segments), then check again.": "Crea prima una lista in Klaviyo (Audience › Lists & segments), poi controlla di nuovo.",
  "Make a member": "Rendi membro",
  "Make a moderator": "Rendi moderatore",

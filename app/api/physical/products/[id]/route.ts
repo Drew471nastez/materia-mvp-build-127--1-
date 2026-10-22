@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { currencyRefusal } from "@/lib/store/currency-guard"
 import { readinessChanged } from "@/lib/physical/readiness-server"
 import { loadPhysicalProduct, savePhysicalProduct } from "@/lib/physical/catalog-server"
 import { loadLocations, loadProfiles, loadSettings } from "@/lib/physical/config-server"
@@ -31,6 +32,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)
+  /* Prices typed before the store's currency was converted are never saved over the converted ones (lib/store/currency-guard). */
+  const moved = await currencyRefusal(c.db, c.creatorId, body.formCurrency)
+  if (moved) return physicalJson({ error: moved, code: "currency_changed" }, 409)
   const saved = await savePhysicalProduct(c.db, c.creatorId, id, body)
   if (saved.ok === false) return physicalJson({ error: saved.error }, saved.status ?? 400)
   readinessChanged(c)

@@ -574,7 +574,7 @@ export function ThemePage({
       basket, and absent in the editor's canvas, where the cart is memory
       only and nothing is written to the browser.
     */}
-    <SiteCartProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId} cartType={themeCartType(theme)}>
+    <SiteCartProvider shopId={storefront?.inEditor ? undefined : storefront?.creatorId} cartType={themeCartType(theme)} currency={storefront?.currency}>
     {/*
       THE SAVED LIST, beside the cart and for the same reason: the heart in
       the header and the hearts on the products are both on the page. Keyed
