@@ -105,7 +105,7 @@ export const isNativePlatform = () => false
   const js = readFileSync(join(stubs, "member.js"), "utf8")
   const page = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${fonts}${css}</style><style>${themeCss}</style><style>${swiperCss}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
 
-  const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], protocolTimeout: 240_000 })
+  const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], protocolTimeout: 600_000 })
   const WIDTHS = [
     { name: "1280", vp: { width: 1280, height: 800, deviceScaleFactor: 1 } },
     { name: "1440", vp: { width: 1440, height: 900, deviceScaleFactor: 1 } },
@@ -113,29 +113,32 @@ export const isNativePlatform = () => false
   ]
   const PHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
 
+  /* The probe's server: the page, and every /api request the frame makes, answered as the real routes answer an empty community. */
+  const answer = (r) => {
+    const url = r.url()
+    if (url.startsWith(`${ORIGIN}/api/`)) {
+      const short = url.replace(ORIGIN, "")
+      let body = {}
+      if (short.endsWith("/presence")) body = { ok: true, ready: true }
+      else if (short.startsWith("/api/notifications")) body = { unread: 0, items: [], nextCursor: null, available: true }
+      else if (short.includes("/dms")) body = { ready: true, unread: 0, conversations: [], groups: [] }
+      else if (short.includes("/messages")) body = { messages: [], hasMore: false }
+      else if (short.startsWith("/api/me/places")) body = { signedIn: true, communitiesOn: true, isCreator: false, hasSellerAccess: true, recent: [] }
+      return void r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+    }
+    if (url.startsWith(`${ORIGIN}/`)) return void r.respond({ status: 200, contentType: "text/html", body: page })
+    if (url.startsWith("data:")) return void r.continue()
+    return void r.respond({ status: 204, body: "" })
+  }
+
   async function open(path, vp) {
     const p = await browser.newPage()
     await p.setViewport(vp)
     const errors = []
     p.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
     await p.setRequestInterception(true)
-    p.on("request", (r) => {
-      const url = r.url()
-      if (url.startsWith(`${ORIGIN}/api/`)) {
-        const short = url.replace(ORIGIN, "")
-        let body = {}
-        if (short.endsWith("/presence")) body = { ok: true, ready: true }
-        else if (short.startsWith("/api/notifications")) body = { unread: 0, items: [], nextCursor: null, available: true }
-        else if (short.includes("/dms")) body = { ready: true, unread: 0, conversations: [] }
-        else if (short.includes("/messages")) body = { messages: [], hasMore: false }
-        else if (short.startsWith("/api/me/places")) body = { signedIn: true, communitiesOn: true, isCreator: false, hasSellerAccess: true, recent: [] }
-        return void r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
-      }
-      if (url.startsWith(`${ORIGIN}/`)) return r.respond({ status: 200, contentType: "text/html", body: page })
-      if (url.startsWith("data:")) return r.continue()
-      return r.respond({ status: 204, body: "" })
-    })
-    await p.goto(`${ORIGIN}${path}`, { waitUntil: "load" })
+    p.on("request", answer)
+    await p.goto(`${ORIGIN}${path}`, { waitUntil: "load", timeout: 120_000 })
     await p.evaluate(() => document.fonts.ready)
     await sleep(900)
     return { p, errors }
@@ -261,14 +264,8 @@ export const isNativePlatform = () => false
           const errors = []
           p.on("pageerror", (e) => errors.push(String(e).slice(0, 200)))
           await p.setRequestInterception(true)
-          p.on("request", (r) => {
-            const url = r.url()
-            if (url.startsWith(`${ORIGIN}/api/`)) return void r.respond({ status: 200, contentType: "application/json", body: url.includes("/messages") ? JSON.stringify({ messages: [], hasMore: false }) : "{}" })
-            if (url.startsWith(`${ORIGIN}/`)) return void r.respond({ status: 200, contentType: "text/html", body: page })
-            if (url.startsWith("data:")) return void r.continue()
-            return void r.respond({ status: 204, body: "" })
-          })
-          await p.goto(`${ORIGIN}${path}`, { waitUntil: "load" })
+          p.on("request", answer)
+          await p.goto(`${ORIGIN}${path}`, { waitUntil: "load", timeout: 120_000 })
           await sleep(rate === 4 ? 3000 : 1500)
           return { p, errors }
         })()
