@@ -103,8 +103,10 @@ const WANTED: Wanted[] = [
     on: "public.profiles (email)",
     schema: { file: "scripts/001_create_profiles.sql", has: /\n\s+email TEXT NOT NULL,/ },
     serves: [
-      { file: "lib/checkout/fulfil-cart-session.ts", has: 'from("profiles").select("id").eq("email", buyerEmail)' },
-      { file: "lib/checkout/fulfil-payment.ts", has: 'from("profiles").select("id").eq("email", g.email.toLowerCase())' },
+      /* Changed on purpose (round 39): both fulfilments ask lib/orders/attach-guest-orders verifiedAccountForEmail, which reads the same column and also wants the address confirmed. */
+      { file: "lib/checkout/fulfil-cart-session.ts", has: "verifiedAccountForEmail(admin, buyerEmail)" },
+      { file: "lib/checkout/fulfil-payment.ts", has: "verifiedAccountForEmail(admin, g.email)" },
+      { file: "lib/orders/attach-guest-orders.ts", has: 'from("profiles").select("id, email, email_verified").eq("email", e)' },
       { file: "app/api/auth/request-password-reset/route.ts", has: '.eq("email", cleanEmail)' },
     ],
   },

@@ -24,6 +24,9 @@ import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { inviteEmailFrom } from "@/lib/team/invite-links"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
+import { EXISTS_PARAM, takeExistingEmail } from "@/lib/auth/existing-account"
+import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 /**
  * ===========================================================================
@@ -123,6 +126,21 @@ function LoginFormContent() {
   useEffect(() => {
     if (inviteEmail) setEmail(inviteEmail)
   }, [inviteEmail])
+  /*
+    SENT HERE FROM SIGN UP, because the address already has an account
+    (lib/auth/existing-account.ts): it is filled in, the page says why it is
+    a sign in, and the way in for that address is asked for at once, so the
+    next thing on screen is the password field or the button that works.
+  */
+  const cameFromSignUp = searchParams.get(EXISTS_PARAM) === "1"
+  const [existingEmail, setExistingEmail] = useState<string | null>(null)
+  useEffect(() => {
+    if (!cameFromSignUp || inviteEmail) return
+    const handed = takeExistingEmail()
+    if (!handed) return
+    setExistingEmail(handed)
+    setEmail(handed)
+  }, [cameFromSignUp, inviteEmail])
 
   const navigateWithFallback = (url: string) => {
     setIsRedirecting(true)
@@ -327,18 +345,33 @@ function LoginFormContent() {
     return res.json()
   }
 
+  /* The address handed over by sign up: its way in, asked for once it is in the field. */
+  useEffect(() => {
+    if (existingEmail && email === existingEmail && !showPasswordField) void askWayIn(existingEmail)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existingEmail])
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!showPasswordField) {
-      if (!email.trim()) {
+      await askWayIn(email)
+      return
+    }
+    await signInWithEmail()
+  }
+
+  /** The first step: the address, and which way in it has (a password, Google, Apple). */
+  const askWayIn = async (address: string) => {
+    {
+      if (!address.trim()) {
         setError("Please enter your email")
         return
       }
 
       setIsContinueLoading(true)
       try {
-        const origin = await lookupAccountOrigin(email)
+        const origin = await lookupAccountOrigin(address)
         /**
          * NAME THE WAY IN, WHICHEVER IT IS.
          *
@@ -349,7 +382,7 @@ function LoginFormContent() {
          */
         const hint = existingAccountHint((origin?.methods ?? []) as SignInMethod[])
         if (hint) {
-          setGoogleOnlyEmail(email.trim().toLowerCase())
+          setGoogleOnlyEmail(address.trim().toLowerCase())
           setShowPasswordField(false)
           setError(hint)
           return
@@ -364,7 +397,10 @@ function LoginFormContent() {
       setError(null)
       return
     }
+  }
 
+  /** The second step: the password. */
+  const signInWithEmail = async () => {
     const supabase = createClient()
     setIsLoading(true)
     setError(null)
@@ -754,9 +790,22 @@ function LoginFormContent() {
         <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up auth-card">
           <AuthLogo />
 
-          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
+          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">{cameFromSignUp && !inviteEmail ? tt("Sign in") : "Welcome back"}</h1>
           {/* Sell on Storelib: says the setup comes next, so nobody wonders whether the click was lost. */}
-          <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Log in as ${inviteEmail} to accept the team invite.` : carry.intent ? "Log in, then set up your shop." : "Log in to your account"}</p>
+          {/* Sent from Create account: the address has an account, so this is a sign in, and the page says so (lib/auth/existing-account.ts). */}
+          {cameFromSignUp && !inviteEmail ? (
+            <p data-existing-account="" role="status" className="mb-8 text-[15px] text-neutral-600">
+              {existingEmail ? (
+                <>
+                  <Rich text={tt("{email} already has a Storelib account. Sign in to continue.")} parts={{ email: <span className="font-medium text-neutral-900 [overflow-wrap:anywhere]">{existingEmail}</span> }} />
+                </>
+              ) : (
+                tt("This email already has a Storelib account. Sign in to continue.")
+              )}
+            </p>
+          ) : (
+            <p className="mb-8 text-[15px] text-neutral-500">{inviteEmail ? `Log in as ${inviteEmail} to accept the team invite.` : carry.intent ? "Log in, then set up your shop." : "Log in to your account"}</p>
+          )}
 
           <form onSubmit={handleContinue} className="space-y-4">
             <div className="space-y-2">

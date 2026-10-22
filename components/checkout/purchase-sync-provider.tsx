@@ -63,7 +63,14 @@ export function PurchaseSyncProvider() {
           const res = await fetch("/api/purchases/claim", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ receiptToken }),
+            /*
+              Only an order paid with this account's own address (match:
+              "email", app/api/purchases/claim). This runs with no press, for
+              whoever signs in on this browser next: on a shared computer that
+              collected the last person's guest purchases into a stranger's
+              library. Another address keeps Add to library on its receipt.
+            */
+            body: JSON.stringify({ receiptToken, match: "email" }),
           })
           return res.json()
         })

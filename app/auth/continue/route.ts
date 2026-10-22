@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
 import { onATeam } from "@/lib/team/server"
 import { keepProfileName, type KeepNameDb } from "@/lib/profile/keep-name"
+import { attachGuestOrdersByEmail } from "@/lib/orders/attach-guest-orders"
 import {
   CARRY_COOKIE,
   decodeCarry,
@@ -21,6 +22,9 @@ import {
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+
+/** How long a sign in waits for its guest orders to join the account (lib/orders/attach-guest-orders.ts). */
+const ATTACH_WAIT_MS = 2500
 
 /**
  * ===========================================================================
@@ -85,6 +89,18 @@ export async function GET(request: Request) {
       withCarry(`/signup/verify?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email ?? "")}`, carry),
     )
   }
+
+  /*
+    WHAT THEY BOUGHT AS A GUEST WITH THIS ADDRESS IS THEIRS NOW, before the
+    redirect, so the library or the receipt they land on already shows it
+    (lib/orders/attach-guest-orders.ts). Only here, after the address is
+    known to be verified. Bounded: a slow database delays a sign in by at
+    most a moment and the orders join on the next one.
+  */
+  await Promise.race([
+    attachGuestOrdersByEmail(createAdminClient(), { id: user.id, email: user.email }),
+    new Promise((resolve) => setTimeout(resolve, ATTACH_WAIT_MS)),
+  ]).catch(() => null)
 
   const access = sellerAccessFrom({
     creator: creator as { onboarding_completed?: boolean | null } | null,

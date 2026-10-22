@@ -237,10 +237,19 @@ const nextConfig = {
         ],
       },
       {
-        // Public product pages
+        /**
+         * Product pages, the /p/<slug> address. NOT PUBLICLY CACHEABLE, for the
+         * reason /u/ below is not: the page is drawn for whoever asks. A
+         * signed in buyer's copy says Download and lists the files they own,
+         * and since round 39 a browser that bought as a guest gets the same
+         * from its signed cookie (lib/receipts/guest-access.ts). With
+         * `public, s-maxage=300` the CDN could hand one buyer's copy to
+         * everybody for five minutes. The nested address
+         * (/<handle>/<product>) never had a shared lifetime.
+         */
         source: '/p/:slug*',
         headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=600' },
+          { key: 'Cache-Control', value: 'private, no-cache, must-revalidate' },
         ],
       },
       {

@@ -18,6 +18,7 @@ import { fileKindOf, formatFileSize, formatMoney, splitFileName, type AccessStat
 import type { ReceiptItem, ReceiptView as Receipt, ReceiptViewer } from "@/lib/receipts/view"
 import { cn } from "@/lib/utils"
 import { useCt } from "@/app/checkout/parts/words"
+import { ViewerSync } from "@/components/auth/viewer-sync"
 import type { CheckoutT } from "@/lib/markets/checkout-words"
 
 /**
@@ -324,10 +325,21 @@ export function ReceiptView({
   locale,
   storeHref: serverStoreHref,
   help,
+  account = null,
 }: {
   receipt: Receipt
   viewer: ReceiptViewer
   locale: string
+  /**
+   * The way into an account from this receipt (app/receipt/[token]/page.tsx):
+   * `base` is "" on storelib.com and storelib.com's own address on a
+   * creator's website, where nobody can be signed in (the session is
+   * storelib.com's alone), so Sign in and Create account always happen on
+   * Storelib and come back to this receipt there. `exists` says the order's
+   * address already has a confirmed account, so the door is Sign in, never
+   * Create account.
+   */
+  account?: { base: string; exists: boolean } | null
   /** Get help with this order (lib/support/cases.ts): the open case when there is one; absent when cases aren't switched on. */
   help?: { openCase: { link: string; status: string } | null } | null
   /** The seller's page as the server worked it out, so the first render matches it. */
@@ -482,8 +494,37 @@ export function ReceiptView({
     router.refresh()
   }
 
-  const signupHref = `/signup?redirect=${encodeURIComponent(receiptPath)}&autoBuyer=1&claim=1&receiptToken=${encodeURIComponent(primary.token)}`
-  const loginHref = `/login?redirect=${encodeURIComponent(receiptPath)}`
+  /*
+    THE WAY INTO AN ACCOUNT, AND BACK HERE. Both carry this receipt as the
+    page to return to (lib/auth/continue.ts reads `redirect` as `next`). The
+    order is no longer claimed by the sign up form before the address is
+    verified: it joins the account at /auth/continue once the address is
+    proven, and the receipt then says it is in the library.
+  */
+  const authBase = account?.base ?? ""
+  const signupHref = `${authBase}/signup?redirect=${encodeURIComponent(receiptPath)}`
+  const loginHref = `${authBase}/login?redirect=${encodeURIComponent(receiptPath)}`
+  /* The order is on an account already, or its address has one: Sign in is the only door. */
+  const hasAccount = !receipt.buyer.unclaimed || !!account?.exists
+
+  /*
+    THIS BROWSER KEEPS THE PURCHASE. Once the receipt is open, the server
+    writes a signed, httpOnly note of this order into the browser
+    (app/api/receipt/remember, lib/receipts/guest-access.ts), so the product
+    page says it is owned and hands over the files with no account and no
+    link to keep. Not for the signed in buyer, whose account already holds it.
+  */
+  const remembered = useRef(false)
+  useEffect(() => {
+    if (remembered.current || receipt.state !== "open" || viewer.isBuyer) return
+    remembered.current = true
+    void fetch("/api/receipt/remember", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ receiptToken: primary.token }),
+      keepalive: true,
+    }).catch(() => {})
+  }, [receipt.state, viewer.isBuyer, primary.token])
 
   const hasFiles = receipt.items.some((i) => i.files.length > 0)
   const single = receipt.items.length === 1 ? receipt.items[0] : null
@@ -541,6 +582,8 @@ export function ReceiptView({
 
   return (
     <main data-receipt="" className="bg-[#f5f6f8] print:bg-white">
+      {/* The receipt says who is signed in from the server's read; a different answer in the browser asks again (components/auth/viewer-sync). */}
+      <ViewerSync serverSignedIn={viewer.signedIn} />
       {/* The Storelib header above this page carries the inset under the clock now (app/receipt/layout.tsx). */}
       <div className="mx-auto w-full max-w-[640px] px-4 pb-10 pt-4 sm:px-6 sm:pt-10">
         {/*
@@ -802,7 +845,11 @@ export function ReceiptView({
                 href="/account/library"
                 className="group mt-4 flex min-h-[56px] items-center justify-between rounded-2xl border border-[#e4e7ec]/80 bg-white px-4 shadow-[inset_0_-1px_0_rgba(16,24,40,0.04),0_1px_2px_rgba(16,24,40,0.05),0_3px_8px_-2px_rgba(16,24,40,0.06)] transition-[box-shadow,border-color,translate] duration-150 hover:border-[#d9dde3] hover:shadow-[inset_0_-1px_0_rgba(16,24,40,0.04),0_2px_4px_rgba(16,24,40,0.06),0_8px_16px_-4px_rgba(16,24,40,0.08)] active:translate-y-px active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-2 sm:px-5 print:hidden"
               >
-                <span className="text-[14px] font-semibold text-[#1a1a2e]">{ct("Open your library")}</span>
+                {/* Signed in as its buyer: the order is in their library, and this row opens it. */}
+                <span className="flex min-w-0 items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
+                  <Check aria-hidden className="h-4 w-4 shrink-0 text-[#067647]" strokeWidth={2.25} />
+                  {ct("In your library")}
+                </span>
                 <ArrowRight
                   data-arrow=""
                   aria-hidden
@@ -811,18 +858,42 @@ export function ReceiptView({
               </Link>
             ) : null
           ) : (
-            <div className={`${CARD} mt-4 px-4 py-4 sm:px-5 print:hidden`}>
-              <p className="text-[15px] font-semibold text-[#1a1a2e]">{ct("Keep it in a library")}</p>
-              <p className="mt-1 text-[14px] text-[#6b7280]">
-                {ct("Make an account with the same email and this order stays with you on any device, even if the email gets lost.")}
+            /*
+              SIGNED OUT. Which door depends on the account, never on a guess:
+              an order already on an account, or an address that has one, is
+              Sign in (the owner pressed Create account with an account and
+              was met by Welcome back); only an address with no account is
+              offered Create account. The address is shown masked, as the
+              rest of the receipt shows it.
+            */
+            <div data-receipt-account={hasAccount ? "sign-in" : "create"} className={`${CARD} mt-4 px-4 py-4 sm:px-5 print:hidden`}>
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{!receipt.buyer.unclaimed ? ct("In your Storelib library") : ct("Save it to your account")}</p>
+              <p className="mt-1 text-[14px] text-[#6b7280] [overflow-wrap:anywhere]">
+                {!receipt.buyer.unclaimed
+                  ? receipt.buyer.maskedEmail
+                    ? ct("Sign in with {email} to open it on any device.", { email: receipt.buyer.maskedEmail })
+                    : ct("Sign in with the email you paid with to open it on any device.")
+                  : hasAccount
+                    ? receipt.buyer.maskedEmail
+                      ? ct("{email} already has a Storelib account. Sign in and this order joins your library.", { email: receipt.buyer.maskedEmail })
+                      : ct("The email you paid with already has a Storelib account. Sign in and this order joins your library.")
+                    : ct("Make an account with the same email and this order stays with you on any device, even if the email gets lost.")}
               </p>
               <div className="mt-3 flex gap-2">
-                <Link href={signupHref} className={`${PRIMARY} flex-1 sm:flex-none`}>
-                  {ct("Create account")}
-                </Link>
-                <Link href={loginHref} className={`${SECONDARY} flex-1 sm:flex-none`}>
-                  {ct("Sign in")}
-                </Link>
+                {hasAccount ? (
+                  <Link href={loginHref} data-receipt-sign-in="" className={`${PRIMARY} flex-1 sm:flex-none`}>
+                    {ct("Sign in")}
+                  </Link>
+                ) : (
+                  <>
+                    <Link href={signupHref} data-receipt-create="" className={`${PRIMARY} flex-1 sm:flex-none`}>
+                      {ct("Create account")}
+                    </Link>
+                    <Link href={loginHref} data-receipt-sign-in="" className={`${SECONDARY} flex-1 sm:flex-none`}>
+                      {ct("Sign in")}
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           )

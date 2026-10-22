@@ -445,12 +445,14 @@ function main() {
   check("and no longer stores the token in the security log", !/metadata: \{[^}]*receipt_token/.test(resend))
 
   const claim = code("app/api/purchases/claim/route.ts")
-  check("claiming only grants for a paid line", /if \(canDeliver\(line\)\) await grant\(admin, user\.id, line\)/.test(claim))
-  check("and the entitlement keeps the variant", /variant_id: line\.variant_id \?\? null/.test(claim))
+  /* Changed on purpose (round 39): the attach and the entitlement moved into lib/orders/attach-guest-orders.ts, shared with the sign in that attaches a guest's orders by their verified address. */
+  const attach = code("lib/orders/attach-guest-orders.ts")
+  check("claiming only grants for a paid line", /if \(canDeliver\(line\)\) await grantLine\(admin, user\.id, line\)/.test(claim) && /if \(canDeliver\(line\)\) await grantLine\(admin, userId, line\)/.test(attach))
+  check("and the entitlement keeps the variant", /variant_id: line\.variant_id \?\? null/.test(attach))
   check("a basket is claimed whole: every line of the payment, same address, still unclaimed",
     /\.eq\("stripe_session_id", order\.stripe_session_id\)\s*\n\s*\.eq\("buyer_email", order\.buyer_email\)/.test(claim))
   check("two accounts claiming at once: only the one whose update matched gets access",
-    /\.is\("buyer_id", null\)\s*\n\s*\.select\("id"\)/.test(claim) && /if \(!won \|\| won\.length === 0\)/.test(claim))
+    /\.is\("buyer_id", null\)\.select\("id"\)/.test(attach) && /if \(error \|\| !won \|\| won\.length === 0\) return false/.test(attach) && /const won = await attachLine\(admin, user\.id, line\)/.test(claim))
   check("an order on another account stays there", /order\.buyer_id && order\.buyer_id !== user\.id/.test(claim))
 
   const verify = code("app/api/purchases/verify/route.ts")

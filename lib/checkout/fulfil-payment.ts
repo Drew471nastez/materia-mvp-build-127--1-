@@ -40,6 +40,7 @@ import { recordCouponUse } from "./coupons"
 import { businessFromMetadata } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
+import { verifiedAccountForEmail } from "@/lib/orders/attach-guest-orders"
 import { postLedger } from "@/lib/payments/ledger"
 import { ledgerAmountText, toLedger } from "@/lib/payments/ledger-currency"
 import { markFeeRecord, paidAirwallexCheckout, type PaidCheckout } from "@/lib/payments/checkout"
@@ -570,10 +571,11 @@ async function grant(
 ) {
   let buyerId = g.buyerId
   if (!buyerId && g.email) {
-    const { data: profile } = await admin.from("profiles").select("id").eq("email", g.email.toLowerCase()).maybeSingle()
-    if (profile) {
-      buyerId = profile.id
-      await admin.from("orders").update({ buyer_id: buyerId }).eq("id", g.orderId)
+    /* Only an account whose address is CONFIRMED: one made with somebody else's email and never verified collects nothing (lib/orders/attach-guest-orders.ts). The rest join when it is verified, at /auth/continue. */
+    const account = await verifiedAccountForEmail(admin, g.email)
+    if (account) {
+      buyerId = account
+      await admin.from("orders").update({ buyer_id: buyerId }).eq("id", g.orderId).is("buyer_id", null)
     }
   }
   if (!buyerId) return

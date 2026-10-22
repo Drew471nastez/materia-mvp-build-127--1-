@@ -19,9 +19,10 @@ import { readSessionBounded } from "@/lib/auth/session-read"
 import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { useLocale } from "@/components/locale-provider"
-import { alreadyRegisteredHint, classifyOAuthError, type SignInMethod } from "@/lib/auth/oauth-errors"
+import { classifyOAuthError } from "@/lib/auth/oauth-errors"
 import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
+import { signInInsteadHref } from "@/lib/auth/existing-account"
 import { inviteEmailFrom } from "@/lib/team/invite-links"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
@@ -79,9 +80,16 @@ function SignUpFormContent() {
     Sell on Storelib one straight into seller onboarding.
   */
   const carry = readCarry(searchParams, getMainDomain())
+  /*
+    AN OLD RECEIPT LINK (claim=1&receiptToken=...) with nowhere else to go
+    comes back to its receipt. The order is no longer claimed from here,
+    before the address is even verified: it joins the account at
+    /auth/continue once it is (lib/orders/attach-guest-orders.ts), and a
+    receipt paid with another address keeps Add to library.
+  */
+  const legacyReceipt = searchParams.get("claim") === "1" ? searchParams.get("receiptToken") : null
+  if (!carry.next && legacyReceipt && /^[A-Za-z0-9_-]{16,128}$/.test(legacyReceipt)) carry.next = `/receipt/${legacyReceipt}`
   const loginHref = withCarry("/login", carry)
-  const claim = searchParams.get("claim")
-  const receiptToken = searchParams.get("receiptToken")
   const prefilledEmail = searchParams.get("email")
   /* On the way back to a team invite (app/team/join): the invited email is kept, since no other account can accept it. */
   const inviteEmail = inviteEmailFrom(searchParams)
@@ -111,8 +119,16 @@ function SignUpFormContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: emailToCheck }),
     })
+    /* Asked too often: say so, rather than carry on as though the address were new. */
+    if (res.status === 429) return { limited: true, error: ((await res.json().catch(() => null)) as { error?: string } | null)?.error || t("auth.err_generic") }
     if (!res.ok) return null
     return res.json()
+  }
+
+  /** On to sign in with this address, the carry kept (lib/auth/existing-account.ts). */
+  const switchToSignIn = (rawEmail: string) => {
+    setIsRedirecting(true)
+    window.location.assign(signInInsteadHref(rawEmail, carry))
   }
 
   // Check if user is already authenticated - redirect if so
@@ -204,9 +220,20 @@ function SignUpFormContent() {
          * generic about an account they could not find a way into.
          */
         if (origin?.exists) {
-          const methods = (origin?.methods ?? []) as SignInMethod[]
-          if (!methods.includes("email")) setGoogleOnlyEmail(email.trim().toLowerCase())
-          setError(alreadyRegisteredHint(methods))
+          /*
+            THE ACCOUNT EXISTS, SO THIS IS A SIGN IN. It used to stop here
+            with a red line and a "Log in" link at the foot of the page that
+            dropped the address: the person pressed Create account, typed
+            their email again on a page saying Welcome back, and could not
+            tell whether anything had been made. Now the form says so and
+            moves to sign in, with the address filled in and the page they
+            came from kept (switchToSignIn).
+          */
+          switchToSignIn(email)
+          return
+        }
+        if (origin?.error && !origin?.exists && origin?.limited) {
+          setError(origin.error)
           return
         }
       } catch {}
@@ -314,22 +341,15 @@ function SignUpFormContent() {
           console.error("Error sending verification code:", verifyError)
         }
 
-        // Handle purchase claim flow
-        if (claim === "1" && receiptToken) {
-          try {
-            await fetch("/api/purchases/claim", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ receiptToken }),
-            })
-          } catch (claimError) {
-            console.error("Failed to claim purchase:", claimError)
-          }
-          navigateWithFallback(`/receipt/${receiptToken}`)
-          router.refresh()
-          return
-        }
-
+        /*
+          ALWAYS THROUGH THE CODE, A RECEIPT'S SIGN UP INCLUDED. This used to
+          claim the receipt's order and go straight back to the receipt with
+          the address unverified: the receipt showed a signed in person, and
+          the first press of Library or Account sent them to the code screen
+          with the way back dropped, which read as "it signed me out". The
+          receipt is the `next` now, and its order joins the account at
+          /auth/continue the moment the address is verified.
+        */
         // Redirect to verify page
         navigateWithFallback(
           withCarry(`/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}${codeSent ? "&sent=1" : ""}`, carry)
@@ -345,7 +365,9 @@ function SignUpFormContent() {
       const msg = error instanceof Error ? error.message : ""
       const failure = classifyOAuthError({ message: msg })
       if (failure.code === "wrong_method") {
-        setError(t("auth.err_email_registered"))
+        /* Registered after all (the look-up above could not tell): the same move to sign in. */
+        switchToSignIn(trimmedEmail)
+        return
       } else {
         setError(failure.code === "unknown" ? t("auth.err_generic") : failure.message)
       }
