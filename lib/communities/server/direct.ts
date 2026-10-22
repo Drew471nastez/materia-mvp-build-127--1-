@@ -163,7 +163,7 @@ async function mayMessage(db: Db, community: Pick<CommunityRow, "id" | "owner_us
   const otherRole: Role | null = otherId === community.owner_user_id ? "owner" : other.role
   const senderRole: Role | null = viewer.userId === community.owner_user_id ? "owner" : viewer.role
   const d = dmDecision({ policy: settings.dmPolicy, senderId: String(viewer.userId), senderRole, recipientId: otherId, recipientRole: otherRole, recipientDms: other.chatDms, blocked })
-  return d.ok ? { ok: true, value: true } : { ok: false, error: d.error, status: 403 }
+  return "error" in d ? { ok: false, error: d.error, status: 403 } : { ok: true, value: true }
 }
 
 /** A conversation of this community that the viewer is in, or null. */
@@ -384,7 +384,7 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
   const again = await sentBefore(db, conversation.id, viewer.userId, clientId)
   if (again) return { ok: true, value: (await toViews(db, community.id, [again], viewer.userId))[0] }
   const gate = await chatGate(db, community, viewer)
-  if (!gate.ok) return gate
+  if ("error" in gate) return gate
   const body = cleanText(r.body, LENGTHS.messageBody.max)
   const media = await checkChatMedia(db, community, viewer, r.attachments, gate.settings)
   if (!media.ok) return refused(media)

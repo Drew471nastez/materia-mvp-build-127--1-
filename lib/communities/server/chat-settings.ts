@@ -56,7 +56,7 @@ export async function saveChatSettings(db: Db, communityId: string, actorId: str
   const current = await loadChatSettings(db, communityId)
   if (!current.ready) return { ok: false, error: "Chat settings are not set up yet. Run the database update (part 270) first.", status: 503 }
   const patch = chatSettingsPatch(raw, current)
-  if (!patch.ok) return { ok: false, error: patch.error, status: 400 }
+  if ("error" in patch) return { ok: false, error: patch.error, status: 400 }
   const { error } = await db.from("community_chat_settings").upsert({ community_id: communityId, ...patch.columns, updated_by: actorId, updated_at: nowIso() }, { onConflict: "community_id" })
   if (error) {
     console.error(`[communities] chat settings save: ${reasonOf(error)}`)

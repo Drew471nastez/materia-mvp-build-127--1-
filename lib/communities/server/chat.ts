@@ -232,7 +232,7 @@ export async function postMessage(w: WriteContext, space: SpaceRow, raw: unknown
   /* Who may post in this channel, as Spaces sets it: everyone, or the team only. */
   if (space.post_role && !meetsRole(viewer.role, space.post_role)) return { ok: false, error: "Only the community's team can post in this channel.", status: 403 }
   const gate = await chatGate(db, community, viewer)
-  if (!gate.ok) return gate
+  if ("error" in gate) return gate
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const clientId = typeof r.clientId === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(r.clientId) ? r.clientId : null
   const again = await sentBefore(db, viewer.userId, clientId)
