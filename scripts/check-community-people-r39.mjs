@@ -207,7 +207,11 @@ const sampleOpen = (page, selector) =>
             const cs = getComputedStyle(f)
             out.push({ t: Math.round(performance.now() - t0), top: Math.round(f.getBoundingClientRect().top), o: Number(cs.opacity), tr: cs.translate, sc: cs.scale, tf: cs.transform, rows: document.querySelectorAll("[data-picker-rows] [data-person]").length, skel: !!document.querySelector("[data-picker-skeleton]"), focus: document.activeElement?.hasAttribute("data-picker-search") ?? false, prop: cs.transitionProperty })
           }
-          if (performance.now() - t0 < 520) requestAnimationFrame(tick)
+          /* Until it has come to rest (a loaded machine draws fewer frames), two seconds at most. */
+          const at = out[out.length - 1]
+          const rest = !!at && at.o === 1 && (at.tr === "none" || at.tr === "0px") && (at.sc === "none" || at.sc === "1")
+          const t = performance.now() - t0
+          if (t < 2000 && !(t > 520 && rest)) requestAnimationFrame(tick)
           else done(out)
         }
         requestAnimationFrame(tick)
