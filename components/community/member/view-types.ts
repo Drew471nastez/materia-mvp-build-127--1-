@@ -269,6 +269,7 @@ export interface ChatIntroView {
   attachments: boolean
   myDms: "everyone" | "staff" | "nobody"
   restriction: { kind: "banned" } | { kind: "muted"; until: string } | null
+  myName?: string | null
 }
 
 export interface ChatMessageView extends ChatLine {

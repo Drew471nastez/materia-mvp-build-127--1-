@@ -21,6 +21,7 @@ import type { CommunityRow, Role } from "../types"
 import { audit } from "./audit"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
+import { authorViews } from "./directory"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -133,7 +134,11 @@ export async function acceptChatRules(db: Db, community: Pick<CommunityRow, "id"
 
 /** What a member sees about chat before they write: the rules, whether they still need to accept them, and their own standing. */
 export async function chatIntro(db: Db, community: Pick<CommunityRow, "id">, viewer: Viewer) {
-  const [settings, state] = await Promise.all([loadChatSettings(db, community.id), chatMemberState(db, community.id, viewer.userId)])
+  const [settings, state, me] = await Promise.all([
+    loadChatSettings(db, community.id),
+    chatMemberState(db, community.id, viewer.userId),
+    viewer.userId ? authorViews(db, community.id, [viewer.userId]).then((m) => m.get(String(viewer.userId)) ?? null, () => null) : Promise.resolve(null),
+  ])
   const r = chatRestriction(state)
   return {
     ready: settings.ready,
@@ -145,6 +150,8 @@ export async function chatIntro(db: Db, community: Pick<CommunityRow, "id">, vie
     attachments: settings.attachmentsEnabled,
     myDms: state?.chatDms ?? "everyone",
     restriction: r ? (r.kind === "banned" ? { kind: "banned" as const } : { kind: "muted" as const, until: r.until }) : null,
+    /* The viewer's own name, for "Ana is typing" on the other screens. */
+    myName: me?.name ?? null,
   }
 }
 

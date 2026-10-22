@@ -293,7 +293,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const staff = !!viewer.can.manage_members
   const entries = useMemo(() => navEntries(community, staff), [community, staff])
   const [messages, refreshMessages] = useUnreadMessages(community.id, viewer.userId, unreadMessages)
-  const [chat, setChat] = useState<{ userId?: string } | null>(null)
+  const [chat, setChat] = useState<{ userId?: string; groupId?: string } | null>(null)
   /* The invite sheet, opened from "Invite people" in the bar's "..." menu (round 9; the card and the tabs had it in round 8). */
   const [inviting, setInviting] = useState(false)
   const openInvite = useCallback(() => setInviting(true), [])
@@ -381,7 +381,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
 
   /* "Message" on a person's card or a member row opens the panel. */
   useEffect(() => {
-    const on = (e: Event) => setChat(((e as CustomEvent<{ userId?: string }>).detail ?? {}) as { userId?: string })
+    const on = (e: Event) => setChat(((e as CustomEvent<{ userId?: string; groupId?: string }>).detail ?? {}) as { userId?: string; groupId?: string })
     window.addEventListener(MESSAGES_EVENT, on)
     return () => window.removeEventListener(MESSAGES_EVENT, on)
   }, [])
@@ -407,6 +407,18 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
     if (!canMessage || !DM_TARGET.test(dm) || dm === viewer.userId) return
     setChat({ userId: dm })
   }, [dm, canMessage, viewer.userId])
+
+  /* ?group=<groupId> (round 37): a group chat's push opens that group, the same way, once. */
+  const groupAsked = search?.get("group") ?? null
+  useEffect(() => {
+    if (!groupAsked) return
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has("group")) return
+    url.searchParams.delete("group")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    if (!canMessage || !DM_TARGET.test(groupAsked)) return
+    setChat({ groupId: groupAsked })
+  }, [groupAsked, canMessage])
 
   /*
     THE PLACE MARKED AT ONCE (round 15): the navigator's place changes on the tap itself, so the row and the left column mark
