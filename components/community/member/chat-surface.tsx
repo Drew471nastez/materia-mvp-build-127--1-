@@ -557,7 +557,7 @@ export function ChatSurface(p: ChatSurfaceProps) {
         <button
           type="button"
           onClick={() => toBottom(true)}
-          className="absolute bottom-[calc(var(--chat-composer-h,64px)+12px)] right-3 z-10 flex h-10 items-center gap-1.5 rounded-full border border-[#e3e5e9] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_6px_18px_-6px_rgba(17,24,39,0.25)] transition-[opacity,transform] animate-in fade-in-0 slide-in-from-bottom-1 duration-150 active:scale-[0.97]"
+          className="absolute bottom-[calc(var(--chat-composer-h,64px)+12px)] right-3 z-10 flex h-10 items-center gap-1.5 rounded-full border border-[#e3e5e9] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_6px_18px_-6px_rgba(17,24,39,0.25)] transition-opacity animate-in fade-in-0 slide-in-from-bottom-1 duration-150 active:scale-[0.97]"
           data-chat-pill=""
           aria-label={unseen ? `${unseen} new messages` : "Newest messages"}
         >

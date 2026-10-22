@@ -618,6 +618,8 @@ const SUITES = [
   "tests/communities-foundation.test.ts",
   "tests/user-notifications.test.ts",
   "tests/push-bridge.test.ts",
+  /* Round 37: community chat (order and duplicates, who may message whom, admin settings, when a phone is told, authorization, part 270). */
+  "tests/community-chat-r37.test.ts",
   "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
   "tests/communities-plans-af.test.ts",
