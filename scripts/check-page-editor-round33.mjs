@@ -13,8 +13,16 @@
  *            icons, the rich text drawn as rich text, the creator's button, no Membership with one member, no sideways
  *            scroll
  *   DARK     the About page in the dark look: nothing left light, no dark words on the dark ground
+ *   FULL     round 37, the owner: "make sure it's full screen like I'm getting inside of the creator page". At 1440x900,
+ *            1280x800, 390x844 and 390x844 with an iPhone's safe area (CDP Emulation.setSafeAreaInsetsOverride, 47 and
+ *            34): the editor's screen is the whole window and nothing of /app or the community's admin is painted or
+ *            pressable (the header, the rail, the pill, the community's bar and tabs, read with elementFromPoint), its
+ *            bar is under the clock, the preview fills what the bar leaves (beside the panel, or above the drawer's
+ *            head), the panel runs the height of the screen, the drawer sits on the home indicator, Save sends, the
+ *            Page tab opens it from the Overview with no frame of the admin painted, and Back returns to the Overview
+ *            at the scroll it was left at (asking first when something is not saved)
  *
- *   node scripts/check-page-editor-round33.mjs [EDITOR ABOUT DARK]
+ *   node scripts/check-page-editor-round33.mjs [EDITOR ABOUT DARK FULL]
  *   SHOTS_DIR=dir to keep the pictures (.round33-page-shots by default; delete it before committing)
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
@@ -50,6 +58,8 @@ const push0 = history.pushState.bind(history)
 const replace0 = history.replaceState.bind(history)
 history.pushState = (s, u, url) => { push0(s, u, url); set({ pathname: location.pathname, search: location.search }) }
 history.replaceState = (s, u, url) => { replace0(s, u, url); set({ pathname: location.pathname, search: location.search }) }
+/* After every other listener, as the router follows a traversal in a transition (the app history tracker marks it first). */
+addEventListener("popstate", () => setTimeout(() => set({ pathname: location.pathname, search: location.search }), 0))
 window.__probeRouter = { subscribe: (f) => (listeners.add(f), () => listeners.delete(f)), get: () => state }
 const router = { push: (h) => log("push", h), replace: (h) => log("replace", h), prefetch: () => {}, refresh: () => log("refresh", ""), back: () => history.back(), forward: () => history.forward() }
 export const usePathname = () => useSyncExternalStore(window.__probeRouter.subscribe, () => state.pathname, () => state.pathname)
@@ -265,11 +275,9 @@ export const notFound = () => {}
         const live = await f.evaluate(() => document.querySelector("[data-page-block=tagline]")?.textContent)
         expect(/Every Saturday\.$/.test(live || ""), `${tag}: the tagline changes on the page behind the sheet`, live)
         await shot(p, `editor-${tag}-sheet`)
-        await p.click("[data-page-sheet-done]")
-        await sleep(600)
-        const foot = await p.evaluate(() => document.querySelector("[data-editor-foot]")?.getAttribute("data-foot"))
-        expect(foot === "up", `${tag}: the save bar is up with the change`, foot)
-        await shot(p, `editor-${tag}-after`)
+        /* Changed on purpose (round 37): the round 33 sheet's Done and its save bar are the drawer's head now (round 27), Save in it. */
+        const head = await p.evaluate(() => ({ save: !!document.querySelector("[data-page-drawer-head] [data-page-save-button]"), status: document.querySelector("[data-page-drawer-head] [data-page-status]")?.getAttribute("data-page-status") }))
+        expect(head.save && head.status === "dirty", `${tag}: the drawer's head says Unsaved changes, Save beside it`, head)
       }
       expect(errors.length === 0, `${tag}: no errors`, errors.slice(0, 3))
       await p.close()
@@ -386,6 +394,246 @@ export const notFound = () => {}
       expect(patches.length === 0, `${tag}: the About page in the dark look has nothing left light and no dark words`, patches)
       await shot(p, `dark-${tag}`)
       expect(errors.length === 0, `${tag}: no errors`, errors.slice(0, 3))
+      await p.close()
+    }
+  }
+
+  /* ── FULL (round 37) ────────────────────────────────────────────────── */
+  if (want("FULL")) {
+    const SAFE = { top: 47, bottom: 34 }
+    const cases = [
+      { vp: DESK, tag: "1440" },
+      { vp: LAPTOP, tag: "1280" },
+      { vp: PHONE, tag: "390" },
+      { vp: PHONE, tag: "390-ios", safe: SAFE },
+    ]
+    /* What is painted on the screen: the editor's box, and whatever of /app or the admin a point lands on. */
+    const screenFacts = (p) =>
+      p.evaluate(() => {
+        const b = (el) => (el ? (({ left, top, width, height, bottom, right }) => ({ x: Math.round(left), y: Math.round(top), w: Math.round(width), h: Math.round(height), bottom: Math.round(bottom), right: Math.round(right) }))(el.getBoundingClientRect()) : null)
+        const ed = [...document.querySelectorAll("[data-page-editor]")].find((e) => e.getClientRects().length)
+        /* Painted and on top somewhere in its box: a point in it lands on it. */
+        const shown = (sel) =>
+          [...document.querySelectorAll(sel)].some((e) => {
+            if (!e.getClientRects().length || getComputedStyle(e).visibility === "hidden" || ed?.contains(e)) return false
+            const r = e.getBoundingClientRect()
+            const hit = document.elementFromPoint(Math.min(innerWidth - 1, Math.max(0, r.left + r.width / 2)), Math.min(innerHeight - 1, Math.max(0, r.top + Math.min(r.height / 2, 20))))
+            return !!hit && (hit === e || e.contains(hit))
+          })
+        /* A grid of points over the window: every one lands in the editor. */
+        const outside = []
+        for (let x = 4; x < innerWidth; x += Math.floor(innerWidth / 9))
+          for (let y = 4; y < innerHeight; y += Math.floor(innerHeight / 12)) {
+            const hit = document.elementFromPoint(x, y)
+            if (hit && !hit.closest("[data-page-editor]")) outside.push([x, y, hit.tagName.toLowerCase()])
+          }
+        const bar = ed?.querySelector("[data-page-editor-bar]")
+        const row = ed?.querySelector("[data-page-editor-bar-row]")
+        const drawer = ed?.querySelector("[data-page-drawer]")
+        return {
+          editor: b(ed),
+          win: { w: innerWidth, h: innerHeight },
+          layerClass: document.documentElement.classList.contains("has-page-layer"),
+          appHeader: shown("[data-probe-app-header]"),
+          rail: shown("[data-probe-app-rail]"),
+          pill: shown("[data-app-nav-pill] span"),
+          communityBar: shown("[data-community-bar]"),
+          tabs: shown("[data-community-tabs]"),
+          outside: outside.slice(0, 5),
+          bar: b(bar),
+          barPadTop: bar ? parseFloat(getComputedStyle(bar).paddingTop) : null,
+          row: b(row),
+          mode: ed?.getAttribute("data-mode"),
+          card: b(ed?.querySelector("[data-page-preview-card]")),
+          side: b(ed?.querySelector("[data-page-side]")),
+          drawer: drawer ? { peekTop: Number(drawer.dataset.peekTop), section: b(drawer) } : null,
+          back: b(ed?.querySelector("[data-page-editor-back]")),
+          title: ed?.querySelector("[data-page-editor-title] h1")?.textContent,
+          badge: ed?.querySelector("[data-page-editor-title] [data-community-state]")?.textContent,
+          scroll: document.documentElement.scrollWidth - innerWidth,
+          barScroll: row ? row.scrollWidth - row.clientWidth : null,
+        }
+      })
+
+    for (const c of cases) {
+      const { vp, tag } = c
+      console.log(`\nFULL ${tag}`)
+      const { p, errors, api } = await open("/app/community/salajanywood/page", vp)
+      if (c.safe) {
+        const cdp = await p.createCDPSession()
+        await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: c.safe })
+        await sleep(600)
+      }
+      const f = await screenFacts(p)
+      expect(f.editor && f.editor.x === 0 && f.editor.y === 0 && f.editor.w === f.win.w && f.editor.h === f.win.h, `${tag}: the editor is the whole window`, f.editor)
+      expect(f.layerClass, `${tag}: <html> holds has-page-layer while it is up`)
+      expect(!f.appHeader && !f.rail && !f.pill, `${tag}: no /app header, rail or nav pill painted`, { header: f.appHeader, rail: f.rail, pill: f.pill })
+      expect(!f.communityBar && !f.tabs, `${tag}: no community bar or row of tabs painted`, { bar: f.communityBar, tabs: f.tabs })
+      expect(f.outside.length === 0, `${tag}: every point of the window lands in the editor`, f.outside)
+      expect(f.title === "SalajanyWood Woodworking Club" && f.badge === "Published", `${tag}: the bar names the community and its state`, { title: f.title, badge: f.badge })
+      expect(f.back && f.back.w >= 36 && f.back.h >= 36, `${tag}: the way back is a 36px target or more`, f.back)
+      expect(f.scroll <= 0 && f.barScroll <= 0, `${tag}: nothing scrolls sideways, the bar fits`, { page: f.scroll, bar: f.barScroll })
+      const topInset = c.safe ? c.safe.top : 0
+      expect(Math.round(f.barPadTop) === topInset && f.row.y >= topInset, `${tag}: the bar's row starts under the status bar (${topInset}px)`, { pad: f.barPadTop, row: f.row?.y })
+      if (vp.width >= 1024) {
+        expect(f.mode === "side" && f.side && f.side.y === f.bar.bottom && f.side.bottom === f.win.h && f.side.right === f.win.w, `${tag}: the panel runs from the bar to the foot at the right edge`, f.side)
+        const share = (f.card.w * f.card.h) / (f.win.w * f.win.h)
+        expect(f.card.y - f.bar.bottom <= 16 && f.win.h - f.card.bottom <= 16 && share > 0.5, `${tag}: the preview fills what the bar and the panel leave`, { card: f.card, share: Math.round(share * 100) / 100 })
+      } else {
+        expect(f.mode === "drawer" && !!f.drawer, `${tag}: on a phone the parts are edited in the drawer`, f.mode)
+        const homeIndicator = c.safe ? c.safe.bottom : 0
+        expect(f.drawer && f.win.h - f.drawer.section.bottom >= homeIndicator + 7, `${tag}: the drawer sits above the home indicator (${homeIndicator}px)`, f.drawer?.section)
+        expect(f.drawer && f.card.bottom <= f.drawer.peekTop && f.drawer.peekTop - f.card.bottom <= 16, `${tag}: the preview ends just above the drawer's head`, { card: f.card?.bottom, peek: f.drawer?.peekTop })
+        expect(f.card.y - f.bar.bottom <= 12 && f.card.h >= 400, `${tag}: the preview fills the screen under the bar`, f.card)
+      }
+      await shot(p, `full-${tag}`)
+
+      /* Panel or drawer: a part pressed in the page opens its fields there, and Save sends it. */
+      const fr = await frameOf(p)
+      if (fr) {
+        await clickIn(p, fr, "[data-page-block=tagline]")
+        await sleep(600)
+        const opened = await p.evaluate(() => {
+          const el = document.getElementById("pe-tagline")
+          const r = el?.getBoundingClientRect()
+          return { visible: !!r && r.height > 0 && r.top >= 0 && r.bottom <= innerHeight, top: r && Math.round(r.top), detent: document.querySelector("[data-page-drawer]")?.getAttribute("data-detent") ?? null }
+        })
+        expect(opened.visible, `${tag}: pressing the tagline brings its field into view${vp.width < 640 ? " in the drawer" : " in the panel"}`, opened)
+        await p.evaluate(() => {
+          const i = document.querySelector("#pe-tagline")
+          i.focus()
+          i.setSelectionRange(i.value.length, i.value.length)
+        })
+        await p.keyboard.type(" Every Saturday.")
+        await sleep(300)
+        await shot(p, `full-${tag}-editing`)
+        await p.evaluate(() => [...document.querySelectorAll("[data-page-save-button]")].find((e) => e.getClientRects().length)?.click())
+        await sleep(600)
+        const patch = api.find((a) => a.method === "PATCH")
+        expect(!!patch && JSON.stringify(Object.keys(JSON.parse(patch.body))) === '["tagline"]', `${tag}: Save sends the tagline and nothing else`, patch && JSON.parse(patch.body))
+      }
+      expect(errors.length === 0, `${tag}: no errors`, errors.slice(0, 3))
+      await p.close()
+    }
+
+    /* From the Overview and back, at a computer and a phone. */
+    for (const vp of [DESK, PHONE]) {
+      const tag = vp.width
+      console.log(`\nFULL ${tag}: from the Overview and back`)
+      const { p, errors } = await open("/app/community/salajanywood", vp)
+      await p.evaluate(() => {
+        document.querySelector(".orders-pane").scrollTop = 600
+      })
+      await sleep(250)
+      const before = await p.evaluate(() => document.querySelector(".orders-pane").scrollTop)
+      /* Every frame from the press on: once the editor is up, none may show the admin's bar or tabs or the app's chrome. */
+      await p.evaluate(() => {
+        window.__frames = []
+        const look = () => {
+          const ed = [...document.querySelectorAll("[data-page-editor]")].find((e) => e.getClientRects().length)
+          const hits = [[innerWidth / 2, 30], [innerWidth / 2, 90], [20, innerHeight - 30]].map(([x, y]) => document.elementFromPoint(x, y))
+          window.__frames.push({ editor: !!ed, admin: hits.some((h) => !!h?.closest("[data-community-header], [data-community-tabs-bar]")), app: hits.some((h) => !!h?.closest("[data-shell-chrome], [data-app-nav-pill]")) })
+          if (window.__frames.length < 20) requestAnimationFrame(look)
+        }
+        window.__look = look
+      })
+      await p.evaluate(() => {
+        document.querySelector('[data-tab="page"]').click()
+        /* From the first frame painted after the press. */
+        requestAnimationFrame(window.__look)
+      })
+      await sleep(700)
+      const frames = await p.evaluate(() => window.__frames)
+      const firstEditor = frames.findIndex((x) => x.editor)
+      const leak = frames.filter((x) => x.admin || x.app).length
+      expect(firstEditor === 0 && leak === 0, `${tag}: the Page tab opens the editor on the frame of the press, no admin or app chrome painted after it`, { firstEditor, leak, frames: frames.length })
+      const f = await screenFacts(p)
+      expect(!!f.editor && f.outside.length === 0 && f.layerClass, `${tag}: the editor covers the window, opened from the tab`, { outside: f.outside })
+      const url1 = await p.evaluate(() => location.pathname)
+      expect(url1 === "/app/community/salajanywood/page", `${tag}: the address is the Page's`, url1)
+      await shot(p, `full-${tag}-from-tab`)
+      await p.click("[data-page-editor-back]")
+      await sleep(600)
+      const back = await p.evaluate(() => ({
+        path: location.pathname,
+        editor: [...document.querySelectorAll("[data-page-editor]")].some((e) => e.getClientRects().length),
+        scroll: document.querySelector(".orders-pane").scrollTop,
+        layer: document.documentElement.classList.contains("has-page-layer"),
+        header: getComputedStyle(document.querySelector("[data-probe-app-header]")).visibility,
+        pushed: window.__router || [],
+      }))
+      expect(back.path === "/app/community/salajanywood" && !back.editor && !back.layer && back.header === "visible", `${tag}: Back returns to the Overview, the app's chrome with it`, { ...back, pushed: undefined })
+      expect(Math.abs(back.scroll - before) <= 2, `${tag}: at the scroll it was left at`, { before, after: back.scroll })
+      expect(!back.pushed.some((r) => r[0] === "push"), `${tag}: by going back, not by opening a new page`, back.pushed)
+      await shot(p, `full-${tag}-back`)
+
+      /* Again with a change not saved: Back asks, Keep editing stays, Discard leaves. */
+      await p.evaluate(() => document.querySelector('[data-tab="page"]').click())
+      await sleep(500)
+      await p.evaluate(() => {
+        const i = document.querySelector("#pe-name")
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set
+        set.call(i, i.value + " More")
+        i.dispatchEvent(new Event("input", { bubbles: true }))
+      })
+      await sleep(250)
+      await p.click("[data-page-editor-back]")
+      await sleep(600)
+      const asked = await p.evaluate(() => [...document.querySelectorAll("[role=alertdialog], [role=dialog]")].map((d) => d.textContent).join(" | "))
+      expect(/Discard changes\?/.test(asked), `${tag}: Back with a change not saved asks first`, asked.slice(0, 80))
+      await shot(p, `full-${tag}-ask`)
+      const pressText = (t) =>
+        p.evaluate((t) => {
+          const b = [...document.querySelectorAll("[role=alertdialog] button, [role=dialog] button")].find((x) => x.textContent.trim() === t && x.getClientRects().length)
+          b?.click()
+          return !!b
+        }, t)
+      await pressText("Keep editing")
+      await sleep(600)
+      const stayed = await p.evaluate(() => ({ path: location.pathname, value: document.querySelector("#pe-name")?.value, editor: [...document.querySelectorAll("[data-page-editor]")].some((e) => e.getClientRects().length) }))
+      expect(stayed.path.endsWith("/page") && stayed.editor && /More$/.test(stayed.value || ""), `${tag}: Keep editing stays with the change`, stayed)
+      await p.click("[data-page-editor-back]")
+      await sleep(600)
+      await pressText("Discard")
+      await sleep(700)
+      const left = await p.evaluate(() => ({ path: location.pathname, layer: document.documentElement.classList.contains("has-page-layer") }))
+      expect(left.path === "/app/community/salajanywood" && !left.layer, `${tag}: Discard leaves for the Overview`, left)
+      expect(errors.length === 0, `${tag}: no errors`, errors.slice(0, 3))
+      await p.close()
+    }
+
+    /* The frame drawn while the editor's reads are on their way is the editor's own screen already. */
+    for (const vp of [DESK, PHONE]) {
+      const tag = vp.width
+      console.log(`\nFULL ${tag}: the frame while it loads`)
+      const { p, errors } = await open("/app/community/salajanywood/page?frame=1", vp)
+      const fr = await p.evaluate(() => {
+        const el = document.querySelector("[data-page-editor-frame]")
+        const r = el?.getBoundingClientRect()
+        const outside = []
+        for (let x = 4; x < innerWidth; x += Math.floor(innerWidth / 9))
+          for (let y = 4; y < innerHeight; y += Math.floor(innerHeight / 12)) {
+            const hit = document.elementFromPoint(x, y)
+            if (hit && !hit.closest("[data-page-editor-frame]")) outside.push([x, y, hit.tagName.toLowerCase()])
+          }
+        return { box: r && { w: Math.round(r.width), h: Math.round(r.height) }, name: el?.querySelector("[data-page-editor-bar] h1")?.textContent, layer: document.documentElement.classList.contains("has-page-layer"), outside: outside.slice(0, 5) }
+      })
+      expect(fr.box && fr.box.w === vp.width && fr.box.h === vp.height && fr.outside.length === 0 && fr.layer, `${tag}: the frame covers the window, nothing of the admin around it`, fr)
+      expect(fr.name === "SalajanyWood Woodworking Club", `${tag}: its bar names the community`, fr.name)
+      await sleep(400)
+      await shot(p, `full-${tag}-frame`)
+      expect(errors.length === 0, `${tag}: no errors`, errors.slice(0, 3))
+      await p.close()
+    }
+
+    /* Opened from a link, nothing of the admin behind it: Back opens the community's Overview. */
+    {
+      console.log(`\nFULL 390: opened from a link`)
+      const { p } = await open("/app/community/salajanywood/page", PHONE)
+      await p.click("[data-page-editor-back]")
+      await sleep(300)
+      const pushed = await p.evaluate(() => window.__router || [])
+      expect(pushed.some((r) => r[0] === "push" && r[1] === "/app/community/salajanywood"), `390: Back opens the community's Overview`, pushed)
       await p.close()
     }
   }

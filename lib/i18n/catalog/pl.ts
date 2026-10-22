@@ -2945,6 +2945,7 @@ const words: Record<string, string> = {
  "Nothing to show yet": "Na razie nic do pokazania",
  "Nothing more fits here": "Nic więcej się tu nie zmieści",
  "No room here": "Tu nie ma miejsca",
+ "Back to the community": "Wróć do społeczności",
  "Earlier visits": "Wcześniejsze wizyty",
  "Earnings summary (CSV)": "Podsumowanie zarobków (CSV)",
  "EasyPost": "EasyPost",
