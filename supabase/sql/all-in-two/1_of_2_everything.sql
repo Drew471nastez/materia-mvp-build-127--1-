@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 253: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 254: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3915,6 +3915,14 @@ CREATE OR REPLACE FUNCTION public.analytics_audience(p_creator_id uuid, p_proper
 REVOKE ALL ON FUNCTION public.analytics_audience(uuid, text, uuid, uuid, uuid, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.analytics_audience(uuid, text, uuid, uuid, uuid, timestamptz, timestamptz) TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('253', '253_analytics_audience.sql', '3416d9b85c004861fae4a0a2912c43a3e27af776a7dd33f3b7830237c9f6a5d2') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 254_analytics_report_layouts.sql
+/* Analytics: the reports a seller adds (round ana-1021). `analytics_report_layouts`: one row per creator, `reports` the reports they added to /app/analytics as cards of their own, in their order (page views, visits, link clicks, OnePage links, refunded orders, downloads; at most twenty ids, a JSON array of short text), and when it last changed. Kept with the seller, so their phone and their laptop show the same cards and the page draws them on its first paint. Server only: row level security on and no policy, every client role refused; the app reads and writes the signed in seller's own row through the server (app/api/analytics/layout, app/app/analytics/page.tsx). Removed with its creator. Changes no existing row. Until it runs, the page keeps the choice in the browser, as it did. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.analytics_report_layouts (creator_id uuid PRIMARY KEY REFERENCES public.creators(id) ON DELETE CASCADE, reports jsonb NOT NULL DEFAULT '[]'::jsonb, updated_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT analytics_report_layouts_reports_list CHECK (jsonb_typeof(reports) = 'array' AND jsonb_array_length(reports) <= 20));
+ALTER TABLE public.analytics_report_layouts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.analytics_report_layouts FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.analytics_report_layouts TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('254', '254_analytics_report_layouts.sql', 'b74e92a4b18105508f3d240ecd8913af09103d94fe35e5c8c50290636d029f11') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

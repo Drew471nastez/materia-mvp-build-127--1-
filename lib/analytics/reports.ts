@@ -373,6 +373,8 @@ export const SOURCE_LABEL: Record<string, string> = {
   get affiliate() { return tt("Affiliate") },
   get referral() { return tt("Referral") },
   get social() { return tt("Social") },
+  /* Opened from Storelib Explore, the marketplace (lib/analytics/events EXPLORE_SOURCE). */
+  get explore() { return tt("Storelib Explore") },
 }
 
 export const SOCIAL_LABEL: Record<string, string> = {

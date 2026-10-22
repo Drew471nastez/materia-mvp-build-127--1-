@@ -13,7 +13,9 @@
  *   a view       once per page per 30 minutes in this tab, after the page has
  *                loaded and the browser is idle, by beacon if left first, to
  *                /api/track-view, judged by lib/analytics/collect.ts like any
- *                other (bots, the store's owner, previews, repeats)
+ *                other (bots, the store's owner, previews, repeats); a theme
+ *                that changes page with history.pushState counts each new
+ *                path the same way
  *   add to cart  a form posting to /cart/add (the theme's own Add to cart,
  *                by form or by its script) or a Buy it now press: buy_click
  *   a link out   to another site: link_click, once per link per page
@@ -45,12 +47,22 @@ export function compatTrackScript(input: { creatorId: string; productId?: string
     /* Where the visit came from: the first page of it, kept for the visit (as getAttributionForTracking). */
     `function attr(){var k='sl_attr:'+K.c,a=null;try{a=JSON.parse(sessionStorage.getItem(k)||'null')}catch(e){}var u={};['utm_source','utm_medium','utm_campaign','utm_term','utm_content'].forEach(function(n){var x=new URLSearchParams(location.search).get(n);if(x)u[n]=x});if(!u.utm_source&&!u.utm_medium){var sq=new URLSearchParams(location.search);['ref','source','via','src'].some(function(n){var x=(sq.get(n)||'').trim();if(x&&x.length<=60&&/^[a-z][a-z0-9._-]*$/i.test(x)&&!/^[0-9]+$/.test(x)){u.utm_source=x.toLowerCase();return true}return false})}if(!u.utm_source&&!u.utm_medium){var cq=new URLSearchParams(location.search);[['gclid','google','cpc'],['gbraid','google','cpc'],['wbraid','google','cpc'],['msclkid','bing','cpc'],['ttclid','tiktok','paid'],['twclid','x','paid'],['li_fat_id','linkedin','paid'],['fbclid','facebook',''],['igshid','instagram','']].some(function(c){if((cq.get(c[0])||'').trim()){u.utm_source=c[1];if(c[2])u.utm_medium=c[2];return true}return false})}var r=d.referrer,rd='Direct';try{if(r){var h=new URL(r).hostname.replace(/^www\\./,'');if(h&&h!==location.hostname.replace(/^www\\./,''))rd=h;else r=''}}catch(e){r=''}if(!a||u.utm_source||u.utm_medium||(a.referrerDomain==='Direct'&&rd!=='Direct')){a={referrerDomain:rd,referrer:r||null,pageUrl:location.href,utm:u};try{sessionStorage.setItem(k,JSON.stringify(a))}catch(e){}}return a}` +
     /* The view: once per path per 30 minutes in this tab (lib/analytics/page-tracker pageKeyOf, recentlySent). */
-    `var key='sl_pv:'+K.c+'|'+location.host.toLowerCase()+((location.pathname.toLowerCase().replace(/\\/{2,}/g,'/').replace(/\\/+$/,''))||'/'),sent=false;function seen(){try{var at=+sessionStorage.getItem(key);return at>0&&Date.now()-at<1800000}catch(e){return false}}` +
+    `function pk(){return'sl_pv:'+K.c+'|'+location.host.toLowerCase()+((location.pathname.toLowerCase().replace(/\\/{2,}/g,'/').replace(/\\/+$/,''))||'/')}var key=pk(),sent=false,first=location.pathname;function seen(){try{var at=+sessionStorage.getItem(key);return at>0&&Date.now()-at<1800000}catch(e){return false}}` +
     `function view(beacon){if(sent||seen())return;sent=true;try{sessionStorage.setItem(key,String(Date.now()))}catch(e){}var a=attr(),i=ids(),u=a.utm||{},wd=w.innerWidth||0;send('/api/track-view',{creatorId:K.c,productId:K.p||undefined,href:location.href,sessionId:i.sessionId,visitorId:i.visitorId,referrerDomain:a.referrerDomain,referrer:a.referrer,pageUrl:a.pageUrl,utm_source:u.utm_source,utm_medium:u.utm_medium,utm_campaign:u.utm_campaign,utm_term:u.utm_term,utm_content:u.utm_content,deviceType:wd&&wd<768?'mobile':wd&&wd<1024?'tablet':'desktop',screenWidth:screen.width,screenHeight:screen.height,language:navigator.language||null,pageTitle:(d.title||'').slice(0,200)||undefined},beacon)}` +
     `function go(){if(w.requestIdleCallback)w.requestIdleCallback(function(){view(false)},{timeout:2000});else setTimeout(function(){view(false)},400);if(K.p)setTimeout(function(){w.__slPixel('view_item',K.p)},0)}` +
     `function shown(){if(d.readyState==='complete')go();else{var t=setTimeout(go,10000);w.addEventListener('load',function(){clearTimeout(t);go()},{once:true})}}` +
     `if(d.visibilityState==='hidden'||d.prerendering){var f=function(){if(d.visibilityState!=='hidden'&&!d.prerendering){d.removeEventListener('visibilitychange',f);d.removeEventListener('prerenderingchange',f);shown()}};d.addEventListener('visibilitychange',f);d.addEventListener('prerenderingchange',f)}else shown();` +
     `w.addEventListener('pagehide',function(){if(!sent&&d.readyState!=='loading')view(true)});` +
+    /*
+      A PAGE CHANGED WITHOUT A LOAD. Some themes move between pages with
+      history.pushState (page transitions, a quick view that takes the
+      address, a filtered collection): each new path is a page, counted once
+      like the first, once the theme has had a moment to set its title. A
+      change of query alone (a variant picked) is the same page. A product
+      known from the first page is not carried onto another path.
+    */
+    `function nav(){var k=pk();if(k===key)return;key=k;sent=false;if(location.pathname!==first)K.p=null;if(w.requestIdleCallback)w.requestIdleCallback(function(){view(false)},{timeout:2000});else setTimeout(function(){view(false)},400)}` +
+    `var H=w.history;if(H)['pushState','replaceState'].forEach(function(m){var o=H[m];if(typeof o!=='function')return;H[m]=function(){var r=o.apply(this,arguments);try{nav()}catch(e){}return r}});w.addEventListener('popstate',function(){try{nav()}catch(e){}});` +
     /* Add to cart and Buy it now: the step, once per page, to Storelib and to the store's pixels. */
     `var steps={};function step(t,pix){if(steps[t])return;steps[t]=1;var i=ids();send('/api/track-event',{eventType:t,creatorId:K.c,productId:K.p||undefined,href:location.href,sessionId:i.sessionId,visitorId:i.visitorId},true);w.__slPixel(pix,K.p)}` +
     `d.addEventListener('submit',function(e){try{var f=e.target,a=f&&f.getAttribute&&(f.getAttribute('action')||'');if(/\\/cart\\/add/.test(a))step('buy_click','add_to_cart')}catch(x){}},true);` +

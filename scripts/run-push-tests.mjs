@@ -189,6 +189,9 @@ const SUITES = [
   "tests/analytics-completeness.test.ts",
   /* Round Z6: operating systems, referrers by company (official marks), page titles, the five step funnel, physical and digital sales, and the physical checkout's steps tracked (scripts/check-analytics-reports.mjs measures the cards). */
   "tests/analytics-audience.test.ts",
+  /* Round ana-1021: a visitor's browser to the seller's report through the real tracker, collect, the reports' answer and a database fake (every surface, bots, repeats, orders); every timeframe, the comparison, product and place on every number, the seller's clock, the sections a seller sees and the reports they add (scripts/check-analytics-tabs.mjs measures the tabs, shifts and switching). */
+  "tests/analytics-e2e.test.ts",
+  "tests/analytics-filters.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
   "tests/library-depth.test.ts",

@@ -28,6 +28,7 @@
  */
 import { boundsOf, compareBounds, resolveValue, todayIn, type CompareValue } from "@/lib/date-range/range"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
+import { askCommerce, commerceKey, keptCommerce } from "./commerce-cache"
 
 /** How long a kept answer may be shown while the page asks again. */
 export const KEEP_MS = 30 * 60_000
@@ -350,11 +351,14 @@ export function warmAnalytics() {
       timeZone,
       currency: notedCurrency || undefined,
     })
+    /* The sales reports under the chart too, for the very question the page will ask (app/app/analytics/commerce-reports). */
+    const sales = commerceKey({ start: span.start, end: Math.max(span.end, span.start + 1), compare: compareBounds(period, PREVIOUS_PERIOD, timeZone, now), product: "all", property: "all", timeZone, currency: notedCurrency || undefined })
     const k = kept().get(questionOf(key))
     if (k && Date.now() - k.at < FRESH_MS) return
     warmedAt = Date.now()
     const { promise, release } = askReport(key)
     promise.catch(() => {}).finally(release)
+    if (!keptCommerce(sales, null)) askCommerce(sales, null).catch(() => {})
   } catch {
     /* a warm that fails is a page that asks for itself, nothing worse */
   }
