@@ -73,7 +73,8 @@ function chatRow(c: ShareChat): Row {
     id: c.id,
     name: c.kind === "space" ? `#${c.name}` : c.name,
     avatarUrl: c.avatarUrl,
-    line: c.kind === "group" ? (c.sub ?? "Group") : c.kind === "space" ? "Channel" : c.username ? `@${c.username}` : "Conversation",
+    /* A channel's # says what it is; nothing under it. */
+    line: c.kind === "group" ? (c.sub ?? "") : c.kind === "space" ? "" : c.username ? `@${c.username}` : "",
     role: c.role,
     online: null,
     can: true,
@@ -115,7 +116,8 @@ function Body({ post, open, onClose }: { post: SharePostInfo; open: boolean; onC
     setQ("")
     setNote("")
     setPicked([])
-    input.current?.focus({ preventScroll: true })
+    /* On a computer the search is ready to type in; on a phone the recent chats stay in view (no keyboard over them until the field is pressed). */
+    if (window.matchMedia("(min-width: 640px)").matches) input.current?.focus({ preventScroll: true })
   }, [open])
 
   useEffect(() => {
@@ -168,7 +170,7 @@ function Body({ post, open, onClose }: { post: SharePostInfo; open: boolean; onC
       return [...cur, row]
     })
   }
-  const { active, setActive, onKeyDown } = useRowKeys(flat.length, (i) => flat[i] && toggle(flat[i]), term)
+  const { active, lit, setActive, onKeyDown } = useRowKeys(flat.length, (i) => flat[i] && toggle(flat[i]), term)
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>(`[data-row="${active}"]`)?.scrollIntoView({ block: "nearest" })
   }, [active])
@@ -212,8 +214,8 @@ function Body({ post, open, onClose }: { post: SharePostInfo; open: boolean; onC
         </p>
       ) : (
         <>
-          <PickerSearch value={q} onChange={setQ} busy={busy && !!term} label="Search people and chats" inputRef={input} onKeyDown={onKeyDown} activeId={flat[active] ? `${listId}-${flat[active].key}` : null} listId={listId} />
-          <div ref={listRef} id={listId} role="listbox" aria-multiselectable aria-label="Chats" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2" data-picker-list="">
+          <PickerSearch value={q} onChange={setQ} busy={busy && !!term} label="Search people and chats" inputRef={input} onKeyDown={onKeyDown} activeId={lit && flat[active] ? `${listId}-${flat[active].key}` : null} listId={listId} />
+          <div ref={listRef} id={listId} role="listbox" aria-multiselectable aria-label="Chats" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2 !shadow-none" data-picker-list="">
             {chats === null && people === null ? (
               <SkeletonRows />
             ) : !flat.length ? (
@@ -236,7 +238,7 @@ function Body({ post, open, onClose }: { post: SharePostInfo; open: boolean; onC
                         aria-selected={on}
                         aria-disabled={!row.can || undefined}
                         data-row={i}
-                        data-active={i === active ? "" : undefined}
+                        data-active={lit && i === active ? "" : undefined}
                         data-share-target={row.key}
                         tabIndex={-1}
                         onMouseMove={() => i !== active && setActive(i)}
@@ -250,7 +252,7 @@ function Body({ post, open, onClose }: { post: SharePostInfo; open: boolean; onC
                             <span className={`truncate text-[14.5px] font-medium ${row.can ? "text-[#1a1a2e]" : "text-[#9ca3af]"}`}>{row.name}</span>
                             {row.role === "owner" || row.role === "admin" ? <RoleBadge role={row.role} size="xs" /> : null}
                           </span>
-                          <span className="block truncate text-[12.5px] leading-[18px] text-[#9ca3af]">{row.line}</span>
+                          {row.line ? <span className="block truncate text-[12.5px] leading-[18px] text-[#9ca3af]">{row.line}</span> : null}
                         </span>
                         {row.can ? <PickCircle on={on} /> : null}
                       </div>

@@ -234,22 +234,36 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="px-2.5 pb-1 pt-2 text-[12.5px] font-medium text-[#6b7280]">{children}</p>
 }
 
-/** Up, down and Enter over a list of rows, with the lit one kept in view. */
+/**
+ * Up, down and Enter over a list of rows, with the lit one kept in view. A row is lit (`lit`) once the keys or the
+ * mouse moved, or words were typed (Enter then presses the first): a list just opened on a phone lights nothing.
+ */
 export function useRowKeys(count: number, onEnter: (i: number) => void, resetOn: unknown) {
-  const [active, setActive] = useState(0)
-  useEffect(() => setActive(0), [resetOn])
+  const [active, setActiveRaw] = useState(0)
+  const [moved, setMoved] = useState(false)
+  useEffect(() => {
+    setActiveRaw(0)
+    setMoved(false)
+  }, [resetOn])
+  const setActive = useCallback((i: number) => {
+    setActiveRaw(i)
+    setMoved(true)
+  }, [])
   const clamped = count ? Math.min(active, count - 1) : -1
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault()
       if (!count) return
-      setActive((a) => (e.key === "ArrowDown" ? (Math.min(a, count - 1) + 1) % count : (Math.min(a, count - 1) - 1 + count) % count))
+      /* The first press lights the first row when none is lit yet; after that it moves. */
+      const step = moved || !!resetOn ? 1 : 0
+      setMoved(true)
+      setActiveRaw((a) => (e.key === "ArrowDown" ? (Math.min(a, count - 1) + step) % count : (Math.min(a, count - 1) - step + count) % count))
     } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault()
       if (clamped >= 0) onEnter(clamped)
     }
   }
-  return { active: clamped, setActive, onKeyDown }
+  return { active: clamped, lit: moved || !!resetOn, setActive, onKeyDown }
 }
 
 function namesLine(names: string[]): string {
@@ -336,7 +350,7 @@ function NewMessageBody({ communityId, open, onClose, dmPolicy, canStartGroups, 
     setPicked((cur) => (cur.some((x) => x.id === p.id) ? cur.filter((x) => x.id !== p.id) : [...cur, p]))
   }
   const press = (p: PickPerson) => (choosing ? toggle(p) : void openWith(p))
-  const { active, setActive, onKeyDown } = useRowKeys(rows.length, (i) => rows[i] && press(rows[i]), term)
+  const { active, lit, setActive, onKeyDown } = useRowKeys(rows.length, (i) => rows[i] && press(rows[i]), term)
 
   useEffect(() => {
     const el = listRef.current?.querySelector<HTMLElement>(`[data-row="${active}"]`)
@@ -363,7 +377,7 @@ function NewMessageBody({ communityId, open, onClose, dmPolicy, canStartGroups, 
         </p>
       ) : (
         <>
-          <PickerSearch value={q} onChange={setQ} busy={busy && !!term} label="Search by name or @handle" inputRef={input} onKeyDown={onKeyDown} activeId={rows[active] ? `${listId}-${rows[active].id}` : null} listId={listId} />
+          <PickerSearch value={q} onChange={setQ} busy={busy && !!term} label="Search by name or @handle" inputRef={input} onKeyDown={onKeyDown} activeId={lit && rows[active] ? `${listId}-${rows[active].id}` : null} listId={listId} />
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1.5 pb-2" data-picker-list="">
             {people === null ? (
               <>
@@ -384,7 +398,7 @@ function NewMessageBody({ communityId, open, onClose, dmPolicy, canStartGroups, 
             ) : (
               <>
                 {!term ? <SectionLabel>Suggested</SectionLabel> : null}
-                <ul ref={listRef} id={listId} role="listbox" aria-label={term ? "People" : "Suggested"} aria-multiselectable={canStartGroups || undefined} data-picker-rows={term ? "search" : "suggested"}>
+                <ul ref={listRef} id={listId} role="listbox" className="!shadow-none" aria-label={term ? "People" : "Suggested"} aria-multiselectable={canStartGroups || undefined} data-picker-rows={term ? "search" : "suggested"}>
                   {rows.map((p, i) => {
                     const on = picked.some((x) => x.id === p.id)
                     return (
@@ -395,7 +409,7 @@ function NewMessageBody({ communityId, open, onClose, dmPolicy, canStartGroups, 
                           aria-selected={on}
                           aria-disabled={!p.can || undefined}
                           data-row={i}
-                          data-active={i === active ? "" : undefined}
+                          data-active={lit && i === active ? "" : undefined}
                           data-person={p.id}
                           tabIndex={-1}
                           onMouseMove={() => i !== active && setActive(i)}
