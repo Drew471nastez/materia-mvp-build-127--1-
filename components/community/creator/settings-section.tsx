@@ -599,7 +599,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
       </EditorCard>
 
       {/* Round 32: the questions asked before joining (./join-questions-panel). */}
-      <JoinQuestionsPanel head={head} />
+      <JoinQuestionsPanel head={head} initial={data.joinForm} />
 
       <EditorCard
         title={tt("Plans")}

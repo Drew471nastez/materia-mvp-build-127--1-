@@ -49,11 +49,12 @@ const same = (a: Draft[], b: Draft[]) => JSON.stringify(toSend(a)) === JSON.stri
 
 const ARROW = "grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-lg text-[#9ca3af] outline-none transition-colors duration-100 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] active:bg-[#e8e9ec] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.25)] disabled:cursor-default disabled:opacity-35 disabled:hover:bg-transparent sm:h-8 sm:w-8"
 
-export function JoinQuestionsPanel({ head }: { head: CommunityHead }) {
+export function JoinQuestionsPanel({ head, initial = null }: { head: CommunityHead; /** Read with the page (round 37): drawn at once, nothing asked. */ initial?: { ready: boolean; questions: JoinQuestion[] } | null }) {
   const toast = useToast()
-  const [ready, setReady] = React.useState<boolean | null>(null)
-  const [saved, setSaved] = React.useState<Draft[]>([])
-  const [list, setList] = React.useState<Draft[]>([])
+  const [ready, setReady] = React.useState<boolean | null>(() => (initial ? initial.ready !== false : null))
+  const [saved, setSaved] = React.useState<Draft[]>(() => (initial ? toDrafts(initial.questions ?? []) : []))
+  const [list, setList] = React.useState<Draft[]>(() => (initial ? toDrafts(initial.questions ?? []) : []))
+  const given = React.useRef(!!initial)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [badIndex, setBadIndex] = React.useState<number | null>(null)
@@ -62,6 +63,8 @@ export function JoinQuestionsPanel({ head }: { head: CommunityHead }) {
   const [loadError, setLoadError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
+    /* Handed in by the server with the page: the latest there is, nothing to ask (round 37). */
+    if (given.current) return
     let live = true
     void send<{ ready: boolean; questions: JoinQuestion[] }>(`/api/app/community/${head.id}/join-questions`, "GET").then((res) => {
       if (!live) return
