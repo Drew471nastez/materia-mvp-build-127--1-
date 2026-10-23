@@ -105,7 +105,7 @@ export function compatCartPricing(input: CompatPricingInput): CartPricing {
         findCoupon(db(), input.creatorId, code).catch(() => null),
         charge(),
       ])
-      if (!withCode.ok) return { ...none, error: withCode.error }
+      if (withCode.ok === false) return { ...none, error: withCode.error }
       const q = withCode.quote
       if (q.couponError || !q.coupon) {
         const error = q.couponError ?? "That code is not valid."
