@@ -121,6 +121,8 @@ async function main() {
     fetched.length = 0
     const again = await exportSiteReport(db, cfg, link(db), "Materia Themes", { fetchMedia })
     check("a second send of an unchanged site is no commit, and pictures are not fetched again", again.sha === null && again.pending === 0 && fetched.length === 0, `${again.sha} ${fetched.length}`)
+    await exportSiteReport(db, cfg, link(db), "Materia Themes", { fetchMedia: null, reason: "Published in the builder" })
+    check("a send after Publish keeps the pictures, on GitHub and in the sync state", !!gh.filesAt(REPO, "main")[`shopify/assets/${PICTURES[3]}`] && !!link(db).sync_state?.files?.[`shopify/assets/${PICTURES[3]}`])
   }
 
   console.log("\nProtected only when GitHub says so")

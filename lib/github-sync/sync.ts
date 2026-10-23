@@ -314,6 +314,8 @@ export async function exportSiteReport(
     } catch {
       assetMap = {}
     }
+    /* A send that did not fetch pictures (after Publish) leaves the repository's as they are, and remembers them. */
+    if (!snap.media) for (const [p, sha] of Object.entries(prevFiles)) if (p.startsWith("shopify/assets/") && !(p in shas) && typeof assetMap[p.slice("shopify/assets/".length)] === "string") shas[p] = sha
     const urls: Record<string, string> = {}
     for (const [name, url] of Object.entries(assetMap)) if (typeof url === "string" && shas[`shopify/assets/${name}`] && (name in (snap.media ?? {}) ? !deferred.has(`shopify/assets/${name}`) && !refused.has(`shopify/assets/${name}`) && !missing.has(`shopify/assets/${name}`) : (snap.mediaKept ?? []).includes(name) || prevMedia[name] === url)) urls[name] = url
 
