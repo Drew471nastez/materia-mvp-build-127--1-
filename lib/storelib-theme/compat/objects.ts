@@ -519,16 +519,32 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown): O {
  * whole number. Absent with no published reviews, so a theme's
  * `!= blank` test draws no stars.
  */
-function reviewMetafields(rating: unknown): O {
-  const r = (rating && typeof rating === "object" ? rating : {}) as { value?: unknown; count?: unknown }
+export function reviewMetafields(rating: unknown): O {
+  const r = (rating && typeof rating === "object" ? rating : {}) as { value?: unknown; count?: unknown; color?: unknown }
   const count = typeof r.count === "number" && r.count > 0 ? Math.floor(r.count) : 0
   const average = typeof r.value === "number" && r.value > 0 ? Math.round(r.value * 10) / 10 : 0
   if (!count || !average) return {}
   const value = { [OUTPUT]: average.toFixed(1), rating: average, scale_min: 1, scale_max: 5 }
   return {
-    rating: { [OUTPUT]: average.toFixed(1), value, key: "rating", namespace: "reviews", type: "rating" },
+    /* `__star_color`: the store's star colour, for Storelib Reviews' own stars on a page that has no reviews of its own to read it from (./storelib-reviews.ts). A theme never sees a key that starts with __. */
+    rating: { [OUTPUT]: average.toFixed(1), value, key: "rating", namespace: "reviews", type: "rating", ...(typeof r.color === "string" && r.color ? { __star_color: r.color } : {}) },
     rating_count: { [OUTPUT]: String(count), value: count, key: "rating_count", namespace: "reviews", type: "number_integer" },
   }
+}
+
+/**
+ * The product page's own rating, from the page's Storelib Reviews
+ * (lib/reviews/storefront.ts, handed to the page as `reviews`): its
+ * published reviews of this product while the app is on, as the rating
+ * reviewMetafields above reads. Null for sample reviews, for another
+ * product, or with none.
+ */
+export function productRatingFrom(reviews: unknown, productId: string): { value: number; count: number; color: string } | null {
+  const r = reviews as { enabled?: unknown; sample?: unknown; star_color?: unknown; product?: { id?: unknown; summary?: { count?: unknown; average?: unknown } } | null } | null | undefined
+  if (!r || r.enabled !== true || r.sample === true || !r.product || String(r.product.id ?? "") !== productId) return null
+  const count = Number(r.product.summary?.count)
+  const value = Number(r.product.summary?.average)
+  return count > 0 && value > 0 ? { value, count, color: typeof r.star_color === "string" ? r.star_color : "" } : null
 }
 
 /**

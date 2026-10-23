@@ -248,7 +248,9 @@ async function main() {
     const own = Object.keys(schemasFromSources(t.files))
     check(`every one of the theme's sections (${own.join(", ")}) is in sections/`, own.length > 0 && own.every((s) => ex.paths.has(`sections/${s}.storelib`)))
     const catalog = themeBlockCatalog(t.files, { builtIn: !isCompatSource(t.files["layout/theme.storelib"]) })
-    check(`every block Add block can offer (${Object.keys(catalog).join(", ")}), private ones too, is in blocks/`, Object.keys(catalog).length === 2 && Object.keys(catalog).every((b) => ex.paths.has(`blocks/${b}.storelib`)))
+    /* Changed on purpose (round reviews-1023): Add block also offers Storelib Reviews' app blocks where the theme takes "@app"; they are Storelib's, kept on the page by their address, and have no file to export. */
+    const fileBlocks = Object.keys(catalog).filter((b) => !b.startsWith("shopify://apps/"))
+    check(`every block Add block can offer (${fileBlocks.join(", ")}), private ones too, is in blocks/`, fileBlocks.length === 2 && fileBlocks.every((b) => ex.paths.has(`blocks/${b}.storelib`)))
 
     /* Theme settings: the theme's panel, then Storelib's group, as the builder lists them. */
     const groups = compatThemeGroups(readPanel(t.files[COMPAT_PANEL_PATH]))

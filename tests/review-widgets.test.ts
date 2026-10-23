@@ -242,7 +242,8 @@ function compatChecks() {
   const design = drawPage(theme as never, { ...base, designMode: true, template: "index", path: "/" } as never, [{ id: "w4", type: "storelib-review-widget", settings: { widget: "grid" } }], { scripts: false }).html
   check("  in the builder before any reviews: samples, marked", design.includes("<b>Sample</b>"))
   check("a widget section counts as reviews on the page (no second one added on product pages)", withProductPageReviews([{ id: "m", type: "main-product" }, { id: "w", type: "storelib-review-widget" }], { files: all, schemaOf: () => ({}) }).length === 2)
-  check("the builder's canvas of an imported theme draws real reviews and the saved looks once a widget is on the page", /props\.sections\.some\(\(s\) => s\.type === REVIEW_WIDGET_SECTION_TYPE\)/.test(read("components/website-builder/compat/compat-canvas.tsx")) && /reviews: reviewsRef\.current/.test(read("components/website-builder/compat/compat-canvas.tsx")))
+  /* Changed on purpose (round reviews-1023): a product page, the Storelib Reviews section and a reviews app block ask for the store's real reviews too, so the theme's own stars and Storelib Reviews' blocks draw real numbers in the canvas. */
+  check("the builder's canvas of an imported theme draws real reviews and the saved looks once a widget is on the page", /props\.sections\.some\(\(s\) => s\.type === REVIEW_WIDGET_SECTION_TYPE \|\| /.test(read("components/website-builder/compat/compat-canvas.tsx")) && /reviews: reviewsRef\.current/.test(read("components/website-builder/compat/compat-canvas.tsx")))
   check("the main product section, in either kind of theme", isMainProductSectionType("main-product") && isMainProductSectionType("product") && !isMainProductSectionType("featured-product-grid"))
   check("an imported theme's script for the carousel is the same function", reviewWidgetScript().includes("data-slw-ready"))
 }

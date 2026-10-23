@@ -44,7 +44,7 @@ import { HOLD_VIEW_EVENT } from "@/lib/website-builder/canvas-switch"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
-import { REVIEW_WIDGET_SECTION_TYPE } from "@/lib/storelib-theme/compat/storelib-reviews"
+import { REVIEW_WIDGET_SECTION_TYPE, REVIEWS_SECTION_TYPE, isReviewsAppBlock } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } from "@/lib/storelib-theme/compat/site"
@@ -64,7 +64,7 @@ import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/produ
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
 import { shopImageName } from "@/lib/website-builder/picture-address"
-import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords } from "@/lib/markets/compat-fields"
+import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords, compatUiWords } from "@/lib/markets/compat-fields"
 import { moneyFormatFor } from "@/lib/markets/pricing"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { localizeMenus, localizeOptions, localizeSections, type TranslationMap } from "@/lib/markets/translate"
@@ -311,6 +311,11 @@ function tellSettings(win: Window, before: Record<string, unknown>, after: Recor
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
 const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.type}:${s.group ?? ""}:${s.hidden ? 1 : 0}`).join("|")
 
+/** Whether a section's blocks hold a reviews app's block (Storelib Reviews' own, or one a theme kept from Shopify), at any depth. */
+function holdsReviewsBlock(blocks: readonly { type: string; blocks?: unknown }[] | undefined): boolean {
+  return (blocks ?? []).some((b) => isReviewsAppBlock(b.type) || holdsReviewsBlock(b.blocks as { type: string; blocks?: unknown }[] | undefined))
+}
+
 /** A product in the language previewed: its title, description, options and search engine title, by the function lib/markets/compat.ts lays them over with on the website. */
 function inLanguage(card: ProductCard, map: TranslationMap): ProductCard {
   return compatCardIn(card as ProductCard & { descriptionHtml?: string }, map) as ProductCard
@@ -484,11 +489,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const i18nKey = JSON.stringify([language?.locale, language?.defaultLanguage, language?.languages, markets?.saved, markets?.defaultLanguage, markets?.languages, markets?.country, markets?.countries.length, markets?.countries.map((c) => c.currency).join(""), ownLanguage])
   /* The theme's own words (`| t`) as the store translated them (tw:<key>), as the website hands them over (compat.ts). By what they say, so a theme setting changed under a finger does not draw the page again. */
   const themeWords = useMemo(() => (compatTheme && map ? compatThemeWords(compatTheme.defaultWords(), map) : {}), [compatTheme, map])
-  const themeWordsKey = JSON.stringify(themeWords)
+  const uiWords = useMemo(() => compatUiWords(map), [map])
+  const themeWordsKey = JSON.stringify([themeWords, uiWords])
   const i18n = useMemo((): SiteI18n | undefined => {
     const where = markets ? { countries: markets.countries, ...(markets.country ? { country: markets.country } : {}) } : {}
     if (markets && !markets.saved) return { locale: ownLanguage, defaultLanguage: ownLanguage, languages: [ownLanguage], ...where }
-    const translated = Object.keys(themeWords).length ? { words: themeWords } : {}
+    /* And Storelib's own words (Translate › Shop words), for Storelib Reviews' section, blocks and widgets, as the website hands them (compat-fields.ts compatUiWords). */
+    const translated = { ...(Object.keys(themeWords).length ? { words: themeWords } : {}), ...(Object.keys(uiWords).length ? { uiWords } : {}) }
     if (markets) return { locale: language?.locale ?? markets.defaultLanguage, defaultLanguage: markets.defaultLanguage, languages: markets.languages.length ? markets.languages : [markets.defaultLanguage], ...where, ...translated }
     return language ? { locale: language.locale, defaultLanguage: language.defaultLanguage, languages: language.languages, ...translated } : undefined
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -510,8 +517,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
     A REVIEWS WIDGET ON THE PAGE draws the store's own reviews and the saved
     look it names (lib/reviews/widgets), as the Storelib canvas does
     (use-canvas-reviews.ts); without one the canvas keeps its sample reviews.
+    So does a product page (the theme's own rating block and Storelib
+    Reviews' blocks read the product's real stars, lib/storelib-theme/
+    compat/theme.ts), the Storelib Reviews section, and a page holding a
+    reviews app's block anywhere.
   */
-  const wantsReviews = props.sections.some((s) => s.type === REVIEW_WIDGET_SECTION_TYPE)
+  const wantsReviews = productId !== null || props.sections.some((s) => s.type === REVIEW_WIDGET_SECTION_TYPE || s.type === REVIEWS_SECTION_TYPE || holdsReviewsBlock(s.blocks))
   const canvasReviews = useCanvasReviews(wantsReviews, productId)
   const reviewsRef = useRef(canvasReviews)
   reviewsRef.current = canvasReviews

@@ -1,0 +1,16 @@
+{%- liquid
+  assign product = closest.product
+  assign rating = product.metafields.reviews.rating.value.rating
+  assign scale_max = product.metafields.reviews.rating.value.scale_max
+  assign rating_count = product.metafields.reviews.rating_count
+-%}
+{%- if rating != blank -%}
+  <div class="rating-wrapper horizon-rating" {{ block.shopify_attributes }}>
+    <span class="horizon-rating__value">{{ rating | round: 1 }}</span>
+    <span class="horizon-rating__max">{{ scale_max }}</span>
+    <span class="horizon-rating__count">{{ rating_count }}</span>
+  </div>
+{%- endif -%}
+{% schema %}
+{ "name": "Review stars", "settings": [] }
+{% endschema %}

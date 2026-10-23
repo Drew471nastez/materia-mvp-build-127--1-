@@ -9,8 +9,10 @@
  *                           rating_count, Shopify's standard review
  *                           metafields (./objects.ts reviewMetafields): Dawn,
  *                           Horizon and every Online Store 2.0 theme draw
- *                           their card and product stars from them.
- *   A SECTION               "Storelib Reviews" (sections/storelib-reviews),
+ *                           their card and product stars from them. On a
+ *                           product page they are the page's own reviews
+ *                           (./theme.ts), whatever the cards show.
+ *   A SECTION             "Storelib Reviews" (sections/storelib-reviews),
  *                           in Add section like the theme's own, on any
  *                           template: the product's reviews on a product
  *                           page, the shop's anywhere else. Every imported
@@ -22,10 +24,16 @@
  *                           the imported template as `shopify://apps/...`:
  *                           drawn as Storelib Reviews in the same place,
  *                           whether the theme draws its blocks with
- *                           {% content_for 'blocks' %} or {% render block %}.
+ *                           {% content_for 'blocks' %} or {% render block %}:
+ *                           a badge or a rating as the stars, anything else
+ *                           as the reviews. And Storelib Reviews' own two,
+ *                           Star rating and Reviews (./review-app-blocks.ts),
+ *                           in Add block wherever the theme's schema takes
+ *                           "@app", as a reviews app's are on Shopify.
  *
  * The markup is plain Liquid over `storelib_reviews` and `rv` (the section's
- * settings, or the defaults for an app block), with its own small
+ * settings, or the block's), its words `storelib_words` (Storelib's own in
+ * the page's language, Translate › Shop words), with its own small
  * stylesheet scoped to .slrv, inheriting the theme's font and text colour.
  * The write form posts to /api/reviews/site with no script and comes back
  * to #review-posted and the rest, as the Storelib theme's section does.
@@ -47,12 +55,103 @@ export function isReviewsAppBlock(type: unknown): boolean {
   return typeof type === "string" && REVIEW_APPS.test(type)
 }
 
-/** The settings an app block is drawn with: the section's defaults. */
+/** The settings the section is drawn with when it has none of its own. */
 export const REVIEWS_DEFAULTS = { heading: "Customer reviews", show_summary: true, show_bars: true, show_write: true, per_page: 5, star_color: "" }
+
+/**
+ * What a reviews app's block was on Shopify, so Storelib draws the same
+ * thing in its place: the stars (Judge.me's preview badge, Product Reviews'
+ * star rating, Loox's rating, Yotpo's and Okendo's star rating, Storelib
+ * Reviews' own Star rating) or the reviews (every other one).
+ */
+export function reviewAppBlockKind(type: unknown): "stars" | "reviews" | null {
+  if (!isReviewsAppBlock(type)) return null
+  const handle = /\/blocks\/([^/]+)/.exec(String(type))?.[1] ?? ""
+  return /badge|rating|stars?(?![a-z])/i.test(handle) ? "stars" : "reviews"
+}
+
+/**
+ * ===========================================================================
+ *  THE STARS, AS AN APP BLOCK
+ * ===========================================================================
+ * Under a product's title, on a card, in a featured product: the stars, and
+ * the average and how many reviews when the block says so, in the theme's
+ * own font and text colour, the stars in the block's colour, else the
+ * store's (Storelib Reviews › Display). Its words are Storelib's in the
+ * page's language (Translate › Shop words). No reviews: nothing on the
+ * website, and a quiet "No reviews yet" in the builder so the block can
+ * still be found and selected. Pure.
+ */
+const RATING_STYLE = `<style>
+.slrv-rating{margin:.35em 0;font:inherit;color:inherit;line-height:1.3}
+.slrv-rating-in{display:inline-flex;flex-wrap:wrap;align-items:center;gap:.45em;color:inherit;text-decoration:none}
+a.slrv-rating-in:hover .slrv-rating-n{text-decoration:underline;text-underline-offset:.2em}
+.slrv-rating .slrv-stars{position:relative;display:inline-block;line-height:1;letter-spacing:.12em;font-size:1em;color:color-mix(in srgb,currentColor 18%,transparent)}
+.slrv-rating .slrv-stars:before{content:"\\2605\\2605\\2605\\2605\\2605"}
+.slrv-rating .slrv-stars:after{content:"\\2605\\2605\\2605\\2605\\2605";position:absolute;left:0;top:0;bottom:0;width:var(--rv,0%);overflow:hidden;white-space:nowrap;color:var(--slrv-star,currentColor)}
+.slrv-rating-avg{font-weight:600}
+.slrv-rating-n,.slrv-rating-none{font-size:.875em;color:color-mix(in srgb,currentColor 70%,transparent)}
+</style>`
+
+const escapeHtml = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+/** A colour a setting or the store gave, kept only when it reads as one. */
+const safeColour = (v: unknown) => (typeof v === "string" && /^[#a-z0-9(),.%\s-]{1,64}$/i.test(v.trim()) ? v.trim() : "")
+
+export interface ReviewStarsInput {
+  /** One decimal, 0 with no reviews. */
+  average: number
+  count: number
+  /** The block's own settings, as stored. */
+  settings: Record<string, unknown>
+  /** The store's star colour (Storelib Reviews › Display). */
+  starColor: string
+  /** Storelib's words in the page's language (lib/markets/ui-words.ts shopWords). */
+  words: Record<string, string>
+  /** Where pressing the stars goes: the reviews on this page, or the product's. Null: nowhere. */
+  href: string | null
+  inEditor: boolean
+}
+
+export function reviewStarsHtml(input: ReviewStarsInput): string {
+  const s = input.settings
+  const w = input.words
+  const on = (k: string, d: boolean) => (typeof s[k] === "boolean" ? (s[k] as boolean) : d)
+  const count = Math.max(0, Math.floor(input.count) || 0)
+  if (!(count > 0 && input.average > 0)) return input.inEditor ? `${RATING_STYLE}<p class="slrv-rating slrv-rating-none">${escapeHtml(w.no_reviews_yet ?? "No reviews yet")}</p>` : ""
+  const average = Math.min(5, Math.round(input.average * 10) / 10)
+  const label = average.toFixed(1)
+  const many = `${count} ${count === 1 ? w.review ?? "review" : w.reviews ?? "reviews"}`
+  const colour = safeColour(s.star_color) || safeColour(input.starColor)
+  const said = `${label} ${w.out_of_five_stars ?? "out of 5 stars"}, ${many}`
+  const inner = [
+    `<span class="slrv-stars" style="--rv: ${Math.round((average / 5) * 100)}%;" aria-hidden="true"></span>`,
+    on("show_average", false) ? `<span class="slrv-rating-avg" aria-hidden="true">${label}</span>` : "",
+    on("show_count", true) ? `<span class="slrv-rating-n" aria-hidden="true">${escapeHtml(many)}</span>` : "",
+  ].join("")
+  const link = on("link", true) && input.href ? input.href : null
+  const holder = link ? `<a class="slrv-rating-in" href="${escapeHtml(link)}" aria-label="${escapeHtml(said)}">${inner}</a>` : `<span class="slrv-rating-in" role="img" aria-label="${escapeHtml(said)}">${inner}</span>`
+  return `${RATING_STYLE}<div class="slrv-rating"${colour ? ` style="--slrv-star: ${escapeHtml(colour)};"` : ""}>${holder}</div>`
+}
+
+/** A product's rating as a theme reads it: Shopify's review metafields (./objects.ts), or none. */
+export function ratingOfProduct(product: unknown): { average: number; count: number; color: string } | null {
+  const mf = (product as { metafields?: { reviews?: { rating?: { value?: { rating?: unknown }; __star_color?: unknown }; rating_count?: { value?: unknown } } } } | null | undefined)?.metafields?.reviews
+  const average = Number(mf?.rating?.value?.rating)
+  const count = Number(mf?.rating_count?.value)
+  return average > 0 && count > 0 ? { average, count, color: typeof mf?.rating?.__star_color === "string" ? mf.rating.__star_color : "" } : null
+}
+
+/** The settings the reviews block is drawn with: its own over the block's defaults, compact, with Storelib's heading in the page's language when it has none. */
+export function reviewsBlockSettings(settings: Record<string, unknown>): Record<string, unknown> {
+  const own: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(settings ?? {})) if (v !== undefined && v !== null && !k.startsWith("__")) own[k] = v
+  return { ...REVIEWS_DEFAULTS, heading: "", per_page: 3, ...own, in_block: true }
+}
 
 const STYLE = `<style>
 .slrv{--slrv-line:color-mix(in srgb,currentColor 14%,transparent);--slrv-soft:color-mix(in srgb,currentColor 6%,transparent);--slrv-muted:color-mix(in srgb,currentColor 68%,transparent);max-width:960px;margin:0 auto;padding:48px 20px;font:inherit;color:inherit}
 .slrv h2{margin:0 0 20px}
+.slrv-block{max-width:none;margin:0;padding:12px 0}.slrv-block h2{font-size:1.25em}
 .slrv-stars{position:relative;display:inline-block;line-height:1;letter-spacing:2px;color:var(--slrv-line);font-size:16px}
 .slrv-stars:before{content:"\\2605\\2605\\2605\\2605\\2605"}
 .slrv-stars:after{content:"\\2605\\2605\\2605\\2605\\2605";position:absolute;left:0;top:0;bottom:0;width:var(--rv,0%);overflow:hidden;white-space:nowrap;color:var(--slrv-star)}
@@ -92,35 +191,35 @@ const STYLE = `<style>
 .slrv-sample{margin:-10px 0 18px;font-size:13px;color:var(--slrv-muted)}
 </style>`
 
-const CARD = `<article class="slrv-card"><div class="slrv-card-top"><span class="slrv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} out of 5 stars"></span>{% if storelib_reviews.show_date %}<span>{{ r.date }}</span>{% endif %}</div>{% if r.title != blank %}<h3>{{ r.title | escape }}</h3>{% endif %}<p class="slrv-body">{{ r.body | escape }}</p>{% if storelib_reviews.show_photos and r.has_photos %}<div class="slrv-photos">{% for ph in r.photos %}<a href="{{ ph | escape }}" target="_blank" rel="noopener"><img src="{{ ph | escape }}" alt="Photo from {{ r.author | escape }}" loading="lazy"></a>{% endfor %}</div>{% endif %}<p class="slrv-by"><b>{{ r.author | escape }}</b>{% if storelib_reviews.show_verified and r.verified %} · Verified buyer{% endif %}{% if slrv_here.scope == 'shop' and r.product_title != blank %} · on <a href="{{ r.product_url | escape }}">{{ r.product_title | escape }}</a>{% endif %}</p>{% if r.reply != blank %}<div class="slrv-reply"><p class="slrv-small"><b>Reply from {{ shop.name | escape }}</b></p><p class="slrv-body">{{ r.reply | escape }}</p></div>{% endif %}</article>`
+const CARD = `<article class="slrv-card"><div class="slrv-card-top"><span class="slrv-stars" style="--rv: {{ r.rating | times: 20 }}%;" role="img" aria-label="{{ r.rating }} {{ slrv_w.out_of_five_stars }}"></span>{% if storelib_reviews.show_date %}<span>{{ r.date }}</span>{% endif %}</div>{% if r.title != blank %}<h3>{{ r.title | escape }}</h3>{% endif %}<p class="slrv-body">{{ r.body | escape }}</p>{% if storelib_reviews.show_photos and r.has_photos %}<div class="slrv-photos">{% for ph in r.photos %}<a href="{{ ph | escape }}" target="_blank" rel="noopener"><img src="{{ ph | escape }}" alt="{{ slrv_w.photo_from }} {{ r.author | escape }}" loading="lazy"></a>{% endfor %}</div>{% endif %}<p class="slrv-by"><b>{{ r.author | escape }}</b>{% if storelib_reviews.show_verified and r.verified %} · {{ slrv_w.verified_buyer }}{% endif %}{% if slrv_here.scope == 'shop' and r.product_title != blank %} · {{ slrv_w.review_on }} <a href="{{ r.product_url | escape }}">{{ r.product_title | escape }}</a>{% endif %}</p>{% if r.reply != blank %}<div class="slrv-reply"><p class="slrv-small"><b>{{ slrv_w.reply_from }} {{ shop.name | escape }}</b></p><p class="slrv-body">{{ r.reply | escape }}</p></div>{% endif %}</article>`
 
 /** The widget, over `storelib_reviews` and `rv`. */
-export const REVIEWS_WIDGET_LIQUID = `{%- if storelib_reviews.enabled -%}{%- assign slrv_here = storelib_reviews.here -%}{%- assign slrv_per = rv.per_page | default: 5 -%}
+export const REVIEWS_WIDGET_LIQUID = `{%- if storelib_reviews.enabled -%}{%- assign slrv_here = storelib_reviews.here -%}{%- assign slrv_per = rv.per_page | default: 5 -%}{%- assign slrv_w = storelib_words -%}{%- assign slrv_n = slrv_here.summary.count -%}
 {%- if slrv_here.summary.count > 0 or storelib_reviews.can_write or storelib_reviews.sample -%}
 ${STYLE}
-<div class="slrv" id="reviews" style="--slrv-star: {% if rv.star_color != blank %}{{ rv.star_color | escape }}{% else %}{{ storelib_reviews.star_color | escape }}{% endif %};">
-{%- if rv.heading != blank -%}<h2 class="h2">{{ rv.heading | escape }}</h2>{%- endif -%}
+<div class="slrv{% if rv.in_block %} slrv-block{% endif %}" id="reviews" style="--slrv-star: {% if rv.star_color != blank %}{{ rv.star_color | escape }}{% else %}{{ storelib_reviews.star_color | escape }}{% endif %};">
+{%- if rv.heading != blank -%}<h2 class="h2">{{ rv.heading | escape }}</h2>{%- elsif rv.in_block -%}<h2 class="h2">{{ slrv_w.customer_reviews | escape }}</h2>{%- endif -%}
 {%- if storelib_reviews.sample -%}<p class="slrv-sample">Sample reviews. Your real reviews show here once you have some.</p>{%- endif -%}
-{%- if rv.show_summary -%}<div class="slrv-top"><div class="slrv-sum">{%- if slrv_here.summary.count > 0 -%}<p class="slrv-avg">{{ slrv_here.summary.average_label }}</p><div><span class="slrv-stars" style="--rv: {{ slrv_here.summary.percent }}%; font-size: 20px;" role="img" aria-label="{{ slrv_here.summary.average_label }} out of 5 stars"></span><p class="slrv-count">Based on {{ slrv_here.summary.count_label }}</p></div>{%- else -%}<p class="slrv-none">No reviews yet</p>{%- endif -%}</div>
+{%- if rv.show_summary -%}<div class="slrv-top"><div class="slrv-sum">{%- if slrv_here.summary.count > 0 -%}<p class="slrv-avg">{{ slrv_here.summary.average_label }}</p><div><span class="slrv-stars" style="--rv: {{ slrv_here.summary.percent }}%; font-size: 20px;" role="img" aria-label="{{ slrv_here.summary.average_label }} {{ slrv_w.out_of_five_stars }}"></span><p class="slrv-count">{{ slrv_w.based_on }} {{ slrv_n }} {% if slrv_n == 1 %}{{ slrv_w.review }}{% else %}{{ slrv_w.reviews }}{% endif %}</p></div>{%- else -%}<p class="slrv-none">{{ slrv_w.no_reviews_yet }}</p>{%- endif -%}</div>
 {%- if rv.show_bars and slrv_here.summary.count > 0 -%}<ul class="slrv-bars">{%- for b in slrv_here.summary.bars -%}<li><span>{{ b.stars }} &#9733;</span><span class="slrv-bar"><span style="width: {{ b.percent }}%;"></span></span><span>{{ b.count }}</span></li>{%- endfor -%}</ul>{%- endif -%}</div>{%- endif -%}
-<p class="slrv-note" id="review-posted">Thanks. Your review is up.</p><p class="slrv-note" id="review-waiting">Thanks. Your review shows once the store has read it.</p><p class="slrv-note" id="review-check-email">Thanks. Check your email and open the link in it to post your review.</p><p class="slrv-note" id="review-error">That didn't go through. Check the form and try again.</p>
+<p class="slrv-note" id="review-posted">{{ slrv_w.review_posted }}</p><p class="slrv-note" id="review-waiting">{{ slrv_w.review_waiting }}</p><p class="slrv-note" id="review-check-email">{{ slrv_w.review_check_email }}</p><p class="slrv-note" id="review-error">{{ slrv_w.review_error }}</p>
 {%- if rv.show_write and storelib_reviews.can_write and slrv_here.scope == 'product' -%}
-<details class="slrv-write"><summary class="slrv-btn"><span>Write a review</span></summary>
+<details class="slrv-write"><summary class="slrv-btn"><span>{{ slrv_w.write_a_review }}</span></summary>
 <form class="slrv-form" method="post" action="{{ storelib_reviews.form_action }}" enctype="multipart/form-data" data-storelib-form="native">
 <input type="hidden" name="productId" value="{{ slrv_here.product_id }}">
-<fieldset><legend>Your rating</legend><div class="slrv-rate">{%- for n in (1..5) reversed -%}<input type="radio" id="slrv-r{{ n }}" name="rating" value="{{ n }}"{% if n == 5 %} required{% endif %}><label for="slrv-r{{ n }}"><span class="slrv-sr">{{ n }} stars</span></label>{%- endfor -%}</div></fieldset>
-<label>Title (optional)<input name="title" maxlength="120"></label>
-<label>Your review<textarea name="content" rows="4" required minlength="2" maxlength="2000"></textarea></label>
-<label>Name<input name="name" required maxlength="40" autocomplete="given-name"></label>
-<label>Email<input type="email" name="email" required maxlength="254" autocomplete="email"></label>
-{%- if storelib_reviews.photos_allowed -%}<label>Photos (optional, up to 4)<input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple></label>{%- endif -%}
+<fieldset><legend>{{ slrv_w.your_rating }}</legend><div class="slrv-rate">{%- for n in (1..5) reversed -%}<input type="radio" id="slrv-r{{ n }}" name="rating" value="{{ n }}"{% if n == 5 %} required{% endif %}><label for="slrv-r{{ n }}"><span class="slrv-sr">{{ n }} {% if n == 1 %}{{ slrv_w.star }}{% else %}{{ slrv_w.stars }}{% endif %}</span></label>{%- endfor -%}</div></fieldset>
+<label>{{ slrv_w.review_title }} {{ slrv_w.optional }}<input name="title" maxlength="120"></label>
+<label>{{ slrv_w.your_review }}<textarea name="content" rows="4" required minlength="2" maxlength="2000"></textarea></label>
+<label>{{ slrv_w.your_name }}<input name="name" required maxlength="40" autocomplete="given-name"></label>
+<label>{{ slrv_w.email }}<input type="email" name="email" required maxlength="254" autocomplete="email"></label>
+{%- if storelib_reviews.photos_allowed -%}<label>{{ slrv_w.photos }} {{ slrv_w.optional_up_to_four }}<input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple></label>{%- endif -%}
 <div class="slrv-hp" aria-hidden="true"><label>Leave this empty<input name="website" tabindex="-1" autocomplete="off"></label></div>
-<p class="slrv-small">Only your first name and last initial are shown. Your email is not.</p>
-<button class="slrv-btn" type="submit"><span>Post review</span></button>
+<p class="slrv-small">{{ slrv_w.review_privacy }}</p>
+<button class="slrv-btn" type="submit"><span>{{ slrv_w.post_review }}</span></button>
 </form></details>
 {%- endif -%}
 {%- for r in slrv_here.items limit: slrv_per -%}${CARD}{%- endfor -%}
-{%- if slrv_here.items.size > slrv_per -%}<details class="slrv-more"><summary class="slrv-btn slrv-quiet"><span>Show more reviews</span></summary>{%- for r in slrv_here.items offset: slrv_per -%}${CARD}{%- endfor -%}</details>{%- endif -%}
+{%- if slrv_here.items.size > slrv_per -%}<details class="slrv-more"><summary class="slrv-btn slrv-quiet"><span>{{ slrv_w.show_more_reviews }}</span></summary>{%- for r in slrv_here.items offset: slrv_per -%}${CARD}{%- endfor -%}</details>{%- endif -%}
 {% raw %}${reviewWidgetScript()}{% endraw %}</div>
 {%- endif -%}{%- endif -%}`
 

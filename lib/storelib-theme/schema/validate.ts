@@ -408,6 +408,8 @@ function checkAccepts(refs: { type: string }[], all: { type: string }[], err: (p
 /** May a block of this type sit where `accepts` says what may? A private block (`_slide`) only by name. */
 export function acceptsType(accepts: readonly string[], type: string): boolean {
   if (accepts.includes(type)) return true
+  /* An app block (an imported theme's, kept by its address) only where "@app" is taken, as on Shopify: never by "@theme". */
+  if (/^shopify:\/\/apps\//.test(type)) return accepts.includes("@app")
   return accepts.includes("@theme") && !type.startsWith("_")
 }
 

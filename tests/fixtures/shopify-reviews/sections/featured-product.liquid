@@ -1,0 +1,27 @@
+{%- assign product = section.settings.product -%}
+<div class="rv-featured page-width">
+  {%- for block in section.blocks -%}
+    {%- case block.type -%}
+      {%- when '@app' -%}
+        {% render block %}
+      {%- when 'title' -%}
+        <h2 class="rv-featured__title" {{ block.shopify_attributes }}>{{ product.title | escape }}</h2>
+      {%- when 'rating' -%}
+        {%- if product.metafields.reviews.rating.value != blank -%}
+          <p class="rating-text featured-rating" {{ block.shopify_attributes }}>{{ product.metafields.reviews.rating.value }} / {{ product.metafields.reviews.rating.value.scale_max }} ({{ product.metafields.reviews.rating_count }})</p>
+        {%- endif -%}
+    {%- endcase -%}
+  {%- endfor -%}
+</div>
+{% schema %}
+{
+  "name": "Featured product",
+  "settings": [{ "type": "product", "id": "product", "label": "Product" }],
+  "blocks": [
+    { "type": "@app" },
+    { "type": "title", "name": "Title", "limit": 1 },
+    { "type": "rating", "name": "Product rating", "limit": 1 }
+  ],
+  "presets": [{ "name": "Featured product", "blocks": [{ "type": "title" }, { "type": "rating" }] }]
+}
+{% endschema %}

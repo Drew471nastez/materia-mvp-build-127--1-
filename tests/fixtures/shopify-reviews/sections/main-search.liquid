@@ -1,0 +1,8 @@
+<div class="rv-search page-width">
+  {%- for item in search.results -%}
+    {% render 'card-product', card_product: item %}
+  {%- endfor -%}
+</div>
+{% schema %}
+{ "name": "Search results", "settings": [] }
+{% endschema %}
