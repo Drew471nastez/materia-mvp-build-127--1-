@@ -79,7 +79,7 @@ import timeline from "../../themes/default/sections/timeline.json"
 import trust_badges from "../../themes/default/sections/trust_badges.json"
 import video_embed from "../../themes/default/sections/video_embed.json"
 import video_hero from "../../themes/default/sections/video_hero.json"
-import { STORELIB_SCHEMAS, addableSections } from "./storelib-schemas"
+import { STORELIB_SCHEMAS, addableSections, lazyList } from "./storelib-schemas"
 
 // JSON imports are inferred with very narrow literal types (e.g. every
 // `type: "toggle"` is inferred as the string literal `"toggle"`). That's
@@ -153,7 +153,8 @@ const JSON_SCHEMAS: Record<string, SectionSchema> = {
  * the library offers now are. A `.storelib` wins where both exist, because
  * the file is the section.
  */
-export const SECTION_SCHEMAS: Record<string, SectionSchema> = { ...JSON_SCHEMAS, ...STORELIB_SCHEMAS }
+/* The `.storelib` ones as they are in STORELIB_SCHEMAS: read when first asked for (storelib-schemas.ts, READ WHEN ASKED FOR). Same keys, same order as `{ ...JSON_SCHEMAS, ...STORELIB_SCHEMAS }`. */
+export const SECTION_SCHEMAS: Record<string, SectionSchema> = Object.defineProperties({ ...JSON_SCHEMAS }, Object.getOwnPropertyDescriptors(STORELIB_SCHEMAS))
 
 // ── Ordered list of sections available in the "Add section" panel ──
 // Sourced from the theme manifest so packaged themes can customise order.
@@ -168,7 +169,7 @@ export const SECTION_SCHEMAS: Record<string, SectionSchema> = { ...JSON_SCHEMAS,
  * keeps working, it just cannot be added again. Nothing is deleted, because
  * deleting a section type empties every page that used it.
  */
-export const ADDABLE_SECTIONS: string[] = addableSections(manifest.addable_sections, STORELIB_SCHEMAS)
+export const ADDABLE_SECTIONS: string[] = lazyList(() => addableSections(manifest.addable_sections, STORELIB_SCHEMAS))
 
 export const RETIRED_SECTIONS: string[] = (manifest as { retired_sections?: string[] }).retired_sections ?? []
 

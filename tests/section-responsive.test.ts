@@ -2324,7 +2324,8 @@ check(
     (/<EditorCanvasPage\s*\n\s*theme=\{canvasThemeSettings\}/.test(editor) || (/<EditorCanvasPage\s*\n\s*theme=\{canvasThemeShown\}/.test(editor) && /const canvasThemeShown = useMemo\(\(\) => \{\s*const localized = previewMap \? \(localizeTheme\(canvasThemeSettings/.test(editor))) &&
     /const canvasThemeSettings = useDeferredValue\(activeThemeSettings\)/.test(editor) &&
     /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
-    /const openAddSection = useCallback\(\(\) => \{\s*\n\s*setAddGroup\("template"\)\s*\n\s*setAddSectionOpen\(true\)\s*\n\s*\}, \[\]\)/.test(editor) &&
+    /* Changed on purpose (round canvas-1023): it also lets go of a place in the header or footer group an imported theme's canvas pointed at (setGroupInsertAt). */
+    /const openAddSection = useCallback\(\(\) => \{\s*\n\s*setAddGroup\("template"\)\s*\n\s*setGroupInsertAt\(null\)\s*\n\s*setAddSectionOpen\(true\)\s*\n\s*\}, \[\]\)/.test(editor) &&
     // Still one stable callback from the parent, now carrying which block
     // was clicked as well as which section, and which field the click was
     // for (tests/builder-click-edit.test.ts): see selectSectionFromCanvas.

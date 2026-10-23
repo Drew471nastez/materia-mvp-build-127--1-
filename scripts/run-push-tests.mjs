@@ -50,6 +50,9 @@ const SUITES = [
   "tests/shop-money.test.ts",
   /* Round ed-1022: every edit on the canvas at once (the ease, the overlay kept after a drag, the currency code, variables-only theme values); scripts/check-editor-live.mjs measures them. */
   "tests/editor-live-updates.test.ts",
+  /* Round canvas-1023: the canvas that stopped scrolling (a held page with nothing open, a preloader's wait that never ended, a page that left the frame), the toolbar over a selected block, Add section between an imported theme's sections; scripts/check-canvas-freeze.mjs and check-canvas-toolbar.mjs measure them. */
+  "tests/editor-canvas-freeze.test.ts",
+  "tests/editor-canvas-toolbar.test.ts",
   "tests/store-currency.test.ts",
   "tests/round-am.test.ts",
   "tests/round-an.test.ts",
