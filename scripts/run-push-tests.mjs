@@ -80,6 +80,8 @@ const SUITES = [
   "tests/review-widgets.test.ts",
   "tests/reviews-import-v.test.ts",
   "tests/reviews-product-page.test.ts",
+  /* Round reviews-1023: Storelib Reviews in an imported theme as a Shopify reviews app (the review metafields everywhere, Star rating and Reviews app blocks, Shop words, aggregateRating); scripts/check-compat-reviews.mjs measures them. */
+  "tests/compat-reviews-blocks.test.ts",
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
   "tests/canvas20.test.ts",

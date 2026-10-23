@@ -85,12 +85,14 @@ async function main() {
   const compatCatalog = themeBlockCatalog(t.files, { builtIn: !isCompatSource(t.files["layout/theme.storelib"]) })
   const compatSections = schemasFromSources(t.files)
   {
-    check("the catalog is the theme's own blocks, none of Storelib's", types(Object.values(compatCatalog)) === "_price,card")
-    check('"@theme" lists the theme\'s public blocks; "@app" adds nothing', types(addableBlocks(compatSections.hero, compatCatalog)) === "card")
-    check('a section of "@app" alone lists nothing', addableBlocks(compatSections.apps, compatCatalog).length === 0)
-    check('a section of its own blocks and "@app" lists its own', types(addableBlocks(compatSections.faq, compatCatalog)) === "question")
+    /* Changed on purpose (round reviews-1023): "@app" takes Storelib Reviews' two app blocks (Star rating, Reviews), as an installed reviews app's are on Shopify; "@theme" alone never does, and none of Storelib's own theme blocks is offered. */
+    const APP = "shopify://apps/storelib-reviews/blocks/reviews/storelib,shopify://apps/storelib-reviews/blocks/star-rating/storelib"
+    check("the catalog is the theme's own blocks and Storelib Reviews' app blocks, none of Storelib's theme blocks", types(Object.values(compatCatalog)) === `_price,card,${APP}`)
+    check('"@theme" lists the theme\'s public blocks; "@app" adds Storelib Reviews\' two', types(addableBlocks(compatSections.hero, compatCatalog)) === `card,${APP}`)
+    check('a section of "@app" alone lists Storelib Reviews\' two', types(addableBlocks(compatSections.apps, compatCatalog)) === APP)
+    check('a section of its own blocks and "@app" lists its own, then Storelib Reviews\' two', types(addableBlocks(compatSections.faq, compatCatalog)) === `question,${APP}`)
     check("a private block named by the section is listed there, the static block is not", types(addableBlocks(compatSections.pricing, compatCatalog)) === "_price" && (compatSections.pricing.statics ?? []).some((s) => s.type === "card"))
-    check("inside a card (which takes @theme): the public blocks, not the private one", types(addableBlocks({ accepts: compatCatalog.card.accepts }, compatCatalog)) === "card")
+    check("inside a card (which takes @theme): the public blocks, not the private one, no app block", types(addableBlocks({ accepts: compatCatalog.card.accepts }, compatCatalog)) === "card")
   }
 
   console.log("\nThe editor builds Add block that way")
@@ -116,7 +118,8 @@ async function main() {
     const card = checkOps(compatPage, [{ op: "add_block", section_id: "s1", block_type: "card", settings: { title: "Two" } }, { op: "add_block", section_id: "s1", block_type: "card", parent_block_id: "c1" }], compat, mint)
     check("an imported theme's block is added, at the top and inside a block", card.ok === true, card)
     const builtIn = checkOps(compatPage, [{ op: "add_block", section_id: "s1", block_type: "heading" }], compat, mint)
-    check("  Storelib's heading block is not offered in an imported theme, as in the builder", builtIn.ok === false && /It takes: card\./.test(builtIn.error), builtIn)
+    /* Changed on purpose (round reviews-1023): the hero takes "@app", so Storelib Reviews' two app blocks are among what it takes. */
+    check("  Storelib's heading block is not offered in an imported theme, as in the builder", builtIn.ok === false && /It takes: card, shopify:\/\/apps\/storelib-reviews\//.test(builtIn.error), builtIn)
     const nestedPrivate = checkOps(compatPage, [{ op: "add_block", section_id: "s1", block_type: "_price", parent_block_id: "c1" }], compat, mint)
     check("  a private block inside a block that does not name it is refused", nestedPrivate.ok === false)
 

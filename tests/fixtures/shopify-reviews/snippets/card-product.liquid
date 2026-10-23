@@ -1,0 +1,20 @@
+<div class="rv-card">
+  <a class="rv-card__name" href="{{ card_product.url }}">{{ card_product.title | escape }}</a>
+  <span class="rv-card__price">{{ card_product.price | money }}</span>
+  {%- if card_product.metafields.reviews.rating.value != blank -%}
+    {%- liquid
+      assign rating_decimal = 0
+      assign decimal = card_product.metafields.reviews.rating.value.rating | modulo: 1
+      if decimal >= 0.3 and decimal <= 0.7
+        assign rating_decimal = 0.5
+      elsif decimal > 0.7
+        assign rating_decimal = 1
+      endif
+    -%}
+    <div class="rating" role="img" aria-label="{{ card_product.metafields.reviews.rating.value }} / {{ card_product.metafields.reviews.rating.value.scale_max }}">
+      <span aria-hidden="true" class="rating-star" style="--rating: {{ card_product.metafields.reviews.rating.value.rating | floor }}; --rating-max: {{ card_product.metafields.reviews.rating.value.scale_max }}; --rating-decimal: {{ rating_decimal }};"></span>
+    </div>
+    <p class="rating-text">{{ card_product.metafields.reviews.rating.value }} / {{ card_product.metafields.reviews.rating.value.scale_max }}</p>
+    <p class="rating-count">({{ card_product.metafields.reviews.rating_count }})</p>
+  {%- endif -%}
+</div>

@@ -1,0 +1,11 @@
+<div class="rv-pi page-width">
+  {% content_for 'blocks', closest.product: product %}
+</div>
+{% schema %}
+{
+  "name": "Product information (blocks)",
+  "settings": [],
+  "blocks": [{ "type": "@theme" }, { "type": "@app" }],
+  "presets": [{ "name": "Product information (blocks)" }]
+}
+{% endschema %}

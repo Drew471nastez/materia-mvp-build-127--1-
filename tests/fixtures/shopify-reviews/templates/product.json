@@ -1,0 +1,17 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-product",
+      "blocks": {
+        "title": { "type": "title", "settings": {} },
+        "rating": { "type": "rating", "settings": {} },
+        "price": { "type": "price", "settings": {} },
+        "buy": { "type": "buy_buttons", "settings": {} }
+      },
+      "block_order": ["title", "rating", "price", "buy"],
+      "settings": {}
+    },
+    "related": { "type": "featured-collection", "settings": { "heading": "Potrebbe piacerti" } }
+  },
+  "order": ["main", "related"]
+}

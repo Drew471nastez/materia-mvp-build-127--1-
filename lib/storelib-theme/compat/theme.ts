@@ -46,6 +46,8 @@ import {
   linkTarget,
   localizationObject,
   productObject,
+  productRatingFrom,
+  reviewMetafields,
   requestObject,
   schemesObject,
   typedSettings,
@@ -63,7 +65,9 @@ import { shopifyBootstrap, withoutShopifyCdn } from "./shims"
 import { fixInlineStyles, fixThemeCss } from "./css-fixes"
 import { assetNameOf, inlineSpriteFiles } from "./icons"
 import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
-import { REVIEWS_DEFAULTS, REVIEWS_WIDGET_LIQUID, isReviewsAppBlock, storelibReviewWidgetFilter } from "./storelib-reviews"
+import { REVIEWS_WIDGET_LIQUID, isReviewsAppBlock, ratingOfProduct, reviewAppBlockKind, reviewStarsHtml, reviewsBlockSettings, storelibReviewWidgetFilter } from "./storelib-reviews"
+import { REVIEWS_LIST_BLOCK, REVIEW_STARS_BLOCK } from "./review-app-blocks"
+import { shopWords } from "@/lib/markets/ui-words"
 import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq } from "./product-faq"
 
 /** The product objects whose questions a page has drawn already, so they are drawn once (./product-faq.ts). */
@@ -699,6 +703,20 @@ export class CompatTheme {
     const moneyFormat = page.shop.moneyFormat ?? "${{amount}}"
 
     const productObj = page.product ? productObject(page.product, { descriptionHtml: page.product.descriptionHtml, selectedVariantId: page.selectedVariantId, selectedValues: page.selectedValues }) : null
+    /*
+      THE PRODUCT PAGE'S OWN STARS. The card a product page is drawn from
+      carries its rating only while "Stars on product cards" is on
+      (lib/website-builder/shop-products.ts withRatings); the page's own
+      reviews (lib/reviews/storefront.ts) are what its Storelib Reviews
+      section shows. The theme's rating block, its review block and
+      structured data read Shopify's review metafields, so on the product's
+      own page those are the page's reviews: the same numbers as the section
+      under them, whatever the cards show. Sample reviews never count.
+    */
+    if (productObj) {
+      const rated = productRatingFrom(page.reviews, String(productObj.id ?? ""))
+      if (rated) (productObj.metafields as O).reviews = reviewMetafields(rated)
+    }
     const collections: O = {}
     for (const c of page.collections) collections[c.handle] = collectionByHandle(res, c.handle)
     const allCard: CollectionLike = { id: "all", title: "Products", handle: "all", url: "/collections/all", products: page.products, products_count: page.products.length }
@@ -775,6 +793,8 @@ export class CompatTheme {
       collection,
       search,
       customer: page.customer ?? null,
+      /* Storelib's own words in the page's language (Translate › Shop words): Storelib Reviews' section and blocks (./storelib-reviews.ts). */
+      storelib_words: shopWords(page.i18n?.uiWords),
       /* Storelib Reviews (./storelib-reviews.ts): the page's, or in the builder before any arrive, sample ones. */
       storelib_reviews: page.reviews ?? (page.designMode ? { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), "", page.product ? { id: page.product.id, title: String(page.product.settings?.title ?? "") } : null), enabled: true } : null),
       page: page.pageObject ? { [OUTPUT]: page.pageObject.title, ...page.pageObject, id: page.pageObject.handle, template_suffix: page.suffix ?? null, metafields: {} } : null,
@@ -844,7 +864,12 @@ export class CompatTheme {
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
-      appBlock: (ctx, block) => (isReviewsAppBlock(block.app_type ?? block.type) ? this.reviewsBlock(ctx, String(block.id ?? ""), (block.settings as O | undefined) ?? {}) : null),
+      appBlock: (ctx, block) => {
+        const type = String(block.app_type ?? block.type ?? "")
+        if (!isReviewsAppBlock(type)) return null
+        const own = (block.__instance as CompatBlockInstance | undefined)?.settings
+        return this.reviewsBlock(ctx, { id: String(block.id ?? ""), type, settings: own ?? {} }, ctx.registers.closest as O | undefined)
+      },
       placedBlock: (ctx, name, args, content) => this.placedBlock(ctx, name, args, content),
       form: (ctx, type, obj, args) => formMarkup(ctx, type, obj, args),
       paginate: (ctx, list, by) => paginateList(ctx, list, by, page),
@@ -1059,11 +1084,43 @@ export class CompatTheme {
     }
   }
 
-  /** A reviews app's block from Shopify, drawn as Storelib Reviews in its place (./storelib-reviews.ts). Its own settings are an app's and mean nothing here. */
-  private reviewsBlock(ctx: Ctx, id: string, _settings: unknown): string {
-    void _settings
+  /**
+   * A reviews app's block, drawn as Storelib Reviews in its place
+   * (./storelib-reviews.ts): Storelib Reviews' own Star rating and Reviews
+   * (./review-app-blocks.ts) with their settings, or a block a theme kept
+   * from another app on Shopify, whose settings are that app's and mean
+   * nothing here, drawn as what it was: its stars or its reviews.
+   *
+   * The stars are the product's in scope, as a theme's own rating block
+   * reads them: the block's `closest.product` (Horizon), else the `product`
+   * the section is drawing (Dawn's main and featured product, a card), its
+   * review metafields (./objects.ts), which a product page fills from the
+   * page's own reviews. With no product, the shop's.
+   */
+  private reviewsBlock(ctx: Ctx, b: { id: string; type: string; settings?: unknown }, closest?: O): string {
+    const ours = b.type === REVIEW_STARS_BLOCK || b.type === REVIEWS_LIST_BLOCK
+    const settings = ours && b.settings && typeof b.settings === "object" ? (b.settings as O) : {}
+    const reviews = ctx.lookup("storelib_reviews") as O | null | undefined
+    const page = (ctx.registers.page ?? {}) as CompatPage
     try {
-      return `<div class="shopify-app-block" ${blockAttributes(id)}>${renderString(REVIEWS_WIDGET_LIQUID, ctx.child({ rv: { ...REVIEWS_DEFAULTS } }))}</div>`
+      if (reviewAppBlockKind(b.type) === "stars") {
+        /* A page that read no reviews (a collection, the search) still has its cards' stars, which are there only while the app is on. */
+        if (reviews && reviews.enabled !== true) return ""
+        const product = (closest?.product as O | undefined) ?? (ctx.lookup("product") as O | undefined)
+        const pageProduct = ctx.globals.product as O | null | undefined
+        let rating = product && typeof product === "object" ? ratingOfProduct(product) : null
+        let href: string | null = null
+        if (product && typeof product === "object") {
+          href = pageProduct && product.id === pageProduct.id ? "#reviews" : `${toOutput(product.url) || ""}#reviews`
+        } else if (reviews) {
+          const shop = reviews.sample === true ? null : ((reviews.all as O | undefined)?.summary as O | undefined)
+          rating = shop && Number(shop.count) > 0 ? { average: Number(shop.average), count: Number(shop.count), color: "" } : null
+          href = typeof reviews.page_url === "string" ? reviews.page_url : null
+        }
+        const html = reviewStarsHtml({ average: rating?.average ?? 0, count: rating?.count ?? 0, settings, starColor: String(reviews?.star_color ?? "") || rating?.color || "", words: shopWords(page.i18n?.uiWords), href, inEditor: page.designMode === true })
+        return html ? `<div class="shopify-app-block" ${blockAttributes(b.id)}>${html}</div>` : ""
+      }
+      return `<div class="shopify-app-block" ${blockAttributes(b.id)}>${renderString(REVIEWS_WIDGET_LIQUID, ctx.child({ rv: reviewsBlockSettings(settings) }))}</div>`
     } catch (e) {
       this.warnings.push(`Storelib Reviews: ${(e as Error).message}`)
       return ""
@@ -1088,7 +1145,7 @@ export class CompatTheme {
     const draw = (b: CompatBlockInstance) => {
       const path = this.fileFor("blocks", b.type)
       const tree = path ? this.tree(path) : null
-      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b.id, b.settings) : ""
+      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : ""
       let holder: Ctx | null = null
       const block = this.blockObject(b, [], res, resolverFor(() => holder))
       const c = ctx.child({ block, closest, ...extra })
