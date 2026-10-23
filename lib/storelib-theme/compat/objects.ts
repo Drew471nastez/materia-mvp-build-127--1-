@@ -1217,7 +1217,53 @@ export interface CartLineLike {
   properties?: Record<string, string>
 }
 
-export function cartObject(lines: CartLineLike[], currency: string, note = "", attributes: Record<string, string> = {}): O {
+/**
+ * THE CART'S DISCOUNT CODE, PRICED BY THE WEBSITE'S OWN CHECKOUT
+ * (./cart-pricing-server.ts): what it takes off each line, in the cart's
+ * money (cents of the currency the page shows), and whether it applies at
+ * all. Shopify keeps a code that does not apply on the cart with
+ * `applicable: false`, which is how a theme knows to say its own "can't be
+ * applied"; so does this.
+ *
+ *   scope "cart"   a code for the whole order: a cart level discount
+ *                  application, the lines' prices left as they are
+ *   scope "lines"  a code for some products: each line it covers costs less
+ */
+export interface CartDiscount {
+  code: string
+  applicable: boolean
+  valueType: "percentage" | "fixed_amount"
+  /** The percentage (10 for 10%), or the amount in cents for a fixed code. */
+  value: number
+  scope: "cart" | "lines"
+  /** Cents off each line, by the line's key. */
+  lines: Record<string, number>
+  total: number
+  freeShipping: boolean
+  /** Why it does not apply, in the checkout's words (never drawn by a theme; the checkout says it again). */
+  error?: string | null
+}
+
+/** Shopify's discount_application for a code: what a theme's cart loops over for its "Discount (CODE) -$5.00" rows. */
+export function discountApplication(d: CartDiscount): O {
+  return {
+    [OUTPUT]: d.code,
+    type: "discount_code",
+    key: d.code,
+    title: d.code,
+    description: null,
+    value: d.value,
+    value_type: d.valueType,
+    target_selection: d.scope === "cart" ? "all" : "entitled",
+    target_type: d.total === 0 && d.freeShipping ? "shipping_line" : "line_item",
+    allocation_method: d.valueType === "percentage" ? "each" : "across",
+    total_allocated_amount: d.total,
+  }
+}
+
+export function cartObject(lines: CartLineLike[], currency: string, note = "", attributes: Record<string, string> = {}, discount: CartDiscount | null = null): O {
+  const applied = discount && discount.applicable ? discount : null
+  const application = applied ? discountApplication(applied) : null
   const items = lines.flatMap((l, i) => {
     const product = l.product
     if (!product) return []
@@ -1225,6 +1271,12 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
     const variant = (l.variantId ? variants.find((v) => v.id === l.variantId) : null) ?? (product.selected_or_first_available_variant as O) ?? variants[0]
     const price = Number(variant?.price ?? product.price ?? 0)
     const line = price * l.quantity
+    /* What the code takes off this line: on the line itself for a code for some products, beside it for a code for the whole order (Shopify's split). */
+    const off = application && applied ? Math.max(0, Math.min(line, Math.round(applied.lines[l.key] ?? 0))) : 0
+    const allocations = off > 0 && application ? [{ amount: off, discount_application: application }] : []
+    const lineLevel = applied?.scope === "lines" ? off : 0
+    const finalLine = line - lineLevel
+    const finalUnit = l.quantity > 0 ? Math.round(finalLine / l.quantity) : price
     return [{
       [OUTPUT]: String(product.title),
       id: String(variant?.id ?? product.id),
@@ -1243,14 +1295,15 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
       featured_image: variant?.featured_image ?? product.featured_image ?? null,
       price,
       original_price: price,
-      final_price: price,
+      final_price: finalUnit,
       line_price: line,
       original_line_price: line,
-      final_line_price: line,
-      discounted_price: price,
-      line_level_discount_allocations: [],
-      line_level_total_discount: 0,
-      discount_allocations: [],
+      final_line_price: finalLine,
+      discounted_price: finalUnit,
+      line_level_discount_allocations: lineLevel > 0 ? allocations : [],
+      line_level_total_discount: lineLevel,
+      discount_allocations: allocations,
+      total_discount: off,
       properties: hashOf(l.properties ?? {}),
       options_with_values: ((product.options as string[]) ?? []).map((name, p) => ({ name, value: (variant?.options as string[] | undefined)?.[p] ?? "" })).filter((o) => variant && variant.title !== "Default Title" && o.value),
       selling_plan_allocation: null,
@@ -1267,17 +1320,23 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
       url_to_remove: `/cart/change?id=${encodeURIComponent(l.key)}&quantity=0`,
     }]
   })
-  const total = items.reduce((s, i) => s + Number(i.final_line_price), 0)
+  const subtotal = items.reduce((s, i) => s + Number(i.final_line_price), 0)
+  const original = items.reduce((s, i) => s + Number(i.original_line_price), 0)
+  /* A code for the whole order comes off after the lines, as Shopify's cart level discounts do. */
+  const cartLevel = applied?.scope === "cart" ? Math.min(subtotal, items.reduce((s, i) => s + Number(i.total_discount), 0)) : 0
+  const total = subtotal - cartLevel
   return {
     items,
     item_count: items.reduce((s, i) => s + Number(i.quantity), 0),
-    items_subtotal_price: total,
+    items_subtotal_price: subtotal,
     total_price: total,
-    original_total_price: total,
-    total_discount: 0,
+    original_total_price: original,
+    total_discount: original - total,
     total_weight: 0,
-    cart_level_discount_applications: [],
-    discount_applications: [],
+    cart_level_discount_applications: application && applied?.scope === "cart" ? [{ ...application, total_allocated_amount: cartLevel }] : application && applied && applied.total === 0 ? [application] : [],
+    discount_applications: application ? [application] : [],
+    /* Every code the cart holds, applying or not (Shopify's cart.discount_codes). */
+    discount_codes: discount ? [{ code: discount.code, applicable: discount.applicable, [OUTPUT]: discount.code }] : [],
     currency: { iso_code: currency, symbol: currencySymbol(currency), name: currency, [OUTPUT]: currency },
     note,
     /* `cart.attributes['Gift message']`, as the theme set them with /cart/update (./site.ts). */

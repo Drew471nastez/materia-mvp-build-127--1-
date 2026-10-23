@@ -28,6 +28,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
+import { cartExtrasKey } from "@/lib/website-builder/cart-extras"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import {
   addLine,
@@ -125,6 +126,7 @@ export function SiteCartProvider({ shopId, cartType = "drawer", currency, childr
         url.searchParams.delete(CLEAR_CART_PARAM)
         window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
         window.localStorage.removeItem(key)
+        if (shopId) window.localStorage.removeItem(cartExtrasKey(shopId))
       }
       const kept = parseCart(window.localStorage.getItem(key))
       setLines(kept)
@@ -165,6 +167,8 @@ export function SiteCartProvider({ shopId, cartType = "drawer", currency, childr
     if (!key || !loaded.current) return
     try {
       window.localStorage.setItem(key, serializeCart(lines))
+      /* An empty cart keeps no code or note for the next one (lib/website-builder/cart-extras). */
+      if (lines.length === 0 && shopId) window.localStorage.removeItem(cartExtrasKey(shopId))
     } catch {
       /* Out of quota or storage refused. The cart still works for this
          page; it just will not survive a reload. */

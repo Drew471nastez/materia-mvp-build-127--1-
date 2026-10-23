@@ -19,6 +19,8 @@ import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { isSiteReadError } from "@/lib/website-builder/site-read"
 import { CART_COOKIE, accountFormPost, answer, readCartCookie, writeCartCookie } from "@/lib/storelib-theme/compat/site"
 import { siteAccountOf } from "@/lib/site-accounts/theme-visitor"
+import { compatCartPricing } from "@/lib/storelib-theme/compat/cart-pricing-server"
+import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { hostOf } from "@/lib/site-accounts/session"
 import { sameOriginForm } from "@/lib/site-accounts/respond"
 import { POST as sendSignInCode } from "@/app/api/site-account/code/route"
@@ -196,10 +198,12 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
         told: token ? null : req.headers.get(SITE_COUNTRY_HEADER),
         seen: seenCountry(req.headers),
       })
+  /* The store's own currency, before the page is put in the market's: what the checkout prices the cart in. */
+  const storeCurrency = found.site.shop.currency ?? "USD"
   found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry, forSite(languagesAsked, found.site.creatorId)) }
 
   const cookie = stranger ? undefined : req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
-  const { cart, note, attributes } = readCartCookie(cookie)
+  const { cart, note, attributes, discount } = readCartCookie(cookie)
   const sitePath = `/${segments.map(encodeURIComponent).join("/")}`
   const fields = await bodyOf(req)
   const ajax = req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("content-type") ?? "").includes("application/json") || (req.headers.get("accept") ?? "").includes("application/json")
@@ -233,7 +237,19 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const account = token || stranger || !page ? undefined : await siteAccountOf(req, found.site.creatorId, { orders: accountPath, pending: accountPath, order: orderId })
 
   const shopId = found.site.creatorId
-  const out = await answer(found.site, {
+  /*
+    A DISCOUNT CODE TRIED FROM THE THEME'S CART (/cart/update.js `discount`):
+    counted with the checkout's own code checks, so the cart is no faster a
+    way to guess a shop's codes than the checkout is.
+  */
+  const triedCode = req.method === "POST" && typeof fields?.discount === "string" && fields.discount.trim() !== ""
+  if (triedCode && !token) {
+    const limited = await rateLimit({ bucket: "coupon", subjects: [addressSubject(req)], windows: [{ limit: 120, seconds: 600 }], message: "Too many requests. Wait a moment and try again." })
+    if (limited) return NextResponse.json({ status: 429, message: "Too many tries. Wait a moment and try again.", description: "Too many tries. Wait a moment and try again." }, { status: 429, headers: { "Cache-Control": "private, no-store" } })
+  }
+  /* The cart priced by the website's own checkout: its discount code and its delivery rates (lib/storelib-theme/compat/cart-pricing-server.ts). Never on a preview, which has no checkout. */
+  const site = token || stranger ? found.site : { ...found.site, pricing: compatCartPricing({ creatorId: shopId, storeCurrency, market }) }
+  const out = await answer(site, {
     method: req.method,
     path: sitePath,
     query: url.searchParams,
@@ -241,6 +257,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     cart,
     note,
     attributes,
+    discountCode: discount,
     ajax,
     referer: refererPath(req.headers.get("referer")),
     account,
@@ -269,7 +286,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */
   if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store")
   if (out.cart) {
-    headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
+    headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes, out.discountCode ?? discount)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
   }
   /*
     A stranger's plain page: the same for every stranger sent to this marked

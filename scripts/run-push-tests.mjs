@@ -235,6 +235,8 @@ const SUITES = [
   "tests/basket-checkout.test.ts",
   "tests/site-checkout.test.ts",
   "tests/site-checkout-physical.test.ts",
+  /* Round cart-1023: an imported theme's discount box, Estimate shipping and order note, priced by the website checkout; scripts/check-compat-cart-drawer.ts presses them in a browser. */
+  "tests/compat-cart-discount.test.ts",
   "tests/owned-checkout.test.ts",
   "tests/membership-duplicates.test.ts",
   "tests/checkout-safety.test.ts",

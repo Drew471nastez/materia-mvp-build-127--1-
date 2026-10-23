@@ -131,6 +131,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       wholeCart = true
       params.note = params.note ?? (theme.note.trim() || null)
       params.attributes = params.attributes ?? (Object.keys(theme.attributes).length ? theme.attributes : null)
+      /* The discount code the theme's cart holds (its discount box, a /discount/<code> link): priced again here, and said here when it does not apply. */
+      params.couponCode = params.couponCode ?? (theme.discount || null)
     }
   }
 

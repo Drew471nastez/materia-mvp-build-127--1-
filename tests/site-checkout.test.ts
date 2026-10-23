@@ -326,7 +326,8 @@ async function main() {
   console.log("\nThe website's carts and buttons go to their own checkout")
   {
     const theme = code("lib/storelib-theme/compat/site.ts")
-    check("an imported theme's checkout hands its lines to /checkout on its own host", /redirect\(siteCheckoutHref\(\{ items, back: "\/cart", wholeCart: whole(, note)?(, attributes)? \}\)\)/.test(theme) && !/basketCheckoutHref\(/.test(theme))
+    /* Changed on purpose: the cart's discount code goes on to the checkout too (couponCode), round cart-1023. */
+    check("an imported theme's checkout hands its lines to /checkout on its own host", /redirect\(siteCheckoutHref\(\{ items, back: "\/cart", wholeCart: whole(, note)?(, attributes)?(, couponCode: code \|\| null)? \}\)\)/.test(theme) && !/basketCheckoutHref\(/.test(theme))
     const proxy = code("proxy.ts")
     check("the proxy serves it on a subdomain and on a connected website domain", (proxy.match(/siteCheckoutFor\(request, /g) ?? []).length === 2 && /pathname === "\/checkout" && \(request\.nextUrl\.searchParams\.has\("items"\)/.test(proxy))
     check("Apple Pay's domain file is the file on every host", /pathname === "\/\.well-known\/apple-developer-merchantid-domain-association"\) return NextResponse\.next\(\)/.test(proxy))
