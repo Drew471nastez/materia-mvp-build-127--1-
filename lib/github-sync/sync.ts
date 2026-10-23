@@ -63,6 +63,7 @@ import { writeStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { explainFailure, failureLine } from "./errors"
 import { readSnapshot, SnapshotError } from "./snapshot"
+import { keepKeysOut, keptNote, putKeysBack, type KeptKey } from "./secrets"
 import { ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { recordEvent } from "./events"
 import { fillSchemaDefaults, readThemeSchemaText, saveSettingsData } from "@/lib/website-builder/theme-config-store"
@@ -195,11 +196,21 @@ export function repoFilesFor(snap: ThemeSnapshot, link: Pick<GitHubLink, "branch
   const source = !snap.compat && Object.keys(snap.defaults).length ? snap.defaults : { ...snap.defaults, ...snap.files }
   /* A page changes with every edit in the builder, so the page example is a fixed one (core.ts formatGuide), not this site's. */
   const examples = folderExamples(source, snap.compat)
-  return themeFiles(snap, ({ overrides, skipped }) => ({
+  const theme = themeFiles(snap, ({ overrides, skipped }) => ({
     readme: repoReadme({ siteName: snap.name, branch: link.branch ?? "main", root: link.root_path, compat: snap.compat, overrides, skipped }),
     agents: agentsGuide({ siteName: snap.name, branch: link.branch ?? "main", root: link.root_path, kind: snap.compat ? "shopify" : "storelib", examples }),
     claude: CLAUDE_MD,
   }))
+  /* A key in a theme file stays in Storelib; the repository's copy has a marker in its place (./secrets.ts). */
+  const keys: { path: string; kept: KeptKey[] }[] = []
+  const files = theme.files.map((f) => {
+    if (f.bytes || typeof f.text !== "string" || f.role === "generated") return f
+    const r = keepKeysOut(f.text)
+    if (r.kept.length === 0) return f
+    keys.push({ path: f.path, kept: r.kept })
+    return { ...f, text: r.text }
+  })
+  return { ...theme, files, keys }
 }
 
 function changeOf(root: string, f: RepoFile): FileChange {
@@ -280,7 +291,8 @@ export async function exportSiteReport(
     await recordEvent(db, link.install_id, { direction: "to_github", ok: false, summary: `${deps.reason ? `${deps.reason}, not sent` : "Not sent"}: ${line}` })
     throw new SyncError(line)
   }
-  const { files, skipped, overrides } = repoFilesFor(snap, link)
+  const { files, skipped, overrides, keys } = repoFilesFor(snap, link)
+  const keyNotes: FileNote[] = keys.map((k) => ({ path: k.path, note: keptNote(k.path, k.kept) }))
   const at = new Date().toISOString()
   const root = link.root_path
   try {
@@ -320,7 +332,8 @@ export async function exportSiteReport(
     for (const [name, url] of Object.entries(assetMap)) if (typeof url === "string" && shas[`shopify/assets/${name}`] && (name in (snap.media ?? {}) ? !deferred.has(`shopify/assets/${name}`) && !refused.has(`shopify/assets/${name}`) && !missing.has(`shopify/assets/${name}`) : (snap.mediaKept ?? []).includes(name) || prevMedia[name] === url)) urls[name] = url
 
     const failed: FileProblem[] = [
-      ...[...refused].map(([path, e]) => ({ path, error: `${path}: ${failureLine(explainFailure(e, { repo: link.repo_full_name, branch: link.branch }))}`, kind: "refused" as const })),
+      /* One short reason per file; what to do is said once, above the list. */
+      ...[...refused].map(([path, e]) => ({ path, error: `${path}: ${explainFailure(e, { repo: link.repo_full_name, branch: link.branch }).message}`, kind: "refused" as const })),
       ...[...missing].map((path) => ({ path, error: `${path}: GitHub's commit does not hold this file as Storelib sent it`, kind: "not-sent" as const })),
     ]
     const pending = deferred.size + later.length
@@ -336,7 +349,7 @@ export async function exportSiteReport(
       ok,
       saved: [],
       failed,
-      notes: [],
+      notes: keyNotes,
       skipped,
       head_at: r.sha ? at : (link.sync_state?.last?.head_at ?? null),
       ...(problem ? { problem } : {}),
@@ -347,7 +360,7 @@ export async function exportSiteReport(
     const errorLine = ok
       ? null
       : firstRefusal
-        ? failureLine(explainFailure(firstRefusal, { repo: link.repo_full_name, branch: link.branch }))
+        ? `${refused.size === 1 ? "1 file stayed" : `${refused.size} files stayed`} in Storelib: GitHub would not take ${refused.size === 1 ? "it" : "them"}. Everything else is on GitHub, and the site still uses ${refused.size === 1 ? "it" : "them"}.`
         : `Sent ${sent} of ${total} files. ${pending ? `${pending} still to send: press Push to send them.` : `${missing.size} did not land: press Push again.`}`
     await saveLink(db, link.install_id, {
       last_synced_sha: r.sha ?? link.last_synced_sha,
@@ -531,6 +544,10 @@ export async function applyFiles(
         continue
       }
       text = Buffer.from(f.bytes).toString("utf8")
+      /* A key kept out of the repository goes back in from Storelib's own copy (./secrets.ts). */
+      const back = putKeysBack(text, snap.files[f.path])
+      text = back.text
+      if (back.missing.length) out.notes.push({ path: f.path, note: `${f.path}: it names a key Storelib does not hold, so that spot was left as it is. Put the key in the file in the builder.` })
     }
 
     /* Shopify's values file: what it sets is set, what it leaves out stays (lib/website-builder/theme-config-store.ts). */

@@ -55,13 +55,13 @@
 .text-\[\#f5a3a3\]:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b91c1c; }
 .text-\[\#f87171\]:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b91c1c; }
 .text-amber-200:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b45309; }
+.text-amber-200\/80:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b45309; }
 .text-amber-200\/90:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b45309; }
 .text-amber-300:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b45309; }
 .text-emerald-200:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #047857; }
 .text-emerald-300:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #047857; }
 .text-emerald-300\/90:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #047857; }
 .text-emerald-400:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #047857; }
-.text-red-200\/90:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b91c1c; }
 .text-red-300:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b91c1c; }
 .text-red-300\/90:is([data-ws-look="light"], [data-ws-look="light"] *) { color: #b91c1c; }
 .text-white:is([data-ws-look="light"], [data-ws-look="light"] *):not(.bg-red-500\/90) { color: #1a1a2e; }

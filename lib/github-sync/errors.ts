@@ -125,8 +125,8 @@ export function explainFailure(e: FailedCall, ctx: { repo?: string | null; branc
     const kinds = (e.secrets ?? []).map((t) => t.replace(/_/g, " ")).slice(0, 3)
     return {
       problem: "secret-blocked",
-      message: `GitHub's secret scanning turned a file down: it looks like it holds ${kinds.length ? `a key (${kinds.join(", ")})` : "a key or token"}.`,
-      fix: "Every other file was sent. Take the key out of the file listed, or put it in the site's settings instead, then press Push.",
+      message: `GitHub's secret scanning would not take it: it looks like it holds ${kinds.length ? `a key (${kinds.join(", ")})` : "a key or token"}.`,
+      fix: "Everything else was sent, and the site still uses the file. Change it in the builder, then press Push.",
     }
   }
   if (/workflow/.test(said) && (e.status === 403 || e.status === 422 || e.status === 409)) {

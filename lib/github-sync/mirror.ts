@@ -28,6 +28,7 @@ import { GitHubError, commitChanges, githubConfig, installationToken, type FileC
 import { explainFailure, failureLine } from "./errors"
 import { fontBytes, gitBlobSha, readsBack, roleOf } from "./layout"
 import { recordEvent } from "./events"
+import { keepKeysOut } from "./secrets"
 import { exportSite, type GitHubLink, type LastSync, type SyncState } from "./sync"
 
 /* Written in ./events.ts, so the sync and this file both write it without importing each other for it. */
@@ -74,7 +75,8 @@ export async function mirrorToGitHub(installId: string, change: BuilderChange): 
   const changes: FileChange[] = changesFor(root, change, travels).map((c) => {
     if ("delete" in c) return c
     const bytes = c.content.startsWith("base64:") ? fontBytes(c.content) : null
-    return bytes ? { path: c.path, bytes } : c
+    /* A key in the file stays in Storelib; GitHub gets a marker in its place (./secrets.ts). */
+    return bytes ? { path: c.path, bytes } : { path: c.path, content: keepKeysOut(c.content).text }
   })
   if (changes.length === 0) return
   const summary = describeChange(change)

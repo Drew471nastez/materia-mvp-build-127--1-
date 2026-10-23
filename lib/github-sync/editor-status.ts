@@ -168,7 +168,7 @@ function fileCopy(kind: FileProblemKind, line: number | null): { title: string; 
     case "unreadable":
       return { title: tt("Couldn't be read from GitHub"), fix: tt("Try again in a minute."), showDetail: false }
     case "refused":
-      return { title: tt("GitHub turned this file down"), fix: tt("The rest of the theme was sent. Change this file in the builder, then send again."), showDetail: true }
+      return { title: tt("Stayed in Storelib"), fix: tt("Your site still uses it. Change it in the builder, then send again."), showDetail: true }
     case "not-sent":
       return { title: tt("Didn't reach GitHub"), fix: tt("Send again. Nothing on your site was lost."), showDetail: false }
     case "not-saved":
@@ -233,7 +233,7 @@ function wholeProblem(kind: string, ctx: { repo: string; branch: string; directi
       /* One press: the site goes to a branch of its own and is followed there, so the next push is read too. */
       return { title: tt("{branch} is protected on GitHub", { branch }), body: tt("GitHub won't let Storelib write to it. Send your site to a branch called storelib instead, and Storelib follows that one from now on."), actions: ["branch", "repo"] }
     case "secret-blocked":
-      return { title: tt("GitHub turned a file down"), body: tt("GitHub's secret scanning found what looks like a key or token in it. Every other file was sent. Take the key out of the file listed below, then send again."), actions: ["push"] }
+      return { title: tt("A file stayed in Storelib"), body: tt("GitHub's secret scanning would not take it. Everything else is on GitHub, and your site still uses the file. Send again after changing it."), actions: ["push"] }
     case "workflow-permission":
       return { title: tt("GitHub needs the Workflows permission"), body: tt("A file in .github/workflows can only be changed by an app with that permission. Accept it for Storelib on GitHub, or leave the file out."), actions: ["reconnect", "retry"] }
     case "partial":
