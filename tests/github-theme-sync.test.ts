@@ -593,7 +593,8 @@ async function main() {
     check("  and how to use it with an AI", /Use it with an AI/.test(panel) && /claude\.ai\/code/.test(panel) && /chatgpt\.com\/codex/.test(panel))
     // Changed on purpose: W3's sendWholeTheme and round Z's mirrorWholeTheme did the same job; one stayed (lib/github-sync/mirror.ts), sending without fetching pictures again.
     check("Publish sends the whole theme to a linked repository", /after\(\(\) => mirrorWholeTheme\(installId, "Published in the builder"\)\)/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")) &&
-      /exportSite\(db, cfg, link as GitHubLink, [^\n]*\{ fetchMedia: null, reason: why \}\)/.test(read("lib/github-sync/mirror.ts")))
+      /* Changed on purpose (materia): a repository nothing has reached yet gets its pictures too; after that Publish does not fetch them again. */
+      /exportSite\(db, cfg, link as GitHubLink, [^\n]*\{ fetchMedia: \(link as GitHubLink\)\.last_synced_sha \? null : undefined, reason: why \}\)/.test(read("lib/github-sync/mirror.ts")))
     check("comment text is plain and has the editor link", /Open the builder: https:/.test(commitComment({ saved: [], failed: [{ path: "a", error: "a: x" }], notes: [] }, "https://storelib.com/x")))
     check("AGENTS.md for a folder says so", /The folder `site\/`/.test(agentsGuide({ siteName: "A", branch: "main", root: "site/" })))
   }

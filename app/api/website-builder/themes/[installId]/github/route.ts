@@ -30,7 +30,7 @@ import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { githubConfig, installationRepos, installationToken, GitHubError } from "@/lib/github-sync/github"
 import { normalizeRoot, validBranch, validRepoName } from "@/lib/github-sync/core"
-import { SyncError, exportSite, pullNow, type GitHubLink, type LastSync } from "@/lib/github-sync/sync"
+import { SyncError, exportSiteReport, pullNow, type GitHubLink, type LastSync } from "@/lib/github-sync/sync"
 import { explainFailure, failureLine } from "@/lib/github-sync/errors"
 import { overridesOf } from "@/lib/github-sync/layout"
 import { referenceSchemas } from "@/lib/github-sync/snapshot"
@@ -88,7 +88,7 @@ function publicLink(link: GitHubLink | null) {
   if (!link) return null
   const last = (link.sync_state?.last ?? null) as LastSync | null
   return {
-    last: last ? { at: last.at, direction: last.direction, ok: last.ok, commit: last.commit, saved: last.saved.length, failed: last.failed.slice(0, 50), notes: last.notes.slice(0, 30), skipped: (last.skipped ?? []).slice(0, 30) } : null,
+    last: last ? { at: last.at, direction: last.direction, ok: last.ok, commit: last.commit, saved: last.saved.length, failed: last.failed.slice(0, 50), notes: last.notes.slice(0, 30), skipped: (last.skipped ?? []).slice(0, 30), pending: last.pending ?? 0, total: last.total ?? null, sent: last.sent ?? null } : null,
     account: link.account_login,
     repo: link.repo_full_name,
     branch: link.branch,
@@ -336,8 +336,21 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   try {
-    const sha = await exportSite(db, cfg, link, own.name)
-    return NextResponse.json({ ok: true, commit: sha, upToDate: sha === null, link: publicLink({ ...link, last_synced_sha: sha ?? link.last_synced_sha, last_synced_at: new Date().toISOString(), last_error: null }) })
+    const r = await exportSiteReport(db, cfg, link, own.name)
+    /* The link as the send left it: its status is what GitHub now holds, not a guess. */
+    const { data: fresh } = await readLink(db, own.installId)
+    return NextResponse.json({
+      ok: true,
+      commit: r.sha,
+      upToDate: r.sha === null && r.pending === 0 && r.failed.length === 0,
+      /* Files still to send: the panel asks again, and each send takes only what GitHub does not have yet. */
+      more: r.pending > 0,
+      pending: r.pending,
+      sent: r.sent,
+      total: r.total,
+      failed: r.failed.slice(0, 50),
+      link: publicLink((fresh as GitHubLink | null) ?? { ...link, last_synced_sha: r.sha ?? link.last_synced_sha, last_synced_at: new Date().toISOString(), last_error: null }),
+    })
   } catch (e) {
     /* exportSite has written the reason to the link and the activity list already. */
     const message = explain(e, link)

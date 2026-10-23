@@ -56,13 +56,14 @@ import {
   statusLine,
   type PushPayload,
 } from "./core"
-import { GitHubError, blobAt, commentOnCommit, commitChanges, compareFiles, compareStatus, installationToken, listTree, noteOnCommit, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
+import { GitHubError, blobAt, commentOnCommit, commitIsolating, compareFiles, compareStatus, installationToken, listTree, noteOnCommit, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
 import { GENERATED, PLATFORM_SETTINGS_PATH, SETTINGS_DATA_PATH, SETTINGS_PATH, gitBlobSha, jsonError, mergePages, platformContext, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
 import { checkPlatformValues, placementNotes, withoutPlatformDefaults } from "@/lib/storelib-theme/platform-settings"
 import { writeStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { explainFailure, failureLine } from "./errors"
 import { readSnapshot, SnapshotError } from "./snapshot"
+import { ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { recordEvent } from "./events"
 import { fillSchemaDefaults, readThemeSchemaText, saveSettingsData } from "@/lib/website-builder/theme-config-store"
 
@@ -80,7 +81,7 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").repl
  * and offer the one button that fixes it (lib/github-sync/editor-status.ts).
  * `error` stays the developer's line, for the commit comment.
  */
-export type FileProblemKind = "invalid" | "wrong-kind" | "built-in" | "theme-settings" | "binary" | "too-large" | "not-saved" | "unreadable" | "page"
+export type FileProblemKind = "invalid" | "wrong-kind" | "built-in" | "theme-settings" | "binary" | "too-large" | "not-saved" | "unreadable" | "page" | "refused" | "not-sent"
 
 export interface FileProblem {
   path: string
@@ -110,12 +111,19 @@ export interface LastSync {
   head_at?: string | null
   /** Theme files a push changed that were not read (too many in one push, or out of time): Pull takes them. */
   unread?: number
+  /** Theme files a send did not reach in its time (pictures, fonts): the next send takes them. */
+  pending?: number
+  /** Files the send was made of, and how many GitHub now holds as sent. */
+  total?: number
+  sent?: number
 }
 
 export interface SyncState {
   /** Path in the theme to the blob GitHub and Storelib last agreed on. */
   files?: Record<string, string>
   last?: LastSync
+  /** Each picture sent, by name, with the address it was fetched from, for the repository it went to. Unchanged ones are not fetched again. */
+  media?: { at: string; urls: Record<string, string> }
   /** The newest push to another branch of the linked repository, which Storelib does not read. */
   ignored?: { branch: string; at: string; commit: string | null }
 }
@@ -198,19 +206,74 @@ function changeOf(root: string, f: RepoFile): FileChange {
   return f.bytes ? { path: `${root}${f.path}`, bytes: f.bytes } : { path: `${root}${f.path}`, content: f.text ?? "" }
 }
 
+/** A send's whole time: the route has a minute, and saving what happened takes some of it. */
+const SEND_BUDGET_MS = 42_000
+/** Of that, the most spent fetching an imported theme's pictures. */
+const MEDIA_BUDGET_MS = 18_000
+
+export interface ExportReport {
+  /** The commit made, or null when GitHub already had it all (or nothing could go yet). */
+  sha: string | null
+  /** Files in the theme as sent, and how many GitHub holds now. */
+  total: number
+  sent: number
+  /** Files still to send: the route sends again until this is 0. */
+  pending: number
+  /** Files GitHub turned down, each with why. */
+  failed: FileProblem[]
+}
+
 /** Storelib → GitHub, in one commit. Returns the commit, or null when the repository already matched. */
 export async function exportSite(
   db: Db,
   cfg: GitHubConfig,
   link: GitHubLink,
   siteName: string,
-  /* fetchMedia null: pictures are not fetched (an export after Publish; the repository keeps the ones it has). reason: what started it, for the activity list. */
-  deps: { fetchMedia?: ((url: string, maxBytes: number) => Promise<Uint8Array | null>) | null; reason?: string } = {},
+  deps: { fetchMedia?: ((url: string, maxBytes: number) => Promise<Uint8Array | null>) | null; reason?: string; deadline?: number } = {},
 ): Promise<string | null> {
+  return (await exportSiteReport(db, cfg, link, siteName, deps)).sha
+}
+
+/**
+ * The whole theme to GitHub, with what happened to every file.
+ *
+ * WHY MATERIA'S REPOSITORY HELD ONLY config/settings.json. An empty
+ * repository's first commit is one file through the contents API, and the
+ * rest of the theme follows in a second commit. For an imported theme the
+ * first file was config/settings.json, and before it the send had fetched
+ * every picture one at a time, so the minute ran out (or GitHub turned the
+ * second commit down) with only that one file there. And a refusal while
+ * moving the branch was reported as a protected branch without asking
+ * GitHub. Now: README.md goes first, pictures are fetched a few at a time and
+ * only when the repository does not have them already, a send stops in time
+ * and says what is still to go (the route sends again until nothing is), a
+ * file GitHub refuses is set apart from the rest (./github.ts
+ * commitIsolating), the commit is read back, and a branch is called
+ * protected only when GitHub says it is (./errors.ts).
+ */
+export async function exportSiteReport(
+  db: Db,
+  cfg: GitHubConfig,
+  link: GitHubLink,
+  siteName: string,
+  /* fetchMedia null: pictures are not fetched (an export after Publish; the repository keeps the ones it has). reason: what started it, for the activity list. */
+  deps: { fetchMedia?: ((url: string, maxBytes: number) => Promise<Uint8Array | null>) | null; reason?: string; deadline?: number } = {},
+): Promise<ExportReport> {
   if (!link.repo_full_name || !link.branch) throw new SyncError("Pick a repository first")
+  const started = Date.now()
+  const deadline = deps.deadline ?? started + SEND_BUDGET_MS
+  const where = `${link.repo_full_name}@${link.branch}/${link.root_path}`
+  const prevFiles = link.sync_state?.files ?? {}
+  const prevMedia = link.sync_state?.media?.at === where ? (link.sync_state.media.urls ?? {}) : {}
   let snap: ThemeSnapshot
   try {
-    snap = await readSnapshot(db, link.install_id, { name: siteName, creatorId: link.creator_id, fetchMedia: deps.fetchMedia === null ? undefined : (deps.fetchMedia ?? storageMedia) })
+    snap = await readSnapshot(db, link.install_id, {
+      name: siteName,
+      creatorId: link.creator_id,
+      fetchMedia: deps.fetchMedia === null ? undefined : (deps.fetchMedia ?? storageMedia),
+      keepMedia: (name, url) => prevMedia[name] === url && typeof prevFiles[`shopify/assets/${name}`] === "string",
+      mediaDeadline: Math.min(deadline, started + MEDIA_BUDGET_MS),
+    })
   } catch (e) {
     const line = e instanceof SnapshotError ? e.message : "Could not read this website. Try again."
     await saveLink(db, link.install_id, { last_error: `Sending to GitHub: ${line}` })
@@ -219,34 +282,93 @@ export async function exportSite(
   }
   const { files, skipped, overrides } = repoFilesFor(snap, link)
   const at = new Date().toISOString()
+  const root = link.root_path
   try {
     const token = await installationToken(cfg, link.installation_id)
-    const r = await commitChanges(
+    const r = await commitIsolating(
       token,
       link.repo_full_name,
       link.branch,
-      files.map((f) => changeOf(link.root_path, f)),
+      files.map((f) => changeOf(root, f)),
       `Storelib: ${siteName}, the whole theme\n\n${COMMIT_MARKER}`,
+      { deadline },
     )
+    const local = (p: string) => (root && p.startsWith(root) ? p.slice(root.length) : p)
+    const deferred = new Set(r.deferred.map(local))
+    const missing = new Set(r.missing.map(local))
+    const refused = new Map(r.refused.map((x) => [local(x.path), x.error]))
+    const later = (snap.mediaLater ?? []).map((n) => `shopify/assets/${n}`)
+
+    /* What GitHub and Storelib now agree on: what landed, and for what did not, what they agreed on before. */
     const shas: Record<string, string> = {}
-    for (const f of files) shas[f.path] = gitBlobSha(f.bytes ?? f.text ?? "")
-    const last: LastSync = { at, direction: "to_github", commit: r.sha, ok: true, saved: [], failed: [], notes: [], skipped, head_at: r.sha ? at : (link.sync_state?.last?.head_at ?? null) }
+    for (const f of files) {
+      if (deferred.has(f.path) || missing.has(f.path) || refused.has(f.path)) {
+        if (prevFiles[f.path]) shas[f.path] = prevFiles[f.path]
+      } else shas[f.path] = gitBlobSha(f.bytes ?? f.text ?? "")
+    }
+    for (const name of snap.mediaKept ?? []) if (prevFiles[`shopify/assets/${name}`]) shas[`shopify/assets/${name}`] = prevFiles[`shopify/assets/${name}`]
+    for (const p of later) if (prevFiles[p]) shas[p] = prevFiles[p]
+    let assetMap: Record<string, string> = {}
+    try {
+      assetMap = JSON.parse(snap.files[ASSET_MAP_PATH] ?? "{}") as Record<string, string>
+    } catch {
+      assetMap = {}
+    }
+    /* A send that did not fetch pictures (after Publish) leaves the repository's as they are, and remembers them. */
+    if (!snap.media) for (const [p, sha] of Object.entries(prevFiles)) if (p.startsWith("shopify/assets/") && !(p in shas) && typeof assetMap[p.slice("shopify/assets/".length)] === "string") shas[p] = sha
+    const urls: Record<string, string> = {}
+    for (const [name, url] of Object.entries(assetMap)) if (typeof url === "string" && shas[`shopify/assets/${name}`] && (name in (snap.media ?? {}) ? !deferred.has(`shopify/assets/${name}`) && !refused.has(`shopify/assets/${name}`) && !missing.has(`shopify/assets/${name}`) : (snap.mediaKept ?? []).includes(name) || prevMedia[name] === url)) urls[name] = url
+
+    const failed: FileProblem[] = [
+      ...[...refused].map(([path, e]) => ({ path, error: `${path}: ${failureLine(explainFailure(e, { repo: link.repo_full_name, branch: link.branch }))}`, kind: "refused" as const })),
+      ...[...missing].map((path) => ({ path, error: `${path}: GitHub's commit does not hold this file as Storelib sent it`, kind: "not-sent" as const })),
+    ]
+    const pending = deferred.size + later.length
+    const total = files.length + (snap.mediaKept?.length ?? 0) + later.length
+    const sent = total - pending - failed.length
+    const ok = failed.length === 0 && pending === 0
+    const firstRefusal = r.refused[0]?.error
+    const problem = ok ? undefined : firstRefusal ? explainFailure(firstRefusal, {}).problem : "partial"
+    const last: LastSync = {
+      at,
+      direction: "to_github",
+      commit: r.sha,
+      ok,
+      saved: [],
+      failed,
+      notes: [],
+      skipped,
+      head_at: r.sha ? at : (link.sync_state?.last?.head_at ?? null),
+      ...(problem ? { problem } : {}),
+      ...(pending ? { pending } : {}),
+      total,
+      sent,
+    }
+    const errorLine = ok
+      ? null
+      : firstRefusal
+        ? failureLine(explainFailure(firstRefusal, { repo: link.repo_full_name, branch: link.branch }))
+        : `Sent ${sent} of ${total} files. ${pending ? `${pending} still to send: press Push to send them.` : `${missing.size} did not land: press Push again.`}`
     await saveLink(db, link.install_id, {
       last_synced_sha: r.sha ?? link.last_synced_sha,
       last_synced_at: at,
-      last_error: null,
-      sync_state: { files: shas, last },
+      last_error: errorLine,
+      sync_state: { files: shas, media: { at: where, urls }, last },
     })
-    const theme = `${files.length} files${overrides.length ? `, ${overrides.length} built-in edited here` : ""}`
+    const theme = `${total} files${overrides.length ? `, ${overrides.length} built-in edited here` : ""}`
+    const head = deps.reason ? `${deps.reason}. ` : ""
+    const tail = `${skipped.length ? `. ${skipped.length} left out, listed in storelib.json` : ""}${pending ? `. ${pending} still to send` : ""}${failed.length ? `. ${failed.length} not taken by GitHub: ${failed.slice(0, 3).map((f) => f.path).join(", ")}` : ""}`
     await recordEvent(db, link.install_id, {
       direction: "to_github",
-      ok: true,
-      summary: (deps.reason ? `${deps.reason}. ` : "") + (r.sha
-        ? `Sent the whole theme to GitHub (${theme}): ${r.written} changed${r.removed ? `, ${r.removed} removed` : ""}${skipped.length ? `. ${skipped.length} left out, listed in storelib.json` : ""}`
-        : `GitHub already had the whole theme (${theme})`),
+      ok,
+      summary: head + (r.sha
+        ? `Sent the whole theme to GitHub (${theme}): ${r.written} changed${r.removed ? `, ${r.removed} removed` : ""}${tail}`
+        : pending || failed.length
+          ? `Nothing new went to GitHub yet (${theme})${tail}`
+          : `GitHub already had the whole theme (${theme})`),
       commit_sha: r.sha,
     })
-    return r.sha
+    return { sha: r.sha, total, sent, pending, failed }
   } catch (e) {
     const x = e instanceof GitHubError ? explainFailure(e, { repo: link.repo_full_name, branch: link.branch }) : null
     const line = x ? failureLine(x) : "Something went wrong sending the theme to GitHub. Press Push again."
