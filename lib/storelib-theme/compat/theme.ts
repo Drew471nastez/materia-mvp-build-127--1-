@@ -51,6 +51,7 @@ import {
   typedSettings,
   type CardLike,
   type CartLineLike,
+  type CartDiscount,
   type CollectionLike,
   type MenuLinkLike,
   type DynamicResolver,
@@ -321,6 +322,8 @@ export interface CompatPage {
   /** The cart's note and attributes (`cart.note`, `cart.attributes` in Liquid): a theme's order notes and gift message fields read them back. */
   cartNote?: string
   cartAttributes?: Record<string, string>
+  /** The cart's discount code as the website's checkout prices it (objects.ts CartDiscount): `cart.discount_applications`, each line's allocations and the totals after it. */
+  cartDiscount?: CartDiscount | null
   shop: { name: string; description?: string; url?: string; email?: string; currency?: string; moneyFormat?: string; policies?: ShopPolicy[]; id?: string }
   customer?: O | null
   /** Why a form on this page did not go through, by form type (`customer_login`, `customer`, `contact`): what its `form.errors` says. */
@@ -711,7 +714,7 @@ export class CompatTheme {
       const handle = String(p.settings.slug ?? "")
       if (handle) Object.defineProperty(all_products, handle, { enumerable: true, get: () => productObject(p) })
     }
-    const cart = cartObject(page.cart ?? [], currency, page.cartNote ?? "", page.cartAttributes ?? {})
+    const cart = cartObject(page.cart ?? [], currency, page.cartNote ?? "", page.cartAttributes ?? {}, page.cartDiscount ?? null)
     const search = page.search
       ? { performed: page.search.performed, terms: page.search.terms, results: page.search.results.map((p) => ({ ...productObject(p), object_type: "product" })), results_count: page.search.results.length, types: ["product"], filters: page.catalog?.filters ?? [], sort_by: page.catalog?.sortBy ?? "", sort_options: [], default_sort_by: "relevance", url: `/search?q=${encodeURIComponent(page.search.terms)}` }
       : { performed: false, terms: "", results: [], results_count: 0, types: ["product"], filters: [], sort_options: [] }

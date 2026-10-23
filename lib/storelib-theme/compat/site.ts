@@ -10,6 +10,11 @@
  *   section rendering ?section_id=<id or name>  ?sections=a,b   (any page)
  *   the cart          /cart.js  /cart/add(.js)  /cart/change(.js)
  *                     /cart/update(.js)  /cart/clear(.js)   a cookie holds it
+ *   discount codes    /cart/update.js `discount`, /discount/<code>: checked
+ *                     and priced by the website's own checkout (SiteData
+ *                     .pricing), carried on to it
+ *   estimate shipping /cart/shipping_rates.json, prepare_ and
+ *                     async_shipping_rates: Settings › Shipping's rates
  *   checkout          /cart with `checkout`, /checkout: straight on to
  *                     the website's own checkout on this same host, with
  *                     the lines (/checkout?items=, lib/checkout/site-checkout)
@@ -32,7 +37,9 @@
 import { escapeHtml, handleize } from "./filters"
 import type { CardLike, CollectionLike, MenuLinkLike, CartLineLike, SiteI18n } from "./objects"
 import { localeRoot } from "./objects"
-import { cartObject, productObject, shopifyJson } from "./objects"
+import { cartObject, productObject, shopifyJson, type CartDiscount } from "./objects"
+import { countryCode } from "@/lib/checkout/countries"
+import { regionCode } from "@/lib/physical/regions"
 import { OUTPUT, LFloat } from "./runtime"
 import type { CompatPage, CompatTheme } from "./theme"
 import { drawPage, drawSection, pageContextFor, pageParts, type StoredSection } from "./page"
@@ -99,6 +106,31 @@ export interface SiteData {
   commerce?: CompatCommerce
   /** The website's languages and this request's (lib/markets/compat.ts). Absent: one language, the theme's own. */
   i18n?: SiteI18n
+  /**
+   * The cart priced by the website's own checkout (./cart-pricing-server.ts):
+   * a discount code on these lines, and the delivery rates to an address.
+   * Absent (the builder's canvas, a test of the pages alone): a code is held
+   * and goes on to checkout, but nothing is taken off here, and no rates.
+   */
+  pricing?: CartPricing
+}
+
+/** An address as a theme's "Estimate shipping" sends it, read to codes: "US", "CA" (California), the postal code. */
+export interface ShippingAsk {
+  country: string
+  region: string | null
+  zip: string | null
+}
+
+/** The rates to an address, in cents of the currency the page shows; or which field the address fails on, as Shopify answers it. */
+export type ShippingEstimate =
+  | { ok: true; rates: { name: string; cents: number; description?: string | null }[] }
+  | { ok: false; field: "country" | "province" | "zip"; message: string }
+
+export interface CartPricing {
+  /** `shown`: each line's price as the page shows it, by its key, so what comes off is in the same money. */
+  discount(cart: CartEntry[], code: string, shown: Record<string, number>): Promise<CartDiscount>
+  shipping(cart: CartEntry[], code: string | null, address: ShippingAsk, shown: Record<string, number>): Promise<ShippingEstimate>
 }
 
 /** What a cart may hold of one product: by variant id (a product with one option: also by its own id), and in all. */
@@ -130,6 +162,10 @@ export interface SiteRequest {
   note?: string
   /** The cart's attributes (Shopify's cart.attributes), kept beside the lines. */
   attributes?: Record<string, string>
+  /** The discount code the cart holds (Shopify's cart.discount_codes), priced again on every draw of the cart. */
+  discountCode?: string
+  /** That code priced on this cart: set by `answer` itself before a page is drawn. */
+  cartDiscount?: CartDiscount | null
   /** A script's request (JSON body, X-Requested-With, Accept: application/json): answered with JSON, as Shopify does, whatever the address ends in. */
   ajax?: boolean
   /** The page the request came from (path and query, this site's own): what `sections` are drawn about when the request names no `sections_url`. */
@@ -157,6 +193,8 @@ export interface SiteResponse {
   cart?: CartEntry[]
   note?: string
   attributes?: Record<string, string>
+  /** The cart's discount code after this request, when it changed ("" for none). */
+  discountCode?: string
 }
 
 const MAX_LINES = 50
@@ -199,7 +237,28 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const rest = new URLSearchParams(req.query)
     rest.delete(CLEAR_CART_PARAM)
     const search = rest.toString()
-    return redirect(`${path}${search ? `?${search}` : ""}`, { cart: [], note: "", attributes: {} })
+    return redirect(`${path}${search ? `?${search}` : ""}`, { cart: [], note: "", attributes: {}, discountCode: "" })
+  }
+
+  /*
+    A DISCOUNT LINK, /discount/<code>?redirect=/collections/all, as Shopify's:
+    the cart holds the code from now on and the visitor lands where the link
+    says. The code is checked where it is used: the cart shows it once it
+    applies, and checkout says why when it does not.
+  */
+  const discountLink = method === "GET" ? path.match(/^\/discount\/([^/]+)\/?$/) : null
+  if (discountLink) {
+    const code = discountCodeOf(discountLink[1])
+    const to = safeReturn(req.query.get("redirect")) ?? "/"
+    return redirect(to, { cart: req.cart, note: req.note ?? "", attributes: req.attributes ?? {}, discountCode: code ?? req.discountCode ?? "" })
+  }
+
+  /* ── estimate shipping ── */
+  const shippingRoute = path.match(/^\/cart\/(shipping_rates|prepare_shipping_rates|async_shipping_rates)(?:\.json|\.js)?$/)
+  if (shippingRoute) {
+    /* Shopify works the rates out in the background after `prepare`; here they are ready at once, so `prepare` only says it heard and `async` answers. */
+    if (shippingRoute[1] === "prepare_shipping_rates") return json(null, 202)
+    return await shippingRates(site, req)
   }
 
   /* ── the cart ── */
@@ -225,16 +284,20 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
       const v = hit.variantId === hit.card.id ? null : hit.variantId
       lines.push({ k: lineKey(hit.card.id, v), p: hit.card.id, v, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(n)) || 1)) })
     }
-    return lines.length ? { ...checkoutHandoff(site, lines, true, req.note ?? "", req.attributes), cart: lines, note: req.note ?? "", attributes: req.attributes ?? {} } : redirect("/cart")
+    const code = discountCodeOf(req.query.get("discount")) ?? req.discountCode
+    return lines.length ? { ...checkoutHandoff(site, lines, true, req.note ?? "", req.attributes, code), cart: lines, note: req.note ?? "", attributes: req.attributes ?? {} } : redirect("/cart")
   }
   const cartRoute = path.match(/^\/cart(?:\/(add|change|update|clear))?(\.js|\.json)?$/)
   if (cartRoute && (method === "POST" || cartRoute[2])) {
     const [, action, ext] = cartRoute
-    if (method === "GET" && !action) return json(cartJson(site, req.cart, req.note ?? "", req.attributes))
+    if (method === "GET" && !action) return json(cartJson(site, req.cart, req.note ?? "", req.attributes, await priceDiscount(site, req.cart, req.discountCode)))
     if (method !== "POST") return json({ status: 405, message: "Method not allowed" }, 405)
     return await cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
   }
-  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true, req.note ?? "", req.attributes)
+  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true, req.note ?? "", req.attributes, discountCodeOf(req.query.get("discount")) ?? req.discountCode)
+
+  /* A page draws the cart (its drawer, its count, the cart page): with the code taken off as checkout will take it. */
+  if (req.cartDiscount === undefined && req.discountCode && req.cart.length && !/\.(?:js|json)$/.test(path)) req = { ...req, cartDiscount: await priceDiscount(site, req.cart, req.discountCode) }
 
   /* ── forms ── */
   if (method === "POST" && (path === "/contact" || path === "/contact/" || (path === "/account" && String(req.body?.form_type ?? "") === "customer"))) return await formSubmit(site, req)
@@ -674,6 +737,7 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     cart: cartLines(site, req.cart),
     cartNote: req.note ?? "",
     cartAttributes: req.attributes ?? {},
+    cartDiscount: req.cartDiscount ?? null,
     customer: req.account?.customer ? themeCustomer(req.account.customer) : null,
     formErrors: formErrorsOf(req),
     ...(site.i18n ? { i18n: site.i18n } : {}),
@@ -1118,8 +1182,14 @@ export function cartLines(site: Pick<SiteData, "products">, entries: CartEntry[]
   })
 }
 
-function cartJson(site: SiteData, entries: CartEntry[], note: string, attributes: Record<string, string> = {}): O {
-  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note, attributes)
+/**
+ * THE CART AS /cart.js ANSWERS IT, Shopify's Ajax shape. `codes`: what a
+ * /cart/update.js `discount` asked, each with whether it applies (a theme
+ * reads `applicable: false` and shows its own "can't be applied"); otherwise
+ * the code the cart holds.
+ */
+function cartJson(site: SiteData, entries: CartEntry[], note: string, attributes: Record<string, string> = {}, discount: CartDiscount | null = null, codes?: { code: string; applicable: boolean }[]): O {
+  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note, attributes, discount)
   const items = ((cart.items as O[]) ?? []).map(lineJson)
   return {
     token: "storelib",
@@ -1127,14 +1197,26 @@ function cartJson(site: SiteData, entries: CartEntry[], note: string, attributes
     attributes: { ...attributes },
     original_total_price: cart.original_total_price,
     total_price: cart.total_price,
-    total_discount: 0,
+    total_discount: cart.total_discount,
     total_weight: 0,
     item_count: cart.item_count,
     items,
     requires_shipping: cart.requires_shipping,
     currency: site.shop.currency ?? "USD",
     items_subtotal_price: cart.items_subtotal_price,
-    cart_level_discount_applications: [],
+    cart_level_discount_applications: ((cart.cart_level_discount_applications as O[]) ?? []).map(applicationJson),
+    discount_codes: codes ?? (discount ? [{ code: discount.code, applicable: discount.applicable }] : []),
+  }
+}
+
+/** A discount application as Shopify's Ajax API writes it: its value a decimal string ("10.0", "5.00"), its amounts in cents. */
+function applicationJson(a: O): O {
+  const percent = a.value_type === "percentage"
+  return {
+    type: a.type, key: a.key, title: a.title, description: a.description ?? null,
+    value: percent ? Number(a.value).toFixed(1) : (Number(a.value) / 100).toFixed(2),
+    created_at: null, value_type: a.value_type, allocation_method: a.allocation_method, target_selection: a.target_selection, target_type: a.target_type,
+    total_allocated_amount: a.total_allocated_amount,
   }
 }
 
@@ -1142,9 +1224,12 @@ function lineJson(i: O): O {
   const product = (i.product ?? {}) as O
   const variant = (i.variant ?? {}) as O
   const image = (i.image as O | null)?.src ?? null
+  const allocations = ((i.discount_allocations as O[]) ?? []).map((a) => ({ amount: a.amount, title: String((a.discount_application as O).title ?? "") }))
+  const lineLevel = ((i.line_level_discount_allocations as O[]) ?? []).map((a) => ({ amount: a.amount, discount_application: applicationJson(a.discount_application as O) }))
   return {
-    id: i.variant_id, key: i.key, quantity: i.quantity, title: i.title, price: i.price, original_price: i.price, discounted_price: i.price,
-    line_price: i.line_price, original_line_price: i.line_price, final_price: i.price, final_line_price: i.line_price, total_discount: 0, discounts: [],
+    id: i.variant_id, key: i.key, quantity: i.quantity, title: i.title, price: i.price, original_price: i.price, discounted_price: i.discounted_price,
+    line_price: i.line_price, original_line_price: i.original_line_price, final_price: i.final_price, final_line_price: i.final_line_price, total_discount: i.total_discount ?? 0, discounts: allocations,
+    line_level_discount_allocations: lineLevel, line_level_total_discount: i.line_level_total_discount ?? 0,
     properties: i.properties ?? {}, product_id: i.product_id, variant_id: i.variant_id, sku: i.sku ?? "", vendor: "", url: i.url, image, featured_image: image ? { url: image, alt: String(product.title ?? "") } : null,
     handle: product.handle, requires_shipping: i.requires_shipping, product_title: product.title, product_description: "", product_type: product.type,
     variant_title: variant.title === "Default Title" ? null : variant.title, variant_options: variant.options ?? [], options_with_values: plain(i.options_with_values),
@@ -1196,13 +1281,13 @@ function itemsOf(body: O | null): { id: string; quantity: number; properties?: R
  * the cart page (`template.name != 'cart'`), so drawn about /cart it came
  * back empty and the drawer said "Your cart is empty" after every add.
  */
-async function sectionsFor(site: SiteData, req: SiteRequest, cart: CartEntry[], note: string, attributes: Record<string, string> = req.attributes ?? {}): Promise<Record<string, string | null> | undefined> {
+async function sectionsFor(site: SiteData, req: SiteRequest, cart: CartEntry[], note: string, attributes: Record<string, string> = req.attributes ?? {}, discount: { code: string; priced: CartDiscount | null } = { code: req.discountCode ?? "", priced: req.cartDiscount ?? null }): Promise<Record<string, string | null> | undefined> {
   const raw = field(req.body, "sections")
   const ids = (Array.isArray(raw) ? raw.map(String).flatMap((x) => x.split(",")) : typeof raw === "string" ? raw.split(",") : []).map((s) => s.trim()).filter(Boolean).filter((x, i, all) => all.indexOf(x) === i).slice(0, 5)
   if (!ids.length) return undefined
   const from = safeReturn(field(req.body, "sections_url")) ?? safeReturn(req.referer) ?? "/cart"
   const [path, search] = [from.split("?")[0] || "/", from.split("?")[1] ?? ""]
-  const after: SiteRequest = { ...req, method: "GET", body: null, cart, note, attributes, query: new URLSearchParams(search) }
+  const after: SiteRequest = { ...req, method: "GET", body: null, cart, note, attributes, discountCode: discount.code, cartDiscount: discount.priced, query: new URLSearchParams(search) }
   const route = await pageFor(site, decodePath(path), after).catch(() => null)
   if (route && route.content === undefined && !route.redirect) {
     const r = sectionsAnswer(site, route.page, route.sections, ids, true)
@@ -1221,6 +1306,8 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
   let cart = req.cart.map((e) => ({ ...e }))
   let note = req.note ?? ""
   let attributes: Record<string, string> = { ...(req.attributes ?? {}) }
+  /* The cart's discount code: kept through every change, set or taken off by /cart/update `discount`. */
+  let code = req.discountCode ?? ""
   const error = (message: string, status = 422) => (ajax ? json({ status, message, description: message }, status) : redirect("/cart"))
 
   if (action === "add") {
@@ -1256,15 +1343,20 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       added.push(cart.find((e) => e.k === k)!)
     }
     /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
-    if (buyNow) return { ...checkoutHandoff(site, asked, false, req.note ?? "", attributes), cart: req.cart, note: req.note ?? "", attributes }
+    if (buyNow) return { ...checkoutHandoff(site, asked, false, req.note ?? "", attributes, code), cart: req.cart, note: req.note ?? "", attributes }
     if (!ajax) return redirect("/cart", { cart, note, attributes })
-    const lines = (cartJson(site, cart, note, attributes).items as O[])
+    const priced = await priceDiscount(site, cart, code)
+    const lines = (cartJson(site, cart, note, attributes, priced).items as O[])
     const out = added.map((a) => lines.find((l) => l.key === a.k)).filter(Boolean) as O[]
-    const sections = await sectionsFor(site, req, cart, note, attributes)
+    const sections = await sectionsFor(site, req, cart, note, attributes, { code, priced })
     const body: O = items.length > 1 || Array.isArray(field(req.body, "items")) ? { items: out } : { ...(out[0] ?? {}) }
     if (sections) body.sections = sections
     return json(body, 200, { cart, note, attributes })
   }
+
+  /* What a `discount` asked, each code with whether it applies: set below by an update that names one. */
+  let asked: { code: string; applicable: boolean }[] | undefined
+  let priced: CartDiscount | null | undefined
 
   if (action === "change") {
     const line = Number(field(req.body, "line") ?? 0)
@@ -1301,18 +1393,130 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     if (typeof field(req.body, "note") === "string") note = String(field(req.body, "note")).slice(0, 500)
     attributes = attributesAfter(attributes, req.body)
     cart = await heldToStock(site, cart)
-    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart, true, note, attributes), cart, note, attributes }
+    const typed = field(req.body, "discount")
+    const typedCodes = typeof typed === "string" ? discountCodesOf(typed) : null
+    /* A cart form's Check out with its discount box: the code typed goes on as it is, and the checkout says what it does. */
+    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart, true, note, attributes, typedCodes ? (typedCodes[0] ?? "") : code), cart, note, attributes, ...(typedCodes ? { discountCode: typedCodes[0] ?? "" } : {}) }
+    /*
+      THE CODES A THEME ASKED FOR (Shopify's /cart/update.js `discount`,
+      "A,B"; "" takes them all off), each priced on this cart by the
+      checkout's own rules. The website's checkout takes one code, so the
+      first that applies is the cart's, and any after it does not apply,
+      as Shopify says of codes that do not combine.
+    */
+    if (typedCodes) {
+      code = ""
+      priced = null
+      asked = []
+      for (const c of typedCodes) {
+        if (code) {
+          asked.push({ code: c, applicable: false })
+          continue
+        }
+        const d = await priceDiscount(site, cart, c)
+        if (d?.applicable) {
+          code = d.code
+          priced = d
+        }
+        asked.push({ code: d?.code ?? c, applicable: d?.applicable === true })
+      }
+    }
   } else if (action === "clear") {
     /* Shopify's /cart/clear empties the lines and keeps the note and attributes. */
     cart = []
   }
   /* A quantity typed over what is left, or over Limit sales, comes down to it, as Shopify's cart does. */
   if (action === "change") cart = await heldToStock(site, cart)
-  if (!ajax) return redirect(safeReturn(field(req.body, "return_to")) ?? "/cart", { cart, note, attributes })
-  const body = cartJson(site, cart, note, attributes)
-  const sections = await sectionsFor(site, req, cart, note, attributes)
+  if (!ajax) return redirect(safeReturn(field(req.body, "return_to")) ?? "/cart", { cart, note, attributes, discountCode: code })
+  if (priced === undefined) priced = await priceDiscount(site, cart, code)
+  const body = cartJson(site, cart, note, attributes, priced, asked)
+  const sections = await sectionsFor(site, req, cart, note, attributes, { code, priced })
   if (sections) body.sections = sections
-  return json(body, 200, { cart, note, attributes })
+  return json(body, 200, { cart, note, attributes, discountCode: code })
+}
+
+/** A discount code as typed: trimmed, printable, at most 64 characters (lib/checkout/coupons normaliseCode), or null. */
+export function discountCodeOf(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const code = raw.trim()
+  // eslint-disable-next-line no-control-regex
+  if (!code || code.length > 64 || /[\u0000-\u001f\u007f]/.test(code)) return null
+  return code
+}
+
+/** "A, B,a" as ["A", "B"]: each code once, whatever its case, at most five. */
+function discountCodesOf(raw: string): string[] {
+  const out: string[] = []
+  for (const part of raw.split(",")) {
+    const c = discountCodeOf(part)
+    if (c && !out.some((o) => o.toLowerCase() === c.toLowerCase())) out.push(c)
+  }
+  return out.slice(0, 5)
+}
+
+/** Each line's price as the page shows it, by key: what the checkout's discount is put into. */
+function shownLines(site: SiteData, cart: CartEntry[]): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const i of (cartObject(cartLines(site, cart), site.shop.currency ?? "USD").items as O[]) ?? []) out[String(i.key)] = Number(i.line_price) || 0
+  return out
+}
+
+/**
+ * THE CART'S CODE ON THESE LINES, priced by the website's checkout. Null
+ * with no code. A code with nothing to price it (the canvas), an empty cart,
+ * or a check that failed is held but does not apply.
+ */
+async function priceDiscount(site: SiteData, cart: CartEntry[], code: string | null | undefined): Promise<CartDiscount | null> {
+  if (!code) return null
+  const none: CartDiscount = { code, applicable: false, valueType: "percentage", value: 0, scope: "cart", lines: {}, total: 0, freeShipping: false }
+  if (!cart.length || !site.pricing) return none
+  try {
+    return await site.pricing.discount(cart, code, shownLines(site, cart))
+  } catch {
+    return none
+  }
+}
+
+/** One field of a shipping address, from the query or the body: `shipping_address[zip]`, or `{ shipping_address: { zip } }`. */
+function addressField(req: SiteRequest, name: string): string {
+  const nested = field(req.body, "shipping_address")
+  const v = req.query.get(`shipping_address[${name}]`) ?? field(req.body, `shipping_address[${name}]`) ?? (nested && typeof nested === "object" ? (nested as O)[name] : undefined)
+  return typeof v === "string" ? v.trim().slice(0, 120) : ""
+}
+
+/**
+ * ESTIMATE SHIPPING, as a Shopify theme asks it (/cart/shipping_rates.json
+ * ?shipping_address[country]=Canada&shipping_address[province]=Ontario
+ * &shipping_address[zip]=K1A0B1): Settings › Shipping's rates for this cart
+ * to that address, local delivery and free over an amount included, in the
+ * currency the page shows. An address it cannot price is a 422 naming the
+ * field, `{ "country": ["is not supported"] }`, which a theme turns into its
+ * own sentence.
+ */
+async function shippingRates(site: SiteData, req: SiteRequest): Promise<SiteResponse> {
+  const typed = addressField(req, "country")
+  if (!typed) return json({ country: ["can't be blank"] }, 422)
+  const country = countryCode(typed)
+  if (!country) return json({ country: ["is not supported"] }, 422)
+  const province = addressField(req, "province")
+  const zip = addressField(req, "zip")
+  const currency = site.shop.currency ?? "USD"
+  if (!req.cart.length || !site.pricing) return json({ shipping_rates: [] })
+  const asked: ShippingAsk = { country, region: regionCode(country, province) ?? (province || null), zip: zip || null }
+  const est = await site.pricing.shipping(req.cart, req.discountCode || null, asked, shownLines(site, req.cart)).catch((): ShippingEstimate => ({ ok: true, rates: [] }))
+  if (est.ok === false) return json({ [est.field]: [est.message] }, 422)
+  return json({ shipping_rates: est.rates.map((r) => shippingRateJson(r, currency)) })
+}
+
+/** One rate as Shopify's /cart/shipping_rates.json writes it: its price a decimal string in the cart's currency. */
+function shippingRateJson(r: { name: string; cents: number; description?: string | null }, currency: string): O {
+  return {
+    name: r.name, presentment_name: r.name, code: r.name, price: (Math.max(0, r.cents) / 100).toFixed(2), markup: null, source: "storelib",
+    delivery_date: null, delivery_range: null, delivery_days: [], compare_price: null, phone_required: false, currency,
+    carrier_identifier: null, delivery_category: null, using_merchant_geo_shipping_rates: true, carrier_service_id: null,
+    description: r.description || null, api_client_id: null, requested_fulfillment_service_id: null, shipment_options: null,
+    charge_items: null, has_restrictions: null, rating_classification: null, accepts_instructions: false,
+  }
 }
 
 /**
@@ -1350,12 +1554,12 @@ export function attributesAfter(before: Record<string, string>, body: O | null):
  * from this host; the theme never sees a price it could set. `whole`: the
  * whole cart (emptied once paid), not a Buy it now of one item.
  */
-function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, note = "", attributes?: Record<string, string>): SiteResponse {
+function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, note = "", attributes?: Record<string, string>, code?: string | null): SiteResponse {
   /* Each line's properties (an engraving, a gift message on the line) go with it, and the order keeps them. */
   const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q, ...(e.props && Object.keys(e.props).length ? { properties: e.props } : {}) }))
   if (!items.length) return redirect("/cart")
-  /* The cart's note goes on with the lines: the checkout's "Add a note for the shop" opens with it, and the order keeps it. So do its attributes. */
-  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole, note, attributes }))
+  /* The cart's note goes on with the lines: the checkout's "Add a note for the shop" opens with it, and the order keeps it. So do its attributes, and its discount code, which the checkout prices again. */
+  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole, note, attributes, couponCode: code || null }))
 }
 
 /**
@@ -1453,33 +1657,34 @@ async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteRespons
 export const CART_COOKIE = "sl_theme_cart"
 
 /** The cart from its cookie. Anything that does not read as one is an empty cart. */
-export function readCartCookie(raw: string | undefined): { cart: CartEntry[]; note: string; attributes: Record<string, string> } {
-  if (!raw) return { cart: [], note: "", attributes: {} }
+export function readCartCookie(raw: string | undefined): { cart: CartEntry[]; note: string; attributes: Record<string, string>; discount: string } {
+  if (!raw) return { cart: [], note: "", attributes: {}, discount: "" }
   try {
-    const v = JSON.parse(decodeURIComponent(raw)) as { l?: unknown; n?: unknown; a?: unknown }
+    const v = JSON.parse(decodeURIComponent(raw)) as { l?: unknown; n?: unknown; a?: unknown; d?: unknown }
     const lines = Array.isArray(v.l) ? v.l : []
     const cart = lines
       .filter((e): e is O => !!e && typeof e === "object")
       .map((e) => ({ k: String(e.k ?? ""), p: String(e.p ?? ""), v: typeof e.v === "string" ? e.v : null, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(e.q) || 1))), ...(e.props && typeof e.props === "object" ? { props: e.props as Record<string, string> } : {}) }))
       .filter((e) => e.k && e.p)
       .slice(0, MAX_LINES)
-    return { cart, note: typeof v.n === "string" ? v.n.slice(0, 500) : "", attributes: cartAttributes(v.a) ?? {} }
+    return { cart, note: typeof v.n === "string" ? v.n.slice(0, 500) : "", attributes: cartAttributes(v.a) ?? {}, discount: discountCodeOf(v.d) ?? "" }
   } catch {
-    return { cart: [], note: "", attributes: {} }
+    return { cart: [], note: "", attributes: {}, discount: "" }
   }
 }
 
 /* A browser drops a cookie over 4 KB whole, cart and all: attributes are left out, last first, before that can happen. */
 const COOKIE_ROOM = 3800
 
-export function writeCartCookie(cart: CartEntry[], note: string, attributes?: Record<string, string>): string {
+export function writeCartCookie(cart: CartEntry[], note: string, attributes?: Record<string, string>, discount?: string | null): string {
   const pairs = Object.entries(attributes ?? {})
+  const d = discountCodeOf(discount) ?? undefined
   for (let n = pairs.length; n >= 0; n--) {
     const a = n > 0 ? Object.fromEntries(pairs.slice(0, n)) : undefined
-    const out = encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined, a }))
+    const out = encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined, a, d }))
     if (out.length <= COOKIE_ROOM || n === 0) return out
   }
-  return encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined }))
+  return encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined, d }))
 }
 
 // ── Assets ──────────────────────────────────────────────────────────────────

@@ -39,6 +39,7 @@ import { CartOfferSavings, CartOfferSuggestions, useCartOffers } from "@/compone
 import { cartPathFor } from "@/lib/website-builder/cart-checkout"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
+import { readCartExtras, writeCartExtras } from "@/lib/website-builder/cart-extras"
 
 export interface CartPalette {
   bg: string
@@ -128,7 +129,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
     [items],
   )
 
-  /* ?discountCode= in the link: applied once the basket has been read. */
+  /* ?discountCode= in the link, else the code and note kept from before a reload (lib/website-builder/cart-extras): applied once the basket has been read. */
   const linkCode = useRef<string | null>(null)
   useEffect(() => {
     if (!ready || linkCode.current !== null) return
@@ -138,12 +139,21 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
     } catch {
       /* no address to read */
     }
-    linkCode.current = fromLink
-    if (fromLink && lines.length > 0) {
-      setCode(fromLink)
-      void applyCode(fromLink, true)
+    const kept = readCartExtras(shopId)
+    if (kept.note) setNote(kept.note)
+    const first = fromLink || kept.code
+    linkCode.current = first
+    if (first && lines.length > 0) {
+      setCode(first)
+      void applyCode(first, true)
     }
-  }, [ready, lines.length, applyCode])
+  }, [ready, lines.length, applyCode, shopId])
+
+  /* What is applied and written is kept, so a reload or the drawer's Check out still has it. */
+  useEffect(() => {
+    if (!ready || linkCode.current === null) return
+    writeCartExtras(shopId, { code: applied?.code ?? "", note })
+  }, [ready, shopId, applied?.code, note])
 
   /* Another quantity or one line fewer is another price: the code is priced
      again, once the presses have stopped (the check is rate limited). */
