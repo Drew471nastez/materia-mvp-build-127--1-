@@ -126,6 +126,12 @@ export function BlockTreeLevel<B extends TreeBlock>({
       onReorder(next)
     },
     nest: canNest && onNest ? { step: TREE_STEP, can: canNest, onNest } : undefined,
+    nameOf: (i) => {
+      const b = blocksRef.current[i]
+      if (!b) return ""
+      const t = title(b)
+      return t.detail || t.name
+    },
   })
   /* The block a row would go into, let go now: drawn so the answer shows before the pointer lifts. */
   const into = drag && nesting === 1 ? drag.from - 1 : -1

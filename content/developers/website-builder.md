@@ -46,7 +46,9 @@ The page's sections, in three groups, the way a shop's theme editor shows them:
 - **Page** holds the page's own sections, top to bottom, with **Add section** at the end, which adds at the bottom. A thin line between two rows shows a **+** under the pointer: press it to add a section at exactly that point.
 - **Footer** holds the site's footer.
 
-Each row is one line: a grip to drag it (press and hold on a phone, or the arrow keys), its name, and under the pointer **Hide**, **Delete** and a **…** menu with **Duplicate**, **Move up**, **Move down**, **Hide** or **Show**, and **Delete**. A right click on the row opens the same menu. The header and footer have an icon in place of the grip and only the eye: they are the same on every page, so they can be hidden but not moved, copied or deleted, and nothing can be dropped into their groups. A hidden section is faded in the list, always shows its eye, and is left out of the page. Delete takes effect at once; Undo brings it back. See [The header and footer](/developers/header-and-footer).
+Each row is one line: a grip to drag it, its name, and under the pointer **Hide**, **Delete** and a **…** menu with **Duplicate**, **Move up**, **Move down**, **Hide** or **Show**, and **Delete**. A right click on the row opens the same menu. The header and footer have an icon in place of the grip and only the eye: they are the same on every page, so they can be hidden but not moved, copied or deleted, and nothing can be dropped into their groups. A hidden section is faded in the list, always shows its eye, and is left out of the page. Delete takes effect at once; Undo brings it back. See [The header and footer](/developers/header-and-footer).
+
+**Dragging a row.** The grip picks the row up at once, with a mouse, a trackpad or a finger: the row follows the pointer and the rows it passes slide aside to open the gap it will land in. Near the top or bottom of the sidebar the list scrolls. Letting go settles the row into the gap and the canvas shows the new order straight away; Escape puts it back and changes nothing. A page section moves among the page's own sections only, a block among the blocks of the same parent, and a block the section places itself (a static block) has no grip. On a focused grip, Up and Down move the row one place, and for a block Right and Left move it into the block above and back out where that block takes it. A screen reader hears each pick up, move and drop.
 
 ### Adding a section
 
@@ -68,7 +70,7 @@ Click a section, in the canvas or the list, and its settings open in the sidebar
 - **The section's own colours**, when its file declares any (stars, a timeline's dot, the scrim over a photo), are rows among its settings. Each says Scheme, Default or Auto until you pick a colour for this section alone, and the arrow beside it puts it back. See [Styling](/developers/styling#colours-of-the-sections-own).
 - **Text** picks the heading style and the body style from the theme's text styles, or **Custom** to set font, weight, a desktop and a phone size, line height, letter spacing and case for this section.
 - **The section's own settings** follow, in the order its file declares them, each with its help text. A setting marked responsive has a Desktop, Tablet, Phone switch above it.
-- **Blocks**, if it has any. Each block has a grip to drag it up or down with a mouse or a finger, or with the arrow keys. It can also be duplicated, deleted, and opened to edit its own settings. **Add** adds another, until the section's `limit` for that kind of block or its `max_blocks`. Clicking a block in the canvas opens it in the list.
+- **Blocks**, if it has any. Each block has a grip to drag it up or down with a mouse, a trackpad or a finger, or with the arrow keys, as sections drag. It can also be duplicated, deleted, and opened to edit its own settings. **Add** adds another, until the section's `limit` for that kind of block or its `max_blocks`. Clicking a block in the canvas opens it in the list.
 - **Hide**, **Duplicate** and **Delete** are pinned along the bottom.
 
 A section's file decides which of these it offers; see [Schema](/developers/schema#top-level). With the inspector on, a selected section also shows a small toolbar at its top right: Ask AI, Move up, Move down, Duplicate, Hide and Delete.
@@ -76,6 +78,8 @@ A section's file decides which of these it offers; see [Schema](/developers/sche
 ### Every control a section can have
 
 A section declares its settings in its schema, and each type is drawn as one control. This is every type, drawn as the builder draws it. To write one, see [Schema](/developers/schema).
+
+A `select` or `radio` with one to three options is a row of buttons, the chosen one on a white pill that slides to the next choice; four or more options are a dropdown. A short list whose labels are too long for its buttons is a dropdown too. The rule is the same for Storelib themes, imported themes, Theme settings and Website settings. In the row of buttons, Tab reaches the chosen one and the arrow keys change it.
 
 @[builder-controls]
 

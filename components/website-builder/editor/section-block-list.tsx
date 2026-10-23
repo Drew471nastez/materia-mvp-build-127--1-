@@ -112,6 +112,7 @@ export function SectionBlockList<B extends ListBlock>({
       onReorder(next)
     },
     onStart: () => setOpen((prev) => (prev.size ? new Set() : prev)),
+    nameOf: (i) => (blocksRef.current[i] ? title(blocksRef.current[i]).name : ""),
   })
 
   const toggle = (key: string) => {

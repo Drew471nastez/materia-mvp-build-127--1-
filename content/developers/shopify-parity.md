@@ -37,9 +37,9 @@ How the Storelib website builder compares with the theme editors store themes su
 | --- | --- | --- | --- |
 | `checkbox` | `checkbox`, `toggle` | Have | Drawn as a switch. |
 | `number` | `number` | Have | The `unit` shows inside the field. |
-| `radio` | `radio` | Have | Segmented buttons up to three options, a dropdown past that. |
+| `radio` | `radio` | Have | Buttons in a row for one to three options, a dropdown past that, the same as `select`. |
 | `range` | `range` | Have | May carry a value per screen. |
-| `select` | `select` | Have | |
+| `select` | `select` | Have | Buttons in a row for one to three options, a dropdown for four or more, or when the labels are too long for a button. |
 | `text` | `text` | Have | |
 | `textarea` | `textarea` | Have | |
 | `article` | none | Missing | No blog, so no posts to pick. Refused with the reason. |

@@ -33,11 +33,48 @@
  *
  * Rows are the list element's direct children marked `data-reorder-row`, so a
  * list can sit inside a row of another list without the two mixing.
+ *
+ * ANY SCROLL, NOT ONLY OURS. A trackpad or a wheel scrolling the sidebar
+ * while a row is held moves the content under a pointer that has not moved,
+ * exactly as the edge scroll does, so every frame compares the scroller's
+ * position with the last one it saw and carries the row by the difference.
+ *
+ * Escape while a row is held puts everything back and saves nothing, as the
+ * menu links' drag does (use-link-tree-drag.ts).
+ *
+ * HEARD AS WELL AS SEEN. Picking a row up, each drop, a row put back and
+ * every arrow key move is said in a polite live region ("Moved Hero to
+ * position 3 of 7"), so a screen reader follows a reorder it cannot watch.
  */
 import * as React from "react"
 import { flushSync } from "react-dom"
 
 import { hapticTap } from "@/lib/native-bridge"
+import { tt } from "@/lib/i18n/text"
+
+/**
+ * One live region for every list, made on first use: a list that mounts and
+ * unmounts as panels open would otherwise take its region (and what it was
+ * saying) with it.
+ */
+let region: HTMLElement | null = null
+export function announceReorder(text: string) {
+  if (typeof document === "undefined") return
+  if (!region || !region.isConnected) {
+    region = document.createElement("div")
+    region.setAttribute("role", "status")
+    region.setAttribute("aria-live", "polite")
+    region.setAttribute("data-reorder-live", "")
+    region.style.cssText = "position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0"
+    document.body.appendChild(region)
+  }
+  /* The same words twice (two moves down) must still be read: clear, then write. */
+  region.textContent = ""
+  const el = region
+  window.setTimeout(() => {
+    el.textContent = text
+  }, 30)
+}
 
 /** What React needs to know about a drag: which row is up, where it would land, and whether it would nest. */
 interface Drag {
@@ -66,6 +103,12 @@ interface Live {
   offsetToContent: number
   raf: number
   dirty: boolean
+  /** The scroller's position last frame: any scroll since moved the content under the pointer. */
+  scrollAt: number
+  /** Escape, listened for on the window while a row is held. */
+  onKey: (e: KeyboardEvent) => void
+  /** Takes the grip's own listeners off, however the drag ends. */
+  detach: () => void
 }
 
 /**
@@ -119,11 +162,14 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
   onMove,
   onStart,
   nest,
+  nameOf,
 }: {
   count: number
   onMove: (from: number, to: number) => void
   onStart?: () => void
   nest?: NestOptions
+  /** What a row is called, for the words a screen reader hears. */
+  nameOf?: (index: number) => string
 }) {
   const listRef = React.useRef<T>(null)
   const [drag, setDrag] = React.useState<Drag | null>(null)
@@ -135,6 +181,9 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
   /* Read when a grip is pressed, not when its handlers were made: a row that did not draw again (a memoised row) still knows how long the list is. */
   const countRef = React.useRef(count)
   countRef.current = count
+  const nameRef = React.useRef(nameOf)
+  nameRef.current = nameOf
+  const said = (index: number) => nameRef.current?.(index) || tt("Row {n}", { n: index + 1 })
 
   const rows = React.useCallback(() => {
     const list = listRef.current
@@ -210,15 +259,16 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     if (clientY < box.top + EDGE) speed = -MAX_SPEED * Math.min(1, (box.top + EDGE - clientY) / EDGE)
     else if (clientY > box.bottom - EDGE) speed = MAX_SPEED * Math.min(1, (clientY - (box.bottom - EDGE)) / EDGE)
     if (speed) {
-      const before = scrollTopOf(d.scroller)
       if (d.scroller) d.scroller.scrollTop += speed
       else window.scrollBy(0, speed)
-      const moved = scrollTopOf(d.scroller) - before
-      /* The finger has not moved on the glass, so in content coordinates it moved with the scroll. */
-      if (moved) {
-        d.lastY += moved
-        d.dirty = true
-      }
+    }
+    /* The edge scroll above, a trackpad, a wheel: the finger has not moved on the glass, so in content coordinates it moved with the scroll. */
+    const at = scrollTopOf(d.scroller)
+    const moved = at - d.scrollAt
+    if (moved) {
+      d.scrollAt = at
+      d.lastY += moved
+      d.dirty = true
     }
     if (d.dirty) {
       d.dirty = false
@@ -233,6 +283,8 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
       if (!d) return
       live.current = null
       cancelAnimationFrame(d.raf)
+      window.removeEventListener("keydown", d.onKey, true)
+      d.detach()
       try {
         d.grip.releasePointerCapture(d.pointerId)
       } catch {
@@ -248,6 +300,7 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
         commit && !reorder && n && Math.abs(dx) >= nestThreshold(n.step) && n.can(d.from, dx > 0 ? 1 : -1) ? (dx > 0 ? 1 : -1) : 0
 
       if (!reorder && !nestDir) {
+        if (!commit) announceReorder(tt("{name} put back at position {n} of {total}", { name: said(d.from), n: d.from + 1, total: list.length }))
         /* Nothing changes: everything eases back to where it was. */
         const still = reducedMotion()
         list.forEach((r) => {
@@ -263,6 +316,14 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
       const before = d.el.getBoundingClientRect()
       list.forEach(clear)
       hapticTap("medium")
+      const name = said(d.from)
+      announceReorder(
+        reorder
+          ? tt("Moved {name} to position {n} of {total}", { name, n: d.to + 1, total: list.length })
+          : nestDir === 1
+            ? tt("Moved {name} in a level", { name })
+            : tt("Moved {name} out a level", { name }),
+      )
       flushSync(() => {
         setDrag(null)
         if (reorder) onMoveRef.current(d.from, d.to)
@@ -318,7 +379,16 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
       offsetToContent: baseTop - el.offsetTop,
       raf: 0,
       dirty: true,
+      scrollAt: scroll,
+      onKey: (ev: KeyboardEvent) => {
+        if (ev.key !== "Escape") return
+        ev.preventDefault()
+        ev.stopPropagation()
+        finish(false)
+      },
+      detach: () => {},
     }
+    window.addEventListener("keydown", live.current.onKey, true)
     list.forEach((r, i) => {
       r.style.willChange = "transform"
       r.style.transition = i === index ? "none" : SLIDE
@@ -326,6 +396,7 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     document.body.style.setProperty("user-select", "none")
     document.body.style.setProperty("-webkit-user-select", "none")
     hapticTap("medium")
+    announceReorder(tt("Picked up {name}, position {n} of {total}", { name: said(index), n: index + 1, total: list.length }))
     onStart?.()
     setDrag({ from: index, to: index, nesting: 0 })
     live.current.raf = requestAnimationFrame(tick)
@@ -333,7 +404,9 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     const move = (ev: PointerEvent) => {
       const d = live.current
       if (ev.pointerId !== d?.pointerId) return
-      d.lastY = ev.clientY + scrollTopOf(d.scroller)
+      const at = scrollTopOf(d.scroller)
+      d.lastY = ev.clientY + at
+      d.scrollAt = at
       d.lastX = ev.clientX
       d.dirty = true
     }
@@ -354,6 +427,11 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     grip.addEventListener("pointermove", move)
     grip.addEventListener("pointerup", up)
     grip.addEventListener("pointercancel", up)
+    live.current.detach = () => {
+      grip.removeEventListener("pointermove", move)
+      grip.removeEventListener("pointerup", up)
+      grip.removeEventListener("pointercancel", up)
+    }
   }
 
   /**
@@ -365,13 +443,17 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     if (n && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
       e.preventDefault()
       const dir = e.key === "ArrowRight" ? 1 : -1
-      if (n.can(index, dir)) n.onNest(index, dir)
+      if (n.can(index, dir)) {
+        announceReorder(dir === 1 ? tt("Moved {name} in a level", { name: said(index) }) : tt("Moved {name} out a level", { name: said(index) }))
+        n.onNest(index, dir)
+      }
       return
     }
     if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return
     e.preventDefault()
     const to = e.key === "ArrowUp" ? index - 1 : index + 1
     if (to < 0 || to >= countRef.current) return
+    announceReorder(tt("Moved {name} to position {n} of {total}", { name: said(index), n: to + 1, total: countRef.current }))
     onMoveRef.current(index, to)
   }
 

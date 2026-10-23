@@ -407,13 +407,23 @@ gets its control and a removed one loses it; a hand edit to that part is
 replaced. The theme settings are \`shopify/config/settings_schema.json\`,
 read the same way into the builder's Theme settings, with their values in
 \`config/settings.json\` under \`shopify\`. A setting the builder has no
-control for keeps its value on the page, and the commit comment names it.`
+control for keeps its value on the page, and the commit comment names it.
+
+A \`select\` or \`radio\` setting with one to three options is drawn as a
+row of buttons, every choice in view; four or more options, or labels too
+long to fit a button, are drawn as a dropdown. Keep the labels to a word or
+two where buttons read better.`
     : `## Settings in the builder's sidebar
 
 A section's settings, blocks and presets are its \`<schema>\`: add, change or
 remove one there and the section's panel in the builder follows when the push
 comes in. Keep each setting's id, because the creator's content is stored
 under it.
+
+A \`select\` or \`radio\` setting with one to three options is drawn as a
+row of buttons, every choice in view; four or more options, or labels too
+long to fit a button, are drawn as a dropdown. Keep the labels to a word or
+two where buttons read better.
 
 ## Theme settings
 

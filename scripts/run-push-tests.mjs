@@ -50,6 +50,9 @@ const SUITES = [
   "tests/shop-money.test.ts",
   /* Round ed-1022: every edit on the canvas at once (the ease, the overlay kept after a drag, the currency code, variables-only theme values); scripts/check-editor-live.mjs measures them. */
   "tests/editor-live-updates.test.ts",
+  /* Round 1023: the sidebar's drag (a trackpad scroll under a held row, Escape, a drag that always ends clean, each move said aloud) and every select setting's one rule, buttons for one to three options, the dropdown past that; scripts/check-sidebar-dnd.mjs and scripts/check-segmented.mjs measure them. */
+  "tests/sidebar-dnd.test.ts",
+  "tests/segmented-select.test.ts",
   "tests/store-currency.test.ts",
   "tests/round-am.test.ts",
   "tests/round-an.test.ts",

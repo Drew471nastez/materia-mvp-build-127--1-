@@ -107,7 +107,7 @@
     },
     "select": {
       "label": "Select",
-      "description": "One of a list, drawn as a dropdown.",
+      "description": "One of a list. One to three options are a row of buttons, four or more a dropdown; labels too long for a button also get the dropdown.",
       "value": "enum",
       "fallback": "",
       "responsive": false,
@@ -134,7 +134,7 @@
     },
     "radio": {
       "label": "Radio",
-      "description": "One of a short list, every option visible.",
+      "description": "One of a list, drawn by the same rule as `select`: buttons for one to three options, a dropdown past that.",
       "value": "enum",
       "fallback": "",
       "responsive": false,

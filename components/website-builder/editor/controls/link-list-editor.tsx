@@ -52,6 +52,7 @@ import { cn } from "@/lib/utils"
 import { isMenuButton } from "@/lib/website-builder/header-settings"
 import { INPUT } from "./styles"
 import { useLinkTreeDrag } from "./use-link-tree-drag"
+import { ChoiceControl } from "./choice-control"
 import { tt } from "@/lib/i18n/text"
 
 /* The sidebar's field, a thumb's height on a phone: these lists are also drawn outside the phone sheet, in Website Settings, where the sheet's own 44px rule does not reach. */
@@ -240,25 +241,25 @@ function LinkRow({
               keeps it.
             */}
             {opensKids && (
-              <label className="block">
+              <div>
                 <span className="mb-1.5 block text-xs font-medium text-muted-foreground">{tt("When pressed")}</span>
-                <select
-                  className={FIELD}
-                  value={menuButton ? "menu" : "link"}
+                {/* Two choices: buttons when their words fit, the dropdown when they do not (choice-control.tsx). */}
+                <ChoiceControl
+                  echo={false}
+                  label={tt("When pressed")}
                   data-link-opens=""
-                  onChange={(e) => {
-                    if (e.target.value === "menu") {
+                  value={menuButton ? "menu" : "link"}
+                  onChange={(v) => {
+                    if (v === "menu") {
                       if (!menuButton) lastUrl.current = item.url
                       ctx.onUrl(item.id, "#")
                     } else {
                       ctx.onUrl(item.id, lastUrl.current && lastUrl.current !== "#" ? lastUrl.current : "/")
                     }
                   }}
-                >
-                  <option value="link">{tt("Goes to its link")}</option>
-                  <option value="menu">{tt("Opens its sub-links")}</option>
-                </select>
-              </label>
+                  options={[{ label: tt("Goes to its link"), value: "link" }, { label: tt("Opens its sub-links"), value: "menu" }]}
+                />
+              </div>
             )}
             {!menuButton && (
               <div>

@@ -32,6 +32,7 @@ import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mob
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
+import { ChoiceControl } from "@/components/website-builder/editor/controls/choice-control"
 import { SocialLinksEditor } from "@/components/website-builder/editor/social-links-editor"
 import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
 import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-anchors"
@@ -595,24 +596,12 @@ function EchoTextInput({ value, onChange, placeholder }: { value: string; onChan
 
 /**
  * A select and a switch that move in their own frame, and tell the editor
- * in a transition (components/website-builder/echo-field.ts).
+ * in a transition (components/website-builder/echo-field.ts). A select of
+ * one to three options is a segmented control, four or more the dropdown
+ * (controls/choice-control.tsx, lib/website-builder/choice-shape.ts).
  */
-function EchoSelect({ value, onChange, options, className }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[]; className?: string }) {
-  const [shown, set] = useEchoedValue(value, onChange)
-  return (
-    <div className="relative">
-      <select
-        className={cn("w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors", className)}
-        value={shown}
-        onChange={e => set(e.target.value)}
-      >
-        {options.map(opt => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-    </div>
-  )
+function EchoSelect({ value, onChange, options, className, label }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[]; className?: string; label?: string }) {
+  return <ChoiceControl value={value} onChange={onChange} options={options} label={label} className={className} />
 }
 
 function EchoSwitch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
@@ -847,7 +836,7 @@ function FieldControl({
   }
 
   if (kind === "select") {
-    return <EchoSelect value={typeof raw === "string" ? raw : String(field.default ?? "")} onChange={onChange} options={field.options ?? []} />
+    return <EchoSelect value={typeof raw === "string" ? raw : String(field.default ?? "")} onChange={onChange} options={field.options ?? []} label={field.label} />
   }
 
   if (kind === "toggle" || kind === "checkbox") {
@@ -944,23 +933,13 @@ function FieldControl({
     return <ColorSchemeControl value={typeof raw === "string" ? raw : ""} onChange={(v) => onChange(v)} />
   }
 
+  /* Left, centre, right: three choices, so the segmented control every short select is (controls/choice-control.tsx). */
   if (kind === "alignment") {
     const current = typeof raw === "string" ? raw : "left"
-    return (
-      <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-muted/60">
-        {(["left", "center", "right"] as const).map(a => (
-          <button
-            key={a}
-            type="button"
-            className={cn("h-7 rounded-md text-xs font-medium capitalize transition-colors", current === a ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
-            onClick={() => onChange(a)}
-          >
-            {a}
-          </button>
-        ))}
-      </div>
-    )
+    const options = field.options?.length ? field.options : [{ label: tt("Left"), value: "left" }, { label: tt("Center"), value: "center" }, { label: tt("Right"), value: "right" }]
+    return <EchoSelect value={current} onChange={onChange} options={options} label={field.label} />
   }
+
 
   if (kind === "image_gallery") {
     const list = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []
@@ -1015,49 +994,11 @@ function FieldControl({
     )
   }
 
+  /* A radio setting follows the select's rule: buttons for one to three options, the dropdown past that (controls/choice-control.tsx). */
   if (kind === "radio") {
-    const current = typeof raw === "string" ? raw : String(field.default ?? "")
-    const opts = field.options ?? []
-    // Fallback to a select when there are too many options for a segmented control
-    if (opts.length > 3) {
-      return (
-        <div className="relative">
-          <select
-            className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-            value={current}
-            onChange={e => onChange(e.target.value)}
-          >
-            {opts.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        </div>
-      )
-    }
-    return (
-      <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
-        {opts.map(opt => {
-          const isSelected = current === opt.value
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onChange(opt.value)}
-              className={cn(
-                "flex-1 py-1 px-2.5 text-[12.5px] font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
-                isSelected
-                  ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
-                  : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
-              )}
-            >
-              {opt.label}
-            </button>
-          )
-        })}
-      </div>
-    )
+    return <EchoSelect value={typeof raw === "string" ? raw : String(field.default ?? "")} onChange={onChange} options={field.options ?? []} label={field.label} />
   }
+
 
   // Fallback
   return (
@@ -1386,7 +1327,7 @@ function WbSelect({
   return (
     <div className="space-y-1.5">
       <p className="text-[13px] font-medium text-foreground">{label}</p>
-      <EchoSelect value={selected} onChange={onChange} options={options} />
+      <EchoSelect value={selected} onChange={onChange} options={options} label={label} />
     </div>
   )
 }
@@ -1403,48 +1344,11 @@ function WbRadioSegment({
   onChange: (v: string) => void
   options: { label: string; value: string }[]
 }) {
-  /* The choice moves in its own frame; the editor follows in a transition (components/website-builder/echo-field.ts). */
-  const [selected, choose] = useEchoedValue(typeof value === "string" ? value : String(options[0]?.value ?? ""), onChange)
-  // Fallback to a select when there are too many options for a segmented control
-  if (options.length > 3) {
-    return (
-      <div className="space-y-1.5">
-        <p className="text-[13px] font-medium text-foreground">{label}</p>
-        <div className="relative">
-          <select
-            className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-            value={selected}
-            onChange={e => choose(e.target.value)}
-          >
-            {options.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        </div>
-      </div>
-    )
-  }
+  /* The same control as every select: buttons for one to three options, the dropdown past that (controls/choice-control.tsx). */
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <p className="text-[13px] font-medium text-foreground">{label}</p>
-      <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
-        {options.map(opt => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => choose(opt.value)}
-            className={cn(
-              "flex-1 py-1 px-2.5 text-[12.5px] font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
-              selected === opt.value
-                ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
-                : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <EchoSelect value={typeof value === "string" ? value : String(options[0]?.value ?? "")} onChange={onChange} options={options} label={label} />
     </div>
   )
 }
@@ -2077,21 +1981,17 @@ function HeaderSectionSettings({
               />
               {showSearchIcon && (
                 <>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-foreground">When search is clicked</p>
-                    <div className="relative">
-                      <select
-                        className="w-full h-8 pl-2.5 pr-8 text-[13px] border border-border rounded-md bg-background appearance-none focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-                        value={typeof s.search_behaviour === "string" ? s.search_behaviour : "header"}
-                        onChange={e => onUpdateSetting("search_behaviour", e.target.value)}
-                      >
-                        <option value="header">Open it in the header</option>
-                        <option value="modal">Open a search window</option>
-                        <option value="page">Go to the search page</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    </div>
-                  </div>
+                  {/* Three choices: buttons when their words fit, the dropdown when they do not (controls/choice-control.tsx). */}
+                  <WbSelect
+                    label="When search is clicked"
+                    value={typeof s.search_behaviour === "string" ? s.search_behaviour : "header"}
+                    onChange={v => onUpdateSetting("search_behaviour", v)}
+                    options={[
+                      { label: "Open it in the header", value: "header" },
+                      { label: "Open a search window", value: "modal" },
+                      { label: "Go to the search page", value: "page" },
+                    ]}
+                  />
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium text-foreground">Search placeholder</p>
                     <input

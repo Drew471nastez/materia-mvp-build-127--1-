@@ -10578,7 +10578,12 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Año fiscal {year}",
  "“{label}” may": "“{label}” puede",
  "“{term}” is already in your glossary.": "“{term}” ya está en tu glosario.",
- "↻ Refresh thumbnail": "↻ Actualizar miniatura"
+ "↻ Refresh thumbnail": "↻ Actualizar miniatura",
+ "{name} put back at position {n} of {total}": "{name} vuelve a la posición {n} de {total}",
+ "Moved {name} to position {n} of {total}": "{name} movido a la posición {n} de {total}",
+ "Moved {name} in a level": "{name} movido un nivel hacia dentro",
+ "Moved {name} out a level": "{name} movido un nivel hacia fuera",
+ "Picked up {name}, position {n} of {total}": "{name} levantado, posición {n} de {total}"
 }
 
 export default words

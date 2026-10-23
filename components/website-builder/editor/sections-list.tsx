@@ -609,6 +609,7 @@ export function SectionsList({
       const list = bodyRef.current
       if (list[from] && list[to]) dnd.onReorder(list[from].id, list[to].id)
     },
+    nameOf: (i) => (bodyRef.current[i] ? nameOf(bodyRef.current[i]) : ""),
   })
 
   /**

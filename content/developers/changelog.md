@@ -12,6 +12,12 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 23 October 2026
+
+**Changed**
+
+- A `select` or `radio` setting with one to three options is drawn as a row of buttons, four or more as a dropdown, and a short list with labels too long for its buttons as a dropdown. This is one rule for every schema: Storelib themes, imported themes' `settings_schema.json` and section schemas, Theme settings and Website settings ([how a choice is drawn](/developers/schema#choosing-the-type)).
+
 ## 11 October 2026
 
 **Added**
