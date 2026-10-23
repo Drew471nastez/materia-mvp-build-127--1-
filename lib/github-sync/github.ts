@@ -759,9 +759,19 @@ export async function commitIsolating(
       out.missing.push(...r.missing)
     } catch (e) {
       if (!(e instanceof GitHubError) || !refusesContent(e)) throw e
+      if (part.length === 1) {
+        out.refused.push({ path: part[0].path, error: e })
+        return
+      }
+      /*
+        Out of tries or time with more than one file left: none of them is
+        known to be refused, so they wait for the next send, which carries
+        on from here. Calling the whole group refused named innocent files
+        (Materia's page-password.css beside the one with the key).
+      */
       const late = !!opts.deadline && Date.now() > opts.deadline
-      if (part.length === 1 || attempts >= MAX_ISOLATING_COMMITS || late) {
-        for (const c of part) out.refused.push({ path: c.path, error: e })
+      if (attempts >= MAX_ISOLATING_COMMITS || late) {
+        for (const c of part) out.deferred.push(c.path)
         return
       }
       const mid = Math.ceil(part.length / 2)

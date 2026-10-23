@@ -10579,21 +10579,22 @@ const words: Record<string, string> = {
  "“{label}” may": "„{label}” może",
  "“{term}” is already in your glossary.": "„{term}” jest już w Twoim słowniku.",
  "↻ Refresh thumbnail": "↻ Odśwież miniaturę",
- "GitHub turned a file down": "GitHub odrzucił plik",
- "GitHub's secret scanning found what looks like a key or token in it. Every other file was sent. Take the key out of the file listed below, then send again.": "Skanowanie sekretów GitHuba znalazło w nim coś, co wygląda na klucz lub token. Wszystkie inne pliki zostały wysłane. Usuń klucz z pliku poniżej i wyślij ponownie.",
  "GitHub needs the Workflows permission": "GitHub wymaga uprawnienia Workflows",
  "A file in .github/workflows can only be changed by an app with that permission. Accept it for Storelib on GitHub, or leave the file out.": "Plik w .github/workflows może zmienić tylko aplikacja z tym uprawnieniem. Zaakceptuj je dla Storelib na GitHubie albo pomiń ten plik.",
  "{pending, plural, one {# file} other {# files}} still to send": "{pending, plural, one {# plik do wysłania} few {# pliki do wysłania} many {# plików do wysłania} other {# pliku do wysłania}}",
  "GitHub has the rest of the theme. Send again to finish.": "GitHub ma resztę motywu. Wyślij ponownie, aby dokończyć.",
  "Some files didn't reach GitHub": "Część plików nie dotarła do GitHuba",
- "GitHub turned this file down": "GitHub odrzucił ten plik",
- "The rest of the theme was sent. Change this file in the builder, then send again.": "Reszta motywu została wysłana. Zmień ten plik w kreatorze i wyślij ponownie.",
  "Didn't reach GitHub": "Nie dotarł do GitHuba",
  "Send again. Nothing on your site was lost.": "Wyślij ponownie. Nic na Twojej stronie nie przepadło.",
  "Sending to GitHub, {sent} of {total} files": "Wysyłanie do GitHuba, {sent} z {total} plików",
  "Sent {sent} of {total} files. Press Push to send the rest.": "Wysłano {sent} z {total} plików. Naciśnij Push, aby wysłać resztę.",
- "Sent {sent} of {total} files. GitHub turned {bad} down, listed below.": "Wysłano {sent} z {total} plików. GitHub odrzucił {bad}, lista poniżej.",
- "Sent the whole theme to GitHub, {total} files.": "Wysłano cały motyw do GitHuba, {total} plików."
+ "Sent the whole theme to GitHub, {total} files.": "Wysłano cały motyw do GitHuba, {total} plików.",
+ "Sent {sent} of {total} files. {bad} stayed in Storelib, listed below.": "Wysłano {sent} z {total} plików. {bad} zostało w Storelib, lista poniżej.",
+ "A file stayed in Storelib": "Plik został w Storelib",
+ "GitHub's secret scanning would not take it. Everything else is on GitHub, and your site still uses the file. Send again after changing it.": "Skanowanie sekretów GitHuba go nie przyjęło. Cała reszta jest na GitHubie, a Twoja strona nadal używa tego pliku. Wyślij ponownie po jego zmianie.",
+ "Stayed in Storelib": "Zostało w Storelib",
+ "Your site still uses it. Change it in the builder, then send again.": "Twoja strona nadal go używa. Zmień go w kreatorze i wyślij ponownie.",
+ "Not on GitHub yet. Your site still uses them; change the file in the builder, then press Push:": "Jeszcze nie na GitHubie. Twoja strona nadal ich używa; zmień plik w kreatorze i naciśnij Push:"
 }
 
 export default words

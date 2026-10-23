@@ -29,7 +29,8 @@ import JSZip from "jszip"
 
 import { fakeDb } from "./_fake-db"
 import { fakeGitHub } from "./_fake-github"
-import { setGitHubTransport, timing, commitChanges, type GitHubConfig } from "@/lib/github-sync/github"
+import { setGitHubTransport, timing, commitChanges, commitIsolating, type GitHubConfig } from "@/lib/github-sync/github"
+import { keepKeysOut, putKeysBack } from "@/lib/github-sync/secrets"
 import { SyncError, applyPush, exportSiteReport, type GitHubLink } from "@/lib/github-sync/sync"
 import { explainFailure } from "@/lib/github-sync/errors"
 import { editorReport } from "@/lib/github-sync/editor-status"
@@ -184,6 +185,62 @@ async function main() {
     check("no branch was made", gh.repos.get(REPO)!.refs.size === 1)
     const messages = [...gh.repos.get(REPO)!.commits.values()].filter((c) => c.message.startsWith("Storelib")).map((c) => c.message)
     check("every commit carries Storelib's marker, so none is read back", messages.length > 0 && messages.every((m) => /\[storelib-sync\]/.test(m)))
+  }
+
+  console.log("\nMateria's map key: kept in Storelib, the file on GitHub, the key back on the way in")
+  {
+    const TOKEN = "pk.eyJ1IjoibWF0ZXJpYXRoZW1lcyIsImEiOiJjbHh5ejEyM3AwMDAwMmtxeDZ6Z2h0dXZ3In0.AbCdEfGhIjKlMnOpQrStUv"
+    const tables = await materia()
+    tables.store_theme_custom_files.push({ install_id: INSTALL, path: "shopify/assets/page-store-location.js", content: `mapboxgl.accessToken = '${TOKEN}';\nconst map = new mapboxgl.Map({ container: 'map' });`, draft_content: null })
+    for (const name of ["page-password.css", "page-sale.css", "pagination-styles.css"]) tables.store_theme_custom_files.push({ install_id: INSTALL, path: `shopify/assets/${name}`, content: `.${name.split(".")[0]} { color: red; }`, draft_content: null })
+    const db = fakeDb(tables as never)
+    const gh = fakeGitHub()
+    setGitHubTransport(gh.transport)
+    gh.newRepo(REPO, "main", null)
+    gh.repos.get(REPO)!.secrets = /pk\.eyJ/
+    const r = await exportSiteReport(db, cfg, link(db), "Materia Themes", { fetchMedia })
+    const files = gh.filesAt(REPO, "main")
+    const js = files["shopify/assets/page-store-location.js"]?.toString("utf8") ?? ""
+    check("every file lands, the one with the map key too", r.failed.length === 0 && r.pending === 0 && r.sent === r.total && ["page-password.css", "page-sale.css", "page-store-location.js", "pagination-styles.css"].every((n) => !!files[`shopify/assets/${n}`]), JSON.stringify(r.failed))
+    check("  the key is not in the repository; a marker is, every other byte as it was", !js.includes(TOKEN) && /mapboxgl\.accessToken = 'storelib-key-kept-out-mapbox_public-[0-9a-f]{12}';\nconst map = new mapboxgl\.Map\(\{ container: 'map' \}\);/.test(js), js)
+    check("  synced, with a note that says where the key is, not an error", link(db).last_error === null && link(db).sync_state?.last?.ok === true && (link(db).sync_state?.last?.notes ?? []).some((n) => n.path === "shopify/assets/page-store-location.js" && /stays in Storelib/.test(n.note) && /Restrict the key/.test(n.note)))
+    check("  the site's own copy still holds the key", tables.store_theme_custom_files.find((f) => f.path === "shopify/assets/page-store-location.js")!.content.includes(TOKEN))
+
+    const before = gh.repos.get(REPO)!.refs.get("main")!
+    const edited = js.replace("container: 'map'", "container: 'map', zoom: 4")
+    const after = gh.commitFiles(REPO, "main", { "shopify/assets/page-store-location.js": edited }, "Agent: zoom out")
+    const outcomes = await applyPush(db, cfg, {
+      ref: "refs/heads/main", before, after,
+      repository: { id: 9, full_name: REPO }, installation: { id: 1 }, sender: { login: "claude" }, pusher: { name: "claude" },
+      commits: [{ message: "Agent: zoom out", added: [], modified: ["shopify/assets/page-store-location.js"], removed: [] }],
+    } as never)
+    const row = tables.store_theme_custom_files.find((f) => f.path === "shopify/assets/page-store-location.js") as { draft_content?: string | null }
+    check("an agent's edit around the marker comes back with the real key in place", outcomes[0]?.saved.includes("shopify/assets/page-store-location.js") === true && (row.draft_content ?? "").includes(TOKEN) && (row.draft_content ?? "").includes("zoom: 4") && !(row.draft_content ?? "").includes("storelib-key-kept-out"), JSON.stringify(outcomes[0]?.failed))
+    const again = await exportSiteReport(db, cfg, link(db), "Materia Themes", { fetchMedia: null })
+    check("  and the next send matches GitHub's copy, with no secret sent", again.failed.length === 0 && !gh.filesAt(REPO, "main")["shopify/assets/page-store-location.js"].toString("utf8").includes(TOKEN))
+  }
+
+  console.log("\nOut of tries or time: files not tested wait, they are never called refused")
+  {
+    const gh = fakeGitHub()
+    setGitHubTransport(gh.transport)
+    gh.newRepo(REPO, "main", { "README.md": "x" })
+    gh.repos.get(REPO)!.secrets = /sk_live_/
+    const changes = ["a", "b", "c", "d"].map((n) => ({ path: `shopify/assets/${n}.css`, content: n === "c" ? "/* sk_live_x */" : `.${n}{}` }))
+    const r = await commitIsolating("t", REPO, "main", changes, "Storelib: test\n\n[storelib-sync]", { deadline: Date.now() - 1 })
+    check("past the deadline the group waits for the next send", r.refused.length === 0 && r.deferred.length === 4, JSON.stringify({ refused: r.refused.map((x) => x.path), deferred: r.deferred }))
+    const r2 = await commitIsolating("t", REPO, "main", changes, "Storelib: test\n\n[storelib-sync]")
+    check("  with time, only the file GitHub refuses is named", r2.refused.map((x) => x.path).join() === "shopify/assets/c.css" && ["a", "b", "d"].every((n) => !!gh.filesAt(REPO, "main")[`shopify/assets/${n}.css`]))
+  }
+
+  console.log("\nKeys: strict shapes only")
+  {
+    const css = ".sk-proj-card{color:red} .pk-eyJ{} /* AIza-short */ #a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6{}"
+    check("a stylesheet's class names and hashes are never taken for keys", keepKeysOut(css).kept.length === 0 && keepKeysOut(css).text === css)
+    const g = "key=AIzaSyA1234567890abcdefghijklmnopqrstuv&x"
+    const out = keepKeysOut(g)
+    check("a Google key is kept, marked as public", out.kept.length === 1 && out.kept[0].public && !out.text.includes("AIzaSy") && putKeysBack(out.text, g).text === g)
+    check("a font's base64 is left alone", keepKeysOut("base64:AIzaSyA1234567890abcdefghijklmnopqrstuv").kept.length === 0)
   }
 
   console.log("\nOut of time: what is ready is committed, the rest follows")
