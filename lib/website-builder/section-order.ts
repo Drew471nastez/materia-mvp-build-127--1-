@@ -25,3 +25,26 @@ export function bodyGapToListIndex(sections: SectionInstance[], gap: number): nu
   if (gap < bodyIndexes.length) return bodyIndexes[gap]
   return bodyIndexes[bodyIndexes.length - 1] + 1
 }
+
+/**
+ * Where the place between two sections an imported theme's canvas pointed
+ * at (canvas-bridge.ts, ADD A SECTION HERE) is in the section list: the
+ * group it is in, and the place counted inside that group, so a section
+ * added there lands between the two it was pressed between. The page's
+ * own content counts as the canvas gaps above do (`gap`, for
+ * bodyGapToListIndex); a header or footer group counts its own sections.
+ * Null when neither section is in the list, or the place is in a group
+ * nothing is added to from the canvas.
+ */
+export function insertPlaceBetween(
+  sections: SectionInstance[],
+  place: { before: string | null; after: string | null },
+): { group: "template" | "header" | "footer"; at: number } | null {
+  const ref = sections.find((s) => s.id === (place.before ?? place.after))
+  if (!ref) return null
+  const group = groupOf(ref)
+  if (group !== "template" && group !== "header" && group !== "footer") return null
+  const inGroup = sections.filter((s) => groupOf(s) === group)
+  const i = inGroup.findIndex((s) => s.id === ref.id)
+  return { group, at: place.before ? i : i + 1 }
+}

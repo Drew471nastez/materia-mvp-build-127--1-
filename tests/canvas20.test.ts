@@ -199,7 +199,7 @@ async function main() {
     check("the page in front is told when it can be seen, so its entrance plays there", /if \(!shown \|\| !frontN\) return\s*\n\s*frames\.current\.get\(frontN\)\?\.contentWindow\?\.postMessage\(\{ storelib: 1, type: "shown" \}, "\*"\)/.test(canvas))
     check("only once it is where it should stand: loaded, then scrolled, then settled", /type: "scroll", top: [^}]*settle: true/.test(canvas) && /m\.type === "settled"[\s\S]{0,80}promote\(slot\.n\)/.test(canvas))
     check("a page behind that never says so still comes forward", /setTimeout\(\(\) => promote\(slot\.n\), 2500\)/.test(canvas))
-    check("a link that opens another page leaves the page in front without pointer events until the next is in front", /=== true\) setLeavingFrom\(slot\.n\)/.test(canvas) && /pointerEvents: leavingFrom === slot\.n \? "none"/.test(canvas) && /setTimeout\(\(\) => setLeavingFrom\(null\), 4000\)/.test(canvas))
+    check("a link that opens another page leaves the page in front without pointer events until the next is in front", /* Changed on purpose (round canvas-1023): the link is followed by navigateFrom, which a page that left the frame uses too. */ /=== true\) \{ setLeavingFrom\(n\); return true \}/.test(canvas) && /pointerEvents: leavingFrom === slot\.n \? "none"/.test(canvas) && /setTimeout\(\(\) => setLeavingFrom\(null\), 4000\)/.test(canvas))
     check("the page in front is said to the editor when it changes", /onPageShown\.current\?\.\(frontPage\)/.test(canvas) && /page: `\$\{pageKey\}\|\$\{productId \?\? ""\}`/.test(canvas))
     check("a link under the pointer is said to the editor", /m\.type === "intent" && isFront/.test(canvas))
   }

@@ -97,6 +97,8 @@ export interface CompatCanvasProps {
   selectedBlockId: string | null
   inspectorEnabled: boolean
   onSelect: (sectionId: string, blockPath: string[]) => void
+  /** The strip between two sections pressed (canvas-bridge.ts, ADD A SECTION HERE): the sections either side of that place, by id. */
+  onAddSectionAt?: (place: { before: string | null; after: string | null }) => void
   /** A link pressed in the page: its address, and whether it is in the header or the footer. True when another page is opening because of it. */
   onNavigate?: (href: string, chrome: boolean) => boolean | void
   /** The pointer rests on a link (or a finger landed on one): the page it goes to can be read ahead. */
@@ -695,6 +697,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
     liveFill?: Map<string, { t: LiveTemplate; value: unknown; html: string }>
     /** The whole page as last sent to the frame (its first drawing when unset; null when not known): what a drawing while a finger is down is compared with. */
     lastHtml?: string | null
+    /** How many documents the frame has loaded: a second is the page having left the canvas (A PAGE THAT LEFT, onFrameLoad). */
+    loads?: number
+    /** A link the theme's own script took (a page transition): where the page is about to go, said while it could still be heard. */
+    taken?: { href: string; chrome: boolean; at: number }
   }
   const [slots, setSlots] = useState<Slot[]>([])
   /* The theme's first page has painted (its pictures in, or a moment after it is ready): the placeholder over it fades. */
@@ -1548,6 +1554,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   onSelect.current = props.onSelect
   const onNavigate = useRef(props.onNavigate)
   onNavigate.current = props.onNavigate
+  const onAddAt = useRef(props.onAddSectionAt)
+  onAddAt.current = props.onAddSectionAt
   /* The language previewed: its links carry /fr, and the builder's pages are named without it. */
   const langRef = useRef(langCode)
   langRef.current = langCode
@@ -1708,6 +1716,22 @@ export function CompatCanvas(props: CompatCanvasProps) {
     return () => clearTimeout(t)
   }, [leavingFrom])
   useEffect(() => { if (leavingFrom !== null && slots[0]?.n !== leavingFrom) setLeavingFrom(null) }, [slots, leavingFrom])
+  /* A link followed from the page: an account page drawn here, or the editor asked to open the page it goes to. True when another page is opening. */
+  const navigateFrom = (n: number, rawHref: string, chrome: boolean): boolean => {
+    const href = withoutLanguage(rawHref, langRef.current)
+    const to = href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+    if ((CANVAS_ACCOUNT_PATHS as readonly string[]).includes(to)) {
+      /* As any link in the page: from the header and footer always, from the page itself while the inspector is off. */
+      if (chrome || !inspecting.current) { setAccountPath(to); return true }
+      return false
+    }
+    /* Leaving an account page: the page being edited again, then wherever the link goes. */
+    if (accountRef.current) setAccountPath(null)
+    if (onNavigate.current?.(href, chrome) === true) { setLeavingFrom(n); return true }
+    return false
+  }
+  const navigateFromRef = useRef(navigateFrom)
+  navigateFromRef.current = navigateFrom
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       const slot = slotsRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
@@ -1786,16 +1810,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
       } else if (m.type === "navigate" && isFront) {
         const n = m as { href?: string; chrome?: boolean }
         if (typeof n.href !== "string") return
-        n.href = withoutLanguage(n.href, langRef.current)
-        const to = n.href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
-        if ((CANVAS_ACCOUNT_PATHS as readonly string[]).includes(to)) {
-          /* As any link in the page: from the header and footer always, from the page itself while the inspector is off. */
-          if (n.chrome === true || !inspecting.current) setAccountPath(to)
-          return
-        }
-        /* Leaving an account page: the page being edited again, then wherever the link goes. */
-        if (accountRef.current) setAccountPath(null)
-        if (onNavigate.current?.(n.href, n.chrome === true) === true) setLeavingFrom(slot.n)
+        navigateFromRef.current(slot.n, n.href, n.chrome === true)
+      } else if (m.type === "taken" && isFront) {
+        const n = m as { href?: unknown; chrome?: unknown }
+        if (typeof n.href === "string") slot.taken = { href: n.href, chrome: n.chrome === true, at: Date.now() }
       } else if (m.type === "intent" && isFront) {
         const h = (m as { href?: unknown }).href
         if (typeof h === "string") onIntent.current?.(withoutLanguage(h, langRef.current))
@@ -1816,6 +1834,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
         /* Cmd/Ctrl+C or V pressed inside the page: the editor copies or pastes the open section (editor page, clip keys). */
         const key = (m as { key?: unknown }).key
         if (key === "copy" || key === "paste") window.dispatchEvent(new CustomEvent("storelib:clip-key", { detail: key }))
+      } else if (m.type === "add-section" && inspecting.current && isFront) {
+        const a = m as { before?: unknown; after?: unknown }
+        onAddAt.current?.({ before: typeof a.before === "string" ? a.before : null, after: typeof a.after === "string" ? a.after : null })
       } else if (m.type === "pick" && typeof m.sectionId === "string" && inspecting.current && isFront) {
         onSelect.current(m.sectionId, Array.isArray(m.blockPath) ? m.blockPath.filter((x): x is string => typeof x === "string") : [])
       }
@@ -1835,6 +1856,43 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const onFrameLoad = (n: number) => {
     const at = slotsRef.current.findIndex((x) => x.n === n)
+    /*
+      ═════════════════════════════════════════════════════════════════════
+       A PAGE THAT LEFT THE CANVAS IS DRAWN AGAIN (round 1023)
+      ═════════════════════════════════════════════════════════════════════
+      A theme that plays its own page transition opens the next page itself
+      (location.href, once its overlay has played), and the frame goes to an
+      address that is no canvas at all: the builder's own host, a page with
+      no sections, nothing of this one's scripts. The page said so as it went
+      ("leaving" and "navigate" at pagehide), but a message sent while its
+      document is being unloaded comes from a window that is no longer the
+      frame's (e.source matches no frame, measured in Chromium), so neither
+      was ever heard: the canvas was left on that dead page, which neither
+      scrolls nor selects (scripts/check-canvas-freeze.mjs, a page
+      transition link pressed). The frame's own load event is the
+      browser's, and a frame drawn from markup loads once: a second load is
+      the page having left. The link the theme took is opened as the
+      editor would open it ("taken", said as the theme took it), and
+      otherwise the page is drawn again where it was.
+    */
+    if (at >= 0) {
+      const slot = slotsRef.current[at]
+      slot.loads = (slot.loads ?? 0) + 1
+      if (slot.loads > 1) {
+        slot.ready = false
+        const taken = slot.taken && Date.now() - slot.taken.at < 8000 ? slot.taken : null
+        slot.taken = undefined
+        if (at === 0 && taken && navigateFromRef.current(n, taken.href, taken.chrome)) return
+        if (compatTheme) {
+          try {
+            loadBehind(draw(sectionsRef.current), slot.key, sectionsRef.current)
+          } catch (e) {
+            console.error("[compat-canvas] the page could not be drawn", e)
+          }
+        }
+        return
+      }
+    }
     if (at < 0) {
       const away = keptRef.current.find((x) => x.n === n)
       if (away && !away.ready) frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "hello" }, "*")

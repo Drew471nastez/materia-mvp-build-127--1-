@@ -121,9 +121,9 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { createUndoRun } from "@/lib/website-builder/undo-run"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, pinScroll, releaseStrayDrawerHold, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
-import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
+import { SITE_DRAWER_OPEN_ATTRIBUTE, lockHolders } from "@/components/website-builder/drawer-frame"
 import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { CANVAS_SWITCH_MS, holdOffscreenSections, holdView, releaseHeldSections, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
 import { EXIT_MIN_MS, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
@@ -133,9 +133,9 @@ import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementL
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
-import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
+import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, mergeLazy, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
 import { blocksIntoDetails, staysInDetails, PRODUCT_DETAILS_BLOCK } from "@/lib/website-builder/product-details-rule"
-import { blockAt, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, updateAt, withChildren } from "@/lib/website-builder/block-tree"
+import { blockAt, blockSteps, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, stepBlock, updateAt, withChildren } from "@/lib/website-builder/block-tree"
 import { type BlockChoice } from "@/components/website-builder/editor/add-block-button"
 import { isStorelibSection, newSectionSettings } from "@/lib/website-builder/storelib-runtime"
 import { MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
@@ -155,7 +155,7 @@ import { DEFAULT_THEME_SOURCES } from "../../../../themes/default/sources.genera
 import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor/ai-working-overlay"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { headerLogoOf } from "@/lib/website-builder/chrome-logo"
-import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
+import { bodyGapToListIndex, insertPlaceBetween } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
@@ -2820,7 +2820,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
   /** The theme's blocks (blocks/*.storelib), this install's own files over them: what Add block can offer. */
   const blockCatalog = useMemo(() => themeBlockCatalog(storelibSources, { builtIn: !isCompatSource(storelibSources["layout/theme.storelib"]) }), [storelibSources])
-  const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
+  /* Each built-in schema read the first time something asks for it: spread, every one of them was read as the editor opened (storelib-schemas.ts, READ WHEN ASKED FOR). */
+  const librarySchemas = useMemo(() => mergeLazy(SECTION_SCHEMAS, customSchemas), [customSchemas])
   const ownSectionTypes = useMemo(() => customAddableSections(customSchemas), [customSchemas])
   /* The Community card is offered only while communities are on, and the collection sections only while
      collections are (physical commerce): off, they would draw nothing on the site. */
@@ -2857,6 +2858,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const overlayTypesKey = overlayTypesOf(sections)
   const libraryAddable = useMemo(() => {
+    /*
+      Not before the install's files are read (round 1023): until then it is
+      not known whether this is an imported theme, whose library is its own
+      sections, and listing the built-in ones read every built-in schema as
+      the editor opened (scripts/check-canvas-load.mjs PROFILE=1, 47ms of the
+      first canvas's task on an imported theme). The library is closed then.
+    */
+    if (!storelibSourcesRead) return [] as string[]
     const all = compatInstall ? ownSectionTypes : [
       ...ADDABLE_SECTIONS.filter((t) => (t !== "community_card" || builderCommunities !== null) && (!COLLECTION_SECTIONS.has(t) || builderCollections !== null)),
       ...ownSectionTypes,
@@ -2885,14 +2894,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
     return [...new Set([...(compatInstall ? [] : [own]), ...ownKinds, ...fits])]
-  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall, overlayTypesKey])
+  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall, overlayTypesKey, storelibSourcesRead])
   /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
   const overlayAddable = useMemo(() => {
     /* An imported theme always has the Overlay group: a phone tab bar, a popup or back to top can be added there. */
     if (compatInstall) return ownSectionTypes.length > 0
+    /* Known once the install's files are read (libraryAddable, above). */
+    if (!storelibSourcesRead) return false
     const all = [...ADDABLE_SECTIONS, ...ownSectionTypes]
     return all.some((t) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) }).includes("overlay"))
-  }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType])
+  }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType, storelibSourcesRead])
   /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
   const [pendingReplace, setPendingReplace] = useState<{ type: string; presetIndex: number; kind: SectionKind; current: string; next: string } | null>(null)
   /**
@@ -3088,6 +3099,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | null>(null)
   /** A gap in the CANVAS, counted in body sections rather than in the list. */
   const [canvasInsertAt, setCanvasInsertAt] = useState<number | null>(null)
+  /* A place inside the header or footer group an imported theme's canvas pointed at (insertPlaceBetween): counted in that group. */
+  const [groupInsertAt, setGroupInsertAt] = useState<number | null>(null)
   /**
    * ASK STORELIB IS SHOWING. On a phone, its sheet is open; closed until
    * asked for. On a computer, its pill is on the canvas; there by default,
@@ -5575,6 +5588,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }
 
+  /** A block one step up or down among its own siblings (the canvas toolbar over a selected block: lib/website-builder/block-tree.ts, stepBlock). */
+  const moveBlockBy = (sectionId: string, blockKey: string, dir: -1 | 1) => {
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    const path = section ? resolvePath(section.blocks, blockKey) : null
+    const next = section && path ? stepBlock(section.blocks, path, dir) : null
+    if (!section || !path || !next) return
+    pushUndo()
+    setSections(prev => prev.map(s => (s.id === sectionId ? { ...s, blocks: next } : s)))
+    /* Selected where it is now: the same path, the same block. */
+    setSelectedBlockId(pathKey(path))
+    setIsDirty(true)
+  }
+
   /** Kept, not drawn: hiding a block is not deleting it. A static block nobody has edited is created hidden. */
   const toggleBlockHidden = (sectionId: string, blockKey: string, staticType?: string) => {
     const section = sectionsRef.current.find(s => s.id === sectionId)
@@ -6095,12 +6121,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       groups,
       kind,
       group: requested,
-      at: requested === "template" && insertAt != null ? Math.max(0, Math.min(before.template.length, insertAt - before.header.length)) : null,
+      at: requested === "template" && insertAt != null ? Math.max(0, Math.min(before.template.length, insertAt - before.header.length)) : requested !== "template" && groupInsertAt != null ? groupInsertAt : null,
       kindOfType,
     })
     const next = placed.sections
     setPendingInsertIndex(null)
     setCanvasInsertAt(null)
+    setGroupInsertAt(null)
     if (kind) chromeRemoved.current[kind] = false
     if (placed.replaced.length > 0) {
       showNotification(`Replaced the ${kind}. Old one hidden.`)
@@ -6983,6 +7010,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [librarySchemas])
   const openAddSection = useCallback(() => {
     setAddGroup("template")
+    setGroupInsertAt(null)
     setAddSectionOpen(true)
   }, [])
   /**
@@ -7011,6 +7039,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         if (addSectionOpenRef.current) return
         setPendingInsertIndex(null)
         setCanvasInsertAt(null)
+        setGroupInsertAt(null)
       }))
     }
   }, [])
@@ -7131,10 +7160,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const openAddSectionAt = useCallback((at: number) => {
     setAddGroup("template")
+    setGroupInsertAt(null)
     setPendingInsertIndex(null)
     setCanvasInsertAt(at)
     setAddSectionOpen(true)
   }, [])
+  /*
+    AN IMPORTED THEME'S CANVAS POINTS AT A PLACE BY THE SECTIONS EITHER SIDE
+    OF IT (round 1023, canvas-bridge.ts ADD A SECTION HERE): the page's own
+    content is a canvas gap as above; a place inside the header or footer
+    group opens Add section for that group, at that place in it.
+  */
+  const openAddSectionBetween = useCallback((place: { before: string | null; after: string | null }) => {
+    const at = insertPlaceBetween(sectionsRef.current, place)
+    if (!at) return
+    if (at.group === "template") { setGroupInsertAt(null); openAddSectionAt(at.at); return }
+    setAddGroup(at.group)
+    setPendingInsertIndex(null)
+    setCanvasInsertAt(null)
+    setGroupInsertAt(at.at)
+    setAddSectionOpen(true)
+  }, [openAddSectionAt])
 
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
@@ -8079,6 +8125,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   setAddGroup(group)
                   setPendingInsertIndex(at === null || group !== "template" ? null : splitGroups(sections).header.length + at)
                   setCanvasInsertAt(null)
+                  setGroupInsertAt(null)
                   setAddSectionOpen(true)
                 }}
                 dnd={{ onReorder: reorderSection }}
@@ -11037,6 +11084,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onTouchStart={(e) => {
               // A finger down is somebody scrolling on purpose: let go of the pin.
               touchingCanvas.current = true
+              releaseStrayDrawerHold(e.currentTarget, lockHolders(e.currentTarget))
               if (!isMobileView) return
               const el = e.currentTarget
               /* Not under the site's open menu: the canvas is held still for
@@ -11048,7 +11096,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               else if (el.scrollTop >= max) el.scrollTop = max - 1
             }}
             onTouchEnd={() => { touchingCanvas.current = false }}
-            onWheelCapture={() => { touchingCanvas.current = true }}
+            onWheelCapture={(e) => {
+              touchingCanvas.current = true
+              /* A drawer's hold on the canvas that no drawer is counted for is let go (canvas-scroll.ts, releaseStrayDrawerHold). */
+              releaseStrayDrawerHold(e.currentTarget, lockHolders(e.currentTarget))
+            }}
             /**
              * =============================================================
              *  WITH THE INSPECTOR ON, THE CANVAS IS NOT A PAGE YOU BROWSE
@@ -11388,6 +11440,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   /* The switch itself, not the fade behind it: the frame fades its own marks (canvas-bridge.ts), and a page that has stopped selecting must stop outlining on the same press. */
                   inspectorEnabled={inspectorEnabled && !fullView}
                   onSelect={selectFromCompatCanvas}
+                  onAddSectionAt={openAddSectionBetween}
                   onNavigate={navigateCompatCanvas}
                   onPageShown={setCompatShownPage}
                   onIntent={intentInCompatCanvas}
@@ -11467,6 +11520,47 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             const body = splitGroups(sections)[group]
             const idx = body.findIndex((x) => x.id === shownSectionId)
             const chrome = (group === "header" || group === "footer") && isKind(current, group, kindOfType)
+            /*
+              A BLOCK SELECTED IS WHAT THE TOOLBAR ACTS ON (round 1023). With a
+              price selected inside a product's information, Move up moved the
+              whole section. The toolbar over a selected block moves it among
+              its own siblings (static blocks stay where the template put
+              them), and duplicates, hides and deletes it, as the block's own
+              menu in the sidebar does. The built-in header's links are its
+              own panel's, not here.
+            */
+            const blockKey = selectedBlockId && selectedSectionId === shownSectionId && current.type !== "header" ? selectedBlockId : null
+            const blockSchema = blockKey ? schemaFor(current.type, storelibSources, librarySchemas) : null
+            const blockHit = blockKey && blockSchema ? resolveBlock(current, blockSchema, blockCatalog, blockKey) : null
+            if (blockKey && blockHit && shownSectionId) {
+              const sid = shownSectionId
+              const path = resolvePath(current.blocks, blockKey)
+              const steps = path ? blockSteps(current.blocks, path) : { up: false, down: false }
+              const fixed = !!blockHit.block.static
+              return (
+                <SectionToolbar
+                  sectionId={sid}
+                  target="block"
+                  hidden={!!blockHit.block.hidden}
+                  isChrome={false}
+                  canMoveUp={steps.up}
+                  canMoveDown={steps.down}
+                  canDuplicate={!fixed && !!path}
+                  canRemove={!fixed && !!path}
+                  canHide={isStorelibSection(current.type, storelibSources)}
+                  onMoveUp={() => moveBlockBy(sid, blockKey, -1)}
+                  onMoveDown={() => moveBlockBy(sid, blockKey, 1)}
+                  onDuplicate={() => duplicateBlock(sid, blockKey)}
+                  onAskAi={() => {
+                    setAiOpen(true)
+                    rememberAskDockClosed(false)
+                    setAiAsk((n) => n + 1)
+                  }}
+                  onToggleHide={() => toggleBlockHidden(sid, blockKey, blockHit.virtual)}
+                  onRemove={() => removeBlock(sid, blockKey)}
+                />
+              )
+            }
             return (
               <SectionToolbar
                 sectionId={shownSectionId}
@@ -11766,9 +11860,13 @@ const TOOLBAR_FADE_MS = 200
 
 function SectionToolbar({
   sectionId,
+  target = "section",
   hidden,
   canMoveUp,
   canMoveDown,
+  canDuplicate = true,
+  canRemove = true,
+  canHide = true,
   isChrome,
   onMoveUp,
   onMoveDown,
@@ -11778,9 +11876,16 @@ function SectionToolbar({
   onAskAi,
 }: {
   sectionId: string | null
+  /** What the buttons act on: the section, or the block selected in it (the toolbar still stands at the section's corner). */
+  target?: "section" | "block"
   hidden: boolean
   canMoveUp: boolean
   canMoveDown: boolean
+  /** A static block is the template's: it is not copied or deleted. */
+  canDuplicate?: boolean
+  canRemove?: boolean
+  /** Hiding a block is a Storelib section's (the block's own menu offers the same). */
+  canHide?: boolean
   /** The header and the footer cannot be reordered or removed. */
   isChrome: boolean
   onMoveUp: () => void
@@ -11970,8 +12075,21 @@ function SectionToolbar({
             "pointer-events-none -translate-y-1 scale-[0.97] opacity-0",
       )}
       ref={barRef}
+      data-toolbar-target={target}
       style={{ top: draw.top, right: draw.right }}
       onClick={(e) => e.stopPropagation()}
+      /*
+        THE TOOLBAR NEVER STOPS THE CANVAS SCROLLING (round 1023). It stands
+        over the page, outside the scroller, so a wheel over it scrolled
+        nothing: the canvas read as frozen for as long as the pointer rested
+        on it. The wheel is handed on, to the card or to the imported
+        theme's frame, which scrolls itself (canvas-bridge.ts, scroll-by).
+      */
+      onWheel={(e) => {
+        const root = document.getElementById("wb-preview-root")
+        if (root && root.scrollHeight > root.clientHeight + 1) root.scrollBy({ top: e.deltaY, left: 0 })
+        else document.querySelector<HTMLIFrameElement>("[data-compat-frame='front']")?.contentWindow?.postMessage({ storelib: 1, type: "scroll-by", top: e.deltaY }, "*")
+      }}
     >
       {/**
        * ASK STORELIB ABOUT THIS SECTION, from the section itself.
@@ -11995,16 +12113,18 @@ function SectionToolbar({
             <ArrowDown className="h-4 w-4" strokeWidth={1.75} />
           </Item>
           <span aria-hidden className="mx-0.5 h-5 w-px bg-neutral-200" />
-          <Item label="Duplicate" onClick={onDuplicate}>
+          <Item label="Duplicate" onClick={onDuplicate} disabled={!canDuplicate}>
             <Copy className="h-4 w-4" strokeWidth={1.75} />
           </Item>
         </>
       )}
-      <Item label={hidden ? "Show" : "Hide"} onClick={onToggleHide}>
-        {hidden ? <Eye className="h-4 w-4" strokeWidth={1.75} /> : <EyeOff className="h-4 w-4" strokeWidth={1.75} />}
-      </Item>
+      {canHide && (
+        <Item label={hidden ? "Show" : "Hide"} onClick={onToggleHide}>
+          {hidden ? <Eye className="h-4 w-4" strokeWidth={1.75} /> : <EyeOff className="h-4 w-4" strokeWidth={1.75} />}
+        </Item>
+      )}
       {!isChrome && (
-        <Item label="Delete" onClick={onRemove}>
+        <Item label="Delete" onClick={onRemove} disabled={!canRemove}>
           <Trash2 className="h-4 w-4" strokeWidth={1.75} />
         </Item>
       )}

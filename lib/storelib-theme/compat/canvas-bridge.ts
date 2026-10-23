@@ -120,7 +120,7 @@ export const CANVAS_BRIDGE = `
     var stack = document.elementsFromPoint(x, y);
     for (var i = 0; i < stack.length; i++) {
       var c = stack[i];
-      if (c.hasAttribute && c.hasAttribute("data-sl-box")) continue;
+      if (c.hasAttribute && (c.hasAttribute("data-sl-box") || c.hasAttribute("data-sl-add"))) continue;
       var inside = c === el || el.contains(c);
       if (inside && (loose || !fixedBetween(c, el))) return true;
       if (c === document.body || c === document.documentElement) return false;
@@ -149,7 +149,7 @@ export const CANVAS_BRIDGE = `
     var stack = document.elementsFromPoint(x, y);
     for (var i = 0; i < stack.length; i++) {
       var c = stack[i];
-      if (c.hasAttribute && c.hasAttribute("data-sl-box")) continue;
+      if (c.hasAttribute && (c.hasAttribute("data-sl-box") || c.hasAttribute("data-sl-add"))) continue;
       if (c === el || c.contains(el) || el.contains(c)) return false;
       for (var n = c; n && n !== document.body; n = n.parentElement) {
         if (n.contains(el)) break;
@@ -486,7 +486,7 @@ export const CANVAS_BRIDGE = `
     pressedCard = null;
     if (!t || !t.closest || t.closest("a[href], button, input, select, textarea, label, form, [role=button], summary")) return;
     var href = oneLinkAround(t);
-    if (href) pressedCard = { href: href, at: Date.now(), chrome: !!t.closest("[class*='shopify-section-group-'], header, footer, nav") };
+    if (href) { pressedCard = { href: href, at: Date.now(), chrome: !!t.closest("[class*='shopify-section-group-'], header, footer, nav") }; post({ type: "taken", href: href, chrome: pressedCard.chrome }); }
   }, true);
   var follow = function (e, link) {
     var themeTook = false;
@@ -505,7 +505,8 @@ export const CANVAS_BRIDGE = `
       */
       var chrome = !!link.closest("[class*='shopify-section-group-'], header, footer, nav, mobile-navigation-bar, [class*='mobile-nav'], [class*='bottom-nav'], [class*='drawer']");
       var href = link.getAttribute("href") || "";
-      if (themeTook) { taken = { href: href, chrome: chrome, at: Date.now() }; return; }
+      /* Said now, while this page can still be heard: what it says as it unloads comes from a window the builder no longer knows (compat-canvas.tsx, A PAGE THAT LEFT THE CANVAS). */
+      if (themeTook) { taken = { href: href, chrome: chrome, at: Date.now() }; post({ type: "taken", href: href, chrome: chrome }); return; }
       taken = null;
       post({ type: "navigate", href: href, chrome: chrome });
       /* Off to another page: nothing of this one stays outlined while it goes. Back after a moment if the builder kept this page. */
@@ -549,6 +550,130 @@ export const CANVAS_BRIDGE = `
     if (where >= 0) path = path.slice(0, where);
     post({ type: "pick", sectionId: id, blockPath: path });
   }, true);
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     ADD A SECTION HERE, BETWEEN TWO SECTIONS (round 1023)
+    ═══════════════════════════════════════════════════════════════════════
+    A Storelib theme's canvas has a strip between every two sections that
+    adds one right there (the editor's CanvasInsertStrip); an imported
+    theme's had none. The same here, drawn by this page: with the pointer
+    within a few pixels of the line between two sections of the page's own
+    content (or of one group, the header's or the footer's), a grey line
+    grows out from the middle and a round button turns into place, on the
+    same 200ms ease the editor's strip uses. Nothing is added to the page's
+    flow: the strip is fixed over the line, so the theme lays out exactly
+    as on the website, and it costs the page no height. Pressed, the
+    builder opens Add section at that place (compat-canvas.tsx,
+    add-section). Not under a sticky header, not while the inspector is
+    off, not for a finger (there is no hover to find it with).
+  */
+  var addCss = document.createElement("style");
+  addCss.setAttribute("data-sl", "");
+  addCss.textContent = "[data-sl-add]{position:fixed;z-index:2147483645;height:12px;display:none;align-items:center;justify-content:center;cursor:pointer;-webkit-user-select:none;user-select:none}" +
+    "[data-sl-add] i{position:absolute;left:0;right:0;top:5px;height:2px;background:#d4d7dd;transform:scaleX(0);opacity:0;transition:transform .2s ease-out,opacity .2s ease-out}" +
+    "[data-sl-add] b{position:relative;display:flex;width:24px;height:24px;border-radius:999px;align-items:center;justify-content:center;background:#1a1a2e;color:#fff;box-shadow:0 2px 10px -4px rgba(15,23,42,.7);transform:rotate(-90deg) scale(.75);opacity:0;transition:transform .2s ease-out,opacity .2s ease-out}" +
+    "[data-sl-add][data-on] i{transform:scaleX(1);opacity:1}[data-sl-add][data-on] b{transform:none;opacity:1}" +
+    "@media (prefers-reduced-motion:reduce){[data-sl-add] i,[data-sl-add] b{transition:none}}";
+  document.head.appendChild(addCss);
+  var adder = null, gapShown = null, addFade = 0;
+  var adderEl = function () {
+    if (adder) return adder;
+    adder = document.createElement("div");
+    adder.setAttribute("data-sl-add", "");
+    adder.setAttribute("role", "button");
+    adder.setAttribute("aria-label", typeof window.__slAddLabel === "string" ? window.__slAddLabel : "Add a section here");
+    adder.innerHTML = '<i></i><b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></b>';
+    adder.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!gapShown) return;
+      post({ type: "add-section", before: gapShown.before, after: gapShown.after });
+      showGap(null);
+    });
+    (document.body || document.documentElement).appendChild(adder);
+    return adder;
+  };
+  /* The page's sections, top level only, as laid out now, by group: the places between them. */
+  var gapsNow = function () {
+    var all = Array.prototype.filter.call(document.querySelectorAll(".shopify-section"), function (s) {
+      return !(s.parentElement && s.parentElement.closest(".shopify-section"));
+    });
+    var rows = all.map(function (s) { var r = s.getBoundingClientRect(); return { id: idOf(s), group: groupOf(s), r: r }; }).filter(function (x) { return x.r.height >= 1 && x.r.width >= 1 && x.id; });
+    var gaps = [];
+    var groups = {};
+    rows.forEach(function (x) { (groups[x.group] = groups[x.group] || []).push(x); });
+    Object.keys(groups).forEach(function (g) {
+      var list = groups[g];
+      /* The page's own content: a place above every section and below the last. A group (header, footer): between its own sections only. An overlay group is not a place. */
+      var body = g === "";
+      if (!body && !/header|footer/i.test(g)) return;
+      for (var i = body ? 0 : 1; i <= list.length - (body ? 0 : 1); i++) {
+        var prev = list[i - 1] || null, next = list[i] || null;
+        var box = next ? next.r : prev.r;
+        gaps.push({ y: next ? next.r.top : prev.r.bottom, left: box.left, width: box.width, before: next ? next.id : null, after: prev ? prev.id : null });
+      }
+    });
+    return gaps;
+  };
+  var showGap = function (g) {
+    var el = adderEl();
+    if (!g) {
+      if (!gapShown && el.style.display === "none") return;
+      gapShown = null;
+      el.removeAttribute("data-on");
+      clearTimeout(addFade);
+      addFade = setTimeout(function () { if (!gapShown) el.style.display = "none"; }, 200);
+      return;
+    }
+    clearTimeout(addFade);
+    gapShown = g;
+    var vw = document.documentElement.clientWidth || innerWidth;
+    var left = Math.max(0, g.left), right = Math.min(vw, g.left + g.width);
+    el.style.left = left + "px";
+    el.style.width = Math.max(0, right - left) + "px";
+    el.style.top = (g.y - 6) + "px";
+    if (el.style.display !== "flex") {
+      el.style.display = "flex";
+      /* Laid out at rest first, so the line and the button grow in rather than appear. */
+      void el.offsetWidth;
+    }
+    if (!el.hasAttribute("data-on")) el.setAttribute("data-on", "");
+  };
+  var addAt = null;
+  var findGap = function () {
+    if (!addAt || !inspect || leaving || touching) return null;
+    var x = addAt.x, y = addAt.y;
+    var gaps = gapsNow(), best = null;
+    for (var i = 0; i < gaps.length; i++) {
+      var g = gaps[i];
+      var d = Math.abs(y - g.y);
+      if (d > 8 || x < g.left || x > g.left + g.width) continue;
+      if (!best || d < best.d) best = { g: g, d: d };
+    }
+    if (!best) return null;
+    /* Under a sticky header, or off the screen: not a place anybody can see. */
+    var cover = 0;
+    styleCache = null;
+    var tops = document.querySelectorAll(HEADER_TOPS);
+    for (var k = 0; k < tops.length; k++) {
+      var p = styleOf(tops[k]).position;
+      if (p !== "sticky" && p !== "fixed") continue;
+      var q = tops[k].getBoundingClientRect();
+      if (q.top <= 1 && q.bottom > 0 && q.height < innerHeight * 0.6) cover = Math.max(cover, q.bottom);
+    }
+    /* The line at the header's own foot is a place (the top of the page's content); one hidden under it is not. */
+    if (best.g.y < cover - 1 || best.g.y > innerHeight - 6) return null;
+    return best.g;
+  };
+  var addFrame = 0;
+  var placeAdder = function () { addFrame = 0; showGap(findGap()); };
+  document.addEventListener("pointermove", function (e) {
+    if (e.pointerType !== "mouse") return;
+    addAt = { x: e.clientX, y: e.clientY };
+    if (!addFrame) addFrame = requestAnimationFrame(placeAdder);
+  }, { passive: true, capture: true });
+  addEventListener("scroll", function () { if ((gapShown || addAt) && !addFrame) addFrame = requestAnimationFrame(placeAdder); }, { passive: true });
+  document.addEventListener("mouseleave", function () { addAt = null; showGap(null); });
   var fire = function (el, name, detail) { try { el.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail })); } catch (e) {} };
   /*
     STORELIB'S OWN EVENTS (round 1022, content/developers/imported-shopify-themes.md).
@@ -769,14 +894,116 @@ export const CANVAS_BRIDGE = `
     watcher = new MutationObserver(function (records) {
       for (var i = 0; i < records.length; i++) {
         var t = records[i].target;
-        if (t && t.nodeType === 1 && t.hasAttribute("data-sl-box")) continue;
+        if (t && t.nodeType === 1 && (t.hasAttribute("data-sl-box") || t.hasAttribute("data-sl-add") || (t.parentElement && t.parentElement.hasAttribute("data-sl-add")))) continue;
         burst();
         return;
       }
     });
     watcher.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "open", "hidden", "aria-hidden", "aria-expanded"] });
   }
-  var settled = function () { if (selected.section || hovered) { redraw(); reportSoon(); } };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A PAGE HELD STILL WITH NOTHING OPEN IS LET GO (round 1023)
+    ═══════════════════════════════════════════════════════════════════════
+    The owner: "the canvas sometimes freezes: it stops scrolling and the
+    scrollbar on the right goes; only a reload brings it back". A theme
+    holds its page still while a drawer, a pop-up or a page transition is
+    open, with a class or a style on <html> or <body> (overflow: hidden),
+    and lets go when that closes. In the canvas the close can never come:
+    the section holding the pop-up is drawn again or taken off by the
+    builder while it is open (scripts/check-canvas-freeze.mjs: a pop-up
+    open, its section hidden), or a transition waits for an overlay that
+    never finishes. The page then has room to scroll and takes no wheel,
+    and there is no scrollbar, because overflow: hidden draws none.
+
+    So the lock is checked against the page: held, with room to scroll,
+    and nothing on screen that holds it (an open <dialog>, or something
+    fixed over a quarter of the view and painted, read with
+    elementsFromPoint at five places), a moment after the last change to
+    <html> or <body>, it is lifted by a rule of the canvas's own on <html>
+    (data-sl-unlock), never by taking the theme's class away. The theme's
+    next lock is the theme's: anything that opens takes the rule off again.
+    A wheel that moves nothing over a held page asks the same at once.
+  */
+  var unlockCss = document.createElement("style");
+  unlockCss.setAttribute("data-sl", "");
+  unlockCss.textContent = "html[data-sl-unlock]{overflow-y:auto!important}html[data-sl-unlock] body{overflow-y:visible!important}html[data-sl-unlock=fixed] body{position:static!important;top:auto!important}";
+  document.head.appendChild(unlockCss);
+  var lockedNow = function () {
+    var se = document.scrollingElement || document.documentElement;
+    var hs = getComputedStyle(document.documentElement), bs = document.body ? getComputedStyle(document.body) : null;
+    var clip = function (v) { return v === "hidden" || v === "clip"; };
+    var fixed = !!bs && bs.position === "fixed";
+    var held = clip(hs.overflowY) || (!!bs && clip(bs.overflowY) && hs.overflowY === "visible") || fixed;
+    if (!held) return null;
+    /* A theme whose <body> is the page's scroller (html held on purpose, body scrolling): that is its layout, not a hold. */
+    if (bs && (bs.overflowY === "auto" || bs.overflowY === "scroll") && document.body.scrollHeight > document.body.clientHeight + 2) return null;
+    /* Room to scroll, as the page would have it: a body taken out of the flow (fixed) is measured by its own height. */
+    var tall = Math.max(se.scrollHeight, document.body ? document.body.scrollHeight : 0);
+    if (tall - innerHeight <= 2) return null;
+    return fixed ? "fixed" : "1";
+  };
+  var openOnScreen = function () {
+    var dialogs = document.querySelectorAll("dialog[open]");
+    for (var d = 0; d < dialogs.length; d++) { var dr = dialogs[d].getBoundingClientRect(); if (dr.width > 1 && dr.height > 1 && getComputedStyle(dialogs[d]).visibility !== "hidden") return true; }
+    var vw = innerWidth, vh = innerHeight, area = vw * vh;
+    var points = [[0.5, 0.5], [0.15, 0.5], [0.85, 0.5], [0.5, 0.25], [0.5, 0.8]];
+    styleCache = null; fadeCache = null;
+    for (var i = 0; i < points.length; i++) {
+      var stack = document.elementsFromPoint(vw * points[i][0], vh * points[i][1]);
+      for (var k = 0; k < stack.length; k++) {
+        var c = stack[k];
+        if (c === document.body || c === document.documentElement) break;
+        if (c.hasAttribute("data-sl-box") || c.hasAttribute("data-sl-add")) continue;
+        var layer = null;
+        for (var n = c; n && n !== document.body; n = n.parentElement) if (styleOf(n).position === "fixed") layer = n;
+        if (layer) {
+          var r = layer.getBoundingClientRect();
+          var seen = Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0)) * Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+          if (seen >= area * 0.25 && opacityOf(layer) >= 0.05) return true;
+        }
+        if (paints(c)) break;
+      }
+    }
+    return false;
+  };
+  var unlocked = false, lockTimer = 0, lockWatch = null;
+  var setUnlock = function (v) {
+    if (v) document.documentElement.setAttribute("data-sl-unlock", v);
+    else document.documentElement.removeAttribute("data-sl-unlock");
+    unlocked = !!v;
+    /* Our own change to <html> is not the theme's. */
+    if (lockWatch) lockWatch.takeRecords();
+  };
+  var checkLock = function () {
+    lockTimer = 0;
+    /* Read as the theme has the page: the rule off for the reading (one task, nothing is drawn between). */
+    if (unlocked) setUnlock(null);
+    var held = lockedNow();
+    if (!held || openOnScreen()) return;
+    setUnlock(held);
+    post({ type: "unfrozen" });
+    reportSoon();
+  };
+  var lockSoon = function (ms) { clearTimeout(lockTimer); lockTimer = setTimeout(checkLock, typeof ms === "number" ? ms : 700); };
+  if (typeof MutationObserver !== "undefined") {
+    lockWatch = new MutationObserver(function () {
+      /* The theme changed <html> or <body>: a lock with something open is the theme's at once; the rest is looked at again once things settle. */
+      if (unlocked && openOnScreen()) setUnlock(null);
+      lockSoon();
+    });
+    lockWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
+    if (document.body) lockWatch.observe(document.body, { attributes: true, attributeFilter: ["class", "style"] });
+  }
+  /* A wheel over a held page that did not move it: asked now, not after the settle. */
+  addEventListener("wheel", function (e) {
+    if (unlocked || Math.abs(e.deltaY) < 1) return;
+    var y = scrollY;
+    setTimeout(function () { if (scrollY === y && lockedNow()) checkLock(); }, 120);
+  }, { passive: true });
+  /* Already held when the page opens (a preloader's lock that never lets go): looked at once it has settled. */
+  setTimeout(function () { if (!lockTimer) lockSoon(0); }, 1500);
+  var settled = function () { if (selected.section || hovered) { redraw(); reportSoon(); } if (unlocked) lockSoon(150); };
   addEventListener("transitionend", settled, true);
   addEventListener("animationend", settled, true);
   /* Every selection outline off the page; what is selected, for the theme, is unchanged. */
@@ -888,6 +1115,8 @@ export const CANVAS_BRIDGE = `
       keepShown(pairs);
       if (selected.section === id) mark(selected.section, selected.block, false);
       reportSoon();
+      /* A drawer or a pop-up that was open in the section is gone with it, and its hold on the page may not be (A PAGE HELD STILL). */
+      lockSoon();
     });
   };
   /*
@@ -1403,6 +1632,7 @@ export const CANVAS_BRIDGE = `
       fire(el, "shopify:section:unload", { sectionId: id, load: true });
       el.remove();
       delete drawn[id];
+      lockSoon();
     });
     /* A selected section taken off keeps its selection: shown again, it is outlined again and the toolbar comes back to it. */
     reportSoon();
@@ -1466,6 +1696,7 @@ export const CANVAS_BRIDGE = `
       return;
     }
     if (hovered) { hovered.removeAttribute("data-sl-hover"); hovered = null; }
+    showGap(null);
     fadeBoxes(false);
     var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     letGo = setTimeout(function () { if (!inspect) { unmark(); redraw(); reportSoon(); } }, still ? 0 : 200);
@@ -1646,6 +1877,9 @@ export const CANVAS_BRIDGE = `
         scrollTo({ top: m.top || 0, behavior: "instant" });
         requestAnimationFrame(function () { requestAnimationFrame(function () { post({ type: "settled", scrollY: scrollY }); }); });
       } else scrollTo({ top: m.top || 0 });
+    } else if (m.type === "scroll-by") {
+      /* A wheel over the builder's toolbar, which stands over this page: the page scrolls as if the wheel were here. */
+      if (typeof m.top === "number" && isFinite(m.top)) scrollBy({ top: m.top, left: 0 });
     } else if (m.type === "hello") {
       /* The builder heard the frame load but not this page say so: said again, whatever order the two happened in. */
       ready();
@@ -2319,6 +2553,18 @@ export const CANVAS_SWITCH = `
   window.__slIO, for the bridge's own.
 */
 /*
+  A PRELOADER IS UNSEEN, NOT TAKEN OUT (round 1023). The theme's preloader
+  and page transition overlay were display: none here, so the page did not
+  wait behind them. But display: none also means no animation and no
+  transition runs on them, so no animationend or transitionend ever comes,
+  and a theme that holds the page still until its overlay has played
+  (body.is-leaving { overflow: hidden }, the next page opened on
+  animationend) held it for good: a link pressed in the canvas froze it
+  (scripts/check-canvas-freeze.mjs, a page transition link pressed). They
+  are hidden and their motion takes a millisecond, so every wait on them
+  ends, at once.
+*/
+/*
   A CHOICE IN THE CANVAS WRITES NO ADDRESS. The page is a sandboxed frame
   with no origin of its own, where history.replaceState to
   "/products/x?variant=…" throws a SecurityError; Dawn writes the address
@@ -2326,7 +2572,7 @@ export const CANVAS_SWITCH = `
   chosen M stayed with S's price, id and label. pushState and replaceState
   keep the state and leave the address as it is when the browser refuses it.
 */
-export const CANVAS_HEAD = `<style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{display:none!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
+export const CANVAS_HEAD = `<style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{position:fixed!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}preload-page *,.preload-page *,website-intro *,.website-intro *,#preloader *,.site-preloader *,.page-loader *,.page-loading-overlay *{visibility:hidden!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
 ["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(n),configurable:true})}catch(e){}}});
 try{document.cookie}catch(e){var jar=S("cookie");try{Object.defineProperty(document,"cookie",{get:function(){var o=[];for(var i=0;i<jar.length;i++){var k=jar.key(i);o.push(k+"="+jar.getItem(k))}return o.join("; ")},set:function(v){var parts=String(v).split(";"),first=parts.shift()||"",at=first.indexOf("=");if(at<1)return;var k=first.slice(0,at).trim(),val=first.slice(at+1).trim(),gone=false;parts.forEach(function(p){var q=p.split("="),n=(q[0]||"").trim().toLowerCase(),x=q.slice(1).join("=").trim();if(n==="max-age"&&Number(x)<=0)gone=true;if(n==="expires"){var t=Date.parse(x);if(!isNaN(t)&&t<=Date.now())gone=true}});if(gone)jar.removeItem(k);else jar.setItem(k,val)},configurable:true})}catch(e2){}}
 if(typeof IntersectionObserver==="function"){var IO=IntersectionObserver,watching=new WeakMap(),bySig=new Map(),gone=new WeakSet();var sig=function(el){return el.tagName+"."+String(el.getAttribute("class")||"").split(/\\s+/).filter(Boolean).sort().join(".")};var W=class extends IO{observe(t){try{gone.delete(this);if(t&&t.nodeType===1&&t.closest&&t.closest(".shopify-section")){var by=watching.get(t);if(!by)watching.set(t,by=new Set());by.add(this);if(String(t.getAttribute("class")||"").trim()){var k=sig(t),set=bySig.get(k);if(!set)bySig.set(k,set=new Set());set.add(this)}}}catch(e){}return super.observe(t)}unobserve(t){try{var by=watching.get(t);if(by)by.delete(this)}catch(e){}return super.unobserve(t)}disconnect(){gone.add(this);var me=this;bySig.forEach(function(set){set.delete(me)});return super.disconnect()}};window.IntersectionObserver=W;window.__slIO=IO;window.__slWatch={watching:watching,bySig:bySig,usable:function(io){var r=io.root;return !gone.has(io)&&(!r||r.nodeType===9)}}}
