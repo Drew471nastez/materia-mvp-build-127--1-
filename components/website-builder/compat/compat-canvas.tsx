@@ -1700,7 +1700,15 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   useEffect(() => {
     if (!shown || !frontN) return
-    frames.current.get(frontN)?.contentWindow?.postMessage({ storelib: 1, type: "shown" }, "*")
+    const win = frames.current.get(frontN)?.contentWindow
+    win?.postMessage({ storelib: 1, type: "shown" }, "*")
+    /*
+      AND A HOLD IT HAS FROM ITS FIRST PAINT IS LOOKED AT NOW (round 1023,
+      part 2): a cookie banner's consent hold, a drawer that opened itself, a
+      preloader's class. The page is let go here if nothing on screen holds
+      it, before anybody's first wheel (canvas-bridge.ts, "heal").
+    */
+    win?.postMessage({ storelib: 1, type: "heal" }, "*")
   }, [shown, frontN])
   /*
     A LINK PRESSED TO ANOTHER PAGE LEAVES THE PAGE IN FRONT STILL. Until the
@@ -2075,6 +2083,31 @@ export interface DocShape {
   /** Every section, in the order drawn, by id: its markup. */
   sections: Map<string, string>
   order: { id: string; group: string }[]
+  /**
+   * The head as the page holds what was drawn of it (every node the canvas
+   * marked drawn, and every script as a mark with its address), each as
+   * markup, in order: what the frame changes in place when a stylesheet, a
+   * meta or a script comes or goes (round 1023, part 2, THE MARKS below).
+   */
+  headLayout?: string[]
+  /** <body> with each section, script and noscript as a mark in its place: the layout around the sections, to change in place. */
+  bodyLayout?: string
+}
+
+/*
+  THE MARKS A LAYOUT IS WRITTEN WITH (round 1023, part 2). A section, a
+  script and a noscript stand in a layout as an empty <template> carrying
+  which one it is: the frame finds the section by its id and never moves
+  or re-runs any of them; a script added to the head by a setting is the
+  one thing it starts (canvas-bridge.ts, relayout).
+*/
+const LAYOUT_SECTION = "data-sl-sec"
+const LAYOUT_SCRIPT = "data-sl-js"
+const LAYOUT_NOSCRIPT = "data-sl-ns"
+const markOf = (doc: Document, attr: string, value: string) => {
+  const t = doc.createElement("template")
+  t.setAttribute(attr, value)
+  return t
 }
 
 const attrsOf = (el: Element): Record<string, string> => Object.fromEntries(Array.from(el.attributes).map((a) => [a.name, a.value]))
@@ -2100,6 +2133,13 @@ export function docShape(html: string): DocShape {
     sections.set(id, el.outerHTML)
     order.push({ id, group: /shopify-section-group-([a-z0-9_-]+)/i.exec(el.className)?.[1] ?? "" })
   }
+  const headLayout = Array.from(doc.head.children)
+    .filter((el) => el.tagName === "SCRIPT" || el.hasAttribute("data-sl-d"))
+    .map((el) => (el.tagName === "SCRIPT" ? markOf(doc, LAYOUT_SCRIPT, el.getAttribute("src") ?? "").outerHTML : el.outerHTML))
+  const laid = doc.body.cloneNode(true) as HTMLElement
+  laid.querySelectorAll(".shopify-section[data-section-id]").forEach((el) => el.replaceWith(markOf(doc, LAYOUT_SECTION, el.getAttribute("data-section-id") ?? "")))
+  laid.querySelectorAll("script").forEach((el) => el.replaceWith(markOf(doc, LAYOUT_SCRIPT, el.getAttribute("src") ?? "")))
+  laid.querySelectorAll("noscript").forEach((el) => el.replaceWith(markOf(doc, LAYOUT_NOSCRIPT, "")))
   const body = doc.body.cloneNode(true) as HTMLElement
   body.querySelectorAll(".shopify-section[data-section-id], script").forEach((el) => el.remove())
   const bodyStyles: string[] = []
@@ -2107,7 +2147,7 @@ export function docShape(html: string): DocShape {
     bodyStyles.push(el.textContent ?? "")
     el.remove()
   })
-  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order }
+  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML }
 }
 
 const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
@@ -2118,21 +2158,46 @@ const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.
 
 /**
  * What to send a page drawn as `from` so it reads as `to`, or null when the
- * page has to be loaded again: its head's scripts or the markup around its
- * sections changed, or a stylesheet came or went. A stylesheet's text, the
- * head's meta and links and the body's own styles are changed in place
- * (round 1022: a theme printing its accent in `<meta name="theme-color">`
- * had the page loaded again for every value of a colour dragged, 36 times).
+ * page has to be loaded again. A stylesheet's text, the head's meta and
+ * links and the body's own styles are changed in place (round 1022: a theme
+ * printing its accent in `<meta name="theme-color">` had the page loaded
+ * again for every value of a colour dragged, 36 times).
+ *
+ * THE LAYOUT AROUND THE SECTIONS IS CHANGED IN PLACE TOO (round 1023, part
+ * 2). A theme setting the layout prints outside every section loaded the
+ * whole page again, and the owner saw the canvas refresh and then freeze
+ * (scripts/check-theme-settings-live.mjs, on the Materia store): a cookie
+ * banner's words or its switch, a back to top button, a <style> there only
+ * while Shadow is on, a script in the head only while Search suggestions
+ * is on, a custom tag in the head. Each comes as `layout`, the layout's
+ * marked markup before and after (DocShape headLayout, bodyLayout), which
+ * the frame compares and changes node by node where it stands
+ * (canvas-bridge.ts, relayout), keeping the sections, the scripts that ran
+ * and whatever the theme's scripts added. Only a page drawn without those
+ * marks, or one whose layout the frame cannot match, is loaded again.
+ *
+ * `<html>`'s and `<body>`'s attributes go with what they were drawn as
+ * (htmlFrom, bodyFrom), so a class the theme's script added (js, loaded)
+ * stays where a setting changes another.
  */
 export function planPatch(from: DocShape, to: DocShape): { empty: boolean; message: Record<string, unknown>; swaps: { id: string; html: string }[] } | null {
-  if (from.head !== to.head || from.skeleton !== to.skeleton || from.styles.length !== to.styles.length || from.bodyStyles.length !== to.bodyStyles.length) return null
+  const headMoved = from.head !== to.head || from.styles.length !== to.styles.length || from.headNodes.length !== to.headNodes.length
+  const bodyMoved = from.skeleton !== to.skeleton || from.bodyStyles.length !== to.bodyStyles.length
+  if (headMoved && !(from.headLayout && to.headLayout)) return null
+  if (bodyMoved && !(from.bodyLayout !== undefined && to.bodyLayout !== undefined)) return null
   const message: Record<string, unknown> = {}
-  if (from.styles.some((x, i) => x !== to.styles[i])) message.styles = to.styles
-  if (from.bodyStyles.some((x, i) => x !== to.bodyStyles[i])) message.bodyStyles = to.bodyStyles
-  if (!sameList(from.headNodes, to.headNodes)) message.headNodes = to.headNodes
-  if (from.fonts.join("\n") !== to.fonts.join("\n")) message.fonts = to.fonts
-  if (!sameRecord(from.htmlAttrs, to.htmlAttrs)) message.htmlAttrs = to.htmlAttrs
-  if (!sameRecord(from.bodyAttrs, to.bodyAttrs)) message.bodyAttrs = to.bodyAttrs
+  const layout: { head?: [string[], string[]]; body?: [string, string] } = {}
+  if (headMoved) layout.head = [from.headLayout!, to.headLayout!]
+  else {
+    if (from.styles.some((x, i) => x !== to.styles[i])) message.styles = to.styles
+    if (!sameList(from.headNodes, to.headNodes)) message.headNodes = to.headNodes
+    if (from.fonts.join("\n") !== to.fonts.join("\n")) message.fonts = to.fonts
+  }
+  if (bodyMoved) layout.body = [from.bodyLayout!, to.bodyLayout!]
+  else if (from.bodyStyles.some((x, i) => x !== to.bodyStyles[i])) message.bodyStyles = to.bodyStyles
+  if (layout.head || layout.body) message.layout = layout
+  if (!sameRecord(from.htmlAttrs, to.htmlAttrs)) { message.htmlAttrs = to.htmlAttrs; message.htmlFrom = from.htmlAttrs }
+  if (!sameRecord(from.bodyAttrs, to.bodyAttrs)) { message.bodyAttrs = to.bodyAttrs; message.bodyFrom = from.bodyAttrs }
   const remove = from.order.filter((x) => !to.sections.has(x.id)).map((x) => x.id)
   if (remove.length) message.remove = remove
   /* A section whose markup changed is swapped in its place (canvas-bridge.ts, swap); one added is put where it goes; one only moved is moved. */

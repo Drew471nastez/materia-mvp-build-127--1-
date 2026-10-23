@@ -180,8 +180,9 @@ async function main() {
      * sidebar row into view could bring the canvas with it on a phone,
      * where the sidebar is a sheet over the canvas.
      */
-    check("the sidebar row is scrolled by its own container, not by scrollIntoView", /const scroller = row\.closest\("\[data-sheet-scroll\], \[data-wb-sidebar-scroll\]"\)/.test(editor) && /scroller\.scrollBy\(\{ top: delta, behavior: "smooth" \}\)/.test(editor))
-    check("and a row already in view is left alone", /if \(r\.top >= box\.top && r\.bottom <= box\.bottom\) return/.test(editor))
+    /* Changed on purpose (round 1023, part 2): the distance is rowIntoView's (steady-focus.ts), which also brings a row taller than the sidebar in by its top. */
+    check("the sidebar row is scrolled by its own container, not by scrollIntoView", /const scroller = row\.closest\("\[data-sheet-scroll\], \[data-wb-sidebar-scroll\]"\)/.test(editor) && /if \(delta\) scroller\.scrollBy\(\{ top: delta, behavior: "smooth" \}\)/.test(editor))
+    check("and a row already in view is left alone", /const delta = rowIntoView\(r, box\)/.test(editor) && /if \(row\.top >= box\.top && row\.bottom <= box\.bottom\) return 0/.test(read("lib/website-builder/steady-focus.ts")))
     /* Counted as attributes on the two scrollers, not as every selector that looks for them. */
     check("both sidebar scrollers are marked", (editor.match(/<div [^>]*\bdata-wb-sidebar-scroll[\s>]/g) ?? []).length === 2)
   }

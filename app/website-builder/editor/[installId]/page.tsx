@@ -13,7 +13,7 @@ import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, us
 import { flushSync } from "react-dom"
 import { MENU_DRAWER_MAX_WIDTH } from "@/lib/website-builder/header-drawers"
 import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
-import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
+import { installSteadyFocus, rowIntoView } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { openInstallPreview } from "@/lib/website-builder/open-preview"
 import dynamic from "next/dynamic"
@@ -6982,7 +6982,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   useEffect(() => {
     if (!selectedBlockId) return
-    const row = document.querySelector(`[data-block-row="${window.CSS.escape(selectedBlockId)}"]`)
+    /*
+      NOT THE BLOCK'S OWN PANEL (round 1023, part 2). Its settings carry the
+      same mark as a row of a list, so they were taken for a row: taller
+      than the sidebar, "brought into view" by their foot, and every block
+      opened scrolled to the bottom of its settings. A row in a list is
+      brought into view; the panel opens at its top.
+    */
+    const row = Array.from(document.querySelectorAll(`[data-block-row="${window.CSS.escape(selectedBlockId)}"]`)).find((el) => !el.closest("[data-wb-block-panel]"))
     if (!row) return
     const id = requestAnimationFrame(() => {
       /**
@@ -6996,9 +7003,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (!scroller) return
       const r = row.getBoundingClientRect()
       const box = scroller.getBoundingClientRect()
-      if (r.top >= box.top && r.bottom <= box.bottom) return // already in view
-      const delta = r.top < box.top ? r.top - box.top : r.bottom - box.bottom
-      scroller.scrollBy({ top: delta, behavior: "smooth" })
+      /* Its top in view, whatever its height: a row taller than the sidebar is never brought in by its foot (steady-focus.ts rowIntoView). */
+      const delta = rowIntoView(r, box)
+      if (delta) scroller.scrollBy({ top: delta, behavior: "smooth" })
     })
     return () => cancelAnimationFrame(id)
   }, [selectedBlockId])
@@ -8200,7 +8207,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <ChevronRight className="h-3 w-3 shrink-0" />
               </button>
             </div>
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
+            {/*
+              KEYED BY THE BLOCK, SO ITS SETTINGS OPEN AT THEIR TOP (round 1023,
+              part 2). The same scroller was kept from one block to the next and
+              opened where the last block's settings had been left.
+            */}
+            <div key={key} data-sheet-scroll data-wb-block-scroll="" className="flex-1 overflow-y-auto wb-slim-scroll">
               <div className="px-3.5 py-3.5 space-y-3.5" data-block-row={key}>
                 <BlockFields
                   section={section}

@@ -219,7 +219,7 @@ export function CompatThemeSettings({
               const owner = parts.length >= 4 && parts[2] === "settings" && SCHEME_HEADER.test(fields.slice(0, i).reverse().find((f) => SCHEME_HEADER.test(f.id))?.id ?? "") ? `${parts[0]}${SEP}${parts[1]}` : null
               if (owner && owner !== opened) return null
               return (
-                <div key={field.id} className={owner ? "pl-1" : undefined}>
+                <div key={field.id} className={owner ? "pl-1" : undefined} data-compat-setting={field.id}>
                   {renderField(field, readAt(values, field.id) ?? field.default, (v) => {
                     if (!field.id.includes(SEP)) return onChange(field.id, v)
                     const [top, ...rest] = field.id.split(SEP)

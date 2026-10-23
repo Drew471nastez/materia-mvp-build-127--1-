@@ -23,6 +23,26 @@ export const CANVAS_BRIDGE = `
   /* The layout's own <style>s in the body, around the sections, as drawn (compat-canvas.tsx docShape bodyStyles): marked now, before the theme's deferred scripts can add one. */
   try { Array.prototype.forEach.call(document.body.querySelectorAll("style"), function (x) { if (!x.closest(".shopify-section") && !x.hasAttribute("data-sl")) x.__slDrawn = true; }); } catch (e) {}
   /*
+    EVERYTHING OF THE LAYOUT AS DRAWN, marked now for the same reason: the
+    head's scripts, and every node around the sections in the body. What a
+    theme's script adds later carries no mark, and is left where it is when
+    the layout is changed in place (relayout, below).
+  */
+  try {
+    Array.prototype.forEach.call(document.head.children, function (x) { if (x.tagName === "SCRIPT") x.__slDrawn = true; });
+    var markTree = function (c) {
+      c.__slDrawn = true;
+      if (c.nodeType === 1 && !(c.classList && c.classList.contains("shopify-section")) && !/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT)$/.test(c.tagName)) for (var k = c.firstChild; k; k = k.nextSibling) markTree(k);
+    };
+    for (var c0 = document.body.firstChild; c0; c0 = c0.nextSibling) markTree(c0);
+    /* What the page draws after this script (its own last lines) is marked once the page has been read, before any deferred script of the theme's runs. */
+    var me = document.currentScript;
+    if (document.readyState === "loading") document.addEventListener("readystatechange", function after() {
+      document.removeEventListener("readystatechange", after);
+      for (var c1 = me ? me.nextSibling : null; c1; c1 = c1.nextSibling) markTree(c1);
+    });
+  } catch (e) {}
+  /*
     COPY AND PASTE FROM INSIDE THE PAGE. A click in the canvas puts the
     keyboard in this frame, so Cmd/Ctrl+C and V never reached the builder,
     which copies and pastes sections. Outside a field and with no text
@@ -943,6 +963,18 @@ export const CANVAS_BRIDGE = `
     if (tall - innerHeight <= 2) return null;
     return fixed ? "fixed" : "1";
   };
+  /*
+    WHAT HOLDS A PAGE IS OVER IT, AND THE SHAPE OF A DRAWER OR A POP-UP
+    (round 1023, part 2). Anything fixed, painted and a quarter of the screen
+    counted as open, so the page stayed held for good under things that hold
+    nothing: a cookie banner along the foot of a short canvas ("Allow
+    Cookies", a third of its height), a sticky bar, a picture fixed behind
+    the whole page (a grain, a parallax hero). Now a layer holds the page
+    only when it is above the page's own content at that point (nothing of
+    the page's flow over it in elementsFromPoint) and at least half the
+    screen tall, as a drawer or a pop-up's backdrop is; a bar across the
+    foot or a picture under the page does not.
+  */
   var openOnScreen = function () {
     var dialogs = document.querySelectorAll("dialog[open]");
     for (var d = 0; d < dialogs.length; d++) { var dr = dialogs[d].getBoundingClientRect(); if (dr.width > 1 && dr.height > 1 && getComputedStyle(dialogs[d]).visibility !== "hidden") return true; }
@@ -951,21 +983,63 @@ export const CANVAS_BRIDGE = `
     styleCache = null; fadeCache = null;
     for (var i = 0; i < points.length; i++) {
       var stack = document.elementsFromPoint(vw * points[i][0], vh * points[i][1]);
+      var underPage = false;
       for (var k = 0; k < stack.length; k++) {
         var c = stack[k];
         if (c === document.body || c === document.documentElement) break;
-        if (c.hasAttribute("data-sl-box") || c.hasAttribute("data-sl-add")) continue;
+        if (c.hasAttribute("data-sl-box") || c.hasAttribute("data-sl-add") || c.hasAttribute("data-sl-stalled")) continue;
         var layer = null;
         for (var n = c; n && n !== document.body; n = n.parentElement) if (styleOf(n).position === "fixed") layer = n;
         if (layer) {
           var r = layer.getBoundingClientRect();
           var seen = Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0)) * Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
-          if (seen >= area * 0.25 && opacityOf(layer) >= 0.05) return true;
-        }
+          var tall = Math.min(r.bottom, vh) - Math.max(r.top, 0) >= vh * 0.5;
+          if (!underPage && tall && seen >= area * 0.25 && opacityOf(layer) >= 0.05) return true;
+        } else underPage = true;
         if (paints(c)) break;
       }
     }
     return false;
+  };
+  /*
+    A PRELOADER THAT NEVER GOES (round 1023, part 2). CANVAS_HEAD hides the
+    preloaders it knows by name. One of the theme's own naming (a
+    .loader-overlay) waits for its own chain of events to fade, and in the
+    canvas the chain can stop short: the page sat under a white sheet, held.
+    Once the page has loaded and had a moment, a layer still over the whole
+    screen, fixed, painted, named as a loader is (load, preload, spinner,
+    splash, intro, curtain) and holding no dialog or field, is hidden the
+    way CANVAS_HEAD hides the known ones: unseen, taking no pointer, never
+    taken out (a script may still be waiting on it).
+  */
+  var LOADER_NAME = /(^|[^a-z])(pre-?loader|loader|loading|load-screen|spinner|splash|intro|curtain|page-transition)([^a-z]|$)/i;
+  var stalledCss = document.createElement("style");
+  stalledCss.setAttribute("data-sl", "");
+  stalledCss.textContent = "[data-sl-stalled],[data-sl-stalled] *{visibility:hidden!important;pointer-events:none!important;transition-duration:1ms!important;animation-duration:1ms!important}";
+  document.head.appendChild(stalledCss);
+  var stalledLoaders = function () {
+    var vw = innerWidth, vh = innerHeight, hit = false;
+    var seen = [];
+    [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7]].forEach(function (p) {
+      document.elementsFromPoint(vw * p[0], vh * p[1]).forEach(function (c) {
+        for (var n = c; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+          if (seen.indexOf(n) >= 0 || n.hasAttribute("data-sl-stalled")) continue;
+          seen.push(n);
+          var cs = getComputedStyle(n);
+          if (cs.position !== "fixed" || cs.visibility === "hidden" || parseFloat(cs.opacity || "1") < 0.05) continue;
+          var r = n.getBoundingClientRect();
+          if (r.width < vw * 0.9 || r.height < vh * 0.9) continue;
+          var name = (typeof n.className === "string" ? n.className : "") + " " + (n.id || "") + " " + n.tagName;
+          if (!LOADER_NAME.test(name)) continue;
+          if (n.querySelector("dialog, [role=dialog], [aria-modal=true], input, select, textarea, form")) continue;
+          styleCache = null; fadeCache = null;
+          if (!paints(n)) continue;
+          n.setAttribute("data-sl-stalled", "");
+          hit = true;
+        }
+      });
+    });
+    if (hit) checkLock();
   };
   var unlocked = false, lockTimer = 0, lockWatch = null;
   var setUnlock = function (v) {
@@ -995,14 +1069,60 @@ export const CANVAS_BRIDGE = `
     lockWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style"] });
     if (document.body) lockWatch.observe(document.body, { attributes: true, attributeFilter: ["class", "style"] });
   }
-  /* A wheel over a held page that did not move it: asked now, not after the settle. */
+  /*
+    THE FIRST WHEEL IS NEVER LOST (round 1023, part 2). The owner: "when
+    the editor opens the canvas does not scroll and has no scrollbar until
+    I select a section". A page held from its first paint (a cookie banner's
+    consent hold, a cart drawer that opens itself in a frame, a preloader's
+    class) was looked at once, 1.5s in, and a wheel only asked again 120ms
+    after it had already moved nothing (scripts/check-canvas-landing.mjs).
+    Now the hold is looked at in the wheel's own task, before the browser
+    scrolls; and a wheel that still moved nothing over a page with room,
+    nothing open on screen and no scroller of its own under the pointer to
+    take it (a theme's smooth scroll that is stopped and takes every wheel,
+    Lenis's shape) is scrolled here, by the wheel's own distance.
+  */
+  var takesWheel = function (t, dy) {
+    for (var n = t && t.nodeType === 1 ? t : t && t.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+      var cs = getComputedStyle(n);
+      if ((cs.overflowY === "auto" || cs.overflowY === "scroll") && n.scrollHeight > n.clientHeight + 1 && (dy > 0 ? n.scrollTop + n.clientHeight < n.scrollHeight - 1 : n.scrollTop > 0)) return true;
+      if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && n.scrollWidth > n.clientWidth + 1) return true;
+    }
+    return false;
+  };
+  var lastScrollAt = 0;
+  addEventListener("scroll", function () { lastScrollAt = Date.now(); }, { passive: true, capture: true });
   addEventListener("wheel", function (e) {
-    if (unlocked || Math.abs(e.deltaY) < 1) return;
-    var y = scrollY;
-    setTimeout(function () { if (scrollY === y && lockedNow()) checkLock(); }, 120);
-  }, { passive: true });
-  /* Already held when the page opens (a preloader's lock that never lets go): looked at once it has settled. */
-  setTimeout(function () { if (!lockTimer) lockSoon(0); }, 1500);
+    if (Math.abs(e.deltaY) < 1 || e.ctrlKey) return;
+    var y = scrollY, at = Date.now();
+    var dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
+    /* Held: let go in this task, so the browser's own scroll for this wheel finds the page free. */
+    if (!unlocked && lockedNow()) { clearTimeout(lockTimer); checkLock(); }
+    var inner = takesWheel(e.target, dy);
+    /* Only a wheel the theme's script took (preventDefault) and that then moved nothing: a wheel the browser scrolls is the browser's. */
+    setTimeout(function () {
+      if (!e.defaultPrevented || inner) return;
+      setTimeout(function () {
+        if (scrollY !== y || lastScrollAt >= at) return;
+        if (!unlocked && lockedNow()) { checkLock(); if (!unlocked) return; }
+        var se = document.scrollingElement || document.documentElement;
+        var room = Math.max(se.scrollHeight, document.body ? document.body.scrollHeight : 0) - innerHeight;
+        if (room <= 2 || (dy > 0 ? y >= room - 1 : y <= 0)) return;
+        if (openOnScreen()) return;
+        scrollTo({ top: Math.max(0, Math.min(room, y + dy)), left: scrollX, behavior: "instant" });
+      }, 120);
+    }, 0);
+  }, { passive: true, capture: true });
+  /*
+    ALREADY HELD WHEN THE PAGE OPENS, looked at from the first paint: as the
+    bridge starts, at the page's load, and again as its scripts settle. And
+    a preloader still up a moment after the load is hidden (stalledLoaders).
+  */
+  var firstLook = function () { if (!lockTimer) checkLock(); };
+  [0, 400, 1500, 4000].forEach(function (ms) { setTimeout(firstLook, ms); });
+  var afterLoad = function () { setTimeout(firstLook, 50); setTimeout(stalledLoaders, 1200); };
+  if (document.readyState === "complete") afterLoad(); else addEventListener("load", afterLoad, { once: true });
+  setTimeout(stalledLoaders, 4000);
   var settled = function () { if (selected.section || hovered) { redraw(); reportSoon(); } if (unlocked) lockSoon(150); };
   addEventListener("transitionend", settled, true);
   addEventListener("animationend", settled, true);
@@ -1551,10 +1671,212 @@ export const CANVAS_BRIDGE = `
     drawn again, behind this one.
   */
   var reload = function (why) { post({ type: "reload", why: why }); };
-  var setAttrs = function (el, attrs) {
+  /*
+    An element's attributes from what they were drawn as to what they are
+    drawn as now, written on the element as it stands: a class word by
+    word, a style declaration by declaration, any other attribute as a
+    whole; what the theme's script set and the drawing did not change is
+    left. (<body class="… overflow-hidden"> drawn again with another
+    layout class kept the theme's own js and loaded classes: round 1023,
+    part 2.)
+  */
+  var attrsBetween = function (el, from, to) {
+    var names = {};
+    Object.keys(from).forEach(function (k) { names[k] = 1; });
+    Object.keys(to).forEach(function (k) { names[k] = 1; });
+    Object.keys(names).forEach(function (n) {
+      var va = Object.prototype.hasOwnProperty.call(from, n) ? from[n] : null, vb = Object.prototype.hasOwnProperty.call(to, n) ? to[n] : null;
+      if (va === vb) return;
+      if (n === "class") {
+        var wa = words(va), wb = words(vb);
+        wa.forEach(function (w) { if (wb.indexOf(w) < 0) el.classList.remove(w); });
+        wb.forEach(function (w) { if (wa.indexOf(w) < 0) el.classList.add(w); });
+        if (vb === null && !el.classList.length) el.removeAttribute("class");
+      } else if (n === "style" && va !== null && vb !== null) {
+        var da = declarations(va), db = declarations(vb);
+        Object.keys(da).forEach(function (k) { if (!(k in db)) el.style.removeProperty(k); });
+        Object.keys(db).forEach(function (k) {
+          if (da[k] === db[k]) return;
+          var v = db[k], important = /!important$/i.test(v);
+          el.style.setProperty(k, important ? v.replace(/\\s*!important$/i, "") : v, important ? "important" : "");
+        });
+      } else if (vb === null) el.removeAttribute(n);
+      else el.setAttribute(n, vb);
+    });
+  };
+  var attrMap = function (el) { var o = {}; for (var i = 0; i < el.attributes.length; i++) o[el.attributes[i].name] = el.attributes[i].value; return o; };
+  /* \`from\`: what <html> or <body> was drawn with. Without it (an older message), every attribute is the drawing's. */
+  var setAttrs = function (el, attrs, from) {
     if (!attrs) return;
+    if (from) { attrsBetween(el, from, attrs); return; }
     Array.prototype.slice.call(el.attributes).forEach(function (a) { if (!(a.name in attrs) && a.name.indexOf("data-sl") !== 0) el.removeAttribute(a.name); });
     Object.keys(attrs).forEach(function (k) { if (el.getAttribute(k) !== attrs[k]) el.setAttribute(k, attrs[k]); });
+  };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE LAYOUT AROUND THE SECTIONS, CHANGED WHERE IT STANDS (round 1023, part 2)
+    ═══════════════════════════════════════════════════════════════════════
+    A theme setting the layout prints outside every section (a cookie
+    banner's words or its switch, a back to top button, a <style> only while
+    a switch is on, a script or a tag in the head) loaded the whole page
+    again: the canvas flashed, came back, and the hold of whatever the
+    theme had open came back with it. Now the builder sends the layout as
+    it was drawn and as it is drawn now (compat-canvas.tsx planPatch,
+    \`layout\`), with each section, script and noscript as a mark, and this
+    compares the two node by node and writes the difference into the page:
+    a text, an attribute, a class word, a node added or taken away. The
+    sections stay where they are, a script that ran is never run again (a
+    script newly in the head is started), and what the theme's own scripts
+    added since (nothing markDrawn marked) is left alone. A page that no
+    longer matches what was drawn says so, and is drawn again behind as
+    before.
+  */
+  var isMark = function (n) { return n.nodeType === 1 && n.tagName === "TEMPLATE" && (n.hasAttribute("data-sl-sec") || n.hasAttribute("data-sl-js") || n.hasAttribute("data-sl-ns")); };
+  var meaningful = function (n) { return n.nodeType === 1 || (n.nodeType === 3 && n.data.trim() !== ""); };
+  var drawnKids = function (n) { var out = []; for (var c = n.firstChild; c; c = c.nextSibling) if (meaningful(c)) out.push(c); return out; };
+  var isSection = function (n) { return n.nodeType === 1 && !!n.classList && n.classList.contains("shopify-section"); };
+  var liveKids = function (n) {
+    var out = [];
+    for (var c = n.firstChild; c; c = c.nextSibling) {
+      if (!meaningful(c)) continue;
+      if (isSection(c)) { out.push(c); continue; }
+      if (c.__slDrawn !== true) continue;
+      if (c.nodeType === 1 && (c.hasAttribute("data-sl-box") || c.hasAttribute("data-sl-add"))) continue;
+      out.push(c);
+    }
+    return out;
+  };
+  var keyOf = function (n) { return n.nodeType === 3 ? "#" + n.data : n.outerHTML; };
+  /* Why the last layout could not be matched, said with the reload. */
+  var layoutWhy = "";
+  var nameOf = function (n) { return n.nodeType === 3 ? "text" : n.tagName.toLowerCase() + (n.id ? "#" + n.id : "") + (typeof n.className === "string" && n.className ? "." + n.className.split(" ")[0] : ""); };
+  var sameKind = function (a, b) {
+    if (a.nodeType !== b.nodeType) return false;
+    if (a.nodeType !== 1) return true;
+    if (a.tagName !== b.tagName || isMark(a) !== isMark(b)) return false;
+    return !isMark(a) || (a.getAttribute("data-sl-sec") === b.getAttribute("data-sl-sec") && a.hasAttribute("data-sl-js") === b.hasAttribute("data-sl-js"));
+  };
+  /* The node of the page each drawn node stands as, in order; null when the page no longer matches the drawing. */
+  var counterparts = function (drawnList, live) {
+    var out = [], p = 0;
+    for (var i = 0; i < drawnList.length; i++) {
+      var d = drawnList[i];
+      if (isMark(d) && d.hasAttribute("data-sl-sec")) {
+        var sec = document.getElementById("shopify-section-" + d.getAttribute("data-sl-sec"));
+        var at = sec ? live.indexOf(sec) : -1;
+        out.push(at >= 0 ? sec : null);
+        if (at >= p) p = at + 1;
+        continue;
+      }
+      while (p < live.length && isSection(live[p])) p++;
+      var c = live[p];
+      var fits = !!c && (isMark(d) ? c.nodeType === 1 && c.tagName === (d.hasAttribute("data-sl-js") ? "SCRIPT" : "NOSCRIPT") : d.nodeType === c.nodeType && (d.nodeType !== 1 || c.tagName === d.tagName));
+      if (!fits) { layoutWhy = "drawn " + nameOf(d) + " is " + (c ? nameOf(c) : "missing"); return null; }
+      out.push(c);
+      p++;
+    }
+    return out;
+  };
+  /* The two drawings' nodes paired: the same (unchanged), changed in place (the same kind where they differ), taken away, or added. */
+  var alignLists = function (A, B) {
+    var n = A.length, m = B.length, i, j;
+    if (n * m > 60000) return null;
+    var ka = A.map(keyOf), kb = B.map(keyOf), L = [];
+    for (i = 0; i <= n; i++) { L.push([]); for (j = 0; j <= m; j++) L[i].push(0); }
+    for (i = n - 1; i >= 0; i--) for (j = m - 1; j >= 0; j--) L[i][j] = ka[i] === kb[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    var ops = [], gapA = [], gapB = [];
+    var flush = function () {
+      var k = 0;
+      while (k < gapA.length && k < gapB.length && sameKind(A[gapA[k]], B[gapB[k]])) { ops.push({ a: gapA[k], b: gapB[k], same: false }); k++; }
+      for (var x = k; x < gapA.length; x++) ops.push({ a: gapA[x], b: -1 });
+      for (var y = k; y < gapB.length; y++) ops.push({ a: -1, b: gapB[y] });
+      gapA = []; gapB = [];
+    };
+    i = 0; j = 0;
+    while (i < n || j < m) {
+      if (i < n && j < m && ka[i] === kb[j]) { flush(); ops.push({ a: i, b: j, same: true }); i++; j++; }
+      else if (j < m && (i >= n || L[i][j + 1] >= L[i + 1][j])) { gapB.push(j); j++; }
+      else { gapA.push(i); i++; }
+    }
+    flush();
+    return ops;
+  };
+  var markAll = function (x) { x.__slDrawn = true; for (var c = x.firstChild; c; c = c.nextSibling) markAll(c); };
+  /* A node the new drawing adds, as the page will hold it: a section's or a noscript's mark adds nothing, a script's mark with an address is that script, started. */
+  var laidNew = function (b) {
+    if (isMark(b)) {
+      var src = b.getAttribute("data-sl-js");
+      if (!src) return null;
+      var s = document.createElement("script");
+      s.src = src;
+      if (ran.has(src) || ran.has(s.src)) return null;
+      ran.add(s.src);
+      s.__slDrawn = true;
+      return s;
+    }
+    var n = document.importNode(b, true);
+    markAll(n);
+    return n;
+  };
+  var relayoutNode = function (live, a, b) {
+    if (a.nodeType === 3) { if (live.data !== b.data) live.data = b.data; return true; }
+    if (isMark(a)) return true;
+    var tag = a.tagName;
+    /* A stylesheet's new address: the old one is let go once the new has loaded, so nothing shows unstyled (a font changed). */
+    if (tag === "LINK" && /stylesheet/i.test(b.getAttribute("rel") || "") && a.getAttribute("href") !== b.getAttribute("href")) {
+      var nl = document.importNode(b, false);
+      nl.__slDrawn = true;
+      live.removeAttribute("data-sl-d");
+      live.__slDrawn = false;
+      var gone = function () { live.remove(); };
+      nl.addEventListener("load", gone, { once: true });
+      nl.addEventListener("error", gone, { once: true });
+      setTimeout(gone, 3000);
+      live.after(nl);
+      return true;
+    }
+    attrsBetween(live, attrMap(a), attrMap(b));
+    if (tag === "STYLE" || tag === "TITLE" || tag === "TEXTAREA") {
+      if (a.textContent !== b.textContent) { live.__slText = undefined; live.textContent = b.textContent; }
+      return true;
+    }
+    return relayoutIn(live, drawnKids(a), drawnKids(b), liveKids(live));
+  };
+  var relayoutIn = function (parent, A, B, live) {
+    var map = counterparts(A, live);
+    if (!map) return false;
+    var ops = alignLists(A, B);
+    if (!ops) { layoutWhy = "too long"; return false; }
+    var cursor = null, later = [];
+    for (var k = 0; k < ops.length; k++) {
+      var o = ops[k];
+      if (o.a >= 0 && o.b >= 0) {
+        var l = map[o.a];
+        if (l && !o.same && !relayoutNode(l, A[o.a], B[o.b])) return false;
+        if (l) cursor = l;
+      } else if (o.a >= 0) {
+        var g = map[o.a];
+        if (g && !isMark(A[o.a])) later.push(g.remove.bind(g));
+      } else {
+        var n = laidNew(B[o.b]);
+        if (!n) continue;
+        later.push((function (n, after) { return function () { if (after && after.parentNode === parent) after.after(n); else parent.insertBefore(n, parent.firstChild); }; })(n, cursor));
+        cursor = n;
+      }
+    }
+    later.forEach(function (f) { f(); });
+    return true;
+  };
+  var relayout = function (lay) {
+    var parse = function (html) { var t = document.createElement("template"); t.innerHTML = html; return drawnKids(t.content); };
+    if (lay.head) {
+      var liveHead = Array.prototype.filter.call(document.head.children, function (x) { return x.tagName === "SCRIPT" ? x.__slDrawn === true : x.hasAttribute("data-sl-d"); });
+      if (!relayoutIn(document.head, parse(lay.head[0].join("")), parse(lay.head[1].join("")), liveHead)) return false;
+    }
+    if (lay.body && !relayoutIn(document.body, parse(lay.body[0]), parse(lay.body[1]), liveKids(document.body))) return false;
+    /* For a theme's code that binds what the layout holds once, at its start: the layout changed under it. */
+    try { document.dispatchEvent(new CustomEvent("storelib:layout-change", { detail: { head: !!lay.head, body: !!lay.body } })); } catch (e) {}
+    return true;
   };
   var groupOf = function (el) { var m = /shopify-section-group-([a-z0-9_-]+)/i.exec(el.className || ""); return m ? m[1] : ""; };
   var fresh = function (html) {
@@ -1585,6 +1907,14 @@ export const CANVAS_BRIDGE = `
     });
   };
   var patch = function (m) {
+    /* The layout around the sections first (THE LAYOUT AROUND THE SECTIONS): a page that no longer matches its drawing is drawn again. */
+    if (m.layout) {
+      var laidOut = false;
+      try { laidOut = relayout(m.layout); } catch (err) { laidOut = false; }
+      if (!laidOut) return reload("layout: " + layoutWhy);
+      if (watcher) watcher.takeRecords();
+      lockSoon();
+    }
     if (m.styles) {
       /* The page's own stylesheets as drawn (compat-canvas.tsx markDrawnStyles), not one a script added since. */
       var mine = Array.prototype.slice.call(document.head.querySelectorAll("style[data-sl-d]"));
@@ -1603,6 +1933,7 @@ export const CANVAS_BRIDGE = `
         var y = tp.content.firstElementChild;
         if (!y) return;
         if (x.tagName === "LINK" && y.tagName === "LINK" && /stylesheet/i.test(x.getAttribute("rel") || "")) {
+          x.removeAttribute("data-sl-d");
           var gone = function () { x.remove(); };
           y.addEventListener("load", gone, { once: true });
           y.addEventListener("error", gone, { once: true });
@@ -1617,15 +1948,24 @@ export const CANVAS_BRIDGE = `
       inBody.forEach(function (x, i) { if (textOf(x) !== m.bodyStyles[i]) { x.__slText = undefined; x.textContent = m.bodyStyles[i]; } });
     }
     if (m.fonts) {
+      /* Where the drawn ones stand, marked as drawn, so the head still reads as drawn for a layout change after it (relayout); the old let go once the new has loaded. */
       var have = Array.prototype.slice.call(document.querySelectorAll("link[data-storelib-font]"));
-      have.forEach(function (l) { if (m.fonts.indexOf(l.getAttribute("href")) === -1) l.remove(); });
+      var fontAt = have[0] || null, newFonts = [];
       m.fonts.forEach(function (href) {
         if (have.some(function (l) { return l.getAttribute("href") === href; })) return;
-        var l = document.createElement("link"); l.rel = "stylesheet"; l.href = href; l.setAttribute("data-storelib-font", ""); document.head.appendChild(l);
+        var l = document.createElement("link"); l.rel = "stylesheet"; l.href = href; l.setAttribute("data-sl-d", ""); l.setAttribute("data-storelib-font", "");
+        if (fontAt) fontAt.before(l); else document.head.appendChild(l);
+        newFonts.push(l);
       });
+      var stale = have.filter(function (l) { return m.fonts.indexOf(l.getAttribute("href")) === -1; });
+      /* On their way out: no longer what was drawn. */
+      stale.forEach(function (l) { l.removeAttribute("data-sl-d"); });
+      var letGoFonts = function () { stale.forEach(function (l) { l.remove(); }); };
+      if (!newFonts.length) letGoFonts();
+      else { var left = newFonts.length; newFonts.forEach(function (l) { var one = function () { if (--left === 0) letGoFonts(); }; l.addEventListener("load", one, { once: true }); l.addEventListener("error", one, { once: true }); }); setTimeout(letGoFonts, 3000); }
     }
-    setAttrs(document.documentElement, m.htmlAttrs);
-    setAttrs(document.body, m.bodyAttrs);
+    setAttrs(document.documentElement, m.htmlAttrs, m.htmlFrom);
+    setAttrs(document.body, m.bodyAttrs, m.bodyFrom);
     (m.remove || []).forEach(function (id) {
       var el = document.getElementById("shopify-section-" + id);
       if (!el) return;
@@ -1880,6 +2220,10 @@ export const CANVAS_BRIDGE = `
     } else if (m.type === "scroll-by") {
       /* A wheel over the builder's toolbar, which stands over this page: the page scrolls as if the wheel were here. */
       if (typeof m.top === "number" && isFinite(m.top)) scrollBy({ top: m.top, left: 0 });
+    } else if (m.type === "heal") {
+      /* The builder brought this page to the front (its first paint, a page drawn again behind): a hold with nothing open is let go now (A PAGE HELD STILL). */
+      checkLock();
+      stalledLoaders();
     } else if (m.type === "hello") {
       /* The builder heard the frame load but not this page say so: said again, whatever order the two happened in. */
       ready();

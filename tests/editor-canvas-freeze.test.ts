@@ -63,9 +63,11 @@ console.log("\nA PAGE HELD STILL WITH NOTHING OPEN IS LET GO")
   check("read at five places of the view", /\[\[0\.5, 0\.5\], \[0\.15, 0\.5\], \[0\.85, 0\.5\], \[0\.5, 0\.25\], \[0\.5, 0\.8\]\]/.test(CANVAS_BRIDGE))
   check("read as the theme has it: the rule off for the reading", /if \(unlocked\) setUnlock\(null\);\s*var held = lockedNow\(\);/.test(CANVAS_BRIDGE))
   check("asked again a moment after <html> or <body> changes, and something that opens takes the rule off at once", /lockWatch\.observe\(document\.documentElement, \{ attributes: true, attributeFilter: \["class", "style"\] \}\)/.test(CANVAS_BRIDGE) && /if \(unlocked && openOnScreen\(\)\) setUnlock\(null\);/.test(CANVAS_BRIDGE))
-  check("a wheel that moves nothing over a held page asks at once", /addEventListener\("wheel", function \(e\) \{\s*if \(unlocked/.test(CANVAS_BRIDGE) && /if \(scrollY === y && lockedNow\(\)\) checkLock\(\)/.test(CANVAS_BRIDGE))
+  /* Changed on purpose: round 1023 part 2 looks at the hold in the wheel's own task (editor-freeze2.test.ts, THE FIRST WHEEL), not 120ms after it moved nothing. */
+  check("a wheel over a held page asks at once, in its own task", /addEventListener\("wheel", function \(e\) \{[\s\S]{0,400}if \(!unlocked && lockedNow\(\)\) \{ clearTimeout\(lockTimer\); checkLock\(\); \}/.test(CANVAS_BRIDGE))
   check("a section swapped or taken off asks too (its drawer went with it)", (CANVAS_BRIDGE.match(/lockSoon\(\);/g) ?? []).length >= 2)
-  check("its own boxes and strip are not something open", /c\.hasAttribute\("data-sl-box"\) \|\| c\.hasAttribute\("data-sl-add"\)\) continue;/.test(CANVAS_BRIDGE))
+  /* Changed on purpose: a preloader the canvas hid (data-sl-stalled, round 1023 part 2) is not something open either. */
+  check("its own boxes and strip are not something open", /c\.hasAttribute\("data-sl-box"\) \|\| c\.hasAttribute\("data-sl-add"\)( \|\| c\.hasAttribute\("data-sl-stalled"\))?\) continue;/.test(CANVAS_BRIDGE))
 }
 
 console.log("\nA PAGE THAT LEFT THE CANVAS IS DRAWN AGAIN")

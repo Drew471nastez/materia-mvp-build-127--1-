@@ -15,7 +15,8 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /* ── The imported theme: Materia, with the scroll locks store themes take ── */
 
-export async function importedTheme() {
+/* `store`: the owner's store laid over the fixture (scripts/materia-store-kit.mjs), with `scenario`, what its scripts do on the first paint. */
+export async function importedTheme({ store = false, scenario = "" } = {}) {
   const dir = join(root, "tests/fixtures/shopify-materia")
   const zip = new JSZip()
   const walk = (d, rel) => {
@@ -26,6 +27,7 @@ export async function importedTheme() {
     }
   }
   walk(dir, "")
+  if (store) await (await import("./materia-store-kit.mjs")).materiaStore(zip, { scenario })
   /*
     A MENU DRAWER IN THE HEADER, as Dawn's: opening it puts a class on <body>
     that holds the page (overflow: hidden), closing it takes the class off.
@@ -108,8 +110,8 @@ const PNG = Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000
 export const STORELIB_GLOBALS = `window.PROBE_PAGES={home:["header","hero_centered","features_grid","product_grid","text_rich","faq_accordion","promo_newsletter","cta_simple","footer"],about:["header","text_rich","faq_accordion","cta_simple","footer"]};window.PROBE_PAGE_DELAY_MS=0;window.PROBE_HEADER={links:3};`
 
 /** The editor open on `kind`, drawn and quiet. */
-/* `init`: a script run in the editor's document before anything else (a devtools hook, an observer). `width`/`height`: the window. */
-export async function openEditor({ kind, bundle, css, compat, globals = kind === "imported" ? "" : STORELIB_GLOBALS, init = "", width = 1440, height = 900, cpu = 1, beforeOpen = null }) {
+/* `init`: a script run in the editor's document before anything else (a devtools hook, an observer). `width`/`height`: the window. `settle`: ms left alone after the first draw. */
+export async function openEditor({ kind, bundle, css, compat, globals = kind === "imported" ? "" : STORELIB_GLOBALS, init = "", width = 1440, height = 900, cpu = 1, beforeOpen = null, settle = 2500 }) {
   const all = kind === "imported" ? `window.PROBE_COMPAT=${JSON.stringify(compat).replace(/</g, "\\u003c")};${globals}` : globals
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
@@ -170,7 +172,8 @@ export async function openEditor({ kind, bundle, css, compat, globals = kind ===
     } else {
       await page.waitForFunction(() => document.querySelectorAll("#wb-preview-root [data-section-box]").length >= 7, { timeout: 120_000, polling: 200 })
     }
-    await sleep(2500)
+    /* `settle`: how long the editor is left alone once the theme has drawn (the landing probe wheels at once). */
+    await sleep(settle)
     return { page, browser, server, front, errors, js: (fn, ...a) => page.evaluate(fn, ...a), close: async () => { await browser.close(); server.close() } }
   } catch (e) {
     await browser.close()

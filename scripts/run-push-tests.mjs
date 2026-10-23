@@ -56,6 +56,8 @@ const SUITES = [
   /* Round canvas-1023: the canvas that stopped scrolling (a held page with nothing open, a preloader's wait that never ended, a page that left the frame), the toolbar over a selected block, Add section between an imported theme's sections; scripts/check-canvas-freeze.mjs and check-canvas-toolbar.mjs measure them. */
   "tests/editor-canvas-freeze.test.ts",
   "tests/editor-canvas-toolbar.test.ts",
+  /* Round freeze2-1023: the canvas held from its first paint (the first look, the first wheel, a stopped smooth scroll, what holds a page, a preloader that never goes), a block's settings opening at their top, a layout setting changed in place; scripts/check-canvas-landing.mjs, check-sidebar-open.mjs and check-theme-settings-live.mjs measure them. */
+  "tests/editor-freeze2.test.ts",
   "tests/store-currency.test.ts",
   "tests/round-am.test.ts",
   "tests/round-an.test.ts",
