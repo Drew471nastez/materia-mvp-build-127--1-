@@ -10578,7 +10578,22 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Ano fiscal {year}",
  "“{label}” may": "“{label}” pode",
  "“{term}” is already in your glossary.": "“{term}” já está no seu glossário.",
- "↻ Refresh thumbnail": "↻ Atualizar miniatura"
+ "↻ Refresh thumbnail": "↻ Atualizar miniatura",
+ "GitHub turned a file down": "O GitHub recusou um arquivo",
+ "GitHub's secret scanning found what looks like a key or token in it. Every other file was sent. Take the key out of the file listed below, then send again.": "A verificação de segredos do GitHub encontrou algo que parece uma chave ou token. Todos os outros arquivos foram enviados. Tire a chave do arquivo listado abaixo e envie de novo.",
+ "GitHub needs the Workflows permission": "O GitHub precisa da permissão Workflows",
+ "A file in .github/workflows can only be changed by an app with that permission. Accept it for Storelib on GitHub, or leave the file out.": "Um arquivo em .github/workflows só pode ser alterado por um app com essa permissão. Aceite-a para a Storelib no GitHub ou deixe o arquivo de fora.",
+ "{pending, plural, one {# file} other {# files}} still to send": "{pending, plural, one {Falta enviar # arquivo} other {Faltam enviar # arquivos}}",
+ "GitHub has the rest of the theme. Send again to finish.": "O GitHub tem o resto do tema. Envie de novo para terminar.",
+ "Some files didn't reach GitHub": "Alguns arquivos não chegaram ao GitHub",
+ "GitHub turned this file down": "O GitHub recusou este arquivo",
+ "The rest of the theme was sent. Change this file in the builder, then send again.": "O resto do tema foi enviado. Altere este arquivo no editor e envie de novo.",
+ "Didn't reach GitHub": "Não chegou ao GitHub",
+ "Send again. Nothing on your site was lost.": "Envie de novo. Nada do seu site foi perdido.",
+ "Sending to GitHub, {sent} of {total} files": "Enviando para o GitHub, {sent} de {total} arquivos",
+ "Sent {sent} of {total} files. Press Push to send the rest.": "{sent} de {total} arquivos enviados. Toque em Push para enviar o resto.",
+ "Sent {sent} of {total} files. GitHub turned {bad} down, listed below.": "{sent} de {total} arquivos enviados. O GitHub recusou {bad}, listados abaixo.",
+ "Sent the whole theme to GitHub, {total} files.": "O tema completo foi enviado ao GitHub, {total} arquivos."
 }
 
 export default words

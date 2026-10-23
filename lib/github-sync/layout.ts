@@ -194,6 +194,10 @@ export interface ThemeSnapshot {
   media?: Record<string, Uint8Array>
   /** Pictures that could not be fetched, by name, with why. */
   mediaSkipped?: { name: string; reason: string }[]
+  /** Pictures the repository already has from the same address: not fetched, not sent, left as they are. */
+  mediaKept?: string[]
+  /** Pictures not fetched before the time ran out: the next send takes them. */
+  mediaLater?: string[]
   /** `settings.menus` are the store's (store_menus), shared by every theme: a change to them is written there too. */
   storeMenus?: boolean
 }

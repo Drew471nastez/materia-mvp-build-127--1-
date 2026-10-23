@@ -24,6 +24,10 @@ interface Repo {
   trees: Map<string, Tree>
   blobs: Map<string, Buffer>
   protected: Set<string>
+  /** Ruleset rules by branch, as GET /rules/branches/{branch} lists them. */
+  rules: Map<string, string[]>
+  /** Push protection: text that looks like a secret. A commit holding it does not move a branch. */
+  secrets: RegExp | null
   statuses: { sha: string; state: string; description: string; context: string; target_url?: string }[]
   comments: { sha: string; body: string; html_url: string }[]
 }
@@ -50,7 +54,7 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
   let serial = 0
 
   function newRepo(name: string, branch = "main", files: Record<string, string> | null = {}) {
-    const r: Repo = { default_branch: branch, refs: new Map(), commits: new Map(), trees: new Map(), blobs: new Map(), protected: new Set(), statuses: [], comments: [] }
+    const r: Repo = { default_branch: branch, refs: new Map(), commits: new Map(), trees: new Map(), blobs: new Map(), protected: new Set(), rules: new Map(), secrets: null, statuses: [], comments: [] }
     repos.set(name, r)
     if (files) commitFiles(name, branch, files, "Initial commit")
     return r
@@ -164,9 +168,21 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
       r.refs.set(b, body.sha)
       return json(201, { ref: body.ref, object: { sha: body.sha } })
     }
+    if ((m = /^\/branches\/(.+)$/.exec(rest)) && method === "GET") {
+      if (!r.refs.has(m[1])) return json(404, { message: "Branch not found" })
+      return json(200, { name: m[1], protected: r.protected.has(m[1]) })
+    }
+    if ((m = /^\/rules\/branches\/(.+)$/.exec(rest)) && method === "GET") {
+      return json(200, (r.rules.get(m[1]) ?? []).map((type) => ({ type, ruleset_source_type: "Repository", ruleset_id: 1 })))
+    }
     if ((m = /^\/git\/refs\/heads\/(.+)$/.exec(rest)) && method === "PATCH") {
       const b = m[1]
       if (r.protected.has(b)) return json(422, { message: "Protected branch update failed for refs/heads/" + b + "." })
+      if (r.secrets) {
+        const t = r.trees.get(r.commits.get(body.sha)?.tree ?? "")
+        const leak = t && [...t.values()].some((sha) => r.secrets!.test(r.blobs.get(sha)?.toString("utf8") ?? ""))
+        if (leak) return json(422, { message: "Repository rule violations found\n\n- GITHUB PUSH PROTECTION\n  Push cannot contain secrets", metadata: { secret_scanning: { bypass_placeholders: [{ placeholder_id: "x", token_type: "stripe_api_key" }] } } })
+      }
       const cur = r.refs.get(b)
       if (cur && !body.force && !isAncestor(r, cur, body.sha)) return json(422, { message: "Update is not a fast forward" })
       r.refs.set(b, body.sha)

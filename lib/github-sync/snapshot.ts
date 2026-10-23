@@ -23,6 +23,8 @@ export class SnapshotError extends Error {}
 /** Pictures fetched for one export, at most, and in all. */
 const MEDIA_FILE_MAX = 15 * 1024 * 1024
 const MEDIA_TOTAL_MAX = 60 * 1024 * 1024
+/** Pictures fetched at once. */
+const MEDIA_CONCURRENCY = 6
 
 async function allFiles(db: Db, installId: string): Promise<Record<string, string>> {
   const out: Record<string, string> = {}
@@ -55,7 +57,15 @@ export async function readSnapshot(
   db: Db,
   installId: string,
   /* creatorId: whose store's menus the builder shows (lib/website-builder/store-menus-server.ts). */
-  opts: { name: string; creatorId?: string | null; fetchMedia?: (url: string, maxBytes: number) => Promise<Uint8Array | null> },
+  opts: {
+    name: string
+    creatorId?: string | null
+    fetchMedia?: (url: string, maxBytes: number) => Promise<Uint8Array | null>
+    /* A picture the repository already has from this same address: not fetched or sent again. */
+    keepMedia?: (name: string, url: string) => boolean
+    /* Past this (ms since the epoch) no more pictures are fetched; the next send takes them. */
+    mediaDeadline?: number
+  },
 ): Promise<ThemeSnapshot> {
   const [settingsRow, pagesRes, files, storeMenus] = await Promise.all([
     db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle(),
@@ -99,25 +109,50 @@ export async function readSnapshot(
     }
     const media: Record<string, Uint8Array> = {}
     const skipped: { name: string; reason: string }[] = []
+    const kept: string[] = []
+    const later: string[] = []
     let total = 0
+    const todo: [string, string][] = []
     for (const [name, url] of Object.entries(map).sort(([a], [b]) => (a < b ? -1 : 1))) {
       if (typeof url !== "string" || !url) continue
-      if (total >= MEDIA_TOTAL_MAX) {
-        skipped.push({ name, reason: `Pictures over ${MEDIA_TOTAL_MAX / 1048576} MB in all stay in Storelib` })
-        continue
-      }
-      try {
-        const bytes = await opts.fetchMedia(url, Math.min(MEDIA_FILE_MAX, MEDIA_TOTAL_MAX - total))
-        if (!bytes) {
-          skipped.push({ name, reason: "It could not be downloaded from Storelib's storage" })
-          continue
-        }
-        total += bytes.byteLength
-        media[name] = bytes
-      } catch {
-        skipped.push({ name, reason: "It could not be downloaded from Storelib's storage" })
-      }
+      if (opts.keepMedia?.(name, url)) kept.push(name)
+      else todo.push([name, url])
     }
+    /* A few at a time: one by one, a theme with a hundred pictures spent the whole minute here and sent nothing. */
+    let next = 0
+    await Promise.all(
+      Array.from({ length: Math.min(MEDIA_CONCURRENCY, todo.length) }, async () => {
+        while (next < todo.length) {
+          const [name, url] = todo[next++]
+          if (total >= MEDIA_TOTAL_MAX) {
+            skipped.push({ name, reason: `Pictures over ${MEDIA_TOTAL_MAX / 1048576} MB in all stay in Storelib` })
+            continue
+          }
+          if (opts.mediaDeadline && Date.now() > opts.mediaDeadline) {
+            later.push(name)
+            continue
+          }
+          try {
+            const bytes = await opts.fetchMedia!(url, Math.min(MEDIA_FILE_MAX, MEDIA_TOTAL_MAX - total))
+            if (!bytes) {
+              skipped.push({ name, reason: "It could not be downloaded from Storelib's storage" })
+              continue
+            }
+            if (total + bytes.byteLength > MEDIA_TOTAL_MAX) {
+              skipped.push({ name, reason: `Pictures over ${MEDIA_TOTAL_MAX / 1048576} MB in all stay in Storelib` })
+              continue
+            }
+            total += bytes.byteLength
+            media[name] = bytes
+          } catch {
+            skipped.push({ name, reason: "It could not be downloaded from Storelib's storage" })
+          }
+        }
+      }),
+    )
+    skipped.sort((x, y) => (x.name < y.name ? -1 : 1))
+    snap.mediaKept = kept
+    snap.mediaLater = later
     snap.media = media
     snap.mediaSkipped = skipped
   }

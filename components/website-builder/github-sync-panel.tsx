@@ -334,9 +334,23 @@ export function GitHubSyncPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
-      const d = (await res.json().catch(() => ({}))) as { error?: string; upToDate?: boolean; saved?: number; failed?: unknown[] }
+      type Sent = { error?: string; upToDate?: boolean; saved?: number; failed?: unknown[]; more?: boolean; sent?: number; total?: number }
+      let d = (await res.json().catch(() => ({}))) as Sent
       if (!res.ok) throw new Error(d.error || tt("GitHub did not answer"))
-      if (kind === "export" || kind === "select") setNotice(d.upToDate ? tt("GitHub already has the whole theme.") : tt("Sent the whole theme to GitHub."))
+      /* A large theme goes in more than one send: each takes what GitHub does not have yet, until nothing is left. */
+      for (let round = 0; d.more && round < 12; round++) {
+        setNotice(tt("Sending to GitHub, {sent} of {total} files", { sent: d.sent ?? 0, total: d.total ?? 0 }))
+        const again = await fetch(`/api/website-builder/themes/${installId}/github`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "export" }) })
+        const next = (await again.json().catch(() => ({}))) as Sent
+        if (!again.ok) throw new Error(next.error || tt("GitHub did not answer"))
+        d = next
+      }
+      if (kind === "export" || kind === "select" || (kind === "branch" && body.then !== "pull")) {
+        const bad = d.failed?.length ?? 0
+        if (d.more) setNotice(tt("Sent {sent} of {total} files. Press Push to send the rest.", { sent: d.sent ?? 0, total: d.total ?? 0 }))
+        else if (bad) setNotice(tt("Sent {sent} of {total} files. GitHub turned {bad} down, listed below.", { sent: d.sent ?? 0, total: d.total ?? 0, bad }))
+        else if (kind !== "branch") setNotice(d.upToDate ? tt("GitHub already has the whole theme.") : tt("Sent the whole theme to GitHub, {total} files.", { total: d.total ?? 0 }))
+      }
       if (kind === "pull") {
         const n = d.saved ?? 0
         const bad = d.failed?.length ?? 0

@@ -23,6 +23,13 @@
  *     from the repository's default branch.
  *   - every file was sent every time. Now a file whose bytes GitHub already
  *     has is not sent, so a sync of an unchanged site is no commit at all.
+ *   - a refusal while moving the branch was called a protected branch, on a
+ *     branch GitHub reports with protected: false. Now the branch's rules are
+ *     asked for (branchRules) and the refusal is named for what it is.
+ *   - an empty repository kept only its first file when the second commit
+ *     did not land. Now README.md goes first, a send commits what is ready
+ *     inside its time, a refused file is set apart (commitIsolating), and
+ *     the new commit is read back.
  *
  * Six environment variables, all server side. See docs/github-sync.md.
  */
@@ -68,7 +75,27 @@ function appJwt(cfg: GitHubConfig): string {
   return `${head}.${body}.${b64url(signer.sign(cfg.privateKey))}`
 }
 
+/** What a refusal carried besides its message, so ./errors.ts names the real cause. */
+export interface GitHubRefusal {
+  /** Each entry of GitHub's `errors` list, as text. */
+  errors: string[]
+  /** Secret types push protection found (metadata.secret_scanning), when it was that. */
+  secrets: string[]
+  /** X-Accepted-GitHub-Permissions: what the call needed, e.g. "contents=write". */
+  permissions: string | null
+}
+
+/** The branch's rules as GitHub reports them, read after a write was refused (branchRules). */
+export interface BranchProtection {
+  /** GET /branches/{branch}: classic branch protection. */
+  protected: boolean
+  /** Ruleset rules on the branch that stop an update, by GitHub's type name. */
+  rules: string[]
+}
+
 export class GitHubError extends Error {
+  /** Set by commitChanges when a write was refused: whether the branch really is protected. */
+  public protection: BranchProtection | null = null
   constructor(
     public status: number,
     message: string,
@@ -76,9 +103,37 @@ export class GitHubError extends Error {
     public step: string = "other",
     /** When the hourly limit comes back, ms since the epoch. */
     public resetAt: number | null = null,
+    public refusal: GitHubRefusal = { errors: [], secrets: [], permissions: null },
   ) {
     super(message)
   }
+  get secrets() {
+    return this.refusal.secrets
+  }
+  get permissions() {
+    return this.refusal.permissions
+  }
+  get errors() {
+    return this.refusal.errors
+  }
+}
+
+/** GitHub's error body, read once: its message, its list of errors, and the secrets push protection named. */
+function readRefusal(d: unknown, headers: Headers): { message: string; refusal: GitHubRefusal } {
+  const o = (d && typeof d === "object" ? d : {}) as { message?: unknown; errors?: unknown; metadata?: { secret_scanning?: { bypass_placeholders?: { token_type?: unknown }[] } } }
+  const message = typeof o.message === "string" ? o.message : ""
+  const errors = (Array.isArray(o.errors) ? o.errors : [])
+    .map((x) => (typeof x === "string" ? x : x && typeof x === "object" ? String((x as { message?: unknown }).message ?? (x as { code?: unknown }).code ?? "") : ""))
+    .filter(Boolean)
+    .slice(0, 10)
+  const secrets = [
+    ...new Set(
+      (o.metadata?.secret_scanning?.bypass_placeholders ?? [])
+        .map((p) => (typeof p?.token_type === "string" ? p.token_type : ""))
+        .filter(Boolean),
+    ),
+  ].slice(0, 10)
+  return { message, refusal: { errors, secrets, permissions: headers.get("x-accepted-github-permissions") } }
 }
 
 /* ── the transport, swappable so the suite runs against a fake GitHub ──── */
@@ -129,12 +184,13 @@ async function call<T>(
       return (await res.json()) as T
     }
     /* GitHub's own message, which never contains the token that was sent. */
-    const detail = await res.json().then((d: { message?: string }) => d?.message ?? "").catch(() => "")
+    const read = readRefusal(await res.json().catch(() => null), res.headers)
+    const detail = [read.message, ...read.refusal.errors].filter(Boolean).join("; ")
     const remaining = res.headers.get("x-ratelimit-remaining")
     const reset = Number(res.headers.get("x-ratelimit-reset"))
     const resetAt = Number.isFinite(reset) && reset > 0 ? reset * 1000 : null
     const retryAfter = Number(res.headers.get("retry-after"))
-    last = new GitHubError(res.status, detail || `GitHub answered ${res.status}`, step, resetAt)
+    last = new GitHubError(res.status, detail || `GitHub answered ${res.status}`, step, resetAt, read.refusal)
     const secondary = (res.status === 403 || res.status === 429) && (/secondary rate limit|abuse/i.test(detail) || Number.isFinite(retryAfter) && retryAfter > 0)
     const primary = (res.status === 403 || res.status === 429) && remaining === "0"
     if (primary) {
@@ -154,9 +210,17 @@ async function call<T>(
       await timing.sleep(backoff(attempt))
       continue
     }
+    /* The server log keeps GitHub's exact words, so a refusal is never guessed at twice. The creator reads ./errors.ts. */
+    if (res.status !== 404 && !(res.status === 409 && step === "ref")) logRefusal(last, path)
     throw last
   }
   throw last ?? new GitHubError(0, "GitHub could not be reached", step)
+}
+
+function logRefusal(e: GitHubError, path: string) {
+  if (process.env.NODE_ENV === "test" || process.env.GITHUB_SYNC_QUIET === "1") return
+  const where = path.replace(/^https:\/\/api\.github\.com/, "").split("?")[0]
+  console.warn(`[github-sync] ${e.step} ${e.status} ${where}: ${e.message.slice(0, 300)}${e.permissions ? ` (needs ${e.permissions})` : ""}${e.secrets.length ? ` (secrets: ${e.secrets.join(", ")})` : ""}`)
 }
 
 /** 0.5 s, 1 s, 2 s, with a little jitter so many sites do not retry in step. */
@@ -370,9 +434,9 @@ export type FileChange = { path: string; content: string } | { path: string; byt
 const INLINE_MAX = 256 * 1024
 /** Entries per tree request. Each builds on the one before. */
 const TREE_BATCH = 250
-/** Blobs in flight at once. */
-const BLOB_CONCURRENCY = 5
-/** Times a commit is made again when the branch moved underneath it. */
+/** Blobs in flight at once. GitHub counts each as content made, so a few, not many. */
+const BLOB_CONCURRENCY = 4
+/** Times a commit is made again when the branch moved underneath it, or a new repository's first commit is not readable yet. */
 const MOVED_ON_RETRIES = 3
 
 async function headOf(token: string, repo: string, branch: string): Promise<string | null> {
@@ -410,35 +474,158 @@ async function inBatches<T, R>(items: T[], size: number, fn: (t: T) => Promise<R
   return out
 }
 
+/**
+ * Rules that stop a push to a branch. A ruleset's other rules (deleting the
+ * branch, making new ones) do not touch a commit on it.
+ */
+const BLOCKING_RULES = new Set([
+  "update",
+  "pull_request",
+  "required_status_checks",
+  "required_signatures",
+  "non_fast_forward",
+  "required_linear_history",
+  "required_deployments",
+  "merge_queue",
+  "commit_message_pattern",
+  "commit_author_email_pattern",
+  "committer_email_pattern",
+  "file_path_restriction",
+  "max_file_path_length",
+  "file_extension_restriction",
+  "max_file_size",
+  "workflows",
+  "code_scanning",
+])
+
+/**
+ * Whether the branch really is protected, asked of GitHub rather than
+ * guessed from a refusal: classic protection on GET /branches/{branch}, and
+ * the ruleset rules on GET /rules/branches/{branch}. Both need only the
+ * Metadata permission every app has. Null when GitHub could not say.
+ */
+export async function branchRules(token: string, repo: string, branch: string): Promise<BranchProtection | null> {
+  try {
+    const [b, rules] = await Promise.all([
+      call<{ protected?: boolean }>(`/repos/${repo}/branches/${enc(branch)}`, token, { step: "repos" }),
+      call<{ type?: string }[]>(`/repos/${repo}/rules/branches/${enc(branch)}`, token, { step: "repos" }).catch((e) => {
+        if (e instanceof GitHubError && e.status === 404) return []
+        throw e
+      }),
+    ])
+    const types = (Array.isArray(rules) ? rules : []).map((r) => (typeof r?.type === "string" ? r.type : "")).filter((t) => BLOCKING_RULES.has(t))
+    return { protected: b?.protected === true, rules: [...new Set(types)] }
+  } catch {
+    return null
+  }
+}
+
+/** A refusal that could be the branch's rules. Push protection (a secret in a file) is not: it says so itself. */
+function mightBeRules(e: GitHubError): boolean {
+  if (e.secrets.length || /secret/i.test(e.message)) return false
+  if (e.status !== 403 && e.status !== 409 && e.status !== 422) return false
+  if (/not a fast.?forward|empty/i.test(e.message)) return false
+  return e.step === "write-ref" || e.step === "contents" || /protect|rule/i.test(e.message)
+}
+
 export interface CommitResult {
   /** The new commit, or null when GitHub already had every file as it is. */
   sha: string | null
   /** Files written and removed in it. */
   written: number
   removed: number
+  /** Files not sent this time: out of time, or GitHub asked to slow down. The next send takes them. */
+  deferred: string[]
+  /** Files sent that the new commit does not hold as sent. Empty when it holds them all. */
+  missing: string[]
 }
+
+const sizeOf = (c: FileChange) => ("bytes" in c ? c.bytes.byteLength : "content" in c ? Buffer.byteLength(c.content, "utf8") : 0)
+const blobShaOf = (c: FileChange) => ("delete" in c ? null : gitBlobSha("bytes" in c ? c.bytes : c.content))
 
 /**
  * Write many changes as ONE commit on a branch, through the Git data API,
  * sending only what GitHub does not already have. A removal of a file that
- * is not there is nothing. An empty repository gets its first file through
- * the contents API, and the rest as usual; a branch that is not there is
- * made from the default branch.
+ * is not there is nothing. A branch that is not there is made from the
+ * default branch.
+ *
+ * AN EMPTY REPOSITORY. The Git data API cannot write to one, so its first
+ * commit goes through the contents API with README.md alone, and the theme
+ * follows in the second. A new repository's first commit can take a moment
+ * to be readable; a "repository is empty" answer after it is waited out.
+ *
+ * WITHIN A DEADLINE. Text goes inline in the tree; pictures and fonts are
+ * blobs, sent smallest first. Past `deadline`, or when GitHub asks Storelib
+ * to slow down, no more blobs are started and what is ready is committed:
+ * the rest is `deferred`, and the next send takes it.
+ *
+ * CHECKED. After the branch moves, the new commit's tree is read back and
+ * every file sent is looked for, so "sent" means GitHub has it.
+ *
+ * A REFUSED WRITE is asked about (branchRules) before it is called a
+ * protected branch: the reason is on the error, for ./errors.ts.
  */
-export async function commitChanges(token: string, repo: string, branch: string, changes: FileChange[], message: string): Promise<CommitResult> {
+export async function commitChanges(
+  token: string,
+  repo: string,
+  branch: string,
+  changes: FileChange[],
+  message: string,
+  opts: { deadline?: number } = {},
+): Promise<CommitResult> {
+  try {
+    return await commitOnce(token, repo, branch, changes, message, opts)
+  } catch (e) {
+    if (e instanceof GitHubError && !e.protection && mightBeRules(e)) e.protection = await branchRules(token, repo, branch)
+    throw e
+  }
+}
+
+async function commitOnce(token: string, repo: string, branch: string, changes: FileChange[], message: string, opts: { deadline?: number }): Promise<CommitResult> {
+  const none = (deferred: string[] = []): CommitResult => ({ sha: null, written: 0, removed: 0, deferred, missing: [] })
+  /* Blobs already on GitHub from an earlier round: their sha is git's own, so they are not sent twice. */
+  const uploaded = new Set<string>()
   let lastMoved: GitHubError | null = null
+  let bootstrapped = false
   for (let round = 0; round <= MOVED_ON_RETRIES; round++) {
     let head = await ensureBranch(token, repo, branch)
     if (!head) {
-      const first = changes.find((c): c is { path: string; content: string } => "content" in c)
-      if (!first) return { sha: null, written: 0, removed: 0 }
+      if (bootstrapped) {
+        /* The first commit is made but not readable yet. */
+        await timing.sleep(backoff(round) * 2)
+        continue
+      }
+      const writable = changes.filter((c): c is Exclude<FileChange, { delete: true }> => !("delete" in c))
+      const first = writable.find((c) => c.path.endsWith("README.md") && "content" in c) ?? writable.find((c) => "content" in c) ?? writable[0]
+      if (!first) return none()
+      const bytes = "bytes" in first ? Buffer.from(first.bytes) : Buffer.from(first.content, "utf8")
       const created = await call<{ commit: { sha: string } }>(`/repos/${repo}/contents/${enc(first.path)}`, token, {
         method: "PUT",
-        body: { message, content: Buffer.from(first.content, "utf8").toString("base64"), branch },
+        body: { message, content: bytes.toString("base64"), branch },
         step: "contents",
       })
       head = created.commit.sha
+      bootstrapped = true
     }
+    try {
+      return await commitOn(head)
+    } catch (e) {
+      if (e instanceof GitHubError && e.status === 422 && e.step === "write-ref" && /fast.?forward/i.test(e.message)) {
+        /* Somebody pushed in between: build it again on top of theirs. */
+        lastMoved = e
+        continue
+      }
+      if (bootstrapped && e instanceof GitHubError && (e.status === 409 || e.status === 404) && round < MOVED_ON_RETRIES) {
+        /* A repository a moment old: its first commit is not readable everywhere yet. */
+        await timing.sleep(backoff(round) * 2)
+        continue
+      }
+      throw e
+    }
+  }
+  throw lastMoved ?? new GitHubError(422, "not a fast forward", "write-ref")
+
+  async function commitOn(head: string): Promise<CommitResult> {
     const commit = await call<{ tree: { sha: string } }>(`/repos/${repo}/git/commits/${head}`, token, { step: "commit" })
     /* What the branch has now, so only what differs is sent. A tree GitHub cut short is treated as knowing nothing. */
     let have = new Map<string, TreeEntry>()
@@ -453,55 +640,137 @@ export async function commitChanges(token: string, repo: string, branch: string,
     const todo = changes.filter((c) => {
       const there = have.get(c.path)
       if ("delete" in c) return complete ? !!there : true
-      const sha = gitBlobSha("bytes" in c ? c.bytes : c.content)
-      return there?.sha !== sha
+      return there?.sha !== blobShaOf(c)
     })
-    if (todo.length === 0) return { sha: null, written: 0, removed: 0 }
+    if (todo.length === 0) return none()
 
-    /* Binary files and big text files go up as blobs first, a few at a time. */
-    const entries = await inBatches(todo, BLOB_CONCURRENCY, async (c) => {
-      if ("delete" in c) return { path: c.path, mode: "100644", type: "blob", sha: null as string | null }
-      if ("content" in c && Buffer.byteLength(c.content, "utf8") <= INLINE_MAX) return { path: c.path, mode: "100644", type: "blob", content: c.content }
-      const bytes = "bytes" in c ? Buffer.from(c.bytes) : Buffer.from(c.content, "utf8")
-      const blob = await call<{ sha: string }>(`/repos/${repo}/git/blobs`, token, {
-        method: "POST",
-        body: { content: bytes.toString("base64"), encoding: "base64" },
-        step: "blob",
-      })
-      return { path: c.path, mode: "100644", type: "blob", sha: blob.sha as string | null }
+    type Entry = { path: string; mode: string; type: string; sha?: string | null; content?: string }
+    const entries: Entry[] = []
+    const blobs: Exclude<FileChange, { delete: true }>[] = []
+    for (const c of todo) {
+      /* Removing a path that is not there fails the whole tree; a removal is sent only when the tree is known. */
+      if ("delete" in c) {
+        if (complete || have.has(c.path)) entries.push({ path: c.path, mode: "100644", type: "blob", sha: null })
+      } else if ("content" in c && Buffer.byteLength(c.content, "utf8") <= INLINE_MAX) entries.push({ path: c.path, mode: "100644", type: "blob", content: c.content })
+      else blobs.push(c)
+    }
+
+    /* Binary files and big text files go up as blobs, smallest first, a few at a time, while there is time. */
+    blobs.sort((x, y) => sizeOf(x) - sizeOf(y))
+    let slowDown: GitHubError | null = null
+    const deferred: string[] = []
+    const sent = await inBatches(blobs, BLOB_CONCURRENCY, async (c) => {
+      const sha = blobShaOf(c)!
+      if (uploaded.has(sha)) return sha
+      if (slowDown || (opts.deadline && Date.now() > opts.deadline)) return null
+      try {
+        const bytes = "bytes" in c ? Buffer.from(c.bytes) : Buffer.from(c.content, "utf8")
+        const blob = await call<{ sha: string }>(`/repos/${repo}/git/blobs`, token, { method: "POST", body: { content: bytes.toString("base64"), encoding: "base64" }, step: "blob" })
+        uploaded.add(blob.sha)
+        return blob.sha
+      } catch (e) {
+        /* Asked to slow down: what is up already is committed, the rest waits for the next send. */
+        if (e instanceof GitHubError && e.status === 429) {
+          slowDown = e
+          return null
+        }
+        throw e
+      }
     })
-    /* Removing a path that is not there fails the whole tree; a removal is sent only when the tree is known. */
-    const send = complete ? entries : entries.filter((e) => !("sha" in e && e.sha === null) || have.has(e.path))
+    blobs.forEach((c, i) => {
+      const sha = sent[i]
+      if (sha) entries.push({ path: c.path, mode: "100644", type: "blob", sha })
+      else deferred.push(c.path)
+    })
+    if (entries.length === 0) {
+      if (slowDown) throw slowDown
+      return none(deferred)
+    }
 
     let tree = commit.tree.sha
-    for (let i = 0; i < send.length; i += TREE_BATCH) {
-      const made = await call<{ sha: string }>(`/repos/${repo}/git/trees`, token, {
-        method: "POST",
-        body: { base_tree: tree, tree: send.slice(i, i + TREE_BATCH) },
-        step: "tree",
-      })
+    for (let i = 0; i < entries.length; i += TREE_BATCH) {
+      const made = await call<{ sha: string }>(`/repos/${repo}/git/trees`, token, { method: "POST", body: { base_tree: tree, tree: entries.slice(i, i + TREE_BATCH) }, step: "tree" })
       tree = made.sha
     }
-    if (tree === commit.tree.sha) return { sha: null, written: 0, removed: 0 }
-    const made = await call<{ sha: string }>(`/repos/${repo}/git/commits`, token, {
-      method: "POST",
-      body: { message, tree, parents: [head] },
-      step: "commit",
-    })
+    if (tree === commit.tree.sha) return none(deferred)
+    const made = await call<{ sha: string }>(`/repos/${repo}/git/commits`, token, { method: "POST", body: { message, tree, parents: [head] }, step: "commit" })
+    await call(`/repos/${repo}/git/refs/heads/${enc(branch)}`, token, { method: "PATCH", body: { sha: made.sha, force: false }, step: "write-ref" })
+
+    /* Read back: every file sent is in the new commit as it was sent. */
+    const sentPaths = new Set(entries.map((e) => e.path))
+    let missing: string[] = []
     try {
-      await call(`/repos/${repo}/git/refs/heads/${enc(branch)}`, token, { method: "PATCH", body: { sha: made.sha, force: false }, step: "write-ref" })
-    } catch (e) {
-      /* Somebody pushed in between: build it again on top of theirs. */
-      if (e instanceof GitHubError && e.status === 422 && /fast.?forward/i.test(e.message)) {
-        lastMoved = e
-        continue
+      const after = await treeAt(token, repo, made.sha)
+      if (!after.truncated) {
+        missing = todo
+          .filter((c) => sentPaths.has(c.path))
+          .filter((c) => ("delete" in c ? after.files.has(c.path) : after.files.get(c.path)?.sha !== blobShaOf(c)))
+          .map((c) => c.path)
       }
-      throw e
+    } catch {
+      /* The commit landed; a read that failed says nothing against it. */
     }
-    const removed = todo.filter((c) => "delete" in c).length
-    return { sha: made.sha, written: todo.length - removed, removed }
+    const removed = entries.filter((e) => e.sha === null).length
+    return { sha: made.sha, written: entries.length - removed, removed, deferred, missing }
   }
-  throw lastMoved ?? new GitHubError(422, "not a fast forward", "write-ref")
+}
+
+/** A refusal of what a file holds (a secret push protection found, a file too large), not of the branch or the app. */
+export function refusesContent(e: GitHubError): boolean {
+  if (e.secrets.length || /push cannot contain secrets|secret detected|contains? (a )?secrets?/i.test(e.message)) return true
+  return e.status === 413 || /too large|exceeds .*(size|limit)|larger than/i.test(e.message)
+}
+
+/** Commits one whole send may become while files GitHub refuses are set apart. */
+const MAX_ISOLATING_COMMITS = 24
+
+export interface IsolatedResult extends CommitResult {
+  /** Files GitHub would not take, each with its refusal. Everything else is in the commit. */
+  refused: { path: string; error: GitHubError }[]
+}
+
+/**
+ * commitChanges, but one file GitHub refuses (push protection found a key in
+ * it, it is too large) does not keep the rest of the theme out. The send is
+ * halved until the refused files are alone; every half GitHub takes is
+ * committed as it goes, with the same message, so it is Storelib's own and is
+ * never read back. Any other failure (the branch, the app, the network) is
+ * the whole send's, thrown as it is.
+ */
+export async function commitIsolating(
+  token: string,
+  repo: string,
+  branch: string,
+  changes: FileChange[],
+  message: string,
+  opts: { deadline?: number } = {},
+): Promise<IsolatedResult> {
+  const out: IsolatedResult = { sha: null, written: 0, removed: 0, deferred: [], missing: [], refused: [] }
+  let attempts = 0
+  const go = async (part: FileChange[]): Promise<void> => {
+    if (part.length === 0) return
+    attempts++
+    try {
+      const r = await commitChanges(token, repo, branch, part, message, opts)
+      if (r.sha) out.sha = r.sha
+      out.written += r.written
+      out.removed += r.removed
+      out.deferred.push(...r.deferred)
+      out.missing.push(...r.missing)
+    } catch (e) {
+      if (!(e instanceof GitHubError) || !refusesContent(e)) throw e
+      const late = !!opts.deadline && Date.now() > opts.deadline
+      if (part.length === 1 || attempts >= MAX_ISOLATING_COMMITS || late) {
+        for (const c of part) out.refused.push({ path: c.path, error: e })
+        return
+      }
+      const mid = Math.ceil(part.length / 2)
+      await go(part.slice(0, mid))
+      await go(part.slice(mid))
+    }
+  }
+  await go(changes)
+  return out
 }
 
 /** The older shape: the new commit's sha, or null. */
