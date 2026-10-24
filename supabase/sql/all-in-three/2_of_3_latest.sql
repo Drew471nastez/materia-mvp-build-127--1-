@@ -3818,5 +3818,15 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('285', '2
 DO $do$ BEGIN IF to_regclass('public.product_options') IS NOT NULL THEN ALTER TABLE public.product_options ADD COLUMN IF NOT EXISTS swatches jsonb NOT NULL DEFAULT '{}'::jsonb; ALTER TABLE public.product_options DROP CONSTRAINT IF EXISTS product_options_swatches_check; ALTER TABLE public.product_options ADD CONSTRAINT product_options_swatches_check CHECK (jsonb_typeof(swatches) = 'object' AND pg_column_size(swatches) <= 8192) NOT VALID; END IF; END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('286', '286_product_option_swatches.sql', 'bd0e67207ac979b4d41f6ce1bc0742007fb7b36f757a7debb051aa5a43d62563') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 287_site_customer_addresses.sql
+/* Customer accounts on websites, round BC: a customer keeps their own phone number and their own address book on the website they signed in to (add, change, delete, pick the default), and checkout fills in the default one. Two optional columns on site_customers: phone (at most 40 characters) and addresses (a JSON list of at most 10; NULL means never changed, so the account shows the addresses their orders went to). Server only, like the rest of the table. Run after 33. Until it runs, the account shows the addresses of past orders and saving one says it could not be saved. Source: supabase/migrations/20270215_site_customer_addresses.sql. */
+ALTER TABLE public.site_customers ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE public.site_customers ADD COLUMN IF NOT EXISTS addresses jsonb;
+ALTER TABLE public.site_customers DROP CONSTRAINT IF EXISTS site_customers_phone_size;
+ALTER TABLE public.site_customers ADD CONSTRAINT site_customers_phone_size CHECK (char_length(coalesce(phone, '')) <= 40);
+ALTER TABLE public.site_customers DROP CONSTRAINT IF EXISTS site_customers_addresses_shape;
+ALTER TABLE public.site_customers ADD CONSTRAINT site_customers_addresses_shape CHECK (addresses IS NULL OR (jsonb_typeof(addresses) = 'array' AND jsonb_array_length(addresses) <= 10 AND pg_column_size(addresses) <= 32768));
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('287', '287_site_customer_addresses.sql', '183a5bb6156220865f0374940aba7950be3e3d56c1e9dceb014a1d565229df56') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;

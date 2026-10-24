@@ -7,6 +7,8 @@ import { returnPathOf, siteOwnerOfHost } from "@/lib/site-accounts/hosts"
 import { siteBrand } from "@/lib/site-accounts/site-brand"
 import { cookieFrom, hostOf, pendingCookie, pendingCookieName, pendingFrom } from "@/lib/site-accounts/session"
 import { cleanEmail } from "@/lib/site-accounts/token"
+import { inLang, langOfRoot, siteLangRoot } from "@/lib/site-accounts/lang"
+import { emailLanguageFor } from "@/lib/emails/words-server"
 import { originOf, privateResponse, sameOriginForm } from "@/lib/site-accounts/respond"
 
 export const runtime = "nodejs"
@@ -40,8 +42,9 @@ async function formOf(request: Request): Promise<FormData | null> {
   }
 }
 
-function back(host: string, query: Record<string, string>): NextResponse {
-  const to = new URL("/account/login", originOf(host))
+function back(host: string, query: Record<string, string>, root = ""): NextResponse {
+  /* The sign in page in the language the form was sent from (/fr/account/login), not the website's own (lib/site-accounts/lang.ts). */
+  const to = new URL(inLang(root, "/account/login"), originOf(host))
   for (const [k, v] of Object.entries(query)) if (v) to.searchParams.set(k, v)
   return privateResponse(NextResponse.redirect(to, 303))
 }
@@ -55,10 +58,18 @@ export async function POST(request: Request) {
   /* Only a path that is not the account page itself is carried in the address. */
   const keep = returnPath === "/account" ? "" : returnPath
   const db = createAdminClient()
+  /* Asked once: the language below and the sign in itself both need the host's creator. */
+  const ownerRead = siteOwnerOfHost(db, host)
+  /* Send a new code is asked from the code step, whose note knows the language the sign in began in. */
+  const noted = form?.get("again") === "1" ? pendingFrom(cookieFrom(request, pendingCookieName(host)), host) : null
+  const creatorId = (await ownerRead)?.creatorId
+  const root = await siteLangRoot(creatorId, form?.get("lang") ?? (noted?.l ? langOfRoot(noted.l) : null))
+  /* The code email in that language too (or the website's own), with the store's approved words for it (lib/emails/words-server). */
+  const mailWords = creatorId ? await emailLanguageFor(creatorId, root ? langOfRoot(root) : null).catch(() => null) : null
 
   const deps: SignInDeps = {
     db,
-    owner: (h) => siteOwnerOfHost(db, h),
+    owner: (h) => (h === host ? ownerRead : siteOwnerOfHost(db, h)),
     limited: async ({ creatorId, email }) => {
       const byAddress = await rateLimit({
         bucket: "site-signin-email",
@@ -109,11 +120,11 @@ export async function POST(request: Request) {
   */
   const held = again ? pendingFrom(cookieFrom(request, pendingCookieName(host)), host) : null
   const name = form?.get("name") || (held?.n && held.m === cleanEmail(form?.get("email")) ? held.n : undefined)
-  const result = await requestCode({ host, email: form?.get("email"), returnPath, name }, deps)
+  const result = await requestCode({ host, email: form?.get("email"), returnPath, name, lang: root || null, mail: mailWords }, deps)
   /* A new code that could not be sent leaves the visitor on the code step; a first one, on the email step. */
-  if (result.ok === false) return back(host, again ? { error: result.why } : { error: result.why, step: "email", return: keep })
+  if (result.ok === false) return back(host, again ? { error: result.why } : { error: result.why, step: "email", return: keep }, root)
 
-  const res = back(host, again ? { sent: "1" } : {})
+  const res = back(host, again ? { sent: "1" } : {}, root)
   res.cookies.set(pendingCookieName(host), result.pending, pendingCookie(host))
   return res
 }

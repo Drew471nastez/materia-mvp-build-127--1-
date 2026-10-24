@@ -42,7 +42,7 @@ import { ProductImg } from "@/components/media/missing-image"
 import { languageName } from "@/lib/markets/locales"
 import { cn } from "@/lib/utils"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
-import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, siteSignInHref, visibleAttributes } from "@/lib/checkout/site-checkout"
+import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, siteSignInHref, visibleAttributes, type SiteBuyerAddress } from "@/lib/checkout/site-checkout"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import { postalCodeRequired } from "@/lib/physical/address"
 import { postalKey } from "@/lib/physical/local-delivery"
@@ -95,7 +95,8 @@ export interface SiteCheckoutProps {
   initialError: string | null
   config?: CheckoutConfig
   /** Signed in to this website's own customer account. */
-  buyer: { email: string; name: string | null } | null
+  /** Signed in to the website: who, and their default address, filled in below (lib/checkout/site-checkout-server siteBuyerFrom). */
+  buyer: { email: string; name: string | null; address?: SiteBuyerAddress | null } | null
   /** The email cannot be changed: the store asks for an account, and this is its address. */
   lockedEmail: string | null
   needsSignIn: boolean
@@ -339,7 +340,8 @@ export function SiteCheckout({
 
   /* ── Delivery ────────────────────────────────────────────────────── */
   /* The country the server already priced the first frame with (./page.tsx): no guess, no jump. The browser's language only when nothing was known. */
-  const [address, setAddress] = React.useState<Address>(() => ({ ...EMPTY_ADDRESS, country: initialCountry ?? "" }))
+  /* A signed in customer's default address, as their account keeps it: filled in, and theirs to change here. */
+  const [address, setAddress] = React.useState<Address>(() => (buyer?.address?.line1 ? { ...EMPTY_ADDRESS, ...buyer.address, country: buyer.address.country || initialCountry || "" } : { ...EMPTY_ADDRESS, country: initialCountry ?? "" }))
   const [mode, setMode] = React.useState<"ship" | "pickup">("ship")
   /* The delivery the first quote chose, so it is not asked for again. */
   const [optionId, setOptionId] = React.useState<string | null>(initialQuote?.requiresShipping ? (initialQuote.delivery.selectedId ?? null) : null)

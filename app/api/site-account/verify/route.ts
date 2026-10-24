@@ -15,6 +15,7 @@ import {
   sessionCookieName,
 } from "@/lib/site-accounts/session"
 import { originOf, privateResponse, sameOriginForm } from "@/lib/site-accounts/respond"
+import { inLang } from "@/lib/site-accounts/lang"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -63,15 +64,17 @@ export async function POST(request: Request) {
     { db, owner: (h) => siteOwnerOfHost(db, h) },
   )
 
+  /* Back in the language the sign in began in (the note's, lib/site-accounts/lang.ts): /fr/account/login stays French to the end. */
+  const root = result.lang ?? ""
   if (result.ok === false) {
-    return privateResponse(NextResponse.redirect(new URL(`/account/login?error=${result.why}`, origin), 303))
+    return privateResponse(NextResponse.redirect(new URL(`${inLang(root, "/account/login")}?error=${result.why}`, origin), 303))
   }
 
   /* Now and then, the rows nothing can present again (codes live ten minutes). */
   if (Math.random() < 0.05) await sweepCodes(db)
 
   /* A path, checked when the note was made, so this stays on this host. */
-  const res = NextResponse.redirect(new URL(result.returnPath, origin), 303)
+  const res = NextResponse.redirect(new URL(inLang(root, result.returnPath), origin), 303)
   res.cookies.set(sessionCookieName(host), result.session, sessionCookie(host))
   res.cookies.set(HINT_COOKIE, "1", hintCookie(host))
   res.cookies.set(pendingCookieName(host), "", { ...pendingCookie(host), maxAge: 0 })

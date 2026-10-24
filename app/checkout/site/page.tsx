@@ -147,7 +147,12 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const initialCountry = countryCode(jar.get(CHECKOUT_COUNTRY_COOKIE)?.value) ?? countryCode(deliveryCountryGuess((await languagesRead).markets, jar.get("sl_country")?.value, seenCountry))
   /* The price waits only for who is signed in (what they own is not charged), not for the header, the settings or the payments check. */
   /* buyerRead: started above, beside the cart. */
-  const quoteRead = buyerRead.then((b) => (items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode, ...(initialCountry ? { country: initialCountry } : {}) }, null, b ? { email: b.email } : null) : null))
+  /* A signed in customer's default address is where it goes (lib/checkout/site-checkout-server siteBuyerFrom): priced for its country from the first frame. */
+  const countryOf = (b: Awaited<typeof buyerRead>) => countryCode(b?.address?.country) ?? initialCountry
+  const quoteRead = buyerRead.then((b) => {
+    const country = countryOf(b)
+    return items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode, ...(country ? { country } : {}) }, null, b ? { email: b.email } : null) : null
+  })
   /*
     THE CURRENCY IT IS CHARGED IN (lib/markets/checkout-market-server): the
     one the website's pages showed this visitor. A market Storelib can
@@ -211,12 +216,12 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       initialError={answer && answer.ok === false ? answer.error : null}
       /* Its cash on delivery fee in the currency the quote is in (lib/markets/checkout-charge). */
       config={checkoutConfigInMarket(config, market.charge)}
-      buyer={buyer ? { email: buyer.email, name: buyer.name } : null}
+      buyer={buyer ? { email: buyer.email, name: buyer.name, address: buyer.address ?? null } : null}
       accountUrl={`${site.origin}/account`}
       lockedEmail={gate.kind === "open" ? gate.lockedEmail : null}
       needsSignIn={gate.kind === "sign-in"}
       currencyNote={currencyNote}
-      initialCountry={initialCountry}
+      initialCountry={countryOf(buyer)}
       backIsDefault={!back}
       lang={language.lang}
       languages={language.available && language.available.length > 1 ? language.available : undefined}

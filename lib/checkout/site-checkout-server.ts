@@ -22,6 +22,7 @@ import { siteOwnerOfHost } from "@/lib/site-accounts/hosts"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cookieFrom, sessionCookieName, visitorFrom } from "@/lib/site-accounts/session"
 import { customerById } from "@/lib/site-accounts/customers"
+import { addressBookOf } from "@/lib/site-accounts/account-data"
 import type { SiteBuyer } from "./site-checkout"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,7 +68,19 @@ export async function siteBuyerFrom(db: Db, input: { host: string; cookieValue: 
   if (!visitor) return null
   const customer = await customerById(db, { customerId: visitor.customerId, creatorId: input.creatorId })
   if (!customer?.email) return null
-  return { customerId: customer.id, email: customer.email.toLowerCase(), name: customer.name ?? null }
+  /*
+    THE DEFAULT ADDRESS, FILLED IN. The one the customer picked in their
+    address book on this website (lib/site-accounts/addresses.ts), else the
+    one their last order here went to: what a shop's checkout does for a
+    signed in customer. Read from their own row only, never asked of the page.
+  */
+  const book = await addressBookOf(db, customer).catch(() => [])
+  const chosen = book.find((a) => a.default) ?? book[0] ?? null
+  const address = chosen
+    ? { line1: chosen.line1, line2: chosen.line2 ?? "", city: chosen.city, region: chosen.region ?? "", postalCode: chosen.postalCode ?? "", country: chosen.country, phone: chosen.phone ?? customer.phone ?? "", company: chosen.company ?? "" }
+    : null
+  /* No name on the account: the name on the address, so the delivery is not to nobody. */
+  return { customerId: customer.id, email: customer.email.toLowerCase(), name: (customer.name ?? "").trim() || chosen?.name || null, address }
 }
 
 export async function siteBuyerOfRequest(db: Db, request: Request, creatorId: string): Promise<(SiteBuyer & { customerId: string }) | null> {
