@@ -523,13 +523,12 @@ async function sideEffects(
   /* The company on every line this caller wrote (part 35; a database
      without the column refuses this write alone). */
   const business = s.business
-  if (business) {
-    for (const l of s.created) {
-      await l.f.idempotent("business details", async () => {
-        const { error } = await admin.from("orders").update({ business_details: business }).eq("id", l.orderId)
-        if (error) throw new Error(`${error.code ?? ""} ${error.message ?? ""}`.trim())
-      })
-    }
+  if (business && s.created.length) {
+    /* One write for every line this call follows up, recorded on the first of them; writing it again changes nothing. */
+    await s.created[0].f.idempotent("business details", async () => {
+      const { error } = await admin.from("orders").update({ business_details: business }).in("id", s.created.map((l) => l.orderId))
+      if (error) throw new Error(`${error.code ?? ""} ${error.message ?? ""}`.trim())
+    })
   }
   /*
     THE BUYER'S NOTE on every line this caller wrote, for the order page and
@@ -538,13 +537,11 @@ async function sideEffects(
     seller's email still carries the note (sale.buyerNote).
   */
   const buyerNote = s.buyerNote
-  if (buyerNote) {
-    for (const l of s.created) {
-      await l.f.idempotent("buyer note", async () => {
-        const { error } = await admin.from("orders").update({ buyer_note: buyerNote }).eq("id", l.orderId)
-        if (error && !isMissingColumn(error, "buyer_note")) throw new Error(`${error.code ?? ""} ${error.message ?? ""}`.trim())
-      })
-    }
+  if (buyerNote && s.created.length) {
+    await s.created[0].f.idempotent("buyer note", async () => {
+      const { error } = await admin.from("orders").update({ buyer_note: buyerNote }).in("id", s.created.map((l) => l.orderId))
+      if (error && !isMissingColumn(error, "buyer_note")) throw new Error(`${error.code ?? ""} ${error.message ?? ""}`.trim())
+    })
   }
 
   if (s.ownsBasket) {

@@ -234,7 +234,7 @@ async function main() {
     const claimAt = fulfil.indexOf("await claimSale(admin, productId, saleHolder)")
     const insertAt = fulfil.indexOf('admin.from("orders").insert(row)')
     check("the order takes its copy again before it is written", claimAt > 0 && claimAt < insertAt)
-    check("over the cap: the order is written (money was taken), marked, refunded, not fulfilled", /if \(!withinLimit\) await markSoldOut\(admin, order\.id\)\s*if \(!withinLimit\) return refundedOverLimit\(/.test(fulfil) && fulfil.indexOf("return refundedOverLimit(") < fulfil.indexOf('step("entitlement"'))
+    check("over the cap: the order is written (money was taken), marked, refunded, not fulfilled", /if \(!withinLimit\) await markSoldOut\(admin, order\.id\)\s*if \(!withinLimit\) return refundedOverLimit\(/.test(fulfil) && /* Round AE: steps recorded (lib/checkout/followups.ts). */ fulfil.indexOf("return refundedOverLimit(") < fulfil.indexOf('f.idempotent("entitlement"'))
     check("only the caller that made the order refunds (a raced second call reads the winner's)", fulfil.indexOf("const raced = await existingOrder") < fulfil.indexOf("if (!withinLimit) return refundedOverLimit("))
     check("a refund that failed is tried again by the next delivery, once", fulfil.includes("owesSoldOutRefund(admin, found.id)"))
     const refund = read("lib/checkout/sold-out-refund.ts")

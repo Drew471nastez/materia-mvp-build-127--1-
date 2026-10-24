@@ -298,9 +298,10 @@ async function main() {
     const insertFirst: Array<[string, RegExp]> = [
       ["app/api/checkout/process/route.ts", /Order created successfully:", order\.id\)\n\s*const origin = originOf\(body\.origin, request\)\n\s*const channel = channelOf\(origin, orderSourceFromRequest\(request\)\)\n\s*await tagOrderSource\(admin, order\.id, channel, origin\)/],
       ["app/api/checkout/quick-free/route.ts", /const origin = originOf\(body\.origin, request\)\n\s*const channel = channelOf\(origin, orderSourceFromRequest\(request\)\)\n\s*await tagOrderSource\(admin, order\.id, channel, origin\)/],
-      ["lib/checkout/fulfil-payment.ts", /const origin = orderOriginFrom\(m, opts\.request\)\n\s*const source = orderSourceFrom\(m, opts\.request\)\n\s*await tagOrderSource\(admin, order\.id, source, origin\)/],
+      /* Round AE: a recorded follow-up step, after the insert (lib/checkout/followups.ts). */
+      ["lib/checkout/fulfil-payment.ts", /const origin = orderOriginFrom\(m, opts\.request\)\n\s*const source = orderSourceFrom\(m, opts\.request\)\n\s*await f\.idempotent\("source", \(\) => tagOrderSource\(admin, order\.id, source, origin\)\)/],
       ["app/api/stripe/webhook/route.ts", /await tagOrderSource\(supabaseAdmin, order\.id, orderSourceFrom\(metadata\), orderOriginFrom\(metadata\)\)/],
-      ["lib/checkout/fulfil-cart-item.ts", /await tagOrderSource\(ctx\.admin, order\.id, "website", ctx\.origin\)/],
+      ["lib/checkout/fulfil-cart-item.ts", /await f\.idempotent\("source", \(\) => tagOrderSource\(ctx\.admin, line\.orderId, "website", ctx\.origin\)\)/],
       ["app/api/admin/sales-trigger/route.ts", /await tagOrderSource\(admin, order\.id, "storelib", \{ surface: "admin" \}\)/],
     ]
     for (const [file, pattern] of insertFirst) {

@@ -195,7 +195,7 @@ async function main() {
     const reads = hook.match(/if \(isUniqueViolation\(orderInsertError\)\) \{\s+const written = await existingSessionOrder\(supabaseAdmin, session\.id, receiptToken\)\s+if \(written\) \{[\s\S]{0,300}Already processed/g) ?? []
     check("the webhook reads a racing duplicate back after either insert, never a 500", reads.length === 2)
     check("a basket's lines carry their own receipt token, by their place", /receiptTokenFor: \(index\) => cartReceiptToken\(sessionId, index\)/.test(read("lib/checkout/fulfil-cart-session.ts")) && /const receiptToken = cartReceiptToken\(sessionId, i\)/.test(read("lib/physical/checkout-server.ts")))
-    check("  and a duplicate line is already there, not a failure", /if \(error\?\.code === "23505"\) return \{ status: "exists" \}/.test(read("lib/checkout/fulfil-cart-item.ts")) && /if \(error\?\.code === "23505"\) continue/.test(read("lib/physical/checkout-server.ts")))
+    check("  and a duplicate line is already there, not a failure", /* Round AE: both read the other caller's order to finish its follow-ups (lib/checkout/followups.ts). */ /if \(error\?\.code === "23505"\) \{[\s\S]{0,500}return \{ status: "exists", orderId:/.test(read("lib/checkout/fulfil-cart-item.ts")) && /if \(error\?\.code === "23505"\) \{[\s\S]{0,800}?continue\n/.test(read("lib/physical/checkout-server.ts")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

@@ -3828,5 +3828,14 @@ ALTER TABLE public.site_customers DROP CONSTRAINT IF EXISTS site_customers_addre
 ALTER TABLE public.site_customers ADD CONSTRAINT site_customers_addresses_shape CHECK (addresses IS NULL OR (jsonb_typeof(addresses) = 'array' AND jsonb_array_length(addresses) <= 10 AND pg_column_size(addresses) <= 32768));
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('287', '287_site_customer_addresses.sql', '183a5bb6156220865f0374940aba7950be3e3d56c1e9dceb014a1d565229df56') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 300_order_followups.sql
+/* Order follow-ups (round AE): what happens after a paid checkout writes its order (the customer, the seller's ledger, the emails, the library entry, the sales count) is recorded step by step in order_followups, one row per order and step, so a webhook retry or the ten minute sweep (app/api/cron/physical) finishes the steps a crash left undone and never repeats one that was done. New table only: no existing row or column is changed. Row level security on; the server writes with the service key; a creator may read the rows of their own orders. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.order_followups (order_id uuid NOT NULL, step text NOT NULL, state text NOT NULL DEFAULT 'claimed' CHECK (state IN ('claimed', 'done', 'failed')), kind text, ref text, attempts integer NOT NULL DEFAULT 1, last_error text, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (order_id, step));
+CREATE INDEX IF NOT EXISTS order_followups_open_idx ON public.order_followups (created_at) WHERE step = 'begun';
+ALTER TABLE public.order_followups ENABLE ROW LEVEL SECURITY;
+DO $do$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'order_followups' AND policyname = 'creator reads own order followups') THEN CREATE POLICY "creator reads own order followups" ON public.order_followups FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.orders o JOIN public.products p ON p.id = o.product_id JOIN public.creators c ON c.id = p.creator_id WHERE o.id = order_followups.order_id AND c.user_id = (select auth.uid()))); END IF; END $do$;
+REVOKE ALL ON public.order_followups FROM anon;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('300', '300_order_followups.sql', '71ed8663c0da3363fd4db66f10d61537713ca2d7ec06637e6e3ccaa58f15fa84') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

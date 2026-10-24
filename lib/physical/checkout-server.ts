@@ -1105,13 +1105,12 @@ export async function completeCheckout(
     seller's copy of the invoice read it from the order. A database without the column refuses this write alone.
   */
   const company = businessFromFields(co.business_details)
-  if (company) {
-    for (const fl of followed) {
-      await fl.f.idempotent("business details", async () => {
-        const { error: companyError } = await db.from("orders").update({ business_details: company }).eq("id", fl.orderId)
-        if (companyError) console.warn("[physical] company details not kept on the order:", companyError.code)
-      })
-    }
+  if (company && followed.length) {
+    /* One write for every line this call follows up, recorded on the first of them; writing it again changes nothing. */
+    await followed[0].f.idempotent("business details", async () => {
+      const { error: companyError } = await db.from("orders").update({ business_details: company }).in("id", followed.map((x) => x.orderId))
+      if (companyError) console.warn("[physical] company details not kept on the order:", companyError.code)
+    })
   }
 
   const { data: firstOrder } = await db.from("orders").select("id").eq("receipt_token", cartReceiptToken(sessionId, 0)).maybeSingle()
