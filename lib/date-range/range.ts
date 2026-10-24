@@ -266,8 +266,19 @@ export function compareBounds(r: DateRange, c: CompareValue, timeZone: string, n
   const cb = boundsOf(cr, timeZone)
   const running = current.end < full.end
   if (!running || c.mode === "custom") return cb
-  const elapsed = current.end - current.start
-  return { start: cb.start, end: Math.min(cb.end, cb.start + elapsed) }
+  /*
+    The same time of day on its own last day, on the clock: not the
+    period's elapsed milliseconds counted from the comparison's start. A
+    period with a 25 hour day in it (the clocks going back) cut its
+    comparison an hour late, and one with a 23 hour day an hour early.
+  */
+  const wall = wallClock(current.end, timeZone)
+  const timeOfDay = ((wall % 86_400_000) + 86_400_000) % 86_400_000
+  const { y, m, d } = parts(cr.end)
+  const guess = Date.UTC(y, m, d) + timeOfDay
+  let at = guess - (wallClock(guess, timeZone) - guess)
+  at = guess - (wallClock(at, timeZone) - at)
+  return { start: cb.start, end: Math.max(cb.start, Math.min(cb.end, at)) }
 }
 
 /* ── words ─────────────────────────────────────────────────────────────── */

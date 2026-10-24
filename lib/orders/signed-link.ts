@@ -29,6 +29,8 @@ export type OrderLink =
   | { k: "invoice"; c: string; o: string; z: string; d: "inline" | "attachment"; e: number }
   /* Orders by number (`n`), or a list as the Orders page draws it: its address (`q`) and the instants of its dates (`ws`, `we`; none for every order). */
   | { k: "csv"; c: string; n: string; q?: string; ws?: number; we?: number; f: "spreadsheet" | "plain"; z: string; name: string; d: "inline" | "attachment"; e: number }
+  /* Analytics as a CSV (app/api/analytics/export): the signed in user (`u`), their store (`c`) and the page's question (`q`). */
+  | { k: "analytics"; c: string; u: string; q: string; d: "inline" | "attachment"; e: number }
 
 /** A link before it is dated: every field but the expiry, per kind. */
 export type OrderLinkRequest = OrderLink extends infer T ? (T extends unknown ? Omit<T, "e"> : never) : never
@@ -69,6 +71,6 @@ export function verifyOrderLink(token: string | null | undefined, now = Date.now
   }
   if (!payload || typeof payload.e !== "number" || payload.e < now) return null
   if (typeof payload.c !== "string" || !payload.c) return null
-  if (payload.k !== "invoice" && payload.k !== "csv") return null
+  if (payload.k !== "invoice" && payload.k !== "csv" && payload.k !== "analytics") return null
   return payload
 }

@@ -19,8 +19,9 @@ import { createRoot } from "react-dom/client"
 import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
 import { LanguageProvider } from "@/lib/i18n/context"
 import { buildReports, moneyOf, salesFor, wireFromRows, type StepRow, type ViewRow } from "@/lib/analytics/reports"
-import { breakdownOf, channelsOf, type CommerceOrderRow } from "@/lib/analytics/commerce"
-import { bucketIndex, bucketStarts, grainFor } from "@/lib/analytics/buckets"
+import { commerceReport } from "@/lib/analytics/commerce"
+import { parseMode } from "@/lib/analytics/sections"
+import { grainFor } from "@/lib/analytics/buckets"
 import { parseProperty, type CreatorProperties } from "@/lib/analytics/properties"
 import type { OrderRow } from "@/lib/orders/order-view"
 
@@ -78,20 +79,6 @@ for (let i = 0; i < 1600; i++) {
   }
 }
 
-/* The sales series in the chart's buckets, here so the harness reads the same in an older checkout (PAGE_ROOT). */
-function seriesOf(rows: CommerceOrderRow[], span: { start: number; end: number }, timeZone: string, grain = grainFor(span)) {
-  const starts = bucketStarts(span, grain, timeZone)
-  const lists: CommerceOrderRow[][] = starts.map(() => [])
-  for (const r of rows) {
-    const t = Date.parse(r.created_at)
-    if (t >= span.start && t < span.end) lists[Math.max(0, bucketIndex(starts, t))].push(r)
-  }
-  return starts.map((t, i) => {
-    const b = breakdownOf(lists[i])
-    return { t, total: b.total, orders: b.orders, aov: b.aov }
-  })
-}
-
 type W = Window & { __fetches: Array<{ at: number; url: string; method: string; body?: string }>; __delay: number }
 const w = window as unknown as W
 w.__fetches = []
@@ -125,13 +112,11 @@ w.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const at = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : Date.parse(v || ""))
     const cs = q.get("cstart")
     const previous = cs ? { start: at(cs), end: at(q.get("cend")) } : q.get("compare") === "none" ? { start, end: start } : { start: start - (end - start), end: start }
-    const placed = salesFor(mine, selector, PLACES.defaultWebsite).flatMap((o) => o.lines) as unknown as CommerceOrderRow[]
-    const inside = (s: { start: number; end: number }) => placed.filter((r) => Date.parse(r.created_at) >= s.start && Date.parse(r.created_at) < s.end)
-    const cur = inside({ start, end })
-    const before = inside(previous)
+    /* Round AB2: the route's own counting, payment by payment (lib/analytics/commerce commerceReport). */
+    const c = commerceReport({ rows: mine, span: { start, end }, previous: q.get("compare") === "none" ? null : previous, timeZone: q.get("tz") || "UTC", selector, properties: PLACES, productId: null, mode: parseMode(q.get("kind")), productTypes: types })
     return json({
-      currency: "USD", grain: grainFor({ start, end }), timeZone: q.get("tz") || "UTC", breakdown: breakdownOf(cur), previous: breakdownOf(before),
-      series: seriesOf(cur, { start, end }, q.get("tz") || "UTC"), previousSeries: seriesOf(before, previous, q.get("tz") || "UTC", grainFor({ start, end })), channels: channelsOf(cur),
+      ...c, orders: undefined,
+      currency: "USD", grain: grainFor({ start, end }), timeZone: q.get("tz") || "UTC",
       fulfillment: { hours: 30, shipped: 12 }, fulfillmentBefore: { hours: 34, shipped: 9 }, compared: q.get("compare") !== "none", viewer: "u1",
     })
   }

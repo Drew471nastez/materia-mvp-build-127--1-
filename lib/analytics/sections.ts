@@ -18,9 +18,13 @@
  *
  * What each gets:
  *
- *   shipping, fulfilment     a seller who ships, or has a published website
- *                            (which is a shop), and only while what is chosen
- *                            could have shipped: All, or a physical product
+ *   shipping, fulfilment     a seller with a physical product, and only while
+ *                            what is chosen could have shipped: All or
+ *                            Physical, or a physical product. A published
+ *                            website alone is no reason: a seller of
+ *                            downloads with a website ships nothing
+ *   All, Digital, Physical   a seller of both kinds: one switch at the top
+ *                            that every sales figure and card follows
  *   downloads                a seller of digital products, while All or a
  *                            digital product is chosen
  *   Physical and Digital     Top products split by kind, for a seller of both
@@ -79,6 +83,38 @@ export interface Selection {
   property: string
   /** The chosen product's kind, or null for All products. */
   productKind: ProductKind | null
+  /** The All / Digital / Physical switch, for a seller of both; "all" when absent. */
+  mode?: SalesMode
+}
+
+/* ─── What the store sells, and the switch for a store that sells both ─── */
+
+/** The switch at the top of Analytics. Digital is everything that does not ship: downloads, courses, memberships, communities. */
+export type SalesMode = "all" | "digital" | "physical"
+
+export function parseMode(raw: string | null | undefined): SalesMode {
+  return raw === "digital" || raw === "physical" ? raw : "all"
+}
+
+/** What the store sells, from its catalogue: nothing yet, one kind, or both. */
+export function sellsOf(p: Pick<AnalyticsProfile, "physical" | "digital" | "membership" | "communities" | "products">): "none" | "digital" | "physical" | "both" {
+  if (p.products === 0) return "none"
+  const digital = p.digital || p.membership
+  if (p.physical && digital) return "both"
+  return p.physical ? "physical" : "digital"
+}
+
+/** The switch's value as it applies: only a store that sells both kinds has one. */
+export function modeFor(p: AnalyticsProfile, wanted: SalesMode): SalesMode {
+  const sells = sellsOf(p)
+  if (sells === "both") return wanted
+  return "all"
+}
+
+/** Whether an order line of this product type is counted under the switch. */
+export function lineInMode(type: string | null | undefined, mode: SalesMode): boolean {
+  if (mode === "all") return true
+  return (kindOfProduct(type) === "physical") === (mode === "physical")
 }
 
 export interface Sections {
@@ -95,17 +131,21 @@ export interface Sections {
 
 export function sectionsFor(p: AnalyticsProfile, s: Selection): Sections {
   const allProducts = s.productKind === null
-  const ships = p.physical || p.publishedWebsite
+  const mode = s.mode ?? "all"
+  /* Only a seller of something physical has shipping or fulfilment to show. */
+  const ships = p.physical && mode !== "digital"
+  const digital = p.digital && mode !== "physical"
   return {
     sales: p.products > 0,
     shipping: ships && (allProducts || s.productKind === "physical"),
     fulfillment: ships && (allProducts || s.productKind === "physical"),
     topProducts: allProducts,
-    productKinds: allProducts && p.physical && (p.digital || p.membership),
+    /* The Physical and Digital tabs inside Top products, only while the switch at the top is on All. */
+    productKinds: allProducts && mode === "all" && p.physical && (p.digital || p.membership),
     subscribers: allProducts,
     links: s.property === "onepage",
-    communities: p.communities > 0 && s.property === "all" && (allProducts || s.productKind === "community"),
-    downloads: p.digital && (allProducts || s.productKind === "digital"),
+    communities: p.communities > 0 && s.property === "all" && mode !== "physical" && (allProducts || s.productKind === "community"),
+    downloads: digital && (allProducts || s.productKind === "digital"),
   }
 }
 

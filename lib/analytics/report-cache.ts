@@ -64,6 +64,8 @@ export interface ReportQuestion {
    * question: the numbers kept for the old one are not shown as the new one.
    */
   currency?: string
+  /** The All / Digital / Physical switch (lib/analytics/sections); "all" or absent is no switch. */
+  kind?: string
 }
 
 /** The query string the page asks with. The same question is always the same string. */
@@ -77,6 +79,7 @@ export function reportKey(q: ReportQuestion): string {
   })
   const currency = (q.currency || "").trim().toUpperCase()
   if (/^[A-Z]{3}$/.test(currency)) p.set("ccy", currency)
+  if (q.kind === "digital" || q.kind === "physical") p.set("kind", q.kind)
   if (q.compare) {
     p.set("cstart", new Date(q.compare.start).toISOString())
     p.set("cend", new Date(q.compare.end).toISOString())

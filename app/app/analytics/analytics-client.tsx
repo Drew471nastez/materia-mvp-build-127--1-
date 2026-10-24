@@ -35,19 +35,29 @@
  * stretch of time.
  *
  * WHAT IS DRAWN FOLLOWS WHAT THE SELLER SELLS AND HAS (lib/analytics/
- * sections): shipping and fulfilment for one who ships or has a published
- * website, downloads for digital products, the OnePage's links for the
- * OnePage, communities for one who runs one. And the reports they added,
- * read on the server with the page so they are on the first paint
- * (./add-reports), as cards of their own after the rest.
+ * sections): shipping and fulfilment for one who sells something physical,
+ * downloads for digital products, the OnePage's links for the OnePage,
+ * communities for one who runs one. A seller of both kinds has one switch
+ * beside the period, All, Digital or Physical, kept in the address as
+ * `?kind=`, and every sales figure and card follows it (the visits are the
+ * store's whatever it says: a visit is not of one kind). A seller with
+ * nothing to sell yet sees the visits and one line saying where sales will
+ * be, not a row of zeros. And the reports they added, read on the server
+ * with the page so they are on the first paint (./add-reports), as cards of
+ * their own after the rest, with Add report under the last of them.
+ *
+ * EXPORT, beside the heading: every report on the page for what is chosen,
+ * as one CSV file (./export-button, app/api/analytics/export).
  */
 
 import { CommerceReports } from "./commerce-reports"
 import { CommunityReports, type CommunityPlace } from "./community-reports"
 import { AddReportButton, ReportPicker, reportActions, useAddedReports } from "./add-reports"
+import { ExportButton } from "./export-button"
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { PULL_REFRESH_EVENT, PullToRefreshEvent, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 import { TryProStrip } from "@/components/app/announcement-bar-mobile"
@@ -57,10 +67,10 @@ import { ProductPicker } from "@/components/app/product-picker"
 import { PropertyPicker } from "@/components/app/property-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
-import { kindOfProduct, profileOf, reportOptions, reportShown, sectionsFor, type ReportId } from "@/lib/analytics/sections"
+import { kindOfProduct, modeFor, parseMode, profileOf, reportOptions, reportShown, sectionsFor, sellsOf, type ReportId, type SalesMode } from "@/lib/analytics/sections"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { DEFAULT_PROPERTY, ownsProperty, parseProperty, propertyOptions, propertyParam, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
-import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
+import { AnalyticsReports, ReportTabs, useAnalyticsReports } from "./analytics-reports"
 import { reportNow } from "@/lib/analytics/report-cache"
 import { AnalyticsChartWithTooltip, CHART_COLORS, type AnalyticsChartData } from "@/components/app/analytics-chart"
 import { MetricTab } from "@/components/app/metric-tab"
@@ -74,6 +84,8 @@ import { formatMinor } from "@/lib/markets/money"
 
 /* The four figures that always show, in order. A seller can add more (./add-reports). "views" is the Visitors tab. */
 const CORE_TABS = ["views", "revenue", "orders", "conversion"] as const
+/* A seller with nothing to sell yet: the visits, not three figures of zero sales. */
+const TRAFFIC_TABS = ["views", "pageviews", "clicks"] as const
 /* Each tab keeps its width in the phone's row, the home page's 130px. */
 const STRIP_TAB = "flex-shrink-0 min-w-[130px] md:min-w-0"
 /* The first line's name in the chart's readout. */
@@ -98,7 +110,7 @@ interface AnalyticsClientProps {
   savedReports?: ReportId[] | null
 }
 
-type ChartMetricFilter = "views" | "orders" | "revenue" | "conversion"
+type ChartMetricFilter = "views" | "orders" | "revenue" | "conversion" | "pageviews" | "clicks"
 
 interface Figure {
   /** Null only for a rate with nothing to divide by. */
@@ -270,12 +282,31 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const [selectedProduct, setSelectedProduct] = useState("all")
   /* What this seller sells and has, and so which sections are drawn for what is chosen (lib/analytics/sections). */
   const profile = useMemo(() => profileOf({ products, onePageId: properties.onePageId, websites: properties.websites, communities: communities.length }), [products, properties, communities.length])
+  const sells = sellsOf(profile)
+  /*
+    THE SWITCH, ALL / DIGITAL / PHYSICAL, for a seller of both, kept in the
+    address beside the place (history.replaceState, as the place is). A
+    product chosen below it is already of one kind, so the switch rests.
+  */
+  const [wantedMode, setWantedMode] = useState<SalesMode>(() => parseMode(new URLSearchParams(searchParams.toString()).get("kind")))
+  const setMode = useCallback((m: SalesMode) => {
+    setWantedMode(m)
+    try {
+      const url = new URL(window.location.href)
+      if (m === "all") url.searchParams.delete("kind")
+      else url.searchParams.set("kind", m)
+      window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    } catch {
+      /* the address is a convenience */
+    }
+  }, [])
   const chosenProduct = selectedProduct === "all" ? null : products.find((p) => p.id === selectedProduct) ?? null
-  const sections = sectionsFor(profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null })
+  const mode = chosenProduct ? "all" : modeFor(profile, wantedMode)
+  const sections = sectionsFor(profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode })
   /* The reports the seller added: cards of their own after the rest, never more tabs on the chart. */
   const [added, saveAdded] = useAddedReports(creatorId, savedReports)
   const reportChoices = useMemo(() => reportOptions(profile), [profile])
-  const shownAdded = added.filter((id) => reportShown(id, profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null }))
+  const shownAdded = added.filter((id) => reportShown(id, profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode }))
   const actions = reportActions(added, saveAdded)
   const [picking, setPicking] = useState(false)
   /* A report just added is brought into view once it is on screen, wherever the picker was opened from. */
@@ -296,8 +327,8 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
     const r = el.getBoundingClientRect()
     if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" })
   }, [added])
-  /* The chart is these four. Added reports are cards under it, never more tabs here. */
-  const tabOrder = CORE_TABS
+  /* The chart is these four, or the visits alone for a seller with nothing to sell yet. Added reports are cards under it, never more tabs here. */
+  const tabOrder: readonly ChartMetricFilter[] = sells === "none" ? TRAFFIC_TABS : CORE_TABS
 
   /* Asked again every minute, so a sale shows up without a reload. Not while
      the tab or the app is in the background: coming back asks at once when a
@@ -336,6 +367,16 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const propertyKey = propertyParam(property) ?? "all"
 
   const storeCurrency = useStoreCurrency()
+  const exportQuery = useMemo(() => {
+    const q = new URLSearchParams({ start: new Date(safeSpan.start).toISOString(), end: new Date(safeSpan.end).toISOString(), tz: timeZone, product: selectedProduct, property: propertyKey })
+    if (against) {
+      q.set("cstart", new Date(against.start).toISOString())
+      q.set("cend", new Date(against.end).toISOString())
+    } else q.set("compare", "none")
+    if (mode !== "all") q.set("kind", mode)
+    return q.toString()
+  }, [safeSpan, against, timeZone, selectedProduct, propertyKey, mode])
+  const exportName = `storelib-analytics-${period.start}-to-${period.end}.csv`
   const reportsState = useAnalyticsReports({
     start: safeSpan.start,
     end: safeSpan.end,
@@ -345,6 +386,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
     refresh: tick,
     viewer: userId,
     currency: storeCurrency,
+    kind: mode,
   })
   /*
     PULLED DOWN TO REFRESH (components/ui/pull-to-refresh.tsx, around the
@@ -393,7 +435,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   */
   const waitingFigures = reportsState.loading && (!answer || reportsState.stale)
   const waitingLists = reportsState.loading && !!answer && !!answer.reports.partial
-  const waitingKey = `${period.preset ?? ""}|${period.start}|${period.end}|${propertyKey}|${selectedProduct}`
+  const waitingKey = `${period.preset ?? ""}|${period.start}|${period.end}|${propertyKey}|${selectedProduct}|${mode}`
 
   /* The row follows the chosen tab on a phone; the swipe itself is the browser's. */
   const metricStripRef = useTabStrip<HTMLDivElement>(chartMetricFilter, tabOrder)
@@ -463,11 +505,12 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
         allTime: null,
       },
       pageViews: r.views.value,
+      visits: r.sessions?.value ?? 0,
     }
   }, [answer])
 
   const zero: Figure = { value: 0, previous: 0, allTime: null }
-  const shown = figures ?? { views: zero, revenue: zero, orders: zero, conversion: { value: null, previous: null, allTime: null }, pageviews: zero, refunds: zero, clicks: zero, pageViews: 0 }
+  const shown = figures ?? { views: zero, revenue: zero, orders: zero, conversion: { value: null, previous: null, allTime: null }, pageviews: zero, refunds: zero, clicks: zero, pageViews: 0, visits: 0 }
   /* Nothing has come back yet: the tabs draw soft (MetricTab `loading`) and clear to the real figures when they land. */
   const figuresLoading = !answer
   const soft = isRefreshing && !figuresLoading
@@ -509,9 +552,10 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
       */}
       <PullToRefreshEvent scope="app-analytics">
       <div className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
-        <div className="flex items-center justify-between gap-3">
+        {/* The heading and the file of everything below it, where Shopify's reports keep Export. Add report is under the last card. */}
+        <div className="flex items-center justify-between gap-3" data-analytics-head="">
           <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
-          <AddReportButton marker="add-report" label={tt("Add report")} onClick={() => setPicking(true)} className="h-9 sm:h-10" />
+          <ExportButton query={exportQuery} name={exportName} />
         </div>
 
         {/* The period and the place side by side, the product at the end. No comparison control.
@@ -525,10 +569,26 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           </div>
 
           {/* Which product: the date picker's button, list and sheet (components/app/product-picker). */}
-          <div className="shrink-0">
-            <ProductPicker products={products} value={selectedProduct} onChange={setSelectedProduct} align="end" />
+          <div className="flex shrink-0 items-center gap-2">
+            {products.length ? <ProductPicker products={products} value={selectedProduct} onChange={setSelectedProduct} align="end" /> : null}
           </div>
         </div>
+
+        {/* A seller of both kinds: every sales figure and card follows this one switch. */}
+        {sells === "both" && !chosenProduct ? (
+          <div className="-mt-2" data-sales-mode="">
+            <ReportTabs
+              label={tt("What to count")}
+              value={mode}
+              onChange={setMode}
+              options={[
+                { value: "all", label: tt("All") },
+                { value: "digital", label: tt("Digital") },
+                { value: "physical", label: tt("Physical") },
+              ]}
+            />
+          </div>
+        ) : null}
 
         {/* The four figures and the chart of the one chosen */}
         <div className="relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden" aria-busy={waitingFigures || waitingLists}>
@@ -540,12 +600,15 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             role="tablist"
             aria-label={tt("Metric")}
             data-scroll-x
-            className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4"
+            className={`relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid ${tabOrder.length === 3 ? "md:grid-cols-3" : "md:grid-cols-4"}`}
             style={TAB_STRIP_STYLE}
           >
             {tabOrder.map((tab) => {
               const spec = {
-                views: { label: t("dashboard.visitors"), value: formatCompactNumber(shown.views.value ?? 0), change: changeOf(shown.views), foot: `${formatCompactNumber(shown.pageViews)} ${t("dashboard.pageViews")}` },
+                /* With the page views a tab of their own (nothing to sell yet), the visitors' line says their visits instead. */
+                views: { label: t("dashboard.visitors"), value: formatCompactNumber(shown.views.value ?? 0), change: changeOf(shown.views), foot: sells === "none" ? tt("{count, plural, one {# visit} other {# visits}}", { count: shown.visits }) : `${formatCompactNumber(shown.pageViews)} ${t("dashboard.pageViews")}` },
+                pageviews: { label: tt("Page views"), value: formatCompactNumber(shown.pageviews.value ?? 0), change: changeOf(shown.pageviews), foot: tt("Pages opened") },
+                clicks: { label: tt("Link clicks"), value: formatCompactNumber(shown.clicks.value ?? 0), change: changeOf(shown.clicks), foot: tt("Links tapped") },
                 revenue: { label: t("analytics.totalRevenue"), value: formatPrice(shown.revenue.value ?? 0), change: changeOf(shown.revenue), foot: allTime(shown.revenue, formatPrice, tt("Less refunds")) },
                 orders: { label: t("analytics.totalOrders"), value: formatCompactNumber(shown.orders.value ?? 0), change: changeOf(shown.orders), foot: allTime(shown.orders, formatCompactNumber, tt("Paid and free")) },
                 conversion: { label: t("analytics.conversionRate"), value: formatRate(shown.conversion.value), change: changeOf(shown.conversion), foot: t("dashboard.ordersPerVisitor") },
@@ -614,8 +677,14 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             showFulfillment={sections.fulfillment}
             viewer={userId}
             refresh={tick}
+            kind={mode}
           />
-        ) : null}
+        ) : (
+          <p data-no-sales="" className="rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 text-[14px] text-[#6b7280] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            {tt("Sales, orders and customers show here after your first product.")}{" "}
+            <Link href="/app/products/new" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">{tt("Add a product")}</Link>
+          </p>
+        )}
         {/* The reports under the chart, from the same answer, with the communities and the reports the seller added. */}
         <AnalyticsReports
           state={reportsState}
@@ -625,7 +694,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           added={{ ids: shownAdded, ...actions }}
         />
         <div className="flex justify-center pt-1">
-          <AddReportButton marker="add-more" label={tt("Add more")} onClick={() => setPicking(true)} />
+          <AddReportButton marker="add-more" label={tt("Add report")} onClick={() => setPicking(true)} />
         </div>
         <ReportPicker open={picking} onOpenChange={setPicking} options={reportChoices} added={added} onSave={saveFromPicker} />
       </div>

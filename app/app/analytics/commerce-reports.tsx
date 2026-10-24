@@ -13,12 +13,17 @@
  *                             it is compared with
  *   Total sales over time     this period's line over that one's, in the
  *                             chart's own buckets on the seller's clock
- *   Total sales by channel    online store, Storelib, OnePage, links
- *   Customers                 the returning customer rate
- *   Fulfillment               how long a physical order took to ship
+ *   Total sales by channel    each website by its name, the OnePage, the
+ *                             creator page, Explore, checkout links
+ *   Customers                 average order value, the returning customer
+ *                             rate (bought before, or twice in the period)
+ *   Fulfillment               of the physical orders, how many have gone
+ *                             out, and how long they took
  *
- * Shipping and fulfilment are only for a seller who ships or has a
- * published website (lib/analytics/sections).
+ * Shipping and fulfilment are only for a seller of something physical, and
+ * not while the switch at the top is on Digital (lib/analytics/sections).
+ * Every figure is counted payment by payment by the tabs' own rules
+ * (lib/analytics/commerce commerceReport), so Total sales is Revenue.
  *
  * DRAWN BEFORE THE ANSWER. Every card, its title, its switcher and the names
  * of its rows are on the first paint, each body in a fixed height; the
@@ -33,11 +38,12 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { HelpLabel } from "@/components/app/help-label"
 import { ShimmerBlock } from "@/components/ui/shimmer"
-import { shopMoneyIn } from "@/lib/store/shop-money"
+import { formatMinor } from "@/lib/markets/money"
+import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { tt } from "@/lib/i18n/text"
 import { bucketLabel, type Grain } from "@/lib/analytics/buckets"
-import type { SalesBreakdown } from "@/lib/analytics/commerce"
+import type { ChannelRow, FulfillmentFigures, SalesBreakdown } from "@/lib/analytics/commerce"
 import { COMMERCE_FRESH_MS, askCommerce, commerceKey, commerceQuestionOf, keptCommerce } from "@/lib/analytics/commerce-cache"
 import { ReportFill, ReportTabs } from "./analytics-reports"
 
@@ -51,10 +57,25 @@ interface Answer {
   previous: SalesBreakdown
   series: Point[]
   previousSeries: Point[]
-  channels: Array<{ channel: string; label: string; total: number; orders: number }>
+  channels: ChannelRow[]
   fulfillment: { hours: number | null; shipped: number }
   fulfillmentBefore?: { hours: number | null; shipped: number }
+  fulfillmentRate?: FulfillmentFigures
+  fulfillmentRateBefore?: FulfillmentFigures
+  truncated?: boolean
+  unconverted?: number
+  placeUnknown?: boolean
 }
+
+/** The channels Storelib names itself, in the dashboard's language; a website keeps the name its seller gave it. */
+const CHANNEL_NAME: Record<string, () => string> = {
+  onepage: () => "OnePage",
+  creator_page: () => tt("Creator page"),
+  explore: () => tt("Storelib Explore"),
+  link: () => tt("Checkout links"),
+  admin: () => tt("Test sales"),
+}
+const channelName = (c: ChannelRow) => (CHANNEL_NAME[c.key] ? CHANNEL_NAME[c.key]() : c.label === "Online store" ? tt("Online store") : c.label)
 
 const ACCENT = "#8b5cf6"
 const CHANNEL_ROWS = 5
@@ -101,7 +122,6 @@ function LineChart({ series, previous, format, value, grain, timeZone }: { serie
   const y = (v: number) => H - 8 - (v / max) * (H - 24)
   const path = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(i, vals.length).toFixed(1)} ${y(v).toFixed(1)}`).join(" ")
   const area = values.length ? `${path(values)} L${x(values.length - 1, values.length).toFixed(1)} ${H} L0 ${H} Z` : ""
-  const id = React.useId().replace(/:/g, "")
   const at = hover ?? values.length - 1
   return (
     <div className="relative">
@@ -109,6 +129,7 @@ function LineChart({ series, previous, format, value, grain, timeZone }: { serie
         <span className="text-[13px] text-[#6b7280]">{series[at] ? bucketLabel(series[at].t, grain, timeZone) : ""}</span>
         <span className="text-[13px] font-semibold tabular-nums text-[#1a1a2e]">{series[at] ? format(values[at]) : ""}</span>
       </div>
+      <div className="relative">
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
@@ -121,20 +142,19 @@ function LineChart({ series, previous, format, value, grain, timeZone }: { serie
         onPointerLeave={() => setHover(null)}
         aria-hidden
       >
-        <defs>
-          <linearGradient id={`${id}f`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={ACCENT} stopOpacity="0.14" />
-            <stop offset="1" stopColor={ACCENT} stopOpacity="0" />
-          </linearGradient>
-        </defs>
         {[0.25, 0.5, 0.75].map((f) => (
           <line key={f} x1="0" x2={W} y1={H - 8 - f * (H - 24)} y2={H - 8 - f * (H - 24)} stroke="#f1f2f4" strokeWidth="1" vectorEffect="non-scaling-stroke" />
         ))}
         {prevValues.length ? <path d={path(prevValues)} fill="none" stroke="#c7cbd1" strokeWidth="1.5" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" /> : null}
-        {area ? <path d={area} fill={`url(#${id}f)`} /> : null}
+        {area ? <path d={area} fill={ACCENT} fillOpacity={0.08} /> : null}
         {values.length ? <path d={path(values)} fill="none" stroke={ACCENT} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> : null}
         {values.length ? <line x1={x(at, values.length)} x2={x(at, values.length)} y1="0" y2={H} stroke="#e5e7eb" strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
       </svg>
+      {values.length ? (
+        /* The point read out above: an 8px dot with a 2px ring in the card's white, drawn in HTML so the stretched plot does not squash it. */
+        <span aria-hidden data-sales-dot="" className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white" style={{ left: `${(x(at, values.length) / W) * 100}%`, top: y(values[at]), background: ACCENT }} />
+      ) : null}
+      </div>
     </div>
   )
 }
@@ -161,6 +181,8 @@ export interface CommerceReportsProps {
   span: { start: number; end: number }
   /** What the period is compared with: the chart's own instants, or null for none. */
   compare: { start: number; end: number } | null
+  /** The All / Digital / Physical switch at the top. */
+  kind?: string
   timeZone: string
   /** "all" or a product id. The sales cards follow the same product as the chart. */
   product?: string
@@ -176,9 +198,9 @@ export interface CommerceReportsProps {
   refresh?: number
 }
 
-export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", showShipping = true, showFulfillment = true, viewer = null, refresh = 0 }: CommerceReportsProps) {
+export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", kind = "all", showShipping = true, showFulfillment = true, viewer = null, refresh = 0 }: CommerceReportsProps) {
   const currency = useStoreCurrency()
-  const key = commerceKey({ start: span.start, end: span.end, compare, product, property, timeZone, currency })
+  const key = commerceKey({ start: span.start, end: span.end, compare, product, property, timeZone, currency, kind })
   const question = commerceQuestionOf(key)
   const [state, setState] = React.useState<{ data: Answer | null; question: string; loading: boolean }>(() => ({ data: null, question: "", loading: true }))
   const [metric, setMetric] = React.useState<"total" | "aov" | "orders">("total")
@@ -208,7 +230,8 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
   /* Numbers for another question stay on screen, softened, until this one's land. */
   const soft = !!data && state.question !== question
   const compared = compare !== null && data?.compared !== false
-  const money = (n: number) => shopMoneyIn(n, data?.currency || currency || "USD", { grouping: true })
+  /* In the currency's own decimals, as the tab above: a yen store's 2500 is ¥2,500. */
+  const money = (n: number) => formatMinor(n, data?.currency || currency || "USD", appLocale())
   const b = data?.breakdown
   const p = data?.previous
   const rows: Array<{ key: keyof SalesBreakdown; label: string; sign?: "-"; strong?: boolean; invert?: boolean }> = [
@@ -224,26 +247,28 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
   const channels = (data?.channels ?? []).slice(0, CHANNEL_ROWS)
   const channelMax = Math.max(1, ...channels.map((c) => c.total))
   const hours = data?.fulfillment.hours ?? null
-  const before = data?.fulfillmentBefore?.hours ?? null
-  const waitText = hours === null ? "–" : hours < 1 ? tt("{n} min", { n: Math.max(1, Math.round(hours * 60)) }) : hours < 48 ? tt("{n} h", { n: Math.round(hours * 10) / 10 }) : tt("{n} days", { n: Math.round((hours / 24) * 10) / 10 })
+  const waitText = hours === null ? null : hours < 1 ? tt("{n} min to ship", { n: Math.max(1, Math.round(hours * 60)) }) : hours < 48 ? tt("{n} h to ship", { n: Math.round(hours * 10) / 10 }) : tt("{n} days to ship", { n: Math.round((hours / 24) * 10) / 10 })
+  const rate = data?.fulfillmentRate ?? null
+  const rateBefore = data?.fulfillmentRateBefore ?? null
+  const pctOf = (f: number) => `${Math.round(f * 100)}%`
   const grain = data?.grain ?? "day"
   const zone = data?.timeZone ?? timeZone
 
   const figures = [
     { key: "aov", title: tt("Average order value"), value: b ? money(b.aov) : null, delta: b && p ? <Delta compared={compared} now={b.aov} before={p.aov} /> : null, help: tt("Gross sales less discounts, divided by orders.") },
-    { key: "returning", title: tt("Returning customer rate"), value: b ? `${Math.round(b.returningRate * 100)}%` : null, delta: b && p ? <Delta compared={compared} now={b.returningRate} before={p.returningRate} /> : null, help: tt("Customers with two or more orders in this period, out of every customer who ordered.") },
+    { key: "returning", title: tt("Returning customer rate"), value: b ? (b.customers ? pctOf(b.returningRate) : "–") : null, delta: b && p ? (b.customers ? <span className="inline-flex items-center gap-2"><Delta compared={compared} now={b.returningRate} before={p.returningRate} /><span className="text-[12px] tabular-nums text-[#6b7280]">{tt("{n} of {count}", { n: b.returningCustomers, count: b.customers })}</span></span> : null) : null, help: tt("Customers who had ordered before, or ordered twice in this period, out of every customer who ordered in it.") },
     ...(showFulfillment
       ? [{
           key: "fulfil",
-          title: tt("Order fulfillment time"),
-          value: data ? waitText : null,
+          title: tt("Order fulfillment rate"),
+          value: data ? (rate && rate.rate !== null ? pctOf(rate.rate) : "–") : null,
           delta: data ? (
             <span className="inline-flex items-center gap-2">
-              {hours !== null && before !== null ? <Delta compared={compared} now={hours} before={before} invert /> : null}
-              <span className="text-[12px] text-[#9ca3af]">{tt("{count, plural, one {# shipped} other {# shipped}}", { count: data.fulfillment.shipped })}</span>
+              {rate && rate.rate !== null && rateBefore && rateBefore.rate !== null ? <Delta compared={compared} now={rate.rate} before={rateBefore.rate} /> : null}
+              <span className="text-[12px] tabular-nums text-[#6b7280]">{rate && rate.orders ? [tt("{n} of {count} sent", { n: rate.fulfilled, count: rate.orders }), waitText].filter(Boolean).join(" · ") : tt("No physical orders")}</span>
             </span>
           ) : null,
-          help: tt("How long a physical order took from payment to shipped, on average."),
+          help: tt("Of this period's physical orders, the share that has been shipped or delivered, and how long a parcel waited from payment to shipped."),
         }]
       : []),
   ]
@@ -306,7 +331,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
         <Legend compared={compare !== null} />
       </Card>
 
-      <Card card="sales-by-channel" title={tt("Total sales by channel")} help={tt("Where each order was placed: your online store, Storelib (Explore, product and creator pages, communities), your OnePage or a checkout link.")}>
+      <Card card="sales-by-channel" title={tt("Total sales by channel")} help={tt("Where each order was placed: each of your websites by its name, your OnePage, your creator page, Storelib Explore or a checkout link opened on its own.")}>
         <div className="h-[200px]">
           {!data ? (
             <div aria-hidden className="space-y-3">
@@ -325,9 +350,9 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
           ) : (
             <div className="space-y-3">
               {channels.map((c) => (
-                <div key={c.channel} data-channel={c.channel}>
+                <div key={c.key} data-channel={c.key}>
                   <div className="flex h-5 items-center justify-between gap-3 text-[13.5px]">
-                    <span className="truncate text-[#303036]">{tt(c.label)}</span>
+                    <span className="truncate text-[#303036]">{channelName(c)}</span>
                     <span className="shrink-0 tabular-nums text-[#1a1a2e]">
                       {money(c.total)} <span className="text-[12px] text-[#9ca3af]">· {tt("{count, plural, one {# order} other {# orders}}", { count: c.orders })}</span>
                     </span>
@@ -356,6 +381,12 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
           </section>
         ))}
       </div>
+      {data?.truncated ? (
+        <p data-commerce-truncated="" className="text-[12px] text-[#6b7280] lg:col-span-2">{tt("This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.")}</p>
+      ) : null}
+      {data?.placeUnknown ? (
+        <p className="text-[12px] text-[#6b7280] lg:col-span-2">{tt("Orders do not record their page on this store yet, so the sales reports count every page.")}</p>
+      ) : null}
     </div>
   )
 }
