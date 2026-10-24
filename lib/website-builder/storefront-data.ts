@@ -26,6 +26,7 @@ import { sanitizeRichText } from "./sanitize"
 import { formatPrice, type ProductCard } from "./shop-products"
 import type { SchemaField, SectionInstance, SectionSchema, ThemeSettingsValues } from "./types"
 import { imagesOnly } from "@/lib/media/video"
+import { withNewTab } from "./new-tab"
 
 /* ── menus ──────────────────────────────────────────────────────────────── */
 
@@ -55,13 +56,18 @@ export function navHref(settings: Record<string, unknown> | undefined): string {
 export function menuFromHeader(header: SectionInstance | undefined): Menu | null {
   const blocks = (header?.blocks ?? []).filter((b) => b.type === "nav_link") as NavBlock[]
   if (blocks.length === 0) return null
+  /* A header link set to open in a new tab keeps that as the menu's mark (./new-tab.ts), so the menu made from it opens it in one too. */
+  const linkOf = (settings: Record<string, unknown> | undefined) => {
+    const href = navHref(settings)
+    return settings?.open_in_new_tab === true && href !== "#" ? withNewTab(href, true) : href
+  }
   const kids = new Map<string, MenuLink[]>()
   for (const b of blocks) {
     const parent = str(b.settings?.parent_id)
     if (!parent) continue
     const title = str(b.settings?.label)
     if (!title) continue
-    kids.set(parent, [...(kids.get(parent) ?? []), { title, url: navHref(b.settings) }])
+    kids.set(parent, [...(kids.get(parent) ?? []), { title, url: linkOf(b.settings) }])
   }
   const links: MenuLink[] = []
   for (const b of blocks) {
@@ -69,7 +75,7 @@ export function menuFromHeader(header: SectionInstance | undefined): Menu | null
     const title = str(b.settings?.label)
     if (!title) continue
     const children = kids.get(b.id)
-    links.push(children?.length ? { title, url: navHref(b.settings), links: children } : { title, url: navHref(b.settings) })
+    links.push(children?.length ? { title, url: linkOf(b.settings), links: children } : { title, url: linkOf(b.settings) })
   }
   return { title: "Main menu", links }
 }

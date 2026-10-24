@@ -14,6 +14,7 @@ import { MAX_BYTES as SNAPSHOT_MAX_BYTES } from "@/lib/website-builder/snapshot"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, firstSortOrder, isLibraryFullError, keptWithinLimit, librarySlotsLeft } from "@/lib/website-builder/library-limit"
+import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { screenInBackground } from "@/lib/storage/upload-guard"
 import { inspectHead, inspectUpload } from "@/lib/security/uploads/inspect"
 import { nodeInflateRaw } from "@/lib/security/uploads/zip-inflate"
@@ -552,6 +553,13 @@ async function createInstall(
   if (!(await keptWithinLimit(admin, creatorId, data.id as string))) {
     return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
+  /*
+    The store's menus, written down before the imported website draws them:
+    an imported theme reads `main-menu` and `footer` from the store
+    (compat/menus.ts), and with no row it drew a made up Home, Shop, Contact
+    instead of the navigation the creator built (store-menus-server.ts).
+  */
+  await ensureStoreMenus(admin, creatorId, { excludeInstallId: data.id as string })
   return { id: data.id as string }
 }
 

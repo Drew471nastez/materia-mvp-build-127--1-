@@ -14,6 +14,7 @@ import { PAGE_META, type PageKey } from "@/lib/website-builder/types"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { openOpeningTab } from "@/lib/website-builder/opening-tab"
+import { AddDomainActions, ConnectDomainDialog, DomainCardRow, usePublishDomains, type PublishDomains } from "@/components/website-builder/publish-domain"
 
 /**
  * ===========================================================================
@@ -264,7 +265,13 @@ function Body({
   busy,
   onPublish,
   pinActions = false,
+  domains = { domains: null, canConnect: null },
+  onDomain,
 }: Omit<PublishPanelProps, "open" | "onOpenChange" | "anchorRef" | "mobile"> & {
+  /** The website's own domains and whether the plan may connect one (publish-domain.tsx). */
+  domains?: PublishDomains
+  /** Opens the window that connects a domain, or shows the one connected. */
+  onDomain?: () => void
   /** Keep the actions on screen under a scrolling body: the phone's sheet. */
   pinActions?: boolean
   /** The panel is on screen. On a phone the sheet keeps this mounted while
@@ -531,7 +538,15 @@ function Body({
 
       {websiteUrl && (
         <div>
-          <p className="mb-2.5 text-[15px] font-medium">{tt("Website URL")}</p>
+          {/* The owner's picture: the label on the left, "+ Add domain" and the Pro pill on the right, on one line whatever the answer, so nothing moves when it comes. */}
+          <div className="mb-2.5 flex min-h-8 items-center justify-between gap-3">
+            <p className="text-[15px] font-medium">{tt("Website URL")}</p>
+            <AddDomainActions
+              canConnect={domains.canConnect}
+              hidden={domains.domains === null || domains.domains.length > 0 || !onDomain}
+              onAdd={() => onDomain?.()}
+            />
+          </div>
           <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
             <div className="flex items-center gap-3 px-4 py-3.5">
               <Globe className="h-4 w-4 shrink-0 text-white/50" strokeWidth={1.75} />
@@ -558,6 +573,10 @@ function Body({
               <Globe className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
               {live ? tt("Visible to anyone with the link") : tt("Nobody can see it until it is published")}
             </div>
+            {/* The website's own domain, once there is one, with where it is up to. */}
+            {domains.domains?.[0] && onDomain ? (
+              <DomainCardRow domain={domains.domains.find((d) => d.is_primary ?? true) ?? domains.domains[0]} onOpen={onDomain} />
+            ) : null}
             {/**
               * Only once there is one. A row explaining a link that does not
               * exist is a row about a button three inches away.
@@ -641,6 +660,21 @@ export function PublishPanel(props: PublishPanelProps) {
   const { open, onOpenChange, anchorRef, mobile } = props
   const panelRef = useRef<HTMLDivElement | null>(null)
 
+  /* The domain window takes the panel's place while it is open, and gives it back when it closes. */
+  const [domainOpen, setDomainOpen] = useState(false)
+  const domains = usePublishDomains(open, mobile ? SHEET_ARRIVES_MS : 0)
+  const openDomain = useCallback(() => {
+    onOpenChange(false)
+    setDomainOpen(true)
+  }, [onOpenChange])
+  const closeDomain = useCallback(() => {
+    setDomainOpen(false)
+    onOpenChange(true)
+  }, [onOpenChange])
+  const domainDialog = (
+    <ConnectDomainDialog open={domainOpen} onClose={closeDomain} mobile={mobile} domains={domains.domains ?? []} onChanged={domains.update} />
+  )
+
   // Kept in the tree for one beat after closing so it can leave the way it
   // came. A panel that grows in and then vanishes is half an animation.
   const [present, setPresent] = useState(open)
@@ -688,6 +722,7 @@ export function PublishPanel(props: PublishPanelProps) {
 
   if (mobile) {
     return (
+      <>
       <MobileEditorSheet
         open={open}
         onOpenChange={onOpenChange}
@@ -716,12 +751,14 @@ export function PublishPanel(props: PublishPanelProps) {
         layer="raised"
         peekHeight={0}
       >
-        <Body {...props} pinActions active={open} />
+        <Body {...props} pinActions active={open} domains={domains} onDomain={openDomain} />
       </MobileEditorSheet>
+      {domainDialog}
+      </>
     )
   }
 
-  if (!present) return null
+  if (!present) return domainDialog
   /**
    * PORTALLED, like the sheet on a phone, and for the same reason.
    *
@@ -735,6 +772,7 @@ export function PublishPanel(props: PublishPanelProps) {
    * See components/website-builder/anchored-panel.tsx.
    */
   return (
+    <>
     <AnchoredPanel
       anchorRef={anchorRef}
       align="right"
@@ -750,7 +788,9 @@ export function PublishPanel(props: PublishPanelProps) {
           : "pointer-events-none animate-out fade-out-0 zoom-out-95 slide-out-to-top-1 fill-mode-forwards",
       )}
     >
-      <Body {...props} active={open} />
+      <Body {...props} active={open} domains={domains} onDomain={openDomain} />
     </AnchoredPanel>
+    {domainDialog}
+    </>
   )
 }

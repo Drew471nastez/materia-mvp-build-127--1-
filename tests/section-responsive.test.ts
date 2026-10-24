@@ -708,7 +708,8 @@ check(
   "and the panel leaves the way it came",
   /const \[present, setPresent\] = useState\(open\)/.test(publishPanel) &&
     /animate-out fade-out-0 zoom-out-95 slide-out-to-top-1 fill-mode-forwards/.test(publishPanel) &&
-    /if \(!present\) return null/.test(publishPanel),
+    /* Changed on purpose (round BC): with the panel gone, the Add domain window it opened may still be up, so that is what is left drawn. */
+    /if \(!present\) return (null|domainDialog)/.test(publishPanel),
 )
 
 check(
@@ -1640,7 +1641,8 @@ check(
     /maxHeight = "min\(86dvh, 720px\)"/.test(untt(readFileSync(join(root, "components/ui/bottom-sheet.tsx"), "utf8"), "components/ui/bottom-sheet.tsx")) &&
     /fit\s*\n\s*detents=\{\[0\.88\]\}/.test(publish) &&
     !/detents=\{\[0\.4\]\}/.test(publish) &&
-    /<Body \{\.\.\.props\} pinActions active=\{open\} \/>/.test(publish) &&
+    /* Changed on purpose (round BC): the Body also takes the website's domains for + Add domain. */
+    /<Body \{\.\.\.props\} pinActions active=\{open\}[^>]*\/>/.test(publish) &&
     // and the measurement it uses is the one below, which reads the content's
     // own height rather than the height the sheet happens to be at
     /data-sheet-scroll/.test(publish) &&

@@ -34,7 +34,8 @@ const editor = read("app/website-builder/editor/[installId]/page.tsx")
 
 console.log("\nOn a phone, the sheet's backdrop closes it")
 check("Publish is a MobileEditorSheet on a phone, handed the same onOpenChange",
-  /if \(mobile\) \{\s*return \(\s*<MobileEditorSheet\s+open=\{open\}\s+onOpenChange=\{onOpenChange\}/.test(panel))
+  /* Changed on purpose (round BC): the sheet sits in a fragment beside the Add domain window. */
+  /if \(mobile\) \{\s*return \(\s*(<>\s*)?<MobileEditorSheet\s+open=\{open\}\s+onOpenChange=\{onOpenChange\}/.test(panel))
 check("whose backdrop closes the sheet when tapped",
   /data-wb-sheet-overlay=""[\s\S]{0,80}onClick=\{\(\) => onOpenChange\(false\)\}/.test(sheet))
 

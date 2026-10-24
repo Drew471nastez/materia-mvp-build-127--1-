@@ -10847,7 +10847,14 @@ const words: Record<string, string> = {
  "MP4, MOV or WebM, up to 2 GB": "MP4, MOV ou WebM, até 2 GB",
  "Drag to move. Drag a corner or an edge to resize.": "Arraste para mover. Arraste um canto ou uma borda para redimensionar.",
  "JPG, PNG, GIF or HEIC. Tall pictures fit a phone best": "JPG, PNG, GIF ou HEIC. Imagens verticais ficam melhores no celular",
- "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Arraste para mover. Arraste um canto para redimensionar. A caixa tem o formato de um celular."
+ "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Arraste para mover. Arraste um canto para redimensionar. A caixa tem o formato de um celular.",
+ "Add domain": "Adicionar domínio",
+ "Add domain, available on Pro": "Adicionar domínio, disponível no Pro",
+ "Your domain": "Seu domínio",
+ "Type a domain you own and press Connect. You get the records to add where you bought it.": "Digite um domínio seu e toque em Conectar. Você recebe os registros para adicionar onde o comprou.",
+ "Remove it in Settings": "Remova em Configurações",
+ "Connect a domain": "Conectar um domínio",
+ "Visitors reach your website at your own address.": "Os visitantes acessam seu site no seu próprio endereço."
 }
 
 export default words
