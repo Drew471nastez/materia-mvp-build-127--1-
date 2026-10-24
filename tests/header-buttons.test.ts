@@ -77,7 +77,8 @@ console.log("\n3. the hero's button and search")
   const hero = readCode("components/marketing/hero.tsx")
   const actions = hero.slice(hero.indexOf("data-hero-actions"), hero.indexOf("<HeroCarousel"))
   check("they are under the subheading", hero.indexOf("data-hero-actions") > hero.indexOf("The #1 e-commerce platform"))
-  check("the button and the search field take the Log in button's corner", (actions.match(/rounded-action/g) ?? []).length === 2)
+  /* Changed on purpose (round AC1): both take one CONTROL class list (52px, full width on a phone), which carries the corner. */
+  check("the button and the search field take the Log in button's corner", (actions.match(/\$\{CONTROL\}/g) ?? []).length === 2 && /const CONTROL = "[^"]*\brounded-action\b/.test(hero))
   check("and neither is a pill", !/rounded-full/.test(actions))
 }
 

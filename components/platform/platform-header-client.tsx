@@ -2929,7 +2929,7 @@ export function PlatformHeaderClient({
           Skipped on the FAQ page, whose hero is black too, and on any page that already
           renders the white strip above, to avoid two black bars. */}
       {hasConcaveEdge(pathname) && (
-        <div className={cn("relative z-30 h-[20px] -mb-px", chrome.concaveBg)}>
+        <div data-header-concave={buyerHeaderLight ? "light" : "dark"} className={cn("relative z-30 h-[20px] -mb-px", chrome.concaveBg)}>
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
       )}

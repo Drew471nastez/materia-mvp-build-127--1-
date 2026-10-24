@@ -195,9 +195,9 @@ export function HeroTypedHeading({ className }: { className?: string }) {
     <span ref={boxRef} data-hero-typed="" aria-hidden className={`hero-typed relative grid ${className ?? ""}`}>
       {HERO_PHRASES.map((p) => (
         /* Drawn from an attribute, so the page's text (and the heading a crawler reads) is the one phrase, once. */
-        <span key={p} data-ghost={p} className="invisible col-start-1 row-start-1 self-center before:content-[attr(data-ghost)]" />
+        <span key={p} data-ghost={p} className="invisible col-start-1 row-start-1 self-center whitespace-pre-line before:content-[attr(data-ghost)]" />
       ))}
-      <span ref={lineRef} data-hero-line="" className="col-start-1 row-start-1 self-center">{HERO_PHRASES[0]}</span>
+      <span ref={lineRef} data-hero-line="" className="col-start-1 row-start-1 self-center whitespace-pre-line">{HERO_PHRASES[0]}</span>
     </span>
   )
 }

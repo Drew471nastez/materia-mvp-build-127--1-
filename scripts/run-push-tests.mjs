@@ -339,7 +339,7 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/header-link-navigates.test.ts",
   "tests/header-buttons.test.ts",
-  /* Round AA1: the front page hero remade (the button by who is looking, the storefront slider, the typed heading, the marketplace search). Round AB1: the typing on one frame clock (lib/marketing/hero-typing), Storelib screens as the pictures (scripts/hero-shots.mjs), the phone layout. scripts/check-home-hero.mjs measures it, scripts/check-home-perf.mjs times a production build. */
+  /* Round AA1: the front page hero remade (the button by who is looking, the storefront slider, the typed heading, the marketplace search). Round AB1: the typing on one frame clock (lib/marketing/hero-typing), Storelib screens as the pictures (scripts/hero-shots.mjs), the phone layout. scripts/check-home-hero.mjs measures it, scripts/check-home-perf.mjs times a production build. Round AC1: demo stores as the pictures, dimmer side slides, the inset panel, full width phone controls, and the header's dark style near black in both looks. */
   "tests/home-hero.test.ts",
   "tests/header-flex.test.ts",
   "tests/search-strip-entrance.test.ts",

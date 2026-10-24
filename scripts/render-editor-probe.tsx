@@ -101,12 +101,15 @@ const probeGlobals = globalThis as unknown as {
   PROBE_COMPAT?: { settings: Record<string, unknown>; pages: Record<string, unknown[]>; sources: Record<string, string>; files: Record<string, string> }
   /** Each product's stock, as /api/physical/storefront/product answers, by product id; read on every request, so a probe can change it. */
   PROBE_STOREFRONT?: Record<string, unknown>
+  /** The install's theme settings and name (scripts/hero-shots.mjs: a demo store in its own colours and fonts). Unset, the theme's defaults and "Probe store". */
+  PROBE_THEME_SETTINGS?: Record<string, unknown>
+  PROBE_STORE_NAME?: string
 }
 const compat = probeGlobals.PROBE_COMPAT
 const install = {
-  id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
+  id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: probeGlobals.PROBE_STORE_NAME ?? "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
   is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: probeGlobals.PROBE_LIVE ? now : null,
-  settings: { id: "s1", install_id: "probe-install", settings: compat?.settings ?? {}, draft_settings: null, created_at: now, updated_at: now },
+  settings: { id: "s1", install_id: "probe-install", settings: compat?.settings ?? probeGlobals.PROBE_THEME_SETTINGS ?? {}, draft_settings: null, created_at: now, updated_at: now },
   pages: compat ? Object.keys(compat.pages).map((key, i) => ({ id: `p${i + 1}`, install_id: "probe-install", page_key: key, sections: [], created_at: now, updated_at: now })) : [
     { id: "p1", install_id: "probe-install", page_key: "home", sections: [], created_at: now, updated_at: now },
     ...Object.keys(probeGlobals.PROBE_PAGES ?? {})

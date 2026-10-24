@@ -40,6 +40,21 @@
  *   THE TEXT IS READABLE. Each line of text against the lightest pixel behind
  *   it (read from a screenshot with the text hidden) is at least 4.5:1.
  *
+ *   THE OWNER'S ROUND AC1 ASKS, AS NUMBERS (these replace AB1's where they
+ *   disagree). The panel is inset (10px on a phone, 20px on a computer),
+ *   rounded and has depth, and starts 8 to 14px under the header in both of
+ *   its styles. The backdrop's pictures add 0.5 to 0.7 of the light they did
+ *   in AB1 (measured against AB1's veil put back for a moment). Side slides
+ *   are dimmer than the centre one, and the slide arriving brightens frame
+ *   by frame to full, with no step over 0.06. At 390 the button and the
+ *   search are full width, stacked and 52px tall, side by side from 640px,
+ *   with a short true line under them. The badge is not "Built for creators"
+ *   and is a pill. Every phrase takes two lines at 390 and at 1280, and the
+ *   phrases are the owner's. The header's dark style (/admin) is its near
+ *   black in the light look and in the dark look (app/theme-dark.css made it
+ *   graphite, #2d2d33), on storelib.com, Explore and a product page, with the
+ *   phone menu open too. HERO_ONLY=hero or HERO_ONLY=header runs one half.
+ *
  *   node scripts/check-home-hero.mjs        (no build needed)
  *   HERO_SHOTS=<dir> keeps a picture of each width.
  */
@@ -65,7 +80,10 @@ const check = (label, ok, detail = "") => {
   else { failed++; console.log(`  FAIL  ${label}${detail ? `  (${detail})` : ""}`) }
 }
 
-const css = await appCss(root)
+/* The site's dark look too (app/layout.tsx imports it after globals.css; a source compile of globals.css does not have it). */
+const css = (await appCss(root)) + "\n" + readFileSync(join(root, "app/theme-dark.css"), "utf8")
+/* HERO_ONLY=hero or HERO_ONLY=header runs one half. */
+const ONLY = process.env.HERO_ONLY || ""
 const faces = interFaces(root)
 if (!faces) console.log("  (no production build to take Inter from: text is measured in the fallback face)")
 
@@ -371,6 +389,7 @@ function stalls(run, typing) {
 }
 
 for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, height: 860, phone: false }]) {
+  if (ONLY === "header") break
   console.log(`\n── ${size.width}px ${size.phone ? "(touch)" : "(mouse)"} ──`)
   const p = await page({ ...size, hash: "guest" })
   if (process.env.HERO_SHOTS) {
@@ -402,40 +421,66 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
   check("the heading's height never changed", heights.size === 1, [...heights].join(", ") + "px")
   check("it is the tallest phrase's height, reserved before any is typed", s.ghosts.length === 4 && Math.abs(Math.max(...s.ghosts) - s.h1Height) < 0.5, `phrases ${s.ghosts.map((g) => g.toFixed(1)).join(", ")}px, heading ${s.h1Height.toFixed(1)}px`)
   const lines = s.ghosts.map((g) => Math.round(g / s.lineHeight))
-  check("every phrase takes the same number of lines, so no phrase leaves an empty one", new Set(lines).size === 1 && (!size.phone || lines[0] <= 2), `${lines.join(", ")} lines of ${s.lineHeight.toFixed(1)}px`)
+  check("every phrase takes two lines, so no phrase leaves an empty one", lines.every((l) => l === 2), `${lines.join(", ")} lines of ${s.lineHeight.toFixed(1)}px`)
+  if (size.phone) {
+    const flat = (x) => x.replace(/\s+/g, " ")
+    const typing = await p.js("window.__heroTyping")
+    check("the owner's phrases (round AC1): the first is \"Build a business around what you create.\", and \"Build your online store.\" is one of them", typing.phrases[0] === "Build a business around what you create." && typing.phrases.some((x) => flat(x) === "Build your online store."), typing.phrases.map(flat).join(" | "))
+  }
   check("the heading typed (more than one state seen)", texts.size > 3, `${texts.size} states`)
   check("the slider autoplayed", transforms.size > 1, `${transforms.size} distinct poses`)
 
   /* The owner's asks, as numbers. */
   const ui = await p.js(`(() => {
     const hero = document.querySelector("[data-home-hero]")
-    const panel = hero.querySelector("[data-hero-panel]").getBoundingClientRect()
+    const panelEl = hero.querySelector("[data-hero-panel]")
+    const panel = panelEl.getBoundingClientRect()
+    const ps = getComputedStyle(panelEl)
     const input = hero.querySelector("input[name=q]")
-    const cta = hero.querySelector("[data-hero-cta]").getBoundingClientRect()
+    const ctaEl = hero.querySelector("[data-hero-cta]")
+    const cta = ctaEl.getBoundingClientRect()
     const form = input.closest("form").getBoundingClientRect()
+    const ir = input.getBoundingClientRect()
     const stage = hero.querySelector("[data-hero-carousel]").getBoundingClientRect()
     const centre = hero.querySelector("[data-hero-slide][data-centre]").getBoundingClientRect()
     const badge = hero.querySelector("[data-hero-badge]")
+    const bs = getComputedStyle(badge)
+    const note = hero.querySelector("[data-hero-note]")
+    const nr = note ? note.getBoundingClientRect() : null
     const after = document.querySelector("[data-home-after-hero]")
     const ar = after.getBoundingClientRect()
     const nextTop = ar.top + parseFloat(getComputedStyle(after).paddingTop)
     const heroBottom = Math.max(hero.getBoundingClientRect().bottom, centre.bottom)
+    const veil = hero.querySelector("[data-hero-backdrop] > div:last-child")
     return {
-      bg: getComputedStyle(input).backgroundColor,
-      badge: badge.textContent.trim(), badgeH: badge.getBoundingClientRect().height, badgeFont: getComputedStyle(badge).fontSize,
-      cta: cta.width, form: form.width, sameRow: Math.abs(cta.top - form.top) < 2,
-      panel: { left: panel.left, right: panel.right, bottom: panel.bottom, top: panel.top },
+      bg: getComputedStyle(input).backgroundColor, ctaBg: getComputedStyle(ctaEl).backgroundColor,
+      badge: badge.textContent.trim(), badgeH: badge.getBoundingClientRect().height, badgeFont: bs.fontSize, badgeRadius: parseFloat(bs.borderTopLeftRadius), badgeShadow: bs.boxShadow,
+      cta: { w: cta.width, h: cta.height, top: cta.top, bottom: cta.bottom, left: cta.left, r: parseFloat(getComputedStyle(ctaEl).borderTopLeftRadius) },
+      input: { w: ir.width, h: ir.height, top: ir.top, left: ir.left, r: parseFloat(getComputedStyle(input).borderTopLeftRadius) },
+      form: form.width, sameRow: Math.abs(cta.top - form.top) < 2,
+      note: note ? { text: note.textContent.trim(), top: nr.top, size: getComputedStyle(note).fontSize } : null,
+      panel: { left: panel.left, right: panel.right, bottom: panel.bottom, top: panel.top, radius: parseFloat(ps.borderTopLeftRadius), shadow: ps.boxShadow },
       stage: { left: stage.left, right: stage.right }, centre: { top: centre.top, bottom: centre.bottom },
       gap: nextTop - heroBottom, innerW: innerWidth, innerH: innerHeight,
+      veil: veil ? getComputedStyle(veil).backgroundColor : "",
       globeTop: after.querySelector(".animate-pulse")?.getBoundingClientRect().top ?? null, h1Bottom: hero.querySelector("h1").getBoundingClientRect().bottom,
     }
   })()`)
   const bg = parseColor(ui.bg)
-  check("the search field is solid: no transparency in its background", bg.a === 1, ui.bg)
+  check("the search field is solid: no transparency in its background", bg.a === 1 && parseColor(ui.ctaBg).a === 1, `${ui.bg}, button ${ui.ctaBg}`)
   const words = ui.badge.split(/\s+/).filter(Boolean).length
-  check("the badge is three words at most", words <= 3, `"${ui.badge}", ${words} words, ${ui.badgeH.toFixed(1)}px tall, ${ui.badgeFont}`)
+  check("the badge is three words at most, and not the old label", words <= 3 && ui.badge !== "Built for creators", `"${ui.badge}", ${words} words, ${ui.badgeH.toFixed(1)}px tall, ${ui.badgeFont}`)
+  check("the badge is a pill with depth: fully round ends and a shadow", ui.badgeRadius >= ui.badgeH / 2 - 0.5 && /rgba\(0, 0, 0, 0\.[1-9]/.test(ui.badgeShadow), `radius ${ui.badgeRadius}px on ${ui.badgeH.toFixed(1)}px, shadow ${ui.badgeShadow.slice(0, 60)}...`)
+  check("the panel is rounded and has depth (a shadow under it and a hairline)", ui.panel.radius >= (size.phone ? 24 : 32) && /inset/.test(ui.panel.shadow) && (ui.panel.shadow.match(/rgba/g) || []).length >= 3, `radius ${ui.panel.radius}px`)
+  const inset = size.phone ? [8, 12] : [18, 22]
+  check(`the panel is inset from the page's sides (${inset[0]} to ${inset[1]}px)`, ui.panel.left >= inset[0] && ui.panel.left <= inset[1] && Math.abs(ui.innerW - ui.panel.right - ui.panel.left) < 1, `${ui.panel.left.toFixed(1)}px left, ${(ui.innerW - ui.panel.right).toFixed(1)}px right`)
+  const veil = ui.veil ? parseColor(ui.veil) : { a: 0 }
+  check("the backdrop is dimmed 40% more than round AB1's (its veil 0.91 where it was 0.85: 9% of the pictures shows, not 15%)", veil.a >= 0.9, `veil ${ui.veil}`)
+  check("a short line under the controls, true of the Free plan", !!ui.note && ui.note.text === "Free to start. No card needed." && ui.note.top > Math.max(ui.cta.bottom, ui.input.top + ui.input.h), ui.note ? `"${ui.note.text}", ${ui.note.size}` : "missing")
   if (size.phone) {
-    check("no full width controls at 390: the button and the search are narrower than the window less 48px", ui.cta < ui.innerW - 48 && ui.form < ui.innerW - 48, `button ${ui.cta.toFixed(1)}px, search ${ui.form.toFixed(1)}px, limit ${ui.innerW - 48}px`)
+    const column = ui.innerW - 2 * ui.panel.left - 40
+    check("at 390 the button and the search are full width and stacked, the button on top", Math.abs(ui.cta.w - ui.input.w) < 1 && ui.cta.w >= column - 1 && ui.input.top >= ui.cta.bottom + 8 && Math.abs(ui.cta.left - ui.input.left) < 1, `button ${ui.cta.w.toFixed(1)}px, search ${ui.input.w.toFixed(1)}px, column ${column.toFixed(1)}px, ${(ui.input.top - ui.cta.bottom).toFixed(1)}px between`)
+    check("each 52px tall with the header buttons' 8px corner, as the owner's picture", Math.abs(ui.cta.h - 52) < 1 && Math.abs(ui.input.h - 52) < 1 && ui.cta.r === 8 && ui.input.r === 8, `button ${ui.cta.h.toFixed(1)}px r${ui.cta.r}, search ${ui.input.h.toFixed(1)}px r${ui.input.r}`)
     check("the slider runs to both edges of the screen, past the panel's sides", ui.stage.left <= 0.5 && ui.stage.right >= ui.innerW - 0.5 && ui.panel.left >= 4, `slider ${ui.stage.left.toFixed(1)} to ${ui.stage.right.toFixed(1)}, panel ${ui.panel.left.toFixed(1)} to ${ui.panel.right.toFixed(1)}`)
     check("and across the panel's bottom edge", ui.centre.top < ui.panel.bottom - 30 && ui.centre.bottom > ui.panel.bottom + 30, `centre slide ${ui.centre.top.toFixed(0)} to ${ui.centre.bottom.toFixed(0)}, panel ends at ${ui.panel.bottom.toFixed(0)}`)
     check("the next section starts close under the slides (40 to 72px)", ui.gap >= 40 && ui.gap <= 72, `${ui.gap.toFixed(1)}px from the slides to the next heading`)
@@ -443,28 +488,103 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
     const startsAt = ui.globeTop - ui.innerH - ahead
     check("the globe (1.8 MB) starts loading only once the heading has scrolled off", ui.globeTop !== null && startsAt >= ui.h1Bottom, `globe at ${ui.globeTop?.toFixed(0)}px, loads from a scroll of ${startsAt.toFixed(0)}px, heading ends at ${ui.h1Bottom.toFixed(0)}px`)
   } else {
-    check("the slider sits inside the panel from 640px", ui.centre.bottom < ui.panel.bottom, `centre slide ends ${ui.centre.bottom.toFixed(0)}, panel ${ui.panel.bottom.toFixed(0)}`)
-    check("the button and the search sit side by side", ui.sameRow)
+    check("the slides cross the panel's bottom edge, as the owner's picture", ui.centre.top < ui.panel.bottom - 60 && ui.centre.bottom > ui.panel.bottom + 60, `centre slide ${ui.centre.top.toFixed(0)} to ${ui.centre.bottom.toFixed(0)}, panel ends at ${ui.panel.bottom.toFixed(0)}`)
+    check("and run to the page's edges, past the panel's sides", ui.stage.left <= 0.5 && ui.stage.right >= ui.innerW - 0.5, `slider ${ui.stage.left.toFixed(1)} to ${ui.stage.right.toFixed(1)}`)
+    check("the button and the search sit side by side, one height", ui.sameRow && Math.abs(ui.cta.h - ui.input.h) < 1, `${ui.cta.h.toFixed(1)}px and ${ui.input.h.toFixed(1)}px`)
+    check("the next section starts close under the slides (40 to 110px)", ui.gap >= 40 && ui.gap <= 110, `${ui.gap.toFixed(1)}px from the slides to the next heading`)
   }
 
-  /* Frame gaps while it glides on its own. */
+  /* The backdrop's brightness: a strip at the panel's left edge (no text there), mean luma 0 to 255. Measured as it is, then with round AB1's veil (0.85) put back for a moment, so the two are the same pictures under the same light. */
+  {
+    const r = await p.js(`(() => { const b = document.querySelector("[data-hero-panel]").getBoundingClientRect(); return { x: b.left + 14, y: b.top + 24, w: Math.min(48, b.width * 0.08), h: 200 } })()`)
+    const luma = async () => {
+      const img = await p.shot({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.w), height: r.h })
+      let sum = 0, n = 0
+      for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) { const [R, G, B] = img.px(x, y); sum += 0.2126 * R + 0.7152 * G + 0.0722 * B; n++ }
+      return sum / n
+    }
+    const now = await luma()
+    await p.js(`document.querySelector("[data-hero-backdrop] > div:last-child").style.backgroundColor = "rgba(14,14,16,0.85)"`)
+    await sleep(80)
+    const was = await luma()
+    await p.js(`document.querySelector("[data-hero-backdrop] > div:last-child").style.backgroundColor = ""`)
+    /* The panel's own #0e0e10 is luma 14.1: what the pictures add is the rest. */
+    const add = now - 14.1, addWas = was - 14.1
+    check("the backdrop is 40% darker than round AB1's: the pictures add 0.5 to 0.7 of what they did", addWas > 0 && add / addWas >= 0.5 && add / addWas <= 0.7, `mean luma ${now.toFixed(1)} (was ${was.toFixed(1)}): the pictures add ${add.toFixed(1)} where they added ${addWas.toFixed(1)}, ${((1 - add / addWas) * 100).toFixed(0)}% less`)
+  }
+
+  /* Side slides are dimmer, by the same position that moves them. */
+  for (let i = 0; i < 60 && (await p.js(STATE)).moving; i++) await sleep(50)
+  const dims = await p.js(`(() => [...document.querySelectorAll("[data-hero-slide]")].map((s) => ({ centre: s.hasAttribute("data-centre"), dim: Number(getComputedStyle(s.querySelector("[data-hero-dim]")).opacity), x: s.getBoundingClientRect().left + s.getBoundingClientRect().width / 2, vis: Number(s.style.opacity || 1) })))()`)
+  const midX = ui.innerW / 2
+  const c = dims.find((d) => d.centre)
+  const sides = dims.filter((d) => !d.centre && d.vis > 0.5 && Math.abs(d.x - midX) < ui.innerW)
+  check("the centre slide is at full brightness, the slides beside it dimmer", c && c.dim === 0 && sides.length >= 2 && sides.every((d) => d.dim >= 0.35), `centre ${(1 - c.dim).toFixed(2)} bright, sides ${sides.map((d) => (1 - d.dim).toFixed(2)).join(", ")}`)
+
+  /* Frame gaps while it glides on its own, and the slide arriving in the centre brightening frame by frame. */
   const frames = await p.js(`new Promise((done) => {
     const stage = document.querySelector("[data-hero-carousel]")
-    const gaps = []; let last = 0; let seen = false
+    const slides = [...stage.querySelectorAll("[data-hero-slide]")]
+    const mid = stage.getBoundingClientRect().left + stage.getBoundingClientRect().width / 2
+    const gaps = []; const dims = []; let last = 0; let seen = false; let watch = null; let restSeen = false
     const tick = (t) => {
       const moving = stage.hasAttribute("data-moving")
-      if (moving) { if (last) gaps.push(t - last); last = t; seen = true }
-      else if (seen && gaps.length > 10) return done(gaps)
+      /* Only a glide seen from its first frame counts: one already under way when this started is let go by. */
+      if (!moving) restSeen = true
+      if (moving && restSeen) {
+        if (last) gaps.push(t - last)
+        last = t; seen = true
+        /* The slide arriving: the one right of the centre when the glide began. */
+        if (!watch) watch = slides.map((s) => ({ s, x: s.getBoundingClientRect().left + s.getBoundingClientRect().width / 2 })).filter((o) => o.x > mid + 20).sort((a, b) => a.x - b.x)[0]?.s
+        if (watch) dims.push(Number(watch.querySelector("[data-hero-dim]").style.opacity))
+      }
+      else if (seen && gaps.length > 10) { if (watch) dims.push(Number(watch.querySelector("[data-hero-dim]").style.opacity)); return done({ gaps, dims }) }
       else last = 0
       requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
-    setTimeout(() => done(gaps), 9000)
+    setTimeout(() => done({ gaps, dims }), 9000)
   })`)
-  if (frames.length) {
-    const q = quantiles(frames)
+  if (frames.gaps.length) {
+    const q = quantiles(frames.gaps)
     check("frames during a glide", q.p95 < 34, `${q.n} frames, median ${q.p50.toFixed(1)}ms, p95 ${q.p95.toFixed(1)}ms, longest ${q.max.toFixed(1)}ms`)
+    const d = frames.dims
+    const steps = d.slice(1).map((v, i) => v - d[i])
+    const biggest = Math.max(0, ...steps.map((x) => Math.abs(x)))
+    check("the slide arriving brightens smoothly to full: never darker frame to frame, no step over 0.06", d.length > 10 && d[d.length - 1] === 0 && d[0] >= 0.35 && steps.every((x) => x <= 1e-6) && biggest <= 0.06, `dim ${d[0]?.toFixed(2)} to ${d[d.length - 1]?.toFixed(2)} over ${d.length} frames, largest step ${biggest.toFixed(3)}`)
   } else check("frames during a glide", false, "no glide seen in 9s")
+
+  /*
+    WHY AN OVERLAY AND NOT filter: brightness(). The same glides, the CPU four
+    times slower, timed twice: as built (a dim layer's opacity), then with
+    each slide's brightness set by filter from the same value every frame and
+    the layer hidden. Reported, and the overlay must be no slower.
+  */
+  if (!size.phone) {
+    const GLIDES = `new Promise((done) => {
+      const stage = document.querySelector("[data-hero-carousel]")
+      const gaps = []; let last = 0; let restSeen = false; let glides = 0; let was = false
+      const tick = (t) => {
+        const moving = stage.hasAttribute("data-moving")
+        if (was && !moving) glides++
+        was = moving
+        if (!moving) { restSeen = true; last = 0; if (glides >= 2) return done(gaps) }
+        else if (restSeen) { if (last) gaps.push(t - last); last = t }
+        requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+      setTimeout(() => done(gaps), 12000)
+    })`
+    await p.hover(10, 10)
+    await p.call("Emulation.setCPUThrottlingRate", { rate: 4 })
+    const overlay = quantiles(await p.js(GLIDES))
+    await p.js(`(() => { window.__filterMode = true; const loop = () => { if (!window.__filterMode) return; for (const s of document.querySelectorAll("[data-hero-slide]")) { const d = s.querySelector("[data-hero-dim]"); s.style.filter = "brightness(" + (1 - Number(d.style.opacity || 0)).toFixed(3) + ")"; d.style.visibility = "hidden" } requestAnimationFrame(loop) }; loop() })()`)
+    const filter = quantiles(await p.js(GLIDES))
+    await p.js(`(() => { window.__filterMode = false; for (const s of document.querySelectorAll("[data-hero-slide]")) { s.style.filter = ""; s.querySelector("[data-hero-dim]").style.visibility = "" } })()`)
+    await p.call("Emulation.setCPUThrottlingRate", { rate: 1 })
+    check("dimming by an overlay's opacity is no slower than filter: brightness() (CPU 4x slower)", overlay.n > 20 && filter.n > 20 && overlay.p95 <= filter.p95 + 2,
+      `overlay: median ${overlay.p50.toFixed(1)}ms, p95 ${overlay.p95.toFixed(1)}ms over ${overlay.n} frames; filter: median ${filter.p50.toFixed(1)}ms, p95 ${filter.p95.toFixed(1)}ms over ${filter.n} frames`)
+  }
 
   /* The button and its label. */
   const cta = await p.js(`(() => { const a = document.querySelector("[data-hero-cta]"); return { state: a.dataset.heroCta, href: a.getAttribute("href"), text: [...a.querySelectorAll("[data-hero-cta-label]")].find((x) => getComputedStyle(x).visibility === "visible").textContent, w: a.getBoundingClientRect().width } })()`)
@@ -493,6 +613,7 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
       pick(sub, "subheading", textBox(sub)),
       pick(label, "button", textBox(label)),
       pick(input, "search placeholder", { x: ir.left + 16, y: ir.top + 12, w: ir.width - 64, h: ir.height - 24 }, getComputedStyle(input, "::placeholder").color),
+      pick(hero.querySelector("[data-hero-note]"), "the line under the controls", textBox(hero.querySelector("[data-hero-note]"))),
     ]
   })()`)
   await p.js(`(() => { const st = document.createElement("style"); st.id = "hide"; st.textContent = "[data-home-hero] *{color:transparent!important;caret-color:transparent!important}[data-home-hero] input::placeholder{color:transparent!important}[data-home-hero] svg{visibility:hidden!important}[data-hero-caret]{display:none!important}"; document.head.appendChild(st) })()`)
@@ -600,7 +721,7 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
   /* Typing (the caret at full strength, not fading with the line), a few letters into a word. */
   let midWord = false
   for (let i = 0; i < 150 && !midWord; i++) {
-    midWord = await sa.js(`(() => { const l = document.querySelector("[data-hero-line]"); const k = [...l.children].filter((c) => c.style.opacity !== "0").length; return document.querySelector("[data-hero-caret]").style.opacity === "" && k > 6 && k < l.children.length - 8 && l.children[k - 1].textContent !== " " })()`)
+    midWord = await sa.js(`(() => { const l = document.querySelector("[data-hero-line]"); const k = [...l.children].filter((c) => c.style.opacity !== "0").length; return document.querySelector("[data-hero-caret]").style.opacity === "" && k > 6 && k < l.children.length - 8 && !/\\s/.test(l.children[k - 1].textContent) })()`)
     if (!midWord) await sleep(30)
   }
   check("caught the heading part way through a word", midWord)
@@ -610,7 +731,7 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
   const STARTED = `(() => { const kids = [...document.querySelector("[data-hero-line]").children]; return { line: kids.map((c) => c.textContent).join(""), started: kids.filter((c) => c.style.opacity !== "0").map((c) => c.textContent).join(""), styles: kids.map((c) => c.style.opacity).join(",") } })()`
   const away = await sa.js(STARTED)
   const stoppedAt = away.started.length
-  check("out of sight mid phrase, it finished the word before stopping", stoppedAt > 0 && (stoppedAt === away.line.length || away.line[stoppedAt - 1] === " "), `stopped after "${away.started}"`)
+  check("out of sight mid phrase, it finished the word before stopping", stoppedAt > 0 && (stoppedAt === away.line.length || /\s/.test(away.line[stoppedAt - 1])), `stopped after "${away.started}"`)
   await sleep(1000)
   const still = await sa.js(STARTED)
   check("and stays there while out of sight", still.styles === away.styles)
@@ -680,6 +801,62 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
     const eb = await ex.js(READ_BAR)
     await ex.close()
     check("while Explore's header still has it", eb.bell === 1, `${eb.bell} bell`)
+  }
+}
+
+/* ── THE HEADER'S DARK STYLE (round AC1) ───────────────────────────────── */
+if (ONLY !== "hero") {
+  console.log("\n── The header in its dark style (/admin), in both of the site's looks ──")
+  const DARK_BG = /BUYER_HEADER_DARK_BG = "(#[0-9a-f]{6})"/.exec(readFileSync(join(root, "lib/platform/header-chrome.ts"), "utf8"))[1]
+  const want = [1, 3, 5].map((i) => parseInt(DARK_BG.slice(i, i + 2), 16))
+  const close = (a, b, tol = 3) => a.every((v, i) => Math.abs(v - b[i]) <= tol)
+  /* The colour most of the bar is, from a screenshot: the surface, whatever is drawn on it. */
+  const modeOf = (img, x0, y0, x1, y1) => {
+    const n = new Map()
+    for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) { const k = img.px(x, y).join(","); n.set(k, (n.get(k) ?? 0) + 1) }
+    return [...n.entries()].sort((a, b) => b[1] - a[1])[0][0].split(",").map(Number)
+  }
+  for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, height: 860, phone: false }]) {
+    for (const look of ["light", "dark"]) {
+      for (const [name, path] of [["storelib.com", "/"], ["Explore", "/explore"], ["a product page", "/ava/film-presets"]]) {
+        const q = await page({ ...size, path: "/header.html", hash: `path=${path}&who=seller&tone=dark&look=${look}`, ready: "document.getElementById('platform-header-root')" })
+        await sleep(800)
+        const r = await q.js(`(() => { const root = document.getElementById("platform-header-root"); const b = root.getBoundingClientRect(); return { tone: root.dataset.headerTone, h: b.height, root: getComputedStyle(root).backgroundColor, header: getComputedStyle(root.querySelector("header")).backgroundColor, sl: document.documentElement.hasAttribute("data-sl-dark") } })()`)
+        const img = await q.shot({ x: 0, y: 0, width: size.width, height: Math.max(8, Math.floor(r.h) - 2) })
+        const bar = modeOf(img, 0, 0, img.w, img.h)
+        if (process.env.HERO_SHOTS) {
+          const { data } = await q.call("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width: size.width, height: Math.min(size.height, 260), scale: 1 } })
+          writeFileSync(join(process.env.HERO_SHOTS, `header-dark-${look}-look-${path.replace(/\W+/g, "_")}-${size.width}.png`), Buffer.from(data, "base64"))
+        }
+        check(`${size.width}px, ${look} look, ${name}: the dark bar is ${DARK_BG}, not grey`, r.tone === "dark" && r.sl === (look === "dark") && close(bar, want), `bar rgb(${bar.join(",")}), root ${r.root}, header ${r.header}`)
+        if (size.phone && path === "/") {
+          /* Its menu: open it, and the bar above the sheet stays the same near black. */
+          const opened = await q.js(`(() => { const b = document.querySelector("#platform-header-root button[aria-label='Open menu']"); if (!b) return false; b.click(); return true })()`)
+          await sleep(700)
+          /* The sheet's scrim lies over the bar, so the bar's own colour is read, not its pixels. */
+          const m = await q.js(`(() => ({ open: !!document.querySelector("button[aria-label='Close menu']"), bg: getComputedStyle(document.getElementById("platform-header-root")).backgroundColor }))()`)
+          const mbar = parseColor(m.bg).rgb
+          if (process.env.HERO_SHOTS) {
+            const { data } = await q.call("Page.captureScreenshot", { format: "png" })
+            writeFileSync(join(process.env.HERO_SHOTS, `header-dark-${look}-look-menu-${size.width}.png`), Buffer.from(data, "base64"))
+          }
+          check(`${size.width}px, ${look} look: with its menu open the bar is still ${DARK_BG}`, opened && m.open && close(mbar, want), `menu ${m.open ? "open" : "not open"}, bar ${m.bg}`)
+        }
+        await q.close()
+      }
+    }
+    /* The hero under the header (round AC1: "decrease a little bit more the vertical space between the header and the hero"). It was 28px on a phone and 32px on a computer (a 20px curved edge, then 8 or 12). */
+    for (const tone of ["light", "dark"]) {
+      const q = await page({ ...size, path: "/header.html", hash: `path=/&who=guest&tone=${tone}`, ready: "document.querySelector('[data-hero-panel]')" })
+      await sleep(600)
+      const g = await q.js(`(() => { const h = document.getElementById("platform-header-root").getBoundingClientRect(); const p = document.querySelector("[data-hero-panel]").getBoundingClientRect(); return { gap: p.top - h.bottom, edge: !!document.querySelector("[data-header-concave]") } })()`)
+      if (process.env.HERO_SHOTS) {
+        const { data } = await q.call("Page.captureScreenshot", { format: "png" })
+        writeFileSync(join(process.env.HERO_SHOTS, `header-${tone}-home-${size.width}.png`), Buffer.from(data, "base64"))
+      }
+      check(`${size.width}px, ${tone} header: the hero starts 8 to 14px under it`, g.gap >= 8 && g.gap <= 14 && !g.edge, `${g.gap.toFixed(1)}px${g.edge ? ", with the curved edge" : ""}`)
+      await q.close()
+    }
   }
 }
 
