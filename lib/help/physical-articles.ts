@@ -1406,6 +1406,7 @@ const ARTICLES: Article[] = [
       { type: "p", text: "Edit chart in the card changes the chart for every product that uses it, and the card says how many those are. To stop showing a chart on one product, choose No size chart and save." },
 
       { type: "h", text: "What buyers see" },
+      shot("size-guide-buyer", "A product page with Size guide beside the Size option, and the chart Linen aprons open over it in inches, with the chosen size L/XL marked.", "Size guide sits beside the size. The chart opens over the page, in cm or inches, with the chosen size marked."),
       {
         type: "list",
         items: [

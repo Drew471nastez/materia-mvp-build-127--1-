@@ -100,6 +100,8 @@ export const PHYSICAL_SHOTS = {
   "site-selectors": [528, 116],
   "size-chart-editor-phone": [390, 808],
   "size-chart-editor": [752, 792],
+  "size-guide-buyer-phone": [390, 844],
+  "size-guide-buyer": [1100, 760],
   "store-currency-change": [752, 612],
   "store-currency-phone": [382, 240],
   "store-currency": [752, 208],

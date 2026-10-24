@@ -37,6 +37,7 @@ import { MarketsPanel } from "@/components/app/settings/markets-panel"
 import { TranslateSheet } from "@/components/app/settings/translate-sheet"
 import { LanguageSwitch } from "@/components/website-builder/theme/language-switch"
 import { languageChoiceOf } from "@/lib/markets/choice"
+import { ProductBlock } from "@/components/website-builder/sections/renderers/product/product-blocks"
 
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "delivery"
@@ -458,6 +459,34 @@ const Page = ({ children, width = 760, bg = "#f8f9fa" }: { children: React.React
   </div>
 )
 
+/* A website's product page, as a buyer sees it: Storelib's own variant picker with Size guide beside the size (components/website-builder/sections/renderers/product/product-blocks.tsx). */
+function SizeGuidePage() {
+  const [chosen, setChosen] = React.useState<(string | null)[]>(["Sand", "L/XL", null])
+  const chart = sizeCharts[0]
+  const product = {
+    id: PRODUCT, title: "Linen apron", slug: "linen-apron", type: "physical", description: "", price_cents: 4800, compare_at_cents: null, thumbnail_url: "", gallery_urls: [],
+    options: [{ name: "Color", values: ["Sand", "Moss"] }, { name: "Size", values: ["S/M", "L/XL", "Long"] }],
+    variants: ["Sand", "Moss"].flatMap((c) => ["S/M", "L/XL", "Long"].map((z) => ({ id: `${c}-${z}`, name: `${c} / ${z}`, options: [c, z, null], price_cents: 4800, compare_at_cents: null, image_url: null, available: true, left: null, max_quantity: 9 }))),
+    size_chart: { name: chart.name, unit: chart.unit, columns: chart.columns, rows: chart.rows, notes: chart.notes, imageUrl: null },
+  }
+  const palette = { heading: "#1c1917", text: "#292524", paragraph: "#44403c", text_muted: "#78716c", border: "#e7e5e4", bg: "#ffffff", background: "#ffffff" }
+  const ctx = {
+    product, sample: false, variant: null, chosen, choose: (i: number, v: string) => setChosen((c) => c.map((x, j) => (j === i ? v : x))), facts: { payWhatYouWant: false }, canBuy: true, quantity: 1, setQuantity: () => {}, maxQuantity: 9,
+    pwywInput: "", setPwywInput: () => {}, pwywError: null, palette, inEditor: false, inert: false,
+    buy: { add: () => {}, now: () => {}, added: false, unavailable: null }, wishlist: { saved: false, toggle: () => {} }, radius: "6px", buttonRadius: { borderRadius: 6 }, money: (c: number) => `$${(c / 100).toFixed(2)}`,
+  }
+  return (
+    <div style={{ background: "#fff", minHeight: "100vh" }}>
+      <div id="shot" style={{ maxWidth: 460, margin: "0 auto", padding: "32px 20px" }}>
+        <p style={{ fontSize: 26, fontWeight: 600, color: palette.heading, margin: "0 0 6px" }}>Linen apron</p>
+        <p style={{ fontSize: 18, color: palette.text, margin: "0 0 24px" }}>$48.00</p>
+        <ProductBlock block={{ id: "vp", type: "variant_picker", settings: {} } as never} ctx={ctx as never} />
+        <button type="button" style={{ width: "100%", height: 50, borderRadius: 6, background: palette.heading, color: "#fff", fontSize: 15, fontWeight: 500 }}>Add to cart</button>
+      </div>
+    </div>
+  )
+}
+
 function ProductCards() {
   const handle = React.useRef<PhysicalEditorHandle | null>(null)
   return (
@@ -623,6 +652,8 @@ function App() {
     case "checkout": {
       return <div id="shot"><PhysicalCheckout shopId={PRODUCT} shopName="Fern & Clay" /></div>
     }
+    case "size-guide":
+      return <SizeGuidePage />
     case "buybox":
       return (
         <Page width={460} bg="#ffffff">
