@@ -89,6 +89,7 @@ import { storeCurrencyOf } from "@/lib/store/currency"
 import { ReadinessNote } from "@/components/physical/readiness-banner"
 import { msg, tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { nudgeNotifications } from "@/lib/notifications/nudge"
 
 /*
   The cards a failed check scrolls to (handleSaveChanges). There is no row of
@@ -1804,6 +1805,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       const { productId: savedProductId, slug: savedSlug } = result
 
       const created = !productId
+      /* A new product on sale: its sales are worth a notification (lib/notifications/nudge). */
+      if (created) nudgeNotifications("product")
       setIsPublished(true)
       setJustSaved(true)
       setHasUnsavedChanges(false)

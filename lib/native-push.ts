@@ -20,6 +20,8 @@
  * render, an app build without the plugin. Nothing is called there.
  */
 
+import { openAppSettings } from "@/lib/native-permissions"
+
 export type PushPermission = "granted" | "denied" | "prompt" | "unsupported"
 
 type CapacitorLike = { isNativePlatform?: () => boolean; getPlatform?: () => string }
@@ -87,27 +89,11 @@ export async function askPushPermission(): Promise<PushPermission> {
 
 /**
  * Opens Storelib's page in the phone's own Settings, the only place a "Don't
- * Allow" can be undone. iOS: `app-settings:` is the system's address for it,
- * and Capacitor hands any address that is not the app's to iOS. Android: the
- * App info page, through StorelibNative.openAppSettings (MainActivity).
+ * Allow" can be undone. The one way to get there, shared with the camera and
+ * the library (lib/native-permissions.ts openAppSettings).
  */
 export function openPhoneSettings(): boolean {
-  const p = nativePlatform()
-  if (p === "ios") {
-    window.location.href = "app-settings:"
-    return true
-  }
-  if (p === "android") {
-    const bridge = (window as unknown as { StorelibNative?: { openAppSettings?: () => void } }).StorelibNative
-    if (typeof bridge?.openAppSettings !== "function") return false
-    try {
-      bridge.openAppSettings()
-      return true
-    } catch {
-      return false
-    }
-  }
-  return false
+  return openAppSettings()
 }
 
 /** Where to allow notifications again after a no, in the phone's own words. */

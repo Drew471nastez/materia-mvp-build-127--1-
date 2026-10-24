@@ -181,6 +181,7 @@ import { useCalmFocus } from "./calm-focus"
 import { feedRestore } from "./post-motion"
 import { useStaffSchedule, type ComposerStaff } from "@/components/community/creator/composer-schedule"
 import { checkScheduledPoll, type ScheduledPoll } from "@/lib/communities/scheduled-posts"
+import { nudgeNotifications } from "@/lib/notifications/nudge"
 
 export interface ComposerProps {
   communityId: string
@@ -1247,6 +1248,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     setHeldCopy(false)
     const post = r.data.post
     postSound()
+    /* Replies are what comes next: in the app, ask for notifications if they are off (lib/notifications/nudge). */
+    nudgeNotifications("posted")
     /* Kept no longer: a reload from here on starts empty. */
     try {
       window.localStorage.removeItem(key)

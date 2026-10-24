@@ -1384,7 +1384,7 @@ function main() {
     check("and the label the creator typed", productPage.includes("creatorBarLabel") && /buttonLabel\?\.trim\(\)/.test(bar))
     check(
       "it carries a way back",
-      /<BackControl onBack=\{goBack\} href=\{fallbackHref\(creatorHref\)\}/.test(live) && /goBackOr\(/.test(bar) && /window\.history\.back\(\)/.test(code("lib/navigation/go-back.ts")),
+      /* round 11: or the OnePage it was opened from */ /<BackControl onBack=\{goBack\} href=\{(?:returnTo \?\? )?fallbackHref\(creatorHref\)\}/.test(live) && /goBackOr\(/.test(bar) && /window\.history\.back\(\)/.test(code("lib/navigation/go-back.ts")),
     )
     /*
       The fallback is a router.push now, not an assignment to location. Same

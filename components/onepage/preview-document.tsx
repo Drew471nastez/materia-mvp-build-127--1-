@@ -25,8 +25,9 @@
  *                      a free product claimed, a subscription) are answered
  *                      here and never sent, so trying the page in the
  *                      editor records nothing and emails nobody
- *   links open aside   a link that would take this frame somewhere else
- *                      opens in a new tab instead, and the editor stays
+ *   nothing leaves     a link that would take this frame somewhere else
+ *                      (or open a tab) stays put and says it opens on the
+ *                      live page; a payment says it is a preview
  *   nothing kept       what the page remembers in the browser (a form sent,
  *                      a product bought) is kept for this frame only
  *   its products, now  a product block is resolved against the product row,
@@ -53,6 +54,8 @@ import { ONEPAGE_PREVIEW_CHANNEL, type PreviewMessage } from "@/lib/onepage/prev
 import type { PublicOnePageData } from "@/lib/onepage/public-shape"
 import { familyOf, onePageFontHref } from "@/lib/onepage/fonts"
 import { PriceCurrency } from "@/components/platform/price-currency"
+import { PREVIEW_NOTICE_EVENT, showPreviewNotice, type PreviewNoticeKind } from "@/lib/onepage/preview-notice"
+import { tt } from "@/lib/i18n/text"
 
 /** The writes a visitor's page makes, answered here instead of by the server. */
 const WRITES = /^\/api\/(onepage\/(track|leads|email-capture)|subscribe|checkout\/|download\/|purchases\/)/
@@ -102,20 +105,85 @@ function sandboxWrites() {
     /* a browser that will not let it be replaced keeps its own */
   }
 
-  /* A link that would move this frame opens in a tab of its own. */
-  document.addEventListener(
-    "click",
-    (e) => {
-      if (e.defaultPrevented) return
-      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
-      if (!a || a.hasAttribute("download")) return
-      const href = a.getAttribute("href") || ""
-      if (!href || href.startsWith("#") || href.startsWith("javascript:")) return
-      if (a.target && a.target !== "_self") return
-      e.preventDefault()
-      window.open(a.href, "_blank", "noopener,noreferrer")
-    },
-    true,
+  /*
+    NOTHING TAKES THE CREATOR OUT OF THE PREVIEW (round 11, the owner: "When
+    I click buttons, it should not take me outside of it"). A link used to
+    open in a tab of its own, over the editor. Now a link that would leave
+    (another page, another site, the checkout, mail, a phone number, a new
+    tab) stays where it is, and a short note says it opens on the live page
+    (lib/onepage/preview-notice). Heard on the window after the page's own
+    handlers, so what the page does in place (a product's sheet, the checkout
+    window, a #section) still happens: those cancel the click themselves.
+  */
+  window.addEventListener("click", (e) => {
+    if (e.defaultPrevented || e.button !== 0) return
+    const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+    if (!a) return
+    const href = a.getAttribute("href") || ""
+    if (!href || href.startsWith("#") || href.startsWith("javascript:")) return
+    /* The same page with a #part: a jump inside it, not a way out. */
+    try {
+      const u = new URL(a.href, window.location.href)
+      if (u.origin === window.location.origin && u.pathname === window.location.pathname && u.search === window.location.search && u.hash) return
+    } catch {
+      /* not an address this can read: stopped like any other */
+    }
+    e.preventDefault()
+    showPreviewNotice("link")
+  })
+  /* And a window opened by the page itself (a share, a PDF, a booking link): the same note, nothing opened. */
+  window.open = ((..._args: unknown[]) => {
+    showPreviewNotice("link")
+    return null
+  }) as typeof window.open
+  /* A form that would post to another page. */
+  document.addEventListener("submit", (e) => {
+    if (e.defaultPrevented) return
+    const form = e.target as HTMLFormElement | null
+    if (!form || !form.getAttribute("action")) return
+    e.preventDefault()
+    showPreviewNotice("link")
+  })
+}
+
+/**
+ * The note itself: a small dark pill at the foot of the frame, in for a
+ * moment and out again. One at a time; a second tap restarts it.
+ */
+function PreviewNoticeHost() {
+  const [shown, setShown] = useState<PreviewNoticeKind | null>(null)
+  const [up, setUp] = useState(false)
+  useEffect(() => {
+    let hide = 0
+    let clear = 0
+    const on = (e: Event) => {
+      const kind = ((e as CustomEvent<{ kind?: PreviewNoticeKind }>).detail?.kind ?? "link") as PreviewNoticeKind
+      window.clearTimeout(hide)
+      window.clearTimeout(clear)
+      setShown(kind)
+      requestAnimationFrame(() => setUp(true))
+      hide = window.setTimeout(() => setUp(false), 1800)
+      clear = window.setTimeout(() => setShown(null), 2100)
+    }
+    window.addEventListener(PREVIEW_NOTICE_EVENT, on)
+    return () => {
+      window.removeEventListener(PREVIEW_NOTICE_EVENT, on)
+      window.clearTimeout(hide)
+      window.clearTimeout(clear)
+    }
+  }, [])
+  if (!shown) return null
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[2147483000] flex justify-center px-4 pb-[max(20px,env(safe-area-inset-bottom))]" data-preview-notice={shown}>
+      <p
+        role="status"
+        aria-live="polite"
+        className="rounded-full bg-[#111113] px-4 py-2.5 text-[13.5px] font-medium text-white shadow-[0_1px_2px_rgba(0,0,0,0.2),0_8px_24px_-8px_rgba(0,0,0,0.35)] transition-[opacity,translate] duration-200 ease-out"
+        style={{ opacity: up ? 1 : 0, translate: up ? "0 0" : "0 8px" }}
+      >
+        {shown === "payment" ? tt("This is a preview. Nothing is charged here.") : tt("Opens on your live page")}
+      </p>
+    </div>
   )
 }
 
@@ -271,6 +339,7 @@ export function OnePagePreviewDocument() {
       <PriceCurrency currency={currency}>
         <PublicOnePage onepage={page as never} />
       </PriceCurrency>
+      <PreviewNoticeHost />
     </ExtraBlockPreviewContext.Provider>
   )
 }

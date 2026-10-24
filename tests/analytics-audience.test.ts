@@ -117,7 +117,7 @@ console.log("\nThe reports")
   const kinds = Object.fromEntries(r.kinds.map((k) => [k.key, k]))
   check("sales by kind: physical with its units, digital less its refund", kinds.physical?.salesCents === 2500 && kinds.physical?.units === 2 && kinds.digital?.salesCents === 900 && kinds.digital?.orders === 2 && kinds.digital?.refunds === 1, r.kinds)
   check("  and the kinds add up to Revenue", r.kinds.reduce((n, k) => n + k.salesCents, 0) === r.sales.value)
-  check("digital: orders, revenue, average, and the share of orders downloaded", r.digital.orders === 2 && r.digital.salesCents === 900 && r.digital.averageCents === 450 && r.digital.downloads?.total === 3 && r.digital.downloads?.orders === 1 && r.digital.top[0]?.downloads === 3, r.digital)
+  check("digital: orders, revenue, average, and the share of orders downloaded", r.digital.orders === 2 && r.digital.salesCents === 900 && r.digital.averageCents === 900 /* what each order brought in when placed (900 + 900) / 2, refunds dated apart (lib/analytics/refund-dates) */ && r.digital.downloads?.total === 3 && r.digital.downloads?.orders === 1 && r.digital.top[0]?.downloads === 3, r.digital)
   check("top products say their kind", r.topProducts.find((p) => p.key === "mug")?.kind === "physical" && r.topProducts.find((p) => p.key === "ebook")?.kind === "digital")
   check("a product's type is its kind", kindOf("physical") === "physical" && kindOf("digital") === "digital" && kindOf(null) === "digital" && kindOf("membership") === "membership" && kindOf("course") === "course")
 

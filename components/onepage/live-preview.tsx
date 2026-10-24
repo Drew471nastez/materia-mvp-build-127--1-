@@ -194,6 +194,14 @@ export function LivePreviewFrame({
         ref={frame}
         src={attempt ? `${ONEPAGE_PREVIEW_PATH}&again=${attempt}` : ONEPAGE_PREVIEW_PATH}
         title={title}
+        /*
+          THE PREVIEW CANNOT TAKE THE EDITOR ANYWHERE (round 11). No
+          allow-top-navigation and no allow-popups: whatever the page inside
+          tries, the editor stays and no tab opens. The page's own links are
+          stopped with a note before this is ever reached
+          (components/onepage/preview-document); this is the floor under it.
+        */
+        sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads"
         data-onepage-preview-frame=""
         data-drawn={drawn ? "" : undefined}
         /* The creator page's frame arrives on the same fade (app/globals.css creator-frame-in). */

@@ -1617,7 +1617,7 @@ function EditorLayout() {
                   className={cn(
                     "w-full mx-auto",
                     t === "design" ? null : "p-4 md:p-6 op-tabbar-clearance md:pb-6",
-                    t === "settings" ? "max-w-2xl" : t === "design" ? null : "max-w-xl"
+                    t === "settings" ? "max-w-3xl" : t === "design" ? null : "max-w-xl"
                   )}
                 >
                   {t === "settings" ? (

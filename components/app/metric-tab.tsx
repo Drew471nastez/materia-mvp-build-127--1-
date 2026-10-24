@@ -14,11 +14,57 @@
  * The row around it is the same too: a strip that scrolls sideways on a phone,
  * at home and on Analytics alike (components/app/use-tab-strip).
  */
-import type * as React from "react"
+import * as React from "react"
 import { cn } from "@/lib/utils"
 
 /** The line under the chosen tab: light grey, never the accent. */
 export const METRIC_TAB_LINE = "#d1d5db"
+
+/**
+ * ONE LINE FOR THE ROW, THAT SLIDES. Analytics' row draws this instead of a
+ * line per tab: a tap moves it from the tab it was under to the one chosen,
+ * its width becoming the new tab's, by `translate` and `width` over 260ms on
+ * the /app curve, the way the cards' switchers move their pill. A line per
+ * tab cut from one to the next, the one jump left in the row. Placed on its
+ * own (absolute), so nothing else is laid out again; measured before the
+ * paint and again when the row changes size. With reduced motion it is
+ * simply there.
+ *
+ * It measures the row it is drawn in, its own parent: a ref handed down
+ * from the row is still empty when a child's layout effect runs on the
+ * first commit, and the line stayed away until the first tap.
+ */
+export function MetricTabLine({ value }: { value: string }) {
+  const self = React.useRef<HTMLSpanElement>(null)
+  const [at, setAt] = React.useState<{ x: number; w: number; glide: boolean } | null>(null)
+  React.useLayoutEffect(() => {
+    const el = self.current?.parentElement
+    if (!el) return
+    const calm = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    /* The first placement is a cut; every one after it glides, a tab or a resize alike. */
+    const place = () => {
+      const on = el.querySelector<HTMLElement>(`[role="tab"][data-tab="${value}"]`)
+      if (!on) return
+      const x = on.offsetLeft
+      const w = on.offsetWidth
+      setAt((a) => (a && a.x === x && a.w === w ? a : { x, w, glide: !!a && !calm }))
+    }
+    place()
+    const ro = typeof ResizeObserver === "function" ? new ResizeObserver(() => place()) : null
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [value])
+  return (
+    <span
+      ref={self}
+      aria-hidden
+      data-metric-tab-line=""
+      data-glide={at?.glide ? "" : undefined}
+      className={cn("pointer-events-none absolute bottom-0 left-0 z-[1] h-[1.5px] border-0", at?.glide && "transition-[translate,width] duration-[260ms] motion-reduce:transition-none")}
+      style={{ background: METRIC_TAB_LINE, width: at?.w ?? 0, translate: `${at?.x ?? 0}px 0`, visibility: at ? "visible" : "hidden", transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
+    />
+  )
+}
 
 export function MetricTab({
   tab,
@@ -32,6 +78,7 @@ export function MetricTab({
   sample = false,
   onSelect,
   className,
+  line = true,
 }: {
   /** The name the row finds it by (data-tab), e.g. "views". */
   tab: string
@@ -55,6 +102,8 @@ export function MetricTab({
   sample?: boolean
   onSelect: () => void
   className?: string
+  /** False when the row draws one line that slides from tab to tab (Analytics' MetricTabLine) instead of each tab its own. */
+  line?: boolean
 }) {
   const blurred = soft || loading
   return (
@@ -70,7 +119,7 @@ export function MetricTab({
         className,
       )}
     >
-      {selected ? <span aria-hidden data-metric-tab-line className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: METRIC_TAB_LINE }} /> : null}
+      {selected && line ? <span aria-hidden data-metric-tab-line className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: METRIC_TAB_LINE }} /> : null}
       <span className={cn("block truncate text-[11px] font-medium sm:text-[12px]", selected ? "text-[#374151]" : "text-[#6b7280]")}>{label}</span>
       <span className="mt-0.5 flex min-w-0 items-baseline gap-1.5">
         <span

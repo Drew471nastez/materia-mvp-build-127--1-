@@ -7,6 +7,7 @@ import type { AudiencePayload, AuditPayload, EmailPayload, PeoplePayload, SiteRo
 import { ago, date, money, num, short, statusWord } from "./format"
 import type { Route } from "./nav-state"
 import { WalletDomainsPanel } from "./panel-wallets"
+import { getOnePageDomain } from "@/lib/onepage/address"
 import { BuyerHeaderThemePanel } from "./panel-buyer-header-theme"
 import { ExploreMarketplacePanel } from "./panel-explore-marketplace"
 import { ExploreDiscoverModeSwitcherPanel } from "./panel-explore-discover-switcher"
@@ -405,6 +406,8 @@ export function SystemView({ data }: Common & { data: SystemPayload }) {
       <BuyerHeaderThemePanel />
       {/* The one panel here that changes something, and the last step for Apple Pay. */}
       <WalletDomainsPanel />
+      {/* The OnePage host, where Instant checkout runs: Apple Pay asks for each domain on its own (round 11). */}
+      <WalletDomainsPanel domain={getOnePageDomain()} />
 
       <Panel title="Scheduled jobs" meta="Judged by the work each one leaves behind">
         <DataList

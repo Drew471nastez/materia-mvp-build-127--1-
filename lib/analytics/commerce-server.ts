@@ -19,9 +19,9 @@ import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
-import { creatorProperties, orderSpans, readSpans, startingAt } from "./report-read"
+import { creatorProperties, orderSpans, ratesFrom, readSpans, refundedEarlier, startingAt } from "./report-read"
 import { spansToRead } from "./buckets"
-import { commerceReport, commerceRowCounts, customersOf, grainFor, salesOf, linesFor, type CommerceOrderRow, type CommerceReport, type Span } from "./commerce"
+import { commerceReport, commerceRowCounts, customersOf, grainFor, salesOf, linesFor, withListTotal, type CommerceOrderRow, type CommerceReport, type Span } from "./commerce"
 import { ownsProperty, type CreatorProperties, type PropertySelector } from "./properties"
 import { lineInMode, type SalesMode } from "./sections"
 
@@ -32,6 +32,7 @@ type Read<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null
 const BASE = "id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, source, source_detail, buyer_email, currency, quantity"
 /* The richest read first; an older database without a column is read with less, never left blank. */
 const COLUMN_SETS = [
+  `${BASE}, refunded_at, tax_cents, tax_included, shipping_cents, unit_price_cents, property_type, property_id, checkout_id`,
   `${BASE}, tax_cents, tax_included, shipping_cents, unit_price_cents, property_type, property_id, checkout_id`,
   `${BASE}, tax_cents, tax_included, shipping_cents, unit_price_cents, property_type, property_id`,
   `${BASE}, tax_cents, tax_included, shipping_cents, unit_price_cents`,
@@ -71,15 +72,19 @@ async function readLines(admin: Admin, creatorId: string, spans: Span[]): Promis
   let last: Error | null = null
   for (const columns of COLUMN_SETS) {
     try {
-      const read = await byCreator(async (scope) =>
-        readSpans<OrderRow>(orderSpans(spans), (start, end, after) =>
+      const read = await byCreator(async (scope) => {
+        const got = await readSpans<OrderRow>(orderSpans(spans), (start, end, after) =>
           startingAt(scopedOrders(admin, columns, scope, creatorId, null).lt("created_at", end), start, after)
             .order("created_at", { ascending: true })
             .order("id", { ascending: true })
             .limit(1000) as Read<OrderRow>,
-        ),
-      )
-      return { rows: ownRows(read.rows), truncated: read.truncated, columns }
+        )
+        /* Refunds made in the periods of orders placed before them: dated by the refund (report-read refundedEarlier). */
+        const own = ownRows(got.rows)
+        const earlier = /refunded_at/.test(columns) ? await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, null), spans, new Set(own.map((r) => r.id))) : []
+        return { rows: [...own, ...ownRows(earlier)], truncated: got.truncated }
+      })
+      return { rows: read.rows, truncated: read.truncated, columns }
     } catch (e) {
       last = e as Error
       if (!/column|42703|PGRST204/i.test(last.message)) throw last
@@ -193,7 +198,7 @@ export async function countCommerce(admin: Admin, q: CommerceQuestion): Promise<
   const spans = spansToRead(q.span, q.previous)
   const read = await readLines(admin, q.creatorId, spans)
   const placeUnknown = !/property_type/.test(read.columns)
-  const inStore = await inStoreCurrency(admin, q.creatorId, read.rows)
+  const inStore = await inStoreCurrency(admin, q.creatorId, withListTotal(read.rows as CommerceOrderRow[]) as unknown as OrderRow[], undefined, { rates: ratesFrom(admin) })
   const rows = inStore.rows
   const selector: PropertySelector = placeUnknown ? { type: "all" } : q.selector
 

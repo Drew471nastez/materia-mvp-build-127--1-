@@ -23,11 +23,15 @@
  *                            Physical, or a physical product. A published
  *                            website alone is no reason: a seller of
  *                            downloads with a website ships nothing
- *   All, Digital, Physical   a seller of both kinds: one switch at the top
- *                            that every sales figure and card follows
+ *   Digital and Physical     a seller of both kinds: every figure counts
+ *                            both, and the cards split them where it
+ *                            matters (the sales breakdown's columns, each
+ *                            top product's kind). The page has no switch
+ *                            any more (round AC2); `mode` stays for the
+ *                            routes' `?kind=`, which the page never sends
  *   downloads                a seller of digital products, while All or a
  *                            digital product is chosen
- *   Physical and Digital     Top products split by kind, for a seller of both
+ *   productKinds             the split above, for a seller of both
  *   Top products, sign-ups   All products only: with one chosen, a list of
  *                            one and a sign-up count that is not that
  *                            product's would only mislead
@@ -140,7 +144,7 @@ export function sectionsFor(p: AnalyticsProfile, s: Selection): Sections {
     shipping: ships && (allProducts || s.productKind === "physical"),
     fulfillment: ships && (allProducts || s.productKind === "physical"),
     topProducts: allProducts,
-    /* The Physical and Digital tabs inside Top products, only while the switch at the top is on All. */
+    /* The Digital and Physical split (breakdown columns, each product's kind), with every kind counted together. */
     productKinds: allProducts && mode === "all" && p.physical && (p.digital || p.membership),
     subscribers: allProducts,
     links: s.property === "onepage",

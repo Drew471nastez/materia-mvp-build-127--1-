@@ -65,7 +65,7 @@ import { OpenInAppCard } from "@/components/platform/open-in-app-card"
 import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativeChrome } from "@/components/platform/native-chrome"
 /* Loaded on demand, and not at all on a creator's published website (components/platform/app-only.tsx). */
-import { AccountCommunityChrome, NativeOAuthBridge, NativePushInit, NotificationsAsk, SettingsSubpageHost } from "@/components/platform/app-only"
+import { AccessSheet, AccountCommunityChrome, NativeOAuthBridge, NativePushInit, NotificationsAsk, SettingsSubpageHost } from "@/components/platform/app-only"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
 import { IMAGE_FALLBACK_SCRIPT } from "@/lib/media/image-fallback"
@@ -333,6 +333,7 @@ export default function RootLayout({
         <NativePushInit /> 
         {/* After an install or a reinstall the phone has forgotten: ask once, in our own words, before the phone's prompt. */}
         <NotificationsAsk />
+        <AccessSheet />
         <CookieConsentBanner />
         {/*
           NativeOAuthBridge owns the appUrlOpen deep link on its own. It used to

@@ -224,7 +224,8 @@ function main() {
   */
   check("the home page and Analytics both draw components/app/metric-tab, and neither keeps its own",
     /import \{ MetricTab \} from "@\/components\/app\/metric-tab"/.test(home)
-      && /import \{ MetricTab \} from "@\/components\/app\/metric-tab"/.test(analytics)
+      /* Analytics also draws the row's one sliding line from the same module (round AC2). */
+      && /import \{ MetricTab, MetricTabLine \} from "@\/components\/app\/metric-tab"/.test(analytics)
       && !/function MetricTab\(/.test(analytics) && !/function MetricTab\(/.test(home)
       && (home.match(/<MetricTab\b/g) ?? []).length === 4)
   check("the line under the chosen tab is light grey, 1.5px, and nothing violet is left on it",

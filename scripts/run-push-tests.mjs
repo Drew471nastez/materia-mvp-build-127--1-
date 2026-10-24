@@ -207,6 +207,8 @@ const SUITES = [
   "tests/analytics-e2e.test.ts",
   /* Round AB2: every /app Analytics figure against a fixture counted by hand and an independent reference (7 ranges, 5 places, All/Digital/Physical), the sales reports counted by the tabs' own rules, the comparison across a DST week, the yen cards, the morph by what a store sells, Add report at the bottom and the CSV export (scripts/check-analytics-ab2.mjs measures the page). */
   "tests/analytics-accuracy.test.ts",
+  /* Round AC2: a lei store selling in five other currencies through the routes' own code with day rates in the database fake, yen and dinar stores, the phantom discount of a converted line, refunds dated by the refund, shares that add up to 100, changes against nothing and below nothing, and the export's report and format choices (scripts/check-analytics-ac2.mjs measures the page). */
+  "tests/analytics-currency.test.ts",
   "tests/analytics-filters.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
@@ -337,7 +339,7 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/header-link-navigates.test.ts",
   "tests/header-buttons.test.ts",
-  /* Round AA1: the front page hero remade (the button by who is looking, the storefront slider, the typed heading, the marketplace search). Round AB1: the typing on one frame clock (lib/marketing/hero-typing), Storelib screens as the pictures (scripts/hero-shots.mjs), the phone layout. scripts/check-home-hero.mjs measures it, scripts/check-home-perf.mjs times a production build. */
+  /* Round AA1: the front page hero remade (the button by who is looking, the storefront slider, the typed heading, the marketplace search). Round AB1: the typing on one frame clock (lib/marketing/hero-typing), Storelib screens as the pictures (scripts/hero-shots.mjs), the phone layout. scripts/check-home-hero.mjs measures it, scripts/check-home-perf.mjs times a production build. Round AC1: demo stores as the pictures, dimmer side slides, the inset panel, full width phone controls, and the header's dark style near black in both looks. */
   "tests/home-hero.test.ts",
   "tests/header-flex.test.ts",
   "tests/search-strip-entrance.test.ts",
@@ -381,6 +383,7 @@ const SUITES = [
   "tests/onboarding-flow.test.ts",
   "tests/payouts-verification.test.ts",
   "tests/push-ask.test.ts",
+  "tests/native-permissions.test.ts",
   "tests/payments-status.test.ts",
   "tests/payments-readiness.test.ts",
   "tests/payments-reconcile.test.ts",
@@ -649,6 +652,8 @@ const SUITES = [
   "tests/site-customer-pages.test.ts",
   "tests/account-sections.test.ts",
   "tests/onepage-blocks.test.ts",
+  /* Round 11: the email signup's five layouts (drawn without an image), groups (what goes in, one edit in and out, what is drawn), the Products tab's short default, and the Integrations section; scripts/check-onepage-blocks-r11.mjs measures them. */
+  "tests/onepage-blocks-r11.test.ts",
   "tests/onepage-editor-ui.test.ts",
   "tests/checkout-loads.test.ts",
   "tests/notify-templates.test.ts",
@@ -773,6 +778,9 @@ const SUITES = [
   "tests/account-center.test.ts",
   "tests/theme-blocks.test.ts",
   "tests/place-navigator.test.ts",
+  "tests/header-auth-menus.test.ts",
+  "tests/builder-touch-intent.test.ts",
+  "tests/publish-open-live.test.ts",
   "tests/header-round8.test.ts",
   "tests/native-app-links.test.ts",
   "tests/native-shell.test.ts",
@@ -887,6 +895,8 @@ const STRICT_SUITES = [
   "tests/onepage-creator-blocks.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
+  /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */
+  "tests/e2e-onepage-blocks-r11.test.ts",
   /* ShippyPro: the adapter against recorded and documented answers, and the marketplace card in each state (components/physical/integrations-marketplace.tsx only type-checks strict) */
   "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
@@ -956,6 +966,8 @@ const STRICT_SUITES = [
   "tests/app-polish-z7.test.ts",
   /* Round 10: the OnePage's instant checkout bought end to end: facts, a code, paid and free, drafts refused (tests/_journey) */
   "tests/e2e-onepage-instant.test.ts",
+  /* Round 11: the OnePage as storelib.me serves it: the way back from the checkout and the product page (never an open redirect), one-hop links, Instant checkout with every call routed as the host routes it, no Open in app card in the editor (tests/_journey) */
+  "tests/e2e-onepage-live.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

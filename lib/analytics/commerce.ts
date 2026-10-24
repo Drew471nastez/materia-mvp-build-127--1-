@@ -27,6 +27,7 @@ import { counts, orderProperty, propertyName, type CreatorProperties, type Prope
 import { bucketIndex, bucketStarts, grainFor, type Grain } from "@/lib/analytics/buckets"
 import { groupOrders, isSale, type Order, type OrderRow } from "@/lib/orders/order-view"
 import { lineInMode, type SalesMode } from "@/lib/analytics/sections"
+import { refundsIn } from "@/lib/analytics/refund-dates"
 
 export interface CommerceOrderRow {
   id: string
@@ -39,6 +40,10 @@ export interface CommerceOrderRow {
   quantity?: number | null
   status?: string | null
   refund_amount_cents?: number | null
+  /** When the refund was made: returns are dated by it (lib/analytics/refund-dates). */
+  refunded_at?: string | null
+  /** unit_price_cents x quantity, set before a conversion so it is converted as one amount (withListTotal). */
+  list_total_cents?: number | null
   created_at: string
   source?: string | null
   source_detail?: string | null
@@ -113,9 +118,10 @@ export function lineBreakdown(r: CommerceOrderRow) {
   const tax = Math.min(total - tip - shipping, n(r.tax_cents))
   const itemsCharged = Math.max(0, total - tip - shipping - tax)
   const qty = Math.max(1, n(r.quantity) || 1)
-  const unit = n(r.unit_price_cents)
+  /* The line's list total, converted as one amount when the order was in another currency (withListTotal). */
+  const listed = n(r.list_total_cents) || n(r.unit_price_cents) * qty
   /* The list price, without tax when the price included it; never below what was charged. */
-  const list = unit > 0 ? Math.max(0, unit * qty - (r.tax_included ? tax : 0)) : itemsCharged
+  const list = listed > 0 ? Math.max(0, listed - (r.tax_included ? tax : 0)) : itemsCharged
   const gross = Math.max(list, itemsCharged)
   const discounts = gross - itemsCharged
   let returns = 0
@@ -125,6 +131,19 @@ export function lineBreakdown(r: CommerceOrderRow) {
     returns = recorded > 0 ? Math.min(recorded, total) : total
   }
   return { gross, discounts, returns, shipping, taxes: tax, tips: tip, total }
+}
+
+/**
+ * Each line with its list total (unit price x quantity) beside it, before the
+ * lines are converted to the store's currency (lib/money/report-currency
+ * converts it as one amount), so a converted line is never listed a few
+ * minor units above what it was charged. Copies; the rows are not changed.
+ */
+export function withListTotal<T extends { unit_price_cents?: number | null; quantity?: number | null }>(rows: T[]): Array<T & { list_total_cents?: number | null }> {
+  return rows.map((r) => {
+    const unit = n(r.unit_price_cents)
+    return unit > 0 ? { ...r, list_total_cents: unit * Math.max(1, n(r.quantity) || 1) } : r
+  })
 }
 
 export function channelOf(r: CommerceOrderRow): Channel {
@@ -258,8 +277,12 @@ export function orderBreakdown(o: Pick<Order, "lines">) {
     out.tips += b.tips
     out.total += b.total
   }
-  return { ...out, total: out.total - out.returns }
+  /* `charged`: what the buyer paid; `total`: that less what this payment's lines had refunded, whenever. */
+  return { ...out, charged: out.total, total: out.total - out.returns }
 }
+
+/** A line's refunded money, by lineBreakdown: the same returns the breakdown adds up. */
+export const lineReturns = (line: Order["lines"][number]) => lineBreakdown(line as unknown as CommerceOrderRow).returns
 
 const emailOf = (o: Pick<Order, "lines">) => o.lines.map((l) => (l.buyer_email || "").trim().toLowerCase()).find(Boolean) ?? ""
 
@@ -268,7 +291,7 @@ const emailOf = (o: Pick<Order, "lines">) => o.lines.map((l) => (l.buyer_email |
  * sale before the period began; one of them buying again is returning, as
  * Shopify counts it (more than one order in their lifetime).
  */
-export function breakdownOfOrders(orders: Array<Pick<Order, "lines">>, earlier: ReadonlySet<string> = new Set()): SalesBreakdown {
+export function breakdownOfOrders(orders: Array<Pick<Order, "lines">>, earlier: ReadonlySet<string> = new Set(), returns?: number): SalesBreakdown {
   const out = { gross: 0, discounts: 0, returns: 0, shipping: 0, taxes: 0, tips: 0 }
   const perCustomer = new Map<string, number>()
   for (const o of orders) {
@@ -282,6 +305,8 @@ export function breakdownOfOrders(orders: Array<Pick<Order, "lines">>, earlier: 
     const c = emailOf(o)
     if (c) perCustomer.set(c, (perCustomer.get(c) ?? 0) + 1)
   }
+  /* Returns dated by the refund (lib/analytics/refund-dates): the caller's refunds of the period, of whichever orders. */
+  if (returns !== undefined) out.returns = returns
   const net = out.gross - out.discounts - out.returns
   const count = orders.length
   const customers = perCustomer.size
@@ -343,6 +368,12 @@ export interface CommerceReport {
   channels: ChannelRow[]
   fulfillmentRate: FulfillmentFigures
   fulfillmentRateBefore: FulfillmentFigures
+  /**
+   * With the sales of every kind counted together (mode All), the same
+   * breakdown for each kind: the Total sales breakdown's Digital and
+   * Physical columns. Null under one kind or one product.
+   */
+  kinds: { digital: SalesBreakdown; physical: SalesBreakdown } | null
   /** The period's payments, newest first, for the export. */
   orders: Order[]
 }
@@ -420,36 +451,56 @@ export function commerceReport(input: {
   const sales = salesOf(linesFor(input.rows, input), input.selector, input.properties.defaultWebsite, input.mode, input.productTypes)
   const now = sales.filter((o) => orderInSpan(o, input.span))
   const before = input.previous ? sales.filter((o) => orderInSpan(o, input.previous!)) : []
+  /* Returns on the day of the refund, of any sale the reads found (lib/analytics/refund-dates). */
+  const refundsNow = refundsIn(sales, input.span, lineReturns)
+  const refundsBefore = input.previous ? refundsIn(sales, input.previous, lineReturns) : []
+  const cents = (xs: Array<{ cents: number }>) => xs.reduce((a, e) => a + e.cents, 0)
   const grain = grainFor(input.span)
-  const seriesFor = (list: Order[], span: Span): CommercePoint[] => {
+  const seriesFor = (list: Order[], refunds: typeof refundsNow, span: Span): CommercePoint[] => {
     const starts = bucketStarts(span, grain, input.timeZone)
     const buckets: Order[][] = starts.map(() => [])
+    const returned = starts.map(() => 0)
     for (const o of list) {
       const i = bucketIndex(starts, Date.parse(o.createdAt))
       if (i >= 0) buckets[i].push(o)
     }
+    for (const e of refunds) {
+      const i = bucketIndex(starts, e.at)
+      if (i >= 0) returned[i] += e.cents
+    }
     return starts.map((t, i) => {
-      const b = breakdownOfOrders(buckets[i])
+      const b = breakdownOfOrders(buckets[i], undefined, returned[i])
       return { t, total: b.total, orders: b.orders, aov: b.aov }
     })
   }
   const channels = new Map<string, ChannelRow>()
-  for (const o of now) {
+  const channelRow = (o: Order) => {
     const c = channelOfOrder(o, input.properties)
     const row = channels.get(c.key) ?? { key: c.key, label: c.label, total: 0, orders: 0 }
-    row.total += orderBreakdown(o).total
-    row.orders += 1
     channels.set(c.key, row)
+    return row
   }
+  for (const o of now) {
+    const row = channelRow(o)
+    row.total += orderBreakdown(o).charged
+    row.orders += 1
+  }
+  for (const e of refundsNow) channelRow(e.order).total -= e.cents
   const checkouts = input.checkouts ?? {}
+  /* One kind's lines of each payment, its refunds on their own day: the two columns add up to the whole. */
+  const kindBreakdown = (kind: "digital" | "physical") => {
+    const mine = salesOf(linesFor(input.rows, input), input.selector, input.properties.defaultWebsite, kind, input.productTypes)
+    return breakdownOfOrders(mine.filter((o) => orderInSpan(o, input.span)), input.earlier?.now, cents(refundsIn(mine, input.span, lineReturns)))
+  }
   return {
-    breakdown: breakdownOfOrders(now, input.earlier?.now),
-    previous: breakdownOfOrders(before, input.earlier?.before),
-    series: seriesFor(now, input.span),
-    previousSeries: input.previous ? seriesFor(before, input.previous) : [],
+    breakdown: breakdownOfOrders(now, input.earlier?.now, cents(refundsNow)),
+    previous: breakdownOfOrders(before, input.earlier?.before, cents(refundsBefore)),
+    series: seriesFor(now, refundsNow, input.span),
+    previousSeries: input.previous ? seriesFor(before, refundsBefore, input.previous) : [],
     channels: [...channels.values()].sort((a, b) => b.total - a.total || b.orders - a.orders || a.label.localeCompare(b.label)),
     fulfillmentRate: fulfillmentOf(now, checkouts),
     fulfillmentRateBefore: fulfillmentOf(before, checkouts),
+    kinds: input.mode === "all" && !input.productId ? { digital: kindBreakdown("digital"), physical: kindBreakdown("physical") } : null,
     orders: now,
   }
 }

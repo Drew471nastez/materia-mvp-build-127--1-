@@ -396,8 +396,19 @@ export function isFrontDoor(path: string): boolean {
  * Everywhere else it is one clear tap. That is deliberate, not an
  * oversight: do not make it automatic without the cookie.
  */
+/**
+ * Pages that never offer the hand off: the OnePage editor and its preview
+ * frame (round 11). The creator is at work there; a card saying "Open in
+ * Storelib" over the editor or inside its phone preview is in the way.
+ */
+const NO_HANDOFF = /^\/(?:app\/onepage|onepage-preview)(?:[/?#]|$)/
+export function handoffRefused(path: string | null | undefined): boolean {
+  return typeof path === "string" && NO_HANDOFF.test(path)
+}
+
 export function handoffCard(req: HandoffRequest): HandoffCard | null {
   const ua = req.ua || ""
+  if (handoffRefused(req.path)) return null
   const phone = phoneOf(ua)
   if (!phone) return null
   if (req.quietCookie === "closed") return null

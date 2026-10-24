@@ -9,6 +9,9 @@
  *   #path=/explore&who=unknown   a first visit: no snapshot, and the session
  *                                read never answers, so the header is still
  *                                waiting to know who is looking
+ *   &tone=dark | &tone=light     the admin's header style (/admin, buyer header
+ *                                theme), handed to the header as the layout does
+ *   &look=dark                   the site's dark look (html[data-sl-dark])
  *
  * On "/" the real homepage hero is drawn under the header, so its two
  * buttons can be measured against the header's. The buyer tab bar is drawn
@@ -25,6 +28,9 @@ const params = new URLSearchParams(location.hash.slice(1))
 const w = window as any
 w.__nav = { path: params.get("path") || "/explore", subs: new Set<() => void>() }
 w.__who = params.get("who") || "guest"
+const tone = params.get("tone")
+const buyerHeaderLight = tone === "light" ? true : tone === "dark" ? false : undefined
+if (params.get("look") === "dark") document.documentElement.setAttribute("data-sl-dark", "")
 try {
   localStorage.clear()
 } catch {
@@ -33,7 +39,7 @@ try {
 
 createRoot(document.getElementById("app")!).render(
   <LocaleProvider>
-    <PlatformHeaderClient />
+    <PlatformHeaderClient buyerHeaderLight={buyerHeaderLight} />
     {w.__nav.path === "/" ? (
       <main className="bg-white">
         <Hero />

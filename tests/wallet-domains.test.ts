@@ -197,7 +197,9 @@ function main() {
     const panel = readFileSync("app/admin/_console/panel-wallets.tsx", "utf8")
     const view = readFileSync("app/admin/_console/view-platform.tsx", "utf8")
     check("the Health view renders it", /<WalletDomainsPanel \/>/.test(view) && /from "\.\/panel-wallets"/.test(view))
-    check("the panel calls the route", /fetch\("\/api\/admin\/payment-domains"/.test(panel))
+    /* Round 11: a template string now, so one panel can ask about the OnePage host (storelib.me) too. */
+    check("the panel calls the route", /fetch\(["`]\/api\/admin\/payment-domains/.test(panel))
+    check("and the OnePage host has a panel of its own", /<WalletDomainsPanel domain=\{getOnePageDomain\(\)\} \/>/.test(view))
     check("one press, GET or POST, nothing else", !/method: "(PUT|DELETE|PATCH)"/.test(panel))
     /* Whole and wrapped, under the table: a truncated cell would lose the one sentence the fix depends on. */
     check("it shows Stripe's message as it came", /rows\.filter\(\(w\) => w\.message\)/.test(panel) && /\{w\.message\}/.test(panel) && /overflow-wrap:anywhere/.test(panel))

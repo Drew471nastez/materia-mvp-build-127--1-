@@ -105,6 +105,7 @@ import { useKeyboardPlan } from "./visible-box"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
+import { nudgeNotifications } from "@/lib/notifications/nudge"
 
 type CommentUpdate = (id: string, fn: (c: CommentView) => CommentView | null) => void
 type Me = { name: string; avatarUrl: string | null }
@@ -969,6 +970,7 @@ function CommentBox({
       return toast(r.error)
     }
     sending.confirm(tempId, r.data.comment)
+    nudgeNotifications("commented")
   }
   /* A tool pressed keeps the caret (and a phone its keyboard) in the words. */
   const keep = { onPointerDown: (e: React.PointerEvent) => e.preventDefault(), onMouseDown: (e: React.MouseEvent) => e.preventDefault() }

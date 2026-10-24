@@ -347,7 +347,8 @@ async function openingTab() {
   }
   const builder = ["components/website-builder", "app/website-builder"]
   void builder
-  check("the live site's own address opens directly when it is known", /window\.open\(previewUrl, "_blank", "noopener"\)/.test(code("components/website-builder/publish-panel.tsx")))
+  /* Round AC3: through openInBrowser, a new tab on the web and the phone's browser in the app. */
+  check("the live site's own address opens directly when it is known", /openInBrowser\(previewUrl\)/.test(code("components/website-builder/publish-panel.tsx")))
 }
 
 async function main() {

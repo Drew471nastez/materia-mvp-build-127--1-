@@ -128,10 +128,20 @@ export const ONEPAGE_HOST_API: readonly { path: RegExp; methods: readonly string
   { path: /^\/api\/checkout\/process\/?$/, methods: ["POST"] },
   /* The contact form block (lib/website-builder/contact-client.ts). */
   { path: /^\/api\/website-builder\/contact\/?$/, methods: ["POST"] },
+  /*
+    The platform's switches (lib/platform/use-flags.ts), which the root layout's
+    header asks for on every page, the OnePage included: a 404 on every view of
+    storelib.me (round 11). The same answer for everybody, asked without
+    cookies: nothing about an account.
+  */
+  { path: /^\/api\/platform\/flags\/?$/, methods: ["GET"] },
 ]
 
 /** Files a OnePage's markup may ask the host for directly: fonts, media, icons. */
 const ASSET = /\.(?:ico|avif|woff2?|ttf|otf|eot|mp4|webm|mp3|m4a)$/i
+
+/** A picture in public/images: one or more plain segments and an image extension, nothing that could be a route. */
+const PUBLIC_IMAGE = /^\/images\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*[A-Za-z0-9_-][A-Za-z0-9._-]*\.(?:webp|png|jpe?g|gif|svg|avif)$/i
 
 /** Where a request that has nothing on the OnePage host is rendered: the page's own not found (see app/(marketing)/l/[slug]). */
 export const ONEPAGE_MISSING_PATH = "/l/-"
@@ -249,6 +259,12 @@ function onTheOnePageHost(pathname: string, search: string, method: string, main
   }
 
   if (ASSET.test(pathname)) return { kind: "next" }
+  /*
+    The app's own pictures the page draws (the footer badge's logo, lib/brand/logo.ts): files in public/images, never a
+    page or a session. proxy.ts's matcher skips most picture files already (measured round 11: storelib.me answers the
+    logo 200, directly and through /_next/image); this keeps them answering here should a request reach the router.
+  */
+  if (PUBLIC_IMAGE.test(pathname)) return { kind: "next" }
 
   const parts = segmentsOf(pathname)
   if (parts.length === 0) return missing()

@@ -38,7 +38,8 @@ import { parseProperty, type CreatorProperties } from "@/lib/analytics/propertie
 import { summaryHref } from "@/lib/analytics/summary"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { commerceReport } from "@/lib/analytics/commerce"
-import { analyticsCsv } from "@/lib/analytics/export-csv"
+import { analyticsCsv, analyticsFiles, parseExportReports } from "@/lib/analytics/export-csv"
+import JSZip from "jszip"
 import { modeFor, parseMode, profileOf, sectionsFor } from "@/lib/analytics/sections"
 
 const DAY = 86_400_000
@@ -201,8 +202,14 @@ w.fetch = (async (input: RequestInfo | URL) => {
     const reports = buildReports({ views, steps, orders: mine2, subscribers, window: span, previous, timeZone: tz, mainDomain: "storelib.com", productTitles: titles, selector, properties: PLACES, product: productId, productTypes: TYPES, mode })
     const sections = sectionsFor(profile, { property: q.get("property") || "all", productKind: null, mode })
     const day = (ms: number) => new Date(ms).toISOString().slice(0, 10)
-    const csv = analyticsCsv({ meta: { store: "Ana", from: day(span.start), to: day(span.end - 1), comparedFrom: previous ? day(previous.start) : null, comparedTo: previous ? day(previous.end - 1) : null, timeZone: tz, place: "All pages", sales: mode, currency: "USD", madeAt: new Date().toISOString() }, reports, commerce: commerce as never, sections, timeZone: tz })
-    return new Response(`\uFEFF${csv}`, { status: 200, headers: { "content-type": "text/csv; charset=utf-8" } })
+    /* The route's own choices (round AC2): the reports asked for, one CSV or a zip with a CSV per report. */
+    const input = { meta: { store: "Ana", from: day(span.start), to: day(span.end - 1), comparedFrom: previous ? day(previous.start) : null, comparedTo: previous ? day(previous.end - 1) : null, timeZone: tz, place: "All pages", sales: mode, currency: "USD", madeAt: new Date().toISOString() }, reports, commerce: commerce as never, sections, timeZone: tz, only: parseExportReports(q.get("reports")) }
+    if (q.get("format") === "zip") {
+      const zip = new JSZip()
+      for (const f of analyticsFiles(input)) zip.file(f.name, `\uFEFF${f.csv}`)
+      return new Response(await zip.generateAsync({ type: "blob" }), { status: 200, headers: { "content-type": "application/zip" } })
+    }
+    return new Response(`\uFEFF${analyticsCsv(input)}`, { status: 200, headers: { "content-type": "text/csv; charset=utf-8" } })
   }
 
   const window_ = { start: Date.parse(q.get("start")!), end: Date.parse(q.get("end")!) }

@@ -36,6 +36,18 @@ export function slidePose(d: number) {
     transform: `translate3d(calc(var(--hc-w) * ${x.toFixed(4)}),0,0) perspective(1600px) rotateY(${turn.toFixed(3)}deg) scale(${scale.toFixed(4)})`,
     opacity,
     zIndex: 100 - Math.round(a * 10),
+    dim: slideDim(a),
   }
+}
+
+/** How dark a slide's dimming layer is at `a` slides from the centre: none in the centre, DIM_NEAR beside it, DIM_FAR beyond. */
+export const DIM_NEAR = 0.42
+export const DIM_FAR = 0.56
+export function slideDim(a: number): number {
+  const near = Math.min(Math.abs(a), 1)
+  /* Eased, so a slide brightens most as it settles into the centre rather than all at once on leaving the side. */
+  const eased = near * near * (3 - 2 * near)
+  const far = Math.max(0, Math.min(Math.abs(a), 2) - 1)
+  return Number((eased * DIM_NEAR + far * (DIM_FAR - DIM_NEAR)).toFixed(4))
 }
 

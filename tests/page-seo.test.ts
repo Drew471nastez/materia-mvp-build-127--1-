@@ -196,7 +196,9 @@ console.log("\nA picture that means something says what it is")
     !/alt=""/.test(onepage) && (onepage.match(/alt=\{data\.label \|\| ""\}/g) ?? []).length === 4 &&
       /* Round 10: the product block's pictures are drawn by components/onepage/product-block.tsx, each named by the product's title. */
       !/alt=""/.test(read("components/onepage/product-block.tsx")) && (read("components/onepage/product-block.tsx").match(/alt=\{title\}/g) ?? []).length === 2 && (onepage.match(/alt=\{data\.title \|\| ""\}/g) ?? []).length === 3 &&
-      /alt=\{quickCheckoutModalData\.productTitle\}/.test(onepage) && /alt=\{profile\.title \|\| ""\}/.test(onepage) && /alt=\{data\.headline \|\| ""\}/.test(onepage))
+      /alt=\{quickCheckoutModalData\.productTitle\}/.test(onepage) && /alt=\{profile\.title \|\| ""\}/.test(onepage) &&
+      /* Round 11: the email signup's layouts are drawn by components/onepage/email-signup.tsx, its picture named by the signup's headline in each (the editor's small layout pictures are decoration, alt=""). */
+      /headline=\{data\.headline \|\| ""\}/.test(onepage) && (read("components/onepage/email-signup.tsx").match(/<img src=\{image\} alt=\{headline\}/g) ?? []).length === 4)
   /* The product section's pictures are drawn by its media file now. */
   const product = read("components/website-builder/sections/renderers/ProductSection.tsx") + read("components/website-builder/sections/renderers/product/product-media.tsx")
   check("a website's product gallery names each thumbnail button by the product", !/alt=""/.test(product) && /alt=\{`\$\{title\} thumbnail \$\{pos \+ 1\}`\}/.test(product))

@@ -7,7 +7,7 @@ import "server-only"
  */
 import { dayRatesBetween, keptDays, refreshHistory } from "@/lib/markets/fx-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
-import { daySpan, inReportingCurrency, needsConversion, type ReportConversion, type ReportMoneyRow } from "./report-currency"
+import { daySpan, inReportingCurrency, needsConversion, type DayRates, type ReportConversion, type ReportMoneyRow } from "./report-currency"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -18,14 +18,22 @@ export interface StoreCurrencyReport<T> extends ReportConversion<T> {
 }
 
 /** `rows` in the store's currency (given, or read), each converted at its own day's ECB rate. */
-export async function inStoreCurrency<T extends ReportMoneyRow>(db: Db, creatorId: string, rows: T[], storeCurrency?: string | null): Promise<StoreCurrencyReport<T>> {
+export async function inStoreCurrency<T extends ReportMoneyRow>(
+  db: Db,
+  creatorId: string,
+  rows: T[],
+  storeCurrency?: string | null,
+  /** Where the day rates are read from: fx_rates through the admin client unless a caller names its own (Analytics passes its client, so a test's database answers). */
+  opts: { rates?: (from: string, to: string) => Promise<DayRates[]> } = {},
+): Promise<StoreCurrencyReport<T>> {
   const currency = (storeCurrency || (await readStoreCurrency(db, creatorId)).currency).toUpperCase()
   if (!needsConversion(rows, currency)) {
     const unknown = rows.filter((r) => !(typeof r.currency === "string" && /^[a-z]{3}$/i.test(r.currency.trim()))).length
     return { rows, converted: 0, unconverted: 0, unknown, currency }
   }
   const span = daySpan(rows)
-  let days = span ? await dayRatesBetween(span.from, span.to) : []
+  const dayRates = opts.rates ?? ((from: string, to: string) => dayRatesBetween(from, to))
+  let days = span ? await dayRates(span.from, span.to) : []
   let out = inReportingCurrency(rows, currency, days)
   /*
     A sale whose day has no kept rate was left out (never guessed), so a store
@@ -34,7 +42,7 @@ export async function inStoreCurrency<T extends ReportMoneyRow>(db: Db, creatorI
     history once (this server, at most every 6 hours) and convert again.
   */
   if (out.unconverted > 0 && span && (await fillHistoryOnce(span.from))) {
-    days = await dayRatesBetween(span.from, span.to)
+    days = await dayRates(span.from, span.to)
     out = inReportingCurrency(rows, currency, days)
   }
   return { ...out, currency }

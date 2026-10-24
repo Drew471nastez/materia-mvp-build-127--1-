@@ -5,6 +5,7 @@ import type React from "react"
 import { useOnePage } from "@/lib/onepage/context"
 import * as ReactModule from "react"
 import { useEffect, useLayoutEffect, useState, useRef, useCallback, startTransition, memo } from "react"
+import { flushSync } from "react-dom"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
@@ -2190,17 +2191,16 @@ function preloadThemeThumbs() {
 }
 
 /*
-  A card not of the kind picked: out of the grid's flow, under the grid's
-  shown cards (the grid is its own stacking layer, `isolate`), not drawn
-  (opacity 0) and its inside skipped (content-visibility). Nothing here is
-  a property a card's inside inherits, so a pick works out the styles of the
-  twenty-odd cards and not of every span in them: visibility and
-  pointer-events, which it was, made the browser restyle all 381 elements of
-  the grid in the press (48ms on a phone slowed four times).
+  A kind's grid that is not the one picked: out of the flow, under the
+  shown grid (the box holding the grids is its own stacking layer,
+  `isolate`), not drawn (opacity 0), its inside skipped
+  (content-visibility) and out of reach (inert). Nothing here is a
+  property its inside inherits, so a pick works out the styles of two
+  grids and not of every span in every card.
 */
-const HIDDEN_CARD: React.CSSProperties = { position: "absolute", top: 0, left: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" }
+const HIDDEN_GRID: React.CSSProperties = { position: "absolute", top: 0, left: 0, right: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" }
 
-const ThemeCard = memo(function ThemeCard({ template, selected, shown, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
+const ThemeCard = memo(function ThemeCard({ template, selected, shown, copy, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; copy: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
   const image = c.background_type === "image" && c.background_image_url
   const bgStyle: React.CSSProperties = image
@@ -2225,22 +2225,12 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, onPick }:
       onClick={() => onPick(template)}
       aria-pressed={selected}
       aria-label={tt("{name} theme", { name: template.name })}
-      data-theme-card={template.id}
+      /* All's card is the theme's card; the same theme in its own kind's grid is a copy of it. */
+      data-theme-card={copy ? undefined : template.id}
+      data-theme-copy={copy ? template.id : undefined}
       data-theme-shown={shown ? "" : undefined}
-      /*
-        Not of the kind picked: kept, with its photo decoded, out of the
-        grid's flow and not drawn (see useSteadyFilter). Not display:none:
-        a card coming back from that has every style in it worked out anew,
-        and All after Image was 19 cards of it in one frame (311ms on a
-        phone slowed four times). Hidden like this it keeps them.
-      */
-      style={shown ? undefined : HIDDEN_CARD}
-      /* Out of reach (no focus, no tap) while not shown. Not tabIndex: the app's rule for cards (app/globals.css, NEVER A VEIL OVER A CARD) names [tabindex], so changing it restyled every span in every card. */
-      inert={!shown}
       className={cn(
         "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
-        /* A hidden card is a column wide, so it comes back laid out as it will be. */
-        !shown && "w-[calc((100%-12px)/2)] sm:w-[calc((100%-24px)/3)]",
         choiceOff,
       )}
     >
@@ -2335,8 +2325,9 @@ function scrollBoxOf(el: HTMLElement): HTMLElement | null {
  * moving and half of it fading at once, and the owner saw the movement
  * itself as the flash. Now nothing moves and nothing fades: the frame after
  * the press shows the new kind, whole, where the frame before showed the
- * old one, and the only motion on screen is the pill. Every card is made
- * once and kept (a pick only says which are laid out), its photo is
+ * old one, and the only motion on screen is the pill. Each kind has its
+ * own grid, made once and kept, and a pick shows one and hides the rest,
+ * so no card on screen ever changes place (no layout shift). Every photo is
  * decoded before it is ever shown (preloadThemeThumbs, from the moment the
  * Design tab opens) and drawn with decoding="sync", so a card is never
  * painted without its picture. scripts/check-onepage-themes.mjs samples
@@ -2348,9 +2339,17 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
   const pending = useRef<{ box: HTMLElement; top: number; rest: number } | null>(null)
   const held = useRef<{ box: HTMLElement; rest: number; natural: number; min: number } | null>(null)
 
+  /* The kind's grid readied for a pick (see below), and the frames it waits. */
+  const staged = useRef<{ el: HTMLElement; frame: number } | null>(null)
   const pickFilter = useCallback((f: ThemeFilter) => {
-    if (f === filter) return
     const grid = gridRef.current
+    const was = staged.current
+    if (was) {
+      cancelAnimationFrame(was.frame)
+      staged.current = null
+      if (!was.el.hasAttribute("data-theme-kind-shown")) was.el.style.contentVisibility = "hidden"
+    }
+    if (f === filter) return
     const box = grid ? scrollBoxOf(grid) : null
     /*
       At the top of the panel there is nothing to hold, and nothing is
@@ -2361,7 +2360,30 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
     */
     const top = box ? box.scrollTop : 0
     pending.current = box && grid && top > 0 ? { box, top, rest: box.scrollHeight - grid.offsetHeight } : null
-    setFilter(f)
+    /*
+      READIED FOR ONE FRAME, THEN SHOWN. A kind's grid out of sight has its
+      inside skipped (content-visibility: hidden), so its cards keep the
+      places they had when it was last drawn, and shown straight from that
+      the browser takes them for cards that jumped from there (layout
+      shift, 0.1 to 0.15 a pick on a phone). So the press first lets the
+      grid be laid out and drawn where it is, still unseen (opacity 0), and
+      the frame after, it is shown: a new set of cards in place, no shift.
+    */
+    const target = grid?.querySelector<HTMLElement>(`[data-theme-kind-grid="${f}"]`)
+    if (!target || typeof requestAnimationFrame !== "function") {
+      setFilter(f)
+      return
+    }
+    target.style.contentVisibility = "visible"
+    const next = { el: target, frame: 0 }
+    next.frame = requestAnimationFrame(() => {
+      next.frame = requestAnimationFrame(() => {
+        if (staged.current !== next) return
+        staged.current = null
+        flushSync(() => setFilter(f))
+      })
+    })
+    staged.current = next
   }, [filter, setFilter])
 
   useLayoutEffect(() => {
@@ -2507,10 +2529,33 @@ function ThemeSection() {
         itemClassName="h-10 px-4 text-[13px] sm:h-9"
       />
       {THEME_NAME_FONTS_HREF ? <link rel="stylesheet" href={THEME_NAME_FONTS_HREF} /> : null}
-      {/* Every card, made once and kept; a pick of a kind shows its own (useSteadyFilter). `relative` so each card's offset is read from the grid. */}
-      <div ref={gridRef} className="relative isolate grid grid-cols-2 content-start gap-3 sm:grid-cols-3" data-theme-grid="">
-        {THEME_TEMPLATES.map((template) => (
-          <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} shown={filter === "all" || template.category === filter} onPick={onPick} />
+      {/*
+        A GRID FOR EACH KIND, ALL MADE ONCE AND KEPT. One grid that hid the
+        cards of the other kinds moved every card that stayed to a new
+        place (Nature is the 23rd card in All and the first in Image): the
+        browser counted that as layout shift, 0.5 to 2 on a phone per pick,
+        and the eye saw the cards jump. Now each kind has its own grid, its
+        cards in their own places for good, and a pick shows one grid and
+        hides the other: no card on screen ever changes place, it is a new
+        set of cards in one frame. Every photo is decoded already (the same
+        small files, preloadThemeThumbs). The box is as tall as the grid
+        shown (held by useSteadyFilter when scrolled), and nothing sits
+        under it in the panel.
+      */}
+      <div ref={gridRef} className="relative isolate" data-theme-grid="">
+        {THEME_KINDS.map((kind) => (
+          <div
+            key={kind.id}
+            data-theme-kind-grid={kind.id}
+            className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3"
+            style={kind.id === filter ? undefined : HIDDEN_GRID}
+            data-theme-kind-shown={kind.id === filter ? "" : undefined}
+            aria-hidden={kind.id !== filter ? true : undefined}
+          >
+            {THEME_TEMPLATES.filter((t) => kind.id === "all" || t.category === kind.id).map((template) => (
+              <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} shown={kind.id === filter} copy={kind.id !== "all"} onPick={onPick} />
+            ))}
+          </div>
         ))}
       </div>
 

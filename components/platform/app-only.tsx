@@ -5,10 +5,10 @@
  *  STORELIB'S OWN PIECES ARE NOT PART OF A CREATOR'S WEBSITE
  * ===========================================================================
  * The root layout mounts the app shell for every route, published websites
- * included. Five of its pieces draw nothing until the app needs them and
+ * included. Six of its pieces draw nothing until the app needs them and
  * never do anything on a website: the community bar over /account, the
  * settings layer over the profile, the phone app's sign-in bridge, its push
- * set-up and its notifications ask.
+ * set-up, its notifications ask and its sheet for a refused camera.
  * Imported plainly, they pulled the community top bar, the platform header
  * and the Supabase client into every website's first load.
  *
@@ -16,7 +16,7 @@
  *  - Whether this is a website comes from the router's segments, which the
  *    server and the browser agree on (a seller's domain is rewritten to
  *    /w/[username]), so the tree hydrates the same on both sides.
- *  - All five draw nothing on the server and on the hydrating render
+ *  - All six draw nothing on the server and on the hydrating render
  *    already, so ssr: false changes nothing that was drawn.
  *  - On Storelib's own pages the code is asked for as soon as this file
  *    runs, before hydration, so they mount when they did before.
@@ -30,6 +30,7 @@ const settings = () => import("@/components/account/settings-subpage").then((m) 
 const oauth = () => import("@/app/NativeOAuthBridge")
 const push = () => import("@/components/native-push-init").then((m) => m.NativePushInit)
 const ask = () => import("@/components/platform/notifications-ask").then((m) => m.NotificationsAsk)
+const access = () => import("@/components/platform/access-sheet").then((m) => m.AccessSheet)
 
 /** Storelib's own subdomains; any other one is a seller's (username.storelib.com). */
 const PLATFORM_SUBDOMAINS = new Set(["www", "app", "help", "admin", "api", "docs", "developers"])
@@ -45,7 +46,7 @@ function looksLikeWebsite(): boolean {
 }
 
 if (typeof window !== "undefined" && !looksLikeWebsite()) {
-  for (const load of [community, settings, oauth, push, ask]) void load().catch(() => {})
+  for (const load of [community, settings, oauth, push, ask, access]) void load().catch(() => {})
 }
 
 const LazyCommunity = dynamic(() => community(), { ssr: false })
@@ -53,6 +54,7 @@ const LazySettings = dynamic(() => settings(), { ssr: false })
 const LazyOAuth = dynamic(() => oauth(), { ssr: false })
 const LazyPush = dynamic(() => push(), { ssr: false })
 const LazyAsk = dynamic(() => ask(), { ssr: false })
+const LazyAccess = dynamic(() => access(), { ssr: false })
 
 /** A creator's published website: /w/[username], which every seller's address is rewritten to. */
 export function usePublishedWebsite(): boolean {
@@ -78,4 +80,9 @@ export function NativePushInit() {
 
 export function NotificationsAsk() {
   return usePublishedWebsite() ? null : <LazyAsk />
+}
+
+/** The sheet for a camera, library, microphone or notifications the phone refused (components/platform/access-sheet.tsx). */
+export function AccessSheet() {
+  return usePublishedWebsite() ? null : <LazyAccess />
 }

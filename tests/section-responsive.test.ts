@@ -3085,7 +3085,7 @@ check(
   /function SiteAddress\(\{ url, display \}/.test(wbPage) &&
     !/function CopyUrlPill/.test(wbPage) &&
     // no border, no card, no field: an anchor, a mark, and a copy button
-    /<a\s*\n\s*href=\{ownOpen\(url\)\}\s*\n\s*target="_blank"[\s\S]{0,200}?text-\[14px\] text-\[#6b7280\]/.test(wbPage) &&
+    /* Round AC3: the anchor carries liveSiteLink (href, target _blank, and the phone app's browser). */ /<a\s*\n\s*\{\.\.\.liveSiteLink\(ownOpen\(url\)\)\}[\s\S]{0,200}?text-\[14px\] text-\[#6b7280\]/.test(wbPage) && /href: url, target: "_blank"/.test(readFileSync("lib/website-builder/live-site-link.ts", "utf8")) &&
     !/inline-flex h-9 max-w-full items-stretch overflow-hidden rounded-lg border/.test(wbPage),
 )
 

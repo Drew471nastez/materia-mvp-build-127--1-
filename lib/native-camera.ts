@@ -19,6 +19,8 @@
  *   }
  */
 
+import { mediaOffSheet, showAccessSheet, type MediaKind } from "@/lib/native-permissions"
+
 export interface PhotoResult {
   dataUrl: string
   blob: Blob
@@ -71,7 +73,7 @@ async function pickPhotoNative(
   try {
     const { Camera, CameraSource, CameraResultType } = await import("@capacitor/camera")
 
-    const capSource: CameraSource =
+    const capSource =
       source === "CAMERA"
         ? CameraSource.Camera
         : source === "PROMPT"
@@ -109,19 +111,11 @@ async function pickPhotoNative(
       return null
     }
 
-    // Permission denied
-    if (
-      err?.message?.includes("permission") ||
-      err?.message?.includes("denied") ||
-      err?.message?.includes("PERMISSION_DENIED")
-    ) {
-      if (typeof window !== "undefined") {
-        alert(
-          "Camera or photo library access was denied. Please go to Settings → Storelib and enable the permission."
-        )
-      }
-      return null
-    }
+    // Refused, now or before: the phone will not ask again, so say what is off
+    // and open Settings in one tap. The library needs no permission through the
+    // system picker, so that way on is offered from the same sheet.
+    const refused = deniedKind(err)
+    if (refused) return refusedSheet(refused)
 
     // Camera not available (simulator, etc.)
     if (err?.message?.includes("No camera available")) {
@@ -136,11 +130,44 @@ async function pickPhotoNative(
   }
 }
 
+/** Which permission a rejection names: "User denied access to camera" or "... to photos". */
+export function deniedKind(err: unknown): MediaKind | null {
+  const message = String((err as { message?: unknown })?.message ?? "").toLowerCase()
+  const code = String((err as { code?: unknown })?.code ?? "")
+  if (!/denied|permission/.test(message) && code !== "PERMISSION_DENIED") return null
+  return message.includes("photo") || message.includes("librar") ? "photos" : "camera"
+}
+
+function refusedSheet(kind: MediaKind): Promise<PhotoResult | null> {
+  return new Promise((resolve) => {
+    let settled = false
+    const done = (result: Promise<PhotoResult | null> | null) => {
+      if (settled) return
+      settled = true
+      if (result) void result.then(resolve)
+      else resolve(null)
+    }
+    const shown = showAccessSheet(
+      mediaOffSheet(kind, {
+        // Runs inside the tap on the sheet, so the picker may open.
+        secondary: { label: "Choose from library", run: () => done(pickPhotoWeb()) },
+        onClose: () => done(null),
+      }),
+    )
+    if (!shown) {
+      alert(`${mediaOffSheet(kind).title}. ${mediaOffSheet(kind).body}`)
+      done(null)
+    }
+  })
+}
+
 function pickPhotoWeb(): Promise<PhotoResult | null> {
   return new Promise((resolve) => {
     const input = document.createElement("input")
     input.type = "file"
     input.accept = "image/*"
+    // Opened from a tap the camera sheet already answered (components/platform/access-sheet.tsx).
+    input.setAttribute("data-access-skip", "")
     // Do NOT set capture="environment" — that forces camera-only on mobile web
     // and skips the photo library, which is unexpected UX
 

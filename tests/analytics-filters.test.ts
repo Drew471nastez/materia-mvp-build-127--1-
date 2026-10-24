@@ -136,7 +136,7 @@ async function main() {
     const chart = buildReports({ wire: { cur: {}, prev: {} }, views: viewRows, orders: [], window: week, previous: null, timeZone: TZ, mainDomain: "storelib.com", productTitles: {} })
     check("a week: the sales chart has the main chart's very buckets and labels", seriesOf(rows, week, TZ).map((p) => bucketLabel(p.t, grainFor(week), TZ)).join() === chart.visitors.series.labels.join(), chart.visitors.series.labels)
     const view = code("app/app/analytics/commerce-reports.tsx")
-    check("  its dates are written in the seller's zone, not UTC", /bucketLabel\(series\[at\]\.t, grain, timeZone\)/.test(view) && !/timeZone: "UTC"/.test(view))
+    check("  its dates are written in the seller's zone, not UTC", /* the chart's own labels, each bucket in the seller's zone (round AC2: the shared hover reads them) */ /series\.map\(\(p\) => bucketLabel\(p\.t, grain, timeZone\)\)/.test(view) && !/timeZone: "UTC"/.test(view))
     check("  and with no comparison, no change and no dashed line", /function Delta\(\{ now, before, invert = false, compared \}[\s\S]*?if \(!compared\) return null/.test(view) && /previous=\{compared \? data\.previousSeries : \[\]\}/.test(view))
     check("a sale counts the same in both: the chart's revenue is the breakdown's total", breakdownOf(rows).total === 3500 && breakdownOf(rows).orders === 2)
     const order = (o: Partial<OrderRow>): OrderRow => ({ id: "x", product_id: "p1", amount_cents: 1000, status: "completed", created_at: "2026-10-21T08:00:00Z", ...o }) as OrderRow

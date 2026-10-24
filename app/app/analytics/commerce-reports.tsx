@@ -17,13 +17,19 @@
  *                             creator page, Explore, checkout links
  *   Customers                 average order value, the returning customer
  *                             rate (bought before, or twice in the period)
- *   Fulfillment               of the physical orders, how many have gone
- *                             out, and how long they took
+ *   Shipping                  of the physical orders, how many have gone
+ *                             out, how long they waited, what buyers paid
+ *                             for delivery
  *
- * Shipping and fulfilment are only for a seller of something physical, and
- * not while the switch at the top is on Digital (lib/analytics/sections).
- * Every figure is counted payment by payment by the tabs' own rules
- * (lib/analytics/commerce commerceReport), so Total sales is Revenue.
+ * EVERY KIND TOGETHER, SPLIT WHERE IT MATTERS. There is no All / Digital /
+ * Physical switch any more ("it doesn't make sense ... on mobile there are
+ * so many things"). A store that sells both sees the breakdown with a
+ * Digital and a Physical column beside the total, and the Shipping card
+ * only for a seller of something physical, once the period has a physical
+ * order (lib/analytics/sections). Sales are dated by the order, returns by
+ * the refund (lib/analytics/refund-dates). Every figure is counted payment
+ * by payment by the tabs' own rules (lib/analytics/commerce commerceReport),
+ * so Total sales is Revenue.
  *
  * DRAWN BEFORE THE ANSWER. Every card, its title, its switcher and the names
  * of its rows are on the first paint, each body in a fixed height; the
@@ -45,6 +51,8 @@ import { tt } from "@/lib/i18n/text"
 import { bucketLabel, type Grain } from "@/lib/analytics/buckets"
 import type { ChannelRow, FulfillmentFigures, SalesBreakdown } from "@/lib/analytics/commerce"
 import { COMMERCE_FRESH_MS, askCommerce, commerceKey, commerceQuestionOf, keptCommerce } from "@/lib/analytics/commerce-cache"
+import { percentText } from "@/lib/analytics/percent"
+import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
 import { ReportFill, ReportTabs } from "./analytics-reports"
 
 type Point = { t: number; total: number; orders: number; aov: number }
@@ -65,6 +73,8 @@ interface Answer {
   truncated?: boolean
   unconverted?: number
   placeUnknown?: boolean
+  /** The breakdown of each kind, with every kind counted together (lib/analytics/commerce). */
+  kinds?: { digital: SalesBreakdown; physical: SalesBreakdown } | null
 }
 
 /** The channels Storelib names itself, in the dashboard's language; a website keeps the name its seller gave it. */
@@ -110,53 +120,18 @@ function Delta({ now, before, invert = false, compared }: { now: number; before:
 /** A number still on its way: a light block the size of a figure, so the row keeps its height. */
 const Pending = ({ w = "w-16" }: { w?: string }) => <ShimmerBlock className={cn("inline-block h-3.5 rounded-full align-middle", w)} />
 
-/** A line of this period over a dashed line of the one it is compared with, with a soft fill. */
-function LineChart({ series, previous, format, value, grain, timeZone }: { series: Point[]; previous: Point[]; format: (n: number) => string; value: (p: Point) => number; grain: Grain; timeZone: string }) {
-  const [hover, setHover] = React.useState<number | null>(null)
-  const W = 600
-  const H = 160
-  const values = series.map(value)
-  const prevValues = previous.map(value)
-  const max = Math.max(1, ...values, ...prevValues)
-  const x = (i: number, n: number) => (n <= 1 ? W / 2 : (i / (n - 1)) * W)
-  const y = (v: number) => H - 8 - (v / max) * (H - 24)
-  const path = (vals: number[]) => vals.map((v, i) => `${i ? "L" : "M"}${x(i, vals.length).toFixed(1)} ${y(v).toFixed(1)}`).join(" ")
-  const area = values.length ? `${path(values)} L${x(values.length - 1, values.length).toFixed(1)} ${H} L0 ${H} Z` : ""
-  const at = hover ?? values.length - 1
-  return (
-    <div className="relative">
-      <div className="mb-2 flex items-baseline justify-between gap-3">
-        <span className="text-[13px] text-[#6b7280]">{series[at] ? bucketLabel(series[at].t, grain, timeZone) : ""}</span>
-        <span className="text-[13px] font-semibold tabular-nums text-[#1a1a2e]">{series[at] ? format(values[at]) : ""}</span>
-      </div>
-      <div className="relative">
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        className="h-[160px] w-full touch-none overflow-visible"
-        onPointerMove={(e) => {
-          const r = e.currentTarget.getBoundingClientRect()
-          const i = Math.round(((e.clientX - r.left) / r.width) * (values.length - 1))
-          setHover(Math.max(0, Math.min(values.length - 1, i)))
-        }}
-        onPointerLeave={() => setHover(null)}
-        aria-hidden
-      >
-        {[0.25, 0.5, 0.75].map((f) => (
-          <line key={f} x1="0" x2={W} y1={H - 8 - f * (H - 24)} y2={H - 8 - f * (H - 24)} stroke="#f1f2f4" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        ))}
-        {prevValues.length ? <path d={path(prevValues)} fill="none" stroke="#c7cbd1" strokeWidth="1.5" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" /> : null}
-        {area ? <path d={area} fill={ACCENT} fillOpacity={0.08} /> : null}
-        {values.length ? <path d={path(values)} fill="none" stroke={ACCENT} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> : null}
-        {values.length ? <line x1={x(at, values.length)} x2={x(at, values.length)} y1="0" y2={H} stroke="#e5e7eb" strokeWidth="1" vectorEffect="non-scaling-stroke" /> : null}
-      </svg>
-      {values.length ? (
-        /* The point read out above: an 8px dot with a 2px ring in the card's white, drawn in HTML so the stretched plot does not squash it. */
-        <span aria-hidden data-sales-dot="" className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white" style={{ left: `${(x(at, values.length) / W) * 100}%`, top: y(values[at]), background: ACCENT }} />
-      ) : null}
-      </div>
-    </div>
-  )
+/**
+ * A metric over time: this period's line over the dashed one it is compared
+ * with, drawn and read by components/analytics/trend-mini-chart, the
+ * figures' chart's own line and hover. It read the pointer itself before,
+ * re-rendering on every move, and was the one chart on the page a finger
+ * could not scrub.
+ */
+function LineChart({ series, previous, format, value, grain, timeZone, label, integer }: { series: Point[]; previous: Point[]; format: (n: number) => string; value: (p: Point) => number; grain: Grain; timeZone: string; label: string; integer: boolean }) {
+  const labels = React.useMemo(() => series.map((p) => bucketLabel(p.t, grain, timeZone)), [series, grain, timeZone])
+  const current = React.useMemo(() => series.map(value), [series, value])
+  const before = React.useMemo(() => previous.map(value), [previous, value])
+  return <TrendMiniChart labels={labels} current={current} previous={before} format={format} height={150} integer={integer} label={label} readoutTop={-50} />
 }
 
 /** The legend under the chart: drawn from the start, its words are the period's, not the answer's. */
@@ -181,29 +156,33 @@ export interface CommerceReportsProps {
   span: { start: number; end: number }
   /** What the period is compared with: the chart's own instants, or null for none. */
   compare: { start: number; end: number } | null
-  /** The All / Digital / Physical switch at the top. */
+  /** Kept for a caller that still names one kind; the page counts every kind together. */
   kind?: string
   timeZone: string
   /** "all" or a product id. The sales cards follow the same product as the chart. */
   product?: string
   /** "all", "creator_page", "onepage" or "website:<id>". */
   property?: string
-  /** Shipping in the breakdown, for a store that ships or has a published website, while what is chosen could ship. */
+  /** Shipping in the breakdown, for a store that ships, while what is chosen could ship. */
   showShipping?: boolean
-  /** Order fulfillment time, on the same terms. */
+  /** The Shipping card, on the same terms, once the period has a physical order. */
   showFulfillment?: boolean
+  /** A store that sells both kinds: the breakdown has a Digital and a Physical column. */
+  showKinds?: boolean
   /** Who is signed in: a kept answer counted for anybody else is never drawn. */
   viewer?: string | null
   /** The page's minute: asks the same question again. */
   refresh?: number
 }
 
-export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", kind = "all", showShipping = true, showFulfillment = true, viewer = null, refresh = 0 }: CommerceReportsProps) {
+type Metric = "total" | "aov" | "orders"
+
+export function CommerceReports({ span, compare, timeZone, product = "all", property = "all", kind = "all", showShipping = true, showFulfillment = true, showKinds = false, viewer = null, refresh = 0 }: CommerceReportsProps) {
   const currency = useStoreCurrency()
   const key = commerceKey({ start: span.start, end: span.end, compare, product, property, timeZone, currency, kind })
   const question = commerceQuestionOf(key)
   const [state, setState] = React.useState<{ data: Answer | null; question: string; loading: boolean }>(() => ({ data: null, question: "", loading: true }))
-  const [metric, setMetric] = React.useState<"total" | "aov" | "orders">("total")
+  const [metric, setMetric] = React.useState<Metric>("total")
   const refreshed = React.useRef(refresh)
 
   /* Before the paint: the kept answer to this question, so a return draws its numbers in the first frame. */
@@ -231,9 +210,11 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
   const soft = !!data && state.question !== question
   const compared = compare !== null && data?.compared !== false
   /* In the currency's own decimals, as the tab above: a yen store's 2500 is ¥2,500. */
-  const money = (n: number) => formatMinor(n, data?.currency || currency || "USD", appLocale())
+  const money = React.useCallback((n: number) => formatMinor(n, data?.currency || currency || "USD", appLocale()), [data?.currency, currency])
   const b = data?.breakdown
   const p = data?.previous
+  /* The Digital and Physical columns: a store that sells both, every kind counted together. */
+  const kinds = showKinds ? data?.kinds ?? null : null
   const rows: Array<{ key: keyof SalesBreakdown; label: string; sign?: "-"; strong?: boolean; invert?: boolean }> = [
     { key: "gross", label: tt("Gross sales") },
     { key: "discounts", label: tt("Discounts"), sign: "-", invert: true },
@@ -244,45 +225,76 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
     { key: "tips", label: tt("Tips") },
     { key: "total", label: tt("Total sales"), strong: true },
   ]
+  const signed = (v: number, sign?: "-") => (sign && v > 0 ? `−${money(v)}` : money(v))
   const channels = (data?.channels ?? []).slice(0, CHANNEL_ROWS)
   const channelMax = Math.max(1, ...channels.map((c) => c.total))
   const hours = data?.fulfillment.hours ?? null
-  const waitText = hours === null ? null : hours < 1 ? tt("{n} min to ship", { n: Math.max(1, Math.round(hours * 60)) }) : hours < 48 ? tt("{n} h to ship", { n: Math.round(hours * 10) / 10 }) : tt("{n} days to ship", { n: Math.round((hours / 24) * 10) / 10 })
+  const waitText = hours === null ? null : hours < 1 ? tt("{n} min", { n: Math.max(1, Math.round(hours * 60)) }) : hours < 48 ? tt("{n} h", { n: Math.round(hours * 10) / 10 }) : tt("{n} days", { n: Math.round((hours / 24) * 10) / 10 })
   const rate = data?.fulfillmentRate ?? null
   const rateBefore = data?.fulfillmentRateBefore ?? null
-  const pctOf = (f: number) => `${Math.round(f * 100)}%`
   const grain = data?.grain ?? "day"
   const zone = data?.timeZone ?? timeZone
+  /*
+    THE SHIPPING CARD, ONLY WHEN THERE WAS SOMETHING TO SHIP: a store that
+    ships, and a physical order in the period (in the whole, or in the
+    Physical column). A month of downloads only is no reason for a card of
+    dashes.
+  */
+  const physicalOrders = Math.max(rate?.orders ?? 0, kinds?.physical.orders ?? 0)
+  const shipping = showFulfillment && !!data && physicalOrders > 0
 
   const figures = [
-    { key: "aov", title: tt("Average order value"), value: b ? money(b.aov) : null, delta: b && p ? <Delta compared={compared} now={b.aov} before={p.aov} /> : null, help: tt("Gross sales less discounts, divided by orders.") },
-    { key: "returning", title: tt("Returning customer rate"), value: b ? (b.customers ? pctOf(b.returningRate) : "–") : null, delta: b && p ? (b.customers ? <span className="inline-flex items-center gap-2"><Delta compared={compared} now={b.returningRate} before={p.returningRate} /><span className="text-[12px] tabular-nums text-[#6b7280]">{tt("{n} of {count}", { n: b.returningCustomers, count: b.customers })}</span></span> : null) : null, help: tt("Customers who had ordered before, or ordered twice in this period, out of every customer who ordered in it.") },
-    ...(showFulfillment
-      ? [{
-          key: "fulfil",
-          title: tt("Order fulfillment rate"),
-          value: data ? (rate && rate.rate !== null ? pctOf(rate.rate) : "–") : null,
-          delta: data ? (
-            <span className="inline-flex items-center gap-2">
-              {rate && rate.rate !== null && rateBefore && rateBefore.rate !== null ? <Delta compared={compared} now={rate.rate} before={rateBefore.rate} /> : null}
-              <span className="text-[12px] tabular-nums text-[#6b7280]">{rate && rate.orders ? [tt("{n} of {count} sent", { n: rate.fulfilled, count: rate.orders }), waitText].filter(Boolean).join(" · ") : tt("No physical orders")}</span>
-            </span>
-          ) : null,
-          help: tt("Of this period's physical orders, the share that has been shipped or delivered, and how long a parcel waited from payment to shipped."),
-        }]
-      : []),
+    { key: "aov", title: tt("Average order value"), value: b ? (b.orders ? money(b.aov) : "–") : null, delta: b && p && b.orders && p.orders ? <Delta compared={compared} now={b.aov} before={p.aov} /> : null, help: tt("Gross sales less discounts, divided by orders.") },
+    {
+      key: "returning",
+      title: tt("Returning customer rate"),
+      value: b ? (b.customers ? percentText(b.returningRate) : "–") : null,
+      delta: b && p ? (
+        b.customers ? (
+          <span className="inline-flex items-center gap-2">
+            {/* A period with no customer had no rate: nothing to compare with, not "New". */}
+            {p.customers ? <Delta compared={compared} now={b.returningRate} before={p.returningRate} /> : null}
+            <span className="text-[12px] tabular-nums text-[#6b7280]">{tt("{n} of {count}", { n: b.returningCustomers, count: b.customers })}</span>
+          </span>
+        ) : null
+      ) : null,
+      help: tt("Customers who had ordered before, or ordered twice in this period, out of every customer who ordered in it."),
+    },
   ]
+
+  const metricValue = React.useCallback((pt: Point) => (metric === "aov" ? pt.aov : metric === "orders" ? pt.orders : pt.total), [metric])
+  const metricFormat = React.useCallback((n: number) => (metric === "orders" ? Math.round(n).toLocaleString(appLocale()) : money(n)), [metric, money])
+  const head = b && p ? (metric === "aov" ? { now: b.aov, before: p.aov, text: b.orders ? money(b.aov) : "–" } : metric === "orders" ? { now: b.orders, before: p.orders, text: b.orders.toLocaleString(appLocale()) } : { now: b.total, before: p.total, text: money(b.total) }) : null
 
   return (
     <div aria-busy={state.loading} className={cn("grid grid-cols-1 gap-3 transition-opacity duration-300 lg:grid-cols-2", soft ? "opacity-60" : "opacity-100")} data-commerce-reports="">
-      <Card card="sales-breakdown" title={tt("Total sales breakdown")} help={tt("Gross sales at list price, less discounts and returns, is net sales. Add shipping, taxes and tips for total sales, what buyers paid less refunds.")}>
+      <Card card="sales-breakdown" title={tt("Total sales breakdown")} help={tt("Gross sales at list price, less discounts and returns, is net sales. Add shipping, taxes and tips for total sales. Sales are dated by the order, returns by the day of the refund.")}>
+        {kinds ? (
+          /* The columns' names, over the amounts they head. */
+          <div className="flex h-7 items-end justify-between gap-3 border-b border-[#f1f2f4] pb-1.5 text-[11.5px] font-medium text-[#6b7280]" data-kind-columns="">
+            <span />
+            <span className="flex shrink-0 items-center gap-2 sm:gap-3">
+              <span className="w-[72px] text-right sm:w-[84px]">{tt("Digital")}</span>
+              <span className="w-[72px] text-right sm:w-[84px]">{tt("Physical")}</span>
+              <span className="hidden w-[52px] sm:block" />
+              <span className="w-[76px] text-right sm:w-[88px]">{tt("Total")}</span>
+            </span>
+          </div>
+        ) : null}
         <div className="divide-y divide-[#f1f2f4]">
           {rows.map((r) => (
-            <div key={r.key} className={cn("flex h-[37px] items-center justify-between gap-3 text-[13.5px]", r.strong ? "font-semibold text-[#1a1a2e]" : "text-[#374151]")}>
-              <span className="min-w-0 truncate">{r.label}</span>
-              <span className="flex shrink-0 items-center gap-3">
-                <span className="w-[52px] text-right">{b && p ? <Delta compared={compared} now={b[r.key] as number} before={p[r.key] as number} invert={r.invert} /> : null}</span>
-                <span className="min-w-[88px] text-right tabular-nums">{b ? (r.sign && (b[r.key] as number) > 0 ? `−${money(b[r.key] as number)}` : money(b[r.key] as number)) : <Pending />}</span>
+            <div key={r.key} data-line={r.key} className={cn("flex h-[37px] items-center justify-between gap-3", kinds ? "text-[12.5px] sm:text-[13.5px]" : "text-[13.5px]", r.strong ? "font-semibold text-[#1a1a2e]" : "text-[#374151]")}>
+              {/* With the kind columns a phone has room for "Shipping", not "Shipping charges". */}
+              <span className="min-w-0 truncate">{kinds && r.key === "shipping" ? <><span className="sm:hidden">{tt("Shipping")}</span><span className="hidden sm:inline">{r.label}</span></> : r.label}</span>
+              <span className="flex shrink-0 items-center gap-2 sm:gap-3">
+                {kinds ? (
+                  <>
+                    <span data-kind="digital" className="w-[72px] text-right tabular-nums text-[#4b5563] sm:w-[84px]">{signed(kinds.digital[r.key] as number, r.sign)}</span>
+                    <span data-kind="physical" className="w-[72px] text-right tabular-nums text-[#4b5563] sm:w-[84px]">{signed(kinds.physical[r.key] as number, r.sign)}</span>
+                  </>
+                ) : null}
+                <span className={cn("w-[52px] text-right", kinds && "hidden sm:block")}>{b && p ? <Delta compared={compared} now={b[r.key] as number} before={p[r.key] as number} invert={r.invert} /> : null}</span>
+                <span data-kind="total" className={cn("text-right tabular-nums", kinds ? "w-[76px] sm:w-[88px]" : "min-w-[88px]")}>{b ? signed(b[r.key] as number, r.sign) : <Pending />}</span>
               </span>
             </div>
           ))}
@@ -292,7 +304,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
       <Card
         card="sales-over-time"
         title={metric === "aov" ? tt("Average order value over time") : metric === "orders" ? tt("Orders over time") : tt("Total sales over time")}
-        help={tt("This period against the one before it, at the same points.")}
+        help={tt("This period against the one before it, at the same points. Point at a day to read it.")}
         tabs={
           <ReportTabs
             label={tt("Sales over time")}
@@ -307,24 +319,21 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
         }
       >
         <div className="h-[208px]">
+          <div className="mb-3 flex h-7 items-baseline gap-2.5" data-figure="">
+            {head ? (
+              <>
+                <span className="text-[22px] font-semibold tabular-nums tracking-tight text-[#1a1a2e]">{head.text}</span>
+                <Delta compared={compared} now={head.now} before={head.before} />
+              </>
+            ) : (
+              <Pending w="w-20" />
+            )}
+          </div>
           {data ? (
-            <LineChart
-              series={data.series}
-              previous={compared ? data.previousSeries : []}
-              format={metric === "orders" ? (n) => String(n) : money}
-              value={(pt) => (metric === "aov" ? pt.aov : metric === "orders" ? pt.orders : pt.total)}
-              grain={grain}
-              timeZone={zone}
-            />
+            <LineChart series={data.series} previous={compared ? data.previousSeries : []} format={metricFormat} value={metricValue} grain={grain} timeZone={zone} integer={metric === "orders"} label={metric === "aov" ? tt("Average order value") : metric === "orders" ? tt("Orders") : tt("Total sales")} />
           ) : (
-            <div aria-hidden className="flex h-full flex-col">
-              <div className="mb-2 flex h-5 items-center justify-between">
-                <Pending w="w-14" />
-                <Pending w="w-12" />
-              </div>
-              <div className="relative h-[160px]">
-                <span className="absolute inset-x-0 bottom-2 h-px bg-[#eceef1]" />
-              </div>
+            <div aria-hidden className="relative h-[150px]">
+              <span className="absolute inset-x-0 bottom-0.5 h-px bg-[#eceef1]" />
             </div>
           )}
         </div>
@@ -381,6 +390,42 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
           </section>
         ))}
       </div>
+
+      {shipping && b ? (
+        /*
+          SHIPPING, A SECTION OF ITS OWN, only for a period with a physical order: how many went out, how
+          long they waited and what buyers paid for delivery. Three figures in one card, side by side from
+          sm up and one under the other on a phone.
+        */
+        <Card card="shipping" title={tt("Shipping")} help={tt("This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid.")} className="lg:col-span-2">
+          <dl className="grid grid-cols-1 divide-y divide-[#f1f2f4] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <div data-card="fulfil" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pr-5">
+              <dt className="text-[13px] text-[#4b5563]">{tt("Fulfilled")}</dt>
+              <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
+                <span className="text-[22px] font-semibold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{rate && rate.rate !== null ? percentText(rate.rate) : "–"}</span>
+                <span className="inline-flex items-center gap-2 text-[12px] tabular-nums text-[#6b7280]">
+                  {rate && rate.rate !== null && rateBefore && rateBefore.rate !== null ? <Delta compared={compared} now={rate.rate} before={rateBefore.rate} /> : null}
+                  {rate && rate.orders ? tt("{n} of {count} sent", { n: rate.fulfilled, count: rate.orders }) : null}
+                </span>
+              </dd>
+            </div>
+            <div data-shipping="wait" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:px-5 sm:py-0">
+              <dt className="text-[13px] text-[#4b5563]">{tt("Time to ship")}</dt>
+              <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
+                <span className="text-[22px] font-semibold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{waitText ?? "–"}</span>
+                <span className="text-[12px] tabular-nums text-[#6b7280]">{data?.fulfillment.shipped ? tt("{count, plural, one {# parcel} other {# parcels}}", { count: data.fulfillment.shipped }) : tt("None shipped yet")}</span>
+              </dd>
+            </div>
+            <div data-shipping="charged" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pl-5">
+              <dt className="text-[13px] text-[#4b5563]">{tt("Shipping charged")}</dt>
+              <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
+                <span className="text-[22px] font-semibold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{money((kinds ? kinds.physical.shipping : b.shipping) || 0)}</span>
+                <span className="text-[12px] tabular-nums text-[#6b7280]">{tt("{count, plural, one {# physical order} other {# physical orders}}", { count: physicalOrders })}</span>
+              </dd>
+            </div>
+          </dl>
+        </Card>
+      ) : null}
       {data?.truncated ? (
         <p data-commerce-truncated="" className="text-[12px] text-[#6b7280] lg:col-span-2">{tt("This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.")}</p>
       ) : null}

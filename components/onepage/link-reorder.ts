@@ -195,13 +195,23 @@ export function useLinkReorder({ listRef, clampTarget, acceptsInto, onReorder, o
     }
     if (into) return
 
+    /*
+      PAST A GROUP ONLY BY ITS MIDDLE (round 11). A card passes another when
+      its leading edge crosses that card's middle, half a card before its
+      centre gets there; a group that would take it moved out of the way
+      first, so a card brought up to a group from below (or down from above)
+      chased it down the list and was never dropped in. Past a group that
+      takes it, the card's centre is what counts, so it meets the group's
+      middle half (in) before the group moves.
+    */
+    const takes = (i: number) => !!accepts && accepts(d.id, d.ids[i])
     let to = d.from
     for (let i = d.from - 1; i >= 0; i--) {
-      if (top < (d.tops[i] + d.bottoms[i]) / 2) to = i
+      if ((takes(i) ? centre : top) < (d.tops[i] + d.bottoms[i]) / 2) to = i
       else break
     }
     for (let i = d.from + 1; i < d.ids.length; i++) {
-      if (bottom > (d.tops[i] + d.bottoms[i]) / 2) to = i
+      if ((takes(i) ? centre : bottom) > (d.tops[i] + d.bottoms[i]) / 2) to = i
       else break
     }
     const clamp = opts.current.clampTarget

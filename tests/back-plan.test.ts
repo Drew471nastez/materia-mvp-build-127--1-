@@ -177,7 +177,8 @@ async function main() {
   const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
   const bar = code("components/store-builder/product-creator-bar.tsx")
   const crumb = code("components/product/discover-back-breadcrumb.tsx")
-  check("the bar's arrow is a real link to the creator's page", /<a\s+href=\{href\}/.test(bar) && /<BackControl onBack=\{goBack\} href=\{fallbackHref\(creatorHref\)\}/.test(bar))
+  /* Round 11: or to the OnePage it was opened from (?back=, checked on the server), which is where Back goes then. */
+  check("the bar's arrow is a real link to the creator's page", /<a\s+href=\{href\}/.test(bar) && /<BackControl onBack=\{goBack\} href=\{returnTo \?\? fallbackHref\(creatorHref\)\}/.test(bar))
   check("a plain press is taken over, any other press opens the link", /if \(!isPlainClick\(e\)\) return\s+e\.preventDefault\(\)/.test(bar))
   check("the bar decides through back-plan and never calls history.back itself", /goBackOr\(target/.test(bar) && !/window\.history\.back\(\)/.test(bar) && !/router\.back\(\)/.test(bar))
   check("a push that never lands loads the creator's page as a document", /window\.location\.assign\(href\), PUSH_GIVE_UP_MS/.test(bar))
