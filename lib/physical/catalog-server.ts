@@ -1,4 +1,5 @@
 import "server-only"
+import { cleanSwatches } from "@/lib/products/option-swatches"
 
 /**
  * ===========================================================================
@@ -94,7 +95,10 @@ export async function loadPhysicalProduct(db: Db, creatorId: string, productId: 
   const { data: p } = await db.from("products").select(PRODUCT_COLUMNS).eq("id", productId).eq("creator_id", creatorId).maybeSingle()
   if (!p) return null
   const [{ data: options }, { data: variants }, limitRead] = await Promise.all([
-    db.from("product_options").select("position, name, values").eq("product_id", productId).order("position"),
+    /* With each value's own swatch (part 286); a database before it answers without them. */
+    db.from("product_options").select("position, name, values, swatches").eq("product_id", productId).order("position").then(
+      (r: { data: unknown; error: { code?: string } | null }) => (r.error ? db.from("product_options").select("position, name, values").eq("product_id", productId).order("position") : r),
+    ),
     db.from("product_variants").select(VARIANT_COLUMNS).eq("product_id", productId).order("position"),
     /* Its own read: a database without part 131 has no column, and the rest still loads. */
     db.from("products").select("max_per_order").eq("id", productId).maybeSingle(),
@@ -130,7 +134,10 @@ export async function loadPhysicalProduct(db: Db, creatorId: string, productId: 
     taxCategory: p.tax_category ?? null,
     shippingProfileId: p.shipping_profile_id ?? null,
     maxPerOrder: limitRead?.error ? null : readOrderLimit(limitRead?.data?.max_per_order),
-    options: ((options ?? []) as { position: 1 | 2 | 3; name: string; values: string[] }[]).map((o) => ({ position: o.position, name: o.name, values: o.values ?? [] })),
+    options: ((options ?? []) as { position: 1 | 2 | 3; name: string; values: string[]; swatches?: unknown }[]).map((o) => {
+      const swatches = cleanSwatches(o.swatches, o.values ?? [])
+      return { position: o.position, name: o.name, values: o.values ?? [], ...(Object.keys(swatches).length ? { swatches } : {}) }
+    }),
     variants: ((variants ?? []) as Record<string, any>[]).map((v) => variantFromRow(v, p, costOf.get(v.id) ?? null)),
     levels: ((levels ?? []) as Record<string, any>[]).map((l) => ({
       variantId: l.variant_id,
@@ -289,7 +296,10 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
   /* Options: replaced as a whole, positions 1 to 3. */
   await db.from("product_options").delete().eq("product_id", productId)
   if (options.length) {
-    const { error } = await db.from("product_options").insert(options.map((o) => ({ product_id: productId, position: o.position, name: o.name, values: o.values })))
+    const rowsOf = (withSwatches: boolean) => options.map((o) => ({ product_id: productId, position: o.position, name: o.name, values: o.values, ...(withSwatches ? { swatches: o.swatches ?? {} } : {}) }))
+    let { error } = await db.from("product_options").insert(rowsOf(true))
+    /* A database before part 286 has no swatches column: the options are saved without them, and the rest of the save goes on. */
+    if (error && (error.code === "42703" || error.code === "PGRST204")) ({ error } = await db.from("product_options").insert(rowsOf(false)))
     if (error) return { ok: false, error: "The options could not be saved." }
   }
 

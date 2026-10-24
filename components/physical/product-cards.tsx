@@ -288,7 +288,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
     setOptions((prev) =>
       p.options.map((o) => {
         const same = prev.find((x) => clean(x.name) === clean(o.name))
-        return { id: same?.id ?? optionId(), name: o.name, values: o.values, open: openBefore.includes(clean(o.name)) }
+        return { id: same?.id ?? optionId(), name: o.name, values: o.values, open: openBefore.includes(clean(o.name)), ...(o.swatches ? { swatches: o.swatches } : {}) }
       }),
     )
     const loaded = rowsFrom(p, p.weightUnit)
@@ -422,7 +422,14 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const renameValue = React.useCallback((i: number, from: string, to: string) => {
     const { options, normalised } = optionsNow.current
     const position = normalised.findIndex((n) => clean(n.name) === clean(options[i]?.name ?? ""))
-    setOptions((prev) => prev.map((o, j) => (j === i ? { ...o, values: o.values.map((v) => (v === from ? to : v)) } : o)))
+    setOptions((prev) =>
+      prev.map((o, j) => {
+        if (j !== i) return o
+        /* A swatch set for the value follows it to its new name. */
+        const swatches = o.swatches && from in o.swatches ? Object.fromEntries(Object.entries(o.swatches).map(([k, v]) => [k === from ? to : k, v])) : o.swatches
+        return { ...o, values: o.values.map((v) => (v === from ? to : v)), ...(swatches ? { swatches } : {}) }
+      }),
+    )
     if (position >= 0) setRows((prev) => renameValueInRows(prev, position, from, to))
     onDirty()
   }, [onDirty])
@@ -511,7 +518,8 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       return orderLimitProblem(orderLimit)
     },
     save: async (id: string) => {
-      const opts = normalised.map((o) => ({ name: o.name, values: o.values }))
+      /* With each colour's own swatch, by the option's name (./variant-options.tsx); the server keeps only the values the option has. */
+      const opts = normalised.map((o) => ({ name: o.name, values: o.values, swatches: options.find((x) => clean(x.name) === clean(o.name))?.swatches ?? {} }))
       const variants = rows.map((r) => {
         const stock: Record<string, number> = {}
         if (counted) {

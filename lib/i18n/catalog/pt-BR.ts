@@ -10846,7 +10846,12 @@ const words: Record<string, string> = {
  "MP4, MOV or WebM, up to 2 GB": "MP4, MOV ou WebM, até 2 GB",
  "Drag to move. Drag a corner or an edge to resize.": "Arraste para mover. Arraste um canto ou uma borda para redimensionar.",
  "JPG, PNG, GIF or HEIC. Tall pictures fit a phone best": "JPG, PNG, GIF ou HEIC. Imagens verticais ficam melhores no celular",
- "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Arraste para mover. Arraste um canto para redimensionar. A caixa tem o formato de um celular."
+ "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Arraste para mover. Arraste um canto para redimensionar. A caixa tem o formato de um celular.",
+ "Swatch for {value}": "Amostra de {value}",
+ "Use its photo": "Usar a foto dela",
+ "Use the colour its name says": "Usar a cor do nome",
+ "No swatch": "Sem amostra",
+ "Colour for {value}": "Cor de {value}"
 }
 
 export default words

@@ -12,6 +12,7 @@
  * two cannot disagree about which variants exist.
  */
 
+import { cleanSwatches } from "@/lib/products/option-swatches"
 import type { ProductOption } from "./types"
 
 export const MAX_OPTIONS = 3
@@ -44,7 +45,8 @@ export function normaliseOptions(input: unknown): ProductOption[] {
     }
     if (values.length === 0) continue
     seenNames.add(name.toLowerCase())
-    out.push({ position: (out.length + 1) as 1 | 2 | 3, name, values })
+    const swatches = cleanSwatches((raw as { swatches?: unknown })?.swatches, values)
+    out.push({ position: (out.length + 1) as 1 | 2 | 3, name, values, ...(Object.keys(swatches).length ? { swatches } : {}) })
   }
   return out
 }

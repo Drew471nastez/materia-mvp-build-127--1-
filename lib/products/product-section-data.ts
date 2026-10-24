@@ -24,6 +24,7 @@
  * own name.
  */
 
+import { cleanSwatches } from "@/lib/products/option-swatches"
 import { cleanStoredHtml, looksLikeHtml, plainTextToHtml } from "@/lib/rich-text/html"
 import { variantSoldOut } from "@/lib/checkout/pricing"
 import { SAY_LEFT_FROM, liveVariant, physicalStock } from "@/lib/physical/storefront-stock"
@@ -102,11 +103,18 @@ async function readVariants(db: Db, productId: string): Promise<VariantRow[]> {
 
 async function readOptions(db: Db, productId: string): Promise<ProductOptionData[]> {
   try {
-    const { data, error } = await db.from("product_options").select("name, values, position").eq("product_id", productId).order("position", { ascending: true })
+    /* With each value's own swatch (part 286, lib/products/option-swatches.ts); a database before it answers without. */
+    let res = await db.from("product_options").select("name, values, position, swatches").eq("product_id", productId).order("position", { ascending: true })
+    if (res.error) res = await db.from("product_options").select("name, values, position").eq("product_id", productId).order("position", { ascending: true })
+    const { data, error } = res
     if (error) return []
-    return ((data ?? []) as { name: unknown; values: unknown }[])
+    return ((data ?? []) as { name: unknown; values: unknown; swatches?: unknown }[])
       .filter((o) => typeof o.name === "string" && Array.isArray(o.values))
-      .map((o) => ({ name: (o.name as string).trim(), values: (o.values as unknown[]).filter((v): v is string => typeof v === "string" && v.trim() !== "").map((v) => v.trim()) }))
+      .map((o) => {
+        const values = (o.values as unknown[]).filter((v): v is string => typeof v === "string" && v.trim() !== "").map((v) => v.trim())
+        const swatches = cleanSwatches(o.swatches, values)
+        return { name: (o.name as string).trim(), values, ...(Object.keys(swatches).length ? { swatches } : {}) }
+      })
       .filter((o) => o.name && o.values.length)
   } catch {
     return []
@@ -143,7 +151,7 @@ export function descriptionHtml(description: string | null | undefined): string 
  * Everything the product section needs about one product. `opts.files` reads
  * the kinds of file a download holds (the File list block).
  */
-export async function productSectionData(db: Db, row: ProductSectionRow, opts: { files?: boolean } = {}): Promise<ProductSectionData> {
+export async function productSectionData(db: Db, row: ProductSectionRow, opts: { files?: boolean; counts?: boolean } = {}): Promise<ProductSectionData> {
   const type = row.type ?? ""
   const [rawVariants, options, files, standing, delivery] = await Promise.all([
     readVariants(db, row.id),
@@ -160,7 +168,7 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
   const productSoldOut = (typeof row.inventory_count === "number" && row.inventory_count <= 0 && type !== "physical") || salesLeft === 0
 
   /* Whether each can be bought: stock for what ships, the purchase limit for the rest. */
-  let stock = new Map<string, { soldOut: boolean; left: number | null; maxQuantity: number; lowAt?: number }>()
+  let stock = new Map<string, { soldOut: boolean; left: number | null; maxQuantity: number; lowAt?: number; count?: number | null }>()
   if (type === "physical" && row.creator_id && variantsLive.length) {
     stock = await physicalStock(db, { id: row.id, creator_id: row.creator_id, track_inventory: row.track_inventory, continue_selling: row.continue_selling, low_stock_threshold: row.low_stock_threshold ?? null }, variantsLive.map((v) => ({ id: v.id, name: v.name ?? "", active: v.active, track_inventory: v.track_inventory, inventory_policy: v.inventory_policy })))
   }
@@ -192,6 +200,7 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
       available: !productSoldOut && !limited.has(v.id) && !(s?.soldOut ?? false),
       left: s ? s.left : null,
       max_quantity: s ? s.maxQuantity : type === "digital" ? 1 : 99,
+      ...(opts.counts && type === "physical" ? { count: s?.count ?? null, tracked: typeof s?.count === "number" } : {}),
       pay_what_you_want: v.pay_what_you_want === true,
       pwyw_min_price_cents: v.pwyw_min_price_cents ?? null,
       pwyw_suggested_price_cents: v.pwyw_suggested_price_cents ?? null,
