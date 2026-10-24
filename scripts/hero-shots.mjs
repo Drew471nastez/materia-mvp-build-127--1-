@@ -3,23 +3,28 @@
  *  THE FRONT PAGE HERO'S PICTURES, TAKEN FROM STORELIB'S OWN SCREENS
  * ===========================================================================
  * Every picture in public/marketing/hero/ is a real Storelib screen drawn by
- * Chromium from the real components, as five demo stores, each on Storelib's
- * real theme with its own theme settings (scripts/render-hero-shots.tsx):
+ * Chromium from the real components, with demo content, each store on
+ * Storelib's real theme with its own theme settings
+ * (scripts/render-hero-shots.tsx). Round AD5:
  *
- *   watch       Maison Verlaine, a watch atelier: a product page
- *   pet         Marrow & Oat, dog food: the front page
- *   meal        Fennel & Fig, meal kits: the front page
+ *   street      Pale Hours, streetwear basics: the front page, on a computer and a phone
+ *   skin        Ferne, skincare: the front page, on a computer and a phone
  *   presets     Halcyon, Lightroom presets: the front page, a dark theme
  *   course      Wheel & Kiln, a pottery course: the landing page
- *   onepage     Studio Arlo's link in bio in three OnePage themes
- *   editor      the website builder with Fennel & Fig open (scripts/render-editor-probe.tsx,
+ *   creator     Theo Lindqvist's creator page (the photographer behind Halcyon)
+ *   community   Kiln Club, inside: its spaces, the composer and members' posts
+ *   onepage     three people's link in bio pages (Noor Haddad, Theo Lindqvist,
+ *               Ana Ribeiro), three themes, on a warm out of focus desk
+ *   editor      the website builder with Pale Hours open (scripts/render-editor-probe.tsx,
  *               through scripts/editor-probe-harness.mjs)
- *   dashboard   Marrow & Oat's /app home with a demo week (1,284 visitors, 46 orders, $3,420)
+ *   dashboard   Ferne's /app home with a demo week (1,284 visitors, 46 orders, $3,420)
  *
- * The brands, products and figures are made up. The product pictures are
- * drawn by scripts/hero-demo-art.mjs; the theme fonts are Google fonts (OFL),
- * fetched once by scripts/hero-fonts.mjs. No real creator's name, page or
- * photo is used.
+ * The brands, people, products, posts and figures are made up. Every picture
+ * in them is drawn by scripts/hero-demo-art.mjs (SVG, rendered here): no
+ * photograph, stock or otherwise, and no face. People appear as their
+ * initials or their own work. The theme fonts are Google fonts (SIL Open
+ * Font License), fetched once by scripts/hero-fonts.mjs. No real creator's
+ * name, page or photo is used.
  *
  *   slide-*.webp   the slider, 1200 x 750 (16:10), from a 1280 x 800 window at 1.5x
  *   tile-*.webp    the dim backdrop, 360 x 450 (4:5), mostly phone screens at 2x
@@ -173,7 +178,7 @@ const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-
 
 /* ── The product pictures (scripts/hero-demo-art.mjs) ───────────────────── */
 {
-  const faces = fonts.inline(["Cormorant Garamond"])
+  const faces = fonts.inline(["Cormorant Garamond", "EB Garamond", "Bebas Neue"])
   const p = await browser.newPage()
   for (const [name, draw] of Object.entries(DEMO_ART)) {
     const { w, h, svg } = draw()
@@ -248,35 +253,96 @@ async function tile(name, png, crop = null) {
   sizes.push([`tile-${name}.webp`, statSync(file).size])
 }
 
-/* The website builder opens the meal kit's own page, in its own theme. */
+
+/* The website builder opens Pale Hours' own page, in its own theme. */
 {
-  const p = await open("/shot?shot=meal", DESK, { settle: 300 })
+  const p = await open("/shot?shot=street", DESK, { settle: 300 })
   const demoEditor = await p.evaluate(() => window.__demoEditor)
   await p.close()
-  const editorGlobals = `window.PROBE_SHORT=false;window.PROBE_STORE_NAME="Fennel & Fig";window.PROBE_THEME_SETTINGS=${JSON.stringify(demoEditor.theme)};window.PROBE_CARDS=${JSON.stringify(demoEditor.items)};window.PROBE_PAGES=${JSON.stringify({ home: demoEditor.page })};`
+  const editorGlobals = `window.PROBE_SHORT=false;window.PROBE_STORE_NAME="Pale Hours";window.PROBE_THEME_SETTINGS=${JSON.stringify(demoEditor.theme)};window.PROBE_CARDS=${JSON.stringify(demoEditor.items)};window.PROBE_PAGES=${JSON.stringify({ home: demoEditor.page })};`
   writeFileSync(join(work, "editor.html"), page("/editor-probe.js", editorGlobals))
+}
+
+const TALL = { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
+
+/* A soft ground for the mockups: light, warm and a little darker at the foot, as a desk under a window. */
+const ground = (top, foot) => Buffer.from(svg(1200, 750, `<defs><linearGradient id="g" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${foot}"/></linearGradient></defs><rect width="1200" height="750" fill="url(#g)"/>`))
+const softShadow = (w, h, r, { dy = 18, sd = 20, a = 0.28 } = {}) => sharp(Buffer.from(svg(w + 120, h + 120, `<defs><filter id="f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${sd}"/></filter></defs><rect x="60" y="${60 + dy}" width="${w}" height="${h}" rx="${r}" fill="rgba(30,24,18,${a})" filter="url(#f)"/>`))).png().toBuffer()
+/* Layers composited onto a 1200 x 750 ground, any of them free to run past its edges (a shadow does): drawn on a ground 100px wider each way, then cut back. */
+async function onCanvas(base, layers) {
+  const M = 100
+  const wide = await sharp(base).extend({ top: M, bottom: M, left: M, right: M, extendWith: "copy" }).png().toBuffer()
+  const drawn = await sharp(wide).composite(layers.map((l) => ({ ...l, left: Math.round(l.left + M), top: Math.round(l.top + M) }))).png().toBuffer()
+  return sharp(drawn).extract({ left: M, top: M, width: 1200, height: 750 }).png().toBuffer()
+}
+
+/**
+ * THE STORE, ON A COMPUTER AND A PHONE (round AD5, the owner's picture 104).
+ * The computer screenshot sits in a browser window, the phone screenshot in
+ * a phone's frame overlapping its lower left, both on a soft ground.
+ */
+async function devices(name, desk, phone, { address, ground: g = ["#efede8", "#dcd8d0"] }) {
+  const ww = 1010, bar = 30, wh = Math.round((ww * 800) / 1280), wx = 150, wy = 46
+  const winR = 12
+  const screen = await sharp(desk).resize(ww, wh).png().toBuffer()
+  const chrome = Buffer.from(svg(ww, wh + bar, `<defs><clipPath id="c"><rect width="${ww}" height="${wh + bar}" rx="${winR}"/></clipPath></defs><g clip-path="url(#c)"><rect width="${ww}" height="${wh + bar}" fill="#fbfbfa"/><rect width="${ww}" height="${bar}" fill="#ecebe8"/>` +
+    `<circle cx="18" cy="15" r="5" fill="#d9d6d0"/><circle cx="34" cy="15" r="5" fill="#d9d6d0"/><circle cx="50" cy="15" r="5" fill="#d9d6d0"/>` +
+    `<rect x="${ww / 2 - 150}" y="7" width="300" height="17" rx="8.5" fill="#fff"/><text x="${ww / 2}" y="19.5" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="10.5" fill="#6b6b6b">${address}</text>` +
+    `<rect y="${bar - 1}" width="${ww}" height="1" fill="#dedcd7"/></g>`))
+  const screenMasked = await sharp(screen).composite([{ input: Buffer.from(svg(ww, wh, `<rect width="${ww}" height="${wh + winR}" y="${-winR}" rx="${winR}" fill="#fff"/>`)), blend: "dest-in" }]).png().toBuffer()
+  /* The phone: 236 wide, its screen inset 9px in a near black frame with an island. */
+  const pw = 236, ph = Math.round((pw * 844) / 390), bez = 9, pr = 34
+  const phoneScreen = await sharp(phone).resize(pw, ph).composite([{ input: Buffer.from(svg(pw, ph, `<rect width="${pw}" height="${ph}" rx="${pr - bez}" fill="#fff"/>`)), blend: "dest-in" }]).png().toBuffer()
+  const frame = Buffer.from(svg(pw + bez * 2, ph + bez * 2, `<rect width="${pw + bez * 2}" height="${ph + bez * 2}" rx="${pr}" fill="#16161a"/><rect x="1" y="1" width="${pw + bez * 2 - 2}" height="${ph + bez * 2 - 2}" rx="${pr - 1}" fill="none" stroke="#3a3a40" stroke-width="1.5"/>`))
+  const island = Buffer.from(svg(70, 20, `<rect width="70" height="20" rx="10" fill="#0b0b0d"/>`))
+  const px = 52, py = 750 - (ph + bez * 2) - 26
+  const layers = [
+    { input: await softShadow(ww, wh + bar, winR, { dy: 22, sd: 26, a: 0.26 }), left: wx - 60, top: wy - 60 },
+    { input: chrome, left: wx, top: wy },
+    { input: screenMasked, left: wx, top: wy + bar },
+    { input: await softShadow(pw + bez * 2, ph + bez * 2, pr, { dy: 16, sd: 18, a: 0.38 }), left: px - 60, top: py - 60 },
+    { input: frame, left: px, top: py },
+    { input: phoneScreen, left: px + bez, top: py + bez },
+    { input: island, left: px + bez + pw / 2 - 35, top: py + bez + 8 },
+  ]
+  const png = await onCanvas(ground(g[0], g[1]), layers)
+  if (keep) writeFileSync(join(keep, `${name}-devices.png`), png)
+  await slide(name, png)
 }
 
 /* The slides, in the order the slider shows them. The first is the one in the centre when the page opens. */
 const shots = {}
-for (const name of ["watch", "pet", "meal", "presets", "course"]) {
+const phones = {}
+for (const name of ["street", "skin"]) {
   shots[name] = await take(name, `/shot?shot=${name}`, DESK, { settle: 2200 })
+  phones[name] = await take(`${name}-tall`, `/shot?shot=${name}`, TALL, { settle: 2000 })
+}
+await devices("street", shots.street, phones.street, { address: "palehours.storelib.com", ground: ["#ecebe7", "#d6d3cc"] })
+await devices("skin", shots.skin, phones.skin, { address: "ferne.storelib.com", ground: ["#eef0ea", "#d7dbcf"] })
+for (const name of ["presets", "course", "creator", "community"]) {
+  shots[name] = await take(name, `/shot?shot=${name}`, DESK, { settle: name === "community" ? 3200 : 2200 })
   await slide(name, shots[name])
 }
 
-/* Link in bio: three themes side by side, as phones on a quiet table. */
-const BIO_THEMES = ["default", "sunset", "ocean"]
+/* Link in bio: three people's pages, three themes, as phones on a warm, out of focus desk (the owner's picture 106). */
+const BIO_PEOPLE = ["noor", "theo", "ana"]
 const bios = []
-for (const t of BIO_THEMES) bios.push(await take(`onepage-${t}`, `/shot?shot=onepage&theme=${t}`, { width: 390, height: 760, deviceScaleFactor: 2, isMobile: true, hasTouch: true }))
+for (const who of BIO_PEOPLE) bios.push(await take(`onepage-${who}`, `/shot?shot=onepage&who=${who}`, { width: 390, height: 760, deviceScaleFactor: 2, isMobile: true, hasTouch: true }))
 {
-  const w = 300, h = Math.round((300 * 760) / 390), r = 30
-  const mask = Buffer.from(svg(w, h, `<rect width="${w}" height="${h}" rx="${r}" fill="#fff"/>`))
-  const phones = await Promise.all(bios.map((b) => sharp(b).resize(w, h).composite([{ input: mask, blend: "dest-in" }]).png().toBuffer()))
-  const shadow = await sharp(Buffer.from(svg(w + 60, h + 60, `<defs><filter id="f"><feGaussianBlur stdDeviation="14"/></filter></defs><rect x="30" y="38" width="${w}" height="${h}" rx="${r}" fill="rgba(40,30,20,0.3)" filter="url(#f)"/>`))).png().toBuffer()
-  const top = Math.round((750 - h) / 2)
-  const lefts = [600 - w / 2 - w - 44, 600 - w / 2, 600 + w / 2 + 44]
-  const layers = lefts.flatMap((left, i) => [{ input: shadow, left: Math.round(left - 30), top: top - 30 }, { input: phones[i], left: Math.round(left), top }])
-  const png = await sharp({ create: { width: 1200, height: 750, channels: 3, background: "#ece4d8" } }).composite(layers).png().toBuffer()
+  const w = 292, h = Math.round((292 * 760) / 390), r = 30, bez = 7
+  const phonesImg = await Promise.all(bios.map((b) => sharp(b).resize(w, h).composite([{ input: Buffer.from(svg(w, h, `<rect width="${w}" height="${h}" rx="${r - bez}" fill="#fff"/>`)), blend: "dest-in" }]).png().toBuffer()))
+  const frame = Buffer.from(svg(w + bez * 2, h + bez * 2, `<rect width="${w + bez * 2}" height="${h + bez * 2}" rx="${r}" fill="#1a1a1e"/>`))
+  const shadow = await softShadow(w + bez * 2, h + bez * 2, r, { dy: 20, sd: 18, a: 0.32 })
+  const top = Math.round((750 - h - bez * 2) / 2) + 6
+  const lefts = [600 - (w + bez * 2) / 2 - (w + bez * 2) - 40, 600 - (w + bez * 2) / 2, 600 + (w + bez * 2) / 2 + 40]
+  const tilt = [10, -6, 14]
+  const layers = lefts.flatMap((left, i) => [
+    { input: shadow, left: Math.round(left - 60), top: top + tilt[i] - 60 },
+    { input: frame, left: Math.round(left), top: top + tilt[i] },
+    { input: phonesImg[i], left: Math.round(left + bez), top: top + tilt[i] + bez },
+  ])
+  const desk = readFileSync(join(demo, "warm-backdrop.png"))
+  const png = await onCanvas(await sharp(desk).resize(1200, 750).png().toBuffer(), layers)
   if (keep) writeFileSync(join(keep, "onepage-trio.png"), png)
   await slide("onepage", png)
 }
@@ -290,14 +356,14 @@ await slide("editor", builder)
 shots.dashboard = await take("dashboard", "/shot?shot=dashboard", DESK, { settle: 3000 })
 await slide("dashboard", shots.dashboard)
 
-/* The backdrop tiles: phone screens, and a few corners of the computer ones. */
-for (const name of ["watch", "pet", "meal", "presets", "course"]) await tile(name, await take(`${name}-phone`, `/shot?shot=${name}`, PHONE, { settle: 1800 }))
-await tile("pet-grid", await take("pet-phone-grid", "/shot?shot=pet", PHONE, { scroll: 820, settle: 1800 }))
-for (const t of ["default", "sunset", "ocean", "sage"]) await tile(`onepage-${t}`, await take(`onepage-${t}-tile`, `/shot?shot=onepage&theme=${t}`, PHONE))
+/* The backdrop tiles: phone screens, and a few corners of the computer ones. Thirteen, none of them twice. */
+for (const name of ["street", "skin", "presets", "course", "creator", "community"]) await tile(name, await take(`${name}-phone`, `/shot?shot=${name}`, PHONE, { settle: 1800 }))
+await tile("street-grid", await take("street-phone-grid", "/shot?shot=street", PHONE, { scroll: 760, settle: 1800 }))
+for (const who of BIO_PEOPLE) await tile(`onepage-${who}`, await take(`onepage-${who}-tile`, `/shot?shot=onepage&who=${who}`, PHONE))
 await tile("dashboard", await take("dashboard-phone", "/shot?shot=dashboard", PHONE, { settle: 3000 }))
 /* 1.5x pictures are 1920 x 1200: a 4:5 piece of each. */
 await tile("editor", builder, { left: 0, top: 0, width: 960, height: 1200 })
-await tile("watch-desk", shots.watch, { left: 960, top: 0, width: 960, height: 1200 })
+await tile("skin-desk", shots.skin, { left: 960, top: 0, width: 960, height: 1200 })
 
 await browser.close()
 server.close()

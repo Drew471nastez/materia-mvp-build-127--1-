@@ -6,17 +6,19 @@
  * slider and its backdrop (public/marketing/hero/). Every screen is the real
  * component a visitor or a creator sees, on Storelib's real theme with each
  * store's own theme settings (colours, fonts, buttons, announcement bar).
- * Only the content is invented: five made up brands, their made up products,
- * and pictures scripts/hero-demo-art.mjs draws (/demo/*.png). No real
- * creator's name, page or photo is in any of them.
+ * Only the content is invented: made up brands and people, their made up
+ * products and posts, and pictures scripts/hero-demo-art.mjs draws
+ * (/demo/*.png). No real creator's name, page or photo is in any of them,
+ * and no face: people are their initials or their own work.
  *
- *   ?shot=watch       Maison Verlaine, a watch atelier: a product page
- *   ?shot=pet         Marrow & Oat, dog food: the store's front page
- *   ?shot=meal        Fennel & Fig, meal kits: the store's front page
- *   ?shot=presets     Halcyon, Lightroom presets: the store's front page (a dark theme)
+ *   ?shot=street      Pale Hours, streetwear basics: the front page
+ *   ?shot=skin        Ferne, skincare: the front page
+ *   ?shot=presets     Halcyon, Lightroom presets: the front page (a dark theme)
  *   ?shot=course      Wheel & Kiln, a pottery course: its landing page
- *   ?shot=onepage     Studio Arlo's link in bio, &theme=<OnePage theme id>
- *   ?shot=dashboard   Marrow & Oat's /app home, with a demo week of visits and orders
+ *   ?shot=creator     Theo Lindqvist's creator page (Halcyon's photographer)
+ *   ?shot=community   Kiln Club, Wheel & Kiln's community: its feed
+ *   ?shot=onepage     a link in bio, &who=noor|theo|ana, three people in three themes
+ *   ?shot=dashboard   Ferne's /app home, with a demo week of visits and orders
  *
  * THE DASHBOARD'S FIGURES ARE DEMO DATA. The probe answers the reports route
  * itself (fetch below) with a made up week counted by the real report code
@@ -29,13 +31,9 @@ import { createRoot } from "react-dom/client"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { SiteCartProvider } from "@/components/website-builder/site-cart"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
-import { ProductSection } from "@/components/website-builder/sections/renderers/ProductSection"
-import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
-import { mainProductSection } from "@/lib/website-builder/product-page"
 import { STORELIB_SCHEMAS } from "@/lib/website-builder/storelib-schemas"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
-import type { ProductSectionData } from "@/lib/products/product-page-model"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
@@ -48,11 +46,28 @@ import { NO_FACTS } from "@/lib/home/progress"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { buildReports, type ViewRow } from "@/lib/analytics/reports"
 import type { OrderRow } from "@/lib/orders/order-view"
+import { ProfileSocial } from "@/components/profile/profile-social"
+import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+import { AllProductsGrid } from "@/components/storefront/all-products-grid"
+import { UnifiedShopHeader, UnifiedSectionRenderer } from "@/components/store-builder/unified-section-renderer"
+import { SellerFooter } from "@/components/storefront/seller-footer"
+import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
+import { defaultAboutSettings, defaultGlobalStoreSettings, defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
+import { ShellFrame } from "@/components/community/member/shell-frame"
+import { FeedColumns } from "@/components/community/member/columns"
+import { CommunityFeed } from "@/components/community/member/feed"
+import { LocaleProvider } from "@/components/locale-provider"
+import { allowedActions } from "@/lib/communities/permissions"
+import type { FeedPostView, PostMedia, ViewerView } from "@/lib/communities/types"
+import type { ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
 
 const q = new URLSearchParams(location.search)
-const shot = q.get("shot") ?? "watch"
+const shot = q.get("shot") ?? "street"
 const pic = (name: string) => `${location.origin}/demo/${name}.png`
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 })}`
+const NOW = Date.now()
+const HOUR = 3_600_000
+const iso = (ms: number) => new Date(ms).toISOString()
 
 /* ── The theme, per brand ───────────────────────────────────────────────── */
 
@@ -126,102 +141,57 @@ function Site({ theme, chrome, body, items }: { theme: ThemeSettingsValues; chro
 
 const uuid = (n: number) => `10000000-0000-4000-8000-${String(n).padStart(12, "0")}`
 
-/* ── Maison Verlaine: a watch atelier's product page ────────────────────── */
+/* ── Pale Hours: streetwear basics ──────────────────────────────────────── */
 
-const VERLAINE = brandTheme({
-  palette: { bg: "#f6f1e7", bg2: "#efe8da", text: "#4a473f", muted: "#7a756a", heading: "#1c2a22", accent: "#8a6d3b", border: "#ddd3c1", button: "#1d3b2f", buttonText: "#f6f1e7" },
-  heading: "Cormorant Garamond", body: "Lato", shape: "square", radius: 0, cardRadius: 0,
-  announcement: ["Hand finished in Geneva  ·  Edition of 88  ·  Insured delivery worldwide", "#1d3b2f", "#efe3c6"],
+const PALE = brandTheme({
+  palette: { bg: "#f3f1ec", bg2: "#e9e6df", text: "#3d3b37", muted: "#76726b", heading: "#151515", accent: "#151515", border: "#dcd8d0", button: "#151515", buttonText: "#f3f1ec" },
+  heading: "Bebas Neue", body: "Inter", shape: "square", radius: 0, cardRadius: 0,
+  announcement: ["Free returns for 30 days  ·  Ships in 2 working days", "#151515", "#f3f1ec"],
 })
+const PALE_ITEMS: Item[] = [
+  { id: uuid(11), slug: "heavyweight-hoodie-black", title: "Heavyweight hoodie, washed black", price: 8800, image: "street-hoodie", tag: "Bestseller" },
+  { id: uuid(12), slug: "boxy-tee-bone", title: "Boxy tee, bone", price: 3800, image: "street-tee" },
+  { id: uuid(13), slug: "crew-sweat-heather", title: "Crew sweat, heather grey", price: 7200, image: "street-sweat" },
+  { id: uuid(14), slug: "boxy-tee-olive", title: "Boxy tee, olive", price: 3800, compare: 4400, image: "street-olive" },
+  { id: uuid(15), slug: "rib-beanie-moss", title: "Rib beanie, moss", price: 2800, image: "street-beanie" },
+  { id: uuid(16), slug: "canvas-tote", title: "Canvas tote", price: 2400, image: "street-tote" },
+]
+const PALE_CHROME = [header("PALE HOURS", ["Shop all", "New in", "Basics", "Journal"], { logo_font: "Bebas Neue" }), footer("Pale Hours", "Heavyweight basics, cut and sewn in Porto.")]
+const PALE_PAGE = [
+  section("hero", "hero", {
+    layout: "left", bg_type: "image", bg_image: pic("street-hero"), text_color: "#151515", max_width: "wide",
+    eyebrow: "Autumn basics", heading: "Heavyweight basics, made to be worn in.", subheading: "Cotton tees, hoodies and sweats cut and sewn in Porto. Restocked every Friday.",
+    button_text: "Shop new in", button2_text: "The basics", button_border_radius: 0, button_color: "#151515", button_text_color: "#f3f1ec", scroll_indicator: false, bg_overlay_color: "#f3f1ec", bg_overlay_opacity: 22, font_size_heading: 72, padding_top: 120, padding_bottom: 140,
+  }),
+  section("grid", "product_grid", { source: "picked", heading: "New in", align: "left", columns: { desktop: 4, tablet: 2, mobile: 2 }, shape: "4 / 5", padding_top: 48 }, cardsOf(PALE_ITEMS.slice(0, 4)) as SectionInstance["blocks"]),
+]
 
-function Watch() {
-  const data = {
-    id: uuid(1), title: "No. 3, Forest Enamel", slug: "no-3-forest-enamel", type: "physical",
-    description: "<p>A 38mm steel case around a grand feu enamel dial, fired eleven times for its depth of green. Swiss automatic calibre with a 42 hour reserve, sapphire front and back, and a hand stitched alligator strap.</p>",
-    description_html: "<p>A 38mm steel case around a grand feu enamel dial, fired eleven times for its depth of green. Swiss automatic calibre with a 42 hour reserve, sapphire front and back, and a hand stitched alligator strap.</p>",
-    price_cents: 480000, compare_at_cents: null,
-    thumbnail_url: pic("watch-hero"), gallery_urls: [pic("watch-hero"), pic("watch-dial"), pic("watch-stone"), pic("watch-box")],
-    options: [{ name: "Strap", values: ["Forest green", "Cognac", "Midnight"] }],
-    variants: ["Forest green", "Cognac", "Midnight"].map((v, i) => ({ id: `v${i}`, name: v, options: [v], price_cents: 480000, compare_at_cents: null, image_url: null, available: true, left: i === 0 ? 4 : null, max_quantity: 1 })),
-    inventory_left: null, low_stock_at: 5, created_at: "2026-09-01T00:00:00Z", category: "Watches",
-  } as unknown as ProductSectionData
-  const made = mainProductSection("main-product")
-  const main: SectionInstance = {
-    ...made,
-    settings: { ...made.settings, multiple_images_layout: "thumbnails", image_width: "55%", sticky_info: false, media_ratio: "square", _product_data: data },
-    blocks: [
-      ...(made.blocks ?? []),
-      block("tab-1", "collapsible_tab", { heading: "Calibre and case", content: "<p>Swiss automatic, 28,800 vph, 42 hour reserve. 38mm polished steel, 9.8mm thick, 50m water resistance.</p>", margin_bottom: 0 }),
-      block("tab-2", "collapsible_tab", { heading: "Delivery and service", content: "<p>Insured courier in 5 to 7 days. Five year warranty and a first service at the atelier.</p>", margin_bottom: 0 }),
-    ] as SectionInstance["blocks"],
-  }
-  return (
-    <div data-snapshot-stage="">
-      <StorelibLiveProvider sources={{}} inEditor={false} products={[]}>
-        <SiteCartProvider shopId={undefined}>
-          <PlatformSettingsProvider exploreMarketplace={false} buyerHeaderLight={false} physicalCommerce>
-            <ThemePage theme={VERLAINE} sections={[header("MAISON VERLAINE", ["Collection", "The atelier", "Commissions", "Service", "Journal"], { logo_font: "Cormorant Garamond", cta_text: "Book a viewing" })]} storefront={{}}>
-              <div className="@container">
-                <ProductSection section={main} theme={VERLAINE} />
-              </div>
-            </ThemePage>
-          </PlatformSettingsProvider>
-        </SiteCartProvider>
-      </StorelibLiveProvider>
-    </div>
-  )
+function Street() {
+  return <Site theme={PALE} items={PALE_ITEMS} chrome={PALE_CHROME} body={PALE_PAGE} />
 }
 
-/* ── Marrow & Oat: dog food ─────────────────────────────────────────────── */
+/* ── Ferne: skincare ────────────────────────────────────────────────────── */
 
-const MARROW = brandTheme({
-  palette: { bg: "#f7f0e5", bg2: "#efe3d0", text: "#55463b", muted: "#857262", heading: "#2a1d16", accent: "#b5532f", border: "#e5d6c1", button: "#b5532f", buttonText: "#fff8ef" },
-  alt: { bg: "#efe3d0", bg2: "#f7f0e5", text: "#55463b", muted: "#857262", heading: "#2a1d16", accent: "#b5532f", border: "#dcc8ad", button: "#2a1d16", buttonText: "#fff8ef" },
-  heading: "Poppins", body: "Nunito", shape: "pill", radius: 999, cardRadius: 14,
-  announcement: ["Free delivery over $45  ·  Subscribe and save 10% on every bag", "#2a1d16", "#f7f0e5"],
+const FERNE = brandTheme({
+  palette: { bg: "#f6f3ee", bg2: "#ece7df", text: "#4a4d45", muted: "#7d8076", heading: "#262b24", accent: "#5d6b52", border: "#e0dacf", button: "#323b2e", buttonText: "#f6f3ee" },
+  alt: { bg: "#e9ece3", bg2: "#f6f3ee", text: "#4a4d45", muted: "#7d8076", heading: "#262b24", accent: "#5d6b52", border: "#d6dacd", button: "#323b2e", buttonText: "#f6f3ee" },
+  heading: "EB Garamond", body: "DM Sans", shape: "pill", radius: 999, cardRadius: 14,
+  announcement: ["Free delivery over $50  ·  Samples in every order", "#323b2e", "#eef0e8"],
 })
-const MARROW_ITEMS: Item[] = [
-  { id: uuid(11), slug: "chicken-pumpkin", title: "Chicken & Pumpkin, 1 kg", price: 3800, image: "pet-chicken", tag: "Bestseller" },
-  { id: uuid(12), slug: "salmon-kelp", title: "Salmon & Kelp, 1 kg", price: 4200, image: "pet-salmon" },
-  { id: uuid(13), slug: "lamb-barley", title: "Lamb & Barley, 1 kg", price: 4000, image: "pet-lamb" },
-  { id: uuid(14), slug: "duck-sweet-potato", title: "Duck & Sweet Potato, 1 kg", price: 4400, compare: 4900, image: "pet-duck" },
-  { id: uuid(15), slug: "beef-liver-bites", title: "Beef liver bites, 200 g", price: 1400, image: "pet-treats" },
+const FERNE_ITEMS: Item[] = [
+  { id: uuid(21), slug: "barrier-serum", title: "Barrier serum, 30 ml", price: 3400, image: "skin-serum", tag: "Bestseller" },
+  { id: uuid(22), slug: "night-cream", title: "Night cream, 50 ml", price: 4200, image: "skin-cream" },
+  { id: uuid(23), slug: "oat-cleanser", title: "Oat cleanser, 150 ml", price: 2400, image: "skin-cleanser" },
+  { id: uuid(24), slug: "daily-spf-30", title: "Daily SPF 30, 50 ml", price: 2900, image: "skin-spf" },
+  { id: uuid(25), slug: "evening-set", title: "The evening set", price: 8800, compare: 10500, image: "skin-set" },
+]
+const FERNE_PAGE = [
+  section("hero", "hero_split", { eyebrow: "Fragrance free skincare", heading: "Fewer steps, calmer skin.", subheading: "Four products with short ingredient lists, made in small batches and tested on sensitive skin.", button_text: "Shop the routine", button2_text: "Ingredients", list_1: "", image: pic("skin-hero"), padding_top: 64, padding_bottom: 64 }),
+  section("grid", "product_grid", { source: "picked", heading: "The routine", align: "left", columns: { desktop: 4, tablet: 2, mobile: 2 }, shape: "4 / 5", padding_top: 40 }, cardsOf(FERNE_ITEMS.slice(0, 4)) as SectionInstance["blocks"]),
 ]
 
-function Pet() {
-  return (
-    <Site
-      theme={MARROW}
-      items={MARROW_ITEMS}
-      chrome={[header("Marrow & Oat", ["Shop", "Subscriptions", "Treats", "Our kitchen"], { cta_text: "Subscribe" }), footer("Marrow & Oat", "Real food for dogs, air-dried in small batches.")]}
-      body={[
-        section("hero", "hero_split", { eyebrow: "Human grade, air dried", heading: "Real food for dogs, made in small batches.", subheading: "Human grade meat, vegetables and nothing else. Cooked low and slow, then delivered on your schedule.", button_text: "Shop recipes", button2_text: "Build a subscription", list_1: "", image: pic("pet-hero"), padding_top: 64, padding_bottom: 64 }),
-        section("grid", "product_grid", { source: "picked", heading: "The recipes", align: "left", columns: { desktop: 4, tablet: 2, mobile: 2 }, padding_top: 40 }, cardsOf(MARROW_ITEMS.slice(0, 4)) as SectionInstance["blocks"]),
-      ]}
-    />
-  )
-}
-
-/* ── Fennel & Fig: meal kits ────────────────────────────────────────────── */
-
-const FENNEL = brandTheme({
-  palette: { bg: "#f4f2eb", bg2: "#ebe7dc", text: "#4b5045", muted: "#7a7f72", heading: "#1f2a1b", accent: "#5c7a3a", border: "#ddd9cc", button: "#33452b", buttonText: "#f4f2eb" },
-  heading: "DM Sans", body: "DM Sans", shape: "rounded", radius: 10, cardRadius: 12,
-  announcement: ["This week: lemon & lentil dahl is back  ·  First box $20 off", "#33452b", "#eef2e2"],
-})
-const FENNEL_ITEMS: Item[] = [
-  { id: uuid(21), slug: "salmon-rice-bowl", title: "Miso salmon rice bowl", price: 1290, image: "meal-salmon", tag: "New" },
-  { id: uuid(22), slug: "lentil-dahl", title: "Lemon & lentil dahl", price: 1090, image: "meal-dahl" },
-  { id: uuid(23), slug: "green-curry", title: "Green curry with tofu", price: 1190, image: "meal-curry" },
-  { id: uuid(24), slug: "tomato-linguine", title: "Cherry tomato linguine", price: 1050, image: "meal-pasta" },
-]
-const FENNEL_PAGE = [
-  section("hero", "hero_split", { eyebrow: "Meal kits for two or four", heading: "Dinner, sorted for the week.", subheading: "Chef written recipes with every ingredient measured out. Thirty minutes from box to table.", button_text: "Choose your meals", button2_text: "How it works", image: pic("meal-hero"), image_side: "left", padding_top: 64, padding_bottom: 64 }),
-  section("grid", "product_grid", { source: "picked", heading: "On the menu this week", align: "left", columns: { desktop: 4, tablet: 2, mobile: 2 }, shape: "4 / 3", padding_top: 40 }, cardsOf(FENNEL_ITEMS) as SectionInstance["blocks"]),
-]
-
-function Meal() {
-  return <Site theme={FENNEL} items={FENNEL_ITEMS} chrome={[header("Fennel & Fig", ["Menu", "Plans", "Gift cards", "Help"], { cta_text: "Get started" }), footer("Fennel & Fig", "Meal kits from our kitchen to yours.")]} body={FENNEL_PAGE} />
+function Skin() {
+  return <Site theme={FERNE} items={FERNE_ITEMS} chrome={[header("FERNE", ["Shop", "Sets", "Ingredients", "Journal"], { logo_font: "EB Garamond", cta_text: "Find your routine" }), footer("Ferne", "Skincare with short ingredient lists.")]} body={FERNE_PAGE} />
 }
 
 /* ── Halcyon: Lightroom presets, a dark theme ───────────────────────────── */
@@ -230,11 +200,12 @@ const HALCYON = brandTheme({
   palette: { bg: "#0f1111", bg2: "#181b1a", text: "#b9bfbb", muted: "#8a908c", heading: "#f2f4f1", accent: "#d7f36b", border: "#262a28", button: "#d7f36b", buttonText: "#101210" },
   heading: "Space Grotesk", body: "Inter", shape: "rounded", radius: 8, cardRadius: 10,
 })
+/* Round AD5: pack names a photographer would give them, and copy that claims only what a preset pack is. */
 const HALCYON_ITEMS: Item[] = [
-  { id: uuid(31), slug: "coastal", title: "Coastal, 12 presets", price: 2400, image: "preset-coastal", tag: "Bestseller" },
-  { id: uuid(32), slug: "golden-hour", title: "Golden Hour, 10 presets", price: 2400, image: "preset-golden" },
-  { id: uuid(33), slug: "nordic-light", title: "Nordic Light, 8 presets", price: 1900, image: "preset-nordic" },
-  { id: uuid(34), slug: "moody-film", title: "Moody Film, presets + LUTs", price: 2900, compare: 3900, image: "preset-moody" },
+  { id: uuid(31), slug: "harbour", title: "Harbour, 12 presets", price: 2400, image: "preset-harbour", tag: "Bestseller" },
+  { id: uuid(32), slug: "late-summer", title: "Late Summer, 10 presets", price: 2400, image: "preset-late-summer" },
+  { id: uuid(33), slug: "overcast", title: "Overcast, 8 presets", price: 1900, image: "preset-overcast" },
+  { id: uuid(34), slug: "tungsten-nights", title: "Tungsten Nights, 10 presets and 3 LUTs", price: 2900, compare: 3900, image: "preset-tungsten" },
 ]
 
 function Presets() {
@@ -242,10 +213,10 @@ function Presets() {
     <Site
       theme={HALCYON}
       items={HALCYON_ITEMS}
-      chrome={[header("HALCYON", ["Presets", "LUTs", "Templates", "Tutorials"], { cta_text: "Shop all" }), footer("Halcyon", "Presets and templates for photographers.")]}
+      chrome={[header("HALCYON", ["Presets", "LUTs", "Course", "Prints"], { cta_text: "Shop all" }), footer("Halcyon", "Presets and prints by Theo Lindqvist.")]}
       body={[
-        section("hero", "hero_split", { eyebrow: "Lightroom presets  ·  Desktop and mobile", heading: "Colour that holds up in every light.", subheading: "Built on real film scans and tested on ten thousand raw files. One click, then make it yours.", button_text: "Shop the presets", button2_text: "See before and after", image: pic("preset-compare"), padding_top: 64, padding_bottom: 64 }),
-        section("grid", "product_grid", { source: "picked", heading: "The collection", align: "left", columns: { desktop: 4, tablet: 2, mobile: 2 }, padding_top: 40 }, cardsOf(HALCYON_ITEMS) as SectionInstance["blocks"]),
+        section("hero", "hero_split", { eyebrow: "Lightroom presets  ·  Desktop and mobile", heading: "Colour that holds up in every light.", subheading: "My own grades from ten years of shooting the coast, as presets. They work on raw and JPEG files, and every one has a before and after.", button_text: "Shop the presets", button2_text: "See before and after", image: pic("preset-compare"), padding_top: 64, padding_bottom: 64 }),
+        section("grid", "product_grid", { source: "picked", heading: "The packs", align: "left", columns: { desktop: 4, tablet: 2, mobile: 2 }, padding_top: 40 }, cardsOf(HALCYON_ITEMS) as SectionInstance["blocks"]),
       ]}
     />
   )
@@ -279,33 +250,191 @@ function Course() {
   )
 }
 
-/* ── Studio Arlo: a link in bio ─────────────────────────────────────────── */
+/* ── Theo Lindqvist's creator page ──────────────────────────────────────── */
+
+/*
+  Storelib's creator page as app/(marketing)/u/[username]/page.tsx composes
+  it: the cover and profile (UnifiedShopHeader) with Follow, the tabs with the
+  catalogue as real product cards, and About under them. Theo is the
+  photographer behind Halcyon; his picture is one of his own landscapes.
+*/
+function CreatorPage() {
+  const chrome = resolveStorefrontChrome("default")
+  const avatar = pic("avatar-landscape")
+  const products = [
+    { id: uuid(41), slug: "harbour", title: "Harbour, 12 Lightroom presets", thumbnail_url: pic("preset-harbour"), price_cents: 2400, compare_at_cents: null, sales_count: 412, categories: [{ id: "c1", name: "Presets" }] },
+    { id: uuid(42), slug: "editing-a-landscape", title: "Editing a landscape, start to finish", thumbnail_url: pic("preset-compare"), price_cents: 7900, compare_at_cents: null, sales_count: 96, categories: [{ id: "c2", name: "Courses" }] },
+    { id: uuid(43), slug: "late-summer", title: "Late Summer, 10 Lightroom presets", thumbnail_url: pic("preset-late-summer"), price_cents: 2400, compare_at_cents: null, sales_count: 281, categories: [{ id: "c1", name: "Presets" }] },
+    { id: uuid(44), slug: "print-harbour-at-dawn", title: "Print: Harbour at dawn, A3", thumbnail_url: pic("landscape-cover"), price_cents: 6500, compare_at_cents: null, sales_count: 38, categories: [{ id: "c3", name: "Prints" }] },
+    { id: uuid(45), slug: "tungsten-nights", title: "Tungsten Nights, presets and LUTs", thumbnail_url: pic("preset-tungsten"), price_cents: 2900, compare_at_cents: 3900, sales_count: 154, categories: [{ id: "c1", name: "Presets" }] },
+    { id: uuid(46), slug: "overcast", title: "Overcast, 8 Lightroom presets", thumbnail_url: pic("preset-overcast"), price_cents: 1900, compare_at_cents: null, sales_count: 120, categories: [{ id: "c1", name: "Presets" }] },
+  ]
+  const grid = (
+    <AllProductsGrid products={products as never} creatorName="Theo Lindqvist" creatorUsername="theolindqvist" creatorAvatarUrl={avatar} isOwner={false} />
+  )
+  const tabs: StorefrontTab[] = [
+    { id: "home", label: "Home", panel: grid },
+    { id: "products", label: "Products", panel: grid },
+    { id: "about", label: "About", panel: null as never },
+  ].filter((t) => t.panel) as StorefrontTab[]
+  const settings = { ...defaultShopHeaderSettings, showBio: true, bio: "Landscape photographer on the west coast of Sweden. Presets, prints and one long course on editing.", showStats: true, coverImageUrl: pic("landscape-cover") } as never
+  return (
+    <div data-storefront-root="" style={{ background: chrome.pageBackground, minHeight: "100vh", color: chrome.text, ...(chrome.tokens as React.CSSProperties) }}>
+      <UnifiedShopHeader
+        settings={settings}
+        creator={{ cover_url: pic("landscape-cover"), bio: null, show_total_sales_badge: true } as never}
+        profile={{ display_name: "Theo Lindqvist", avatar_url: avatar, username: "theolindqvist", created_at: "2023-03-01" } as never}
+        productCount={products.length}
+        globalSettings={defaultGlobalStoreSettings as never}
+        surface={{ textColor: chrome.text, mutedColor: chrome.muted, avatarBorderColor: chrome.avatarBorder }}
+        followRow={<ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c4" name="Theo Lindqvist" showCounts={false} viewerFollowing={false} signedIn isSelf={false} />}
+      />
+      <StorefrontTabs tabs={tabs} surface={{ textColor: chrome.text, mutedColor: chrome.muted, borderColor: chrome.border }} />
+      <UnifiedSectionRenderer
+        section={{ id: "about", type: "about", order: 0, settings: { ...defaultAboutSettings, colors: { textColor: chrome.text } } } as never}
+        creatorName="Theo Lindqvist"
+        sellerMemberSince="2023-03-01T00:00:00Z"
+        sellerTotalSales={1101}
+        sellerProductsCount={products.length}
+        globalSettings={defaultGlobalStoreSettings as never}
+      />
+      <SellerFooter surface={{ backgroundColor: chrome.footerBackground, textColor: chrome.footerText, mutedColor: chrome.footerMuted, borderColor: chrome.border }} />
+    </div>
+  )
+}
+
+/* ── Kiln Club: Wheel & Kiln's community, from inside ───────────────────── */
+
+/*
+  The member's feed as app/(marketing)/community/[slug]/(member) draws it:
+  the community's own bar, the spaces, the composer and the posts. Invented
+  members, shown by their initials as Storelib shows anyone without a photo;
+  their pictures are their pots and glaze tests.
+*/
+const CID = "6f1c2a1e-0000-4000-8000-0000000000ad"
+const KILN_CLUB: ShellCommunity = {
+  id: CID, slug: "kiln-club", name: "Kiln Club", tagline: "Weekly firings, glaze tests and feedback on your pots.",
+  logoUrl: pic("bio-avatar"), coverUrl: null, memberCount: 1240, postCount: 812,
+  classroomEnabled: true, eventsEnabled: true, directoryEnabled: true, chatEnabled: false, gamificationEnabled: true, archived: false,
+} as ShellCommunity
+const member = (id: string, name: string, username: string, role: "owner" | "member" = "member", level = 2, avatarUrl: string | null = null) => ({ id, name, username, avatarUrl, role, level })
+const PEOPLE = {
+  ana: member("u-ana", "Ana Ribeiro", "anaribeiro", "owner", 7, pic("bio-avatar")),
+  jonas: member("u-jonas", "Jonas Berg", "jonasberg", "member", 4),
+  priya: member("u-priya", "Priya Natarajan", "priyan", "member", 3),
+  sam: member("u-sam", "Sam Okafor", "samokafor", "member", 2),
+  me: member("u-me", "Lena Fischer", "lenaf", "member", 3),
+}
+const SPACE = (id: string, name: string, icon: string): SpaceView => ({ id: `s-${id}`, slug: id, name, description: null, icon, kind: "feed", canPost: true, commentsEnabled: true, unread: 0 }) as SpaceView
+const SPACES: SpaceView[] = [SPACE("general", "General", "messages-square"), SPACE("glazes", "Glazes", "🎨"), SPACE("firing", "Firing logs", "🔥"), SPACE("critique", "Critique", "🎯"), SPACE("wins", "Wins", "🏆")]
+const image = (name: string, w = 1200, h = 900): PostMedia => ({ type: "image", url: pic(name), w, h }) as PostMedia
+function post(i: number, o: { space: SpaceView; author: typeof PEOPLE.ana; title: string; text: string; media?: PostMedia[]; reactions: number; comments: number; hoursAgo: number; pinned?: boolean }): FeedPostView {
+  return {
+    id: `p-${i}`, communityId: CID, space: { id: o.space.id, slug: o.space.slug, name: o.space.name, icon: o.space.icon, kind: "feed" }, kind: "post",
+    title: o.title, body: `<p>${o.text}</p>`, bodyText: o.text, media: o.media ?? [], pinned: !!o.pinned, featured: false, locked: false, status: "published",
+    author: o.author as never, reactionCount: o.reactions, commentCount: o.comments, reacted: i === 2, bookmarked: false, poll: null,
+    createdAt: iso(NOW - o.hoursAgo * HOUR), editedAt: null, lastActivityAt: iso(NOW - o.hoursAgo * HOUR), canEdit: false, canModerate: false,
+    recentCommenters: [PEOPLE.jonas, PEOPLE.priya, PEOPLE.sam].slice(0, Math.min(3, o.comments)).map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl })), lastCommentAt: iso(NOW - (o.hoursAgo - 0.5) * HOUR), showLevel: true,
+  } as FeedPostView
+}
+const POSTS: FeedPostView[] = [
+  post(1, { space: SPACES[1], author: PEOPLE.priya, title: "Glaze test tiles, round two", text: "Twelve glazes over the same stoneware, cone 6 with a slow cool. B3 and C3 pooled the way I hoped. A3 crawled on the edge again, so thinner next time.", media: [image("glaze-tiles")], reactions: 48, comments: 14, hoursAgo: 2 }),
+  post(2, { space: SPACES[3], author: PEOPLE.jonas, title: "First set of bowls I would actually use", text: "Lesson 11 finally clicked. Trimmed the feet a day later than usual and the walls stayed even. Notes on the rims welcome.", media: [image("lesson-0", 1000, 700), image("lesson-2", 1000, 700)], reactions: 36, comments: 9, hoursAgo: 5 }),
+  post(3, { space: SPACES[2], author: PEOPLE.sam, title: "Kiln log: Saturday's bisque", text: "Candled overnight at 90°C, then 100°C an hour to 600°C. No blowouts this time, the slow start made the difference.", reactions: 21, comments: 6, hoursAgo: 9 }),
+  post(4, { space: SPACES[0], author: PEOPLE.ana, title: "Open studio call, Thursday 7pm", text: "Bring one pot you are stuck on. We will look at it together on camera, and the recording goes into the Classroom after.", reactions: 64, comments: 18, hoursAgo: 26 }),
+]
+
+function Community() {
+  const viewer: ViewerView = { userId: PEOPLE.me.id, signedIn: true, role: "member", status: "active", active: true, tierId: null, level: 3, points: 84, isOwner: false, isCreatorAccount: false, mutedUntil: null, can: allowedActions("member") } as ViewerView
+  const topBar: TopBarData = {
+    community: { id: CID, slug: KILN_CLUB.slug, name: KILN_CLUB.name, logoUrl: KILN_CLUB.logoUrl },
+    creator: { name: "Ana Ribeiro", href: "/anaribeiro" },
+    me: { name: PEOPLE.me.name, avatarUrl: null, profileHref: "/@lenaf" },
+    communities: [{ id: CID, slug: KILN_CLUB.slug, name: KILN_CLUB.name, logoUrl: KILN_CLUB.logoUrl }],
+    manageHref: null,
+  } as TopBarData
+  return (
+    <LocaleProvider>
+      <ShellFrame
+        community={KILN_CLUB}
+        viewer={viewer}
+        topBar={topBar}
+        unreadMessages={null}
+        wall={{
+          card: { stats: { members: KILN_CLUB.memberCount, online: 23, admins: 2 }, faces: [], more: 0, settingsHref: null },
+          upcoming: { id: "e1", title: "Open studio call", startsAt: iso(NOW + 52 * HOUR), endsAt: iso(NOW + 53.5 * HOUR), going: 41 },
+          contributors: null,
+        } as never}
+      >
+        <FeedColumns
+          main={
+            <CommunityFeed
+              communityId={CID}
+              slug={KILN_CLUB.slug}
+              viewer={viewer}
+              spaces={SPACES}
+              start={{ kind: "all" } as never}
+              initial={{ pinned: [], posts: POSTS, nextCursor: null } as never}
+              servedAt={NOW}
+              compose={{ userId: PEOPLE.me.id, me: { name: PEOPLE.me.name, avatarUrl: null }, fileProductId: null } as never}
+            />
+          }
+        />
+      </ShellFrame>
+    </LocaleProvider>
+  )
+}
+
+/* ── Three people's link in bio pages ───────────────────────────────────── */
+
+type Bio = { name: string; slug: string; bio: string; avatar: string; theme: string; product: [string, string, string, number, string]; links: [string, string][]; social: string[]; letter?: [string, string] }
+/* Three different people, three themes; no name appears twice across the hero (scripts/check-home-hero.mjs). */
+const BIOS: Record<string, Bio> = {
+  noor: {
+    name: "Noor Haddad", slug: "noorhaddad", bio: "Interior stylist in Lisbon. Rooms that feel lived in.", avatar: "avatar-stems", theme: "cream",
+    product: ["The rental refresh guide", "36 pages, PDF", "avatar-stems", 1900, "rental-refresh"],
+    links: [["Book a styling call", "skin-hero"], ["My paint colour list", "landscape-cover"], ["Shop my living room", "avatar-stems"]],
+    social: ["instagram", "pinterest"],
+  },
+  theo: {
+    name: "Theo Lindqvist", slug: "theolindqvist", bio: "Landscape photographer. Presets, prints and a course.", avatar: "avatar-landscape", theme: "night",
+    product: ["Harbour, 12 Lightroom presets", "Desktop and mobile", "preset-harbour", 2400, "harbour"],
+    links: [["Editing a landscape, the course", "preset-compare"], ["Prints from the coast", "landscape-cover"], ["How I shoot in fog", "preset-overcast"]],
+    social: ["instagram", "youtube"],
+  },
+  ana: {
+    name: "Ana Ribeiro", slug: "anaribeiro", bio: "Potter. Wheel thrown stoneware from a small studio.", avatar: "bio-avatar", theme: "sage",
+    product: ["Speckled mug, set of two", "Thrown and glazed in the studio", "mugs", 6400, "speckled-mugs"],
+    links: [["Wheel & Kiln, the online course", "course-hero"], ["Join Kiln Club", "glaze-tiles"], ["Studio sale, Saturday 10am", "lesson-2"]],
+    social: ["instagram", "tiktok", "youtube"],
+    letter: ["Kiln opening letter", "First look at every firing, once a month"],
+  },
+}
 
 function OnePageShot() {
-  const id = q.get("theme") || "default"
-  const template = THEME_TEMPLATES.find((t) => t.id === id)
+  const who = BIOS[q.get("who") || "ana"] ?? BIOS.ana
+  const template = THEME_TEMPLATES.find((t) => t.id === (q.get("theme") || who.theme))
   const opTheme = { ...defaultTheme, ...(template?.theme_config || {}), template_id: template?.id || "default" } as OnePage["theme"]
   let order = 0
   const b = (type: string, data: Record<string, unknown>) => ({ id: `${type}_${order}`, type, enabled: true, sort_order: order++, data }) as never
+  const [title, desc, thumb, cents, slug] = who.product
   const blocks = [
     b("header", { show_avatar: true, show_name: true, show_bio: true }),
-    b("product", { product_id: uuid(41), show_price: true, show_description: true, cta_text: "Buy now", style: "callout", product_title: "Speckled mug, set of two", product_thumbnail: pic("mugs"), product_description: "Thrown and glazed in the studio", product_price_cents: 6400, product_slug: "speckled-mugs" }),
-    b("link_button", { label: "Wheel & Kiln, the online course", url: "https://example.com/course", thumbnail_url: pic("course-hero") }),
-    b("link_button", { label: "Studio sale, Saturday 10am", url: "https://example.com/sale", thumbnail_url: pic("lesson-2") }),
-    b("link_button", { label: "Commission a piece", url: "https://example.com/commissions", thumbnail_url: pic("lesson-0") }),
-    b("social_row", { platforms: [{ platform: "instagram", url: "https://instagram.com/" }, { platform: "tiktok", url: "https://tiktok.com/" }, { platform: "youtube", url: "https://youtube.com/" }], style: "icons" }),
-    b("email_capture", { headline: "Kiln opening letter", description: "First look at every firing, once a month", placeholder: "Your email", button_text: "Subscribe", success_message: "Thanks" }),
+    b("product", { product_id: uuid(51), show_price: true, show_description: true, cta_text: "Buy now", style: "callout", product_title: title, product_thumbnail: pic(thumb), product_description: desc, product_price_cents: cents, product_slug: slug }),
+    ...who.links.map(([label, picName], i) => b("link_button", { label, url: `https://example.com/${i}`, thumbnail_url: pic(picName) })),
+    b("social_row", { platforms: who.social.map((platform) => ({ platform, url: `https://${platform}.com/` })), style: "icons" }),
+    ...(who.letter ? [b("email_capture", { headline: who.letter[0], description: who.letter[1], placeholder: "Your email", button_text: "Subscribe", success_message: "Thanks" })] : []),
   ]
   const page = {
-    id: "op_demo", owner_id: "demo", slug: "studioarlo", title: "Studio Arlo", bio: "Wheel thrown stoneware from a small studio",
-    avatar_url: pic("bio-avatar"), theme: opTheme, settings: { ...defaultSettings }, seller_id: "seller_demo",
+    id: `op_${who.slug}`, owner_id: "demo", slug: who.slug, title: who.name, bio: who.bio,
+    avatar_url: pic(who.avatar), theme: opTheme, settings: { ...defaultSettings }, seller_id: "seller_demo",
     social_links: {}, draft_blocks: blocks, status: "published", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", onboarding_completed: true,
   } as unknown as OnePage
   const shape = publicOnePage(page as never, { source: "published" })
   return <PublicOnePage onepage={shape as never} />
 }
 
-/* ── The dashboard: Marrow & Oat's week, as demo data ───────────────────── */
+/* ── The dashboard: Ferne's week, as demo data ──────────────────────────── */
 
 const RAIL: NavItemData[] = [
   { href: "/app", label: "Dashboard", icon: NAV_ICONS.dashboard },
@@ -341,12 +470,12 @@ function demoRows(span: { start: number; end: number }, want: { visitors: number
     const visitor = `demo-${seed}-${v}`
     const n = r() < 0.38 ? 2 : 1
     const when = at()
-    for (let k = 0; k < n; k++) views.push({ id: `${visitor}-${k}`, visitor_id: visitor, session_id: visitor, created_at: when, product_id: MARROW_ITEMS[Math.floor(r() * MARROW_ITEMS.length)].id, property_type: "website", path: "/" } as ViewRow)
+    for (let k = 0; k < n; k++) views.push({ id: `${visitor}-${k}`, visitor_id: visitor, session_id: visitor, created_at: when, product_id: FERNE_ITEMS[Math.floor(r() * FERNE_ITEMS.length)].id, property_type: "website", path: "/" } as ViewRow)
   }
   const orders: OrderRow[] = []
   let left = want.cents
   for (let o = 0; o < want.orders; o++) {
-    const item = MARROW_ITEMS[o % MARROW_ITEMS.length]
+    const item = FERNE_ITEMS[o % FERNE_ITEMS.length]
     const qty = o % 7 === 3 ? 3 : o % 3 === 0 ? 2 : 1
     let cents = item.price * qty
     if (o === want.orders - 1) cents = left
@@ -364,7 +493,7 @@ function answerReports(url: string) {
   const before = previous ? demoRows(previous, BEFORE, 11) : { views: [], orders: [] }
   const reports = buildReports({
     views: [...now.views, ...before.views], steps: [], orders: [...now.orders, ...before.orders],
-    window: span, previous, timeZone: p.get("tz") || "America/New_York", mainDomain: "", productTitles: Object.fromEntries(MARROW_ITEMS.map((i) => [i.id, i.title])),
+    window: span, previous, timeZone: p.get("tz") || "America/New_York", mainDomain: "", productTitles: Object.fromEntries(FERNE_ITEMS.map((i) => [i.id, i.title])),
   })
   return { reports, allTime: { orders: 412, salesCents: 2986400, views: 21840 } }
 }
@@ -374,9 +503,9 @@ function Dashboard() {
     creatorId: "00000000-0000-4000-8000-000000000000",
     displayName: "Nadia",
     initialProgress: { ...NO_FACTS, products: 5, publishedProducts: 5, paymentsReady: true, websiteLive: true, domainConnected: false, sales: 412, revenueCents: 2986400, guideOpened: true, pro: false, subscribers: 318, emailsSent: 6, automationsOn: 2 },
-    productIds: MARROW_ITEMS.map((p) => p.id),
+    productIds: FERNE_ITEMS.map((p) => p.id),
     initialOrders: [],
-    creatorHandle: "marrowandoat",
+    creatorHandle: "ferne",
     connectedDomain: null,
     websitePublished: true,
     subscriptionPlanId: "free",
@@ -399,19 +528,24 @@ function Dashboard() {
   )
 }
 
-if (shot === "dashboard") {
+/* Every /api request a screen makes is answered here: the reports for the dashboard, and an empty answer for the rest (a follow count, a community's live channel). */
+{
   const real = window.fetch.bind(window)
   window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
-    if (url.includes("/api/analytics/reports")) return new Response(JSON.stringify(answerReports(url)), { status: 200, headers: { "content-type": "application/json" } })
+    const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })
+    if (url.includes("/api/analytics/reports")) return json(answerReports(url))
+    if (url.includes("/api/community") && /\/posts(\?|$)/.test(url)) return json({ pinned: [], posts: POSTS, nextCursor: null })
+    if (url.includes("/api/")) return json({ following: false, followers: 1240 })
     return real(input, init)
   }) as typeof window.fetch
 }
 
-const SHOTS: Record<string, () => React.ReactElement> = { watch: Watch, pet: Pet, meal: Meal, presets: Presets, course: Course, onepage: OnePageShot, dashboard: Dashboard }
-const Shot = SHOTS[shot] ?? Watch
+const SHOTS: Record<string, () => React.ReactElement> = { street: Street, skin: Skin, presets: Presets, course: Course, creator: CreatorPage, community: Community, onepage: OnePageShot, dashboard: Dashboard }
+const Shot = SHOTS[shot] ?? Street
+try { localStorage.clear() } catch { /* fine */ }
 createRoot(document.getElementById("app")!).render(<Shot />)
 ;(window as unknown as { __ready: boolean }).__ready = true
 
-/* The meal kit's page and theme, for the website builder's picture (hero-shots.mjs hands them to the editor probe). */
-;(window as unknown as { __demoEditor: unknown }).__demoEditor = { theme: FENNEL, page: [header("Fennel & Fig", ["Menu", "Plans", "Gift cards", "Help"], { cta_text: "Get started" }), ...FENNEL_PAGE, footer("Fennel & Fig", "Meal kits from our kitchen to yours.")], items: FENNEL_ITEMS.map((p) => ({ id: p.id, type: "product", settings: { title: p.title, price: money(p.price), compare_price: "", image: pic(p.image), url: "#", tag: p.tag ?? "" } })) }
+/* Pale Hours' page and theme, for the website builder's picture (hero-shots.mjs hands them to the editor probe). */
+;(window as unknown as { __demoEditor: unknown }).__demoEditor = { theme: PALE, page: [PALE_CHROME[0], ...PALE_PAGE, PALE_CHROME[1]], items: PALE_ITEMS.map((p) => ({ id: p.id, type: "product", settings: { title: p.title, price: money(p.price), compare_price: p.compare ? money(p.compare) : "", image: pic(p.image), url: "#", tag: p.tag ?? "" } })) }

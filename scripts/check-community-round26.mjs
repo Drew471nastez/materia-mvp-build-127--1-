@@ -236,14 +236,15 @@ export const isNativePlatform = () => false
   }
 
   if (want("COURSES")) {
-    console.log("\nCOURSES: cards with a ring")
+    /* Changed on purpose (round AD5): the ring and the progress switch gave way to a thin bar and one line; finished courses sit under the rest. */
+    console.log("\nCOURSES: compact cards, a bar and a line")
     const { p, errors } = await open("courses", "/account/library/courses", { width: 1280, height: 900, deviceScaleFactor: 1 })
     const cards = await p.evaluate(() => [...document.querySelectorAll("[data-course-row]")].map((el) => { const b = el.getBoundingClientRect(); return { y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), state: el.querySelector("[data-course-state]")?.textContent } }))
-    const ring = await p.evaluate(() => [...document.querySelectorAll("[data-course-ring] circle")].map((c) => getComputedStyle(c).stroke))
-    expect(cards.length === 3 && new Set(cards.map((c) => c.y)).size === 1, "three cards in one row", cards)
+    const bars = await p.evaluate(() => [...document.querySelectorAll("[data-course-bar] > div")].map((c) => getComputedStyle(c).backgroundColor))
+    expect(cards.length === 3 && cards[0].y === cards[1].y && cards[2].y > cards[0].y, "the two still to do in one row, the finished one under them", cards)
     expect(new Set(cards.map((c) => c.h)).size === 1, "the cards are one height", cards.map((c) => c.h))
-    expect(cards.map((c) => c.state).join() === "In progress,Not started,Completed", "each says where you are in words", cards.map((c) => c.state))
-    expect(ring.length > 0 && ring.every((s) => !/rgb\(242, 107, 29\)|rgb\(253, 231, 217\)/.test(s)), "the rings are ink on a faint track, no orange (round 29)", ring)
+    expect(cards.map((c) => c.state).join() === "5 of 12 lessons,Not started · 9 lessons,Finished", "each says where you are in words", cards.map((c) => c.state))
+    expect(bars.length === 3 && bars.every((s) => !/rgb\(242, 107, 29\)|rgb\(253, 231, 217\)/.test(s)), "the bars are ink, no orange (round 29)", bars)
     expect(errors.length === 0, "no page errors", errors)
     await p.close()
   }

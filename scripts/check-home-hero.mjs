@@ -57,6 +57,19 @@
  *
  *   node scripts/check-home-hero.mjs        (no build needed)
  *   HERO_SHOTS=<dir> keeps a picture of each width.
+ *
+ *   THE OWNER'S ROUND AD5 ASKS, AS NUMBERS (these replace AC1's where they
+ *   disagree). The badge says "All in one platform" with a white drawn mark,
+ *   no purple. The backdrop's pictures add at most 0.8 of the light they did
+ *   in AC1 (its veil and no vignette put back for a moment), at the panel's
+ *   edge and at its top middle. The panel's sides are the header's content
+ *   edges (its logo and its last control) within 1px, at 390, 1280 and 1600,
+ *   and the text inside is inset from the panel by the header's padding. The
+ *   search's focus is a neutral ring, not violet. The three link in bio
+ *   pages are three different people, no name twice. The dark header is a
+ *   step above the page (a lighter near black than the dark look's page and
+ *   the hero's panel), with a hairline at its foot, and casts a shadow once
+ *   the page is scrolled.
  */
 import { execFileSync, spawn } from "node:child_process"
 import { createServer } from "node:http"
@@ -295,6 +308,7 @@ function decodePng(png) {
   return { w, h, px: (x, y) => { const i = y * stride + x * bpp; return [data[i], data[i + 1], data[i + 2]] } }
 }
 
+const DEPTH_PANEL = "rgb(14, 14, 16)"
 const lum = ([r, g, b]) => {
   const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) }
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
@@ -451,7 +465,11 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
     const ar = after.getBoundingClientRect()
     const nextTop = ar.top + parseFloat(getComputedStyle(after).paddingTop)
     const heroBottom = Math.max(hero.getBoundingClientRect().bottom, centre.bottom)
-    const veil = hero.querySelector("[data-hero-backdrop] > div:last-child")
+    const veil = hero.querySelector("[data-hero-veil]")
+    const icon = badge.querySelector("[data-hero-badge-icon] svg")
+    const fills = icon ? [...icon.querySelectorAll("rect,path,circle")].map((n) => getComputedStyle(n).fill) : []
+    const purple = [badge, ...badge.querySelectorAll("*")].some((n) => { const c = getComputedStyle(n); return [c.backgroundColor, c.color, c.fill].some((v) => /rgba?[(]([0-9]+), ([0-9]+), ([0-9]+)/.test(v) && (() => { const [, r, g, b] = v.match(/rgba?[(]([0-9]+), ([0-9]+), ([0-9]+)/).map(Number); return b > g + 40 && r > g + 20 })()) })
+    const copy = hero.querySelector("[data-hero-copy]")
     return {
       bg: getComputedStyle(input).backgroundColor, ctaBg: getComputedStyle(ctaEl).backgroundColor,
       badge: badge.textContent.trim(), badgeH: badge.getBoundingClientRect().height, badgeFont: bs.fontSize, badgeRadius: parseFloat(bs.borderTopLeftRadius), badgeShadow: bs.boxShadow,
@@ -463,22 +481,27 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
       stage: { left: stage.left, right: stage.right }, centre: { top: centre.top, bottom: centre.bottom },
       gap: nextTop - heroBottom, innerW: innerWidth, innerH: innerHeight,
       veil: veil ? getComputedStyle(veil).backgroundColor : "",
+      icon: { drawn: !!icon, fills, purple }, copyPad: copy ? [parseFloat(getComputedStyle(copy).paddingLeft), parseFloat(getComputedStyle(copy).paddingRight)] : null,
       globeTop: after.querySelector(".animate-pulse")?.getBoundingClientRect().top ?? null, h1Bottom: hero.querySelector("h1").getBoundingClientRect().bottom,
     }
   })()`)
   const bg = parseColor(ui.bg)
   check("the search field is solid: no transparency in its background", bg.a === 1 && parseColor(ui.ctaBg).a === 1, `${ui.bg}, button ${ui.ctaBg}`)
   const words = ui.badge.split(/\s+/).filter(Boolean).length
-  check("the badge is three words at most, and not the old label", words <= 3 && ui.badge !== "Built for creators", `"${ui.badge}", ${words} words, ${ui.badgeH.toFixed(1)}px tall, ${ui.badgeFont}`)
+  /* Changed on purpose (round AD5): the owner's words, four of them, and a white mark in place of the purple dot. */
+  check("the badge says \"All in one platform\" (round AD5), four words at most", ui.badge === "All in one platform" && words <= 4, `"${ui.badge}", ${words} words, ${ui.badgeH.toFixed(1)}px tall, ${ui.badgeFont}`)
+  check("its mark is a white drawing, and nothing in the badge is purple", ui.icon.drawn && ui.icon.fills.length >= 1 && ui.icon.fills.every((f) => f === "rgb(255, 255, 255)") && !ui.icon.purple, `${ui.icon.fills.length} shapes, ${[...new Set(ui.icon.fills)].join(", ")}${ui.icon.purple ? ", purple found" : ""}`)
   check("the badge is a pill with depth: fully round ends and a shadow", ui.badgeRadius >= ui.badgeH / 2 - 0.5 && /rgba\(0, 0, 0, 0\.[1-9]/.test(ui.badgeShadow), `radius ${ui.badgeRadius}px on ${ui.badgeH.toFixed(1)}px, shadow ${ui.badgeShadow.slice(0, 60)}...`)
   check("the panel is rounded and has depth (a shadow under it and a hairline)", ui.panel.radius >= (size.phone ? 24 : 32) && /inset/.test(ui.panel.shadow) && (ui.panel.shadow.match(/rgba/g) || []).length >= 3, `radius ${ui.panel.radius}px`)
-  const inset = size.phone ? [8, 12] : [18, 22]
+  /* Changed on purpose (round AD5): the inset is the header's own padding (16px on a phone, 32px from 1024px), so the panel's sides line up with the header's logo and its last control. */
+  const inset = size.phone ? [15.5, 16.5] : [31.5, 32.5]
   check(`the panel is inset from the page's sides (${inset[0]} to ${inset[1]}px)`, ui.panel.left >= inset[0] && ui.panel.left <= inset[1] && Math.abs(ui.innerW - ui.panel.right - ui.panel.left) < 1, `${ui.panel.left.toFixed(1)}px left, ${(ui.innerW - ui.panel.right).toFixed(1)}px right`)
   const veil = ui.veil ? parseColor(ui.veil) : { a: 0 }
-  check("the backdrop is dimmed 40% more than round AB1's (its veil 0.91 where it was 0.85: 9% of the pictures shows, not 15%)", veil.a >= 0.9, `veil ${ui.veil}`)
+  check("the backdrop's veil is 0.928 (round AD5; it was 0.91)", Math.abs(veil.a - 0.928) < 0.002, `veil ${ui.veil}`)
+  check("the text inside the panel is inset from it by the header's padding too", !!ui.copyPad && ui.copyPad.every((x) => Math.abs(x - (size.phone ? 16 : 32)) < 0.5), `${ui.copyPad?.join(" and ")}px`)
   check("a short line under the controls, true of the Free plan", !!ui.note && ui.note.text === "Free to start. No card needed." && ui.note.top > Math.max(ui.cta.bottom, ui.input.top + ui.input.h), ui.note ? `"${ui.note.text}", ${ui.note.size}` : "missing")
   if (size.phone) {
-    const column = ui.innerW - 2 * ui.panel.left - 40
+    const column = ui.innerW - 2 * ui.panel.left - 32
     check("at 390 the button and the search are full width and stacked, the button on top", Math.abs(ui.cta.w - ui.input.w) < 1 && ui.cta.w >= column - 1 && ui.input.top >= ui.cta.bottom + 8 && Math.abs(ui.cta.left - ui.input.left) < 1, `button ${ui.cta.w.toFixed(1)}px, search ${ui.input.w.toFixed(1)}px, column ${column.toFixed(1)}px, ${(ui.input.top - ui.cta.bottom).toFixed(1)}px between`)
     check("each 52px tall with the header buttons' 8px corner, as the owner's picture", Math.abs(ui.cta.h - 52) < 1 && Math.abs(ui.input.h - 52) < 1 && ui.cta.r === 8 && ui.input.r === 8, `button ${ui.cta.h.toFixed(1)}px r${ui.cta.r}, search ${ui.input.h.toFixed(1)}px r${ui.input.r}`)
     check("the slider runs to both edges of the screen, past the panel's sides", ui.stage.left <= 0.5 && ui.stage.right >= ui.innerW - 0.5 && ui.panel.left >= 4, `slider ${ui.stage.left.toFixed(1)} to ${ui.stage.right.toFixed(1)}, panel ${ui.panel.left.toFixed(1)} to ${ui.panel.right.toFixed(1)}`)
@@ -494,23 +517,46 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
     check("the next section starts close under the slides (40 to 110px)", ui.gap >= 40 && ui.gap <= 110, `${ui.gap.toFixed(1)}px from the slides to the next heading`)
   }
 
-  /* The backdrop's brightness: a strip at the panel's left edge (no text there), mean luma 0 to 255. Measured as it is, then with round AB1's veil (0.85) put back for a moment, so the two are the same pictures under the same light. */
+  /*
+    The backdrop's brightness (round AD5: "about 20% lower brightness and more
+    vignette"). Mean luma 0 to 255 at two places with no text: a strip at the
+    panel's left edge and a band across its top middle. Measured as it is,
+    then with round AC1's veil (0.91) put back and the vignette hidden for a
+    moment, so both are the same pictures under the same light. What the
+    pictures add over the panel's own #0e0e10 (luma 14.1) must be at most 0.8
+    of what it was.
+  */
   {
-    const r = await p.js(`(() => { const b = document.querySelector("[data-hero-panel]").getBoundingClientRect(); return { x: b.left + 14, y: b.top + 24, w: Math.min(48, b.width * 0.08), h: 200 } })()`)
-    const luma = async () => {
-      const img = await p.shot({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.w), height: r.h })
+    const spots = await p.js(`(() => { const b = document.querySelector("[data-hero-panel]").getBoundingClientRect(); return [
+      { name: "the left edge", x: b.left + 14, y: b.top + 24, w: Math.min(48, b.width * 0.08), h: 200 },
+      { name: "the top middle", x: b.left + b.width * 0.3, y: b.top + 4, w: b.width * 0.4, h: 18 },
+    ] })()`)
+    const luma = async (r) => {
+      const img = await p.shot({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.w), height: Math.round(r.h) })
       let sum = 0, n = 0
       for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) { const [R, G, B] = img.px(x, y); sum += 0.2126 * R + 0.7152 * G + 0.0722 * B; n++ }
       return sum / n
     }
-    const now = await luma()
-    await p.js(`document.querySelector("[data-hero-backdrop] > div:last-child").style.backgroundColor = "rgba(14,14,16,0.85)"`)
-    await sleep(80)
-    const was = await luma()
-    await p.js(`document.querySelector("[data-hero-backdrop] > div:last-child").style.backgroundColor = ""`)
-    /* The panel's own #0e0e10 is luma 14.1: what the pictures add is the rest. */
-    const add = now - 14.1, addWas = was - 14.1
-    check("the backdrop is 40% darker than round AB1's: the pictures add 0.5 to 0.7 of what they did", addWas > 0 && add / addWas >= 0.5 && add / addWas <= 0.7, `mean luma ${now.toFixed(1)} (was ${was.toFixed(1)}): the pictures add ${add.toFixed(1)} where they added ${addWas.toFixed(1)}, ${((1 - add / addWas) * 100).toFixed(0)}% less`)
+    for (const spot of spots) {
+      const now = await luma(spot)
+      await p.js(`(() => { document.querySelector("[data-hero-veil]").style.backgroundColor = "rgba(14,14,16,0.91)"; document.querySelector("[data-hero-vignette]").style.visibility = "hidden" })()`)
+      await sleep(80)
+      const was = await luma(spot)
+      await p.js(`(() => { document.querySelector("[data-hero-veil]").style.backgroundColor = ""; document.querySelector("[data-hero-vignette]").style.visibility = "" })()`)
+      const add = now - 14.1, addWas = was - 14.1
+      check(`the backdrop at ${spot.name} is at least a fifth darker than round AC1's`, addWas > 0 && add / addWas <= 0.8, `mean luma ${now.toFixed(1)} (was ${was.toFixed(1)}): the pictures add ${add.toFixed(1)} where they added ${addWas.toFixed(1)}, ${((1 - add / addWas) * 100).toFixed(0)}% less`)
+    }
+  }
+
+  /* The search, focused: a neutral ring with depth, never violet (round AD5). */
+  {
+    const f = await p.js(`(() => { const i = document.querySelector("[data-home-hero] input[name=q]"); i.focus(); const c = getComputedStyle(i); return { border: c.borderTopColor, shadow: c.boxShadow, outline: c.outlineStyle } })()`)
+    await sleep(220)
+    const f2 = await p.js(`(() => { const i = document.querySelector("[data-home-hero] input[name=q]"); const c = getComputedStyle(i); const r = { border: c.borderTopColor, shadow: c.boxShadow }; i.blur(); return r })()`)
+    const [r, g, b] = (f2.border.match(/[\d.]+/g) || []).map(Number)
+    const violet = b > g + 40 && r > g + 20
+    check("the search's focus: a neutral border and a soft ring, no violet", !violet && /rgba\(255, 255, 255, 0\.\d+\) 0px 0px 0px 4px/.test(f2.shadow) && !/rgba?\(1(24|39), (58|92), (237|246)/.test(f2.shadow), `border ${f2.border}, shadow ${f2.shadow.slice(0, 120)}`)
+    void f
   }
 
   /* Side slides are dimmer, by the same position that moves them. */
@@ -804,6 +850,14 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
   }
 }
 
+/* The header's content edges (the leftmost and rightmost thing drawn in its row) and the hero panel's sides. */
+const EDGES = `(() => {
+  const row = document.querySelector("#platform-header-root .platform-header-row")
+  const shown = [...row.querySelectorAll("a, button, img, svg")].map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+  const p = document.querySelector("[data-hero-panel]").getBoundingClientRect()
+  return { header: [Math.min(...shown.map((r) => r.left)), Math.max(...shown.map((r) => r.right))], panel: [p.left, p.right] }
+})()`
+
 /* ── THE HEADER'S DARK STYLE (round AC1) ───────────────────────────────── */
 if (ONLY !== "hero") {
   console.log("\n── The header in its dark style (/admin), in both of the site's looks ──")
@@ -855,9 +909,59 @@ if (ONLY !== "hero") {
         writeFileSync(join(process.env.HERO_SHOTS, `header-${tone}-home-${size.width}.png`), Buffer.from(data, "base64"))
       }
       check(`${size.width}px, ${tone} header: the hero starts 8 to 14px under it`, g.gap >= 8 && g.gap <= 14 && !g.edge, `${g.gap.toFixed(1)}px${g.edge ? ", with the curved edge" : ""}`)
+      const e = await q.js(EDGES)
+      check(`${size.width}px, ${tone} header: the panel's sides are the header's content edges (round AD5)`, Math.abs(e.panel[0] - e.header[0]) <= 1 && Math.abs(e.panel[1] - e.header[1]) <= 1, `header content ${e.header.map((x) => x.toFixed(1)).join(" to ")}, panel ${e.panel.map((x) => x.toFixed(1)).join(" to ")}`)
       await q.close()
     }
   }
+}
+
+if (ONLY !== "hero") {
+  console.log("\n── 1600px: wider than the header's 1400px row ──")
+  for (const tone of ["light", "dark"]) {
+    const q = await page({ width: 1600, height: 900, phone: false, path: "/header.html", hash: `path=/&who=guest&tone=${tone}`, ready: "document.querySelector('[data-hero-panel]')" })
+    await sleep(600)
+    const e = await q.js(EDGES)
+    check(`1600px, ${tone} header: the panel's sides are the header's content edges`, Math.abs(e.panel[0] - e.header[0]) <= 1 && Math.abs(e.panel[1] - e.header[1]) <= 1, `header content ${e.header.map((x) => x.toFixed(1)).join(" to ")}, panel ${e.panel.map((x) => x.toFixed(1)).join(" to ")}`)
+    await q.close()
+  }
+
+  /* THE DARK HEADER'S DEPTH (round AD5: "pitch black with no depth"). */
+  console.log("\n── The dark header's depth ──")
+  const lumOf = (c) => { const [r, g, b] = parseColor(c).rgb; return 0.2126 * r + 0.7152 * g + 0.0722 * b }
+  for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, height: 860, phone: false }]) {
+    for (const look of ["light", "dark"]) {
+      for (const [name, path] of [["Explore", "/explore"], ["a product page", "/ava/film-presets"], ["the library", "/account/library/courses"], ["a creator page", "/ava"]]) {
+        const q = await page({ ...size, path: "/header.html", hash: `path=${path}&who=seller&tone=dark&look=${look}`, ready: "document.getElementById('platform-header-root')" })
+        await sleep(700)
+        const top = await q.js(`(() => { const root = document.getElementById("platform-header-root"); const hd = root.querySelector("header"); const c = getComputedStyle(hd); return { bar: getComputedStyle(root).backgroundColor, page: getComputedStyle(document.querySelector("main")).backgroundColor, border: c.borderBottomWidth + " " + c.borderBottomColor, shadow: getComputedStyle(root).boxShadow, scrolled: root.hasAttribute("data-scrolled") } })()`)
+        await q.js("window.scrollTo(0, 240)")
+        await sleep(400)
+        const down = await q.js(`(() => { const root = document.getElementById("platform-header-root"); return { shadow: getComputedStyle(root).boxShadow, scrolled: root.hasAttribute("data-scrolled") } })()`)
+        if (process.env.HERO_SHOTS) {
+          const { data } = await q.call("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 240, width: size.width, height: 200, scale: 1 } })
+          writeFileSync(join(process.env.HERO_SHOTS, `header-depth-${look}-${path.replace(/\W+/g, "_")}-${size.width}.png`), Buffer.from(data, "base64"))
+        }
+        const alpha = parseColor(top.border.split(" ").slice(1).join(" ")).a
+        const step = lumOf(top.bar) - lumOf(DEPTH_PANEL)
+        check(`${size.width}px, ${look} look, ${name}: the bar is a step above the hero's black and has a hairline`, step >= 4 && parseFloat(top.border) >= 1 && alpha >= 0.06, `bar ${top.bar} (luma +${step.toFixed(1)} over the panel), page ${top.page}, line ${top.border}`)
+        if (look === "dark") check(`${size.width}px, dark look, ${name}: the bar is lighter than the page under it`, lumOf(top.bar) > lumOf(top.page), `bar ${top.bar}, page ${top.page}`)
+        check(`${size.width}px, ${look} look, ${name}: scrolled, it casts a soft shadow it did not have at the top`, !top.scrolled && down.scrolled && down.shadow !== top.shadow && /10px 28px -10px/.test(down.shadow), `top: ${top.shadow.slice(0, 70)}; scrolled: ${down.shadow.slice(0, 110)}`)
+        await q.close()
+      }
+    }
+  }
+}
+
+/* THE LINK IN BIO SLIDE IS THREE PEOPLE (round AD5): the source it is drawn from names three, each once, in three themes. */
+{
+  console.log("\n── The link in bio pages behind the slide ──")
+  const src = readFileSync(join(root, "scripts/render-hero-shots.tsx"), "utf8")
+  const bios = [...src.matchAll(/^\s{2}(\w+): \{\n\s+name: "([^"]+)", slug: "([^"]+)", bio: "([^"]+)", avatar: "([^"]+)", theme: "([^"]+)"/gm)].map((m) => ({ key: m[1], name: m[2], slug: m[3], avatar: m[5], theme: m[6] }))
+  const shots = readFileSync(join(root, "scripts/hero-shots.mjs"), "utf8")
+  const who = (shots.match(/const BIO_PEOPLE = \[([^\]]+)\]/) || [])[1]?.match(/"(\w+)"/g)?.map((x) => x.slice(1, -1)) ?? []
+  const unique = (xs) => new Set(xs).size === xs.length
+  check("three people, three names, three pictures, three themes: no name repeated", bios.length === 3 && unique(bios.map((b) => b.name)) && unique(bios.map((b) => b.slug)) && unique(bios.map((b) => b.avatar)) && unique(bios.map((b) => b.theme)) && who.length === 3 && who.every((k) => bios.some((b) => b.key === k)), bios.map((b) => `${b.name} (${b.theme})`).join(", "))
 }
 
 ws.close()

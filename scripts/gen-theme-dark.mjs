@@ -619,6 +619,10 @@ ${SCOPE} #platform-header-root[data-header-tone="dark"] > header,
 ${SCOPE} [data-header-concave="dark"][data-header-concave] {
   background-color: ${BUYER_HEADER_DARK_BG};
 }
+/* Round AD5: its hairline keeps its strength too; the class rule for white borders would take it to 0.035, which on a dark page is no line at all. */
+${SCOPE} #platform-header-root[data-header-tone="dark"] > header {
+  border-bottom-color: rgba(255,255,255,0.08);
+}
 
 html[data-sl-dark] [data-member-profile] [data-profile-top-bar] {
   background-color: ${P.surface} !important;

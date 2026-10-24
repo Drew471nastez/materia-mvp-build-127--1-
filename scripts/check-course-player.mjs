@@ -331,16 +331,16 @@ for (const [label, vp] of [
   expect(rows.length === 3, "LIST: three courses from two creators", rows)
   const ls = await noSideScroll(list.p)
   expect(ls.scroll <= ls.width, "LIST: nothing scrolls sideways", ls)
-  const cont = await list.p.evaluate((phoneMode) => {
-    const a = document.querySelector(phoneMode ? "[data-continue-phone]" : "[data-continue]")
-    return { text: a.innerText.trim(), href: a.getAttribute("href"), h: Math.round(a.getBoundingClientRect().height) }
-  }, phone)
-  expect(cont.href.includes("?lesson=") && (phone ? cont.text === "Continue: Lesson 4" : cont.text === "Continue") && cont.h >= 40, "LIST: Continue opens the lesson they are on", cont)
+  /* Changed on purpose (round AD5): the whole card is the link (its title's link covers it), and the progress switch is gone; finished courses come last. */
+  const cont = await list.p.evaluate(() => {
+    const row = document.querySelector("[data-course-row=in_progress]")
+    const a = row.querySelector("[data-continue]")
+    return { action: row.querySelector("[data-course-action]").textContent.trim(), href: a.getAttribute("href"), h: Math.round(row.getBoundingClientRect().height) }
+  })
+  expect(cont.href.includes("?lesson=") && cont.action === "Continue" && cont.h >= 40, "LIST: Continue opens the lesson they are on", cont)
   await list.p.screenshot({ path: join(shots, `${label}-courses.png`), fullPage: true })
-  await list.p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((b) => b.textContent.startsWith("Completed")).click())
-  const completed = await list.p.evaluate(() => document.querySelectorAll("[data-course-row]").length)
-  expect(completed === 1, "LIST: Completed shows the finished one", completed)
-  await list.p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((b) => b.textContent.startsWith("All")).click())
+  const order = await list.p.evaluate(() => [...document.querySelectorAll("[data-course-row]")].map((r) => r.getAttribute("data-course-row")))
+  expect(order.indexOf("completed") === -1 || order.indexOf("completed") === order.length - 1, "LIST: the finished one comes last", order)
   await list.p.select("[data-creator-filter]", "c2")
   const byCreator = await list.p.evaluate(() => document.querySelectorAll("[data-course-row]").length)
   expect(byCreator === 2, "LIST: one creator's courses", byCreator)
