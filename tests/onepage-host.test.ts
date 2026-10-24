@@ -182,6 +182,13 @@ function routing() {
     ["POST", "/api/subscribe"],
     ["POST", "/api/checkout/quick-free"],
     ["GET", "/api/download/2b5c0f0e-6a1d-4e4b-9d1e-0c4c1f7c2a11"],
+    /* The product sheet, Instant checkout and the contact form: each was a 404 on storelib.me, so they said "Not found" live. */
+    ["GET", "/api/onepage/product"],
+    ["POST", "/api/coupons/validate"],
+    ["POST", "/api/checkout/stripe-session"],
+    ["POST", "/api/checkout/confirm-payment"],
+    ["POST", "/api/checkout/process"],
+    ["POST", "/api/website-builder/contact"],
   ]
   for (const [method, p] of allowed) check(`${method} ${p} answers`, route("storelib.me", p, { method })?.kind === "next")
   const refused: Array<[string, string]> = [
@@ -199,6 +206,13 @@ function routing() {
     ["GET", "/api/track-view"],
     ["POST", "/api/analytics/reports"],
   ]
+  /* Every call the public page's own code makes answers on its host: a new block or window cannot ship a 404 again. */
+  for (const file of ["components/onepage/public-onepage.tsx", "components/onepage/product-sheet.tsx", "components/onepage/product-block.tsx", "components/checkout/instant-checkout.tsx", "components/checkout/checkout-window.tsx", "lib/website-builder/contact-client.ts"]) {
+    let src = ""
+    try { src = readFileSync(join(process.cwd(), file), "utf8") } catch { src = "" }
+    const calls = [...src.matchAll(/fetch\(\s*[`"'](\/api\/[^`"'?$]+)/g)].map((m) => m[1])
+    for (const p of calls) check(`${file}: ${p} answers on storelib.me`, ["GET", "POST"].some((method) => route("storelib.me", p, { method })?.kind === "next"))
+  }
   for (const [method, p] of refused) {
     const r = route("storelib.me", p.split("?")[0], { method })
     check(`${method} ${p} is a 404 on storelib.me`, isMissing(r, true), show(r))

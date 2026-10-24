@@ -113,6 +113,21 @@ export const ONEPAGE_HOST_API: readonly { path: RegExp; methods: readonly string
   { path: /^\/api\/analytics\/own\/?$/, methods: ["GET"] },
   /* Storelib's own speed, measured on the OnePage (lib/perf/config.ts BEACON_PATH): no visitor data. */
   { path: /^\/api\/public\/m\/?$/, methods: ["POST"] },
+  /*
+    The product sheet and Instant checkout (components/onepage/product-sheet.tsx,
+    components/checkout/instant-checkout.tsx): a published product's public
+    facts, a code checked, and the purchase through the same routes the
+    checkout page uses. They answer a guest: no session lives on this host, so
+    nothing here reaches an account. Left off this list, every one of them was
+    a 404 on storelib.me, and the sheet and the window said "Not found".
+  */
+  { path: /^\/api\/onepage\/product\/?$/, methods: ["GET"] },
+  { path: /^\/api\/coupons\/validate\/?$/, methods: ["POST"] },
+  { path: /^\/api\/checkout\/stripe-session\/?$/, methods: ["POST"] },
+  { path: /^\/api\/checkout\/confirm-payment\/?$/, methods: ["POST"] },
+  { path: /^\/api\/checkout\/process\/?$/, methods: ["POST"] },
+  /* The contact form block (lib/website-builder/contact-client.ts). */
+  { path: /^\/api\/website-builder\/contact\/?$/, methods: ["POST"] },
 ]
 
 /** Files a OnePage's markup may ask the host for directly: fonts, media, icons. */
