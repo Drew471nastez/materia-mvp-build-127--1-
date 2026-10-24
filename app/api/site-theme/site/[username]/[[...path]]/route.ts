@@ -24,6 +24,7 @@ import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { hostOf } from "@/lib/site-accounts/session"
 import { sameOriginForm } from "@/lib/site-accounts/respond"
 import { POST as sendSignInCode } from "@/app/api/site-account/code/route"
+import { POST as saveAddress } from "@/app/api/site-account/addresses/route"
 import { POST as subscribeRoute } from "@/app/api/website-builder/subscribe/route"
 import { POST as contactRoute } from "@/app/api/website-builder/contact/route"
 import { previewTokenFrom } from "@/lib/website-builder/preview-link"
@@ -234,12 +235,24 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     email" all apply. Never on a preview, which signs nobody in.
   */
   const accountPost = token ? null : accountFormPost(req.method, sitePath, fields)
-  if (accountPost?.kind === "back") return new NextResponse(null, { status: 303, headers: { Location: accountPost.to, "Cache-Control": "private, no-store" } })
+  /* A theme's address form: the customer's own address book, through the route Storelib's own forms post to, the same checks and limits. */
+  if (accountPost?.kind === "address") {
+    const form = new FormData()
+    form.set("action", accountPost.action)
+    if (accountPost.id) form.set("id", accountPost.id)
+    for (const [k, v] of Object.entries(accountPost.fields)) form.set(k, v)
+    if (accountPost.makeDefault) form.set("default", "1")
+    form.set("return", "/account/addresses")
+    if (locale) form.set("lang", locale)
+    return saveAddress(onward(req, "/api/site-account/addresses", form))
+  }
   if (accountPost?.kind === "code") {
     const form = new FormData()
     form.set("email", accountPost.email)
     form.set("return", accountPost.returnPath)
     if (accountPost.name) form.set("name", accountPost.name)
+    /* The page's language (/fr/account/login), so the code step comes back in it (lib/site-accounts/lang.ts). */
+    if (locale) form.set("lang", locale)
     return sendSignInCode(onward(req, "/api/site-account/code", form))
   }
   /* A newsletter or contact form, from this website's own page only. */

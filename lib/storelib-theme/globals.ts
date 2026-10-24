@@ -121,8 +121,10 @@ export const SITE_ROUTES = Object.freeze({
   account_change_email_url: "/api/site-account/restart",
   /** POST `code`: signs the visitor in. */
   account_verify_url: "/api/site-account/verify",
-  /** POST `name`: the signed-in customer's name. */
+  /** POST `name` or `phone`: the signed-in customer's name, or their phone number. */
   account_profile_url: "/api/site-account/profile",
+  /** POST `action` (save, delete, default), `id` and the address's fields: the signed-in customer's address book. */
+  account_addresses_url: "/api/site-account/addresses",
   /** POST `confirm=delete`: deletes the signed-in customer's own account on this website. */
   account_delete_url: "/api/site-account/delete",
   account_logout_url: "/account/logout",
