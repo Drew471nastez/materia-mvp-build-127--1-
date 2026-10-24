@@ -11,6 +11,7 @@
  */
 import type * as React from "react"
 import { NOISE_IMAGE, noiseOpacity, patternStyle } from "@/lib/onepage/wallpaper"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 
 type ThemeLike = { background_type?: unknown; background_pattern?: unknown; pattern_color?: unknown; pattern_opacity?: unknown } | null | undefined
 
@@ -63,4 +64,18 @@ export function WallpaperNoise({ strength, className = "absolute inset-0", style
       style={{ backgroundImage: NOISE_IMAGE, backgroundSize: "180px 180px", mixBlendMode: "overlay", opacity: noiseOpacity(strength), ...style }}
     />
   )
+}
+
+/**
+ * A photo wallpaper as a CSS background: the image optimizer's copy, 1920px
+ * wide, as AVIF or WebP at quality 75, never the file itself. Nature's
+ * photo was drawn from its 1920px JPEG at quality 95 (632KB) on every phone;
+ * through the optimizer it is a fraction of that, and the same address is
+ * used by both layouts and the editor's preview, so it is fetched once.
+ * Quoted, so an address with a bracket or a space in it cannot end the
+ * url() early. A host the optimizer will not take is drawn as it is.
+ */
+export function wallpaperImage(url: string): string {
+  const src = optimizedImageUrl(url, 960, 75)
+  return `url("${src.replace(/["\\\n]/g, (c) => encodeURIComponent(c))}")`
 }

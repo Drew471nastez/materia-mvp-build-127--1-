@@ -358,8 +358,9 @@ async function bansAndOneRule() {
   check("and a database without the column has no bans, rather than no sitemap", soft.size === 0)
 
   const maps = code("lib/seo/sitemaps.ts")
-  check("products, creator pages and websites all leave banned creators out",
-    (maps.match(/bannedCreatorIds\(admin\)/g) ?? []).length === 3 && /banned\.has\(row\.creator_id\)/.test(maps) &&
+  /* Changed on purpose (round BA): a fourth reader, the published websites warmed after a deploy (publishedWebsiteOrigins), leaves them out too. */
+  check("products, creator pages, websites and the websites warmed after a deploy all leave banned creators out",
+    (maps.match(/bannedCreatorIds\(admin\)/g) ?? []).length === 4 && /creatorIds = \[\.\.\.new Set\(installs\.map\(\(i\) => i\.creator_id\)\.filter\(\(id\) => !banned\.has\(id\)\)\)\]/.test(maps) && /banned\.has\(row\.creator_id\)/.test(maps) &&
       /!banned\.has\(c\.id\)/.test(maps) && /!banned\.has\(i\.creator_id\)/.test(maps))
   check("storelib.com's websites sitemap reads the site's own rule", /!builtSiteIndexable\(settingsOf\(i\), handle\)/.test(maps))
   const published = code("lib/website-builder/published-site.ts")

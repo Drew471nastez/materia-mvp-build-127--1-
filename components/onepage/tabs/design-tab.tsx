@@ -40,8 +40,10 @@ import { familyOf, fontStack, onePageFontSampleHref } from "@/lib/onepage/fonts"
 import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
 import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
-import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
-import { PillTabs, PILL_EASE } from "@/components/onepage/pill-tabs"
+import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { PillTabs } from "@/components/onepage/pill-tabs"
+import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
+import { CONTENT_IN_EASE, CONTENT_IN_FROM, CONTENT_IN_MS } from "@/lib/ui/pill-switch"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { NATIVE_BACK_EVENT } from "@/lib/ui/native-back"
 import { AvatarMark } from "@/components/app/app-avatar"
@@ -163,7 +165,11 @@ const BACKGROUND_IMAGES = [
   hard shadows). Gradient: Sunset (a deep dusk), Peach, Sage (muted sage to
   moss, deep green buttons), Ocean and Aurora. Dark: Olive, Astrid, Night,
   Graphite (graphite with soft glass cards), Midnight, Space and Neon (the
-  one loud one). Image: Nature and Fusion (a warm grain). No violet: Blocks
+  one loud one). Image: Nature and Fusion (a warm grain). Round 11 added
+  five made pieces, each with its own pattern or photograph, type and
+  buttons: Editorial and Terrazzo (light), Blueprint (dark), Darkroom and
+  Haze (image); the note above each says what it is and where its photo
+  comes from. No violet: Blocks
   was a violet to pink gradient, Aurora violet glass, Night a violet black
   with lilac buttons and Fusion a violet swirl; each is now its own thing
   under the same name, so a page that chose one keeps the id it saved. What
@@ -429,6 +435,96 @@ export const THEME_TEMPLATES = [
     light_button_text_color: "#111111",
     share_style: "black",
     subscribe_style: "black",
+  },
+  /*
+    EDITORIAL: a magazine's page. Newsprint with the faint dot screen of
+    print (the Halftone pattern), the name set big in a high contrast
+    display face, words in a book serif, and buttons as solid ink bars
+    with square ends. The one colour is vermilion, in the social icons.
+  */
+  {
+    id: "editorial",
+    name: "Editorial",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#f2ede3",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#15130f",
+      secondary_text_color: "#4a443a",
+      button_color: "#15130f",
+      button_text_color: "#f6f2ea",
+      button_style: "filled" as const,
+      button_border_radius: 0,
+      button_border_width: 0,
+      button_border_color: "#15130f",
+      button_shadow: "none",
+      font_family: "'Source Serif Pro', serif",
+      title_font: "'Abril Fatface', cursive",
+      title_color: "#15130f",
+      social_icon_color: "#c2361f",
+      social_icon_style: "outline",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "halftone",
+      pattern_color: "#15130f2e",
+      pattern_opacity: "low",
+    },
+    profile_layout: "classic" as const,
+    solid_button_text_color: "#f6f2ea",
+    outline_button_text_color: "#15130f",
+    glass_button_text_color: "#15130f",
+    light_button_text_color: "#15130f",
+    share_style: "black",
+    subscribe_style: "black",
+  },
+  /*
+    TERRAZZO: a poured stone floor. A warm limestone ground set with
+    terracotta chips of every size (the Terrazzo pattern), a round
+    geometric title face, and buttons as smooth pale stone pills with a
+    hairline edge and a soft shadow, as if laid on top of it.
+  */
+  {
+    id: "terrazzo",
+    name: "Terrazzo",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#efe8dd",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#2a231e",
+      secondary_text_color: "#574b41",
+      button_color: "#fbf8f3",
+      button_text_color: "#2a231e",
+      button_style: "filled" as const,
+      button_border_radius: 28,
+      button_border_width: 1,
+      button_border_color: "#ddd2c3",
+      button_shadow: "subtle",
+      font_family: "'DM Sans', sans-serif",
+      title_font: "'Sora', sans-serif",
+      title_color: "#2a231e",
+      social_icon_color: "#a4533a",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "terrazzo",
+      pattern_color: "#b8664a",
+      pattern_opacity: "medium",
+    },
+    profile_layout: "classic" as const,
+    solid_button_text_color: "#2a231e",
+    outline_button_text_color: "#2a231e",
+    glass_button_text_color: "#2a231e",
+    light_button_text_color: "#2a231e",
+    share_style: "white",
+    subscribe_style: "white",
   },
   {
     id: "sunset",
@@ -835,6 +931,52 @@ export const THEME_TEMPLATES = [
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
   },
+  /*
+    BLUEPRINT: a drawing on drafting paper. Deep blueprint blue with its
+    grid (fine lines every 10px, firm ones every 50px, a cross where they
+    meet: the Blueprint pattern), the name in a mono face, and buttons
+    drawn as outlines with a pale blue offset under them, as a draughtsman
+    would shade a box.
+  */
+  {
+    id: "blueprint",
+    name: "Blueprint",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#123b66",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#f3f8fd",
+      secondary_text_color: "#cfe0f1",
+      button_color: "#f3f8fd",
+      button_text_color: "#f3f8fd",
+      button_style: "outline" as const,
+      button_border_radius: 0,
+      button_border_width: 2,
+      button_border_color: "#f3f8fd",
+      button_shadow: "hard",
+      button_shadow_color: "#5f93c9",
+      font_family: "'Space Grotesk', sans-serif",
+      title_font: "'JetBrains Mono', monospace",
+      title_color: "#ffffff",
+      social_icon_color: "#f3f8fd",
+      social_icon_style: "outline",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "blueprint",
+      pattern_color: "#ffffff38",
+      pattern_opacity: "medium",
+    },
+    profile_layout: "classic" as const,
+    solid_button_text_color: "#123b66",
+    outline_button_text_color: "#f3f8fd",
+    glass_button_text_color: "#f3f8fd",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
   {
     id: "nature",
     name: "Nature",
@@ -902,6 +1044,101 @@ export const THEME_TEMPLATES = [
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
   },
+  /*
+    DARKROOM: a silver print. A black and white photograph of a peak in
+    cloud, printed down dark, with film grain over it; a tall condensed
+    title, plain words, and buttons as thin white frames. One drop of
+    safelight red, in the social icons.
+    Photo: Unsplash photo-1505765050516-f72dcac9c60e, desaturated by
+    Unsplash's own image service (sat=-100). Unsplash License: free for
+    commercial use, no permission or credit needed
+    (https://unsplash.com/license).
+  */
+  {
+    id: "darkroom",
+    name: "Darkroom",
+    category: "image",
+    theme_config: {
+      background_type: "image" as const,
+      background_color: "#161616",
+      background_gradient: "",
+      background_image_url: "https://images.unsplash.com/photo-1505765050516-f72dcac9c60e?w=1920&q=80&sat=-100",
+      text_color: "#f4f2ee",
+      secondary_text_color: "#dedad3",
+      button_color: "#f4f2ee",
+      button_text_color: "#f4f2ee",
+      button_style: "outline" as const,
+      button_border_radius: 2,
+      button_border_width: 1,
+      button_border_color: "#f4f2ee",
+      button_shadow: "none",
+      font_family: "'DM Sans', sans-serif",
+      title_font: "'Barlow Condensed', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#ff6b5e",
+      social_icon_style: "outline",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      // Printed down to 26% (white words read on the white cloud; the grain's overlay lifts the light parts) with a fine grain
+      image_brightness: 26,
+      image_noise: true,
+      noise_strength: 30,
+    },
+    profile_layout: "classic" as const,
+    solid_button_text_color: "#161616",
+    outline_button_text_color: "#f4f2ee",
+    glass_button_text_color: "#f4f2ee",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+  /*
+    HAZE: a photograph seen out of focus. The sky over a range of hills at
+    dusk, cropped to the sky and the farthest ridges and softened, so the
+    page is warm light fading into blue haze; dark words in a fine serif
+    and frosted glass pills.
+    Photo: Unsplash photo-1500534314209-a25ddb2bd429, cropped and blurred
+    by Unsplash's own image service (rect, blur). Unsplash License: free
+    for commercial use, no permission or credit needed
+    (https://unsplash.com/license).
+  */
+  {
+    id: "haze",
+    name: "Haze",
+    category: "image",
+    theme_config: {
+      background_type: "image" as const,
+      background_color: "#e9dccd",
+      background_gradient: "",
+      background_image_url: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?rect=0,0,3456,3000&w=1920&q=80&blur=25",
+      text_color: "#1d2124",
+      secondary_text_color: "#2f3539",
+      button_color: "#ffffff",
+      button_text_color: "#1d2124",
+      button_style: "glass" as const,
+      button_border_radius: 28,
+      button_border_width: 1,
+      button_border_color: "#ffffff",
+      button_shadow: "subtle",
+      font_family: "'Raleway', sans-serif",
+      title_font: "'Playfair Display', serif",
+      title_color: "#1d2124",
+      social_icon_color: "#1d2124",
+      social_icon_style: "outline",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      image_brightness: 108,
+      image_noise: false,
+    },
+    profile_layout: "classic" as const,
+    solid_button_text_color: "#1d2124",
+    outline_button_text_color: "#1d2124",
+    glass_button_text_color: "#1d2124",
+    light_button_text_color: "#1d2124",
+    share_style: "white",
+    subscribe_style: "white",
+  },
 ]
 
 /** The gradient a page starts from when it has none of its own: warm, and nothing like the old violet default. */
@@ -951,27 +1188,37 @@ const SECTION_LABEL: Record<DesignSection, string> = {
  */
 /**
  * ===========================================================================
- *  A PANEL FADES IN OVER THE LIST, AND THE LIST FADES BACK
+ *  A PANEL COMES UP OVER THE LIST, AND GOES BACK DOWN OFF IT
  * ===========================================================================
- * "I still don't like the page transition. For example I want to go from
- * Design to Theme and then from Theme to go back, I don't like that page
- * animation thing. Make sure it's smooth, not glitchy, more simple, clean,
- * normal, NO SLIDE like."
+ * Round 11, the owner: "When I go to Theme, Header, Wallpaper, Text, Button,
+ * Social icons, Footer, make sure it's more smooth and clean. I don't like
+ * the fade." Before that (round 9): "NO SLIDE like."
  *
- * It was an iPhone push: the panel slid in from the right while the list
- * moved left and dimmed under it, a pull from the left edge took it back,
- * and on a computer the two went side by side. Now nothing moves sideways.
- * The two pages are drawn in the same place: the page leaving fades out
- * over 90ms, and the page arriving, over it, fades in from 50ms to 200ms
- * (opacity only, on the compositor). The list fades out and Theme fades
- * in; back is the same the other way, to the place in the list that was
- * left. A plain crossfade, the page arriving over the page leaving at full
- * strength, drew "Design" and "Theme" on top of each other for several
- * frames; this way the two only meet faintly, for a frame, and no frame is
- * empty. The way back is the arrow at the top of the panel (and Android's
- * back); the edge pull went with the slide it was part of.
+ * It was a crossfade: the list out over 90ms, the panel in from 50ms to
+ * 200ms, so for a few frames the two pages' words were faintly on the glass
+ * together. Now it is the app's own sub-page, the one an order opens with
+ * (app/app/orders/order-motion.ts) and every page layer in /app moves on
+ * (components/app/page-layer.tsx), on the same numbers:
  *
- * Both pages are drawn only while the fade runs. At rest the list is kept
+ *   PHONE     the panel rises from the bottom of the column, whole, as one
+ *             layer over the list, which holds still underneath it, exactly
+ *             where it was (LAYER_MOTION_MS, the iOS sheet curve, with the
+ *             page layer's soft top edge); back drops it down again
+ *             (LAYER_LEAVE_MS) off the list, still where it was left. Nothing
+ *             moves sideways and nothing fades: every frame is one whole page
+ *             over another whole page.
+ *   COMPUTER  where nothing slides in from an edge, the panel is there on the
+ *             first frame, its title included, and only what is under the
+ *             title lands as Storelib's pills' content does (lib/ui/
+ *             pill-switch, from CONTENT_IN_FROM over CONTENT_IN_MS, never from
+ *             nothing); back shows the list at once, whole, where it was
+ *             (the order's `settle: false`).
+ *
+ * Transform and opacity only, on the compositor; a back pressed half way
+ * starts from where the panel is on screen, never from an end. The way back
+ * is the arrow at the top of the panel (and Android's back).
+ *
+ * Both pages are drawn only while the panel moves. At rest the list is kept
  * (its state, not its pixels: `display: none`).
  *
  * ONE MOTION PER PRESS. "Themes, back, Themes again, back: a double
@@ -992,12 +1239,12 @@ const Activity = (ReactModule as unknown as {
 }).Activity
 /** Every panel, in the order the list names them, which is the order they are built in while the page is idle. */
 const DESIGN_SECTIONS = Object.keys(SECTION_LABEL) as DesignSection[]
-/** The page leaving: out in 90ms, evenly, so it is still faintly there when the page arriving starts. */
-const FADE_OUT_MS = 90
-/** The page arriving: in from 50ms to 200ms, on the tabs' curve, done when it looks done. */
-const FADE_IN_DELAY_MS = 50
-const FADE_IN_MS = 150
-const FADE_EASE = "cubic-bezier(0, 0, 0.2, 1)"
+/** On a phone the panel moves as the app's page layer does: up in LAYER_MOTION_MS, down in LAYER_LEAVE_MS, on its curve. */
+const PUSH_MS = LAYER_MOTION_MS
+const POP_MS = LAYER_LEAVE_MS
+const MOVE_EASE = LAYER_MOTION_EASE
+/** The page layer's soft top edge while it moves (app/app/orders/order-motion EDGE_SHADOW), so it reads as a layer over the list. */
+const EDGE_SHADOW = "0 -10px 30px -12px rgba(17, 24, 39, 0.22)"
 
 /**
  * `top` places the page leaving where it was on screen, under the page
@@ -1013,7 +1260,7 @@ const FADE_EASE = "cubic-bezier(0, 0, 0.2, 1)"
  * the move and went again at its end ("a scrollbar flash"), and where a
  * scrollbar takes room, the column went narrower and wider with it.
  */
-type Move = { from: DesignPage; to: DesignPage; top: number; panelMin: number; listMin: number }
+type Move = { from: DesignPage; to: DesignPage; top: number; panelMin: number; listMin: number; phone: boolean }
 
 export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" | null }) {
   const { onepage } = useOnePage()
@@ -1036,6 +1283,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   /* The panels built so far, kept (see BUILT WHILE NOTHING ELSE IS HAPPENING below). */
   const [built, setBuilt] = useState<DesignSection[]>(() => (section ? [section] : []))
   const scrollerOf = () => rootRef.current?.closest<HTMLElement>("[data-scroll-container]") ?? null
+  /* The theme cards' photos, fetched and decoded while the creator is still on this list (see preloadThemeThumbs). */
+  useEffect(() => { preloadThemeThumbs() }, [])
 
   const remember = (next: DesignSection | null) => {
     try {
@@ -1056,7 +1305,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     const arriveAt = next ? 0 : listScroll.current
     sectionRef.current = next
     const screen = scroller?.clientHeight ?? 0
-    setMove({ from: current ?? "home", to: next ?? "home", top: arriveAt - y, panelMin: screen + (next ? 0 : y), listMin: screen + listScroll.current })
+    const phone = !!window.matchMedia?.(LAYER_PHONE).matches
+    setMove({ from: current ?? "home", to: next ?? "home", top: arriveAt - y, panelMin: screen + (next ? 0 : y), listMin: screen + listScroll.current, phone })
     setSectionState(next)
     setWarm(null)
     /* A panel not built yet (a tap before the page was idle) is built on the tap, whole, and the fade waits for it. */
@@ -1122,19 +1372,28 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   }, [setSection])
 
   /*
-    The fade itself, started before the browser paints its first frame.
+    The move itself, started before the browser paints its first frame.
 
-    THE LAST FRAME IS HELD UNTIL REACT HAS DRAWN THE PAGE AT REST. Each
-    animation holds its last frame (`fill: both`) and is let go in the
-    layout effect of the commit that ends the move, before that commit is
-    painted, so the page leaving never shows again for a frame between the
-    end of the fade and React hiding it.
+    THE LAST FRAME IS HELD UNTIL REACT HAS DRAWN THE PAGE AT REST. The drop
+    holds its last frame (`fill: forwards`) and is let go in the layout
+    effect of the commit that ends the move, before that commit is painted,
+    so the panel never shows again for a frame between the end of the drop
+    and React hiding it.
   */
   const animating = useRef<Animation[]>([])
+  /* The landing of a panel's content on a computer: its own, so the end of the move does not cancel it. */
+  const landing = useRef<Animation | null>(null)
   useLayoutEffect(() => {
+    const root = rootRef.current
     if (!move) {
       animating.current.forEach((a) => a.cancel())
       animating.current = []
+      if (root) root.style.overflowY = ""
+      const panel = panelRef.current
+      if (panel) {
+        panel.style.boxShadow = ""
+        panel.style.willChange = ""
+      }
       return
     }
     const scroller = scrollerOf()
@@ -1146,33 +1405,41 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
       if (animating.current !== anims) return
       setMove((m) => (m === move ? null : m))
     }
-    if (!list || !panel || typeof panel.animate !== "function" || reducedMotion()) {
+    if (!list || !panel || !root || typeof panel.animate !== "function" || reducedMotion()) {
       animating.current.forEach((a) => a.cancel())
       animating.current = anims
       done()
       return
     }
-    /* The page arriving is on top (opaque once it is in); the page leaving goes out under it. */
-    const arriving = move.to === "home" ? list : panel
-    const leaving = move.to === "home" ? panel : list
-    /*
-      Back pressed while a panel is still fading: each page starts from the
-      opacity it is drawn at now, not from the start, and takes what is left.
-    */
+    const push = move.to !== "home"
+    if (!move.phone) {
+      /* A computer: the panel is there whole, only its content lands; back is the list at once. */
+      animating.current.forEach((a) => a.cancel())
+      animating.current = anims
+      landing.current?.cancel()
+      landing.current = null
+      const body = push ? panel.querySelector<HTMLElement>(`[data-panel-body="${move.to}"]`) : null
+      if (body) landing.current = body.animate([{ opacity: CONTENT_IN_FROM }, { opacity: 1 }], { duration: CONTENT_IN_MS, easing: CONTENT_IN_EASE })
+      done()
+      return
+    }
+    /* A phone: the panel rises over the list, or drops off it; the list never moves. From where the panel is now, if a move is still running. */
+    const height = scroller?.clientHeight || window.innerHeight || 1
     const running = animating.current.length > 0
-    const leavingFrom = running ? Number(getComputedStyle(leaving).opacity) : 1
-    const arrivingFrom = running ? Number(getComputedStyle(arriving).opacity) : 0
+    const at = running ? new DOMMatrixReadOnly(getComputedStyle(panel).transform === "none" ? undefined : getComputedStyle(panel).transform).m42 : push ? height : 0
     animating.current.forEach((a) => a.cancel())
-    const outMs = Math.max(1, FADE_OUT_MS * leavingFrom)
-    const delay = FADE_IN_DELAY_MS * leavingFrom
-    const inMs = Math.max(1, FADE_IN_MS * (1 - arrivingFrom))
-    anims = [
-      arriving.animate([{ opacity: arrivingFrom }, { opacity: 1 }], { duration: inMs, delay, easing: FADE_EASE, fill: "both" }),
-      leaving.animate([{ opacity: leavingFrom }, { opacity: 0 }], { duration: outMs, easing: "linear", fill: "both" }),
-    ]
+    const to = push ? 0 : height
+    const ms = Math.max(120, Math.round((push ? PUSH_MS : POP_MS) * Math.min(1, Math.abs(to - at) / height)))
+    /* The column cuts the panel at its foot while it is below it: nothing of it shows under the list or scrolls the column. */
+    root.style.overflowY = "clip"
+    panel.style.willChange = "transform"
+    panel.style.boxShadow = EDGE_SHADOW
+    anims = [panel.animate([{ transform: `translate3d(0, ${at}px, 0)` }, { transform: `translate3d(0, ${to}px, 0)` }], { duration: ms, easing: MOVE_EASE, fill: push ? "backwards" : "forwards" })]
     animating.current = anims
+    /* Held where it starts until the screen keeps up with it: a panel shown for the first time is drawn in this same frame (page-layer startWhenFramesFlow). */
+    if (push) startWhenFramesFlow(anims)
     anims[0].onfinish = done
-    const timer = window.setTimeout(done, delay + inMs + 250)
+    const timer = window.setTimeout(done, ms + 600)
     return () => window.clearTimeout(timer)
   }, [move])
 
@@ -1199,6 +1466,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   const panelMoving = !!move
   /* The page leaving sits where it was on screen, under; the page arriving is in the flow, over it. */
   const leavingStyle = (top: number): React.CSSProperties => ({ position: "absolute", left: 0, right: 0, top, zIndex: 0 })
+  /* On a phone the panel going back is the layer: it drops over the list, which is in place under it. */
+  const droppingStyle = (top: number): React.CSSProperties => ({ ...leavingStyle(top), zIndex: 2 })
   /*
     EACH PAGE IS THE COLUMN, AND ONLY THE COLUMN'S EDGE CUTS IT. The pages
     were the 576px of the editor's reading width (max-w-xl) inside a 630px
@@ -1226,7 +1495,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
         className={pageClass}
         style={
           listCurrent
-            ? /* Arriving (back), it is over the panel fading out, and covers it to the bottom of the screen. */
+            ? /* Arriving (back), it is in place, at once, and reaches the bottom of the screen under the panel dropping off it. */
               { position: "relative", zIndex: move ? 1 : 0, minHeight: move ? move.listMin : undefined }
             : listMoving
               ? { ...leavingStyle(move!.top), height: move!.listMin, overflow: "clip" }
@@ -1271,7 +1540,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
         data-design-panel={shownSection ?? undefined}
         inert={!shownSection || section !== shownSection}
         aria-hidden={shownSection ? undefined : true}
-        /* No edge and no shade: it fades in place over the list, the same white. */
+        /* The same white as the list; on a phone, while it moves, the page layer's soft top edge (EDGE_SHADOW). */
         className={pageClass}
         style={
           shownSection
@@ -1279,8 +1548,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
                 ...(section === shownSection
                   ? /* Arriving, it is over the list and covers it to the bottom of the screen, however short it is. */
                     { position: "relative", minHeight: panelMoving ? move?.panelMin : undefined, zIndex: 1 }
-                  : /* Leaving (back), it is under the list fading in. */
-                    { ...leavingStyle(move ? move.top : 0), height: move?.panelMin, overflow: "clip" }),
+                  : /* Leaving (back), on a phone it drops off the list, over it; on a computer it is already gone. */
+                    { ...(move?.phone ? droppingStyle(move.top) : leavingStyle(move ? move.top : 0)), height: move?.panelMin, overflow: "clip" }),
               }
             : drawnSection
               ? /* Readied under a finger: laid out, but unseen, untouchable, and taking no room from the list's scroll. */
@@ -2824,6 +3093,47 @@ const THEME_NAME_FONTS_HREF = onePageFontSampleHref(
 */
 const THEME_THUMB_WIDTH = 140
 
+/** A pattern's tile at the theme card's scale (a card is a page about 0.42 of a phone wide). */
+function cardPatternSize(id: string, color: string, level: string): string | undefined {
+  const s = patternStyle(id, color, level)
+  return s ? String(s.backgroundSize).replace(/(\d+(?:\.\d+)?)px/g, (_, n) => `${Math.round(Number(n) * 0.42 * 10) / 10}px`) : undefined
+}
+
+/** A photo theme's card picture: the optimizer's small copy (384px), the same address the card asks for. */
+const themeThumbSrc = (url: string) => optimizedImageUrl(url, THEME_THUMB_WIDTH, 75)
+
+/*
+  EVERY CARD'S PHOTO IS IN AND DECODED BEFORE THE THEME PAGE IS OPENED. The
+  Design tab asks for them as it opens (a handful of small files), decodes
+  each, and keeps the decoded pictures referenced for as long as the editor
+  is open, so a card shown by a pick of a kind is drawn with its photo in
+  the same frame, never its bare colour first.
+*/
+const keptThemeThumbs: HTMLImageElement[] = []
+function preloadThemeThumbs() {
+  if (typeof window === "undefined" || keptThemeThumbs.length) return
+  for (const t of THEME_TEMPLATES) {
+    const c = t.theme_config as { background_type?: string; background_image_url?: string }
+    if (c.background_type !== "image" || !c.background_image_url) continue
+    const img = new Image()
+    img.decoding = "async"
+    img.src = themeThumbSrc(c.background_image_url)
+    img.decode?.().catch(() => null)
+    keptThemeThumbs.push(img)
+  }
+}
+
+/*
+  A card not of the kind picked: out of the grid's flow, under the grid's
+  shown cards (the grid is its own stacking layer, `isolate`), not drawn
+  (opacity 0) and its inside skipped (content-visibility). Nothing here is
+  a property a card's inside inherits, so a pick works out the styles of the
+  twenty-odd cards and not of every span in them: visibility and
+  pointer-events, which it was, made the browser restyle all 381 elements of
+  the grid in the press (48ms on a phone slowed four times).
+*/
+const HIDDEN_CARD: React.CSSProperties = { position: "absolute", top: 0, left: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" }
+
 const ThemeCard = memo(function ThemeCard({ template, selected, shown, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
   const image = c.background_type === "image" && c.background_image_url
@@ -2858,9 +3168,9 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, onPick }:
         and All after Image was 19 cards of it in one frame (311ms on a
         phone slowed four times). Hidden like this it keeps them.
       */
-      style={shown ? undefined : { position: "absolute", top: 0, left: 0, visibility: "hidden", pointerEvents: "none" }}
-      aria-hidden={shown ? undefined : true}
-      tabIndex={shown ? undefined : -1}
+      style={shown ? undefined : HIDDEN_CARD}
+      /* Out of reach (no focus, no tap) while not shown. Not tabIndex: the app's rule for cards (app/globals.css, NEVER A VEIL OVER A CARD) names [tabindex], so changing it restyled every span in every card. */
+      inert={!shown}
       className={cn(
         "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
         /* A hidden card is a column wide, so it comes back laid out as it will be. */
@@ -2871,9 +3181,11 @@ const ThemeCard = memo(function ThemeCard({ template, selected, shown, onPick }:
       <ChoiceMark on={selected} />
       <span className="relative block aspect-[4/5] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
         <span className="absolute inset-0" style={bgStyle} />
-        {image ? <img src={optimizedImageUrl(c.background_image_url, THEME_THUMB_WIDTH, 75)} alt="" aria-hidden draggable={false} loading="eager" decoding="async" data-theme-thumb="" className="absolute inset-0 h-full w-full object-cover" /> : null}
-        {image && c.image_brightness && c.image_brightness < 100 ? <span className="absolute inset-0 bg-black" style={{ opacity: (100 - c.image_brightness) / 100 }} /> : null}
-        {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} /> : null}
+        {/* The photo printed as the page prints it: its brightness, darker or lighter, as the same filter. */}
+        {image ? <img src={themeThumbSrc(c.background_image_url)} alt="" aria-hidden draggable={false} loading="eager" decoding="sync" data-theme-thumb="" className="absolute inset-0 h-full w-full object-cover" style={c.image_brightness && c.image_brightness !== 100 ? { filter: `brightness(${c.image_brightness}%)` } : undefined} /> : null}
+        {(image && c.image_noise) || (c.background_type === "gradient" && c.gradient_noise) ? <WallpaperNoise strength={c.noise_strength} style={{ backgroundSize: "76px 76px" }} /> : null}
+        {/* The pattern at the card's scale: the card is a page about 0.42 of a phone's width, so its tile is too. */}
+        {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} style={{ backgroundSize: cardPatternSize(pattern, c.pattern_color || "#ffffff90", c.pattern_opacity || "medium") }} /> : null}
         {hero ? <span className="absolute inset-x-0 top-0 h-[36%]" style={{ background: `linear-gradient(180deg, ${text}38 0%, ${text}14 70%, transparent 100%)` }} /> : null}
         <span className={cn("absolute inset-0 flex flex-col items-center px-[13%]", hero ? "pt-[30%]" : "pt-[15%]")}>
           {/*
@@ -2923,11 +3235,6 @@ const THEME_KINDS: readonly { id: ThemeFilter; label: string }[] = [
   { id: "image", get label() { return tt("Image") } },
 ]
 
-/** A theme of the new kind that was not on screen comes in on a short fade and settle. */
-const THEME_FILTER_FADE_MS = 200
-/** A theme on screen before and after slides from where it was to where it is now. */
-const THEME_FILTER_MOVE_MS = 280
-
 /** The box that scrolls the Theme page: the editor's tab panel. */
 function scrollBoxOf(el: HTMLElement): HTMLElement | null {
   for (let n = el.parentElement; n; n = n.parentElement) {
@@ -2941,66 +3248,53 @@ function scrollBoxOf(el: HTMLElement): HTMLElement | null {
  * A PICK OF A KIND MOVES NOTHING BUT THE PICK. "When I click between the
  * pills... make sure they don't shift layout on click or glitch, because
  * they do." The pills never changed size; what moved them was the list
- * under them. All is eighteen themes and Image is two, so a pick shortened
- * the page by a thousand pixels, the panel could no longer be scrolled as
- * far as it was, the browser pulled it back, and the pills (and everything
- * else on screen) jumped down by however far the page had been scrolled.
+ * under them. All is every theme and Image a few, so a pick shortened the
+ * page by a thousand pixels, the panel could no longer be scrolled as far
+ * as it was, the browser pulled it back, and the pills (and everything else
+ * on screen) jumped down by however far the page had been scrolled.
  *
  * Now, in the commit that draws the new kind and before it is painted, the
  * grid is held at least as tall as it takes for the panel to stay exactly
  * where it was (and no taller: at the top of the page nothing is held), and
  * the panel's scroll is put back. The hold is let go as the panel is
  * scrolled up past what it needs, so the space under a short kind shrinks
- * away rather than stay. The themes come in on a short opacity fade; with
- * reduced motion they are simply there. scripts/check-onepage-tabbar.mjs
- * measures every pill and the row before and after each pick, and the
- * layout shift.
+ * away rather than stay. scripts/check-onepage-tabbar.mjs measures every
+ * pill and the row before and after each pick, and the layout shift.
  *
- * NO THEME BLINKS ON A PICK. "Switching between categories, the themes
- * flash and glitch." Every pick threw the cards away and made new ones (the
- * list was the kind's own list), so each thumbnail was built again, a photo
- * one decoded again from a 1920px file, and the whole grid then faded up
- * from nothing: every card, the ones that stayed included, was blank for a
- * frame or more. Now every card is made once and kept; a pick only lays out
- * the ones of the kind (the rest are display:none, their photos still
- * decoded). A card that was on screen and still is slides from where it
- * was to where it is now (transform, from positions read after the last
- * layout, never in the press); one that comes in fades and settles from 97%
- * (opacity and transform). Nothing is ever drawn at opacity 0 that was
- * shown a frame before. scripts/check-onepage-themes.mjs samples every frame
- * of each pick and fails on a card that is blank.
+ * A PICK IS ONE STILL SWAP. "When I switch between All, Light, Dark,
+ * Gradient, Image, the themes flash when I land on each category... no
+ * flashes of the themes appearing, or in between the transition, or bump."
+ * Round 10 slid every card that stayed from its old place to its new one
+ * and faded the new ones up from 97%: on a phone that was most of the grid
+ * moving and half of it fading at once, and the owner saw the movement
+ * itself as the flash. Now nothing moves and nothing fades: the frame after
+ * the press shows the new kind, whole, where the frame before showed the
+ * old one, and the only motion on screen is the pill. Every card is made
+ * once and kept (a pick only says which are laid out), its photo is
+ * decoded before it is ever shown (preloadThemeThumbs, from the moment the
+ * Design tab opens) and drawn with decoding="sync", so a card is never
+ * painted without its picture. scripts/check-onepage-themes.mjs samples
+ * every frame of each pick, and films one, and fails on a card that is
+ * blank, faded or between two places.
  */
 function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => void) {
   const gridRef = useRef<HTMLDivElement>(null)
   const pending = useRef<{ box: HTMLElement; top: number; rest: number } | null>(null)
   const held = useRef<{ box: HTMLElement; rest: number; natural: number; min: number } | null>(null)
-  /* Where each shown card was laid out, read after a layout (never in the press), for the slide. */
-  const placed = useRef<Map<string, { x: number; y: number }>>(new Map())
-  const moves = useRef<Animation[]>([])
-  const readPlaces = useCallback(() => {
-    const grid = gridRef.current
-    const next = new Map<string, { x: number; y: number }>()
-    grid?.querySelectorAll<HTMLElement>("[data-theme-card][data-theme-shown]").forEach((el) => {
-      next.set(el.dataset.themeCard || "", { x: el.offsetLeft, y: el.offsetTop })
-    })
-    placed.current = next
-  }, [])
-  useLayoutEffect(() => {
-    readPlaces()
-    const grid = gridRef.current
-    if (!grid || typeof ResizeObserver === "undefined") return
-    /* A narrower column (a rotation, the panel resized) lays the cards out anew: read them again. */
-    const resized = new ResizeObserver(() => { if (moves.current.length === 0) readPlaces() })
-    resized.observe(grid)
-    return () => resized.disconnect()
-  }, [readPlaces])
 
   const pickFilter = useCallback((f: ThemeFilter) => {
     if (f === filter) return
     const grid = gridRef.current
     const box = grid ? scrollBoxOf(grid) : null
-    /* Everything in the panel but the grid, measured before the change: after it, a panel shorter than its box reports the box. */
-    pending.current = box && grid ? { box, top: box.scrollTop, rest: box.scrollHeight - grid.offsetHeight } : null
+    /*
+      At the top of the panel there is nothing to hold, and nothing is
+      measured: a read of the page's height in the press makes the browser
+      lay the editor out there and then. Scrolled down, everything in the
+      panel but the grid is measured before the change (after it, a panel
+      shorter than its box reports the box).
+    */
+    const top = box ? box.scrollTop : 0
+    pending.current = box && grid && top > 0 ? { box, top, rest: box.scrollHeight - grid.offsetHeight } : null
     setFilter(f)
   }, [filter, setFilter])
 
@@ -3008,63 +3302,23 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
     const grid = gridRef.current
     const at = pending.current
     pending.current = null
-    if (!grid || !at) return
-    /*
-      Everything is read first and written after, so the page is laid out
-      once here: reading a card's place after starting the last one's
-      slide laid the whole editor out again for every card (21 times, 60ms
-      a pick on a phone slowed four times).
-    */
-    let before = placed.current
-    /* A pick while cards are still sliding: each starts from where it is drawn now, not from where it was going. */
-    if (moves.current.length > 0 && typeof DOMMatrixReadOnly !== "undefined") {
-      const drawn = new Map<string, { x: number; y: number }>()
-      grid.querySelectorAll<HTMLElement>("[data-theme-card]").forEach((el) => {
-        const id = el.dataset.themeCard || ""
-        const was = before.get(id)
-        if (!was) return
-        /* Where it was laid out, plus how far its slide still has it from there. */
-        const t = getComputedStyle(el).transform
-        const m = t && t !== "none" ? new DOMMatrixReadOnly(t) : null
-        drawn.set(id, m ? { x: was.x + m.m41, y: was.y + m.m42 } : was)
-      })
-      before = drawn
+    if (!grid) return
+    if (!at) {
+      /* From the top: whatever was held for an earlier pick is let go, the page as short as the kind. */
+      if (held.current) { grid.style.minHeight = ""; held.current = null }
+      return
     }
-    /* Where each shown card is laid out now (a card's place does not depend on the grid's held height: its rows start at the top). */
-    const cards = [...grid.querySelectorAll<HTMLElement>("[data-theme-card][data-theme-shown]")]
-    const now = new Map<string, { x: number; y: number }>()
-    for (const el of cards) now.set(el.dataset.themeCard || "", { x: el.offsetLeft, y: el.offsetTop })
     grid.style.minHeight = ""
     const natural = grid.offsetHeight
     const rest = at.rest
     const need = Math.ceil(at.top + at.box.clientHeight - rest)
-    /* At the very top there is nothing to keep: the page may be as short as it is. */
-    if (at.top > 0 && need > natural) {
+    if (need > natural) {
       grid.style.minHeight = `${need}px`
       held.current = { box: at.box, rest, natural, min: need }
     } else {
       held.current = null
     }
     if (at.box.scrollTop !== at.top) at.box.scrollTop = at.top
-    /* The cards: those that stay slide, those that arrive fade in; nothing that stays is ever drawn faded. */
-    moves.current.forEach((a) => a.cancel())
-    moves.current = []
-    placed.current = now
-    if (typeof grid.animate !== "function" || reducedMotion()) return
-    for (const el of cards) {
-      const to = now.get(el.dataset.themeCard || "")!
-      const from = before.get(el.dataset.themeCard || "")
-      if (from) {
-        const dx = from.x - to.x
-        const dy = from.y - to.y
-        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue
-        moves.current.push(el.animate([{ transform: `translate3d(${dx}px, ${dy}px, 0)` }, { transform: "translate3d(0, 0, 0)" }], { duration: THEME_FILTER_MOVE_MS, easing: PILL_EASE }))
-      } else {
-        moves.current.push(el.animate([{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "scale(1)" }], { duration: THEME_FILTER_FADE_MS, easing: "cubic-bezier(0.2, 0, 0, 1)" }))
-      }
-    }
-    const ran = moves.current
-    if (ran.length) Promise.all(ran.map((a) => a.finished.catch(() => null))).then(() => { if (moves.current === ran) moves.current = [] })
   }, [filter])
 
   /* Scrolled back up, the hold is needed less: it shrinks with the scroll, never under what is on screen. */
@@ -3170,10 +3424,10 @@ function ThemeSection() {
   return (
     <div>
       {/*
-        The editor's one pill-tab row (components/onepage/pill-tabs): one dark
-        pill slides to the pressed kind from the press itself, where each chip
-        used to fade its own fill in place. The pick goes through the steady
-        filter above, so the page holds still under it.
+        The editor's one pill-tab row (components/onepage/pill-tabs), Storelib's
+        own pills since round 11: the chosen kind's light fill fades in where
+        it is, as Settings' pills across the app do. The pick goes through the
+        steady filter above, so the page holds still under it.
       */}
       <PillTabs
         dataRow="theme-kinds"
@@ -3183,15 +3437,12 @@ function ThemeSection() {
         onChange={pickFilter}
         rowAttrs={{ "data-theme-filters": "" }}
         itemAttr="data-theme-filter"
-        className="-mx-4 mb-5 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0"
-        itemClassName="h-9 shrink-0 rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium hover:border-[#c9cbd1]"
-        pillClassName="rounded-full bg-[#1a1a2e]"
-        onClass="text-white"
-        offClass="text-[#4b5563]"
+        className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0"
+        itemClassName="h-10 px-4 text-[13px] sm:h-9"
       />
       {THEME_NAME_FONTS_HREF ? <link rel="stylesheet" href={THEME_NAME_FONTS_HREF} /> : null}
       {/* Every card, made once and kept; a pick of a kind shows its own (useSteadyFilter). `relative` so each card's offset is read from the grid. */}
-      <div ref={gridRef} className="relative grid grid-cols-2 content-start gap-3 sm:grid-cols-3" data-theme-grid="">
+      <div ref={gridRef} className="relative isolate grid grid-cols-2 content-start gap-3 sm:grid-cols-3" data-theme-grid="">
         {THEME_TEMPLATES.map((template) => (
           <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} shown={filter === "all" || template.category === filter} onPick={onPick} />
         ))}
@@ -4199,18 +4450,15 @@ function FontPicker({
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search fonts")} aria-label={tt("Search fonts")} className={cn(fieldInput, "h-11 pl-10")} />
         </label>
         {withCategories ? (
-          /* The editor's one pill-tab row (components/onepage/pill-tabs): the pill slides to the pressed kind from the press. */
+          /* The editor's one pill-tab row (components/onepage/pill-tabs): Storelib's own pills, the chosen one's fill fading in where it is. */
           <PillTabs
             dataRow="font-kinds"
             label={tt("Kind of font")}
             items={FONT_CATEGORIES}
             value={family}
             onChange={chooseFamily}
-            className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide"
-            itemClassName="h-9 shrink-0 rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium hover:border-[#c9cbd1]"
-            pillClassName="rounded-full bg-[#1a1a2e]"
-            onClass="text-white"
-            offClass="text-[#4b5563]"
+            className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 scrollbar-hide"
+            itemClassName="h-9 px-4 text-[13px]"
           />
         ) : null}
       </div>

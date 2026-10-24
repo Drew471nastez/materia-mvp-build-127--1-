@@ -21,45 +21,53 @@
  *
  * Now there is one row and one set of panels:
  *
- *   PillTabs    a row of words with ONE pill under the chosen one, used by
- *               Settings' chips and list, the Theme page's kinds and the
- *               font picker's kinds. The pill is moved by a direct style
- *               write in the press itself (pointerdown), before React hears
- *               of it, and slides and stretches from where it is to the
- *               pressed tab on transform (220ms, iOS's curve), on the
- *               compositor, from where the tabs were measured after the
- *               last render. The choice is made on the click, in a
- *               transition, so a finger that scrolls the row instead puts
- *               the pill back. Each word is drawn twice, in the chosen and
- *               the plain colour, crossing on opacity, so no colour is
- *               painted frame by frame.
+ *   PillTabs    a row of pills, used by Settings' sections, the Theme page's
+ *               kinds and the font picker's kinds. ROUND 11, the owner: "When
+ *               I click on something, it makes the text black and the pill
+ *               shape black so there's nothing visible", and "the switching
+ *               between the pill shapes should inherit how Storelib feels
+ *               when I click pill shapes: the settings of the app". So these
+ *               are Storelib's own pills now, the ones Settings, the library
+ *               and the profile share (lib/ui/pill-switch.ts): white on a
+ *               hairline, the chosen one on its own light grey fill that
+ *               fades in where it is (PILL_FADE_MS), the words ink on it and
+ *               grey off it, turning in one step, a finger landing as a light
+ *               tint, a light tick of haptics on a finger's press. Nothing
+ *               slides and nothing scales. The chosen words are real text in
+ *               both looks, never drawn by CSS (see PillWord): the dark pill
+ *               whose label came from `content: attr()` is what left a black
+ *               pill with nothing on it.
  *   PillPanels  Settings' sections, every one kept mounted, one over the
  *               other in one grid cell (so the box is as tall as the tallest
  *               and never jumps), the ones not yet seen built in the page's
- *               idle time. A switch fades the new one in (180ms) over the
- *               old one fading out (120ms), on opacity, with no frame of
- *               neither, and each is scrolled back to where it was left.
- *               Each is on a layer of its own, painted once, so a switch
- *               paints nothing. What a panel draws is handed in already
- *               made, so a switch re-renders the row and this, and nothing
- *               inside the panels.
+ *               idle time. A switch is Storelib's own (lib/ui/pill-switch
+ *               landContent): the section left goes in the frame the new one
+ *               arrives, and the new one lands from CONTENT_IN_FROM over
+ *               CONTENT_IN_MS, on opacity alone, never from nothing, never
+ *               two sections' words on the glass at once, nothing moving.
+ *               Each is scrolled back to where it was left. Each is on a
+ *               layer of its own, painted once, so a switch paints nothing.
+ *               What a panel draws is handed in already made, so a switch
+ *               re-renders the row and this, and nothing inside the panels.
  *   usePillSlide, usePillPress
- *               the pill and its press, which the editor's own row of tabs
- *               on a computer uses too. The phone's bottom bar has no pill
+ *               the sliding pill and its press, which the editor's own row
+ *               of tabs on a computer uses (a segmented control, as the
+ *               analytics switchers are). The phone's bottom bar has no pill
  *               (the owner asked for its buttons to change in place); it
  *               uses usePillPress to start that change on the press.
  */
 import * as React from "react"
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
+import { hapticTap } from "@/lib/native-bridge"
+import { CONTENT_IN_EASE, CONTENT_IN_FROM, CONTENT_IN_MS, PILL_FILL, PILL_PRESS, PILL_WORDS, PILL_WORDS_OFF, PILL_WORDS_ON, pressPill, releasePill } from "@/lib/ui/pill-switch"
 
 /** The pill slides to the next tab on iOS's curve. */
 export const PILL_MS = 220
 export const PILL_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-/** A panel's crossfade. */
-export const PANEL_FADE_MS = 180
-/** How far a sliding panel comes in from (PillPanels `slide`): enough to read as a direction, too little to read as a move. */
-export const PANEL_SLIDE_PX = 10
+/** A section landing under the pills: Storelib's own (lib/ui/pill-switch.ts), one number in one place. */
+export const PANEL_IN_MS = CONTENT_IN_MS
+export const PANEL_IN_FROM = CONTENT_IN_FROM
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -167,17 +175,18 @@ export function usePillSlide(activeId: string, remount?: unknown) {
 }
 
 /*
-  A tab's word, twice: in the colour it has when chosen and in the colour it
-  has when not, one over the other, crossing on opacity, rather than the
-  words painted in a new colour. The second copy is drawn by CSS, so the
-  tab's text is the word once.
+  A TAB'S WORDS ARE REAL TEXT. They were drawn twice, the chosen copy by CSS
+  (`after:content-[attr(data-text)]`, through Tailwind's --tw-content). Where
+  an engine resolves attr() inside a custom property against the pseudo
+  element rather than the button (WebKit, every iPhone, and Safari on a Mac),
+  that copy is empty: the chosen pill was the dark fill with nothing on it,
+  "just a pill shape full black". Now the word is the button's own text, once,
+  in one colour that turns in one step with the fill (PILL_WORDS).
 */
-function PillWord({ on, onClass, offClass, text, align }: { on: boolean; onClass: string; offClass: string; text: string; align: "center" | "start" }) {
-  const face = cn("col-start-1 row-start-1 min-w-0 truncate transition-opacity duration-200 ease-out", align === "center" ? "text-center" : "text-left")
+function PillWord({ on, text, align }: { on: boolean; text: string; align: "center" | "start" }) {
   return (
-    <span className="relative z-[2] grid min-w-0">
-      <span data-pill-face="off" className={cn(face, offClass)} style={{ opacity: on ? 0 : 1 }}>{text}</span>
-      <span data-pill-face="on" aria-hidden data-text={text} className={cn(face, onClass, "after:content-[attr(data-text)]")} style={{ opacity: on ? 1 : 0 }} />
+    <span data-pill-word="" data-on={on ? "" : undefined} className={cn(PILL_WORDS, "block min-w-0 truncate", align === "center" ? "text-center" : "text-left", on ? PILL_WORDS_ON : PILL_WORDS_OFF)}>
+      {text}
     </span>
   )
 }
@@ -220,9 +229,17 @@ export function usePillPress(slideTo: (id: string) => void, value: string) {
 export type PillTabItem<T extends string> = { id: T; label: string }
 
 /**
- * A row of pill tabs. The looks are the caller's (`className` for the row,
- * `itemClassName` for each tab, `pillClassName` for the pill, `onClass` and
- * `offClass` for the words); the motion is this.
+ * Storelib's pill, the same size chosen or not: white on a hairline, with its
+ * fill, its press tint and its words as layers inside it (lib/ui/pill-switch,
+ * components/library/library-tabs PILL). A caller sets the size
+ * (`itemClassName`: height, padding, type size); the look is this.
+ */
+export const PILL_TAB =
+  "group/pill relative isolate inline-flex shrink-0 cursor-pointer touch-manipulation select-none items-center justify-center whitespace-nowrap rounded-full border border-[#e4e7ec] bg-white font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
+
+/**
+ * A row of Storelib's pills. The row's layout is the caller's (`className`),
+ * and each pill's size (`itemClassName`); the look and the motion are this.
  */
 export function PillTabs<T extends string>({
   items,
@@ -231,9 +248,6 @@ export function PillTabs<T extends string>({
   label,
   className,
   itemClassName,
-  pillClassName,
-  onClass,
-  offClass,
   align = "center",
   dataRow,
   rowAttrs,
@@ -247,9 +261,6 @@ export function PillTabs<T extends string>({
   label: string
   className?: string
   itemClassName?: string
-  pillClassName?: string
-  onClass: string
-  offClass: string
   align?: "center" | "start"
   /** A name for the row, as data-pill-row. */
   dataRow?: string
@@ -260,8 +271,20 @@ export function PillTabs<T extends string>({
   /** A row that scrolls sideways brings the chosen tab fully into view (see THE CHOSEN PILL IS ALWAYS IN VIEW). */
   keepInView?: boolean
 }) {
-  const { rowRef, pillRef, slideTo } = usePillSlide(value)
-  const pressFor = usePillPress(slideTo, value)
+  const rowRef = useRef<HTMLDivElement>(null)
+  /*
+    THE PILL ANSWERS THE CLICK AT ONCE. The row is drawn again for the pill
+    chosen in the click itself (a few buttons), and what the pill opens
+    follows in a transition React may put aside for the next press.
+  */
+  const [picked, setPicked] = useState<T>(value)
+  const [followed, setFollowed] = useState<T>(value)
+  if (followed !== value) {
+    setFollowed(value)
+    setPicked(value)
+  }
+  /* What the last press was: a finger gets a light tick of haptics when it chooses (lib/native-bridge hapticTap). */
+  const pointer = useRef<string>("mouse")
 
   /*
     THE CHOSEN PILL IS ALWAYS IN VIEW. A row wider than the screen (Settings'
@@ -276,7 +299,7 @@ export function PillTabs<T extends string>({
   useLayoutEffect(() => {
     if (!keepInView) return
     const row = rowRef.current
-    const tab = row?.querySelector<HTMLElement>(`[data-tab="${CSS.escape(value)}"]`)
+    const tab = row?.querySelector<HTMLElement>(`[data-tab="${CSS.escape(picked)}"]`)
     const instant = firstPlace.current
     firstPlace.current = false
     if (!row || !tab || row.scrollWidth <= row.clientWidth + 1) return
@@ -290,14 +313,12 @@ export function PillTabs<T extends string>({
     to = Math.max(0, Math.min(to, row.scrollWidth - row.clientWidth))
     if (Math.abs(to - from) < 1) return
     row.scrollTo({ left: to, behavior: instant || reducedMotion() ? "auto" : "smooth" })
-  }, [keepInView, value, rowRef])
+  }, [keepInView, picked])
 
   return (
-    <div ref={rowRef} role="tablist" aria-label={label} data-pill-row={dataRow ?? ""} {...rowAttrs} className={cn("relative isolate", className)}>
-      <span ref={pillRef} aria-hidden data-pill="" className={cn("pointer-events-none absolute left-0 top-0 z-[1]", pillClassName)} style={{ opacity: 0 }} />
+    <div ref={rowRef} role="tablist" aria-label={label} data-pill-row={dataRow ?? ""} {...rowAttrs} className={cn("relative", className)}>
       {items.map((item) => {
-        const on = item.id === value
-        const press = pressFor(item.id)
+        const on = item.id === picked
         return (
           <button
             key={item.id}
@@ -305,24 +326,31 @@ export function PillTabs<T extends string>({
             role="tab"
             aria-selected={on}
             data-tab={item.id}
+            data-active={on ? "true" : "false"}
             {...(itemAttr ? { [itemAttr]: item.id } : null)}
-            onPointerDown={press.onPointerDown}
-            onPointerCancel={press.onPointerCancel}
+            onPointerDown={(e) => {
+              pointer.current = e.pointerType
+              if (e.button === 0 && !on) pressPill(e.currentTarget)
+            }}
+            onPointerUp={(e) => releasePill(e.currentTarget)}
+            onPointerCancel={(e) => releasePill(e.currentTarget)}
+            onPointerLeave={(e) => {
+              if (e.pointerType === "mouse") releasePill(e.currentTarget)
+            }}
             /* The row is not scrolled to the pressed chip: "don't shift layout on click" (scripts/check-onepage-tabbar.mjs). */
             onClick={() => {
-              press.chosen()
-              slideTo(item.id)
-              /*
-                The pill is already on its way (a compositor animation); the
-                panels follow in a render React may split up and put aside
-                for the next press, rather than inside this click, where it
-                stacked onto the press's own work in one long frame.
-              */
-              if (!on) startTransition(() => onChange(item.id))
+              if (on) return
+              if (pointer.current === "touch") hapticTap("light")
+              pointer.current = "mouse"
+              setPicked(item.id)
+              startTransition(() => onChange(item.id))
             }}
-            className={cn("relative min-w-0 cursor-pointer select-none outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]", itemClassName)}
+            className={cn(PILL_TAB, itemClassName)}
           >
-            <PillWord on={on} onClass={onClass} offClass={offClass} text={item.label} align={align} />
+            <span aria-hidden data-pill-press="" className={PILL_PRESS} />
+            {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
+            <span aria-hidden data-pill-fill="" className={cn(PILL_FILL, on ? "opacity-100" : "opacity-0")} />
+            <PillWord on={on} text={item.label} align={align} />
           </button>
         )
       })}
@@ -352,7 +380,6 @@ export function PillPanels<T extends string>({
   build = "idle",
   buildAfter = 0,
   layered = true,
-  slide = false,
 }: {
   value: T
   panels: readonly { id: T; node: React.ReactNode }[]
@@ -364,12 +391,6 @@ export function PillPanels<T extends string>({
   buildAfter?: number
   /** Each panel on a layer of its own, painted once (see below). Off for large panels, where the layers cost more than the paint. */
   layered?: boolean
-  /**
-   * The new panel also comes in from a few pixels to the side the pill went
-   * (PANEL_SLIDE_PX), on transform, with the fade: a switch reads as moving
-   * along the row rather than one picture swapped for another.
-   */
-  slide?: boolean
 }) {
   /*
     `live` is the panel that takes presses and focus; the rest are inert.
@@ -381,7 +402,7 @@ export function PillPanels<T extends string>({
     any press, so nothing half faded can be pressed.
   */
   const [state, setState] = useState<{ shown: T; leaving: T | null; live: T; built: T[] }>(() => ({ shown: value, leaving: null, live: value, built: [value] }))
-  /* The chosen one changed: the one it replaces stays drawn, leaving, in this same render. */
+  /* The chosen one changed: the one it replaces is remembered as leaving (inert until the landing ends), and no longer drawn. */
   if (state.shown !== value) {
     setState({ ...state, shown: value, leaving: state.shown, built: state.built.includes(value) ? state.built : [...state.built, value] })
   }
@@ -406,8 +427,6 @@ export function PillPanels<T extends string>({
   }, [ids, build, buildAfter])
 
   const refs = useRef<Partial<Record<T, HTMLDivElement | null>>>({})
-  const panelsRef = useRef(panels)
-  panelsRef.current = panels
   const scrolls = useRef<Partial<Record<T, number>>>({})
   const drawnRef = useRef(state.shown)
   const fades = useRef<Animation[]>([])
@@ -417,7 +436,6 @@ export function PillPanels<T extends string>({
     drawnRef.current = to
     if (from === to) return
     const incoming = refs.current[to]
-    const outgoing = refs.current[from]
     if (!incoming) return
     /* Each panel where it was left: the one leaving is remembered, the one arriving put back. */
     const scroller = scrollerOf(incoming)
@@ -426,26 +444,25 @@ export function PillPanels<T extends string>({
       scroller.scrollTop = scrolls.current[to] ?? 0
     }
     const letGo = () => setState((s) => (s.leaving === from ? { ...s, leaving: null, live: s.shown } : s))
-    /* Our own fades, kept here: asking an element for its animations makes the browser restyle the page first. */
+    /* Our own landing, kept here: asking an element for its animations makes the browser restyle the page first. */
     fades.current.forEach((a) => a.cancel())
     fades.current = []
-    if (!outgoing || typeof incoming.animate !== "function" || reducedMotion()) {
+    if (typeof incoming.animate !== "function" || reducedMotion()) {
       letGo()
       return
     }
-    /* Which way along the row: the panels are in the row's order. */
-    const order = panelsRef.current.map((p) => p.id)
-    const dx = slide ? (order.indexOf(to) >= order.indexOf(from) ? PANEL_SLIDE_PX : -PANEL_SLIDE_PX) : 0
-    const into = incoming.animate(
-      dx ? [{ opacity: 0, transform: `translate3d(${dx}px, 0, 0)` }, { opacity: 1, transform: "translate3d(0, 0, 0)" }] : [{ opacity: 0 }, { opacity: 1 }],
-      { duration: PANEL_FADE_MS, easing: "cubic-bezier(0.2, 0, 0, 1)" },
-    )
-    /* The old one goes a little faster than the new one comes, so two panels of different lengths are superimposed for as short a time as can be, without a frame of neither. */
-    const out = outgoing.animate([{ opacity: 1 }, { opacity: 0 }], { duration: PANEL_FADE_MS - 60, easing: "cubic-bezier(0.3, 0, 0.7, 1)", fill: "forwards" })
-    fades.current = [into, out]
+    /*
+      STORELIB'S OWN SWITCH (lib/ui/pill-switch landContent). The section
+      left is gone in the frame this one arrives (it is not drawn: see
+      `drawn` below), and this one lands from most of the way there, so no
+      frame is empty and no two sections' words are ever on the glass at
+      once. Opacity alone; nothing moves.
+    */
+    const into = incoming.animate([{ opacity: PANEL_IN_FROM }, { opacity: 1 }], { duration: PANEL_IN_MS, easing: CONTENT_IN_EASE })
+    fades.current = [into]
     into.onfinish = letGo
-    /* However the fade ends, or if a hidden page draws no frames, the old one goes. */
-    const timer = window.setTimeout(letGo, PANEL_FADE_MS + 200)
+    /* However the landing ends, or if a hidden page draws no frames, the one left is let go. */
+    const timer = window.setTimeout(letGo, PANEL_IN_MS + 200)
     return () => window.clearTimeout(timer)
   }, [state.shown])
   /* A panel that has finished leaving is at rest: nothing of its fade is left on it. */
@@ -458,7 +475,8 @@ export function PillPanels<T extends string>({
   return (
     <div data-pill-panels={dataPanels ?? ""} className={cn("relative grid", className)}>
       {panels.filter((p) => state.built.includes(p.id)).map((p) => {
-        const drawn = p.id === state.shown || p.id === state.leaving
+        /* Only the one chosen is drawn: the one it replaces goes in the same frame (it stays inert until the landing is over). */
+        const drawn = p.id === state.shown
         return (
           <div
             key={p.id}
@@ -482,7 +500,7 @@ export function PillPanels<T extends string>({
           </div>
         )
       })}
-      {/* While two panels cross, a press lands here and not on either. */}
+      {/* While a section lands, a press lands here and not on the one before it. */}
       {state.leaving !== null ? <div aria-hidden data-pill-panels-busy="" className="absolute inset-0 z-[2]" /> : null}
     </div>
   )

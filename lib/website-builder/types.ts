@@ -447,6 +447,8 @@ export interface SchemaField {
   content?: string
   /** When the panel shows it. See lib/storelib-theme/visible-if.ts. */
   visible_if?: string
+  /** A colour scheme's colour: the group it is listed under (lib/storelib-theme/scheme-categories.ts). */
+  category?: string
   /** image_picker, text, url: the picked collection's value until one is set, "collection.image". See lib/storelib-theme/collection-binding.ts. */
   from?: string
 }

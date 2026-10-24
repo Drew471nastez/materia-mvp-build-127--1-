@@ -49,6 +49,14 @@ interface SiteWishlistValue {
   toggle: (id: string, on?: boolean) => void
   /** Whether this list reaches storage at all. False inside the editor. */
   live: boolean
+  /**
+   * In the editor: a heart has been pressed in the canvas. Until then the
+   * Wishlist page shows sample products so it can be styled; after, it shows
+   * exactly what was saved, empty state included.
+   */
+  touched: boolean
+  /** In the editor only: start the list from the sample cards the Wishlist page shows (a sample's heart removes that sample). */
+  seedSample: (ids: string[]) => void
 }
 
 const EMPTY: SiteWishlistValue = {
@@ -59,6 +67,8 @@ const EMPTY: SiteWishlistValue = {
   has: () => false,
   toggle: () => {},
   live: false,
+  touched: false,
+  seedSample: () => {},
 }
 
 const SiteWishlistContext = createContext<SiteWishlistValue>(EMPTY)
@@ -137,6 +147,8 @@ export function SiteWishlistProvider({ shopId, children }: { shopId?: string; ch
   const [ids, setIds] = useState<string[]>([])
   const [ready, setReady] = useState(false)
   const [signedIn, setSignedIn] = useState(false)
+  /* The canvas's own list (no shopId) has been changed by a heart: see `touched`. */
+  const [touched, setTouched] = useState(false)
   /* The mode as the latest write knows it, for callbacks made before a re-render. */
   const mode = useRef<"guest" | "account">("guest")
 
@@ -221,7 +233,10 @@ export function SiteWishlistProvider({ shopId, children }: { shopId?: string; ch
     const next = toggled(current, id, want)
     idsRef.current = next
     setIds(next)
-    if (!guestKey || !accountKey) return
+    if (!guestKey || !accountKey) {
+      setTouched(true)
+      return
+    }
     if (mode.current === "guest") {
       save(guestKey, next)
       writeGuestCookie(next)
@@ -255,6 +270,15 @@ export function SiteWishlistProvider({ shopId, children }: { shopId?: string; ch
     })
   }, [guestKey, accountKey, showGuest])
 
+  const seedSample = useCallback((list: string[]) => {
+    /* Memory only, and only before the first heart: a live website's list is never written from here. */
+    if (guestKey || accountKey || touched) return
+    const clean = cleanList(list)
+    idsRef.current = clean
+    setIds(clean)
+    setTouched(true)
+  }, [guestKey, accountKey, touched])
+
   const value = useMemo<SiteWishlistValue>(() => {
     const set = new Set(ids)
     return {
@@ -265,8 +289,10 @@ export function SiteWishlistProvider({ shopId, children }: { shopId?: string; ch
       has: (id: string) => set.has(String(id).toLowerCase()),
       toggle,
       live: !!shopId,
+      touched,
+      seedSample,
     }
-  }, [ids, ready, signedIn, toggle, shopId])
+  }, [ids, ready, signedIn, toggle, shopId, touched, seedSample])
 
   return <SiteWishlistContext.Provider value={value}>{children}</SiteWishlistContext.Provider>
 }

@@ -19,6 +19,8 @@
 
 /** More than anybody saves on one shop, and a bound on the cookie's size. */
 export const WISHLIST_MAX = 60
+/** The cards the builder canvas's Wishlist page shows as samples before a heart is pressed there (StorelibSection). */
+export const WISHLIST_SAMPLE_COUNT = 4
 
 export const GUEST_COOKIE = "sl_wishlist"
 
