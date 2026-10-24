@@ -47,6 +47,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { customerInLanguage } from "@/lib/site-accounts/account-language"
 
 export type AccountPageKey = "account" | "login" | "wishlist" | "contact" | "password" | "reviews"
 
@@ -121,7 +122,8 @@ export async function renderAccountPage(
 
   const globals: StorefrontGlobals = {
     shop: { name: site.displayName, email: wantsEmail(sections) ? await supportEmail(site.creatorId) : "" },
-    customer: extras.customer ?? null,
+    /* Its orders' dates, states and buttons in the page's language too (lib/site-accounts/account-language.ts). */
+    customer: (localizer ? customerInLanguage(extras.customer, localizer.locale, localizer.words) : extras.customer) ?? null,
     wishlist: extras.wishlist ?? null,
   }
   const page: Record<string, unknown> = {}

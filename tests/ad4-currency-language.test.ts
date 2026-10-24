@@ -23,6 +23,9 @@
  *   7. A market whose currency the checkout cannot charge ("Shown only, paid
  *      in RON") still showed its prices with the market's adjustment: a
  *      -30% market read 30% below what the card was then charged.
+ *   8. A customer's account on a website in French listed their orders with
+ *      English dates ("Oct 3, 2026"), states ("Delivered") and buttons
+ *      ("Track order"), whatever the page's language.
  *
  *   npx tsx tests/ad4-currency-language.test.ts
  */
@@ -41,6 +44,8 @@ import { themeSettingsForNewBase } from "@/lib/markets/base-change"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { inEmailLanguage } from "@/lib/emails/words"
 import { orderConfirmationEmail, type OrderEmailModel } from "@/lib/physical/email-templates"
+import { customerInLanguage, ACCOUNT_WORDS } from "@/lib/site-accounts/account-language"
+import { UI_WORDS } from "@/lib/markets/ui-words"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -176,6 +181,26 @@ console.log("\n7. A market shown only, never charged, shows what the card will p
   check("  the cart reads back a shown price the same way", storeCentsFromShown(8600, storefrontDisplay(pln, "pl", "RON")) === 10000)
   const panel = read("components/app/settings/markets-panel.tsx")
   check("the settings offer the adjustment only where it is charged", /chargeableCurrency\(m\.currency\) \? \(\s*<Field label=\{tt\("Adjustment \(%\)"\)\}/.test(panel), panel.match(/[^\n]*Adjustment \(%\)[^\n]*/)?.[0])
+}
+
+console.log("\n8. A customer's orders read in the website's language\n")
+{
+  const customer = {
+    name: "Ana", email: "ana@example.com",
+    orders: [
+      { id: "o1", number: "AB12", date: "Oct 3, 2026", created_at: "2026-10-03T22:30:00Z", status: "Delivered", state: "open", total: "Free", price: "Free", action_label: "Track order", items: [{ title: "No longer available", image: "", url: "", variant: "" }, { title: "Mug", image: "", url: "", variant: "" }], tracking: [{ company: "DHL", number: "1", url: "", status: "In transit" }] },
+    ],
+  }
+  const fr = { order_delivered: "Livrée", order_track: "Suivre la commande", order_free: "Gratuit", order_unavailable: "Plus disponible", order_in_transit: "En transit" }
+  const out = customerInLanguage(customer, "fr", fr) as typeof customer
+  const o = out.orders[0]
+  check("the date in French", o.date === "3 oct. 2026", o.date)
+  check("  the state, the button, the free total and the gone product in the shop's French words", o.status === "Livrée" && o.action_label === "Suivre la commande" && o.total === "Gratuit" && o.price === "Gratuit" && o.items[0].title === "Plus disponible" && o.items[1].title === "Mug" && o.tracking[0].status === "En transit", o)
+  check("  a word with no translation stays English, never blank", (customerInLanguage({ orders: [{ ...customer.orders[0], status: "Shipped" }] }, "fr", fr) as typeof customer).orders[0].status === "Shipped")
+  check("  the customer it was given is not changed", customer.orders[0].status === "Delivered" && customer.orders[0].date === "Oct 3, 2026")
+  check("in English it is exactly what it was", JSON.stringify(customerInLanguage(customer, "en", {})) === JSON.stringify(customer))
+  check("every state and button the account writes is a shop word", Object.values(ACCOUNT_WORDS).every((k) => k in UI_WORDS) && ["Processing", "Refunded", "On hold", "Partly refunded", "Complete", "Delivered", "Shipped", "Confirmed", "Cancelled", "Partly ready", "Partly shipped", "Ready for pickup", "Picked up", "In transit", "Out for delivery", "Delivery problem", "Sent to be shipped", "Being prepared", "Track order", "View order", "Download", "Access", "Free", "No longer available"].every((w) => w in ACCOUNT_WORDS))
+  check("the account page draws its customer in the page's language", /customerInLanguage\(extras\.customer, localizer\.locale, localizer\.words\)/.test(read("app/(site)/w/[username]/render-account.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
