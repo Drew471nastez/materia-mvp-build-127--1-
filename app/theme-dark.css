@@ -231,14 +231,18 @@ html[data-sl-dark] [data-header-dashboard]:active {
 
 /*
   THE HEADER'S DARK STYLE IS NEAR BLACK IN BOTH LOOKS (round AC1). The admin's header style (/admin, buyer header
-  theme) set to dark draws the bar in #0e0e10, and the rule above that turns a near black fill into
+  theme) set to dark draws the bar in #16161a, and the rule above that turns a near black fill into
   graphite turned the whole bar #2d2d33: the owner's "too gray". The bar, its row and the curved edge under it
   keep the colour they were given. The id and the tone attribute outrank the class rule whatever the order.
 */
 :is(html[data-sl-dark], [data-community-theme="dark"]) #platform-header-root[data-header-tone="dark"],
 :is(html[data-sl-dark], [data-community-theme="dark"]) #platform-header-root[data-header-tone="dark"] > header,
 :is(html[data-sl-dark], [data-community-theme="dark"]) [data-header-concave="dark"][data-header-concave] {
-  background-color: #0e0e10;
+  background-color: #16161a;
+}
+/* Round AD5: its hairline keeps its strength too; the class rule for white borders would take it to 0.035, which on a dark page is no line at all. */
+:is(html[data-sl-dark], [data-community-theme="dark"]) #platform-header-root[data-header-tone="dark"] > header {
+  border-bottom-color: rgba(255,255,255,0.08);
 }
 
 html[data-sl-dark] [data-member-profile] [data-profile-top-bar] {
@@ -336,7 +340,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 874 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 876 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -475,7 +479,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0a0a0a\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0b0b12\]\/55:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.55); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0e0e10\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0e0e10\]\/\[0\.91\]:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.91); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0e0e10\]\/\[0\.928\]:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.928); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f0f14\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f1115\]\/25:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.25); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#0f1115\]\/35:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.35); }
@@ -484,8 +488,9 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#111\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#111113\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#151516\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#16161a\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#18181b\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#18181d\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a20\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/35:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.35); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1a1a2e\]\/45:not([data-own-look], [data-own-look] *) { background-color: rgba(45,45,51,0.45); }
@@ -496,6 +501,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1c1c22\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1d1d22\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#1f2230\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#2c2c33\]:not([data-own-look], [data-own-look] *) { background-color: #2d2d33; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#c7cbd1\]:not([data-own-look], [data-own-look] *) { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#d1d5db\]:not([data-own-look], [data-own-look] *) { background-color: #3a3a41; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .bg-\[\#d4d4d8\]:not([data-own-look], [data-own-look] *) { background-color: #3a3a41; }
@@ -755,7 +761,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-white:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/\[0\.07\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/\[0\.08\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/\[0\.1\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/\[0\.12\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/10:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-white\/15:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.035); }
@@ -1069,12 +1074,13 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_0_0_1px_rgba\(255\,255\,255\,0\.14\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.011); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_0_0_2px_\#1a1a2e\,inset_0_0_0_4px_\#fff\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.019),inset 0 0 0 4px rgba(255,255,255,0.009); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.05\)\,0_1px_2px_rgba\(0\,0\,0\,0\.45\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.004),0 1px 2px rgba(0,0,0,0.45); }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.08\)\,0_1px_2px_rgba\(0\,0\,0\,0\.55\)\,0_8px_20px_-8px_rgba\(0\,0\,0\,0\.8\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.006),0 1px 2px rgba(0,0,0,0.55),0 8px 20px -8px rgba(0,0,0,0.8); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.1\)\,inset_0_-1px_0_rgba\(0\,0\,0\,0\.4\)\,0_1px_2px_rgba\(0\,0\,0\,0\.6\)\,0_10px_24px_-10px_rgba\(0\,0\,0\,0\.9\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.008),inset 0 -1px 0 rgba(0,0,0,0.4),0 1px 2px rgba(0,0,0,0.6),0 10px 24px -10px rgba(0,0,0,0.9); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.12\)\,0_1px_1px_rgba\(0\,0\,0\,0\.12\)\,0_3px_8px_-2px_rgba\(26\,26\,46\,0\.35\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.01),0 1px 1px rgba(0,0,0,0.12),0 3px 8px -2px rgba(26,26,46,0.35); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.12\)\,0_1px_1px_rgba\(0\,0\,0\,0\.12\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.01),0 1px 1px rgba(0,0,0,0.12); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.12\)\,0_1px_2px_rgba\(15\,23\,42\,0\.18\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.01),0 1px 2px rgba(15,23,42,0.18); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.12\)\,0_1px_2px_rgba\(16\,24\,40\,0\.2\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.01),0 1px 2px rgba(16,24,40,0.2); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.12\)\,0_1px_2px_rgba\(17\,17\,19\,0\.22\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.01),0 1px 2px rgba(17,17,19,0.22); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,0_1px_2px_rgba\(0\,0\,0\,0\.5\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),0 1px 2px rgba(0,0,0,0.5); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,0_1px_2px_rgba\(16\,24\,40\,0\.2\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),0 1px 2px rgba(16,24,40,0.2); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,0_1px_2px_rgba\(16\,24\,40\,0\.24\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),0 1px 2px rgba(16,24,40,0.24); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .shadow-\[inset_0_1px_0_rgba\(255\,255\,255\,0\.14\)\,inset_0_-1px_0_rgba\(0\,0\,0\,0\.3\)\,0_1px_2px_rgba\(16\,24\,40\,0\.2\)\]:not([data-own-look], [data-own-look] *) { box-shadow: inset 0 1px 0 rgba(255,255,255,0.011),inset 0 -1px 0 rgba(0,0,0,0.3),0 1px 2px rgba(16,24,40,0.2); }
@@ -1108,8 +1114,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\:text-neutral-900:not([data-own-look], [data-own-look] *):is(:where(.group):hover *) { color: #ececee; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/back\:bg-\[\#f7f7f8\]:not([data-own-look], [data-own-look] *):is(:where(.group\/back):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/back\:border-\[\#d7dadf\]:not([data-own-look], [data-own-look] *):is(:where(.group\/back):hover *) { border-color: rgba(255,255,255,0.07); }
-  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/course\:bg-\[\#f3f4f6\]:not([data-own-look], [data-own-look] *):is(:where(.group\/course):hover *) { background-color: #25252a; }
-  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/course\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):is(:where(.group\/course):hover *) { color: #ececee; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/course\:bg-\[\#e9ebee\]:not([data-own-look], [data-own-look] *):is(:where(.group\/course):hover *) { background-color: #2b2b31; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/follow\:bg-\[\#2a2a40\]:not([data-own-look], [data-own-look] *):is(:where(.group\/follow):hover *) { background-color: #35353c; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/follow\:bg-\[\#f7f7f8\]:not([data-own-look], [data-own-look] *):is(:where(.group\/follow):hover *) { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .group-hover\/heart\:bg-\[\#fff1f3\]:not([data-own-look], [data-own-look] *):is(:where(.group\/heart):hover *) { background-color: hsla(351,60%,50%,0.16); }
@@ -1212,6 +1217,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#d6d9de\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#d7dadf\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#d9dce1\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#d9dce2\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#d9dde3\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#dcdfe3\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .hover\:border-\[\#dcdfe4\]:not([data-own-look], [data-own-look] *):hover { border-color: rgba(255,255,255,0.07); }

@@ -70,7 +70,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
   const windowOpen = settings.returnsEnabled && window.open
   const openReturn = order.returns.some((r) => ["requested", "approved", "in_transit"].includes(r.status))
   /* The store's pixels hear about the purchase once: on this page as it opens straight from paying (?paid=1), never on a later visit. */
-  const purchase = paid === "1" && order.status === "paid" ? { id: order.id, valueCents: order.totalCents, currency: order.currency, quantity: order.lines.reduce((n, l) => n + l.quantity, 0), items: order.lines.map((l) => gaItem({ id: l.productId ?? "", title: l.title, priceCents: l.unitCents, quantity: l.quantity, variant: l.variantName, kind: l.type === "physical" ? "physical" : "digital" })).filter((i): i is GaItem => !!i) } : null
+  const purchase = paid === "1" && order.status === "paid" ? { id: order.id, valueCents: order.totalCents, currency: order.currency, quantity: order.lines.reduce((n, l) => n + l.quantity, 0), items: order.lines.map((l) => gaItem({ id: l.productId ?? "", title: l.title, priceCents: l.unitCents, quantity: l.quantity, variant: l.variantName, kind: l.type === "physical" ? "physical" : "digital", currency: order.currency })).filter((i): i is GaItem => !!i) } : null
   return (
     <>
     {purchase ? <StoreTracking creatorId={order.creatorId} purchase={purchase} /> : null}

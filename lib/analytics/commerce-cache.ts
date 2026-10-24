@@ -14,6 +14,8 @@
  * is only shown to them.
  */
 
+import { isMidnightIn } from "@/lib/date-range/range"
+
 export const COMMERCE_KEEP_MS = 30 * 60_000
 export const COMMERCE_FRESH_MS = 15_000
 
@@ -43,11 +45,19 @@ export function commerceKey(q: CommerceQuestion): string {
   return p.toString()
 }
 
-/** The question without the moving end of a period that runs to now, so the minute's refresh is the same question. */
+/**
+ * The question without the moving end of a period that runs to now, so the
+ * minute's refresh is the same question. A period that has ended keeps its
+ * end, so two ranges starting the same day are two questions (report-cache
+ * questionOf).
+ */
 export function commerceQuestionOf(key: string): string {
   const p = new URLSearchParams(key)
-  p.delete("to")
-  p.delete("cend")
+  const tz = p.get("tz") || "UTC"
+  for (const name of ["to", "cend"]) {
+    const v = p.get(name)
+    if (v !== null && !isMidnightIn(Number(v), tz)) p.delete(name)
+  }
   return p.toString()
 }
 

@@ -45,6 +45,7 @@ import { groupOrders, isSale, type OrderRow } from "../orders/order-view"
 import type { Span } from "./buckets"
 import { buildReports, moneyOf, type Reports, type StepRow, type ViewRow } from "./reports"
 import { reportKey } from "./report-cache"
+import { minorUnits } from "@/lib/markets/money"
 
 /* The tab keys, as the page names them; "views" is the Visitors tab. */
 export type HomeMetric = "views" | "orders" | "revenue" | "conversion"
@@ -118,9 +119,15 @@ export function homeAllTime(allTime: { orders?: number; salesCents?: number } | 
  * The period's four figures and the chart's four series, from the reports
  * Analytics is drawn from: every number Home shows is one of Analytics'.
  */
-export function homeFromReports(r: Reports): HomePeriodFigures & { series: Record<HomeMetric, HomePoint[]> } {
+export function homeFromReports(r: Reports, currency = "USD"): HomePeriodFigures & { series: Record<HomeMetric, HomePoint[]> } {
   const percent = (fraction: number | null) => (fraction === null ? null : Number((fraction * 100).toFixed(2)))
   const labels = r.visitors.series.labels
+  /*
+    The chart's axis and its tooltip are written in the store's currency in
+    major units. Minor units over that currency's own decimals, not over 100:
+    a yen store's 2,500 was drawn as 25, a dinar store's 1.000 as 10.
+  */
+  const major = 10 ** minorUnits(currency)
   return {
     periodVisitors: r.visitors.value,
     prevPeriodVisitors: r.visitors.previous,
@@ -134,8 +141,7 @@ export function homeFromReports(r: Reports): HomePeriodFigures & { series: Recor
     series: {
       views: labels.map((label, i) => ({ label, value: r.visitors.series.current[i] ?? 0, secondaryValue: r.linkClicks.series.current[i] ?? 0 })),
       orders: labels.map((label, i) => ({ label, value: r.orders.series.current[i] ?? 0, refunds: r.refunds.series.current[i] ?? 0 })),
-      /* The chart's axis is written in dollars. */
-      revenue: labels.map((label, i) => ({ label, value: (r.sales.series.current[i] ?? 0) / 100 })),
+      revenue: labels.map((label, i) => ({ label, value: (r.sales.series.current[i] ?? 0) / major })),
       conversion: labels.map((label, i) => ({ label, value: percent(r.conversion.series.current[i] ?? null) })),
     },
   }
@@ -154,6 +160,8 @@ export function homeFigures(input: {
   window: Span
   previous: Span | null
   timeZone: string
+  /** The store's currency, for the revenue line in major units. */
+  currency?: string
 }): HomePeriodFigures & { series: Record<HomeMetric, HomePoint[]> } {
   const { window, previous, timeZone } = input
   const r = buildReports({
@@ -166,5 +174,5 @@ export function homeFigures(input: {
     mainDomain: "",
     productTitles: {},
   })
-  return homeFromReports(r)
+  return homeFromReports(r, input.currency)
 }

@@ -2557,6 +2557,8 @@ html.capacitor body {
     halo rather than as a shadow. Black, and further up, for those.
   */
   --bar-depth-dark: 0 1px 2px rgba(0, 0, 0, 0.28), 0 6px 18px -14px rgba(0, 0, 0, 0.45);
+  /* The dark platform header once the page has scrolled under it (round AD5): the same black, further out. */
+  --bar-depth-dark-raised: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
 }
 
 /* Subscribe Bar Bottom Border */
@@ -4832,6 +4834,19 @@ html.capacitor {
 */
 .platform-header-depth {
   box-shadow: var(--bar-depth-dark);
+  transition: box-shadow 200ms ease-out;
+}
+/*
+  ROUND AD5: SCROLLED, THE DARK BAR LIFTS. At the top of a page it is a
+  surface with a hairline; once the page moves under it, a soft shadow in
+  black says the page is going under something (platform-header-client
+  writes data-scrolled). Black, never a light halo, as --bar-depth-dark.
+*/
+.platform-header-depth[data-scrolled] {
+  box-shadow: var(--bar-depth-dark-raised);
+}
+@media (prefers-reduced-motion: reduce) {
+  .platform-header-depth { transition: none; }
 }
 
 /* The light bar has no depth on a phone: it is the white of the band above

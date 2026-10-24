@@ -267,7 +267,7 @@ async function main() {
 
     const creatorProfile = readCode("app/api/creator-profile/route.ts")
     check("the storefront's Edit profile moves them as well", creatorProfile.includes("followProfileIdentity"))
-    check("and clears the caches the public pages read the profile through", creatorProfile.includes("revalidateTag(creatorTag(user.id)"))
+    check("and clears the caches the public pages read the profile through", /* Changed on purpose (round AD): one helper expires the creator page's and the website's copies now. */ creatorProfile.includes("identityChanged({ userId: user.id") && readCode("lib/account/identity-caches.ts").includes("creatorTagOf(ids.userId)"))
 
     /* The box is empty while it follows the page, and shows the page's value only as its placeholder: only typed words are saved. */
     const seoTab = readCode("components/onepage/tabs/settings-tab.tsx") + readCode("components/onepage/seo-panel.tsx")

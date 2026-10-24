@@ -170,7 +170,7 @@ export async function POST(request: Request) {
         .update({ status: "active", ssl_status: "active", verified_at: domainRecord.verified_at || new Date().toISOString() })
         .eq("id", domainId)
         .eq("creator_id", creatorId)
-      revalidateTag(creatorDomainsTag(creatorId), "max")
+      revalidateTag(creatorDomainsTag(creatorId), { expire: 0 })
       /* A community's pages name their domain once it is live (lib/custom-domains/community-server.ts). */
       const communityId = communityIdOf(domainRecord)
       if (communityId) revalidateTag(communityDomainTag(communityId), "max")

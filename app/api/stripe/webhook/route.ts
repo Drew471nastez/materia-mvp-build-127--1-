@@ -9,16 +9,18 @@ import { createHash } from "node:crypto"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { orderOriginFrom, orderSourceFrom, tagOrderSource } from "@/lib/orders/order-source"
 import { attributionFromMetadata, recordContactAttribution, recordOrderAttribution } from "@/lib/attribution/server"
-import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
+import { fulfilPaymentIntent, isCheckoutIntent, recordCustomer } from "@/lib/checkout/fulfil-payment"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { fulfilCartPayment, fulfilCartSession, isCartIntent, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { releaseHeldCopies } from "@/lib/checkout/sales-limit"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
-import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
+import { closeAccessForDispute, disputedProductName, markPaymentDisputed, reopenAccessAfterWonDispute, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
+import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 import { disputeFeeMinor, isClosed, isInquiry, outcomeOf } from "@/lib/stripe/dispute-facts"
 import { disputeContext, disputeCreator, giveBackAfterWon, readDispute, reversedFor, saveDispute, takeBackForDispute } from "@/lib/stripe/disputes"
 import { decimalsOf } from "@/lib/payments/money"
+import { toLedger } from "@/lib/payments/ledger-currency"
 import { emit, type EmitInput } from "@/lib/notify/outbox"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { claimStripeEvent, noteStripeEvent, postLedger, stripeEventHandled } from "@/lib/payments/ledger"
@@ -769,17 +771,12 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
 
     // Customer record upsert
     if (buyerEmail && creatorId) {
-      await supabaseAdmin.from("customers").upsert(
-        {
-          email: buyerEmail.toLowerCase().trim(),
-          creator_id: creatorId,
-          first_name: buyerFirstName || null,
-          last_name: buyerLastName || null,
-          order_count: 1,
-          total_spent_cents: totalAmount,
-        },
-        { onConflict: "email,creator_id", ignoreDuplicates: false }
-      )
+      /* Added to the buyer's history (lib/checkout/fulfil-payment recordCustomer): this was an upsert of 1 and this order's total, which reset a returning customer's orders and spend on every purchase. */
+      try {
+        await recordCustomer(supabaseAdmin, { creatorId, email: buyerEmail.trim(), first: buyerFirstName || undefined, last: buyerLastName || undefined, total: totalAmount })
+      } catch (customerErr) {
+        console.error("[Webhook] customer record failed (non-fatal):", customerErr instanceof Error ? customerErr.message : customerErr)
+      }
 
       /* The buyer as the creator's contact: subscribed only with the
          session's own yes, a customer otherwise, and never back on the list
@@ -1710,19 +1707,22 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, reversed_minor: taken.reversedMinor, reversal_id: taken.reversalId, recovery: taken.state })
         const totalDeduction = ctx.onPlatform ? taken.reversedMinor : disputeAmountCents + disputeFeeCents
         if (totalDeduction <= 0) return taken
+        /* In the wallet's currency, as the sale was added and a refund is taken (lib/payments/ledger-currency): a dispute of 500 lei took 500.00 off a dollar balance. */
+        const deductionWallet = await toLedger([totalDeduction, disputeFeeCents], disputeCurrency)
+        const [walletDeduction, walletFee] = deductionWallet.amounts
 
         /* Once per dispute, in one locked step (lib/payments/ledger). Below: before run-now part 64. */
         const posted = await postLedger(supabaseAdmin, {
           creatorId: creator.id,
           key: `dispute:${dispute.id}:dispute_created`,
           op: "debit_available_first",
-          amountCents: totalDeduction,
+          amountCents: walletDeduction,
           event: {
             event_type: "dispute_created",
-            amount_cents: totalDeduction,
-            net_seller_cents: totalDeduction,
-            fee_cents: disputeFeeCents,
-            currency: disputeCurrency,
+            amount_cents: walletDeduction,
+            net_seller_cents: walletDeduction,
+            fee_cents: walletFee,
+            currency: deductionWallet.currency,
             stripe_dispute_id: dispute.id,
             description: `Dispute opened: ${amountText(totalDeduction, disputeCurrency)} held`,
           },
@@ -1732,7 +1732,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           : { data: null }
 
         if (ledger) {
-          let remaining = totalDeduction
+          let remaining = walletDeduction
           let newNegative = ledger.negative_balance
           const fromAvailable = Math.min(remaining, ledger.available_amount)
           remaining -= fromAvailable
@@ -1752,10 +1752,10 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           await supabaseAdmin.from("ledger_events").insert({
             creator_id: creator.id,
             event_type: "dispute_created",
-            amount_cents: totalDeduction,
-            net_seller_cents: totalDeduction,
-            fee_cents: disputeFeeCents,
-            currency: disputeCurrency,
+            amount_cents: walletDeduction,
+            net_seller_cents: walletDeduction,
+            fee_cents: walletFee,
+            currency: deductionWallet.currency,
             available_delta: -fromAvailable,
             pending_delta: -fromPending,
             stripe_dispute_id: dispute.id,
@@ -1790,6 +1790,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
             const rows = inquiry
               ? (((await supabaseAdmin.from("orders").select("id, product_id").eq("stripe_payment_intent_id", paymentIntentId)).data ?? []) as Array<{ id: string; product_id: string | null }>)
               : await markPaymentDisputed(supabaseAdmin, paymentIntentId)
+            /* The bank holds the money: the product leaves the buyer's library until the dispute is won (lib/stripe/dispute-orders). */
+            if (!inquiry) await closeAccessForDispute(supabaseAdmin, paymentIntentId, "stripe_payment_intent_id", communityAccessAfterEntitlement)
             orderId = rows[0]?.id ?? null
             const productIds = [...new Set(rows.map((r) => r.product_id).filter((id): id is string => !!id))]
             if (productIds.length > 0) {
@@ -1844,16 +1846,19 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           const totalRestored = ctx.onPlatform ? given.restoredMinor : disputeAmountCents + disputeFeeCents
 
           if (totalRestored > 0) {
+            /* Back in the wallet's currency, as it was taken. */
+            const restoredWallet = await toLedger([totalRestored], disputeCurrency)
+            const [walletRestored] = restoredWallet.amounts
             /* Once per dispute, in one locked step (lib/payments/ledger). Below: before run-now part 64. */
             const posted = await postLedger(supabaseAdmin, {
               creatorId: creator.id,
               key: `dispute:${dispute.id}:dispute_closed`,
               op: "credit_available",
-              amountCents: totalRestored,
+              amountCents: walletRestored,
               event: {
                 event_type: "dispute_closed",
-                amount_cents: totalRestored,
-                currency: disputeCurrency,
+                amount_cents: walletRestored,
+                currency: restoredWallet.currency,
                 stripe_dispute_id: dispute.id,
                 description: `Dispute won: ${amountText(totalRestored, disputeCurrency)} returned`,
               },
@@ -1864,7 +1869,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
 
             if (ledger) {
               // Restore funds: first absorb any negative balance, rest goes to available
-              let toAvailable = totalRestored
+              let toAvailable = walletRestored
               let newNegative = ledger.negative_balance
               if (newNegative > 0 && toAvailable > 0) {
                 const absorbed = Math.min(toAvailable, newNegative)
@@ -1883,9 +1888,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
               await supabaseAdmin.from("ledger_events").insert({
                 creator_id: creator.id,
                 event_type: "dispute_closed",
-                amount_cents: totalRestored,
+                amount_cents: walletRestored,
                 net_seller_cents: toAvailable,
-                currency: disputeCurrency,
+                currency: restoredWallet.currency,
                 available_delta: toAvailable,
                 stripe_dispute_id: dispute.id,
                 description: `Dispute won: ${amountText(totalRestored, disputeCurrency)} returned`,
@@ -1898,6 +1903,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           if (piId) {
             try {
               await restorePaymentAfterWonDispute(supabaseAdmin, piId)
+              /* And the product back in the buyer's library, which the dispute took (lib/stripe/dispute-orders). */
+              await reopenAccessAfterWonDispute(supabaseAdmin, piId, "stripe_payment_intent_id", communityAccessAfterEntitlement)
             } catch (restoreErr) {
               console.error("[Webhook] Dispute won: orders not restored:", restoreErr)
             }
@@ -1949,6 +1956,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           if (taken && paymentIntentId) {
             try {
               await markPaymentDisputed(supabaseAdmin, paymentIntentId)
+              await closeAccessForDispute(supabaseAdmin, paymentIntentId, "stripe_payment_intent_id", communityAccessAfterEntitlement)
             } catch (markErr) {
               console.error("[Webhook] Dispute: orders not marked disputed:", markErr)
             }

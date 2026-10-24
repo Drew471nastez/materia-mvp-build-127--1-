@@ -32,6 +32,7 @@ import { isBuiltInWordKey, isEnglish, localizeCards, localizeOptions, localizeRe
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { currencyCode, type PriceRounding } from "./money"
 import { languageChoiceOf } from "./choice"
+import { chargeNoteIn } from "./checkout-words"
 import { countryOfCurrency, resolveMarketCountries, storeHomeCountry } from "./market-countries"
 import { chargeCurrencyFor } from "./checkout-charge"
 import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
@@ -284,7 +285,10 @@ export async function languageChoice(creatorId: string, locale: string | null | 
   const rates = langs.markets.length ? await cachedRates().catch(() => null) : null
   /* A market whose currency cannot be converted today is not offered: picked, it would show the store's prices and snap back to home. The builder's canvas asks the same function (lib/markets/choice.ts). */
   const offered = langs.markets.filter((m) => m.countries.length && pricingFor(m, charge, rates))
-  return languageChoiceOf({ defaultLanguage: langs.defaultLanguage, others: langs.others, locale, markets: offered, fresh: offered.length > 0, pricing, base: charge, charge: chargeCurrencyFor(pricing, charge) })
+  /* The note under the selector in the page's language, as the checkout says it (its translation, or Storelib's own words). */
+  const lang = (locale && langs.others.find((l) => l.toLowerCase() === locale.toLowerCase())) || langs.defaultLanguage
+  const map = pricing && !isEnglish(lang) ? translationMap((await cachedTranslations(creatorId, lang).catch(() => [])).filter((r) => r.status === "approved")) : null
+  return languageChoiceOf({ defaultLanguage: langs.defaultLanguage, others: langs.others, locale, markets: offered, fresh: offered.length > 0, pricing, base: charge, charge: chargeCurrencyFor(pricing, charge), say: (shown, paid) => chargeNoteIn(lang, map, shown, paid) })
 }
 
 /**

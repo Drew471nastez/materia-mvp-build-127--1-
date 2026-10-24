@@ -966,7 +966,7 @@ function MarketEditor({
         {!m.primary && m.currency ? (
           <div className="rounded-xl border border-[#eceef1]">
             <button type="button" onClick={() => setMore((v) => !v)} aria-expanded={more} className="flex w-full items-center justify-between px-3.5 py-3 text-left text-[13.5px] font-medium text-[#1a1a2e]">
-              {tt("Rounding, adjustment and exchange rate")}
+              {chargeableCurrency(m.currency) ? tt("Rounding, adjustment and exchange rate") : tt("Rounding and exchange rate")}
               <ChevronDown aria-hidden className={cn("h-4 w-4 text-[#6b7280] transition-transform", more && "rotate-180")} />
             </button>
             {more ? (
@@ -980,6 +980,8 @@ function MarketEditor({
                     ))}
                   </SelectInput>
                 </Field>
+                {/* Only where the card is charged in this currency: shown only, its prices say what the store's price comes to (lib/markets/pricing.ts pricingFor). */}
+                {chargeableCurrency(m.currency) ? (
                 <Field label={tt("Adjustment (%)")} hint={tt("Raise or lower prices here.")}>
                   <TextInput
                     inputMode="decimal"
@@ -991,6 +993,7 @@ function MarketEditor({
                     }}
                   />
                 </Field>
+                ) : null}
                 {/* The store's own rate instead of the day's (lib/markets/pricing.ts pricingFor): empty, the day's. */}
                 <Field
                   label={tt("Exchange rate")}

@@ -27,7 +27,7 @@ function HeaderPlaceholder({ buyerHeaderLight = false, concave = false }: { buye
     <div
       id="platform-header-root"
       data-header-tone={buyerHeaderLight ? "light" : "dark"}
-      className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-white" : "sticky top-0 z-40 w-full bg-[#0e0e10]"}
+      className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-white" : "sticky top-0 z-40 w-full bg-[#16161a]"}
       style={{ minHeight: 'max(64.6px, calc(env(safe-area-inset-top, 0px) + 53.3px))' }}
       aria-hidden
     >
@@ -38,7 +38,7 @@ function HeaderPlaceholder({ buyerHeaderLight = false, concave = false }: { buye
     <div aria-hidden className="native-header-spacer" />
     {/* And the rounded edge the real header draws under itself on these pages, so its arrival moves nothing below. */}
     {concave ? (
-      <div aria-hidden data-header-concave={buyerHeaderLight ? "light" : "dark"} className={buyerHeaderLight ? "relative z-30 -mb-px h-[20px] bg-white" : "relative z-30 -mb-px h-[20px] bg-[#0e0e10]"}>
+      <div aria-hidden data-header-concave={buyerHeaderLight ? "light" : "dark"} className={buyerHeaderLight ? "relative z-30 -mb-px h-[20px] bg-white" : "relative z-30 -mb-px h-[20px] bg-[#16161a]"}>
         <div className="absolute inset-0 rounded-t-[20px] bg-white" />
       </div>
     ) : null}

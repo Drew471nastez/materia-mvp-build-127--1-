@@ -156,7 +156,8 @@ function main() {
   const orders = read("lib/physical/orders-server.ts")
   check("marked once, only a paid cash order not cancelled", /\.eq\("provider", COD_PROVIDER\)\s*\.eq\("status", "paid"\)\s*\.is\("cancelled_at", null\)\s*\.is\("cod_collected_at", null\)/.test(orders))
   const detail = read("app/app/orders/order-detail.tsx")
-  check("refund: a cash order only once the cash is in", /l\.payment_method === COD_PAYMENT_METHOD && l\.physical_cash_due === false/.test(detail))
+  /* Round AD2: the rule moved to lib/orders/order-view canRefundLine, which the order page filters its lines by. */
+  check("refund: a cash order only once the cash is in", /row\.payment_method === "cash_on_delivery" && row\.physical_cash_due === false/.test(read("lib/orders/order-view.ts")) && /order\.lines\.filter\(canRefundLine\)/.test(detail))
   const refund = read("app/api/stripe/refund/route.ts")
   check("refund route: refuses cash not yet collected", /hasn't been paid yet: the cash is collected on delivery/.test(refund))
   check("refund route: nothing sent to Stripe for cash", /if \(byCash\) \{[\s\S]{0,200}refund = \{ id: `cash_/.test(refund) && /!onAirwallex && !byCash\) \{\s*try \{\s*const pi = await stripe/.test(refund))

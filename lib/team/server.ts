@@ -74,6 +74,35 @@ export async function ownStore(db: Db, userId: string): Promise<{ id: string; sl
   return (data as { id: string; slug: string | null; display_name: string | null; subscription_plan_id: string | null } | null) ?? null
 }
 
+/**
+ * WHAT EACH STORE IS CALLED: Settings › Store details' name
+ * (store_settings.store_name), the one receipts, order emails and checkout
+ * are signed with. The invite, the member's store list and the "You're now
+ * Manager on …" line said the owner's own name (creators.display_name)
+ * while every buyer saw the store's. Only stores that have one are in the
+ * map; any failure is an empty map, and the owner's name stands in.
+ */
+export async function storeNames(db: Db, ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  if (ids.length === 0) return out
+  try {
+    const { data, error } = await db.from("store_settings").select("creator_id, store_name").in("creator_id", ids)
+    if (error) return out
+    for (const r of (data ?? []) as { creator_id?: string; store_name?: string | null }[]) {
+      const name = typeof r.store_name === "string" ? r.store_name.trim() : ""
+      if (r.creator_id && name) out.set(r.creator_id, name)
+    }
+  } catch {
+    /* The owner's name stands in. */
+  }
+  return out
+}
+
+/** One store's name for its team's emails and lists: Store details' name, else the owner's, else its address. */
+async function storeNameOf(db: Db, store: { id: string; display_name: string | null; slug: string | null }, fallback: string): Promise<string> {
+  return (await storeNames(db, [store.id])).get(store.id) || store.display_name || store.slug || fallback
+}
+
 export async function listTeam(db: Db, creatorId: string): Promise<{ ok: true; members: TeamMemberRow[] } | { ok: false; error: string; missing?: boolean }> {
   const { data, error } = await db.from("store_team_members").select(MEMBER_COLUMNS).eq("creator_id", creatorId).order("invited_at", { ascending: true })
   if (error) return teamMissing(error) ? { ok: false, error: TEAM_NOT_SET_UP, missing: true } : { ok: false, error: "Could not read the team. Try again." }
@@ -129,7 +158,7 @@ export async function inviteMember(
   const { data, error } = await write
   if (error || !data) return { ok: false, status: teamMissing(error) ? 503 : 500, error: teamMissing(error) ? TEAM_NOT_SET_UP : "Could not send the invite. Try again." }
 
-  const storeName = store.display_name || store.slug || "a store"
+  const storeName = await storeNameOf(db, store, "a store")
   const link = joinLink(token)
   const mail = teamInviteEmail({ storeName, role: opts.role, email, link, ...(await inviteContext(db, store.id, opts.owner.id)) })
   const sent = await sendEmail({ to: email, subject: mail.subject, transactional: true, keepBounce: true, text: mail.text, html: mail.html }).catch(() => ({ success: false }))
@@ -190,7 +219,7 @@ export async function readInvite(
         : Promise.resolve(false),
     ])
     const row = c as InviteStoreRow | null
-    store = row ? { ...row, name: row.display_name || row.slug || "A Storelib store" } : null
+    store = row ? { ...row, name: await storeNameOf(db, row, "A Storelib store") } : null
     teamSize = typeof count === "number" ? count : 0
     hasAccount = account as boolean
     alreadyMember = member as boolean
@@ -310,7 +339,7 @@ export async function updateMember(
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const store = await ownStore(db, ownerId)
   if (!store) return { ok: false, status: 403, error: "Only a store's owner can change its team." }
-  const storeName = store.display_name || store.slug || "a store"
+  const storeName = await storeNameOf(db, store, "a store")
   const stamp = Date.now().toString(36)
   if ("remove" in change) {
     const { data, error } = await db.from("store_team_members").delete().eq("id", memberId).eq("creator_id", store.id).select("user_id, status")
@@ -351,13 +380,14 @@ export async function storesOf(db: Db, userId: string): Promise<MemberStore[]> {
   const { data, error } = await db.from("store_team_members").select("creator_id, role").eq("user_id", userId).eq("status", "active")
   if (error || !data?.length) return []
   const rows = data as { creator_id: string; role: MemberRole }[]
-  const { data: creators } = await db.from("creators").select("id, slug, display_name, avatar_url").in("id", rows.map((r) => r.creator_id))
+  const ids = rows.map((r) => r.creator_id)
+  const [{ data: creators }, names] = await Promise.all([db.from("creators").select("id, slug, display_name, avatar_url").in("id", ids), storeNames(db, ids)])
   const byId = new Map(((creators ?? []) as { id: string; slug: string | null; display_name: string | null; avatar_url: string | null }[]).map((c) => [c.id, c]))
   return rows
     .filter((r) => byId.has(r.creator_id))
     .map((r) => {
       const c = byId.get(r.creator_id)!
-      return { creatorId: r.creator_id, name: c.display_name || c.slug || "Store", avatarUrl: c.avatar_url, role: r.role }
+      return { creatorId: r.creator_id, name: names.get(r.creator_id) || c.display_name || c.slug || "Store", avatarUrl: c.avatar_url, role: r.role }
     })
 }
 
@@ -381,7 +411,7 @@ export async function actingStore(db: Db, userId: string): Promise<ActingStore |
   const { data: c } = await db.from("creators").select("slug, display_name").eq("id", chosen).maybeSingle()
   if (!c) return null
   const store = c as { slug: string | null; display_name: string | null }
-  return { creatorId: chosen, name: store.display_name || store.slug || "Store", role: (data as { role: MemberRole }).role }
+  return { creatorId: chosen, name: await storeNameOf(db, { id: chosen, ...store }, "Store"), role: (data as { role: MemberRole }).role }
 }
 
 /**

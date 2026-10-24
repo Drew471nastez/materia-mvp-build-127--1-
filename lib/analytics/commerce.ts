@@ -22,7 +22,7 @@
  * customer rate is customers with two or more orders in the period over all
  * customers in it. Channels come from where each order was placed.
  */
-import { decodeOrigin } from "@/lib/orders/order-source"
+import { cleanOrigin } from "@/lib/orders/order-source"
 import { counts, orderProperty, propertyName, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
 import { bucketIndex, bucketStarts, grainFor, type Grain } from "@/lib/analytics/buckets"
 import { groupOrders, isSale, type Order, type OrderRow } from "@/lib/orders/order-view"
@@ -69,9 +69,9 @@ export function commerceRowCounts(
   if (opts.productId && row.product_id !== opts.productId) return false
   if (opts.property.type === "all") return true
   const placed = orderProperty({
-    lines: [{ property_type: row.property_type, property_id: row.property_id, source: row.source, source_detail: decodeOrigin(row.source_detail) }],
+    lines: [{ property_type: row.property_type, property_id: row.property_id, source: row.source, source_detail: cleanOrigin(row.source_detail) }],
     source: row.source,
-    sourceDetail: decodeOrigin(row.source_detail),
+    sourceDetail: cleanOrigin(row.source_detail),
   })
   return counts(opts.property, placed, opts.defaultWebsite)
 }
@@ -148,7 +148,7 @@ export function withListTotal<T extends { unit_price_cents?: number | null; quan
 
 export function channelOf(r: CommerceOrderRow): Channel {
   if (String(r.source ?? "").toLowerCase() === "website") return "website"
-  const surface = decodeOrigin(r.source_detail)?.surface
+  const surface = cleanOrigin(r.source_detail)?.surface
   if (surface === "onepage") return "onepage"
   if (surface === "link") return "link"
   if (surface === "admin") return "manual"
@@ -345,7 +345,7 @@ export function channelOfOrder(o: Order, properties: CreatorProperties): { key: 
     return { key: `website:${id ?? ""}`, label: site?.name || (properties.websites.length <= 1 ? "Online store" : propertyName(place, properties)) }
   }
   if (place.type === "onepage") return { key: "onepage", label: "OnePage" }
-  const surface = (o.sourceDetail as { surface?: string } | null)?.surface ?? o.lines.map((l) => decodeOrigin(l.source_detail)?.surface).find(Boolean)
+  const surface = (o.sourceDetail as { surface?: string } | null)?.surface ?? o.lines.map((l) => cleanOrigin(l.source_detail)?.surface).find(Boolean)
   if (surface === "explore") return { key: "explore", label: "Storelib Explore" }
   if (surface === "link") return { key: "link", label: "Checkout links" }
   if (surface === "admin") return { key: "admin", label: "Test sales" }

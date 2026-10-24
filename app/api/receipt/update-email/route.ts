@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { sendBuyerDownloadEmail, resolveSellerEmail } from "@/lib/email"
 import { rateLimit, addressSubject, emailSubject, callerAddress, LIMITS } from "@/lib/api/rate-limit"
 import { isPlausibleToken, isUuid } from "@/lib/receipts/rules"
+import { moveCheckoutEmail } from "@/lib/orders/checkout-email"
 
 export const runtime = "nodejs"
 
@@ -143,6 +144,8 @@ export async function POST(request: NextRequest) {
       console.error("[receipt/update-email] update failed for order", order.id)
       return NextResponse.json({ error: "The address was not changed. Try again." }, { status: 500 })
     }
+    /* An order that ships is emailed from its checkout: its shipped and delivered emails follow the new address (lib/orders/checkout-email). */
+    await moveCheckoutEmail(admin, [order as { checkout_id?: string | null }], creatorId, newEmail)
 
     /* The event is the once-only marker. Addresses are kept here, where
        support can see what changed, and never written to a log. */

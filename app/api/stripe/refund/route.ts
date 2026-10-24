@@ -294,6 +294,8 @@ export async function POST(request: Request) {
       refundId: refund.id,
       status: refund.status,
       amount: refundAmountCents,
+      /* Everything this line has given back so far, this refund included: what the row now holds. */
+      refundedCents: refundedTotal,
       refundedAt,
     })
   } catch (error: any) {
