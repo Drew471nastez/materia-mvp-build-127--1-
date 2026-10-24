@@ -138,7 +138,7 @@ export function Hero() {
           </h1>
 
           <p {...enter(2)} className="mt-3.5 max-w-[30em] text-[15px] leading-[1.55] text-white/[0.82] sm:mt-5 sm:text-[17px]">
-            The #1 e-commerce platform for creators & entrepreneurs. Sell products, manage links & grow an audience.
+            The e-commerce platform for creators & entrepreneurs. Sell products, manage links & grow an audience.
           </p>
 
           <div data-hero-actions="" {...enter(3)} className="mt-6 flex w-full max-w-[400px] flex-col items-center sm:mt-8 sm:max-w-none">
