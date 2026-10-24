@@ -46,13 +46,11 @@
   and soft shadows of the page's own ink. The open conversation is plain
   white with no backdrop filter at all, so opening it moves one flat layer.
 
-  AND THE PAGE SOFTENS INTO IT. Round the folded pill the page itself is
-  blurred, hardest at the hairline and gone 24px out, so the pill sits in
-  the page instead of on it. Five rings do it rather than one masked band,
-  because Safari draws a backdrop filter but not the mask that feathers it
-  and one band came out as a hard edged strip: five radii are a staircase
-  even with every mask dropped. SOFTEN_RINGS in ask-dock.ts holds the
-  numbers and why they are what they are.
+  NO BLUR BEHIND IT. The page round the pill used to be softened by five
+  stacked backdrop blurs, and the pill itself had one: over a live canvas
+  that meant the screen re-blurred the page six times on every frame
+  anything under it moved, the biggest single cost of scrolling and editing
+  (the owner: "laggy, 20 fps"). The pill is solid white now.
 
   THE BLUR STAYS ON WHILE IT FADES. A backdrop filter stops at an ancestor
   whose opacity is below 1 (the Backdrop Root), so the pill's glass face
@@ -136,7 +134,7 @@ import { armAskSounds, playAskSound, setSoundsOn, soundsOn } from "@/lib/website
 import { suggestionsFor } from "@/lib/website-builder/ask-suggestions"
 import { typeToward } from "@/lib/website-builder/ask-typing"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
-import { CLOSE_EASE, CLOSE_MS, DOCK_PAD, EASE, OPEN_MS, PILL_RADIUS, SLIDE_MS, SOFTEN_RINGS, dockGeometry, softenMask } from "@/lib/website-builder/ask-dock"
+import { CLOSE_EASE, CLOSE_MS, DOCK_PAD, EASE, OPEN_MS, PILL_RADIUS, SLIDE_MS, dockGeometry } from "@/lib/website-builder/ask-dock"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
 
@@ -3290,52 +3288,24 @@ function ThemeChatPanel({
       {dock && (
         <>
           {/*
-            THE PAGE SOFTENS INTO THE PILL, it does not stop at it. Five
-            rings reaching 5 to 24px past the pill's box, no fill on any of
-            them, each blurring the page a little less than the one inside it
-            and taking a touch of the saturation out. Their blurs stack (a
-            ring's backdrop is the ring outside it, already drawn), so the
-            softening runs from about 3px at the pill's hairline to nothing
-            at the outer edge; the mask on each feathers its own edge away
-            where masks reach backdrop filters, and where they do not the
-            five radii are still a staircase and not a cut. SOFTEN_RINGS in
-            ask-dock.ts is where the numbers and the reasoning live.
-
-            They fade on their own opacity with the glass, never an
-            ancestor's: a backdrop filter under a fading parent is switched
-            off for the whole fade.
+            No frosted rings round the pill any more (the owner: "laggy, 20
+            fps, not GPU optimised"). They were five stacked backdrop blurs
+            over the live canvas, and every frame anything under them moved
+            (a scroll, a slider, a size switch) the screen blurred the page
+            five times over to draw them.
           */}
-          {SOFTEN_RINGS.map((ring) => (
-            <span
-              key={ring.reach}
-              aria-hidden
-              data-ask-soften={ring.reach}
-              className="pointer-events-none absolute"
-              style={{
-                inset: -ring.reach,
-                borderRadius: PILL_RADIUS + ring.reach,
-                backdropFilter: `blur(${ring.blur}px) saturate(${ring.saturate})`,
-                WebkitBackdropFilter: `blur(${ring.blur}px) saturate(${ring.saturate})`,
-                maskImage: softenMask(ring.fade),
-                WebkitMaskImage: softenMask(ring.fade),
-                maskComposite: "intersect",
-                WebkitMaskComposite: "source-in",
-                ...appear(!expanded && !faceAway, 280, 200),
-              }}
-            />
-          ))}
           {/*
-            The pill's two faces: near solid white over the canvas, plain
-            white as the conversation's input row. Folded it is 95% white
-            over a light 7px blur, so it reads over a dark page as well as
-            a white one; a hairline of ink for its edge; and three soft
-            shadows of the page's own ink (close, middle, far) for depth.
+            The pill's two faces: solid white over the canvas, plain white
+            as the conversation's input row. No blur behind it: solid white
+            reads over a dark page as well as a white one and costs the
+            screen nothing as the page moves under it; a hairline of ink for
+            its edge; and three soft shadows (close, middle, far) for depth.
             Nothing outside it is lighter than the page: no glow.
           */}
           <span
             aria-hidden
             data-ask-glass=""
-            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#1a1a2e]/[0.08] bg-white/[0.95] shadow-[0_0_0_1px_rgba(15,23,42,0.04),0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.16),0_22px_44px_-20px_rgba(15,23,42,0.24)] backdrop-blur-[7px] backdrop-saturate-[1.2]"
+            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#1a1a2e]/[0.08] bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.04),0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.16),0_22px_44px_-20px_rgba(15,23,42,0.24)]"
             style={appear(!expanded && !faceAway, 280, 200)}
           />
           <span

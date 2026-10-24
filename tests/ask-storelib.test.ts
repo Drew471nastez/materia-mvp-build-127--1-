@@ -100,67 +100,27 @@ section("The computer's pill")
     it ended in a hard edge), and the pill is 95% white over a light blur,
     readable over a dark page and a white one.
   */
+  /*
+    Changed on purpose (round AX, the owner: "very laggy and slow... not GPU
+    optimised, fps 20"). The pill's 7px blur and the five soften rings round
+    it were six backdrop filters over the live canvas, re-run on every frame
+    anything under them moved. The pill is solid white now and nothing round
+    it blurs; the hairline and the ink shadows still give it its edge.
+  */
   check(
-    "the pill is near solid white: 95% over a light 7px blur, with a hairline and layered shadows of ink",
-    /data-ask-glass=""[\s\S]{0,120}className="[^"]*border-\[#1a1a2e\]\/\[0\.08\][^"]*bg-white\/\[0\.95\][^"]*0_22px_44px_-20px_rgba\(15,23,42,0\.24\)[^"]*backdrop-blur-\[7px\]/.test(chat) &&
-      !/bg-white\/\[0\.64\]/.test(chat),
+    "the pill is solid white, with a hairline and layered shadows of ink, and no blur behind it",
+    /data-ask-glass=""[\s\S]{0,120}className="[^"]*border-\[#1a1a2e\]\/\[0\.08\][^"]*bg-white shadow-[^"]*0_22px_44px_-20px_rgba\(15,23,42,0\.24\)\]"/.test(chat) &&
+      !/data-ask-glass=""[\s\S]{0,400}backdrop-blur/.test(chat),
   )
   check(
     "and nothing around it glows: the halo is gone, and no shadow anywhere in the dock is white or near white",
     !/data-ask-halo/.test(chat) && !/248, 249, 250/.test(chat) &&
       !/(?:shadow-\[|boxShadow: ")[^"\]]*rgba\((?:2[0-5]\d, ?){2}2[0-5]\d, ?0?\.\d+\)(?![^"\]]*inset)/.test(chat),
   )
-  /*
-    Third time round: "around the pill shape there, there needs to be some
-    smooth clean blur applied around it, very smooth." Not the white glow
-    (rejected), not the one masked band (WebKit draws a backdrop filter and
-    drops the mask that feathers it, so it came out cut). Five rings, no
-    fill on any of them, each blurring less than the one inside it, each
-    feathered by its own eased mask — so where masks reach backdrop filters
-    it is one smooth ramp, and where they do not it is a staircase of five
-    radii rather than a cut. Measured in scripts/check-ask-dock.mjs (SOFTEN)
-    and scripts/check-ask-ai.mjs (THE RAMP), the second of which takes the
-    masks off and measures it again.
-  */
-  {
-    const dock = read("lib/website-builder/ask-dock.ts")
-    const rings = [...dock.matchAll(/\{ reach: (\d+), blur: ([\d.]+), saturate: ([\d.]+), fade: (\d+) \}/g)].map((m) => m.slice(1).map(Number))
-    check(
-      "round the pill the page softens into it: five rings of backdrop blur, widest first, none blurring less than the one outside it and the innermost blurring several times as hard",
-      rings.length === 5 &&
-        rings.every(([reach], i) => i === 0 || reach < rings[i - 1][0]) &&
-        rings.every(([, blur], i) => i === 0 || blur >= rings[i - 1][1]) &&
-        rings[4][1] >= rings[0][1] * 3 &&
-        rings[0][0] <= 26 &&
-        !/data-ask-fade/.test(chat) &&
-        /SOFTEN_RINGS\.map\(\(ring\) =>/.test(chat),
-    )
-    check(
-      "and not one of them holds a colour: no background, no shadow, nothing but the page's own pixels blurred and a touch less saturated",
-      rings.every(([, , saturate]) => saturate > 0.9 && saturate < 1) &&
-        /backdropFilter: `blur\(\$\{ring\.blur\}px\) saturate\(\$\{ring\.saturate\}\)`/.test(chat) &&
-        !/data-ask-soften[\s\S]{0,600}(?:backgroundColor|boxShadow|bg-white|shadow-\[)/.test(chat),
-    )
-    check(
-      "each feathers its own edge, with the -webkit- spelling beside every one, on an eased ramp so the softening has no end you can point at",
-      /maskImage: softenMask\(ring\.fade\)/.test(chat) &&
-        /WebkitMaskImage: softenMask\(ring\.fade\)/.test(chat) &&
-        /maskComposite: "intersect"/.test(chat) &&
-        /WebkitMaskComposite: "source-in"/.test(chat) &&
-        /const RAMP = \[0, 0\.043, 0\.156, 0\.32, 0\.5, 0\.68, 0\.844, 0\.957, 1\]/.test(dock),
-    )
-    check(
-      "the rings fade on their own opacity with the glass, never an ancestor's: a backdrop filter under a fading parent is switched off for the whole fade",
-      /* Changed on purpose (round 34): faceAway, which is pillAway except while it slides away under the canvas in full screen, solid. */
-      /data-ask-soften=\{ring\.reach\}[\s\S]{0,600}\.\.\.appear\(!expanded && !faceAway, 280, 200\),/.test(chat),
-    )
-    const css = read("app/globals.css")
-    check(
-      "a browser with no backdrop filter is given no rings to composite, and prefers-reduced-transparency takes them away and makes the pill's face plain white",
-      /@supports not \(\(backdrop-filter: blur\(2px\)\) or \(-webkit-backdrop-filter: blur\(2px\)\)\) \{\s*\[data-ask-soften\] \{\s*display: none;/.test(css) &&
-        /@media \(prefers-reduced-transparency: reduce\) \{[\s\S]{0,400}\[data-ask-soften\] \{\s*display: none;[\s\S]{0,200}\[data-ask-glass\] \{\s*background-color: #fff;\s*backdrop-filter: none;/.test(css),
-    )
-  }
+  check(
+    "no blur rings round the pill: nothing over the canvas re-blurs the page on every frame",
+    !/SOFTEN_RINGS\.map|data-ask-soften=|backdropFilter: `blur/.test(chat),
+  )
   check(
     "the open conversation is solid white with no backdrop filter, so opening it moves one flat layer",
     /data-ask-surface=""\s*\n\s*className="[^"]*bg-white shadow-[^"]*"/.test(chat) &&

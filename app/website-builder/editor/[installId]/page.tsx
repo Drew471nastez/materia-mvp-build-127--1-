@@ -10336,6 +10336,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 }}
                 aria-label="Ask Storelib"
                 aria-pressed={aiOpen}
+                /* The ring turns only while Storelib AI works: a ring always turning kept the screen drawing a new frame every frame, idle or not. */
+                data-ai-spin={aiBusy ? "" : undefined}
               >
                 {/* The ring round its edge: a gradient drawn once and turned,
                     inside a mask drawn once. See `.wb-ai-ring` in globals.css. */}
@@ -12063,7 +12065,7 @@ function SectionToolbar({
          * and under every piece of chrome. A tooltip cannot cover the panel
          * either once the button it belongs to is behind it.
          */
-        "wb-section-toolbar wb-ring absolute z-30 flex items-center gap-0.5 rounded-xl border border-neutral-200/80 bg-white/95 p-1 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.35)] backdrop-blur",
+        "wb-section-toolbar wb-ring absolute z-30 flex items-center gap-0.5 rounded-xl border border-neutral-200/80 bg-white p-1 shadow-[0_8px_28px_-10px_rgba(15,23,42,0.35)]",
         /**
          * Opacity and transform only, and NOT `top`. It tracks its section
          * on every scrolled frame, so a transition on the position would
