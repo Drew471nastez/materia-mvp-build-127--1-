@@ -54,7 +54,8 @@ check("its bar pads itself into the safe area on a phone", /box-content flex ite
 */
 check("the phone bar is the height its controls need, 44px, and 60 from 640", /h-11 sm:h-\[60px\] pt-\[env\(safe-area-inset-top\)\]/.test(editor))
 check("its middle says whether the page is saved, where the save button has no words",
-  /data-onepage-state=""/.test(editor) && /hidden min-\[375px\]:block md:hidden/.test(editor) &&
+  /* From 390px, not 375 (changed on purpose, round 10): with the share square and the save icon in the bar there was room for "Unsa…" at 390. */
+  /data-onepage-state=""/.test(editor) && /hidden min-\[390px\]:block md:hidden/.test(editor) &&
   /\? "Saving…"/.test(editor) && /\? "Unsaved"/.test(editor) && /: "Saved"/.test(editor))
 check("it sets with-op-editor on <html>", /<HtmlClass name="with-op-editor" \/>/.test(editor))
 const phoneBlock = css.slice(css.indexOf("The OnePage editor, full screen on a phone"))
@@ -76,7 +77,8 @@ console.log("\nUndo and redo")
 check("both are the icon squares, not ghost buttons", (editor.match(/className=\{cn\(iconDepth, "h-8 w-8 rounded-\[9px\] text-\[#374151\]"\)\}/g) ?? []).length === 2)
 
 console.log("\nThe editor's questions")
-check("on a phone they are the shared sheet", /<BottomSheet isOpen=\{open\} onClose=\{onClose\} label=\{label\} hideFrom="md">/.test(editor))
+/* Changed on purpose (round 10): kept as well (keepMounted), so the tap only slides it up. */
+check("on a phone they are the shared sheet", /<BottomSheet isOpen=\{open\} onClose=\{onClose\} label=\{label\} hideFrom="md" keepMounted>/.test(editor))
 check("with no drag kept in React state any more", !/setDragY\(/.test(editor))
 
 /*
@@ -91,7 +93,8 @@ check("each tab has its own scroll box, the one on screen is the editor's scroll
   /data-tab-panel=\{t\}/.test(editor) && /data-scroll-container=\{t === panels\.tab \? "links-tab" : undefined\}/.test(editor))
 check("Links, Design and Products are kept, out of sight in React's Activity", /<Activity mode=\{shown \? "visible" : "hidden"\}>/.test(editor) && /const KEPT_TABS: TabType\[\] = \["links", "design", "products"\]/.test(editor))
 check("and built ahead while the page is idle", /requestIdleCallback\(build/.test(editor))
-check("Settings is still built each time it opens, and saves through the editor's own Save", /t === "settings" \? \(\s*<SettingsTab ref=\{settingsTabRef\} pageUrl=\{pageUrl\} onSave=\{handleSaveWithProCheck\} userPlan=\{userPlan\} \/>/.test(editor))
+/* Changed on purpose (round 10): it also opens on the last section chosen, or the one the address names. */
+check("Settings is still built each time it opens, and saves through the editor's own Save", /t === "settings" \? \(\s*<SettingsTab ref=\{settingsTabRef\} pageUrl=\{pageUrl\} onSave=\{handleSaveWithProCheck\} userPlan=\{userPlan\} section=\{settingsSection\.current\}/.test(editor))
 check("each tab comes back to where it was scrolled", /scrollMemory\.current\[from\] = outgoing\.scrollTop/.test(editor) && /incoming\.scrollTop = scrollMemory\.current\[to\] \?\? 0/.test(editor))
 /*
   "Even when I'm switching in the bottom tabs, make sure it's smooth and
@@ -146,9 +149,62 @@ check("the section list is words, no icons", !/icon: [A-Z]/.test(settings.slice(
   and a switch crossfades the two, with the pill sliding from the press and each section's scroll
   kept (components/onepage/pill-tabs; scripts/check-onepage-pill-tabs.mjs measures it).
 */
-check("a section changes by one kept crossfade, both rows the editor's one pill-tab row",
+/* Changed on purpose (round 10): one row of pills at every width, so one PillTabs, not two (the list on a computer is gone). */
+check("a section changes by one kept crossfade, its row the editor's one pill-tab row",
   /data-settings-section=\{id\}/.test(settings) && /<PillPanels dataPanels="settings"/.test(settings)
-  && (settings.match(/<PillTabs\b/g) ?? []).length === 2 && !/key=\{activeSection\}/.test(settings) && !/const NavItem/.test(settings))
+  && (settings.match(/<PillTabs\b/g) ?? []).length === 1 && !/key=\{activeSection\}/.test(settings) && !/const NavItem/.test(settings))
+
+/*
+  ROUND 10. "Make the settings not with the sidebar there, make it with pill
+  shapes, as settings categories." One row of pills across the top at every
+  width, the Theme page's chips, held at the top of the tab, scrolling
+  sideways on a phone with no bar, the chosen one always in view; a switch
+  fades and slides 10px from the side the pill went; #settings-seo opens a
+  section, and choosing one writes it there. scripts/check-onepage-shell.mjs
+  measures it at 390 and 1440.
+*/
+const pillTabs = read("components/onepage/pill-tabs.tsx")
+check("Settings is one row of pills at every width, no list down the side",
+  /<PillTabs\s+dataRow="settings-pills"/.test(settings) && !/dataRow="settings-list"/.test(settings) && !/dataRow="settings-chips"/.test(settings)
+  && !/w-48 flex-shrink-0/.test(settings) && !/md:flex-row gap-6/.test(settings)
+  && /itemClassName="h-9 shrink-0 whitespace-nowrap rounded-full border border-\[#e3e4e8\] bg-white/.test(settings) && /pillClassName="rounded-full bg-\[#1a1a2e\]/.test(settings))
+check("the row stays at the top, scrolls with no bar, and keeps the chosen pill in view",
+  /sticky top-0 z-20/.test(settings) && /overflow-x-auto[^"]*no-scrollbar/.test(settings) && /keepInView\n/.test(settings)
+  && /row\.scrollTo\(\{ left: to, behavior: instant \|\| reducedMotion\(\) \? "auto" : "smooth" \}\)/.test(pillTabs))
+check("a switch fades and slides a little, on opacity and transform only, from the side the pill went",
+  /<PillPanels dataPanels="settings" value=\{active\} slide/.test(settings) && /export const PANEL_SLIDE_PX = 10/.test(pillTabs)
+  && /\{ opacity: 0, transform: `translate3d\(\$\{dx\}px, 0, 0\)` \}, \{ opacity: 1, transform: "translate3d\(0, 0, 0\)" \}/.test(pillTabs))
+check("#settings-<section> opens that section, Back and a typed address switch to it, and a choice is written there",
+  /hash\.startsWith\("settings-"\)/.test(editor) && /SETTINGS_SECTION_IDS as readonly string\[\]\)\.includes\(section\)/.test(editor)
+  && /setSettingsJump\(/.test(editor) && /`#settings-\$\{id\}`/.test(editor) && /section=\{settingsSection\.current\} jump=\{settingsJump\} onSectionChange=\{onSettingsSection\}/.test(editor))
+
+/*
+  ROUND 10. "Make sure the notification toasts don't overlap the top bar or
+  the important things." Every toast in the editor sits in its ToastSpot:
+  above the phone's tab bar, at the foot of the editor's column on a
+  computer, clear of the rail and the preview; it moves on named properties.
+*/
+const toast = read("components/ui/save-notification.tsx")
+check("every toast in the editor sits clear of its bars and its preview",
+  /<ToastSpot spot="onepage-editor">\s*<EditorLayout \/>\s*<\/ToastSpot>/.test(editor)
+  && /bottom-\[calc\(var\(--op-tabbar-h\)\+12px\)\][^"]*md:bottom-6 md:left-\[240px\] md:right-\[410px\]/.test(toast)
+  && /transitionProperty: "opacity, translate, scale"/.test(toast))
+
+/* ROUND 10. The phone bar's middle word reads whole: the bar's gaps are 6px on a phone and it shows from 390px. */
+check("the phone bar's gaps leave the save state its whole word",
+  /flex items-center gap-1\.5 sm:gap-3 h-full w-full/.test(editor) && /flex items-center gap-1\.5 sm:gap-3 shrink-0 pr-3/.test(editor) && /"md:hidden h-8 px-2\.5 rounded-lg"/.test(editor))
+
+/*
+  ROUND 10. Every sheet in the editor is the shared sheet, and the shared
+  sheet rests the way the website builder's primed sheet does: a kept sheet
+  waits below the screen at an opacity no eye can see, so the tap that opens
+  it restyles nothing inside it. The editor's two questions are kept too.
+*/
+const bottomSheet = read("components/ui/bottom-sheet.tsx")
+check("a kept sheet opens without restyling what is inside it, as the builder's primed sheet does",
+  /const REST_OPACITY = 0\.0015/.test(bottomSheet) && !/visibility: "hidden"/.test(bottomSheet) && /aria-hidden=\{atRest \? true : undefined\}/.test(bottomSheet)
+  && /pointerEvents: "auto",/.test(bottomSheet))
+check("the editor's questions are kept sheets", /<BottomSheet isOpen=\{open\} onClose=\{onClose\} label=\{label\} hideFrom="md" keepMounted>/.test(editor))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

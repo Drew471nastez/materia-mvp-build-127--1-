@@ -144,7 +144,7 @@ function main() {
     const live = read("components/onepage/public-onepage.tsx")
     const module = read("components/onepage/extra-blocks.tsx")
     check("the question is on the live page once", (live.match(/<SensitiveLinkQuestion \/>/g) ?? []).length === 1)
-    check("every box a block is drawn in carries the mark, a group's included", (live.match(/data-sensitive-label=\{sensitiveLabel\((block|child)\)\}/g) ?? []).length === 4)
+    check("every box a block is drawn in carries the mark, a group's included", (live.match(/data-sensitive-label=\{sensitiveLabel\((block|child)\)\}/g) ?? []).length === 5) /* round 10: a fifth, each tile of a pair of product tiles */
     check("only a link marked sensitive is marked", /if \(block\?\.type !== "link_button" \|\| !block\.data\?\.sensitive\) return undefined/.test(live))
     check("the press is held before the link's own code hears it", /document\.addEventListener\("click", onClick, true\)/.test(module) && /e\.preventDefault\(\)\s*e\.stopPropagation\(\)/.test(module))
     check("Continue presses the same thing again, let through, so the click count and the new tab still happen",

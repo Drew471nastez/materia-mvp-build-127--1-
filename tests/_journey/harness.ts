@@ -72,6 +72,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/cron/process-scheduled-emails": () => import("@/app/api/cron/process-scheduled-emails/route"),
   "/api/cron/notify": () => import("@/app/api/cron/notify/route"),
   "/api/coupons": () => import("@/app/api/coupons/route"),
+  /* Before [id], which would take "validate" as an id (the first pattern that fits wins). Round 10. */
+  "/api/coupons/validate": () => import("@/app/api/coupons/validate/route"),
   "/api/coupons/[id]": () => import("@/app/api/coupons/[id]/route"),
   "/api/store/offers": () => import("@/app/api/store/offers/route"),
   "/api/cart/prices": () => import("@/app/api/cart/prices/route"),
@@ -91,6 +93,10 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/payments/[action]": () => import("@/app/api/payments/[action]/route"),
   "/api/checkout/site": () => import("@/app/api/checkout/site/route"),
   "/api/checkout/stripe-session": () => import("@/app/api/checkout/stripe-session/route"),
+  /* Round 10: the OnePage's instant checkout pays through these, with its product facts read first (tests/e2e-onepage-instant). */
+  "/api/checkout/confirm-payment": () => import("@/app/api/checkout/confirm-payment/route"),
+  "/api/checkout/process": () => import("@/app/api/checkout/process/route"),
+  "/api/onepage/product": () => import("@/app/api/onepage/product/route"),
   "/api/stripe/revenue-chart": () => import("@/app/api/stripe/revenue-chart/route"),
   "/api/stripe/payouts": () => import("@/app/api/stripe/payouts/route"),
   "/api/settings/payments": () => import("@/app/api/settings/payments/route"),

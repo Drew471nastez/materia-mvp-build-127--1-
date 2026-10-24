@@ -173,7 +173,14 @@ export interface LinkButtonBlockData {
   sensitive?: boolean
 }
 
-export type ProductBlockStyle = 'button' | 'callout' | 'preview'
+/*
+  How a product block is drawn (components/onepage/product-block.tsx). The first three are the old ones and keep
+  their names; round 10 added a compact row, an image-left card, a text-only line with a price pill, a picture
+  with the words over it, and a tile (two tiles in a row sit side by side). lib/onepage/product-block.ts.
+*/
+export type ProductBlockStyle = 'button' | 'callout' | 'preview' | 'row' | 'side' | 'minimal' | 'overlay' | 'tile'
+/** What a tap on a product block does. Unset is what it always did: the checkout (a product that ships: its page). */
+export type ProductTapAction = 'page' | 'sheet' | 'checkout'
 export type ProductButtonStyle = 'default' | 'filled'
 
 export interface ProductBlockData {
@@ -208,6 +215,14 @@ export interface ProductBlockData {
   button_text_color?: string | null
   // Quick checkout for free products (skips checkout page)
   quick_checkout?: boolean
+  /** What a tap does (lib/onepage/product-block productTapAction). Unset: the checkout, as before. */
+  tap_action?: ProductTapAction
+  /** A download or a course is paid for in a window on this page, the community's checkout window (components/onepage/instant-checkout). */
+  instant_checkout?: boolean
+  /** Refreshed from the product row (lib/onepage/live-products): a sale price's "was", and pay what you want. */
+  product_compare_at_cents?: number | null
+  product_pwyw?: boolean | null
+  product_pwyw_min_cents?: number | null
 }
 
 export interface SocialRowBlockData {

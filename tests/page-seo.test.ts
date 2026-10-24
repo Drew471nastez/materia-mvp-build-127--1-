@@ -193,7 +193,8 @@ console.log("\nA picture that means something says what it is")
   const onepage = read("components/onepage/public-onepage.tsx")
   check("a OnePage names every product, link and file thumbnail by its title, and the avatar by the name",
     !/alt=""/.test(onepage) && (onepage.match(/alt=\{data\.label \|\| ""\}/g) ?? []).length === 4 &&
-      (onepage.match(/alt=\{data\.product_title \|\| ""\}/g) ?? []).length === 3 && (onepage.match(/alt=\{data\.title \|\| ""\}/g) ?? []).length === 3 &&
+      /* Round 10: the product block's pictures are drawn by components/onepage/product-block.tsx, each named by the product's title. */
+      !/alt=""/.test(read("components/onepage/product-block.tsx")) && (read("components/onepage/product-block.tsx").match(/alt=\{title\}/g) ?? []).length === 2 && (onepage.match(/alt=\{data\.title \|\| ""\}/g) ?? []).length === 3 &&
       /alt=\{quickCheckoutModalData\.productTitle\}/.test(onepage) && /alt=\{profile\.title \|\| ""\}/.test(onepage) && /alt=\{data\.headline \|\| ""\}/.test(onepage))
   /* The product section's pictures are drawn by its media file now. */
   const product = read("components/website-builder/sections/renderers/ProductSection.tsx") + read("components/website-builder/sections/renderers/product/product-media.tsx")

@@ -87,8 +87,10 @@ const ctx = read("lib/onepage/context.tsx")
 check("the editor applies a theme in one commit", ctx.includes("commit(lookFromTemplate(prev, template, headerLayout), null)"))
 check("the theme picker uses it, not a merge", design.includes("applyThemeLook(template as never,") && design.includes('applyThemeLook(pendingTemplate as never, "classic")'))
 const pub = read("components/onepage/public-onepage.tsx")
-check("the product block's text is kept readable on its own surface", pub.includes("readableOn(surfaceColor, theme.button_text_color, data.text_color)"))
-check("the product card wears the theme's button look when it has no fill of its own", pub.includes("...buttonStyles, color: undefined"))
+/* Round 10: the product block is drawn by components/onepage/product-block.tsx, where its theme button is `themeButton`. */
+const productBlock = read("components/onepage/product-block.tsx")
+check("the product block's text is kept readable on its own surface", productBlock.includes("readableOn(surfaceColor, theme.button_text_color, data.text_color)") && pub.includes("<ProductBlockWithQuickCheckout"))
+check("the product card wears the theme's button look when it has no fill of its own", productBlock.includes("...themeButton, color: undefined"))
 const links = read("components/onepage/tabs/links-tab.tsx")
 check("the block's colour pickers show the theme's colours until one is picked", links.includes("theme.button_text_color") && links.includes("Picking a theme sets these back to the theme&apos;s."))
 

@@ -5,6 +5,10 @@
  * here is trusted beyond being well formed.
  */
 
+/* Node's Buffer read through globalThis: a bare `Buffer` makes the bundler ship a 19 KB polyfill to every website's browser, which has atob/btoa anyway. */
+type NodeBuffer = { from(input: string, encoding: string): { toString(encoding: string): string } }
+const nodeBuffer = (): NodeBuffer => (globalThis as unknown as { Buffer: NodeBuffer }).Buffer
+
 export interface LinkItem {
   productId: string
   variantId: string | null
@@ -42,13 +46,13 @@ function customOf(value: unknown): number | null {
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function toBase64Url(text: string): string {
-  const b64 = typeof btoa === "function" ? btoa(unescape(encodeURIComponent(text))) : Buffer.from(text, "utf8").toString("base64")
+  const b64 = typeof btoa === "function" ? btoa(unescape(encodeURIComponent(text))) : nodeBuffer().from(text, "utf8").toString("base64")
   return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
 }
 
 function fromBase64Url(value: string): string {
   const b64 = value.replace(/-/g, "+").replace(/_/g, "/")
-  return typeof atob === "function" ? decodeURIComponent(escape(atob(b64))) : Buffer.from(b64, "base64").toString("utf8")
+  return typeof atob === "function" ? decodeURIComponent(escape(atob(b64))) : nodeBuffer().from(b64, "base64").toString("utf8")
 }
 
 export function encodeItems(items: LinkItem[]): string {

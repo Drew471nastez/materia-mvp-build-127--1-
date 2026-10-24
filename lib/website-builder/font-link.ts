@@ -19,19 +19,17 @@
  * hand-edited one — requests nothing, because a URL built from a free string
  * is a URL somebody else gets to write.
  */
-import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
+import { ACCENT_FONT_OPTIONS, BODY_FONT_OPTIONS, HEADING_FONT_OPTIONS } from "@/lib/website-builder/font-options"
 
 const FONT_SETTINGS = ["font_heading", "font_body", "font_accent"] as const
 
 /** Every family the panel can set, once. */
 export const OFFERED_FAMILIES: ReadonlySet<string> = new Set(
-  THEME_SETTINGS_GROUPS.flatMap((g) => g.fields ?? [])
-    .filter((f) => (FONT_SETTINGS as readonly string[]).includes(f.id))
-    .flatMap((f) => (f.options ?? []).map((o) => o.value))
+  [HEADING_FONT_OPTIONS, BODY_FONT_OPTIONS, ACCENT_FONT_OPTIONS]
+    .flatMap((options) => options.map((o) => o.value))
     .filter((v): v is string => typeof v === "string" && v.trim() !== ""),
 )
 
-/** The weights the sections use: body, medium, semibold, bold. */
 const WEIGHTS = "400;500;600;700"
 
 /**

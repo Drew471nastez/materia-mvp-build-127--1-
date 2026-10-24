@@ -27,6 +27,17 @@ import { usePathname, useRouter } from "next/navigation"
 import { inPlaceTarget, plainPress, setSiteNavigator, viewportPrefetchBudget } from "@/lib/website-builder/site-navigation"
 import { preloadSectionRenderers } from "@/components/website-builder/sections/lazy-section"
 import { releaseChangedBeforeLink, type ReleaseWatch } from "@/lib/website-builder/live-release-script"
+import type { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types"
+
+/*
+  A POINTER ON A LINK FETCHES THE WHOLE PAGE. Next's default prefetch
+  ("auto") fetches only the route's outline for a page like these, so the
+  press still waited on the page itself: 0.4 to 1 s on a computer, 1 to 1.8 s
+  on a phone (measured on asgardshop.storelib.com). A pointer resting on a
+  link, a focus or a touch fetches it in full, so the press shows it at
+  once. Links that only come into view keep the light prefetch.
+*/
+const FULL = "full" as PrefetchKind
 
 /** The page's release watch, when its layout wrote one (app/(site)/w/[username]/layout.tsx). */
 const releaseWatch = () => (window as unknown as { __storelibRelease?: ReleaseWatch }).__storelibRelease
@@ -131,8 +142,9 @@ export function SiteLinks() {
     }
 
     const fetched = new Set<string>()
+    const fetchedFull = new Set<string>()
     let renderersAsked = false
-    const ahead = (path: string) => {
+    const ahead = (path: string, full = false) => {
       /* The first sign of interest asks what is live too, so the press finds the answer waiting. */
       const watch = releaseWatch()
       if (watch?.due()) void watch.changed()
@@ -141,10 +153,12 @@ export function SiteLinks() {
         void preloadSectionRenderers()
       }
       const key = path.split("#")[0]
-      if (fetched.has(key)) return
+      if (full ? fetchedFull.has(key) : fetched.has(key)) return
       fetched.add(key)
+      if (full) fetchedFull.add(key)
       try {
-        router.prefetch(key)
+        if (full) router.prefetch(key, { kind: FULL })
+        else router.prefetch(key)
       } catch {
         /* A prefetch is a nicety; the press still works without it. */
       }
@@ -163,7 +177,7 @@ export function SiteLinks() {
       const a = linkOf(e)
       if (!a) return
       const to = targetOf(a)
-      if (to) ahead(to)
+      if (to) ahead(to, true)
     }
 
     window.addEventListener("click", onClick)

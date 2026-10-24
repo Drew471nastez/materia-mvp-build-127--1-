@@ -77,7 +77,7 @@ check("the heart's count stays ink", !/bg-red-500/.test(header))
 console.log("\n6. The phone's notifications sheet")
 check("as tall as its rows, up to a maximum, no fixed height", /maxHeight="min\(78dvh, 640px\)"/.test(bell) && !/height="min\(68dvh, 584px\)"/.test(bell))
 check("the first page read while the page is idle and kept warm", /refreshIfStale\(\)/.test(bell) && /let warm:/.test(bell))
-check("the sheet's panel and dim are fixed themselves while up, the panel a hair under opaque (Safari's floating bar)", /cn\(atRest \? "absolute" : "fixed", "inset-x-0 bottom-0/.test(sheet) && /\.\.\.\(atRest \? null : \{ opacity: 0\.999 \}\)/.test(sheet) && /atRest \? "absolute inset-0" : "fixed inset-0"/.test(sheet))
+check("the sheet's panel and dim are fixed themselves while up, the panel a hair under opaque (Safari's floating bar)", /cn\(atRest \? "absolute" : "fixed", "inset-x-0 bottom-0/.test(sheet) && /* Changed on purpose (round 10): at rest the panel sits at REST_OPACITY, the builder's primed sheet, instead of no opacity under visibility: hidden. */ /opacity: atRest \? REST_OPACITY : 0\.999/.test(sheet) && /atRest \? "absolute inset-0" : "fixed inset-0"/.test(sheet))
 check("the probe exists", existsSync("scripts/check-header-round8.mjs") && existsSync("scripts/render-header-round8.tsx"))
 
 console.log("\nCopy")

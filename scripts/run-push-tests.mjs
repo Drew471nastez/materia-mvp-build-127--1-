@@ -841,6 +841,8 @@ const SUITES = [
   "tests/block-picker.test.ts",
   /* Round 34: the builder's draft written one snapshot at a time (save ordering, Saved only for what is on screen, retry on its own), undo by reference and per field, memoised rows and insert strips (scripts/check-editor-sections.mjs measures them on 44 sections) */
   "tests/editor-sections-r34.test.ts",
+  /* Round 10 (OnePage products): what a tap does, draft/published/archived, prices, tiles, instant checkout through the checkout's own routes, the button's hover; scripts/check-onepage-products.mjs measures them. */
+  "tests/onepage-products-r10.test.ts",
 ]
 
 /**
@@ -919,6 +921,8 @@ const STRICT_SUITES = [
   "tests/shipping-settings-y3.test.ts",
   /* Round Z7: /app polish: no "Direct" in an order's source, no Paid community in New product, the sidebar's nested rows apart and its overlay thumb, the integration cards' specks, Everywhere else's globe and the shipping save toasts (scripts/check-app-sidebar-z7.mjs, check-integrations-y2.mjs P, check-shipping-settings.mjs measure them). */
   "tests/app-polish-z7.test.ts",
+  /* Round 10: the OnePage's instant checkout bought end to end: facts, a code, paid and free, drafts refused (tests/_journey) */
+  "tests/e2e-onepage-instant.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

@@ -300,7 +300,8 @@ function main() {
       && /title="Share your OnePage" hideFrom="md" keepMounted/.test(read("components/onepage/onepage-editor.tsx")))
     check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", (linksSrc.match(/<CardMark on=\{/g) ?? []).length >= 12 && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-0 opacity-0/.test(linksSrc))
     /* Settings' sections are the editor's one pill-tab row now: the pill slides from the press, instead of each chip fading its own fill where it stands. */
-    check("Settings' section chips slide one pill", /<PillTabs\s+dataRow="settings-chips"/.test(read("components/onepage/tabs/settings-tab.tsx")) && /onPointerDown=\{press\.onPointerDown\}/.test(read("components/onepage/pill-tabs.tsx")))
+    /* Changed on purpose (round 10): one row at every width, named settings-pills. */
+    check("Settings' section chips slide one pill", /<PillTabs\s+dataRow="settings-pills"/.test(read("components/onepage/tabs/settings-tab.tsx")) && /onPointerDown=\{press\.onPointerDown\}/.test(read("components/onepage/pill-tabs.tsx")))
     check("a link's stats are asked for once its sheet has arrived on a phone, as the notifications are", /sheet=\{\{ onOpened: \(\) => setStatsSheetArrived\(true\) \}\}/.test(linksSrc) && /!isMobileStatsViewport \|\| statsSheetArrived/.test(linksSrc))
     check("the day and time sheet sits on the keyboard", /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title=\{label\} aboveKeyboard>/.test(read("components/onepage/date-time-field.tsx")))
     check("the dial turns with pointer events and keeps its rotation on a touch screen", /function DirectionDial[\s\S]{0,2400}setPointerCapture[\s\S]{0,2400}data-keep-transform=""/.test(design))
