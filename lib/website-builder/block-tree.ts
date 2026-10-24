@@ -17,7 +17,6 @@
  * Every function is pure: the list comes in, a new list goes out, and the
  * one that came in is untouched, which is what lets Undo keep it.
  */
-import { z } from "zod"
 
 import { MAX_BLOCK_DEPTH, LIMITS } from "@/lib/storelib-theme/types"
 import type { BlockInstance } from "./types"
@@ -164,35 +163,13 @@ export function depthOf(list: readonly BlockInstance[] | undefined): number {
 
 /* ── what a save accepts ─────────────────────────────────────────────── */
 
-type BlockShape = { id: string; type: string; settings: Record<string, unknown>; hidden?: boolean; static?: boolean; blocks?: BlockShape[] }
-
-/**
- * ===========================================================================
- *  A BLOCK, AS EVERY SAVE DOOR READS ONE
- * ===========================================================================
- * zod drops a key it was not told about. The routes used to describe a
- * block as `{ id, type, settings }`, so the moment blocks could hold blocks,
- * saving a page would have kept the outer block and silently thrown away
- * everything inside it. One description, shared by every route that takes
- * sections, carries the whole tree: its blocks, whether it is hidden, and
- * whether its template placed it.
- *
- * MARKED PURE, so a bundle that does not use it leaves it, and zod with it,
- * out. The canvas's live layer reads this module's tree helpers, and the
- * live layer is in every published website's section renderer: a schema
- * built when the module loads put zod (about 50KB) in every visitor's
- * JavaScript for a check only the save routes make (the engine audit, S1).
- */
-export const BlockInstanceSchema: z.ZodType<BlockShape> = /* @__PURE__ */ z.lazy(() =>
-  z.object({
-    id: z.string().min(1).max(128),
-    type: z.string().min(1).max(64),
-    settings: z.record(z.unknown()),
-    hidden: z.boolean().optional(),
-    static: z.boolean().optional(),
-    blocks: z.array(BlockInstanceSchema).max(LIMITS.blocksPerSection).optional(),
-  }),
-) as z.ZodType<BlockShape>
+/*
+  WHAT A SAVE ACCEPTS is ./block-tree-schema.ts (BlockInstanceSchema), a file
+  of its own. This module's tree helpers are in every published website's
+  section renderer (lib/website-builder/live-settings.ts), and zod's import
+  kept zod in that bundle even with the schema marked pure: 61KB of every
+  website's script for a check only the save routes make.
+*/
 
 /** Why a section's blocks cannot be saved, or null when they can. */
 export function blockTreeProblem(section: { name?: string; type: string; blocks?: readonly BlockInstance[] }): string | null {

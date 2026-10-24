@@ -142,7 +142,8 @@ console.log("\nS1  A PUBLISHED WEBSITE'S JAVASCRIPT CARRIES NO ENGINE")
   const heavy = SITE.flatMap((f) => importsOf(f).filter((i) => ENGINE.test(i)).map((i) => `${f}: ${i}`))
   check("no module on a published page's path imports the engine, the sources, zod or postcss", heavy.length === 0, heavy)
   check("the control names live apart from their zod checks", !/from "zod"/.test(read("lib/storelib-theme/controls/types.ts")) && /export \{ CONTROL_TYPES, LEGACY_TYPE_ALIASES, SHOPIFY_TYPE_ALIASES, resolveControlType, type ControlType \}/.test(read("lib/storelib-theme/controls/registry.ts")))
-  check("the block tree's save schema is marked pure, so a bundle that never saves leaves zod out", /export const BlockInstanceSchema: z\.ZodType<BlockShape> = \/\* @__PURE__ \*\/ z\.lazy\(/.test(read("lib/website-builder/block-tree.ts")))
+  /* Changed on purpose (round 12): marked pure was not enough, the import kept zod in every website's bundle, so the schema moved to a file of its own. */
+  check("the block tree's save schema lives apart from the tree helpers, so a bundle that never saves leaves zod out", /export const BlockInstanceSchema: z\.ZodType<BlockShape> = \/\* @__PURE__ \*\/ z\.lazy\(/.test(read("lib/website-builder/block-tree-schema.ts")) && !/from "zod"/.test(read("lib/website-builder/block-tree.ts")))
 }
 
 console.log("\nN2  A COMMITTED CHANGE IS DRAWN BY ITS SECTION BEFORE THE DEFERRED CANVAS HAS IT")

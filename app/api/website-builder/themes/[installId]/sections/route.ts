@@ -1,4 +1,5 @@
-import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { BlockInstanceSchema } from "@/lib/website-builder/block-tree-schema"
 import { editorUser, readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"

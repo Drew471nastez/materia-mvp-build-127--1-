@@ -1,4 +1,5 @@
-import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { BlockInstanceSchema } from "@/lib/website-builder/block-tree-schema"
 import { editorUser, readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"

@@ -12,7 +12,7 @@
 import { readFileSync } from "node:fs"
 import { z } from "zod"
 import { cleanAgentBody, cleanSections, unreadablePart } from "@/lib/website-builder/agent/request-shape"
-import { BlockInstanceSchema } from "@/lib/website-builder/block-tree"
+import { BlockInstanceSchema } from "@/lib/website-builder/block-tree-schema"
 import { sectionAdvice } from "@/lib/storelib-ai/integration"
 import { writeSectionRules } from "@/lib/storelib-ai"
 import { copySection, decodeClip, encodeClip } from "@/lib/website-builder/section-clipboard"

@@ -36,7 +36,6 @@ import { DEFAULT_COLOR_SCHEMES, schemeTokenName } from "@/lib/storelib-theme/col
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import {
-  BlockInstanceSchema,
   blockAt,
   blockTreeProblem,
   cloneTree,
@@ -47,6 +46,8 @@ import {
   removeAt,
   resolvePath,
 } from "@/lib/website-builder/block-tree"
+/* Changed on purpose (round 12): the save schema has a file of its own, so zod stays out of every website's script. */
+import { BlockInstanceSchema } from "@/lib/website-builder/block-tree-schema"
 import { addableBlocks, schemaFromStorelib, themeBlockCatalog, STORELIB_SCHEMAS } from "@/lib/website-builder/storelib-schemas"
 import { renderStorelibSection, toInstanceData } from "@/lib/website-builder/storelib-runtime"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
