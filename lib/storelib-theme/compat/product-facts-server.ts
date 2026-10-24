@@ -59,6 +59,7 @@ export async function pageFactsFor(admin: Db, creatorId: string, productId: stri
       lowAt: data.low_stock_at ?? null,
       showLeft,
       productLeft: data.inventory_left ?? null,
+      sizeChart: data.size_chart ?? null,
     }
   } catch {
     return null

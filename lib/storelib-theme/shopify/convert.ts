@@ -50,6 +50,7 @@ import { COMPAT_PREFIX, compatPageKey, type CompatSettings } from "../compat/ins
 import { SECTION_CSS_KEY, splitCompatFile, wrapCompatTemplate } from "../compat/theme"
 import { floatsOverPage } from "../section-groups"
 import { isReviewsAppBlock } from "../compat/storelib-reviews"
+import { isSizeChartAppBlock } from "../compat/size-chart"
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
@@ -1041,18 +1042,20 @@ function templateSections(t: Tree, types: Map<string, string>, report: Report, p
   A SHOPIFY APP'S BLOCK, placed on a page (a review badge, an upsell) or
   switched on for the whole theme as an app embed (settings_data.json's
   `blocks`), comes with the theme's files but not the app: Shopify draws it
-  from the app's own code. A review app's is drawn by Storelib Reviews; any
+  from the app's own code. A review app's is drawn by Storelib Reviews, a
+  size chart app's by Storelib's size charts (../compat/size-chart.ts); any
   other draws nothing, and the report says which, so the store owner knows
   what the page no longer has.
 */
 const APP_BLOCK = /^shopify:\/\/apps\/([^/]+)\/blocks\/([^/]+)/
 function noteAppBlocks(blocks: { type: string; blocks?: { type: string; blocks?: unknown[] }[] }[], report: Report, path: string, verb: "places" | "switches on"): void {
   const reviews = new Set<string>()
+  const sizes = new Set<string>()
   const other = new Set<string>()
   const walk = (list: { type: string; blocks?: unknown[] }[]) => {
     for (const b of list) {
       const m = b.type.match(APP_BLOCK)
-      if (m) (isReviewsAppBlock(b.type) ? reviews : other).add(`${m[1]} (${m[2]})`)
+      if (m) (isReviewsAppBlock(b.type) ? reviews : isSizeChartAppBlock(b.type) ? sizes : other).add(`${m[1]} (${m[2]})`)
       if (Array.isArray(b.blocks)) walk(b.blocks as { type: string; blocks?: unknown[] }[])
     }
   }
@@ -1060,6 +1063,7 @@ function noteAppBlocks(blocks: { type: string; blocks?: { type: string; blocks?:
   const what = verb === "places" ? "app blocks" : "app embeds"
   if (other.size) report.note(path, `It ${verb} app ${what} that come with an app, not with the theme, and draw nothing on Storelib: ${[...other].join(", ")}`)
   if (reviews.size) report.note(path, `It ${verb} review ${what} (${[...reviews].join(", ")}); Storelib Reviews draws them with the shop's own reviews`)
+  if (sizes.size) report.note(path, `It ${verb} size chart ${what} (${[...sizes].join(", ")}); Storelib draws each product's own size chart there (Products, Size charts)`)
 }
 
 function blockList(blocks: Record<string, Tree> | undefined, order: unknown, depth: number): ImportedBlock[] {

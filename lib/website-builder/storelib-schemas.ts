@@ -26,6 +26,10 @@ import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
 import { contentForStatics } from "./product-details-rule"
 import { REVIEW_APP_BLOCK_SCHEMAS, reviewAppBlockSchema } from "@/lib/storelib-theme/compat/review-app-blocks"
+import { SIZE_CHART_APP_BLOCK_SCHEMAS, sizeChartAppBlockSchema } from "@/lib/storelib-theme/compat/size-chart"
+
+/** Storelib's own app blocks for an imported theme: Storelib Reviews' two and the size chart. */
+const APP_BLOCK_SCHEMAS: readonly BlockSchema[] = [...REVIEW_APP_BLOCK_SCHEMAS, ...SIZE_CHART_APP_BLOCK_SCHEMAS]
 import type { BlockInstance, BlockSchema, SchemaField, SchemaFieldType, SectionPreset, SectionSchema } from "./types"
 
 function field(s: SettingDefinition): SchemaField {
@@ -423,7 +427,8 @@ function compatBlockSchema(source: string, path: string, type: string): BlockSch
  * the installed apps' blocks in Add block. The panel made at import has no
  * place for them (shopify/convert.ts leaves "@app" out), so they are read
  * from the theme's own schema here: Storelib Reviews' Star rating and
- * Reviews (lib/storelib-theme/compat/review-app-blocks.ts), after the
+ * Reviews (lib/storelib-theme/compat/review-app-blocks.ts) and the Size
+ * chart (lib/storelib-theme/compat/size-chart.ts), after the
  * section's own blocks, or among the theme blocks it takes ("@app" in
  * `accepts`, which only app blocks answer: schema/validate.ts acceptsType).
  */
@@ -433,7 +438,7 @@ function takesAppBlocks(schema: unknown): boolean {
 }
 
 function withAppBlocks<T extends { blocks?: BlockSchema[]; accepts?: string[] }>(schema: T): T {
-  if (schema.blocks?.length) return { ...schema, blocks: [...schema.blocks.filter((b) => !reviewAppBlockSchema(b.type)), ...REVIEW_APP_BLOCK_SCHEMAS] }
+  if (schema.blocks?.length) return { ...schema, blocks: [...schema.blocks.filter((b) => !reviewAppBlockSchema(b.type) && !sizeChartAppBlockSchema(b.type)), ...APP_BLOCK_SCHEMAS] }
   return { ...schema, accepts: [...(schema.accepts ?? []).filter((a) => a !== "@app"), "@app"] }
 }
 
@@ -449,7 +454,7 @@ export function themeBlockCatalog(sources?: Record<string, string>, opts: { buil
     }
   }
   /* An imported theme: Storelib Reviews' app blocks, for the sections and blocks that take "@app" (withAppBlocks above). */
-  if (opts.builtIn === false && isCompatSource(sources?.["layout/theme.storelib"])) for (const b of REVIEW_APP_BLOCK_SCHEMAS) out[b.type] = b
+  if (opts.builtIn === false && isCompatSource(sources?.["layout/theme.storelib"])) for (const b of APP_BLOCK_SCHEMAS) out[b.type] = b
   return out
 }
 

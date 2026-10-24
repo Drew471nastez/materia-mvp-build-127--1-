@@ -72,6 +72,9 @@ import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq }
 
 /** The product objects whose questions a page has drawn already, so they are drawn once (./product-faq.ts). */
 const FAQ_SHOWN = new WeakSet<object>()
+import { SIZE_CHART_APP_BLOCK as SIZE_CHART_APP_BLOCK_TYPE, SIZE_CHART_SNIPPET, SIZE_CHART_SNIPPET_NAME, holdsSizeChartBlock, isSizeChartAppBlock, sizeChartBlockHtml, sizeChartOf, sizeChartUid, themeReadsSizeChart, withSizeGuide } from "./size-chart"
+/** The product objects whose size chart a page has drawn already: a second link points at the first chart (./size-chart.ts). */
+const SIZE_CHART_SHOWN = new WeakSet<object>()
 import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { linkFactsOf, siteLink } from "./links"
@@ -858,15 +861,18 @@ export class CompatTheme {
     return {
       snippet: (name) => {
         const p = this.fileFor("snippets", name)
-        return p ? this.tree(p) : null
+        if (p) return this.tree(p)
+        /* Storelib's own snippet for a theme's code to call: the product's size chart (./size-chart.ts). The theme's own file of that name wins. */
+        return name === SIZE_CHART_SNIPPET_NAME ? parsedMarkup(SIZE_CHART_SNIPPET).tree : null
       },
-      /* Storelib Reviews widgets (./storelib-reviews.ts): Storelib's own filter, beside the theme's. */
-      filter: (name) => (name === "storelib_review_widget" ? storelibReviewWidgetFilter : compatFilter(name)),
+      /* Storelib Reviews widgets (./storelib-reviews.ts) and the size chart (./size-chart.ts): Storelib's own filters, beside the theme's. */
+      filter: (name) => (name === "storelib_review_widget" ? storelibReviewWidgetFilter : name === "storelib_size_chart" ? this.sizeChartFilter : compatFilter(name)),
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
       appBlock: (ctx, block) => {
         const type = String(block.app_type ?? block.type ?? "")
+        if (isSizeChartAppBlock(type)) return this.sizeChartBlock(ctx, { id: String(block.id ?? ""), type, settings: (block.__instance as CompatBlockInstance | undefined)?.settings ?? {} }, ctx.registers.closest as O | undefined)
         if (!isReviewsAppBlock(type)) return null
         const own = (block.__instance as CompatBlockInstance | undefined)?.settings
         return this.reviewsBlock(ctx, { id: String(block.id ?? ""), type, settings: own ?? {} }, ctx.registers.closest as O | undefined)
@@ -959,6 +965,11 @@ export class CompatTheme {
         FAQ_SHOWN.add(ctx.globals.product as object)
       }
     }
+    /* The product's size chart, beside the size option, when nothing else on the page has drawn it (./size-chart.ts). */
+    if (group === undefined && !holdsSizeChartBlock(instance.blocks)) {
+      const placed = this.sizeGuideIn(ctx, html)
+      if (placed !== null) html = placed
+    }
     html = `${sectionCss(instance.id, instance.settings?.[SECTION_CSS_KEY])}${html}`
     const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
     const tag = typeof schema.tag === "string" && /^(div|section|article|aside|header|footer|main|nav)$/.test(schema.tag) ? schema.tag : "div"
@@ -1032,6 +1043,51 @@ export class CompatTheme {
     } catch (e) {
       return { html: "", errors: [(e as Error).message] }
     }
+  }
+
+  private readsSizeChart: boolean | null = null
+  /** On a product page, the main product section with the product's size chart link beside its size option, or null (./size-chart.ts withSizeGuide). */
+  private sizeGuideIn(ctx: Ctx, html: string): string | null {
+    const product = ctx.globals.product
+    if (!product || typeof product !== "object" || (ctx.globals.request as O | undefined)?.page_type !== "product") return null
+    if (SIZE_CHART_SHOWN.has(product)) return null
+    const chart = sizeChartOf(product)
+    if (!chart) return null
+    if (this.readsSizeChart === null) this.readsSizeChart = themeReadsSizeChart(Object.values(this.files))
+    if (this.readsSizeChart) return null
+    const page = (ctx.registers.page ?? {}) as CompatPage
+    const words = shopWords(page.i18n?.uiWords)
+    /* This product's own section: its id or one of its variants' is in the markup, never only another product's quick add form. */
+    const ids = [(product as O).id, ...(Array.isArray((product as O).variants) ? ((product as O).variants as O[]).map((v) => v?.id) : [])].map((v) => (v === undefined || v === null ? "" : String(v))).filter(Boolean)
+    if (!ids.some((id) => html.includes(id))) return null
+    const names = Array.isArray((product as O).options) ? ((product as O).options as unknown[]).map((n) => toOutput(n)) : []
+    const placed = withSizeGuide(html, names, chart, { uid: sizeChartUid(product), label: words.size_guide, closeLabel: words.close })
+    if (placed !== null) SIZE_CHART_SHOWN.add(product)
+    return placed
+  }
+
+  /** A size chart app block (Storelib's own, or one kept from a size chart app on Shopify): the chart of the product in scope. */
+  private sizeChartBlock(ctx: Ctx, b: { id: string; type: string; settings?: unknown }, closest?: O): string {
+    const product = (closest?.product as O | undefined) ?? (ctx.lookup("product") as O | undefined)
+    const page = (ctx.registers.page ?? {}) as CompatPage
+    const words = shopWords(page.i18n?.uiWords)
+    const own = b.type === SIZE_CHART_APP_BLOCK_TYPE && b.settings && typeof b.settings === "object" ? (b.settings as O) : {}
+    const first = !!product && typeof product === "object" && !SIZE_CHART_SHOWN.has(product)
+    const html = sizeChartBlockHtml(product, own, { sizeGuide: words.size_guide, close: words.close }, { inEditor: page.designMode === true, withCss: first, dialog: first })
+    if (html && product && typeof product === "object" && sizeChartOf(product)) SIZE_CHART_SHOWN.add(product)
+    return html ? `<div class="shopify-app-block" ${blockAttributes(b.id)}>${html}</div>` : ""
+  }
+
+  /** `{{ product | storelib_size_chart }}`: the link and the chart for a theme's own code, `label:` and `style:` its own words and look. */
+  private sizeChartFilter = (input: unknown, _args: unknown[], kw: Record<string, unknown>, ctx: Ctx): string => {
+    const product = (input && typeof input === "object" ? input : ctx.lookup("product")) as O | undefined
+    if (!product || typeof product !== "object") return ""
+    const page = (ctx.registers.page ?? {}) as CompatPage
+    const words = shopWords(page.i18n?.uiWords)
+    const first = !SIZE_CHART_SHOWN.has(product)
+    const html = sizeChartBlockHtml(product, { label: toOutput(kw.label), style: toOutput(kw.style), show_icon: kw.icon === undefined ? true : kw.icon !== false }, { sizeGuide: words.size_guide, close: words.close }, { inEditor: false, withCss: first, dialog: first })
+    if (html && sizeChartOf(product)) SIZE_CHART_SHOWN.add(product)
+    return html
   }
 
   private readsFaqs: boolean | null = null
@@ -1146,7 +1202,7 @@ export class CompatTheme {
     const draw = (b: CompatBlockInstance) => {
       const path = this.fileFor("blocks", b.type)
       const tree = path ? this.tree(path) : null
-      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : ""
+      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : isSizeChartAppBlock(b.type) ? this.sizeChartBlock(ctx, b, closest) : ""
       let holder: Ctx | null = null
       const block = this.blockObject(b, [], res, resolverFor(() => holder))
       const c = ctx.child({ block, closest, ...extra })
