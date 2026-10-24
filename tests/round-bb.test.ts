@@ -116,6 +116,14 @@ console.log("\nSigning in on a website: a different email, a new code, and the e
   check("  no copy with an em dash", !/\u2014/.test(restart + login + step))
 }
 
+console.log("\nA section's own setting reaches the theme's script\n")
+{
+  const canvas = code("components/website-builder/compat/compat-canvas.tsx")
+  check("a single section setting is said as storelib:settings-change with the section's id", /told\.path\.length === 2 && told\.path\[0\] === "settings"/.test(canvas) && /type: "settings", settings: \{ \[told\.path\[1\]\]: told\.to \}, live, section: s\.id \}/.test(canvas))
+  const bridge = code("lib/storelib-theme/compat/canvas-bridge.ts")
+  check("  and the frame puts the section's id in the event's detail", /detail: m\.section \? \{ settings: m\.settings \|\| \{\}, live: !!m\.live, section: String\(m\.section\) \}/.test(bridge))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
