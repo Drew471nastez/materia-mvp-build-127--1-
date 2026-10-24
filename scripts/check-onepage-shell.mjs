@@ -330,7 +330,8 @@ if (wants("opaque")) {
     const box = await s.p.evaluate(() => { const b = document.querySelector('[data-app-sheet="open"] [data-sheet-panel]')?.getBoundingClientRect(); return b ? { x: 0, y: Math.max(0, b.top + 24), width: innerWidth, height: Math.min(innerHeight, b.bottom) - Math.max(0, b.top + 24) } : null })
     let through = null
     if (box && box.height > 10) {
-      const grab = async () => (await sharp(await s.p.screenshot({ clip: box })).removeAlpha().raw().toBuffer())
+      /* In the viewport as it is: a capture "beyond the viewport" resizes the page for the shot, and a sheet sized to the screen moves a pixel. */
+      const grab = async () => (await sharp(await s.p.screenshot({ clip: box, captureBeyondViewport: false })).removeAlpha().raw().toBuffer())
       const overBlack = await grab()
       await s.p.evaluate(() => { for (const d of document.querySelectorAll("body > div")) if (d.style.zIndex === "199") d.style.background = "#fff" })
       await sleep(150)
@@ -360,6 +361,125 @@ if (wants("opaque")) {
     expect(read.length > 0 && opacities.every((o) => o >= 0.99), `${name}: settled, every frame from the end of the open its panel is at full opacity`, { opacities })
     await s.p.close()
   }
+}
+
+/* ── A resting sheet is out of the tab order ─────────────────────────── */
+/*
+  Kept sheets wait in the page at REST_OPACITY (components/ui/bottom-sheet).
+  Tab, all the way round the page at 390, never lands inside one, and a
+  script's focus() on a control inside one does not take.
+*/
+if (wants("resttab")) {
+  console.log("\nA resting sheet takes no focus, at 390")
+  const s = await open(PHONE, "links")
+  const rest = await s.p.evaluate(() => [...document.querySelectorAll("[data-app-sheet-rest]")].map((r) => `${r.getAttribute("aria-label")}:${r.querySelectorAll("button, input, a[href], [tabindex]").length}`))
+  let landed = 0
+  let steps = 0
+  for (; steps < 260; steps++) {
+    await s.p.keyboard.press("Tab")
+    if (await s.p.evaluate(() => !!document.activeElement?.closest?.("[data-app-sheet-rest]"))) landed++
+  }
+  const scripted = await s.p.evaluate(() => {
+    let took = 0
+    for (const el of document.querySelectorAll("[data-app-sheet-rest] button, [data-app-sheet-rest] input")) { el.focus(); if (document.activeElement === el) took++ }
+    return took
+  })
+  console.log(`  resting sheets ${rest.join(", ")}; ${steps} presses of Tab, ${landed} inside one; focus() taken by ${scripted}`)
+  expect(rest.length > 0 && landed === 0, "Tab never lands in a resting sheet", landed)
+  expect(scripted === 0, "focus() on a control in a resting sheet does not take", scripted)
+  /* And a sheet that has been opened and closed again is the same. */
+  await s.p.evaluate(clickText("Add"))
+  await sleep(900)
+  await s.p.keyboard.press("Escape")
+  await sleep(1200)
+  const again = await s.p.evaluate(() => {
+    let took = 0
+    for (const el of document.querySelectorAll("[data-app-sheet-rest] button, [data-app-sheet-rest] input")) { el.focus(); if (document.activeElement === el) took++ }
+    return took
+  })
+  expect(again === 0, "nor once one has been opened and closed", again)
+  expect(s.errors.length === 0, "no errors", s.errors.slice(0, 2))
+  await s.p.close()
+}
+
+/* ── Settings: each Save its own, hidden sections out of reach, glass on a light page ── */
+/*
+  Round 10 audit (AUDIT.md S1 to S3), at 1440 with the preview beside:
+    S2  a change in one section lights that section's Save and no other
+    S3  Tab from the pills never lands in a section that is not shown
+    S1  Subscribe in Glass on a light page: the bell in the preview is drawn
+        in ink, not white on white
+*/
+if (wants("sections")) {
+  console.log("\nSettings sections, at 1440")
+  const s = await open(DESK, "settings-subscribe")
+  await s.p.waitForSelector('[data-tab-panel="settings"] [data-settings-toggle="subscribe"]')
+  await sleep(1200)
+  const lit = () => s.p.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-tab-panel="settings"] [data-settings-save]')].map((r) => [r.getAttribute("data-settings-save"), !r.querySelector("button").disabled])))
+  const before = await lit()
+  expect(Object.values(before).every((on) => !on), "nothing changed: no section's Save is lit", before)
+  /* Glass, from whatever it was: pick another style, then Glass, so it is a change either way. */
+  const pick = (word) => s.p.evaluate((word) => {
+    const b = [...document.querySelectorAll('[data-tab-panel="settings"] [data-settings-toggle="subscribe"] button')].find((e) => e.textContent.trim() === word && e.getClientRects().length)
+    if (b) b.click()
+    return !!b
+  }, word)
+  await pick("Black")
+  await sleep(400)
+  const after = await lit()
+  expect(after.subscribe === true && Object.entries(after).every(([k, on]) => k === "subscribe" || !on), "a change in Subscribe lights Subscribe's Save and no other", after)
+  await pick("Glass")
+  await sleep(1200)
+  const bell = await s.p.evaluate(() => {
+    const frame = document.querySelector("[data-onepage-preview-frame]")
+    const doc = frame?.contentDocument
+    const b = doc?.querySelector("[data-onepage-bell]")
+    if (!b) return { found: false }
+    const svg = b.querySelector("svg")
+    const c = doc.defaultView.getComputedStyle(svg).color.match(/[\d.]+/g).map(Number)
+    const lum = (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255
+    return { found: true, ink: b.hasAttribute("data-ink"), color: c.slice(0, 3).join(","), lum: Math.round(lum * 100) / 100, page: doc.defaultView.getComputedStyle(doc.body).backgroundColor }
+  })
+  if (bell.found) expect(bell.ink && bell.lum < 0.35, "Glass on a light page: the preview's bell is drawn in ink", bell)
+  else console.log("  (the preview draws no bell in this harness: its page has no seller; the live page below has one)")
+  /* The live page, which the preview draws too: Glass (the default) on a light theme and on the harness's dark one. */
+  for (const [what, query, light] of [["a light page (Studio)", "?live&template=studio", true], ["a dark page", "?live", false]]) {
+    const lp = await browser.newPage()
+    await lp.setViewport(PHONE)
+    await lp.goto(`${base}/app/onepage${query}`)
+    await lp.waitForSelector("[data-onepage-bell]", { timeout: 10000 }).catch(() => null)
+    await sleep(900)
+    const b = await lp.evaluate(() => {
+      const el = document.querySelector("[data-onepage-bell]")
+      if (!el) return null
+      const raw = getComputedStyle(el.querySelector("svg")).color
+      /* Tailwind's /80 colours compute to oklab(), whose first number is already the lightness. */
+      const ok = raw.match(/^oklab\(([\d.]+)/)
+      const c = raw.match(/[\d.]+/g).map(Number)
+      const lum = ok ? Number(ok[1]) : (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255
+      return { ink: el.hasAttribute("data-ink"), color: raw, lum: Math.round(lum * 100) / 100 }
+    })
+    expect(!!b && b.ink === light && (light ? b.lum < 0.35 : b.lum > 0.65), `Glass on ${what}: the bell is ${light ? "ink" : "white"}`, b)
+    if (shots) await lp.screenshot({ path: join(shots, `shell-glass-bell-${light ? "light" : "dark"}-390.png`) })
+    await lp.close()
+  }
+  if (shots) await s.p.screenshot({ path: join(shots, "shell-settings-glass-1440.png") })
+
+  /* Tab from the pills, through the shown section and on: never into a hidden one. */
+  await s.p.evaluate(() => document.querySelector('[data-tab-panel="settings"] [data-pill-row="settings-pills"] [data-tab="seo"]').click())
+  await sleep(800)
+  await s.p.evaluate(() => document.querySelector('[data-tab-panel="settings"] [data-pill-row="settings-pills"] [data-tab="seo"]').focus())
+  let hidden = 0
+  const where = new Set()
+  for (let k = 0; k < 80; k++) {
+    await s.p.keyboard.press("Tab")
+    const at = await s.p.evaluate(() => { const p = document.activeElement?.closest?.("[data-pill-panel]"); return p ? `${p.getAttribute("data-pill-panel")}:${p.getAttribute("aria-hidden") === "true" ? "hidden" : "shown"}` : null })
+    if (at) where.add(at)
+    if (at?.endsWith(":hidden")) hidden++
+  }
+  expect(hidden === 0, "Tab never lands in a section that is not shown", { hidden, where: [...where] })
+  expect(s.errors.length === 0, "no errors", s.errors.slice(0, 2))
+  await s.p.close()
 }
 
 /* ── Settings ─────────────────────────────────────────────────────────── */

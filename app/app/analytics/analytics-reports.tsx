@@ -64,7 +64,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
-import { formatCurrency } from "@/lib/markets/money"
+import { formatMinor } from "@/lib/markets/money"
 
 /** Storelib's accent, the one every /app screen uses: the added reports' columns. */
 const ACCENT = "#8b5cf6"
@@ -89,7 +89,8 @@ const PILL = "rounded-[7px] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.10),0_0_0
 
 /* The store's own currency (Settings › Languages & Currency), set by AnalyticsReports from the /app layout's: lei for a store in lei. */
 let reportCurrency = "USD"
-const fmtMoney = (cents: number) => formatCurrency((cents || 0) / 100, reportCurrency, appLocale())
+/* Minor units in the currency's own decimals: a yen store's 2500 is ¥2,500, never ¥25 (the tab above reads it the same way). */
+const fmtMoney = (cents: number) => formatMinor(cents || 0, reportCurrency, appLocale())
 const fmtCount = (n: number) => Math.round(n).toLocaleString(appLocale())
 const fmtPct = (f: number) => `${(f * 100).toFixed(f > 0 && f < 0.1 ? 1 : 0).replace(/\.0+$/, "")}%`
 const plural = (n: number, one: string, many: string) => `${fmtCount(n)} ${n === 1 ? one : many}`
@@ -580,36 +581,80 @@ function Body({ blank, wait, children }: { blank: boolean; wait: WaitKind; child
 }
 
 /**
- * A FIGURE AND ITS COLUMNS: the period's number, its change, and one column
- * per bucket of the chart's own buckets, grown from the baseline (scaleY).
- * The added reports' cards: the same series the answer carries, drawn in the
- * card, never on the chart.
+ * A FIGURE OVER TIME, AND WHAT MAKES IT UP: the period's number and its
+ * change, a thin line of it across the chart's own buckets (the period
+ * before as a quiet dashed line), and its three largest parts as compact
+ * rows with thin bars. The added Page views, Visits, Link clicks and
+ * Refunded orders cards. They were a block of violet columns with two
+ * dates under it, which said less and read as a different product.
+ *
+ * The line keeps no gesture of its own (the one chart on Analytics that is
+ * scrubbed is the figures' chart, components/app/chart-scrub): its busiest
+ * bucket is marked and named above it, and every bucket's number is the
+ * line's accessible name and a row of the export.
  */
-function Columns({ value, change, series, format }: { value: string; change: React.ReactNode; series: Series; format: (n: number) => string }) {
-  const values = series.current
-  const max = Math.max(1, ...values)
+function Trend({ value, change, series, format, rows, rowsEmpty, rowsTitle }: { value: string; change: React.ReactNode; series: Series; format: (n: number) => string; rows: ListRow[]; rowsEmpty: string; rowsTitle: string }) {
+  const compared = React.useContext(ComparedContext)
+  const now = series.current
+  const before = compared ? series.previous : []
+  const n = now.length
+  const W = 600
+  const H = 72
+  const max = Math.max(1, ...now, ...before)
+  const x = (i: number) => (n <= 1 ? W / 2 : (i / (n - 1)) * W)
+  const y = (v: number) => H - 3 - (v / max) * (H - 8)
+  const path = (vals: number[]) => vals.slice(0, n).map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ")
+  /* The busiest bucket, the latest of equals: the one point worth naming. */
+  const at = now.reduce((best, v, i) => (v >= (now[best] ?? 0) ? i : best), 0)
   const label = (i: number) => series.labels[i] ?? ""
+  const top = rows.slice(0, 3)
+  const rowMax = Math.max(1, ...top.map((r) => r.value))
   return (
-    <div className="flex h-full flex-col" data-columns="">
+    <div className="flex h-full flex-col" data-trend="">
       <div className="flex h-9 items-baseline gap-2.5" data-figure="">
-        <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{value}</span>
+        <span className="text-[24px] font-bold tracking-tight text-[#1a1a2e]">{value}</span>
         {change}
       </div>
-      <div className="mt-4 flex h-[150px] items-end gap-[3px]" role="img" aria-label={values.map((v, i) => `${label(i)}: ${format(v)}`).join(", ")}>
-        {values.map((v, i) => (
-          <div key={i} className="relative h-full min-w-0 flex-1" title={`${label(i)}: ${format(v)}`}>
-            <div
-              data-column=""
-              className="absolute inset-x-0 bottom-0 h-full origin-bottom rounded-t-[3px] transition-transform duration-500 motion-reduce:transition-none"
-              style={{ background: v > 0 ? ACCENT : "#eceef1", transform: `scaleY(${v > 0 ? Math.max(0.03, v / max) : 0.02})`, transitionTimingFunction: EASE }}
-            />
-          </div>
-        ))}
+      <div className="mt-1 flex h-5 items-baseline justify-between gap-3 text-[12px]" data-trend-readout="">
+        <span className="min-w-0 truncate text-[#6b7280]">{n && (now[at] ?? 0) > 0 ? tt("Busiest: {when}", { when: label(at) }) : ""}</span>
+        <span className="shrink-0 tabular-nums">
+          {n && (now[at] ?? 0) > 0 ? <span className="font-medium text-[#1a1a2e]">{format(now[at] ?? 0)}</span> : null}
+          {n && before.length ? <span className="text-[#6b7280]"> {tt("vs {value}", { value: format(before[at] ?? 0) })}</span> : null}
+        </span>
       </div>
-      <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-[#9ca3af]">
-        <span>{label(0)}</span>
-        <span>{label(values.length - 1)}</span>
+      <div className="relative mt-1 h-[72px]">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={now.map((v, i) => `${label(i)}: ${format(v)}`).join(", ")}
+          data-trend-line=""
+          className="h-full w-full overflow-visible"
+        >
+          <line x1="0" x2={W} y1={H - 3} y2={H - 3} stroke="#e5e7eb" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          {before.length ? <path d={path(before)} fill="none" stroke="#b8bcc6" strokeWidth="1.5" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" /> : null}
+          {n ? <path d={`${path(now)} L${x(n - 1).toFixed(1)} ${H - 3} L${x(0).toFixed(1)} ${H - 3} Z`} fill={ACCENT} fillOpacity={0.08} /> : null}
+          {n ? <path d={path(now)} fill="none" stroke={ACCENT} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> : null}
+        </svg>
+        {n && (now[at] ?? 0) > 0 ? (
+          <span aria-hidden data-trend-dot="" className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white" style={{ left: `${(x(at) / W) * 100}%`, top: y(now[at] ?? 0), background: ACCENT }} />
+        ) : null}
       </div>
+      <ol className="mt-3 flex flex-col gap-1.5" aria-label={rowsTitle} data-trend-rows="">
+        {top.length ? (
+          top.map((r) => (
+            <li key={r.key} className="min-w-0" data-row-key={r.key}>
+              <div className="flex h-[18px] items-baseline gap-2 text-[12.5px]">
+                <span className="min-w-0 flex-1 truncate text-[#303036]" title={r.label}>{r.label}</span>
+                <span className="shrink-0 font-medium tabular-nums text-[#1a1a2e]">{format(r.value)}</span>
+              </div>
+              <Fill share={r.value / rowMax} min={0.02} thin className="mt-0.5 h-1 rounded-full" />
+            </li>
+          ))
+        ) : (
+          <li className="text-[12.5px] text-[#6b7280]">{rowsEmpty}</li>
+        )}
+      </ol>
     </div>
   )
 }
@@ -863,15 +908,51 @@ const sumOf = (xs: number[] | undefined) => (xs ?? []).reduce((a, b) => a + b, 0
 const delta = (value: number, previous: number): Headline => ({ value, previous, change: previous === 0 ? null : (value - previous) / previous })
 
 function AddedBody({ id, r }: { id: ReportId; r: Reports }) {
-  if (id === "pageviews") return <Columns value={fmtCount(r.views.value)} change={<Change h={r.views} />} series={r.views.series} format={fmtCount} />
-  if (id === "sessions") return <Columns value={fmtCount(r.sessions.value)} change={<Change h={r.sessions} />} series={r.sessions.series} format={fmtCount} />
+  if (id === "pageviews") {
+    const perVisitor = r.visitors.value > 0 ? r.views.value / r.visitors.value : null
+    return (
+      <Trend
+        value={fmtCount(r.views.value)}
+        change={<><Change h={r.views} />{perVisitor !== null ? <span className="ml-auto text-[12px] tabular-nums text-[#6b7280]">{tt("{n} per visitor", { n: perVisitor.toFixed(1).replace(/\.0$/, "") })}</span> : null}</>}
+        series={r.views.series}
+        format={fmtCount}
+        rows={r.topPages.map((p) => ({ key: p.key, label: p.title || p.label, value: p.views }))}
+        rowsTitle={tt("Most viewed pages")}
+        rowsEmpty={tt("No pages opened in this period.")}
+      />
+    )
+  }
+  if (id === "sessions") {
+    return (
+      <Trend
+        value={fmtCount(r.sessions.value)}
+        change={<Change h={r.sessions} />}
+        series={r.sessions.series}
+        format={fmtCount}
+        rows={r.breakdowns.source.map((b) => ({ key: b.key, label: b.label, value: b.value }))}
+        rowsTitle={tt("Visits by source")}
+        rowsEmpty={tt("No visits in this period.")}
+      />
+    )
+  }
   if (id === "clicks") {
     const h = delta(r.linkClicks?.value ?? 0, sumOf(r.linkClicks?.series.previous))
-    return <Columns value={fmtCount(h.value)} change={<Change h={h} />} series={r.linkClicks.series} format={fmtCount} />
+    return (
+      <Trend
+        value={fmtCount(h.value)}
+        change={<Change h={h} />}
+        series={r.linkClicks.series}
+        format={fmtCount}
+        rows={r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks }))}
+        rowsTitle={tt("Most clicked links")}
+        rowsEmpty={tt("No link clicks in this period.")}
+      />
+    )
   }
   if (id === "refunds") {
     const h = delta(sumOf(r.refunds?.series.current), sumOf(r.refunds?.series.previous))
-    return <Columns value={fmtCount(h.value)} change={<Change h={h} />} series={r.refunds.series} format={fmtCount} />
+    const refunded = r.kinds.filter((k) => k.refunds > 0).map((k) => ({ key: k.key, label: k.label, value: k.refunds }))
+    return <Trend value={fmtCount(h.value)} change={<Change h={h} />} series={r.refunds.series} format={fmtCount} rows={refunded} rowsTitle={tt("Refunds by kind")} rowsEmpty={tt("No refunds in this period.")} />
   }
   if (id === "toplinks") {
     return <List title={REPORT_COPY.toplinks.title} rows={r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, tt("person"), tt("people")) }))} format={fmtCount} empty={tt("No link taps in this period. Add links to your OnePage.")} />
@@ -973,7 +1054,7 @@ function AddedCards({ r, lists, ids, onMove, onRemove }: AddedProps & { r: Repor
               />
             }
           >
-            <Body blank={!lists} wait={id === "toplinks" ? "list" : id === "downloads" ? "figure" : "columns"}>
+            <Body blank={!lists} wait={id === "toplinks" ? "list" : "figure"}>
               {lists && r ? <AddedBody id={id} r={r} /> : null}
             </Body>
           </Card>
@@ -1056,6 +1137,7 @@ export function useAnalyticsReports({
   refresh = 0,
   viewer = null,
   currency = "",
+  kind = "all",
 }: {
   start: number
   end: number
@@ -1067,6 +1149,8 @@ export function useAnalyticsReports({
   viewer?: string | null
   /** The store's selling currency: a change asks again, and does not reuse the old totals. */
   currency?: string
+  /** The All / Digital / Physical switch: a question of its own, kept apart from the others. */
+  kind?: string
 }): ReportsState {
   /*
     A page opened from inside the app starts with the kept answer in its very
@@ -1085,6 +1169,7 @@ export function useAnalyticsReports({
       property,
       timeZone: viewerTimeZone(),
       currency: /^[A-Z]{3}$/.test(ccy) ? ccy : undefined,
+      kind,
     })
   const hydrated = React.useSyncExternalStore(noSubscription, () => true, () => false)
   const [state, setState] = React.useState<{ data: ReportsAnswer | null; lists: ReportsAnswer | null; loading: boolean; failed: boolean; asking: string }>(() => {
@@ -1155,7 +1240,7 @@ export function useAnalyticsReports({
       live = false
       release()
     }
-  }, [start, end, cs, ce, product, property, refresh, viewer, ccy])
+  }, [start, end, cs, ce, product, property, refresh, viewer, ccy, kind])
   const stale = state.loading && !!state.data && questionOf(state.data.key) !== state.asking
   return React.useMemo(
     () => ({ data: state.data, lists: state.lists, loading: state.loading, failed: state.failed, stale }),

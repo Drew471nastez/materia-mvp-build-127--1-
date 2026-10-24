@@ -26,6 +26,8 @@ export interface CommerceQuestion {
   property: string
   timeZone: string
   currency?: string
+  /** The All / Digital / Physical switch; "all" or absent is no switch. */
+  kind?: string
 }
 
 /** The query string the cards ask with; the same question is always the same string. */
@@ -37,6 +39,7 @@ export function commerceKey(q: CommerceQuestion): string {
   } else p.set("compare", "none")
   const ccy = (q.currency || "").trim().toUpperCase()
   if (/^[A-Z]{3}$/.test(ccy)) p.set("ccy", ccy)
+  if (q.kind === "digital" || q.kind === "physical") p.set("kind", q.kind)
   return p.toString()
 }
 

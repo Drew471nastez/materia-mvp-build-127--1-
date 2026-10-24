@@ -82,7 +82,8 @@ async function main() {
     const prev = compareBounds(t, { mode: "previous_period" }, TZ, NOW)!
     check("Today against yesterday until the same hour", dayIn(prev.start, TZ) === "2026-10-27" && hourIn(prev.start, TZ) === 0 && prev.end - prev.start === NOW - boundsOf(t, TZ, NOW).start, [new Date(prev.start).toISOString(), new Date(prev.end).toISOString()])
     const wk = compareBounds(week, { mode: "previous_period" }, TZ, NOW)!
-    check("the last 7 days against the 7 before, cut at the same point into the last of them", dayIn(wk.start, TZ) === "2026-10-15" && wk.end - wk.start === NOW - weekSpan.start, [dayIn(wk.start, TZ), (wk.end - wk.start) / HOUR])
+    /* Changed on purpose (round AB2): cut at the same time of day on its own last day, on the clock. This week has the 25 hour day in it, so its elapsed hours cut the comparison an hour late (tests/analytics-accuracy.test.ts BUG 4). */
+    check("the last 7 days against the 7 before, cut at the same point into the last of them", dayIn(wk.start, TZ) === "2026-10-15" && dayIn(wk.end, TZ) === dayIn(NOW - 7 * DAY, TZ) && hourIn(wk.end, TZ) === hourIn(NOW, TZ) && wk.end - wk.start === NOW - weekSpan.start - HOUR, [dayIn(wk.start, TZ), (wk.end - wk.start) / HOUR])
     const yr = compareRange(custom, { mode: "previous_year" })!
     check("the previous year: the same days a year back", yr.start === "2025-09-01" && yr.end === "2025-09-30", yr)
     check("no comparison: nothing", compareBounds(week, { mode: "none" }, TZ, NOW) === null)
@@ -113,8 +114,9 @@ async function main() {
     const cards = code("app/app/analytics/analytics-reports.tsx")
     check("the added reports are drawn from the chart's own answer, never asked for apart", /function AddedBody\(\{ id, r \}: \{ id: ReportId; r: Reports \}\)/.test(cards) && !/fetch\(/.test(cards.slice(cards.indexOf("function AddedBody"), cards.indexOf("function AddedCards"))))
     const route = code("app/api/analytics/commerce/route.ts")
-    check("the sales route reads the comparison's instants, the zone and no comparison", /searchParams\.get\("cstart"\)/.test(route) && /searchParams\.get\("tz"\)/.test(route) && /searchParams\.get\("compare"\) !== "none"/.test(route))
-    check("  and its fulfilment time follows the product and the place", /fulfillmentIn = async[\s\S]*?commerceRowCounts\(/.test(route))
+    check("the sales route reads the comparison's instants, the zone and no comparison", /searchParams\.get\("cstart"\)/.test(route) && /searchParams\.get\("tz"\)/.test(route) && /searchParams\.get\("compare"\) === "none"/.test(route))
+    /* Moved on purpose (round AB2): the reads are lib/analytics/commerce-server, shared with the export. */
+    check("  and its fulfilment time follows the product and the place", /async function fulfillmentIn[\s\S]*?commerceRowCounts\(/.test(code("lib/analytics/commerce-server.ts")))
   }
 
   console.log("\n3. The sales reports count on the seller's clock, in the chart's buckets")
@@ -153,7 +155,8 @@ async function main() {
     const all = { property: "all", productKind: null }
     check("a seller of digital products only: no shipping, no fulfilment, downloads", !sectionsFor(digital, all).shipping && !sectionsFor(digital, all).fulfillment && sectionsFor(digital, all).downloads && !sectionsFor(digital, all).productKinds)
     check("a seller who ships: shipping and fulfilment", sectionsFor(physical, all).shipping && sectionsFor(physical, all).fulfillment && !sectionsFor(physical, all).downloads)
-    check("a published website is a shop: shipping and fulfilment too", sectionsFor(shop, all).shipping && sectionsFor(shop, all).fulfillment)
+    /* Changed on purpose (round AB2), the owner: "For someone who only sells digital products it doesn't make sense to show shipping charges." A website alone ships nothing. */
+    check("a seller of downloads with a published website: no shipping, no fulfilment", !sectionsFor(shop, all).shipping && !sectionsFor(shop, all).fulfillment && sectionsFor(shop, all).downloads)
     check("  a draft one is not", !sectionsFor(profileOf({ products: [{ type: "digital" }], onePageId: null, websites: [], communities: 0 }), all).shipping)
     check("  nor one taken down", !profileOf({ products: [], onePageId: null, websites: [{ published: false }], communities: 0 }).publishedWebsite)
     check("both kinds: Top products split into Physical and Digital", sectionsFor(everything, all).productKinds && !sectionsFor(physical, all).productKinds)

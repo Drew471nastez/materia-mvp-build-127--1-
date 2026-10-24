@@ -5,14 +5,14 @@ import { useEffect, useState, Suspense } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
-import { BUYER_HEADER_DARK_BG } from "@/lib/platform/header-chrome"
+import { BUYER_HEADER_DARK_BG, hasConcaveEdge } from "@/lib/platform/header-chrome"
 import { isProfilePath } from "@/lib/profile/profile-redirect"
 
 /**
  * Shown while PlatformHeaderClient suspends (SSR streaming / initial hydration).
  * Same surface + sticky positioning as the real header so the layout doesn't shift.
  */
-function HeaderPlaceholder({ buyerHeaderLight = false }: { buyerHeaderLight?: boolean }) {
+function HeaderPlaceholder({ buyerHeaderLight = false, concave = false }: { buyerHeaderLight?: boolean; concave?: boolean }) {
   // Height must match the real PlatformHeaderClient header so the layout
   // doesn't shift when React hydrates and swaps the fallback.
   // AND IT WAS FIVE PIXELS SHORT, which is a five pixel jump on every load.
@@ -35,6 +35,12 @@ function HeaderPlaceholder({ buyerHeaderLight = false }: { buyerHeaderLight?: bo
     </div>
     {/* The same room under it in the app as the real bar leaves (platform-header-client), so the swap moves nothing. */}
     <div aria-hidden className="native-header-spacer" />
+    {/* And the rounded edge the real header draws under itself on these pages, so its arrival moves nothing below. */}
+    {concave ? (
+      <div aria-hidden className={buyerHeaderLight ? "relative z-30 -mb-px h-[20px] bg-white" : "relative z-30 -mb-px h-[20px] bg-[#0e0e10]"}>
+        <div className="absolute inset-0 rounded-t-[20px] bg-white" />
+      </div>
+    ) : null}
     </>
   )
 }
@@ -236,7 +242,7 @@ export function ConditionalHeader({
   // for SSR streaming (Next.js 16 build requirement).  The black-bar fallback keeps
   // the layout stable — no gap above content while the client hydrates.
   const header = (
-    <Suspense fallback={<HeaderPlaceholder buyerHeaderLight={buyerHeaderLight} />}>
+    <Suspense fallback={<HeaderPlaceholder buyerHeaderLight={buyerHeaderLight} concave={hasConcaveEdge(pathname)} />}>
       <PlatformHeaderClient initialWishlistCount={initialWishlistCount} buyerHeaderLight={buyerHeaderLight} />
     </Suspense>
   )

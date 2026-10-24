@@ -144,7 +144,7 @@ export interface SettingsTabProps {
   typed address is never the page's address for a moment.
 */
 export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function SettingsTab({ pageUrl: givenUrl, onSave, userPlan: givenPlan, section = "basic", jump, onSectionChange }, ref) {
-  const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, isDirty, markDirty } = useOnePage()
+  const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, isDirty, markDirty, getSavedSettings } = useOnePage()
   const router = useRouter()
   const [copied, setCopied] = useState(false)
   const [localSaving, setLocalSaving] = useState(false)
@@ -283,33 +283,59 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     }
   }
 
-  const saving = localSaving || saveState === "saving"
   const slugPending = pageSlug !== onepage.slug
-  const unsaved = isDirty || slugPending
-  const failed = saveState === "error" && unsaved
-  const status = saving ? tt("Saving…") : failed ? tt("Not saved. Try again") : unsaved ? tt("Unsaved changes") : tt("All changes saved")
 
-  const saveRow = (
-    <div className="flex items-center justify-between gap-3 border-t border-[#f0f0f2] pt-4" data-settings-save="">
-      <span
-        className={cn("min-w-0 truncate text-[13px]", failed ? "text-red-600" : unsaved || saving ? "text-[#b45309]" : "text-[#6b7280]")}
-        role="status"
-        aria-live="polite"
-        data-settings-status=""
-      >
-        {status}
-      </span>
-      <button
-        type="button"
-        onClick={runSave}
-        disabled={saving || (!unsaved && !failed) || (slugVerdict !== null && !slugVerdict.ok) || slugTaken}
-        className={cn(primaryDepth, "h-10 gap-2 rounded-lg px-4 text-[14px] disabled:cursor-not-allowed disabled:opacity-40")}
-      >
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-        {failed ? tt("Try again") : tt("Save")}
-      </button>
-    </div>
-  )
+  /*
+    EACH SECTION'S SAVE IS FOR ITS OWN CHANGES. The row at the foot of every
+    section read the whole page's "unsaved": a word typed in SEO lit Save and
+    "Unsaved changes" in all five (scripts/check-onepage-audit.mjs). Each
+    section now compares its own fields with the page as last saved
+    (getSavedSettings). Pressing it still sends the whole page, as the
+    header's Save does.
+  */
+  const saved = getSavedSettings()
+  const changed = (keys: (k: string) => boolean) => {
+    if (!saved) return isDirty
+    const now = settings as Record<string, unknown>
+    const names = new Set([...Object.keys(now), ...Object.keys(saved.settings)].filter(keys))
+    for (const k of names) if (JSON.stringify(now[k] ?? null) !== JSON.stringify(saved.settings[k] ?? null)) return true
+    return false
+  }
+  const sectionUnsaved: Record<"basic" | "seo" | "subscribe" | "share" | "verified", boolean> = {
+    basic: slugPending || (saved ? (onepage.title || "") !== saved.title || onepage.slug !== saved.slug : isDirty),
+    seo: changed((k) => k.startsWith("seo_") || k.startsWith("social_")) || (!!saved && JSON.stringify((onepage as { share_image_mode?: unknown }).share_image_mode ?? null) !== JSON.stringify(saved.share_image_mode)),
+    subscribe: changed((k) => k.startsWith("subscribe_")),
+    share: changed((k) => k.startsWith("share_")),
+    verified: changed((k) => k.startsWith("verified_badge")),
+  }
+
+  const saveRow = (section: keyof typeof sectionUnsaved) => {
+    const unsaved = sectionUnsaved[section]
+    const saving = (localSaving || saveState === "saving") && unsaved
+    const failed = saveState === "error" && unsaved
+    const status = saving ? tt("Saving…") : failed ? tt("Not saved. Try again") : unsaved ? tt("Unsaved changes") : tt("All changes saved")
+    return (
+      <div className="flex items-center justify-between gap-3 border-t border-[#f0f0f2] pt-4" data-settings-save={section}>
+        <span
+          className={cn("min-w-0 truncate text-[13px]", failed ? "text-red-600" : unsaved || saving ? "text-[#b45309]" : "text-[#6b7280]")}
+          role="status"
+          aria-live="polite"
+          data-settings-status=""
+        >
+          {status}
+        </span>
+        <button
+          type="button"
+          onClick={runSave}
+          disabled={saving || (!unsaved && !failed) || (section === "basic" && ((slugVerdict !== null && !slugVerdict.ok) || slugTaken))}
+          className={cn(primaryDepth, "h-10 gap-2 rounded-lg px-4 text-[14px] disabled:cursor-not-allowed disabled:opacity-40")}
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {failed ? tt("Try again") : tt("Save")}
+        </button>
+      </div>
+    )
+  }
 
   const title = (text: string, sub?: string) => (
     <div>
@@ -395,7 +421,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         </button>
       </div>
 
-      {saveRow}
+      {saveRow("basic")}
     </div>
   )
 
@@ -427,7 +453,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         {kind === "subscribe" && enabled ? (
           <p className="text-[12.5px] text-[#6b7280]">{tt("Turning it off keeps the subscribers you have.")}</p>
         ) : null}
-        {saveRow}
+        {saveRow(kind)}
       </div>
     )
   }
@@ -478,7 +504,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
             </div>
           </div>
         ) : null}
-        {saveRow}
+        {saveRow("verified")}
       </div>
     )
   }
@@ -552,7 +578,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         onChange={onSectionChange}
         panels={{
           basic: card("basic", renderBasicInfo()),
-          seo: card("seo", <SeoPanel pageUrl={pageUrl} footer={saveRow} />),
+          seo: card("seo", <SeoPanel pageUrl={pageUrl} footer={saveRow("seo")} />),
           subscribe: card("subscribe", renderToggleSection("subscribe")),
           share: card("share", renderToggleSection("share")),
           verified: card("verified", renderVerified()),

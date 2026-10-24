@@ -51,9 +51,18 @@ const viewer = code("components/product/product-media-viewer.tsx")
 
 console.log("\nThe pictures on the front page's hero\n")
 
+/*
+  Changed on purpose (round AB1): the backdrop's tiles are files made at the
+  size they are drawn (scripts/hero-shots.mjs, 360 x 450 WebP, a few KB each)
+  and served as they are; the optimizer would only add a round trip. The
+  slides still go through next/image. Neither is ever fetched at full size.
+*/
 check(
-  "its images go through the optimizer",
-  /from "next\/image"/.test(code("components/marketing/hero.tsx")) && /from "next\/image"/.test(code("components/marketing/hero-carousel.tsx")),
+  "its images go through the optimizer, or are made at the size they are drawn",
+  /from "next\/image"/.test(code("components/marketing/hero-carousel.tsx")) &&
+    /width=\{360\} height=\{450\}/.test(code("components/marketing/hero.tsx")) &&
+    /tile-\$\{name\}\.webp/.test(code("lib/marketing/hero-media.ts")) &&
+    /resize\(360, 450/.test(code("scripts/hero-shots.mjs")),
   "they were being fetched at full size",
 )
 check(

@@ -58,6 +58,7 @@ import {
 } from "./properties"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { lineInMode, type SalesMode } from "./sections"
 
 export { bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span }
 
@@ -1053,6 +1054,13 @@ export function buildReports(input: {
   productTypes?: Record<string, string | null>
   /** Downloads of each order line (download_events by order id); null when they could not be read. */
   downloadsByLine?: Record<string, number> | null
+  /**
+   * The All / Digital / Physical switch (lib/analytics/sections). Digital or
+   * Physical keeps only the order lines of that kind, so a mixed basket is
+   * an order of each with only its own lines' money. Visits are the store's
+   * whatever is switched: a visit is not of one kind.
+   */
+  mode?: SalesMode
 }): Reports {
   const { window: cur, timeZone, mainDomain } = input
   const selector = input.selector ?? ALL
@@ -1079,8 +1087,10 @@ export function buildReports(input: {
   /* A quick first answer has the figures and not yet the lists. */
   const partial = now.maps === undefined || now.pages === undefined
 
-  /* Orders: one per payment, sales only, under the property asked for. */
-  const allSales = salesFor(input.orders, selector, defaultWebsite)
+  /* Orders: one per payment, sales only, under the property asked for, of the kind the switch keeps. */
+  const mode = input.mode ?? "all"
+  /* Grouped first, so a basket is a sale or not as a whole (a pending line of the other kind keeps it pending), then only this kind's lines. */
+  const allSales = mode === "all" ? salesFor(input.orders, selector, defaultWebsite) : salesFor(input.orders, selector, defaultWebsite).map((o) => ({ ...o, lines: o.lines.filter((l) => lineInMode((input.productTypes ?? {})[l.product_id], mode)) })).filter((o) => o.lines.length > 0)
   const inWindow = (o: { createdAt: string }, w: Span) => {
     const at = Date.parse(o.createdAt)
     return at >= w.start && at < w.end

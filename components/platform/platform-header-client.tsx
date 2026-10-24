@@ -13,7 +13,7 @@ import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { useBuyerHeaderLight, useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
-import { BUYER_HEADER_DARK_BG, headerChrome, type HeaderChrome } from "@/lib/platform/header-chrome"
+import { BUYER_HEADER_DARK_BG, hasConcaveEdge, headerChrome, type HeaderChrome } from "@/lib/platform/header-chrome"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -2149,8 +2149,7 @@ export function PlatformHeaderClient({
                           My Library
                         </TooltipContent>
                       </Tooltip>
-                      {/* The person's notifications (components/notifications/notification-bell.tsx), signed in only. */}
-                      <NotificationBell className={chrome.iconBtn} />
+                      {/* No bell on storelib.com's own pages (the owner: not beside Dashboard there). The bell is in /app and on the buyer pages. */}
                       {sellerDashboardButton}
                       {desktopAccountMenu}
                     </>
@@ -2880,7 +2879,7 @@ export function PlatformHeaderClient({
       {/* Concave bottom edge — black background with rounded white overlay creates concave corners.
           Skipped on the FAQ page, whose hero is black too, and on any page that already
           renders the white strip above, to avoid two black bars. */}
-      {!isFaqRoute && (pathname === "/" || pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing") || isDevelopersRoute) && (
+      {hasConcaveEdge(pathname) && (
         <div className={cn("relative z-30 h-[20px] -mb-px", chrome.concaveBg)}>
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
