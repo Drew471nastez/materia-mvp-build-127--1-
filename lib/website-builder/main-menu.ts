@@ -89,3 +89,50 @@ export function headerMenuHandle(menusRaw: unknown, header: HeaderLike): string 
   if (!h) return MAIN_MENU
   return cleanMenus(menusObject(menusRaw))[h] || h === MAIN_MENU ? h : MAIN_MENU
 }
+
+/**
+ * ===========================================================================
+ *  A NEW WEBSITE'S HEADER AND FOOTER NAME THE STORE'S MENUS
+ * ===========================================================================
+ * The menus are the store's (store-menus-server.ts), and a theme only names
+ * them by handle. A new website's header falls back to the Main menu by
+ * itself (header-settings.ts headerMenuHandleOf); its footer named nothing
+ * and drew its starter columns. So a website being added takes the menus
+ * the website visitors see named: the same header menu and footer columns,
+ * or the store's `footer` menu when that website's footer named none. Only
+ * a handle the store has, with links, is named, and a header or footer that
+ * already names a menu is left as it is. Pure.
+ */
+export function pointAtStoreMenus(
+  sections: SectionInstance[],
+  menus: Record<string, Menu>,
+  current: { header?: Record<string, unknown> | null; footer?: Record<string, unknown> | null } = {},
+): SectionInstance[] {
+  const named = (h: unknown): h is string => typeof h === "string" && h !== "" && (menus[h]?.links?.length ?? 0) > 0
+  const text = (v: unknown) => (typeof v === "string" ? v : "")
+  return sections.map((s) => {
+    const own = (s.settings ?? {}) as Record<string, unknown>
+    if (s.type === "header") {
+      const was = current.header?.menu
+      if (text(own.menu) || !named(was) || was === MAIN_MENU) return s
+      return { ...s, settings: { ...own, menu: was } }
+    }
+    if (s.type === "footer") {
+      if (text(own.menu) || text(own.menu_2)) return s
+      const was = current.footer ?? {}
+      const next: Record<string, unknown> = { ...own }
+      if (named(was.menu) || named(was.menu_2)) {
+        if (named(was.menu)) next.menu = was.menu
+        if (named(was.menu_2)) next.menu_2 = was.menu_2
+        if (text(was.menu_heading)) next.menu_heading = was.menu_heading
+        if (text(was.menu_2_heading)) next.menu_2_heading = was.menu_2_heading
+      } else if (named("footer")) {
+        next.menu = "footer"
+      } else {
+        return s
+      }
+      return { ...s, settings: next }
+    }
+    return s
+  })
+}
