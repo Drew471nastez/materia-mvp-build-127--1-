@@ -139,6 +139,11 @@ export const UI_WORDS = {
   /* A product's size chart: the link beside its size option and the Size chart block (lib/size-charts). */
   size_guide: "Size guide",
   size_chart: "Size chart",
+  /* A product page's stock and delivery lines (Stock status and Estimated delivery, lib/storelib-theme/compat/product-app-blocks.ts and the product section's blocks). */
+  only_left: "Only {count} left",
+  out_of_stock: "Out of stock",
+  arrives_between: "Arrives {from} to {to}",
+  arrives_on: "Arrives {date}",
 } as const
 
 export type UiWord = keyof typeof UI_WORDS

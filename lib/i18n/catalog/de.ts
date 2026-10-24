@@ -10927,6 +10927,11 @@ const words: Record<string, string> = {
  "Remove it in Settings": "In den Einstellungen entfernen",
  "Connect a domain": "Domain verbinden",
  "Visitors reach your website at your own address.": "Besucher erreichen deine Website unter deiner eigenen Adresse."
+ "Swatch for {value}": "Farbfeld für {value}",
+ "Use its photo": "Sein Foto verwenden",
+ "Use the colour its name says": "Die Farbe aus dem Namen verwenden",
+ "No swatch": "Kein Farbfeld",
+ "Colour for {value}": "Farbe für {value}"
 }
 
 export default words

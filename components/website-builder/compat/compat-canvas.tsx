@@ -524,8 +524,16 @@ export function CompatCanvas(props: CompatCanvasProps) {
     compat/theme.ts), the Storelib Reviews section, and a page holding a
     reviews app's block anywhere.
   */
-  const wantsReviews = productId !== null || props.sections.some((s) => s.type === REVIEW_WIDGET_SECTION_TYPE || s.type === REVIEWS_SECTION_TYPE || holdsReviewsBlock(s.blocks))
-  const canvasReviews = useCanvasReviews(wantsReviews, productId)
+  /*
+    The product the page is drawn about (pageFor below): the one picked, else
+    the shop's first. Round BC: the reviews were asked for the picked one
+    only, so a product page opened before any product was picked read the
+    shop's reviews with no product in them, and Star rating said "No reviews
+    yet" over a product that has some.
+  */
+  const reviewsProductId = templateOfPage(pageKey).template === "product" ? (productId ?? products[0]?.id ?? null) : null
+  const wantsReviews = reviewsProductId !== null || props.sections.some((s) => s.type === REVIEW_WIDGET_SECTION_TYPE || s.type === REVIEWS_SECTION_TYPE || holdsReviewsBlock(s.blocks))
+  const canvasReviews = useCanvasReviews(wantsReviews, reviewsProductId)
   const reviewsRef = useRef(canvasReviews)
   reviewsRef.current = canvasReviews
   const dataKey = JSON.stringify([products, catalog, collections, menus, shop, pageKeys])

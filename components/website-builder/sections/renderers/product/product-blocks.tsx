@@ -25,7 +25,7 @@
  *                         same way: scripts and handlers never survive
  */
 
-import { useMemo, useState, type CSSProperties, type JSX, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type CSSProperties, type JSX, type ReactNode } from "react"
 import { ChevronDown, Facebook, FileText, Heart, Link2, Mail, Minus, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { BlockInstance } from "@/lib/website-builder/types"
@@ -41,14 +41,14 @@ import {
   pickerOptions,
   stockLeft,
   suggestedAmounts,
-  swatchColor,
+  valueSwatchColor,
   valueAvailable,
   valueOf,
   type PriceFacts,
   type ProductSectionData,
   type ProductVariantData,
 } from "@/lib/products/product-page-model"
-import { deliveryLine, pickupLine } from "@/lib/physical/delivery-lines"
+import { deliveryLine, deliveryWindow, deliveryWindowLine, pickupLine } from "@/lib/physical/delivery-lines"
 import { DynamicIcon, type SectionPalette } from "../../_shared"
 import { useStorefront, useWord } from "../../../theme/storefront-context"
 import type { CartLine } from "@/lib/website-builder/cart"
@@ -281,7 +281,7 @@ function VariantPicker({ s, ctx }: { s: S; ctx: ProductCtx }) {
     <div className="flex flex-col gap-5" data-variant-picker="">
       {options.map((o, i) => {
         const current = ctx.chosen[i] ?? null
-        const swatches = on(s.swatches, true) && isColorOption(o.name) && o.values.some((v) => swatchColor(v) || pictureOf(i, v))
+        const swatches = on(s.swatches, true) && isColorOption(o.name) && o.values.some((v) => valueSwatchColor(v, o.swatches) || pictureOf(i, v))
         const legend = (
           <legend className={cn("mb-2 text-[14px] font-medium", i === sizeAt && "flex w-full items-baseline justify-between gap-3")} style={{ color: ink }}>
             <span>
@@ -299,7 +299,8 @@ function VariantPicker({ s, ctx }: { s: S; ctx: ProductCtx }) {
                 {o.values.map((value) => {
                   const chosen = current === value
                   const open = valueAvailable(p, ctx.chosen, i, value)
-                  const color = swatchColor(value)
+                  /* The seller's own colour for it, or its photo when they chose that, else the colour its name says (lib/products/product-page-model.ts valueSwatchColor). */
+                  const color = valueSwatchColor(value, o.swatches)
                   const pic = color ? null : pictureOf(i, value)
                   return (
                     <button
@@ -584,6 +585,7 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
 }
 
 function LowStock({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  const w = useWord()
   const left = stockLeft(ctx.product, ctx.variant)
   const color = colorOf(s.color, ctx.palette, "accent")
   const dot = on(s.show_dot, true)
@@ -602,6 +604,8 @@ function LowStock({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const text = own && own !== DEFAULT_LOW_STOCK_TEXT ? own : commerce?.lowStockText || DEFAULT_LOW_STOCK_TEXT
   if (lowStock(left, threshold)) return line(text.replace(/\{count\}/g, String(left)))
   if (str(s.in_stock_text) && ctx.canBuy && !ctx.sample) return line(str(s.in_stock_text))
+  /* Round BC: a block that says In stock says so of the option picked, and Out of stock when that option has none left. */
+  if (str(s.in_stock_text) && !ctx.canBuy && !ctx.sample && ctx.variant) return line(w("out_of_stock"))
   return <EditorNote ctx={ctx}>Shows when {threshold} or fewer are left</EditorNote>
 }
 
@@ -645,6 +649,39 @@ function Delivery({ s, ctx }: { s: S; ctx: ProductCtx }) {
       {local ? row("map-pin", local, null, "local") : null}
       {pickup ? row("store", pickup, points?.[0]?.ready ?? null, "pickup") : null}
     </div>
+  )
+}
+
+/**
+ * ESTIMATED DELIVERY: the days a product that ships should arrive between,
+ * from the cheapest rate home's business days (Settings › Shipping and
+ * delivery, the rate Delivery and pickup names) and the days the shop takes
+ * to get an order ready (this block's setting), weekends not counted
+ * (lib/physical/delivery-lines.ts deliveryWindow). Counted again in the
+ * visitor's browser from their own today, so a page held in a cache never
+ * says yesterday's dates. Nothing for a download.
+ */
+function EstimatedDelivery({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  const w = useWord()
+  const [now, setNow] = useState<Date | null>(null)
+  const [locale, setLocale] = useState("en")
+  useEffect(() => {
+    setNow(new Date())
+    if (typeof document !== "undefined" && document.documentElement.lang) setLocale(document.documentElement.lang)
+  }, [])
+  if (ctx.product.type !== "physical" && !ctx.sample) return <EditorNote ctx={ctx}>Only a product that ships has a delivery date</EditorNote>
+  const ship = ctx.product.delivery?.ship ?? (ctx.sample ? { minDays: 3, maxDays: 5 } : null)
+  const cut = Math.floor(num(s.cutoff_hour, 24))
+  const win = ship ? deliveryWindow({ minDays: ship.minDays, maxDays: ship.maxDays, processingDays: num(s.processing_days, 1), cutoffHour: cut >= 0 && cut < 24 ? cut : null }, now ?? new Date()) : null
+  if (!win) return <EditorNote ctx={ctx}>Add delivery days to a rate in Settings, Shipping and delivery to show when it arrives</EditorNote>
+  const own = str(s.text)
+  const line = deliveryWindowLine(win, { range: own || w("arrives_between"), single: own || w("arrives_on") }, locale)
+  const ink = colorOf(s.color, ctx.palette, "text")
+  return (
+    <p className="m-0 flex items-center gap-2.5 text-[14px] leading-5" style={{ color: ink }} data-estimated-delivery="">
+      <DynamicIcon name="truck" className="h-[18px] w-[18px] shrink-0" />
+      <span suppressHydrationWarning>{line}</span>
+    </p>
   )
 }
 
@@ -913,6 +950,7 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   buy_buttons: BuyButtons,
   low_stock: LowStock,
   delivery: Delivery,
+  estimated_delivery: EstimatedDelivery,
   description: Description,
   collapsible_tab: CollapsibleTab,
   product_faq: ProductFaq,

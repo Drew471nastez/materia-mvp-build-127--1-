@@ -25,7 +25,7 @@ export interface DeliveryPromise {
   /** The country quoted for: the buyer's, as their browser says, else the shop's own. */
   country: string | null
   /** Shipping there: the cheapest rate for one of this product, and its estimate. Null when nothing ships there. */
-  shipping: { priceCents: number; estimate: string | null; name: string } | null
+  shipping: { priceCents: number; estimate: string | null; name: string; minDays?: number | null; maxDays?: number | null } | null
   /** The order value from which shipping there is free, when a rate says so. */
   freeOverCents: number | null
   /** Places the buyer can collect it. */
@@ -57,7 +57,7 @@ export function deliveryPromise(input: {
       .filter((r): r is { rate: (typeof r)["rate"]; price: number } => r.price !== null)
       .sort((a, b) => a.price - b.price || a.rate.position - b.rate.position)
     const best = priced[0]
-    if (best) shipping = { priceCents: best.price, estimate: deliveryEstimate(best.rate) || null, name: best.rate.name }
+    if (best) shipping = { priceCents: best.price, estimate: deliveryEstimate(best.rate) || null, name: best.rate.name, minDays: best.rate.minDays ?? null, maxDays: best.rate.maxDays ?? null }
     for (const r of zone?.rates ?? []) {
       if (!r.active) continue
       const at = r.kind === "free" ? (r.minValue ?? 0) : r.freeOverCents && r.freeOverCents > 0 ? r.freeOverCents : r.kind === "price" ? ([...r.tiers].sort((a, b) => a.from - b.from).find((t) => t.priceCents === 0)?.from ?? null) : null

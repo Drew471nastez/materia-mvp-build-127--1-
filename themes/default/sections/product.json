@@ -1212,6 +1212,67 @@
       ]
     },
     {
+      "type": "estimated_delivery",
+      "name": "Estimated delivery",
+      "limit": 1,
+      "fields": [
+        {
+          "id": "processing_days",
+          "label": "Business days to get an order ready",
+          "type": "range",
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "unit": "",
+          "default": 1
+        },
+        {
+          "id": "cutoff_hour",
+          "label": "Orders after this hour start the next day",
+          "type": "range",
+          "min": 0,
+          "max": 24,
+          "step": 1,
+          "unit": "",
+          "default": 24,
+          "info": "24 for no cut off. The days come from your cheapest rate home (Settings, Shipping and delivery), weekends not counted."
+        },
+        {
+          "id": "text",
+          "label": "Text",
+          "type": "text",
+          "default": "",
+          "placeholder": "Arrives {from} to {to}"
+        },
+        {
+          "id": "color",
+          "label": "Color",
+          "type": "color",
+          "default": "scheme.text"
+        },
+        {
+          "id": "margin_top",
+          "label": "Space above",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "id": "margin_bottom",
+          "label": "Space below",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 16
+        }
+      ]
+    },
+    {
       "type": "offers",
       "name": "Bundles and upsells",
       "limit": 1,

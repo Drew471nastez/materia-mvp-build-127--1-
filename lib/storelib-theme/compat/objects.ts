@@ -147,8 +147,11 @@ function storeAvailabilities(points: unknown): O[] {
  *
  *   sold out              inventory_management "shopify", quantity 0
  *   few left              "shopify", the number, so "Only 3 left" shows
- *   plenty, or uncounted  no management, so the theme says In stock and
- *                         never prints a count Storelib keeps to itself
+ *   counted, Show stock   "shopify", the real number (Round BC): the
+ *   left on               theme's inventory block says In stock or Low
+ *                         stock at its own line, as on Shopify
+ *   plenty, or uncounted  no management, so the theme never prints a
+ *                         count Storelib keeps to itself
  *
  * `quantity_rule.max` is the most one order may take when that is a real
  * stop (Limit sales, or the last few), never the whole stock, and never 0:
@@ -160,6 +163,9 @@ function stockOf(v: O, lowAt: number): { management: string | null; quantity: nu
   const left = typeof v.left === "number" && Number.isFinite(v.left) ? Math.max(0, Math.floor(v.left)) : null
   const few = available && !keeps && left !== null && left > 0 && left <= lowAt ? left : null
   const max = typeof v.max === "number" && Number.isFinite(v.max) && v.max > 0 ? Math.floor(v.max) : null
+  /* The real count of a counted option (./product-facts.ts, only while Show stock left is on). */
+  const real = typeof v.stock === "number" && Number.isFinite(v.stock) ? Math.max(0, Math.floor(v.stock)) : null
+  if (real !== null) return { management: "shopify", quantity: available ? real : 0, policy: keeps ? "continue" : "deny", max: available ? max : null }
   return {
     management: !available ? "shopify" : few !== null ? "shopify" : null,
     quantity: !available ? 0 : few ?? Math.max(10, lowAt) + 1,
@@ -221,12 +227,12 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   const mediaFor = (src: unknown): O | null => (typeof src === "string" && src ? media.find((m) => sameImage(String(m.src), src)) ?? null : null)
   const price = priceCents(s.price)
   const compare = priceCents(s.compare_price)
-  const optionsIn = Array.isArray(s.options) ? (s.options as { name: string; values: string[] }[]).filter((o) => o && typeof o.name === "string" && o.name.trim() !== "").slice(0, 3) : []
+  const optionsIn = Array.isArray(s.options) ? (s.options as { name: string; values: string[]; swatches?: Record<string, string> }[]).filter((o) => o && typeof o.name === "string" && o.name.trim() !== "").slice(0, 3) : []
   const optionNames = optionsIn.length ? optionsIn.map((o) => o.name) : rawVariants.length ? ["Option"] : ["Title"]
   /* The store's low stock line (Settings › Locations, or the product's own): a count is said at or under it. */
   const lowAt = typeof s.low_stock_at === "number" && s.low_stock_at > 0 ? Math.floor(s.low_stock_at) : 5
 
-  const variants: O[] = (rawVariants.length ? rawVariants : defaultOnly ? [{ ...listed[0], name: "Default Title" }] : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url, left: s.left, max: s.max, policy: s.policy, sku: s.sku }]).map((v, i) => {
+  const variants: O[] = (rawVariants.length ? rawVariants : defaultOnly ? [{ ...listed[0], name: "Default Title" }] : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url, left: s.left, stock: s.stock, max: s.max, policy: s.policy, sku: s.sku }]).map((v, i) => {
     const opts = rawVariants.length ? optionValuesOf(v, optionNames.length) : ["Default Title"]
     const vTitle = rawVariants.length ? opts.join(" / ") : "Default Title"
     const vPrice = v.price !== undefined && v.price !== "" ? priceCents(v.price) : price
@@ -302,13 +308,16 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     const values = [...listed, ...[...had].filter((x) => typeof x === "string" && !listed.includes(x))]
     /* A colour option's values as colours, as Storelib's own product page draws them (lib/products/product-page-model.ts): the swatch a theme's card and picker read; a colour without a colour name shows its variant's photo. */
     const colour = isColorOption(name)
+    /* The seller's own swatches (Products › Variants, lib/products/option-swatches.ts): a colour, or the variant's photo, over what the name says. */
+    const own = optionsIn[pos]?.swatches
     const optionValues = values.map((value, vi) => {
-      const hex = colour ? swatchColor(String(value)) : null
+      const mine = own?.[String(value)]
+      const hex = mine === "photo" ? null : mine && /^#[0-9a-f]{6}$/i.test(mine) ? mine.toLowerCase() : colour ? swatchColor(String(value)) : null
       /* Shopify: the variant this value makes with the values chosen for the other options, or none. */
       const match = variants.find((v) => (v.options as string[]).every((o, k) => (k === pos ? o === value : chosenValues[k] === null || o === chosenValues[k]))) ?? null
       /* Shopify: available when a variant with this value, and with the values chosen for the options before it, can be bought. */
       const available = variants.some((v) => v.available && (v.options as string[])[pos] === value && (v.options as string[]).every((o, k) => k >= pos || chosenValues[k] === null || o === chosenValues[k]))
-      const photo = colour && !hex ? ((variants.find((v) => (v.options as string[])[pos] === value && v.featured_image)?.featured_image as O | undefined) ?? null) : null
+      const photo = (colour || mine === "photo") && !hex ? ((variants.find((v) => (v.options as string[])[pos] === value && v.featured_image)?.featured_image as O | undefined) ?? null) : null
       return {
         [OUTPUT]: value,
         id: optionValueId(pos, vi),
@@ -324,6 +333,27 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     const selectedValue = optionValues.find((v) => v.selected) ?? null
     return { [OUTPUT]: name, name, position: pos + 1, values: optionValues, selected_value: selectedValue }
   })
+
+  /*
+    METAFIELD SWATCHES. Themes built before Shopify's own swatches read a
+    variant's colour from a metafield: `variant.metafields.custom.swatch`
+    or `color_swatch` (a colour, or a picture). Each variant is given its
+    colour option's swatch there, the same one `value.swatch` says.
+  */
+  const colourAt = options_with_values.findIndex((o) => isColorOption(String(o.name)))
+  if (colourAt >= 0) {
+    for (const v of variants) {
+      const value = (options_with_values[colourAt].values as O[]).find((x) => x.name === (v.options as string[])[colourAt])
+      const sw = value?.swatch as O | null | undefined
+      if (!sw) continue
+      const colour = sw.color ? String(sw[OUTPUT] ?? "") : ""
+      const image = sw.image ? String((sw.image as O).src ?? "") : ""
+      const field = colour
+        ? { [OUTPUT]: colour, value: sw.color, key: "swatch", namespace: "custom", type: "color" }
+        : { [OUTPUT]: image, value: sw.image, key: "swatch", namespace: "custom", type: "file_reference" }
+      v.metafields = { custom: { swatch: field, color_swatch: { ...field, key: "color_swatch" }, colour_swatch: { ...field, key: "colour_swatch" } } }
+    }
+  }
 
   const prices = variants.map((v) => v.price as number)
   const compares = variants.map((v) => v.compare_at_price).filter((c): c is number => typeof c === "number" && c > 0)
@@ -378,6 +408,9 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     checkout_url: String(s.checkout_url ?? ""),
     pay_what_you_want: s.pay_what_you_want === true,
   }
+  /* The cheapest rate home's business days (./product-facts.ts), for Storelib's Estimated delivery block; a theme never sees a key that starts with __. */
+  const ship = s.delivery_days as { minDays?: unknown; maxDays?: unknown } | undefined
+  if (ship && typeof ship === "object") Object.defineProperty(product, "__delivery", { value: { minDays: typeof ship.minDays === "number" ? ship.minDays : null, maxDays: typeof ship.maxDays === "number" ? ship.maxDays : null }, enumerable: false, configurable: true })
   for (const v of variants) {
     v.product = { id: product.id, title, handle, url: product.url }
     asJson(v, () => variantJson(v, product.id))
