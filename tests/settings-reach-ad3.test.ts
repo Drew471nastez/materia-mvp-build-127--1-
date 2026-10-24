@@ -21,6 +21,7 @@ import { followSaved } from "@/lib/settings/follow-saved"
 import { saveStoreSettings } from "@/lib/store/settings-server"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { inboxAddress } from "@/lib/seller-inbox"
+import { storesOf } from "@/lib/team/server"
 
 let passed = 0
 let failed = 0
@@ -124,6 +125,29 @@ async function main() {
   check("  the person still signs as themselves", brand.creatorName === "Ana Pop", brand.creatorName)
   const plain = fakeDb({ creators: { id: "c1", user_id: "u1", slug: "ana" }, profiles: { display_name: "Ana Pop", username: "ana" }, store_settings: null })
   check("  no store name: the person's, as before", (await loadBrand(plain.db, "c1")).name === "Ana Pop")
+
+  console.log("\n7. The team sees the store's name")
+  const teamDb = {
+    from: (table: string) => {
+      const q: Record<string, unknown> = {}
+      const self = () => q
+      for (const n of ["select", "eq", "order", "limit"]) q[n] = self
+      const rowsOf: Record<string, Row[]> = {
+        store_team_members: [{ creator_id: "c1", role: "manager" }, { creator_id: "c2", role: "manager" }],
+        creators: [{ id: "c1", slug: "ana", display_name: "Ana Pop", avatar_url: null }, { id: "c2", slug: "dan", display_name: "Dan", avatar_url: null }],
+        store_settings: [{ creator_id: "c1", store_name: "Ana's Bakery" }, { creator_id: "c2", store_name: "  " }],
+      }
+      const answer = { data: rowsOf[table] ?? [], error: null }
+      q.in = () => Promise.resolve(answer)
+      q.then = (ok: (v: unknown) => unknown) => Promise.resolve(answer).then(ok)
+      return q
+    },
+  }
+  const stores = await storesOf(teamDb as never, "u9")
+  check("a member's store list says Store details' name", stores.find((s) => s.creatorId === "c1")?.name === "Ana's Bakery", stores)
+  check("  and the owner's name where the store has none", stores.find((s) => s.creatorId === "c2")?.name === "Dan", stores)
+  const team = read("lib/team/server.ts")
+  check("the invite email, the invite page, a role change and the store a member works in all use it", (team.match(/await storeNameOf\(db, /g) ?? []).length >= 4)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)
