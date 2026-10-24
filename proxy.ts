@@ -30,6 +30,7 @@ import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 import { skipsSessionRefresh } from "@/lib/auth/no-session-paths"
 import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
+import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -1663,6 +1664,8 @@ async function routeRequest(request: NextRequest) {
     // names below are the platform's own.
     if (!subdomain.includes(".") && !EXCLUDED_SUBDOMAINS.includes(subdomain)) {
       const url = request.nextUrl.clone()
+      /* A made up server action posted at a site: refused before any lookup or render (lib/website-builder/site-action-guard.ts). */
+      if (refusesSiteAction(request.method, request.headers)) return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store", "X-Storelib-Guard": SITE_ACTION_GUARD } })
       /**
        * ═══════════════════════════════════════════════════════════════════════
        *  WHICH OF TWO THINGS A SUBDOMAIN IS
@@ -2238,6 +2241,8 @@ async function routeRequest(request: NextRequest) {
     if (domainPurpose === "website" && policyAddress(pathname)) return NextResponse.redirect(new URL(`${policyAddress(pathname)}${search}`, request.url), { status: 308 })
     const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
     const builtSite = !looksLikeFile && domainPurpose === "website" && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
+    /* As on the subdomain: no page of a website takes a server action (lib/website-builder/site-action-guard.ts). */
+    if (builtSite && refusesSiteAction(request.method, request.headers)) return new NextResponse(null, { status: 404, headers: { "Cache-Control": "no-store", "X-Storelib-Guard": SITE_ACTION_GUARD } })
 
     /**
      * ═════════════════════════════════════════════════════════════════════════
