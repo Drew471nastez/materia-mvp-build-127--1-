@@ -49,6 +49,8 @@ export const CANVAS_BRIDGE = `
     selected, the keys are handed to the builder; anything else is the page's.
   */
   document.addEventListener("keydown", function (e) {
+    /* Round BC: Escape with the keyboard in the page closes what the builder has open over it, as it would anywhere else in the builder. */
+    if (e.key === "Escape") { post({ type: "escape" }); return; }
     if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
     var k = (e.key || "").toLowerCase();
     if (k !== "c" && k !== "v") return;
@@ -74,7 +76,9 @@ export const CANVAS_BRIDGE = `
     "@media (prefers-reduced-motion:reduce){[data-sl-box]{transition:none}}" +
     "[data-sl-box=hover]{border:2px solid rgba(59,130,246,.5)}" +
     "[data-sl-box=section]{border:2px solid #3b82f6}" +
-    "[data-sl-box=block]{border:2px solid #3b82f6;box-shadow:0 0 0 1px rgba(255,255,255,.9)}";
+    "[data-sl-box=block]{border:2px solid #3b82f6;box-shadow:0 0 0 1px rgba(255,255,255,.9)}" +
+    /* Round BC: the section being dragged in the sidebar (preview-order, below). */
+    "[data-sl-order-lifted]{outline:2px solid rgba(59,130,246,.6);outline-offset:-2px;position:relative;z-index:2}";
   document.head.appendChild(css);
   var boxOf = function (kind) {
     var b = document.createElement("div");
@@ -411,6 +415,8 @@ export const CANVAS_BRIDGE = `
   document.addEventListener("pointerdown", function (e) {
     touching = e.pointerType !== "mouse";
     if (touching && hovered) { hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); }
+    /* Round BC: a press in the page is a press outside whatever the builder has open over it (the Publish panel): told, since it never reaches the builder's document. */
+    post({ type: "press" });
   }, true);
   document.addEventListener("pointerover", function (e) {
     if (e.pointerType !== "mouse") return;
@@ -2148,6 +2154,96 @@ export const CANVAS_BRIDGE = `
       post({ type: "scrolled", scrollY: scrollY });
     } };
   };
+  /*
+    ROUND BC: A SECTION DRAGGED IN THE BUILDER'S SIDEBAR, SHOWN WHERE IT WOULD
+    GO while the finger is down (lib/website-builder/live-order.ts, the same
+    thing for Storelib's own canvas). Each section's box slides by transform
+    to the order asked for, nothing is moved in the page and no script of the
+    theme's hears anything; the one being moved wears a quiet ring. Let go,
+    the boxes stay put until the builder's patch has the sections in that
+    order (its "order", above), and are let go in that moment; put back, they
+    slide home.
+  */
+  var ordered = { held: {}, ids: null, mo: null, t: 0, home: [] };
+  var orderEl = function (id) { return document.getElementById("shopify-section-" + id); };
+  var orderLetGo = function (h) {
+    if (h.style === null) h.el.removeAttribute("style"); else h.el.setAttribute("style", h.style);
+    h.el.removeAttribute("data-sl-order-lifted");
+  };
+  var orderStop = function () { if (ordered.mo) ordered.mo.disconnect(); ordered.mo = null; clearTimeout(ordered.t); };
+  var orderRelease = function () { orderStop(); for (var k in ordered.held) orderLetGo(ordered.held[k]); ordered.held = {}; };
+  var orderInPlace = function (ids) {
+    var prev = null;
+    for (var i = 0; i < ids.length; i++) {
+      var el = orderEl(ids[i]);
+      if (!el) continue;
+      if (prev && !(prev.compareDocumentPosition(el) & 4)) return false;
+      prev = el;
+    }
+    return true;
+  };
+  var previewOrder = function (m) {
+    var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var slide = "transform 220ms cubic-bezier(0.2, 0, 0, 1)";
+    if (!m.ids) {
+      var ids = ordered.ids;
+      if (m.end === "commit" && ids) {
+        for (var k0 in ordered.held) ordered.held[k0].el.removeAttribute("data-sl-order-lifted");
+        if (orderInPlace(ids)) { orderRelease(); return; }
+        var first = null;
+        for (var k1 in ordered.held) { first = ordered.held[k1].el; break; }
+        if (!first || !first.parentElement || typeof MutationObserver === "undefined") { orderRelease(); return; }
+        orderStop();
+        ordered.mo = new MutationObserver(function () { if (orderInPlace(ids)) orderRelease(); });
+        ordered.mo.observe(first.parentElement, { childList: true });
+        /* A patch that never comes (the page drawn again instead): let go anyway. */
+        ordered.t = setTimeout(orderRelease, 4000);
+        return;
+      }
+      var home = [];
+      for (var k2 in ordered.held) { var h0 = ordered.held[k2]; home.push(h0); h0.el.removeAttribute("data-sl-order-lifted"); h0.el.style.transition = still ? "none" : slide; h0.el.style.transform = "translate3d(0, 0, 0)"; }
+      ordered.held = {};
+      ordered.home = home;
+      setTimeout(function () { if (ordered.home !== home) return; home.forEach(orderLetGo); ordered.home = []; }, still ? 0 : 240);
+      return;
+    }
+    ordered.home.forEach(orderLetGo);
+    ordered.home = [];
+    orderStop();
+    ordered.ids = m.ids;
+    var els = [];
+    for (var i = 0; i < m.ids.length; i++) { var el = orderEl(m.ids[i]); if (el) els.push(el); }
+    if (els.length < 2) return;
+    var parent = els[0].offsetParent;
+    for (var j = 0; j < els.length; j++) if (els[j].offsetParent !== parent) return;
+    /* Each takes the room it has now: its height and the space after it (live-order.ts orderShifts). */
+    var rows = els.map(function (x) { return { id: x.getAttribute("data-section-id") || x.id.slice(16), el: x, top: x.offsetTop, h: x.offsetHeight }; });
+    rows.sort(function (a, b) { return a.top - b.top; });
+    var gap = {}, byId = {};
+    rows.forEach(function (r, n) { var nx = rows[n + 1]; gap[r.id] = nx ? Math.max(0, nx.top - (r.top + r.h)) : (n > 0 ? gap[rows[n - 1].id] : 0); byId[r.id] = r; });
+    var y = rows[0].top, liftedEl = null, liftedMove = 0;
+    for (var q = 0; q < m.ids.length; q++) {
+      var r = byId[m.ids[q]];
+      if (!r) continue;
+      var dy = y - r.top;
+      y += r.h + gap[r.id];
+      var held = ordered.held[r.id];
+      if (!held) { held = ordered.held[r.id] = { el: r.el, style: r.el.getAttribute("style"), shift: 0 }; r.el.style.willChange = "transform"; }
+      if (r.id === m.lifted) { liftedEl = r.el; liftedMove = dy - held.shift; }
+      held.shift = dy;
+      r.el.style.transition = still ? "none" : slide;
+      r.el.style.transform = "translate3d(0, " + dy + "px, 0)";
+      if (r.id === m.lifted) r.el.setAttribute("data-sl-order-lifted", ""); else r.el.removeAttribute("data-sl-order-lifted");
+    }
+    /* Its new place in sight, moving the page only as far as it needs. */
+    if (liftedEl && liftedMove) {
+      var b = liftedEl.getBoundingClientRect();
+      var top = b.top + liftedMove;
+      var bottom = top + Math.min(b.height, innerHeight * 0.6);
+      var by = top < 0 ? top - 24 : bottom > innerHeight ? bottom - innerHeight + 24 : 0;
+      if (by) scrollBy({ top: by, left: 0, behavior: still ? "auto" : "smooth" });
+    }
+  };
   window.addEventListener("message", function (e) {
     var m = e.data;
     if (!m || m.storelib !== 1) return;
@@ -2203,6 +2299,8 @@ export const CANVAS_BRIDGE = `
         if (!done) return Promise.resolve(swap(m.id, m.html, m.prev)).then(function () { sectionLoaded(m.id); });
         sectionLoaded(m.id);
       }).then(stillNow).catch(function () {});
+    } else if (m.type === "preview-order") {
+      try { previewOrder(m); } catch (err) { orderRelease(); }
     } else if (m.type === "select") {
       leaving = false;
       if ("inspect" in m) setInspect(m.inspect);
