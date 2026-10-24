@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireBearerSecret } from "@/lib/api/require-secret"
+import { recordCronRun } from "@/lib/observability/report"
 import { warmPublishedSites } from "@/lib/website-builder/warm-sites"
 
 /**
@@ -33,10 +34,11 @@ async function runJob(request: Request) {
   }
 }
 
+/* Every run recorded and timed with the other jobs (admin System view, lib/observability/report.ts). */
 export async function GET(request: Request) {
-  return runJob(request)
+  return recordCronRun("/api/cron/warm-sites", request, () => runJob(request))
 }
 
 export async function POST(request: Request) {
-  return runJob(request)
+  return recordCronRun("/api/cron/warm-sites", request, () => runJob(request))
 }

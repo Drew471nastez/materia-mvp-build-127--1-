@@ -42,7 +42,7 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { WallpaperNoise, WallpaperPattern, wallpaperImage } from "@/components/onepage/wallpaper-layers"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
@@ -53,6 +53,7 @@ import { readableOn } from "@/lib/onepage/theme-apply"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
 import { tt } from "@/lib/i18n/text"
+import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { bookingSource } from "@/lib/onepage/creator-blocks"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 
@@ -67,6 +68,19 @@ const stripHtmlToPlainText = (value?: string | null) => {
   const doc = parser.parseFromString(raw, "text/html")
   const text = doc.body.textContent || ""
   return text.replace(/\s+/g, " ").trim()
+}
+
+/**
+ * The wallpaper video drawn through the part the creator framed in the
+ * editor (lib/onepage/media-crop.ts, a 9:16 crop saved with `v: 2`), so the
+ * preview and the live page show the same part. A page with no such crop
+ * keeps the full-bleed cover it always had.
+ */
+function wallpaperVideoStyle(theme: unknown, base: React.CSSProperties): React.CSSProperties {
+  const crop = (theme as { background_video_crop?: { v?: number } | null } | null)?.background_video_crop
+  const framed = crop && crop.v === 2 ? croppedMediaStyle(crop) : undefined
+  if (!framed) return base
+  return { ...base, right: "auto", bottom: "auto", ...(framed as React.CSSProperties), position: base.position ?? "absolute" }
 }
 
 function SmoothAvatarVideo({
@@ -2388,7 +2402,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               bottom: 0,
               width: "100vw",
               height: "100vh",
-              backgroundImage: `url(${safeTheme.background_image_url})`,
+              backgroundImage: wallpaperImage(safeTheme.background_image_url),
               backgroundSize: "cover",
               backgroundPosition: "center",
               backgroundAttachment: "fixed",
@@ -2404,7 +2418,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
           <video
             src={(safeTheme as any).background_video_url}
-            style={{
+            style={wallpaperVideoStyle(safeTheme, {
               position: "fixed",
               top: "-50px",
               left: "-50px",
@@ -2415,7 +2429,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               objectFit: "cover",
               zIndex: 0,
               filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(20px)`,
-            }}
+            })}
             autoPlay
             loop
             muted
@@ -2450,7 +2464,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                   left: "-50px",
                   right: "-50px",
                   bottom: "-50px",
-                  backgroundImage: `url(${safeTheme.background_image_url})`,
+                  backgroundImage: wallpaperImage(safeTheme.background_image_url),
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   zIndex: 0,
@@ -2462,7 +2476,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
               <video
                 src={(safeTheme as any).background_video_url}
-                style={{
+                style={wallpaperVideoStyle(safeTheme, {
                   position: "absolute",
                   top: "-50px",
                   left: "-50px",
@@ -2473,7 +2487,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                   objectFit: "cover",
                   zIndex: 0,
                   filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
-                }}
+                })}
                 autoPlay
                 loop
                 muted
@@ -2524,7 +2538,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 bottom: 0,
                 width: "100%",
                 height: "100%",
-                backgroundImage: `url(${safeTheme.background_image_url})`,
+                backgroundImage: wallpaperImage(safeTheme.background_image_url),
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 zIndex: 0,
@@ -2540,7 +2554,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
             <video
               src={(safeTheme as any).background_video_url}
-              style={{
+              style={wallpaperVideoStyle(safeTheme, {
                 position: "absolute",
                 top: "-50px",
                 left: "-50px",
@@ -2552,7 +2566,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 zIndex: 0,
                 filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
                 pointerEvents: "none",
-              }}
+              })}
               autoPlay
               loop
               muted
@@ -3902,14 +3916,8 @@ function PublicBlockRenderer({
                       imageStyle={{
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px) scale(1.05)`,
                       }}
-                                            videoStyle={
-                        profile.avatar_video_crop
-                          ? {
-                              transformOrigin: '0 0',
-                              transform: `scale(${100 / profile.avatar_video_crop.width}) translate(-${profile.avatar_video_crop.x}%, -${profile.avatar_video_crop.y}%)`,
-                            }
-                          : undefined
-                      }
+                      /* The square the creator framed, exactly (lib/onepage/media-crop); a crop saved before round 11 is drawn the way it always was. */
+                      videoStyle={croppedMediaStyle(profile.avatar_video_crop) as React.CSSProperties | undefined}
                     />
                   </div>
                 ) : (

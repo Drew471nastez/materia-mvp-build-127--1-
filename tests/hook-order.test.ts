@@ -49,7 +49,7 @@ function check(name: string, ok: boolean, detail?: string) {
  */
 const KNOWN_UNFIXED = new Set([
   "components/onepage/public-onepage.tsx",
-  "components/onepage/tabs/design-tab.tsx",
+  /* design-tab.tsx came off in round 11: the crop sections' hooks that sat under `if (!onepage) return null` went with the old croppers (components/onepage/media-cropper.tsx). */
   /* links-tab.tsx came off in round 10 (AUDIT B2): its hooks all run before `if (!onepage) return null` now. */
   /* settings-tab.tsx came off: its hooks are all above its one return now. */
 ])

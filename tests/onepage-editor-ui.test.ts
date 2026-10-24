@@ -211,11 +211,18 @@ function main() {
       scripts/check-onepage-motion.mjs (push) reads no sideways movement in
       any frame and no blank frame.
     */
-    check("the list fades out and a panel fades in (and back the other way), on opacity only",
-      /arriving\.animate\(\[\{ opacity: arrivingFrom \}, \{ opacity: 1 \}\], \{ duration: inMs, delay, easing: FADE_EASE, fill: "both" \}\)/.test(design)
-      && /leaving\.animate\(\[\{ opacity: leavingFrom \}, \{ opacity: 0 \}\], \{ duration: outMs, easing: "linear", fill: "both" \}\)/.test(design)
-      && /const FADE_OUT_MS = 90\b/.test(design) && /const FADE_IN_DELAY_MS = 50\b/.test(design) && /const FADE_IN_MS = 150\b/.test(design)
-      && !/\.animate\(\[\{ transform:/.test(design.slice(design.indexOf("export function DesignTab("), design.indexOf("function reducedMotion("))))
+    /*
+      Changed on purpose (round 11): "I don't like the fade." The crossfade is gone: on a phone the panel rises over
+      the list and drops back off it, as the app's page layer and an order do (components/app/page-layer,
+      app/app/orders/order-motion), on transform; on a computer the panel is there at once and only its content lands
+      (lib/ui/pill-switch). scripts/check-onepage-motion-r11.mjs (push) reads every frame: a whole page always over the
+      column, never two half drawn, nothing sideways.
+    */
+    check("on a phone the panel rises over the list and drops off it, on the page layer's numbers; on a computer only its content lands",
+      /const PUSH_MS = LAYER_MOTION_MS/.test(design) && /const POP_MS = LAYER_LEAVE_MS/.test(design) && /const MOVE_EASE = LAYER_MOTION_EASE/.test(design)
+      && /panel\.animate\(\[\{ transform: `translate3d\(0, \$\{at\}px, 0\)` \}, \{ transform: `translate3d\(0, \$\{to\}px, 0\)` \}\]/.test(design)
+      && /body\.animate\(\[\{ opacity: CONTENT_IN_FROM \}, \{ opacity: 1 \}\]/.test(design)
+      && !/FADE_OUT_MS|FADE_IN_DELAY_MS|leaving\.animate\(/.test(design))
     check("and back returns to the place in the list that was left", /scroller\.scrollTop = move\.to === "home" \? listScroll\.current : 0/.test(design))
     /*
       "When I switch and navigate, there are glitchy, buggy page
@@ -236,13 +243,15 @@ function main() {
       /t === "design" \? null : "p-4 md:p-6 op-tabbar-clearance md:pb-6"/.test(editorSrc) && /t === "settings" \? "max-w-2xl" : t === "design" \? null : "max-w-xl"/.test(editorSrc)
       && /style=\{\{ overflowX: "clip" \}\} data-design-stack=""/.test(design) && /const readingClass = "mx-auto w-full max-w-xl p-4 op-tabbar-clearance md:p-6 md:pb-6"/.test(design))
     /* Side by side on a computer was the slide too: now no page moves sideways anywhere, and there is no shade or edge shadow ("NO SLIDE"). */
-    check("no page moves sideways on a phone or a computer, and nothing dims or shades the list",
-      !/SIDE_QUERY|UNDER_SHIFT|UNDER_DIM|translate3d/.test(design.slice(design.indexOf("type DesignPage"), design.indexOf("function reducedMotion(")))
+    /* Changed on purpose (round 11): the panel moves up and down on a phone (translate3d(0, y)), never sideways, and nothing dims the list. */
+    check("no page moves sideways on a phone or a computer, and nothing dims the list",
+      !/SIDE_QUERY|UNDER_SHIFT|UNDER_DIM|translate3d\([^0]/.test(design.slice(design.indexOf("type DesignPage"), design.indexOf("function reducedMotion(")))
       && !/data-design-dim=""/.test(design) && !/max-md:shadow-\[-1px_0_0/.test(design))
-    check("the last frame is held until React has drawn the page at rest, and let go before that is painted",
-      /fill: "both"/.test(design) && /if \(!move\) \{\s*animating\.current\.forEach\(\(a\) => a\.cancel\(\)\)/.test(design))
-    check("the page leaving is cut at the bottom of the screen, so a move never makes the column scroll",
-      /\.\.\.leavingStyle\(move!\.top\), height: move!\.listMin, overflow: "clip"/.test(design) && /\.\.\.leavingStyle\(move \? move\.top : 0\), height: move\?\.panelMin, overflow: "clip"/.test(design))
+    check("the drop's last frame is held until React has drawn the page at rest, and let go before that is painted",
+      /fill: push \? "backwards" : "forwards"/.test(design) && /if \(!move\) \{\s*animating\.current\.forEach\(\(a\) => a\.cancel\(\)\)/.test(design))
+    check("the page underneath is cut at the bottom of the screen, so a move never makes the column scroll",
+      /\.\.\.leavingStyle\(move!\.top\), height: move!\.listMin, overflow: "clip"/.test(design) && /droppingStyle\(move\.top\) : leavingStyle\(move \? move\.top : 0\)\), height: move\?\.panelMin, overflow: "clip"/.test(design)
+      && /root\.style\.overflowY = "clip"/.test(design))
     check("the tab boxes keep the scrollbar's room, so a move never changes the column's width", /scrollbarGutter: "stable"/.test(editorSrc))
     /*
       ONE MOTION PER PRESS. "Themes, back, Themes again, back: a double
@@ -294,14 +303,16 @@ function main() {
     */
     const linksSrc = read("components/onepage/tabs/links-tab.tsx")
     check("no centred dialog is left in the Links or Design tab", !/<Dialog open=/.test(linksSrc) && !/<Dialog open=/.test(design))
-    check("a crop keeps its finger from the sheet", (linksSrc.match(/data-sheet-no-drag=""/g) ?? []).length >= 2 && (design.match(/data-sheet-no-drag=""/g) ?? []).length >= 5)
+    /* Round 11: every crop is the one cropper now (components/onepage/media-cropper.tsx), which carries data-sheet-no-drag itself; the tabs use it through CropUpload. */
+    check("a crop keeps its finger from the sheet", /data-sheet-no-drag=""/.test(read("components/onepage/media-cropper.tsx")) && (linksSrc.match(/<CropUpload\b/g) ?? []).length >= 2 && (design.match(/<CropUpload\b/g) ?? []).length >= 4)
     check("Add block, the social link and Share are built ahead and kept, as the notifications sheet is",
       /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /sheet=\{\{ keepMounted: true \}\}/.test(linksSrc)
       && /title="Share your OnePage" hideFrom="md" keepMounted/.test(read("components/onepage/onepage-editor.tsx")))
     check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", (linksSrc.match(/<CardMark on=\{/g) ?? []).length >= 12 && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-0 opacity-0/.test(linksSrc))
     /* Settings' sections are the editor's one pill-tab row now: the pill slides from the press, instead of each chip fading its own fill where it stands. */
     /* Changed on purpose (round 10): one row at every width, named settings-pills. */
-    check("Settings' section chips slide one pill", /<PillTabs\s+dataRow="settings-pills"/.test(read("components/onepage/tabs/settings-tab.tsx")) && /onPointerDown=\{press\.onPointerDown\}/.test(read("components/onepage/pill-tabs.tsx")))
+    /* Changed on purpose (round 11): Settings' pills are Storelib's own, each fill fading in where it is (lib/ui/pill-switch), the press a light tint. */
+    check("Settings' section chips are Storelib's pills", /<PillTabs\s+dataRow="settings-pills"/.test(read("components/onepage/tabs/settings-tab.tsx")) && /cn\(PILL_FILL, on \? "opacity-100" : "opacity-0"\)/.test(read("components/onepage/pill-tabs.tsx")) && /pressPill\(e\.currentTarget\)/.test(read("components/onepage/pill-tabs.tsx")))
     check("a link's stats are asked for once its sheet has arrived on a phone, as the notifications are", /sheet=\{\{ onOpened: \(\) => setStatsSheetArrived\(true\) \}\}/.test(linksSrc) && /!isMobileStatsViewport \|\| statsSheetArrived/.test(linksSrc))
     check("the day and time sheet sits on the keyboard", /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title=\{label\} aboveKeyboard>/.test(read("components/onepage/date-time-field.tsx")))
     check("the dial turns with pointer events and keeps its rotation on a touch screen", /function DirectionDial[\s\S]{0,2400}setPointerCapture[\s\S]{0,2400}data-keep-transform=""/.test(design))

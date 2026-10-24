@@ -99,8 +99,8 @@ window.__sl = (function () {
     var r = sec.getBoundingClientRect()
     /* Where the heading sits in it too: a hero with a min-height moves its content for a padding change, not its own box. */
     var hr = h ? h.getBoundingClientRect() : null
-    var themeRoot = document.querySelector("#wb-preview-root [data-storelib-theme]")
-    var px = themeRoot ? getComputedStyle(themeRoot).getPropertyValue("--theme-padding-x") : ""
+    /* Read on the section, where a value under a finger is written (editor page.tsx canvasThemePatcher: never the theme's root while the finger is down, which restyled the whole page). Reading the root saw nothing until release. */
+    var px = getComputedStyle(sec).getPropertyValue("--theme-padding-x")
     return px + "|" + r.height.toFixed(1) + "|" + (h ? getComputedStyle(h).fontSize : "") + "|" + (hr ? hr.height.toFixed(1) + "|" + (hr.top - r.top).toFixed(1) + "|" + (hr.left - r.left).toFixed(1) + "|" + hr.width.toFixed(1) : "")
   }
   /* Record, from now until stop(): every value the slider took, every canvas change, every frame. */

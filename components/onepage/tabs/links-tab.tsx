@@ -136,6 +136,9 @@ import { parseSocialInput, socialFieldIsLink, socialFieldValue, socialFormat } f
 import { LinkIcon, SocialIcon, hasLinkIcon, markOn, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { LINK_ICONS, LINK_ICON_CATEGORIES, resolveLinkIcon } from "@/components/onepage/link-icons"
 import { tt } from "@/lib/i18n/text"
+import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia, classifyMedia } from "@/lib/onepage/media-rules"
+import { UploadError, openableImage, prepareImage, uploadErrorText, uploadMessage, uploadOnePageMedia } from "@/lib/onepage/media-upload"
+import { CropUpload } from "@/components/onepage/crop-upload"
 import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 
@@ -403,33 +406,43 @@ export function LinksTab() {
   const [showAvatarCropModal, setShowAvatarCropModal] = useState(false)
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [showVideoCropModal, setShowVideoCropModal] = useState(false)
-  const [tempImageUrl, setTempImageUrl] = useState<string | null>(null)
-  const [tempImageFile, setTempImageFile] = useState<File | null>(null)
-  const [tempVideoUrl, setTempVideoUrl] = useState<string | null>(null)
-  const [tempVideoFile, setTempVideoFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadingVideo, setUploadingVideo] = useState(false)
-  
+  /* What the profile croppers show and upload (components/onepage/crop-upload.tsx). */
+  const [tempAvatar, setTempAvatar] = useState<{ url: string; blob: Blob } | null>(null)
+  const [tempAvatarVideo, setTempAvatarVideo] = useState<{ url: string; file: File } | null>(null)
+  /* Why a chosen file cannot be used, in the sheet it was chosen from. */
+  const [avatarPickError, setAvatarPickError] = useState<string | null>(null)
+
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoFileInputRef = useRef<HTMLInputElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Crop state for images - square style like design tab
-  const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
-  const [isDraggingCrop, setIsDraggingCrop] = useState(false)
-  const [isResizingCrop, setIsResizingCrop] = useState<string | null>(null)
-  const [dragStartCrop, setDragStartCrop] = useState({ x: 0, y: 0 })
-  const [imageSizeCrop, setImageSizeCrop] = useState({ width: 0, height: 0 })
-  const cropContainerRef = useRef<HTMLDivElement>(null)
-
-  // Video crop state - portrait ratio (percentages)
-  const [videoCropBox, setVideoCropBox] = useState({ x: 10, y: 5, width: 60, height: 80 })
-  const [isDraggingVideoCrop, setIsDraggingVideoCrop] = useState(false)
-  const [isResizingVideoCrop, setIsResizingVideoCrop] = useState<string | null>(null)
-  const [videoDragStart, setVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
-  const videoContainerRef = useRef<HTMLDivElement>(null)
-  const [videoNaturalSize, setVideoNaturalSize] = useState({ width: 0, height: 0 })
+  /* A picture for the profile cropper: checked, made drawable (a HEIC becomes a JPEG), or the reason in plain words. */
+  const pickAvatarImage = async (file: File | undefined) => {
+    if (!file) return
+    setAvatarPickError(null)
+    try {
+      const img = await openableImage(file)
+      setTempAvatar(img)
+      setShowAvatarUploadModal(false)
+      setShowAvatarCropModal(true)
+    } catch (err) {
+      setAvatarPickError(uploadMessage(err))
+    }
+  }
+  const closeAvatarCrop = () => {
+    setShowAvatarCropModal(false)
+    setTempAvatar((old) => {
+      if (old) URL.revokeObjectURL(old.url)
+      return null
+    })
+  }
+  const closeVideoCrop = () => {
+    setShowVideoCropModal(false)
+    setTempAvatarVideo((old) => {
+      if (old) URL.revokeObjectURL(old.url)
+      return null
+    })
+  }
 
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null)
   /* The sheet is up and + Add opened it (not a + between two cards, not a group's): its + is turned into an x. */
@@ -895,23 +908,8 @@ export function LinksTab() {
 
     setThumbnailUploading(true)
     try {
-      const supabase = createClient()
-      const fileExt = file.name.split('.').pop()
-      /* Under the owner's own folder: storage only lets a person write there. */
-      const ownerId = (await supabase.auth.getSession()).data.session?.user.id
-      if (!ownerId) throw new Error(tt("Not signed in"))
-      const fileName = `${ownerId}/thumbnail_${thumbnailBlockId}_${Date.now()}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('onepage-assets')
-        .upload(fileName, file, { upsert: true })
-
-      if (uploadError) throw uploadError
-      confirmUpload('onepage-assets', fileName)
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('onepage-assets')
-        .getPublicUrl(fileName)
+      /* Straight to storage under the owner's own folder, with a type storage takes (a HEIC becomes a JPEG): lib/onepage/media-upload. */
+      const { url: publicUrl } = await uploadOnePageMedia(file, { prefix: `thumbnail_${thumbnailBlockId}`, want: "image" })
 
       const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
       if (block?.type === 'product') {
@@ -936,6 +934,7 @@ export function LinksTab() {
       setShowIconLibraryInModal(false)
     } catch (error) {
       console.error('Error uploading thumbnail:', error)
+      alert(uploadMessage(error))
     } finally {
       setThumbnailUploading(false)
       if (thumbnailInputRef.current) {
@@ -2347,7 +2346,7 @@ export function LinksTab() {
           <input
             ref={thumbnailInputRef}
             type="file"
-            accept="image/*"
+            accept={ONEPAGE_IMAGE_ACCEPT}
             onChange={handleThumbnailUploadForModal}
             className="hidden"
           />
@@ -2392,7 +2391,7 @@ export function LinksTab() {
                   }
                   disabled={imageUploading}
                   onChange={async (e) => {
-                    const file = e.target.files?.[0]
+                    let file = e.target.files?.[0]
                     if (!file || !imageBlockId) return
                     if (imageUploading) return // Guard against concurrent uploads
 
@@ -2400,6 +2399,11 @@ export function LinksTab() {
                     setUploadProgress(0)
                     try {
                       const isDigitalFile = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file'
+                      /* An iPhone's HEIC is made a JPEG here first: the picture buckets take what a browser can show (lib/onepage/media-upload). */
+                      if (!isDigitalFile && classifyMedia(file)?.convert) {
+                        const jpeg = await prepareImage(file)
+                        file = new File([jpeg.blob], `${file.name.replace(/\.[^.]+$/, '') || 'photo'}.${jpeg.ext}`, { type: jpeg.mime })
+                      }
                       const folder = isDigitalFile ? 'digital' : 'images'
 
                       /* The same rule the server applies (lib/security/uploads): size,
@@ -2693,7 +2697,7 @@ export function LinksTab() {
                       /* One plain sentence: the server's own when it is one, never a code or a status. */
                       const said = error instanceof Error ? error.message : ''
                       const plain = said && said.length < 160 && !/failed|error|http|\(\d{3}\)|required|not found|denied|unauthori|token|bucket/i.test(said)
-                      alert(plain ? said : tt("Upload failed. Try again."))
+                      alert(error instanceof UploadError ? error.message : plain ? said : tt("Upload failed. Try again."))
                     } finally {
                       setImageUploading(false)
                       setTimeout(() => setUploadProgress(0), 500)
@@ -2928,13 +2932,7 @@ export function LinksTab() {
                 e.preventDefault()
                 e.stopPropagation()
                 setIsDragOver(false)
-                const file = e.dataTransfer.files?.[0]
-                if (!file || !file.type.startsWith('image/')) return
-                const url = URL.createObjectURL(file)
-                setTempImageUrl(url)
-                setTempImageFile(file)
-                setShowAvatarUploadModal(false)
-                setShowAvatarCropModal(true)
+                void pickAvatarImage(e.dataTransfer.files?.[0])
               }}
               className={cn(
                 "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200",
@@ -2950,353 +2948,69 @@ export function LinksTab() {
               {!isDragOver && <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>}
               <p className="text-sm text-gray-400 mt-2">{tt("Please upload an image")}</p>
             </div>
+            {avatarPickError ? <p role="alert" className="mt-3 text-[13px] leading-snug text-[#b42318]">{avatarPickError}</p> : null}
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept={ONEPAGE_IMAGE_ACCEPT}
               onChange={(e) => {
                 const file = e.target.files?.[0]
-                if (!file) return
-                const url = URL.createObjectURL(file)
-                setTempImageUrl(url)
-                setTempImageFile(file)
-                setShowAvatarUploadModal(false)
-                setShowAvatarCropModal(true)
+                e.target.value = ''
+                void pickAvatarImage(file)
               }}
               className="hidden"
             />
           </div>
         </SheetDialog>
 
-      {/* Image Crop Modal - Square style like Design tab */}
+      {/* Image Crop Modal: the shared cropper (components/onepage/crop-upload.tsx), a circle, saved as the one profile photo. */}
       <SheetDialog
         open={showAvatarCropModal}
-        onClose={() => {
-          setShowAvatarCropModal(false)
-          if (tempImageUrl) {
-            URL.revokeObjectURL(tempImageUrl)
-            setTempImageUrl(null)
-            setTempImageFile(null)
-            setCropBox({ x: 50, y: 50, size: 200 })
-          }
-        }}
+        onClose={closeAvatarCrop}
         phone={isMobileModalViewport}
         label={tt("Crop Image")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+        dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
-            <button onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <button onClick={() => { closeAvatarCrop(); setShowAvatarUploadModal(true) }} aria-label={tt("Back")} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Image")}</SheetDialogTitle>
           </DialogHeader>
-          <div className="p-5 space-y-4">
-            {tempImageUrl && (
-              <>
-                {/* Square crop preview with draggable crop box */}
-                <div
-                  ref={cropContainerRef}
-                  /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
-                  data-sheet-no-drag=""
-                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden touch-none"
-                  style={{ width: '300px', height: '300px' }}
-                  onMouseMove={(e) => {
-                    if (!isDraggingCrop && !isResizingCrop) return
-                    const rect = cropContainerRef.current?.getBoundingClientRect()
-                    if (!rect) return
-
-                    if (isDraggingCrop) {
-                      const newX = e.clientX - rect.left - dragStartCrop.x
-                      const newY = e.clientY - rect.top - dragStartCrop.y
-                      // Constrain to image bounds
-                      const maxX = imageSizeCrop.width - cropBox.size
-                      const maxY = imageSizeCrop.height - cropBox.size
-                      const offsetX = (300 - imageSizeCrop.width) / 2
-                      const offsetY = (300 - imageSizeCrop.height) / 2
-                      setCropBox(prev => ({
-                        ...prev,
-                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
-                        y: Math.max(0, Math.min(maxY, newY - offsetY))
-                      }))
-                    } else if (isResizingCrop) {
-                      const dx = e.clientX - dragStartCrop.x
-                      const dy = e.clientY - dragStartCrop.y
-                      let delta: number, newSize: number
-                      if (isResizingCrop === 'top-left') {
-                        delta = Math.max(-dx, -dy)
-                        newSize = Math.max(50, cropBox.size + delta)
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange), y: Math.max(0, prev.y - sizeChange) }))
-                      } else if (isResizingCrop === 'top-right') {
-                        delta = Math.max(dx, -dy)
-                        newSize = Math.max(50, Math.min(imageSizeCrop.width - cropBox.x, cropBox.size + delta))
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, y: Math.max(0, prev.y - sizeChange) }))
-                      } else if (isResizingCrop === 'bottom-left') {
-                        delta = Math.max(-dx, dy)
-                        newSize = Math.max(50, Math.min(imageSizeCrop.height - cropBox.y, cropBox.size + delta))
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange) }))
-                      } else {
-                        delta = Math.max(dx, dy)
-                        newSize = Math.max(50, Math.min(300, cropBox.size + delta))
-                        const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
-                        setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
-                      }
-                      setDragStartCrop({ x: e.clientX, y: e.clientY })
-                    }
-                  }}
-                  onMouseUp={() => { setIsDraggingCrop(false); setIsResizingCrop(null) }}
-                  onMouseLeave={() => { setIsDraggingCrop(false); setIsResizingCrop(null) }}
-                  onTouchMove={(e) => {
-                    if (!isDraggingCrop && !isResizingCrop) return
-                    e.preventDefault()
-                    const touch = e.touches[0]
-                    const rect = cropContainerRef.current?.getBoundingClientRect()
-                    if (!rect || !touch) return
-
-                    if (isDraggingCrop) {
-                      const newX = touch.clientX - rect.left - dragStartCrop.x
-                      const newY = touch.clientY - rect.top - dragStartCrop.y
-                      const maxX = imageSizeCrop.width - cropBox.size
-                      const maxY = imageSizeCrop.height - cropBox.size
-                      const offsetX = (300 - imageSizeCrop.width) / 2
-                      const offsetY = (300 - imageSizeCrop.height) / 2
-                      setCropBox(prev => ({
-                        ...prev,
-                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
-                        y: Math.max(0, Math.min(maxY, newY - offsetY))
-                      }))
-                    } else if (isResizingCrop) {
-                      const dx = touch.clientX - dragStartCrop.x
-                      const dy = touch.clientY - dragStartCrop.y
-                      let delta: number, newSize: number
-                      if (isResizingCrop === 'top-left') {
-                        delta = Math.max(-dx, -dy)
-                        newSize = Math.max(50, cropBox.size + delta)
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange), y: Math.max(0, prev.y - sizeChange) }))
-                      } else if (isResizingCrop === 'top-right') {
-                        delta = Math.max(dx, -dy)
-                        newSize = Math.max(50, Math.min(imageSizeCrop.width - cropBox.x, cropBox.size + delta))
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, y: Math.max(0, prev.y - sizeChange) }))
-                      } else if (isResizingCrop === 'bottom-left') {
-                        delta = Math.max(-dx, dy)
-                        newSize = Math.max(50, Math.min(imageSizeCrop.height - cropBox.y, cropBox.size + delta))
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange) }))
-                      } else {
-                        delta = Math.max(dx, dy)
-                        newSize = Math.max(50, Math.min(300, cropBox.size + delta))
-                        const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
-                        setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
-                      }
-                      setDragStartCrop({ x: touch.clientX, y: touch.clientY })
-                    }
-                  }}
-                  onTouchEnd={() => { setIsDraggingCrop(false); setIsResizingCrop(null) }}
-                >
-                  {/* Image */}
-                  <img
-                    src={tempImageUrl}
-                    alt={tt("Preview")}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
-                    style={{
-                      width: imageSizeCrop.width,
-                      height: imageSizeCrop.height,
-                      maxWidth: '300px',
-                      maxHeight: '300px',
-                      objectFit: 'contain'
-                    }}
-                    draggable={false}
-                    onLoad={(e) => {
-                      const img = e.target as HTMLImageElement
-                      const nw = img.naturalWidth
-                      const nh = img.naturalHeight
-                      // Scale to fit container
-                      const scale = Math.min(300 / nw, 300 / nh)
-                      const displayW = nw * scale
-                      const displayH = nh * scale
-                      setImageSizeCrop({ width: displayW, height: displayH })
-                      // Center crop box
-                      const size = Math.min(displayW, displayH) * 0.8
-                      setCropBox({
-                        x: (displayW - size) / 2,
-                        y: (displayH - size) / 2,
-                        size
-                      })
-                    }}
-                  />
-
-                  {/* Crop box with shadow overlay */}
-                  <div
-                    className="absolute cursor-move touch-none"
-                    style={{
-                      left: `${150 - imageSizeCrop.width/2 + cropBox.x}px`,
-                      top: `${150 - imageSizeCrop.height/2 + cropBox.y}px`,
-                      width: `${cropBox.size}px`,
-                      height: `${cropBox.size}px`,
-                      border: '2px solid #3b82f6',
-                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setIsDraggingCrop(true)
-                      const rect = (e.target as HTMLElement).getBoundingClientRect()
-                      setDragStartCrop({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-                    }}
-                    onTouchStart={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      const touch = e.touches[0]
-                      setIsDraggingCrop(true)
-                      const rect = (e.target as HTMLElement).getBoundingClientRect()
-                      setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
-                    }}
-                  >
-                    {/* Grid overlay */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="border border-white/30" />
-                      ))}
-                    </div>
-
-                    {/* Corner handles - all corners resizable */}
-                    {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((corner) => {
-                      const pos = {
-                        'top-left': '-top-2.5 -left-2.5 cursor-nw-resize',
-                        'top-right': '-top-2.5 -right-2.5 cursor-ne-resize',
-                        'bottom-left': '-bottom-2.5 -left-2.5 cursor-sw-resize',
-                        'bottom-right': '-bottom-2.5 -right-2.5 cursor-se-resize',
-                      }[corner]
-                      const isBR = corner === 'bottom-right'
-                      return (
-                        <div key={corner} className={`absolute ${pos}`}>
-                          <div className={`w-5 h-5 ${isBR ? 'bg-blue-500' : 'bg-white'} border-[3px] border-blue-500 rounded-sm`} />
-                          <div
-                            className="absolute -inset-[25px] w-[70px] h-[70px]"
-                            style={{ touchAction: 'none' }}
-                            onMouseDown={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setIsResizingCrop(corner)
-                              setDragStartCrop({ x: e.clientX, y: e.clientY })
-                            }}
-                            onTouchStart={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              const touch = e.touches[0]
-                              setIsResizingCrop(corner)
-                              setDragStartCrop({ x: touch.clientX, y: touch.clientY })
-                            }}
-                          />
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <p className="text-xs text-center text-muted-foreground">
-                  {tt("Drag to move, drag any corner to resize")}
-                </p>
-
-                <canvas ref={canvasRef} className="hidden" />
-
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="flex-1">{tt("Cancel")}</Button>
-                  <Button
-                    onClick={async () => {
-                      if (!tempImageUrl || !canvasRef.current) return
-                      setUploading(true)
-                      try {
-                        const canvas = canvasRef.current
-                        const ctx = canvas.getContext('2d')
-                        if (!ctx) throw new Error(tt("No canvas context"))
-
-                        // Output size (512x512 for crisp profile pictures)
-                        const outputSize = 512
-                        canvas.width = outputSize
-                        canvas.height = outputSize
-
-                        const img = new Image()
-                        img.crossOrigin = 'anonymous'
-
-                        await new Promise<void>((resolve, reject) => {
-                          img.onload = () => resolve()
-                          img.onerror = () => reject(new Error(tt("Failed to load image")))
-                          img.src = tempImageUrl
-                        })
-
-                        // Calculate source rectangle from crop box
-                        const nw = img.naturalWidth
-                        const nh = img.naturalHeight
-                        const scale = Math.min(300 / nw, 300 / nh)
-
-                        // Convert crop box coordinates back to original image coordinates
-                        const srcX = cropBox.x / scale
-                        const srcY = cropBox.y / scale
-                        const srcSize = cropBox.size / scale
-
-                        ctx.clearRect(0, 0, outputSize, outputSize)
-                        ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, outputSize, outputSize)
-
-                        // Convert to blob and upload
-                        const blob = await new Promise<Blob>((resolve, reject) => {
-                          canvas.toBlob(
-                            (b) => b ? resolve(b) : reject(new Error(tt("Failed to create blob"))),
-                            'image/png',
-                            0.95
-                          )
-                        })
-
-                        const supabase = createClient()
-                        const { data: { user } } = await supabase.auth.getUser()
-                        if (!user) throw new Error(tt("Not authenticated"))
-
-                        /*
-                          ONE PROFILE PHOTO. This used to upload into
-                          onepage-assets and write onepages.avatar_url alone,
-                          which is how one creator ended up with three faces:
-                          this one, the one in Settings and the one on the
-                          creator page. It goes into the account's own avatars
-                          folder now and is saved through the same route
-                          Settings uses, so every surface takes it
-                          (lib/account/avatar-save, lib/account/profile-follow).
-                        */
-                        const fileName = `${user.id}/avatar-${Date.now()}.png`
-                        const { error } = await supabase.storage.from("avatars").upload(fileName, blob, { upsert: true, contentType: "image/png" })
-                        if (error) throw error
-                        confirmUpload("avatars", fileName)
-
-                        const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(fileName)
-                        const saved = await fetch("/api/account/avatar", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ url: publicUrl }),
-                        })
-                        if (!saved.ok) throw new Error(tt("profile photo not saved"))
-                        announceAvatar(publicUrl)
-                        updateProfile({ avatar_url: publicUrl, avatar_video_url: null })
-                        setShowAvatarCropModal(false)
-                        URL.revokeObjectURL(tempImageUrl)
-                        setTempImageUrl(null)
-                        setTempImageFile(null)
-                        setCropBox({ x: 50, y: 50, size: 200 })
-                      } catch (error) {
-                        console.error("Upload error:", error)
-                        alert(tt("Upload failed. Try again."))
-                      } finally {
-                        setUploading(false)
-                      }
-                    }}
-                    className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
-                    disabled={uploading}
-                  >
-                    {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
-                  </Button>
-                </div>
-              </>
-            )}
+          <div className="p-4 sm:p-5">
+            {tempAvatar ? (
+              <CropUpload
+                kind="image"
+                src={tempAvatar.url}
+                file={tempAvatar.blob}
+                aspect={1}
+                shape="circle"
+                prefix="avatar"
+                bucket="avatars"
+                outputSize={800}
+                onCancel={closeAvatarCrop}
+                onSaved={async (result) => {
+                  /*
+                    ONE PROFILE PHOTO. This used to upload into
+                    onepage-assets and write onepages.avatar_url alone,
+                    which is how one creator ended up with three faces:
+                    this one, the one in Settings and the one on the
+                    creator page. It goes into the account's own avatars
+                    folder now and is saved through the same route
+                    Settings uses, so every surface takes it
+                    (lib/account/avatar-save, lib/account/profile-follow).
+                  */
+                  const saved = await fetch("/api/account/avatar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: result.url }),
+                  })
+                  if (!saved.ok) throw new Error(tt("profile photo not saved"))
+                  announceAvatar(result.url)
+                  updateProfile({ avatar_url: result.url, avatar_video_url: null })
+                  closeAvatarCrop()
+                }}
+              />
+            ) : null}
           </div>
         </SheetDialog>
 
@@ -3313,303 +3027,68 @@ export function LinksTab() {
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Profile Video")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
-            <button onClick={() => videoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
+            <button onClick={() => { setAvatarPickError(null); videoFileInputRef.current?.click() }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><Upload className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left">
                 <p className="font-medium">{tt("Upload video")}</p>
-                <p className="text-sm text-gray-500">{tt("MP4, WebM up to 100MB")}</p>
+                <p className="text-sm text-gray-500">{tt("MP4, MOV or WebM, up to 2 GB")}</p>
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
-            <input 
-              ref={videoFileInputRef} 
-              type="file" 
-              accept="video/mp4,video/webm,video/quicktime" 
+            {avatarPickError ? <p role="alert" className="text-[13px] leading-snug text-[#b42318]">{avatarPickError}</p> : null}
+            <input
+              ref={videoFileInputRef}
+              type="file"
+              accept={ONEPAGE_VIDEO_ACCEPT}
               onChange={(e) => {
                 const file = e.target.files?.[0]
+                e.target.value = ''
                 if (!file) return
-                
-                if (file.size > 100 * 1024 * 1024) {
-                  alert(tt("This file is too large. The limit is 100 MB."))
+                /* MP4, MOV, WebM or M4V up to 2 GB; it goes straight to storage in parts (lib/onepage/media-upload). */
+                const verdict = checkMedia(file, "video")
+                if (!verdict.ok) {
+                  setAvatarPickError(uploadErrorText(verdict.code ?? "type", "video"))
                   return
                 }
-                
-                const url = URL.createObjectURL(file)
-                setTempVideoUrl(url)
-                setTempVideoFile(file)
+                setAvatarPickError(null)
+                setTempAvatarVideo({ url: URL.createObjectURL(file), file })
                 setShowVideoModal(false)
                 setShowVideoCropModal(true)
-              }} 
-              className="hidden" 
+              }}
+              className="hidden"
             />
           </div>
         </SheetDialog>
 
-      {/* Video Crop Modal - Simple 1:1 crop like image crop */}
+      {/* Video Crop Modal: a square of the video, drawn in the circle exactly as framed (croppedMediaStyle). */}
       <SheetDialog
         open={showVideoCropModal}
-        onClose={() => {
-          setShowVideoCropModal(false)
-          if (tempVideoUrl) {
-            URL.revokeObjectURL(tempVideoUrl)
-            setTempVideoUrl(null)
-            setTempVideoFile(null)
-            setVideoCropBox({ x: 10, y: 10, width: 80, height: 80 })
-          }
-        }}
+        onClose={closeVideoCrop}
         phone={isMobileModalViewport}
         label={tt("Crop Video")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
         dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
-            <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <button onClick={() => { closeVideoCrop(); setShowVideoModal(true) }} aria-label={tt("Back")} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Video")}</SheetDialogTitle>
           </DialogHeader>
-          <div className="p-5 space-y-4">
-            {tempVideoUrl && (
-              <>
-                <div
-                  ref={videoContainerRef}
-                  data-sheet-no-drag=""
-                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
-                  style={{ width: '300px', height: '300px', touchAction: 'none' }}
-                >
-                  <video
-                    src={tempVideoUrl}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover pointer-events-none"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    onLoadedMetadata={(e) => {
-                      const video = e.target as HTMLVideoElement
-                      setVideoNaturalSize({ width: video.videoWidth, height: video.videoHeight })
-                    }}
-                  />
-
-                  {/* Crop box - 1:1 square ratio */}
-                  <div
-                    className="absolute cursor-move"
-                    style={{
-                      left: `${videoCropBox.x}%`,
-                      top: `${videoCropBox.y}%`,
-                      width: `${videoCropBox.width}%`,
-                      height: `${videoCropBox.width}%`,
-                      border: '2px solid #3b82f6',
-                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      touchAction: 'none'
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setIsDraggingVideoCrop(true)
-                      setVideoDragStart({
-                        x: e.clientX,
-                        y: e.clientY,
-                        boxX: videoCropBox.x,
-                        boxY: videoCropBox.y,
-                        boxW: videoCropBox.width,
-                        boxH: videoCropBox.height
-                      })
-                    }}
-                    onTouchStart={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      const touch = e.touches[0]
-                      setIsDraggingVideoCrop(true)
-                      setVideoDragStart({
-                        x: touch.clientX,
-                        y: touch.clientY,
-                        boxX: videoCropBox.x,
-                        boxY: videoCropBox.y,
-                        boxW: videoCropBox.width,
-                        boxH: videoCropBox.height
-                      })
-                    }}
-                  >
-                    {/* Grid overlay */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="border border-white/30" />
-                      ))}
-                    </div>
-
-                    {/* Corner handles - all corners resizable with 70px touch targets */}
-                    {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((corner) => {
-                      const pos = {
-                        'top-left': '-top-2.5 -left-2.5 cursor-nw-resize',
-                        'top-right': '-top-2.5 -right-2.5 cursor-ne-resize',
-                        'bottom-left': '-bottom-2.5 -left-2.5 cursor-sw-resize',
-                        'bottom-right': '-bottom-2.5 -right-2.5 cursor-se-resize',
-                      }[corner]
-                      const isBR = corner === 'bottom-right'
-                      return (
-                        <div key={corner} className={`absolute ${pos}`}>
-                          <div className={`w-5 h-5 ${isBR ? 'bg-blue-500' : 'bg-white'} border-[3px] border-blue-500 rounded-sm`} />
-                          <div
-                            className="absolute -inset-[25px] w-[70px] h-[70px]"
-                            style={{ touchAction: 'none' }}
-                            onMouseDown={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setIsResizingVideoCrop(corner)
-                              setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
-                            }}
-                            onTouchStart={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              const touch = e.touches[0]
-                              setIsResizingVideoCrop(corner)
-                              setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
-                            }}
-                          />
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {/* Global mouse and touch handlers */}
-                  {(isDraggingVideoCrop || isResizingVideoCrop) && (
-                    <div
-                      className="fixed inset-0 z-50"
-                      style={{ touchAction: 'none' }}
-                      onMouseMove={(e) => {
-                        const container = videoContainerRef.current
-                        if (!container) return
-                        const rect = container.getBoundingClientRect()
-                        const deltaX = ((e.clientX - videoDragStart.x) / rect.width) * 100
-                        const deltaY = ((e.clientY - videoDragStart.y) / rect.height) * 100
-
-                        if (isDraggingVideoCrop) {
-                          let newX = videoDragStart.boxX + deltaX
-                          let newY = videoDragStart.boxY + deltaY
-                          newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
-                          newY = Math.max(0, Math.min(100 - videoCropBox.width, newY))
-                          setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-                        } else if (isResizingVideoCrop) {
-                          const { boxX, boxY, boxW } = videoDragStart
-                          let newSize: number, newX: number, newY: number
-                          if (isResizingVideoCrop === 'top-left') {
-                            const d = Math.max(-deltaX, -deltaY)
-                            newSize = Math.max(20, boxW + d)
-                            newX = Math.max(0, boxX - (newSize - boxW))
-                            newY = Math.max(0, boxY - (newSize - boxW))
-                            setVideoCropBox({ x: newX, y: newY, width: newSize, height: newSize })
-                          } else if (isResizingVideoCrop === 'top-right') {
-                            const d = Math.max(deltaX, -deltaY)
-                            newSize = Math.max(20, Math.min(100 - boxX, boxW + d))
-                            newY = Math.max(0, boxY - (newSize - boxW))
-                            setVideoCropBox(prev => ({ ...prev, y: newY, width: newSize, height: newSize }))
-                          } else if (isResizingVideoCrop === 'bottom-left') {
-                            const d = Math.max(-deltaX, deltaY)
-                            newSize = Math.max(20, Math.min(100 - boxY, boxW + d))
-                            newX = Math.max(0, boxX - (newSize - boxW))
-                            setVideoCropBox(prev => ({ ...prev, x: newX, width: newSize, height: newSize }))
-                          } else {
-                            newSize = Math.max(20, Math.min(100 - Math.max(boxX, boxY), boxW + Math.max(deltaX, deltaY)))
-                            setVideoCropBox(prev => ({ ...prev, width: newSize, height: newSize }))
-                          }
-                        }
-                      }}
-                      onMouseUp={() => {
-                        setIsDraggingVideoCrop(false)
-                        setIsResizingVideoCrop(null)
-                      }}
-                      onTouchMove={(e) => {
-                        e.preventDefault()
-                        const touch = e.touches[0]
-                        const container = videoContainerRef.current
-                        if (!container || !touch) return
-                        const rect = container.getBoundingClientRect()
-                        const deltaX = ((touch.clientX - videoDragStart.x) / rect.width) * 100
-                        const deltaY = ((touch.clientY - videoDragStart.y) / rect.height) * 100
-
-                        if (isDraggingVideoCrop) {
-                          let newX = videoDragStart.boxX + deltaX
-                          let newY = videoDragStart.boxY + deltaY
-                          newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
-                          newY = Math.max(0, Math.min(100 - videoCropBox.width, newY))
-                          setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-                        } else if (isResizingVideoCrop) {
-                          const { boxX, boxY, boxW } = videoDragStart
-                          let newSize: number, newX: number, newY: number
-                          if (isResizingVideoCrop === 'top-left') {
-                            const d = Math.max(-deltaX, -deltaY)
-                            newSize = Math.max(20, boxW + d)
-                            newX = Math.max(0, boxX - (newSize - boxW))
-                            newY = Math.max(0, boxY - (newSize - boxW))
-                            setVideoCropBox({ x: newX, y: newY, width: newSize, height: newSize })
-                          } else if (isResizingVideoCrop === 'top-right') {
-                            const d = Math.max(deltaX, -deltaY)
-                            newSize = Math.max(20, Math.min(100 - boxX, boxW + d))
-                            newY = Math.max(0, boxY - (newSize - boxW))
-                            setVideoCropBox(prev => ({ ...prev, y: newY, width: newSize, height: newSize }))
-                          } else if (isResizingVideoCrop === 'bottom-left') {
-                            const d = Math.max(-deltaX, deltaY)
-                            newSize = Math.max(20, Math.min(100 - boxY, boxW + d))
-                            newX = Math.max(0, boxX - (newSize - boxW))
-                            setVideoCropBox(prev => ({ ...prev, x: newX, width: newSize, height: newSize }))
-                          } else {
-                            newSize = Math.max(20, Math.min(100 - Math.max(boxX, boxY), boxW + Math.max(deltaX, deltaY)))
-                            setVideoCropBox(prev => ({ ...prev, width: newSize, height: newSize }))
-                          }
-                        }
-                      }}
-                      onTouchEnd={() => {
-                        setIsDraggingVideoCrop(false)
-                        setIsResizingVideoCrop(null)
-                      }}
-                    />
-                  )}
-                </div>
-
-                <p className="text-xs text-center text-muted-foreground">
-                  {tt("Drag to move, drag any corner to resize")}
-                </p>
-
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="flex-1">{tt("Cancel")}</Button>
-                  <Button
-                    onClick={async () => {
-                      if (!tempVideoFile) return
-                      setUploadingVideo(true)
-                      try {
-                        const supabase = createClient()
-                        const { data: { user } } = await supabase.auth.getUser()
-                        if (!user) return
-
-                        const fileName = `${user.id}/avatar-video-${Date.now()}.${tempVideoFile.name.split('.').pop()}`
-                        const { error } = await supabase.storage.from("onepage-assets").upload(fileName, tempVideoFile, { upsert: true })
-                        if (error) throw error
-                        confirmUpload("onepage-assets", fileName)
-
-                        const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-                        updateProfile({
-                          avatar_video_url: publicUrl,
-                          avatar_url: null,
-                          avatar_video_crop: videoCropBox
-                        })
-                        setShowVideoCropModal(false)
-                        if (tempVideoUrl) URL.revokeObjectURL(tempVideoUrl)
-                        setTempVideoUrl(null)
-                        setTempVideoFile(null)
-                        setVideoCropBox({ x: 10, y: 10, width: 80, height: 80 })
-                      } catch (error) {
-                        console.error("Upload error:", error)
-                        alert(tt("Upload failed. Try again."))
-                      } finally {
-                        setUploadingVideo(false)
-                      }
-                    }}
-                    className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
-                    disabled={uploadingVideo}
-                  >
-                    {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
-                  </Button>
-                </div>
-              </>
-            )}
+          <div className="p-4 sm:p-5">
+            {tempAvatarVideo ? (
+              <CropUpload
+                kind="video"
+                src={tempAvatarVideo.url}
+                file={tempAvatarVideo.file}
+                aspect={1}
+                shape="circle"
+                prefix="avatar-video"
+                onCancel={closeVideoCrop}
+                onSaved={(result, crop) => {
+                  updateProfile({ avatar_video_url: result.url, avatar_url: null, avatar_video_crop: crop })
+                  closeVideoCrop()
+                }}
+              />
+            ) : null}
           </div>
         </SheetDialog>
     </div>
@@ -4389,28 +3868,14 @@ function BlockEditor({
 
     setThumbnailUploading(true)
     try {
-      const supabase = createClient()
-      const fileExt = file.name.split('.').pop()
-      /* Under the owner's own folder: storage only lets a person write there. */
-      const ownerId = (await supabase.auth.getSession()).data.session?.user.id
-      if (!ownerId) throw new Error(tt("Not signed in"))
-      const fileName = `${ownerId}/thumbnail_${block.id}_${Date.now()}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('onepage-assets')
-        .upload(fileName, file, { upsert: true })
-
-      if (uploadError) throw uploadError
-      confirmUpload('onepage-assets', fileName)
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('onepage-assets')
-        .getPublicUrl(fileName)
+      /* Straight to storage under the owner's own folder, with a type storage takes (a HEIC becomes a JPEG): lib/onepage/media-upload. */
+      const { url: publicUrl } = await uploadOnePageMedia(file, { prefix: `thumbnail_${block.id}`, want: "image" })
 
       updateData({ thumbnail_url: publicUrl, icon: null })
       setShowThumbnailPopup(false)
     } catch (error) {
       console.error('Error uploading thumbnail:', error)
+      alert(uploadMessage(error))
     } finally {
       setThumbnailUploading(false)
       if (thumbnailInputRef.current) {
@@ -4426,23 +3891,8 @@ function BlockEditor({
 
     setImageUploading(currentImageItemId)
     try {
-      const supabase = createClient()
-      const fileExt = file.name.split('.').pop()
-      /* Under the owner's own folder: storage only lets a person write there. */
-      const ownerId = (await supabase.auth.getSession()).data.session?.user.id
-      if (!ownerId) throw new Error(tt("Not signed in"))
-      const fileName = `${ownerId}/image_${block.id}_${currentImageItemId}_${Date.now()}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('onepage-assets')
-        .upload(fileName, file, { upsert: true })
-
-      if (uploadError) throw uploadError
-      confirmUpload('onepage-assets', fileName)
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('onepage-assets')
-        .getPublicUrl(fileName)
+      /* Straight to storage under the owner's own folder, with a type storage takes (a HEIC becomes a JPEG): lib/onepage/media-upload. */
+      const { url: publicUrl } = await uploadOnePageMedia(file, { prefix: `image_${block.id}_${currentImageItemId}`, want: "image" })
 
       // Update the specific image in the images array
       const data = block.data as ImageBlockData
@@ -4458,6 +3908,7 @@ function BlockEditor({
       })
     } catch (error) {
       console.error('Error uploading image:', error)
+      alert(uploadMessage(error))
     } finally {
       setImageUploading(null)
       setCurrentImageItemId(null)
@@ -6275,7 +5726,7 @@ function BlockEditor({
             <input
               ref={imageInputRef}
               type="file"
-              accept="image/*"
+              accept={ONEPAGE_IMAGE_ACCEPT}
               onChange={handleImageBlockUpload}
               className="hidden"
             />

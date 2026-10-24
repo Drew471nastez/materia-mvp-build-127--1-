@@ -98,12 +98,16 @@ export const SCHEME_COLOR_LABELS: Record<SchemeColorKey, string> = {
 }
 
 /** How the scheme editor groups the twenty-one. */
+/*
+  The same five groups an imported theme's scheme is listed in
+  (lib/storelib-theme/scheme-categories.ts): one place for the page's own
+  colours, then each kind of control. Every key is still in exactly one group.
+*/
 export const SCHEME_COLOR_GROUPS: { label: string; keys: SchemeColorKey[] }[] = [
-  { label: "Surface", keys: ["background", "background_secondary", "border"] },
-  { label: "Text", keys: ["heading", "text", "text_muted", "link", "accent"] },
-  { label: "Primary button", keys: ["primary_button_background", "primary_button_text", "primary_button_border", "primary_button_hover_background", "primary_button_hover_text"] },
-  { label: "Secondary button", keys: ["secondary_button_background", "secondary_button_text", "secondary_button_border", "secondary_button_hover_background", "secondary_button_hover_text"] },
-  { label: "Inputs", keys: ["input_background", "input_text", "input_border"] },
+  { label: "General colors", keys: ["background", "background_secondary", "text", "heading", "text_muted", "accent", "link", "border"] },
+  { label: "Primary button", keys: ["primary_button_background", "primary_button_text", "primary_button_hover_background", "primary_button_hover_text", "primary_button_border"] },
+  { label: "Secondary button", keys: ["secondary_button_background", "secondary_button_text", "secondary_button_hover_background", "secondary_button_hover_text", "secondary_button_border"] },
+  { label: "Inputs & fields", keys: ["input_background", "input_text", "input_border"] },
 ]
 
 /**

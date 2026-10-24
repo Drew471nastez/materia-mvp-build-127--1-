@@ -15,6 +15,7 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import type { RenderContext, StorefrontData } from "@/lib/storelib-theme/types"
 import { StorelibRenderProvider, type SectionRenderFn } from "./storelib-sources"
 import { wishlistObject, type StorefrontGlobals } from "@/lib/storelib-theme/globals"
+import { WISHLIST_MAX } from "@/lib/site-accounts/wishlist-list"
 import { catalogPage } from "@/lib/products/catalog-filters"
 import { breadcrumbTrail } from "@/lib/products/breadcrumbs"
 import type { CustomerObject, CustomerOrder } from "@/lib/site-accounts/account-data"
@@ -74,8 +75,16 @@ export function sampleCustomer(cards: Card[], now: number): CustomerObject {
 export function editorGlobals(template: string, products: Card[], now = Date.now()): StorefrontGlobals | undefined {
   if (template !== "page.account" && template !== "page.wishlist") return undefined
   const cards = products.length > 0 ? products.slice(0, 4) : PLACEHOLDER_CARDS
-  const wishlist = wishlistObject(cards, template === "page.account")
-  if (template === "page.wishlist") return { wishlist }
+  /*
+    THE WISHLIST PAGE, AS THE CANVAS'S HEARTS LEAVE IT. Every product is drawn
+    as a card, so whatever the creator hearts on another page of the canvas is
+    there; StorelibSection shows the saved ones (and the empty line once none
+    are left), and the first four as samples until a heart has been pressed,
+    so the page can be styled before then. The list is the canvas's memory
+    only (site-wishlist.tsx).
+  */
+  if (template === "page.wishlist") return { wishlist: wishlistObject(products.length > 0 ? products.slice(0, WISHLIST_MAX) : PLACEHOLDER_CARDS, false) }
+  const wishlist = wishlistObject(cards, true)
   return { customer: sampleCustomer(cards, now) as unknown as Record<string, unknown>, wishlist }
 }
 

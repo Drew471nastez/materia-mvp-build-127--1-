@@ -58,6 +58,9 @@ export const WALLPAPER_PATTERNS: readonly WallpaperPattern[] = [
   { id: "morph", name: "Morph", kind: "pattern" },
   { id: "flowmaze", name: "Flow", kind: "pattern" },
   { id: "stars", name: "Stars", kind: "pattern" },
+  { id: "terrazzo", name: "Terrazzo", kind: "pattern" },
+  { id: "blueprint", name: "Blueprint", kind: "pattern" },
+  { id: "halftone", name: "Halftone", kind: "pattern" },
 ]
 
 export function isPatternId(v: unknown): boolean {
@@ -92,6 +95,54 @@ const noise = (w: number, freq: string, octaves: number, rgb: string, a: number,
       `<feColorMatrix values='0 0 0 0 ${f(r)} 0 0 0 0 ${f(g)} 0 0 0 0 ${f(bl)} ${a} 0 0 0 ${b}'/></filter><rect width='100%' height='100%' filter='url(#n)'/>`,
   )
 }
+
+/*
+  TERRAZZO: stone chips set in a pale ground, as a poured floor is. Each chip
+  is an uneven polygon of four to six corners, in three sizes (a few large,
+  more middle, many small specks), each at its own strength of the colour so
+  the stone has depth. Laid out once from a fixed seed, so every page draws
+  the same stone, and a chip that crosses the tile's edge is drawn again on
+  the other side, so the floor has no seam. Chips of the same strength are
+  one path, so the tile is a few elements, not seventy.
+*/
+const TERRAZZO_SIZE = 260
+const TERRAZZO_CHIPS: readonly { d: string; o: number }[] = (() => {
+  let seed = 20261024
+  const rnd = () => {
+    seed = (seed * 16807) % 2147483647
+    return (seed - 1) / 2147483646
+  }
+  const W = TERRAZZO_SIZE
+  const byStrength = new Map<number, string[]>()
+  const chip = (r: number, strength: [number, number]) => {
+    const cx = rnd() * W
+    const cy = rnd() * W
+    const corners = 4 + Math.floor(rnd() * 3)
+    const turn = rnd() * Math.PI * 2
+    const pts: [number, number][] = []
+    for (let i = 0; i < corners; i++) {
+      const a = turn + (i * Math.PI * 2) / corners + (rnd() - 0.5) * 0.9
+      const rr = r * (0.55 + rnd() * 0.55)
+      pts.push([Math.cos(a) * rr, Math.sin(a) * rr])
+    }
+    const o = Math.round((strength[0] + rnd() * (strength[1] - strength[0])) * 10) / 10
+    const list = byStrength.get(o) ?? []
+    for (const dx of [-W, 0, W]) for (const dy of [-W, 0, W]) {
+      const x = cx + dx
+      const y = cy + dy
+      if (x < -r || x > W + r || y < -r || y > W + r) continue
+      list.push(`M${pts.map(([px, py]) => `${(x + px).toFixed(1)} ${(y + py).toFixed(1)}`).join("L")}Z`)
+    }
+    byStrength.set(o, list)
+  }
+  for (let i = 0; i < 7; i++) chip(9 + rnd() * 5, [0.35, 0.75])
+  for (let i = 0; i < 22; i++) chip(3.5 + rnd() * 3, [0.4, 0.9])
+  for (let i = 0; i < 46; i++) chip(1.1 + rnd() * 1.4, [0.5, 1])
+  return [...byStrength].map(([o, ds]) => ({ o, d: ds.join("") }))
+})()
+
+/* BLUEPRINT: drafting paper. A fine line every 10px, a firmer one every 50px, and a small cross where the firm ones meet. */
+const BLUEPRINT_MINOR = [10, 20, 30, 40, 60, 70, 80, 90].map((n) => `M0 ${n + 0.5}H100M${n + 0.5} 0V100`).join("")
 
 /** One tile for each pattern, in `c` at opacity `o`. The ids inside a data URI belong to that image alone. */
 function tile(id: string, c: string, o: number): { image: string; size: string } | null {
@@ -179,6 +230,25 @@ function tile(id: string, c: string, o: number): { image: string; size: string }
         ),
         size: "220px 220px",
       }
+    case "terrazzo":
+      return {
+        image: svg(TERRAZZO_SIZE, TERRAZZO_SIZE, TERRAZZO_CHIPS.map((g) => `<path d='${g.d}' fill='${c}' fill-opacity='${Math.round(o * g.o * 100) / 100}'/>`).join("")),
+        size: `${TERRAZZO_SIZE}px ${TERRAZZO_SIZE}px`,
+      }
+    case "blueprint":
+      return {
+        image: svg(
+          100,
+          100,
+          `<path d='${BLUEPRINT_MINOR}' stroke='${c}' stroke-opacity='${Math.round(o * 0.4 * 100) / 100}' stroke-width='0.5' fill='none'/>` +
+            `<path d='M0 .5H100M0 50.5H100M.5 0V100M50.5 0V100' ${s} stroke-width='1'/>` +
+            `<path d='M46.5 50.5H54.5M50.5 46.5V54.5' ${s} stroke-width='1.5'/>`,
+        ),
+        size: "100px 100px",
+      }
+    case "halftone":
+      /* A print's dot screen, turned 45 degrees: a dot at each corner and one in the middle. */
+      return { image: svg(7, 7, `<g ${fill}><circle cx='0' cy='0' r='1'/><circle cx='7' cy='0' r='1'/><circle cx='0' cy='7' r='1'/><circle cx='7' cy='7' r='1'/><circle cx='3.5' cy='3.5' r='1'/></g>`), size: "7px 7px" }
     case "grain":
       return { image: noise(160, "1.05", 3, c, 1.25 * o, -0.56 * o), size: "160px 160px" }
     case "paper":
