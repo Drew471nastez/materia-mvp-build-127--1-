@@ -209,7 +209,8 @@ const read = (frame) =>
     const card = byText("Probe Pack")
     const link = shown.find((e) => e.textContent && e.textContent.trim() === "My Link") || byText("My Link")
     if (!card || !link) return null
-    const title = [...card.querySelectorAll("p")].find((p) => p.textContent === "Probe Pack")
+    /* The title in whatever element the product's layout draws it (a <p> before the eight layouts). */
+    const title = [...card.querySelectorAll("*")].find((p) => p.childElementCount === 0 && p.textContent === "Probe Pack")
     document.querySelectorAll("[data-probe-card]").forEach((e) => e.removeAttribute("data-probe-card"))
     card.setAttribute("data-probe-card", "")
     const under = (el) => {
@@ -374,6 +375,23 @@ if (PARTS.has("kinds")) {
   expect(r.blankFrames === 0, "no frame shows a blank or undecoded card, or dims one that was on screen", r.blank)
   expect(r.made === 0 && r.thrown === 0, "no card or picture is made again or thrown away by a pick", { made: r.made, thrown: r.thrown })
   expect(r.shownEnd === THEMES.length, "back on All, every theme is shown", r.shownEnd)
+  /* The three newest cards side by side, as the grid draws them: theme-cards-new.png. */
+  {
+    const cards = []
+    for (const id of ["paper", "sage", "graphite"]) {
+      const el = await p.$(`[data-theme-card="${id}"]`)
+      if (!el) continue
+      await el.evaluate((e) => e.scrollIntoView({ block: "center" }))
+      await sleep(300)
+      cards.push(await el.screenshot())
+    }
+    if (cards.length) {
+      const metas = await Promise.all(cards.map((c) => sharp(c).metadata()))
+      let x = 0
+      const comp = cards.map((c, i) => { const at = { input: c, left: x, top: 0 }; x += metas[i].width + 16; return at })
+      await sharp({ create: { width: x, height: Math.max(...metas.map((m) => m.height)), channels: 3, background: "#ffffff" } }).composite(comp).png().toFile(join(shots, "theme-cards-new.png"))
+    }
+  }
   await p.close()
 }
 
@@ -487,9 +505,11 @@ if (PARTS.has("gallery")) {
   }
   const rows = []
   const NEW = ["paper", "sage", "graphite"]
+  /* Glass themes with no picture: the letter circle must read (gallery-avatars.png). */
+  const GLASS = ["midnight", "ocean"]
   for (const t of THEMES) {
     const views = []
-    for (const extra of NEW.includes(t.id) ? ["", "&avatar=0"] : [""]) {
+    for (const extra of NEW.includes(t.id) || GLASS.includes(t.id) ? ["", "&avatar=0"] : [""]) {
       const a = await shot("preview", t.id, 390, extra)
       views.push(a.png); await a.p.close()
       const b = await shot("live", t.id, 390, extra)
@@ -515,6 +535,7 @@ if (PARTS.has("gallery")) {
   const tile = async (png) => sharp(png).resize({ height: H }).png().toBuffer()
   const pages = []
   for (let i = 0; i < rows.length; i += 6) pages.push(rows.slice(i, i + 6))
+  pages.push(rows.filter((r) => GLASS.includes(r.id) || r.id === "graphite").map((r) => ({ ...r, views: r.views.slice(3) })))
   pages.push(rows.filter((r) => NEW.includes(r.id)))
   for (const [n, pageRows] of pages.entries()) {
     const comp = []
@@ -529,7 +550,7 @@ if (PARTS.has("gallery")) {
       }
       width = Math.max(width, x)
     }
-    const name = n === pages.length - 1 ? "gallery-new.png" : `gallery-${n + 1}.png`
+    const name = n === pages.length - 1 ? "gallery-new.png" : n === pages.length - 2 ? "gallery-avatars.png" : `gallery-${n + 1}.png`
     await sharp({ create: { width, height: pageRows.length * (H + 12), channels: 3, background: "#e5e7eb" } }).composite(comp).png().toFile(join(shots, name))
   }
 }
