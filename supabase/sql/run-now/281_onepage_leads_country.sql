@@ -1,2 +1,3 @@
 /* OnePage signups keep the visitor's country. /api/onepage/leads has written country_code and country_name on public.onepage_leads since January (the country on OnePage analytics), but no SQL file in this repository creates them: the table was made by hand. This adds them only where they are missing, so a database without them stops depending on the route's fallback (it saves the signup without the country). No row changes. Does nothing if public.onepage_leads does not exist. Safe to run again. */
 DO $do$ BEGIN IF to_regclass('public.onepage_leads') IS NOT NULL THEN ALTER TABLE public.onepage_leads ADD COLUMN IF NOT EXISTS country_code text; ALTER TABLE public.onepage_leads ADD COLUMN IF NOT EXISTS country_name text; END IF; END $do$;
+notify pgrst, 'reload schema';

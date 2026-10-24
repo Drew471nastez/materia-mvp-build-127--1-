@@ -4097,7 +4097,7 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('280', '2
 -- part 281_onepage_leads_country.sql
 /* OnePage signups keep the visitor's country. /api/onepage/leads has written country_code and country_name on public.onepage_leads since January (the country on OnePage analytics), but no SQL file in this repository creates them: the table was made by hand. This adds them only where they are missing, so a database without them stops depending on the route's fallback (it saves the signup without the country). No row changes. Does nothing if public.onepage_leads does not exist. Safe to run again. */
 DO $do$ BEGIN IF to_regclass('public.onepage_leads') IS NOT NULL THEN ALTER TABLE public.onepage_leads ADD COLUMN IF NOT EXISTS country_code text; ALTER TABLE public.onepage_leads ADD COLUMN IF NOT EXISTS country_name text; END IF; END $do$;
-INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('281', '281_onepage_leads_country.sql', '02a8d76d56eb213b843c7b706bab40569c9ef9cebdc6e2c56316eef0f9f1416f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('281', '281_onepage_leads_country.sql', 'e5c1eabe25ba626ea777af9239f94d41f5287ea6f755f8f2115b57acb51b320e') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;
