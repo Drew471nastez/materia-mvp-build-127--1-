@@ -11,6 +11,7 @@ import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { translationsChanged } from "@/lib/markets/translate-queue"
 import { pruneReleases, recordRelease } from "@/lib/website-builder/site-releases-server"
 import { mirrorWholeTheme } from "@/lib/github-sync/mirror"
+import { warmAfterPublish } from "@/lib/website-builder/warm-sites"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -291,9 +292,9 @@ export async function POST(req: Request, { params }: Params) {
       const kept = await recordRelease(admin, { installId, creatorId })
       if (kept.ok === false) {
         if (kept.reason === "failed") console.error("[publish] the release was not written:", kept.detail)
-        return
-      }
-      await pruneReleases(admin, installId)
+      } else await pruneReleases(admin, installId)
+      /* Then its pages drawn from it, before a visitor asks (lib/website-builder/warm-sites.ts warmAfterPublish). */
+      await warmAfterPublish(creatorId)
     })
 
     /* After the answer: every page of the site, to the search engines that
