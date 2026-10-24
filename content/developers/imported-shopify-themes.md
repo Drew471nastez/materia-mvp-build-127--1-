@@ -172,7 +172,7 @@ The canvas draws an imported theme's page in a sandboxed frame with no origin of
 
 - A click selects the section and the block under it. Links and forms do not leave the page. A link is only followed after every listener the theme has on the click has run, so a header cart icon that opens the drawer opens only the drawer.
 - A section the builder changed is swapped in place, with `shopify:section:unload` and `shopify:section:load` around it. Only the sections whose markup a change touches are drawn again: turning on Show currency codes redraws the sections that print prices and nothing else.
-- **A theme setting changes the page where it is, never by loading it again.** The theme's settings stylesheets (a `{% style %}` of CSS variables in the layout, a `css-variables` snippet), the `<meta>` and `<link>` tags in the head and the `<style>` tags around the sections are written again in place, and the page keeps its scroll. A stylesheet a theme's script adds to the head is left alone. The page is loaded again only when the markup around the sections or the head's scripts change, and then behind the page on screen, at the same scroll.
+- **A theme setting changes the page where it is, never by loading it again.** The theme's settings stylesheets (a `{% style %}` of CSS variables in the layout, a `css-variables` snippet), the `<meta>` and `<link>` tags in the head and the `<style>` tags around the sections are written again in place, and the page keeps its scroll. A stylesheet a theme's script adds to the head is left alone. The page is loaded again only when the markup around the sections or the head's scripts change, or when a setting is printed in an inline script of the layout (`window.theme = { settings: ... }`, a JSON block), which a theme's JavaScript reads once as it starts; then it is loaded behind the page on screen, at the same scroll, once the control is let go. A section drawn again with a new value in one of its own inline scripts runs that script, as Shopify's editor does.
 - While a slider or a colour is under a finger, the value is written straight into the places the page prints it, every frame. A theme's own transitions do not ease a value from the sidebar: an ease that starts with a builder change is taken to its end in the same frame (a reveal, a fade or a transform as the page is scrolled still plays).
 - Storelib's **Hover and focus** group (buttons on hover, links on hover, fields) is one stylesheet after the theme's own, rewritten in place as its values move.
 
@@ -189,6 +189,17 @@ document.addEventListener("storelib:settings-change", (event) => {
 })
 document.addEventListener("storelib:section-load", (event) => {
   if (event.detail.sectionId === "slideshow") slider.reset()
+})
+```
+
+A listener that writes a section's value itself (a height into a CSS variable on the section) can call `event.preventDefault()`. While the slider moves, the builder then stops drawing that section again for each value and only sends the event; it draws the section once more when the slider is let go.
+
+```js
+document.addEventListener("storelib:settings-change", (event) => {
+  const { settings, section } = event.detail
+  if (!section || !("header_height" in settings)) return
+  document.getElementById(`shopify-section-${section}`)?.style.setProperty("--header-height", `${settings.header_height}px`)
+  event.preventDefault()
 })
 ```
 

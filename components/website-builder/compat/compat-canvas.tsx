@@ -674,7 +674,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* `ahead`: a page drawn out of sight (KEPT PAGES): its own page, at its top, never an account page. */
   const draw = (list: StoredSection[], ahead?: CompatPage) => {
     const drawnPage = ahead ?? page
-    const restore = `<script>(function(){var y=${ahead ? 0 : Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
+    const restore = `<script data-sl-own>(function(){var y=${ahead ? 0 : Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
     let site = ""
     try {
       site = props.siteUrl ? new URL(props.siteUrl).origin : ""
@@ -806,13 +806,32 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* In the language previewed, as the page in front is (`sections`, above). */
     const list = fields && map ? (localizeSections(warm.sections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true, fresh: true }) as unknown as StoredSection[]) : warm.sections
     if (keptRef.current.some((x) => x.key === key && x.stamp === stampRef.current && holds(x, list))) return
-    let html: string
-    try {
-      html = draw(list, pageFor(warm.pageKey, null))
-    } catch {
-      return
+    /*
+      ON A SLOW CONNECTION OR WHEN THE BROWSER IS BUSY (round BC). Drawing a
+      page ahead is a whole page of the theme drawn here and loaded out of
+      sight, its scripts run in this process: on a connection that asks to
+      save data, or a slow one, it is not done; otherwise it waits until the
+      browser has a moment, never in the middle of a gesture.
+    */
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+    if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "")) return
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const ahead = () => {
+      if (isLive() || slotsRef.current.some((x) => x.key === key)) return
+      let html: string
+      try {
+        html = draw(list, pageFor(warm.pageKey, null))
+      } catch {
+        return
+      }
+      keep({ n: ++counter.current, key, page: `${warm.pageKey}|`, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: false, ahead: true })
     }
-    keep({ n: ++counter.current, key, page: `${warm.pageKey}|`, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: false, ahead: true })
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(ahead, { timeout: 1500 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(ahead, 300)
+    return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warm, compatTheme])
 
@@ -891,6 +910,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   /* A change arrived for the page in front while it was loading: drawn again and sent to it when it is ready. */
   const stale = useRef(false)
+  /* A change to the theme's start-up scripts waiting for the changes to stop (A SETTING THE THEME'S JAVASCRIPT READS AT START, below). */
+  const scriptsTimer = useRef(0)
+  const scriptsDue = useRef(false)
   /* The page drawn now and compared with the one on screen; what differs is sent to it. Reads everything it needs when it runs. */
   const drawAndPatch = () => {
     if (!compatTheme) return
@@ -979,6 +1001,36 @@ export function CompatCanvas(props: CompatCanvasProps) {
       loadBehind(html, docKey, list)
       return
     }
+    /*
+      A SETTING THE THEME'S JAVASCRIPT READS AT START (round BC). The owner:
+      a Display style switched in Theme settings, and the canvas showed it
+      only after a reload. The theme printed it in a script of its layout
+      (window.theme = { settings: ... }) that its JavaScript reads once, when
+      the page starts, so writing the page in place changed nothing a
+      visitor sees. The page is drawn again behind the one on screen, where
+      it was scrolled to, as a reload would show it. Meanwhile the rest is
+      written in place as before, and the frame is remembered as holding the
+      scripts it started with: the page is drawn again once the changes stop
+      for a moment (words typed into such a setting draw it once, not once a
+      key) and the finger is up.
+    */
+    if (plan.scripts && !isLive() && scriptsDue.current) {
+      scriptsDue.current = false
+      loadBehind(html, docKey, list)
+      return
+    }
+    if (plan.scripts) {
+      next.scripts = now.shape.scripts
+      window.clearTimeout(scriptsTimer.current)
+      const settle = () => {
+        /* Still under a finger: asked again, never drawn for nothing while it moves. */
+        if (isLive()) { scriptsTimer.current = window.setTimeout(settle, SCRIPTS_SETTLE_MS); return }
+        scriptsDue.current = true
+        drawAndPatchRef.current()
+        scriptsDue.current = false
+      }
+      scriptsTimer.current = window.setTimeout(settle, SCRIPTS_SETTLE_MS)
+    }
     now.stamp = stampRef.current
     now.lastHtml = html
     if (plan.empty) { now.shape = next; tell(win, isLive()); return }
@@ -1035,6 +1087,27 @@ export function CompatCanvas(props: CompatCanvasProps) {
     Liquid from then on. The release draws it by Liquid in any case.
   */
   const themeCheck = useRef(0)
+  /*
+    PACED BY WHAT A CHECK COSTS (round BC). Each check draws the section or
+    the page by Liquid, the very drawing the template saves: on a slow
+    device a slow drag pauses after nearly every value, and every pause drew
+    it (a header on Dawn, 100 to 400ms with the CPU slowed 4x), so the
+    editor stalled as often as without a template. A template's next check
+    waits three times as long as its last one took, and none comes sooner
+    than eight times that (and 800ms) after the last. The release draws by
+    Liquid whatever the checks said.
+  */
+  const checkPace = useRef(new Map<string, { at: number; cost: number }>())
+  const checkDelay = (key: string): number | null => {
+    const p = checkPace.current.get(key)
+    if (!p) return 160
+    if (performance.now() - p.at < Math.max(800, p.cost * 8)) return null
+    return Math.max(160, p.cost * 3)
+  }
+  const paced = (key: string, run: () => void) => {
+    const t0 = performance.now()
+    try { run() } finally { checkPace.current.set(key, { at: performance.now(), cost: performance.now() - t0 }) }
+  }
   const pagePure = (files: Record<string, string>, values: Record<string, unknown>, drawnPage: CompatPage, list: StoredSection[]) => canvasInsets(drawPage(themeWith(files, values), drawnPage, list, { scripts: true }).html)
   const propsThemeRef = useRef(props.theme)
   propsThemeRef.current = props.theme
@@ -1268,12 +1341,15 @@ export function CompatCanvas(props: CompatCanvasProps) {
     liveThemeShown.current = { key, value: change.to }
     window.clearTimeout(themeCheck.current)
     const t = known.t, value = change.to, files = rowsRef.current
-    themeCheck.current = window.setTimeout(() => {
+    const delay = checkDelay(key)
+    if (delay !== null) themeCheck.current = window.setTimeout(() => {
       if (!isLive() || !files || liveThemeShown.current?.key !== key || liveThemeShown.current.value !== value) return
       let agrees = false
-      try { agrees = pagePure(files, withLeaf(base.settings, change.path, value), base.page, base.list) === fillTemplate(t, value) } catch { agrees = false }
+      paced(key, () => {
+        try { agrees = pagePure(files, withLeaf(base.settings, change.path, value), base.page, base.list) === fillTemplate(t, value) } catch { agrees = false }
+      })
       if (!agrees) themeFailedRef.current(key)
-    }, 160)
+    }, delay)
     /* The page is not drawn again for this value, nor the next, until the finger lifts. */
     if (!held) {
       heldFor.current = propsThemeRef.current
@@ -1329,12 +1405,17 @@ export function CompatCanvas(props: CompatCanvasProps) {
     window.clearTimeout(sectionChecks.current.get(s.id))
     const theme = compatTheme
     const drawnPage = page
+    /* Paced by what a check costs (PACED BY WHAT A CHECK COSTS, above). */
+    const delay = checkDelay(key)
+    if (delay === null) return
     sectionChecks.current.set(s.id, window.setTimeout(() => {
       sectionChecks.current.delete(s.id)
       const shown = slot.shape.sections.get(s.id)
       if (!isLive() || !theme || slot.liveShown?.get(s.id) !== jsonOf(s)) return
       let real: string | null = null
-      try { real = canvasInsets(drawSection(theme, pageContextFor(theme, drawnPage, sectionsRef.current), s, index, group).html) } catch { real = null }
+      paced(key, () => {
+        try { real = canvasInsets(drawSection(theme, pageContextFor(theme, drawnPage, sectionsRef.current), s, index, group).html) } catch { real = null }
+      })
       if (real === shown) return
       templates.current.set(key, { at, t: null })
       slot.liveShown?.delete(s.id)
@@ -1368,6 +1449,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     window.setTimeout(next, 0)
   }
+  /* A section's setting the theme's script applies itself, by `${section id}|${setting id}` (APPLIED BY THE THEME, below). */
+  const appliedByTheme = useRef(new Set<string>())
   const syncSlot = (slot: Slot, list: StoredSection[] = sectionsRef.current) => {
     const win = frames.current.get(slot.n)?.contentWindow
     if (!compatTheme || !win || !slot.ready) return
@@ -1428,6 +1511,16 @@ export function CompatCanvas(props: CompatCanvasProps) {
       }
       if (told && told.path.length === 2 && told.path[0] === "settings" && typeof told.path[1] === "string") {
         win.postMessage({ storelib: 1, type: "settings", settings: { [told.path[1]]: told.to }, live, section: s.id }, "*")
+        /*
+          APPLIED BY THE THEME (round BC). A theme's listener that writes the
+          value itself and calls event.preventDefault() has said so
+          (canvas-bridge.ts "settings-applied"): while the finger moves, the
+          section is not drawn by Liquid nor sent for each value, only told.
+          The release draws it by Liquid once, as before (drawnFrom still
+          names what Liquid last drew), so whatever else the value changes
+          in its markup arrives then.
+        */
+        if (live && appliedByTheme.current.has(`${s.id}|${told.path[1]}`)) continue
       }
       if (html === null) {
         try {
@@ -1878,6 +1971,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
         if (typeof h === "string") onIntent.current?.(withoutLanguage(h, langRef.current))
       } else if (m.type === "edits-failed") {
         themeFailedRef.current((m as { key?: unknown }).key)
+      } else if (m.type === "settings-applied" && isFront) {
+        /* The theme's script wrote a section's value itself and said so (APPLIED BY THE THEME, syncSlot). */
+        const a = m as { section?: unknown; keys?: unknown }
+        if (typeof a.section === "string" && Array.isArray(a.keys)) for (const k of a.keys) if (typeof k === "string") appliedByTheme.current.add(`${a.section}|${k}`)
       } else if (m.type === "resend") {
         /* The frame did not hold the drawing a cut was read against: the section whole, as it is now. */
         const id = (m as { id?: unknown }).id
@@ -2108,6 +2205,9 @@ function CanvasPlaceholder({ hidden, label }: { hidden: boolean; label: string }
   )
 }
 
+/* How long the changes to a theme's start-up scripts must stop before the page is drawn again for them. */
+const SCRIPTS_SETTLE_MS = 400
+
 /* "slow" is not a failure yet: the page is still being asked for, and comes in under this if it arrives. */
 const PROBLEM_WORDS = {
   slow: { title: "This is taking longer than usual", body: "Your theme is still loading." },
@@ -2146,6 +2246,15 @@ export interface DocShape {
   headLayout?: string[]
   /** <body> with each section, script and noscript as a mark in its place: the layout around the sections, to change in place. */
   bodyLayout?: string
+  /**
+   * The theme's own inline scripts outside every section, as their type and
+   * text, in order (round BC). A theme prints settings for its JavaScript
+   * there (`window.theme = { settings: ... }`, a JSON block), and its
+   * JavaScript reads them once, when the page starts: written into the page
+   * they change nothing, so a change here draws the page again (planPatch,
+   * `scripts`). Storelib's own scripts are not among them.
+   */
+  scripts?: string[]
 }
 
 /*
@@ -2165,6 +2274,8 @@ const markOf = (doc: Document, attr: string, value: string) => {
 }
 
 const attrsOf = (el: Element): Record<string, string> => Object.fromEntries(Array.from(el.attributes).map((a) => [a.name, a.value]))
+/* A script the canvas or Storelib's runtime adds (marked, or reading the canvas's own globals): drawn differently each time (where the page was scrolled to, what is in storage), never the theme's. */
+const ownScript = (el: Element) => Array.from(el.attributes).some((a) => a.name.startsWith("data-sl") || a.name.startsWith("data-storelib")) || /__sl[A-Z]|storelib:\s*1\b/.test(el.textContent ?? "")
 
 export function docShape(html: string): DocShape {
   const doc = new DOMParser().parseFromString(html, "text/html")
@@ -2201,7 +2312,10 @@ export function docShape(html: string): DocShape {
     bodyStyles.push(el.textContent ?? "")
     el.remove()
   })
-  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML }
+  const scripts = Array.from(doc.querySelectorAll("script:not([src])"))
+    .filter((el) => !el.closest(".shopify-section[data-section-id]") && !ownScript(el))
+    .map((el) => `${el.getAttribute("type") ?? ""}|${el.textContent ?? ""}`)
+  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML, scripts }
 }
 
 const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
@@ -2234,7 +2348,7 @@ const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.
  * (htmlFrom, bodyFrom), so a class the theme's script added (js, loaded)
  * stays where a setting changes another.
  */
-export function planPatch(from: DocShape, to: DocShape): { empty: boolean; message: Record<string, unknown>; swaps: { id: string; html: string }[] } | null {
+export function planPatch(from: DocShape, to: DocShape): { empty: boolean; message: Record<string, unknown>; swaps: { id: string; html: string }[]; scripts?: boolean } | null {
   const headMoved = from.head !== to.head || from.styles.length !== to.styles.length || from.headNodes.length !== to.headNodes.length
   const bodyMoved = from.skeleton !== to.skeleton || from.bodyStyles.length !== to.bodyStyles.length
   if (headMoved && !(from.headLayout && to.headLayout)) return null
@@ -2260,5 +2374,7 @@ export function planPatch(from: DocShape, to: DocShape): { empty: boolean; messa
   const moved = kept.join("|") !== to.order.filter((x) => from.sections.has(x.id)).map((x) => x.id).join("|")
   const added = to.order.some((x) => !from.sections.has(x.id))
   if (moved || added) message.order = to.order.map((x) => ({ ...x, html: from.sections.has(x.id) ? undefined : to.sections.get(x.id) }))
-  return { empty: Object.keys(message).length === 0 && swaps.length === 0, message, swaps }
+  /* A theme's script outside the sections drawn with another setting (DocShape scripts): the page is drawn again for its JavaScript to start with it. */
+  const scripts = !!from.scripts && !!to.scripts && !sameList(from.scripts, to.scripts)
+  return { empty: Object.keys(message).length === 0 && swaps.length === 0 && !scripts, message, swaps, ...(scripts ? { scripts } : {}) }
 }
