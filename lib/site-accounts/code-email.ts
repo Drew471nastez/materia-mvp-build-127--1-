@@ -10,6 +10,7 @@
  * Pure, so tests/site-accounts.test.ts reads exactly what is sent.
  */
 import { emailDocument, emailKit, type EmailSender } from "@/lib/emails/layout"
+import { et } from "@/lib/emails/words"
 
 export interface CodeEmail {
   subject: string
@@ -38,28 +39,19 @@ export function codeEmail(input: { store: string; code: string; host: string; mi
   const code = input.code.replace(/\D/g, "").slice(0, 6)
   const site = input.host.split(":")[0].replace(/^www\./, "")
   const logo = logoOf(input.logoUrl)
-  const subject = `${code} is your code for ${store}`
-  const text = [
-    `Your code to sign in to ${store}:`,
-    "",
-    code,
-    "",
-    `It works once, for ${input.minutes} minutes, on ${site}.`,
-    "If you did not ask for it, you can ignore this email.",
-  ].join("\n")
+  /* Each sentence through et(), so the email is in the language the sign in page was in (lib/emails/words.ts; English as before when none is set). */
+  const subject = et("{code} is your code for {store}", { code, store })
+  const works = et("It works once, for {minutes} minutes, on {site}.", { minutes: input.minutes, site })
+  const ignore = et("If you did not ask for it, you can ignore this email.")
+  const text = [et("Your code to sign in to {store}:", { store }), "", code, "", works, ignore].join("\n")
   const sender: EmailSender = { kind: "store", name: store, pictureUrl: logo, picture: "logo" }
   const k = emailKit(sender)
   const html = emailDocument({
     sender,
     subject,
-    preview: `Your code to sign in to ${store}. It works once, for ${input.minutes} minutes.`,
-    rows: [
-      k.heading("Your sign in code"),
-      k.text(`Use this code to sign in to ${store}.`),
-      k.code(code, `It works once, for ${input.minutes} minutes, on ${site}.`),
-      k.small("If you did not ask for it, you can ignore this email."),
-    ],
-    footer: { reason: `You asked for this on ${site}.` },
+    preview: et("Your code to sign in to {store}. It works once, for {minutes} minutes.", { store, minutes: input.minutes }),
+    rows: [k.heading(et("Your sign in code")), k.text(et("Use this code to sign in to {store}.", { store })), k.code(code, works), k.small(ignore)],
+    footer: { reason: et("You asked for this on {site}.", { site }) },
   })
   return { subject, html, text, fromName: store }
 }
