@@ -135,8 +135,8 @@ export function waitsWithSpinner(href: string | null): boolean {
   if (!href) return false
   const path = pathOf(href)
   if (path !== "/app" && !path.startsWith("/app/")) return false
-  /* Products › Collections is a list like any other, under the products' address but not their editor. */
-  if (path === "/app/products/collections") return true
+  /* Products › Collections and Size charts are lists like any other, under the products' address but not their editor. */
+  if (path === "/app/products/collections" || path === "/app/products/size-charts") return true
   if (/^\/app\/products\/[^/]+(\/|$)/.test(path)) return false
   /* The coupon editor, new or saved: the same frame as the product editor's (app/app/coupons/coupon-editor.tsx). */
   if (/^\/app\/coupons\/[^/]+(\/|$)/.test(path)) return false

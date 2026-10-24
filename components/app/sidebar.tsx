@@ -366,6 +366,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   mainNavItems.find((item) => item.href === "/app/products")?.children?.unshift(
     ...(physicalCommerce ? [{ href: "/app/inventory", label: tt("Inventory") }] : []),
     { href: "/app/products/collections", label: tt("Collections") },
+    /* Size charts beside Collections, the store's tables a product page opens from Size guide (app/app/products/size-charts); physical products only. */
+    ...(physicalCommerce ? [{ href: "/app/products/size-charts", label: tt("Size charts") }] : []),
   )
   mainNavItems.find((item) => item.href === "/app/products")?.children?.push({ href: "/app/files", label: tt("Files") })
   /* Upsells and bundles beside Coupons, for every shop: they apply in the basket checkout of downloads and the cart checkout of things that ship alike (app/app/offers). */
@@ -605,8 +607,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   // The setup widget stays off the editors: store-builder, onepage, and the
   // product editor, whether it is a new product or /app/products/<id>.
-  // Products › Collections is a list under the same address, not an editor.
-  const inProductEditor = /^\/app\/products\/(?!collections(\/|$))[^/]+/.test(pathname)
+  // Products › Collections and Size charts are lists under the same address, not an editor.
+  const inProductEditor = /^\/app\/products\/(?!(collections|size-charts)(\/|$))[^/]+/.test(pathname)
   /*
     ROUND 33: on a community's own pages the store's "Setup 71%" was counting the store, not the community open under
     it. There the pill is the community's (CommunitySetupPill below, its own list) and the store's steps wait.
