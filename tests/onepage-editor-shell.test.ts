@@ -40,7 +40,8 @@ const settings = read("components/onepage/tabs/settings-tab.tsx")
 const seoPanel = read("components/onepage/seo-panel.tsx")
 
 console.log("\nFull screen on a phone")
-check("the editor starts at the top of the screen, under the header only from 768px", /fixed left-0 right-0 top-0 md:left-\[240px\] md:top-\[58px\]/.test(editor))
+/* Changed on purpose (round 11): from 768px the editor starts where the rail ends, open (240px) or a row of icons (--app-rail-w, lib/ui/app-rail), not at a fixed 240px. */
+check("the editor starts at the top of the screen, under the header only from 768px", /fixed left-0 right-0 top-0 md:left-\[var\(--app-rail-w,240px\)\] md:top-\[58px\]/.test(editor))
 check("its bar pads itself into the safe area on a phone", /box-content flex items-center border-b bg-white[^"]*pt-\[env\(safe-area-inset-top\)\] md:pt-0/.test(editor))
 /*
   AND IT EARNS ITS SPACE. Reported of a phone: a white bar over a dark page
@@ -130,7 +131,7 @@ console.log("\nThe phone's tab bar")
 check("four equal buttons, Settings one of them with its word",
   /grid grid-cols-4 gap-1\.5 px-3 pt-\[9px\] min-\[340px\]:gap-2 min-\[340px\]:px-4/.test(editor) && /\[\.\.\.tabs, \{ id: "settings" as const, label: "Settings", icon: SlidersHorizontal \}\]/.test(editor) && !/aria-label="Settings"/.test(editor))
 check("each 54px, white with a hairline and a soft foot; the chosen one near black with Preview's light and shade",
-  /relative isolate flex h-\[54px\] min-w-0 cursor-pointer items-center justify-center rounded-\[12px\] border border-\[#e3e4e8\] bg-white/.test(editor) && /rounded-\[12px\] bg-\[#1a1a2e\] shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.14\)/.test(editor))
+  /relative isolate flex h-\[54px\] min-w-0 cursor-pointer touch-manipulation select-none items-center justify-center rounded-\[12px\] border border-\[#e3e4e8\] bg-white/.test(editor) && /rounded-\[12px\] bg-\[#1a1a2e\] shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.14\)/.test(editor))
 check("the bar is one shared height, and the tabs leave that room under their content",
   /h-\[var\(--op-tabbar-h\)\]/.test(editor) && /--op-tabbar-h: calc\(64px \+ max\(10px, env\(safe-area-inset-bottom, 0px\)\)\)/.test(css) && /\.op-tabbar-clearance \{\s*padding-bottom: calc\(var\(--op-tabbar-h\) \+ 16px\)/.test(css))
 
@@ -164,16 +165,23 @@ check("a section changes by one kept crossfade, its row the editor's one pill-ta
   measures it at 390 and 1440.
 */
 const pillTabs = read("components/onepage/pill-tabs.tsx")
+/* Changed on purpose (round 11): the pills are Storelib's own (components/onepage/pill-tabs PILL_TAB, lib/ui/pill-switch), a caller only sizes them. */
 check("Settings is one row of pills at every width, no list down the side",
   /<PillTabs\s+dataRow="settings-pills"/.test(settings) && !/dataRow="settings-list"/.test(settings) && !/dataRow="settings-chips"/.test(settings)
   && !/w-48 flex-shrink-0/.test(settings) && !/md:flex-row gap-6/.test(settings)
-  && /itemClassName="h-9 shrink-0 whitespace-nowrap rounded-full border border-\[#e3e4e8\] bg-white/.test(settings) && /pillClassName="rounded-full bg-\[#1a1a2e\]/.test(settings))
+  && /itemClassName="h-10 px-4 text-\[13px\] sm:h-9"/.test(settings) && !/pillClassName=/.test(settings))
 check("the row stays at the top, scrolls with no bar, and keeps the chosen pill in view",
   /sticky top-0 z-20/.test(settings) && /overflow-x-auto[^"]*no-scrollbar/.test(settings) && /keepInView\n/.test(settings)
   && /row\.scrollTo\(\{ left: to, behavior: instant \|\| reducedMotion\(\) \? "auto" : "smooth" \}\)/.test(pillTabs))
-check("a switch fades and slides a little, on opacity and transform only, from the side the pill went",
-  /<PillPanels dataPanels="settings" value=\{active\} slide/.test(settings) && /export const PANEL_SLIDE_PX = 10/.test(pillTabs)
-  && /\{ opacity: 0, transform: `translate3d\(\$\{dx\}px, 0, 0\)` \}, \{ opacity: 1, transform: "translate3d\(0, 0, 0\)" \}/.test(pillTabs))
+/*
+  Changed on purpose (round 11): "the switching [...] should inherit how Storelib feels [...] the settings of the app".
+  The section left goes in the frame the next one lands, which lands from CONTENT_IN_FROM on opacity alone
+  (lib/ui/pill-switch landContent), the way Storelib's settings and library switch. No slide, no crossfade.
+*/
+check("a switch lands the next section as Storelib's settings do: the one left gone at once, the next from most of the way there, on opacity only",
+  /<PillPanels dataPanels="settings" value=\{active\} panels=/.test(settings) && !/PANEL_SLIDE_PX/.test(pillTabs)
+  && /export const PANEL_IN_MS = CONTENT_IN_MS/.test(pillTabs) && /incoming\.animate\(\[\{ opacity: PANEL_IN_FROM \}, \{ opacity: 1 \}\]/.test(pillTabs)
+  && /const drawn = p\.id === state\.shown\n/.test(pillTabs))
 check("#settings-<section> opens that section, Back and a typed address switch to it, and a choice is written there",
   /hash\.startsWith\("settings-"\)/.test(editor) && /SETTINGS_SECTION_IDS as readonly string\[\]\)\.includes\(section\)/.test(editor)
   && /setSettingsJump\(/.test(editor) && /`#settings-\$\{id\}`/.test(editor) && /section=\{settingsSection\.current\} jump=\{settingsJump\} onSectionChange=\{onSettingsSection\}/.test(editor))

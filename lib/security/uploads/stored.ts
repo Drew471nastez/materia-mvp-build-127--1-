@@ -89,7 +89,7 @@ export function storedReader(admin: SupabaseClient, bucket: string, path: string
 export async function inspectStoredObject(
   admin: SupabaseClient,
   where: { bucket: string; path: string },
-  file: { fileName: string; declaredMime?: string | null; size: number; context: UploadContext; budgetMs?: number },
+  file: { fileName: string; declaredMime?: string | null; size: number; context: UploadContext; budgetMs?: number; maxBytes?: number },
 ): Promise<UploadVerdict> {
   const reader = storedReader(admin, where.bucket, where.path)
   const size = file.size
@@ -118,6 +118,8 @@ export async function inspectStoredObject(
     inflate: nodeInflateRaw,
     context: file.context,
     budgetMs: file.budgetMs,
+    /* A bucket with its own ceiling (onepage-assets: videos up to 2 GB) is held to that, not to its context's. */
+    maxBytes: file.maxBytes,
   })
 }
 

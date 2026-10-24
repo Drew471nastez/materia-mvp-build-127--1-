@@ -3,7 +3,7 @@
 import { useOnePage } from "@/lib/onepage/context"
 import { cn } from "@/lib/utils"
 import { PillPanels, PillTabs } from "@/components/onepage/pill-tabs"
-import { Copy, Check, ChevronDown, ChevronRight, Loader2 } from "lucide-react"
+import { Copy, Check, ChevronDown, Loader2 } from "lucide-react"
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle, type ReactNode } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -12,7 +12,10 @@ import { ProMark, Segmented, SwitchRow, fieldInput } from "@/components/onepage/
 import { SeoPanel } from "@/components/onepage/seo-panel"
 import { getLinksShareUrl, getOnePageDomain } from "@/lib/url-helpers"
 import { BADGE_TYPES, buttonStyleOf, checkPageSlug, type ButtonStyle } from "@/lib/onepage/settings-rules"
-import { PRO_CHECKOUT_PLAN_ID, offeredPlan, planDisplayName, planHighlights, type PlanId } from "@/lib/billing/plans"
+import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, formatPlanPrice, offeredPlan, planDisplayName, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
+import { getFeeDescription } from "@/lib/billing/fee-calculator"
+import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
+import { StatusBadge, card as APP_CARD } from "@/app/app/orders/order-parts"
 import { tt } from "@/lib/i18n/text"
 
 /* Words only: a row of stock icons beside six words said nothing the words did not. */
@@ -41,15 +44,16 @@ export const SETTINGS_SECTION_IDS: readonly SettingsSectionId[] = SETTINGS_SECTI
   between." It was a list down the left on a computer and chips on a phone.
   Now it is one row across the top, the chips of the Theme page's kinds
   (design-tab, data-pill-row="theme-kinds"): the editor's one pill-tab row
-  (components/onepage/pill-tabs PillTabs), the dark pill sliding from the
-  press. It stays at the top of the tab as a section is scrolled, so another
+  (components/onepage/pill-tabs PillTabs), Storelib's own pills since
+  round 11: the chosen one's light fill fades in where it is. It stays at the top of the tab as a section is scrolled, so another
   section is one press away from anywhere. On a phone it scrolls sideways
   with no bar drawn, and the chosen pill is always brought fully into view
   (keepInView), from a press or from the address (#settings-billing).
 
-  The sections are kept, crossfaded with a short slide from the side the
-  pill went to, and each scrolled where it was left, and what was typed in
-  one is still there on the way back (PillPanels). They sit in one grid
+  The sections are kept, and switch the way Storelib's own settings do: the
+  one left goes in the frame the next one lands (lib/ui/pill-switch), each
+  scrolled where it was left, and what was typed in one is still there on
+  the way back (PillPanels). They sit in one grid
   cell, so the box under the row is as tall as the tallest and never jumps.
 */
 function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<SectionId, ReactNode>; initial: SectionId; jump?: { id: SectionId; n: number } | null; onChange?: (id: SectionId) => void }) {
@@ -66,7 +70,14 @@ function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<
   }
   return (
     <div data-settings-sections="">
-      <div className="sticky top-0 z-20 -mx-4 -mt-4 mb-3 bg-white px-4 pb-2 pt-4 md:-mx-6 md:-mt-6 md:px-6 md:pt-6" data-settings-pills="">
+      {/*
+        ROUND 11. "Things are a little bit too shrinked, but I like it." The
+        row has the room Storelib's own settings pills have (components/
+        library/library-tabs PILL: 40px on a phone, 36px from 640px, 16px in
+        from each side of the word, 8px apart) and a little more under it.
+        The pills themselves are Storelib's (components/onepage/pill-tabs).
+      */}
+      <div className="sticky top-0 z-20 -mx-4 -mt-4 mb-4 bg-white px-4 pb-3 pt-4 md:-mx-6 md:-mt-6 md:px-6 md:pt-6" data-settings-pills="">
         <PillTabs
           dataRow="settings-pills"
           label={tt("Settings")}
@@ -74,15 +85,12 @@ function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<
           value={active}
           onChange={choose}
           keepInView
-          className="-mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5 no-scrollbar md:mx-0 md:px-0"
-          itemClassName="h-9 shrink-0 whitespace-nowrap rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium transition-[border-color] duration-150 hover:border-[#c9cbd1]"
-          pillClassName="rounded-full bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.2)]"
-          onClass="text-white"
-          offClass="text-[#4b5563]"
+          className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 no-scrollbar md:mx-0 md:px-0"
+          itemClassName="h-10 px-4 text-[13px] sm:h-9"
         />
       </div>
 
-      <PillPanels dataPanels="settings" value={active} slide panels={SETTINGS_SECTIONS.map((section) => ({ id: section.id, node: panels[section.id] }))} />
+      <PillPanels dataPanels="settings" value={active} panels={SETTINGS_SECTIONS.map((section) => ({ id: section.id, node: panels[section.id] }))} />
     </div>
   )
 }
@@ -339,15 +347,15 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
 
   const title = (text: string, sub?: string) => (
     <div>
-      <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{text}</h3>
-      {sub ? <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{sub}</p> : null}
+      <h3 className="text-[17px] font-bold text-[#1a1a2e]">{text}</h3>
+      {sub ? <p className="mt-1 text-[14px] leading-snug text-[#6b7280]">{sub}</p> : null}
     </div>
   )
 
   const onePageDomain = getOnePageDomain()
 
   const renderBasicInfo = () => (
-    <div className="space-y-5" data-settings-basic="">
+    <div className="space-y-6" data-settings-basic="">
       {title("Basic info")}
 
       <div className="space-y-1.5">
@@ -431,7 +439,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     const enabled = settings[enabledKey] !== false
     const style = buttonStyleOf(settings[styleKey], kind === "subscribe" ? "glass" : "white")
     return (
-      <div className="space-y-5" data-settings-toggle={kind}>
+      <div className="space-y-6" data-settings-toggle={kind}>
         {title(kind === "subscribe" ? tt("Subscribe") : tt("Share"))}
         <SwitchRow
           label={kind === "subscribe" ? tt("Subscribe button") : tt("Share button")}
@@ -464,7 +472,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
     const enabled = settings.verified_badge_enabled === true
     const type = (BADGE_TYPES as readonly string[]).includes(settings.verified_badge_type) ? (settings.verified_badge_type as (typeof BADGE_TYPES)[number]) : "verified_creator"
     return (
-      <div className="space-y-5" data-settings-verified="">
+      <div className="space-y-6" data-settings-verified="">
         {title(tt("Verified badge"))}
         <SwitchRow
           label={tt("Verified badge")}
@@ -514,58 +522,76 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
   const currentPlanKey: PlanId = userPlan === "growth" || userPlan === "pro" ? userPlan : "free"
   const proOffer = offeredPlan(PRO_CHECKOUT_PLAN_ID)
 
+  /*
+    BILLING IS /app's BILLING (round 11, "make the Billing / plans more Storelib UI adapted"). The plan is the card
+    /app/settings Billing opens on (components/app/billing/billing-page-client, data-billing-plan): "Current plan", the
+    plan's name with its status, the price large, the fee per sale on a hairline row, and the way to manage it. On Free
+    the two plan cards follow, the very ones Billing and the plans page draw (components/billing/plan-cards), Pro first
+    on a phone, its button the upgrade page's.
+  */
+  const planPrice = formatPlanPrice(currentPlanKey === "free" ? 0 : PRO_PRICE_CENTS)
   const renderBilling = () => (
-    <div className="space-y-5" data-settings-billing="">
+    <div className="space-y-6" data-settings-billing="">
       {title(tt("Billing"))}
-      <div className="rounded-xl border border-[#e5e7eb] px-4 py-3.5">
-        <p className="text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Your plan")}</p>
+      <div data-settings-plan="" className={cn(APP_CARD, "px-5 py-5 sm:px-6")}>
         {planLoading ? (
-          <div className="mt-2 h-6 w-24 animate-pulse rounded bg-[#f3f4f6]" />
+          <div className="space-y-3" aria-hidden>
+            <div className="h-4 w-24 animate-pulse rounded bg-[#f3f4f6]" />
+            <div className="h-7 w-32 animate-pulse rounded bg-[#f3f4f6]" />
+            <div className="h-9 w-20 animate-pulse rounded bg-[#f3f4f6]" />
+          </div>
         ) : (
           <>
-            <p className="mt-1 text-[18px] font-semibold text-[#1a1a2e]">{planDisplayName(currentPlanKey)}</p>
-            <p className="mt-0.5 text-[13px] text-[#6b7280]">{planHighlights(currentPlanKey)[0]}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-[#6b7280]">{tt("Current plan")}</p>
+                <p className="mt-1 text-[22px] font-bold leading-7 text-[#1a1a2e]">{planDisplayName(currentPlanKey)}</p>
+              </div>
+              {hasPaidPlan ? <StatusBadge tone="success">{tt("Active")}</StatusBadge> : null}
+            </div>
+            <div className="mt-4 flex items-baseline gap-1">
+              <span className="text-[34px] font-bold leading-none tracking-[-0.02em] text-[#1a1a2e] tabular-nums">{planPrice}</span>
+              {currentPlanKey !== "free" ? <span className="text-[14px] text-[#6b7280]">{tt("/month")}</span> : null}
+            </div>
+            <dl className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[14px]">
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <dt className="text-[#6b7280]">{tt("Fee per sale")}</dt>
+                <dd className="text-right font-medium text-[#1a1a2e] tabular-nums">{getFeeDescription(currentPlanKey).replace(/ per sale$/, "")}</dd>
+              </div>
+            </dl>
+            <div className="mt-5 flex">
+              <Link href="/app/settings/billing" className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] no-underline max-sm:flex-1")}>
+                {tt("Billing and invoices")}
+              </Link>
+            </div>
           </>
         )}
       </div>
 
-      {/* Pro offer: only for Free. Pro is the top plan on sale. */}
-      {!planLoading && !hasPaidPlan && (
-        <div className="rounded-xl border border-[#e5e7eb] px-4 py-3.5">
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">{tt("{name} plan", { name: proOffer.name })}</p>
-            <p className="text-[14px] text-[#4b5563]">
-              {proOffer.price}
-              {proOffer.period}
-            </p>
-          </div>
-          <ul className="mb-4 space-y-2">
-            {proOffer.features.slice(0, 4).map((feature) => (
-              <li key={feature} className="flex items-center gap-2 text-[13.5px] text-[#4b5563]">
-                <Check className="h-3.5 w-3.5 text-[#1a1a2e]" />
-                {feature}
-              </li>
-            ))}
-          </ul>
-          <button type="button" className={cn(primaryDepth, "h-10 w-full rounded-lg text-[14px]")} onClick={() => router.push("/app/settings/billing/upgrade")}>
-            {tt("Upgrade to {name}", { name: proOffer.name })}
-          </button>
+      {/* The plans: only for Free. Pro is the top plan on sale. */}
+      {!planLoading && !hasPaidPlan ? (
+        <div data-settings-plans="">
+          <PlanCards
+            compact
+            lead={PRO_CHECKOUT_PLAN_ID}
+            labels={{ free: tt("Current plan") }}
+            actions={{
+              free: { label: tt("Current plan"), settled: true, current: true },
+              [PRO_CHECKOUT_PLAN_ID]: { label: tt("Upgrade to {name}", { name: proOffer.name }), onClick: () => router.push("/app/settings/billing/upgrade") },
+            } as Record<OfferedPlanId, PlanCardAction>}
+          />
         </div>
-      )}
-
-      <Link
-        href="/app/settings/billing"
-        className="flex min-h-11 w-full items-center justify-between rounded-xl border border-[#e5e7eb] px-4 py-3 text-[14px] text-[#1a1a2e] transition-colors hover:bg-[#f9fafb]"
-      >
-        {tt("Billing and invoices")}
-        <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
-      </Link>
+      ) : null}
     </div>
   )
 
-  /* Each section in its own card, made here and handed to SettingsSections, which only shows one. */
+  /*
+    Each section in its own card, made here and handed to SettingsSections, which only shows one. ROUND 11: the card is
+    Storelib's (app/app/orders/order-parts `card`, the one /app's Settings and Billing are drawn on), with the room its
+    cards have (24px in from a computer's edge, 20px on a phone).
+  */
   const card = (id: SectionId, body: ReactNode) => (
-    <div data-settings-section={id} className="bg-white rounded-xl border border-gray-200 p-5">
+    <div data-settings-section={id} className={cn(APP_CARD, "p-5 sm:p-6")}>
       {body}
     </div>
   )
@@ -582,7 +608,8 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
           subscribe: card("subscribe", renderToggleSection("subscribe")),
           share: card("share", renderToggleSection("share")),
           verified: card("verified", renderVerified()),
-          billing: card("billing", renderBilling()),
+          /* Billing is drawn as /app's Billing is: its title on the page, the plan on its own card, the plan cards under it (no card in a card). */
+          billing: <div data-settings-section="billing">{renderBilling()}</div>,
         }}
       />
 

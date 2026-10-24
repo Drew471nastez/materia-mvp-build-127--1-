@@ -955,9 +955,12 @@ export function ColorsPanel({
           />
         </div>
 
+        {/* Under the same headings a section's settings use (SIZE, COLORS), and an imported theme's schemes. */}
         {SCHEME_COLOR_GROUPS.map((group) => (
-          <div key={group.label} className="space-y-1">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{group.label}</p>
+          <div key={group.label} className="space-y-1" data-scheme-category={group.label}>
+            <div className="pt-3 pb-1 border-t border-border mt-2">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{tt(group.label)}</span>
+            </div>
             <div>
               {group.keys.map((key, idx) => (
                 <div key={key} className={cn("flex items-center justify-between gap-3 py-2.5", idx > 0 && "border-t border-border/60")}>

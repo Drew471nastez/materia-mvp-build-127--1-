@@ -40,6 +40,7 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { isPlainClick } from "@/lib/ui/app-navigation"
 import { setLeaveGuard } from "@/lib/ui/leave-guard"
 import { HtmlClass } from "@/components/platform/html-class"
+import { hapticTap } from "@/lib/native-bridge"
 import { iconDepth, primaryDepth } from "@/components/ui/depth-button"
 import type { OnePage } from "@/lib/onepage/types"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
@@ -1197,6 +1198,8 @@ function EditorLayout() {
     }
   }, [])
   const phonePress = usePillPress(phoneShow, activeTab)
+  /* What the last press on the phone's bar was: only a finger gets the haptic tick. */
+  const phonePointer = useRef<string>("mouse")
   /*
     The same elements from one render of the editor to the next, so a tap on
     a tab (which re-renders the editor to move the pill) does not re-render
@@ -1303,7 +1306,7 @@ function EditorLayout() {
 
   return (
     <div
-      className="flex flex-col bg-gray-50/50 fixed left-0 right-0 top-0 md:left-[240px] md:top-[58px]"
+      className="flex flex-col bg-gray-50/50 fixed left-0 right-0 top-0 md:left-[var(--app-rail-w,240px)] md:top-[58px]"
       /* The bottom edge is the keyboard's top when one is up, and the
          screen's bottom when none is: see bottomAboveKeyboard. */
       style={{ zIndex: 30, ...bottomAboveKeyboard() }}
@@ -1696,8 +1699,17 @@ function EditorLayout() {
         pill used to travel from the last tab to the next on transform. Now
         each button has its own dark fill, and a tap crossfades it (opacity,
         TAB_SELECT_MS) while the icon and word crossfade from grey to white
-        (TabFace). Nothing moves sideways. A press gives a little under the
-        thumb (scale on :active). Reduced motion swaps at once.
+        (TabFace). Nothing moves sideways. Reduced motion swaps at once.
+
+        NOTHING BUMPS UNDER THE THUMB (round 11). "When I switch, it bumps the
+        icons, bumps the links, glitches [...] especially on hover with the
+        touch it bumps the buttons." A press shrank the button to 96% on
+        :active, so every finger that landed, or slid across the bar, shook
+        it. Now a press only greys the button's own ground (background-color,
+        120ms), nothing changes size or place, and a finger's tap gives a
+        light tick of haptics (lib/native-bridge hapticTap), as the app's own
+        tab bar does. scripts/check-onepage-motion-r11.mjs measures the boxes
+        and the layout shift around a tap.
 
         THE WORD KEEPS ITS DESCENDERS. It was `leading-none` inside
         `truncate`, a 1em box that clips whatever it overflows: the tails of
@@ -1722,10 +1734,18 @@ function EditorLayout() {
                   type="button"
                   data-tab={tab.id}
                   aria-pressed={on}
-                  onPointerDown={phonePress(tab.id).onPointerDown}
+                  onPointerDown={(e) => {
+                    phonePointer.current = e.pointerType
+                    phonePress(tab.id).onPointerDown(e)
+                  }}
                   onPointerCancel={phonePress(tab.id).onPointerCancel}
-                  onClick={() => handleTabChange(tab.id)}
-                  className="relative isolate flex h-[54px] min-w-0 cursor-pointer items-center justify-center rounded-[12px] border border-[#e3e4e8] bg-white px-0.5 text-[11.5px] font-medium shadow-[inset_0_-2px_0_rgba(0,0,0,0.05),0_1px_2px_rgba(15,23,42,0.07)] outline-none transition-[scale] duration-[120ms] ease-out active:scale-[0.96] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
+                  onClick={() => {
+                    /* A light tick under the thumb, as the app's own tab bar gives (components/app/sidebar-mobile-nav). */
+                    if (phonePointer.current === "touch" && !on) hapticTap("light")
+                    phonePointer.current = "mouse"
+                    handleTabChange(tab.id)
+                  }}
+                  className="relative isolate flex h-[54px] min-w-0 cursor-pointer touch-manipulation select-none items-center justify-center rounded-[12px] border border-[#e3e4e8] bg-white px-0.5 text-[11.5px] font-medium shadow-[inset_0_-2px_0_rgba(0,0,0,0.05),0_1px_2px_rgba(15,23,42,0.07)] outline-none transition-[background-color] duration-[120ms] ease-out active:bg-[#f3f4f6] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[#1a1a2e]/40 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
                 >
                   <span
                     aria-hidden

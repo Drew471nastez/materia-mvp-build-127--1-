@@ -182,7 +182,7 @@ section("CANVAS: the builder draws the live cards, and keeps what an edit did no
   const fade = read("lib/website-builder/media-fade.ts")
   check("and a picture whose mark is taken off while it is loaded is marked again at once", /attributeFilter: \["src", "srcset", "data-sl-loaded"\]/.test(fade))
   const sectionSrc = read("components/website-builder/sections/StorelibSection.tsx")
-  check("the cart and wishlist hooks write onto the markup on the page, not the markup before it", /html=\{onPage\}/.test(sectionSrc) && /\[scriptRoot, onPage, savedIds, savedReady\]/.test(sectionSrc))
+  check("the cart and wishlist hooks write onto the markup on the page, not the markup before it", /html=\{onPage\}/.test(sectionSrc) && /* Changed on purpose (round BA): the canvas's sample cards on the Wishlist page add sampleMode. */ /\[scriptRoot, onPage, savedIds, savedReady(, sampleMode)?\]/.test(sectionSrc))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

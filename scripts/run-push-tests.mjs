@@ -570,6 +570,8 @@ const SUITES = [
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",
+  /* Round 11 media: what a OnePage picture or video may be (2 GB, MOV, HEIC), straight to storage in TUS parts with real progress and Stop, the cropper's maths, and every upload in the editor through the one helper; scripts/check-onepage-media-r11.mjs drives the real cropper and uploads in a browser. */
+  "tests/onepage-media-r11.test.ts",
   "tests/profile-photo.test.ts",
   "tests/coupon-editor.test.ts",
   "tests/coupon-checkout.test.ts",
@@ -637,6 +639,8 @@ const SUITES = [
   "tests/onepage-social-input.test.ts",
   "tests/onepage-open.test.ts",
   "tests/onepage-arrival.test.ts",
+  /* Round 11: Storelib's pills in the editor, the Design pages as the app's sub-pages, a tab bar that holds still, a clean way out (scripts/check-onepage-motion-r11.mjs measures them). */
+  "tests/onepage-motion-r11.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",
@@ -681,6 +685,8 @@ const SUITES = [
   "tests/round-ah.test.ts",
   "tests/round-ai.test.ts",
   "tests/round-aj.test.ts",
+  /* Round 11 STORE: a busy Add to cart shows its spinner and never its icon (imported themes), and no checkout pins Pay to the foot of the screen; scripts/check-store-r11.mjs presses them. */
+  "tests/store-r11.test.ts",
   "tests/round-ak.test.ts",
   "tests/communities-access-restore.test.ts",
   "tests/communities-platform.test.ts",
@@ -820,6 +826,8 @@ const SUITES = [
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
   "tests/live-speed-ax.test.ts",
+  /* Round BA: a published website's page change fetches the page once (Next 16.1), and colour schemes are listed in groups on every theme */
+  "tests/round-ba.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
   "tests/live-speed-x.test.ts",
   /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */

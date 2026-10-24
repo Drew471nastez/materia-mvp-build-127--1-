@@ -29,6 +29,13 @@
  *             that is shown is blank: no size, its photo not decoded, or a
  *             card that was on screen the frame before drawn faded; and on
  *             any card made again or thrown away.
+ *             ROUND 11 ("the themes flash when I land on each category"): a
+ *             pick is one still swap. Fails on any card that moves or fades
+ *             (an animation, a transform, an opacity under 1) in any
+ *             sampled frame; and FILMS picks (the browser's own screencast,
+ *             every frame it draws): each frame of the grid must be the
+ *             kind before or the kind after, pixel for pixel, never a frame
+ *             between them (kinds-film-*.png, the frames side by side).
  *   APPLY     the editor at 1440: themes picked one after another while the
  *             preview frame is sampled every frame. Fails on a frame with no
  *             page drawn (a white frame) or a title drawn in a face that is
@@ -48,7 +55,9 @@
  *   node scripts/check-onepage-themes.mjs
  *   SHOTS=/some/dir node scripts/check-onepage-themes.mjs   (pictures)
  *   PARTS=kinds,apply node scripts/check-onepage-themes.mjs  (some parts: blocks, kinds, apply, gallery)
+ *   THEMES=editorial,haze PARTS=gallery node scripts/check-onepage-themes.mjs  (the gallery for some themes)
  */
+import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -73,6 +82,25 @@ const THEMES = [...src.matchAll(/\n  \{\n    id: "([a-z0-9-]+)",\n    name: "([^
   style: (m[3].match(/button_style: "([a-z]+)"/) || [])[1] || "filled",
 }))
 if (THEMES.length < 15) fail(`only ${THEMES.length} themes were read from the Design tab`)
+/* THEMES=a,b: the gallery for those themes only. */
+const GALLERY_ONLY = process.env.THEMES ? new Set(process.env.THEMES.split(",")) : null
+
+/*
+  THE LIVE PAGE AS storelib.me SERVES IT. The proxy's own decision
+  (lib/onepage/host-route.ts onePageRoute), bundled here from the source, is
+  asked about every request the live page makes in the gallery, with the
+  host storelib.me: a wallpaper, a font or a call that the OnePage host
+  would answer with a 404 or send away fails the probe.
+*/
+const routeDir = mkdtempSync(join(tmpdir(), "storelib-host-route-"))
+execFileSync("pnpm", ["exec", "esbuild", join(root, "lib/onepage/host-route.ts"), "--bundle", "--format=esm", "--platform=node", "--log-level=error", `--alias:@=${root}`, `--outfile=${join(routeDir, "route.mjs")}`], { cwd: root, stdio: ["ignore", "ignore", "inherit"] })
+const { onePageRoute } = await import(join(routeDir, "route.mjs"))
+const servedOnMe = (url, method = "GET") => {
+  const u = new URL(url)
+  const r = onePageRoute({ host: "storelib.me", pathname: u.pathname, search: u.search, method, mainDomain: "storelib.com" })
+  return !r || r.kind === "next" || r.kind === "rewrite" ? null : `${method} ${u.pathname}${u.search.slice(0, 60)} -> ${r.kind}${r.location ? ` ${r.location}` : ""}`
+}
+const notOnMe = []
 const blocksTheme = src.match(/\n  \{\n    id: "blocks",[\s\S]*?theme_config: (\{[\s\S]*?\n    \}),/)
 
 const { base, server } = await serveEditorProbe({
@@ -112,6 +140,8 @@ const { base, server } = await serveEditorProbe({
 })
 void blocksTheme
 
+/* The newest themes: drawn again with no profile picture in the gallery, and side by side in theme-cards-new.png. */
+const NEW = ["editorial", "terrazzo", "blueprint", "darkroom", "haze"]
 const PARTS = new Set((process.env.PARTS || "blocks,kinds,apply,gallery").split(","))
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -129,12 +159,17 @@ function remote(url) {
   return fetched.get(url)
 }
 const OUTSIDE = /^(fonts\.googleapis\.com|fonts\.gstatic\.com|images\.unsplash\.com|storelib\.com)$/
-async function wire(p, origin) {
+async function wire(p, origin, { live = false } = {}) {
   await p.setRequestInterception(true)
   p.on("request", async (req) => {
     let u
     try { u = new URL(req.url()) } catch { return req.continue() }
     if (u.protocol === "data:" || u.protocol === "blob:") return req.continue()
+    /* What the live page asks its own host for (the harness's page and script aside), as storelib.me would route it. */
+    if (live && u.origin === origin && req.resourceType() !== "document" && req.resourceType() !== "script") {
+      const bad = servedOnMe(req.url(), req.method())
+      if (bad && !notOnMe.includes(bad)) notOnMe.push(bad)
+    }
     if (u.origin === origin) {
       if (u.pathname !== "/_next/image") return req.continue()
       const got = await remote(new URL(u.searchParams.get("url") || "", origin).href)
@@ -308,6 +343,7 @@ if (PARTS.has("kinds")) {
     const grid = document.querySelector("[data-theme-grid]")
     const w = window
     w.__frames = []
+    w.__moving = []
     w.__made = 0
     w.__thrown = 0
     new MutationObserver((ms) => ms.forEach((m) => {
@@ -331,6 +367,9 @@ if (PARTS.has("kinds")) {
         for (let n = c; n && n !== grid.parentElement; n = n.parentElement) op *= Number(getComputedStyle(n).opacity)
         now.set(id, op)
         if (r.width < 1 || r.height < 1 || !decoded || (before.has(id) && op < before.get(id) - 0.02)) blank.push({ id, w: Math.round(r.width), decoded, op: Math.round(op * 100) / 100 })
+        /* A still swap: no shown card is ever drawn faded, moved or scaled, or has an animation of its own. */
+        const tf = getComputedStyle(c).transform
+        if (op < 0.995 || (tf && tf !== "none" && tf !== "matrix(1, 0, 0, 1, 0, 0)") || c.getAnimations().length) w.__moving.push({ id, op: Math.round(op * 100) / 100, tf, anims: c.getAnimations().length })
       }
       w.__frames.push({ t: performance.now(), shown: now.size, blank })
       before = now
@@ -353,7 +392,7 @@ if (PARTS.has("kinds")) {
   const r = await p.evaluate(() => {
     cancelAnimationFrame(window.__raf)
     const f = window.__frames
-    return { frames: f.length, blank: f.filter((x) => x.blank.length).map((x) => x.blank).slice(0, 5), blankFrames: f.filter((x) => x.blank.length).length, made: window.__made, thrown: window.__thrown, shownEnd: f[f.length - 1].shown }
+    return { frames: f.length, blank: f.filter((x) => x.blank.length).map((x) => x.blank).slice(0, 5), blankFrames: f.filter((x) => x.blank.length).length, moving: window.__moving.length, movingSample: window.__moving.slice(0, 4), made: window.__made, thrown: window.__thrown, shownEnd: f[f.length - 1].shown }
   })
   /* The frames timed on their own, with nothing read in them (the sampling above lays the page out every frame and would be timed too). */
   await p.evaluate(() => {
@@ -373,12 +412,81 @@ if (PARTS.has("kinds")) {
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
   console.log(`  ${r.frames} frames sampled; timed alone, a pick's frames: 95% under ${r.p95}ms, the longest ${r.longest}ms (CPU slowed 4x)`)
   expect(r.blankFrames === 0, "no frame shows a blank or undecoded card, or dims one that was on screen", r.blank)
+  expect(r.moving === 0, "no card that is shown moves, fades or animates in any frame (a pick is one still swap)", r.movingSample)
   expect(r.made === 0 && r.thrown === 0, "no card or picture is made again or thrown away by a pick", { made: r.made, thrown: r.thrown })
   expect(r.shownEnd === THEMES.length, "back on All, every theme is shown", r.shownEnd)
-  /* The three newest cards side by side, as the grid draws them: theme-cards-new.png. */
+  /*
+    FILMED: the browser's own screencast, every frame it draws, through a
+    pick at a time (CPU still slowed four times). The grid's box in each
+    frame is compared with the grid before the pick and the grid once it
+    has settled: every frame must be one or the other (a pixel off by a
+    little is the encoder), never a card half faded, moved, or blank
+    between them. The frames go side by side into kinds-film-<kind>.png.
+  */
+  {
+    await p.evaluate(() => document.querySelector("[data-theme-filters]")?.scrollIntoView({ block: "start" }))
+    await p.tap('[data-theme-filter="all"]')
+    await sleep(500)
+    /* The grid's box on screen, in CSS pixels, cut to the screen. */
+    const gridBox = () => p.evaluate(() => { const r = document.querySelector("[data-theme-grid]").getBoundingClientRect(); const top = Math.max(0, r.top); return { x: r.left, y: top, w: r.width, h: Math.min(window.innerHeight - 90, r.bottom) - top } })
+    /* A frame's grid, small: each frame is cut by the same box at its own scale, so every frame and the two ends are compared alike. */
+    const gridOf = async (f, box) => {
+      const meta = await sharp(f).metadata()
+      const k = meta.width / 390
+      return sharp(f).extract({ left: Math.round(box.x * k), top: Math.round(box.y * k), width: Math.round(box.w * k), height: Math.round(box.h * k) }).resize({ width: 120, height: Math.round((120 * box.h) / box.w), fit: "fill" }).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+    }
+    const diff = (a, b) => {
+      let off = 0
+      for (let i = 0; i < a.data.length; i += 3) if (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2]) > 30) off++
+      return off / (a.data.length / 3)
+    }
+    let between = 0
+    let filmed = 0
+    for (const k of ["image", "all", "dark", "light", "gradient", "all"]) {
+      const box = await gridBox()
+      const frames = []
+      const onFrame = async (f) => { frames.push(Buffer.from(f.data, "base64")); await cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => null) }
+      cdp.on("Page.screencastFrame", onFrame)
+      await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 })
+      await sleep(250)
+      await p.tap(`[data-theme-filter="${k}"]`)
+      await sleep(900)
+      await cdp.send("Page.stopScreencast")
+      cdp.off("Page.screencastFrame", onFrame)
+      if (frames.length < 2) continue
+      /* The first frame is the kind before, the last the kind after (the pick long settled). */
+      const before = await gridOf(frames[0], box)
+      const after = await gridOf(frames[frames.length - 1], box)
+      const marks = []
+      for (const f of frames) {
+        const g = await gridOf(f, box)
+        const dB = diff(g, before)
+        const dA = diff(g, after)
+        const ok = dB < 0.01 || dA < 0.01
+        if (!ok) between++
+        marks.push({ f, ok, dB, dA })
+      }
+      filmed += frames.length
+      console.log(`  film ${k}: ${frames.length} frames, ${marks.filter((m) => !m.ok).length} between the two kinds${marks.some((m) => !m.ok) ? ` (${marks.filter((m) => !m.ok).map((m) => `${(m.dB * 100).toFixed(1)}%/${(m.dA * 100).toFixed(1)}%`).join(" ")})` : ""}`)
+      /* The frames side by side, as they were drawn: kinds-film-<kind>.png. A frame between the two kinds is framed in red. */
+      if (frames.length) {
+        const W = 180
+        const tiles = await Promise.all(marks.slice(0, 12).map(async (m) => {
+          const t = await sharp(m.f).resize({ width: W }).png().toBuffer()
+          const meta = await sharp(t).metadata()
+          return { buf: await sharp(t).extend({ top: 4, bottom: 4, left: 4, right: 4, background: m.ok ? "#e5e7eb" : "#dc2626" }).png().toBuffer(), h: meta.height + 8 }
+        }))
+        const H = Math.max(...tiles.map((t) => t.h))
+        await sharp({ create: { width: tiles.length * (W + 14), height: H, channels: 3, background: "#ffffff" } }).composite(tiles.map((t, i) => ({ input: t.buf, left: i * (W + 14), top: 0 }))).png().toFile(join(shots, `kinds-film-${k}-${filmed}.png`))
+      }
+    }
+    expect(filmed > 0, "the picks were filmed", filmed)
+    expect(between === 0, "every filmed frame of the grid is the kind before or the kind after, never one between", between)
+  }
+  /* The newest cards side by side, as the grid draws them: theme-cards-new.png. */
   {
     const cards = []
-    for (const id of ["paper", "sage", "graphite"]) {
+    for (const id of NEW) {
       const el = await p.$(`[data-theme-card="${id}"]`)
       if (!el) continue
       await el.evaluate((e) => e.scrollIntoView({ block: "center" }))
@@ -465,7 +573,7 @@ if (PARTS.has("gallery")) {
   const shot = async (view, id, width, extra = "") => {
     const p = await browser.newPage()
     await p.setViewport({ width, height: width >= 1000 ? 900 : 844, deviceScaleFactor: 1, isMobile: width < 1000, hasTouch: width < 1000 })
-    await wire(p, parity.base)
+    await wire(p, parity.base, { live: view === "live" })
     p.on("pageerror", (e) => errors.push(`${view} ${id}: ${e}`))
     await p.goto(`${parity.base}/app/parity?view=${view}&theme=${id}&only=${ONLY}${extra}`, { waitUntil: "load", timeout: 90000 })
     if (view === "preview") {
@@ -478,18 +586,33 @@ if (PARTS.has("gallery")) {
   }
   /* The words hidden, a picture of what is behind them, the worst pixel against their colour. */
   const measure = async (p, text, png0) => {
-    const box = await p.evaluate((text) => {
-      const els = [...document.querySelectorAll("p,span,a,div,h2,h3")].filter((e) => e.getBoundingClientRect().height > 0 && e.childElementCount === 0 && e.textContent && e.textContent.trim().startsWith(text))
-      const el = els[0]
-      if (!el) return null
-      el.setAttribute("data-probe-words", "")
-      const r = el.getBoundingClientRect()
-      return { x: r.left, y: r.top + window.scrollY, w: r.width, h: r.height, color: getComputedStyle(el).color, opacity: Number(getComputedStyle(el).opacity) }
-    }, text)
+    /* The words in the page itself, or in the preview's frame (the phone frame, zoomed): the box mapped to the screen either way. */
+    let frame = null
+    let box = null
+    for (const f of p.frames()) {
+      box = await f.evaluate((text) => {
+        const els = [...document.querySelectorAll("p,span,a,div,h2,h3")].filter((e) => e.getBoundingClientRect().height > 0 && e.childElementCount === 0 && e.textContent && e.textContent.trim().startsWith(text))
+        const el = els[0]
+        if (!el) return null
+        el.setAttribute("data-probe-words", "")
+        const r = el.getBoundingClientRect()
+        return { x: r.left, y: r.top, sy: window.scrollY, w: r.width, h: r.height, vw: window.innerWidth, color: getComputedStyle(el).color, opacity: Number(getComputedStyle(el).opacity) }
+      }, text).catch(() => null)
+      if (box) { frame = f; break }
+    }
     if (!box || box.w < 2) return null
-    await p.evaluate(() => { const e = document.querySelector("[data-probe-words]"); e.style.setProperty("color", "transparent", "important"); e.style.setProperty("text-shadow", "none", "important") })
+    if (frame !== p.mainFrame()) {
+      const fb = await (await frame.frameElement())?.boundingBox()
+      if (!fb) return null
+      const z = fb.width / box.vw
+      const sy = await p.evaluate(() => window.scrollY)
+      box = { ...box, x: fb.x + box.x * z, y: fb.y + sy + box.y * z, w: box.w * z, h: box.h * z }
+    } else {
+      box = { ...box, y: box.y + box.sy }
+    }
+    await frame.evaluate(() => { const e = document.querySelector("[data-probe-words]"); e.style.setProperty("color", "transparent", "important"); e.style.setProperty("text-shadow", "none", "important") })
     const png = await p.screenshot({ clip: { x: Math.max(0, box.x), y: box.y, width: Math.max(2, box.w), height: Math.max(2, box.h) } })
-    await p.evaluate(() => { const e = document.querySelector("[data-probe-words]"); e.style.removeProperty("color"); e.style.removeProperty("text-shadow"); e.removeAttribute("data-probe-words") })
+    await frame.evaluate(() => { const e = document.querySelector("[data-probe-words]"); e.style.removeProperty("color"); e.style.removeProperty("text-shadow"); e.removeAttribute("data-probe-words") })
     const { data, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true })
     const ink = parse(box.color)
     if (!ink) return null
@@ -504,32 +627,54 @@ if (PARTS.has("gallery")) {
     return Math.round(all[Math.floor(all.length * 0.1)] * 100) / 100
   }
   const rows = []
-  const NEW = ["paper", "sage", "graphite"]
   /* Glass themes with no picture: the letter circle must read (gallery-avatars.png). */
   const GLASS = ["midnight", "ocean"]
   for (const t of THEMES) {
+    if (GALLERY_ONLY && !GALLERY_ONLY.has(t.id)) continue
     const views = []
     for (const extra of NEW.includes(t.id) || GLASS.includes(t.id) ? ["", "&avatar=0"] : [""]) {
+      /*
+        The words measured on the live page at 390 for every theme; for the
+        newest, also in the preview and on the live page at 1440, and all
+        of it again with no profile picture.
+      */
+      const read = async (pg, where) => {
+        const bio = await measure(pg, "Prints, posters and a newsletter")
+        const body = await measure(pg, "Prints, posters and a letter")
+        const label = await measure(pg, "Shop the prints")
+        expect(bio !== null && bio >= 4.5, `${where}: the bio reads on what is behind it (4.5:1, on 90% of what is behind)`, bio)
+        expect(body !== null && body >= 4.5, `${where}: a text block reads on what is behind it (4.5:1, on 90% of what is behind)`, body)
+        expect(label !== null && label >= 4.5, `${where}: a link's label reads on its button (4.5:1, on 90% of what is behind)`, label)
+      }
+      const all = NEW.includes(t.id)
+      const pic = extra ? ", no picture" : ""
+      if (!extra) console.log(`\n${t.name}`)
       const a = await shot("preview", t.id, 390, extra)
-      views.push(a.png); await a.p.close()
+      views.push(a.png)
+      if (all) await read(a.p, `preview 390${pic}`)
+      await a.p.close()
       const b = await shot("live", t.id, 390, extra)
       views.push(b.png)
-      if (!extra) {
-        const bio = await measure(b.p, "Prints, posters and a newsletter")
-        const body = await measure(b.p, "Prints, posters and a letter")
-        const label = await measure(b.p, "Shop the prints")
-        console.log(`\n${t.name}`)
-        expect(bio !== null && bio >= 4.5, "the bio reads on what is behind it (4.5:1, on 90% of what is behind)", bio)
-        expect(body !== null && body >= 4.5, "a text block reads on what is behind it (4.5:1, on 90% of what is behind)", body)
-        expect(label !== null && label >= 4.5, "a link's label reads on its button (4.5:1, on 90% of what is behind)", label)
-      }
+      if (!extra || all) await read(b.p, `live 390${pic}`)
       await b.p.close()
       const c = await shot("live", t.id, 1440, extra)
-      views.push(c.png); await c.p.close()
+      views.push(c.png)
+      if (all) await read(c.p, `live 1440${pic}`)
+      await c.p.close()
     }
     rows.push({ id: t.id, views })
   }
   parity.server.close()
+  /*
+    Known and not a theme's: the Storelib badge in the footer is the app's
+    own logo file (lib/brand/logo.ts, /images/brand/...), which storelib.me
+    sends to storelib.com with a 308, a hop before it shows. Said here,
+    not passed over; every other request must be answered on the host.
+  */
+  const badge = notOnMe.filter((x) => x.startsWith("GET /images/brand/"))
+  if (badge.length) console.log(`  note  the footer badge's logo is a 308 hop on storelib.me, not a theme's request: ${badge.join(", ")}`)
+  const themed = notOnMe.filter((x) => !badge.includes(x))
+  expect(themed.length === 0, "every request a theme makes on the live page (wallpaper, fonts, calls) is one storelib.me answers (lib/onepage/host-route onePageRoute)", themed.slice(0, 5))
   /* gallery-N.png: one row per theme, preview 390 | live 390 | live 1440 (and again without a picture for the new ones). */
   const H = 422
   const tile = async (png) => sharp(png).resize({ height: H }).png().toBuffer()
@@ -538,6 +683,7 @@ if (PARTS.has("gallery")) {
   pages.push(rows.filter((r) => GLASS.includes(r.id) || r.id === "graphite").map((r) => ({ ...r, views: r.views.slice(3) })))
   pages.push(rows.filter((r) => NEW.includes(r.id)))
   for (const [n, pageRows] of pages.entries()) {
+    if (!pageRows.length) continue
     const comp = []
     let width = 0
     for (const [y, row] of pageRows.entries()) {

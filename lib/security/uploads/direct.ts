@@ -35,6 +35,7 @@ import { isContainedPath } from "./filename"
 import { MAX_UPLOAD_BYTES, type UploadContext } from "./policy"
 import { inspectStoredObject } from "./stored"
 import { MAX_VIDEO_BYTES } from "@/lib/media/video"
+import { MAX_ONEPAGE_VIDEO_BYTES } from "@/lib/onepage/media-rules"
 
 export interface DirectUploadBucket {
   /** What files here are allowed to be. */
@@ -66,7 +67,8 @@ export const PUBLIC_DIRECT_UPLOADS: Readonly<Record<string, DirectUploadBucket>>
   covers: { context: "public_image", note: "cover pictures" },
   "product-images": { context: "public_image", note: "product and gallery pictures" },
   "store-builder-images": { context: "public_image", note: "website builder pictures" },
-  "onepage-assets": { context: "link_page_file", maxBytes: MAX_UPLOAD_BYTES.video, note: "link page pictures and videos" },
+  /* 2 GiB, the same number the editor and the bucket use (lib/onepage/media-rules.ts, SQL part 282). */
+  "onepage-assets": { context: "link_page_file", maxBytes: MAX_ONEPAGE_VIDEO_BYTES, note: "link page pictures and videos" },
   "lead-form-files-v2": { context: "link_page_file", note: "link page pictures and lead magnets" },
   "product-videos": { context: "video", note: "product videos" },
 }
@@ -156,7 +158,8 @@ export async function checkDirectUpload(
     const verdict = await inspectStoredObject(
       admin,
       where,
-      { fileName: where.path, size, context: rules.context, budgetMs: 4000 },
+      /* The bucket's own ceiling, not the context's: as a link page file, a 1.5 GB wallpaper video was over 1 GB and removed after it had uploaded. */
+      { fileName: where.path, size, context: rules.context, budgetMs: 4000, maxBytes: limit },
     )
     if (!verdict.ok) {
       await remove(admin, where)
