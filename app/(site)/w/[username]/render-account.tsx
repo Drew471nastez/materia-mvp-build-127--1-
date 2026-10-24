@@ -93,13 +93,21 @@ export async function renderAccountPage(
 
   const { site: published, products, productCount } = found
   const stored = published.pages[key]
-  const own = stored && stored.length > 0 ? stored : (accountPageSections(key, published.pages.home ?? published.sections) ?? [])
+  /*
+    AN IMPORTED THEME'S OWN PAGE OF THIS NAME is drawn by the theme itself
+    (lib/storelib-theme/compat/site.ts: its wishlist page at /wishlist); what
+    is framed here is Storelib's own page, so the theme's sections stored
+    under this key, which only the theme can draw, are never used here: they
+    drew an empty page (andrewrullz.storelib.com/wishlist).
+  */
+  const imported = !!compatOf(published.themeSettings)
+  const own = stored && stored.length > 0 && !imported ? stored : (accountPageSections(key, published.pages.home ?? published.sections) ?? [])
   /*
     AN IMPORTED SHOPIFY THEME draws its own header and footer around this
     page (lib/storelib-theme/compat/site.ts, accountShell), and this page is
     shown inside it: the theme's chrome cannot be drawn here, so none is.
   */
-  const base = compatOf(published.themeSettings) ? withoutChrome(own) : own
+  const base = imported ? withoutChrome(own) : own
   /* Drawn like every other page: live links, then the shop's own facts (placeholders, menus, picked products). */
   const linked = pageWithLiveLinks(base, new Set(Object.keys(published.pages)))
   const template = templateForPage(key)
@@ -135,7 +143,7 @@ export async function renderAccountPage(
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, /* Framed in an imported theme, whose own header has its language and currency selector: not a second one under the page. */ language: imported ? undefined : language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
       />
       {/* The contact page and the wishlist are pages of the website like any
           other, and a visit to either counts in Analytics, with its path. The

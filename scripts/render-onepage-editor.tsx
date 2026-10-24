@@ -10,6 +10,8 @@ import { OnePageEditor } from "@/components/onepage/onepage-editor"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { OnePagePreviewDocument } from "@/components/onepage/preview-document"
 import { THEME_TEMPLATES } from "@/components/onepage/tabs/design-tab"
+import { ViewportVars } from "@/components/viewport-vars"
+import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { defaultTheme, defaultSettings, type OnePage } from "@/lib/onepage/types"
 
 const px = (n: number) =>
@@ -90,5 +92,7 @@ if (location.pathname.startsWith("/onepage-preview")) {
   const live = { ...onepage, theme: live_theme, blocks: [header, ...own], seller_id: "seller_probe" }
   createRoot(document.getElementById("app")!).render(<PublicOnePage onepage={live as any} />)
 } else {
-  createRoot(document.getElementById("app")!).render(<OnePageEditor initialOnePage={onepage} />)
+  /* A probe of the keyboard (scripts/check-onepage-addblock-r11.mjs) asks for app/layout.tsx's two publishers of it, so a sheet reads --kb-inset and --vv-h as in the app. */
+  const keyboard = (globalThis as any).PROBE_KEYBOARD ? <><ViewportVars /><KeyboardGuard /></> : null
+  createRoot(document.getElementById("app")!).render(<>{keyboard}<OnePageEditor initialOnePage={onepage} /></>)
 }

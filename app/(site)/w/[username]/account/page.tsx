@@ -2,8 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import { splitSiteName } from "@/lib/markets/site-name"
 import type { Metadata } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getMainDomain } from "@/lib/url-helpers"
-import { siteCustomer } from "@/lib/site-accounts/account-data"
+import { SITE_RECEIPTS, siteCustomer } from "@/lib/site-accounts/account-data"
 import { listSiteWishlist, wishlistCards } from "@/lib/site-accounts/wishlist-store"
 import { wishlistObject } from "@/lib/storelib-theme/globals"
 import { siteMetadata } from "../render-site"
@@ -47,7 +46,7 @@ export default async function SiteAccountPage({ params, searchParams }: PageProp
   if (!visitor || !customer) redirect(`${root}/account/login`)
 
   const db = createAdminClient()
-  const [account, list] = await Promise.all([siteCustomer(db, customer, `https://${getMainDomain()}`), listSiteWishlist(db, visitor)])
+  const [account, list] = await Promise.all([siteCustomer(db, customer, SITE_RECEIPTS), listSiteWishlist(db, visitor)])
   const cards = await wishlistCards(db, visitor.creatorId, list.ids)
 
   return renderAccountPage(username, "account", {

@@ -670,7 +670,8 @@ async function main() {
     check("  a guest is sent to sign in, and back to the order after", /\/account\/login/.test(route) && /searchParams\.set\("return", `\/account\/orders\/\$\{orderId\}`\)/.test(route))
     check("  never a storage path, an id or a database error in what it answers", !/file_path\s*[,}]/.test(route.replace(/asset\.file_path/g, "")) && !/NextResponse\.json\(\{ error: (error|e)/.test(route))
     const visitor = code("lib/site-accounts/theme-visitor.ts")
-    check("an imported theme's account links downloads to the order's page", /siteCustomer\(db, row, `https:\/\/\$\{getMainDomain\(\)\}`, \{ orderPages: true \}\)/.test(visitor))
+    /* Changed on purpose (round BB): receipts open on the website's own host (SITE_RECEIPTS), not storelib.com. */
+    check("an imported theme's account links downloads to the order's page", /siteCustomer\(db, row, SITE_RECEIPTS, \{ orderPages: true \}\)/.test(visitor))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

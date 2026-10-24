@@ -28,7 +28,8 @@
  *              saved or imported with two.
  *
  * A section that never says where it goes is placed by what it is: the
- * built-in announcement bars go in the Header group, a marquee or a sticky
+ * built-in announcement bars go in the Header group or on a page (where
+ * they were added), a marquee or a sticky
  * bar may go in either group or on a page, a newsletter on a page or in the
  * Footer group, and a section file that is plainly a header (lib/storelib-
  * theme/chrome.ts recognises one by its name or its markup) is a header.
@@ -103,8 +104,9 @@ const BUILT_IN_GROUPS: Record<string, SectionGroup[]> = {
   header: ["header"],
   footer: ["footer"],
   /* A thin bar of text with a link, with or without a countdown: Shopify's announcement bar. */
-  announcement_banner: ["header"],
-  promo_announcement: ["header"],
+  /* Header first (where a plain Add puts it), and a page when it is added there: it stays where it was added. */
+  announcement_banner: ["header", "template"],
+  promo_announcement: ["header", "template"],
   /* A marquee under the header is a header group section in Shopify's own themes; it is a band on a page too. */
   scrolling_text: ["template", "header", "footer"],
   /* Fixed to the top or the bottom of the screen, so where it sits in the page does not move it. */
@@ -138,7 +140,7 @@ const saysGroups = (v: unknown) => !!v && typeof v === "object" && !Array.isArra
  *   a header file that does not declare its kind   ["header"]
  *   disabled_on                                     the page first
  *   a built-in section                              BUILT_IN_GROUPS
- *   a name or type that says announcement           ["header"]
+ *   a name or type that says announcement           ["header", "template"]
  */
 export function sectionGroupsFor(
   schema: SchemaLike,
@@ -148,18 +150,31 @@ export function sectionGroupsFor(
   const type = opts.type ?? (typeof s.type === "string" ? (s.type as string) : "")
   const kind = opts.kind !== undefined ? opts.kind : kindOf(schema, { type, template: opts.template })
   if (kind) return [kind]
+  return groupsFor(s, type)
+}
 
+function groupsFor(s: Record<string, unknown>, type: string): SectionGroup[] {
+  /*
+    AN ANNOUNCEMENT BAR GOES WHERE IT WAS ADDED. Added in the Header group it
+    sits above the header; added among the page's sections (or on the canvas
+    between two of them) it stays on that page, where it was put. It was
+    moved into the Header group from anywhere, which put a bar meant for one
+    page above the header of every page. A plain Add with no place still
+    puts it in the Header group, first in the list. A theme whose schema
+    says enabled_on header only is still kept there.
+  */
+  const name = typeof s.name === "string" ? s.name : ""
+  const announcement = ANNOUNCEMENT.test(name) || ANNOUNCEMENT.test(type.replace(/_/g, " ")) || (typeof s.category === "string" && ANNOUNCEMENT.test(s.category))
   const declared = sectionGroupsOf(s)
   if (saysGroups(s.enabled_on) && declared.length > 0) return declared
   if (saysGroups(s.disabled_on) && declared.length > 0) {
     return [...declared].sort((a, b) => (a === "template" ? -1 : b === "template" ? 1 : 0))
   }
-  if (declared.length === 1 && declared[0] === "header") return declared
+  if (declared.length === 1 && declared[0] === "header") return announcement ? ["header", "template"] : declared
 
   if (type && BUILT_IN_GROUPS[type]) return [...BUILT_IN_GROUPS[type]]
 
-  const name = typeof s.name === "string" ? s.name : ""
-  if (ANNOUNCEMENT.test(name) || ANNOUNCEMENT.test(type.replace(/_/g, " "))) return ["header"]
+  if (announcement) return ["header", "template"]
   if (OVERLAY.test(name) || OVERLAY.test(type.replace(/_/g, " "))) return ["overlay", "template"]
   return ["template"]
 }
@@ -220,8 +235,9 @@ export interface Placement<T> {
  *
  * `group` is where Add section was pressed; it is used when the section may
  * go there, and otherwise the section goes to the first group it may go to.
- * So an announcement bar added from the middle of a page lands in the Header
- * group, above the header, and a header added from anywhere is the header.
+ * So an announcement bar added among a page's sections stays on that page,
+ * one added in the Header group sits above the header, and a header added
+ * from anywhere is the header.
  *
  * `at` counts sections inside the group it lands in (0 is its top). Left
  * out, a header group section goes above the header, a footer group section

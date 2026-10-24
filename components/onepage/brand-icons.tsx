@@ -24,11 +24,15 @@
  * no brand, so they are lucide's globe and envelope at the same stroke the
  * link icons use.
  *
- * COLOUR COMES FROM THE CALLER. Every mark draws in the colour it is handed,
- * `currentColor` by default, so the page's social colour setting, a button's
- * text colour and the editor's white-on-brand tiles all just work. The only
- * brand colour in this file is the question of which of black or white reads
- * on one (`markOn`), for the editor tiles that are brand coloured on purpose.
+ * COLOUR COMES FROM THE CALLER, unless the caller asks for the brand's.
+ * Every mark draws in the colour it is handed, `currentColor` by default, so
+ * the page's social colour setting and a button's text colour just work.
+ * `tone="brand"` (round 11: "make them colorful, use their actual icons")
+ * draws each mark in its own colour instead (BRAND_COLORS): Instagram's
+ * gradient, YouTube's red, Spotify's green. A brand whose mark is black (X,
+ * Threads, TikTok, GitHub) keeps the caller's colour, so it still reads on a
+ * dark page; a brand whose colour is too light to see on white (Snapchat's
+ * yellow) keeps a hairline of black around it, as Snapchat draws it.
  *
  * No "use client" line: nothing here holds state, every importer is already a
  * client component, and a server file importing the platform list should get
@@ -36,10 +40,28 @@
  */
 
 import type React from "react"
+import { useId } from "react"
 import type { IconType } from "react-icons"
 import { FaLinkedin } from "react-icons/fa6"
 import {
+  SiAmazon,
   SiApplemusic,
+  SiApplepodcasts,
+  SiBandcamp,
+  SiBluesky,
+  SiBuymeacoffee,
+  SiCashapp,
+  SiEtsy,
+  SiGoogleforms,
+  SiGooglecalendar,
+  SiGumroad,
+  SiKofi,
+  SiLoom,
+  SiMixcloud,
+  SiPaypal,
+  SiSubstack,
+  SiTypeform,
+  SiVenmo,
   SiCalendly,
   SiDiscord,
   SiFacebook,
@@ -132,8 +154,29 @@ const SOCIAL_MARKS: Record<OnePageSocialPlatform, Drawing> = {
   calendly: { brand: SiCalendly },
 }
 
-/** The same marks under the names link buttons were saved with, plus three that are not social platforms. */
+/** The same marks under the names link buttons were saved with, plus the brands a link or an embed can be (round 11). */
 const LINK_BRAND_MARKS: Record<LinkBrandIcon, IconType> = {
+  amazon: SiAmazon,
+  etsy: SiEtsy,
+  kofi: SiKofi,
+  buymeacoffee: SiBuymeacoffee,
+  paypal: SiPaypal,
+  cashapp: SiCashapp,
+  venmo: SiVenmo,
+  bluesky: SiBluesky,
+  substack: SiSubstack,
+  patreon: SiPatreon,
+  kick: SiKick,
+  soundcloud: SiSoundcloud,
+  bandcamp: SiBandcamp,
+  "apple-podcasts": SiApplepodcasts,
+  gumroad: SiGumroad,
+  calendly: SiCalendly,
+  loom: SiLoom,
+  typeform: SiTypeform,
+  "google-forms": SiGoogleforms,
+  "google-calendar": SiGooglecalendar,
+  mixcloud: SiMixcloud,
   instagram: SiInstagram,
   twitter: SiX,
   youtube: SiYoutube,
@@ -155,6 +198,110 @@ const LINK_BRAND_MARKS: Record<LinkBrandIcon, IconType> = {
   vimeo: SiVimeo,
 }
 
+/* ─── Brand colours ───────────────────────────────────────────────────── */
+
+/**
+ * EACH BRAND'S OWN COLOUR, from its brand guidelines (the hex Simple Icons
+ * publishes with each mark). INK is a brand whose mark is black: drawn in the
+ * caller's colour instead, so X on a dark page is white rather than gone.
+ * Instagram is its gradient (InstagramMark below), not a colour.
+ */
+const INK = "ink"
+export const BRAND_COLORS: Readonly<Record<string, string>> = {
+  instagram: "#FF0069",
+  facebook: "#0866FF",
+  youtube: "#FF0000",
+  twitter: INK,
+  threads: INK,
+  tiktok: INK,
+  whatsapp: "#25D366",
+  snapchat: "#FFFC00",
+  discord: "#5865F2",
+  github: INK,
+  kick: "#53FC18",
+  linkedin: "#0A66C2",
+  patreon: INK,
+  pinterest: "#BD081C",
+  soundcloud: "#FF5500",
+  spotify: "#1ED760",
+  applemusic: "#FA243C",
+  "apple-music": "#FA243C",
+  telegram: "#26A5E4",
+  twitch: "#9146FF",
+  calendly: "#006BFF",
+  reddit: "#FF4500",
+  notion: INK,
+  vimeo: "#1AB7EA",
+  amazon: "#FF9900",
+  etsy: "#F16521",
+  kofi: "#FF5E5B",
+  buymeacoffee: "#FFDD00",
+  paypal: "#002991",
+  cashapp: "#00D64F",
+  venmo: "#008CFF",
+  bluesky: "#0285FF",
+  substack: "#FF6719",
+  bandcamp: "#1DA0C3",
+  "apple-podcasts": "#9933CC",
+  gumroad: "#FF90E8",
+  loom: "#625DF5",
+  typeform: INK,
+  "google-forms": "#7248B9",
+  "google-calendar": "#4285F4",
+  mixcloud: "#5000FF",
+}
+
+/** Too light to see on white: drawn with a hairline of black around it, as these brands draw themselves on white. */
+const LIGHT_BRANDS = new Set(["snapchat", "kick", "buymeacoffee", "gumroad"])
+
+/** A brand's own colour, or null when it has none of its own (a website, an email, a black mark). */
+export function brandColor(platform: string): string | null {
+  const key = canonicalSocialPlatform(platform)
+  const c = BRAND_COLORS[key] ?? BRAND_COLORS[platform]
+  return c && c !== INK ? c : null
+}
+
+export type MarkTone = "brand" | "mono"
+
+/** The style that puts a brand's colour on a react-icons mark (or nothing, for mono and ink brands). */
+function brandStyle(key: string, tone: MarkTone | undefined, style: React.CSSProperties | undefined): { color?: string; style?: React.CSSProperties } {
+  if (tone !== "brand") return { style }
+  const c = BRAND_COLORS[key]
+  if (!c || c === INK) return { style }
+  if (LIGHT_BRANDS.has(key)) {
+    return { color: c, style: { ...style, stroke: "#111113", strokeWidth: 1.4, paintOrder: "stroke", strokeLinejoin: "round" } }
+  }
+  return { color: c, style }
+}
+
+/* Simple Icons' Instagram glyph, so it can be filled with the gradient (a react-icons mark has no room for a <defs>). */
+const INSTAGRAM_PATH =
+  "M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"
+
+/**
+ * INSTAGRAM IN ITS OWN GRADIENT: yellow at the bottom left, through orange
+ * and magenta, to violet at the top right, as Instagram's glyph is drawn.
+ * The gradient's id is this mark's own (useId), so two on one page never
+ * borrow each other's, and one inside a hidden panel never loses its fill.
+ */
+function InstagramMark({ size, className, style, ...a11y }: SvgProps) {
+  const id = `ig${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`
+  return (
+    <svg viewBox="0 0 24 24" width={size ?? "1em"} height={size ?? "1em"} className={className} style={style} data-mark="instagram" data-tone="brand" {...a11y}>
+      <defs>
+        <radialGradient id={id} cx="0.3" cy="1.07" r="1.3" fx="0.3" fy="1.07">
+          <stop offset="0" stopColor="#FFDD55" />
+          <stop offset="0.1" stopColor="#FFDD55" />
+          <stop offset="0.5" stopColor="#FF543E" />
+          <stop offset="0.75" stopColor="#E1306C" />
+          <stop offset="1" stopColor="#833AB4" />
+        </radialGradient>
+      </defs>
+      <path d={INSTAGRAM_PATH} fill={`url(#${id})`} />
+    </svg>
+  )
+}
+
 type SvgProps = {
   size?: number | string
   color?: string
@@ -165,6 +312,7 @@ type SvgProps = {
   "aria-hidden"?: boolean
   focusable?: "false"
   "data-mark"?: string
+  "data-tone"?: string
 }
 
 /**
@@ -197,6 +345,8 @@ export type SocialIconProps = {
   style?: React.CSSProperties
   /** Give it when the mark stands alone, as in the social row, so the link has a name. */
   title?: string
+  /** "brand": the brand's own colour (BRAND_COLORS); "mono" (the default): `color`. */
+  tone?: MarkTone
 }
 
 /**
@@ -205,14 +355,18 @@ export type SocialIconProps = {
  * nothing, so a saved link can never vanish from the page because its icon
  * was missing.
  */
-export function SocialIcon({ platform, size = 20, color = "currentColor", strokeWidth = 2, className, style, title }: SocialIconProps) {
+export function SocialIcon({ platform, size = 20, color = "currentColor", strokeWidth = 2, className, style, title, tone }: SocialIconProps) {
   const key = canonicalSocialPlatform(platform)
   const a11y = labelled(title)
+  const linkKey = isLinkBrandIcon(key) ? key : isLinkBrandIcon(platform) ? platform : null
   const drawing: Drawing | undefined =
-    SOCIAL_MARKS[key as OnePageSocialPlatform] ?? (isLinkBrandIcon(key) ? { brand: LINK_BRAND_MARKS[key] } : undefined)
+    SOCIAL_MARKS[key as OnePageSocialPlatform] ?? (linkKey ? { brand: LINK_BRAND_MARKS[linkKey] } : undefined)
 
   if (drawing && "brand" in drawing) {
-    return <BrandSvg Icon={drawing.brand} size={size} color={color} className={className} style={style} data-mark={key} {...a11y} />
+    const markKey = linkKey ?? key
+    if (tone === "brand" && markKey === "instagram") return <InstagramMark size={size} className={className} style={style} {...a11y} />
+    const b = brandStyle(markKey, tone, style)
+    return <BrandSvg Icon={drawing.brand} size={size} color={b.color ?? color} className={className} style={b.style} data-mark={markKey} data-tone={tone === "brand" ? "brand" : undefined} {...a11y} />
   }
   const Line = drawing && "line" in drawing ? drawing.line : LinkGlyph
   return (
@@ -236,6 +390,8 @@ export type LinkIconProps = {
   strokeWidth?: number | string
   className?: string
   style?: React.CSSProperties
+  /** "brand": a brand mark in its own colour; a line icon is unchanged. */
+  tone?: MarkTone
 }
 
 /** Whether `LinkIcon` draws anything for this name. */
@@ -248,18 +404,21 @@ export function hasLinkIcon(name: string | null | undefined): boolean {
  * stroke, or a brand's solid mark. Null for a name that is not in the set, so
  * a caller can keep asking `hasLinkIcon` before it lays out room for one.
  */
-export function LinkIcon({ name, size, color = "currentColor", strokeWidth = 2, className, style }: LinkIconProps) {
+export function LinkIcon({ name, size, color = "currentColor", strokeWidth = 2, className, style, tone }: LinkIconProps) {
   const key = linkIconKey(name)
   if (!key) return null
   if (isLinkBrandIcon(key)) {
+    if (tone === "brand" && key === "instagram") return <InstagramMark size={size} className={className} style={style} aria-hidden focusable="false" />
+    const b = brandStyle(key, tone, style)
     return (
       <BrandSvg
         Icon={LINK_BRAND_MARKS[key]}
         size={size}
-        color={color}
+        color={b.color ?? color}
         className={className}
-        style={style}
+        style={b.style}
         data-mark={key}
+        data-tone={tone === "brand" ? "brand" : undefined}
         aria-hidden
         focusable="false"
       />

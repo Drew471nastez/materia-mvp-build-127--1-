@@ -88,6 +88,8 @@ export async function ensureOnePage(
     image_noise: false,
     header_layout: "classic",
     social_icon_color: "#000000",
+    /* A new page draws its social marks in their own colours (Design › Social icons can make them one colour). */
+    social_icon_tone: "brand",
   }
 
   // Default settings with white style for subscribe/share icons

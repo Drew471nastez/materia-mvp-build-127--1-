@@ -93,8 +93,9 @@ async function main() {
   console.log("\nWhere each section may go")
   const groupsOf = (type: string) => sectionGroupsFor(SECTION_SCHEMAS[type] as never, { type, kind: builtInKinds(type) })
   check("the header is the Header group's, the footer the Footer group's", same(groupsOf("header"), ["header"]) && same(groupsOf("footer"), ["footer"]))
-  check("an announcement bar goes in the Header group", same(groupsOf("announcement_banner"), ["header"]), groupsOf("announcement_banner"))
-  check("and so does the library's Announcement / Promo", same(groupsOf("promo_announcement"), ["header"]), groupsOf("promo_announcement"))
+  /* Changed on purpose (round BB): an announcement bar goes where it was added, the Header group first. */
+  check("an announcement bar goes in the Header group or on a page, the Header group first", same(groupsOf("announcement_banner"), ["header", "template"]), groupsOf("announcement_banner"))
+  check("and so does the library's Announcement / Promo", same(groupsOf("promo_announcement"), ["header", "template"]), groupsOf("promo_announcement"))
   check("a marquee may go on a page or in either group, a page first", same(groupsOf("scrolling_text"), ["template", "header", "footer"]))
   check("a newsletter on a page or above the footer", same(groupsOf("newsletter"), ["template", "footer"]))
   check("back to top, the phone tab bar and a popup go in the Overlay group only", ["back_to_top", "mobile_bottom_bar", "popup"].every((t) => same(groupsOf(t), ["overlay"])))
@@ -107,7 +108,9 @@ async function main() {
   check("the schema's own rule is the one read (schema/normalise.ts, sectionGroupsOf)", /sectionGroupsOf\(s\)/.test(read("lib/storelib-theme/section-groups.ts")))
   check("disabled_on header and footer keeps it on pages", same(sectionGroupsFor({ name: "Grid", disabled_on: { groups: ["header", "footer"] } }), ["template"]))
   check("kind header is the header", same(sectionGroupsFor({ name: "Brand", kind: "header" }), ["header"]))
-  check("a category of announcement is inferred", same(sectionGroupsFor({ name: "Notice", category: "announcement" }), ["header"]))
+  check("a category of announcement is inferred, and may go on a page too", same(sectionGroupsFor({ name: "Notice", category: "announcement" }), ["header", "template"]))
+  check("a coded announcement bar may go on a page too", same(sectionGroupsFor({ name: "Announcement bar" }), ["header", "template"]))
+  check("a section kept in the Header group by enabled_on stays there", same(sectionGroupsFor({ name: "Announcement bar", enabled_on: { groups: ["header"] } }), ["header"]))
   check("\"Luca — Header\" is a header by its name", kindOf({ name: "Luca — Header" }) === "header")
   check("\"Luca — Hero + proof bar\" is not", kindOf({ name: "Luca — Hero + proof bar" }) === null)
   check("a group alone is a place, not a kind: an announcement bar is not the header", kindOf({ name: "Promo", enabled_on: { groups: ["header"] } }) === null)
@@ -120,8 +123,11 @@ async function main() {
   const faq: SectionInstance = { id: "faq", type: "faq", name: "FAQ", settings: {} }
   const page = [header, hero, faq, footer]
   const ann: SectionInstance = { id: "ann", type: "announcement_banner", name: "Announcement Banner", settings: { heading: "Sale" } }
-  const fromPage = placeSection(page, ann, { groups: groupsOf("announcement_banner"), group: "template", at: 1, kindOfType: builtInKinds })
-  check("an announcement bar added between two page sections lands in the Header group", fromPage.group === "header" && fromPage.sections.find((s) => s.id === "ann")?.group === "header")
+  const onPage = placeSection(page, ann, { groups: groupsOf("announcement_banner"), group: "template", at: 1, kindOfType: builtInKinds })
+  check("an announcement bar added between two page sections stays on the page", onPage.group === "template" && onPage.sections.find((s) => s.id === "ann")?.group !== "header")
+  check("  in the gap it was added to", same(onPage.sections.map((s) => s.id), ["h", "hero", "ann", "faq", "f"]), onPage.sections.map((s) => s.id))
+  const fromPage = placeSection(page, ann, { groups: groupsOf("announcement_banner"), group: "header", kindOfType: builtInKinds })
+  check("an announcement bar added from the Header group lands in the Header group", fromPage.group === "header" && fromPage.sections.find((s) => s.id === "ann")?.group === "header")
   check("above the header, the page untouched", same(fromPage.sections.map((s) => s.id), ["ann", "h", "hero", "faq", "f"]), fromPage.sections.map((s) => s.id))
   const atGap = placeSection(page, { ...faq, id: "faq2" }, { groups: groupsOf("faq"), group: "template", at: 1, kindOfType: builtInKinds })
   check("a page section still lands in the gap it was added to", same(atGap.sections.map((s) => s.id), ["h", "hero", "faq2", "faq", "f"]), atGap.sections.map((s) => s.id))

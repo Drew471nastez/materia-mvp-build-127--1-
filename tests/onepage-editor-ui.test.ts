@@ -306,9 +306,10 @@ function main() {
     /* Round 11: every crop is the one cropper now (components/onepage/media-cropper.tsx), which carries data-sheet-no-drag itself; the tabs use it through CropUpload. */
     check("a crop keeps its finger from the sheet", /data-sheet-no-drag=""/.test(read("components/onepage/media-cropper.tsx")) && (linksSrc.match(/<CropUpload\b/g) ?? []).length >= 2 && (design.match(/<CropUpload\b/g) ?? []).length >= 4)
     check("Add block, the social link and Share are built ahead and kept, as the notifications sheet is",
-      /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /sheet=\{\{ keepMounted: true \}\}/.test(linksSrc)
+      /* Round 11: the social sheet keeps one height whose top the keyboard never moves (SOCIAL_SHEET_HEIGHT), on purpose. */
+      /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /sheet=\{\{ keepMounted: true, height: SOCIAL_SHEET_HEIGHT \}\}/.test(linksSrc)
       && /title="Share your OnePage" hideFrom="md" keepMounted/.test(read("components/onepage/onepage-editor.tsx")))
-    check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", (linksSrc.match(/<CardMark on=\{/g) ?? []).length >= 12 && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-0 opacity-0/.test(linksSrc))
+    check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", /* 11 since round 11: the email signup's two hand-written cards became one card drawn for each of its five layouts. */ (linksSrc.match(/<CardMark on=\{/g) ?? []).length >= 11 && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-0 opacity-0/.test(linksSrc))
     /* Settings' sections are the editor's one pill-tab row now: the pill slides from the press, instead of each chip fading its own fill where it stands. */
     /* Changed on purpose (round 10): one row at every width, named settings-pills. */
     /* Changed on purpose (round 11): Settings' pills are Storelib's own, each fill fading in where it is (lib/ui/pill-switch), the press a light tint. */
@@ -360,24 +361,27 @@ function main() {
       motion one step each way.
     */
     const links = read("components/onepage/tabs/links-tab.tsx")
-    const add = links.slice(links.indexOf('data-add-block=""') - 40, links.indexOf('data-add-block=""') + 900)
+    /* Round 11: + Add is AddBlockButton (components/onepage/add-block-picker), so its open state does not render this tab; the button and its classes are here as before. */
+    const add = links.slice(links.indexOf("<AddBlockButton") - 40, links.indexOf("<AddBlockButton") + 900)
     check("it is the app's violet primary (accentDepth, #8b5cf6)", /className=\{cn\(accentDepth, "h-11 w-full gap-2 rounded-xl text-\[15px\]"\)\}/.test(add) && /accentDepth =[\s\S]{0,200}bg-\[#8b5cf6\]/.test(read("components/ui/depth-button.ts")))
     check("and not inside a .group, whose transforms a touch screen loses", !/"group /.test(add) && !/\bgroup-hover:/.test(add))
     /*
-      Round 10, on purpose: "when I hover over it, the + rotates very smooth,
-      clean, 360; on hover out it smoothly rotates back." The + is
-      AddBlockPlus (components/onepage/add-block-picker.tsx): a full turn
-      under a mouse, back as it leaves, 600ms on one ease in and out, and it
-      rests at 405 (the sheet's x, a turn and 45) while the sheet is up, so a
-      hover that opens it goes on forward. Still the rotate property alone,
-      still off under reduced motion. Measured by scripts/check-onepage-blocks.mjs.
+      Round 11 changed this pin on purpose: "the plus icon rotates too much
+      when I click Add block, and in general it rotates too much" (round 10
+      turned it 360 on hover and rested it at 405). The + is AddBlockPlus
+      (components/onepage/add-block-picker.tsx): never turns on a touch
+      screen, a quarter turn (90) under a mouse, 135 (an x) while the sheet
+      is up, 280ms on one curve, the rotate property alone, off under
+      reduced motion. Measured by scripts/check-onepage-addblock-r11.mjs.
     */
     const plus = read("components/onepage/add-block-picker.tsx")
-    check("its + turns a full circle under a mouse and back, rests at the sheet's x while it is up, and not under reduced motion",
-      /<AddBlockPlus open=\{addSheetFromButton\} \/>/.test(add)
-      && /transition-\[rotate\] duration-\[600ms\] ease-\[cubic-bezier\(0\.4,0,0\.2,1\)\] motion-reduce:transition-none/.test(plus)
-      && /open \? "rotate-\[405deg\]" : "rotate-0 \[@media\(hover:hover\)_and_\(pointer:fine\)\]:\[\[data-add-block\]:hover_&\]:rotate-\[360deg\]"/.test(plus)
-      && /const addSheetFromButton = showAddModal && insertAfterId === null && addToGroupId === null/.test(links))
+    check("its + turns a quarter under a mouse, to an x while the sheet is up, never on touch, and not under reduced motion",
+      /<AddBlockButton\n\s*fromButton=\{addSheetFromButton\}/.test(add) && /<AddBlockPlus open=\{open\} \/>/.test(plus) && /const open = useAddSheetOpen\(\) && fromButton/.test(plus)
+      && /transition-\[rotate\] duration-\[280ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\] motion-reduce:transition-none/.test(plus)
+      && /open \? "pointer-fine:rotate-\[135deg\]" : "group-hover\/add:rotate-90"/.test(plus)
+      && /className=\{cn\("group\/add", className\)\}/.test(plus)
+      && !/rotate-\[(360|405)deg\]/.test(plus)
+      && /const addSheetFromButton = insertAfterId === null && addToGroupId === null/.test(links))
     check("the rest of the Links tab stays ink: this is the one violet", (links.match(/accentDepth/g) ?? []).length === 3 && !/bg-violet-500/.test(links))
   }
 

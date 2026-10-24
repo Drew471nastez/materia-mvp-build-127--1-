@@ -5,7 +5,8 @@ import { buildMailgunFromHeader, sendMailgunEmail } from "@/lib/mailgun"
 import { requestCode, type SignInDeps } from "@/lib/site-accounts/sign-in"
 import { returnPathOf, siteOwnerOfHost } from "@/lib/site-accounts/hosts"
 import { siteBrand } from "@/lib/site-accounts/site-brand"
-import { hostOf, pendingCookie, pendingCookieName } from "@/lib/site-accounts/session"
+import { cookieFrom, hostOf, pendingCookie, pendingCookieName, pendingFrom } from "@/lib/site-accounts/session"
+import { cleanEmail } from "@/lib/site-accounts/token"
 import { originOf, privateResponse, sameOriginForm } from "@/lib/site-accounts/respond"
 
 export const runtime = "nodejs"
@@ -100,7 +101,15 @@ export async function POST(request: Request) {
   /* "Send a new code" on the code step posts the same email again, marked. */
   const again = form?.get("again") === "1"
   /* `name`: a theme's Create account form's first and last name, saved once the code proves the email (lib/site-accounts/sign-in.ts). */
-  const result = await requestCode({ host, email: form?.get("email"), returnPath, name: form?.get("name") }, deps)
+  /*
+    Send a new code posts only the email and where to go. The name a Create
+    account form gave rides in the note this browser already holds, and the
+    new note replaced it without one, so an account made after a second code
+    had no name. It is carried over from the note, for the same email only.
+  */
+  const held = again ? pendingFrom(cookieFrom(request, pendingCookieName(host)), host) : null
+  const name = form?.get("name") || (held?.n && held.m === cleanEmail(form?.get("email")) ? held.n : undefined)
+  const result = await requestCode({ host, email: form?.get("email"), returnPath, name }, deps)
   /* A new code that could not be sent leaves the visitor on the code step; a first one, on the email step. */
   if (result.ok === false) return back(host, again ? { error: result.why } : { error: result.why, step: "email", return: keep })
 

@@ -23,6 +23,7 @@ export type OnePageBlockType =
   | "music"
   | "testimonials"
   | "contact_form"
+  | "embed"
 
 export interface OnePageTheme {
   template_id: string
@@ -70,6 +71,12 @@ export interface OnePageTheme {
   // Social icons
   social_icon_style?: "filled" | "outline" | "minimal"
   social_icon_color?: string
+  /**
+   * The social marks in their own brand colours ("brand") or all in the icon
+   * colour ("mono"). Missing means "mono", how every page made before the
+   * choice existed looks; a new page starts on "brand" (ensure-onepage).
+   */
+  social_icon_tone?: "brand" | "mono"
   // Animated gradient
   animated_gradient?: boolean
 }
@@ -132,7 +139,7 @@ export type SoundCloudMode = 'audio_preview' | 'go_to_url'
 export type EmailCaptureButtonPreset = 'subscribe' | 'join' | 'get_access' | 'download' | 'sign_up' | 'unlock' | 'custom'
 
 // Email capture layout types
-export type EmailCaptureLayoutType = 'default' | 'pro'
+export type EmailCaptureLayoutType = 'default' | 'pro' | 'cover' | 'bold' | 'minimal'
 
 export interface StreamingService {
   platform: 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal' | 'deezer' | 'amazon_music' | 'spotify'
@@ -478,6 +485,19 @@ export interface ContactFormBlockData {
   offer_signup?: boolean
 }
 
+/**
+ * A post, form, player or calendar from another service, in that service's
+ * own public embed (lib/onepage/creator-blocks embedSource): Instagram, X,
+ * Typeform, Google Forms, Tally, Substack, Apple Podcasts, Twitch, Loom,
+ * Mixcloud, Bandcamp, Deezer and Google Calendar.
+ */
+export interface EmbedBlockData {
+  url: string
+  title?: string | null
+  /** Which one the Add block sheet started it as, for the field's hint; the link decides what plays. */
+  provider?: string | null
+}
+
 export type OnePageBlockData =
   | LinkButtonBlockData
   | ProductBlockData
@@ -500,6 +520,7 @@ export type OnePageBlockData =
   | MusicBlockData
   | TestimonialsBlockData
   | ContactFormBlockData
+  | EmbedBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -898,6 +919,11 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
       return {
         ...baseBlock,
         data: { title: "Get in touch", description: "", button_text: "Send", success_message: "Thanks. I will write back soon.", offer_signup: true } as ContactFormBlockData,
+      }
+    case "embed":
+      return {
+        ...baseBlock,
+        data: { url: "", title: "", provider: null } as EmbedBlockData,
       }
     default:
       return baseBlock as OnePageBlock

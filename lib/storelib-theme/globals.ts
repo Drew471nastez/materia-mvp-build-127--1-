@@ -117,6 +117,8 @@ export const SITE_ROUTES = Object.freeze({
   account_register_url: "/account/login",
   /** POST `email` (and `return`, a path): sends a code and shows the code step. */
   account_code_url: "/api/site-account/code",
+  /** GET: "Use a different email" on the code step. Ends the code this browser waits on and opens the email step, keeping where to go back to. */
+  account_change_email_url: "/api/site-account/restart",
   /** POST `code`: signs the visitor in. */
   account_verify_url: "/api/site-account/verify",
   /** POST `name`: the signed-in customer's name. */

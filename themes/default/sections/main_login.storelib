@@ -21,7 +21,10 @@
           <input type="hidden" name="again" value="1">
           <button class="login__link" type="submit">{{ settings.resend_label }}</button>
         </form>
-        <a class="login__link" href="{{ routes.account_login_url }}?step=email">{{ settings.change_label }}</a>
+        {# Through a route, not to ?step=email: a page cannot end the code
+           this browser waits on, and left in place it brought the old email
+           back on the next visit (app/api/site-account/restart). #}
+        <a class="login__link" href="{{ routes.account_change_email_url }}">{{ settings.change_label }}</a>
       </div>
     {% else %}
       <h1 class="s__h">{{ settings.heading }}</h1>

@@ -12,7 +12,6 @@ import { createPortal } from "react-dom"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import {
   Plus,
-  ShoppingBag,
   FileText,
   Mail,
   Download,
@@ -36,6 +35,7 @@ import { useRouter } from "next/navigation"
 import { tt } from "@/lib/i18n/text"
 import { ProductStateBadge, useCreatorProducts } from "./product-block-editor"
 import { editorProductState, pickableProducts } from "@/lib/onepage/product-block"
+import { PRODUCTS_PREVIEW, productIdsOnPage, productsTabView } from "@/lib/onepage/products-tab"
 
 interface Product {
   id: string
@@ -106,6 +106,8 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  /* The first few products that are not on the page, until "Show all" (lib/onepage/products-tab). */
+  const [showAll, setShowAll] = useState(false)
   const [addingProductId, setAddingProductId] = useState<string | null>(null)
   const [addedProductIds, setAddedProductIds] = useState<Set<string>>(new Set())
   const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
@@ -127,17 +129,9 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
     return () => setIsMounted(false)
   }, [])
 
-  // Check which products already have blocks on the page
+  // Which products already have blocks on the page, inside a group too (lib/onepage/products-tab)
   useEffect(() => {
-    if (onepage?.draft_blocks) {
-      const productBlockIds = new Set<string>()
-      onepage.draft_blocks.forEach(block => {
-        if (block.type === "product" && (block.data as any).product_id) {
-          productBlockIds.add((block.data as any).product_id)
-        }
-      })
-      setAddedProductIds(productBlockIds)
-    }
+    if (onepage?.draft_blocks) setAddedProductIds(productIdsOnPage(onepage.draft_blocks))
   }, [onepage?.draft_blocks])
 
   /* The creator's products with their status, read once for the whole editor (./product-block-editor). Archived ones cannot go on a page and are left out. */
@@ -283,10 +277,62 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
   }, [])
 
 
-  // Filter products by search
-  const filteredProducts = products.filter(p =>
-    p.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  /* On the page first, then a few others; a search looks through all of them (lib/onepage/products-tab). */
+  const view = productsTabView(products, addedProductIds, searchQuery, showAll)
+
+  const renderRow = (product: Product) => {
+    const badge = getProductBadge(product.type)
+    const isAdding = addingProductId === product.id
+    const added = addedProductIds.has(product.id)
+    const state = editorProductState(product.id, products)
+    return (
+      <li key={product.id} className="flex items-center gap-3 px-3.5 py-3 transition-colors [@media(hover:hover)]:hover:bg-[#fafafb]" data-products-row={state}>
+        <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-[#f4f4f6] shadow-[inset_0_0_0_1px_rgba(16,24,40,0.05)]">
+          {product.thumbnail_url ? (
+            <img src={product.thumbnail_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <div className="grid h-full w-full place-items-center">
+              <Package className="h-5 w-5 text-[#9ca3af]" strokeWidth={1.7} />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-[14.5px] font-medium text-[#1a1a2e]">{product.title}</span>
+            <ProductStateBadge state={state} />
+          </p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-[#6b7280]">
+            <span className="tabular-nums">{product.price_cents > 0 ? shopMoney(product.price_cents, product) : tt("Free")}</span>
+            <span aria-hidden className="text-[#c4c8ce]">·</span>
+            <span>{badge.label}</span>
+          </p>
+        </div>
+        {added ? (
+          <button
+            type="button"
+            onClick={goToLinks}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-medium text-[#4b5563] transition-colors [@media(hover:hover)]:hover:bg-[#f4f4f6]"
+            data-products-on-page=""
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
+            {tt("Added")}
+          </button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleAddProductToPage(product)}
+            disabled={isAdding}
+            className="h-8 shrink-0 rounded-lg px-3 text-[13px]"
+            data-products-add-one=""
+          >
+            {isAdding ? <Check className="h-4 w-4" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
+            {isAdding ? tt("Added") : tt("Add")}
+          </Button>
+        )}
+      </li>
+    )
+  }
 
   if (!onepage) return null
 
@@ -323,7 +369,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
         </Button>
       </div>
 
-      {products.length > 6 ? (
+      {products.length > PRODUCTS_PREVIEW ? (
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
           <span className="sr-only">{tt("Search products")}</span>
@@ -351,72 +397,53 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
             ))}
           </div>
         ) : products.length > 0 ? (
-          <ul className="max-h-[560px] divide-y divide-[#f1f2f4] overflow-y-auto overscroll-contain" data-products-list="">
-            {filteredProducts.length === 0 ? (
-              <li className="px-4 py-8 text-center text-[13.5px] text-[#6b7280]">{tt("No products match your search.")}</li>
-            ) : null}
-            {filteredProducts.map((product) => {
-              const badge = getProductBadge(product.type)
-              const isAdding = addingProductId === product.id
-              const added = addedProductIds.has(product.id)
-              const state = editorProductState(product.id, products)
-              return (
-                <li key={product.id} className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[#fafafb]" data-products-row={state}>
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#f4f4f6] shadow-[inset_0_0_0_1px_rgba(16,24,40,0.05)]">
-                    {product.thumbnail_url ? (
-                      <img src={product.thumbnail_url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center">
-                        <Package className="h-5 w-5 text-[#9ca3af]" strokeWidth={1.7} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="flex min-w-0 items-center gap-1.5">
-                      <span className="truncate text-[14.5px] font-medium text-[#1a1a2e]">{product.title}</span>
-                      <ProductStateBadge state={state} />
-                    </p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-[#6b7280]">
-                      <span className="tabular-nums">{product.price_cents > 0 ? shopMoney(product.price_cents, product) : tt("Free")}</span>
-                      <span aria-hidden className="text-[#c4c8ce]">·</span>
-                      <span>{badge.label}</span>
-                    </p>
-                  </div>
-                  {added ? (
-                    <button
-                      type="button"
-                      onClick={goToLinks}
-                      className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-medium text-[#4b5563] transition-colors hover:bg-[#f4f4f6]"
-                      data-products-on-page=""
-                    >
-                      <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
-                      <span className="hidden sm:inline">{tt("On your page")}</span>
-                      <span className="sm:hidden">{tt("Added")}</span>
-                    </button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddProductToPage(product)}
-                      disabled={isAdding}
-                      className="h-8 shrink-0 rounded-lg px-3 text-[13px]"
-                      data-products-add-one=""
-                    >
-                      {isAdding ? <Check className="h-4 w-4" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
-                      {isAdding ? tt("Added") : tt("Add")}
-                    </Button>
-                  )}
-                </li>
+          /*
+            NO SCROLL OF ITS OWN. The list was a box 560px tall that scrolled
+            inside the tab, with a wide grey bar beside it, and on a phone a
+            finger on it moved the list and not the page. It is as long as
+            what it shows, and it shows a few: the products on the page, then
+            five more and "Show all".
+          */
+          <div data-products-list="">
+            {view.searching ? (
+              view.matches.length === 0 ? (
+                <p className="px-4 py-8 text-center text-[13.5px] text-[#6b7280]">{tt("No products match your search.")}</p>
+              ) : (
+                <ul className="divide-y divide-[#f1f2f4]">{view.matches.map(renderRow)}</ul>
               )
-            })}
-          </ul>
+            ) : (
+              <>
+                {view.onPage.length > 0 ? (
+                  <div data-products-group="on-page">
+                    <p className="px-3.5 pb-1 pt-3 text-[12px] font-medium text-[#6b7280]">{tt("On your page")}</p>
+                    <ul className="divide-y divide-[#f1f2f4]">{view.onPage.map(renderRow)}</ul>
+                  </div>
+                ) : null}
+                {view.others.length > 0 ? (
+                  <div data-products-group="others" className={cn(view.onPage.length > 0 && "border-t border-[#f1f2f4]")}>
+                    {view.onPage.length > 0 ? <p className="px-3.5 pb-1 pt-3 text-[12px] font-medium text-[#6b7280]">{tt("Add to your page")}</p> : null}
+                    <ul className="divide-y divide-[#f1f2f4]">{view.others.map(renderRow)}</ul>
+                  </div>
+                ) : null}
+                {view.hidden > 0 || showAll ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll((v) => !v)}
+                    className="flex h-11 w-full items-center justify-center gap-1 border-t border-[#f1f2f4] text-[13.5px] font-medium text-[#1a1a2e] transition-colors [@media(hover:hover)]:hover:bg-[#fafafb]"
+                    data-products-more={showAll ? "less" : "all"}
+                    aria-expanded={showAll}
+                  >
+                    {showAll ? tt("Show fewer") : tt("Show all {count}", { count: products.length - view.onPage.length })}
+                  </button>
+                ) : null}
+              </>
+            )}
+          </div>
         ) : (
+          /* As the app's own Products page says it (app/app/products/products-client): the words and one button, no picture. */
           <div className="px-6 py-10 text-center" data-products-empty="">
-            <div className={cn("mx-auto grid h-12 w-12 place-items-center rounded-2xl", QUICK_TILE)}>
-              <ShoppingBag className="h-5 w-5" strokeWidth={1.75} />
-            </div>
-            <h3 className="mt-3 text-[15px] font-semibold text-[#1a1a2e]">{tt("No products yet")}</h3>
-            <p className="mx-auto mt-1 max-w-[260px] text-[13px] text-[#6b7280]">{tt("Make your first product, then put it on your page in one tap.")}</p>
+            <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{tt("No products yet")}</h3>
+            <p className="mx-auto mt-1 max-w-[280px] text-[13.5px] leading-5 text-[#6b7280]">{tt("Make your first product, then put it on your page in one tap.")}</p>
             <Button className={cn(primaryDepth, "mt-4 h-10 rounded-xl px-4 text-[14px]")} asChild>
               <a href="/app/products/new">{tt("Create product")}</a>
             </Button>

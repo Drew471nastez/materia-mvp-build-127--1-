@@ -1403,6 +1403,23 @@ export function CompatCanvas(props: CompatCanvasProps) {
           } else learn(key, without, was, change.path, { value: change.from, html: real }, list, at, group)
         }
       }
+      /*
+        A SECTION'S OWN SETTING IS SAID TO THE THEME'S CODE TOO, as a theme
+        setting is (storelib:settings-change, with the section's id). A theme
+        that applies a value itself (the owner's header writes its height
+        to a variable in the next frame) follows the thumb without waiting
+        for the section's markup; it was only told about theme settings, so
+        its own fast path never ran in the builder. Said on every value
+        while the finger moves, on the release, and on an undo, so a value
+        the script wrote is never left behind.
+      */
+      let told = change
+      if (!told) {
+        try { told = oneChange(JSON.parse(slot.drawnFrom.get(s.id)!), s) } catch { told = null }
+      }
+      if (told && told.path.length === 2 && told.path[0] === "settings" && typeof told.path[1] === "string") {
+        win.postMessage({ storelib: 1, type: "settings", settings: { [told.path[1]]: told.to }, live, section: s.id }, "*")
+      }
       if (html === null) {
         try {
           ctx ??= pageContextFor(compatTheme, page, list)

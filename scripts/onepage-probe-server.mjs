@@ -33,7 +33,12 @@ const STATIC_TYPES = { ".webp": "image/webp", ".avif": "image/avif", ".png": "im
  * whole bundle, inline) would crawl through that too, and the probe measures
  * the files, not the harness.
  */
-export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", blocks = null, theme = {}, liveTheme = null, statics = {}, throttle = null, fail = (m) => { throw new Error(m) } } = {}) {
+/*
+ * `api` (round 11, scripts/check-onepage-blocks-r11.mjs): a probe's own answer
+ * for a call, given the request and its body; null leaves it to the stubs
+ * below. It is how a probe sees what Save sent and what a signup posted.
+ */
+export async function serveEditorProbe({ root = process.cwd(), entry = "scripts/render-onepage-editor.tsx", blocks = null, theme = {}, liveTheme = null, statics = {}, throttle = null, api = null, fail = (m) => { throw new Error(m) } } = {}) {
   const dir = join(root, `.onepage-probe-${process.pid}`)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => "/app/onepage"
@@ -108,6 +113,23 @@ export function createClient() { return { auth: { getUser: async () => ({ data: 
     }
     /* /onepage-preview is the editor preview's own frame (components/onepage/live-preview). */
     if (req.url === "/" || req.url.startsWith("/app") || req.url.startsWith("/onepage-preview")) { res.writeHead(200, { "content-type": "text/html" }); return res.end(html) }
+    if (api) {
+      const chunks = []
+      req.on("data", (c) => chunks.push(c))
+      req.on("end", () => {
+        const answer = api(req, Buffer.concat(chunks).toString("utf8"))
+        if (answer) {
+          res.writeHead(answer.status ?? 200, { "content-type": "application/json" })
+          return res.end(typeof answer.body === "string" ? answer.body : JSON.stringify(answer.body ?? {}))
+        }
+        stub(req, res)
+      })
+      return
+    }
+    stub(req, res)
+  })
+  /* The stub API every probe gets. */
+  function stub(req, res) {
     res.writeHead(200, { "content-type": "application/json" })
     if (req.url.startsWith("/api/billing/subscription")) return res.end(JSON.stringify({ currentPlan: { id: "pro" } }))
     if (req.url.startsWith("/api/onepage/stats")) {
@@ -119,7 +141,7 @@ export function createClient() { return { auth: { getUser: async () => ({ data: 
       return res.end(JSON.stringify({ total_views: days.reduce((a, d) => a + d.views, 0), total_clicks: days.reduce((a, d) => a + d.clicks, 0), chart_data: days }))
     }
     res.end("{}")
-  })
+  }
   await new Promise((r) => server.listen(0, "127.0.0.1", r))
   return { base: `http://127.0.0.1:${server.address().port}`, server }
 }

@@ -641,6 +641,8 @@ const SUITES = [
   "tests/onepage-arrival.test.ts",
   /* Round 11: Storelib's pills in the editor, the Design pages as the app's sub-pages, a tab bar that holds still, a clean way out (scripts/check-onepage-motion-r11.mjs measures them). */
   "tests/onepage-motion-r11.test.ts",
+  /* Round 11: + Add, the Add block sheet's open, Storelib's pills for its chips, brand marks, the embeds and their frame hosts, the social sheet's close and keyboard, Choose icon (scripts/check-onepage-addblock-r11.mjs measures them). */
+  "tests/onepage-addblock-r11.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",
@@ -649,6 +651,8 @@ const SUITES = [
   "tests/site-customer-pages.test.ts",
   "tests/account-sections.test.ts",
   "tests/onepage-blocks.test.ts",
+  /* Round 11: the email signup's five layouts (drawn without an image), groups (what goes in, one edit in and out, what is drawn), the Products tab's short default, and the Integrations section; scripts/check-onepage-blocks-r11.mjs measures them. */
+  "tests/onepage-blocks-r11.test.ts",
   "tests/onepage-editor-ui.test.ts",
   "tests/checkout-loads.test.ts",
   "tests/notify-templates.test.ts",
@@ -831,6 +835,7 @@ const SUITES = [
   "tests/live-speed-ax.test.ts",
   /* Round BA: a published website's page change fetches the page once (Next 16.1), and colour schemes are listed in groups on every theme */
   "tests/round-ba.test.ts",
+  "tests/round-bb.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
   "tests/live-speed-x.test.ts",
   /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */
@@ -878,6 +883,8 @@ const STRICT_SUITES = [
   "tests/onepage-creator-blocks.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
+  /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */
+  "tests/e2e-onepage-blocks-r11.test.ts",
   /* ShippyPro: the adapter against recorded and documented answers, and the marketplace card in each state (components/physical/integrations-marketplace.tsx only type-checks strict) */
   "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */

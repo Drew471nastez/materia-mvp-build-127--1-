@@ -102,7 +102,8 @@ async function main() {
     check("an unknown reason prints nothing from the address", !/class="sl-acc__notice"/.test(odd) && !/&lt;script/.test(odd))
     const code = body(await call(plain, "GET", "/account/login", { account: { customer: null, pending: { email: "a<b>@mail.test" } } }))
     check("waiting on a code: the code step, posted to the verify route, the email as text", /Check your email/.test(code) && /action="\/api\/site-account\/verify"/.test(code) && /autocomplete="one-time-code"/.test(code) && /a&lt;b&gt;@mail\.test/.test(code))
-    check("with Send a new code and Use a different email", /name="again" value="1"/.test(code) && /href="\/account\/login\?step=email"/.test(code))
+    /* Changed on purpose (round BB): Use a different email goes through the restart route, which ends the code this browser waits on. */
+    check("with Send a new code and Use a different email", /name="again" value="1"/.test(code) && /href="\/api\/site-account\/restart"/.test(code))
     const restart = body(await call(plain, "GET", "/account/login?error=expired", { account: { customer: null } }))
     check("a code refused after the note ran out says to start again", /That sign in has expired/.test(restart))
     const reg = body(await call(plain, "GET", "/account/register", { account: { customer: null } }))

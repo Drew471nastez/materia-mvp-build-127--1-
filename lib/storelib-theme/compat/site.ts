@@ -602,7 +602,13 @@ function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
     const notice = signInNotice(!pending && (error === "code" || error === "expired" || error === "tries") ? "restart" : error) ?? (pending && req.query.get("sent") === "1" ? "A new code is on its way." : null)
     const register = signIn[1] === "register"
     const title = register ? "Create account" : "Sign in"
-    if (pending) return shell(site, req, path, title, signInContent({ step: "code", email: pending.email, returnTo: back, notice }), "customers/login")
+    /*
+      The code step lands here from the code route with no `return` in the
+      address, so `back` is /account. Where this sign in was going is in the
+      note itself; Send a new code posts it again, and a new code asked for
+      on the way to checkout still ends at checkout, as the native page does.
+    */
+    if (pending) return shell(site, req, path, title, signInContent({ step: "code", email: pending.email, returnTo: pending.returnTo || back, notice }), "customers/login")
     const own = themeAccountTemplate(site, req, register ? "customers/register" : "customers/login", path, title, notice ? { customer_login: notice } : null)
     if (own) return own
     return shell(site, req, path, title, signInContent({ step: "email", returnTo: back, notice, register }), register ? "customers/register" : "customers/login")
@@ -808,7 +814,6 @@ function sectionsOf(site: SiteData, key: string): StoredSection[] | null {
 async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<Route | null> {
   /* The visitor's account, on this host in the theme (accountPage); the wishlist, Storelib's own page in the theme's header and footer (accountShell). */
   if ((path === "/account" || path.startsWith("/account/")) && path !== "/account/logout") return accountPage(site, req, path)
-  if (path === "/wishlist") return accountShell(site, req, path)
   const at = (key: string, extra: Partial<CompatPage> = {}, status?: number, productTitle?: string): Route | null => {
     const sections = sectionsOf(site, key)
     if (!sections) return null
@@ -825,6 +830,20 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
   }
   /* Storelib Reviews, for the page's Storelib Reviews section and the app blocks a theme kept (./storelib-reviews.ts). Never stops a page. */
   const reviewsFor = async (p: { id: string; title: string } | null) => (site.reviews ? await site.reviews(p).catch(() => null) : null)
+  /*
+    THE WISHLIST. A theme that brings its own wishlist page (a page.wishlist
+    template, its own cards drawn by its script from the list its hearts keep)
+    shows it, in its design, at /wishlist: the theme's list is the website's,
+    copied both ways (shims.ts WISHLIST). A theme with none shows Storelib's
+    own Wishlist page between its header and footer (accountShell).
+  */
+  if (path === "/wishlist") {
+    if (site.pages.wishlist) {
+      const own = at("wishlist", { pageObject: { title: "Wishlist", content: "", handle: "wishlist", url: "/pages/wishlist" }, title: "Wishlist" })
+      if (own) return own
+    }
+    return accountShell(site, req, path)
+  }
   if (path === "/" || path === "") return at("home", { title: site.shop.name, reviews: await reviewsFor(null) })
 
   /*
