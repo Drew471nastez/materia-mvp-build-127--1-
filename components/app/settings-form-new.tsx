@@ -4,7 +4,7 @@ import { publicHelpUrl } from "@/lib/help/paths"
 import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, startTransition } from "react"
+import { Suspense, useState, useRef, useEffect, useLayoutEffect, useCallback, startTransition } from "react"
 import { createPortal } from "react-dom"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -24,10 +24,7 @@ import {
   ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart, Share2, History,
   Users,
 } from "lucide-react"
-import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
-import { AiMemoryPanel } from "@/components/app/settings/ai-memory-panel"
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
-import { CheckoutPanel } from "@/components/app/settings/checkout-panel"
 import { SETTINGS_TAB_EVENT, type SettingsTabRequest } from "@/lib/settings/sheet-links"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
@@ -49,22 +46,31 @@ import { bankStatementLine, statementDescriptorSuffix } from "@/lib/payments/pla
 import { ShareStorelib } from "@/components/app/share/share-storelib"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
-import { NotificationPreferencesPanel } from "@/components/app/settings/notification-preferences"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { applyBusinessSession } from "@/lib/businesses/switch-client"
 import { displayEmail } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { peekGet, prefetchGet, readFresh, whenGets } from "@/components/physical/ui"
 import { inboxAddress } from "@/lib/seller-inbox"
-import { TaxesPanel } from "@/components/app/settings/taxes-panel"
-import { MarketsPanel } from "@/components/app/settings/markets-panel"
-import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
-import { ChannelsPanel } from "@/components/app/settings/channels-panel"
-import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
-import { ActivityPanel } from "@/components/app/settings/activity-panel"
-import { TeamPanel } from "@/components/app/settings/team-panel"
+/* Every section but General's own is its own chunk, fetched once the sheet has risen (components/app/settings/lazy-panels.tsx). */
+import {
+  ActivityPanel,
+  AiMemoryPanel,
+  ChannelsPanel,
+  CheckoutPanel,
+  CustomerEmailsPanel,
+  IntegrationsDirectory,
+  MarketsPanel,
+  NotificationPreferencesPanel,
+  ReasonsPanel,
+  ShippingSettings,
+  TaxesPanel,
+  TeamPanel,
+  preloadSettingsPanels,
+  settingsPanelReady,
+  whenSettingsPanel,
+} from "@/components/app/settings/lazy-panels"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 import { SettingsLeaveGuard } from "@/components/app/settings/leave-guard"
 import { markDirty, requestLeave } from "@/lib/settings/unsaved-guard"
@@ -550,6 +556,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       if (!live) return
       prefetchGet([...new Set(Object.keys(TAB_DATA).flatMap((id) => tabData(id as TabId, physicalCommerce)))])
       void loadBilling()
+      preloadSettingsPanels()
     }
     const rising = (formRef.current?.closest("[data-settings-sheet]") as HTMLElement | null)?.getAnimations?.() ?? []
     if (rising.length) void Promise.all(rising.map((a) => a.finished.catch(() => null))).then(go)
@@ -607,7 +614,15 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     if (panelTab === activeTab) return
     let live = true
     const urls = tabData(activeTab, physicalCommerce)
+    /* The section's code is asked for with its data (components/app/settings/lazy-panels.tsx; normally here since the sheet rose). */
+    void whenSettingsPanel(activeTab)
+    let waitedForCode = false
     const show = () => {
+      /* Never drawn half loaded: a section whose code is still on its way swaps in the moment it lands (once; a chunk that failed is the form's Suspense's). */
+      if (!waitedForCode && !settingsPanelReady(activeTab)) {
+        waitedForCode = true
+        return void whenSettingsPanel(activeTab).then(show)
+      }
       if (live) startTransition(() => setPanelTab(activeTab))
     }
     /*
@@ -1767,6 +1782,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
             by the address on load are simply there, and a re-render never
             replays it: the key, and so the element, only changes with the tab.
           */}
+          {/* Only a section opened by its address before its code has come waits here (components/app/settings/lazy-panels.tsx): a press swaps a section in once its code is here. */}
+          <Suspense fallback={<WaitingArea className="min-h-[240px]" />}>
           <div key={panelTab} data-settings-panel={panelTab} className={panelEntrance ? "settings-panel" : undefined}>
           {/*
             NO SKELETON BETWEEN TABS.
@@ -2348,6 +2365,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           )}
 
           </div>
+          </Suspense>
         </div>
         </div>
         </div>

@@ -1,6 +1,6 @@
 import { SettingsFormNew } from "@/components/app/settings-form-new"
 import { loadSettingsData } from "./_server"
-import { TeamPanel } from "@/components/app/settings/team-panel"
+import { TeamPanel } from "@/components/app/settings/lazy-panels"
 import { getServerTt } from "@/lib/i18n/server"
 
 /**

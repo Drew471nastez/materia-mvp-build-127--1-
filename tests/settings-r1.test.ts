@@ -100,6 +100,14 @@ function wiring() {
   check("Plan has a centred Plans and pricing", />Plans and pricing<\/h2>/.test(read("components/app/billing/billing-page-client.tsx")))
   check("the Name field keeps a space typed after the first name", /value=\{nameDraft \?\? fullNameForUsernameInput\}/.test(form))
   check("the probe that measures all of it is on disk", /check-settings-r1/.test(read("scripts/check-settings-r1.mjs")))
+
+  /* Round 12 (PLATPERF): Settings' first load carried every section's code (850 KB gzipped, against 568 KB for /app). */
+  console.log("\nEvery section's code after the sheet has risen\n")
+  const lazy = read("components/app/settings/lazy-panels.tsx")
+  const sections = ["TaxesPanel", "MarketsPanel", "TeamPanel", "IntegrationsDirectory", "CustomerEmailsPanel", "ChannelsPanel", "ActivityPanel", "NotificationPreferencesPanel", "AiMemoryPanel", "CheckoutPanel", "ReasonsPanel", "ShippingSettings"]
+  check("no section is imported into the form or the sheet's view, each is its own chunk", sections.every((n) => !new RegExp(`import \\{[^}]*\\b${n}\\b[^}]*\\} from "@/components/(app/settings/(?!lazy-panels)|physical/)`).test(form)) && !/settings\/team-panel"/.test(read("app/app/settings/_view.tsx")) && sections.every((n) => new RegExp(`export const ${n} = lazyPanel`).test(lazy)))
+  check("  fetched with the data, once the sheet has risen", /void loadBilling\(\)\n\s*preloadSettingsPanels\(\)/.test(form))
+  check("  a pressed section swaps in only once its code is here, and a loaded one renders in the same frame", /if \(!waitedForCode && !settingsPanelReady\(activeTab\)\)/.test(form) && /const C = loaded\.get\(key\) \?\? use\(load\(key\)\)/.test(lazy) && /<Suspense fallback=\{<WaitingArea/.test(form))
 }
 
 void guard().then(() => {
