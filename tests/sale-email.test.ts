@@ -262,7 +262,8 @@ async function main() {
     check("no footer says Storelib is only digital products", !/Helping creators sell digital products|digital products are making an impact/.test(src))
     check("the engine sends neither sale email itself, so a first sale is one email", REGISTRY.NEW_SALE.emailSentElsewhere === true && REGISTRY.FIRST_SALE.emailSentElsewhere === true)
     const cart = readFileSync("lib/checkout/fulfil-cart-session.ts", "utf8")
-    check("a basket passes its quantities and code", /sale: \{ couponCode: s\.couponCode, lines: saleLines \}/.test(cart))
+    /* Changed on purpose (round BC): the buyer's note goes with them. */
+    check("a basket passes its quantities and code", /sale: \{ couponCode: s\.couponCode, lines: saleLines(, buyerNote: s\.buyerNote \?\? null)? \}/.test(cart))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
