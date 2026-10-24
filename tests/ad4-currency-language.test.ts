@@ -26,6 +26,10 @@
  *   8. A customer's account on a website in French listed their orders with
  *      English dates ("Oct 3, 2026"), states ("Delivered") and buttons
  *      ("Track order"), whatever the page's language.
+ *   9. The website's currency selector said "Prices in PLN are for
+ *      reference. You'll pay in RON; your bank converts it." in English on
+ *      every language of the website; the checkout already said it in the
+ *      buyer's.
  *
  *   npx tsx tests/ad4-currency-language.test.ts
  */
@@ -46,6 +50,8 @@ import { inEmailLanguage } from "@/lib/emails/words"
 import { orderConfirmationEmail, type OrderEmailModel } from "@/lib/physical/email-templates"
 import { customerInLanguage, ACCOUNT_WORDS } from "@/lib/site-accounts/account-language"
 import { UI_WORDS } from "@/lib/markets/ui-words"
+import { chargeNoteIn } from "@/lib/markets/checkout-words"
+import { languageChoiceOf } from "@/lib/markets/choice"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -201,6 +207,18 @@ console.log("\n8. A customer's orders read in the website's language\n")
   check("in English it is exactly what it was", JSON.stringify(customerInLanguage(customer, "en", {})) === JSON.stringify(customer))
   check("every state and button the account writes is a shop word", Object.values(ACCOUNT_WORDS).every((k) => k in UI_WORDS) && ["Processing", "Refunded", "On hold", "Partly refunded", "Complete", "Delivered", "Shipped", "Confirmed", "Cancelled", "Partly ready", "Partly shipped", "Ready for pickup", "Picked up", "In transit", "Out for delivery", "Delivery problem", "Sent to be shipped", "Being prepared", "Track order", "View order", "Download", "Access", "Free", "No longer available"].every((w) => w in ACCOUNT_WORDS))
   check("the account page draws its customer in the page's language", /customerInLanguage\(extras\.customer, localizer\.locale, localizer\.words\)/.test(read("app/(site)/w/[username]/render-account.tsx")))
+}
+
+console.log("\n9. The currency selector's note in the page's language\n")
+{
+  check("in French, with Storelib's own words for it", chargeNoteIn("fr", null, "PLN", "RON") === "Les prix en PLN sont donnés à titre indicatif. Vous paierez en RON ; votre banque fait la conversion.", chargeNoteIn("fr", null, "PLN", "RON"))
+  check("  in English as it was, and nothing when the two are the same", chargeNoteIn("en", null, "PLN", "RON") === "Prices in PLN are for reference. You'll pay in RON; your bank converts it." && chargeNoteIn("fr", null, "RON", "RON") === null)
+  const now = Date.now()
+  const asOf = new Date(now).toISOString().slice(0, 10)
+  const pln = pricingFor({ id: "pl", name: "Poland", currency: "PLN", rounding: "none", adjustBps: 0 }, "RON", { asOf, rates: { RON: 5, PLN: 4.3 } }, now)!
+  const choice = languageChoiceOf({ defaultLanguage: "en", others: ["fr"], locale: "fr", markets: [{ id: "pl", name: "Poland", currency: "PLN", countries: ["PL"] }], fresh: true, pricing: pln, base: "RON", charge: "RON", say: (d, c) => chargeNoteIn("fr", null, d, c) })
+  check("the selector on a French page says it in French", choice.currency?.note === chargeNoteIn("fr", null, "PLN", "RON"), choice.currency)
+  check("  and the live website hands it the page's words", /say: \(shown, paid\) => chargeNoteIn\(lang, map, shown, paid\)/.test(read("lib/markets/live.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

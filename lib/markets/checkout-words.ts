@@ -146,6 +146,21 @@ export function emailWordsIn(language: string, map: TranslationMap | null | unde
   return layeredWords({ sentences: emailSentences(), language, rows: map, keyOf: emailKey, overrides })
 }
 
+/** What a visitor is told when prices are shown in one currency and charged in another (lib/markets/money chargeNote). */
+export const CHARGE_NOTE = "Prices in {display} are for reference. You'll pay in {charge}; your bank converts it."
+
+/**
+ * chargeNote in a language: the store's translation of the checkout's own
+ * sentence, Storelib's curated words, or the English, so the website's
+ * currency selector says it in the page's language as the checkout does.
+ * Null when the two currencies are the same.
+ */
+export function chargeNoteIn(language: string, map: TranslationMap | null | undefined, display: string, charge: string): string | null {
+  if (display === charge) return null
+  const words = layeredWords({ sentences: [CHARGE_NOTE], language, rows: map, keyOf: checkoutKey })
+  return formatMessage(words[CHARGE_NOTE] ?? CHARGE_NOTE, { display, charge }, language || "en")
+}
+
 /** A sentence a server route sends to the checkout, marked so it is listed and translated where it is shown. */
 export function checkoutMsg<T extends string>(source: T): T {
   return source
