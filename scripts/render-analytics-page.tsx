@@ -19,6 +19,11 @@
  *   ?products=many  fourteen products: the product picker's search
  *   ?empty=1        a creator with nothing yet: every card's empty state
  *   ?view=summary   the Website screen's and the OnePage editor's summary lines
+ *   ?seller=digital | physical | both | none
+ *                   what the store sells (round AB2): the products' kinds, so
+ *                   the page morphs; the sales reports and the export are
+ *                   answered from the same fixtures (lib/analytics/commerce
+ *                   commerceReport, lib/analytics/export-csv)
  *
  * scripts/check-analytics-page.mjs drives it.
  */
@@ -32,6 +37,9 @@ import { buildReports, moneyOf, salesFor, wireFromRows, type StepRow, type Subsc
 import { parseProperty, type CreatorProperties } from "@/lib/analytics/properties"
 import { summaryHref } from "@/lib/analytics/summary"
 import type { OrderRow } from "@/lib/orders/order-view"
+import { commerceReport } from "@/lib/analytics/commerce"
+import { analyticsCsv } from "@/lib/analytics/export-csv"
+import { modeFor, parseMode, profileOf, sectionsFor } from "@/lib/analytics/sections"
 
 const DAY = 86_400_000
 const now = Date.now()
@@ -50,12 +58,15 @@ let seed = 11
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
 const pick = <T,>(xs: T[]) => xs[Math.floor(rnd() * xs.length)]
 
-const PRODUCTS = [
-  { id: "p1", title: "Lightroom preset pack" },
-  { id: "p2", title: "Brush set for Procreate" },
-  { id: "p3", title: "Portrait course" },
-  { id: "p4", title: "Wallpaper bundle" },
+const SELLER = params.get("seller")
+const KIND: Record<string, string> = SELLER === "physical" ? { p1: "physical", p2: "physical", p3: "physical", p4: "physical" } : SELLER === "both" ? { p1: "digital", p2: "physical", p3: "digital", p4: "physical" } : { p1: "digital", p2: "digital", p3: "digital", p4: "digital" }
+const PRODUCTS = SELLER === "none" ? [] : [
+  { id: "p1", title: "Lightroom preset pack", type: KIND.p1 },
+  { id: "p2", title: "Brush set for Procreate", type: KIND.p2 },
+  { id: "p3", title: "Portrait course", type: KIND.p3 },
+  { id: "p4", title: "Wallpaper bundle", type: KIND.p4 },
 ]
+const TYPES: Record<string, string | null> = Object.fromEntries(PRODUCTS.map((p) => [p.id, p.type]))
 const PLACE_PAGES: Record<string, string[]> = {
   creator_page: ["/ana", "/ana/presets", "/ana/brushes", "/ana/course"],
   onepage: ["/ana/links"],
@@ -99,7 +110,7 @@ if (!empty) {
       }
       if (PAGE_PRODUCT[path] && rnd() < 0.25) {
         steps.push({ id: `k${i}-${k}`, event_type: "checkout_start", session_id: `s${i}`, visitor_id: who, product_id: PAGE_PRODUCT[path], property_type: place.startsWith("w") ? "website" : place, property_id: place === "w1" ? W1 : place === "w2" ? W2 : null, created_at: new Date(t + k * 90_000 + 40_000).toISOString() })
-        if (rnd() < 0.55) {
+        if (rnd() < 0.55 && SELLER !== "none") {
           orders.push({
             id: `o${i}-${k}`,
             product_id: PAGE_PRODUCT[path],
@@ -107,6 +118,8 @@ if (!empty) {
             status: i % 17 === 0 ? "refunded" : "completed",
             created_at: new Date(t + k * 90_000 + 60_000).toISOString(),
             source: place.startsWith("w") ? "website" : "storelib",
+            buyer_email: `buyer${Math.floor(rnd() * 60)}@example.com`,
+            checkout_id: KIND[PAGE_PRODUCT[path]] === "physical" ? `ck${i}-${k}` : null,
             property_type: place.startsWith("w") ? "website" : place,
             property_id: place === "w1" ? W1 : place === "w2" ? W2 : place === "onepage" ? OP : "c1",
           })
@@ -169,6 +182,29 @@ w.fetch = (async (input: RequestInfo | URL) => {
     return json({ visitors: wire.cur.visitors ?? 0, orders: sold.length, href: summaryHref(selector), viewer: "u1" })
   }
 
+  /* The sales reports and the export, from the same orders by the same rules as the server (round AB2). */
+  if (u.pathname.endsWith("/api/analytics/commerce") || u.pathname.endsWith("/api/analytics/export")) {
+    const exporting = u.pathname.endsWith("/api/analytics/export")
+    const span = exporting ? { start: Date.parse(q.get("start")!), end: Date.parse(q.get("end")!) } : { start: Number(q.get("from")), end: Number(q.get("to")) }
+    const cs2 = q.get("cstart")
+    const previous = cs2 ? (exporting ? { start: Date.parse(cs2), end: Date.parse(q.get("cend")!) } : { start: Number(cs2), end: Number(q.get("cend")) }) : null
+    const tz = q.get("tz") || "UTC"
+    const profile = profileOf({ products: PRODUCTS, onePageId: PLACES.onePageId, websites: PLACES.websites, communities: 0 })
+    const mode = modeFor(profile, parseMode(q.get("kind")))
+    const wanted = q.get("product")
+    const productId = wanted && wanted !== "all" && titles[wanted] ? wanted : null
+    const checkouts = Object.fromEntries(orders.filter((o) => o.checkout_id).map((o, i) => [o.checkout_id!, i % 3 === 0 ? "unfulfilled" : "fulfilled"]))
+    const c = commerceReport({ rows: orders, span, previous, timeZone: tz, selector, properties: PLACES, productId, mode, productTypes: TYPES, checkouts })
+    const commerce = { ...c, currency: "USD", grain: span.end - span.start <= 2 * DAY ? "hour" : span.end - span.start <= 92 * DAY ? "day" : "month", timeZone: tz, compared: !!previous, truncated: false, unconverted: 0, fulfillment: { hours: 30, shipped: 4 }, fulfillmentBefore: { hours: 36, shipped: 3 }, placeUnknown: false, viewer: "u1" }
+    if (!exporting) return json({ ...commerce, orders: undefined })
+    const mine2 = productId ? orders.filter((o) => o.product_id === productId) : orders
+    const reports = buildReports({ views, steps, orders: mine2, subscribers, window: span, previous, timeZone: tz, mainDomain: "storelib.com", productTitles: titles, selector, properties: PLACES, product: productId, productTypes: TYPES, mode })
+    const sections = sectionsFor(profile, { property: q.get("property") || "all", productKind: null, mode })
+    const day = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+    const csv = analyticsCsv({ meta: { store: "Ana", from: day(span.start), to: day(span.end - 1), comparedFrom: previous ? day(previous.start) : null, comparedTo: previous ? day(previous.end - 1) : null, timeZone: tz, place: "All pages", sales: mode, currency: "USD", madeAt: new Date().toISOString() }, reports, commerce: commerce as never, sections, timeZone: tz })
+    return new Response(`\uFEFF${csv}`, { status: 200, headers: { "content-type": "text/csv; charset=utf-8" } })
+  }
+
   const window_ = { start: Date.parse(q.get("start")!), end: Date.parse(q.get("end")!) }
   const cs = q.get("cstart")
   const previous = cs ? { start: Date.parse(cs), end: Date.parse(q.get("cend")!) } : null
@@ -177,7 +213,8 @@ w.fetch = (async (input: RequestInfo | URL) => {
   const product = wanted && wanted !== "all" && titles[wanted] ? wanted : null
   const mine = product ? orders.filter((o) => o.product_id === product) : orders
   const wire = wireFromRows({ views, steps, window: window_, previous, timeZone, selector, defaultWebsite: PLACES.defaultWebsite, product, mainDomain: "storelib.com" })
-  const base = { orders: mine, window: window_, previous, timeZone, mainDomain: "storelib.com", productTitles: titles, selector, properties: PLACES, product, linkLabels: { b1: "Shop my presets", b2: "YouTube", b3: "Instagram" } }
+  const kind = modeFor(profileOf({ products: PRODUCTS, onePageId: PLACES.onePageId, websites: PLACES.websites, communities: 0 }), parseMode(q.get("kind")))
+  const base = { orders: mine, window: window_, previous, timeZone, mainDomain: "storelib.com", productTitles: titles, selector, properties: PLACES, product, linkLabels: { b1: "Shop my presets", b2: "YouTube", b3: "Instagram" }, productTypes: TYPES, mode: kind }
   const reports = buildReports({ ...base, wire, subscribers: product ? undefined : subscribers })
   const sales = salesFor(mine, { type: "all" }, PLACES.defaultWebsite)
   const allTime = selector.type === "all" && !product ? { orders: sales.length, salesCents: sales.reduce((n, o) => n + moneyOf(o).net, 0) } : null

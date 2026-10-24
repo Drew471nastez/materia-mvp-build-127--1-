@@ -17,6 +17,7 @@ import { byCreator, ownRows, scopedOrders } from "./creator-orders"
 import { hasOrdersInOtherCurrency, inStoreCurrency } from "@/lib/money/report-currency-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { ownsProperty, parseProperty, propertyParam } from "./properties"
+import { parseMode } from "./sections"
 import {
   countVisits,
   creatorProperties,
@@ -80,9 +81,14 @@ export async function reportQuestion(admin: Admin, userId: string, url: URL, mai
   /* The old OnePage view is the OnePage property now. */
   const selector = url.searchParams.get("mode") === "onepage" && !url.searchParams.get("property") ? parseProperty("onepage") : parseProperty(url.searchParams.get("property"))
 
+  /* The All / Digital / Physical switch: which order lines the sales figures keep. */
+  const mode = parseMode(url.searchParams.get("kind"))
+
   const question = new URLSearchParams(url.searchParams)
   question.delete("stream")
   question.delete("mode")
+  question.delete("kind")
+  if (mode !== "all") question.set("kind", mode)
   question.set("property", propertyParam(selector) ?? "all")
   question.sort()
 
@@ -107,7 +113,7 @@ export async function reportQuestion(admin: Admin, userId: string, url: URL, mai
   const wanted = url.searchParams.get("product")
   const product = wanted && wanted !== "all" && productTitles[wanted] ? wanted : null
   return {
-    q: { creatorId: creator.id, selector, properties, product, window: span, previous, timeZone, mainDomain, part: "all" },
+    q: { creatorId: creator.id, selector, properties, product, window: span, previous, timeZone, mainDomain, part: "all", mode },
     productTitles,
     productTypes,
     question: question.toString(),
@@ -139,7 +145,7 @@ export async function countReportAnswer(
     const orders = readOrders(admin, spans, q.creatorId, q.product)
     const subscribers = q.product ? Promise.resolve(null) : readSubscribers(admin, spans, q.creatorId)
     const labels = q.selector.type === "onepage" || q.selector.type === "all" ? onePageLinkLabels(admin, q.properties.onePageId) : Promise.resolve({})
-    const allTime = q.selector.type === "all" && !q.product ? allTimeOf(admin, q.creatorId) : Promise.resolve(null)
+    const allTime = q.selector.type === "all" && !q.product && (q.mode ?? "all") === "all" ? allTimeOf(admin, q.creatorId) : Promise.resolve(null)
     /* Nothing is left unhandled while the others are awaited. */
     /*
       Systems, carts and page titles (part 253), for both periods. When the
@@ -157,7 +163,7 @@ export async function countReportAnswer(
     })
     for (const p of [quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads]) p.catch(() => {})
 
-    const base = { window: q.window, previous: q.previous, timeZone: q.timeZone, mainDomain: q.mainDomain, productTitles, selector: q.selector, properties: q.properties, product: q.product }
+    const base = { window: q.window, previous: q.previous, timeZone: q.timeZone, mainDomain: q.mainDomain, productTitles, selector: q.selector, properties: q.properties, product: q.product, mode: q.mode ?? "all", productTypes }
     if (onFigures) {
       onFigures(Promise.all([quick, legacy, orders, allTime])
         .then(([v, l, o, a]) => {
@@ -172,7 +178,7 @@ export async function countReportAnswer(
             click_buckets: w.click_buckets,
           })
           const wire = foldLegacy({ cur: only(v.wire.cur), prev: only(v.wire.prev) }, l.legacy, q)
-          return { reports: buildReports({ ...base, wire, orders: o.rows }), allTime: a, truncated: false, viewer, property: propertyParam(q.selector) ?? "all", properties: q.properties }
+          return { reports: buildReports({ ...base, wire, orders: o.rows }), allTime: a, truncated: false, viewer, property: propertyParam(q.selector) ?? "all", properties: q.properties, kind: q.mode ?? "all" }
         })
         .catch(() => null))
     }
@@ -185,7 +191,7 @@ export async function countReportAnswer(
     }
     const wire = foldLegacy(merged, l.legacy, q)
     return {
-      reports: buildReports({ ...base, wire, orders: o.rows, subscribers: s ?? undefined, linkLabels: labelsById, productTypes, downloadsByLine: dl }),
+      reports: buildReports({ ...base, wire, orders: o.rows, subscribers: s ?? undefined, linkLabels: labelsById, downloadsByLine: dl }),
       allTime: a,
       truncated: v.truncated || d.truncated || l.truncated || o.truncated || audNow.truncated || audBefore.truncated,
       /* Sales in another currency, each converted to the store's at its own day's rate; any no rate could convert are left out and counted. */
@@ -193,6 +199,7 @@ export async function countReportAnswer(
       viewer,
       property: propertyParam(q.selector) ?? "all",
       properties: q.properties,
+      kind: q.mode ?? "all",
     }
   }
 }

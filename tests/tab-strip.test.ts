@@ -122,7 +122,8 @@ function main() {
     /import \{ TAB_STRIP_STYLE, useTabStrip \} from "@\/components\/app\/use-tab-strip"/.test(home)
       && /import \{ TAB_STRIP_STYLE, useTabStrip \} from "@\/components\/app\/use-tab-strip"/.test(analytics)
       && /<div ref=\{kpiStripRef\} role="tablist" aria-label="Metric" data-scroll-x className="[^"]*" style=\{TAB_STRIP_STYLE\}>/.test(home)
-      && /ref=\{metricStripRef\}\s*role="tablist"\s*aria-label="Metric"\s*data-scroll-x\s*className="[^"]*"\s*style=\{TAB_STRIP_STYLE\}/.test(analytics)
+      /* Changed on purpose (round AB2): the class is a template, three columns for a store with nothing to sell yet. */
+      && /ref=\{metricStripRef\}\s*role="tablist"\s*aria-label="Metric"\s*data-scroll-x\s*className=(?:"[^"]*"|\{`[^`]*`\})\s*style=\{TAB_STRIP_STYLE\}/.test(analytics)
       && !/touchAction: ["']pan-x/.test(strip(home)) && !/touchAction: ["']pan-x/.test(strip(analytics)))
   check("the attribute is named once, beside the style",
     /export const SCROLL_X_ATTR = "data-scroll-x"/.test(hook))
@@ -195,7 +196,8 @@ function main() {
   */
   check("the analytics figures keep visitors, revenue, orders and conversion, in that order",
     /const CORE_TABS = \["views", "revenue", "orders", "conversion"\] as const/.test(analytics)
-      && /const tabOrder = CORE_TABS/.test(analytics)
+      /* Changed on purpose (round AB2): a store with nothing to sell yet has the visits' tabs, not zeros of sales. */
+      && /const tabOrder: readonly ChartMetricFilter\[\] = sells === "none" \? TRAFFIC_TABS : CORE_TABS/.test(analytics)
       && /<MetricTab key=\{tab\} tab=\{tab\} className=\{STRIP_TAB\}/.test(analytics))
   check("and they are one row that scrolls sideways on a phone, columns wider up, like the home page's",
     /ref=\{metricStripRef\}/.test(analytics)

@@ -169,7 +169,8 @@ try {
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpu })
     const before = await p.evaluate(() => window.__cls)
     await p.evaluate(() => window.__sample(true))
-    const lists = await p.evaluate(() => [...document.querySelectorAll("[role=tablist]")].map((l, i) => { l.setAttribute("data-probe-list", String(i)); return [i, l.querySelectorAll("[role=tab]").length] }))
+    /* Not the All / Digital / Physical switch: it changes which cards there are (scripts/check-analytics-ab2.mjs measures it). */
+    const lists = await p.evaluate(() => [...document.querySelectorAll("[role=tablist]")].filter((l) => !l.closest("[data-sales-mode]")).map((l, i) => { l.setAttribute("data-probe-list", String(i)); return [i, l.querySelectorAll("[role=tab]").length] }))
     let presses = 0
     const marks = []
     for (const [i, n] of lists) {

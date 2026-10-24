@@ -1,13 +1,14 @@
 /**
  * The pictures on storelib.com's front page hero, in one place.
  *
- * Swapping in real screenshots is a change to this file only: give an entry a
- * `src` and it is drawn through next/image; leave `src` null and the hero
- * draws a neutral placeholder card of the same size, so nothing moves when the
- * pictures arrive.
+ * Every one is a real Storelib screen with made up content (an invented
+ * creator, Juniper Studio, and invented products), photographed by
+ * scripts/hero-shots.mjs into public/marketing/hero/. Run it again after a
+ * screen changes; this file names what it made.
  *
- * A `src` must be an address next.config.mjs allows (`images.remotePatterns`,
- * Storelib's own /media/** for example) or a path under /public.
+ * Swapping a picture is a change to this file only: give an entry a `src` and
+ * it is drawn; leave `src` null and the hero draws a neutral placeholder card
+ * of the same size, so nothing moves when a picture arrives.
  */
 
 export type HeroImage = {
@@ -19,21 +20,30 @@ export type HeroImage = {
   href?: string
 }
 
-/** The storefront slider. Screenshots are 16:10 (1600 x 1000 is a good source size). */
+const DIR = "/marketing/hero"
+
+/** The slider. 1200 x 750 WebP, 16:10. */
 export const HERO_SLIDES: HeroImage[] = [
-  { src: null, alt: "A watch maker's product page built on Storelib" },
-  { src: null, alt: "A pet food store's product page built on Storelib" },
-  { src: null, alt: "A meal kit store's front page built on Storelib" },
-  { src: null, alt: "A boxing gear store's product page built on Storelib" },
-  { src: null, alt: "A comic book shop built on Storelib" },
-  { src: null, alt: "A ceramics studio's store built on Storelib" },
+  { src: `${DIR}/slide-store.webp`, alt: "A demo store's front page on Storelib's default theme" },
+  { src: `${DIR}/slide-product.webp`, alt: "The same demo store's product page, with Add to cart and Buy now" },
+  { src: `${DIR}/slide-onepage.webp`, alt: "One link in bio page shown in three Storelib themes" },
+  { src: `${DIR}/slide-creator.webp`, alt: "A demo creator page with its cover, profile and products" },
+  { src: `${DIR}/slide-editor.webp`, alt: "The Storelib website builder with the demo store open" },
+  { src: `${DIR}/slide-dashboard.webp`, alt: "The Storelib dashboard a creator sees after signing in" },
 ]
 
 /** The width and height ratio every slide is drawn at. */
 export const HERO_SLIDE_RATIO = 16 / 10
 
+/** The backdrop's pictures: 360 x 450 WebP, 4:5. */
+const TILES = [
+  "store", "onepage-sunset", "dashboard", "product", "onepage-default", "creator", "store-grid",
+  "onepage-ocean", "editor", "onepage-sage", "store-desk", "onepage-aurora", "onepage-riso",
+].map((name) => `${DIR}/tile-${name}.webp`)
+
 /**
  * The dim collage behind the heading. Decoration only, so `alt` stays empty.
- * Portrait tiles (4:5); thirty two is enough to fill the panel at every width.
+ * Thirty two cells fill the panel at every width. Thirteen pictures, stepped
+ * by five: no picture sits beside itself or above itself in the grid.
  */
-export const HERO_BACKDROP: HeroImage[] = Array.from({ length: 32 }, () => ({ src: null, alt: "" }))
+export const HERO_BACKDROP: HeroImage[] = Array.from({ length: 32 }, (_, i) => ({ src: TILES[(i * 5) % TILES.length], alt: "" }))

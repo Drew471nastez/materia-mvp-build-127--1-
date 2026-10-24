@@ -27,6 +27,7 @@ import { byCreator, ownRows, scopedOrders } from "./creator-orders"
 import { onePageOf, publishedInstallOf } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "./sources"
 import { isBotAgent, parseUserAgent } from "./user-agent"
+import type { SalesMode } from "./sections"
 import { counts, propertyParam, type CreatorProperties, type PropertySelector, type WebsiteProperty } from "./properties"
 import {
   audienceOf,
@@ -191,6 +192,8 @@ export interface CountQuestion {
   /** The quick part only (visitors, page views, link clicks), or everything. */
   part: "figures" | "detail" | "all"
   now?: number
+  /** The All / Digital / Physical switch: the order lines the sales figures keep. Visits are the store's. */
+  mode?: SalesMode
 }
 
 /** The selector as analytics_report's first arguments. */

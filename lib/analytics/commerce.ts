@@ -23,8 +23,10 @@
  * customers in it. Channels come from where each order was placed.
  */
 import { decodeOrigin } from "@/lib/orders/order-source"
-import { counts, orderProperty, type PropertySelector } from "@/lib/analytics/properties"
+import { counts, orderProperty, propertyName, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
 import { bucketIndex, bucketStarts, grainFor, type Grain } from "@/lib/analytics/buckets"
+import { groupOrders, isSale, type Order, type OrderRow } from "@/lib/orders/order-view"
+import { lineInMode, type SalesMode } from "@/lib/analytics/sections"
 
 export interface CommerceOrderRow {
   id: string
@@ -218,4 +220,241 @@ export function channelsOf(rows: CommerceOrderRow[]): Array<{ channel: Channel; 
       return { channel, label: CHANNEL_LABEL[channel], total: b.total, orders: b.orders }
     })
     .sort((a, b) => b.total - a.total)
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ *  THE SALES REPORTS, COUNTED AS EVERY OTHER FIGURE ON THE PAGE COUNTS ORDERS
+ * ═══════════════════════════════════════════════════════════════════════════
+ * breakdownOf above adds up order lines as they come. The page's tabs
+ * (lib/analytics/reports) count payments: every line of one payment is one
+ * order, placed in time and in a place by its first line, a sale or not by
+ * lib/orders/order-view isSale. Counting lines on their own disagreed with
+ * the tabs in four ways, each measured on tests/analytics-accuracy.test.ts's
+ * fixture:
+ *
+ *   a basket whose lines straddle the end of a period was an order in both
+ *   a basket without a place of its own (before part 60) was the creator
+ *     page's here and the website's on the tabs
+ *   a payment still pending on one line was a sale on its other lines
+ *   a returning customer was one with two orders inside the period only,
+ *     so somebody who bought last month and again today was new
+ *
+ * commerceReport counts payments by the tabs' rules, so Total sales here is
+ * Revenue on the tab, to the cent, for every place, product and switch.
+ */
+
+export type Span = { start: number; end: number }
+
+/** One payment's money, from its lines (lineBreakdown), so the parts add up to what was paid less refunds. */
+export function orderBreakdown(o: Pick<Order, "lines">) {
+  const out = { gross: 0, discounts: 0, returns: 0, shipping: 0, taxes: 0, tips: 0, total: 0 }
+  for (const line of o.lines) {
+    const b = lineBreakdown(line as unknown as CommerceOrderRow)
+    out.gross += b.gross
+    out.discounts += b.discounts
+    out.returns += b.returns
+    out.shipping += b.shipping
+    out.taxes += b.taxes
+    out.tips += b.tips
+    out.total += b.total
+  }
+  return { ...out, total: out.total - out.returns }
+}
+
+const emailOf = (o: Pick<Order, "lines">) => o.lines.map((l) => (l.buyer_email || "").trim().toLowerCase()).find(Boolean) ?? ""
+
+/**
+ * The breakdown of a list of payments. `earlier`: the customers who had a
+ * sale before the period began; one of them buying again is returning, as
+ * Shopify counts it (more than one order in their lifetime).
+ */
+export function breakdownOfOrders(orders: Array<Pick<Order, "lines">>, earlier: ReadonlySet<string> = new Set()): SalesBreakdown {
+  const out = { gross: 0, discounts: 0, returns: 0, shipping: 0, taxes: 0, tips: 0 }
+  const perCustomer = new Map<string, number>()
+  for (const o of orders) {
+    const b = orderBreakdown(o)
+    out.gross += b.gross
+    out.discounts += b.discounts
+    out.returns += b.returns
+    out.shipping += b.shipping
+    out.taxes += b.taxes
+    out.tips += b.tips
+    const c = emailOf(o)
+    if (c) perCustomer.set(c, (perCustomer.get(c) ?? 0) + 1)
+  }
+  const net = out.gross - out.discounts - out.returns
+  const count = orders.length
+  const customers = perCustomer.size
+  const returningCustomers = [...perCustomer.entries()].filter(([c, k]) => k >= 2 || earlier.has(c)).length
+  return {
+    ...out,
+    net,
+    total: net + out.shipping + out.taxes + out.tips,
+    orders: count,
+    aov: count ? Math.round((out.gross - out.discounts) / count) : 0,
+    customers,
+    returningCustomers,
+    returningRate: customers ? returningCustomers / customers : 0,
+  }
+}
+
+/** A sales channel: where the order was placed, one row per place and per way in. */
+export interface ChannelRow {
+  key: string
+  label: string
+  total: number
+  orders: number
+}
+
+/**
+ * Where a payment was placed, as a channel: each website by its name, the
+ * OnePage, and on the creator's Storelib pages the way in (Explore, a
+ * checkout link opened on its own, a test sale made by Storelib's admin)
+ * or the creator page itself.
+ */
+export function channelOfOrder(o: Order, properties: CreatorProperties): { key: string; label: string } {
+  const place = orderProperty(o)
+  if (place.type === "website") {
+    const id = place.id ?? properties.defaultWebsite
+    const site = properties.websites.find((w) => w.id === id)
+    return { key: `website:${id ?? ""}`, label: site?.name || (properties.websites.length <= 1 ? "Online store" : propertyName(place, properties)) }
+  }
+  if (place.type === "onepage") return { key: "onepage", label: "OnePage" }
+  const surface = (o.sourceDetail as { surface?: string } | null)?.surface ?? o.lines.map((l) => decodeOrigin(l.source_detail)?.surface).find(Boolean)
+  if (surface === "explore") return { key: "explore", label: "Storelib Explore" }
+  if (surface === "link") return { key: "link", label: "Checkout links" }
+  if (surface === "admin") return { key: "admin", label: "Test sales" }
+  return { key: "creator_page", label: "Creator page" }
+}
+
+export interface FulfillmentFigures {
+  /** Physical orders of the period (with a checkout to ship), fulfilled or not. */
+  orders: number
+  fulfilled: number
+  /** fulfilled / orders; null with no physical order. */
+  rate: number | null
+}
+
+export interface CommerceReport {
+  breakdown: SalesBreakdown
+  previous: SalesBreakdown
+  series: CommercePoint[]
+  previousSeries: CommercePoint[]
+  channels: ChannelRow[]
+  fulfillmentRate: FulfillmentFigures
+  fulfillmentRateBefore: FulfillmentFigures
+  /** The period's payments, newest first, for the export. */
+  orders: Order[]
+}
+
+/**
+ * What a chosen product keeps of the order lines, before they are grouped:
+ * the tabs read only that product's lines (report-read readOrders), so this
+ * does too.
+ */
+export function linesFor(rows: OrderRow[], opts: { productId: string | null }): OrderRow[] {
+  return opts.productId ? rows.filter((r) => r.product_id === opts.productId) : rows
+}
+
+/**
+ * The payments that are sales, placed under the property asked for (the
+ * tabs' own rule), and with the switch on Digital or Physical only that
+ * kind's lines of each. Grouped before the switch, so a basket is a sale or
+ * not as a whole.
+ */
+export function salesOf(rows: OrderRow[], selector: PropertySelector, defaultWebsite: string | null, mode: SalesMode = "all", productTypes: Record<string, string | null> = {}): Order[] {
+  const sales = groupOrders(rows)
+    .filter(isSale)
+    .filter((o) => counts(selector, orderProperty(o), defaultWebsite))
+  if (mode === "all") return sales
+  return sales.map((o) => ({ ...o, lines: o.lines.filter((l) => lineInMode(productTypes[l.product_id], mode)) })).filter((o) => o.lines.length > 0)
+}
+
+const orderInSpan = (o: Pick<Order, "createdAt">, s: Span) => {
+  const t = Date.parse(o.createdAt)
+  return t >= s.start && t < s.end
+}
+
+/** A checkout that has gone out to the buyer. */
+export const SHIPPED_STATUSES: readonly string[] = ["fulfilled", "shipped", "delivered"]
+
+/**
+ * Of the period's payments with something to ship, how many are fulfilled.
+ * `checkouts` is each checkout's fulfillment_status (commerce_checkouts);
+ * a payment counts once, fulfilled when every checkout it has is. A payment
+ * refunded in full was not shipped and is not waiting to be.
+ */
+export function fulfillmentOf(orders: Order[], checkouts: Record<string, string | null | undefined>): FulfillmentFigures {
+  let total = 0
+  let fulfilled = 0
+  for (const o of orders) {
+    const ids = [...new Set(o.lines.map((l) => l.checkout_id).filter((c): c is string => !!c && c in checkouts))]
+    if (ids.length === 0) continue
+    if (o.payment === "refunded") continue
+    total++
+    if (ids.every((id) => SHIPPED_STATUSES.includes(String(checkouts[id] ?? "").toLowerCase()))) fulfilled++
+  }
+  return { orders: total, fulfilled, rate: total ? fulfilled / total : null }
+}
+
+/**
+ * EVERY SALES FIGURE FOR ONE QUESTION. `rows` are the creator's order lines
+ * in the store's currency, read a day either side of both periods so a
+ * basket is whole; `previous` null is no comparison.
+ */
+export function commerceReport(input: {
+  rows: OrderRow[]
+  span: Span
+  previous: Span | null
+  timeZone: string
+  selector: PropertySelector
+  properties: CreatorProperties
+  productId: string | null
+  mode: SalesMode
+  productTypes: Record<string, string | null>
+  /** Customers (email, lower case) with a sale before each period began. */
+  earlier?: { now: ReadonlySet<string>; before: ReadonlySet<string> }
+  /** fulfillment_status of each checkout the period's lines name. */
+  checkouts?: Record<string, string | null | undefined>
+}): CommerceReport {
+  const sales = salesOf(linesFor(input.rows, input), input.selector, input.properties.defaultWebsite, input.mode, input.productTypes)
+  const now = sales.filter((o) => orderInSpan(o, input.span))
+  const before = input.previous ? sales.filter((o) => orderInSpan(o, input.previous!)) : []
+  const grain = grainFor(input.span)
+  const seriesFor = (list: Order[], span: Span): CommercePoint[] => {
+    const starts = bucketStarts(span, grain, input.timeZone)
+    const buckets: Order[][] = starts.map(() => [])
+    for (const o of list) {
+      const i = bucketIndex(starts, Date.parse(o.createdAt))
+      if (i >= 0) buckets[i].push(o)
+    }
+    return starts.map((t, i) => {
+      const b = breakdownOfOrders(buckets[i])
+      return { t, total: b.total, orders: b.orders, aov: b.aov }
+    })
+  }
+  const channels = new Map<string, ChannelRow>()
+  for (const o of now) {
+    const c = channelOfOrder(o, input.properties)
+    const row = channels.get(c.key) ?? { key: c.key, label: c.label, total: 0, orders: 0 }
+    row.total += orderBreakdown(o).total
+    row.orders += 1
+    channels.set(c.key, row)
+  }
+  const checkouts = input.checkouts ?? {}
+  return {
+    breakdown: breakdownOfOrders(now, input.earlier?.now),
+    previous: breakdownOfOrders(before, input.earlier?.before),
+    series: seriesFor(now, input.span),
+    previousSeries: input.previous ? seriesFor(before, input.previous) : [],
+    channels: [...channels.values()].sort((a, b) => b.total - a.total || b.orders - a.orders || a.label.localeCompare(b.label)),
+    fulfillmentRate: fulfillmentOf(now, checkouts),
+    fulfillmentRateBefore: fulfillmentOf(before, checkouts),
+    orders: now,
+  }
+}
+
+/** The customers of a list of payments, for asking which of them bought before. */
+export function customersOf(orders: Array<Pick<Order, "lines">>): string[] {
+  return [...new Set(orders.map(emailOf).filter(Boolean))]
 }

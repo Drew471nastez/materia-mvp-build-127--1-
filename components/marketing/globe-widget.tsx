@@ -53,7 +53,14 @@ const ARCS = [
 ]
 
 /** How far outside the screen the globe starts loading: about a screen of a phone. */
-export const GLOBE_AHEAD_PX = 800
+/*
+  Round AB1: 400, not 800. The hero is shorter now, and with 800 the globe's
+  1.8 MB began to parse on a phone's first small scroll, a long task on the
+  main thread while the heading above was still typing. With 400 it starts
+  once the heading has left the screen (scripts/check-home-hero.mjs measures
+  both), still well before the globe itself is in view.
+*/
+export const GLOBE_AHEAD_PX = 400
 
 export default function GlobeWidget() {
   const containerRef = useRef<HTMLDivElement>(null)

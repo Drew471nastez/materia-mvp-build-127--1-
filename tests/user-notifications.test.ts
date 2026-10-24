@@ -492,7 +492,10 @@ async function main() {
   check("tapping a row marks it read on the way, and the mark outlives the page", /void postRead\(\{ ids: \[n\.id\] \}\)/.test(bell) && /keepalive: true/.test(bell))
   const header = code("components/platform/platform-header-client.tsx")
   /* Changed on purpose: 89c6f3ba (community header on account) leaves the bell off the phone's plain profile bar; every other phone row keeps it. */
-  check("in the platform header: both computer rows and the phone row, signed in only", (header.match(/<NotificationBell className=\{chrome\.iconBtn\} \/>\s*\{sellerDashboardButton\}\s*\{desktopAccountMenu\}/g) ?? []).length === 2 && /\{user && !profileBar \? <NotificationBell className=\{chrome\.iconBtn\} \/> : null\}/.test(header))
+  /* Changed on purpose in round AB1: the owner asked for no bell beside Dashboard on storelib.com's own pages (the marketing bar). The buyer pages' computer row and the phone row keep it. */
+  check("in the platform header: the buyer computer row and the phone row, signed in only", (header.match(/<NotificationBell className=\{chrome\.iconBtn\} \/>\s*\{sellerDashboardButton\}\s*\{desktopAccountMenu\}/g) ?? []).length === 1 && /\{user && !profileBar \? <NotificationBell className=\{chrome\.iconBtn\} \/> : null\}/.test(header))
+  const marketingBar = header.slice(header.indexOf("{isMarketingNavRoute ? ("), header.indexOf("md:hidden flex min-h-[42px] items-center justify-between w-full"))
+  check("and none on storelib.com's own pages (the marketing bar)", marketingBar.length > 500 && !/NotificationBell/.test(marketingBar) && /\{sellerDashboardButton\}/.test(marketingBar))
 
   /*
     ROUND 3, ask 9: "clicking the bell again closes it smoothly, clicking
