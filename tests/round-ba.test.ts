@@ -76,6 +76,18 @@ console.log("\nStorelib's own schemes use the same groups\n")
   check("their headings look like a section's (11px, uppercase, wide tracking, a rule above)", /data-scheme-category=\{group\.label\}>\s*\n\s*<div className="pt-3 pb-1 border-t border-border mt-2">\s*\n\s*<span className="text-\[11px\] font-semibold text-muted-foreground uppercase tracking-widest">\{tt\(group\.label\)\}/.test(panel))
 }
 
+console.log("\nThe wishlist works in the builder's canvas\n")
+{
+  const live = code("components/website-builder/sections/storelib-live.tsx")
+  check("the canvas's Wishlist page is drawn with every product (up to the live list's limit), so a heart pressed on another page shows there", /if \(template === "page\.wishlist"\) return \{ wishlist: wishlistObject\(products\.length > 0 \? products\.slice\(0, WISHLIST_MAX\) : PLACEHOLDER_CARDS, false\) \}/.test(live))
+  const section = code("components/website-builder/sections/StorelibSection.tsx")
+  check("before any heart the first cards show as samples, after it exactly what was saved", /const sampleMode = !savedLive && !savedTouched/.test(section) && /const on = sampleMode \? sample\.has\(id\) : saved\.has\(id\)/.test(section))
+  check("  a sample's heart takes that sample out (the samples become the list first)", /wishlist\.seedSample\(shown\)\s*\n\s*wishlist\.toggle\(id, false\)/.test(section))
+  const provider = code("components/website-builder/site-wishlist.tsx")
+  check("the canvas's list is memory only: seeding refuses a live website's list", /if \(guestKey \|\| accountKey \|\| touched\) return/.test(provider) && /if \(!guestKey \|\| !accountKey\) \{\s*\n\s*setTouched\(true\)\s*\n\s*return/.test(provider))
+  check("a live website is never in sample mode", /live: !!shopId,/.test(provider))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

@@ -27,6 +27,7 @@ import { formIntent } from "@/lib/website-builder/form-intent"
 import { signupMode, subscribeToCreator } from "@/lib/website-builder/subscribe-client"
 import { pageKeyOfTemplate, sendContactMessage } from "@/lib/website-builder/contact-client"
 import { useSiteWishlist } from "../site-wishlist"
+import { WISHLIST_SAMPLE_COUNT } from "@/lib/site-accounts/wishlist-list"
 import { useSectionScript } from "./section-sandbox"
 import { useOverlayHooks } from "./overlay-hooks"
 import { enhanceReviewWidgets } from "@/lib/reviews/widgets/enhance"
@@ -187,25 +188,34 @@ export function StorelibSection({
     hidden, with the section's own empty line shown once none are left.
     Attributes only, after the markup is in place, so nothing reflows.
   */
-  const { ids: savedIds, ready: savedReady } = wishlist
+  const { ids: savedIds, ready: savedReady, live: savedLive, touched: savedTouched } = wishlist
+  /*
+    IN THE CANVAS, BEFORE ANY HEART IS PRESSED, the Wishlist page shows its
+    first few cards as samples (it is drawn with every product, storelib-live
+    editorGlobals), so it can be styled; after, exactly what was saved.
+  */
+  const sampleMode = !savedLive && !savedTouched
   useLayoutEffect(() => {
     if (!scriptRoot) return
     const saved = new Set(savedIds)
+    const cards = Array.from(scriptRoot.querySelectorAll<HTMLElement>("[data-storelib-wishlist-card]"))
+    const sample = new Set(sampleMode ? cards.slice(0, WISHLIST_SAMPLE_COUNT).map((el) => (el.getAttribute("data-storelib-wishlist-card") || "").toLowerCase()) : [])
     scriptRoot.querySelectorAll<HTMLElement>("[data-storelib-wishlist]").forEach((el) => {
-      const on = saved.has((el.getAttribute("data-storelib-wishlist") || "").toLowerCase())
+      const id = (el.getAttribute("data-storelib-wishlist") || "").toLowerCase()
+      const on = saved.has(id) || (sample.has(id) && !!el.closest("[data-storelib-wishlist-card]"))
       if (el.getAttribute("aria-pressed") !== String(on)) el.setAttribute("aria-pressed", String(on))
     })
     if (!savedReady) return
-    const cards = scriptRoot.querySelectorAll<HTMLElement>("[data-storelib-wishlist-card]")
     if (cards.length === 0) return
     let shown = 0
     cards.forEach((el) => {
-      const on = saved.has((el.getAttribute("data-storelib-wishlist-card") || "").toLowerCase())
+      const id = (el.getAttribute("data-storelib-wishlist-card") || "").toLowerCase()
+      const on = sampleMode ? sample.has(id) : saved.has(id)
       el.hidden = !on
       if (on) shown++
     })
     scriptRoot.querySelectorAll<HTMLElement>("[data-storelib-wishlist-empty]").forEach((el) => { el.hidden = shown > 0 })
-  }, [scriptRoot, onPage, savedIds, savedReady])
+  }, [scriptRoot, onPage, savedIds, savedReady, sampleMode])
 
   /*
     THE SITE'S DRAWERS, ASKED FOR BY ATTRIBUTE. A header written as a
@@ -279,6 +289,13 @@ export function StorelibSection({
       e.preventDefault()
       e.stopPropagation()
       const id = heart.getAttribute("data-storelib-wishlist") || ""
+      /* A sample on the canvas's Wishlist page is removed by its heart: the samples become the list first. */
+      if (id && sampleMode && heart.closest("[data-storelib-wishlist-card]")) {
+        const shown = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("[data-storelib-wishlist-card]:not([hidden])")).map((el) => el.getAttribute("data-storelib-wishlist-card") || "")
+        wishlist.seedSample(shown)
+        wishlist.toggle(id, false)
+        return
+      }
       if (id) wishlist.toggle(id)
       return
     }
