@@ -171,7 +171,7 @@ async function listedCollections(creatorId: string): Promise<{ handle: string; l
     let { data, error } = await read("slug, updated_at")
     /* A database without the column: the handles alone, as before. */
     if (error) ({ data, error } = await read("slug"))
-    return ((data ?? []) as { slug: string | null; updated_at?: string | null }[])
+    return ((data ?? []) as unknown as { slug: string | null; updated_at?: string | null }[])
       .filter((r) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(r.slug ?? ""))
       .map((r) => ({ handle: r.slug as string, ...(r.updated_at ? { lastmod: new Date(r.updated_at).toISOString() } : {}) }))
   } catch {
