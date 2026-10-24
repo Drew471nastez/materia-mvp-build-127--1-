@@ -38,7 +38,8 @@ import { navigateInApp } from "@/lib/native-bridge"
 import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile } from "@/lib/downloads/download-file"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
-import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
+import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
+import { isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
@@ -1283,6 +1284,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const sellerName = personName({ name: title })
 
   // Modal visibility state - to hide buttons when fullscreen modals are open
+  /* True in the editor's preview frame (components/onepage/preview-document). */
+  const inEditorPreview = useContext(ExtraBlockPreviewContext)
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
   const modalVisibilityContextValue = { isAnyModalOpen, setIsAnyModalOpen }
 
@@ -1741,7 +1744,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         )}
       >
         {pairProductTiles(safeBlocks
-          .filter((b) => isBlockVisible(b))
+          /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
+          .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
           .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)))
           .map((item, index) => {
             const animClass = !hasBlocksAnimated ? "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both" : ""
@@ -1768,6 +1772,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               )
             }
             const block = item
+            if (inEditorPreview && isIncompleteLink(block)) {
+              return (
+                <div key={block.id} className={cn("w-full", animClass)} style={animStyle}>
+                  <IncompleteLinkPlaceholder label={(block.data as LinkButtonBlockData)?.label} theme={safeTheme} />
+                </div>
+              )
+            }
             return (
               <div
                 key={block.id}

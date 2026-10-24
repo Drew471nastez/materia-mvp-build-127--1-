@@ -342,6 +342,8 @@ for (const [label, vp, phone] of [
   expect(sent.length === 1 && /live page/.test(ptext), "and the editor's preview never sends", { sent: sent.length })
   const both = await page.evaluate(() => ["course", "music", "testimonials", "contact_form"].map((t) => [t, !!document.querySelector(`[data-probe-block="${t}"] > *`), !!document.querySelector(`[data-probe-preview="${t}"] > *`)]))
   expect(both.every(([, a, b]) => a && b), "each new block draws live and in the preview", both)
+  const ph = await page.$eval('[data-probe-preview="incomplete_link"] [data-incomplete-link]', (e) => ({ text: e.textContent, opacity: getComputedStyle(e).opacity, border: getComputedStyle(e).borderTopStyle, h: e.getBoundingClientRect().height }))
+  expect(/My Link/.test(ph.text) && /Add an address to show it/.test(ph.text) && ph.opacity === "0.5" && ph.border === "dashed" && ph.h >= 44, "a new link in the preview: a faded dashed placeholder saying what it needs", ph)
   const sideways = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)
   expect(sideways <= 0, "PAGE does not scroll sideways", sideways)
   expect(errors.length === 0, "no errors on the page", errors)

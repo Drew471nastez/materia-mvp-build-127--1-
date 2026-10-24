@@ -8,7 +8,7 @@
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
-import { ExtraBlock } from "@/components/onepage/extra-blocks"
+import { ExtraBlock, IncompleteLinkPlaceholder } from "@/components/onepage/extra-blocks"
 import { AddBlockPicker, AddBlockPlus, type PickerEntry } from "@/components/onepage/add-block-picker"
 import { SHEET_DIALOG_MAX_HEIGHT, SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { DialogHeader } from "@/components/ui/dialog"
@@ -99,6 +99,9 @@ function Page() {
           ))}
         </div>
         <div data-probe="preview" className="flex w-[300px] max-w-full flex-col gap-3 rounded-2xl p-3" style={{ background: theme.background_color }}>
+          <div data-probe-preview="incomplete_link">
+            <IncompleteLinkPlaceholder label="My Link" theme={theme} />
+          </div>
           {BLOCKS.map((block) => (
             <div key={block.id} data-probe-preview={block.type}>
               <ExtraBlock block={block} look={{ theme, scale: "small", preview: true, sellerId: SELLER }} />

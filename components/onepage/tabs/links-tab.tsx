@@ -129,6 +129,7 @@ import { BlockBadges, BlockExtras, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlo
 import { AddBlockPicker, AddBlockPlus } from "@/components/onepage/add-block-picker"
 import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText } from "@/components/onepage/block-icons"
 import { bookingProviderName, bookingSource } from "@/lib/onepage/creator-blocks"
+import { hasRealUrl } from "@/lib/onepage/editor-state"
 import { SignupDestination } from "@/components/onepage/creator-blocks"
 import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
 import { parseSocialInput, socialFieldIsLink, socialFieldValue, socialFormat } from "@/lib/onepage/social-input"
@@ -1100,6 +1101,19 @@ export function LinksTab() {
     }
     closeAddSheet()
     if (newBlock?.id) focusAndScrollToBlock(newBlock.id)
+    /* A link with no address yet: the address field, ready to type into, once its settings have opened. */
+    if (newBlock?.id && type === "link_button" && !hasRealUrl(preset?.url)) {
+      const id = newBlock.id
+      let tries = 0
+      const focusUrl = () => {
+        const field = document.querySelector(`[data-block-id="${id}"] [data-link-url]`) as HTMLInputElement | null
+        if (field) {
+          field.focus({ preventScroll: true })
+          field.select()
+        } else if (tries++ < 20) requestAnimationFrame(focusUrl)
+      }
+      requestAnimationFrame(focusUrl)
+    }
     setShowAddBlockNotification(false)
     requestAnimationFrame(() => setShowAddBlockNotification(true))
   }
@@ -3643,6 +3657,13 @@ function BlockItem({
 }: BlockItemProps) {
   const shopMoney = useProductMoney()
   const { updateBlock, onepage } = useOnePage()
+  /*
+    A PRODUCT THAT IS GONE (archived or deleted) is not drawn in the preview
+    or on the page, so its row does not show a price as if it were: it says
+    "Not on your page", beside PRODUCTS' Unavailable badge (ProductRowBadge).
+  */
+  const rowProducts = useCreatorProducts(block.type === "product" && !!(block.data as ProductBlockData)?.product_id)
+  const productGone = block.type === "product" && !!(block.data as ProductBlockData)?.product_id && editorProductState((block.data as ProductBlockData).product_id, rowProducts) === "unavailable"
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAnimationMenu, setShowAnimationMenu] = useState(false)
   const [showAnimationSheet, setShowAnimationSheet] = useState(false)
@@ -3767,6 +3788,8 @@ function BlockItem({
         // Auto-detect Notion URLs and show Notion icon
         const isNotionUrl = data.url?.toLowerCase().includes('notion.so') || data.url?.toLowerCase().includes('notion.site')
         const effectiveIconId = data.icon || (isNotionUrl ? 'notion' : undefined)
+        /* A new link with no address is not on the page yet: the row says what it needs (lib/onepage/extra-blocks isIncompleteLink). */
+        if (!hasRealUrl(data.url)) return { title: data.label || tt("My Link"), subtitle: tt("Add an address to show it"), icon: GlyphLink, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId, incomplete: true }
         return { title: data.label || tt("My Link"), subtitle: displayUrl, icon: GlyphLink, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId }
       }
       case "header":
@@ -3918,7 +3941,7 @@ function BlockItem({
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onSelect}>
           <p className="font-medium text-sm truncate">{preview.title}</p>
           <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="truncate">{preview.subtitle}</span>
+            <span className={cn("truncate", ((preview as any).incomplete || productGone) && "font-medium text-[#b54708]")} data-row-incomplete={(preview as any).incomplete ? "" : undefined}>{productGone ? tt("Not on your page") : preview.subtitle}</span>
             <BlockBadges block={block} />
             {isProduct && <ProductRowBadge productId={(block.data as ProductBlockData).product_id} />}
           </p>
@@ -4800,8 +4823,14 @@ function BlockEditor({
                 }}
                 placeholder="https://"
                 className={linkField}
+                aria-describedby={!hasRealUrl(data.url) ? `link-needs-url-${block.id}` : undefined}
               />
             </label>
+            {!hasRealUrl(data.url) ? (
+              <p id={`link-needs-url-${block.id}`} data-link-needs-url="" className="-mt-1 px-1 text-[12.5px] font-medium text-[#b54708]">
+                {tt("Add an address to show it. Until then it is only in your preview.")}
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={() => onOpenThumbnailModal && onOpenThumbnailModal(block.id)}
