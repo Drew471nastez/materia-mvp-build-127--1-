@@ -270,7 +270,7 @@ export async function membershipVoice(admin: Db, row: MembershipRow, name: Membe
     ...(shop && shop !== "Storelib" ? { storeName: shop, brandName: shop, brandKind: "creator", brandPicture: picture?.kind === "photo" ? "avatar" : "mark" } : {}),
     ...(picture?.url ? { brandLogoUrl: picture.url } : {}),
     ...(identity?.replyTo && !/@storelib\.com$/i.test(identity.replyTo) ? { brandReplyTo: identity.replyTo } : {}),
-    ...(copy ? { tplMode: "body", ...(copy.subject ? { tplSubject: copy.subject } : {}), ...(copy.heading ? { tplHeading: copy.heading } : {}), ...(typeof copy.body === "string" ? { tplIntro: copy.body } : {}), ...(copy.button ? { tplButton: copy.button } : {}) } : {}),
+    ...(copy ? { tplMode: "body", ...(copy.subject ? { tplSubject: copy.subject } : {}), ...(copy.heading ? { tplHeading: copy.heading } : {}), ...(typeof copy.body === "string" ? (copy.body.trim() ? { tplIntro: copy.body } : { tplDropIntro: true }) : {}), ...(copy.button ? { tplButton: copy.button } : {}) } : {}),
   }
 }
 

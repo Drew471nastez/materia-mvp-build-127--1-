@@ -81,6 +81,10 @@ async function main() {
   const noName = renderEmail("MEMBERSHIP_STARTED", { membershipTitle: "Club", amountCents: 900, currency: "jpy", interval: "month", tplMode: "body", tplIntro: "Hi {{customer_name}}, thanks.", brandName: "Shop" }, { baseUrl: "https://storelib.com" })
   check("a missing first name reads 'there'", /Hi there, thanks\./.test(noName.text), noName.text.slice(0, 200))
   check("a currency without decimals has none (¥900)", /¥900/.test(noName.text) && !/¥900\.00/.test(noName.text))
+  const dropped = renderEmail("MEMBERSHIP_STARTED", { membershipTitle: "Club", amountCents: 900, currency: "eur", interval: "month", tplMode: "body", tplDropIntro: true, brandName: "Shop" }, { baseUrl: "https://storelib.com" })
+  check("an emptied opening text is left out, the rest of the email stays", !/Thanks for joining/.test(dropped.text) && /membership page/.test(dropped.text))
+  const emptied = previewCustomerEmail("membership_started", SHOP, { body: "" }, { creator: CREATOR, language: { lang: "en", words: {}, own: true } })!
+  check("  and its preview shows it the same way", !/Thanks for joining/.test(emptied.text) && /membership page/.test(emptied.text))
 
   console.log("\nEvery community email is the community's\n")
   const t = await import("@/lib/communities/server/email-templates")

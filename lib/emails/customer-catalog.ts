@@ -343,7 +343,7 @@ function membershipPreview(id: string, shop: PreviewShop, ctx: PreviewContext, w
     brandPicture: picture?.kind === "photo" ? "avatar" : "mark",
     ...(picture?.url ? { brandLogoUrl: picture.url } : {}),
     ...(shop.supportEmail ? { brandReplyTo: shop.supportEmail } : {}),
-    ...(words ? { tplMode: "body", ...(words.subject ? { tplSubject: words.subject } : {}), ...(words.heading ? { tplHeading: words.heading } : {}), ...(typeof words.body === "string" ? { tplIntro: words.body } : {}), ...(words.button ? { tplButton: words.button } : {}) } : {}),
+    ...(words ? { tplMode: "body", ...(words.subject ? { tplSubject: words.subject } : {}), ...(words.heading ? { tplHeading: words.heading } : {}), ...(typeof words.body === "string" ? (words.body.trim() ? { tplIntro: words.body } : { tplDropIntro: true }) : {}), ...(words.button ? { tplButton: words.button } : {}) } : {}),
   }
   const m = renderEmail(type, data, { baseUrl: "https://storelib.com", recipientName: null, unsubscribeUrl: null, preferencesUrl: null, when: null })
   return { subject: m.subject, html: m.html, text: m.text }

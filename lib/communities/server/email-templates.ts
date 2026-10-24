@@ -82,6 +82,8 @@ export const MEMBERSHIP_WORD_KIND: Record<string, EditableEmail> = {
 }
 
 export type EmailWords = CommunityWords
+/** Words as a caller may hand them: a row saved before part 301 has no button. */
+export type WordsIn = Omit<CommunityWords, "button"> & { button?: string }
 
 export const WORD_LIMITS = { subject: 120, heading: 120, intro: 600, button: 40 } as const
 
@@ -94,7 +96,7 @@ export function wordsInput(body: Record<string, unknown>, kind: string = "welcom
   return readCommunityWords(kind, body)
 }
 
-export function emptyWords(w: EmailWords | null | undefined): boolean {
+export function emptyWords(w: WordsIn | null | undefined): boolean {
   return noCommunityWords(w)
 }
 
@@ -174,7 +176,7 @@ export async function emailWordsFor(db: Db, communityId: string, kind: string): 
 }
 
 /** The payload keys the catalog reads (tplSubject, tplHeading, tplIntro, tplButton); nothing when the words are Storelib's. */
-export function wordsPayload(words: EmailWords | null): Record<string, string> {
+export function wordsPayload(words: WordsIn | null): Record<string, string> {
   if (!words || emptyWords(words)) return {}
   return {
     ...(words.subject ? { tplSubject: words.subject } : {}),
@@ -283,14 +285,14 @@ export function communityEmailPayload(data: Record<string, unknown>, communityId
  * email channel draws in for a member (lib/notify/channels/email.ts: Storelib's
  * base address, no name, no unsubscribe link on an email a member must get).
  */
-export function renderCommunityEmail(kind: EditableEmail | "broadcast", data: Record<string, unknown>, communityId: string, community: CommunityFactsForEmail, words: EmailWords | null) {
+export function renderCommunityEmail(kind: EditableEmail | "broadcast", data: Record<string, unknown>, communityId: string, community: CommunityFactsForEmail, words: WordsIn | null) {
   const type: NotificationType = kind === "broadcast" ? "COMMUNITY_BROADCAST" : EDITABLE_EMAIL_TYPES[kind]
   const payload = communityEmailPayload(data, communityId, community, kind === "broadcast" ? {} : wordsPayload(words))
   return renderEmail(type, safeData(payload, { communityId }), { baseUrl: baseUrl(), recipientName: null, unsubscribeUrl: null, preferencesUrl: null, when: null })
 }
 
 /** The email as a member would get it, with these words, for the editor's preview and its test. */
-export function previewEmailWords(kind: EditableEmail, words: EmailWords, community: CommunityFactsForEmail & { id?: string; currency?: string }) {
+export function previewEmailWords(kind: EditableEmail, words: WordsIn, community: CommunityFactsForEmail & { id?: string; currency?: string }) {
   const e = renderCommunityEmail(kind, sampleData(kind, community.currency || "USD"), community.id ?? "00000000-0000-4000-8000-000000000000", community, words)
   return { subject: e.subject, preview: e.preview, html: e.html, text: e.text, fromName: e.fromName ?? null, replyTo: e.replyTo ?? null }
 }

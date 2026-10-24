@@ -62,7 +62,7 @@ export const BRAND_KEYS = ["brandName", "brandLogoUrl", "brandPicture", "brandRe
  * the opening line before Storelib's text, "body" stands in for the first
  * paragraph, as a store's order emails do.
  */
-const TPL_KEYS = ["tplSubject", "tplHeading", "tplIntro", "tplButton", "tplMode"] as const
+const TPL_KEYS = ["tplSubject", "tplHeading", "tplIntro", "tplButton", "tplMode", "tplDropIntro"] as const
 
 const MEMBERSHIP_KEYS = [
   "membershipId", "membershipTitle", "creatorName", "amountCents", "currency", "interval", "periodEnd", "endsAt", "trialEnd", "graceEndsAt", "cardLast4", "withdrawalWaiver", "fromTitle", "changeKind",
@@ -2301,14 +2301,16 @@ function withOwnWords(m: Message, d: Data, fill: (text: string) => string): Mess
   const button = fill(d.text("tplButton", 40))
   const body = d.text("tplMode", 8) === "body"
   const intro = body ? d.paras("tplIntro", 2000, 6).map(fill).filter(Boolean) : [fill(d.text("tplIntro", 600))].filter(Boolean)
-  if (!subject && !heading && !intro.length && !button) return m
+  /* A store that emptied the opening text: the email opens with what follows it, as its order emails do. */
+  const drop = body && !intro.length && d.bool("tplDropIntro") === true
+  if (!subject && !heading && !intro.length && !button && !drop) return m
   return {
     ...m,
     /* As long as an inbox shows (renderEmail keeps 90), not the 60 Storelib's own subjects are written to. */
     subject: subject ? cleanText(subject, 90) : m.subject,
     heading: heading || m.heading,
     preview: intro.length ? intro[0].slice(0, 120) : m.preview,
-    paragraphs: intro.length ? (body ? [...intro, ...m.paragraphs.slice(1)] : [...intro, ...m.paragraphs]) : m.paragraphs,
+    paragraphs: intro.length ? (body ? [...intro, ...m.paragraphs.slice(1)] : [...intro, ...m.paragraphs]) : drop ? m.paragraphs.slice(1) : m.paragraphs,
     action: m.action && button ? { ...m.action, label: button } : m.action,
   }
 }
