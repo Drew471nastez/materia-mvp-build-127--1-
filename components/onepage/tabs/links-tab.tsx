@@ -125,98 +125,50 @@ import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-ran
 import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
-import { BlockBadges, BlockExtras, EXTRA_BLOCK_CATALOG, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
-import { canonicalSocialPlatform, hasSocialHandles, socialHandleUrl } from "@/lib/onepage/social-url"
+import { BlockBadges, BlockExtras, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
+import { AddBlockPicker, AddBlockPlus } from "@/components/onepage/add-block-picker"
+import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText } from "@/components/onepage/block-icons"
+import { bookingProviderName, bookingSource } from "@/lib/onepage/creator-blocks"
+import { SignupDestination } from "@/components/onepage/creator-blocks"
+import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
+import { parseSocialInput, socialFieldIsLink, socialFieldValue, socialFormat } from "@/lib/onepage/social-input"
 import { LinkIcon, SocialIcon, hasLinkIcon, markOn, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { LINK_ICONS, LINK_ICON_CATEGORIES, resolveLinkIcon } from "@/components/onepage/link-icons"
 import { tt } from "@/lib/i18n/text"
 import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
-import { editorProductState, pickableProducts, productLayoutOf } from "@/lib/onepage/product-block"
+import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 
 /**
- * WHERE EACH PLATFORM'S LINKS LIVE.
- *
- * Only seven platforms were checked before; the other fifteen took whatever
- * was typed, so "hello" saved as a Discord link. Each host list includes the
- * short and regional addresses the platform hands out itself (youtu.be,
- * lnkd.in, pin.it, spotify.link, apple.co), so a link copied from the app's
- * own share button is never refused. A website is any address at all.
- */
-const SOCIAL_HOSTS: Record<string, RegExp> = {
-  instagram: /(^|\.)(instagram\.com|instagr\.am)$/,
-  tiktok: /(^|\.)tiktok\.com$/,
-  youtube: /(^|\.)(youtube\.com|youtu\.be)$/,
-  twitter: /(^|\.)(x\.com|twitter\.com)$/,
-  spotify: /(^|\.)(spotify\.com|spotify\.link)$/,
-  threads: /(^|\.)threads\.(net|com)$/,
-  facebook: /(^|\.)(facebook\.com|fb\.com|fb\.me|fb\.watch)$/,
-  whatsapp: /(^|\.)(wa\.me|whatsapp\.com)$/,
-  snapchat: /(^|\.)snapchat\.com$/,
-  discord: /(^|\.)(discord\.gg|discord\.com|discordapp\.com)$/,
-  github: /(^|\.)github\.com$/,
-  kick: /(^|\.)kick\.com$/,
-  linkedin: /(^|\.)(linkedin\.com|lnkd\.in)$/,
-  patreon: /(^|\.)patreon\.com$/,
-  pinterest: /(^|\.)(pinterest\.[a-z.]+|pin\.it)$/,
-  soundcloud: /(^|\.)(soundcloud\.com|snd\.sc)$/,
-  applemusic: /(^|\.)(music\.apple\.com|itunes\.apple\.com|apple\.co)$/,
-  telegram: /(^|\.)(t\.me|telegram\.me|telegram\.org|telegram\.dog)$/,
-  twitch: /(^|\.)twitch\.tv$/,
-  calendly: /(^|\.)calendly\.com$/,
-}
-
-/**
- * Spotify and Apple Music have no usernames: the only thing that opens a
- * creator's page there is its link. `@name` for either used to become an
- * address that did not exist, so for these two it is refused with a hint.
+ * A SOCIAL LINK IS READ THE WAY ITS PLATFORM IS TYPED (lib/onepage/social-input):
+ * a bare username, an @username, or the whole link pasted with its www., m.,
+ * tracking junk and trailing slash, each saved as the one address it means.
+ * The host check that used to live here (so "hello" never saved as a Discord
+ * link, and a link from the app's own share button is never refused) is part
+ * of that now, per platform.
  */
 /** How many times the background check asks again for a Spotify or Apple Music link's missing picture before leaving it for the person to add. */
 const THUMBNAIL_RETRIES = 5
 
-const LINK_ONLY_PLATFORMS = new Set(["spotify", "applemusic"])
-
 // Validate social URL and transform if needed
 function validateSocialUrl(platform: string, url: string): { valid: boolean; error?: string; transformedUrl?: string } {
-  const typed = url.trim()
-  if (!typed) return { valid: true }
   const key = canonicalSocialPlatform(platform)
   const name = socialPlatformLabel(key)
-
-  if (key === "email") {
-    const address = typed.replace(/^mailto:/i, "")
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return { valid: false, error: tt("Enter an email address, like you@example.com") }
-    return { valid: true, transformedUrl: `mailto:${address}` }
+  const read = parseSocialInput(key, url)
+  if (read.ok) return { valid: true, transformedUrl: read.url }
+  switch (read.error) {
+    case "empty":
+      return { valid: true }
+    case "email":
+      return { valid: false, error: tt("Enter an email address, like you@example.com") }
+    case "phone":
+      return { valid: false, error: tt("Enter your number with its country code, or a wa.me link") }
+    case "wrong_site":
+      return { valid: false, error: tt("That isn't a {name} link", { name }) }
+    case "url":
+      return { valid: false, error: key === "website" ? tt("Enter your website address, like yoursite.com") : tt("Paste the link to your {name} page", { name }) }
+    default:
+      return { valid: false, error: tt("Enter your username, or paste the link") }
   }
-
-  // @username, a plain username, or a WhatsApp number: made into the profile address
-  if (!LINK_ONLY_PLATFORMS.has(key)) {
-    const profile = socialHandleUrl(key, typed)
-    if (profile) return { valid: true, transformedUrl: profile }
-  }
-
-  const hint =
-    key === "website" ? tt("Enter your website address, like yoursite.com")
-    : key === "whatsapp" ? tt("Enter your number with its country code, or a wa.me link")
-    : LINK_ONLY_PLATFORMS.has(key) || !hasSocialHandles(key) ? tt("Paste the link to your {name} page", { name })
-    : tt("Enter a link or an @username")
-
-  let parsed: URL
-  const full = /^https?:\/\//i.test(typed) ? typed : `https://${typed.replace(/^\/\//, "")}`
-  try {
-    parsed = new URL(full)
-  } catch {
-    return { valid: false, error: hint }
-  }
-  if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname.includes(".") || /\s/.test(typed)) {
-    return { valid: false, error: hint }
-  }
-
-  const hosts = SOCIAL_HOSTS[key]
-  if (hosts && !hosts.test(parsed.hostname.toLowerCase())) {
-    return { valid: false, error: tt("That isn't a {name} link", { name }) }
-  }
-
-  return { valid: true, transformedUrl: full }
 }
 
 // Social platforms configuration with SVG icons
@@ -241,7 +193,7 @@ const SOCIAL_PLATFORMS = [
   { id: "applemusic", get label() { return tt("Apple Music") }, placeholder: "https://music.apple.com/...", color: "#FA233B" },
   { id: "telegram", label: "Telegram", placeholder: "https://t.me/username", color: "#0088CC" },
   { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF" },
-  { id: "website", get label() { return tt("Website") }, placeholder: "https://yourwebsite.com", color: "#6366F1" },
+  { id: "website", get label() { return tt("Website") }, placeholder: "https://yourwebsite.com", color: "#1a1a2e" },
   { id: "calendly", label: "Calendly", placeholder: "https://calendly.com/username", color: "#006BFF" },
 ]
 
@@ -271,111 +223,7 @@ const IMAGE_LIBRARY = [
   resets its fields at once. From 640px they are the dialogs they were.
 */
 
-// Block categories with integrations
-const blockCategories = [
-  {
-    id: "most_popular",
-    get label() { return tt("Most Popular") },
-    icon: Heart,
-    blocks: [
-      { type: "product" as const, get label() { return tt("Digital Product") }, get description() { return tt("Sell a digital product on your page") }, icon: ShoppingBag },
-      { type: "email_capture" as const, get label() { return tt("Email Signup") }, get description() { return tt("Collect emails from visitors") }, icon: Mail },
-      { type: "link_button" as const, label: "YouTube", get description() { return tt("Link to YouTube") }, icon: Video, preset: { get label() { return tt("Subscribe on YouTube") }, url: "https://youtube.com/@" } },
-      { type: "link_button" as const, label: "Spotify", get description() { return tt("Share your music") }, icon: Share2, preset: { get label() { return tt("Listen on Spotify") }, url: "https://open.spotify.com/" } },
-      { type: "link_button" as const, label: "TikTok", get description() { return tt("Link to TikTok") }, icon: Share2, preset: { get label() { return tt("Follow on TikTok") }, url: "https://tiktok.com/@" } },
-      { type: "link_button" as const, label: "Instagram", get description() { return tt("Link to Instagram") }, icon: Share2, preset: { get label() { return tt("Follow on Instagram") }, url: "https://instagram.com/" } },
-    ],
-  },
-  {
-    id: "products",
-    get label() { return tt("Products") },
-    icon: ShoppingBag,
-    blocks: [
-      { type: "product" as const, get label() { return tt("Digital Product") }, get description() { return tt("Sell a digital product") }, icon: ShoppingBag },
-      { type: "email_capture" as const, get label() { return tt("Email Signup") }, get description() { return tt("Collect emails from visitors") }, icon: Mail },
-      { type: "link_button" as const, get label() { return tt("My Link") }, get description() { return tt("Add a simple link") }, icon: Link, preset: { get label() { return tt("My Link") }, url: "" } },
-      { type: "link_button" as const, get label() { return tt("Store Link") }, get description() { return tt("Link to your store") }, icon: ShoppingBag, preset: { get label() { return tt("Shop Now") }, url: "" } },
-      { type: "link_button" as const, label: "eCourse", get description() { return tt("Sell online courses") }, icon: Video, comingSoon: true, preset: { get label() { return tt("View Course") }, url: "" } },
-      { type: "link_button" as const, get label() { return tt("Coaching") }, get description() { return tt("Offer coaching sessions") }, icon: User, comingSoon: true, preset: { get label() { return tt("Book Coaching") }, url: "" } },
-    ],
-  },
-  {
-    id: "social",
-    get label() { return tt("Social") },
-    icon: Share2,
-    blocks: [
-      { type: "social_row" as const, get label() { return tt("Social Icons") }, get description() { return tt("Display social links") }, icon: Share2 },
-      { type: "link_button" as const, label: "Instagram", get description() { return tt("Link to Instagram") }, icon: Share2, preset: { get label() { return tt("Follow on Instagram") }, url: "https://instagram.com/" } },
-      { type: "link_button" as const, label: "TikTok", get description() { return tt("Link to TikTok") }, icon: Share2, preset: { get label() { return tt("Follow on TikTok") }, url: "https://tiktok.com/@" } },
-      { type: "link_button" as const, label: "YouTube", get description() { return tt("Link to YouTube") }, icon: Share2, preset: { get label() { return tt("Subscribe on YouTube") }, url: "https://youtube.com/@" } },
-      { type: "link_button" as const, get label() { return tt("X (Twitter)") }, get description() { return tt("Link to X") }, icon: Share2, preset: { get label() { return tt("Follow on X") }, url: "https://x.com/" } },
-      { type: "link_button" as const, label: "Facebook", get description() { return tt("Link to Facebook") }, icon: Share2, preset: { get label() { return tt("Follow on Facebook") }, url: "https://facebook.com/" } },
-      { type: "link_button" as const, label: "LinkedIn", get description() { return tt("Link to LinkedIn") }, icon: Share2, preset: { get label() { return tt("Connect on LinkedIn") }, url: "https://linkedin.com/in/" } },
-      { type: "link_button" as const, get label() { return tt("Threads") }, get description() { return tt("Link to Threads") }, icon: ({ className }: { className?: string }) => <SocialIcon platform="threads" size={16} className={className} />, preset: { get label() { return tt("Follow on Threads") }, url: "https://threads.net/@" } },
-    ],
-  },
-  {
-    id: "media",
-    get label() { return tt("Media") },
-    icon: Video,
-    blocks: [
-      { type: "image" as const, get label() { return tt("Image") }, get description() { return tt("Upload or link an image") }, icon: ImageIcon },
-      EXTRA_BLOCK_CATALOG.video,
-      { type: "link_button" as const, get label() { return tt("YouTube Video") }, get description() { return tt("Embed a video link") }, icon: Video, preset: { get label() { return tt("Watch Video") }, url: "https://youtube.com/watch?v=" } },
-      { type: "link_button" as const, label: "Vimeo", get description() { return tt("Link to Vimeo") }, icon: Video, preset: { get label() { return tt("Watch on Vimeo") }, url: "https://vimeo.com/" } },
-    ],
-  },
-  {
-    id: "documents",
-    get label() { return tt("Documents") },
-    icon: FileText,
-    blocks: [
-      { type: "pdf_document" as const, get label() { return tt("PDF Document") }, get description() { return tt("Share a PDF with preview") }, icon: FileText },
-      { type: "food_menu" as const, get label() { return tt("Food & Drinks Menu") }, get description() { return tt("Share your restaurant menu") }, icon: FileText },
-      { type: "link_button" as const, get label() { return tt("Google Docs") }, get description() { return tt("Link to Google Docs") }, icon: FileText, preset: { get label() { return tt("View Document") }, url: "https://docs.google.com/" } },
-      { type: "link_button" as const, label: "Notion", get description() { return tt("Link to Notion page") }, icon: ({ className }: { className?: string }) => <SocialIcon platform="notion" size={16} className={className} />, preset: { get label() { return tt("View Page") }, url: "https://notion.so/", icon: "notion" } },
-    ],
-  },
-  {
-    id: "audio",
-    get label() { return tt("Audio") },
-    icon: Video,
-    blocks: [
-      { type: "link_button" as const, label: "Spotify", get description() { return tt("Share your music") }, icon: Share2, preset: { get label() { return tt("Listen on Spotify") }, url: "https://open.spotify.com/" } },
-      { type: "link_button" as const, get label() { return tt("Apple Music") }, get description() { return tt("Link to Apple Music") }, icon: Share2, preset: { get label() { return tt("Listen on Apple Music") }, url: "https://music.apple.com/" } },
-      { type: "link_button" as const, label: "SoundCloud", get description() { return tt("Link to SoundCloud") }, icon: Share2, preset: { get label() { return tt("Listen on SoundCloud") }, url: "https://soundcloud.com/" } },
-      { type: "link_button" as const, get label() { return tt("Podcast") }, get description() { return tt("Link to your podcast") }, icon: Share2, preset: { get label() { return tt("Listen to Podcast") }, url: "" } },
-    ],
-  },
-  {
-    id: "contact",
-    get label() { return tt("Contact") },
-    icon: MessageSquare,
-    blocks: [
-      { type: "email_capture" as const, get label() { return tt("Email Signup") }, get description() { return tt("Collect emails") }, icon: Mail },
-      { type: "calendly" as const, label: "Calendly", get description() { return tt("Book meetings with Calendly") }, icon: Calendar },
-      EXTRA_BLOCK_CATALOG.map,
-      { type: "link_button" as const, get label() { return tt("Contact Form") }, get description() { return tt("Link to form") }, icon: FileText, comingSoon: true, preset: { get label() { return tt("Contact Me") }, url: "" } },
-      { type: "link_button" as const, label: "WhatsApp", get description() { return tt("Link to WhatsApp") }, icon: MessageSquare, preset: { get label() { return tt("Message on WhatsApp") }, url: "https://wa.me/" } },
-      { type: "link_button" as const, label: "Telegram", get description() { return tt("Link to Telegram") }, icon: MessageSquare, preset: { get label() { return tt("Message on Telegram") }, url: "https://t.me/" } },
-      { type: "link_button" as const, label: "Discord", get description() { return tt("Link to Discord") }, icon: MessageSquare, preset: { get label() { return tt("Join Discord") }, url: "https://discord.gg/" } },
-    ],
-  },
-  {
-    id: "other",
-    get label() { return tt("Other") },
-    icon: Grid3X3,
-    blocks: [
-      { type: "link_button" as const, get label() { return tt("Link") }, get description() { return tt("Add any URL") }, icon: Link },
-      EXTRA_BLOCK_CATALOG.heading,
-      { type: "text" as const, get label() { return tt("Text") }, get description() { return tt("Add text content") }, icon: Type },
-      EXTRA_BLOCK_CATALOG.faq,
-      EXTRA_BLOCK_CATALOG.countdown,
-      { type: "divider" as const, get label() { return tt("Divider") }, get description() { return tt("Add spacing") }, icon: Minus },
-      { type: "group" as const, get label() { return tt("Group") }, get description() { return tt("Group blocks together") }, icon: Layers },
-    ],
-  },
-]
+/* The Add block sheet's catalogue and the sheet itself: components/onepage/add-block-picker.tsx. */
 
 // Helper function to get block preview data
 function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, product?: { type?: string | null } | null) => string) {
@@ -391,45 +239,49 @@ function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, pro
           <path fillRule="evenodd" clipRule="evenodd" d="M17.2583 2.83306C13.7917 2.44562 10.2083 2.44562 6.74177 2.83306C4.72971 3.05794 3.10538 4.64295 2.86883 6.66548C2.45429 10.2098 2.45429 13.7903 2.86883 17.3346C3.10538 19.3571 4.72971 20.9422 6.74177 21.167C10.2083 21.5545 13.7917 21.5545 17.2583 21.167C19.2703 20.9422 20.8946 19.3571 21.1312 17.3346C21.5457 13.7903 21.5457 10.2098 21.1312 6.66548C20.8946 4.64295 19.2703 3.05794 17.2583 2.83306ZM6.90838 4.32378C10.2642 3.94871 13.7358 3.94871 17.0916 4.32378C18.4218 4.47244 19.4872 5.52205 19.6414 6.83973C20.0424 10.2683 20.0424 13.7318 19.6414 17.1604C19.4872 18.478 18.4218 19.5277 17.0916 19.6763C13.7358 20.0514 10.2642 20.0514 6.90838 19.6763C5.57827 19.5277 4.51278 18.478 4.35867 17.1604C3.95767 13.7318 3.95767 10.2683 4.35867 6.83973C4.51278 5.52205 5.57827 4.47244 6.90838 4.32378Z"/>
         </svg>
       )
-      return { title: data.label || tt("My Link"), subtitle: displayUrl, icon: isNotionUrl ? NotionIcon : Link }
+      return { title: data.label || tt("My Link"), subtitle: displayUrl, icon: isNotionUrl ? NotionIcon : GlyphLink }
     }
     case "header":
-      return { title: tt("Header"), subtitle: tt("Profile section"), icon: User }
+      return { title: tt("Header"), subtitle: tt("Profile section"), icon: GlyphHeader }
     case "text": {
       const data = block.data as TextBlockData
-      return { title: data.content?.slice(0, 30) || tt("Text block"), subtitle: tt("Text"), icon: Type }
+      return { title: data.content?.slice(0, 30) || tt("Text block"), subtitle: tt("Text"), icon: GlyphText }
     }
     case "image":
-      return { title: tt("Image"), subtitle: tt("Image block"), icon: ImageIcon }
+      return { title: tt("Image"), subtitle: tt("Image block"), icon: GlyphImage }
     case "divider":
-      return { title: tt("Divider"), subtitle: tt("Spacing"), icon: Minus }
+      return { title: tt("Divider"), subtitle: tt("Spacing"), icon: GlyphDivider }
     case "email_capture": {
       const data = block.data as EmailCaptureBlockData
-      return { title: data.headline || tt("Email Signup"), subtitle: tt("Lead capture form"), icon: Mail }
+      return { title: data.headline || tt("Email Signup"), subtitle: tt("Lead capture form"), icon: GlyphEmail }
     }
     case "social_row":
-      return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: Share2 }
+      return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: GlyphSocial }
     case "product": {
       const data = block.data as ProductBlockData
-      return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents, { type: data.product_type }) : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
+      return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents, { type: data.product_type }) : tt("Select product"), icon: GlyphProduct, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
     }
     case "group": {
       const data = block.data as GroupBlockData
       const childCount = data.children?.length || 0
-      return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout }), icon: Layers }
+      return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout }), icon: GlyphGroup }
     }
     case "pdf_document": {
       const data = block.data as PDFDocumentBlockData
-      return { title: data.title || tt("PDF Document"), subtitle: data.pdf_file_url ? tt("PDF uploaded") : tt("No file"), icon: FileText, thumbnail_url: data.thumbnail_url }
+      return { title: data.title || tt("PDF Document"), subtitle: data.pdf_file_url ? tt("PDF uploaded") : tt("No file"), icon: GlyphDocument, thumbnail_url: data.thumbnail_url }
     }
     case "food_menu": {
       const data = block.data as FoodMenuBlockData
-      return { title: data.title || tt("Menu"), subtitle: data.pdf_file_url ? tt("Menu uploaded") : tt("No file"), icon: FileText, thumbnail_url: data.thumbnail_url }
+      return { title: data.title || tt("Menu"), subtitle: data.pdf_file_url ? tt("Menu uploaded") : tt("No file"), icon: GlyphMenu, thumbnail_url: data.thumbnail_url }
     }
     case "calendly": {
       const data = block.data as CalendlyBlockData
-      return { title: data.title || tt("Book a Meeting"), subtitle: data.calendly_url ? tt("Calendly connected") : tt("Add Calendly URL"), icon: Calendar, thumbnail_url: data.thumbnail_url }
+      return { title: data.title || tt("Book a Meeting"), subtitle: data.calendly_url ? bookingProviderName(data.calendly_url) ?? tt("Booking link") : tt("Add a booking link"), icon: GlyphBooking, thumbnail_url: data.thumbnail_url }
     }
+    case "course":
+    case "music":
+    case "testimonials":
+    case "contact_form":
     case "heading":
     case "faq":
     case "countdown":
@@ -437,7 +289,7 @@ function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, pro
     case "video":
       return extraBlockRow(block)
     default:
-      return { title: block.type, subtitle: "", icon: Link }
+      return { title: block.type, subtitle: "", icon: GlyphLink }
   }
 }
 
@@ -492,7 +344,6 @@ export function LinksTab() {
   } = useOnePage()
 
   const [showAddModal, setShowAddModal] = useState(false)
-  const [addModalCategory, setAddModalCategory] = useState("most_popular")
   const [searchQuery, setSearchQuery] = useState("")
   const [addToGroupId, setAddToGroupId] = useState<string | null>(null)
   const [showSocialModal, setShowSocialModal] = useState(false)
@@ -671,9 +522,16 @@ export function LinksTab() {
 
         // Also sync if platforms is empty but there are active social links
         const needsInitialSync = (data.platforms || []).length === 0 && activeSocials.length > 0
+        /* An edited address (a handle made into its link, a new paste) reaches the icons too; the row used to keep the old one. */
+        const hasChangedUrls = (data.platforms || []).some(p => {
+          const now = social_links?.[p.platform as keyof typeof social_links]
+          return !!now && now !== p.url
+        })
 
-        if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync) {
-          const existingOrder = (data.platforms || []).filter(p => social_links?.[p.platform as keyof typeof social_links])
+        if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync || hasChangedUrls) {
+          const existingOrder = (data.platforms || [])
+            .filter(p => social_links?.[p.platform as keyof typeof social_links])
+            .map(p => ({ ...p, url: social_links?.[p.platform as keyof typeof social_links] as string }))
           const existingPlatforms = new Set(existingOrder.map(p => p.platform))
           const newPlatforms = activeSocials.filter(s => !existingPlatforms.has(s.platform))
 
@@ -1146,7 +1004,8 @@ export function LinksTab() {
     })
   }
 
-  const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
+  /* `data`: what a picker entry starts the block with beyond the defaults (a coaching call's title, say). */
+  const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string; icon?: string }, data?: Record<string, unknown>) => {
     // If adding to a group, handle differently
     if (addToGroupId) {
       // Don't allow adding these types to a group
@@ -1185,8 +1044,9 @@ export function LinksTab() {
           else if (preset.url.includes('t.me') || preset.url.includes('telegram.')) defaultIcon = 'telegram'
           else if (preset.url.includes('vimeo.com')) defaultIcon = 'vimeo'
           else if (preset.url.includes('discord.gg') || preset.url.includes('discord.com')) defaultIcon = 'discord'
+          if (preset.icon) defaultIcon = preset.icon
 
-          (newBlock.data as LinkButtonBlockData).label = preset.label
+          ;(newBlock.data as LinkButtonBlockData).label = preset.label
           ;(newBlock.data as LinkButtonBlockData).url = preset.url
           ;(newBlock.data as LinkButtonBlockData).icon = defaultIcon
         }
@@ -1207,6 +1067,9 @@ export function LinksTab() {
     }
 
     const newBlock = addBlock(type, insertAfterId || undefined)
+    if (data && newBlock && !preset) {
+      updateBlock(newBlock.id, { data: { ...newBlock.data, ...data } as OnePageBlock["data"] })
+    }
     if (preset && newBlock) {
       // Determine default icon based on preset URL
       let defaultIcon: string | null = null
@@ -1223,6 +1086,7 @@ export function LinksTab() {
       else if (preset.url.includes('t.me') || preset.url.includes('telegram.')) defaultIcon = 'telegram'
       else if (preset.url.includes('vimeo.com')) defaultIcon = 'vimeo'
       else if (preset.url.includes('discord.gg') || preset.url.includes('discord.com')) defaultIcon = 'discord'
+      if (preset.icon) defaultIcon = preset.icon
 
       updateBlock(newBlock.id, {
         data: {
@@ -1288,32 +1152,11 @@ export function LinksTab() {
   }
 
 
-  const filteredCategories = searchQuery
-    ? blockCategories.map((cat) => ({
-        ...cat,
-        blocks: cat.blocks.filter((b) =>
-          b.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          b.description.toLowerCase().includes(searchQuery.toLowerCase())
-        ),
-      })).filter((cat) => cat.blocks.length > 0)
-    : blockCategories
-
   // Check if header block already exists (only allow one)
   const hasHeaderBlock = sortedBlocks.some(b => b.type === "header")
 
   // Block types that can't be added to a group
-  const blockedInGroup = ["header", "group", "social_row", "product", "email_capture", "text", "divider", "heading", "faq", "countdown", "map", "video"]
-
-  const activeCategoryBlocks = (searchQuery
-    ? filteredCategories.flatMap(c => c.blocks)
-    : blockCategories.find((c) => c.id === addModalCategory)?.blocks || []
-  ).filter(block => {
-    // Always filter out header if one exists
-    if (block.type === "header" && hasHeaderBlock) return false
-    // Filter out blocks that can't be added to groups when adding to a group
-    if (addToGroupId && blockedInGroup.includes(block.type)) return false
-    return true
-  })
+  const blockedInGroup = ["header", "group", "social_row", "product", "email_capture", "text", "divider", "course", "music", "testimonials", "contact_form", "heading", "faq", "countdown", "map", "video"]
 
   // Get active social links
   const activeSocials = Object.entries(social_links || {}).filter(([_, url]) => url)
@@ -1399,14 +1242,14 @@ export function LinksTab() {
                 >
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: config?.color || "#6366F1" }}
+                    style={{ backgroundColor: config?.color || "#1a1a2e" }}
                     onClick={() => {
                       setSelectedSocial(platform)
-                      setSocialUrl(social_links?.[platform as keyof typeof social_links] || "")
+                      setSocialUrl(socialFieldValue(platform, social_links?.[platform as keyof typeof social_links]))
                       setShowSocialModal(true)
                     }}
                   >
-                    <SocialIcon platform={platform} size={14} color={markOn(config?.color || "#6366F1")} />
+                    <SocialIcon platform={platform} size={14} color={markOn(config?.color || "#1a1a2e")} />
                   </div>
                   <button
                     onClick={(e) => {
@@ -1455,14 +1298,7 @@ export function LinksTab() {
         }}
         className={cn(accentDepth, "h-11 w-full gap-2 rounded-xl text-[15px]")}
       >
-        <Plus
-          aria-hidden
-          className={cn(
-            "h-5 w-5 shrink-0 transition-[rotate] duration-200 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none",
-            addSheetFromButton ? "rotate-45" : "rotate-0",
-          )}
-          strokeWidth={2.25}
-        />
+        <AddBlockPlus open={addSheetFromButton} />
         {tt("Add")}
       </button>
 
@@ -1519,7 +1355,7 @@ export function LinksTab() {
                 return (
                   <div key={block.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border">
                     <div className="w-10 h-10 rounded-lg bg-white border flex items-center justify-center shrink-0">
-                      <preview.icon className="h-5 w-5 text-gray-400" />
+                      <preview.icon className="h-5 w-5 text-[#1a1a2e]" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{preview.title}</p>
@@ -1691,243 +1527,28 @@ export function LinksTab() {
           closeAddSheet resets what was typed.
         */
         sheet={{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT }}
-        className="h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
+        /* One height on a computer too, so a category chip with fewer blocks does not move the dialog's edges (components/onepage/add-block-picker). */
+        className="p-0 gap-0 overflow-hidden mx-auto flex flex-col bg-white border-[#ececf1] w-[calc(100%-24px)] max-w-[640px] sm:max-w-[640px] h-[min(640px,85vh)] rounded-2xl shadow-[0_24px_64px_-12px_rgba(17,17,19,0.25),0_2px_6px_rgba(17,17,19,0.06)]"
       >
-          {/* Header with title and close button */}
-          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0 border-b border-gray-100">
-            <SheetDialogTitle className="text-lg sm:text-xl font-semibold">
+          <DialogHeader className="px-4 sm:px-5 pt-4 sm:pt-5 pb-3 shrink-0 text-left">
+            <SheetDialogTitle className="text-[17px] sm:text-lg font-semibold tracking-[-0.01em] text-[#111113]">
               {addToGroupId ? tt("Add to Group") : tt("Add Block")}
             </SheetDialogTitle>
             {addToGroupId && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {tt("Adding block to group. Some block types are not available.")}
+              <p className="text-[12.5px] text-[#6b7280] mt-0.5">
+                {tt("Only links and images go in a group.")}
               </p>
             )}
           </DialogHeader>
 
-          {/* Search */}
-          <div className="px-4 sm:px-6 pb-4 bg-white shrink-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder={tt("Search platforms...")}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-10 sm:h-11 bg-gray-50 border-gray-200 focus:border-gray-400 rounded-xl text-sm"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-5 overscroll-contain">
-            {/* Quick action buttons - horizontal row */}
-            {!searchQuery && !addToGroupId && (
-              <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-5">
-                {[
-                  { label: tt("Group"), icon: Grid3X3, type: "group" as const },
-                  { label: tt("Link"), icon: Link, type: "link_button" as const },
-                  { label: tt("Product"), icon: ShoppingBag, type: "product" as const },
-                  { label: tt("Form"), icon: Mail, type: "email_capture" as const },
-                ].map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={() => handleAddBlock(item.type)}
-                      className="flex flex-col items-center justify-center gap-1 sm:gap-2 p-2.5 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors aspect-square sm:aspect-auto cursor-pointer"
-                    >
-                      <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
-                      <span className="text-[11px] sm:text-sm font-medium text-gray-900">{item.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* Quick action buttons for group - simplified */}
-            {!searchQuery && addToGroupId && (
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-5">
-                {[
-                  { label: tt("Link"), icon: Link, type: "link_button" as const },
-                  { label: tt("Image"), icon: ImageIcon, type: "image" as const },
-                ].map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={item.label}
-                      onClick={() => handleAddBlock(item.type)}
-                      className="flex flex-col items-center justify-center gap-1 sm:gap-2 p-2.5 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
-                      <span className="text-[11px] sm:text-sm font-medium text-gray-900">{item.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* Categories with blocks - vertical scrolling list */}
-            {!searchQuery ? (
-              <div className="space-y-5">
-                {blockCategories
-                  .filter(cat => {
-                    // Filter out categories with no allowed blocks when adding to group
-                    if (addToGroupId) {
-                      const allowedTypes = ["link_button", "image"]
-                      return cat.blocks.some(b => allowedTypes.includes(b.type))
-                    }
-                    return true
-                  })
-                  .map((category) => {
-                    // Filter blocks for group if needed
-                    const blocksToShow = addToGroupId
-                      ? category.blocks.filter(b => ["link_button", "image"].includes(b.type))
-                      : category.blocks
-
-                    if (blocksToShow.length === 0) return null
-
-                    return (
-                      <div key={category.id}>
-                        {/* Category title */}
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3">
-                          {category.label}
-                        </p>
-
-                        {/* Blocks in category */}
-                        <div className="space-y-0.5">
-                          {blocksToShow.map((block, idx) => {
-                            const Icon = block.icon
-                            const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("xtwitter", "twitter")
-                            const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram", "discord", "calendly"].includes(socialId)
-                            const atLimit = isBlockTypeAtLimit(block.type)
-                            const currentCount = getBlockTypeCount(block.type)
-                            const isComingSoon = (block as any).comingSoon === true
-
-                            return (
-                              <button
-                                key={`${category.id}-${block.type}-${block.label}-${idx}`}
-                                onClick={() => !atLimit && !isComingSoon && handleAddBlock(block.type, (block as any).preset)}
-                                disabled={atLimit || isComingSoon}
-                                className={cn(
-                                  "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
-                                  (atLimit || isComingSoon)
-                                    ? "opacity-50 cursor-not-allowed bg-gray-50"
-                                  : "hover:bg-gray-50 active:bg-gray-100 cursor-pointer"
-                                )}
-                              >
-                                <div
-                                  className="w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
-                                  style={{
-                                    backgroundColor: hasSocialIcon
-                                      ? SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color + "15"
-                                      : "#f3f4f6"
-                                  }}
-                                >
-                                  {hasSocialIcon ? (
-                                    <SocialIcon
-                                      platform={socialId}
-                                      size={18}
-                                      color={SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color}
-                                    />
-                                  ) : (
-                                    <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-sm text-gray-900">{block.label}</p>
-                                  <p className="text-[11px] sm:text-xs text-gray-500 truncate">
-                                    {atLimit ? tt("Already added ({currentCount}/2)", { currentCount }) : block.description}
-                                  </p>
-                                </div>
-                                {isComingSoon ? (
-                                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">{tt("Coming Soon")}</span>
-                                ) : atLimit ? (
-                                  <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">{tt("Added")}</span>
-                                ) : (
-                                  <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
-                                )}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-              </div>
-            ) : (
-              /* Search results */
-              <div className="space-y-0.5">
-                {activeCategoryBlocks.length > 0 ? (
-                  activeCategoryBlocks.map((block, idx) => {
-                    const Icon = block.icon
-                    const socialId = block.label.toLowerCase().replace(/[^a-z]/g, "").replace("xtwitter", "twitter")
-                    const hasSocialIcon = ["instagram", "tiktok", "youtube", "twitter", "spotify", "facebook", "linkedin", "threads", "soundcloud", "applemusic", "whatsapp", "telegram", "discord", "calendly"].includes(socialId)
-                    const atLimit = isBlockTypeAtLimit(block.type)
-                    const currentCount = getBlockTypeCount(block.type)
-                    const isComingSoon = (block as any).comingSoon === true
-
-                    return (
-                      <button
-                        key={`search-${block.type}-${block.label}-${idx}`}
-                        onClick={() => !atLimit && !isComingSoon && handleAddBlock(block.type, (block as any).preset)}
-                        disabled={atLimit || isComingSoon}
-                        className={cn(
-                          "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
-                          (atLimit || isComingSoon)
-                            ? "opacity-50 cursor-not-allowed bg-gray-50"
-                            : "hover:bg-gray-50 active:bg-gray-100 cursor-pointer"
-                        )}
-                      >
-                        <div
-                          className="w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-colors flex-shrink-0"
-                          style={{
-                            backgroundColor: hasSocialIcon
-                              ? SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color + "15"
-                              : "#f3f4f6"
-                          }}
-                        >
-                          {hasSocialIcon ? (
-                            <SocialIcon
-                              platform={socialId}
-                              size={18}
-                              color={SOCIAL_PLATFORMS.find(p => p.id === socialId)?.color}
-                            />
-                          ) : (
-                            <Icon className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-gray-900">{block.label}</p>
-                          <p className="text-[11px] sm:text-xs text-gray-500 truncate">
-                            {atLimit ? tt("Already added ({currentCount}/2)", { currentCount }) : block.description}
-                          </p>
-                        </div>
-                        {isComingSoon ? (
-                          <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">{tt("Coming Soon")}</span>
-                        ) : atLimit ? (
-                          <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-1 rounded-full flex-shrink-0">{tt("Added")}</span>
-                        ) : (
-                          <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-400 flex-shrink-0" />
-                        )}
-                      </button>
-                    )
-                  })
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-sm text-gray-500">{tt("No results found for \"{searchQuery}\"", { searchQuery })}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <AddBlockPicker
+            open={showAddModal}
+            inGroup={!!addToGroupId}
+            query={searchQuery}
+            onQuery={setSearchQuery}
+            atLimit={isBlockTypeAtLimit}
+            onPick={(entry) => handleAddBlock(entry.type, entry.preset, entry.data)}
+          />
       </SheetDialog>
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
@@ -1981,7 +1602,7 @@ export function LinksTab() {
                       key={platform.id}
                       onClick={() => {
                         setSelectedSocial(platform.id)
-                        setSocialUrl(social_links?.[platform.id as keyof typeof social_links] || "")
+                        setSocialUrl(socialFieldValue(platform.id, social_links?.[platform.id as keyof typeof social_links]))
                       }}
                       className={cn(
                         "w-full flex items-center gap-3 p-3 rounded-xl transition-all",
@@ -2005,7 +1626,7 @@ export function LinksTab() {
                         )}
                       </div>
                       {isActive && (
-                        <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e] shrink-0" />
                       )}
                       <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
                     </button>
@@ -2040,29 +1661,65 @@ export function LinksTab() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-sm">URL</Label>
-                      <Input
-                        value={socialUrl}
-                        onChange={(e) => {
-                          setSocialUrl(normalizeUrlInput(e.target.value))
-                          if (socialUrlError) setSocialUrlError(null)
-                        }}
-                        placeholder={platform?.placeholder}
-                        className={cn(
-                          "h-11 rounded-xl",
-                          socialUrlError && "border-red-500 focus-visible:ring-red-500"
-                        )}
-                      />
-                      {socialUrlError && (
-                        <p className="text-xs text-red-500">{socialUrlError}</p>
-                      )}
-                      {(selectedSocial === 'instagram' || selectedSocial === 'twitter' || selectedSocial === 'threads' || selectedSocial === 'tiktok' || selectedSocial === 'telegram') && (
-                        <p className="text-xs text-muted-foreground">
-                          {tt("Tip: You can enter just @username")}
-                        </p>
-                      )}
-                    </div>
+                    {/*
+                      ONE FIELD, TYPED THE PLATFORM'S WAY: a fixed "@", "github.com/",
+                      "+" or "Email" in front, and the username after it. A whole
+                      link can be pasted instead; the prefix then reads URL and the
+                      link is tidied to the right address (lib/onepage/social-input).
+                    */}
+                    {(() => {
+                      const format = socialFormat(selectedSocial ?? "")
+                      const pastedLink = format.kind !== "url" && socialFieldIsLink(selectedSocial ?? "", socialUrl)
+                      const prefix = format.kind === "url" || pastedLink ? "URL" : format.kind === "email" ? tt("Email") : format.prefix
+                      return (
+                        <div className="space-y-2">
+                          <label
+                            className={cn(
+                              "flex h-11 items-center overflow-hidden rounded-xl border bg-white transition-[border-color,box-shadow] duration-150 focus-within:ring-2 focus-within:ring-offset-0",
+                              socialUrlError ? "border-red-500 focus-within:ring-red-500/25" : "border-[#e3e4e8] focus-within:border-[#1a1a2e] focus-within:ring-[#1a1a2e]/10"
+                            )}
+                          >
+                            <span data-social-prefix={prefix} className="flex h-full shrink-0 items-center border-r border-[#ececf1] bg-[#f7f7f8] px-3 text-[13px] font-medium text-[#4b5563]">
+                              {prefix}
+                            </span>
+                            <input
+                              value={socialUrl}
+                              onChange={(e) => {
+                                setSocialUrl(normalizeUrlInput(e.target.value))
+                                if (socialUrlError) setSocialUrlError(null)
+                              }}
+                              onBlur={() => {
+                                if (!socialUrl) return
+                                const check = validateSocialUrl(selectedSocial ?? "", socialUrl)
+                                if (!check.valid) setSocialUrlError(check.error || tt("Invalid URL"))
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && socialUrl) {
+                                  e.preventDefault()
+                                  handleAddSocial()
+                                }
+                              }}
+                              inputMode={format.inputMode}
+                              type={format.kind === "email" ? "email" : "text"}
+                              autoCapitalize="none"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              aria-label={tt("Your {name} link or username", { name: platform?.label ?? "" })}
+                              aria-invalid={!!socialUrlError}
+                              placeholder={format.kind === "url" ? platform?.placeholder.replace(/^https:\/\//, "") : format.placeholder}
+                              className="h-full min-w-0 flex-1 bg-transparent px-3 text-[15px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af]"
+                            />
+                          </label>
+                          {socialUrlError ? (
+                            <p className="text-xs text-red-600">{socialUrlError}</p>
+                          ) : format.kind === "handle" || format.kind === "path" ? (
+                            <p className="text-xs text-[#6b7280]">{tt("Type your username, or paste the whole link.")}</p>
+                          ) : format.kind === "phone" ? (
+                            <p className="text-xs text-[#6b7280]">{tt("Your number with its country code.")}</p>
+                          ) : null}
+                        </div>
+                      )
+                    })()}
 
                     <div className="flex flex-col gap-2 pt-2">
                       <Button
@@ -2240,7 +1897,7 @@ export function LinksTab() {
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: config?.color || '#6366F1' }}
+                      style={{ backgroundColor: config?.color || "#1a1a2e" }}
                     >
                       {config?.icon || (
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="white">
@@ -4109,45 +3766,49 @@ function BlockItem({
         // Auto-detect Notion URLs and show Notion icon
         const isNotionUrl = data.url?.toLowerCase().includes('notion.so') || data.url?.toLowerCase().includes('notion.site')
         const effectiveIconId = data.icon || (isNotionUrl ? 'notion' : undefined)
-        return { title: data.label || tt("My Link"), subtitle: displayUrl, icon: Link, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId }
+        return { title: data.label || tt("My Link"), subtitle: displayUrl, icon: GlyphLink, thumbnail_url: data.thumbnail_url, iconId: effectiveIconId }
       }
       case "header":
-        return { title: tt("Header"), subtitle: tt("Profile section"), icon: User }
+        return { title: tt("Header"), subtitle: tt("Profile section"), icon: GlyphHeader }
       case "text": {
         const data = block.data as TextBlockData
-        return { title: data.content?.slice(0, 30) || tt("Text block"), subtitle: tt("Text"), icon: Type }
+        return { title: data.content?.slice(0, 30) || tt("Text block"), subtitle: tt("Text"), icon: GlyphText }
       }
       case "image":
-        return { title: tt("Image"), subtitle: tt("Image block"), icon: ImageIcon }
+        return { title: tt("Image"), subtitle: tt("Image block"), icon: GlyphImage }
       case "divider":
-        return { title: tt("Divider"), subtitle: tt("Spacing"), icon: Minus }
+        return { title: tt("Divider"), subtitle: tt("Spacing"), icon: GlyphDivider }
       case "email_capture": {
         const data = block.data as EmailCaptureBlockData
-        return { title: data.headline || tt("Email Signup"), subtitle: tt("Lead capture form"), icon: Mail }
+        return { title: data.headline || tt("Email Signup"), subtitle: tt("Lead capture form"), icon: GlyphEmail }
       }
       case "social_row":
-        return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: Share2 }
+        return { title: tt("Social Icons"), subtitle: tt("Social links"), icon: GlyphSocial }
       case "product": {
         const data = block.data as ProductBlockData
-        return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents, { type: data.product_type }) : tt("Select product"), icon: ShoppingBag, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
+        return { title: data.product_title || tt("Digital Product"), subtitle: data.product_price_cents ? shopMoney(data.product_price_cents, { type: data.product_type }) : tt("Select product"), icon: GlyphProduct, thumbnail_url: data.custom_thumbnail || data.product_thumbnail }
       }
       case "group": {
         const data = block.data as GroupBlockData
         const childCount = data.children?.length || 0
-        return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout }), icon: Layers }
+        return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout }), icon: GlyphGroup }
       }
       case "pdf_document": {
         const data = block.data as PDFDocumentBlockData
-        return { title: data.title || tt("PDF Document"), subtitle: data.pdf_file_url ? tt("PDF uploaded") : tt("No file"), icon: FileText, thumbnail_url: data.thumbnail_url }
+        return { title: data.title || tt("PDF Document"), subtitle: data.pdf_file_url ? tt("PDF uploaded") : tt("No file"), icon: GlyphDocument, thumbnail_url: data.thumbnail_url }
       }
       case "food_menu": {
         const data = block.data as FoodMenuBlockData
-        return { title: data.title || tt("Menu"), subtitle: data.pdf_file_url ? tt("Menu uploaded") : tt("No file"), icon: FileText, thumbnail_url: data.thumbnail_url }
+        return { title: data.title || tt("Menu"), subtitle: data.pdf_file_url ? tt("Menu uploaded") : tt("No file"), icon: GlyphMenu, thumbnail_url: data.thumbnail_url }
       }
       case "calendly": {
         const data = block.data as CalendlyBlockData
-        return { title: data.title || tt("Book a Meeting"), subtitle: data.calendly_url ? tt("Calendly connected") : tt("Add Calendly URL"), icon: Calendar, thumbnail_url: data.thumbnail_url }
+        return { title: data.title || tt("Book a Meeting"), subtitle: data.calendly_url ? bookingProviderName(data.calendly_url) ?? tt("Booking link") : tt("Add a booking link"), icon: GlyphBooking, thumbnail_url: data.thumbnail_url }
       }
+      case "course":
+      case "music":
+      case "testimonials":
+      case "contact_form":
       case "heading":
       case "faq":
       case "countdown":
@@ -4155,7 +3816,7 @@ function BlockItem({
       case "video":
         return extraBlockRow(block)
       default:
-        return { title: block.type, subtitle: "", icon: Link }
+        return { title: block.type, subtitle: "", icon: GlyphLink }
     }
   }
 
@@ -4216,7 +3877,7 @@ function BlockItem({
               e.stopPropagation()
               onOpenThumbnailModal(block.id)
             }}
-            className="group relative w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden hover:ring-2 hover:ring-gray-300 transition-all"
+            className="group relative w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden hover:ring-2 hover:ring-gray-300 transition-all"
           >
             {(preview as any).thumbnail_url ? (
               <img
@@ -4225,9 +3886,9 @@ function BlockItem({
                 className="w-full h-full object-cover"
               />
             ) : hasLinkIcon((preview as any).iconId) ? (
-              <LinkIcon name={(preview as any).iconId} size={20} className="text-gray-500" />
+              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" />
             ) : (
-              <Icon className="h-5 w-5 text-gray-500" />
+              <Icon className="h-5 w-5 text-[#1a1a2e]" />
             )}
             {/* Pencil icon always visible in corner */}
             <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center">
@@ -4237,7 +3898,7 @@ function BlockItem({
             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
           </button>
         ) : (
-          <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="w-10 h-10 rounded-[11px] bg-[#f2f2f4] flex items-center justify-center shrink-0 overflow-hidden">
             {(preview as any).thumbnail_url ? (
               <img
                 src={(preview as any).thumbnail_url}
@@ -4245,9 +3906,9 @@ function BlockItem({
                 className="w-full h-full object-cover"
               />
             ) : hasLinkIcon((preview as any).iconId) ? (
-              <LinkIcon name={(preview as any).iconId} size={20} className="text-gray-500" />
+              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" />
             ) : (
-              <Icon className="h-5 w-5 text-gray-500" />
+              <Icon className="h-5 w-5 text-[#1a1a2e]" />
             )}
           </div>
         )}
@@ -5832,6 +5493,48 @@ function BlockEditor({
                 />
               </div>
 
+              {/* A first name above the email box: it goes on the subscriber and into the welcome email. */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <Label className="text-xs">{tt("Ask for a first name")}</Label>
+                  <p className="text-[10px] text-muted-foreground">{tt("Shown above the email box. Your emails can greet them by name.")}</p>
+                </div>
+                <Toggle label={tt("Ask for a first name")}
+                  checked={data.ask_name === true}
+                  onCheckedChange={(checked) => updateData({ ask_name: checked })}
+                />
+              </div>
+
+              {/* After they join: a link (a free guide, a private video, a group chat). A file is under Enable Digital Product. */}
+              <div className="space-y-2 pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label className="text-xs">{tt("After they join (optional)")}</Label>
+                  <p className="text-[10px] text-muted-foreground">{tt("A link they get right away: a free guide, a video, a group chat.")}</p>
+                </div>
+                <Input
+                  value={data.after_signup_url || ""}
+                  onChange={(e) => updateData({ after_signup_url: e.target.value.trim() })}
+                  inputMode="url"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  className="h-9"
+                  placeholder="https://"
+                  aria-invalid={!!data.after_signup_url && !/^https?:\/\/\S+\.\S+/i.test(data.after_signup_url) || undefined}
+                />
+                {data.after_signup_url && !/^https?:\/\/\S+\.\S+/i.test(data.after_signup_url) ? (
+                  <p className="text-[11px] text-[#b42318]">{tt("Start the link with https://")}</p>
+                ) : null}
+                {data.after_signup_url ? (
+                  <Input
+                    value={data.after_signup_label || ""}
+                    onChange={(e) => updateData({ after_signup_label: e.target.value })}
+                    maxLength={40}
+                    className="h-9"
+                    placeholder={tt("Open your free gift")}
+                  />
+                ) : null}
+              </div>
+
               {/* Product Image Picker - Always show in settings */}
               <div className="space-y-2 pt-2 border-t">
                 <Label className="text-xs">{tt("Product Image")}</Label>
@@ -5936,15 +5639,9 @@ function BlockEditor({
                 )}
               </div>
 
-              {/* See Subscribers Link */}
+              {/* Where the addresses go: Emails › Subscribers, and Klaviyo or Omnisend when connected (components/onepage/creator-blocks). */}
               <div className="pt-3 border-t">
-                <a
-                  href="/app/emails"
-                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-[#1a1a2e] bg-[#f4f4f6] hover:bg-[#ececef] rounded-lg transition-colors"
-                >
-                  <Mail className="w-4 h-4" />
-                  {tt("See subscribers")}
-                </a>
+                <SignupDestination />
               </div>
             </TabsContent>
 
@@ -7086,15 +6783,20 @@ function BlockEditor({
 
               {/* Calendly URL */}
               <div className="space-y-1.5">
-                <Label className="text-xs">{tt("Calendly URL")}</Label>
+                <Label className="text-xs">{tt("Booking link")}</Label>
                 <Input
                   value={data.calendly_url || ""}
-                  onChange={(e) => updateData({ calendly_url: e.target.value })}
+                  onChange={(e) => updateData({ calendly_url: e.target.value.trim() })}
+                  inputMode="url"
+                  autoCapitalize="off"
+                  autoCorrect="off"
                   className="h-9"
                   placeholder="https://calendly.com/your-username/30min"
+                  aria-invalid={!!data.calendly_url && !bookingSource(data.calendly_url) || undefined}
                 />
-                <p className="text-[10px] text-muted-foreground">
-                  {tt("Paste your Calendly event link here")}
+                {/* Calendly or Cal.com, the two booking pages made to be shown inside another page (lib/onepage/creator-blocks bookingSource). */}
+                <p className={cn("text-[10px]", data.calendly_url && !bookingSource(data.calendly_url) ? "text-[#b42318]" : "text-muted-foreground")}>
+                  {data.calendly_url && !bookingSource(data.calendly_url) ? tt("Paste a Calendly or Cal.com link to one of your events.") : tt("Paste your Calendly or Cal.com event link")}
                 </p>
               </div>
 
@@ -7373,7 +7075,19 @@ function BlockEditor({
             {/* The product's own editors, side by side, and what a draft or a product that is gone means for the page. */}
             {data.product_id && (
               <div className="space-y-2">
-                <ProductStateNote state={productState} productId={data.product_id} onRemove={() => removeBlock(block.id)} />
+                <ProductStateNote
+                  state={productState}
+                  productId={data.product_id}
+                  onRemove={() => {
+                    /* On the page, or inside a group (lib/onepage/product-block removePlanFor). */
+                    const plan = removePlanFor(onepage?.draft_blocks, block.id)
+                    if (plan.kind === "top") removeBlock(block.id)
+                    else if (plan.kind === "child") {
+                      const group = onepage?.draft_blocks.find((b) => b.id === plan.groupId)
+                      if (group) contextUpdateBlock(plan.groupId, { data: { ...(group.data as GroupBlockData), children: plan.children as OnePageBlock[] } })
+                    }
+                  }}
+                />
                 {productState !== "unavailable" && <ProductEditLinks productId={data.product_id} />}
               </div>
             )}
@@ -7402,6 +7116,10 @@ function BlockEditor({
         )
       }
 
+      case "course":
+      case "music":
+      case "testimonials":
+      case "contact_form":
       case "heading":
       case "faq":
       case "countdown":
@@ -7427,24 +7145,24 @@ function BlockEditor({
       switch (child.type) {
         case "link_button": {
           const d = child.data as LinkButtonBlockData
-          return { title: d.label || tt("My Link"), icon: Link, thumbnail_url: d.thumbnail_url, iconId: resolveLinkIcon(d.icon, d.url) }
+          return { title: d.label || tt("My Link"), icon: GlyphLink, thumbnail_url: d.thumbnail_url, iconId: resolveLinkIcon(d.icon, d.url) }
         }
         case "text": {
           const d = child.data as TextBlockData
-          return { title: d.content?.slice(0, 25) || tt("Text"), icon: Type, thumbnail_url: null, iconId: null }
+          return { title: d.content?.slice(0, 25) || tt("Text"), icon: GlyphText, thumbnail_url: null, iconId: null }
         }
         case "image": {
           const d = child.data as ImageBlockData
-          return { title: tt("Image"), icon: ImageIcon, thumbnail_url: d.image_url, iconId: null }
+          return { title: tt("Image"), icon: GlyphImage, thumbnail_url: d.image_url, iconId: null }
         }
         case "divider":
-          return { title: tt("Divider"), icon: Minus, thumbnail_url: null, iconId: null }
+          return { title: tt("Divider"), icon: GlyphDivider, thumbnail_url: null, iconId: null }
         case "email_capture": {
           const d = child.data as EmailCaptureBlockData
-          return { title: d.headline || tt("Email Signup"), icon: Mail, thumbnail_url: null, iconId: null }
+          return { title: d.headline || tt("Email Signup"), icon: GlyphEmail, thumbnail_url: null, iconId: null }
         }
         default:
-          return { title: child.type.replace('_', ' '), icon: Link, thumbnail_url: null, iconId: null }
+          return { title: child.type.replace('_', ' '), icon: GlyphLink, thumbnail_url: null, iconId: null }
       }
     }
 
@@ -7680,9 +7398,9 @@ function BlockEditor({
                           {preview.thumbnail_url ? (
                             <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : hasLinkIcon(preview.iconId) ? (
-                            <LinkIcon name={preview.iconId} size={16} className="text-gray-500" />
+                            <LinkIcon name={preview.iconId} size={16} className="text-[#1a1a2e]" />
                           ) : (
-                            <ChildIcon className="h-3.5 w-3.5 text-gray-500" />
+                            <ChildIcon className="h-4 w-4 text-[#1a1a2e]" />
                           )}
                         </div>
                         <span className="flex-1 text-sm truncate">{preview.title}</span>

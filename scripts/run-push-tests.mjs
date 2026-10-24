@@ -628,6 +628,9 @@ const SUITES = [
   "tests/onepage-editor-shell.test.ts",
   "tests/onepage-leave.test.ts",
   "tests/onepage-theme-apply.test.ts",
+  /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
+  "tests/onepage-buttons.test.ts",
+  "tests/onepage-social-input.test.ts",
   "tests/onepage-open.test.ts",
   "tests/onepage-arrival.test.ts",
   "tests/own-section-html.test.ts",
@@ -856,6 +859,10 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* Round 10: the course, music, testimonials and contact blocks, the Add block sheet's catalogue and search, the + that turns under a mouse, the email signup's name, link and spam checks (strict: it draws components/onepage/brand-icons, which only type-checks strict); scripts/check-onepage-blocks.mjs measures them. */
+  "tests/onepage-creator-blocks.test.ts",
+  /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
+  "tests/e2e-onepage-signup.test.ts",
   /* ShippyPro: the adapter against recorded and documented answers, and the marketplace card in each state (components/physical/integrations-marketplace.tsx only type-checks strict) */
   "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */

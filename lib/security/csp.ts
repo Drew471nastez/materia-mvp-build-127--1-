@@ -195,6 +195,13 @@ const DIRECTIVES: [string, string[]][] = [
     "https://maps.google.com",
     "https://www.openstreetmap.org",
     "https://maps.apple.com",
+    /* The OnePage's players and booking pages (lib/onepage/creator-blocks, components/onepage/extra-blocks): TikTok's video, Apple Music's player, Calendly and Cal.com. */
+    "https://www.tiktok.com",
+    "https://embed.music.apple.com",
+    "https://calendly.com",
+    "https://cal.com",
+    "https://app.cal.com",
+    "https://cal.eu",
   ]],
 
   /* pdf.js runs its parser in a worker made from a blob. */

@@ -35,7 +35,8 @@ import type { PrefetchKind } from "next/dist/client/components/router-reducer/ro
   press still waited on the page itself: 0.4 to 1 s on a computer, 1 to 1.8 s
   on a phone (measured on asgardshop.storelib.com). A pointer resting on a
   link, a focus or a touch fetches it in full, so the press shows it at
-  once. Links that only come into view keep the light prefetch.
+  once. Links that only come into view keep the light prefetch, except on
+  a touch screen (below).
 */
 const FULL = "full" as PrefetchKind
 
@@ -189,6 +190,11 @@ export function SiteLinks() {
 
     /* A few of the links on screen, when the page has nothing else to do. */
     let budget = viewportPrefetchBudget(navigator as never)
+    /* A phone has no pointer resting on a link: the touch comes about 100 ms
+       before the press, too late to fetch the page (0.8 to 1.1 s per press,
+       measured on a phone). There, the links on screen (within the budget)
+       are fetched whole; a page's data is about 5 KB compressed. */
+    const touchOnly = typeof window.matchMedia === "function" && window.matchMedia("(hover: none)").matches
     let io: IntersectionObserver | null = null
     const watchScreen = () => {
       if (budget <= 0 || typeof IntersectionObserver === "undefined") return
@@ -202,7 +208,7 @@ export function SiteLinks() {
             io?.disconnect()
             return
           }
-          ahead(to)
+          ahead(to, touchOnly)
         }
       }, { rootMargin: "0px" })
       document.querySelectorAll<HTMLAnchorElement>("a[href]").forEach((a) => io?.observe(a))

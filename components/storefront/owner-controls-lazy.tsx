@@ -1,0 +1,20 @@
+"use client"
+
+/**
+ * THE OWNER'S CONTROLS ARE FETCHED FOR THE OWNER.
+ *
+ * Edit profile, Edit about and the owner's menu are drawn only when the
+ * creator looks at their own page, but imported plainly from the page they
+ * were in every visitor's download: the rich text field with an HTML
+ * sanitiser, drag and drop, image upload and the Supabase client (measured on
+ * storelib.com/<name>: about 1.1 MB of JavaScript per visit).
+ *
+ * Loaded on demand instead, still drawn on the server for the owner (ssr
+ * stays on), so the owner sees the same page and a visitor does not
+ * download what they never see.
+ */
+import dynamic from "next/dynamic"
+
+export const EditProfileButton = dynamic(() => import("@/components/storefront/edit-profile-button").then((m) => m.EditProfileButton))
+export const EditAboutButton = dynamic(() => import("@/components/storefront/edit-about-button").then((m) => m.EditAboutButton))
+export const OwnerMenu = dynamic(() => import("@/components/storefront/owner-menu").then((m) => m.OwnerMenu))

@@ -7,6 +7,8 @@ import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-s
 import { recordSignupAttribution } from "@/lib/attribution/server"
 import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { signupLooksAutomated, signupName } from "@/lib/onepage/creator-blocks"
 
 export const runtime = "nodejs"
 
@@ -39,10 +41,12 @@ export async function POST(request: Request) {
     const countryName = countryCode ? (countryNames[countryCode] || countryCode) : null
 
     const body = await request.json()
+    /* A script (the block's hidden field filled, or sent faster than a person can): told it worked, and nothing is written (lib/onepage/creator-blocks). */
+    if (signupLooksAutomated(body)) return NextResponse.json({ success: true })
+    const name = signupName(body?.name)
     const {
       onepage_id,
       email,
-      name,
       block_id,
       referrer,
       utm_source,
@@ -83,6 +87,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
     }
 
+    /* Counted by address and by the address being signed up, as every other sign-up form is (lib/api/rate-limit; app/api/onepage/email-capture). It had no limit. */
+    const limited = await rateLimit({
+      bucket: "email-capture",
+      subjects: [addressSubject(request), emailSubject(subscriberEmail)],
+      windows: LIMITS.subscribe,
+      message: "That is a lot of sign-ups at once. Try again in a minute.",
+    })
+    if (limited) return limited
+
     // Verify onepage exists and is published
     const { data: onepage, error: onepageError } = await supabase
       .from("onepages")
@@ -119,24 +132,34 @@ export async function POST(request: Request) {
     }
 
     // Insert lead
-    const { data: lead, error: insertError } = await adminSupabase
-      .from("onepage_leads")
-      .insert({
-        onepage_id,
-        email: subscriberEmail,
-        name: name || null,
-        block_id: block_id || null,
-        referrer: referrer || null,
-        utm_source: utm_source || null,
-        utm_medium: utm_medium || null,
-        utm_campaign: utm_campaign || null,
-        lead_magnet_id: lead_magnet_id || null,
-        delivery_status: hasDigitalProduct ? "not_applicable" : "not_applicable",
-        country_code: countryCode,
-        country_name: countryName,
-      })
-      .select()
-      .single()
+    /*
+      THE COUNTRY IS A NICETY, THE ADDRESS IS NOT. country_code and
+      country_name are written here and created by no SQL file in this
+      repository (tests/e2e-onepage-signup.test.ts builds the database from
+      them and has no such columns). Where a database lacks them the insert
+      was refused and the visitor saw nothing happen: the lead is now saved
+      without them instead.
+    */
+    const insertLead = (row: Record<string, unknown>) => adminSupabase.from("onepage_leads").insert(row).select().single()
+    const leadRow: Record<string, unknown> = {
+      onepage_id,
+      email: subscriberEmail,
+      name: name || null,
+      block_id: block_id || null,
+      referrer: referrer || null,
+      utm_source: utm_source || null,
+      utm_medium: utm_medium || null,
+      utm_campaign: utm_campaign || null,
+      lead_magnet_id: lead_magnet_id || null,
+      delivery_status: hasDigitalProduct ? "not_applicable" : "not_applicable",
+      country_code: countryCode,
+      country_name: countryName,
+    }
+    let { data: lead, error: insertError } = await insertLead(leadRow)
+    if (insertError && (insertError.code === "PGRST204" || insertError.code === "42703")) {
+      const withoutCountry = Object.fromEntries(Object.entries(leadRow).filter(([k]) => k !== "country_code" && k !== "country_name"))
+      ;({ data: lead, error: insertError } = await insertLead(withoutCountry))
+    }
 
     if (insertError) {
       if (insertError.code === "23505") {

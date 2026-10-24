@@ -32,10 +32,9 @@ import { LiveSubscribeBar } from "@/components/store-builder/live-subscribe-bar"
 import { cameFromCommunity, showsSubscribeBar } from "@/lib/storefront/subscribe-bar-visibility"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
-import { EditProfileButton } from "@/components/storefront/edit-profile-button"
 import { ensureStorefrontOrRedirectToMember } from "@/lib/profile/storefront-gate"
-import { EditAboutButton } from "@/components/storefront/edit-about-button"
-import { OwnerMenu } from "@/components/storefront/owner-menu"
+/* The owner's controls load on demand: a visitor never downloads them (components/storefront/owner-controls-lazy.tsx). */
+import { EditAboutButton, EditProfileButton, OwnerMenu } from "@/components/storefront/owner-controls-lazy"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 /* The scheme handed to the header, the tabs and the footer, shared with a person's page (round 12). */

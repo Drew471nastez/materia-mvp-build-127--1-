@@ -51,6 +51,9 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
+import { tt } from "@/lib/i18n/text"
+import { bookingSource } from "@/lib/onepage/creator-blocks"
+import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -3421,6 +3424,13 @@ function PublicBlockRenderer({
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [downloadLink, setDownloadLink] = useState<string | null>(null)
+  /* The email signup's first name (when the block asks), its hidden field and when it came on screen: the same spam checks as a website's forms (lib/site-contact looksAutomated). */
+  const [leadName, setLeadName] = useState("")
+  const [leadTrap, setLeadTrap] = useState("")
+  const leadShownAt = useRef(0)
+  useEffect(() => {
+    leadShownAt.current = Date.now()
+  }, [])
   const videoRef = useRef<HTMLVideoElement>(null)
 
   // Load email subscription state from localStorage on mount
@@ -4023,39 +4033,34 @@ function PublicBlockRenderer({
       */
       const linkIcon = resolveLinkIcon(data.icon, data.url)
 
-      const buttonShadow = (theme as any).button_shadow || "none"
-      const shadowColor = (theme as any).button_shadow_color || "#000000"
-      // Convert hex to rgba for shadow
-      const hexToRgba = (hex: string, alpha: number) => {
-        const r = Number.parseInt(hex.slice(1, 3), 16)
-        const g = Number.parseInt(hex.slice(3, 5), 16)
-        const b = Number.parseInt(hex.slice(5, 7), 16)
-        return `rgba(${r},${g},${b},${alpha})`
+      /*
+        THE BUTTON, from lib/onepage/button-style.ts: the same drawing every
+        button block and the Design tab's samples use. Its hover (data-hover)
+        is the page's choice, drawn by `.op-btn` in app/globals.css; a link
+        inside a carousel or a group keeps still, as it always has.
+      */
+      const buttonStyles: React.CSSProperties = { ...themeButtonStyle(theme), ...buttonHoverVars(theme) }
+      const size = buttonSize(theme)
+      const align = buttonAlign(theme)
+      const iconSide = buttonIconSide(theme)
+      const buttonHoverAttrs = {
+        "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme),
+        "data-shadow": themeButtonShadow(theme),
+        "data-align": align,
       }
-      const shadowStyles: Record<string, string> = {
-        none: "none",
-        subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
-        strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
-        hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
-      }
-
-      const buttonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
-        color: theme.button_text_color,
-        borderRadius: `${theme.button_border_radius}px`,
-        borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
-        borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
-        boxShadow: shadowStyles[buttonShadow] || "none",
-      }
+      const iconPlace = cn(BUTTON_ICON_CLASS[size], "shrink-0 absolute", BUTTON_ICON_INSET[size][iconSide])
+      /* The label column: clear of the icon on both sides when centred, on the icon's side only when to the left. */
+      const labelColumn = (withIcon: boolean) =>
+        cn(
+          "flex flex-col min-w-0 w-full",
+          align === "left" ? "text-left items-start" : "text-center",
+          withIcon ? (align === "left" ? (iconSide === "left" ? "pl-12" : "pr-12") : "px-12") : "",
+        )
+      const labelText = cn(align === "left" ? "text-left" : "text-center", "op-label break-words whitespace-normal leading-tight")
 
       const hasThumbnail = !!data.thumbnail_url || !!linkIcon
+      /* A featured card on a Pill page: a pill's 999px would make the card an oval and crop its picture to one, so a card stops at 28px. */
+      const cardRadius = buttonShape(theme.button_border_radius) === "pill" ? 28 : theme.button_border_radius
 
       // Pro Layout - Featured display with larger thumbnail
       if (data.layout_type === 'pro') {
@@ -4123,6 +4128,7 @@ function PublicBlockRenderer({
               className={cn("w-full overflow-hidden", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
+                borderRadius: `${cardRadius}px`,
                 padding: 0,
                 fontSize: 0,
                 lineHeight: 0,
@@ -4132,7 +4138,7 @@ function PublicBlockRenderer({
               <div
                 className="w-full aspect-video relative overflow-hidden"
                 style={{
-                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  borderRadius: `${cardRadius}px ${cardRadius}px 0 0`,
                 }}
               >
                 <iframe
@@ -4151,7 +4157,7 @@ function PublicBlockRenderer({
                 onClick={() => trackClick(block.id, getTargetUrl())}
                 className={cn("block w-full px-5 py-3.5 sm:py-4 text-center transition-opacity", !isInsideCarousel && "hover:opacity-80")}
                 style={{
-                  backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+                  backgroundColor: themeButtonStripFill(theme),
                   fontSize: '15px',
                   lineHeight: '1.4',
                 }}
@@ -4188,7 +4194,7 @@ function PublicBlockRenderer({
               <div
                 className="w-full relative overflow-hidden"
                 style={{
-                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  borderRadius: `${cardRadius}px ${cardRadius}px 0 0`,
                   aspectRatio: '9/16',
                   maxHeight: '500px',
                 }}
@@ -4211,7 +4217,7 @@ function PublicBlockRenderer({
                   displayMode !== 'full' && "aspect-[2/1]"
                 )}
                 style={{
-                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  borderRadius: `${cardRadius}px ${cardRadius}px 0 0`,
                   backgroundColor: displayMode === 'contain' || !data.thumbnail_url ? (
                     theme.button_style === "outline" ? `${theme.button_color}10` : `${theme.button_text_color}10`
                   ) : undefined,
@@ -4223,6 +4229,7 @@ function PublicBlockRenderer({
                     alt={data.label || ""}
                     className={cn(
                       "w-full",
+                      !isInsideCarousel && "op-media",
                       displayMode === 'cover' && "h-full object-cover",
                       displayMode === 'contain' && "h-full object-contain",
                       displayMode === 'full' && "h-auto"
@@ -4262,7 +4269,7 @@ function PublicBlockRenderer({
             <div
               className="w-full px-5 py-3.5 sm:py-4 flex flex-col items-center justify-center overflow-hidden text-sm sm:text-base"
               style={{
-                backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+                backgroundColor: themeButtonStripFill(theme),
                 fontSize: '15px',
                 lineHeight: '1.4',
               }}
@@ -4331,9 +4338,10 @@ function PublicBlockRenderer({
                 trackClick(block.id, data.url)
                 openSpotifyModal(data)
               }}
-              className={cn("w-full overflow-hidden transition-all cursor-pointer block", hoverEffect, getAnimationClass(data.animation_type))}
+              className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
+                borderRadius: `${cardRadius}px`,
                 padding: 0,
                 fontSize: 0,
                 lineHeight: 0,
@@ -4353,9 +4361,10 @@ function PublicBlockRenderer({
                 trackClick(block.id, data.url)
                 openAppleMusicModal(data)
               }}
-              className={cn("w-full overflow-hidden transition-all cursor-pointer block", hoverEffect, getAnimationClass(data.animation_type))}
+              className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
+                borderRadius: `${cardRadius}px`,
                 padding: 0,
                 fontSize: 0,
                 lineHeight: 0,
@@ -4372,9 +4381,10 @@ function PublicBlockRenderer({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
-            className={cn("w-full overflow-hidden transition-all block", hoverEffect, getAnimationClass(data.animation_type))}
+            className={cn("op-card w-full overflow-hidden block", getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
+              borderRadius: `${cardRadius}px`,
               padding: 0,
               fontSize: 0,
               lineHeight: 0,
@@ -4414,9 +4424,10 @@ function PublicBlockRenderer({
               trackClick(block.id, data.url)
               openSpotifyModal(data)
             }}
+            {...buttonHoverAttrs}
             className={cn(
-              "w-full flex items-center py-[19.5px] sm:py-[21.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer",
-              hoverEffect,
+              "op-btn w-full flex items-center font-medium cursor-pointer",
+              BUTTON_SIZE_CLASS[size],
               hasThumbnail ? "relative justify-center" : "justify-center",
               getDefaultAnimationClass(data.animation_type)
             )}
@@ -4426,17 +4437,17 @@ function PublicBlockRenderer({
               <img
                 src={data.thumbnail_url}
                 alt={data.label || ""}
-                className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
+                className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
-              <LinkIcon name={linkIcon} className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] shrink-0 absolute left-[20px]" />
+              <LinkIcon name={linkIcon} className={iconPlace} />
             ) : null}
-            <div className={cn("flex flex-col min-w-0", hasThumbnail ? "w-full text-center px-12" : "")}>
-              <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
+            <div className={labelColumn(hasThumbnail)}>
+              <span className={labelText}>{data.label || "Link"}</span>
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                 <span
-                    className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                    className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                     style={{
                       color: theme.button_text_color,
                       opacity: 0.75
@@ -4468,29 +4479,30 @@ function PublicBlockRenderer({
               trackClick(block.id, data.url)
               openAppleMusicModal(data)
             }}
+            {...buttonHoverAttrs}
             className={cn(
-              "w-full relative flex items-center justify-center py-[19.5px] sm:py-[21.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer",
-              hoverEffect,
+              "op-btn w-full relative flex items-center justify-center font-medium cursor-pointer",
+              BUTTON_SIZE_CLASS[size],
               getDefaultAnimationClass(data.animation_type)
             )}
             style={buttonStyles}
           >
-            {/* Thumbnail positioned absolutely on left */}
+            {/* Thumbnail positioned absolutely at the icon's side */}
             {data.thumbnail_url ? (
               <img
                 src={data.thumbnail_url}
                 alt={data.label || ""}
-                className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
+                className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
-              <LinkIcon name={linkIcon} className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] shrink-0 absolute left-[20px]" />
+              <LinkIcon name={linkIcon} className={iconPlace} />
             ) : null}
-            <div className="flex flex-col min-w-0 w-full text-center px-12">
-              <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
+            <div className={labelColumn(true)}>
+              <span className={labelText}>{data.label || "Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
                 <span
-                  className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                  className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                   style={{
                     color: theme.button_text_color,
                     opacity: 0.75
@@ -4530,9 +4542,10 @@ function PublicBlockRenderer({
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
+          {...buttonHoverAttrs}
           className={cn(
-            "w-full flex items-center py-[19.5px] sm:py-[21.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all",
-            hoverEffect,
+            "op-btn w-full flex items-center font-medium",
+            BUTTON_SIZE_CLASS[size],
             // Both icons and thumbnails use centered layout with absolute positioning
             (hasIconOnly || hasThumbnail) ? "relative justify-center" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
@@ -4543,17 +4556,17 @@ function PublicBlockRenderer({
             <img
               src={data.thumbnail_url}
               alt={data.label || ""}
-              className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
+              className={cn(iconPlace, "rounded object-cover")}
             />
           ) : linkIcon ? (
-            <LinkIcon name={linkIcon} className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] shrink-0 absolute left-[20px]" />
+            <LinkIcon name={linkIcon} className={iconPlace} />
           ) : null}
-          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? "w-full text-center px-12" : "")}>
-            <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
+          <div className={labelColumn(!!(hasIconOnly || hasThumbnail))}>
+            <span className={labelText}>{data.label || "Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
               <span
-                className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                 style={{
                   color: theme.button_text_color,
                   opacity: 0.75
@@ -4574,7 +4587,7 @@ function PublicBlockRenderer({
             {/* Apple Music info display for default layout */}
             {isAppleMusic && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
               <span
-                className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                 style={{
                   color: theme.button_text_color,
                   opacity: 0.75
@@ -4859,12 +4872,7 @@ function PublicBlockRenderer({
         button's radius below.
       */
       const emailButtonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
+        backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
@@ -4971,6 +4979,9 @@ function PublicBlockRenderer({
             body: JSON.stringify({
               onepage_id: onepageId,
               email,
+              name: data.ask_name ? leadName.trim() || undefined : undefined,
+              company: leadTrap,
+              elapsed: Date.now() - leadShownAt.current,
               block_id: block.id,
               lead_magnet_id: data.lead_magnet_id,
               enable_digital_product: data.enable_digital_product,
@@ -5039,6 +5050,47 @@ function PublicBlockRenderer({
         void downloadFile({ url: downloadUrl, fileName: name })
       }
 
+      /*
+        ASKED FOR A FIRST NAME, AND THE HIDDEN FIELD. Above the form, so the
+        email box and its button stay one row. The name goes on the
+        subscriber (Emails › Subscribers) and into the welcome automation.
+      */
+      const emailExtras = (
+        <>
+          <input type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden value={leadTrap} onChange={(e) => setLeadTrap(e.target.value)} className="absolute -left-[9999px] h-px w-px opacity-0" />
+          {data.ask_name && !emailSubmitted ? (
+            <input
+              type="text"
+              value={leadName}
+              onChange={(e) => setLeadName(e.target.value)}
+              placeholder={tt("First name")}
+              aria-label={tt("First name")}
+              autoComplete="given-name"
+              maxLength={80}
+              disabled={isSubmitting}
+              data-email-name=""
+              className="mb-2 w-full border-0 bg-white/90 px-3 py-3 text-[16px] outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 sm:px-4 sm:text-sm"
+              style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius }}
+            />
+          ) : null}
+        </>
+      )
+      /* After they join: the link the creator chose (a guide, a private video, a group), as the page's own button. */
+      const afterUrl = (data.after_signup_url || "").trim()
+      const afterSignupLink = afterUrl && /^https?:\/\//i.test(afterUrl) ? (
+        <a
+          href={afterUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-after-signup=""
+          onClick={() => trackClick(block.id, afterUrl)}
+          className="mt-3 flex w-full items-center justify-center px-4 py-3 text-sm font-medium"
+          style={emailButtonStyles}
+        >
+          {(data.after_signup_label || "").trim() || tt("Open your free gift")}
+        </a>
+      ) : null
+
       // Pro layout with thumbnail
       if (isPro && showThumbnail) {
         return (
@@ -5075,6 +5127,8 @@ function PublicBlockRenderer({
 
                 if (isShortButton) {
                   return (
+                    <>
+                    {emailExtras}
                     <form onSubmit={handleSubmit} className="flex flex-row gap-2 items-stretch">
                       <input
                         type="email"
@@ -5112,10 +5166,13 @@ function PublicBlockRenderer({
                         </button>
                       )}
                     </form>
+                    </>
                   )
                 }
 
                 return (
+                  <>
+                  {emailExtras}
                   <form onSubmit={handleSubmit} className="flex flex-col gap-2">
                     <input
                       type="email"
@@ -5153,6 +5210,7 @@ function PublicBlockRenderer({
                       </button>
                     )}
                   </form>
+                  </>
                 )
               })()}
             </div>
@@ -5161,6 +5219,7 @@ function PublicBlockRenderer({
                 <p className="text-xs text-center opacity-70" style={{ color: theme.text_color }}>
                   {data.success_message || "Thanks for subscribing!"}
                 </p>
+                {afterSignupLink}
               </div>
             )}
           </div>
@@ -5189,6 +5248,8 @@ function PublicBlockRenderer({
           )}
           {/* Form - Responsive layout based on button text length */}
           {isShortButton ? (
+            <>
+            {emailExtras}
             <form onSubmit={handleSubmit} className="flex flex-row gap-2 items-stretch">
               <input
                 type="email"
@@ -5226,7 +5287,10 @@ function PublicBlockRenderer({
                 </button>
               )}
             </form>
+            </>
           ) : (
+            <>
+            {emailExtras}
             <form onSubmit={handleSubmit} className="flex flex-col gap-2">
               <input
                 type="email"
@@ -5264,12 +5328,14 @@ function PublicBlockRenderer({
                 </button>
               )}
             </form>
+            </>
           )}
           {emailSubmitted && (
             <p className="text-xs text-center mt-2 opacity-70" style={{ color: theme.text_color }}>
               {data.success_message || "Thanks for subscribing!"}
             </p>
           )}
+          {emailSubmitted ? afterSignupLink : null}
         </div>
       )
     }
@@ -5393,12 +5459,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const pdfButtonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
+        backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
@@ -5579,12 +5640,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const menuButtonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
+        backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
@@ -5747,7 +5803,8 @@ function PublicBlockRenderer({
       const data = block.data as CalendlyBlockData
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
-      const calendlyUrl = data.calendly_url
+      /* A Calendly or a Cal.com page (lib/onepage/creator-blocks bookingSource), on https; anything older is drawn as it was saved. */
+      const calendlyUrl = bookingSource(data.calendly_url)?.url ?? data.calendly_url
 
       // Button styles for Calendly block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"
@@ -5765,12 +5822,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const calendlyButtonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
+        backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
@@ -6034,12 +6086,17 @@ function PublicBlockRenderer({
       )
     }
 
+    /* Course, music, testimonials and the contact form (components/onepage/creator-blocks): the same one component; the contact form needs the page's creator. */
+    case "course":
+    case "music":
+    case "testimonials":
+    case "contact_form":
     case "heading":
     case "faq":
     case "countdown":
     case "map":
     case "video":
-      return <ExtraBlock block={block} look={{ theme, scale: "live" }} />
+      return <ExtraBlock block={block} look={{ theme, scale: "live", sellerId }} />
 
     default:
       return null

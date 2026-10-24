@@ -19,6 +19,10 @@ export type OnePageBlockType =
   | "countdown"
   | "map"
   | "video"
+  | "course"
+  | "music"
+  | "testimonials"
+  | "contact_form"
 
 export interface OnePageTheme {
   template_id: string
@@ -28,13 +32,23 @@ export interface OnePageTheme {
   background_image_url?: string | null
   text_color: string
   secondary_text_color?: string
-  button_style: "filled" | "outline" | "glass"
+  /* "soft" is a tint of button_color. How each is drawn: lib/onepage/button-style.ts. */
+  button_style: "filled" | "outline" | "glass" | "soft"
   button_color: string
   button_text_color: string
+  /* 0 reads as Square, 100 or more as Pill, anything between as Rounded. */
   button_border_radius: number
   button_border_width: number
   button_border_color: string
   button_hover_color?: string
+  button_shadow?: "none" | "subtle" | "strong" | "hard"
+  button_shadow_color?: string | null
+  /* "default" (or nothing) is Lift. */
+  button_hover_animation?: "default" | "none" | "lift" | "fade" | "zoom" | "glow" | "fill" | "underline" | null
+  /* Missing means what every button had before: regular, centred, icon on the left. */
+  button_size?: "compact" | "regular" | "large"
+  button_text_align?: "center" | "left"
+  button_icon_position?: "left" | "right"
   font_family: string
   // Title customization
   title_font?: string | null
@@ -307,6 +321,11 @@ export interface EmailCaptureBlockData {
   email_body?: string  // Custom email body text
   // Animation option
   animation_type?: BlockAnimationType
+  // Ask for a first name above the email box
+  ask_name?: boolean
+  // After they join: a link the success message offers (a free guide, a private video, a group)
+  after_signup_url?: string | null
+  after_signup_label?: string | null
 }
 
 // PDF document layout types
@@ -417,6 +436,48 @@ export interface VideoBlockData {
   title?: string | null
 }
 
+// The blocks drawn by components/onepage/creator-blocks (lib/onepage/creator-blocks.ts holds their rules)
+export interface CourseBlockData {
+  /** A product of type "course" that belongs to the page's creator. */
+  product_id: string
+  /** Copies kept for the editor's row; the live page reads the product again (lib/onepage/live-products). */
+  course_title?: string | null
+  course_slug?: string | null
+  course_thumbnail?: string | null
+  course_price_cents?: number | null
+  lessons_count?: number | null
+  button_text?: string | null
+  show_price?: boolean
+}
+
+export interface MusicBlockData {
+  /** A Spotify, SoundCloud or Apple Music link. */
+  url: string
+  title?: string | null
+}
+
+export interface TestimonialItem {
+  id: string
+  quote: string
+  name: string
+  detail?: string | null
+  rating?: number | null
+}
+
+export interface TestimonialsBlockData {
+  title?: string | null
+  items: TestimonialItem[]
+}
+
+export interface ContactFormBlockData {
+  title?: string | null
+  description?: string | null
+  button_text?: string | null
+  success_message?: string | null
+  /** Show the "Keep me updated" box that adds the sender to the email list. */
+  offer_signup?: boolean
+}
+
 export type OnePageBlockData =
   | LinkButtonBlockData
   | ProductBlockData
@@ -435,6 +496,10 @@ export type OnePageBlockData =
   | CountdownBlockData
   | MapBlockData
   | VideoBlockData
+  | CourseBlockData
+  | MusicBlockData
+  | TestimonialsBlockData
+  | ContactFormBlockData
 
 export interface OnePageBlockStyle {
   background_color?: string
@@ -810,6 +875,29 @@ export function createDefaultBlock(type: OnePageBlockType): OnePageBlock {
       return {
         ...baseBlock,
         data: { url: "", title: "" } as VideoBlockData,
+      }
+    case "course":
+      return {
+        ...baseBlock,
+        data: { product_id: "", button_text: "", show_price: true } as CourseBlockData,
+      }
+    case "music":
+      return {
+        ...baseBlock,
+        data: { url: "", title: "" } as MusicBlockData,
+      }
+    case "testimonials":
+      return {
+        ...baseBlock,
+        data: {
+          title: "",
+          items: [{ id: `t_${Date.now().toString(36)}`, quote: "", name: "", detail: "", rating: 5 }],
+        } as TestimonialsBlockData,
+      }
+    case "contact_form":
+      return {
+        ...baseBlock,
+        data: { title: "Get in touch", description: "", button_text: "Send", success_message: "Thanks. I will write back soon.", offer_signup: true } as ContactFormBlockData,
       }
     default:
       return baseBlock as OnePageBlock
