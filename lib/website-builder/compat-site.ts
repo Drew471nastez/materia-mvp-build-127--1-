@@ -14,7 +14,9 @@
  * so a page is drawn without parsing anything. A preview reads the drafts
  * and holds nothing.
  */
-import { siteOrigin } from "./site-seo-data"
+import { creatorAvatar, siteOrigin } from "./site-seo-data"
+import { compatSearchHead } from "./compat-search"
+import { imagesOnPage, siteSameAs } from "./site-seo"
 import { pageSeoForSite } from "@/lib/website-builder/page-seo"
 import { unstable_cache } from "next/cache"
 import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
@@ -334,6 +336,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const currencyAsked = quiet(cachedStoreCurrency(creator.creatorId))
   /* Its own address (its primary domain), for the canonical and the languages: a page reached at its storelib.com name still names the domain. */
   const originAsked = live ? quiet(siteOrigin(creator.creatorId, name).catch(() => null)) : Promise.resolve(null)
+  /* The creator's photo, the share card's last resort (compatShareImage): held five minutes, asked beside the rest so it is never a round trip in a row. */
+  const avatarAsked = live ? quiet(creatorAvatar(creator.creatorId, creator.userId).catch(() => null)) : Promise.resolve(null)
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
@@ -410,6 +414,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* The store's own currency (Settings › Country & Currency): the theme writes its prices, cart and money format in it. */
   const currency = await currencyAsked
   const origin = await originAsked
+  const shareImage = compatShareImage(settings as Record<string, unknown>, pages.home ?? [], await avatarAsked)
+  const storeName = brandOf(settings) || store.name || creator.displayName
   const site: SiteData = {
     creatorId: creator.creatorId,
     theme,
@@ -425,6 +431,29 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     designMode: false,
     /* SEO & Social and each page's own search result (Website settings), read by the theme's own head (lib/website-builder/page-seo.ts). */
     seo: (key) => pageSeoForSite(settings as Record<string, unknown>, key),
+    /*
+      What the theme's own head leaves out (lib/website-builder/compat-search.ts):
+      a description, a share picture, structured data and noindex where a page
+      is not a result. On the live site only: a preview is never indexed.
+    */
+    searchHead: origin
+      ? (page, path) =>
+          compatSearchHead(
+            {
+              origin,
+              storeName,
+              siteDescription: typeof (settings as { seo_description?: unknown }).seo_description === "string" ? String((settings as { seo_description?: unknown }).seo_description).trim() || undefined : undefined,
+              shareImage,
+              logo: fullLogo(settings as Record<string, unknown>),
+              sameAs: siteSameAs(settings as Record<string, unknown>),
+              currency,
+              pageSeo: (key) => pageSeoForSite(settings as Record<string, unknown>, key),
+              keyOf: (path) => (path === "/" ? "home" : (path.match(/^\/(?:pages\/)?([a-z0-9][a-z0-9-]*)$/)?.[1] ?? null)),
+            },
+            page,
+            path,
+          )
+      : undefined,
     product: async (handle) => {
       const card = products.find((p) => p.settings.slug === handle || p.id === handle) ?? catalog.find((p) => p.settings.slug === handle || p.id === handle)
       if (!card) return null
@@ -477,6 +506,29 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : liveNavigationEnd(),
   }
   return { kind: "site", site }
+}
+
+/** The site's logo as a share card can use it: a full address, and not an SVG (the networks that draw cards draw none). */
+function fullLogo(settings: Record<string, unknown>): string | undefined {
+  const v = typeof settings.logo_url === "string" ? settings.logo_url.trim() : ""
+  return /^https?:\/\//i.test(v) && !/\.svg(?:\?|$)/i.test(v) ? v : undefined
+}
+
+/**
+ * THE SHARE PICTURE OF A PAGE WITH NONE OF ITS OWN, as a Storelib theme's
+ * site chooses it (app/(site)/w/[username]/render-site.tsx): the logo, else
+ * the first picture the front page opens with, else the creator's photo.
+ * The site's share image from SEO & Social is the page's own and comes
+ * first (pageSeoForSite), so it is not asked here.
+ */
+export function compatShareImage(settings: Record<string, unknown>, home: StoredSection[], avatar: string | null | undefined): string | undefined {
+  const logo = fullLogo(settings)
+  if (logo) return logo
+  /* The page's own sections, in order, past its header: the first picture in the first few is what the page opens with. */
+  const opening = home.filter((s) => !s.group && !s.hidden).slice(0, 3)
+  const first = imagesOnPage(opening as never, 20).find((i) => !/\.svg(?:\?|$)/i.test(i.loc))?.loc
+  if (first) return first
+  return avatar && /^https?:\/\//i.test(avatar) ? avatar : undefined
 }
 
 /** Whether an install is an imported theme, by its draft settings or its live ones. For callers that hold only its id. */

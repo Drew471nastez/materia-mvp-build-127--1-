@@ -61,6 +61,7 @@ import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-comme
 import { withProductPageReviews } from "./storelib-reviews"
 import { countryCookieHeader } from "@/lib/markets/visitor-country"
 import { withSiteIcon } from "@/lib/website-builder/site-icon"
+import { withSearchHead, type SearchHead } from "./search-head"
 
 type O = Record<string, unknown>
 
@@ -94,6 +95,8 @@ export interface SiteData {
   extraHead?: string
   /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
   seo?: (pageKey: string) => { title?: string; description?: string; image?: string; noindex?: boolean } | null
+  /** What a drawn page's head is missing for search engines and share cards (./search-head.ts), from the server (lib/website-builder/compat-search.ts). Absent in the builder. */
+  searchHead?: (page: CompatPage, path: string) => SearchHead | null
   /** Storelib Reviews for a page: the shop's, and the product's on its page (lib/reviews/storefront.ts). Absent: none. */
   reviews?: (product: { id: string; title: string } | null) => Promise<O | null>
   /**
@@ -423,10 +426,12 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
   /* Website settings › Commerce, said with this visitor's cart (./site-commerce-markup.ts). */
   const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD").total_price) || 0 : 0, site.shop.currency ?? undefined)
-  const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${languageLinks(site, path)}`
+  /* The password page is in front of every page, so it names no language versions of itself: it is not a search result (noindex below). */
+  const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${route.page.template === "password" ? "" : languageLinks(site, path)}`
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
-  const out = route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html
+  /* What the theme's head left out for search engines and share cards: a description, a picture, structured data, noindex (./search-head.ts). */
+  const out = withSearchHead(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, site.searchHead?.(route.page, path))
   /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
   return pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon)), path, route.status ?? 200)
 }
