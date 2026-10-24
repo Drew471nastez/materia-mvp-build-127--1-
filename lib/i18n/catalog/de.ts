@@ -10977,7 +10977,16 @@ const words: Record<string, string> = {
  "Shown in the Featured, Cover, Solid and Simple layouts.": "Zu sehen in den Layouts Hervorgehoben, Titelbild, Gefüllt und Schlicht.",
  "Featured, Cover, Solid and Simple show your image.": "Hervorgehoben, Titelbild, Gefüllt und Schlicht zeigen dein Bild.",
  "No image needed. Add one in Settings to show it in Featured, Cover, Solid and Simple.": "Kein Bild nötig. Füge in Einstellungen eins hinzu, um es in Hervorgehoben, Titelbild, Gefüllt und Schlicht zu zeigen.",
- "Remove this group? Its blocks stay on your page.": "Diese Gruppe entfernen? Ihre Blöcke bleiben auf deiner Seite."
+ "Remove this group? Its blocks stay on your page.": "Diese Gruppe entfernen? Ihre Blöcke bleiben auf deiner Seite.",
+ "Give the collection a name.": "Gib der Kollektion einen Namen.",
+ "Collection name": "Name der Kollektion",
+ "Best sellers": "Bestseller",
+ "Products in it": "Produkte darin",
+ "{n} picked": "{n} gewählt",
+ "You can add products to it later in Products › Collections.": "Du kannst später unter Produkte › Kollektionen Produkte hinzufügen.",
+ "Creating…": "Wird erstellt…",
+ "The collection could not be made. Try again.": "Die Kollektion konnte nicht erstellt werden. Versuche es noch einmal.",
+ "The collection could not be made. Check your connection and try again.": "Die Kollektion konnte nicht erstellt werden. Prüfe deine Verbindung und versuche es noch einmal."
 }
 
 export default words

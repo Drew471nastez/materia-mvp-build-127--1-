@@ -76,6 +76,12 @@ export interface EditorFieldEnv {
   /** The creator's own collections; null while physical commerce, where collections live, is off. */
   collections?: PickerCollection[] | null
   /**
+   * Round 12: a collection made from a picker (its name and the products in
+   * it), saved as Products › Collections saves one; answers its id once the
+   * builder's list has it, or what went wrong in words for the merchant.
+   */
+  createCollection?: (input: { title: string; productIds: string[] }) => Promise<{ ok: true; id: string } | { ok: false; error: string }>
+  /**
    * An imported theme's own colour schemes, for a `color_scheme` setting
    * (lib/storelib-theme/compat/scheme-list.ts). Absent on Storelib's own
    * themes, whose schemes are Storelib's.

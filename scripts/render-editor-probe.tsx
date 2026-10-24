@@ -106,6 +106,7 @@ const probeGlobals = globalThis as unknown as {
   PROBE_STORE_NAME?: string
 }
 const compat = probeGlobals.PROBE_COMPAT
+const probeCollections = () => (window as unknown as { PROBE_COLLECTIONS?: unknown }).PROBE_COLLECTIONS
 const install = {
   id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: probeGlobals.PROBE_STORE_NAME ?? "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
   is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: probeGlobals.PROBE_LIVE ? now : null,
@@ -192,7 +193,21 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   /* The GitHub line on Connections (f8595a46) reads this route on open; the real one always answers with its lists. */
   if (/\/themes\/probe-install\/github/.test(url)) return json({ configured: true, ready: true, link: null, repos: [], accounts: [], events: [] })
   if (/\/themes\/probe-install\/agent-connections/.test(url)) return json({ connections: [], ready: true })
-  if (/\/themes\/probe-install$/.test(url)) return json({ install, username: "probe", storeMenus: probeGlobals.PROBE_STORE_MENUS })
+  if (/\/themes\/probe-install$/.test(url)) return json({ install, username: "probe", storeMenus: probeGlobals.PROBE_STORE_MENUS, ...(probeCollections() ? { collections: probeCollections() } : {}) })
+  /* PROBE_COLLECTIONS: the builder's collections ({ choices, cards }); a collection made from a picker is added to them and kept in probeCollectionsMade (scripts/check-wb-ux-r12.mjs). */
+  if (/\/api\/website-builder\/collections$/.test(url) && init?.method === "POST") {
+    const body = JSON.parse(String(init.body)) as { title?: string; productIds?: string[] }
+    const w = window as unknown as { PROBE_COLLECTIONS?: { choices: unknown[]; cards: Record<string, unknown> }; probeCollectionsMade?: unknown[] }
+    if (!body.title?.trim()) return new Response(JSON.stringify({ error: "Give the collection a title." }), { status: 400, headers: { "content-type": "application/json" } })
+    const id = `00000000-0000-4000-8000-${String(Date.now()).padStart(12, "0").slice(-12)}`
+    const handle = body.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")
+    const list = w.PROBE_COLLECTIONS ?? { choices: [], cards: {} }
+    list.choices = [...list.choices, { id, title: body.title.trim(), image: "", published: true, products_count: (body.productIds ?? []).length }]
+    list.cards = { ...list.cards, [id]: { id, title: body.title.trim(), handle, description: "", image: "", url: `/collections/${handle}`, products_count: (body.productIds ?? []).length, products: [] } }
+    w.PROBE_COLLECTIONS = list
+    w.probeCollectionsMade = [...(w.probeCollectionsMade ?? []), body]
+    return json({ id, ...list })
+  }
   /* A save of the store's menus: kept, so a probe can read what was sent. */
   if (/\/website-builder\/menus$/.test(url) && init?.method === "PUT") {
     ;(window as unknown as { probeMenusSaved: unknown[] }).probeMenusSaved = [...((window as unknown as { probeMenusSaved?: unknown[] }).probeMenusSaved ?? []), JSON.parse(String(init.body)).menus]

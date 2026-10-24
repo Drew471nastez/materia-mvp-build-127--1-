@@ -664,7 +664,10 @@ export const CANVAS_BRIDGE = `
       e.preventDefault();
       e.stopPropagation();
       if (!gapShown) return;
-      post({ type: "add-section", before: gapShown.before, after: gapShown.after });
+      if (gapShown.kind === "block") {
+        var ab = adder.getBoundingClientRect();
+        post({ type: "add-block", sectionId: gapShown.sectionId, parent: gapShown.parent, before: gapShown.before, after: gapShown.after, top: ab.top, left: ab.left, width: ab.width, height: ab.height });
+      } else post({ type: "add-section", before: gapShown.before, after: gapShown.after });
       showGap(null);
     });
     (document.body || document.documentElement).appendChild(adder);
@@ -704,6 +707,7 @@ export const CANVAS_BRIDGE = `
     }
     clearTimeout(addFade);
     gapShown = g;
+    el.setAttribute("aria-label", g.kind === "block" ? (typeof window.__slAddBlockLabel === "string" ? window.__slAddBlockLabel : "Add a block here") : (typeof window.__slAddLabel === "string" ? window.__slAddLabel : "Add a section here"));
     var vw = document.documentElement.clientWidth || innerWidth;
     var left = Math.max(0, g.left), right = Math.min(vw, g.left + g.width);
     el.style.left = left + "px";
@@ -716,6 +720,59 @@ export const CANVAS_BRIDGE = `
     }
     if (!el.hasAttribute("data-on")) el.setAttribute("data-on", "");
   };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     ADD A BLOCK HERE, BETWEEN TWO BLOCKS (round 12)
+    ═══════════════════════════════════════════════════════════════════════
+    The same strip between two blocks of one section, where the section
+    takes another block there: the builder says which levels of which
+    sections do (blockLevels, sent with every selection: the schema's
+    blocks, its limits). The blocks are the page's [data-block-id] elements
+    ({{ block.shopify_attributes }}), grouped by the block they sit in, and
+    a place is the middle of the space between two of one group stacked one
+    under the other (lib/website-builder/block-gaps.ts says the same rules
+    for Storelib's canvas). The line between two sections stays Add
+    section's: a block place is never within 10px of its section's edge.
+    Pressed, the builder opens the block library for that place.
+  */
+  var blockLevels = null;
+  var blockGapAt = function (x, y) {
+    if (!blockLevels) return null;
+    var hit = document.elementFromPoint(x, y), sec = null;
+    if (hit && adder && adder.contains(hit)) sec = gapShown && gapShown.kind === "block" ? document.getElementById("shopify-section-" + gapShown.sectionId) : null;
+    else sec = hit ? sectionOf(hit) : null;
+    var id = idOf(sec);
+    var levels = id ? blockLevels[id] : null;
+    if (!levels || !levels.length) return null;
+    var sr = sec.getBoundingClientRect();
+    if (y < sr.top + 10 || y > sr.bottom - 10) return null;
+    var lists = {}, els = sec.querySelectorAll("[data-block-id]");
+    for (var i = 0; i < els.length; i++) {
+      var p = [], up = els[i].parentElement ? els[i].parentElement.closest("[data-block-id]") : null;
+      while (up && sec.contains(up)) { p.unshift(up.getAttribute("data-block-id")); up = up.parentElement ? up.parentElement.closest("[data-block-id]") : null; }
+      var key = p.join("/");
+      if (levels.indexOf(key) < 0) continue;
+      var r = els[i].getBoundingClientRect();
+      if (r.height < 1 || r.width < 1) continue;
+      (lists[key] = lists[key] || []).push({ id: els[i].getAttribute("data-block-id"), parent: p, r: r });
+    }
+    var best = null, bestD = Infinity;
+    Object.keys(lists).forEach(function (k) {
+      var list = lists[k];
+      for (var j = 1; j < list.length; j++) {
+        var a = list[j - 1], b = list[j];
+        if (a.id === b.id || b.r.top < a.r.bottom - 4) continue;
+        var left = Math.min(a.r.left, b.r.left), right = Math.max(a.r.right, b.r.right);
+        if (x < left || x > right) continue;
+        var gy = (a.r.bottom + b.r.top) / 2, d = Math.abs(y - gy);
+        var same = gapShown && gapShown.kind === "block" && gapShown.before === b.id && gapShown.after === a.id;
+        if (d > (same ? 12 : 8) || d > bestD) continue;
+        bestD = d;
+        best = { kind: "block", sectionId: id, parent: a.parent, before: b.id, after: a.id, y: gy, left: left, width: right - left };
+      }
+    });
+    return best;
+  };
   var addAt = null;
   var findGap = function () {
     if (!addAt || !inspect || leaving || touching) return null;
@@ -727,7 +784,8 @@ export const CANVAS_BRIDGE = `
       if (d > 8 || x < g.left || x > g.left + g.width) continue;
       if (!best || d < best.d) best = { g: g, d: d };
     }
-    if (!best) return null;
+    var g0 = best ? best.g : blockGapAt(x, y);
+    if (!g0) return null;
     /* Under a sticky header, or off the screen: not a place anybody can see. */
     var cover = 0;
     styleCache = null;
@@ -739,8 +797,8 @@ export const CANVAS_BRIDGE = `
       if (q.top <= 1 && q.bottom > 0 && q.height < innerHeight * 0.6) cover = Math.max(cover, q.bottom);
     }
     /* The line at the header's own foot is a place (the top of the page's content); one hidden under it is not. */
-    if (best.g.y < cover - 1 || best.g.y > innerHeight - 6) return null;
-    return best.g;
+    if (g0.y < cover - 1 || g0.y > innerHeight - 6) return null;
+    return g0;
   };
   var addFrame = 0;
   var placeAdder = function () { addFrame = 0; showGap(findGap()); };
@@ -2374,6 +2432,8 @@ export const CANVAS_BRIDGE = `
     } else if (m.type === "select") {
       leaving = false;
       if ("inspect" in m) setInspect(m.inspect);
+      /* Which levels of which sections take a block, for Add block between two blocks (round 12). */
+      if ("levels" in m) window.__slBlockLevels = blockLevels = m.levels && typeof m.levels === "object" ? m.levels : null;
       /* Off, nothing is outlined whatever was asked (setInspect takes the marks off after their fade); on, the same selection again is only outlined. */
       if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false, (m.sectionId || null) === selected.section && (m.blockId || null) === selected.block);
     } else if (m.type === "reveal") {

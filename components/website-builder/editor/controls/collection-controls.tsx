@@ -17,12 +17,12 @@
  */
 import { EmptyPicker } from "./empty-picker"
 import * as React from "react"
-import { ArrowDown, ArrowUp, GripVertical, Plus, Search, X } from "lucide-react"
+import { ArrowDown, ArrowUp, Check, FolderOpen, GripVertical, Plus, Search, X } from "lucide-react"
 
 import { FieldPopover, usePhoneLayout } from "@/components/website-builder/field-popover"
 import { cn } from "@/lib/utils"
 import { useEditorFieldEnv, type PickerCollection } from "./context"
-import { ADD_BUTTON, ICON_BUTTON, NOTE, TEXT_BUTTON } from "./styles"
+import { ADD_BUTTON, ICON_BUTTON, INPUT, NOTE, PROBLEM, TEXT_BUTTON } from "./styles"
 import { useReorder } from "./use-reorder"
 import { tt } from "@/lib/i18n/text"
 
@@ -58,6 +58,134 @@ function Row({ c, children }: { c?: PickerCollection; children: React.ReactNode 
   )
 }
 
+/**
+ * ===========================================================================
+ *  A NEW COLLECTION, MADE IN THE PICKER (round 12)
+ * ===========================================================================
+ * The owner: "If there's no collection, or in general, there should be a New
+ * collection button, or if none, Add collection, in the modal." Under the
+ * list, New collection; with none at all, Add collection. Either opens this,
+ * in the same panel: a name, the products to put in it (ticked from the
+ * shop's own, searchable), and Create, which saves it the way Products ›
+ * Collections does (/api/website-builder/collections) and picks it. Escape or
+ * Back returns to the list without making anything.
+ */
+function CollectionCreate({ onCreated, onBack, first }: { onCreated: (id: string) => void; onBack: () => void; first: boolean }) {
+  const env = useEditorFieldEnv()
+  const phone = usePhoneLayout()
+  const products = env?.products ?? []
+  const [title, setTitle] = React.useState("")
+  const [picked, setPicked] = React.useState<string[]>([])
+  const [query, setQuery] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const [problem, setProblem] = React.useState<string | null>(null)
+  const q = query.trim().toLowerCase()
+  const shown = products.filter((p) => !q || p.title.toLowerCase().includes(q)).slice(0, 60)
+  const toggle = (id: string) => setPicked((was) => (was.includes(id) ? was.filter((x) => x !== id) : [...was, id]))
+  const create = async () => {
+    const name = title.trim()
+    if (!name) {
+      setProblem(tt("Give the collection a name."))
+      return
+    }
+    if (!env?.createCollection || busy) return
+    setBusy(true)
+    setProblem(null)
+    const made = await env.createCollection({ title: name, productIds: picked })
+    setBusy(false)
+    if (made.ok) onCreated(made.id)
+    else setProblem(made.error)
+  }
+  return (
+    <div
+      data-collection-create=""
+      className="space-y-2.5 p-2.5"
+      onKeyDown={(e) => {
+        if (e.key !== "Escape") return
+        e.preventDefault()
+        e.stopPropagation()
+        onBack()
+      }}
+    >
+      <label className="block">
+        <span className="mb-1 block text-[12px] font-medium text-[#374151]">{tt("Collection name")}</span>
+        <input
+          className={INPUT}
+          autoFocus={!phone}
+          value={title}
+          maxLength={120}
+          placeholder={tt("Best sellers")}
+          onChange={(e) => {
+            setTitle(e.target.value)
+            if (problem) setProblem(null)
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return
+            e.preventDefault()
+            void create()
+          }}
+          data-collection-create-name=""
+        />
+      </label>
+      {products.length > 0 ? (
+        <div>
+          <span className="mb-1 flex items-center justify-between text-[12px] font-medium text-[#374151]">
+            {tt("Products in it")}
+            {picked.length > 0 ? <span className="tabular-nums text-muted-foreground">{tt("{n} picked", { n: picked.length })}</span> : null}
+          </span>
+          {products.length > 6 ? (
+            <label className="mb-1 flex items-center gap-2 rounded-md border border-border px-2">
+              <Search aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <input type="search" className="h-7 w-full bg-transparent text-[13px] outline-none placeholder:text-muted-foreground" placeholder={tt("Search products")} value={query} onChange={(e) => setQuery(e.target.value)} />
+            </label>
+          ) : null}
+          <ul role="listbox" aria-multiselectable aria-label={tt("Products in it")} className="max-h-44 overflow-y-auto wb-slim-scroll rounded-md border border-border py-1">
+            {shown.map((p) => {
+              const on = picked.includes(p.id)
+              return (
+                <li key={p.id} role="option" aria-selected={on}>
+                  <button type="button" className="flex w-full items-center gap-2.5 px-2 py-1 max-sm:min-h-11 text-left transition-colors hover:bg-muted/60" onClick={() => toggle(p.id)} data-collection-create-product={p.id}>
+                    <span aria-hidden className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors", on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#d1d5db] bg-white")}>
+                      {on ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                    </span>
+                    {p.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image} alt="" loading="lazy" decoding="async" width={28} height={28} className="h-7 w-7 shrink-0 rounded border border-border object-cover" />
+                    ) : (
+                      <span aria-hidden className="h-7 w-7 shrink-0 rounded border border-border bg-muted" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-[13px] max-sm:text-[15px]">{p.title}</span>
+                  </button>
+                </li>
+              )
+            })}
+            {shown.length === 0 ? <li className="px-2.5 py-2 text-[13px] text-muted-foreground">{tt("Nothing matches that.")}</li> : null}
+          </ul>
+        </div>
+      ) : (
+        <p className={NOTE}>{tt("You can add products to it later in Products › Collections.")}</p>
+      )}
+      {problem ? <p className={PROBLEM} role="alert">{problem}</p> : null}
+      <div className="flex items-center justify-end gap-1.5 pt-0.5">
+        {!first ? (
+          <button type="button" className={TEXT_BUTTON} onClick={onBack}>
+            {tt("Back")}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void create()}
+          data-collection-create-submit=""
+          className="inline-flex h-8 max-sm:h-11 items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 text-[13px] font-medium text-white transition-[background-color,opacity] hover:bg-black disabled:opacity-60"
+        >
+          {busy ? tt("Creating…") : tt("Create collection")}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /** The searchable list a choice is made from. */
 function CollectionMenu({
   open,
@@ -75,15 +203,24 @@ function CollectionMenu({
   emptyText: string
 }) {
   const phone = usePhoneLayout()
+  const env = useEditorFieldEnv()
   const [query, setQuery] = React.useState("")
+  const [making, setMaking] = React.useState(false)
   const q = query.trim().toLowerCase()
   const shown = offer.filter((c) => !q || c.title.toLowerCase().includes(q))
   const pick = (id: string) => {
     onPick(id)
     setQuery("")
   }
+  if (making && open) {
+    return (
+      <FieldPopover open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setQuery(""); setMaking(false) } }} trigger={trigger}>
+        <CollectionCreate first={false} onBack={() => setMaking(false)} onCreated={(id) => { setMaking(false); pick(id) }} />
+      </FieldPopover>
+    )
+  }
   return (
-    <FieldPopover open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setQuery("") }} trigger={trigger}>
+    <FieldPopover open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setQuery(""); setMaking(false) } }} trigger={trigger}>
       <div className="border-b border-border px-2.5 py-2">
         <label className="flex items-center gap-2">
           <Search aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -115,15 +252,59 @@ function CollectionMenu({
           </li>
         ))}
       </ul>
+      {/* Round 12: a collection that is not there yet is made here, and picked. */}
+      {env?.createCollection ? (
+        <div className="border-t border-border p-1">
+          <button
+            type="button"
+            data-collection-new=""
+            onClick={() => setMaking(true)}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 max-sm:min-h-11 text-left text-[13px] max-sm:text-[15px] font-medium text-[#1a1a2e] transition-colors hover:bg-muted/60"
+          >
+            <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-[#d1d5db] text-[#6b7280]">
+              <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+            </span>
+            {tt("New collection")}
+          </button>
+        </div>
+      ) : null}
     </FieldPopover>
   )
 }
 
 /** Said in place of the control when there is nothing it could pick from. */
-function Unavailable({ list }: { list: PickerCollection[] | null | undefined }) {
+function Unavailable({ list, onCreated }: { list: PickerCollection[] | null | undefined; onCreated?: (id: string) => void }) {
+  const env = useEditorFieldEnv()
+  const [making, setMaking] = React.useState(false)
+  /* Round 12: "No collections yet", and Add collection makes one here, picked as it is made. */
   if (list === null) return <p className={NOTE}>{tt("Your collections could not be loaded. Reload the builder to try again.")}</p>
+  if (!env?.createCollection || !onCreated) return <EmptyPicker kind="collection" />
+  if (making) {
+    return (
+      <div className="rounded-lg border border-border bg-background" data-collection-picker-empty="">
+        <CollectionCreate first onBack={() => setMaking(false)} onCreated={(id) => { setMaking(false); onCreated(id) }} />
+      </div>
+    )
+  }
   return (
-    <EmptyPicker kind="collection" />
+    <div data-empty-picker="collection" className="flex items-center gap-3 rounded-lg border border-[#eceef1] bg-[#fafafb] px-3 py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-[#6b7280] shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+        <FolderOpen className="h-4 w-4" strokeWidth={1.75} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[12.5px] font-medium text-[#1a1a2e]">{tt("No collections yet")}</span>
+        <span className="block truncate text-[11.5px] text-[#6b7280]">{tt("Group products, then pick one here.")}</span>
+      </span>
+      <button
+        type="button"
+        data-collection-add=""
+        onClick={() => setMaking(true)}
+        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-[#1a1a2e] px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-black max-sm:h-10"
+      >
+        <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+        {tt("Add collection")}
+      </button>
+    </div>
   )
 }
 
@@ -136,9 +317,9 @@ export function CollectionPickerControl({ value, onChange, label }: { value: str
     return current ? (
       <div className="space-y-2" data-collection-picker="">
         <Row><button type="button" className={ICON_BUTTON} aria-label={tt("Remove the collection")} onClick={() => onChange("")}><X className="h-3.5 w-3.5" /></button></Row>
-        <Unavailable list={list} />
+        <Unavailable list={list} onCreated={onChange} />
       </div>
-    ) : <Unavailable list={list} />
+    ) : <div data-collection-picker=""><Unavailable list={list} onCreated={onChange} /></div>
   }
   const picked = list.find((c) => c.id.toLowerCase() === current)
   const trigger = (
@@ -234,7 +415,7 @@ export function CollectionListControl({
         </ul>
       )}
       {!list || list.length === 0 ? (
-        <Unavailable list={list} />
+        <Unavailable list={list} onCreated={(id) => onChange([...chosen, id])} />
       ) : chosen.length >= max ? (
         <p className={NOTE}>{tt("This section shows {max} at most. Remove one to add another.", { max })}</p>
       ) : (

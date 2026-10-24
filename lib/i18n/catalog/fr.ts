@@ -10977,7 +10977,16 @@ const words: Record<string, string> = {
  "Shown in the Featured, Cover, Solid and Simple layouts.": "Visible dans les mises en page Mis en avant, Couverture, Plein et Simple.",
  "Featured, Cover, Solid and Simple show your image.": "Mis en avant, Couverture, Plein et Simple montrent ton image.",
  "No image needed. Add one in Settings to show it in Featured, Cover, Solid and Simple.": "Pas besoin d'image. Ajoutes-en une dans Réglages pour la voir dans Mis en avant, Couverture, Plein et Simple.",
- "Remove this group? Its blocks stay on your page.": "Retirer ce groupe ? Ses blocs restent sur ta page."
+ "Remove this group? Its blocks stay on your page.": "Retirer ce groupe ? Ses blocs restent sur ta page.",
+ "Give the collection a name.": "Donnez un nom à la collection.",
+ "Collection name": "Nom de la collection",
+ "Best sellers": "Meilleures ventes",
+ "Products in it": "Produits dedans",
+ "{n} picked": "{n} choisis",
+ "You can add products to it later in Products › Collections.": "Vous pourrez y ajouter des produits plus tard dans Produits › Collections.",
+ "Creating…": "Création…",
+ "The collection could not be made. Try again.": "La collection n'a pas pu être créée. Réessayez.",
+ "The collection could not be made. Check your connection and try again.": "La collection n'a pas pu être créée. Vérifiez votre connexion et réessayez."
 }
 
 export default words
