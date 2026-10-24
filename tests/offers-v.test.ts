@@ -378,7 +378,8 @@ async function main() {
     const store = read("app/api/store/offers/route.ts")
     check("the store's edits: the owner (or their team) only, every write filtered by their creator id", /shopCaller\(\)/.test(store) && /saveOffer\(c\.db, c\.creatorId/.test(store) && /reorderOffers\(c\.db, c\.creatorId/.test(store) && /deleteOffer\(c\.db, c\.creatorId/.test(store))
     const site = read("lib/checkout/site-quote-server.ts")
-    check("the website's own checkout suggests them, both for downloads and for what ships", /checkoutSuggestions\(db, creatorId,/.test(site) && /suggestionCards\(db, creatorId, priced\.suggestions\)/.test(site))
+    /* Changed on purpose (round BC): the shipped quote reads them beside the delivery, from the priced cart it narrowed (pc). */
+    check("the website's own checkout suggests them, both for downloads and for what ships", /checkoutSuggestions\(db, creatorId,/.test(site) && /suggestionCards\(db, creatorId, (?:priced|pc)\.suggestions\)/.test(site))
   }
 
   console.log("\nWired in, on the page")
