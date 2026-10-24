@@ -86,7 +86,8 @@ async function main() {
   const compatSections = schemasFromSources(t.files)
   {
     /* Changed on purpose (round reviews-1023): "@app" takes Storelib Reviews' two app blocks (Star rating, Reviews), as an installed reviews app's are on Shopify; "@theme" alone never does, and none of Storelib's own theme blocks is offered. */
-    const APP = "shopify://apps/storelib-reviews/blocks/reviews/storelib,shopify://apps/storelib-reviews/blocks/star-rating/storelib"
+    /* Changed on purpose (round BC): and Storelib's Stock status and Estimated delivery app blocks beside them. */
+    const APP = ["shopify://apps/storelib-reviews/blocks/reviews/storelib", "shopify://apps/storelib-reviews/blocks/star-rating/storelib", "shopify://apps/storelib/blocks/estimated-delivery/storelib", "shopify://apps/storelib/blocks/stock-status/storelib"].sort().join(",")
     check("the catalog is the theme's own blocks and Storelib Reviews' app blocks, none of Storelib's theme blocks", types(Object.values(compatCatalog)) === `_price,card,${APP}`)
     check('"@theme" lists the theme\'s public blocks; "@app" adds Storelib Reviews\' two', types(addableBlocks(compatSections.hero, compatCatalog)) === `card,${APP}`)
     check('a section of "@app" alone lists Storelib Reviews\' two', types(addableBlocks(compatSections.apps, compatCatalog)) === APP)
@@ -119,7 +120,7 @@ async function main() {
     check("an imported theme's block is added, at the top and inside a block", card.ok === true, card)
     const builtIn = checkOps(compatPage, [{ op: "add_block", section_id: "s1", block_type: "heading" }], compat, mint)
     /* Changed on purpose (round reviews-1023): the hero takes "@app", so Storelib Reviews' two app blocks are among what it takes. */
-    check("  Storelib's heading block is not offered in an imported theme, as in the builder", builtIn.ok === false && /It takes: card, shopify:\/\/apps\/storelib-reviews\//.test(builtIn.error), builtIn)
+    check("  Storelib's heading block is not offered in an imported theme, as in the builder", builtIn.ok === false && /It takes: card, shopify:\/\/apps\/storelib(-reviews)?\//.test(builtIn.error), builtIn)
     const nestedPrivate = checkOps(compatPage, [{ op: "add_block", section_id: "s1", block_type: "_price", parent_block_id: "c1" }], compat, mint)
     check("  a private block inside a block that does not name it is refused", nestedPrivate.ok === false)
 
