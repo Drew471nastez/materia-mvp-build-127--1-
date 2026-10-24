@@ -564,6 +564,14 @@ async function translateBatch(p: OpenProvider, texts: string[], from: string, to
  * Translates `texts` from `from` into `to`, keeping `keep` (the store's
  * name) as written. No batch starts after `deadlineAt`.
  */
+/*
+ * A translator out of credits stays out for a while: Hugging Face's "You have
+ * no remaining credits" was asked, and logged, for every batch of every run.
+ * It is asked again after this long, in case credits were bought.
+ */
+const CREDITS_REST_MS = 15 * 60_000
+const outOfCredits = new Map<OpenProvider, { until: number; refused: Refused }>()
+
 export async function translateOpen(
   texts: string[],
   from: string,
@@ -602,6 +610,11 @@ export async function translateOpen(
 
   let refusedAll = 0
   const reasons = new Map<OpenProvider, Refused>()
+  /* Out of credits, or the key refused: asked once, not again for every batch. */
+  for (const p of providers) {
+    const r = outOfCredits.get(p)
+    if (r && r.until > Date.now()) reasons.set(p, r.refused)
+  }
   const offers = providers.includes("libretranslate") ? await libreOffers() : null
   let next = 0
   const run = async () => {
@@ -611,6 +624,8 @@ export async function translateOpen(
       let rest = batches[next++]
       for (const p of providers) {
         if (rest.length === 0) break
+        const said = reasons.get(p)
+        if (said && (said.kind === "quota" || said.kind === "setup")) continue
         try {
           const got = await translateBatch(p, rest, from, to, Math.min(90_000, left - 5_000), keep, offers, ui)
           /* A translator that gave back nothing for a whole batch did not translate it: the next one is asked. */
@@ -621,6 +636,7 @@ export async function translateOpen(
         } catch (e) {
           const r = e instanceof Refused ? e : new Refused(e instanceof Error ? e.message : "failed", "failed")
           reasons.set(p, r)
+          if (r.kind === "quota") outOfCredits.set(p, { until: Date.now() + CREDITS_REST_MS, refused: r })
           console.error(`[translate] ${p} ${from}->${to}: ${r.kind}: ${r.message.slice(0, 160)}`)
         }
       }

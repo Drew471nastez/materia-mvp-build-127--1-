@@ -78,6 +78,7 @@ async function answer(req: IncomingMessage, res: ServerResponse) {
     const list = JSON.parse((b.messages as { content: string }[])[1].content) as string[]
     return send(res, 200, { choices: [{ message: { content: "Here you go:\n```json\n" + JSON.stringify(list.map((t) => `CHAT ${t}`)) + "\n```" } }] })
   }
+  if (path.startsWith("/hfnc/")) return send(res, 402, { error: "You have no remaining credits. Purchase pre-paid credits to continue using Inference Providers." })
   return send(res, 404, { error: "not here" })
 }
 
@@ -247,6 +248,19 @@ async function main() {
   check("a stalled job is picked up by the next progress read, cron or not", /const idle = await idleJobs\(c\.db, c\.creatorId\)/.test(read("app/api/store/translations/jobs/route.ts")))
   check("the press shows Translating at once, before the server answers", /starting\.add\(locale\)/.test(read("components/app/settings/translation-jobs-store.ts")))
   check("memory is kept for good (part 178)", /translation_memory/.test(read("supabase/sql/run-now/178_translation_memory.sql")))
+
+  console.log("\nA translator out of credits")
+  for (const k of ["GEMINI_API_KEY", "GOOGLE_AI_API_KEY", "DEEPL_API_KEY", "LLM_API_KEY", "LLM_URL", "LIBRETRANSLATE_URL", "HF_CHAT_MODEL", "HF_TRANSLATE_MODEL"]) delete process.env[k]
+  process.env.HF_TOKEN = "hf_broke"
+  process.env.HF_ROUTER_URL = `${base}/hfnc`
+  process.env.HF_INFERENCE_URL = `${base}/hfnc`
+  seen.length = 0
+  const fortyFive = Array.from({ length: 45 }, (_, i) => `Sentence number ${i} for the shop`)
+  r = await mod.translateOpen(fortyFive, "en", "fr", { concurrency: 1 })
+  const asked = () => seen.filter((x) => x.path.startsWith("/hfnc/")).length
+  const first = asked()
+  r = await mod.translateOpen(["Another sentence for the shop"], "en", "it")
+  check("asked once, not again for every batch or the next run", first === 1 && asked() === 1, `${first} then ${asked()}`)
 
   server.close()
   console.log(`\n${passed} passed, ${failed} failed`)
