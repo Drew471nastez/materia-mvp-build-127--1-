@@ -202,7 +202,7 @@ export default async function AppLayout({
     own client. The sale is found through its product's creator, as Home
     reads orders, so it no longer waits for the product ids to come back.
   */
-  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, storeCurrency] = await Promise.all([
+  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, storeCurrency, paymentsReady] = await Promise.all([
     supabase.from("products").select("id").eq("creator_id", creator.id),
     supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
     supabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle(),
@@ -216,6 +216,8 @@ export default async function AppLayout({
     communitiesEnabled().catch(() => false),
     /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). */
     cachedStoreCurrency(creator.id).catch(() => null),
+    /* With the rest, not one more trip after them. */
+    providerPaymentsReady(creator.id, paymentsReadyFrom(creator)),
   ])
 
   /*
@@ -235,7 +237,7 @@ export default async function AppLayout({
 
   const setup = homeProgress({
     ...factsFromRows({
-      creator: { ...creator, provider_payments_ready: await providerPaymentsReady(creator.id, paymentsReadyFrom(creator)) },
+      creator: { ...creator, provider_payments_ready: paymentsReady },
       products: products ?? [],
       domains: domains ?? [],
       websiteLive: !!liveSite,
