@@ -52,6 +52,8 @@ check("autoplay stops off screen, in a hidden tab, under a mouse, while held and
 check("a drag captures the pointer, lets the page scroll vertically, and lands on a slide",
   /setPointerCapture/.test(slider) && /touch-action: pan-y/.test(readCode("components/marketing/hero.tsx")) && /Math\.round\(pos \+ v \* MOMENTUM_MS\)/.test(slider))
 check("the first picture is priority, the others lazy", /priority=\{i === 0\}/.test(slider) && /loading=\{i === 0 \? undefined : "lazy"\}/.test(slider))
+/* Round 12: no blank slide gliding in. */
+check("once the page has loaded and gone idle, every lazy slide is asked for", /window\.addEventListener\("load", scheduleWarm, \{ once: true \}\)/.test(slider) && /requestIdleCallback\(warmAll/.test(slider) && /img\.loading = "eager"/.test(slider))
 
 console.log("\nThe pictures, in one file")
 check("every slide has alt text", HERO_SLIDES.length >= 5 && HERO_SLIDES.every((s) => s.alt.trim().length > 0))
@@ -71,7 +73,10 @@ const hero = readCode("components/marketing/hero.tsx")
 check("the backdrop's tiles are lazy, low priority, decoded off the main thread", /loading="lazy"/.test(hero) && /fetchPriority="low"/.test(hero) && /decoding="async"/.test(hero))
 /* Changed on purpose (round AD5): the watch, dog food and meal kit stores are gone; two stores on a computer and a phone, a creator page, a community and three people's link in bio pages came in. */
 check("no store from round AB1 is left in the pictures or their list", !/Maison Verlaine|Marrow & Oat|Fennel & Fig|Studio Arlo|slide-(watch|pet|meal)|tile-(watch|pet|meal)/.test(readSource("scripts/render-hero-shots.tsx") + readSource("lib/marketing/hero-media.ts") + readSource("scripts/hero-shots.mjs")))
-check("no face is drawn: people are initials or their own work", !/portrait\(|"face-/.test(readSource("scripts/hero-demo-art.mjs") + readSource("scripts/render-hero-shots.tsx")))
+/* Changed on purpose (round 12, the owner: the community's avatars are pictures of people). Unsplash License photos, each listed with its source; none is drawn. */
+const facesSrc = readSource("scripts/hero-faces.mjs")
+check("people's photos come from one list, Unsplash under its licence, and every member in the community shot has one", /Unsplash License/.test(facesSrc) && /https:\/\/images\.unsplash\.com\/photo-\$\{id\}/.test(facesSrc) && /writeFaces\(demo/.test(readSource("scripts/hero-shots.mjs")) && [...readSource("scripts/render-hero-shots.tsx").matchAll(/member\("u-\w+", "[^"]+", "\w+", "\w+", \d+(, pic\("face-(\w+)"\))?\)/g)].every((m) => !!m[1] && new RegExp(`\\b${m[2]}: "`).test(facesSrc)) && !/portrait\(/.test(readSource("scripts/hero-demo-art.mjs")))
+check("the computer and phone slides sit on the hero's near black, not a light ground", /ground: g = \["#1d1d22", "#0e0e10"\]/.test(readSource("scripts/hero-shots.mjs")) && !/ground: \["#e/.test(readSource("scripts/hero-shots.mjs")))
 check("the generator is the one that made them, from demo content only", ["Pale Hours", "Ferne", "Halcyon", "Wheel & Kiln", "Theo Lindqvist", "Kiln Club", "Noor Haddad", "Ana Ribeiro"].every((b) => readSource("scripts/render-hero-shots.tsx").includes(b)) && /DEMO_ART/.test(readSource("scripts/hero-shots.mjs")) && /public\/marketing\/hero/.test(readSource("scripts/hero-shots.mjs")) && !/supabase\.co\/storage|storelib\.com\/media/.test(readCode("scripts/render-hero-shots.tsx") + readCode("scripts/hero-shots.mjs")))
 
 console.log("\nThe typing (lib/marketing/hero-typing)")
@@ -119,7 +124,10 @@ check("the slider leaves the panel at every width: to the page's edges and acros
 check("the panel: inset, generous corners, depth, and near black in both of the site's looks", /data-own-look=""/.test(hero) && /sm:rounded-\[36px\]/.test(hero) && /shadow-\[inset_0_0_0_1px_rgba\(255,255,255,0\.06\)/.test(hero))
 /* Changed on purpose (round AD5): a fifth less light again, and a vignette. */
 check("the backdrop is a fifth darker than round AC1's (its veil 0.928, was 0.91) and has a vignette", /bg-\[#0e0e10\]\/\[0\.928\]/.test(hero) && /data-hero-vignette=""[^>]*radial-gradient/.test(hero))
-check("the panel's sides are the header's content edges: its padding (16, 24, 32px) inside the same 1400px row", /--hero-pad: 16px;/.test(hero) && /--hero-pad: 24px;/.test(hero) && /--hero-pad: 32px;/.test(hero) && /padding-inline: max\(var\(--hero-pad\), calc\(\(100% - 1400px\) \/ 2 \+ var\(--hero-pad\)\)\)/.test(hero) && /mx-auto max-w-\[1400px\] px-4 sm:px-6 lg:px-8/.test(readCode("components/platform/platform-header-client.tsx")))
+/* Changed on purpose (round 12, the owner): the panel's sides are the gap under the header, not the header's content edges, and zooming the page does not change them (a share of the window, no centred 1400px row). */
+check("one gap for the panel's top, left and right: 10px on a phone, max(8px, 0.9vw) from 640px, no max width row", /--hero-gap: 10px;/.test(hero) && /--hero-gap: max\(8px, 0\.9vw\);/.test(hero) && /\[data-home-hero\] \{ padding-top: var\(--hero-gap\); padding-inline: var\(--hero-gap\); \}/.test(hero) && !/1400px/.test(hero.replace(/\/\*[\s\S]*?\*\//g, "")) && !/data-home-hero=""[^>]*className="pt-/.test(hero))
+check("the text inside the panel keeps the header's padding (16, 24, 32px)", /--hero-pad: 16px;/.test(hero) && /--hero-pad: 24px;/.test(hero) && /--hero-pad: 32px;/.test(hero) && /\[data-hero-copy\] \{ padding-inline: var\(--hero-pad\); \}/.test(hero))
+check("a slide still on its way is near black under the picture, never a light card on the dark panel", /\.hero-slide \{[\s\S]*?background: #1a1a1f;/.test(hero))
 check("the search's focus is a neutral ring, never the accent", /\[data-hero-search\]:focus \{ border-color: rgba\(255, 255, 255, 0\.34\); box-shadow: [^}]*0 0 0 4px rgba\(255, 255, 255, 0\.09\)/.test(hero) && !/focus:border-\[#8b5cf6\]/.test(hero))
 check("the badge is a pill", /data-hero-badge=""[^>]*rounded-full/.test(hero))
 check("the front page has no curved edge under the header, so the hero sits close under it", hasConcaveEdge("/") === false && hasConcaveEdge("/pricing") === true)

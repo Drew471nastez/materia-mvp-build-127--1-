@@ -70,6 +70,14 @@
  *   step above the page (a lighter near black than the dark look's page and
  *   the hero's panel), with a hairline at its foot, and casts a shadow once
  *   the page is scrolled.
+ *
+ *   THE OWNER'S ROUND 12 ASKS, AS NUMBERS (these replace AD5's where they
+ *   disagree). The panel's left and right inset equal the gap between the
+ *   header and the panel's top, at 390, 1024, 1280, 1440 and 1600, and at
+ *   browser zoom 50, 67, 80, 90, 100, 110, 125 and 150% (the window's width
+ *   in CSS px divided by the zoom, drawn at that many device pixels per CSS
+ *   px); from 50% to 125% each gap is the same size on screen as at 100%.
+ *   HERO_SHOTS keeps a picture of every zoom level at 1440 and 1024.
  */
 import { execFileSync, spawn } from "node:child_process"
 import { createServer } from "node:http"
@@ -233,13 +241,13 @@ const send = (method, params, sessionId) => new Promise((resolve, reject) => {
   ws.send(JSON.stringify(sessionId ? { id: n, method, params, sessionId } : { id: n, method, params }))
 })
 
-async function page({ width, height, phone, hash, reduced = false, path = "/", ready = "window.__ready", throttle = 1 }) {
+async function page({ width, height, phone, hash, reduced = false, path = "/", ready = "window.__ready", throttle = 1, dpr = 1 }) {
   const { targetId } = await send("Target.createTarget", { url: "about:blank" })
   const { sessionId } = await send("Target.attachToTarget", { targetId, flatten: true })
   const call = (m, p) => send(m, p, sessionId)
   await call("Page.enable", {})
   await call("Runtime.enable", {})
-  await call("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: phone })
+  await call("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: dpr, mobile: phone })
   await call("Emulation.setEmulatedMedia", {
     features: [
       { name: "hover", value: phone ? "none" : "hover" },
@@ -493,9 +501,10 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
   check("its mark is a white drawing, and nothing in the badge is purple", ui.icon.drawn && ui.icon.fills.length >= 1 && ui.icon.fills.every((f) => f === "rgb(255, 255, 255)") && !ui.icon.purple, `${ui.icon.fills.length} shapes, ${[...new Set(ui.icon.fills)].join(", ")}${ui.icon.purple ? ", purple found" : ""}`)
   check("the badge is a pill with depth: fully round ends and a shadow", ui.badgeRadius >= ui.badgeH / 2 - 0.5 && /rgba\(0, 0, 0, 0\.[1-9]/.test(ui.badgeShadow), `radius ${ui.badgeRadius}px on ${ui.badgeH.toFixed(1)}px, shadow ${ui.badgeShadow.slice(0, 60)}...`)
   check("the panel is rounded and has depth (a shadow under it and a hairline)", ui.panel.radius >= (size.phone ? 24 : 32) && /inset/.test(ui.panel.shadow) && (ui.panel.shadow.match(/rgba/g) || []).length >= 3, `radius ${ui.panel.radius}px`)
-  /* Changed on purpose (round AD5): the inset is the header's own padding (16px on a phone, 32px from 1024px), so the panel's sides line up with the header's logo and its last control. */
-  const inset = size.phone ? [15.5, 16.5] : [31.5, 32.5]
-  check(`the panel is inset from the page's sides (${inset[0]} to ${inset[1]}px)`, ui.panel.left >= inset[0] && ui.panel.left <= inset[1] && Math.abs(ui.innerW - ui.panel.right - ui.panel.left) < 1, `${ui.panel.left.toFixed(1)}px left, ${(ui.innerW - ui.panel.right).toFixed(1)}px right`)
+  /* Changed on purpose (round 12, the owner: "decrease a little bit the left and right padding ... so it matches the vertical space in between header and hero"): 10px on a phone, max(8px, 0.9vw) from 640px, the gap under the header too. */
+  const gapPx = size.width < 640 ? 10 : Math.max(8, size.width * 0.009)
+  const inset = [gapPx - 0.5, gapPx + 0.5]
+  check(`the panel is inset from the page's sides (${inset[0].toFixed(1)} to ${inset[1].toFixed(1)}px)`, ui.panel.left >= inset[0] && ui.panel.left <= inset[1] && Math.abs(ui.innerW - ui.panel.right - ui.panel.left) < 1, `${ui.panel.left.toFixed(1)}px left, ${(ui.innerW - ui.panel.right).toFixed(1)}px right`)
   const veil = ui.veil ? parseColor(ui.veil) : { a: 0 }
   check("the backdrop's veil is 0.928 (round AD5; it was 0.91)", Math.abs(veil.a - 0.928) < 0.002, `veil ${ui.veil}`)
   check("the text inside the panel is inset from it by the header's padding too", !!ui.copyPad && ui.copyPad.every((x) => Math.abs(x - (size.phone ? 16 : 32)) < 0.5), `${ui.copyPad?.join(" and ")}px`)
@@ -850,12 +859,11 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
   }
 }
 
-/* The header's content edges (the leftmost and rightmost thing drawn in its row) and the hero panel's sides. */
-const EDGES = `(() => {
-  const row = document.querySelector("#platform-header-root .platform-header-row")
-  const shown = [...row.querySelectorAll("a, button, img, svg")].map((el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+/* The gap between the header's foot and the panel's top, and the panel's insets from the window's sides (round 12). */
+const GAPS = `(() => {
+  const h = document.getElementById("platform-header-root").getBoundingClientRect()
   const p = document.querySelector("[data-hero-panel]").getBoundingClientRect()
-  return { header: [Math.min(...shown.map((r) => r.left)), Math.max(...shown.map((r) => r.right))], panel: [p.left, p.right] }
+  return { top: p.top - h.bottom, left: p.left, right: document.documentElement.clientWidth - p.right }
 })()`
 
 /* ── THE HEADER'S DARK STYLE (round AC1) ───────────────────────────────── */
@@ -909,20 +917,48 @@ if (ONLY !== "hero") {
         writeFileSync(join(process.env.HERO_SHOTS, `header-${tone}-home-${size.width}.png`), Buffer.from(data, "base64"))
       }
       check(`${size.width}px, ${tone} header: the hero starts 8 to 14px under it`, g.gap >= 8 && g.gap <= 14 && !g.edge, `${g.gap.toFixed(1)}px${g.edge ? ", with the curved edge" : ""}`)
-      const e = await q.js(EDGES)
-      check(`${size.width}px, ${tone} header: the panel's sides are the header's content edges (round AD5)`, Math.abs(e.panel[0] - e.header[0]) <= 1 && Math.abs(e.panel[1] - e.header[1]) <= 1, `header content ${e.header.map((x) => x.toFixed(1)).join(" to ")}, panel ${e.panel.map((x) => x.toFixed(1)).join(" to ")}`)
+      /* Changed on purpose (round 12, the owner): the panel's sides are no longer the header's content edges but the same gap as the one under the header. */
+      const e = await q.js(GAPS)
+      check(`${size.width}px, ${tone} header: the panel's left and right inset equal the gap under the header (round 12)`, Math.abs(e.left - e.top) <= 1 && Math.abs(e.right - e.top) <= 1, `top ${e.top.toFixed(1)}, left ${e.left.toFixed(1)}, right ${e.right.toFixed(1)}px`)
       await q.close()
     }
   }
 }
 
 if (ONLY !== "hero") {
-  console.log("\n── 1600px: wider than the header's 1400px row ──")
+  /*
+    ONE GAP ALL ROUND, AT EVERY WIDTH AND ZOOM (round 12, the owner: "as I zoom out in the browser, it should not change
+    the padding of the left, right or top", and the sides match the gap under the header). Browser zoom z on a window W
+    screen pixels wide is a page W / z CSS px wide drawn at z device pixels per CSS px, so each zoom level is that page
+    at that scale; the gaps are read in screen pixels (CSS px times z). At every width and zoom the three are equal
+    (within a screen pixel and a half: rounding), and from 50% to 125% each is the size it is at 100% (within 1.5).
+  */
+  console.log("\n── The panel's gaps, by width and browser zoom ──")
+  const ZOOMS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5]
+  for (const W of [1600, 1440, 1280, 1024]) {
+    const seen = []
+    for (const z of ZOOMS) {
+      const q = await page({ width: Math.round(W / z), height: Math.round(900 / z), phone: false, dpr: z, path: "/header.html", hash: `path=/&who=guest&tone=light`, ready: "document.querySelector('[data-hero-panel]')" })
+      await sleep(500)
+      const e = await q.js(GAPS)
+      const px = { top: e.top * z, left: e.left * z, right: e.right * z }
+      seen.push({ z, ...px })
+      if (process.env.HERO_SHOTS && (W === 1440 || W === 1024)) {
+        const { data } = await q.call("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width: Math.round(W / z), height: Math.round(900 / z), scale: 1 } })
+        writeFileSync(join(process.env.HERO_SHOTS, `zoom-${W}-${Math.round(z * 100)}.png`), Buffer.from(data, "base64"))
+      }
+      check(`${W}px window at ${Math.round(z * 100)}%: left and right equal the gap under the header`, Math.abs(px.left - px.top) <= 1.5 && Math.abs(px.right - px.top) <= 1.5, `top ${px.top.toFixed(1)}, left ${px.left.toFixed(1)}, right ${px.right.toFixed(1)} screen px`)
+      await q.close()
+    }
+    const at100 = seen.find((r) => r.z === 1)
+    const steady = seen.filter((r) => r.z <= 1.25)
+    check(`${W}px window: from 50% to 125% zoom the gaps stay the size they are at 100%`, steady.every((r) => Math.abs(r.top - at100.top) <= 1.5 && Math.abs(r.left - at100.left) <= 1.5), seen.map((r) => `${Math.round(r.z * 100)}%: ${r.top.toFixed(1)}/${r.left.toFixed(1)}`).join(", "))
+  }
   for (const tone of ["light", "dark"]) {
-    const q = await page({ width: 1600, height: 900, phone: false, path: "/header.html", hash: `path=/&who=guest&tone=${tone}`, ready: "document.querySelector('[data-hero-panel]')" })
+    const q = await page({ width: 390, height: 844, phone: true, path: "/header.html", hash: `path=/&who=guest&tone=${tone}`, ready: "document.querySelector('[data-hero-panel]')" })
     await sleep(600)
-    const e = await q.js(EDGES)
-    check(`1600px, ${tone} header: the panel's sides are the header's content edges`, Math.abs(e.panel[0] - e.header[0]) <= 1 && Math.abs(e.panel[1] - e.header[1]) <= 1, `header content ${e.header.map((x) => x.toFixed(1)).join(" to ")}, panel ${e.panel.map((x) => x.toFixed(1)).join(" to ")}`)
+    const e = await q.js(GAPS)
+    check(`390px, ${tone} header: left and right equal the gap under the header`, Math.abs(e.left - e.top) <= 1 && Math.abs(e.right - e.top) <= 1, `top ${e.top.toFixed(1)}, left ${e.left.toFixed(1)}, right ${e.right.toFixed(1)}px`)
     await q.close()
   }
 

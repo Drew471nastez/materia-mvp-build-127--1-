@@ -9,9 +9,12 @@
  * the website builder with Pale Hours open and a store's dashboard. Each is
  * on Storelib's own theme and components, photographed by
  * scripts/hero-shots.mjs into public/marketing/hero/. The brands, people,
- * products, posts and the dashboard's figures are invented, and no picture
- * is a photograph: scripts/hero-demo-art.mjs draws them. Run it again after
- * a screen changes; this file names what it made.
+ * products, posts and the dashboard's figures are invented, and the products
+ * are drawn by scripts/hero-demo-art.mjs. The community's members show
+ * people's photos (round 12), Unsplash License photos listed in
+ * scripts/hero-faces.mjs. The computer and phone slides sit on the hero's
+ * near black (round 12: no light ground). Run it again after a screen
+ * changes; this file names what it made.
  *
  * Swapping a picture is a change to this file only: give an entry a `src` and
  * it is drawn; leave `src` null and the hero draws a neutral placeholder card

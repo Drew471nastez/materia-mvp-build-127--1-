@@ -8,8 +8,10 @@
  * store's own theme settings (colours, fonts, buttons, announcement bar).
  * Only the content is invented: made up brands and people, their made up
  * products and posts, and pictures scripts/hero-demo-art.mjs draws
- * (/demo/*.png). No real creator's name, page or photo is in any of them,
- * and no face: people are their initials or their own work.
+ * (/demo/*.png). No real creator's name, page or photo is in any of them.
+ * Round 12: the community's members show people's photos (the owner's ask),
+ * Unsplash License photos listed in scripts/hero-faces.mjs (/demo/face-*.png),
+ * under the demo's invented names; a link in bio still shows its owner's work.
  *
  *   ?shot=street      Pale Hours, streetwear basics: the front page
  *   ?shot=skin        Ferne, skincare: the front page
@@ -307,24 +309,33 @@ function CreatorPage() {
 
 /*
   The member's feed as app/(marketing)/community/[slug]/(member) draws it:
-  the community's own bar, the spaces, the composer and the posts. Invented
-  members, shown by their initials as Storelib shows anyone without a photo;
-  their pictures are their pots and glaze tests.
+  the community's own bar, the spaces, the composer and the posts, and the
+  left column a real community has: its card with a cover, the faces of who
+  was here last, the next event and the top contributors. Invented members
+  with people's photos (round 12, scripts/hero-faces.mjs); their pictures in
+  the posts are their pots and glaze tests.
 */
 const CID = "6f1c2a1e-0000-4000-8000-0000000000ad"
 const KILN_CLUB: ShellCommunity = {
   id: CID, slug: "kiln-club", name: "Kiln Club", tagline: "Weekly firings, glaze tests and feedback on your pots.",
-  logoUrl: pic("bio-avatar"), coverUrl: null, memberCount: 1240, postCount: 812,
+  logoUrl: pic("bio-avatar"), coverUrl: pic("mugs"), memberCount: 1240, postCount: 812,
   classroomEnabled: true, eventsEnabled: true, directoryEnabled: true, chatEnabled: false, gamificationEnabled: true, archived: false,
 } as ShellCommunity
 const member = (id: string, name: string, username: string, role: "owner" | "member" = "member", level = 2, avatarUrl: string | null = null) => ({ id, name, username, avatarUrl, role, level })
 const PEOPLE = {
-  ana: member("u-ana", "Ana Ribeiro", "anaribeiro", "owner", 7, pic("bio-avatar")),
-  jonas: member("u-jonas", "Jonas Berg", "jonasberg", "member", 4),
-  priya: member("u-priya", "Priya Natarajan", "priyan", "member", 3),
-  sam: member("u-sam", "Sam Okafor", "samokafor", "member", 2),
-  me: member("u-me", "Lena Fischer", "lenaf", "member", 3),
+  ana: member("u-ana", "Ana Ribeiro", "anaribeiro", "owner", 7, pic("face-ana")),
+  jonas: member("u-jonas", "Jonas Berg", "jonasberg", "member", 4, pic("face-jonas")),
+  priya: member("u-priya", "Priya Natarajan", "priyan", "member", 3, pic("face-priya")),
+  sam: member("u-sam", "Sam Okafor", "samokafor", "member", 2, pic("face-sam")),
+  me: member("u-me", "Lena Fischer", "lenaf", "member", 3, pic("face-lena")),
+  marco: member("u-marco", "Marco Reyes", "marcor", "member", 5, pic("face-marco")),
+  elif: member("u-elif", "Elif Demir", "elifd", "member", 4, pic("face-elif")),
+  tom: member("u-tom", "Tom Becker", "tombecker", "member", 2, pic("face-tom")),
+  mia: member("u-mia", "Mia Chen", "miachen", "member", 3, pic("face-mia")),
 }
+/* The card's faces: who was here last, as the real card shows up to seven. */
+const FACES = [PEOPLE.priya, PEOPLE.jonas, PEOPLE.mia, PEOPLE.sam, PEOPLE.elif, PEOPLE.marco, PEOPLE.tom].map((p) => ({ id: p.id, name: p.name, username: p.username, avatarUrl: p.avatarUrl }))
+const CONTRIBUTORS = [PEOPLE.priya, PEOPLE.jonas, PEOPLE.elif, PEOPLE.marco, PEOPLE.sam].map((p, i) => ({ rank: i + 1, userId: p.id, name: p.name, username: p.username, avatarUrl: p.avatarUrl, value: [412, 365, 298, 241, 187][i] }))
 const SPACE = (id: string, name: string, icon: string): SpaceView => ({ id: `s-${id}`, slug: id, name, description: null, icon, kind: "feed", canPost: true, commentsEnabled: true, unread: 0 }) as SpaceView
 const SPACES: SpaceView[] = [SPACE("general", "General", "messages-square"), SPACE("glazes", "Glazes", "🎨"), SPACE("firing", "Firing logs", "🔥"), SPACE("critique", "Critique", "🎯"), SPACE("wins", "Wins", "🏆")]
 const image = (name: string, w = 1200, h = 900): PostMedia => ({ type: "image", url: pic(name), w, h }) as PostMedia
@@ -334,7 +345,7 @@ function post(i: number, o: { space: SpaceView; author: typeof PEOPLE.ana; title
     title: o.title, body: `<p>${o.text}</p>`, bodyText: o.text, media: o.media ?? [], pinned: !!o.pinned, featured: false, locked: false, status: "published",
     author: o.author as never, reactionCount: o.reactions, commentCount: o.comments, reacted: i === 2, bookmarked: false, poll: null,
     createdAt: iso(NOW - o.hoursAgo * HOUR), editedAt: null, lastActivityAt: iso(NOW - o.hoursAgo * HOUR), canEdit: false, canModerate: false,
-    recentCommenters: [PEOPLE.jonas, PEOPLE.priya, PEOPLE.sam].slice(0, Math.min(3, o.comments)).map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl })), lastCommentAt: iso(NOW - (o.hoursAgo - 0.5) * HOUR), showLevel: true,
+    recentCommenters: [PEOPLE.jonas, PEOPLE.priya, PEOPLE.mia, PEOPLE.sam].filter((p) => p.id !== o.author.id).slice(0, Math.min(3, o.comments)).map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl })), lastCommentAt: iso(NOW - (o.hoursAgo - 0.5) * HOUR), showLevel: true,
   } as FeedPostView
 }
 const POSTS: FeedPostView[] = [
@@ -349,7 +360,7 @@ function Community() {
   const topBar: TopBarData = {
     community: { id: CID, slug: KILN_CLUB.slug, name: KILN_CLUB.name, logoUrl: KILN_CLUB.logoUrl },
     creator: { name: "Ana Ribeiro", href: "/anaribeiro" },
-    me: { name: PEOPLE.me.name, avatarUrl: null, profileHref: "/@lenaf" },
+    me: { name: PEOPLE.me.name, avatarUrl: PEOPLE.me.avatarUrl, profileHref: "/@lenaf" },
     communities: [{ id: CID, slug: KILN_CLUB.slug, name: KILN_CLUB.name, logoUrl: KILN_CLUB.logoUrl }],
     manageHref: null,
   } as TopBarData
@@ -361,9 +372,9 @@ function Community() {
         topBar={topBar}
         unreadMessages={null}
         wall={{
-          card: { stats: { members: KILN_CLUB.memberCount, online: 23, admins: 2 }, faces: [], more: 0, settingsHref: null },
+          card: { stats: { members: KILN_CLUB.memberCount, online: 23, admins: 2 }, faces: FACES, more: KILN_CLUB.memberCount - FACES.length, settingsHref: null },
           upcoming: { id: "e1", title: "Open studio call", startsAt: iso(NOW + 52 * HOUR), endsAt: iso(NOW + 53.5 * HOUR), going: 41 },
-          contributors: null,
+          contributors: { basis: "points", since: null, rows: CONTRIBUTORS },
         } as never}
       >
         <FeedColumns
@@ -376,7 +387,7 @@ function Community() {
               start={{ kind: "all" } as never}
               initial={{ pinned: [], posts: POSTS, nextCursor: null } as never}
               servedAt={NOW}
-              compose={{ userId: PEOPLE.me.id, me: { name: PEOPLE.me.name, avatarUrl: null }, fileProductId: null } as never}
+              compose={{ userId: PEOPLE.me.id, me: { name: PEOPLE.me.name, avatarUrl: PEOPLE.me.avatarUrl }, fileProductId: null } as never}
             />
           }
         />
