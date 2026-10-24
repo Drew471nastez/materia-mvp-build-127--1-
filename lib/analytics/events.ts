@@ -67,6 +67,14 @@ export const SESSION_TIMEOUT_MS = 30 * 60_000
 /** A second view of the same path by the same visitor on the same property inside this window is the same view. */
 export const PAGE_VIEW_REPEAT_MS = 30 * 60_000
 
+/**
+ * The app's hand-off on an address it opens for the creator's own site, in
+ * the fragment (#sl_own=<token>): never sent to a server by the browser,
+ * taken off the address by the page's tracker, and sent with its first view
+ * (lib/analytics/own-site ownOpen, page-tracker takeOwnHandoff, collect).
+ */
+export const OWN_HASH_PARAM = "sl_own"
+
 /** The longest path kept. */
 export const PATH_MAX = 300
 /** The longest link destination kept. */

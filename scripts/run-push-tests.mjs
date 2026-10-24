@@ -209,6 +209,8 @@ const SUITES = [
   "tests/analytics-accuracy.test.ts",
   /* Round AC2: a lei store selling in five other currencies through the routes' own code with day rates in the database fake, yen and dinar stores, the phantom discount of a converted line, refunds dated by the refund, shares that add up to 100, changes against nothing and below nothing, and the export's report and format choices (scripts/check-analytics-ac2.mjs measures the page). */
   "tests/analytics-currency.test.ts",
+  /* Round AD1: bugs found by reading every analytics path, each a failing check first: Home's revenue line and the chart axis in the currency's own decimals, a product's orders as payments, kept answers of one period shown as another's, the jsonb origin, GA's purchase value in yen, the creator's own connected domain opened from the app. */
+  "tests/analytics-ad1.test.ts",
   "tests/analytics-filters.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",

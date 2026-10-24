@@ -27,7 +27,7 @@ export const gaProductFor = cache(async (creatorId: string, slug: string | null,
     const [{ data }, currency] = await Promise.all([q.limit(1).maybeSingle(), storeCurrencyFor(creatorId)])
     const row = data as { id: string; title: string | null; price_cents: number | null; type: string | null } | null
     if (!row) return null
-    const item = gaItem({ id: row.id, title: row.title, priceCents: row.price_cents, kind: row.type === "physical" ? "physical" : "digital" })
+    const item = gaItem({ id: row.id, title: row.title, priceCents: row.price_cents, kind: row.type === "physical" ? "physical" : "digital", currency })
     return item ? { item, currency } : null
   } catch {
     return null

@@ -147,6 +147,12 @@ export function midnightOf(v: Ymd, timeZone: string): number {
   return t
 }
 
+/** Whether an instant is the very start of a day in that zone: the end of a finished period, not a "now". */
+export function isMidnightIn(ms: number, timeZone: string): boolean {
+  if (!Number.isFinite(ms)) return false
+  return midnightOf(todayIn(timeZone, ms), timeZone) === ms
+}
+
 /**
  * The instants a range covers: from the first moment of its first day to the
  * first moment after its last day, capped at `now` so "Today" ends now.

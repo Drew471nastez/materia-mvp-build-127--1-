@@ -796,13 +796,14 @@ export function DashboardClient({
     }
   }, [productIds.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* Before the first answer: the period's buckets, every figure zero, drawn soft. */
+  const storeCurrencyCode = useStoreCurrency()
+  /* Before the first answer: the period's buckets, every figure zero, drawn soft. The revenue line in the store's own major units. */
   const figures = useMemo(() => {
-    if (homeAnswer?.reports) return homeFromReports(homeAnswer.reports)
+    if (homeAnswer?.reports) return homeFromReports(homeAnswer.reports, storeCurrencyCode)
     const { window, previous } = homeSpans(period, dashTimeZone, Date.now())
-    return homeFigures({ orders: [], views: [], window, previous, timeZone: dashTimeZone })
+    return homeFigures({ orders: [], views: [], window, previous, timeZone: dashTimeZone, currency: storeCurrencyCode })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [homeAnswer, periodKey, dashTimeZone])
+  }, [homeAnswer, periodKey, dashTimeZone, storeCurrencyCode])
   /* All time, under each figure, as Analytics counts it (analytics_all_time). */
   const totals = homeAllTime(homeAnswer?.allTime)
   /* Page views ever, only to know whether this store has had any activity at all (the sample toggle below). */
@@ -840,7 +841,6 @@ export function DashboardClient({
     return () => window.clearInterval(id)
   }, [])
   const greetingName = displayName === "there" ? "" : firstName(displayName)
-  const storeCurrencyCode = useStoreCurrency()
 
   /* Revenue in the store's own currency (Settings > Languages & Currency); every order is converted to it at its own day's rate. A whole amount without its .00. */
   const formatCurrency = (cents: number, compact = false) => {

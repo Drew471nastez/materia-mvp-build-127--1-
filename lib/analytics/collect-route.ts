@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { getMainDomain } from "@/lib/url-helpers"
 import { collect, type CollectKind, type CollectOutcome } from "./collect"
-import { marksOwner } from "./own-marker"
+import { MARKER_TTL_MS, OWN_MARKER_COOKIE, marksOwner } from "./own-marker"
 import { isOwnVisit } from "./own-visit"
 
 /**
@@ -67,5 +67,7 @@ export function trackResponse(outcome: CollectOutcome | null): NextResponse {
   } else if (cookie && "clear" in cookie) {
     res.cookies.set("visitor_id", "", { maxAge: 0, path: "/" })
   }
+  /* The creator's own browser, marked on this host as /api/analytics/own marks it: host-only, unreadable by a page. */
+  if (outcome?.ownMarker) res.cookies.set(OWN_MARKER_COOKIE, outcome.ownMarker, { maxAge: Math.floor(MARKER_TTL_MS / 1000), httpOnly: true, sameSite: "lax", secure: true, path: "/" })
   return res
 }

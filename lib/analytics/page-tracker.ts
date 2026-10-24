@@ -25,7 +25,7 @@
  * NOTHING HERE CAN BREAK A PAGE. Every call is wrapped, every request has a
  * five second limit, and every failure is dropped.
  */
-import { PAGE_VIEW_REPEAT_MS, normalizePath } from "./events"
+import { OWN_HASH_PARAM, PAGE_VIEW_REPEAT_MS, normalizePath } from "./events"
 
 /** How long the idle callback may wait before it runs anyway. */
 export const IDLE_DEADLINE_MS = 2000
@@ -83,6 +83,46 @@ export function markSent(key: string, now: number, win?: Win): void {
 /** For tests: forget what this module sent. */
 export function forgetSent(): void {
   sentHere.clear()
+}
+
+const OWN_KEY = "sl_own_t"
+const OWN_IN_HASH = new RegExp(`(^#|&)${OWN_HASH_PARAM}=([^&]*)`)
+/** The hand-off when there is no sessionStorage to keep it in. */
+let ownHere: string | null = null
+
+/**
+ * THE APP'S HAND-OFF, TAKEN OFF THE ADDRESS. The app opens the creator's own
+ * site with #sl_own=<token> (lib/analytics/own-site ownOpen). It is taken out
+ * of the address at once, so the creator never copies or shares it, and kept
+ * for this tab until a view has carried it to the server, which marks this
+ * browser as theirs on this host (lib/analytics/collect). The token, or null.
+ */
+export function takeOwnHandoff(win: Win): string | null {
+  try {
+    const hash = win.location.hash || ""
+    const m = OWN_IN_HASH.exec(hash)
+    if (m) {
+      const token = decodeURIComponent(m[2] || "")
+      if (token && token.length <= 4096) {
+        ownHere = token
+        try {
+          storage(win)?.setItem(OWN_KEY, token)
+        } catch {
+          /* memory only */
+        }
+      }
+      const rest = hash.replace(OWN_IN_HASH, (_all, lead: string) => (lead === "#" ? "#" : "")).replace(/^#&/, "#")
+      const url = `${win.location.pathname}${win.location.search}${rest === "#" ? "" : rest}`
+      win.history.replaceState(win.history.state, "", url)
+    }
+  } catch {
+    /* the hand-off is a convenience */
+  }
+  try {
+    return storage(win)?.getItem(OWN_KEY) || ownHere
+  } catch {
+    return ownHere
+  }
 }
 
 /** Why this page is not a visit, or null when it is one. */
