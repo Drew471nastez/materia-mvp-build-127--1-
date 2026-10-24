@@ -17,6 +17,7 @@ import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import type { SchemaField } from "@/lib/website-builder/types"
 import { compatThemeGroups, type PanelGroup } from "@/lib/storelib-theme/platform-settings"
 import { tt } from "@/lib/i18n/text"
+import { groupSchemeFields, type SchemeCategory } from "@/lib/storelib-theme/scheme-categories"
 
 /**
  * A colour scheme's colour is kept at shopify[group][scheme].settings[id]; its
@@ -60,6 +61,17 @@ function colourOf(scheme: unknown, words: string[]): string | null {
     if (hit) return hit[1] as string
   }
   return null
+}
+
+/** A scheme's colour groups, in the words the editor shows (read when drawn, so in the creator's language). */
+function categoryTitle(c: SchemeCategory): string {
+  switch (c) {
+    case "general": return tt("General colors")
+    case "primary_button": return tt("Primary button")
+    case "secondary_button": return tt("Secondary button")
+    case "inputs": return tt("Inputs & fields")
+    default: return tt("Additional colors")
+  }
 }
 
 interface Group {
@@ -189,6 +201,22 @@ export function CompatThemeSettings({
             const fields = visibleFields(group.settings, values)
             const firstScheme = fields.map((f, i) => (SCHEME_HEADER.test(f.id) ? schemeOf(fields, i) : null)).find(Boolean) ?? null
             const opened = openScheme ?? firstScheme
+            /* group::scheme each scheme colour belongs to, by the heading above it. */
+            let lastHeader = ""
+            const ownerOf = fields.map((f) => {
+              if (SCHEME_HEADER.test(f.id)) lastHeader = f.id
+              const parts = f.id.split(SEP)
+              return parts.length >= 4 && parts[2] === "settings" && lastHeader ? `${parts[0]}${SEP}${parts[1]}` : null
+            })
+            const drawField = (field: SchemaField, indent: boolean) => (
+              <div key={field.id} className={indent ? "pl-1" : undefined} data-compat-setting={field.id}>
+                {renderField(field, readAt(values, field.id) ?? field.default, (v) => {
+                  if (!field.id.includes(SEP)) return onChange(field.id, v)
+                  const [top, ...rest] = field.id.split(SEP)
+                  onChange(top, writeAt(values[top], rest, v))
+                })}
+              </div>
+            )
             return fields.map((field, i) => {
               const header = SCHEME_HEADER.exec(field.id)
               const scheme = header ? schemeOf(fields, i) : null
@@ -197,7 +225,7 @@ export function CompatThemeSettings({
                 const stored = readAt(values, scheme)
                 const bg = colourOf(stored, ["background"]) ?? "#ffffff"
                 const fg = colourOf(stored, ["foreground", "text", "heading"]) ?? "#1a1a2e"
-                return (
+                const row = (
                   <button
                     key={field.id}
                     type="button"
@@ -213,20 +241,33 @@ export function CompatThemeSettings({
                     <ChevronDown aria-hidden className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 ${on ? "rotate-180" : ""}`} />
                   </button>
                 )
+                if (!on) return row
+                /*
+                  THE OPEN SCHEME'S COLOURS IN GROUPS: General colors, Primary
+                  button, Secondary button, Inputs & fields, Additional colors
+                  (lib/storelib-theme/scheme-categories.ts), under the same
+                  headings a section's settings have. A scheme with one kind of
+                  colour only is listed as before, with no heading.
+                */
+                const own = fields.filter((_, k) => ownerOf[k] === scheme)
+                const groups = groupSchemeFields(own)
+                return (
+                  <div key={field.id} className="space-y-4">
+                    {row}
+                    {groups.length < 2
+                      ? own.map((f) => drawField(f, true))
+                      : groups.map((g) => (
+                          <div key={g.category} className="space-y-4" data-scheme-category={g.category}>
+                            {renderField({ id: `${scheme}${SEP}__${g.category}`, type: "header", label: categoryTitle(g.category) } as SchemaField, undefined, () => undefined)}
+                            {g.fields.map((f) => drawField(f, true))}
+                          </div>
+                        ))}
+                  </div>
+                )
               }
-              /* A scheme's colour shows under its own row, only while that row is open. */
-              const parts = field.id.split(SEP)
-              const owner = parts.length >= 4 && parts[2] === "settings" && SCHEME_HEADER.test(fields.slice(0, i).reverse().find((f) => SCHEME_HEADER.test(f.id))?.id ?? "") ? `${parts[0]}${SEP}${parts[1]}` : null
-              if (owner && owner !== opened) return null
-              return (
-                <div key={field.id} className={owner ? "pl-1" : undefined} data-compat-setting={field.id}>
-                  {renderField(field, readAt(values, field.id) ?? field.default, (v) => {
-                    if (!field.id.includes(SEP)) return onChange(field.id, v)
-                    const [top, ...rest] = field.id.split(SEP)
-                    onChange(top, writeAt(values[top], rest, v))
-                  })}
-                </div>
-              )
+              /* A scheme's colours are drawn with its row, above. */
+              if (ownerOf[i]) return null
+              return drawField(field, false)
             })
           })()}
         </div>

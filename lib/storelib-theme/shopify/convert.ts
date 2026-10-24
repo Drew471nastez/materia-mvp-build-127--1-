@@ -37,6 +37,7 @@
  * NEVER THROWS. A file that cannot be read is a line in the report; a ZIP
  * that is far too large is a refusal with the number.
  */
+import { categoryFromHeading, type SchemeCategory } from "@/lib/storelib-theme/scheme-categories"
 import JSZip from "jszip"
 
 import { UNSUPPORTED_TYPES, controlFor, resolveControlType } from "../controls/registry"
@@ -1117,11 +1118,18 @@ function settingsPanel(schema: unknown, current: Record<string, unknown>, tr: (v
         schemes.forEach((scheme, n) => {
           /* Named as Shopify's editor names them, never by their key ("scheme-0302a2b1-…"). */
           settings.push({ type: "header", id: `scheme_${n + 1}_hdr`, label: `Scheme ${n + 1}` })
+          /* A heading the definition writes ("Primary button", "Inputs") is kept as the group of the colours under it (lib/storelib-theme/scheme-categories.ts). */
+          let heading: SchemeCategory | null = null
           definition.forEach((d, j) => {
+            if (d && typeof d === "object" && (d.type === "header" || d.type === "paragraph")) {
+              if (d.type === "header") heading = categoryFromHeading(job.tr(d.content ?? d.label, "")) ?? categoryFromHeading(d.content ?? d.label)
+              return
+            }
             const clean = cleanSetting(d, i * 1000 + j, job)
             if (!clean || clean.type === "header" || clean.type === "paragraph") return
             clean.id = [group, scheme, "settings", String(d.id)].join(SCHEME_PATH)
             delete clean.visible_if
+            if (heading) (clean as Setting & { category?: string }).category = heading
             settings.push(clean)
           })
         })

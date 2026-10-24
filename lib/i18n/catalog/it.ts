@@ -10751,7 +10751,10 @@ const words: Record<string, string> = {
  "{year} Tax Year": "Anno fiscale {year}",
  "“{label}” may": "“{label}” potrebbe",
  "“{term}” is already in your glossary.": "“{term}” è già nel tuo glossario.",
- "↻ Refresh thumbnail": "↻ Aggiorna miniatura"
+ "↻ Refresh thumbnail": "↻ Aggiorna miniatura",
+ "General colors": "Colori generali",
+ "Inputs & fields": "Input e campi",
+ "Additional colors": "Colori aggiuntivi"
 }
 
 export default words
