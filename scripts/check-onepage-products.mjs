@@ -251,6 +251,20 @@ for (const view of ["desktop", "phone"]) {
   const editor = await p.evaluate(() => ({ links: !!document.querySelector("[data-product-edit-links]"), tap: !!document.querySelector("[data-product-tap-setting]"), instant: !!document.querySelector("[data-instant-setting]"), product: document.querySelector("[data-edit-product]")?.getAttribute("href"), page: document.querySelector("[data-edit-product-page]")?.getAttribute("href") }))
   expect(editor.links && editor.product === "/app/products/p-live" && editor.page === "/creator-page?pageType=product", "Edit product and Edit product page, side by side, to the same places", editor)
   expect(editor.tap && editor.instant, "When someone taps it, with instant checkout", editor)
+  /* Nothing in the block's editor runs past its panel: every box's right edge inside the panel's, and no sideways scroll. */
+  const fit = await p.evaluate(() => {
+    const start = document.querySelector("[data-product-tap-setting]")
+    if (!start) return null
+    let panel = start.parentElement
+    while (panel && !(["auto", "scroll"].includes(getComputedStyle(panel).overflowY) && panel.clientWidth > 0)) panel = panel.parentElement
+    panel = panel || document.documentElement
+    const right = panel.getBoundingClientRect().right
+    const editorBox = start.closest(".space-y-4") || start.parentElement
+    const over = [...editorBox.querySelectorAll("*")].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.right > right + 0.5 }).map((el) => `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 40)} ${Math.round(el.getBoundingClientRect().right)}>${Math.round(right)}`)
+    return { over: over.slice(0, 6), scroll: panel.scrollWidth, client: panel.clientWidth, labels: [...document.querySelectorAll("[data-product-edit-links] a span")].map((s) => ({ text: s.textContent, cut: s.scrollWidth > s.clientWidth + 1 })) }
+  })
+  expect(!!fit && fit.over.length === 0 && fit.scroll <= fit.client, "the block editor fits its panel: nothing past its right edge, no sideways scroll", fit)
+  expect(!!fit && fit.labels.length === 2 && fit.labels.every((l) => !l.cut) && fit.labels.map((l) => l.text).join("|") === "Product|Product page", "both edit buttons read in full", fit?.labels)
   const links = await p.$("[data-product-edit-links]")
   if (links) {
     await links.evaluate((el) => el.closest(".space-y-4")?.scrollIntoView({ block: "start" }))
@@ -289,6 +303,23 @@ for (const view of ["desktop", "phone"]) {
   const gone = await p.evaluate(() => ({ note: !!document.querySelector('[data-product-note="unavailable"]'), remove: !!document.querySelector("[data-product-remove]") }))
   expect(gone.note && gone.remove, "a product that is gone says so and offers Remove", gone)
   await p.screenshot({ path: join(SHOTS, `editor-unavailable-${view}.png`) })
+
+  /* A product that is gone, inside a group: Remove takes it out of the group, and the group keeps the rest. */
+  await p.keyboard.press("Escape")
+  await sleep(400)
+  await select("Bundles")
+  const kidsBefore = await p.evaluate(() => [...document.querySelectorAll("span.flex-1.text-sm.truncate")].map((s) => s.textContent.trim()))
+  await p.evaluate(() => [...document.querySelectorAll("span.flex-1.text-sm.truncate")].find((s) => s.textContent.trim() === "product")?.closest("[draggable]")?.click())
+  await sleep(900)
+  const groupNote = await p.evaluate(() => {
+    const buttons = [...document.querySelectorAll("[data-product-remove]")].filter((b) => b.getBoundingClientRect().width > 0)
+    buttons.at(-1)?.click()
+    return buttons.length
+  })
+  await sleep(900)
+  const kidsAfter = await p.evaluate(() => [...document.querySelectorAll("span.flex-1.text-sm.truncate")].map((s) => s.textContent.trim()))
+  expect(groupNote > 0 && kidsBefore.includes("product") && !kidsAfter.includes("product") && kidsAfter.includes("Shop"), "Remove on an Unavailable product inside a group takes it out of the group", { groupNote, kidsBefore, kidsAfter })
+  await p.screenshot({ path: join(SHOTS, `editor-group-removed-${view}.png`) })
 
   /* The Products tab. */
   await p.goto(`${base}/app/onepage#products`, { waitUntil: "load" })

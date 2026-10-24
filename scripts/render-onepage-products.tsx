@@ -123,6 +123,11 @@ if (location.pathname.startsWith("/onepage-preview")) {
       b("product", { ...base, style: "callout", cta_text: "Get it now" }, "e_live"),
       b("product", { ...base, product_id: "p-draft", product_title: "Deep Cuts Vol. 2", product_thumbnail: px(4), style: "row", cta_text: "Buy" }, "e_draft"),
       b("product", { ...base, product_id: "p-old", product_title: "Old Sample Pack", product_thumbnail: px(6), style: "callout", cta_text: "Buy" }, "e_old"),
+      /* A group holding a product that is gone: its Remove must take it out of the group. */
+      b("group", { title: "Bundles", layout: "stack", children: [
+        { id: "g_old", type: "product", enabled: true, sort_order: 0, data: { ...base, product_id: "p-old", product_title: "Retired Pack", product_thumbnail: px(7), style: "row", cta_text: "Buy" } },
+        { id: "g_link", type: "link_button", enabled: true, sort_order: 1, data: { label: "Shop", url: "https://example.com" } },
+      ] }, "e_group"),
     ],
     status: "published",
     created_at: "2026-01-01T00:00:00Z",

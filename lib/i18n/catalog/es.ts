@@ -3687,6 +3687,7 @@ const words: Record<string, string> = {
  "It replaces “{name}” at": "Reemplaza a “{name}” en",
  "It replaces “{name}” at {site}. Nothing is deleted.": "Sustituye a “{name}” en {site}. No se elimina nada.",
  "It shows as cancelled to members, and anyone going hears about it. You can put it back on.": "Se muestra como cancelado a los miembros y se avisa a quienes iban a ir. Puedes volver a ponerlo.",
+ "It slides up over your page": "Se abre sobre tu página",
  "It starts as a draft that only you and your team see. Next, you write its welcome post.": "Empieza como borrador que solo ven tú y tu equipo. Después escribes su publicación de bienvenida.",
  "It starts as a draft. Add its lessons, then publish it.": "Empieza como borrador. Añade sus lecciones y luego publícalo.",
  "It starts as a draft. Only you and your team see it until you publish, and the Overview lists what to do first.": "Empieza como borrador. Solo tú y tu equipo la veis hasta que la publiques, y el Resumen indica qué hacer primero.",

@@ -135,7 +135,7 @@ import { LinkIcon, SocialIcon, hasLinkIcon, markOn, socialPlatformLabel } from "
 import { LINK_ICONS, LINK_ICON_CATEGORIES, resolveLinkIcon } from "@/components/onepage/link-icons"
 import { tt } from "@/lib/i18n/text"
 import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
-import { editorProductState, pickableProducts, productLayoutOf } from "@/lib/onepage/product-block"
+import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 
 /**
  * WHERE EACH PLATFORM'S LINKS LIVE.
@@ -7084,7 +7084,19 @@ function BlockEditor({
             {/* The product's own editors, side by side, and what a draft or a product that is gone means for the page. */}
             {data.product_id && (
               <div className="space-y-2">
-                <ProductStateNote state={productState} productId={data.product_id} onRemove={() => removeBlock(block.id)} />
+                <ProductStateNote
+                  state={productState}
+                  productId={data.product_id}
+                  onRemove={() => {
+                    /* On the page, or inside a group (lib/onepage/product-block removePlanFor). */
+                    const plan = removePlanFor(onepage?.draft_blocks, block.id)
+                    if (plan.kind === "top") removeBlock(block.id)
+                    else if (plan.kind === "child") {
+                      const group = onepage?.draft_blocks.find((b) => b.id === plan.groupId)
+                      if (group) contextUpdateBlock(plan.groupId, { data: { ...(group.data as GroupBlockData), children: plan.children as OnePageBlock[] } })
+                    }
+                  }}
+                />
                 {productState !== "unavailable" && <ProductEditLinks productId={data.product_id} />}
               </div>
             )}
