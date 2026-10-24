@@ -51,6 +51,30 @@ The engine reads the theme's template language itself, and it is lenient: a tag 
 
 **Metafields.** A product's custom fields from the product editor are `product.metafields.custom.<key>`, each printing as its value and with `.value`, `.key` and `.type`, so `{{ product.metafields.custom.material }}` and `.material.value` both work. The product's questions are `product.metafields.storelib.faqs.value`, a list of `{ question, answer }`.
 
+**Size charts.** A product given a size chart in the product editor (Products › Size charts) has it as `product.metafields.storelib.size_chart`, which prints as the chart's name. Its `.value` is:
+
+| Key | What it is |
+| --- | --- |
+| `name` | The chart's name, shown as the title when a buyer opens it |
+| `unit` | `cm` or `in`, the unit the seller typed the numbers in |
+| `columns` | A list of `{ name, measure }`: `measure` is true for a measurement (Chest, Waist) and false for a label (Size, EU) |
+| `rows` | A list of rows, each a list of cells as typed, one per column; the first cell is the size |
+| `rows_cm`, `rows_in` | The same rows with the measurement columns in cm and in, so a theme can offer the switch without doing the arithmetic |
+| `notes` | The line under the table, plain text |
+| `image` | The picture of where to measure, or nil |
+
+```liquid
+{%- assign chart = product.metafields.storelib.size_chart.value -%}
+{%- if chart -%}
+  <table>
+    <tr>{% for c in chart.columns %}<th>{{ c.name }}{% if c.measure %} ({{ chart.unit }}){% endif %}</th>{% endfor %}</tr>
+    {% for row in chart.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+  </table>
+{%- endif -%}
+```
+
+A theme whose code reads the metafield draws the chart itself and Storelib adds nothing. To place Storelib's own link and chart (a pop-up with a cm and in switch, no script needed), render `{% render 'storelib-size-chart' %}` or use the filter `{{ product | storelib_size_chart: label: 'Size guide', style: 'button' }}`; both print nothing for a product without a chart. A section that takes `@app` offers **Size chart** under Apps in Add block, and a block a theme kept from a size chart app on Shopify (Kiwi Sizing and the like) is drawn as Storelib's chart. With none of these on the page, the product page gets a Size guide link beside its size option by itself.
+
 **Stock.** A variant Storelib counts, once it is at its low stock line, has `inventory_management` set and `inventory_quantity` as the number left, so a theme's "Only 3 left" shows (Website settings › Commerce › Show how many are left can turn it off). Otherwise `inventory_quantity` only says whether it can be bought.
 
 A value Storelib does not have is present and empty, so a theme's `{% if %}` around it reads false: other metafields, metaobjects, vendors, blogs and articles, gift cards. A blog page draws the theme's blog template with its title and no posts.
