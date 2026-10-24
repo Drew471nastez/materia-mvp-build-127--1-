@@ -86,7 +86,8 @@ async function main() {
   const compatSections = schemasFromSources(t.files)
   {
     /* Changed on purpose (round reviews-1023): "@app" takes Storelib Reviews' two app blocks (Star rating, Reviews), as an installed reviews app's are on Shopify; "@theme" alone never does, and none of Storelib's own theme blocks is offered. */
-    const APP = "shopify://apps/storelib-reviews/blocks/reviews/storelib,shopify://apps/storelib-reviews/blocks/star-rating/storelib"
+    /* Changed on purpose (round BC): "@app" also takes Storelib's Size chart app block, as a size chart app's is on Shopify. */
+    const APP = "shopify://apps/storelib-reviews/blocks/reviews/storelib,shopify://apps/storelib-reviews/blocks/star-rating/storelib,shopify://apps/storelib-size-charts/blocks/size-chart/storelib"
     check("the catalog is the theme's own blocks and Storelib Reviews' app blocks, none of Storelib's theme blocks", types(Object.values(compatCatalog)) === `_price,card,${APP}`)
     check('"@theme" lists the theme\'s public blocks; "@app" adds Storelib Reviews\' two', types(addableBlocks(compatSections.hero, compatCatalog)) === `card,${APP}`)
     check('a section of "@app" alone lists Storelib Reviews\' two', types(addableBlocks(compatSections.apps, compatCatalog)) === APP)
