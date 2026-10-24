@@ -470,7 +470,7 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
   check("the search field is solid: no transparency in its background", bg.a === 1 && parseColor(ui.ctaBg).a === 1, `${ui.bg}, button ${ui.ctaBg}`)
   const words = ui.badge.split(/\s+/).filter(Boolean).length
   check("the badge is three words at most, and not the old label", words <= 3 && ui.badge !== "Built for creators", `"${ui.badge}", ${words} words, ${ui.badgeH.toFixed(1)}px tall, ${ui.badgeFont}`)
-  check("the badge is a pill with depth: fully round ends and a shadow", ui.badgeRadius >= ui.badgeH / 2 - 0.5 && /rgba\(0, 0, 0/.test(ui.badgeShadow), `radius ${ui.badgeRadius}px on ${ui.badgeH.toFixed(1)}px, shadow ${ui.badgeShadow.slice(0, 60)}...`)
+  check("the badge is a pill with depth: fully round ends and a shadow", ui.badgeRadius >= ui.badgeH / 2 - 0.5 && /rgba\(0, 0, 0, 0\.[1-9]/.test(ui.badgeShadow), `radius ${ui.badgeRadius}px on ${ui.badgeH.toFixed(1)}px, shadow ${ui.badgeShadow.slice(0, 60)}...`)
   check("the panel is rounded and has depth (a shadow under it and a hairline)", ui.panel.radius >= (size.phone ? 24 : 32) && /inset/.test(ui.panel.shadow) && (ui.panel.shadow.match(/rgba/g) || []).length >= 3, `radius ${ui.panel.radius}px`)
   const inset = size.phone ? [8, 12] : [18, 22]
   check(`the panel is inset from the page's sides (${inset[0]} to ${inset[1]}px)`, ui.panel.left >= inset[0] && ui.panel.left <= inset[1] && Math.abs(ui.innerW - ui.panel.right - ui.panel.left) < 1, `${ui.panel.left.toFixed(1)}px left, ${(ui.innerW - ui.panel.right).toFixed(1)}px right`)
