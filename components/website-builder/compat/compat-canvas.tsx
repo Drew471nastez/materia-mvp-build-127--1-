@@ -901,6 +901,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   /* A change arrived for the page in front while it was loading: drawn again and sent to it when it is ready. */
   const stale = useRef(false)
+  /* A change to the theme's start-up scripts waiting for the changes to stop (A SETTING THE THEME'S JAVASCRIPT READS AT START, below). */
+  const scriptsTimer = useRef(0)
+  const scriptsDue = useRef(false)
   /* The page drawn now and compared with the one on screen; what differs is sent to it. Reads everything it needs when it runs. */
   const drawAndPatch = () => {
     if (!compatTheme) return
@@ -996,16 +999,29 @@ export function CompatCanvas(props: CompatCanvasProps) {
       (window.theme = { settings: ... }) that its JavaScript reads once, when
       the page starts, so writing the page in place changed nothing a
       visitor sees. The page is drawn again behind the one on screen, where
-      it was scrolled to, as a reload would show it. While a finger is down
-      the rest is written in place as before and the script waits for the
-      release, which draws the page again once: the frame still holds the
-      scripts it started with.
+      it was scrolled to, as a reload would show it. Meanwhile the rest is
+      written in place as before, and the frame is remembered as holding the
+      scripts it started with: the page is drawn again once the changes stop
+      for a moment (words typed into such a setting draw it once, not once a
+      key) and the finger is up.
     */
-    if (plan.scripts && !isLive()) {
+    if (plan.scripts && !isLive() && scriptsDue.current) {
+      scriptsDue.current = false
       loadBehind(html, docKey, list)
       return
     }
-    if (plan.scripts) next.scripts = now.shape.scripts
+    if (plan.scripts) {
+      next.scripts = now.shape.scripts
+      window.clearTimeout(scriptsTimer.current)
+      const settle = () => {
+        /* Still under a finger: asked again, never drawn for nothing while it moves. */
+        if (isLive()) { scriptsTimer.current = window.setTimeout(settle, SCRIPTS_SETTLE_MS); return }
+        scriptsDue.current = true
+        drawAndPatchRef.current()
+        scriptsDue.current = false
+      }
+      scriptsTimer.current = window.setTimeout(settle, SCRIPTS_SETTLE_MS)
+    }
     now.stamp = stampRef.current
     now.lastHtml = html
     if (plan.empty) { now.shape = next; tell(win, isLive()); return }
@@ -2151,6 +2167,9 @@ function CanvasPlaceholder({ hidden, label }: { hidden: boolean; label: string }
     </div>
   )
 }
+
+/* How long the changes to a theme's start-up scripts must stop before the page is drawn again for them. */
+const SCRIPTS_SETTLE_MS = 400
 
 /* "slow" is not a failure yet: the page is still being asked for, and comes in under this if it arrives. */
 const PROBLEM_WORDS = {

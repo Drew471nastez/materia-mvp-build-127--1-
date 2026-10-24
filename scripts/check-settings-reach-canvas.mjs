@@ -18,6 +18,9 @@
  *   JS        what the theme's JavaScript made of its settings (the probe's
  *             own swatch script below writes it on <body>)
  *
+ * A change the canvas showed by loading the page again behind the one on
+ * screen (a setting the theme's start-up script reads) says so.
+ *
  * Then the page is drawn again from nothing (the frame asks for a reload, as
  * one that cannot take a change does), and read again. A part that differs
  * is a setting that did not reach the canvas until a reload.
@@ -179,6 +182,8 @@ async function run(name, compat, bundle, css) {
   }
   const rows = []
   try {
+    /* Every frame loaded in the canvas, counted in the editor's document: a change the canvas drew by loading the page again behind says so. */
+    await js(() => { window.__loads = 0; document.addEventListener("load", (e) => { if (e.target && e.target.tagName === "IFRAME" && e.target.closest("#wb-preview-root")) window.__loads++ }, true) })
     const openGroup = async (group) => {
       await js(() => { const b = [...document.querySelectorAll("button")].find((x) => x.textContent.trim() === "Theme" && x.getClientRects().length); b?.click() })
       await sleep(300)
@@ -232,15 +237,16 @@ async function run(name, compat, bundle, css) {
       return null
     }
     /* One change, then the canvas against the page drawn again from nothing. */
-    const compareAfter = async (label, type, c) => {
+    const compareAfter = async (label, type, c, loads0) => {
       await sleep(1800)
+      const loads = (await js(() => window.__loads)) - loads0
       const f = await within(front(), 3000)
       const live = f ? await within(f.evaluate(READ).catch(() => null)) : null
       const g2 = await reloaded()
       const fresh = g2 ? await within(g2.evaluate(READ).catch(() => null)) : null
       const diff = live && fresh ? differences(live, fresh) : [{ part: "read", canvas: String(!!live), reload: String(!!fresh) }]
-      rows.push({ theme: name, id: label, type, from: c.from, to: c.to, diff })
-      console.log(`  ${diff.length ? "STALE" : "ok   "} ${label.padEnd(40)} ${String(type).padEnd(16)} ${JSON.stringify(c.from)?.slice(0, 24)} -> ${JSON.stringify(c.to)?.slice(0, 24)}`)
+      rows.push({ theme: name, id: label, type, from: c.from, to: c.to, diff, loads })
+      console.log(`  ${diff.length ? "STALE" : "ok   "} ${label.padEnd(40)} ${String(type).padEnd(16)} ${JSON.stringify(c.from)?.slice(0, 24)} -> ${JSON.stringify(c.to)?.slice(0, 24)}${loads ? `   (drawn again behind: ${loads} frame${loads > 1 ? "s" : ""})` : ""}`)
       for (const d of diff.slice(0, 3)) console.log(`          ${d.part}: canvas ${JSON.stringify(d.canvas)}\n          ${" ".repeat(d.part.length)}  reload ${JSON.stringify(d.reload)}`)
     }
     /*
@@ -265,10 +271,11 @@ async function run(name, compat, bundle, css) {
         console.log(`  [${secId.replace("shopify-section-", "")}] ${fields.length} settings`)
         for (const fld of fields) {
           if (ONLY && !ONLY.test(fld.id)) continue
+          const loads0 = await js(() => window.__loads)
           const c = await change(fld.id, "[data-wb-sidebar-scroll]")
           if (c.said === "no field") { if (!(await select())) break; continue }
           if (c.said !== "ok") { console.log(`  -     ${fld.id.padEnd(40)} ${String(fld.type).padEnd(16)} ${c.said}`); continue }
-          await compareAfter(`${secId.replace("shopify-section-", "").slice(-18)}.${fld.id}`, fld.type, c)
+          await compareAfter(`${secId.replace("shopify-section-", "").slice(-18)}.${fld.id}`, fld.type, c, loads0)
           await select()
         }
       }
@@ -281,9 +288,10 @@ async function run(name, compat, bundle, css) {
         if (ONLY && !ONLY.test(s.id)) continue
         if (s.type === "color_scheme_group") continue
         if (group !== g.name) { if (!(await openGroup(say(g.name)))) { console.log(`  (group ${say(g.name)} not found)`); group = null; continue } group = g.name }
+        const loads0 = await js(() => window.__loads)
         const c = await change(s.id)
         if (c.said !== "ok") { console.log(`  -     ${s.id.padEnd(40)} ${String(s.type).padEnd(16)} ${c.said}`); continue }
-        await compareAfter(s.id, s.type, c)
+        await compareAfter(s.id, s.type, c, loads0)
       }
     }
   } finally {
@@ -307,7 +315,7 @@ async function main() {
   console.log("\nBUDGETS")
   for (const r of rows) {
     const ok = r.diff.length === 0
-    console.log(`  ${ok ? "ok  " : BUDGET ? "FAIL" : "note"}  ${r.theme} ${r.id}: the canvas shows what a reload shows${ok ? "" : `   (${r.diff.map((d) => d.part).join(", ")})`}`)
+    console.log(`  ${ok ? "ok  " : BUDGET ? "FAIL" : "note"}  ${r.theme} ${r.id}: the canvas shows what a reload shows${ok ? "" : `   (${r.diff.map((d) => d.part).join(", ")})`}${r.loads ? `, drawn again behind` : ""}`)
     if (!ok && BUDGET) broken++
   }
   console.log(`\n${broken ? `${broken} over budget` : "all within budget"}`)
