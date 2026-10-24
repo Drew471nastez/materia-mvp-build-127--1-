@@ -157,15 +157,19 @@ const BACKGROUND_IMAGES = [
 
 /*
   THE THEMES. Each one a different kind of page, not the same page in
-  another colour: paper and ink (Studio, Cream, Riso), a bold block of
-  colour with hard shadows (Blocks), warm and cool gradients (Sunset, Peach,
-  Ocean, Aurora), quiet darks (Olive, Astrid, Night, Midnight, Space), one
-  loud one (Neon) and two photographs. No violet: Blocks was a violet to pink
-  gradient, Aurora violet glass, Night a violet black with lilac buttons and
-  Fusion violet buttons; each is now its own thing under the same name, so a
-  page that chose one keeps the id it saved. What a page has saved is its own
-  copy of the settings and is not touched. Riso and Olive are new. Only
-  settings the editor already has, so each can be changed piece by piece.
+  another colour. Light: Default, Air, Studio, Paper (warm paper, a serif
+  title, hairline cards), Cream, Riso and Blocks (a bold block of colour with
+  hard shadows). Gradient: Sunset (a deep dusk), Peach, Sage (muted sage to
+  moss, deep green buttons), Ocean and Aurora. Dark: Olive, Astrid, Night,
+  Graphite (graphite with soft glass cards), Midnight, Space and Neon (the
+  one loud one). Image: Nature and Fusion (a warm grain). No violet: Blocks
+  was a violet to pink gradient, Aurora violet glass, Night a violet black
+  with lilac buttons and Fusion a violet swirl; each is now its own thing
+  under the same name, so a page that chose one keeps the id it saved. What
+  a page has saved is its own copy of the settings and is not touched. Every
+  theme's bio and text read at 4.5:1 or more on what is behind them
+  (scripts/check-onepage-themes.mjs). Only settings the editor already has,
+  so each can be changed piece by piece.
 */
 export const THEME_TEMPLATES = [
   {
@@ -496,23 +500,23 @@ export const THEME_TEMPLATES = [
     category: "gradient",
     theme_config: {
       background_type: "gradient" as const,
-      background_color: "#e6e3d3",
-      background_gradient: "linear-gradient(180deg, #d9dfcf 0%, #e6e3d3 55%, #eee6d6 100%)",
+      background_color: "#b9c6ad",
+      background_gradient: "linear-gradient(180deg, #c9d3bf 0%, #b9c6ad 55%, #a9b89c 100%)",
       background_image_url: "",
-      text_color: "#1f261d",
-      secondary_text_color: "#4f5a4a",
-      button_color: "#fbfaf5",
-      button_text_color: "#1f261d",
+      text_color: "#1f2a1f",
+      secondary_text_color: "#2e3d2b",
+      button_color: "#2f4a32",
+      button_text_color: "#f1f3ea",
       button_style: "filled" as const,
       button_border_radius: 24,
       button_border_width: 0,
-      button_border_color: "#fbfaf5",
+      button_border_color: "#2f4a32",
       button_shadow: "subtle",
-      button_shadow_color: "#3d4a36",
+      button_shadow_color: "#1f2a1f",
       font_family: "'DM Sans', sans-serif",
       title_font: "'Lora', serif",
-      title_color: "#1f261d",
-      social_icon_color: "#2f3a2c",
+      title_color: "#1f2a1f",
+      social_icon_color: "#1f2a1f",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
@@ -520,10 +524,10 @@ export const THEME_TEMPLATES = [
       background_pattern: "none",
     },
     profile_layout: "classic" as const,
-    light_button_text_color: "#1f261d",
-    solid_button_text_color: "#1f261d",
-    outline_button_text_color: "#1f261d",
-    glass_button_text_color: "#1f261d",
+    light_button_text_color: "#1f2a1f",
+    solid_button_text_color: "#f1f3ea",
+    outline_button_text_color: "#1f2a1f",
+    glass_button_text_color: "#1f2a1f",
     share_style: "white",
     subscribe_style: "white",
   },
@@ -887,8 +891,8 @@ export const THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
-      // Wallpaper settings: 40% brightness (white words read on its lightest part) and 40% noise strength
-      image_brightness: 40,
+      // Wallpaper settings: 36% brightness (white words read on its lightest part, grain and all) and 40% noise strength
+      image_brightness: 36,
       image_noise: true,
       noise_strength: 40,
     },
