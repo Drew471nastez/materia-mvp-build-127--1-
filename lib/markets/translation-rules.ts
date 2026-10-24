@@ -230,15 +230,19 @@ export function applyGlossary(text: string, rules: TranslationRules | null | und
   if (!rules || !text) return text
   const swaps = rules.glossary.filter((g) => !g.keep && g.to?.[locale]).sort((a, b) => b.term.length - a.term.length)
   if (swaps.length === 0) return text
+  /*
+    ONE PASS, LONGEST TERM FIRST. Put in one term after another, a term inside
+    an earlier one's translation was translated again ("Pro Plan" became
+    "Formule Pro", then its "Pro" became "Professionnel"). Each term is
+    replaced by a function, so its translation goes in exactly as written,
+    a "$&" in it included.
+  */
+  const to = new Map(swaps.map((g) => [g.term, g.to![locale]]))
+  const any = new RegExp(`(?<![\\p{L}\\p{N}])(?:${swaps.map((g) => escape(g.term)).join("|")})(?![\\p{L}\\p{N}])`, "gu")
   /* Split on tags so an attribute or a tag name is never rewritten. */
   return text
     .split(/(<[^>]*>)/g)
-    .map((part) => {
-      if (part.startsWith("<")) return part
-      let out = part
-      for (const g of swaps) out = out.replace(termAt(out, g.term), g.to![locale])
-      return out
-    })
+    .map((part) => (part.startsWith("<") ? part : part.replace(any, (m) => to.get(m) ?? m)))
     .join("")
 }
 

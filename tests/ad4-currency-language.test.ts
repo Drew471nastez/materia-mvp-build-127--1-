@@ -30,6 +30,10 @@
  *      reference. You'll pay in RON; your bank converts it." in English on
  *      every language of the website; the checkout already said it in the
  *      buyer's.
+ *  10. The glossary put its translations in one term after another, so a
+ *      term inside an earlier term's translation was translated again
+ *      ("Pro Plan" to "Formule Pro", then "Pro" in it to "Professionnel"),
+ *      and a "$&" in a translation was read as a replacement pattern.
  *
  *   npx tsx tests/ad4-currency-language.test.ts
  */
@@ -52,6 +56,7 @@ import { customerInLanguage, ACCOUNT_WORDS } from "@/lib/site-accounts/account-l
 import { UI_WORDS } from "@/lib/markets/ui-words"
 import { chargeNoteIn } from "@/lib/markets/checkout-words"
 import { languageChoiceOf } from "@/lib/markets/choice"
+import { applyGlossary } from "@/lib/markets/translation-rules"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -219,6 +224,14 @@ console.log("\n9. The currency selector's note in the page's language\n")
   const choice = languageChoiceOf({ defaultLanguage: "en", others: ["fr"], locale: "fr", markets: [{ id: "pl", name: "Poland", currency: "PLN", countries: ["PL"] }], fresh: true, pricing: pln, base: "RON", charge: "RON", say: (d, c) => chargeNoteIn("fr", null, d, c) })
   check("the selector on a French page says it in French", choice.currency?.note === chargeNoteIn("fr", null, "PLN", "RON"), choice.currency)
   check("  and the live website hands it the page's words", /say: \(shown, paid\) => chargeNoteIn\(lang, map, shown, paid\)/.test(read("lib/markets/live.ts")))
+}
+
+console.log("\n10. The glossary puts each term in once\n")
+{
+  const rules = { glossary: [{ term: "Pro", to: { fr: "Professionnel" } }, { term: "Pro Plan", to: { fr: "Formule Pro" } }], noTranslate: [] }
+  check("a translation that holds another term is not translated again", applyGlossary("Get the Pro Plan or Pro", rules, "fr") === "Get the Formule Pro or Professionnel", applyGlossary("Get the Pro Plan or Pro", rules, "fr"))
+  check("  a translation is put in as written, \"$&\" and all", applyGlossary("Our Gift box", { glossary: [{ term: "Gift box", to: { fr: "Coffret $& cadeau" } }], noTranslate: [] }, "fr") === "Our Coffret $& cadeau")
+  check("  still whole words only, and never inside a tag", applyGlossary('<a title="Pro">Pro</a> Products', rules, "fr") === '<a title="Pro">Professionnel</a> Products')
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
