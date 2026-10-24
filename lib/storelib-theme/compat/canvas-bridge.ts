@@ -2155,7 +2155,7 @@ export const CANVAS_BRIDGE = `
     /* After whatever was asked before it is on the page: a listener reads the page as it now is. */
     if (m.type === "settings") {
       queue = queue.then(function () {
-        try { document.dispatchEvent(new CustomEvent("storelib:settings-change", { detail: { settings: m.settings || {}, live: !!m.live } })); } catch (err) {}
+        try { document.dispatchEvent(new CustomEvent("storelib:settings-change", { detail: m.section ? { settings: m.settings || {}, live: !!m.live, section: String(m.section) } : { settings: m.settings || {}, live: !!m.live } })); } catch (err) {}
       }).catch(function () {});
       return;
     }

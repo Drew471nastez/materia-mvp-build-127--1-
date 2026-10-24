@@ -156,7 +156,7 @@ Two events of Storelib's own let a theme's code follow the builder:
 
 | Event | Dispatched on | `event.detail` | When |
 | --- | --- | --- | --- |
-| `storelib:settings-change` | `document` | `{ settings, live }`: the theme settings that changed, by id, with their new values; `live` is `true` while a finger is still on the control | After the page shows a theme setting change: every value of a slider or a colour while it moves, and once more when it is let go |
+| `storelib:settings-change` | `document` | `{ settings, live }`: the theme settings that changed, by id, with their new values; `live` is `true` while a finger is still on the control. For a section's own setting the detail also has `section`, that section's id | After the page shows a theme setting change, and as a section's setting changes: every value of a slider or a colour while it moves, and once more when it is let go |
 | `storelib:section-load` | the section's element (`#shopify-section-<id>`), bubbling | `{ sectionId }` | After a section is drawn again, whether it was swapped (after `shopify:section:load`) or changed in place, where Shopify's editor sends nothing |
 
 ```js

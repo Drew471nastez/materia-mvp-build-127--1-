@@ -344,6 +344,6 @@ function safeJson(text: string): unknown {
  * One list, for README.md, AGENTS.md and storelib.json.
  */
 export const LIVE_PREVIEW_EVENTS = [
-  { event: "storelib:settings-change", when: "fired on `document`, detail `{ settings, live }`: the ids and new values of the settings that changed, on every value while a slider or colour is dragged (`live: true`) and once more on release. The canvas applies the change without reloading the page; a script that read a setting once can read it again here." },
+  { event: "storelib:settings-change", when: "fired on `document`, detail `{ settings, live }`: the ids and new values of the settings that changed, on every value while a slider or colour is dragged (`live: true`) and once more on release. A section's own setting is said the same way with `section`, the section's id, in the detail (`{ settings, live, section }`), so a section's script can apply a value itself in the next frame. The canvas applies the change without reloading the page; a script that read a setting once can read it again here." },
   { event: "storelib:section-load", when: "fired on the section's own element and bubbles to `document`, detail `{ sectionId }`: the section was drawn again in place after a change. A script that sets a section up once (a slider, a menu, a drawer) sets it up again for that section here." },
 ] as const

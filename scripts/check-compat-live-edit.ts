@@ -80,6 +80,7 @@
  *   PROFILE=<regexp>      a CPU profile of the editor for the gestures whose name matches
  *   JSON=<file>           the numbers as JSON
  *   BUDGET=0              report without failing
+ *   SELF_APPLY=1          the header applies its height itself on storelib:settings-change (as Materia's does)
  */
 import { createServer } from "node:http"
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
@@ -166,6 +167,15 @@ async function theme(zipPath: string) {
   let header = await zip.file(headerPath)!.async("string")
   header = header.replace("<style>", "<style>\n  .header { min-height: {{ section.settings.header_height }}px; }\n")
   header = withSchema(header, (s) => { s.settings = [{ type: "range", id: "header_height", min: 40, max: 160, step: 2, unit: "px", label: "Header height", default: 76 }, ...(s.settings ?? [])] })
+  /*
+    SELF_APPLY=1: the header also applies the value itself, the way the
+    owner's Materia header does (a storelib:settings-change listener that
+    writes the height in the next frame, round BB). The section's own
+    settings reach that listener with the section's id.
+  */
+  if (process.env.SELF_APPLY === "1") {
+    header += `\n<script>document.addEventListener("storelib:settings-change", function (e) { var d = e.detail || {}, v = d.settings && d.settings.header_height; if (v === undefined || !d.section) return; requestAnimationFrame(function () { var h = document.querySelector(".header"); if (h) h.style.minHeight = Number(v) + "px" }) })</script>\n`
+  }
   zip.file(headerPath, header)
   /* The announcement bar's height and colour, in an inline style. */
   const barPath = find("announcement-bar.liquid")!
