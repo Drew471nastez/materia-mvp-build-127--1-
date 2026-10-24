@@ -42,6 +42,8 @@ import { normalizeHex } from "@/lib/onepage/color"
 import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 import { PillTabs } from "@/components/onepage/pill-tabs"
+import { LAYER_LEAVE_MS, LAYER_MOTION_EASE, LAYER_MOTION_MS, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
+import { CONTENT_IN_EASE, CONTENT_IN_FROM, CONTENT_IN_MS } from "@/lib/ui/pill-switch"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { NATIVE_BACK_EVENT } from "@/lib/ui/native-back"
 import { AvatarMark } from "@/components/app/app-avatar"
@@ -1186,27 +1188,37 @@ const SECTION_LABEL: Record<DesignSection, string> = {
  */
 /**
  * ===========================================================================
- *  A PANEL FADES IN OVER THE LIST, AND THE LIST FADES BACK
+ *  A PANEL COMES UP OVER THE LIST, AND GOES BACK DOWN OFF IT
  * ===========================================================================
- * "I still don't like the page transition. For example I want to go from
- * Design to Theme and then from Theme to go back, I don't like that page
- * animation thing. Make sure it's smooth, not glitchy, more simple, clean,
- * normal, NO SLIDE like."
+ * Round 11, the owner: "When I go to Theme, Header, Wallpaper, Text, Button,
+ * Social icons, Footer, make sure it's more smooth and clean. I don't like
+ * the fade." Before that (round 9): "NO SLIDE like."
  *
- * It was an iPhone push: the panel slid in from the right while the list
- * moved left and dimmed under it, a pull from the left edge took it back,
- * and on a computer the two went side by side. Now nothing moves sideways.
- * The two pages are drawn in the same place: the page leaving fades out
- * over 90ms, and the page arriving, over it, fades in from 50ms to 200ms
- * (opacity only, on the compositor). The list fades out and Theme fades
- * in; back is the same the other way, to the place in the list that was
- * left. A plain crossfade, the page arriving over the page leaving at full
- * strength, drew "Design" and "Theme" on top of each other for several
- * frames; this way the two only meet faintly, for a frame, and no frame is
- * empty. The way back is the arrow at the top of the panel (and Android's
- * back); the edge pull went with the slide it was part of.
+ * It was a crossfade: the list out over 90ms, the panel in from 50ms to
+ * 200ms, so for a few frames the two pages' words were faintly on the glass
+ * together. Now it is the app's own sub-page, the one an order opens with
+ * (app/app/orders/order-motion.ts) and every page layer in /app moves on
+ * (components/app/page-layer.tsx), on the same numbers:
  *
- * Both pages are drawn only while the fade runs. At rest the list is kept
+ *   PHONE     the panel rises from the bottom of the column, whole, as one
+ *             layer over the list, which holds still underneath it, exactly
+ *             where it was (LAYER_MOTION_MS, the iOS sheet curve, with the
+ *             page layer's soft top edge); back drops it down again
+ *             (LAYER_LEAVE_MS) off the list, still where it was left. Nothing
+ *             moves sideways and nothing fades: every frame is one whole page
+ *             over another whole page.
+ *   COMPUTER  where nothing slides in from an edge, the panel is there on the
+ *             first frame, its title included, and only what is under the
+ *             title lands as Storelib's pills' content does (lib/ui/
+ *             pill-switch, from CONTENT_IN_FROM over CONTENT_IN_MS, never from
+ *             nothing); back shows the list at once, whole, where it was
+ *             (the order's `settle: false`).
+ *
+ * Transform and opacity only, on the compositor; a back pressed half way
+ * starts from where the panel is on screen, never from an end. The way back
+ * is the arrow at the top of the panel (and Android's back).
+ *
+ * Both pages are drawn only while the panel moves. At rest the list is kept
  * (its state, not its pixels: `display: none`).
  *
  * ONE MOTION PER PRESS. "Themes, back, Themes again, back: a double
@@ -1227,12 +1239,12 @@ const Activity = (ReactModule as unknown as {
 }).Activity
 /** Every panel, in the order the list names them, which is the order they are built in while the page is idle. */
 const DESIGN_SECTIONS = Object.keys(SECTION_LABEL) as DesignSection[]
-/** The page leaving: out in 90ms, evenly, so it is still faintly there when the page arriving starts. */
-const FADE_OUT_MS = 90
-/** The page arriving: in from 50ms to 200ms, on the tabs' curve, done when it looks done. */
-const FADE_IN_DELAY_MS = 50
-const FADE_IN_MS = 150
-const FADE_EASE = "cubic-bezier(0, 0, 0.2, 1)"
+/** On a phone the panel moves as the app's page layer does: up in LAYER_MOTION_MS, down in LAYER_LEAVE_MS, on its curve. */
+const PUSH_MS = LAYER_MOTION_MS
+const POP_MS = LAYER_LEAVE_MS
+const MOVE_EASE = LAYER_MOTION_EASE
+/** The page layer's soft top edge while it moves (app/app/orders/order-motion EDGE_SHADOW), so it reads as a layer over the list. */
+const EDGE_SHADOW = "0 -10px 30px -12px rgba(17, 24, 39, 0.22)"
 
 /**
  * `top` places the page leaving where it was on screen, under the page
@@ -1248,7 +1260,7 @@ const FADE_EASE = "cubic-bezier(0, 0, 0.2, 1)"
  * the move and went again at its end ("a scrollbar flash"), and where a
  * scrollbar takes room, the column went narrower and wider with it.
  */
-type Move = { from: DesignPage; to: DesignPage; top: number; panelMin: number; listMin: number }
+type Move = { from: DesignPage; to: DesignPage; top: number; panelMin: number; listMin: number; phone: boolean }
 
 export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" | null }) {
   const { onepage } = useOnePage()
@@ -1293,7 +1305,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
     const arriveAt = next ? 0 : listScroll.current
     sectionRef.current = next
     const screen = scroller?.clientHeight ?? 0
-    setMove({ from: current ?? "home", to: next ?? "home", top: arriveAt - y, panelMin: screen + (next ? 0 : y), listMin: screen + listScroll.current })
+    const phone = !!window.matchMedia?.(LAYER_PHONE).matches
+    setMove({ from: current ?? "home", to: next ?? "home", top: arriveAt - y, panelMin: screen + (next ? 0 : y), listMin: screen + listScroll.current, phone })
     setSectionState(next)
     setWarm(null)
     /* A panel not built yet (a tap before the page was idle) is built on the tap, whole, and the fade waits for it. */
@@ -1359,19 +1372,28 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   }, [setSection])
 
   /*
-    The fade itself, started before the browser paints its first frame.
+    The move itself, started before the browser paints its first frame.
 
-    THE LAST FRAME IS HELD UNTIL REACT HAS DRAWN THE PAGE AT REST. Each
-    animation holds its last frame (`fill: both`) and is let go in the
-    layout effect of the commit that ends the move, before that commit is
-    painted, so the page leaving never shows again for a frame between the
-    end of the fade and React hiding it.
+    THE LAST FRAME IS HELD UNTIL REACT HAS DRAWN THE PAGE AT REST. The drop
+    holds its last frame (`fill: forwards`) and is let go in the layout
+    effect of the commit that ends the move, before that commit is painted,
+    so the panel never shows again for a frame between the end of the drop
+    and React hiding it.
   */
   const animating = useRef<Animation[]>([])
+  /* The landing of a panel's content on a computer: its own, so the end of the move does not cancel it. */
+  const landing = useRef<Animation | null>(null)
   useLayoutEffect(() => {
+    const root = rootRef.current
     if (!move) {
       animating.current.forEach((a) => a.cancel())
       animating.current = []
+      if (root) root.style.overflowY = ""
+      const panel = panelRef.current
+      if (panel) {
+        panel.style.boxShadow = ""
+        panel.style.willChange = ""
+      }
       return
     }
     const scroller = scrollerOf()
@@ -1383,33 +1405,41 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
       if (animating.current !== anims) return
       setMove((m) => (m === move ? null : m))
     }
-    if (!list || !panel || typeof panel.animate !== "function" || reducedMotion()) {
+    if (!list || !panel || !root || typeof panel.animate !== "function" || reducedMotion()) {
       animating.current.forEach((a) => a.cancel())
       animating.current = anims
       done()
       return
     }
-    /* The page arriving is on top (opaque once it is in); the page leaving goes out under it. */
-    const arriving = move.to === "home" ? list : panel
-    const leaving = move.to === "home" ? panel : list
-    /*
-      Back pressed while a panel is still fading: each page starts from the
-      opacity it is drawn at now, not from the start, and takes what is left.
-    */
+    const push = move.to !== "home"
+    if (!move.phone) {
+      /* A computer: the panel is there whole, only its content lands; back is the list at once. */
+      animating.current.forEach((a) => a.cancel())
+      animating.current = anims
+      landing.current?.cancel()
+      landing.current = null
+      const body = push ? panel.querySelector<HTMLElement>(`[data-panel-body="${move.to}"]`) : null
+      if (body) landing.current = body.animate([{ opacity: CONTENT_IN_FROM }, { opacity: 1 }], { duration: CONTENT_IN_MS, easing: CONTENT_IN_EASE })
+      done()
+      return
+    }
+    /* A phone: the panel rises over the list, or drops off it; the list never moves. From where the panel is now, if a move is still running. */
+    const height = scroller?.clientHeight || window.innerHeight || 1
     const running = animating.current.length > 0
-    const leavingFrom = running ? Number(getComputedStyle(leaving).opacity) : 1
-    const arrivingFrom = running ? Number(getComputedStyle(arriving).opacity) : 0
+    const at = running ? new DOMMatrixReadOnly(getComputedStyle(panel).transform === "none" ? undefined : getComputedStyle(panel).transform).m42 : push ? height : 0
     animating.current.forEach((a) => a.cancel())
-    const outMs = Math.max(1, FADE_OUT_MS * leavingFrom)
-    const delay = FADE_IN_DELAY_MS * leavingFrom
-    const inMs = Math.max(1, FADE_IN_MS * (1 - arrivingFrom))
-    anims = [
-      arriving.animate([{ opacity: arrivingFrom }, { opacity: 1 }], { duration: inMs, delay, easing: FADE_EASE, fill: "both" }),
-      leaving.animate([{ opacity: leavingFrom }, { opacity: 0 }], { duration: outMs, easing: "linear", fill: "both" }),
-    ]
+    const to = push ? 0 : height
+    const ms = Math.max(120, Math.round((push ? PUSH_MS : POP_MS) * Math.min(1, Math.abs(to - at) / height)))
+    /* The column cuts the panel at its foot while it is below it: nothing of it shows under the list or scrolls the column. */
+    root.style.overflowY = "clip"
+    panel.style.willChange = "transform"
+    panel.style.boxShadow = EDGE_SHADOW
+    anims = [panel.animate([{ transform: `translate3d(0, ${at}px, 0)` }, { transform: `translate3d(0, ${to}px, 0)` }], { duration: ms, easing: MOVE_EASE, fill: push ? "backwards" : "forwards" })]
     animating.current = anims
+    /* Held where it starts until the screen keeps up with it: a panel shown for the first time is drawn in this same frame (page-layer startWhenFramesFlow). */
+    if (push) startWhenFramesFlow(anims)
     anims[0].onfinish = done
-    const timer = window.setTimeout(done, delay + inMs + 250)
+    const timer = window.setTimeout(done, ms + 600)
     return () => window.clearTimeout(timer)
   }, [move])
 
@@ -1436,6 +1466,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   const panelMoving = !!move
   /* The page leaving sits where it was on screen, under; the page arriving is in the flow, over it. */
   const leavingStyle = (top: number): React.CSSProperties => ({ position: "absolute", left: 0, right: 0, top, zIndex: 0 })
+  /* On a phone the panel going back is the layer: it drops over the list, which is in place under it. */
+  const droppingStyle = (top: number): React.CSSProperties => ({ ...leavingStyle(top), zIndex: 2 })
   /*
     EACH PAGE IS THE COLUMN, AND ONLY THE COLUMN'S EDGE CUTS IT. The pages
     were the 576px of the editor's reading width (max-w-xl) inside a 630px
@@ -1463,7 +1495,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
         className={pageClass}
         style={
           listCurrent
-            ? /* Arriving (back), it is over the panel fading out, and covers it to the bottom of the screen. */
+            ? /* Arriving (back), it is in place, at once, and reaches the bottom of the screen under the panel dropping off it. */
               { position: "relative", zIndex: move ? 1 : 0, minHeight: move ? move.listMin : undefined }
             : listMoving
               ? { ...leavingStyle(move!.top), height: move!.listMin, overflow: "clip" }
@@ -1508,7 +1540,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
         data-design-panel={shownSection ?? undefined}
         inert={!shownSection || section !== shownSection}
         aria-hidden={shownSection ? undefined : true}
-        /* No edge and no shade: it fades in place over the list, the same white. */
+        /* The same white as the list; on a phone, while it moves, the page layer's soft top edge (EDGE_SHADOW). */
         className={pageClass}
         style={
           shownSection
@@ -1516,8 +1548,8 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
                 ...(section === shownSection
                   ? /* Arriving, it is over the list and covers it to the bottom of the screen, however short it is. */
                     { position: "relative", minHeight: panelMoving ? move?.panelMin : undefined, zIndex: 1 }
-                  : /* Leaving (back), it is under the list fading in. */
-                    { ...leavingStyle(move ? move.top : 0), height: move?.panelMin, overflow: "clip" }),
+                  : /* Leaving (back), on a phone it drops off the list, over it; on a computer it is already gone. */
+                    { ...(move?.phone ? droppingStyle(move.top) : leavingStyle(move ? move.top : 0)), height: move?.panelMin, overflow: "clip" }),
               }
             : drawnSection
               ? /* Readied under a finger: laid out, but unseen, untouchable, and taking no room from the list's scroll. */
@@ -3392,10 +3424,10 @@ function ThemeSection() {
   return (
     <div>
       {/*
-        The editor's one pill-tab row (components/onepage/pill-tabs): one dark
-        pill slides to the pressed kind from the press itself, where each chip
-        used to fade its own fill in place. The pick goes through the steady
-        filter above, so the page holds still under it.
+        The editor's one pill-tab row (components/onepage/pill-tabs), Storelib's
+        own pills since round 11: the chosen kind's light fill fades in where
+        it is, as Settings' pills across the app do. The pick goes through the
+        steady filter above, so the page holds still under it.
       */}
       <PillTabs
         dataRow="theme-kinds"
@@ -3405,11 +3437,8 @@ function ThemeSection() {
         onChange={pickFilter}
         rowAttrs={{ "data-theme-filters": "" }}
         itemAttr="data-theme-filter"
-        className="-mx-4 mb-5 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0"
-        itemClassName="h-9 shrink-0 rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium hover:border-[#c9cbd1]"
-        pillClassName="rounded-full bg-[#1a1a2e]"
-        onClass="text-white"
-        offClass="text-[#4b5563]"
+        className="-mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-0.5 scrollbar-hide md:mx-0 md:px-0"
+        itemClassName="h-10 px-4 text-[13px] sm:h-9"
       />
       {THEME_NAME_FONTS_HREF ? <link rel="stylesheet" href={THEME_NAME_FONTS_HREF} /> : null}
       {/* Every card, made once and kept; a pick of a kind shows its own (useSteadyFilter). `relative` so each card's offset is read from the grid. */}
@@ -4421,18 +4450,15 @@ function FontPicker({
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={tt("Search fonts")} aria-label={tt("Search fonts")} className={cn(fieldInput, "h-11 pl-10")} />
         </label>
         {withCategories ? (
-          /* The editor's one pill-tab row (components/onepage/pill-tabs): the pill slides to the pressed kind from the press. */
+          /* The editor's one pill-tab row (components/onepage/pill-tabs): Storelib's own pills, the chosen one's fill fading in where it is. */
           <PillTabs
             dataRow="font-kinds"
             label={tt("Kind of font")}
             items={FONT_CATEGORIES}
             value={family}
             onChange={chooseFamily}
-            className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-0.5 scrollbar-hide"
-            itemClassName="h-9 shrink-0 rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium hover:border-[#c9cbd1]"
-            pillClassName="rounded-full bg-[#1a1a2e]"
-            onClass="text-white"
-            offClass="text-[#4b5563]"
+            className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 scrollbar-hide"
+            itemClassName="h-9 px-4 text-[13px]"
           />
         ) : null}
       </div>

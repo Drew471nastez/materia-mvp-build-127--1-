@@ -78,5 +78,47 @@ export function StuckLayerGuard() {
     }
   }, [])
 
+  /**
+   * AND A CLASS ON <html> THAT OUTLIVED THE SCREEN THAT SET IT (round 11).
+   * "When I'm exiting the OnePage editor and I go back to the app [...]
+   * there's a gray container showing and cutting things off in the entire
+   * app." The editor marks <html> (`with-op-editor`, components/platform/
+   * html-class) so that under 768px the shell's black header and its tab
+   * pill are not painted; the server's HTML sets it with a one line script
+   * before the editor hydrates. A way out before that hydration, or any path
+   * that never runs the editor's cleanup, left it on: every /app page after
+   * it drawn with no header and no pill, its grey page cut off at the top.
+   * A class that says "this element is on the page" is only true while the
+   * element is, so it is checked whenever <html>'s classes change and while
+   * it is on, and taken off when its element is gone.
+   */
+  useEffect(() => {
+    if (typeof MutationObserver === "undefined") return
+    const html = document.documentElement
+    const HELD: ReadonlyArray<readonly [string, string]> = [["with-op-editor", "[data-onepage-editor]"]]
+    let timer = 0
+    const check = () => {
+      let any = false
+      for (const [name, sel] of HELD) {
+        if (!html.classList.contains(name)) continue
+        if (document.querySelector(sel)) any = true
+        else html.classList.remove(name)
+      }
+      window.clearInterval(timer)
+      timer = any ? window.setInterval(check, 1500) : 0
+    }
+    const mo = new MutationObserver(check)
+    mo.observe(html, { attributes: true, attributeFilter: ["class"] })
+    window.addEventListener("pageshow", check)
+    window.addEventListener("popstate", check)
+    check()
+    return () => {
+      mo.disconnect()
+      window.clearInterval(timer)
+      window.removeEventListener("pageshow", check)
+      window.removeEventListener("popstate", check)
+    }
+  }, [])
+
   return null
 }
