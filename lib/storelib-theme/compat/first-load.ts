@@ -39,6 +39,26 @@
  *    an opened one draws its flags as it scrolls. Measured on that page:
  *    DOMContentLoaded 11.2s to 8.1s.
  *
+ * 4. A CLOSED COUNTRY LIST IS NOT LAID OUT. The same lists are most of the
+ *    page: four of them on the owner's product page (the header, its phone
+ *    copy, the top bar, the footer), 6,500 of its 7,900 elements and 966KB
+ *    of its 1.96MB. Closed, they are invisible, not gone, so every layout
+ *    (and every one a theme's script forces: a slider measuring its slides,
+ *    a fade-in reading every picture's box) laid all of them out again.
+ *    Each list holding flags is marked (`data-sl-countries`) and skipped
+ *    whole (content-visibility: hidden) until it is about to be used: a
+ *    pointer resting on, pressing, or a key or focus reaching anything that
+ *    controls or holds it, or the theme opening it by itself (a class,
+ *    style, `open`, `hidden` or aria-expanded changing on it or around it).
+ *    Then it is let go for good, before the theme's own handler opens it.
+ *    Every item, its handlers and its search stay exactly where the theme
+ *    put them. Skipped one list at a time, not one item at a time: a box
+ *    read inside a skipped item lays that item out on its own, and a
+ *    theme's fade-in reading all 1,000 flags then cost 1.8s on a phone.
+ *    Measured on the live product page (scripts/.shot-ab.mjs, a phone with
+ *    the CPU slowed 4x, three runs): long tasks 5.4s to 4.3s, load 7.6s to
+ *    6.3s after the first byte, the largest paint 3.1s to 2.2s.
+ *
  * Text in, text out, and an answer this cannot read (no body) is returned as
  * it came.
  */
@@ -128,12 +148,22 @@ function lazyFlag(raw: string): string {
   return raw.replace(/^<img\b/i, '<img loading="lazy"')
 }
 
+/** Marks a list of countries (the `<ul>` or `<ol>` its flags are in), skipped while it is closed. */
+export const COUNTRY_LIST_ATTR = "data-sl-countries"
+/**
+ * The rule that skips a marked list, and the script that lets it go when
+ * it is about to be used (see 4. above). Written once, in the head.
+ */
+export const COUNTRY_LIST_HEAD = `<style data-sl-countries-rule>[${COUNTRY_LIST_ATTR}="closed"]{content-visibility:hidden}</style><script data-sl-countries-open>(function(){var d=document,A="${COUNTRY_LIST_ATTR}",S="["+A+'="closed"]';function go(l){if(l&&l.getAttribute(A)==="closed")l.setAttribute(A,"open")}function near(t){for(var e=t,i=0;e&&e.nodeType===1&&i<6;e=e.parentElement,i++){var c=e.getAttribute("aria-controls");if(c){var x=d.getElementById(c);if(x){if(x.matches(S))go(x);x.querySelectorAll(S).forEach(go)}}if(i>0||e.matches("form,details,[class*=localization],[class*=disclosure],[class*=country]")){var f=e.querySelectorAll(S);if(f.length&&i<5)f.forEach(go)}}}function on(e){var t=e.target;if(t&&t.nodeType===1)near(t)}["pointerdown","pointerover","touchstart","keydown","focusin"].forEach(function(n){d.addEventListener(n,on,{capture:true,passive:true})});function watch(){var m=new MutationObserver(function(r){r.forEach(function(x){var t=x.target;if(t.nodeType!==1)return;if(t.matches(S))go(t);else t.querySelectorAll(S).forEach(go)})});d.querySelectorAll(S).forEach(function(l){for(var e=l,i=0;e&&i<4;e=e.parentElement,i++)m.observe(e,{attributes:true,attributeFilter:["class","style","open","hidden","aria-expanded","aria-hidden"]})});d.querySelectorAll("[aria-controls]").forEach(function(b){var x=d.getElementById(b.getAttribute("aria-controls"));if(x&&(x.matches(S)||x.querySelector(S)))m.observe(b,{attributes:true,attributeFilter:["aria-expanded"]})})}if(d.readyState==="loading")d.addEventListener("DOMContentLoaded",watch);else watch()})();</script>`
+
 export interface FirstLoadResult {
   html: string
   /** Style blocks and stylesheet links gathered into the head. */
   moved: number
   /** Flag pictures marked to load when seen. */
   lazyFlags: number
+  /** Country lists skipped while closed. */
+  countryLists?: number
   /** Earlier copies of a stylesheet linked again later, dropped (onceEachStylesheet). */
   duplicates?: number
 }
@@ -154,6 +184,9 @@ export function readierFirstLoad(html: string): FirstLoadResult {
   const out: string[] = []
   let copied = 0
   let flags = 0
+  let countryLists = 0
+  /* The lists open around the scan, innermost last: the one a flag is in. */
+  const lists: { start: number; end: number; raw: string; marked: boolean }[] = []
   const cut = (from: number, to: number, replacement = "") => {
     out.push(html.slice(copied, from), replacement)
     copied = to
@@ -179,6 +212,7 @@ export function readierFirstLoad(html: string): FirstLoadResult {
     i = tag.end
     if (tag.closing) {
       if (tag.name === "head" && bodyAt < 0 && headEnd < 0) headEnd = tag.start
+      if (tag.name === "ul" || tag.name === "ol") lists.pop()
       continue
     }
     const selfClosed = /\/\s*>$/.test(tag.raw)
@@ -218,7 +252,19 @@ export function readierFirstLoad(html: string): FirstLoadResult {
       }
       continue
     }
+    if ((tag.name === "ul" || tag.name === "ol") && !selfClosed) {
+      lists.push({ start: tag.start, end: tag.end, raw: tag.raw, marked: false })
+      continue
+    }
     if (tag.name === "img") {
+      const isFlag = (attr(tag.raw, "src") ?? "").startsWith(FLAG_SRC_PREFIX)
+      /* The list it is in, marked once, when nothing has been cut since it opened (cuts only move forwards). */
+      const list = isFlag ? lists[lists.length - 1] : undefined
+      if (list && !list.marked && copied <= list.start && attr(list.raw, COUNTRY_LIST_ATTR) === null) {
+        list.marked = true
+        countryLists++
+        cut(list.start, list.end, list.raw.replace(/^<(ul|ol)\b/i, `<$1 ${COUNTRY_LIST_ATTR}="closed"`))
+      }
       const lazy = lazyFlag(tag.raw)
       if (lazy !== tag.raw) {
         flags++
@@ -230,9 +276,10 @@ export function readierFirstLoad(html: string): FirstLoadResult {
   out.push(html.slice(copied))
   const body = out.join("")
   /* Nothing before the head's end was cut, so the head's end is where it was. */
-  const gathered = moved.length ? `${body.slice(0, headEnd)}${moved.join("")}${body.slice(headEnd)}` : body
+  const head = `${moved.join("")}${countryLists ? COUNTRY_LIST_HEAD : ""}`
+  const gathered = head ? `${body.slice(0, headEnd)}${head}${body.slice(headEnd)}` : body
   const once = onceEachStylesheet(gathered)
-  return { html: once.html, moved: moved.length, lazyFlags: flags, duplicates: once.dropped }
+  return { html: once.html, moved: moved.length, lazyFlags: flags, countryLists, duplicates: once.dropped }
 }
 
 /** How a stylesheet link applies: at once ("all"), once loaded ("late-all", the media="print" onload trick), or for its own media. */

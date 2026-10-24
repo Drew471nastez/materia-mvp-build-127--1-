@@ -51,7 +51,7 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
           href={MARKETPLACE_PATH}
           className="group inline-flex h-9 items-center gap-2 rounded-full pr-3 text-[14px] font-medium text-[#4b5563] transition-colors duration-200 hover:text-[#1a1a2e]"
         >
-          <span className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.06)] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-x-0.5 group-hover:shadow-[0_0_0_1px_rgba(17,24,39,0.12),0_3px_8px_rgba(17,24,39,0.1)] group-active:scale-95">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.06)] transition-[box-shadow,translate,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:-translate-x-0.5 group-hover:shadow-[0_0_0_1px_rgba(17,24,39,0.12),0_3px_8px_rgba(17,24,39,0.1)] group-active:scale-95">
             <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2} />
           </span>
           Themes
@@ -92,7 +92,7 @@ export function ThemeDetail({ listing }: { listing: ThemeListing }) {
                 onClick={() => void add(listing.slug)}
                 disabled={state.phase === "adding"}
                 data-theme-add=""
-                className="inline-flex h-11 items-center rounded-xl bg-[#1a1a2e] px-5 text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.2),0_6px_14px_-8px_rgba(26,26,46,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[background-color,transform] duration-150 hover:bg-[#2d2d44] active:scale-[0.98] disabled:opacity-60"
+                className="inline-flex h-11 items-center rounded-xl bg-[#1a1a2e] px-5 text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.2),0_6px_14px_-8px_rgba(26,26,46,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[background-color,translate,scale] duration-150 hover:bg-[#2d2d44] active:scale-[0.98] disabled:opacity-60"
               >
                 {state.phase === "adding" ? "Adding" : state.phase === "added" ? "Add another copy" : "Add to my library"}
               </button>

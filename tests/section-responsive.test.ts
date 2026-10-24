@@ -616,7 +616,7 @@ check(
     /@keyframes wb-ai-turn \{\s*to \{ transform: rotate\(360deg\); \}/.test(css) &&
     !/\.wb-ai-button::before/.test(css) &&
     // Only for people who have not asked for less motion, and never in a hidden tab.
-    /prefers-reduced-motion: no-preference\) \{\s*\.wb-ai-ring-spin \{ animation: wb-ai-turn/.test(css) &&
+    /* Changed on purpose (round AX, the owner: "laggy, not GPU optimised"): it turns only while Storelib AI works, never forever. */ /prefers-reduced-motion: no-preference\) \{\s*\[data-ai-spin\] \.wb-ai-ring-spin \{ animation: wb-ai-turn/.test(css) && /data-ai-spin=\{aiBusy \? "" : undefined\}/.test(editor) &&
     /html\[data-tab-hidden\] \.wb-ai-ring-spin \{ animation-play-state: paused; \}/.test(css),
 )
 

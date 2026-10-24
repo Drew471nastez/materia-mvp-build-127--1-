@@ -85,14 +85,14 @@ export function HelpAccount() {
         aria-expanded={open}
         aria-label="Your account"
         onClick={() => setOpen((v) => !v)}
-        className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-[#eef0f2] text-[13px] font-semibold text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.08)] outline-none transition-[box-shadow,transform] duration-200 hover:shadow-[0_0_0_1px_rgba(17,24,39,0.14),0_2px_6px_rgba(17,24,39,0.12)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 active:scale-[0.97]"
+        className="grid h-9 w-9 place-items-center overflow-hidden rounded-full bg-[#eef0f2] text-[13px] font-semibold text-[#1a1a2e] shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.08)] outline-none transition-[box-shadow,translate,scale] duration-200 hover:shadow-[0_0_0_1px_rgba(17,24,39,0.14),0_2px_6px_rgba(17,24,39,0.12)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 active:scale-[0.97]"
       >
         <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={36} />
       </button>
       {open ? (
         <div
           role="menu"
-          className={`absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] origin-top-right rounded-2xl border border-[#e5e7eb] bg-white p-1.5 shadow-[0_18px_40px_-12px_rgba(17,24,39,0.25),0_2px_6px_rgba(17,24,39,0.06)] transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${shown ? "translate-y-0 scale-100 opacity-100" : "-translate-y-1 scale-[0.98] opacity-0"}`}
+          className={`absolute right-0 top-[calc(100%+8px)] z-50 w-[260px] origin-top-right rounded-2xl border border-[#e5e7eb] bg-white p-1.5 shadow-[0_18px_40px_-12px_rgba(17,24,39,0.25),0_2px_6px_rgba(17,24,39,0.06)] transition-[opacity,translate,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${shown ? "translate-y-0 scale-100 opacity-100" : "-translate-y-1 scale-[0.98] opacity-0"}`}
         >
           <div className="px-2.5 pb-2 pt-1.5">
             <p className="truncate text-[13.5px] font-semibold text-[#1a1a2e]">{me.name}</p>
