@@ -40,6 +40,7 @@
  *   design mode: it is a picture, not a page.
  */
 import { REVEAL_EVENT } from "@/lib/website-builder/canvas-scroll"
+import { CANVAS_PRESS_EVENT, PREVIEW_ORDER_EVENT, type PreviewOrder } from "@/lib/website-builder/live-order"
 import { HOLD_VIEW_EVENT } from "@/lib/website-builder/canvas-switch"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
@@ -1545,6 +1546,31 @@ export function CompatCanvas(props: CompatCanvasProps) {
     return () => window.removeEventListener(REVEAL_EVENT, onReveal)
   }, [])
 
+  /* Round BC: a section dragged in the sidebar, shown in its new place inside the frame while the finger is down (lib/website-builder/live-order.ts, canvas-bridge.ts preview-order). */
+  useEffect(() => {
+    const onOrder = (e: Event) => {
+      const d = (e as CustomEvent<PreviewOrder>).detail
+      if (!d) return
+      const msg = { storelib: 1, type: "preview-order", ids: d.ids, lifted: d.lifted ?? null, end: d.end ?? null }
+      /*
+        The end goes to every page held, whatever it is doing, and after the
+        commit it arrives in: a drop is told in the commit that saves the new
+        order, while this canvas is drawn again for it and its frames are
+        between their refs, so the map is empty for that moment. A page left
+        holding its slides would show them for good.
+      */
+      if (d.ids === null) {
+        queueMicrotask(() => frames.current.forEach((f) => f?.contentWindow?.postMessage(msg, "*")))
+        return
+      }
+      const slot = slotsRef.current[0]
+      if (!slot?.ready) return
+      frames.current.get(slot.n)?.contentWindow?.postMessage(msg, "*")
+    }
+    window.addEventListener(PREVIEW_ORDER_EVENT, onOrder)
+    return () => window.removeEventListener(PREVIEW_ORDER_EVENT, onOrder)
+  }, [])
+
   /*
     THE EDITOR'S SIZE SWITCH, INSIDE THE FRAME. The frame is resized with the
     card, and what the person was looking at in the theme's page is held under
@@ -1863,6 +1889,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
         setGhost((was) => (was && next && was.id === next.id && was.top === next.top && was.left === next.left && was.width === next.width && was.height === next.height ? was : next))
       } else if (m.type === "scrolled" && typeof m.scrollY === "number") {
         if (isFront) scrollY.current = m.scrollY
+      } else if ((m.type === "press" || m.type === "escape") && isFront) {
+        /* Round BC: a press or Escape inside the page, for what the builder has open over it (publish-panel.tsx CANVAS_PRESS_EVENT). */
+        window.dispatchEvent(new CustomEvent(CANVAS_PRESS_EVENT, { detail: m.type }))
       } else if (m.type === "clip-key" && isFront) {
         /* Cmd/Ctrl+C or V pressed inside the page: the editor copies or pastes the open section (editor page, clip keys). */
         const key = (m as { key?: unknown }).key

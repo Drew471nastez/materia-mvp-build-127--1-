@@ -40,8 +40,9 @@ check("whose backdrop closes the sheet when tapped",
   /data-wb-sheet-overlay=""[\s\S]{0,80}onClick=\{\(\) => onOpenChange\(false\)\}/.test(sheet))
 
 console.log("\nOn a wider screen, a tap anywhere else closes the panel")
+/* Changed on purpose (round BC): heard in the capture phase, so a control that stops its own press (a grip, the canvas) still closes the panel. */
 check("a pointerdown outside the panel and its button closes it",
-  /document\.addEventListener\("pointerdown", onDown\)/.test(panel) && /if \(panelRef\.current\?\.contains\(t\) \|\| anchorRef\.current\?\.contains\(t\)\) return\s*\n\s*onOpenChange\(false\)/.test(panel))
+  /document\.addEventListener\("pointerdown", onDown, true\)/.test(panel) && /if \(panelRef\.current\?\.contains\(t\) \|\| anchorRef\.current\?\.contains\(t\)\) return\s*\n\s*onOpenChange\(false\)/.test(panel))
 check("and so does a press inside an iframe canvas, heard as the window losing focus to it",
   /window\.addEventListener\("blur", onBlur\)/.test(panel) && /document\.activeElement instanceof HTMLIFrameElement\) onOpenChange\(false\)/.test(panel))
 check("which is taken away again when it closes",

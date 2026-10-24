@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { openOpeningTab } from "@/lib/website-builder/opening-tab"
 import { AddDomainActions, ConnectDomainDialog, DomainCardRow, usePublishDomains, type PublishDomains } from "@/components/website-builder/publish-domain"
+import { CANVAS_PRESS_EVENT } from "@/lib/website-builder/live-order"
 
 /**
  * ===========================================================================
@@ -687,8 +688,36 @@ export function PublishPanel(props: PublishPanelProps) {
     return () => window.clearTimeout(id)
   }, [open])
 
+  /*
+    ESCAPE CLOSES IT ON A PHONE TOO (round BC): a tablet with a keyboard is a
+    phone sheet here, and the sheet heard only a tap above it. A press away
+    there is the sheet's own (MobileEditorSheet).
+  */
+  useEffect(() => {
+    if (!open || !mobile) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false)
+    }
+    const onCanvas = (e: Event) => {
+      if ((e as CustomEvent<string>).detail === "escape") onOpenChange(false)
+    }
+    document.addEventListener("keydown", onKey)
+    window.addEventListener(CANVAS_PRESS_EVENT, onCanvas)
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      window.removeEventListener(CANVAS_PRESS_EVENT, onCanvas)
+    }
+  }, [open, mobile, onOpenChange])
+
   useEffect(() => {
     if (!open || mobile) return
+    /*
+      A PRESS ANYWHERE ELSE CLOSES IT (round BC). Heard in the capture phase:
+      in the bubble phase, any control of the editor's that stops its press
+      (the canvas's sections, the toolbar over them, a row's grip: React stops
+      a press before it reaches the document) kept the panel open, which is
+      the "click-away does nothing" that was reported.
+    */
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node
       if (panelRef.current?.contains(t) || anchorRef.current?.contains(t)) return
@@ -697,6 +726,9 @@ export function PublishPanel(props: PublishPanelProps) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onOpenChange(false)
     }
+    /* A press or Escape inside an imported theme's page, which this document never hears (live-order.ts CANVAS_PRESS_EVENT). */
+    const onCanvas = () => onOpenChange(false)
+    window.addEventListener(CANVAS_PRESS_EVENT, onCanvas)
     /*
       A TAP ON AN IMPORTED THEME'S CANVAS IS A TAP AWAY TOO. That canvas is an
       iframe, and a press inside it never reaches this document, so the
@@ -710,13 +742,14 @@ export function PublishPanel(props: PublishPanelProps) {
         if (document.activeElement instanceof HTMLIFrameElement) onOpenChange(false)
       }, 0)
     }
-    document.addEventListener("pointerdown", onDown)
+    document.addEventListener("pointerdown", onDown, true)
     document.addEventListener("keydown", onKey)
     window.addEventListener("blur", onBlur)
     return () => {
-      document.removeEventListener("pointerdown", onDown)
+      document.removeEventListener("pointerdown", onDown, true)
       document.removeEventListener("keydown", onKey)
       window.removeEventListener("blur", onBlur)
+      window.removeEventListener(CANVAS_PRESS_EVENT, onCanvas)
     }
   }, [open, mobile, onOpenChange, anchorRef])
 
