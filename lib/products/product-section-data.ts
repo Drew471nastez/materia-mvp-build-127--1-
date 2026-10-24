@@ -15,7 +15,8 @@
  * values, picture, compare at price and pay what you want terms), its
  * options (Size, Colour), whether each variant can be bought (stock for a
  * product that ships, the purchase limit for one that does not), and the
- * kind of each file a download holds. A column an older database does not
+ * kind of each file a download holds, and the size chart a product that
+ * ships was given. A column an older database does not
  * have yet is asked for again without it, and a read that fails leaves its
  * part empty: a product whose options will not load is still a product.
  *
@@ -34,6 +35,7 @@ import { shownCustomFields } from "./custom-fields"
 import { productFaqs } from "./product-faqs"
 import { salesStanding } from "./sales-standings"
 import { FEW_LEFT, copiesLeft } from "./sales-limit"
+import { sizeChartForProduct } from "@/lib/size-charts/storefront"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -145,7 +147,7 @@ export function descriptionHtml(description: string | null | undefined): string 
  */
 export async function productSectionData(db: Db, row: ProductSectionRow, opts: { files?: boolean } = {}): Promise<ProductSectionData> {
   const type = row.type ?? ""
-  const [rawVariants, options, files, standing, delivery] = await Promise.all([
+  const [rawVariants, options, files, standing, delivery, sizeChart] = await Promise.all([
     readVariants(db, row.id),
     type === "physical" ? readOptions(db, row.id) : Promise.resolve([] as ProductOptionData[]),
     opts.files && type !== "physical" ? readFiles(db, row.id) : Promise.resolve([] as NonNullable<ProductSectionData["files"]>),
@@ -153,6 +155,8 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
     type !== "physical" ? salesStanding(db as Parameters<typeof salesStanding>[0], row.id).catch(() => null) : Promise.resolve(null),
     /* Delivery and pickup (lib/physical/storefront-facts.ts): the cheapest delivery home and how long, the pickup points that hold each option. */
     type === "physical" && row.creator_id ? productDelivery(db, row.creator_id, row.id) : Promise.resolve(null),
+    /* Its size chart (lib/size-charts/storefront.ts): the Size chart block and the variant picker's Size guide link. None before SQL part 283 has run. */
+    type === "physical" ? sizeChartForProduct(db, row.id, row.creator_id ?? null) : Promise.resolve(null),
   ])
 
   const variantsLive = rawVariants.filter((v) => liveVariant({ id: v.id, name: v.name ?? "", active: v.active }))
@@ -234,6 +238,7 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
     faqs: productFaqs(row.faqs),
     details: shownCustomFields(row.custom_fields),
     delivery,
+    size_chart: sizeChart,
   }
 }
 

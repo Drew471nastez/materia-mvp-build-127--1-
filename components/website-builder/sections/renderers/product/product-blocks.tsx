@@ -53,6 +53,8 @@ import { DynamicIcon, type SectionPalette } from "../../_shared"
 import { useStorefront, useWord } from "../../../theme/storefront-context"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { OffersBlock } from "./offers-block"
+import { SizeGuideOpener } from "./size-chart"
+import { SAMPLE_SIZE_CHART, sizeOptionIndex, type SizeChart } from "@/lib/size-charts/model"
 
 /* ── What every block is handed ───────────────────────────────────────────── */
 
@@ -83,6 +85,8 @@ export interface ProductCtx {
   buttonRadius: CSSProperties
   /** A price as the shop prints it, with the currency code when the theme shows codes. */
   money: (cents: number) => string
+  /** The section has a Size chart block: the variant picker then leaves its own Size guide link out (./size-chart.tsx). */
+  hasSizeChartBlock?: boolean
   /** For the Bundles and upsells block (./offers-block.tsx): this product as chosen, and a way to put several lines in the cart. */
   offers?: { chosen: { variantId: string; variantName: string | null; priceCents: number; imageUrl: string | null; line?: CartLine } | null; addLines: (lines: CartLine[]) => void }
 }
@@ -244,9 +248,24 @@ function Price({ s, ctx }: { s: S; ctx: ProductCtx }) {
 const PICK_SIZE = { small: 34, medium: 42, large: 50 } as const
 
 function VariantPicker({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  const w = useWord()
   const p = ctx.product
   const options = pickerOptions(p, str(s.fallback_name, "Option") || "Option")
-  if (options.length === 0) return <EditorNote ctx={ctx}>This product has no variants</EditorNote>
+  /*
+    THE SIZE GUIDE LINK. A product with a size chart (Products › Size charts)
+    gets a link to it beside its size option, with nothing for the creator
+    to add: the way a shop on Shopify shows one with a size chart app. Off
+    with the picker's own setting, or while the section has a Size chart
+    block, which is then where the chart opens from. A product with a chart
+    and no size option has the link under the picker instead.
+  */
+  const chart = on(s.size_guide, true) && !ctx.hasSizeChartBlock ? ctx.product.size_chart ?? null : null
+  const sizeAt = chart ? sizeOptionIndex(options) : -1
+  const guide = (className?: string) =>
+    chart ? (
+      <SizeGuideOpener chart={chart} label={w("size_guide")} look="link" opens="modal" icon={false} color={ctx.palette.text_muted ?? ctx.palette.paragraph} palette={ctx.palette} radius={ctx.radius} chosen={sizeAt >= 0 ? ctx.chosen[sizeAt] : null} inert={ctx.inert} closeLabel={w("close")} className={className} />
+    ) : null
+  if (options.length === 0) return chart ? <div data-variant-picker="">{guide()}</div> : <EditorNote ctx={ctx}>This product has no variants</EditorNote>
   const style = str(s.style, "pills")
   const h = PICK_SIZE[str(s.size, "medium") as keyof typeof PICK_SIZE] ?? 42
   const ink = ctx.palette.heading
@@ -264,9 +283,12 @@ function VariantPicker({ s, ctx }: { s: S; ctx: ProductCtx }) {
         const current = ctx.chosen[i] ?? null
         const swatches = on(s.swatches, true) && isColorOption(o.name) && o.values.some((v) => swatchColor(v) || pictureOf(i, v))
         const legend = (
-          <legend className="mb-2 text-[14px] font-medium" style={{ color: ink }}>
-            {o.name}
-            {on(s.show_value, true) && current ? <span style={{ color: ctx.palette.text_muted ?? ctx.palette.paragraph, fontWeight: 400 }}>: {current}</span> : null}
+          <legend className={cn("mb-2 text-[14px] font-medium", i === sizeAt && "flex w-full items-baseline justify-between gap-3")} style={{ color: ink }}>
+            <span>
+              {o.name}
+              {on(s.show_value, true) && current ? <span style={{ color: ctx.palette.text_muted ?? ctx.palette.paragraph, fontWeight: 400 }}>: {current}</span> : null}
+            </span>
+            {i === sizeAt ? guide("shrink-0 text-[13px]") : null}
           </legend>
         )
         if (swatches) {
@@ -365,7 +387,39 @@ function VariantPicker({ s, ctx }: { s: S; ctx: ProductCtx }) {
           </fieldset>
         )
       })}
+      {chart && sizeAt < 0 ? guide("self-start") : null}
     </div>
+  )
+}
+
+/** The chart this block shows: the product's own, or the sample's in the builder before a product is chosen. */
+function productSizeChart(ctx: ProductCtx): SizeChart | null {
+  if (ctx.product.size_chart) return ctx.product.size_chart
+  return ctx.sample && ctx.inEditor ? SAMPLE_SIZE_CHART : null
+}
+
+/** The Size chart block: a link or a button that opens the product's chart (./size-chart.tsx). */
+function SizeChartBlock({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  const w = useWord()
+  const chart = productSizeChart(ctx)
+  if (!chart) return <EditorNote ctx={ctx}>Opens the product&apos;s size chart. Give it one in the product editor, under Size chart</EditorNote>
+  const sizeAt = sizeOptionIndex(pickerOptions(ctx.product, "Option"))
+  const look = str(s.style, "link") === "button" ? "button" : "link"
+  return (
+    <SizeGuideOpener
+      chart={chart}
+      label={str(s.label).trim() || w("size_guide")}
+      look={look}
+      opens={str(s.opens, "modal") === "drawer" ? "drawer" : "modal"}
+      icon={on(s.show_icon, true)}
+      color={colorOf(s.color, ctx.palette, "text")}
+      palette={ctx.palette}
+      radius={ctx.radius}
+      buttonRadius={ctx.buttonRadius}
+      chosen={sizeAt >= 0 ? ctx.chosen[sizeAt] : null}
+      inert={ctx.inert}
+      closeLabel={w("close")}
+    />
   )
 }
 
@@ -853,6 +907,7 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   rating: Rating,
   price: Price,
   variant_picker: VariantPicker,
+  size_chart: SizeChartBlock,
   pay_what_you_want: PayWhatYouWant,
   quantity: Quantity,
   buy_buttons: BuyButtons,

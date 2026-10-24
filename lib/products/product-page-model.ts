@@ -35,6 +35,7 @@ import type { FxRates } from "@/lib/markets/money"
 import type { ProductDelivery } from "@/lib/physical/delivery-lines"
 import type { CartLine } from "@/lib/website-builder/cart"
 import type { ProductRating } from "@/lib/reviews/storefront"
+import type { SizeChart } from "@/lib/size-charts/model"
 import { imagesOnly, isPosterName } from "@/lib/media/video"
 import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
@@ -111,6 +112,8 @@ export interface ProductSectionData {
   delivery?: ProductDelivery | null
   /** Storelib Reviews: the product's published rating on this website, for the Star rating block (lib/reviews/storefront.ts productRating). Null or absent: no stars. */
   rating?: ProductRating | null
+  /** The size chart the product editor gave it (lib/size-charts/storefront.ts), for the Size chart block and the variant picker's Size guide link. Null or absent: none. */
+  size_chart?: SizeChart | null
 }
 
 /* ── Pictures ─────────────────────────────────────────────────────────────── */

@@ -22,6 +22,7 @@ import { withoutNewTab } from "@/lib/website-builder/new-tab"
 import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
 import { currencyWord } from "@/lib/markets/money"
 import { isVideoUrl, videoDuration, videoMime, videoPosterUrl } from "@/lib/media/video"
+import { readSizeChart, sizeChartJson } from "@/lib/size-charts/model"
 
 type O = Record<string, unknown>
 
@@ -498,6 +499,9 @@ function productJson(p: O): O {
  * `{{ product.metafields.custom.material }}` and `.material.value` work.
  * `storelib.faqs`: the product's own questions, `.value` a list of
  * `{ question, answer }`; it prints as how many there are, never as markup.
+ * `storelib.size_chart`: its size chart (lib/size-charts/model.ts
+ * sizeChartJson), `.value` the name, unit, columns, rows (and the rows in
+ * cm and in), notes and picture; it prints as the chart's name.
  */
 function productMetafields(s: Record<string, unknown>, rating?: unknown): O {
   const custom: O = {}
@@ -508,7 +512,10 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown): O {
     }
   }
   const faqs = Array.isArray(s.faqs) ? (s.faqs as { question?: unknown; answer?: unknown }[]).filter((f) => typeof f?.question === "string" && typeof f?.answer === "string").map((f) => ({ question: f.question as string, answer: f.answer as string })) : []
-  return { custom, storelib: faqs.length ? { faqs: { [OUTPUT]: String(faqs.length), value: faqs, key: "faqs", namespace: "storelib", type: "list.faq" } } : {}, reviews: reviewMetafields(rating) }
+  const storelib: O = faqs.length ? { faqs: { [OUTPUT]: String(faqs.length), value: faqs, key: "faqs", namespace: "storelib", type: "list.faq" } } : {}
+  const chart = readSizeChart(s.size_chart)
+  if (chart) storelib.size_chart = { [OUTPUT]: chart.name, value: sizeChartJson(chart), key: "size_chart", namespace: "storelib", type: "json" }
+  return { custom, storelib, reviews: reviewMetafields(rating) }
 }
 
 /**

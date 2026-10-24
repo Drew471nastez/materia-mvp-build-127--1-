@@ -136,6 +136,9 @@ export const UI_WORDS = {
   contact: "Contact",
   email_me_news_from: "Email me news from",
   email_me_news: "Email me news from this store",
+  /* A product's size chart: the link beside its size option and the Size chart block (lib/size-charts). */
+  size_guide: "Size guide",
+  size_chart: "Size chart",
 } as const
 
 export type UiWord = keyof typeof UI_WORDS

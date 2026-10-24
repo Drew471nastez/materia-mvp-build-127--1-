@@ -834,6 +834,7 @@ const SUITES = [
   "tests/round-bc-liveseo.test.ts",
   "tests/round-bc-domains.test.ts",
   "tests/round-bc-dmnotify.test.ts",
+  "tests/round-bc-sizecharts.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
   "tests/live-speed-x.test.ts",
   /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */

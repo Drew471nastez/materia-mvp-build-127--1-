@@ -26,6 +26,8 @@
  * Pure, and safe in the browser.
  */
 
+import type { SizeChart } from "@/lib/size-charts/model"
+
 type O = Record<string, unknown>
 
 export interface VariantFacts {
@@ -54,6 +56,8 @@ export interface PageFacts {
   showLeft: boolean
   /** A product without variants: how many are left when that is few (its stock, or a download's sales limit), 0 when none; else null. */
   productLeft?: number | null
+  /** The size chart the product editor gave it (lib/size-charts/storefront.ts), for product.metafields.storelib.size_chart; null for none. */
+  sizeChart?: SizeChart | null
 }
 
 /**
@@ -111,6 +115,8 @@ export function withPageFacts<T extends { id: string; settings: O }>(card: T, fa
     if (facts.showLeft && facts.productLeft > 0) settings.left = facts.productLeft
   }
   if (settings.available === false) settings.checkout_url = ""
+  /* Its size chart, read for this page: the product shown is the product whose chart is drawn (./size-chart.ts). */
+  if (facts.sizeChart !== undefined) settings.size_chart = facts.sizeChart
   /* Facts for a variant the list did not have yet are left out: its price is not known here. */
   return { ...card, settings }
 }
