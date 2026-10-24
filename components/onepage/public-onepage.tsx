@@ -53,6 +53,8 @@ import { readableOn } from "@/lib/onepage/theme-apply"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
 import { tt } from "@/lib/i18n/text"
+import { useLiveLayout } from "@/lib/onepage/live-layout"
+import { ONEPAGE_COLUMN_PX, onePageImageSrc } from "@/lib/onepage/display-image"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { bookingSource } from "@/lib/onepage/creator-blocks"
@@ -1084,7 +1086,7 @@ function ShareButton({
               <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-white/25 flex items-center justify-center ring-4 ring-white/30 shadow-xl relative">
                 <SmoothAvatarVideo
                   videoUrl={avatarVideoUrl}
-                  imageUrl={avatarUrl}
+                  imageUrl={onePageImageSrc(avatarUrl, 80)}
                   alt={pageTitle}
                 />
               </div>
@@ -1099,7 +1101,7 @@ function ShareButton({
                 slow past its limit), never both.
               */
               <AppAvatar
-                src={avatarUrl}
+                src={onePageImageSrc(avatarUrl, 80)}
                 name={pageTitle}
                 alt={pageTitle}
                 size={80}
@@ -1798,6 +1800,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
    * position like any other children, so nothing remounts. It holds no hooks,
    * which is what makes that legal.
    */
+  /* The computer's layout or the phone's, not both (lib/onepage/live-layout): the server sends both, the browser keeps one. */
+  const liveLayout = useLiveLayout()
   const renderPageContent = ({ isDesktop = false }: { isDesktop?: boolean } = {}) => (
     <div
       className={cn("relative z-10 w-full flex flex-col min-h-full", isDesktop ? "max-w-full" : "max-w-lg mx-auto")}
@@ -2387,7 +2391,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         />
       )}
 
-      {/* Desktop layout - NO internal scrollbar, page scrolls naturally */}
+      {/* Desktop layout - NO internal scrollbar, page scrolls naturally. Only built where it is shown (lib/onepage/live-layout). */}
+      {liveLayout !== "phone" && (
       <div
         className="onepage-live hidden md:block min-h-screen w-full relative [overflow-x:clip]"
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
@@ -2520,8 +2525,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           <QRCode url={pageUrl} size={100} darkColor="#000000" />
         </div>
       </div>
+      )}
 
-      {/* Mobile layout (full screen) */}
+      {/* Mobile layout (full screen). Only built where it is shown (lib/onepage/live-layout). */}
+      {liveLayout !== "desktop" && (
       <div
         className="onepage-live md:hidden min-h-screen w-full relative"
         onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
@@ -2590,6 +2597,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           {renderPageContent()}
         </div>
       </div>
+      )}
       
       {/* Spotify Modal - clean, compact, responsive design */}
       {isPhone ? (
@@ -3737,7 +3745,7 @@ function PublicBlockRenderer({
               {hasVideo ? (
                 <SmoothAvatarVideo
                   videoUrl={profile.avatar_video_url!}
-                  imageUrl={profile.avatar_url}
+                  imageUrl={onePageImageSrc(profile.avatar_url, ONEPAGE_COLUMN_PX)}
                   alt={profile.title || "Avatar"}
                                     videoStyle={{
                     objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
@@ -3748,7 +3756,7 @@ function PublicBlockRenderer({
                 />
               ) : (
                 <img
-                  src={profile.avatar_url! || "/placeholder.svg"}
+                  src={onePageImageSrc(profile.avatar_url, ONEPAGE_COLUMN_PX) || "/placeholder.svg"}
                   alt={profile.title || ""}
                   className="w-full h-full object-cover"
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
@@ -3797,7 +3805,7 @@ function PublicBlockRenderer({
               {data.show_name !== false &&
                 ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
                   <img
-                    src={(theme as any).title_logo_url || "/placeholder.svg"}
+                    src={onePageImageSrc((theme as any).title_logo_url, 320) || "/placeholder.svg"}
                     alt={profile.title || "Logo"}
                     className="mx-auto w-auto"
                     style={{
@@ -3931,7 +3939,7 @@ function PublicBlockRenderer({
                   >
                     <SmoothAvatarVideo
                       videoUrl={profile.avatar_video_url!}
-                      imageUrl={profile.avatar_url}
+                      imageUrl={onePageImageSrc(profile.avatar_url, 160)}
                       alt={profile.title || "Avatar"}
                       imageStyle={{
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px) scale(1.05)`,
@@ -3949,7 +3957,7 @@ function PublicBlockRenderer({
                     }}
                   >
                     <AvatarImage
-                      src={profile.avatar_url || undefined}
+                      src={onePageImageSrc(profile.avatar_url, 160) || undefined}
                       className="object-cover"
                       style={{
                         imageRendering: "auto",
@@ -3983,7 +3991,7 @@ function PublicBlockRenderer({
           {data.show_name !== false &&
             ((theme as any).title_style === "logo" && (theme as any).title_logo_url ? (
               <img
-                src={(theme as any).title_logo_url || "/placeholder.svg"}
+                src={onePageImageSrc((theme as any).title_logo_url, 320) || "/placeholder.svg"}
                 alt={profile.title || "Logo"}
                 className="mx-auto w-auto my-2"
                 style={{
@@ -4837,7 +4845,7 @@ function PublicBlockRenderer({
               style={{ borderRadius }}
             >
               <img
-                src={img.image_url || "/placeholder.svg"}
+                src={onePageImageSrc(img.image_url, ONEPAGE_COLUMN_PX) || "/placeholder.svg"}
                 alt={img.alt_text || ""}
                 className={cn(
                   "w-full",

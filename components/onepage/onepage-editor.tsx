@@ -1,6 +1,7 @@
 "use client"
 
 import { useOnePage, OnePageProvider } from "@/lib/onepage/context"
+import { onePageImageSrc } from "@/lib/onepage/display-image"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 import { PhonePreview, MobilePreviewContent } from "./live-preview"
@@ -327,7 +328,7 @@ function ShareOnePage({
         {onepage.avatar_video_url ? (
           <video
             src={onepage.avatar_video_url}
-            poster={onepage.avatar_url || undefined}
+            poster={onePageImageSrc(onepage.avatar_url, 64) || undefined}
             className="mx-auto mb-2 h-14 w-14 rounded-full object-cover"
             autoPlay
             loop
@@ -336,7 +337,7 @@ function ShareOnePage({
           />
         ) : onepage.avatar_url ? (
           <img
-            src={onepage.avatar_url}
+            src={onePageImageSrc(onepage.avatar_url, 64)}
             alt={onepage.title}
             className="mx-auto mb-2 h-14 w-14 rounded-full object-cover"
             onError={(e) => { e.currentTarget.style.display = "none" }}

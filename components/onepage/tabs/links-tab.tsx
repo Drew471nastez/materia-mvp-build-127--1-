@@ -6,6 +6,7 @@ import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { useLinkReorder } from "@/components/onepage/link-reorder"
 
 import { useOnePage } from "@/lib/onepage/context"
+import { onePageImageSrc } from "@/lib/onepage/display-image"
 import { announceAvatar } from "@/lib/account/avatar-store"
 import {
   createDefaultBlock,
@@ -1227,7 +1228,7 @@ export function LinksTab() {
             {onepage.avatar_video_url ? (
               <>
                 {avatar_url ? (
-                  <img src={avatar_url} alt={title || tt("Avatar")} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+                  <img src={onePageImageSrc(avatar_url, 64)} alt={title || tt("Avatar")} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
                 ) : (
                   <div className="absolute inset-0 bg-gray-200 animate-pulse" />
                 )}
@@ -1244,7 +1245,7 @@ export function LinksTab() {
                 />
               </>
             ) : avatar_url ? (
-              <img src={avatar_url} alt={title || tt("Avatar")} className="w-full h-full object-cover" />
+              <img src={onePageImageSrc(avatar_url, 64)} alt={title || tt("Avatar")} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">{title?.trim() ? title.charAt(0) : <AvatarMark name="" size={72} />}</div>
             )}
@@ -2115,7 +2116,7 @@ export function LinksTab() {
                         } else {
                           const linkData = blockData as LinkButtonBlockData | null
                           if (linkData?.thumbnail_url) {
-                            return <img src={linkData.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                            return <img src={onePageImageSrc(linkData.thumbnail_url, 64)} alt="" className="w-full h-full object-cover" />
                           } else if (hasLinkIcon(linkData?.icon)) {
                             return <LinkIcon name={linkData?.icon} size={28} className="text-gray-500" />
                           }
@@ -2672,7 +2673,7 @@ export function LinksTab() {
                           <FileText className="h-5 w-5 text-red-600" />
                         </div>
                       ) : imageFieldType === 'thumbnail_url' ? (
-                        <img src={data.thumbnail_url || ''} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                        <img src={onePageImageSrc(data.thumbnail_url, 64) || ''} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                       ) : (
                         <img src={data.product_image || ''} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
                       )}
@@ -4215,7 +4216,7 @@ function BlockEditor({
             >
               <span className="grid h-[52px] w-[52px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#f4f4f6] text-[#6b7280]">
                 {data.thumbnail_url ? (
-                  <img src={data.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                  <img src={onePageImageSrc(data.thumbnail_url, 96)} alt="" className="h-full w-full object-cover" />
                 ) : hasLinkIcon(data.icon) ? (
                   <LinkIcon name={data.icon} size={22} className="text-[#1a1a2e]" tone="brand" />
                 ) : (
@@ -5345,7 +5346,7 @@ function BlockEditor({
                             <span className="text-xs font-medium">{tt("Uploading...")}</span>
                           </div>
                         ) : img.image_url ? (
-                          <img src={img.image_url} alt={img.alt_text || ''} className="w-full h-full object-cover rounded-lg" />
+                          <img src={onePageImageSrc(img.image_url, 160)} alt={img.alt_text || ''} className="w-full h-full object-cover rounded-lg" />
                         ) : (
                           <div className="flex flex-col items-center gap-2 text-gray-400">
                             <ImageIcon className="w-8 h-8" />
@@ -5827,7 +5828,7 @@ function BlockEditor({
                   <div className="flex gap-2 items-center">
                     {data.thumbnail_url ? (
                       <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
-                        <img src={data.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        <img src={onePageImageSrc(data.thumbnail_url, 96)} alt="" className="w-full h-full object-cover" />
                         <button
                           onClick={() => updateData({ thumbnail_url: null })}
                           className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
@@ -6080,7 +6081,7 @@ function BlockEditor({
                   <div className="flex gap-2 items-center">
                     {data.thumbnail_url ? (
                       <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
-                        <img src={data.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        <img src={onePageImageSrc(data.thumbnail_url, 96)} alt="" className="w-full h-full object-cover" />
                         <button
                           onClick={() => updateData({ thumbnail_url: null })}
                           className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
@@ -6291,7 +6292,7 @@ function BlockEditor({
                   <div className="flex gap-2 items-center">
                     {data.thumbnail_url ? (
                       <div className="relative w-16 h-16 rounded-lg overflow-hidden border">
-                        <img src={data.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                        <img src={onePageImageSrc(data.thumbnail_url, 96)} alt="" className="w-full h-full object-cover" />
                         <button
                           onClick={() => updateData({ thumbnail_url: null })}
                           className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
