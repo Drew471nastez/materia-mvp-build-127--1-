@@ -61,7 +61,7 @@ console.log("\nCurrencies")
 console.log("\nShipped goods orders keep their tax on the order (lib/physical/checkout-server)")
 {
   const src = read("lib/physical/checkout-server.ts")
-  check("each line's tax goes on its order row: tax_cents, tax_country, then tax_included and tax_label", /if \(lineTax > 0\) await keepLineTax\(db, order\.id, \{ cents: Math\.min\(lineTax, Math\.max\(0, amounts\[i\]\)\), country: taxCountryOf\(co\), included: taxIncluded, label: taxLabel \}\)/.test(src) && /update\(\{ tax_cents: t\.cents, tax_country: t\.country \}\)/.test(src) && /update\(\{ tax_included: true \}\)/.test(src) && /update\(\{ tax_label: t\.label \}\)/.test(src))
+  check("each line's tax goes on its order row: tax_cents, tax_country, then tax_included and tax_label", /* Round AE: a recorded follow-up step of each line. */ /if \(lineTax > 0\) await f\.idempotent\("tax", \(\) => keepLineTax\(db, fl\.orderId, \{ cents: Math\.min\(lineTax, Math\.max\(0, amounts\[i\]\)\), country: taxCountryOf\(co\), included: taxIncluded, label: taxLabel \}\)/.test(src) && /update\(\{ tax_cents: t\.cents, tax_country: t\.country \}\)/.test(src) && /update\(\{ tax_included: true \}\)/.test(src) && /update\(\{ tax_label: t\.label \}\)/.test(src))
   check("the country the tax was worked out for is kept with the checkout", /tax_country: q\.taxCountry\.toUpperCase\(\)/.test(src) && /taxCountry: \(taxPlace\.country \?\? null\)/.test(read("lib/physical/checkout-pricing-server.ts")))
   const fn = src.slice(src.indexOf("export function taxCountryOf"), src.indexOf("/** A shipped order line's tax"))
   check("  read from the checkout's tax facts, else the delivery country", /const kept = co\.shipping_rate\?\.tax_country/.test(fn) && /co\.shipping_address\?\.country/.test(fn))

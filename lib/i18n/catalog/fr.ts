@@ -7671,6 +7671,7 @@ const words: Record<string, string> = {
  "Street and number": "Numéro et rue",
  "Strength": "Intensité",
  "Strikethrough": "Barré",
+ "Stripe": "Stripe",
  "Stripe Connect": "Stripe Connect",
  "Stripe Connected Account Agreement": "Accord de compte connecté Stripe",
  "Stripe Dashboard": "Tableau de bord Stripe",
