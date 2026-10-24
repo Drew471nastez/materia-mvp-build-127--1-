@@ -20,6 +20,9 @@
  *      labelled in dollars whatever the store sells in.
  *   6. A buyer's email in Arabic or Hebrew was laid out left to right: the
  *      website turns right to left for those languages, the emails did not.
+ *   7. A market whose currency the checkout cannot charge ("Shown only, paid
+ *      in RON") still showed its prices with the market's adjustment: a
+ *      -30% market read 30% below what the card was then charged.
  *
  *   npx tsx tests/ad4-currency-language.test.ts
  */
@@ -30,7 +33,7 @@ import { layeredWords, curatedLanguages, curatedWords } from "@/lib/checkout-tex
 import { checkoutSentences, checkoutKey, emailSentences } from "@/lib/markets/checkout-words"
 import { formatMessage } from "@/lib/i18n/text"
 import { sourceHash, type TranslationMap } from "@/lib/markets/translate"
-import { pricingFor, storefrontDisplay } from "@/lib/markets/pricing"
+import { pricingFor, storeCentsFromShown, storefrontDisplay } from "@/lib/markets/pricing"
 import { cartAmounts } from "@/lib/markets/cart-money"
 import { checkoutMoneyLocale, convertOrder, marketCharge } from "@/lib/markets/checkout-charge"
 import { moneyIn } from "@/app/checkout/parts/ui"
@@ -158,6 +161,21 @@ console.log("\n6. A buyer's email reads right to left in a language written that
   check("  and so does a Hebrew one", /<html lang="he" dir="rtl"/.test(he))
   check("  its amounts sit at the line's end, which is the left", !/align="right"/.test(ar) && !/text-align:right/.test(ar) && /align="left"/.test(ar))
   check("an English email is unchanged: no direction, amounts on the right", !/dir="rtl"/.test(en) && /align="right"/.test(en) && !/<html lang="en" dir=/.test(en))
+}
+
+console.log("\n7. A market shown only, never charged, shows what the card will pay\n")
+{
+  const now = Date.now()
+  const asOf = new Date(now).toISOString().slice(0, 10)
+  const fxDay = { asOf, rates: { RON: 5, PLN: 4.3 } }
+  const pln = pricingFor({ id: "pl", name: "Poland", currency: "PLN", rounding: "none", adjustBps: -3000 }, "RON", fxDay, now)!
+  const plain = pricingFor({ id: "pl", name: "Poland", currency: "PLN", rounding: "none", adjustBps: 0 }, "RON", fxDay, now)!
+  check("a PLN market (charged in lei) shows the plain conversion, without its -30%", pln.convert(10000) === plain.convert(10000) && pln.convert(10000) === 8600, { adjusted: pln.convert(10000), plain: plain.convert(10000) })
+  const eur = pricingFor({ id: "de", name: "Germany", currency: "EUR", rounding: "none", adjustBps: -3000 }, "RON", fxDay, now)!
+  check("  a market the checkout charges in keeps its adjustment, charged as shown", eur.convert(10000) === 1400 && marketCharge(eur).price(10000) === 1400)
+  check("  the cart reads back a shown price the same way", storeCentsFromShown(8600, storefrontDisplay(pln, "pl", "RON")) === 10000)
+  const panel = read("components/app/settings/markets-panel.tsx")
+  check("the settings offer the adjustment only where it is charged", /chargeableCurrency\(m\.currency\) \? \(\s*<Field label=\{tt\("Adjustment \(%\)"\)\}/.test(panel), panel.match(/[^\n]*Adjustment \(%\)[^\n]*/)?.[0])
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

@@ -12,6 +12,7 @@
  * Pure: the rates and the market are handed in.
  */
 import { chargeNote, convertMinor, currencyWord, formatMinor, minorUnits, type FxRates, type PriceRounding } from "./money"
+import { chargeableCurrency } from "./checkout-charge"
 
 export interface MarketPrice {
   id: string
@@ -99,6 +100,15 @@ export function convertCardPrices<T extends { settings: { price: string; compare
 /** The conversion for a market, or null when it shows the store's own prices (no currency of its own, the same currency, or no fresh rates). */
 export function pricingFor(market: MarketPrice | null | undefined, base: string, fx: FxRates | null | undefined, now = Date.now()): Pricing | null {
   if (!market || !market.currency || market.currency === base) return null
+  /*
+    SHOWN ONLY, PAID IN THE STORE'S CURRENCY (lib/markets/checkout-charge):
+    the card pays the store's own price and the bank converts it, so the
+    market's prices are a reference and say what that comes to. An
+    adjustment there only moved the reference away from the charge (a -30%
+    market read 30% under what was paid). Rounding stays: it moves a price
+    by less than a unit.
+  */
+  if (market.adjustBps && !chargeableCurrency(market.currency)) market = { ...market, adjustBps: 0 }
   /* The store's own rate, written as the rates are (per euro), and today's: it never goes stale. */
   if (typeof market.rate === "number" && market.rate > 0) fx = ownRates(base, market.currency, market.rate, now)
   const probe = convertMinor(100, base, market.currency, fx, { now })
