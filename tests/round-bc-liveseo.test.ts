@@ -29,6 +29,7 @@ import { listedPageKeys, pageLastmod, robotsTxt, TEMPLATE_PAGE_KEYS } from "../l
 import { withSiteIcon } from "../lib/website-builder/site-icon"
 import { CompatTheme, wrapCompatTemplate, type CompatPage } from "../lib/storelib-theme/compat/theme"
 import { answer, type SiteData } from "../lib/storelib-theme/compat/site"
+import { TOUCH_PREFETCH_MAX, TOUCH_PREFETCH_STARTER, withTouchPrefetch } from "../lib/storelib-theme/compat/touch-prefetch"
 
 let passed = 0
 let failed = 0
@@ -204,7 +205,23 @@ console.log("\nWired into the live site (lib/website-builder/compat-site.ts)\n")
   check("  the canvas's file imports nothing (the database side is compat-search.ts)", !/^import\b(?!\s+type\b)/m.test(code("lib/storelib-theme/compat/search-head.ts")))
 }
 
-console.log(`\n${passed} passed, ${failed} failed`)
+console.log("\nOn a phone, the next page is fetched before the tap (lib/storelib-theme/compat/touch-prefetch.ts)\n")
+  {
+    const page = "<html><head></head><body><p>x</p></body></html>"
+    const once = withTouchPrefetch(page)
+    check("added once, just before the body ends", /<script data-storelib-touch-prefetch>[\s\S]*<\/script><\/body><\/html>$/.test(once) && withTouchPrefetch(once) === once)
+    check("  a page with no body is left alone", withTouchPrefetch("<div>x</div>") === "<div>x</div>")
+    check("the starter is valid script", (() => { try { new Function(TOUCH_PREFETCH_STARTER); return true } catch { return false } })())
+    check("a touch screen only, never with Data Saver or under 4G", /matchMedia\("\(hover: none\)"\)/.test(TOUCH_PREFETCH_STARTER) && /c\.saveData/.test(TOUCH_PREFETCH_STARTER) && /effectiveType!=="4g"/.test(TOUCH_PREFETCH_STARTER))
+    check("prefetch only, never prerender, as a list of the links in view", /prefetch:\[\{source:"list",urls:\[k\]\}\]/.test(TOUCH_PREFETCH_STARTER) && !/prerender/.test(TOUCH_PREFETCH_STARTER))
+    check(`at most ${TOUCH_PREFETCH_MAX} pages, a link visible for a second, half of it in view`, TOUCH_PREFETCH_MAX === 3 && /WAIT=1000/.test(TOUCH_PREFETCH_STARTER) && /threshold:0\.5/.test(TOUCH_PREFETCH_STARTER) && /checkVisibility\(\{opacityProperty:true,visibilityProperty:true\}\)/.test(TOUCH_PREFETCH_STARTER))
+    check("never the cart, checkout, account, the API, another site, a new tab, nofollow or data-no-prefetch", /cart\|checkout\|account\|api/.test(TOUCH_PREFETCH_STARTER) && /u\.origin!==location\.origin/.test(TOUCH_PREFETCH_STARTER) && /\[rel~=nofollow\],\[data-no-prefetch\]/.test(TOUCH_PREFETCH_STARTER) && /a\.target==="_blank"/.test(TOUCH_PREFETCH_STARTER))
+    check("started after the page has loaded and gone idle", /addEventListener\("load",later/.test(TOUCH_PREFETCH_STARTER) && /requestIdleCallback/.test(TOUCH_PREFETCH_STARTER))
+    const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
+    check("the live route adds it to a page opened as a document, beside the desktop prerender", /if \(!runsThirdPartyScripts\(html\)\) html = withDesktopPrerender\(html\)\n[^\n]*\n\s+html = withTouchPrefetch\(html\)/.test(route))
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
   process.exit(1)

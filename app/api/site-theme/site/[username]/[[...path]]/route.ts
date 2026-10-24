@@ -41,6 +41,7 @@ import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stran
 import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/first-load"
 import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compat/script-order"
 import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
+import { withTouchPrefetch } from "@/lib/storelib-theme/compat/touch-prefetch"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
 import { siteLanguages } from "@/lib/markets/live"
 
@@ -379,6 +380,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       if (scripts.deferred || scripts.queued || scripts.later || scripts.asWritten) headers.set("X-Storelib-Scripts", scripts.asWritten ? `as-written; ${scripts.asWritten}` : `deferred=${scripts.deferred}; queued=${scripts.queued}; later=${scripts.later}`)
       /* On a desktop, a page that runs nobody else's scripts is prerendered when its link is rested on (lib/storelib-theme/compat/prerender.ts). */
       if (!runsThirdPartyScripts(html)) html = withDesktopPrerender(html)
+      /* On a phone, the pages behind the links in view are fetched before the tap (lib/storelib-theme/compat/touch-prefetch.ts). Prefetch runs nothing, so any page may. */
+      html = withTouchPrefetch(html)
     }
   }
   const body = html ?? (typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]))
