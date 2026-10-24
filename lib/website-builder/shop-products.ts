@@ -88,6 +88,8 @@ export interface ProductVariantCard {
   image?: string
   /** Its value for each option (Size, Colour), as the product editor set them; absent on an older database. An imported theme's `variant.options`. */
   options?: (string | null)[]
+  /** Its asking price in the store's currency's minor units, for the shop's filters and sort (lib/products/catalog-filters.ts), never printed. */
+  price_cents?: number
 }
 
 export interface ProductCard {
@@ -128,6 +130,15 @@ export interface ProductCard {
     category?: string
     /** A shipped product's options, such as Size and Colour, with their values. Empty for the rest. */
     options?: { name: string; values: string[] }[]
+    /**
+     * Round 12, for the shop's filters (lib/products/catalog-filters.ts): its
+     * asking price in the store's currency's minor units (the formatted price
+     * cannot be read back in every currency), its tags and its brand
+     * (vendor) as Products holds them; absent on a database without them.
+     */
+    price_cents?: number
+    tags?: string[]
+    vendor?: string
   }
   /**
    * Storelib Reviews, while the store has it on with stars on cards
@@ -185,6 +196,9 @@ export interface ProductRow {
   pwyw_min_price_cents?: number | null
   description?: string | null
   category?: string | null
+  /** Round 12: a shipped product's tags and brand (Products), for the shop's filters. */
+  tags?: unknown
+  vendor?: string | null
 }
 
 export interface VariantRow {
@@ -263,6 +277,7 @@ export function toVariant(productId: string, v: VariantRow, available: boolean, 
     compare_price: wasPrice(cents, v.compare_at_price_cents, currency),
     free: cents <= 0 && !v.pay_what_you_want,
     available,
+    price_cents: cents,
     checkout_url: available ? checkoutUrl(productId, v.id) : "",
     ...(typeof v.image_url === "string" && /^https:\/\//.test(v.image_url.trim()) ? { image: mediaUrl(v.image_url.trim()) } : {}),
     ...([v.option1, v.option2, v.option3].some((x) => typeof x === "string" && x.trim() !== "") ? { options: [v.option1 ?? null, v.option2 ?? null, v.option3 ?? null] } : {}),
@@ -327,6 +342,9 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
           return { name: o.name.trim(), values, ...(Object.keys(swatches).length ? { swatches } : {}) }
         })
         .filter((o) => o.name && o.values.length > 0),
+      price_cents: cents,
+      ...(Array.isArray(row.tags) ? { tags: [...new Set((row.tags as unknown[]).filter((t): t is string => typeof t === "string" && t.trim() !== "").map((t) => t.trim()))] } : {}),
+      ...(typeof row.vendor === "string" && row.vendor.trim() ? { vendor: row.vendor.trim() } : {}),
     },
   }
 }
@@ -392,6 +410,8 @@ type Db = { from: (table: string) => { select: (cols: string) => Filter & Partia
 /* With the column that marks a product selling a community tier, which the shop does not list (lib/communities/listing). */
 /* And with stock, so a sold out product says so on its card (soldOut); a database without the columns falls back to the next. */
 const PRODUCT_COLUMNS_WITH_STOCK = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id, category, inventory_count, track_inventory"
+/* Round 12: and the tags and the brand the shop's filters offer (physical commerce's columns). */
+const PRODUCT_COLUMNS_WITH_TAGS = `${PRODUCT_COLUMNS_WITH_STOCK}, tags, vendor`
 /* And with the category the shop's filters read. */
 const PRODUCT_COLUMNS_WITH_CATEGORY = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id, category"
 const PRODUCT_COLUMNS_WITH_COMMUNITY = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id"
@@ -430,7 +450,7 @@ export async function productVariants(db: Db, productIds: string[]): Promise<Var
  * the shop's newest products and for the ones a section picked, so a product
  * reached either way is the same card: its gallery, its kind, its options.
  */
-export const PRODUCT_COLUMN_SETS = [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL] as const
+export const PRODUCT_COLUMN_SETS = [PRODUCT_COLUMNS_WITH_TAGS, PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL] as const
 
 /**
  * Rows to cards, with their options (variants) and a shipped product's Size and Colour. Never throws.

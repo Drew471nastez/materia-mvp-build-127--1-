@@ -13,15 +13,25 @@
  *   Price            from the cheapest to the dearest, in cents
  *   one per option   Size, Colour… as the products' options name them
  *   Product type     the category the creator filed each product under
+ *   Vendor, Tags     the brand and the tags from Products (round 12)
  *
  * Values of one filter are OR'd; filters are AND'd, as Shopify does.
  */
 import { handleize } from "./filters"
 import type { CardLike } from "./objects"
+import { cardPrices } from "@/lib/products/catalog-filters"
 
 type O = Record<string, unknown>
 
-const priceCents = (p: CardLike) => Math.round((Number(String(p.settings.price ?? "").replace(/[^0-9.]/g, "")) || 0) * 100)
+/*
+  Prices are each option's own in the store's minor units, as the card
+  carries them (round 12, lib/products/catalog-filters.ts cardPrices). Read
+  back from the printed price, "1.234,56 €" was 1.23 with every non-digit but
+  the point thrown away: a price range in euros kept and dropped the wrong
+  products.
+*/
+const vendorOf = (p: CardLike) => String(p.settings.vendor ?? "").trim()
+const tagsOf = (p: CardLike) => (Array.isArray(p.settings.tags) ? (p.settings.tags as unknown[]).filter((t): t is string => typeof t === "string" && t.trim() !== "").map((t) => t.trim()) : [])
 const optionsOf = (p: CardLike) => (Array.isArray(p.settings.options) ? (p.settings.options as { name: string; values: string[] }[]) : [])
 const typeOf = (p: CardLike) => String(p.settings.category ?? "").trim()
 
@@ -57,6 +67,10 @@ function facetsFor(products: CardLike[]): Facet[] {
   }
   const types = [...new Set(products.map(typeOf).filter(Boolean))].sort()
   if (types.length) out.push({ label: "Product type", param: "filter.p.product_type", values: types.map((t) => ({ label: t, value: t, test: (p) => typeOf(p) === t })) })
+  const vendors = [...new Set(products.map(vendorOf).filter(Boolean))].sort()
+  if (vendors.length) out.push({ label: "Vendor", param: "filter.p.vendor", values: vendors.map((v) => ({ label: v, value: v, test: (p) => vendorOf(p) === v })) })
+  const tags = [...new Set(products.flatMap(tagsOf))].sort()
+  if (tags.length) out.push({ label: "Tags", param: "filter.p.tag", values: tags.map((t) => ({ label: t, value: t, test: (p) => tagsOf(p).includes(t) })) })
   return out
 }
 
@@ -83,10 +97,8 @@ export function facet(products: CardLike[], query: URLSearchParams, base: string
   const chosen = (param: string) => query.getAll(param).filter(Boolean)
   const gte = Number(query.get("filter.v.price.gte"))
   const lte = Number(query.get("filter.v.price.lte"))
-  const priceTest = (p: CardLike) => {
-    const c = priceCents(p)
-    return (!Number.isFinite(gte) || !query.get("filter.v.price.gte") || c >= gte * 100) && (!Number.isFinite(lte) || !query.get("filter.v.price.lte") || c <= lte * 100)
-  }
+  /* By the price of each option it sells, as Shopify's variant price filter: a shirt from 49 whose L is 54 is in 50 to 80 (round 12). */
+  const priceTest = (p: CardLike) => cardPrices(p as never).some((c) => (!Number.isFinite(gte) || !query.get("filter.v.price.gte") || c >= gte * 100) && (!Number.isFinite(lte) || !query.get("filter.v.price.lte") || c <= lte * 100))
   /* A product passes a filter when it matches any value chosen in it, or none is chosen. */
   const passes = (p: CardLike, except?: string) =>
     facets.every((f) => f.param === except || !chosen(f.param).length || f.values.some((v) => chosen(f.param).includes(v.value) && v.test(p))) && (except === "price" || priceTest(p))
@@ -125,7 +137,7 @@ export function facet(products: CardLike[], query: URLSearchParams, base: string
     }
   })
 
-  const prices = products.map(priceCents)
+  const prices = products.flatMap((p) => cardPrices(p as never))
   const max = prices.length ? Math.max(...prices) : 0
   filters.splice(1, 0, {
     label: "Price",

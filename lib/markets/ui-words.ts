@@ -60,6 +60,10 @@ export const UI_WORDS = {
   availability: "Availability",
   in_stock: "In stock",
   product_type: "Product type",
+  /* Round 12: the shop's filters by category, brand (a product's vendor) and tags (lib/products/catalog-filters.ts). */
+  category: "Category",
+  brand: "Brand",
+  tags: "Tags",
   sort_featured: "Featured",
   sort_newest: "Newest",
   sort_price_asc: "Price, low to high",
