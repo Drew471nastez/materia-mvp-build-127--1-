@@ -95,11 +95,12 @@ function onward(req: Request, path: string, body: FormData | string): NextReques
   return new NextRequest(new URL(path, req.url), { method: "POST", headers, body })
 }
 
-/** The page a script's request came from, as a path on this site: only which of the site's own pages its sections are drawn about. */
-function refererPath(referer: string | null): string | undefined {
+/** The page a script's request came from, as a path on this site: which of the site's own pages its sections are drawn about, and where checkout's Back goes. Another site's page is not one of them. */
+function refererPath(referer: string | null, host: string): string | undefined {
   if (!referer) return undefined
   try {
     const u = new URL(referer)
+    if (host && u.host.toLowerCase() !== host) return undefined
     return `${u.pathname}${u.search}`
   } catch {
     return undefined
@@ -277,7 +278,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     attributes,
     discountCode: discount,
     ajax,
-    referer: refererPath(req.headers.get("referer")),
+    referer: refererPath(req.headers.get("referer"), host),
     account,
     /* A signed in customer's product page says "You already own this" for a download they have (lib/site-accounts/owned-products). */
     owned: account?.customer?.email

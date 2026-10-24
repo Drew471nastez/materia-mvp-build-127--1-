@@ -40,6 +40,7 @@ import { cartPathFor } from "@/lib/website-builder/cart-checkout"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
 import { readCartExtras, writeCartExtras } from "@/lib/website-builder/cart-extras"
+import { checkoutIntent } from "@/lib/website-builder/checkout-prefetch"
 
 export interface CartPalette {
   bg: string
@@ -183,14 +184,18 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
   const [agreed, setAgreed] = useState(false)
   const showDetails = free || askDetails
 
+  /* The website's own checkout for a cart with something to post (app/checkout/site), which asks for the address and the delivery; null on a preview on storelib.com, or a cart of downloads, which asks the server first. */
+  const siteHref = (): string | null =>
+    shopId && lines.some((l) => l.physical) && onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)
+      ? siteCheckoutHref({ items: checkoutItems(lines), back: cartPath, couponCode: applied?.code ?? null, wholeCart: true, note })
+      : null
+
   async function pay() {
     /* Something that ships: the physical checkout, which asks for the address and the delivery (lib/physical). */
     if (shopId && lines.some((l) => l.physical)) {
       setBusy(true)
-      /* On the website: its own checkout, on this same address (app/checkout/site), which asks for the address and the delivery. A preview on storelib.com keeps the platform's. */
-      window.location.href = onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)
-        ? siteCheckoutHref({ items: checkoutItems(lines), back: cartPath, couponCode: applied?.code ?? null, wholeCart: true, note })
-        : physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
+      /* On the website: its own checkout, on this same address. A preview on storelib.com keeps the platform's. */
+      window.location.href = siteHref() ?? physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
       return
     }
     setBusy(true)
@@ -387,6 +392,12 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
               </div>
             )}
           </dl>
+          {/* Something to post: delivery and any tax are added at checkout, where the address is, said as a shop's cart says it. */}
+          {lines.some((l) => l.physical) ? (
+            <p data-cart-shipping-note="" className="-mt-2 w-full text-right text-[13px] opacity-60 sm:w-[300px]">
+              {w("taxes_at_checkout")}
+            </p>
+          ) : null}
 
           {showDetails && (
             <FreeDetails
@@ -431,6 +442,8 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
           <button
             type="button"
             onClick={pay}
+            /* The checkout fetched ahead while the finger is on the button (lib/website-builder/checkout-prefetch). */
+            {...(showDetails ? {} : checkoutIntent(siteHref))}
             disabled={busy || codeBusy}
             className="flex h-12 w-full items-center justify-center rounded-full text-[16px] font-semibold transition-opacity disabled:opacity-60 sm:w-[300px]"
             style={{ background: palette.buttonBg, color: palette.buttonText }}

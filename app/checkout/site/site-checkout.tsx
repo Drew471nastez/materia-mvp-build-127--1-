@@ -1022,7 +1022,8 @@ export function SiteCheckout({
 
   const beforePay = (
     <>
-      {ships ? (
+      {/* A cart of downloads shows it only when its cart brought a note (a theme's "Add order note"): it is kept on the order then too, never dropped unseen. */}
+      {ships || initialNote ? (
         <details className="group" open={initialNote ? true : undefined} data-shop-note="">
           <summary className="cursor-pointer list-none text-[14px] font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-4">{ct("Add a note for the shop")}</summary>
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className={cn(inputClass, "mt-2 h-auto py-2.5")} placeholder={ct("Gift wrap, delivery instructions...")} />
@@ -1121,6 +1122,7 @@ export function SiteCheckout({
                 editable={editable}
                 onChange={(v) => changeVariant(l, v)}
               />
+              <LineProperties items={items} line={l} />
               {editable ? (
                 <LineControls
                   title={l.variantName ? `${l.title}, ${l.variantName}` : l.title}
@@ -1452,6 +1454,32 @@ export function SiteProblem({ brand, backTo, shopUrl, title, message }: { brand:
         ) : null}
       </main>
     </div>
+  )
+}
+
+/**
+ * What the buyer chose or wrote for a line on the product page (an imported
+ * theme's `properties[Engraving]`, a gift message on the item): said under
+ * the line as the order keeps it, so nothing chosen is out of sight before
+ * Pay. A name starting with "_" is the theme's own and stays hidden, as on
+ * Shopify (lib/checkout/site-checkout visibleAttributes).
+ */
+function LineProperties({ items, line }: { items: LinkItem[] | null; line: { productId: string; variantId: string | null } }) {
+  const shown: [string, string][] = []
+  for (const i of items ?? []) {
+    if (!i.properties || !sameLine(i, line)) continue
+    for (const [k, v] of visibleAttributes(i.properties)) if (!shown.some(([a, b]) => a === k && b === v)) shown.push([k, v])
+  }
+  if (!shown.length) return null
+  return (
+    <dl className="mt-0.5 space-y-0.5 text-[12.5px]" data-line-properties="">
+      {shown.slice(0, 10).map(([k, v]) => (
+        <div key={`${k}:${v}`} className="flex min-w-0 gap-x-1">
+          <dt className="shrink-0 text-[#6b7280]">{k}:</dt>
+          <dd className="min-w-0 truncate text-[#1a1a2e]">{v}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 

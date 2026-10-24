@@ -288,7 +288,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
       lines.push({ k: lineKey(hit.card.id, v), p: hit.card.id, v, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(n)) || 1)) })
     }
     const code = discountCodeOf(req.query.get("discount")) ?? req.discountCode
-    return lines.length ? { ...checkoutHandoff(site, lines, true, req.note ?? "", req.attributes, code), cart: lines, note: req.note ?? "", attributes: req.attributes ?? {} } : redirect("/cart")
+    return lines.length ? { ...checkoutHandoff(site, lines, true, req.note ?? "", req.attributes, code, backOf(req)), cart: lines, note: req.note ?? "", attributes: req.attributes ?? {} } : redirect("/cart")
   }
   const cartRoute = path.match(/^\/cart(?:\/(add|change|update|clear))?(\.js|\.json)?$/)
   if (cartRoute && (method === "POST" || cartRoute[2])) {
@@ -297,7 +297,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     if (method !== "POST") return json({ status: 405, message: "Method not allowed" }, 405)
     return await cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
   }
-  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true, req.note ?? "", req.attributes, discountCodeOf(req.query.get("discount")) ?? req.discountCode)
+  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true, req.note ?? "", req.attributes, discountCodeOf(req.query.get("discount")) ?? req.discountCode, backOf(req))
 
   /* A page draws the cart (its drawer, its count, the cart page): with the code taken off as checkout will take it. */
   if (req.cartDiscount === undefined && req.discountCode && req.cart.length && !/\.(?:js|json)$/.test(path)) req = { ...req, cartDiscount: await priceDiscount(site, req.cart, req.discountCode) }
@@ -1213,7 +1213,7 @@ export function cartLines(site: Pick<SiteData, "products">, entries: CartEntry[]
  * the code the cart holds.
  */
 function cartJson(site: SiteData, entries: CartEntry[], note: string, attributes: Record<string, string> = {}, discount: CartDiscount | null = null, codes?: { code: string; applicable: boolean }[]): O {
-  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note, attributes, discount)
+  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note, attributes, discount, site.shop.taxesIncluded === true)
   const items = ((cart.items as O[]) ?? []).map(lineJson)
   return {
     token: "storelib",
@@ -1352,8 +1352,13 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       const k = lineKey(hit.card.id, v, item.properties)
       const existing = cart.find((e) => e.k === k)
       const qty = Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))
-      /* More than the stock, or than Limit sales lets one order take, is refused as Shopify refuses it (422), and nothing is added. */
-      const room = await roomFor(site, hit.card.id, v, buyNow ? asked : cart)
+      /*
+        More than the stock, or than Limit sales lets one order take, is refused as Shopify refuses it (422), and nothing is added.
+        Not for Buy it now: the checkout it goes to counts the stock and the limit again and says it on the line ("Only 2 left",
+        "up to 3 per order"), where a refusal here only landed on the cart. The read held the press up by roughly 0.3 to 0.5s on
+        the live site before the checkout even started.
+      */
+      const room = buyNow ? null : await roomFor(site, hit.card.id, v, cart)
       if (room !== null && qty > room) {
         const title = String(hit.card.settings.title ?? "this product")
         return error(room <= 0 ? `You can't add more ${title} to the cart.` : `You can only add ${room} more of ${title} to the cart.`)
@@ -1367,7 +1372,7 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       added.push(cart.find((e) => e.k === k)!)
     }
     /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
-    if (buyNow) return { ...checkoutHandoff(site, asked, false, req.note ?? "", attributes, code), cart: req.cart, note: req.note ?? "", attributes }
+    if (buyNow) return { ...checkoutHandoff(site, asked, false, req.note ?? "", attributes, code, backOf(req)), cart: req.cart, note: req.note ?? "", attributes }
     if (!ajax) return redirect("/cart", { cart, note, attributes })
     const priced = await priceDiscount(site, cart, code)
     const lines = (cartJson(site, cart, note, attributes, priced).items as O[])
@@ -1416,11 +1421,13 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     cart = cart.filter((e) => e.q > 0)
     if (typeof field(req.body, "note") === "string") note = String(field(req.body, "note")).slice(0, 500)
     attributes = attributesAfter(attributes, req.body)
-    cart = await heldToStock(site, cart)
     const typed = field(req.body, "discount")
     const typedCodes = typeof typed === "string" ? discountCodesOf(typed) : null
+    /* A cart form's Check out goes straight on: the checkout holds each line to what is left and says so there, so the stock is not read twice on the way. */
+    const toCheckout = !ajax && field(req.body, "checkout") !== undefined
+    if (!toCheckout) cart = await heldToStock(site, cart)
     /* A cart form's Check out with its discount box: the code typed goes on as it is, and the checkout says what it does. */
-    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart, true, note, attributes, typedCodes ? (typedCodes[0] ?? "") : code), cart, note, attributes, ...(typedCodes ? { discountCode: typedCodes[0] ?? "" } : {}) }
+    if (toCheckout) return { ...checkoutHandoff(site, cart, true, note, attributes, typedCodes ? (typedCodes[0] ?? "") : code, backOf(req)), cart, note, attributes, ...(typedCodes ? { discountCode: typedCodes[0] ?? "" } : {}) }
     /*
       THE CODES A THEME ASKED FOR (Shopify's /cart/update.js `discount`,
       "A,B"; "" takes them all off), each priced on this cart by the
@@ -1578,12 +1585,27 @@ export function attributesAfter(before: Record<string, string>, body: O | null):
  * from this host; the theme never sees a price it could set. `whole`: the
  * whole cart (emptied once paid), not a Buy it now of one item.
  */
-function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, note = "", attributes?: Record<string, string>, code?: string | null): SiteResponse {
+function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, note = "", attributes?: Record<string, string>, code?: string | null, back = "/cart"): SiteResponse {
   /* Each line's properties (an engraving, a gift message on the line) go with it, and the order keeps them. */
   const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q, ...(e.props && Object.keys(e.props).length ? { properties: e.props } : {}) }))
   if (!items.length) return redirect("/cart")
   /* The cart's note goes on with the lines: the checkout's "Add a note for the shop" opens with it, and the order keeps it. So do its attributes, and its discount code, which the checkout prices again. */
-  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole, note, attributes, couponCode: code || null }))
+  return redirect(siteCheckoutHref({ items, back, wholeCart: whole, note, attributes, couponCode: code || null }))
+}
+
+/** The checkout's own pages, the sign in and the password page: never where Back goes. */
+const NO_BACK_TO = /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?(?:checkout|account|password)(?:[/?#.]|$)/i
+
+/**
+ * WHERE CHECKOUT'S BACK GOES: the page the press was on (the owner: exactly
+ * where the buyer came from). Buy it now on a product page goes back to that
+ * product, a cart drawer's Check out to the page the drawer was open on, the
+ * cart page's to the cart. The route gives this site's own page only
+ * (refererPath); none, or one of the pages above, is the cart, as before.
+ */
+function backOf(req: SiteRequest): string {
+  const from = safeReturn(req.referer)
+  return from && !NO_BACK_TO.test(from) ? from : "/cart"
 }
 
 /**

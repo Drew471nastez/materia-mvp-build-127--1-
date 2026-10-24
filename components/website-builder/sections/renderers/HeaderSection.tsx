@@ -29,7 +29,8 @@ import { useAmountMoney, useCartMoney, useStorefront, useWord } from "../../them
 import { CartReturnsNote } from "../../theme/shop-commerce"
 import { CartOfferSavings, CartOfferSuggestions, useCartOffers } from "@/components/offers/cart-offers"
 import { lineKey } from "@/lib/website-builder/cart"
-import { cartPathFor, drawerCheckout } from "@/lib/website-builder/cart-checkout"
+import { cartPathFor, drawerCheckout, drawerCheckoutHref } from "@/lib/website-builder/cart-checkout"
+import { checkoutIntent } from "@/lib/website-builder/checkout-prefetch"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { useSiteWishlist } from "../../site-wishlist"
@@ -988,9 +989,13 @@ function CartDrawerInner({
               <span className="text-[14px] opacity-70">{w("subtotal")}</span>
               <span className="text-[18px] font-semibold tabular-nums">{offers && offers.offerCents > 0 ? amounts.total : amounts.subtotal}</span>
             </div>
+            {/* Something to post: the subtotal is not what is paid yet, said as a shop's cart says it. */}
+            {lines.some((l) => l.physical) ? <p data-cart-shipping-note="" className="mt-0.5 text-[12.5px] opacity-60">{w("taxes_at_checkout")}</p> : null}
             <a
               href="/cart"
               onClick={checkOut}
+              /* The checkout fetched ahead while the finger is on the button (lib/website-builder/checkout-prefetch). */
+              {...(onEditorNavigate ? {} : checkoutIntent(() => drawerCheckoutHref(lines, shopId, cartPath)))}
               aria-busy={leaving || undefined}
               data-cart-checkout=""
               className="mt-3 flex h-11 items-center justify-center gap-2 rounded-full text-[15px] font-semibold transition-opacity"

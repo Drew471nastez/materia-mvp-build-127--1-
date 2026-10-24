@@ -55,6 +55,7 @@ import type { CartLine } from "@/lib/website-builder/cart"
 import { OffersBlock } from "./offers-block"
 import { SizeGuideOpener } from "./size-chart"
 import { SAMPLE_SIZE_CHART, sizeOptionIndex, type SizeChart } from "@/lib/size-charts/model"
+import { checkoutIntent } from "@/lib/website-builder/checkout-prefetch"
 
 /* ── What every block is handed ───────────────────────────────────────────── */
 
@@ -79,7 +80,8 @@ export interface ProductCtx {
   /** Buttons that send somewhere are inert: the inspector is on. */
   inert: boolean
   /** `owned`: the visitor signed in to this website already owns it (lib/site-accounts/owned-products): where their downloads are. */
-  buy: { add: () => void; now: () => void; added: boolean; unavailable: string | null; owned?: string | null }
+  /** `href`: the checkout Buy now opens, when it is known before the press (a thing that ships, on the website): fetched ahead while the finger is on the button. */
+  buy: { add: () => void; now: () => void; href?: () => string | null; added: boolean; unavailable: string | null; owned?: string | null }
   wishlist: { saved: boolean; toggle: () => void }
   radius: string
   buttonRadius: CSSProperties
@@ -573,6 +575,8 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
           type="button"
           disabled={disabled}
           onClick={(e) => { e.stopPropagation(); buy.now() }}
+          /* The checkout fetched ahead while the finger is on the button (lib/website-builder/checkout-prefetch). */
+          {...(buy.href && !disabled ? checkoutIntent(buy.href) : {})}
           className={cn("w-full shrink-0 px-5 text-[15px] font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed", faded && "opacity-50", row && "@[480px]:w-auto @[480px]:flex-1")}
           style={{ height: h, minHeight: h, background: fill, color: text, border: `2px solid ${fill}`, ...ctx.buttonRadius }}
           data-buy-now=""
