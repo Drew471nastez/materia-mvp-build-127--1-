@@ -458,9 +458,9 @@ async function main() {
     check("the OnePage host lets the marker route through, and only a GET", /\{ path: \/\^\\\/api\\\/analytics\\\/own\\\/\?\$\/, methods: \["GET"\] \}/.test(read("lib/onepage/host-route.ts")))
 
     const wired: Array<[string, string]> = [
-      ["app/app/website-builder/website-builder-client.tsx", "href={ownOpen(siteUrl)}"],
-      ["app/website-builder/editor/[installId]/page.tsx", "href={ownOpen(websiteUrl)}"],
-      ["components/website-builder/publish-panel.tsx", "href={ownOpen(websiteUrl)}"],
+      /* Round AC3: through liveSiteLink, so the phone app opens the phone's browser. */ ["app/app/website-builder/website-builder-client.tsx", "liveSiteLink(ownOpen(siteUrl))"],
+      ["app/website-builder/editor/[installId]/page.tsx", "liveSiteLink(ownOpen(websiteUrl))"],
+      ["components/website-builder/publish-panel.tsx", "liveSiteLink(ownOpen(websiteUrl))"],
       ["components/store-builder/editor-topbar.tsx", "openExternal(ownOpen(getLiveStoreUrl()))"],
       ["components/onepage/onepage-editor.tsx", "openExternal(ownOpen(pageUrl))"],
       ["components/app/settings/addresses.tsx", "openExternal(ownOpen(url))"],
