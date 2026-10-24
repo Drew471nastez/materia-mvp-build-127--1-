@@ -333,6 +333,8 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/header-link-navigates.test.ts",
   "tests/header-buttons.test.ts",
+  /* Round AA1: the front page hero remade (the button by who is looking, the storefront slider, the typed heading, the marketplace search); scripts/check-home-hero.mjs measures it. */
+  "tests/home-hero.test.ts",
   "tests/header-flex.test.ts",
   "tests/search-strip-entrance.test.ts",
   "tests/site-autosave-safety.test.ts",

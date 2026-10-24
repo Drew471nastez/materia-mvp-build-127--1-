@@ -12,8 +12,8 @@
  *      /signup). Small shared corner, no pill, no Start selling.
  *   2. Computer, logged out, Explore and the pages that share its header:
  *      the same without Log in, after the wishlist and library icons.
- *   3. The hero's Discover and Sign Up take the Log in button's corner and
- *      stay above the subheading.
+ *   3. The hero's button and search field take the Log in button's corner;
+ *      since the remake (round AA1) they sit under the subheading.
  *   4. Phone menu on the marketing pages: Sign up (purple), Discover
  *      (outlined, compass), Sell on Storelib (purple text).
  *   5. Phone menu on Explore: Sign up, Log in, Sell on Storelib. No Discover.
@@ -71,12 +71,13 @@ check("both computer rows wait with an invisible copy of the logged out row", (h
 check("the stand in cannot be reached or read", /aria-hidden=\{placeholder \|\| undefined\}/.test(header) && /inert=\{placeholder \|\| undefined\}/.test(header))
 check("no grey pills: the old skeleton is gone", !/HeaderActionsSkeleton|<Skeleton\b/.test(header))
 
-console.log("\n3. the hero's two buttons")
+console.log("\n3. the hero's button and search")
 {
+  /* Changed on purpose (round AA1, the owner's remake from a reference): one button and the marketplace search, under the subheading. */
   const hero = readCode("components/marketing/hero.tsx")
-  const actions = hero.slice(hero.indexOf("data-hero-actions"), hero.indexOf("The #1 e-commerce platform"))
-  check("they are above the subheading", hero.indexOf("data-hero-actions") > 0 && hero.indexOf("data-hero-actions") < hero.indexOf("The #1 e-commerce platform"))
-  check("Discover and Sign Up take the Log in button's corner", (actions.match(/rounded-action/g) ?? []).length === 2)
+  const actions = hero.slice(hero.indexOf("data-hero-actions"), hero.indexOf("<HeroCarousel"))
+  check("they are under the subheading", hero.indexOf("data-hero-actions") > hero.indexOf("The #1 e-commerce platform"))
+  check("the button and the search field take the Log in button's corner", (actions.match(/rounded-action/g) ?? []).length === 2)
   check("and neither is a pill", !/rounded-full/.test(actions))
 }
 
