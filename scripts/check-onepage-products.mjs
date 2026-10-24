@@ -150,16 +150,23 @@ for (const theme of THEMES) {
       const before = await p.evaluate(() => {
         const c = [...document.querySelectorAll('[data-product-block="callout"]')].find((el) => el.getBoundingClientRect().width > 0)
         const cta = c.querySelector("[data-product-cta]")
-        return { card: JSON.stringify(c.getBoundingClientRect()), bg: getComputedStyle(c).backgroundColor, cta: getComputedStyle(cta).translate, tint: getComputedStyle(cta, "::before").opacity }
+        return { card: JSON.stringify(c.getBoundingClientRect()), bg: getComputedStyle(c).backgroundColor, cta: getComputedStyle(cta).translate, tint: getComputedStyle(cta, "::after").opacity }
       })
       await p.mouse.move(box.x + 30, box.y + 20)
       await sleep(400)
       const after = await p.evaluate(() => {
         const c = [...document.querySelectorAll('[data-product-block="callout"]')].find((el) => el.getBoundingClientRect().width > 0)
         const cta = c.querySelector("[data-product-cta]")
-        return { card: JSON.stringify(c.getBoundingClientRect()), bg: getComputedStyle(c).backgroundColor, cardTransform: getComputedStyle(c).transform, cta: getComputedStyle(cta).translate, tint: getComputedStyle(cta, "::before").opacity, shadow: getComputedStyle(cta, "::after").opacity, transition: getComputedStyle(cta).transitionProperty }
+        /* The button plays the page's hover (.op-btn, lib/onepage/button-style): ::before is its shadow or glow, ::after its tint or fill. */
+        return { card: JSON.stringify(c.getBoundingClientRect()), bg: getComputedStyle(c).backgroundColor, cardTransform: getComputedStyle(c).transform, hover: cta.dataset.hover, cta: getComputedStyle(cta).translate, scale: getComputedStyle(cta).scale, shadow: getComputedStyle(cta, "::before").opacity, tint: getComputedStyle(cta, "::after").opacity, transition: getComputedStyle(cta).transitionProperty }
       })
-      expect(after.cta === "0px -1px" && Number(after.tint) > 0 && Number(after.shadow) > 0.9, "pointing at the card lifts and tints its button", { before, after })
+      const reacts =
+        after.hover === "lift" ? /-2px/.test(after.cta) && Number(after.shadow) > 0.9 && Number(after.tint) > 0
+        : after.hover === "zoom" ? after.scale === "1.03"
+        : after.hover === "glow" ? Number(after.shadow) > 0.9
+        : after.hover === "fill" ? Number(after.tint) > 0.9
+        : after.hover === "fade" || after.hover === "underline" || after.hover === "none"
+      expect(reacts, `pointing at the card plays its button's hover (${after.hover})`, { before, after })
       expect(after.card === before.card && after.bg === before.bg && (after.cardTransform === "none" || !after.cardTransform), "the card itself does not move or change colour", { before: before.card, after: after.card, bg: [before.bg, after.bg] })
       expect(/translate/.test(after.transition), "the button's motion names translate", after.transition)
       await p.mouse.move(box.x + 30, box.y + 20)

@@ -149,12 +149,16 @@ async function main() {
 
   console.log("\nThe button's hover, not the card's")
   const block = code("components/onepage/product-block.tsx")
-  const ctaHover = /PRODUCT_CTA_HOVER =\s*"([^;]*?)"\s*$/m.exec(read("components/onepage/product-block.tsx"))
-  const allCta = (read("components/onepage/product-block.tsx").match(/export const PRODUCT_CTA_HOVER =([\s\S]*?)\n\n/) ?? [])[1] ?? ""
-  check("the button rises and tints when the card is pointed at", /group-hover\/pc:-translate-y-px/.test(allCta) && /group-hover\/pc:before:opacity/.test(allCta) && /group-hover\/pc:after:opacity-100/.test(allCta), ctaHover?.[1])
-  check("its motion names the real properties (translate, opacity)", /transition-\[translate\]/.test(allCta) && /before:transition-opacity/.test(allCta) && !/transition-all/.test(block))
-  check("the card itself has no hover that moves or recolours it", !/group\/pc[^"]*hover:(scale|-translate|opacity|bg-)/.test(block) && !/hoverEffect/.test(block))
-  check("hover only where the device hovers (Tailwind 4's hover variants), so no stuck hover on a phone", !/@media \(hover: none\)/.test(block) && /group-hover\/pc:/.test(allCta))
+  /*
+    Round 10 BUTTONS: the button inside a card now plays the PAGE's hover (lib/onepage/button-style, `.op-btn` in
+    app/globals.css), as the link buttons do, instead of a Tailwind hover of its own. The rule these pinned is
+    kept and checked here: pointing at the card plays the button's hover; the card itself never moves or recolours.
+  */
+  const css = read("app/globals.css")
+  check("the button rises and tints when the card is pointed at", /export const PRODUCT_CTA_HOVER = "op-btn"/.test(read("components/onepage/product-block.tsx")) && /PRODUCT_CARD_HOST/.test(block) && /\.op-host:hover \.op-btn\)\[data-hover="lift"\] \{ translate: 0 -2px; \}/.test(css) && /\.op-host:hover \.op-btn\)\[data-hover="lift"\]::before \{ opacity: 1; \}/.test(css))
+  check("its motion names the real properties (translate, opacity)", /\.op-btn \{[^}]*transition-property: translate, scale, opacity/.test(css) && !/transition-all/.test(block))
+  check("the card itself has no hover that moves or recolours it", !/group\/pc[^"]*hover:(scale|-translate|opacity|bg-)/.test(block) && !/hoverEffect/.test(block) && !/\.op-host:hover \{/.test(css))
+  check("hover only where the device hovers, so no stuck hover on a phone", /@media \(hover: hover\) and \(pointer: fine\) \{\s*:is\(\.op-btn:hover, \.op-demo:hover \.op-btn, \.op-host:hover \.op-btn\)/.test(css))
   check("the old product case in public-onepage is gone, the block draws it", !/const calloutContent =/.test(read("components/onepage/public-onepage.tsx")) && /<ProductBlockWithQuickCheckout/.test(read("components/onepage/public-onepage.tsx")))
   check("a tap is counted before anything else, as before", /const onClick = \(e: React\.MouseEvent<HTMLAnchorElement>\) => \{\s*trackClick\(block\.id, href\)/.test(block))
   check("tiles are paired on the page", /pairProductTiles\(/.test(read("components/onepage/public-onepage.tsx")))
