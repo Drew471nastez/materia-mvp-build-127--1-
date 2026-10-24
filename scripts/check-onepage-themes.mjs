@@ -322,6 +322,31 @@ for (const t of THEMES) {
 await page.close()
 }
 
+/*
+  Layout shift while kinds are picked: the browser's own layout-shift
+  entries (PerformanceObserver), every one counted, the ones right after
+  an input included, so a pick that moves a card or anything around the
+  grid shows here even where a page's score would forgive it.
+*/
+async function shiftOfPicks(pg, pick) {
+  await pg.evaluate(() => {
+    window.__shifts = []
+    window.__shiftObs?.disconnect()
+    window.__shiftObs = new PerformanceObserver((l) => l.getEntries().forEach((e) => window.__shifts.push({ v: e.value, pick: window.__pick, input: e.hadRecentInput, rects: (e.sources || []).slice(0, 2).map((x) => [x.previousRect.y, x.currentRect.y, x.previousRect.height, x.currentRect.height].map(Math.round)), nodes: (e.sources || []).map((x) => (x.node && x.node.getAttribute ? x.node.getAttribute("data-theme-card") || x.node.getAttribute("data-theme-copy") || x.node.className?.toString().slice(0, 40) : x.node?.nodeName) || "?").slice(0, 4) })))
+    window.__shiftObs.observe({ type: "layout-shift" })
+  })
+  for (const k of ["light", "dark", "gradient", "image", "all", "image", "dark", "all"]) {
+    await pg.evaluate((k) => { window.__pick = k }, k)
+    await pick(k)
+    await sleep(500)
+  }
+  return pg.evaluate(() => { window.__shiftObs.disconnect(); return window.__shifts })
+}
+function reportShift(where, list) {
+  const total = Math.round(list.reduce((a, e) => a + e.v, 0) * 10000) / 10000
+  expect(total < 0.01, `${where}: picking kinds shifts nothing on the page (layout shift, every entry counted)`, { total, entries: list.length, first: list.slice(0, 3) })
+}
+
 /* ───────────────────────── KINDS: no card blinks ───────────────────────── */
 if (PARTS.has("kinds")) {
   console.log("\n── Theme kinds on a phone, every frame ──")
@@ -355,9 +380,9 @@ if (PARTS.has("kinds")) {
     const tick = () => {
       const now = new Map()
       const blank = []
-      for (const c of grid.querySelectorAll("[data-theme-card]")) {
+      for (const c of grid.querySelectorAll("[data-theme-card], [data-theme-copy]")) {
         if (!c.hasAttribute("data-theme-shown")) continue
-        const id = c.getAttribute("data-theme-card")
+        const id = c.getAttribute("data-theme-card") || c.getAttribute("data-theme-copy")
         const pic = c.querySelector("span.relative")
         const r = pic ? pic.getBoundingClientRect() : { width: 0, height: 0 }
         const img = c.querySelector("img[data-theme-thumb]")
@@ -483,6 +508,17 @@ if (PARTS.has("kinds")) {
     expect(filmed > 0, "the picks were filmed", filmed)
     expect(between === 0, "every filmed frame of the grid is the kind before or the kind after, never one between", between)
   }
+  /* LAYOUT SHIFT on a phone: every pick, from the top and scrolled, with the CPU still slowed. */
+  {
+    await p.evaluate(() => { const b = document.querySelector("[data-theme-grid]"); for (let n = b; n; n = n.parentElement) { const y = getComputedStyle(n).overflowY; if (y === "auto" || y === "scroll") { n.scrollTop = 0; break } } })
+    await sleep(300)
+    const top = await shiftOfPicks(p, (k) => p.tap(`[data-theme-filter="${k}"]`))
+    await p.evaluate(() => document.querySelector("[data-theme-filters]")?.scrollIntoView({ block: "start" }))
+    await sleep(300)
+    const scrolled = await shiftOfPicks(p, (k) => p.tap(`[data-theme-filter="${k}"]`))
+    reportShift("390, from the top", top)
+    reportShift("390, scrolled down", scrolled)
+  }
   /* The newest cards side by side, as the grid draws them: theme-cards-new.png. */
   {
     const cards = []
@@ -501,6 +537,22 @@ if (PARTS.has("kinds")) {
     }
   }
   await p.close()
+
+  /* And on a computer, 1440 wide, picked with a mouse. */
+  {
+    const d = await browser.newPage()
+    await d.setViewport({ width: 1440, height: 900 })
+    await wire(d, base)
+    d.on("pageerror", (e) => errors.push(String(e)))
+    await d.goto(`${base}/app/onepage#design`)
+    await d.waitForSelector('[data-nav-row="theme"]')
+    await sleep(1000)
+    await d.click('[data-nav-row="theme"]')
+    await d.waitForSelector("[data-theme-filters]")
+    await sleep(900)
+    reportShift("1440", await shiftOfPicks(d, (k) => d.click(`[data-theme-filter="${k}"]`)))
+    await d.close()
+  }
 }
 
 /* ───────────────────────── APPLY: no white frame, no font jump ───────────────────────── */

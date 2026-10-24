@@ -170,7 +170,8 @@ async function main() {
       ones that stay slide to their new place, and only the ones that arrive
       fade in (round 10, scripts/check-onepage-themes.mjs samples the frames).
     */
-    check("every theme card is kept; a pick only shows or hides them", /\{THEME_TEMPLATES\.map\(\(template\) => \(\s*<ThemeCard key=\{template\.id\}[^>]*shown=\{filter === "all" \|\| template\.category === filter\}/.test(design) && !/filteredTemplates/.test(design))
+    /* Changed on purpose (round 11): each kind has its own grid of cards, all kept, so a card that stays never moves (no layout shift); a pick shows one grid. */
+    check("every theme card is kept; a pick only shows or hides a kind's grid", /\{THEME_KINDS\.map\(\(kind\) => \(/.test(design) && /style=\{kind\.id === filter \? undefined : HIDDEN_GRID\}/.test(design) && !/filteredTemplates/.test(design))
     /*
       Changed on purpose (round 11): "the themes flash when I land on each
       category". The round 10 slide and fade were the flash the owner saw.
@@ -182,8 +183,8 @@ async function main() {
     */
     check("a pick is one still swap: no card is animated, faded in or slid",
       !/el\.animate\(/.test(design.slice(design.indexOf("function useSteadyFilter"), design.indexOf("function ThemeSection"))) &&
-      /const HIDDEN_CARD: React\.CSSProperties = \{ position: "absolute", top: 0, left: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" \}/.test(design) &&
-      /inert=\{!shown\}/.test(design) &&
+      /const HIDDEN_GRID: React\.CSSProperties = \{ position: "absolute", top: 0, left: 0, right: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" \}/.test(design) &&
+      /target\.style\.contentVisibility = "visible"/.test(design) &&
       /decoding="sync" data-theme-thumb=""/.test(design) &&
       /useEffect\(\(\) => \{ preloadThemeThumbs\(\) \}, \[\]\)/.test(design))
   }
