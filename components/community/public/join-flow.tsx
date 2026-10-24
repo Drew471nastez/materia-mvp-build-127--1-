@@ -32,15 +32,14 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
 import Link from "next/link"
-import { Check, ChevronDown, X } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { money as moneyOf, yearlySaving } from "@/lib/memberships/state"
 import { formatMoney } from "@/lib/communities/membership-policy"
 import { WAIT_MS, requestJson } from "@/lib/net/request"
 import type { IntentResult } from "@/app/checkout/parts/stripe-pay"
 import { CompactPay, type StartedPayment } from "./compact-pay"
-import { PoweredByStripe } from "@/app/checkout/parts/ui"
+import { CheckoutMark, CheckoutWindow, CloseButton, useBodyLock, useEscape, useExit } from "@/components/checkout/checkout-window"
 import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 import type { JoinOption, PublicCommunityView } from "./types"
 
@@ -49,69 +48,10 @@ import { cardPrice, nextCharge, planButton, planIntervals, trialEnds, type PlanI
 export { cardPrice, nextCharge, planButton, planIntervals, trialEnds, type PlanInterval }
 
 /* ── The overlay frame ─────────────────────────────────────────────────── */
-
-function useBodyLock(on: boolean) {
-  React.useEffect(() => {
-    if (!on) return
-    const html = document.documentElement
-    const before = html.style.overflow
-    html.style.overflow = "hidden"
-    return () => {
-      html.style.overflow = before
-    }
-  }, [on])
-}
-
-/**
- * Round AG: a close that is seen. The overlay fades and drops a few px over EXIT_MS, then goes; a second press while it
- * leaves does nothing. Opening is just as short (150ms), so the picker feels quick rather than slow.
- */
-const EXIT_MS = 140
-function useExit(onClose: () => void): [boolean, () => void] {
-  const [leaving, setLeaving] = React.useState(false)
-  const ref = React.useRef(onClose)
-  ref.current = onClose
-  const close = React.useCallback(() => {
-    setLeaving((was) => {
-      if (!was) {
-        const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-        window.setTimeout(() => ref.current(), reduced ? 0 : EXIT_MS)
-      }
-      return true
-    })
-  }, [])
-  return [leaving, close]
-}
-
-function useEscape(onClose: () => void) {
-  const ref = React.useRef(onClose)
-  ref.current = onClose
-  React.useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") ref.current()
-    }
-    window.addEventListener("keydown", key)
-    return () => window.removeEventListener("keydown", key)
-  }, [])
-}
+/* The checkout's window and its helpers are shared with the OnePage's instant checkout (components/checkout/checkout-window). */
 
 function CommunityMark({ community, size }: { community: PublicCommunityView; size: number }) {
-  return community.logoUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={optimizedImageUrl(community.logoUrl, size * 2) ?? community.logoUrl} alt="" width={size} height={size} className="shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(17,17,19,0.06)]" style={{ width: size, height: size }} />
-  ) : (
-    <span aria-hidden className="grid shrink-0 place-items-center rounded-[10px] bg-[#1a1a2e] text-[15px] font-semibold text-white" style={{ width: size, height: size }}>
-      {community.name.slice(0, 1).toUpperCase()}
-    </span>
-  )
-}
-
-function CloseButton({ onClose, label = "Close" }: { onClose: () => void; label?: string }) {
-  return (
-    <button type="button" onClick={onClose} aria-label={label} className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[#4b5563] outline-none transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30" data-join-close="">
-      <X aria-hidden className="h-5 w-5" />
-    </button>
-  )
+  return <CheckoutMark imageUrl={community.logoUrl} name={community.name} size={size} />
 }
 
 /* ── Select your plan ──────────────────────────────────────────────────── */
@@ -286,9 +226,6 @@ export function CommunityCheckout({
   /** Back to the plans, when there were plans to choose from. */
   onBack?: (() => void) | null
 }) {
-  useBodyLock(true)
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => setMounted(true), [])
   const [facts, setFacts] = React.useState<Facts | null>(null)
   const [loadError, setLoadError] = React.useState<{ message: string; url?: string } | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -296,11 +233,6 @@ export function CommunityCheckout({
   const [done, setDone] = React.useState<{ trial: boolean } | null>(null)
   const [open, setOpen] = React.useState(false)
   const started = React.useRef<{ subscriptionId: string; clientSecret: string; membershipId: string } | null>(null)
-  const [leaving, closeAnimated] = useExit(onClose)
-  const closeIfIdle = React.useCallback(() => {
-    if (!busy) closeAnimated()
-  }, [busy, closeAnimated])
-  useEscape(closeIfIdle)
 
   React.useEffect(() => {
     let live = true
@@ -478,41 +410,16 @@ export function CommunityCheckout({
 
   const dark = typeof document !== "undefined" && (document.documentElement.getAttribute("data-community-theme") === "dark" || document.documentElement.hasAttribute("data-sl-dark"))
 
-  if (!mounted) return null
-  return createPortal(
-    <div className="fixed inset-0 z-[130] flex items-stretch justify-center sm:items-center sm:p-6" data-community-checkout="" data-leaving={leaving ? "" : undefined}>
-      <div aria-hidden className={cn("absolute inset-0 hidden bg-[#0b0b12]/55 animate-in fade-in duration-150 transition-opacity sm:block motion-reduce:animate-none", leaving && "opacity-0 duration-[140ms]")} onClick={closeIfIdle} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="community-checkout-title"
-        className={cn(
-          "relative flex h-full w-full flex-col overflow-hidden bg-white animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out transition-[opacity,translate] motion-reduce:animate-none sm:h-auto sm:max-h-[min(94vh,900px)] sm:max-w-[520px] sm:rounded-[20px] sm:shadow-[0_24px_64px_-12px_rgba(16,24,40,0.35)]",
-          leaving && "translate-y-2 opacity-0 duration-[140ms] ease-in",
-        )}
-      >
-        <div className="relative shrink-0 border-b border-[#eef0f2] bg-[#f8f9fa] px-5 pb-5 pt-[max(0.75rem,env(safe-area-inset-top))] sm:rounded-t-[20px] sm:px-8 sm:pt-4" data-checkout-head="">
-          <div className="flex items-center justify-between">
-            {onBack ? (
-              <button type="button" onClick={onBack} className="-ml-2 inline-flex h-10 items-center rounded-full px-2.5 text-[13.5px] font-medium text-[#4b5563] hover:bg-black/[0.04]" data-checkout-back="">
-                All plans
-              </button>
-            ) : (
-              <span />
-            )}
-            <span className="-mr-2">
-              <CloseButton onClose={closeIfIdle} />
-            </span>
-          </div>
-          <div className="-mt-3 flex flex-col items-center text-center">
-            <CommunityMark community={community} size={60} />
-            <h2 id="community-checkout-title" className="mt-2.5 text-[21px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
-              {community.name}
-            </h2>
-            {plan ? <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{plan.name}</p> : null}
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:px-8 sm:pb-6">
+  return (
+    <CheckoutWindow
+      mark={<CommunityMark community={community} size={60} />}
+      title={community.name}
+      subtitle={plan ? plan.name : null}
+      onBack={onBack}
+      onClose={onClose}
+      busy={busy}
+      labelId="community-checkout-title"
+    >
           {loadError ? (
             <div className="space-y-3 py-4 text-center" data-checkout-unavailable="">
               <p className="text-[14.5px] text-[#4b5563]">{loadError.message}</p>
@@ -637,10 +544,6 @@ export function CommunityCheckout({
               <CommunityRefundPolicy terms={facts.terms} />
             </div>
           )}
-          <PoweredByStripe />
-        </div>
-      </div>
-    </div>,
-    document.body,
+    </CheckoutWindow>
   )
 }

@@ -111,7 +111,8 @@ async function main() {
   /* Changed on purpose (round AG): the checkout is Skool's shape, Stripe's one line card field and the device's own wallet (./compact-pay.tsx), still Stripe's hosted fields. */
   const payUi = code("components/community/public/compact-pay.tsx")
   check("card details go into Stripe's own fields (CardElement, paymentRequest), never inputs of ours", /<CompactPay/.test(flow) && /<CardElement/.test(payUi) && /paymentRequest\(/.test(payUi) && !/name="(card|cardNumber|cvc|cvv)"/i.test(flow + payUi) && !/autoComplete="cc-/.test(flow + payUi))
-  check("Powered by Stripe only because the payment runs on Stripe; no tick box, the terms sit under the button", /PoweredByStripe/.test(flow) && !/CheckRow/.test(flow) && /By joining you agree to the/.test(read("components/community/public/join-flow.tsx")) && /agreedToTerms: true/.test(flow))
+  /* Round 10: the window's frame (head, body, Powered by Stripe) moved to components/checkout/checkout-window, shared with the OnePage's instant checkout; read with it. */
+  check("Powered by Stripe only because the payment runs on Stripe; no tick box, the terms sit under the button", /<CheckoutWindow/.test(flow) && /PoweredByStripe/.test(code("components/checkout/checkout-window.tsx")) && !/CheckRow/.test(flow) && /By joining you agree to the/.test(read("components/community/public/join-flow.tsx")) && /agreedToTerms: true/.test(flow))
   check("the subscription is made by the memberships route, and confirmed by the server", /\/api\/memberships\/checkout/.test(flow) && /\/api\/memberships\/confirm/.test(flow))
   check("Monthly and Annual are chosen in the checkout, with the monthly equivalent and billed yearly", /data-interval/.test(flow) && /billed yearly/.test(read("components/community/public/join-flow.tsx")))
   check("the trial note says what is paid today, then what and from when", /Nothing today, then/.test(read("components/community/public/join-flow.tsx")) && /trialEnds\(/.test(flow))
