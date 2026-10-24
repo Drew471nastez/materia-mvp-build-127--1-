@@ -195,6 +195,8 @@ import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
 import { tt } from "@/lib/i18n/text"
+import { PINNED_NOTE, isPinnedSection, missingPageSections } from "@/lib/website-builder/pinned-sections"
+import { returnToRow } from "@/lib/website-builder/list-return"
 import { SharedInAllLanguages, TranslatedFieldEditor, TranslationEditingProvider, TranslationScope, useTranslationEditing, useTranslationEditor, useTranslationScope } from "@/components/website-builder/editor/translation-editing"
 import { PreviewLocaleButton, SidebarLanguageBar, type PreviewLocaleModel } from "@/components/website-builder/preview-locale-switch"
 import { blockKey as translationBlockKey, isWordsField, sectionKey as translationSectionKey } from "@/lib/markets/translate"
@@ -2857,6 +2859,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     scripts/check-editor-perf.mjs.
   */
   const overlayTypesKey = overlayTypesOf(sections)
+  /*
+    ROUND BC: A PAGE'S OWN SECTION THAT WAS DELETED IS OFFERED AGAIN. Its main
+    section, header and footer are hide only now (pinned-sections.ts), but an
+    install where one was deleted before that has no other way to get it
+    back: Add section lists it for this page while it is missing. One string,
+    for the reason above.
+  */
+  const missingOwnKey = storelibSourcesRead
+    ? [
+        ...missingPageSections(currentPage, sections, { compat: compatInstall, types: compatInstall ? Object.keys(customSchemas) : Object.keys(SECTION_SCHEMAS) }),
+        ...(compatInstall
+          ? (["header", "footer"] as const).filter((k) => !sections.some((x) => groupOf(x) === k && isKind(x, k, kindOfType))).flatMap((k) => Object.keys(customSchemas).filter((t) => kindOfType(t) === k).map((t) => `${k}:${t}`))
+          : []),
+      ].join("|")
+    : ""
   const libraryAddable = useMemo(() => {
     /*
       Not before the install's files are read (round 1023): until then it is
@@ -2871,11 +2888,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       ...ownSectionTypes,
     ]
     const groupsOf = (t: string) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) })
+    const missingOwn = missingOwnKey ? missingOwnKey.split("|") : []
     if (addGroup === "template") {
-      return all.filter((t) => {
+      const offered = all.filter((t) => {
         const g = groupsOf(t)
         return g.includes("template") || (g.includes("header") && !kindOfType(t))
       })
+      return [...new Set([...offered, ...missingOwn.filter((t) => !t.includes(":"))])]
     }
     /*
       The built-in header (or footer) first, offered whether or not one is
@@ -2893,8 +2912,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const own = addGroup as "header" | "footer"
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
-    return [...new Set([...(compatInstall ? [] : [own]), ...ownKinds, ...fits])]
-  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall, overlayTypesKey, storelibSourcesRead])
+    const ownBack = missingOwn.filter((t) => t.startsWith(`${own}:`)).map((t) => t.slice(own.length + 1))
+    return [...new Set([...(compatInstall ? [] : [own]), ...ownBack, ...ownKinds, ...fits])]
+  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall, overlayTypesKey, storelibSourcesRead, missingOwnKey])
   /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
   const overlayAddable = useMemo(() => {
     /* An imported theme always has the Overlay group: a phone tab bar, a popup or back to top can be added there. */
@@ -5640,10 +5660,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }
 
+  /* Round BC: the page's own sections (its main, the header, the footer) are hidden, never deleted (lib/website-builder/pinned-sections.ts). */
+  const pinnedSection = (s: SectionInstance) =>
+    isPinnedSection(s, sectionsRef.current, { page: currentPage, compat: compatInstall, kindOfType, schemaOf: (t) => librarySchemas[t] })
   const removeSection = (sectionId: string) => {
-    pushUndo()
     /* The header or the footer itself, deleted: the next save takes it off every page. */
     const gone = sectionsRef.current.find((s) => s.id === sectionId)
+    if (gone && pinnedSection(gone)) {
+      showNotification(tt(PINNED_NOTE))
+      return
+    }
+    pushUndo()
     if (gone) {
       for (const kind of ["header", "footer"] as const) {
         if (groupOf(gone) !== kind || !isKind(gone, kind, kindOfType)) continue
@@ -5974,7 +6001,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     items.push({ id: "edit-code", label: code.label, hint: code.hint, disabled: !code.run, icon: <Code2 strokeWidth={1.75} />, separatorBefore: true, onClick: code.run })
     if (!chrome) items.push({ id: "duplicate", label: "Duplicate", icon: <Copy strokeWidth={1.75} />, onClick: () => duplicateSection(section.id) })
     items.push({ id: "toggle-hidden", label: section.hidden ? "Show" : "Hide", icon: section.hidden ? <Eye strokeWidth={1.75} /> : <EyeOff strokeWidth={1.75} />, onClick: () => toggleSectionHidden(section.id) })
-    items.push({ id: "delete", label: "Delete", icon: <Trash2 strokeWidth={1.75} />, variant: "destructive", separatorBefore: true, onClick: () => removeSection(section.id) })
+    const pinned = pinnedSection(section)
+    items.push({ id: "delete", label: "Delete", icon: <Trash2 strokeWidth={1.75} />, variant: "destructive", separatorBefore: true, disabled: pinned, hint: pinned ? tt(PINNED_NOTE) : undefined, onClick: () => removeSection(section.id) })
     return items
   }
 
@@ -7765,9 +7793,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const listPage = selectedProductPage ? `product:${selectedProductPage}` : String(currentPage)
   const listPageNow = useRef(listPage)
   listPageNow.current = listPage
+  /*
+    AND ON THE ROW YOU CAME FROM (round BC). The section (and the block in it)
+    whose settings were last open, kept while they show; the list drawn again
+    brings that row on screen if it is not, and gives it a highlight that
+    fades (lib/website-builder/list-return.ts). A block's Back goes to its
+    section first, so the block is kept until another section is opened.
+  */
+  const lastOpened = useRef<{ section: string; block: string | null } | null>(null)
+  if (selectedSectionId) lastOpened.current = { section: selectedSectionId, block: selectedBlockId ?? (lastOpened.current?.section === selectedSectionId ? lastOpened.current.block : null) }
   const keepListScroll = useCallback((el: HTMLDivElement | null) => {
     const was = listScroll.current
     if (el && was && was.page === listPageNow.current && was.top > 0) el.scrollTop = was.top
+    const back = lastOpened.current
+    if (el && back) {
+      lastOpened.current = null
+      returnToRow(el, back)
+    }
   }, [])
   const noteListScroll = useCallback((e: { currentTarget: HTMLDivElement }) => {
     listScroll.current = { page: listPageNow.current, top: e.currentTarget.scrollTop }
@@ -8136,6 +8178,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   setAddSectionOpen(true)
                 }}
                 dnd={{ onReorder: reorderSection }}
+                pinned={pinnedSection}
               />
               </BlockPickerProvider>
             </div>
@@ -8483,9 +8526,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             >
               <span className="truncate">Duplicate</span>
             </button>
+            {/* The page's own section: Delete says why it is not, and Hide beside it is the way (removeSection, PINNED_NOTE). */}
             <button
               type="button"
-              className="flex-auto min-w-0 h-10 md:h-9 px-1.5 flex items-center justify-center rounded-lg bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#fee2e2] hover:text-[#dc2626] active:bg-[#fecaca] active:text-[#b91c1c]"
+              aria-disabled={pinnedSection(section) || undefined}
+              title={pinnedSection(section) ? tt(PINNED_NOTE) : undefined}
+              data-section-pinned={pinnedSection(section) ? "" : undefined}
+              className={cn(
+                "flex-auto min-w-0 h-10 md:h-9 px-1.5 flex items-center justify-center rounded-lg bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150",
+                pinnedSection(section) ? "cursor-default opacity-45" : "hover:bg-[#fee2e2] hover:text-[#dc2626] active:bg-[#fecaca] active:text-[#b91c1c]",
+              )}
               onClick={() => removeSection(section.id)}
             >
               <span className="truncate">Delete</span>
@@ -11595,6 +11645,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 }}
                 onToggleHide={() => selectedSectionId && toggleSectionHidden(selectedSectionId)}
                 onRemove={() => selectedSectionId && removeSection(selectedSectionId)}
+                removeNote={pinnedSection(current) ? tt(PINNED_NOTE) : undefined}
               />
             )
           })()}
@@ -11888,6 +11939,7 @@ function SectionToolbar({
   onToggleHide,
   onRemove,
   onAskAi,
+  removeNote,
 }: {
   sectionId: string | null
   /** What the buttons act on: the section, or the block selected in it (the toolbar still stands at the section's corner). */
@@ -11909,6 +11961,8 @@ function SectionToolbar({
   onRemove: () => void
   /** Opens the assistant on the section this toolbar belongs to. */
   onAskAi: () => void
+  /** The page's own section (round BC): Delete's tooltip says why it is hidden instead, and pressing it says so too. */
+  removeNote?: string
 }) {
   const [box, setBox] = useState<{ top: number; right: number } | null>(null)
   /**
@@ -12138,8 +12192,8 @@ function SectionToolbar({
         </Item>
       )}
       {!isChrome && (
-        <Item label="Delete" onClick={onRemove} disabled={!canRemove}>
-          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+        <Item label={removeNote ?? "Delete"} onClick={onRemove} disabled={!canRemove}>
+          <Trash2 className={cn("h-4 w-4", removeNote && "opacity-40")} strokeWidth={1.75} />
         </Item>
       )}
     </div>
