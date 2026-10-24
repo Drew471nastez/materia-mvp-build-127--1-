@@ -138,7 +138,8 @@ async function main() {
 
     const live = read("components/onepage/public-onepage.tsx")
     check("the live page sends the four to the one drawing, with the page's creator for the contact form",
-      /case "course":\s*case "music":\s*case "testimonials":\s*case "contact_form":\s*case "heading":[\s\S]{0,120}return <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId \}\} \/>/.test(live))
+      /* Round 11 put the embed block (lib/onepage/creator-blocks embedSource) beside them on purpose. */
+      /case "course":\s*case "music":\s*case "testimonials":\s*case "contact_form":\s*case "embed":\s*case "heading":[\s\S]{0,120}return <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId \}\} \/>/.test(live))
     check("and the preview is that live page, in a frame", /<PublicOnePage onepage=\{page as never\} \/>/.test(read("components/onepage/preview-document.tsx")))
     const module = read("components/onepage/creator-blocks.tsx")
     check("a contact message goes through the website's contact pipeline, with its spam checks", /sendContactMessage\(\{/.test(module) && /company,/.test(module) && /elapsed: Date\.now\(\) - shownAt\.current/.test(module) && /page: "onepage"/.test(module))
@@ -177,14 +178,17 @@ async function main() {
     check("no entry is a Coming soon that cannot be pressed", PICKER_ENTRIES.every((e) => !("comingSoon" in e)))
     check("ids are unique, for the recent list", new Set(PICKER_ENTRIES.map((e) => e.id)).size === PICKER_ENTRIES.length)
     const integrations = PICKER_ENTRIES.filter((e) => e.category === "integrations")
-    check("five integrations, each a real block: YouTube and TikTok play in the video block, Spotify in music, Calendly and Cal.com in booking, Klaviyo and Omnisend take the signups",
-      integrations.map((e) => `${e.id}:${e.type}`).join(",") === "int_youtube:video,int_spotify:music,int_tiktok:video,int_booking:calendly,int_email:email_capture")
+    /* Round 11 added the embeds on purpose ("add more essential integrations ... more embeds"): every one is still a real block, a player, an embed, a booking page or the signup sync (tests/onepage-addblock-r11.test.ts reads each embed). */
+    check("the integrations, each a real block: the five of round 10 still there, the rest players, embeds or booking pages",
+      ["int_youtube:video", "int_spotify:music", "int_tiktok:video", "int_booking:calendly", "int_email:email_capture"].every((x) => integrations.some((e) => `${e.id}:${e.type}` === x))
+        && integrations.every((e) => ["video", "music", "calendly", "email_capture", "embed"].includes(e.type)))
     check("courses and coaching are in Sell", ["course", "coaching"].every((id) => PICKER_ENTRIES.find((e) => e.id === id)?.category === "sell") && PICKER_ENTRIES.find((e) => e.id === "coaching")?.type === "calendly")
     check("search finds a block by what people call it", searchEntries(PICKER_ENTRIES, "newsletter")[0]?.type === "email_capture" && searchEntries(PICKER_ENTRIES, "reviews")[0]?.id === "testimonials" && searchEntries(PICKER_ENTRIES, "spot")[0]?.label === "Spotify")
     check("and nothing for words nothing has", searchEntries(PICKER_ENTRIES, "zzqx").length === 0)
     const picker = read("components/onepage/add-block-picker.tsx")
     check("the recent list is per browser, guarded, at most four", /localStorage\.getItem\(RECENT_KEY\)/.test(picker) && /\.slice\(0, 4\)/.test(picker) && (picker.match(/\} catch \{/g) ?? []).length >= 2)
-    check("brand marks are drawn in near black, never their own colours", /<SocialIcon platform=\{entry\.brand\} size=\{18\} color="#1a1a2e"/.test(picker) && !/#8b5cf6|violet|purple/i.test(picker))
+    /* Round 11 changed this on purpose: "for those icons you can actually make them colorful, use their actual icons". Black marks (X, TikTok) keep the near black. */
+    check("brand marks are drawn in their own colours, a black one in near black", /<SocialIcon platform=\{entry\.brand\} size=\{19\} color="#1a1a2e" strokeWidth=\{1\.8\} tone="brand" \/>/.test(picker) && !/#8b5cf6|violet|purple/i.test(picker))
     const icons = read("components/onepage/block-icons.tsx")
     check("one icon set: one stroke, round ends, no fill", (icons.match(/strokeWidth=\{1\.6\}/g) ?? []).length === 1 && /fill="none"/.test(icons) && /strokeLinecap="round"/.test(icons) && !/fill="(?!none)/.test(icons))
     const tab = read("components/onepage/tabs/links-tab.tsx")

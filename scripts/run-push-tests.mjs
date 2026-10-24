@@ -639,6 +639,8 @@ const SUITES = [
   "tests/onepage-arrival.test.ts",
   /* Round 11: Storelib's pills in the editor, the Design pages as the app's sub-pages, a tab bar that holds still, a clean way out (scripts/check-onepage-motion-r11.mjs measures them). */
   "tests/onepage-motion-r11.test.ts",
+  /* Round 11: + Add, the Add block sheet's open, Storelib's pills for its chips, brand marks, the embeds and their frame hosts, the social sheet's close and keyboard, Choose icon (scripts/check-onepage-addblock-r11.mjs measures them). */
+  "tests/onepage-addblock-r11.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",

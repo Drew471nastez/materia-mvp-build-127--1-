@@ -126,15 +126,16 @@ import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
 import { BlockBadges, BlockExtras, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
-import { AddBlockPicker, AddBlockPlus } from "@/components/onepage/add-block-picker"
+import { AddBlockButton, AddBlockPicker, AddSheetGate, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
+import { IconLibrary, IconLibraryGate, setIconLibraryOpen } from "@/components/onepage/icon-library"
 import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText } from "@/components/onepage/block-icons"
 import { bookingProviderName, bookingSource } from "@/lib/onepage/creator-blocks"
 import { hasRealUrl } from "@/lib/onepage/editor-state"
 import { SignupDestination } from "@/components/onepage/creator-blocks"
 import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
 import { parseSocialInput, socialFieldIsLink, socialFieldValue, socialFormat } from "@/lib/onepage/social-input"
-import { LinkIcon, SocialIcon, hasLinkIcon, markOn, socialPlatformLabel } from "@/components/onepage/brand-icons"
-import { LINK_ICONS, LINK_ICON_CATEGORIES, resolveLinkIcon } from "@/components/onepage/link-icons"
+import { LinkIcon, SocialIcon, hasLinkIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
+import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { tt } from "@/lib/i18n/text"
 import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia, classifyMedia } from "@/lib/onepage/media-rules"
 import { UploadError, openableImage, prepareImage, uploadErrorText, uploadMessage, uploadOnePageMedia } from "@/lib/onepage/media-upload"
@@ -174,6 +175,12 @@ function validateSocialUrl(platform: string, url: string): { valid: boolean; err
       return { valid: false, error: tt("Enter your username, or paste the link") }
   }
 }
+
+/** Three quarters of what the keyboard and the visible part make together, less the keyboard: with bottom-sheet's aboveKeyboard adding the keyboard back, a box whose top never moves. */
+const SOCIAL_SHEET_HEIGHT = "calc((var(--vv-h, 100dvh) + var(--kb-inset, 0px)) * 0.75 - var(--kb-inset, 0px))"
+
+/** The social sheet clears what was typed this long after it closes: after the sheet's own close (bottom-sheet SHEET_CLOSE_MS), and the dialog's. */
+const SOCIAL_RESET_MS = 420
 
 // Social platforms configuration with SVG icons
 const SOCIAL_PLATFORMS = [
@@ -286,6 +293,7 @@ function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, pro
     case "music":
     case "testimonials":
     case "contact_form":
+    case "embed":
     case "heading":
     case "faq":
     case "countdown":
@@ -347,7 +355,7 @@ export function LinksTab() {
     setActiveSection,
   } = useOnePage()
 
-  const [showAddModal, setShowAddModal] = useState(false)
+  /* Whether Add block is up lives in components/onepage/add-block-picker (setAddSheetOpen), so opening it does not render this tab. */
   const [searchQuery, setSearchQuery] = useState("")
   const [addToGroupId, setAddToGroupId] = useState<string | null>(null)
   const [showSocialModal, setShowSocialModal] = useState(false)
@@ -369,8 +377,6 @@ export function LinksTab() {
   const [thumbnailBlockId, setThumbnailBlockId] = useState<string | null>(null)
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const [showIconLibraryInModal, setShowIconLibraryInModal] = useState(false)
-  const [iconSearchQuery, setIconSearchQuery] = useState("")
-  const [iconCategory, setIconCategory] = useState("all")
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
   // Pull-to-refresh prevention is handled by the Dialog/Sheet components themselves
@@ -445,8 +451,16 @@ export function LinksTab() {
   }
 
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null)
-  /* The sheet is up and + Add opened it (not a + between two cards, not a group's): its + is turned into an x. */
-  const addSheetFromButton = showAddModal && insertAfterId === null && addToGroupId === null
+  /* Whether the social and thumbnail sheets are up, for the clean ups that run after their close (closeSocialSheet, closeThumbnailSheet). Above the early return below, as every hook here. */
+  const socialOpenRef = useRef(false)
+  socialOpenRef.current = showSocialModal
+  const thumbOpenRef = useRef(false)
+  thumbOpenRef.current = showThumbnailModal
+  useEffect(() => () => setIconLibraryOpen(false), [])
+  /* The open state outlives this tab (it is a module's): a tab that goes away takes its sheet down with it, so it never comes back up on its own. */
+  useEffect(() => () => setAddSheetOpen(false), [])
+  /* When the sheet is up, + Add opened it (not a + between two cards, not a group's): its + is turned into an x (AddBlockButton). */
+  const addSheetFromButton = insertAfterId === null && addToGroupId === null
 
   /*
     REORDERING THE CARDS: components/onepage/link-reorder.ts moves them
@@ -975,28 +989,60 @@ export function LinksTab() {
 
   /* The sheet holds what it showed until it has slid out, so the fields reset at once on either surface. */
   const closeAddSheet = () => {
-    if (!showAddModal) return
-    setShowAddModal(false)
-    setSearchQuery("")
+    if (!isAddSheetOpen()) return
+    setAddSheetOpen(false)
     setInsertAfterId(null)
     setAddToGroupId(null)
   }
 
+  /*
+    THE SOCIAL SHEET CLOSES AS IT IS, THEN FORGETS (round 11: "when I click
+    Cancel it closes very bad"). It used to empty the platform and the field
+    on the same render that closed it, so the sheet swapped from "Edit social
+    link" to the whole platform list, a different height, in the first frame
+    of its slide. Now the keyboard goes down with it (the field is let go
+    first), the sheet slides out showing what it showed, and what was typed
+    is cleared once it is gone (SOCIAL_RESET_MS, a little after the sheet's
+    own close), unless it was opened again by then.
+  */
   const closeSocialSheet = () => {
     if (!showSocialModal) return
-    setShowSocialModal(false)
-    setSelectedSocial(null)
-    setSocialUrl("")
-    setSearchQuery("")
-    setSocialUrlError(null)
+    const active = document.activeElement as HTMLElement | null
+    if (active && active.closest?.("[data-social-sheet]")) active.blur()
+    /*
+      In a transition: this tab's render (the whole list of blocks, about
+      100ms on a phone slowed four times) is cut into slices between frames
+      instead of one long task while the sheet slides out.
+    */
+    React.startTransition(() => setShowSocialModal(false))
+    window.setTimeout(() => {
+      if (socialOpenRef.current) return
+      React.startTransition(() => {
+        setSelectedSocial(null)
+        setSocialUrl("")
+        setSearchQuery("")
+        setSocialUrlError(null)
+      })
+    }, SOCIAL_RESET_MS)
   }
 
+  /* The library's search and category are its own now (components/onepage/icon-library); a close leaves the view as it is until the dialog has gone. */
   const closeThumbnailSheet = () => {
     if (!showThumbnailModal) return
     setShowThumbnailModal(false)
-    setShowIconLibraryInModal(false)
-    setIconSearchQuery("")
-    setIconCategory("all")
+    setIconLibraryOpen(false)
+    if (!isMobileModalViewport) window.setTimeout(() => { if (!thumbOpenRef.current) setShowIconLibraryInModal(false) }, SOCIAL_RESET_MS)
+  }
+
+  /* An icon chosen in the library: on the link at once (the preview redraws with it), and the sheets go. */
+  const chooseLinkIcon = (iconId: string) => {
+    if (thumbnailBlockId) {
+      const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+      if (block?.type === 'link_button') {
+        updateBlock(thumbnailBlockId, { data: { ...block.data, icon: iconId, thumbnail_url: null } })
+      }
+    }
+    closeThumbnailSheet()
   }
 
   const focusAndScrollToBlock = (blockId: string) => {
@@ -1160,9 +1206,7 @@ export function LinksTab() {
     const urlToSave = validation.transformedUrl || socialUrl
 
     updateSocialLinks({ [selectedSocial]: urlToSave } as Partial<OnePageSocialLinks>)
-    setSelectedSocial(null)
-    setSocialUrl("")
-    setSocialUrlError(null)
+    /* The field is cleared once the sheet has gone (closeSocialSheet), so it leaves showing what was saved. */
     closeSocialSheet()
   }
 
@@ -1253,22 +1297,21 @@ export function LinksTab() {
           )}
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
             {activeSocials.slice(0, 5).map(([platform]) => {
-              const config = SOCIAL_PLATFORMS.find(p => p.id === platform)
               return (
                 <div
                   key={platform}
                   className="relative group/social"
                 >
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: config?.color || "#1a1a2e" }}
+                    data-social-chip={platform}
+                    className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.1),0_1px_2px_rgba(17,17,19,0.06)] transition-opacity hover:opacity-80"
                     onClick={() => {
                       setSelectedSocial(platform)
                       setSocialUrl(socialFieldValue(platform, social_links?.[platform as keyof typeof social_links]))
                       setShowSocialModal(true)
                     }}
                   >
-                    <SocialIcon platform={platform} size={14} color={markOn(config?.color || "#1a1a2e")} />
+                    <SocialIcon platform={platform} size={14} color="#1a1a2e" tone="brand" />
                   </div>
                   <button
                     onClick={(e) => {
@@ -1306,20 +1349,17 @@ export function LinksTab() {
         app/globals.css takes every transform and transition inside a
         `.group` away on a touch screen, so on a phone it never turned.
       */}
-      <button
-        type="button"
-        data-add-block=""
-        aria-expanded={addSheetFromButton}
-        onClick={() => {
+      <AddBlockButton
+        fromButton={addSheetFromButton}
+        onPress={() => {
           setInsertAfterId(null)
           setAddToGroupId(null)
-          setShowAddModal(true)
+          setAddSheetOpen(true)
         }}
         className={cn(accentDepth, "h-11 w-full gap-2 rounded-xl text-[15px]")}
       >
-        <AddBlockPlus open={addSheetFromButton} />
         {tt("Add")}
-      </button>
+      </AddBlockButton>
 
       {/* Quick Actions */}
       <div className="flex gap-2">
@@ -1493,7 +1533,7 @@ export function LinksTab() {
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
-                  setShowAddModal(true)
+                  setAddSheetOpen(true)
                 }}
               />
             </div>
@@ -1504,7 +1544,7 @@ export function LinksTab() {
                   type="button"
                   onClick={() => {
                     setInsertAfterId(block.id)
-                    setShowAddModal(true)
+                    setAddSheetOpen(true)
                   }}
                   className="absolute inset-x-0 -top-4 -bottom-4 flex items-center justify-center px-1 focus:outline-none"
                   tabIndex={0}
@@ -1531,7 +1571,8 @@ export function LinksTab() {
       </div>
       )}
 
-      {/* Add Block Modal - Linktree style without sidebar */}
+      {/* Add Block Modal - Linktree style without sidebar. AddSheetGate: the open and the close render this, not the tab. */}
+      <AddSheetGate>{(showAddModal) => (
       <SheetDialog
         open={showAddModal}
         onClose={closeAddSheet}
@@ -1563,12 +1604,11 @@ export function LinksTab() {
           <AddBlockPicker
             open={showAddModal}
             inGroup={!!addToGroupId}
-            query={searchQuery}
-            onQuery={setSearchQuery}
             atLimit={isBlockTypeAtLimit}
             onPick={(entry) => handleAddBlock(entry.type, entry.preset, entry.data)}
           />
       </SheetDialog>
+      )}</AddSheetGate>
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
       <SheetDialog
@@ -1577,11 +1617,25 @@ export function LinksTab() {
         phone={isMobileModalViewport}
         label={selectedSocial ? tt("Edit Social Link") : tt("Add Social Link")}
         onOpenAutoFocus={(e) => e.preventDefault()}
-        /* Built ahead and kept, as Add block is; closeSocialSheet resets what was typed. */
-        sheet={{ keepMounted: true }}
+        /*
+          Built ahead and kept, as Add block is; closeSocialSheet resets what was
+          typed once it has gone. One height for the list and for a platform's
+          field (as Add block has), so choosing a platform does not drop the
+          sheet's top edge.
+
+          AND THE KEYBOARD DOES NOT MOVE IT ("when I click the input, make sure
+          it doesn't bump with the keyboard"). The field is at the top of the
+          sheet, well above any keyboard, so the sheet has no reason to move:
+          its box stays three quarters of the screen the keyboard and the
+          visible part make together, and the keyboard's room is taken out of
+          its foot (bottom-sheet aboveKeyboard's padding, on the keyboard's own
+          250ms curve). The top edge, the title and the field stay exactly
+          where they were; only the empty space under Cancel gives way.
+        */
+        sheet={{ keepMounted: true, height: SOCIAL_SHEET_HEIGHT }}
         className="p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
       >
-          <DialogHeader className="p-4 sm:p-5 border-b border-gray-100 shrink-0">
+          <DialogHeader data-social-sheet="" className="p-4 sm:p-5 border-b border-gray-100 shrink-0">
             <SheetDialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? tt("Edit Social Link") : tt("Add Social Link")}
             </SheetDialogTitle>
@@ -1611,7 +1665,7 @@ export function LinksTab() {
               </div>
 
               {/* Scrollable Platform List */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
+              <div data-social-sheet="" className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-1">
                 {SOCIAL_PLATFORMS.filter(p =>
                   p.label.toLowerCase().includes(searchQuery.toLowerCase())
                 ).map((platform) => {
@@ -1623,18 +1677,16 @@ export function LinksTab() {
                         setSelectedSocial(platform.id)
                         setSocialUrl(socialFieldValue(platform.id, social_links?.[platform.id as keyof typeof social_links]))
                       }}
+                      data-social-platform={platform.id}
                       className={cn(
-                        "w-full flex items-center gap-3 p-3 rounded-xl transition-all",
+                        "w-full flex items-center gap-3 p-3 rounded-xl transition-[background-color] duration-150 [-webkit-tap-highlight-color:transparent] active:bg-gray-100",
                         isActive
                           ? "bg-gray-100"
                           : "hover:bg-gray-50"
                       )}
                     >
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: platform.color }}
-                      >
-                        <SocialIcon platform={platform.id} size={20} color={markOn(platform.color)} />
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.08),0_1px_2px_rgba(17,17,19,0.05)]">
+                        <SocialIcon platform={platform.id} size={21} color="#1a1a2e" tone="brand" />
                       </div>
                       <div className="flex-1 text-left">
                         <p className="font-medium text-sm">{platform.label}</p>
@@ -1662,17 +1714,15 @@ export function LinksTab() {
             </>
           ) : (
             // URL input for selected platform
-            <div className="p-4 sm:p-5 space-y-4">
+            /* data-keyboard-own: the field is placed by the sheet (it is at its top, above any keyboard); KeyboardGuard must not centre it, which scrolled it a few pixels under the finger. */
+            <div data-social-sheet="" data-keyboard-own="" className="p-4 sm:p-5 space-y-4 min-h-0 overflow-y-auto overscroll-contain">
               {(() => {
                 const platform = SOCIAL_PLATFORMS.find(p => p.id === selectedSocial)
                 return (
                   <>
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: platform?.color }}
-                      >
-                        <SocialIcon platform={selectedSocial ?? ""} size={20} color={markOn(platform?.color)} />
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.08),0_1px_2px_rgba(17,17,19,0.05)]">
+                        <SocialIcon platform={selectedSocial ?? ""} size={21} color="#1a1a2e" tone="brand" />
                       </div>
                       <div>
                         <p className="font-medium">{platform?.label}</p>
@@ -1756,12 +1806,17 @@ export function LinksTab() {
                       >
                         {social_links?.[selectedSocial as keyof typeof social_links] ? tt("Update") : tt("Add")}
                       </Button>
+                      {/* Cancel closes with the sheet's own close: on a phone the slide starts first (data-sheet-close) and the editor hears of it a frame later. */}
                       <Button
                         variant="outline"
+                        data-social-cancel=""
+                        data-sheet-close={isMobileModalViewport ? "" : undefined}
                         className="rounded-xl h-[44px] w-full text-[15px] font-semibold"
-                        onClick={() => closeSocialSheet()}
+                        onClick={() => {
+                          if (!isMobileModalViewport) closeSocialSheet()
+                        }}
                       >
-                        {tt("Back")}
+                        {tt("Cancel")}
                       </Button>
                       {social_links?.[selectedSocial as keyof typeof social_links] && (
                         <Button
@@ -1771,8 +1826,6 @@ export function LinksTab() {
                             handleRemoveSocial(selectedSocial)
                             setShowDeleteSocialNotification(false)
                             requestAnimationFrame(() => setShowDeleteSocialNotification(true))
-                            setSelectedSocial(null)
-                            setSocialUrlError(null)
                             closeSocialSheet()
                           }}
                         >
@@ -2043,8 +2096,8 @@ export function LinksTab() {
             : "rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
         )}
       >
-          {/* Main Options View */}
-          {!showIconLibraryInModal && (
+          {/* Main Options View (on a phone it stays under the library's own sheet) */}
+          {!(showIconLibraryInModal && !isMobileModalViewport) && (
             <>
               <DialogHeader className="p-4 border-b">
                 <SheetDialogTitle className="text-base font-semibold">
@@ -2104,7 +2157,8 @@ export function LinksTab() {
                 {getThumbnailBlockType() === 'link_button' && (
                   <button
                     type="button"
-                    onClick={() => setShowIconLibraryInModal(true)}
+                    /* On a phone its own sheet over this one (components/onepage/icon-library), opened without rendering this tab; on a computer this dialog's other view. */
+                    onClick={() => (isMobileModalViewport ? setIconLibraryOpen(true) : setShowIconLibraryInModal(true))}
                     className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
                   >
                     <div className="w-10 h-10 rounded-lg bg-[#f4f4f6] flex items-center justify-center">
@@ -2164,182 +2218,15 @@ export function LinksTab() {
             </>
           )}
 
-          {/* Icon Library Full Page View */}
-          {showIconLibraryInModal && (
-            <>
-              <DialogHeader className="p-4 border-b">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowIconLibraryInModal(false)
-                      setIconSearchQuery("")
-                      setIconCategory("all")
-                    }}
-                    className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <SheetDialogTitle className="text-base font-semibold">{tt("Choose Icon")}</SheetDialogTitle>
-                </div>
-              </DialogHeader>
-
-              {/* Search */}
-              <div className="p-3 border-b bg-gray-50">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder={tt("Search icons...")}
-                    value={iconSearchQuery}
-                    onChange={(e) => setIconSearchQuery(e.target.value)}
-                    className="pl-9 h-10 bg-white border-gray-200 rounded-lg text-sm"
-                    readOnly={isMobileModalViewport}
-                    onClick={(e) => {
-                      if (isMobileModalViewport) {
-                        e.currentTarget.readOnly = false
-                        e.currentTarget.focus()
-                      }
-                    }}
-                  />
-                  {iconSearchQuery && (
-                    <button
-                      onClick={() => setIconSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Categories - Horizontal scroll on mobile, sidebar on desktop */}
-              {isMobileModalViewport ? (
-                <div className="border-b bg-white overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-2 p-3">
-                    {LINK_ICON_CATEGORIES.map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => setIconCategory(cat.id)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0",
-                          iconCategory === cat.id
-                            ? "bg-gray-900 text-white"
-                            : "bg-gray-100 text-gray-600"
-                        )}
-                      >
-                        {cat.label} ({cat.icons.length})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Layout with sidebar and icons */}
-              <div className={cn(
-                "flex overflow-hidden",
-                isMobileModalViewport ? "h-[50vh]" : "h-[60vh] max-h-[500px]"
-              )}>
-                {/* Categories sidebar - Desktop only */}
-                {!isMobileModalViewport && (
-                  <div className="w-40 border-r bg-gray-50 overflow-y-auto flex-shrink-0">
-                    <div className="p-2 space-y-1">
-                      {LINK_ICON_CATEGORIES.map((cat) => (
-                        <button
-                          key={cat.id}
-                          onClick={() => setIconCategory(cat.id)}
-                          className={cn(
-                            "w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                            iconCategory === cat.id
-                              ? "bg-gray-900 text-white"
-                              : "text-gray-600 hover:bg-gray-200"
-                          )}
-                        >
-                          {cat.label}
-                          <span className="ml-1 text-xs opacity-60">({cat.icons.length})</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Icon grid */}
-                <div className={cn(
-                  "flex-1 overflow-y-auto",
-                  /* The sheet keeps clear of the home indicator itself. */
-                  isMobileModalViewport ? "p-3" : "p-4"
-                )}>
-                  <div className={cn(
-                    "grid gap-2",
-                    isMobileModalViewport ? "grid-cols-4" : "grid-cols-5 sm:grid-cols-6 md:grid-cols-8"
-                  )}>
-                    {(() => {
-                      // Get icons for current category
-                      const categoryIcons = LINK_ICON_CATEGORIES.find(c => c.id === iconCategory)?.icons || []
-                      // Filter by search query
-                      const filteredIcons = LINK_ICONS.filter(icon => {
-                        const matchesCategory = categoryIcons.includes(icon.id)
-                        const matchesSearch = !iconSearchQuery ||
-                          icon.name.toLowerCase().includes(iconSearchQuery.toLowerCase()) ||
-                          icon.id.toLowerCase().includes(iconSearchQuery.toLowerCase())
-                        return matchesCategory && matchesSearch
-                      })
-
-                      if (filteredIcons.length === 0) {
-                        return (
-                          <div className="col-span-full text-center py-8 text-gray-500">
-                            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">{tt("No icons found")}</p>
-                          </div>
-                        )
-                      }
-
-                      return filteredIcons.map((icon) => (
-                        <button
-                          key={icon.id}
-                          type="button"
-                          onClick={() => {
-                            if (thumbnailBlockId) {
-                              const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
-                              if (block?.type === 'link_button') {
-                                updateBlock(thumbnailBlockId, {
-                                  data: {
-                                    ...block.data,
-                                    icon: icon.id,
-                                    thumbnail_url: null
-                                  }
-                                })
-                              }
-                            }
-                            closeThumbnailSheet()
-                            setShowIconLibraryInModal(false)
-                            setIconSearchQuery("")
-                            setIconCategory("all")
-                          }}
-                          className={cn(
-                            "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 transition-all hover:bg-gray-100 hover:shadow-sm",
-                            isMobileModalViewport ? "p-2" : "p-2",
-                            (() => {
-                              const blockData = getThumbnailBlockData()
-                              if (getThumbnailBlockType() === 'link_button' && blockData) {
-                                return (blockData as LinkButtonBlockData).icon === icon.id
-                              }
-                              return false
-                            })() && "bg-gray-100 shadow-sm ring-2 ring-gray-900"
-                          )}
-                          title={icon.name}
-                        >
-                          <LinkIcon name={icon.id} size={isMobileModalViewport ? 20 : 24} className="text-gray-700" />
-                          <span className={cn(
-                            "text-gray-500 truncate w-full text-center",
-                            isMobileModalViewport ? "text-[8px]" : "text-[9px]"
-                          )}>{icon.name}</span>
-                        </button>
-                      ))
-                    })()}
-                  </div>
-                </div>
-              </div>
-            </>
+          {/* The icon library, on a computer in this dialog (on a phone it is its own sheet, below). */}
+          {showIconLibraryInModal && !isMobileModalViewport && (
+            <IconLibrary
+              phone={false}
+              open={showThumbnailModal && showIconLibraryInModal}
+              selected={getThumbnailBlockType() === 'link_button' ? ((getThumbnailBlockData() as LinkButtonBlockData | null)?.icon ?? null) : null}
+              onSelect={chooseLinkIcon}
+              onBack={() => setShowIconLibraryInModal(false)}
+            />
           )}
 
           {/* Hidden file input */}
@@ -2351,6 +2238,33 @@ export function LinksTab() {
             className="hidden"
           />
       </SheetDialog>
+
+      {/*
+        CHOOSE ICON ON A PHONE: a sheet of its own over the thumbnail sheet,
+        built ahead and kept (components/onepage/icon-library), one height so
+        a search with fewer icons does not move its top edge. Back slides it
+        away to the thumbnail's choices; choosing an icon applies it and both
+        go.
+      */}
+      {isMobileModalViewport ? (
+        <IconLibraryGate>{(libraryUp) => (
+          <SheetDialog
+            open={libraryUp}
+            onClose={() => setIconLibraryOpen(false)}
+            phone
+            label={tt("Choose icon")}
+            sheet={{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT, zIndex: 210 }}
+          >
+            <IconLibrary
+              phone
+              open={libraryUp}
+              selected={getThumbnailBlockType() === 'link_button' ? ((getThumbnailBlockData() as LinkButtonBlockData | null)?.icon ?? null) : null}
+              onSelect={chooseLinkIcon}
+              onBack={() => setIconLibraryOpen(false)}
+            />
+          </SheetDialog>
+        )}</IconLibraryGate>
+      ) : null}
 
       {/* Image Library Modal / File Upload Modal */}
       <SheetDialog
@@ -3317,6 +3231,7 @@ function BlockItem({
       case "music":
       case "testimonials":
       case "contact_form":
+      case "embed":
       case "heading":
       case "faq":
       case "countdown":
@@ -3394,7 +3309,7 @@ function BlockItem({
                 className="w-full h-full object-cover"
               />
             ) : hasLinkIcon((preview as any).iconId) ? (
-              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" />
+              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
               <Icon className="h-5 w-5 text-[#1a1a2e]" />
             )}
@@ -3414,7 +3329,7 @@ function BlockItem({
                 className="w-full h-full object-cover"
               />
             ) : hasLinkIcon((preview as any).iconId) ? (
-              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" />
+              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
               <Icon className="h-5 w-5 text-[#1a1a2e]" />
             )}
@@ -4304,7 +4219,7 @@ function BlockEditor({
                 {data.thumbnail_url ? (
                   <img src={data.thumbnail_url} alt="" className="h-full w-full object-cover" />
                 ) : hasLinkIcon(data.icon) ? (
-                  <LinkIcon name={data.icon} size={22} className="text-[#1a1a2e]" />
+                  <LinkIcon name={data.icon} size={22} className="text-[#1a1a2e]" tone="brand" />
                 ) : (
                   <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
                 )}
@@ -5264,11 +5179,8 @@ function BlockEditor({
                       )}
                     >
                       <GripVertical className="h-4 w-4 text-gray-300" />
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: config?.color }}
-                      >
-                        <SocialIcon platform={platform} size={14} color={markOn(config?.color)} />
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.1),0_1px_2px_rgba(17,17,19,0.06)]">
+                        <SocialIcon platform={platform} size={15} color="#1a1a2e" tone="brand" />
                       </div>
                       <span className="flex-1 text-sm truncate">{config?.label}</span>
                       <Button
@@ -6613,6 +6525,7 @@ function BlockEditor({
       case "music":
       case "testimonials":
       case "contact_form":
+      case "embed":
       case "heading":
       case "faq":
       case "countdown":
@@ -6891,7 +6804,7 @@ function BlockEditor({
                           {preview.thumbnail_url ? (
                             <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : hasLinkIcon(preview.iconId) ? (
-                            <LinkIcon name={preview.iconId} size={16} className="text-[#1a1a2e]" />
+                            <LinkIcon name={preview.iconId} size={16} className="text-[#1a1a2e]" tone="brand" />
                           ) : (
                             <ChildIcon className="h-4 w-4 text-[#1a1a2e]" />
                           )}
