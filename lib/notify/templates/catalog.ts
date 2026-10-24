@@ -20,6 +20,7 @@
 import { eventIcs } from "@/components/community/events/model"
 import type { NotificationType, TemplateContext, TemplateFamily } from "../types"
 import { actionUrl, cleanText, segment } from "./escape"
+import { formatCurrency } from "@/lib/markets/money"
 import type { Fact, OrderSummary, SummaryRow } from "./layout"
 
 /* ── Data keys ─────────────────────────────────────────────────────────── */
@@ -196,10 +197,12 @@ export function formatMoney(amount: unknown, currency: unknown): string {
   if (!code) return ""
   const value = ZERO_DECIMAL.has(code.toLowerCase()) ? n : n / 100
   try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(value)
+    new Intl.NumberFormat("en-US", { style: "currency", currency: code })
   } catch {
     return ""
   }
+  /* The app's one money writer (lib/markets/money): "25.00 lei", as the order and the receipt say it. */
+  return formatCurrency(value, code, "en-US", ZERO_DECIMAL.has(code.toLowerCase()) ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {})
 }
 
 /** A date from an ISO string or a timestamp, as "September 30, 2026" (or "Sep 30" short). "" when it is not a date. */

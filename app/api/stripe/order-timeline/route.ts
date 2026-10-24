@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+import { formatMinor } from "@/lib/markets/money"
 
 /**
  * GET /api/stripe/order-timeline?orderId=<uuid>
@@ -245,11 +246,7 @@ export async function GET(request: Request) {
   }
 }
 
+/* Stripe's minor units in the charge's own currency: ¥ has no decimals, lei read "25.00 lei" (lib/markets/money formatMinor). */
 function formatCents(cents: number, currency: string) {
-  const amount = cents / 100
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-    minimumFractionDigits: 2,
-  }).format(amount)
+  return formatMinor(cents, currency.toUpperCase(), "en-US")
 }

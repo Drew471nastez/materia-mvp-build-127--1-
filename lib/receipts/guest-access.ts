@@ -126,6 +126,37 @@ export function withoutOrders(grants: readonly Grant[], orderIds: Iterable<strin
   return grants.filter((g) => !drop.has(g.orderId))
 }
 
+/**
+ * A readable companion cookie that says only "this browser bought something
+ * here as a guest" ("1"), so a website's product block knows to ask
+ * /api/site-account/owned instead of asking on every visit. It carries no id
+ * and proves nothing: the answer always comes from the signed sl_owned.
+ */
+export const GUEST_HINT_COOKIE = "sl_owned_hint"
+
+/** The Set-Cookie header values for a cookie value ("" clears both), for routes that build headers by hand. */
+export function guestAccessSetCookies(value: string, secure: boolean): string[] {
+  const tail = `; Path=/; SameSite=Lax${secure ? "; Secure" : ""}`
+  if (!value) return [`${GUEST_ACCESS_COOKIE}=; Max-Age=0; HttpOnly${tail}`, `${GUEST_HINT_COOKIE}=; Max-Age=0${tail}`]
+  return [`${GUEST_ACCESS_COOKIE}=${encodeURIComponent(value)}; Max-Age=${GRANT_TTL_SECONDS}; HttpOnly${tail}`, `${GUEST_HINT_COOKIE}=1; Max-Age=${GRANT_TTL_SECONDS}${tail}`]
+}
+
+/** A path on this host: "/x", never "//host" or "/\host", which browsers read as another site. Anything else is "/". */
+export function samePath(value: string | null | undefined): string {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\") || /[\r\n\t]/.test(value)) return "/"
+  return value.slice(0, 2048)
+}
+
+/** The handoff that writes the cookie on a creator's website after paying on storelib.com, then goes on to `target` (an absolute address on that website). */
+export function rememberOnSiteUrl(target: string, receiptToken: string): string {
+  try {
+    const url = new URL(target)
+    return `${url.origin}/api/receipt/remember?receipt=${encodeURIComponent(receiptToken)}&next=${encodeURIComponent(`${url.pathname}${url.search}`)}`
+  } catch {
+    return target
+  }
+}
+
 /** How the cookie is written. `secure` is true on https (always, in production). */
 export function guestAccessCookieOptions(secure: boolean) {
   return { httpOnly: true, secure, sameSite: "lax" as const, path: "/", maxAge: GRANT_TTL_SECONDS }

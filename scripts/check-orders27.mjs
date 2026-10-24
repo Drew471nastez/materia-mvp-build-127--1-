@@ -258,6 +258,19 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   await sleep(600)
   await p.screenshot({ path: join(shots, `k27-${name}-list.png`) })
 
+  /* AA3: each order in what it was charged in, as the rest of the app writes it: lei as "lei" (never "RON 49.00"), the GBP order in pounds, never a dollar sign, and no amount cut off. */
+  const money = await p.evaluate(() => [...document.querySelectorAll(".orders-list tr[data-order-id]")].map((r) => {
+    const cells = [...r.querySelectorAll("td")].filter((td) => /\d/.test(td.innerText) && /lei|£|\$|€|RON|GBP|USD/.test(td.innerText))
+    return { id: r.dataset.orderId, text: cells.map((c) => c.innerText.trim()).join(" | "), clipped: cells.some((c) => c.scrollWidth > c.clientWidth + 1) }
+  }))
+  const leiRows = money.filter((m) => m.id !== "n-1")
+  expect(money.length > 0 && leiRows.every((m) => /\d lei/.test(m.text.replace(/ /g, " ")) && !/RON|\$/.test(m.text)), "lei orders read lei in the list, never RON or $", money.slice(0, 3))
+  expect(/£24\.00/.test(money.find((m) => m.id === "n-1")?.text ?? ""), "the order charged in pounds reads £24.00", money.find((m) => m.id === "n-1"))
+  expect(!money.some((m) => m.clipped), "no amount is cut off in its column", money.filter((m) => m.clipped))
+  expect(!(await p.evaluate(() => document.documentElement.scrollWidth > innerWidth)), "  and the list does not run off the side")
+  /* MONEY_ONLY=1: the list's money at each width, without the fulfil steps after it. */
+  if (process.env.MONEY_ONLY) { await p.close(); continue }
+
   /* Unseen and the list's carriers */
   const unseen = await unseenRows(p)
   expect(unseen.join() === "d-2,u-1,n-1", "orders nobody opened carry the dot, the others do not", unseen)

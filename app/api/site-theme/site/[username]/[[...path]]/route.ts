@@ -267,7 +267,16 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
           const { customerOwnsProduct } = await import("@/lib/site-accounts/owned-products")
           return customerOwnsProduct({ creatorId: shopId, email: account.customer!.email }, productId)
         }
-      : undefined,
+      : /* Bought here as a guest: the signed httpOnly grant of the browser that paid (lib/receipts/guest-access.ts), this shop's products only, its receipt the way to the files. */
+        !token && !stranger && page && /(?:^|;\s*)sl_owned=/.test(req.headers.get("cookie") ?? "")
+        ? async (productId: string) => {
+            const { guestAccessFromCookieHeader } = await import("@/lib/receipts/guest-access")
+            const { guestOpenHref, guestOwns } = await import("@/lib/receipts/guest-access-server")
+            const { createAdminClient } = await import("@/lib/supabase/admin")
+            const mine = (await guestOwns(createAdminClient(), guestAccessFromCookieHeader(req.headers.get("cookie")), { creatorId: shopId }, [productId]))[productId]
+            return mine ? { whole: mine.whole, options: mine.options, href: guestOpenHref(mine.orderId) } : null
+          }
+        : undefined,
     submit: token
       ? undefined
       : async (kind, payload) => {

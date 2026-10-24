@@ -17,7 +17,7 @@ import { itemsText, type ResolvedCopy } from "@/lib/emails/customer-custom"
 import { addressLines } from "./address"
 import { emailLanguage, et } from "@/lib/emails/words"
 import type { Address } from "./types"
-import { formatCurrency } from "@/lib/markets/money"
+import { formatMinor } from "@/lib/markets/money"
 
 export interface EmailLine {
   title: string
@@ -58,8 +58,9 @@ function esc(value: unknown): string {
     .replace(/"/g, "&quot;")
 }
 
+/** Minor units in the order's own currency, with its own decimals (¥2,500 is 2500, not ¥25). */
 export function formatMoney(cents: number, currency = "USD"): string {
-  return formatCurrency(cents / 100, currency || "USD", "en-US")
+  return formatMinor(cents, (currency || "USD").toUpperCase(), "en-US")
 }
 
 const INK = "#111827"

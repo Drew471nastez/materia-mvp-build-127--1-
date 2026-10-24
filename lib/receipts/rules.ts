@@ -49,6 +49,7 @@
 
 import { fullyRefunded } from "../orders/refund-state"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
+import { formatMinor } from "@/lib/markets/money"
 
 /* ─── Order state ─────────────────────────────────────────────────────── */
 
@@ -213,19 +214,8 @@ export function normaliseCurrency(value: string | null | undefined): string {
  * currency's own digits rather than always being by 100.
  */
 export function formatMoney(cents: number, currency: string, locale?: string): string {
-  const code = normaliseCurrency(currency)
-  let digits = 2
-  try {
-    digits = new Intl.NumberFormat("en", { style: "currency", currency: code }).resolvedOptions().maximumFractionDigits ?? 2
-  } catch {
-    digits = 2
-  }
-  const value = (Number(cents) || 0) / 10 ** digits
-  try {
-    return new Intl.NumberFormat(locale || undefined, { style: "currency", currency: code }).format(value)
-  } catch {
-    return `${code} ${value.toFixed(digits)}`
-  }
+  /* The app's one money writer (lib/markets/money formatMinor): "25.00 lei" as the product page and Orders write it, never "RON 25.00". */
+  return formatMinor(Number(cents) || 0, normaliseCurrency(currency), locale || "en")
 }
 
 /* ─── Display ─────────────────────────────────────────────────────────── */
