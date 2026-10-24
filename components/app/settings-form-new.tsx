@@ -56,7 +56,7 @@ import { displayEmail } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
-import { peekGet, prefetchGet, whenGets } from "@/components/physical/ui"
+import { peekGet, prefetchGet, readFresh, whenGets } from "@/components/physical/ui"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { MarketsPanel } from "@/components/app/settings/markets-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
@@ -1208,6 +1208,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       }).eq("id", creator.id)
 
       if (creatorError) throw creatorError
+      /* Store details shows the same address, from the read Settings kept when it opened: read again, so it opens on this one and its Save cannot put the old one back. */
+      if (supportEmail.trim() !== initialSupportEmail.current.trim()) void readFresh("/api/store/settings")
 
       /**
        * =====================================================================

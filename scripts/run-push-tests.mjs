@@ -396,6 +396,8 @@ const SUITES = [
   "tests/website-builder.test.ts",
   /* Round Z5: the theme marketplace (library cards, storelib.com/themes, /admin/themes zip checks) and a plan set from /admin; scripts/check-theme-marketplace.mjs measures the cards and pages. */
   "tests/theme-marketplace.test.ts",
+  /* Round AD3: every setting in /app/settings reaches what reads it (the live website's name and photo, Store details' form, the checklist, campaign emails). */
+  "tests/settings-reach-ad3.test.ts",
   "tests/nav-links.test.ts",
   "tests/menus-main-menu.test.ts",
   "tests/store-menus.test.ts",

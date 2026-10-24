@@ -36,6 +36,7 @@ import { FilesLibraryChooser } from "@/components/files/files-library"
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 import { addressWordsFor, needsPostalCode, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
 import { tt } from "@/lib/i18n/text"
+import { followSaved } from "@/lib/settings/follow-saved"
 import { CurrencyLink } from "./country-currency"
 
 interface Settings {
@@ -195,6 +196,33 @@ function Identity({ data, onSaved }: { data: Loaded; onSaved: (s: Settings, emai
   const emailFromAccount = !data.supportEmail && !!data.suggested?.contactEmail && email === data.suggested.contactEmail
   const [phoneCountry, setPhoneCountry] = React.useState(s.phoneCountry ?? s.defaultCountry ?? data.detectedCountry ?? "")
   const [phone, setPhone] = React.useState(s.phone ?? "")
+  /*
+    A NEWER READ, FOLLOWED. The form first draws from the answer Settings
+    fetched when it opened (peekGet). A contact email changed in Profile since
+    then came back in the panel's own read after the fields had their values,
+    and Save here wrote the old address back. Each field still showing what
+    was saved takes the newer value; one being typed in is left alone.
+  */
+  const saved = {
+    name: s.storeName ?? data.suggested?.storeName ?? "",
+    email: data.supportEmail ?? data.suggested?.contactEmail ?? "",
+    phone: s.phone ?? "",
+    phoneCountry: s.phoneCountry ?? s.defaultCountry ?? data.detectedCountry ?? "",
+  }
+  const base = React.useRef(saved)
+  const savedKey = `${saved.name}\n${saved.email}\n${saved.phone}\n${saved.phoneCountry}`
+  React.useEffect(() => {
+    const next = { name: saved.name, email: saved.email, phone: saved.phone, phoneCountry: saved.phoneCountry }
+    const current = { name, email, phone, phoneCountry }
+    const followed = followSaved(base.current, next, current)
+    base.current = next
+    if (followed.name !== name) setName(followed.name)
+    if (followed.email !== email) setEmail(followed.email)
+    if (followed.phone !== phone) setPhone(followed.phone)
+    if (followed.phoneCountry !== phoneCountry) setPhoneCountry(followed.phoneCountry)
+    // Only a new saved answer moves the fields; typing does not run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedKey])
   const { state, error, save } = useSave()
   return (
     <Card title={tt("Store details")} description={tt("How buyers see and reach your store.")} help="store">

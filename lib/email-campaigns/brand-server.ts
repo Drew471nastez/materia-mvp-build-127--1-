@@ -1,8 +1,9 @@
 /**
  * A creator's brand, read at send time with the service role.
  *
- *   name     the published website's own store name, else the display name,
- *            else the username
+ *   name     Settings › Store details' store name, else the published
+ *            website's own store name, else the display name, else the
+ *            username
  *   logo     the published website's logo, when it is an https picture
  *   colour   the website's button or primary colour when one was chosen,
  *            else the store's brand colour, else the default ink
@@ -49,7 +50,7 @@ export async function loadBrand(db: Db, creatorId: string): Promise<Brand & Bran
   })
   if (!creator) return { ...DEFAULT_BRAND, avatarUrl: null, creatorName: DEFAULT_BRAND.name }
 
-  const [profile, colour, site] = await Promise.all([
+  const [profile, colour, site, storeName] = await Promise.all([
     quietly(async () => {
       const { data } = await db
         .from("profiles")
@@ -79,11 +80,17 @@ export async function loadBrand(db: Db, creatorId: string): Promise<Brand & Bran
       const settings = (s as { settings?: Record<string, unknown> } | null)?.settings
       return settings && typeof settings === "object" ? settings : null
     }),
+    /* Settings › Store details' name (store_settings.store_name), what receipts, order emails and checkout are signed with. */
+    quietly(async () => {
+      const { data, error } = await db.from("store_settings").select("store_name").eq("creator_id", creatorId).maybeSingle()
+      return error ? null : ((data?.store_name as string | null) ?? null)
+    }),
   ])
 
   const handle = profile?.username || creator.slug || null
   return {
-    name: brandName(site?.brand_name, profile?.display_name, profile?.username, creator.headline, creator.slug),
+    /* The store's own name first, as every receipt and order email signs (lib/store/identity-server storeIdentity): {{store_name}} in a campaign said the person's name while Store details named the store. */
+    name: brandName(storeName, site?.brand_name, profile?.display_name, profile?.username, creator.headline, creator.slug),
     logoUrl: httpsUrl(site?.logo_url),
     storeUrl: handle ? `${APP_URL}/${encodeURIComponent(handle)}` : null,
     accent: hexColor(site?.button_color) ?? hexColor(site?.primary_color) ?? hexColor(colour) ?? DEFAULT_BRAND.accent,
