@@ -212,12 +212,45 @@ async function handoff() {
   check("  and a plain view sets no marker", !/sl_own=/.test(trackResponse({ recorded: true, reason: "recorded" }).headers.get("set-cookie") || ""))
 }
 
+/* ─── 8. The store's own team is not its traffic ───────────────────────── */
+async function team() {
+  console.log("\nA signed in member of the store's team is not a visitor")
+  const { isTeamMember } = await import("../lib/analytics/own-visit")
+  const { FakeSupabase } = await import("./fake-supabase")
+  const STORE = "dddddddd-0000-4000-8000-000000000001"
+  const OTHER = "dddddddd-0000-4000-8000-000000000002"
+  const db = new FakeSupabase()
+  db.table("store_team_members", {}, [
+    { id: "m1", creator_id: STORE, user_id: "u-manager", status: "active", role: "manager" },
+    { id: "m2", creator_id: STORE, user_id: "u-invited", status: "invited", role: "staff" },
+  ])
+  check("an active manager of the store is the store's own", await isTeamMember(db, "u-manager", STORE))
+  check("  an invitation not yet taken is not", !(await isTeamMember(db, "u-invited", STORE)))
+  check("  a member of another store is a visitor here", !(await isTeamMember(db, "u-manager", OTHER)))
+  check("  a database without the team table answers no", !(await isTeamMember(new FakeSupabase(), "u-manager", STORE)))
+
+  /* The pipeline asks with the store, not only its owner. */
+  const { collect } = await import("../lib/analytics/collect")
+  const { marksOwner } = await import("../lib/analytics/own-marker")
+  const world = new FakeSupabase()
+  world.clock = Date.parse("2026-10-24T10:00:00Z")
+  world.table("creators", {}, [{ id: STORE, user_id: "u-owner", slug: "mara" }])
+  let asked: unknown[] = []
+  const out = await collect(
+    { kind: "view", body: { creatorId: STORE, href: "https://storelib.com/mara" }, headers: new Headers({ host: "storelib.com", "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", "x-forwarded-for": "203.0.113.9", "sec-fetch-site": "same-origin" }), cookie: () => undefined, cookieNames: ["sb-x-auth-token"] },
+    { db: world as never, now: () => world.clock, mainDomain: "storelib.com", marksOwner, limited: async () => false, isOwnVisit: async (...args) => { asked = args; return args[2] === STORE } },
+  )
+  check("collect hands the store to the own-visit check", asked[2] === STORE, asked)
+  check("  and a team member's view is not recorded", !out.recorded && out.reason === "own", out.reason)
+}
+
 const _unused: ViewRow[] = []
 void _unused
 
 void (async () => {
   try {
     await handoff()
+    await team()
   } catch (error) {
     check("the hand-off checks ran", false, (error as Error).message)
   }
