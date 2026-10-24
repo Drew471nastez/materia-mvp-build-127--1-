@@ -4,16 +4,13 @@
  * Pure, so the rules stay pure.
  */
 import { DAY_MS } from "./policy"
+import { formatMinor } from "@/lib/markets/money"
 
 export function money(cents: number, currency: string | null | undefined): string {
   /* A currency nobody recorded is not guessed, and a bare number is not written either (it reads as any currency): nothing, and the sentence goes without it. */
   if (!currency || !/^[a-z]{3}$/i.test(currency)) return ""
-  const code = currency.toUpperCase()
-  try {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format((cents || 0) / 100)
-  } catch {
-    return `${((cents || 0) / 100).toFixed(2)} ${code}`
-  }
+  /* In the currency's own decimals (¥2,500 is 2500, not ¥25) and its own word ("25.00 lei"), by the app's one money writer. */
+  return formatMinor(cents || 0, currency.toUpperCase(), "en-US")
 }
 
 /** "Oct 3", on the creator's clock when their zone is known. */

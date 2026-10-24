@@ -54,6 +54,7 @@ import { WarmBehind } from "@/components/navigation/warm-behind"
 import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
 import { ElasticOverscroll } from "@/components/ui/elastic-overscroll"
 import { NavLanding } from "@/components/ui/nav-landing"
+import { ArrivalNote } from "@/components/auth/arrival-note"
 import { StuckLayerGuard } from "@/components/platform/stuck-layer-guard"
 import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
@@ -283,6 +284,8 @@ export default function RootLayout({
                   (round 15): its Preferences tab reads the locale, and mounted outside LocaleProvider it threw "useLocale must be
                   used within LocaleProvider", which took the whole page to "Something went wrong on this page". */}
               <SettingsSubpageHost />
+              {/* "Account created" or "Welcome back", once, on the page a sign in lands on (lib/auth/arrival.ts). */}
+              <ArrivalNote />
             </> })}
           </LocaleProvider>
         </SWRProvider>

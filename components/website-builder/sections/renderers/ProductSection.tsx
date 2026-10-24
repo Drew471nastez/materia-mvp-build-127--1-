@@ -249,22 +249,24 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
      download: the buttons become the way to the files. Asked of the
      website's own session (/api/site-account/owned), never storelib.com's,
      and never for a physical product or a membership. */
-  const [owned, setOwned] = useState<{ whole: boolean; options: string[] } | null>(null)
+  /* Bought here as a guest (the sl_owned_hint beside the signed grant, lib/receipts/guest-access.ts): asked the same way, and the answer's `href` is that order's receipt. */
+  const [owned, setOwned] = useState<{ whole: boolean; options: string[]; href: string } | null>(null)
   useEffect(() => {
     setOwned(null)
     if (inEditor || sample || !product.id || product.type === "physical" || product.type === "membership") return
-    let signedIn = false
+    let ask = false
     try {
-      signedIn = /(?:^|;\s*)sl_signed_in=1(?:;|$)/.test(document.cookie)
+      ask = /(?:^|;\s*)(?:sl_signed_in|sl_owned_hint)=1(?:;|$)/.test(document.cookie)
     } catch {
-      signedIn = false
+      ask = false
     }
-    if (!signedIn) return
+    if (!ask) return
     let live = true
     fetch(`/api/site-account/owned?ids=${encodeURIComponent(product.id)}`, { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { owned?: Record<string, { whole: boolean; options: string[] }> } | null) => {
-        if (live) setOwned(d?.owned?.[product.id] ?? null)
+      .then((d: { owned?: Record<string, { whole: boolean; options: string[]; href?: string }>; account?: string } | null) => {
+        const mine = d?.owned?.[product.id]
+        if (live) setOwned(mine ? { whole: mine.whole, options: mine.options, href: typeof mine.href === "string" && mine.href.startsWith("/api/receipt/open?") ? mine.href : "/account" } : null)
       })
       .catch(() => undefined)
     return () => {
@@ -309,7 +311,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     palette,
     inEditor,
     inert: isEditing === true,
-    buy: { add, now, added, unavailable, owned: ownedNow ? "/account" : null },
+    buy: { add, now, added, unavailable, owned: ownedNow ? owned.href : null },
     wishlist: { saved, toggle: () => { if (product.id) wishlistStore.toggle(product.id) } },
     offers: { chosen: chosenLine ? { variantId: chosenLine.variantId ?? "", variantName: chosenLine.variantName ?? null, priceCents: chosenLine.priceCents, imageUrl: chosenLine.thumbnailUrl ?? null, line: chosenLine } : null, addLines },
     radius,

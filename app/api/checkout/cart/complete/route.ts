@@ -6,6 +6,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { fulfilCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { checkoutReturnTarget, paidReturnUrl } from "@/lib/checkout/return-url"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
+import { rememberOnSiteUrl } from "@/lib/receipts/guest-access"
 
 export const runtime = "nodejs"
 
@@ -75,7 +76,8 @@ export async function GET(request: Request) {
       hosts: searchParams.get("return") ? await siteHostsFor(result.creatorId) : [],
       mainDomain,
     })
-    if (back) return NextResponse.redirect(paidReturnUrl(back))
+    /* Through /api/receipt/remember on that website's own host first, so the browser that paid keeps the purchase there (lib/receipts/guest-access.ts). Not for a signed in buyer, whose library holds it. */
+    if (back) return NextResponse.redirect(user ? paidReturnUrl(back) : rememberOnSiteUrl(paidReturnUrl(back), result.receiptToken))
 
     return NextResponse.redirect(`${platform}/receipt/${encodeURIComponent(result.receiptToken)}`)
   } catch (error) {

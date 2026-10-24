@@ -80,11 +80,22 @@ export function subscribeAuthSnapshot(onChange: () => void): () => void {
     // A null key is `localStorage.clear()`, which is also a change to this.
     if (!e.key || e.key === KEY) onChange()
   }
+  /*
+    A PAGE BROUGHT BACK FROM THE BACK/FORWARD CACHE reads it again. While it
+    was frozen another page wrote the record (a sign in, a sign out) and the
+    storage event for that was never delivered to it, so the phone's tab bar
+    came back as it was left: gone after a sign in, there after a sign out.
+  */
+  const onShow = (e: Event) => {
+    if ((e as PageTransitionEvent).persisted) onChange()
+  }
   window.addEventListener(AUTH_SNAPSHOT_EVENT, onChange)
   window.addEventListener("storage", onStorage)
+  window.addEventListener("pageshow", onShow)
   return () => {
     window.removeEventListener(AUTH_SNAPSHOT_EVENT, onChange)
     window.removeEventListener("storage", onStorage)
+    window.removeEventListener("pageshow", onShow)
   }
 }
 

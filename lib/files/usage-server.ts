@@ -103,7 +103,8 @@ export async function loadUseSources(admin: Admin, owner: Owner): Promise<UseSou
     }
   }
   const [products, pages, onepages, themeInstalls, collections, creatorRow, profileRow, communities, settings] = await Promise.all([
-    safe(admin.from("products").select("id, title, thumbnail_url, gallery_urls").eq("creator_id", owner.creatorId).limit(2000)),
+    /* The whole row: a picture can be in the description, a video setting or the SEO image too, not only the photos (AA3). */
+    safe(admin.from("products").select("*").eq("creator_id", owner.creatorId).limit(2000)),
     safe(admin.from("store_builder_configs").select("id, page_type, draft_config, published_config").eq("creator_id", owner.creatorId).limit(50)),
     safe(admin.from("onepages").select("*").eq("owner_id", owner.userId).limit(20)),
     safe(admin.from("store_theme_installs").select("id, name").eq("creator_id", owner.creatorId).limit(50)),
@@ -136,7 +137,7 @@ export function usesIn(src: UseSources, bucket: LibraryBucket, path: string): Fi
   const needle = `${bucket}/${path}`
   const uses: FileUse[] = []
   for (const p of src.products) {
-    if (mentions(p.thumbnail_url, needle) || mentions(p.gallery_urls, needle)) uses.push({ kind: "product", label: String(p.title ?? "A product"), href: `/app/products/${p.id}` })
+    if (mentions(p, needle)) uses.push({ kind: "product", label: String(p.title ?? "A product"), href: `/app/products/${p.id}` })
   }
   const titles = new Map(src.products.map((p) => [String(p.id), String(p.title ?? "A product")]))
   for (const v of src.variants) {

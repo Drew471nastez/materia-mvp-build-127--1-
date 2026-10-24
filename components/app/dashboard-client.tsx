@@ -80,7 +80,7 @@ import { ReadinessBanner } from "@/components/physical/readiness-banner"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, weekdayNames } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
-import { minorUnits } from "@/lib/markets/money"
+import { formatCurrency as formatMoneyIn, minorUnits } from "@/lib/markets/money"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
@@ -251,7 +251,7 @@ export function DashboardTrendChart({
     if (openKPIModal === "revenue") {
       const currency = storeCurrency
       const decimals = minorUnits(currency)
-      return new Intl.NumberFormat(appLocale(), { style: "currency", currency, minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(val)
+      return formatMoneyIn(val, currency, appLocale(), { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
     }
     if (openKPIModal === "conversion") return `${val}%`
     return val.toLocaleString(appLocale())
@@ -850,12 +850,8 @@ export function DashboardClient({
     if (compact && value >= 1000) {
       return new Intl.NumberFormat(appLocale(), { style: "currency", currency, notation: "compact", maximumFractionDigits: 1 }).format(value)
     }
-    return new Intl.NumberFormat(appLocale(), {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: value % 1 === 0 ? 0 : decimals,
-    }).format(value)
+    /* "1,250 lei" as Orders writes the same money (lib/markets/money formatCurrency), never "RON 1,250". */
+    return formatMoneyIn(value, currency, appLocale(), { minimumFractionDigits: 0, maximumFractionDigits: value % 1 === 0 ? 0 : decimals })
   }
 
   // Format numbers compactly (10.5K, 1.2M, etc.)

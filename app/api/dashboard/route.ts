@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { startTimer, logSlowRequest } from "@/lib/perf"
 import { creatorPageHostFromRows } from "@/lib/custom-domains/client"
 import { timed } from "@/lib/perf/server-timing"
+import { splitByCurrency } from "@/lib/orders/money"
 
 /**
  * GET /api/dashboard
@@ -86,7 +87,8 @@ async function handleGET(request: NextRequest) {
 
     // 3. Fetch orders (depends on productIds)
     let totalOrders = 0
-    let totalRevenue = 0
+    let totalRevenue: number | null = 0
+    let revenueByCurrency: { currency: string; cents: number }[] = []
     let recentOrderCount = 0
 
     if (hasProducts) {
@@ -97,7 +99,7 @@ async function handleGET(request: NextRequest) {
       ] = await Promise.all([
         admin
           .from("orders")
-          .select("id, amount_cents, status")
+          .select("id, amount_cents, status, currency")
           .in("product_id", productIds)
           .in("status", ["completed", "refunded"]),
         admin
@@ -110,7 +112,9 @@ async function handleGET(request: NextRequest) {
 
       const completedOrders = allOrders?.filter(o => o.status === "completed") || []
       totalOrders = allOrders?.length || 0
-      totalRevenue = completedOrders.reduce((sum: number, o: any) => sum + (o.amount_cents || 0), 0)
+      /* Each currency on its own line, never lei cents added to dollar cents; the single total only when every order is in one currency. */
+      revenueByCurrency = splitByCurrency(completedOrders.map((o: any) => ({ cents: o.amount_cents || 0, currency: o.currency })))
+      totalRevenue = revenueByCurrency.length <= 1 ? (revenueByCurrency[0]?.cents ?? 0) : null
       recentOrderCount = recentOrders || 0
     }
 
@@ -164,6 +168,7 @@ async function handleGET(request: NextRequest) {
       orders: {
         totalOrders,
         totalRevenue,
+        revenueByCurrency,
         recentOrders: recentOrderCount,
       },
       analytics: {

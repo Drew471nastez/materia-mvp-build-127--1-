@@ -5,7 +5,7 @@ import { confirmUpload } from "@/lib/storage/confirm-upload"
 
 import { useOnePage } from "@/lib/onepage/context"
 import * as ReactModule from "react"
-import { useEffect, useLayoutEffect, useState, useRef, useCallback, startTransition } from "react"
+import { useEffect, useLayoutEffect, useState, useRef, useCallback, startTransition, memo } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { SocialIcon } from "@/components/onepage/brand-icons"
@@ -40,7 +40,8 @@ import { familyOf, fontStack, onePageFontSampleHref } from "@/lib/onepage/fonts"
 import { normalizeHex } from "@/lib/onepage/color"
 import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
 import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
-import { PillTabs } from "@/components/onepage/pill-tabs"
+import { PillTabs, PILL_EASE } from "@/components/onepage/pill-tabs"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { NATIVE_BACK_EVENT } from "@/lib/ui/native-back"
 import { AvatarMark } from "@/components/app/app-avatar"
 import {
@@ -214,7 +215,7 @@ export const THEME_TEMPLATES = [
       background_gradient: "",
       background_image_url: "",
       text_color: "#111827",
-      secondary_text_color: "#6b7280",
+      secondary_text_color: "#5b6170",
       button_color: "#ffffff",
       button_text_color: "#111827",
       button_style: "filled" as const,
@@ -247,7 +248,7 @@ export const THEME_TEMPLATES = [
       background_gradient: "",
       background_image_url: "",
       text_color: "#1c1917",
-      secondary_text_color: "#78716c",
+      secondary_text_color: "#6b645c",
       button_color: "#ffffff",
       button_text_color: "#1c1917",
       button_style: "filled" as const,
@@ -271,6 +272,44 @@ export const THEME_TEMPLATES = [
     subscribe_style: "white",
   },
   {
+    id: "paper",
+    name: "Paper",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#f3eee4",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#23201b",
+      secondary_text_color: "#5e574c",
+      button_color: "#fbf8f2",
+      button_text_color: "#23201b",
+      button_style: "filled" as const,
+      button_border_radius: 6,
+      button_border_width: 1,
+      button_border_color: "#ddd5c6",
+      button_shadow: "none",
+      font_family: "'DM Sans', sans-serif",
+      title_font: "'Source Serif Pro', serif",
+      title_color: "#23201b",
+      social_icon_color: "#23201b",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "paper",
+      pattern_color: "#8a7a5c40",
+      pattern_opacity: "low",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#23201b",
+    solid_button_text_color: "#23201b",
+    outline_button_text_color: "#23201b",
+    glass_button_text_color: "#23201b",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
     id: "cream",
     name: "Cream",
     category: "light",
@@ -280,7 +319,7 @@ export const THEME_TEMPLATES = [
       background_gradient: "",
       background_image_url: "",
       text_color: "#1c1917",
-      secondary_text_color: "#78716c",
+      secondary_text_color: "#6b645c",
       button_color: "#1c1917",
       button_text_color: "#363221",
       button_style: "outline" as const,
@@ -320,7 +359,7 @@ export const THEME_TEMPLATES = [
       background_gradient: "",
       background_image_url: "",
       text_color: "#2340c7",
-      secondary_text_color: "#4b5fb8",
+      secondary_text_color: "#3f51a6",
       button_color: "#2340c7",
       button_text_color: "#2340c7",
       button_style: "outline" as const,
@@ -392,11 +431,11 @@ export const THEME_TEMPLATES = [
     category: "gradient",
     theme_config: {
       background_type: "gradient" as const,
-      background_color: "#e98a64",
-      background_gradient: "linear-gradient(180deg, #f7c59f 0%, #e98a64 55%, #c4553b 100%)",
+      background_color: "#8f3b28",
+      background_gradient: "linear-gradient(180deg, #ab5036 0%, #8f3b28 55%, #5e2617 100%)",
       background_image_url: "",
       text_color: "#ffffff",
-      secondary_text_color: "#fde8dc",
+      secondary_text_color: "#ffeee4",
       button_color: "#fff8f2",
       button_text_color: "#8a3320",
       button_style: "filled" as const,
@@ -432,11 +471,11 @@ export const THEME_TEMPLATES = [
       background_gradient: "linear-gradient(160deg, #fed7aa 0%, #fdba74 40%, #fb7185 100%)",
       background_image_url: "",
       text_color: "#431407",
-      secondary_text_color: "#7c2d12",
+      secondary_text_color: "#5c210c",
       button_color: "rgba(255, 255, 255, 0.55)",
       button_text_color: "#431407",
       button_style: "glass" as const,
-      button_border_radius: 999,
+      button_border_radius: 24,
       button_border_width: 1,
       button_border_color: "rgba(255, 255, 255, 0.7)",
       button_shadow: "subtle",
@@ -452,16 +491,53 @@ export const THEME_TEMPLATES = [
     subscribe_style: "white",
   },
   {
+    id: "sage",
+    name: "Sage",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#e6e3d3",
+      background_gradient: "linear-gradient(180deg, #d9dfcf 0%, #e6e3d3 55%, #eee6d6 100%)",
+      background_image_url: "",
+      text_color: "#1f261d",
+      secondary_text_color: "#4f5a4a",
+      button_color: "#fbfaf5",
+      button_text_color: "#1f261d",
+      button_style: "filled" as const,
+      button_border_radius: 24,
+      button_border_width: 0,
+      button_border_color: "#fbfaf5",
+      button_shadow: "subtle",
+      button_shadow_color: "#3d4a36",
+      font_family: "'DM Sans', sans-serif",
+      title_font: "'Lora', serif",
+      title_color: "#1f261d",
+      social_icon_color: "#2f3a2c",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#1f261d",
+    solid_button_text_color: "#1f261d",
+    outline_button_text_color: "#1f261d",
+    glass_button_text_color: "#1f261d",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
     id: "ocean",
     name: "Ocean",
     category: "gradient",
     theme_config: {
       background_type: "gradient" as const,
-      background_color: "#0ea5e9",
-      background_gradient: "linear-gradient(180deg, #0c4a6e 0%, #0369a1 50%, #0ea5e9 100%)",
+      background_color: "#0c4a6e",
+      background_gradient: "linear-gradient(180deg, #082f49 0%, #0c4a6e 50%, #075985 100%)",
       background_image_url: "",
       text_color: "#ffffff",
-      secondary_text_color: "#bae6fd",
+      secondary_text_color: "#cdeefe",
       button_color: "rgba(255, 255, 255, 0.15)",
       button_text_color: "#ffffff",
       button_style: "glass" as const,
@@ -492,7 +568,7 @@ export const THEME_TEMPLATES = [
     theme_config: {
       background_type: "gradient" as const,
       background_color: "#0b3a33",
-      background_gradient: "linear-gradient(165deg, #04110f 0%, #0b3a33 50%, #1d7a63 100%)",
+      background_gradient: "linear-gradient(165deg, #04110f 0%, #0b3a33 50%, #17614f 100%)",
       background_image_url: "",
       text_color: "#ecfdf5",
       secondary_text_color: "#a7d7c5",
@@ -527,7 +603,7 @@ export const THEME_TEMPLATES = [
       button_color: "#efe9d8",
       button_text_color: "#2e3526",
       button_style: "filled" as const,
-      button_border_radius: 999,
+      button_border_radius: 24,
       button_border_width: 0,
       button_border_color: "#efe9d8",
       button_shadow: "none",
@@ -610,6 +686,40 @@ export const THEME_TEMPLATES = [
       laser_glow_color: "#2b3542",
       laser_glow_intensity: "medium",
     },
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+  {
+    id: "graphite",
+    name: "Graphite",
+    category: "dark",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#1b1d21",
+      background_gradient: "linear-gradient(180deg, #2b2e33 0%, #1b1d21 45%, #121315 100%)",
+      background_image_url: "",
+      text_color: "#f2f2f0",
+      secondary_text_color: "#b3b7bd",
+      button_color: "rgba(255, 255, 255, 0.15)",
+      button_text_color: "#f2f2f0",
+      button_style: "glass" as const,
+      button_border_radius: 18,
+      button_border_width: 1,
+      button_border_color: "rgba(255, 255, 255, 0.14)",
+      button_shadow: "none",
+      font_family: "'Inter', sans-serif",
+      title_font: "'DM Sans', sans-serif",
+      title_color: "#f2f2f0",
+      social_icon_color: "#d4d6d9",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "grain",
+      pattern_color: "#ffffff90",
+      pattern_opacity: "low",
+    },
+    profile_layout: "classic" as const,
     share_style: "glassmorphism",
     subscribe_style: "glassmorphism",
   },
@@ -744,8 +854,8 @@ export const THEME_TEMPLATES = [
       social_icon_color: "#d1fae5",
       spacing: "normal" as const,
       card_width: "standard" as const,
-      // Wallpaper settings: 40% brightness and 30% noise strength
-      image_brightness: 40,
+      // Wallpaper settings: 32% brightness (white words read on the bright fog at the top) and 30% noise strength
+      image_brightness: 32,
       image_noise: true,
       noise_strength: 30,
     },
@@ -756,9 +866,10 @@ export const THEME_TEMPLATES = [
     category: "image",
     theme_config: {
       background_type: "image" as const,
-      background_color: "#0f0f1a",
+      background_color: "#1a1814",
       background_gradient: "",
-      background_image_url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/3513ccb7c260ffd3f3662776ca8ac9e0.jpg",
+      /* The warm grain, not the violet and orange swirl it was: no violet (see the note above the list). */
+      background_image_url: "https://storelib.com/media/platform%20images/wallpapers%20blocks/510e061be1f3d8c7a56a9cff56c8ae24.jpg",
       text_color: "#ffffff",
       secondary_text_color: "#e5e7eb",
       button_color: "#ffffff",
@@ -776,8 +887,8 @@ export const THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
-      // Wallpaper settings: 60% brightness and 40% noise strength
-      image_brightness: 60,
+      // Wallpaper settings: 40% brightness (white words read on its lightest part) and 40% noise strength
+      image_brightness: 40,
       image_noise: true,
       noise_strength: 40,
     },
@@ -2698,11 +2809,21 @@ const THEME_NAME_FONTS_HREF = onePageFontSampleHref(
  * ones included), at the size of a card. A Hero theme has its picture band
  * across the top. Picked is the thin dark border and a small ink check.
  */
-function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; onPick: () => void }) {
+/*
+  A PHOTO THEME'S CARD IS A SMALL COPY OF THE PHOTO, ON ITS OWN COLOUR. The
+  card drew the page's own wallpaper file as a CSS background: Nature's is
+  1920px at 95% quality (632KB) and was decoded again each time the card was
+  made, so the card sat white until it was. Now it is an <img> of the
+  optimizer's 384px copy, over the theme's own background colour, so before
+  the photo is in the card already reads as the theme, never white.
+*/
+const THEME_THUMB_WIDTH = 140
+
+const ThemeCard = memo(function ThemeCard({ template, selected, shown, onPick }: { template: typeof THEME_TEMPLATES[number]; selected: boolean; shown: boolean; onPick: (template: typeof THEME_TEMPLATES[number]) => void }) {
   const c = template.theme_config as typeof THEME_TEMPLATES[number]["theme_config"] & Record<string, any>
   const image = c.background_type === "image" && c.background_image_url
   const bgStyle: React.CSSProperties = image
-    ? { backgroundImage: `url(${c.background_image_url})`, backgroundSize: "cover", backgroundPosition: "center" }
+    ? { background: c.background_color }
     : { background: c.background_type === "gradient" && c.background_gradient ? c.background_gradient : c.background_color }
   const hero = (template as any).profile_layout === "hero" || c.header_layout === "hero"
   const pattern = c.background_pattern && c.background_pattern !== "none" && !image ? c.background_pattern : null
@@ -2720,18 +2841,32 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
   return (
     <button
       type="button"
-      onClick={onPick}
+      onClick={() => onPick(template)}
       aria-pressed={selected}
       aria-label={tt("{name} theme", { name: template.name })}
       data-theme-card={template.id}
+      data-theme-shown={shown ? "" : undefined}
+      /*
+        Not of the kind picked: kept, with its photo decoded, out of the
+        grid's flow and not drawn (see useSteadyFilter). Not display:none:
+        a card coming back from that has every style in it worked out anew,
+        and All after Image was 19 cards of it in one frame (311ms on a
+        phone slowed four times). Hidden like this it keeps them.
+      */
+      style={shown ? undefined : { position: "absolute", top: 0, left: 0, visibility: "hidden", pointerEvents: "none" }}
+      aria-hidden={shown ? undefined : true}
+      tabIndex={shown ? undefined : -1}
       className={cn(
         "group/theme relative flex cursor-pointer flex-col rounded-2xl border bg-white p-1.5 text-left outline-none transition-[border-color] duration-150 focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] [-webkit-tap-highlight-color:transparent]",
+        /* A hidden card is a column wide, so it comes back laid out as it will be. */
+        !shown && "w-[calc((100%-12px)/2)] sm:w-[calc((100%-24px)/3)]",
         choiceOff,
       )}
     >
       <ChoiceMark on={selected} />
       <span className="relative block aspect-[4/5] overflow-hidden rounded-xl shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
         <span className="absolute inset-0" style={bgStyle} />
+        {image ? <img src={optimizedImageUrl(c.background_image_url, THEME_THUMB_WIDTH, 75)} alt="" aria-hidden draggable={false} loading="eager" decoding="async" data-theme-thumb="" className="absolute inset-0 h-full w-full object-cover" /> : null}
         {image && c.image_brightness && c.image_brightness < 100 ? <span className="absolute inset-0 bg-black" style={{ opacity: (100 - c.image_brightness) / 100 }} /> : null}
         {pattern ? <WallpaperPattern pattern={pattern} color={c.pattern_color || "#ffffff90"} level={c.pattern_opacity || "medium"} /> : null}
         {hero ? <span className="absolute inset-x-0 top-0 h-[36%]" style={{ background: `linear-gradient(180deg, ${text}38 0%, ${text}14 70%, transparent 100%)` }} /> : null}
@@ -2772,7 +2907,7 @@ function ThemeCard({ template, selected, onPick }: { template: typeof THEME_TEMP
       <span className={cn("block truncate px-1.5 pb-1 pt-2 text-[13px] font-medium transition-colors duration-[180ms]", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{template.name}</span>
     </button>
   )
-}
+})
 
 type ThemeFilter = "all" | "light" | "dark" | "gradient" | "image"
 const THEME_KINDS: readonly { id: ThemeFilter; label: string }[] = [
@@ -2783,8 +2918,10 @@ const THEME_KINDS: readonly { id: ThemeFilter; label: string }[] = [
   { id: "image", get label() { return tt("Image") } },
 ]
 
-/** The themes of a new kind come in on a short fade in place. */
-const THEME_FILTER_FADE_MS = 140
+/** A theme of the new kind that was not on screen comes in on a short fade and settle. */
+const THEME_FILTER_FADE_MS = 200
+/** A theme on screen before and after slides from where it was to where it is now. */
+const THEME_FILTER_MOVE_MS = 280
 
 /** The box that scrolls the Theme page: the editor's tab panel. */
 function scrollBoxOf(el: HTMLElement): HTMLElement | null {
@@ -2813,11 +2950,45 @@ function scrollBoxOf(el: HTMLElement): HTMLElement | null {
  * reduced motion they are simply there. scripts/check-onepage-tabbar.mjs
  * measures every pill and the row before and after each pick, and the
  * layout shift.
+ *
+ * NO THEME BLINKS ON A PICK. "Switching between categories, the themes
+ * flash and glitch." Every pick threw the cards away and made new ones (the
+ * list was the kind's own list), so each thumbnail was built again, a photo
+ * one decoded again from a 1920px file, and the whole grid then faded up
+ * from nothing: every card, the ones that stayed included, was blank for a
+ * frame or more. Now every card is made once and kept; a pick only lays out
+ * the ones of the kind (the rest are display:none, their photos still
+ * decoded). A card that was on screen and still is slides from where it
+ * was to where it is now (transform, from positions read after the last
+ * layout, never in the press); one that comes in fades and settles from 97%
+ * (opacity and transform). Nothing is ever drawn at opacity 0 that was
+ * shown a frame before. scripts/check-onepage-themes.mjs samples every frame
+ * of each pick and fails on a card that is blank.
  */
 function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => void) {
   const gridRef = useRef<HTMLDivElement>(null)
   const pending = useRef<{ box: HTMLElement; top: number; rest: number } | null>(null)
   const held = useRef<{ box: HTMLElement; rest: number; natural: number; min: number } | null>(null)
+  /* Where each shown card was laid out, read after a layout (never in the press), for the slide. */
+  const placed = useRef<Map<string, { x: number; y: number }>>(new Map())
+  const moves = useRef<Animation[]>([])
+  const readPlaces = useCallback(() => {
+    const grid = gridRef.current
+    const next = new Map<string, { x: number; y: number }>()
+    grid?.querySelectorAll<HTMLElement>("[data-theme-card][data-theme-shown]").forEach((el) => {
+      next.set(el.dataset.themeCard || "", { x: el.offsetLeft, y: el.offsetTop })
+    })
+    placed.current = next
+  }, [])
+  useLayoutEffect(() => {
+    readPlaces()
+    const grid = gridRef.current
+    if (!grid || typeof ResizeObserver === "undefined") return
+    /* A narrower column (a rotation, the panel resized) lays the cards out anew: read them again. */
+    const resized = new ResizeObserver(() => { if (moves.current.length === 0) readPlaces() })
+    resized.observe(grid)
+    return () => resized.disconnect()
+  }, [readPlaces])
 
   const pickFilter = useCallback((f: ThemeFilter) => {
     if (f === filter) return
@@ -2833,6 +3004,31 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
     const at = pending.current
     pending.current = null
     if (!grid || !at) return
+    /*
+      Everything is read first and written after, so the page is laid out
+      once here: reading a card's place after starting the last one's
+      slide laid the whole editor out again for every card (21 times, 60ms
+      a pick on a phone slowed four times).
+    */
+    let before = placed.current
+    /* A pick while cards are still sliding: each starts from where it is drawn now, not from where it was going. */
+    if (moves.current.length > 0 && typeof DOMMatrixReadOnly !== "undefined") {
+      const drawn = new Map<string, { x: number; y: number }>()
+      grid.querySelectorAll<HTMLElement>("[data-theme-card]").forEach((el) => {
+        const id = el.dataset.themeCard || ""
+        const was = before.get(id)
+        if (!was) return
+        /* Where it was laid out, plus how far its slide still has it from there. */
+        const t = getComputedStyle(el).transform
+        const m = t && t !== "none" ? new DOMMatrixReadOnly(t) : null
+        drawn.set(id, m ? { x: was.x + m.m41, y: was.y + m.m42 } : was)
+      })
+      before = drawn
+    }
+    /* Where each shown card is laid out now (a card's place does not depend on the grid's held height: its rows start at the top). */
+    const cards = [...grid.querySelectorAll<HTMLElement>("[data-theme-card][data-theme-shown]")]
+    const now = new Map<string, { x: number; y: number }>()
+    for (const el of cards) now.set(el.dataset.themeCard || "", { x: el.offsetLeft, y: el.offsetTop })
     grid.style.minHeight = ""
     const natural = grid.offsetHeight
     const rest = at.rest
@@ -2845,10 +3041,25 @@ function useSteadyFilter(filter: ThemeFilter, setFilter: (f: ThemeFilter) => voi
       held.current = null
     }
     if (at.box.scrollTop !== at.top) at.box.scrollTop = at.top
-    grid.getAnimations?.().forEach((a) => a.cancel())
-    if (typeof grid.animate === "function" && !reducedMotion()) {
-      grid.animate([{ opacity: 0 }, { opacity: 1 }], { duration: THEME_FILTER_FADE_MS, easing: "ease-out" })
+    /* The cards: those that stay slide, those that arrive fade in; nothing that stays is ever drawn faded. */
+    moves.current.forEach((a) => a.cancel())
+    moves.current = []
+    placed.current = now
+    if (typeof grid.animate !== "function" || reducedMotion()) return
+    for (const el of cards) {
+      const to = now.get(el.dataset.themeCard || "")!
+      const from = before.get(el.dataset.themeCard || "")
+      if (from) {
+        const dx = from.x - to.x
+        const dy = from.y - to.y
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue
+        moves.current.push(el.animate([{ transform: `translate3d(${dx}px, ${dy}px, 0)` }, { transform: "translate3d(0, 0, 0)" }], { duration: THEME_FILTER_MOVE_MS, easing: PILL_EASE }))
+      } else {
+        moves.current.push(el.animate([{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "scale(1)" }], { duration: THEME_FILTER_FADE_MS, easing: "cubic-bezier(0.2, 0, 0, 1)" }))
+      }
     }
+    const ran = moves.current
+    if (ran.length) Promise.all(ran.map((a) => a.finished.catch(() => null))).then(() => { if (moves.current === ran) moves.current = [] })
   }, [filter])
 
   /* Scrolled back up, the hold is needed less: it shrinks with the scroll, never under what is on screen. */
@@ -2893,6 +3104,8 @@ function ThemeSection() {
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useState<typeof THEME_TEMPLATES[0] | null>(null)
   const { gridRef, pickFilter } = useSteadyFilter(filter, setFilter)
+  const pickRef = useRef<(template: typeof THEME_TEMPLATES[0]) => void>(() => {})
+  const onPick = useCallback((template: typeof THEME_TEMPLATES[0]) => pickRef.current(template), [])
 
   if (!onepage) return null
   const { theme, draft_blocks } = onepage
@@ -2946,7 +3159,8 @@ function ThemeSection() {
     setPendingTemplate(null)
   }
 
-  const filteredTemplates = filter === "all" ? THEME_TEMPLATES : THEME_TEMPLATES.filter(t => t.category === filter)
+  /* One function for every card across renders, so a pick of a kind draws no card again but those that change (ThemeCard is memo). */
+  pickRef.current = handleApplyTemplate
 
   return (
     <div>
@@ -2971,9 +3185,10 @@ function ThemeSection() {
         offClass="text-[#4b5563]"
       />
       {THEME_NAME_FONTS_HREF ? <link rel="stylesheet" href={THEME_NAME_FONTS_HREF} /> : null}
-      <div ref={gridRef} className="grid grid-cols-2 content-start gap-3 sm:grid-cols-3" data-theme-grid="">
-        {filteredTemplates.map((template) => (
-          <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} onPick={() => handleApplyTemplate(template)} />
+      {/* Every card, made once and kept; a pick of a kind shows its own (useSteadyFilter). `relative` so each card's offset is read from the grid. */}
+      <div ref={gridRef} className="relative grid grid-cols-2 content-start gap-3 sm:grid-cols-3" data-theme-grid="">
+        {THEME_TEMPLATES.map((template) => (
+          <ThemeCard key={template.id} template={template} selected={theme.template_id === template.id} shown={filter === "all" || template.category === filter} onPick={onPick} />
         ))}
       </div>
 

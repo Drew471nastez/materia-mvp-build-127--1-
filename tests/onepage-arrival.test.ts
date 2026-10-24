@@ -161,7 +161,19 @@ async function main() {
     check("the rest of the panel is measured before the change, the scroll put back after it",
       /rest: box\.scrollHeight - grid\.offsetHeight/.test(design) && /if \(at\.top > 0 && need > natural\) \{\s*grid\.style\.minHeight = `\$\{need\}px`/.test(design) && /if \(at\.box\.scrollTop !== at\.top\) at\.box\.scrollTop = at\.top/.test(design))
     check("the grid never stretches its rows to the held height", /grid grid-cols-2 content-start gap-3 sm:grid-cols-3/.test(design))
-    check("the themes come in on an opacity fade, none with reduced motion", /grid\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: THEME_FILTER_FADE_MS/.test(design) && /!reducedMotion\(\)/.test(design))
+    /*
+      Was: the whole grid faded up from opacity 0 on every pick, over cards
+      made anew. That fade blanked every thumbnail, the ones that stayed
+      included ("the themes flash and glitch"). Now every card is kept, the
+      ones that stay slide to their new place, and only the ones that arrive
+      fade in (round 10, scripts/check-onepage-themes.mjs samples the frames).
+    */
+    check("every theme card is kept; a pick only shows or hides them", /\{THEME_TEMPLATES\.map\(\(template\) => \(\s*<ThemeCard key=\{template\.id\}[^>]*shown=\{filter === "all" \|\| template\.category === filter\}/.test(design) && !/filteredTemplates/.test(design))
+    check("cards that stay slide, cards that arrive fade in, none with reduced motion",
+      /if \(typeof grid\.animate !== "function" \|\| reducedMotion\(\)\) return/.test(design) &&
+      /el\.animate\(\[\{ transform: `translate3d\(\$\{dx\}px, \$\{dy\}px, 0\)` \}, \{ transform: "translate3d\(0, 0, 0\)" \}\], \{ duration: THEME_FILTER_MOVE_MS/.test(design) &&
+      /el\.animate\(\[\{ opacity: 0, transform: "scale\(0\.97\)" \}, \{ opacity: 1, transform: "scale\(1\)" \}\], \{ duration: THEME_FILTER_FADE_MS/.test(design) &&
+      !/grid\.animate\(\[\{ opacity: 0 \}/.test(design))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

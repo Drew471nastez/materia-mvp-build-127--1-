@@ -616,6 +616,26 @@ function afterPaidHeaders(site: SiteOfCheckout, fingerprint: string | null, whol
   return h
 }
 
+/**
+ * And the purchase kept by the browser that paid, on this host: the signed
+ * httpOnly `sl_owned` grant the receipt page writes (lib/receipts/
+ * guest-access.ts), written here too, because a guest who reads the thank
+ * you page and leaves never opens the receipt. The product page on this
+ * website then says it is theirs, signed in to the website or not.
+ */
+async function withGuestGrant(headers: Headers, request: Request, admin: Admin, site: SiteOfCheckout, receiptToken: string): Promise<Headers> {
+  try {
+    const { guestAccessFromCookieHeader, guestAccessSetCookies } = await import("@/lib/receipts/guest-access")
+    const { rememberReceipt } = await import("@/lib/receipts/guest-access-server")
+    const raw = guestAccessFromCookieHeader(request.headers.get("cookie"))
+    const next = await rememberReceipt(admin, receiptToken, raw)
+    if (next && (next.value || raw)) for (const c of guestAccessSetCookies(next.value, site.origin.startsWith("https:"))) headers.append("Set-Cookie", c)
+  } catch {
+    /* Not remembered: the receipt email still opens it, and the receipt page remembers it then. */
+  }
+  return headers
+}
+
 async function confirm(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
   const paymentIntentId = typeof body.paymentIntentId === "string" ? body.paymentIntentId : ""
   const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret : ""
@@ -629,7 +649,7 @@ async function confirm(request: Request, admin: Admin, site: SiteOfCheckout, bod
   const basket = await fulfilCartPayment(admin, paymentIntentId, { baseUrl: platform, request, clientSecret })
   if (basket.ok) {
     if (basket.creatorId !== site.creatorId) return json({ error: "That payment could not be found." }, 404)
-    return NextResponse.json({ receiptToken: basket.receiptToken, thanks: siteThanksHref(basket.receiptToken, { whole: wholeCart }), complete: basket.complete }, { headers: afterPaidHeaders(site, basket.sessionFingerprint, wholeCart) })
+    return NextResponse.json({ receiptToken: basket.receiptToken, thanks: siteThanksHref(basket.receiptToken, { whole: wholeCart }), complete: basket.complete }, { headers: await withGuestGrant(afterPaidHeaders(site, basket.sessionFingerprint, wholeCart), request, admin, site, basket.receiptToken) })
   }
   if (basket.reason !== "unreadable") return json({ error: basketError(basket.reason) }, basket.status)
 
@@ -814,7 +834,7 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     if (holder && coupon) await releaseCouponHold(admin, coupon.id, holder)
     return json({ error: "The order could not be saved. Try again in a moment." }, 500)
   }
-  return NextResponse.json({ receiptToken: written.receiptToken, thanks: siteThanksHref(written.receiptToken, { whole: wholeCart }) }, { headers: afterPaidHeaders(site, written.sessionFingerprint, wholeCart) })
+  return NextResponse.json({ receiptToken: written.receiptToken, thanks: siteThanksHref(written.receiptToken, { whole: wholeCart }) }, { headers: await withGuestGrant(afterPaidHeaders(site, written.sessionFingerprint, wholeCart), request, admin, site, written.receiptToken) })
 }
 
 /* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */

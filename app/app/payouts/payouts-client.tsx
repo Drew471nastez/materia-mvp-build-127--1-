@@ -55,6 +55,7 @@ import React, {
   type ButtonHTMLAttributes,
 } from "react";
 import { StorelibPaymentsInline } from "@/components/app/settings/storelib-payments-inline";
+import { formatCurrency } from "@/lib/markets/money";
 import { createPortal } from "react-dom";
 import {
   AreaChart,
@@ -190,16 +191,8 @@ interface ChartPoint {
 function fmt(minor: number, currency = "usd") {
   const code = (currency || "usd").toUpperCase();
   const d = decimalsOf(code);
-  try {
-    return new Intl.NumberFormat(appLocale(), {
-      style: "currency",
-      currency: code,
-      minimumFractionDigits: d,
-      maximumFractionDigits: d,
-    }).format(minor / 10 ** d);
-  } catch {
-    return `${(minor / 10 ** d).toFixed(d)} ${code}`;
-  }
+  /* "25.00 lei" as Orders and the receipt write it, never "RON 25.00" (lib/markets/money formatCurrency). */
+  return formatCurrency(minor / 10 ** d, code, appLocale(), { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
 /**

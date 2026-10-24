@@ -3853,7 +3853,16 @@ function PublicBlockRenderer({
                     <AvatarFallback
                       delayMs={profile.avatar_url ? undefined : 0}
                       className="text-2xl sm:text-3xl font-semibold"
-                      style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                      /*
+                        A solid button's colours; on a glass or outline theme the
+                        button colour is see-through white and the circle under it
+                        is white, so the letter was white on white (Graphite,
+                        Midnight, Ocean with no picture). There it is the text
+                        colour on a tint of it over the page's own colour.
+                      */
+                      style={theme.button_style === "glass" || theme.button_style === "outline"
+                        ? { backgroundColor: `color-mix(in srgb, ${theme.text_color} 16%, ${theme.background_color || "#ffffff"})`, color: theme.text_color }
+                        : { backgroundColor: theme.button_color, color: theme.button_text_color }}
                     >
                       {profile.title?.trim() ? profile.title.charAt(0).toUpperCase() : <AvatarMark name="" size={96} />}
                     </AvatarFallback>

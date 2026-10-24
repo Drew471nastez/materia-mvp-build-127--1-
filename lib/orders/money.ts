@@ -8,7 +8,7 @@
  * An amount stored with no currency is the platform's charge currency, the
  * one every checkout charges in (lib/payments/fees/currency-rules).
  */
-import { currencyCode, currencyWord, minorUnits } from "@/lib/markets/money"
+import { currencyCode, currencyWord, formatMinor, minorUnits } from "@/lib/markets/money"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -17,24 +17,35 @@ export function orderCurrency(raw: unknown): string {
   return currencyCode(raw) ?? platformChargeCurrencyUpper()
 }
 
-const formatters = new Map<string, Intl.NumberFormat>()
-
-/** "25,00 lei": minor units of `currency` in the dashboard's language. */
+/**
+ * "25,00 lei": minor units of `currency` in the dashboard's language, by
+ * the app's one money writer (lib/markets/money formatMinor), so a lei order
+ * reads "25.00 lei" here as it does on the product, the checkout and the
+ * receipt. Intl alone wrote "RON 25.00" in English.
+ */
 export function formatOrderMoney(minor: number, currency?: string | null): string {
-  const code = orderCurrency(currency)
-  const decimals = minorUnits(code)
-  const locale = appLocale()
-  const key = `${locale}|${code}`
-  let f = formatters.get(key)
-  if (!f) {
-    try {
-      f = new Intl.NumberFormat(locale, { style: "currency", currency: code, minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-    } catch {
-      f = new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-    }
-    formatters.set(key, f)
+  return formatMinor(Number.isFinite(minor) ? minor : 0, orderCurrency(currency), appLocale())
+}
+
+/**
+ * Amounts in more than one currency, never added together: one line per
+ * currency, the largest first ("120.00 lei + $35.00"). For a total over
+ * orders charged in different currencies where no conversion is made.
+ */
+export function splitByCurrency(rows: readonly { cents: number; currency?: string | null }[]): { currency: string; cents: number }[] {
+  const sums = new Map<string, number>()
+  for (const r of rows) {
+    const code = orderCurrency(r.currency)
+    sums.set(code, (sums.get(code) ?? 0) + (Number.isFinite(r.cents) ? r.cents : 0))
   }
-  return f.format((minor || 0) / 10 ** decimals)
+  return [...sums.entries()].map(([currency, cents]) => ({ currency, cents })).sort((a, b) => b.cents - a.cents || a.currency.localeCompare(b.currency))
+}
+
+/** splitByCurrency, written: "120.00 lei + $35.00". */
+export function formatSplitMoney(rows: readonly { cents: number; currency?: string | null }[]): string {
+  const parts = splitByCurrency(rows)
+  if (!parts.length) return formatOrderMoney(0, null)
+  return parts.map((p) => formatOrderMoney(p.cents, p.currency)).join(" + ")
 }
 
 /**

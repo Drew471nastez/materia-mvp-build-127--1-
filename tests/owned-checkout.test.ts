@@ -233,19 +233,23 @@ async function main() {
     const customer = { name: "Ana", first_name: "Ana", email: "ana.pop@mail.test", orders: [], orders_count: 0 }
     const signedIn = String((await answer(site, { method: "GET", path: "/products/ebook", query: new URLSearchParams(), body: null, cart: [], account: { customer }, owned: ownedFn })).body)
     check("an imported theme's product page tells the signed in owner, without touching the theme's form", /id="sl-owned"/.test(signedIn) && /class="p">Ebook<button name="add">Add to cart<\/button>/.test(signedIn) && asked[0] === EBOOK)
-    const guest = String((await answer(site, { method: "GET", path: "/products/ebook", query: new URLSearchParams(), body: null, cart: [], account: { customer: null }, owned: ownedFn })).body)
-    check("  a guest's page says nothing and asks nothing", !/sl-owned/.test(guest) && asked.length === 1)
+    /* Changed on purpose (AA3): a guest who bought in this browser is told too. The route passes `owned` for a guest only when the browser holds a signed grant (lib/receipts/guest-access.ts); without one nothing is asked. */
+    const guest = String((await answer(site, { method: "GET", path: "/products/ebook", query: new URLSearchParams(), body: null, cart: [], account: { customer: null }, owned: undefined })).body)
+    check("  a guest with no grant: the page says nothing and asks nothing", !/sl-owned/.test(guest) && asked.length === 1)
+    const guestOwner = String((await answer(site, { method: "GET", path: "/products/ebook", query: new URLSearchParams(), body: null, cart: [], account: { customer: null }, owned: async () => ({ whole: true, options: [], href: "/api/receipt/open?order=0a000000-0000-4000-8000-000000000001" }) })).body)
+    check("  a guest who bought it here: told, with the way to that receipt", /id="sl-owned"/.test(guestOwner) && /href="\/api\/receipt\/open\?order=0a000000-0000-4000-8000-000000000001"/.test(guestOwner))
     const notOwned = String((await answer(site, { method: "GET", path: "/products/ebook", query: new URLSearchParams(), body: null, cart: [], account: { customer }, owned: async () => null })).body)
     check("  nor for a product they don't own", !/sl-owned/.test(notOwned))
     const live = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
     check("the live route asks only for a signed in customer, by the session's email and this site's shop", /owned: account\?\.customer\?\.email\s*\?/.test(live) && /customerOwnsProduct\(\{ creatorId: shopId, email: account\.customer!\.email \}, productId\)/.test(live))
 
     const section2 = code("components/website-builder/sections/renderers/ProductSection.tsx")
-    check("a built site's product asks the website's own session, only when its signed in hint is there, never for a physical product", /sl_signed_in=1/.test(section2) && /\/api\/site-account\/owned\?ids=/.test(section2) && /product\.type === "physical" \|\| product\.type === "membership"\) return/.test(section2))
+    check("a built site's product asks the website's own session, only when its signed in hint is there, never for a physical product", /sl_signed_in\|sl_owned_hint\)=1/.test(section2) && /\/api\/site-account\/owned\?ids=/.test(section2) && /product\.type === "physical" \|\| product\.type === "membership"\) return/.test(section2))
     const blocks = code("components/website-builder/sections/renderers/product/product-blocks.tsx")
     check("  and its buttons become the way to the downloads", /if \(buy\.owned\) \{/.test(blocks) && /Go to your downloads/.test(blocks) && /You already own this\./.test(blocks))
     const api = code("app/api/site-account/owned/route.ts")
-    check("  the endpoint answers a guest with nothing at all", /if \(!visitor\) return privateResponse\(NextResponse\.json\(\{ signedIn: false, owned: \{\} \}\)\)/.test(api))
+    /* Changed on purpose (AA3): a guest's own signed grant, this site's shop only; anybody else gets nothing at all. */
+    check("  the endpoint answers a guest only from their own grant, and nothing otherwise", /guestOwns\(db, raw, \{ creatorId: site\.creatorId \}, ids\)/.test(api) && /return privateResponse\(NextResponse\.json\(\{ signedIn: false, owned: \{\} \}\)\)\n\}/.test(api))
   }
 
   console.log("\nExplore and the creator page keep their library, by the same rule")

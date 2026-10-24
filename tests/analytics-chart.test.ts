@@ -193,7 +193,7 @@ section("The page cannot re-render the chart for free")
      * call, for every stat card and every tooltip line.
      */
     /* Changed on purpose (the owner: analytics in the store's own currency): formatCurrency keeps one formatter per currency, and the callback changes only with the currency. */
-    /const formatPrice = useCallback\(\(cents: number\) => formatCurrency\(cents \/ 100, storeCurrency, appLocale\(\)\), \[storeCurrency\]\)/.test(PAGE) &&
+    /* Changed on purpose (round AA3): minor units in the currency's own decimals, so a yen store reads ¥2,500, not ¥25. */ /const formatPrice = useCallback\(\(cents: number\) => formatMinor\(cents, storeCurrency, appLocale\(\)\), \[storeCurrency\]\)/.test(PAGE) &&
       /const numberFormats = new Map<string, Intl\.NumberFormat>\(\)/.test(readFileSync(join(process.cwd(), "lib/markets/money.ts"), "utf8")) &&
       /const chartDisplayData = useMemo\(/.test(PAGE),
   )

@@ -44,15 +44,16 @@ const root = process.cwd()
 /** Comments stripped for every check, presence ones included. */
 const code = (p: string) => stripComments(readFileSync(join(root, p), "utf8"))
 
-const hero = code("components/marketing/hero.tsx")
+/* Changed on purpose (round AA1): the hero was remade, and its pictures are listed in lib/marketing/hero-media.ts and drawn through next/image. */
+const hero = ["components/marketing/hero.tsx", "components/marketing/hero-carousel.tsx", "lib/marketing/hero-media.ts"].map(code).join("\n")
 const gallery = code("components/product/product-gallery.tsx")
 const viewer = code("components/product/product-media-viewer.tsx")
 
-console.log("\nThe collage behind the front page's headline\n")
+console.log("\nThe pictures on the front page's hero\n")
 
 check(
   "its images go through the optimizer",
-  /optimizedImageUrl\(src, 160, 75\)/.test(hero) && /optimizedImageUrl\(src, 320, 75\)/.test(hero),
+  /from "next\/image"/.test(code("components/marketing/hero.tsx")) && /from "next\/image"/.test(code("components/marketing/hero-carousel.tsx")),
   "they were being fetched at full size",
 )
 check(
@@ -67,24 +68,16 @@ check(
 )
 
 /**
- * The descriptors have to be the widths the optimizer was ASKED for, not the
- * ones the cards happen to be: `optimizedImageUrl` snaps to a width Next will
- * serve, so a srcset that claims otherwise makes the browser choose wrongly.
+ * The descriptors have to be the widths the optimizer SERVES. next/image
+ * writes the srcset from the widths it is configured to serve, so the hero
+ * must not hand-build one beside it.
  */
+check("no hand-built srcset in the hero", !/srcSet=/.test(hero))
 {
+  /* The helper the rest of the site uses still snaps to a served width and quality. */
   const small = optimizedImageUrl("https://x.supabase.co/a.webp", 160, 75)
-  const large = optimizedImageUrl("https://x.supabase.co/a.webp", 320, 75)
   const widthOf = (u: string) => Number(u.match(/[?&]w=(\d+)/)?.[1])
-  /* A plain string, not a regex: the thing being compared is itself full of
-     `$`, `{` and `[`, and escaping all of them for a pattern is how a check
-     ends up testing its own escaping rather than the file. */
-  const wanted = "${IMAGES_SM[imageIdx]} " + widthOf(small) + "w, ${IMAGES_LG[imageIdx]} " + widthOf(large) + "w"
-  check(
-    "the srcset descriptors match the widths actually requested",
-    hero.includes(wanted),
-    `wanted \`${wanted}\``,
-  )
-  check("and it asks for a quality the config serves", widthOf(small) > 0 && /q=75/.test(small))
+  check("and the optimizer's helper asks for a quality the config serves", widthOf(small) > 0 && /q=75/.test(small))
 }
 
 check(
