@@ -2161,8 +2161,20 @@ export const CANVAS_BRIDGE = `
     if (m.type === "hold-view") { holdView(!!m.on); return; }
     /* After whatever was asked before it is on the page: a listener reads the page as it now is. */
     if (m.type === "settings") {
+      /* A value under a finger, which the theme's script may write itself: the outlines follow it as they follow the builder's own (streaming). */
+      if (m.live) streaming();
       queue = queue.then(function () {
-        try { document.dispatchEvent(new CustomEvent("storelib:settings-change", { detail: m.section ? { settings: m.settings || {}, live: !!m.live, section: String(m.section) } : { settings: m.settings || {}, live: !!m.live } })); } catch (err) {}
+        /*
+          Cancelable (round BC): a theme's listener that has written a
+          section's value itself calls preventDefault(), and the builder
+          stops drawing that section for each value while the finger moves
+          (compat-canvas.tsx, APPLIED BY THE THEME).
+        */
+        try {
+          var ev = new CustomEvent("storelib:settings-change", { cancelable: true, detail: m.section ? { settings: m.settings || {}, live: !!m.live, section: String(m.section) } : { settings: m.settings || {}, live: !!m.live } });
+          document.dispatchEvent(ev);
+          if (ev.defaultPrevented && m.section) post({ type: "settings-applied", section: String(m.section), keys: Object.keys(m.settings || {}) });
+        } catch (err) {}
       }).catch(function () {});
       return;
     }

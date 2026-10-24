@@ -1376,6 +1376,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     window.setTimeout(next, 0)
   }
+  /* A section's setting the theme's script applies itself, by `${section id}|${setting id}` (APPLIED BY THE THEME, below). */
+  const appliedByTheme = useRef(new Set<string>())
   const syncSlot = (slot: Slot, list: StoredSection[] = sectionsRef.current) => {
     const win = frames.current.get(slot.n)?.contentWindow
     if (!compatTheme || !win || !slot.ready) return
@@ -1436,6 +1438,16 @@ export function CompatCanvas(props: CompatCanvasProps) {
       }
       if (told && told.path.length === 2 && told.path[0] === "settings" && typeof told.path[1] === "string") {
         win.postMessage({ storelib: 1, type: "settings", settings: { [told.path[1]]: told.to }, live, section: s.id }, "*")
+        /*
+          APPLIED BY THE THEME (round BC). A theme's listener that writes the
+          value itself and calls event.preventDefault() has said so
+          (canvas-bridge.ts "settings-applied"): while the finger moves, the
+          section is not drawn by Liquid nor sent for each value, only told.
+          The release draws it by Liquid once, as before (drawnFrom still
+          names what Liquid last drew), so whatever else the value changes
+          in its markup arrives then.
+        */
+        if (live && appliedByTheme.current.has(`${s.id}|${told.path[1]}`)) continue
       }
       if (html === null) {
         try {
@@ -1861,6 +1873,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
         if (typeof h === "string") onIntent.current?.(withoutLanguage(h, langRef.current))
       } else if (m.type === "edits-failed") {
         themeFailedRef.current((m as { key?: unknown }).key)
+      } else if (m.type === "settings-applied" && isFront) {
+        /* The theme's script wrote a section's value itself and said so (APPLIED BY THE THEME, syncSlot). */
+        const a = m as { section?: unknown; keys?: unknown }
+        if (typeof a.section === "string" && Array.isArray(a.keys)) for (const k of a.keys) if (typeof k === "string") appliedByTheme.current.add(`${a.section}|${k}`)
       } else if (m.type === "resend") {
         /* The frame did not hold the drawing a cut was read against: the section whole, as it is now. */
         const id = (m as { id?: unknown }).id
