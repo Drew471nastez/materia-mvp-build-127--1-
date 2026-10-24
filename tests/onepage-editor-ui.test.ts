@@ -303,7 +303,8 @@ function main() {
     */
     const linksSrc = read("components/onepage/tabs/links-tab.tsx")
     check("no centred dialog is left in the Links or Design tab", !/<Dialog open=/.test(linksSrc) && !/<Dialog open=/.test(design))
-    check("a crop keeps its finger from the sheet", (linksSrc.match(/data-sheet-no-drag=""/g) ?? []).length >= 2 && (design.match(/data-sheet-no-drag=""/g) ?? []).length >= 5)
+    /* Round 11: every crop is the one cropper now (components/onepage/media-cropper.tsx), which carries data-sheet-no-drag itself; the tabs use it through CropUpload. */
+    check("a crop keeps its finger from the sheet", /data-sheet-no-drag=""/.test(read("components/onepage/media-cropper.tsx")) && (linksSrc.match(/<CropUpload\b/g) ?? []).length >= 2 && (design.match(/<CropUpload\b/g) ?? []).length >= 4)
     check("Add block, the social link and Share are built ahead and kept, as the notifications sheet is",
       /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /sheet=\{\{ keepMounted: true \}\}/.test(linksSrc)
       && /title="Share your OnePage" hideFrom="md" keepMounted/.test(read("components/onepage/onepage-editor.tsx")))

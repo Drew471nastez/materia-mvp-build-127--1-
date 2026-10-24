@@ -191,7 +191,8 @@ async function main() {
     check("Settings › General saves through the account route", settings.includes('fetch("/api/account/avatar"') && settings.includes('from("avatars")'))
 
     const links = readCode("components/onepage/tabs/links-tab.tsx")
-    check("the OnePage editor uploads into the account's own avatars folder", links.includes('supabase.storage.from("avatars").upload(fileName, blob'))
+    /* Round 11: the crop sheet (components/onepage/crop-upload.tsx) uploads it, into the avatars bucket, in both the Links and the Design tab. */
+    check("the OnePage editor uploads into the account's own avatars folder", /prefix="avatar"\s+bucket="avatars"/.test(links) && /prefix="avatar"\s+bucket="avatars"/.test(readCode("components/onepage/tabs/design-tab.tsx")))
     check("and saves it as the profile photo", links.includes('fetch("/api/account/avatar"'))
     check("it no longer keeps its photo in onepage-assets", !/from\("onepage-assets"\)\.upload\(fileName, blob/.test(links))
     check("removing it there removes the one photo", /url: null/.test(links) && links.includes("announceAvatar(null)"))

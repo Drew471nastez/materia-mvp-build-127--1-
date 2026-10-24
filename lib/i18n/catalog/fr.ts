@@ -10784,7 +10784,29 @@ const words: Record<string, string> = {
  "This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.": "Cette période compte plus de commandes qu'un rapport n'en lit d'un coup, ces chiffres laissent donc de côté les plus récentes. Choisissez une période plus courte pour des chiffres exacts.",
  "Orders do not record their page on this store yet, so the sales reports count every page.": "Les commandes de cette boutique n'enregistrent pas encore leur page, les rapports de ventes comptent donc toutes les pages.",
  "{count, plural, one {# visit} other {# visits}}": "{count, plural, one {# visite} other {# visites}}",
- "Analytics file": "Fichier d’analyses"
+ "Analytics file": "Fichier d’analyses",
+ "Use an MP4, MOV, WebM or M4V video.": "Utilisez une vidéo MP4, MOV, WebM ou M4V.",
+ "Use a JPG, PNG, WebP, GIF or HEIC picture.": "Utilisez une image JPG, PNG, WebP, GIF ou HEIC.",
+ "Use a picture or a video file.": "Utilisez une image ou une vidéo.",
+ "This video is over {limit}. Pick a shorter one.": "Cette vidéo dépasse {limit}. Choisissez-en une plus courte.",
+ "This file is bigger than uploads allow right now. Try a smaller one.": "Ce fichier est plus gros que ce qui peut être envoyé pour le moment. Essayez un fichier plus petit.",
+ "This file is empty. Pick another one.": "Ce fichier est vide. Choisissez-en un autre.",
+ "This photo can't be opened in this browser. Save it as a JPG, or open the editor in Safari.": "Cette photo ne peut pas s'ouvrir dans ce navigateur. Enregistrez-la en JPG ou ouvrez l'éditeur dans Safari.",
+ "The connection dropped. Check it and try again.": "La connexion a été coupée. Vérifiez-la et réessayez.",
+ "The upload stopped moving. Check your connection and try again.": "L'envoi ne progresse plus. Vérifiez votre connexion et réessayez.",
+ "Upload stopped.": "Envoi arrêté.",
+ "Getting it ready": "Préparation",
+ "{percent}% · {done} of {total}": "{percent}% · {done} sur {total}",
+ "{percent}%": "{percent}%",
+ "The file went up, but it did not save. Try again.": "Le fichier a été envoyé, mais n'a pas été enregistré. Réessayez.",
+ "Drag to move. Drag a corner or an edge to resize. Pinch to zoom.": "Faites glisser pour déplacer. Tirez un coin ou un bord pour redimensionner. Pincez pour zoomer.",
+ "This video can't play in this browser. You can still save it.": "Cette vidéo ne peut pas être lue dans ce navigateur. Vous pouvez quand même l'enregistrer.",
+ "This picture can't be shown here.": "Cette image ne peut pas s'afficher ici.",
+ "Crop area. Drag to move, drag a corner to resize.": "Zone de recadrage. Faites glisser pour déplacer, tirez un coin pour redimensionner.",
+ "MP4, MOV or WebM, up to 2 GB": "MP4, MOV ou WebM, jusqu'à 2 Go",
+ "Drag to move. Drag a corner or an edge to resize.": "Faites glisser pour déplacer. Tirez un coin ou un bord pour redimensionner.",
+ "JPG, PNG, GIF or HEIC. Tall pictures fit a phone best": "JPG, PNG, GIF ou HEIC. Les images verticales vont mieux sur un téléphone",
+ "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Faites glisser pour déplacer. Tirez un coin pour redimensionner. Le cadre a la forme d'un téléphone."
 }
 
 export default words

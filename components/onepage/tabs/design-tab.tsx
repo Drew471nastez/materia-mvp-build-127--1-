@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-import { confirmUpload } from "@/lib/storage/confirm-upload"
 
 import { useOnePage } from "@/lib/onepage/context"
 import * as ReactModule from "react"
@@ -29,7 +28,12 @@ import {
   Upload,
   X,
 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { announceAvatar } from "@/lib/account/avatar-store"
+import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia } from "@/lib/onepage/media-rules"
+import { croppedMediaStyle } from "@/lib/onepage/media-crop"
+import { openableImage, uploadErrorText, uploadMessage } from "@/lib/onepage/media-upload"
+import { CropUpload } from "@/components/onepage/crop-upload"
+import { UploadProgress, useMediaUpload } from "@/components/onepage/upload-progress"
 import { DialogHeader } from "@/components/ui/dialog"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -1589,51 +1593,23 @@ function HeaderSection() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showCropModal, setShowCropModal] = useState(false)
-  const [tempImageUrl, setTempImageUrl] = useState<string | null>(null)
-  const [tempImageFile, setTempImageFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  
+  /* What the croppers show and upload (components/onepage/crop-upload.tsx). */
+  const [tempImage, setTempImage] = useState<{ url: string; blob: Blob } | null>(null)
+  /* Why a chosen file cannot be used, in the sheet it was chosen from. */
+  const [pickError, setPickError] = useState<string | null>(null)
+
   // Video selection states
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [showVideoCropModal, setShowVideoCropModal] = useState(false)
-  const [tempVideoUrl, setTempVideoUrl] = useState<string | null>(null)
-  const [tempVideoFile, setTempVideoFile] = useState<File | null>(null)
-  const [uploadingVideo, setUploadingVideo] = useState(false)
+  const [tempVideo, setTempVideo] = useState<{ url: string; file: File } | null>(null)
   const videoFileInputRef = useRef<HTMLInputElement>(null)
-  const videoPreviewRef = useRef<HTMLVideoElement>(null)
-  const videoCropContainerRef = useRef<HTMLDivElement>(null)
-  
-  // Video crop state
-  const [videoCropBox, setVideoCropBox] = useState({ x: 10, y: 10, width: 80, height: 80 })
-  const [isVideoDragging, setIsVideoDragging] = useState(false)
-  const [isVideoResizing, setIsVideoResizing] = useState<string | null>(null)
-  const [videoDragStart, setVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
-  const [videoDimensions, setVideoDimensions] = useState({ width: 0, height: 0 })
-
-  // Crop box state
-  const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [isResizing, setIsResizing] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
-  const containerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Logo upload/crop states
   const [showLogoUploadModal, setShowLogoUploadModal] = useState(false)
   const [showLogoCropModal, setShowLogoCropModal] = useState(false)
-  const [tempLogoUrl, setTempLogoUrl] = useState<string | null>(null)
-  const [tempLogoFile, setTempLogoFile] = useState<File | null>(null)
-  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [tempLogo, setTempLogo] = useState<{ url: string; blob: Blob } | null>(null)
   const logoFileInputRef = useRef<HTMLInputElement>(null)
-  const logoCropContainerRef = useRef<HTMLDivElement>(null)
-
-  // Logo crop state - percentage based like video cropper
-  const [logoCropBox, setLogoCropBox] = useState({ x: 10, y: 10, width: 80, height: 80 })
-  const [isLogoDragging, setIsLogoDragging] = useState(false)
-  const [isLogoResizing, setIsLogoResizing] = useState<string | null>(null)
-  const [logoDragStart, setLogoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
-  const [logoImageSize, setLogoImageSize] = useState({ width: 0, height: 0 })
 
   // Pattern/Hero conflict dialog state
   const [showPatternHeroConflict, setShowPatternHeroConflict] = useState(false)
@@ -1646,273 +1622,37 @@ function HeaderSection() {
   const effectiveLayout = (theme.background_type === "image" || theme.background_type === "video") ? "classic" : headerLayout
   const avatarVideoUrl = (onepage as any).avatar_video_url
 
+  /* A picture chosen for a cropper: checked, made drawable (a HEIC becomes a JPEG), or the reason in plain words. */
+  const pickImage = async (file: File | undefined, then: (img: { url: string; blob: Blob }) => void) => {
+    if (!file) return
+    setPickError(null)
+    try {
+      then(await openableImage(file))
+    } catch (err) {
+      setPickError(uploadMessage(err))
+    }
+  }
+
   const handleVideoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) {
-      console.log("No file selected")
+    e.target.value = ''
+    if (!file) return
+    /* MP4, MOV, WebM or M4V up to 2 GB; it goes straight to storage in parts (lib/onepage/media-upload). */
+    const verdict = checkMedia(file, "video")
+    if (!verdict.ok) {
+      setPickError(uploadErrorText(verdict.code ?? "type", "video"))
       return
     }
-    
-    console.log("Video file selected:", file.name, file.type, file.size)
-    
-    // Validate file type
-    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v', 'video/mpeg']
-    if (!validTypes.includes(file.type) && !file.type.startsWith('video/')) {
-      alert(tt("Please select a valid video file (MP4, WebM, or MOV)"))
-      return
-    }
-    
-    // Validate file size (max 100MB)
-    if (file.size > 100 * 1024 * 1024) {
-      alert(tt("Video file must be less than 100MB"))
-      return
-    }
-    
-    const url = URL.createObjectURL(file)
-    console.log("Created blob URL:", url)
-    setTempVideoUrl(url)
-    setTempVideoFile(file)
-    setVideoCropBox({ x: 10, y: 10, width: 80, height: 80 }) // Reset crop box
+    setPickError(null)
+    setTempVideo({ url: URL.createObjectURL(file), file })
     setShowVideoModal(false)
     setShowVideoCropModal(true)
-    
-    // Reset file input for next selection
-    e.target.value = ''
   }
 
-  // Video crop drag handlers
-  const handleVideoCropMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize', corner?: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const container = videoCropContainerRef.current
-    if (!container) return
-    
-    const rect = container.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-    
-    setVideoDragStart({ 
-      x, 
-      y, 
-      boxX: videoCropBox.x, 
-      boxY: videoCropBox.y, 
-      boxW: videoCropBox.width, 
-      boxH: videoCropBox.height 
-    })
-    
-    if (type === 'drag') {
-      setIsVideoDragging(true)
-    } else {
-      setIsVideoResizing(corner || null)
-    }
-  }
-
-  const handleVideoCropMouseMove = useCallback((e: MouseEvent) => {
-    const container = videoCropContainerRef.current
-    if (!container) return
-    
-    const rect = container.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-    
-    if (isVideoDragging) {
-      const deltaX = x - videoDragStart.x
-      const deltaY = y - videoDragStart.y
-      
-      let newX = videoDragStart.boxX + deltaX
-      let newY = videoDragStart.boxY + deltaY
-      
-      // Constrain to container
-      newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
-      newY = Math.max(0, Math.min(100 - videoCropBox.height, newY))
-      
-      setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-    } else if (isVideoResizing) {
-      const deltaX = x - videoDragStart.x
-      const deltaY = y - videoDragStart.y
-      
-      let newBox = { ...videoCropBox }
-      
-      if (isVideoResizing.includes('right')) {
-        newBox.width = Math.max(20, Math.min(100 - videoDragStart.boxX, videoDragStart.boxW + deltaX))
-      }
-      if (isVideoResizing.includes('left')) {
-        const newWidth = Math.max(20, videoDragStart.boxW - deltaX)
-        const maxX = videoDragStart.boxX + videoDragStart.boxW - 20
-        newBox.x = Math.max(0, Math.min(maxX, videoDragStart.boxX + deltaX))
-        newBox.width = videoDragStart.boxX + videoDragStart.boxW - newBox.x
-      }
-      if (isVideoResizing.includes('bottom')) {
-        newBox.height = Math.max(20, Math.min(100 - videoDragStart.boxY, videoDragStart.boxH + deltaY))
-      }
-      if (isVideoResizing.includes('top')) {
-        const newHeight = Math.max(20, videoDragStart.boxH - deltaY)
-        const maxY = videoDragStart.boxY + videoDragStart.boxH - 20
-        newBox.y = Math.max(0, Math.min(maxY, videoDragStart.boxY + deltaY))
-        newBox.height = videoDragStart.boxY + videoDragStart.boxH - newBox.y
-      }
-      
-      setVideoCropBox(newBox)
-    }
-  }, [isVideoDragging, isVideoResizing, videoDragStart, videoCropBox])
-
-  const handleVideoCropMouseUp = useCallback(() => {
-    setIsVideoDragging(false)
-    setIsVideoResizing(null)
-  }, [])
-
-  // Touch handlers for video cropper
-  const handleVideoCropTouchStart = (e: React.TouchEvent, type: 'drag' | 'resize', corner?: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const touch = e.touches[0]
-    const container = videoCropContainerRef.current
-    if (!container || !touch) return
-
-    const rect = container.getBoundingClientRect()
-    const x = ((touch.clientX - rect.left) / rect.width) * 100
-    const y = ((touch.clientY - rect.top) / rect.height) * 100
-
-    setVideoDragStart({
-      x,
-      y,
-      boxX: videoCropBox.x,
-      boxY: videoCropBox.y,
-      boxW: videoCropBox.width,
-      boxH: videoCropBox.height
-    })
-
-    if (type === 'drag') {
-      setIsVideoDragging(true)
-    } else {
-      setIsVideoResizing(corner || null)
-    }
-  }
-
-  const handleVideoCropTouchMove = useCallback((e: TouchEvent) => {
-    const touch = e.touches[0]
-    const container = videoCropContainerRef.current
-    if (!container || !touch) return
-
-    e.preventDefault()
-    const rect = container.getBoundingClientRect()
-    const x = ((touch.clientX - rect.left) / rect.width) * 100
-    const y = ((touch.clientY - rect.top) / rect.height) * 100
-
-    if (isVideoDragging) {
-      const deltaX = x - videoDragStart.x
-      const deltaY = y - videoDragStart.y
-
-      let newX = videoDragStart.boxX + deltaX
-      let newY = videoDragStart.boxY + deltaY
-
-      newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
-      newY = Math.max(0, Math.min(100 - videoCropBox.height, newY))
-
-      setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-    } else if (isVideoResizing) {
-      const deltaX = x - videoDragStart.x
-      const deltaY = y - videoDragStart.y
-
-      let newBox = { ...videoCropBox }
-
-      if (isVideoResizing.includes('right')) {
-        newBox.width = Math.max(20, Math.min(100 - videoDragStart.boxX, videoDragStart.boxW + deltaX))
-      }
-      if (isVideoResizing.includes('left')) {
-        const newWidth = Math.max(20, videoDragStart.boxW - deltaX)
-        const maxX = videoDragStart.boxX + videoDragStart.boxW - 20
-        newBox.x = Math.max(0, Math.min(maxX, videoDragStart.boxX + deltaX))
-        newBox.width = videoDragStart.boxX + videoDragStart.boxW - newBox.x
-      }
-      if (isVideoResizing.includes('bottom')) {
-        newBox.height = Math.max(20, Math.min(100 - videoDragStart.boxY, videoDragStart.boxH + deltaY))
-      }
-      if (isVideoResizing.includes('top')) {
-        const newHeight = Math.max(20, videoDragStart.boxH - deltaY)
-        const maxY = videoDragStart.boxY + videoDragStart.boxH - 20
-        newBox.y = Math.max(0, Math.min(maxY, videoDragStart.boxY + deltaY))
-        newBox.height = videoDragStart.boxY + videoDragStart.boxH - newBox.y
-      }
-
-      setVideoCropBox(newBox)
-    }
-  }, [isVideoDragging, isVideoResizing, videoDragStart, videoCropBox])
-
-  const handleVideoCropTouchEnd = useCallback(() => {
-    setIsVideoDragging(false)
-    setIsVideoResizing(null)
-  }, [])
-
-  useEffect(() => {
-    if (isVideoDragging || isVideoResizing) {
-      window.addEventListener('mousemove', handleVideoCropMouseMove)
-      window.addEventListener('mouseup', handleVideoCropMouseUp)
-      window.addEventListener('touchmove', handleVideoCropTouchMove, { passive: false })
-      window.addEventListener('touchend', handleVideoCropTouchEnd)
-      return () => {
-        window.removeEventListener('mousemove', handleVideoCropMouseMove)
-        window.removeEventListener('mouseup', handleVideoCropMouseUp)
-        window.removeEventListener('touchmove', handleVideoCropTouchMove)
-        window.removeEventListener('touchend', handleVideoCropTouchEnd)
-      }
-    }
-  }, [isVideoDragging, isVideoResizing, handleVideoCropMouseMove, handleVideoCropMouseUp, handleVideoCropTouchMove, handleVideoCropTouchEnd])
-
-  const handleVideoCropSave = async () => {
-    if (!tempVideoUrl) return
-    setUploadingVideo(true)
-    
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        alert(tt("Please sign in to upload videos"))
-        setUploadingVideo(false)
-        return
-      }
-
-      let finalVideoUrl = tempVideoUrl
-
-      // If it's a file upload, upload to storage
-      if (tempVideoFile) {
-        const fileExt = tempVideoFile.name.split('.').pop() || 'mp4'
-        const fileName = `${user.id}/avatar-video-${Date.now()}.${fileExt}`
-        
-        console.log("Uploading video to onepage-assets bucket:", fileName)
-        
-        const { error: uploadError } = await supabase.storage
-          .from("onepage-assets")
-          .upload(fileName, tempVideoFile, { 
-            upsert: true,
-            contentType: tempVideoFile.type
-          })
-        if (!uploadError) confirmUpload("onepage-assets", fileName)
-        
-        if (uploadError) {
-          console.error("Upload error:", uploadError)
-          alert(tt("Failed to upload video: {message}. Please make sure the storage bucket is configured correctly by running the SQL migration.", { message: uploadError.message }))
-          setUploadingVideo(false)
-          return
-        }
-        
-        const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-        finalVideoUrl = publicUrl
-        console.log("Video uploaded successfully:", finalVideoUrl)
-      }
-      
-      // Update the profile with video URL and crop data, clear image when uploading video
-      updateProfile({ avatar_video_url: finalVideoUrl, avatar_video_crop: videoCropBox, avatar_url: null })
-      
-      setShowVideoCropModal(false)
-      setTempVideoUrl(null)
-      setTempVideoFile(null)
-    } catch (error) {
-      console.error("Video save error:", error)
-      alert(tt("Failed to save video. Please try again."))
-    } finally {
-      setUploadingVideo(false)
-    }
+  const closeVideoCrop = () => {
+    setShowVideoCropModal(false)
+    if (tempVideo) URL.revokeObjectURL(tempVideo.url)
+    setTempVideo(null)
   }
 
   const handleRemoveVideo = async () => {
@@ -1922,100 +1662,34 @@ function HeaderSection() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setTempImageUrl(url)
-    setTempImageFile(file)
-    setShowUploadModal(false)
-    setShowCropModal(true)
-    
-    // Load image to get dimensions and set initial crop box
-    const img = new Image()
-    img.onload = () => {
-      const containerSize = 300
-      const scale = Math.min(containerSize / img.width, containerSize / img.height)
-      const displayWidth = img.width * scale
-      const displayHeight = img.height * scale
-      setImageSize({ width: displayWidth, height: displayHeight })
-      
-      // Initial crop box centered and sized to fit
-      const initialSize = Math.min(displayWidth, displayHeight) * 0.8
-      setCropBox({
-        x: (displayWidth - initialSize) / 2,
-        y: (displayHeight - initialSize) / 2,
-        size: initialSize
-      })
-    }
-    img.src = url
+    e.target.value = ''
+    void pickImage(file, (img) => {
+      setTempImage(img)
+      setShowUploadModal(false)
+      setShowCropModal(true)
+    })
   }
 
-  const handleCropSave = async () => {
-    if (!tempImageFile || !tempImageUrl) return
-    setUploading(true)
-    
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+  const closeImageCrop = () => {
+    setShowCropModal(false)
+    if (tempImage) URL.revokeObjectURL(tempImage.url)
+    setTempImage(null)
+  }
 
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      const img = new Image()
-      
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve()
-        img.onerror = reject
-        img.src = tempImageUrl
-      })
-
-      // Calculate the actual image coordinates from the crop box
-      const containerSize = 300
-      const scale = Math.min(containerSize / img.width, containerSize / img.height)
-      
-      // Convert crop box coordinates back to original image coordinates
-      const actualX = cropBox.x / scale
-      const actualY = cropBox.y / scale
-      const actualSize = cropBox.size / scale
-
-      // Output size for high quality
-      const outputSize = 800
-      canvas.width = outputSize
-      canvas.height = outputSize
-
-      if (ctx) {
-        // Draw the cropped portion at high quality
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
-        ctx.drawImage(
-          img, 
-          actualX, actualY, actualSize, actualSize,
-          0, 0, outputSize, outputSize
-        )
-      }
-
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.95)
-      })
-
-      const fileName = `${user.id}/avatar-${Date.now()}.jpg`
-      const { error } = await supabase.storage.from("onepage-assets").upload(fileName, blob, { upsert: true })
-      if (error) throw error
-      confirmUpload("onepage-assets", fileName)
-
-      const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-      // Clear video when uploading an image to replace it
-      updateProfile({ avatar_url: publicUrl, avatar_video_url: null })
-      setShowCropModal(false)
-    } catch (error) {
-      console.error("Upload error:", error)
-    } finally {
-      setUploading(false)
-      if (tempImageUrl) { 
-        URL.revokeObjectURL(tempImageUrl)
-        setTempImageUrl(null) 
-        setTempImageFile(null)
-      }
-    }
+  /*
+    ONE PROFILE PHOTO, as the Links tab saves it: into the account's own
+    avatars folder and through the route Settings uses, so the OnePage, the
+    creator page and the app all show the same face (lib/account/avatar-save).
+  */
+  const saveProfilePhoto = async (url: string) => {
+    const saved = await fetch("/api/account/avatar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    })
+    if (!saved.ok) throw new Error(tt("profile photo not saved"))
+    announceAvatar(url)
+    updateProfile({ avatar_url: url, avatar_video_url: null })
   }
 
   const handleRemoveImage = () => {
@@ -2036,397 +1710,26 @@ function HeaderSection() {
     updateTheme({ header_layout: layout } as any)
   }
 
-  // Logo file selection handler - detects image aspect ratio
+  // Logo: any picture (a HEIC is made a JPEG first), then the free cropper.
   const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-
-    // Load image to detect dimensions and set appropriate crop box
-    const img = new Image()
-    img.onload = () => {
-      const imgWidth = img.width
-      const imgHeight = img.height
-      const aspectRatio = imgWidth / imgHeight
-
-      setLogoImageSize({ width: imgWidth, height: imgHeight })
-      setTempLogoUrl(url)
-      setTempLogoFile(file)
+    e.target.value = ''
+    void pickImage(file, (img) => {
+      setTempLogo(img)
       setShowLogoUploadModal(false)
       setShowLogoCropModal(true)
-
-      // Set crop box based on aspect ratio - adapts to image shape
-      // For wide images (aspect > 1.2), use wider crop
-      // For tall images (aspect < 0.8), use taller crop
-      // Otherwise use square-ish crop
-      if (aspectRatio > 1.2) {
-        // Wide image - use wide crop box
-        setLogoCropBox({ x: 5, y: 15, width: 90, height: 70 })
-      } else if (aspectRatio < 0.8) {
-        // Tall image - use tall crop box
-        setLogoCropBox({ x: 15, y: 5, width: 70, height: 90 })
-      } else {
-        // Square-ish - use centered square
-        setLogoCropBox({ x: 10, y: 10, width: 80, height: 80 })
-      }
-    }
-    img.src = url
-
-    // Reset file input for next selection
-    e.target.value = ''
-  }
-
-  // Logo crop drag handlers - percentage based like video cropper
-  const handleLogoCropMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize', corner?: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const container = logoCropContainerRef.current
-    if (!container) return
-
-    const rect = container.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-
-    setLogoDragStart({
-      x,
-      y,
-      boxX: logoCropBox.x,
-      boxY: logoCropBox.y,
-      boxW: logoCropBox.width,
-      boxH: logoCropBox.height
     })
-
-    if (type === 'drag') {
-      setIsLogoDragging(true)
-    } else {
-      setIsLogoResizing(corner || null)
-    }
   }
 
-  const handleLogoCropTouchStart = (e: React.TouchEvent, type: 'drag' | 'resize', corner?: string) => {
-    e.stopPropagation()
-    const touch = e.touches[0]
-    const container = logoCropContainerRef.current
-    if (!container || !touch) return
-
-    const rect = container.getBoundingClientRect()
-    const x = ((touch.clientX - rect.left) / rect.width) * 100
-    const y = ((touch.clientY - rect.top) / rect.height) * 100
-
-    setLogoDragStart({
-      x,
-      y,
-      boxX: logoCropBox.x,
-      boxY: logoCropBox.y,
-      boxW: logoCropBox.width,
-      boxH: logoCropBox.height
-    })
-
-    if (type === 'drag') {
-      setIsLogoDragging(true)
-    } else {
-      setIsLogoResizing(corner || null)
-    }
-  }
-
-  const handleLogoCropMouseMove = useCallback((e: MouseEvent) => {
-    const container = logoCropContainerRef.current
-    if (!container) return
-
-    const rect = container.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-
-    if (isLogoDragging) {
-      const deltaX = x - logoDragStart.x
-      const deltaY = y - logoDragStart.y
-
-      let newX = logoDragStart.boxX + deltaX
-      let newY = logoDragStart.boxY + deltaY
-
-      // Constrain to container
-      newX = Math.max(0, Math.min(100 - logoCropBox.width, newX))
-      newY = Math.max(0, Math.min(100 - logoCropBox.height, newY))
-
-      setLogoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-    } else if (isLogoResizing) {
-      const deltaX = x - logoDragStart.x
-      const deltaY = y - logoDragStart.y
-
-      let newBox = { ...logoCropBox }
-
-      if (isLogoResizing.includes('right')) {
-        newBox.width = Math.max(20, Math.min(100 - logoDragStart.boxX, logoDragStart.boxW + deltaX))
-      }
-      if (isLogoResizing.includes('left')) {
-        const newWidth = Math.max(20, logoDragStart.boxW - deltaX)
-        const maxWidth = logoDragStart.boxX + logoDragStart.boxW
-        newBox.width = Math.min(newWidth, maxWidth)
-        newBox.x = logoDragStart.boxX + logoDragStart.boxW - newBox.width
-      }
-      if (isLogoResizing.includes('bottom')) {
-        newBox.height = Math.max(20, Math.min(100 - logoDragStart.boxY, logoDragStart.boxH + deltaY))
-      }
-      if (isLogoResizing.includes('top')) {
-        const newHeight = Math.max(20, logoDragStart.boxH - deltaY)
-        const maxHeight = logoDragStart.boxY + logoDragStart.boxH
-        newBox.height = Math.min(newHeight, maxHeight)
-        newBox.y = logoDragStart.boxY + logoDragStart.boxH - newBox.height
-      }
-
-      // Keep square aspect ratio
-      const size = Math.min(newBox.width, newBox.height)
-      if (isLogoResizing.includes('right') || isLogoResizing.includes('bottom')) {
-        newBox.width = size
-        newBox.height = size
-      } else {
-        // Adjust position when resizing from left/top
-        if (isLogoResizing.includes('left')) {
-          newBox.x = logoDragStart.boxX + logoDragStart.boxW - size
-        }
-        if (isLogoResizing.includes('top')) {
-          newBox.y = logoDragStart.boxY + logoDragStart.boxH - size
-        }
-        newBox.width = size
-        newBox.height = size
-      }
-
-      setLogoCropBox(newBox)
-    }
-  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.width, logoCropBox.height])
-
-  const handleLogoCropTouchMove = useCallback((e: TouchEvent) => {
-    const touch = e.touches[0]
-    if (!touch) return
-    const container = logoCropContainerRef.current
-    if (!container) return
-
-    const rect = container.getBoundingClientRect()
-    const x = ((touch.clientX - rect.left) / rect.width) * 100
-    const y = ((touch.clientY - rect.top) / rect.height) * 100
-
-    if (isLogoDragging) {
-      const deltaX = x - logoDragStart.x
-      const deltaY = y - logoDragStart.y
-
-      let newX = logoDragStart.boxX + deltaX
-      let newY = logoDragStart.boxY + deltaY
-
-      newX = Math.max(0, Math.min(100 - logoCropBox.width, newX))
-      newY = Math.max(0, Math.min(100 - logoCropBox.height, newY))
-
-      setLogoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-    } else if (isLogoResizing) {
-      const deltaX = x - logoDragStart.x
-      const deltaY = y - logoDragStart.y
-
-      let newBox = { ...logoCropBox }
-
-      if (isLogoResizing.includes('right')) {
-        newBox.width = Math.max(20, Math.min(100 - logoDragStart.boxX, logoDragStart.boxW + deltaX))
-      }
-      if (isLogoResizing.includes('left')) {
-        const newWidth = Math.max(20, logoDragStart.boxW - deltaX)
-        const maxWidth = logoDragStart.boxX + logoDragStart.boxW
-        newBox.width = Math.min(newWidth, maxWidth)
-        newBox.x = logoDragStart.boxX + logoDragStart.boxW - newBox.width
-      }
-      if (isLogoResizing.includes('bottom')) {
-        newBox.height = Math.max(20, Math.min(100 - logoDragStart.boxY, logoDragStart.boxH + deltaY))
-      }
-      if (isLogoResizing.includes('top')) {
-        const newHeight = Math.max(20, logoDragStart.boxH - deltaY)
-        const maxHeight = logoDragStart.boxY + logoDragStart.boxH
-        newBox.height = Math.min(newHeight, maxHeight)
-        newBox.y = logoDragStart.boxY + logoDragStart.boxH - newBox.height
-      }
-
-      // Keep square aspect ratio
-      const size = Math.min(newBox.width, newBox.height)
-      newBox.width = size
-      newBox.height = size
-
-      setLogoCropBox(newBox)
-    }
-  }, [isLogoDragging, isLogoResizing, logoDragStart, logoCropBox.width, logoCropBox.height])
-
-  const handleLogoCropMouseUp = useCallback(() => {
-    setIsLogoDragging(false)
-    setIsLogoResizing(null)
-  }, [])
-
-  // Add/remove logo crop event listeners
-  useEffect(() => {
-    if (isLogoDragging || isLogoResizing) {
-      window.addEventListener('mousemove', handleLogoCropMouseMove)
-      window.addEventListener('mouseup', handleLogoCropMouseUp)
-      window.addEventListener('touchmove', handleLogoCropTouchMove, { passive: false })
-      window.addEventListener('touchend', handleLogoCropMouseUp)
-      return () => {
-        window.removeEventListener('mousemove', handleLogoCropMouseMove)
-        window.removeEventListener('mouseup', handleLogoCropMouseUp)
-        window.removeEventListener('touchmove', handleLogoCropTouchMove)
-        window.removeEventListener('touchend', handleLogoCropMouseUp)
-      }
-    }
-  }, [isLogoDragging, isLogoResizing, handleLogoCropMouseMove, handleLogoCropTouchMove, handleLogoCropMouseUp])
-
-  const handleLogoCropSave = async () => {
-    if (!tempLogoFile || !tempLogoUrl) return
-    setUploadingLogo(true)
-
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      const img = new Image()
-
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve()
-        img.onerror = reject
-        img.src = tempLogoUrl
-      })
-
-      // Convert percentage-based crop box to actual image coordinates
-      const actualX = (logoCropBox.x / 100) * img.width
-      const actualY = (logoCropBox.y / 100) * img.height
-      const actualWidth = (logoCropBox.width / 100) * img.width
-      const actualHeight = (logoCropBox.height / 100) * img.height
-
-      // Output size - preserve aspect ratio for high quality logo (no distortion)
-      const maxOutputDimension = 500
-      const cropAspectRatio = actualWidth / actualHeight
-      let outputWidth: number
-      let outputHeight: number
-
-      if (cropAspectRatio >= 1) {
-        // Wide or square - constrain by width
-        outputWidth = maxOutputDimension
-        outputHeight = Math.round(maxOutputDimension / cropAspectRatio)
-      } else {
-        // Tall - constrain by height
-        outputHeight = maxOutputDimension
-        outputWidth = Math.round(maxOutputDimension * cropAspectRatio)
-      }
-
-      canvas.width = outputWidth
-      canvas.height = outputHeight
-
-      if (ctx) {
-        ctx.imageSmoothingEnabled = true
-        ctx.imageSmoothingQuality = 'high'
-        ctx.drawImage(
-          img,
-          actualX, actualY, actualWidth, actualHeight,
-          0, 0, outputWidth, outputHeight
-        )
-      }
-
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob!), 'image/png', 1.0)
-      })
-
-      const fileName = `${user.id}/logo-${Date.now()}.png`
-      const { error } = await supabase.storage.from("onepage-assets").upload(fileName, blob, { upsert: true })
-      if (error) throw error
-      confirmUpload("onepage-assets", fileName)
-
-      const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-      updateTheme({ title_logo_url: publicUrl, title_style: 'logo' } as any)
-      setShowLogoCropModal(false)
-    } catch (error) {
-      console.error("Logo upload error:", error)
-      alert(tt("Failed to save logo. Please try again."))
-    } finally {
-      setUploadingLogo(false)
-      if (tempLogoUrl) {
-        URL.revokeObjectURL(tempLogoUrl)
-        setTempLogoUrl(null)
-        setTempLogoFile(null)
-      }
-    }
+  const closeLogoCrop = () => {
+    setShowLogoCropModal(false)
+    if (tempLogo) URL.revokeObjectURL(tempLogo.url)
+    setTempLogo(null)
   }
 
   const handleRemoveLogo = () => {
     updateTheme({ title_logo_url: null, title_style: 'text' } as any)
   }
-
-  // Mouse/Touch handlers for crop box
-  const handleCropMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault()
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    setIsDragging(true)
-    setDragStart({ x: clientX - cropBox.x, y: clientY - cropBox.y })
-  }
-
-  const handleResizeMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    setIsResizing(true)
-    setDragStart({ x: clientX, y: clientY })
-  }
-
-  const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-    
-    if (isDragging) {
-      const newX = clientX - dragStart.x
-      const newY = clientY - dragStart.y
-      
-      // Constrain to image bounds
-      const maxX = imageSize.width - cropBox.size
-      const maxY = imageSize.height - cropBox.size
-      
-      setCropBox(prev => ({
-        ...prev,
-        x: Math.max(0, Math.min(maxX, newX)),
-        y: Math.max(0, Math.min(maxY, newY))
-      }))
-    }
-    
-    if (isResizing) {
-      const deltaX = clientX - dragStart.x
-      const deltaY = clientY - dragStart.y
-      const delta = Math.max(deltaX, deltaY)
-      
-      setCropBox(prev => {
-        const newSize = Math.max(50, Math.min(
-          prev.size + delta,
-          imageSize.width - prev.x,
-          imageSize.height - prev.y
-        ))
-        return { ...prev, size: newSize }
-      })
-      setDragStart({ x: clientX, y: clientY })
-    }
-  }, [isDragging, isResizing, dragStart, cropBox.size, imageSize])
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
-    setIsResizing(false)
-  }, [])
-
-  useEffect(() => {
-    if (isDragging || isResizing) {
-      window.addEventListener('mousemove', handleMouseMove)
-      window.addEventListener('mouseup', handleMouseUp)
-      window.addEventListener('touchmove', handleMouseMove)
-      window.addEventListener('touchend', handleMouseUp)
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove)
-        window.removeEventListener('mouseup', handleMouseUp)
-        window.removeEventListener('touchmove', handleMouseMove)
-        window.removeEventListener('touchend', handleMouseUp)
-      }
-    }
-  }, [isDragging, isResizing, handleMouseMove, handleMouseUp])
 
   return (
     <div>
@@ -2436,7 +1739,6 @@ function HeaderSection() {
           <button
             type="button"
             onClick={() => setShowEditModal(true)}
-            disabled={uploading}
             aria-label={tt("Change profile image")}
             data-avatar-edit
             className="relative aspect-square h-[88px] w-[88px] shrink-0 cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
@@ -2457,6 +1759,7 @@ function HeaderSection() {
                     muted
                     playsInline
                     className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
+                    style={croppedMediaStyle((onepage as any).avatar_video_crop) as React.CSSProperties | undefined}
                     onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
                     onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
                     onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
@@ -2469,7 +1772,7 @@ function HeaderSection() {
               )}
             </span>
             <span aria-hidden className="absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" strokeWidth={1.75} />}
+              <Pencil className="h-4 w-4" strokeWidth={1.75} />
             </span>
           </button>
         </SettingRow>
@@ -2486,12 +1789,12 @@ function HeaderSection() {
             <SheetDialogTitle className="text-lg font-semibold text-center">{tt("Profile Image")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
-            <button onClick={() => { setShowEditModal(false); setShowUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
+            <button onClick={() => { setPickError(null); setShowEditModal(false); setShowUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><ImageIcon className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left"><p className="font-medium">{tt("Select image or GIF")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
-            <button onClick={() => { setShowEditModal(false); setShowVideoModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
+            <button onClick={() => { setPickError(null); setShowEditModal(false); setShowVideoModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center"><Video className="h-6 w-6 text-yellow-600" /></div>
               <div className="flex-1 text-left"><p className="font-medium">{tt("Select video")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -2521,129 +1824,44 @@ function HeaderSection() {
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><Upload className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left">
                 <p className="font-medium">{tt("Upload video")}</p>
-                <p className="text-sm text-gray-500">{tt("MP4, WebM up to 100MB")}</p>
+                <p className="text-sm text-gray-500">{tt("MP4, MOV or WebM, up to 2 GB")}</p>
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
-            <input ref={videoFileInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleVideoFileSelect} className="hidden" />
+            {pickError ? <p role="alert" className="text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
+            <input ref={videoFileInputRef} type="file" accept={ONEPAGE_VIDEO_ACCEPT} onChange={handleVideoFileSelect} className="hidden" />
           </div>
         </SheetDialog>
 
-      {/* Video Crop Modal - Simple 1:1 crop like image crop */}
+      {/* Video Crop Modal: a square of the video, drawn in the circle exactly as framed (croppedMediaStyle). */}
       <SheetDialog
         open={showVideoCropModal}
-        onClose={() => {
-          setShowVideoCropModal(false)
-          if (tempVideoUrl && tempVideoFile) URL.revokeObjectURL(tempVideoUrl)
-          setTempVideoUrl(null)
-          setTempVideoFile(null)
-          setIsVideoDragging(false)
-          setIsVideoResizing(null)
-          setVideoDimensions({ width: 0, height: 0 })
-        }}
+        onClose={closeVideoCrop}
         phone={sheetPhone}
         label={tt("Crop Video")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
         dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
-            <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <button onClick={() => { closeVideoCrop(); setShowVideoModal(true) }} aria-label={tt("Back")} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Video")}</SheetDialogTitle>
           </DialogHeader>
-          <div className="p-5 space-y-4">
-            {tempVideoUrl && (
-              <>
-                <div
-                  ref={videoCropContainerRef}
-                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
-                  style={{
-                    width: videoDimensions.width > 0
-                      ? `${Math.min(300, Math.max(200, videoDimensions.width > videoDimensions.height
-                          ? 300
-                          : Math.round(300 * (videoDimensions.width / videoDimensions.height))))}px`
-                      : '300px',
-                    height: videoDimensions.height > 0
-                      ? `${Math.min(300, Math.max(200, videoDimensions.height > videoDimensions.width
-                          ? 300
-                          : Math.round(300 * (videoDimensions.height / videoDimensions.width))))}px`
-                      : '300px',
-                    touchAction: 'none'
-                  }}
-                >
-                  <video
-                    ref={videoPreviewRef}
-                    src={tempVideoUrl}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover pointer-events-none"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    onLoadedMetadata={(e) => {
-                      const video = e.currentTarget
-                      setVideoDimensions({ width: video.videoWidth, height: video.videoHeight })
-                    }}
-                  />
-
-                  {/* Crop box - 1:1 square ratio */}
-                  <div
-                    /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
-                    data-sheet-no-drag=""
-                    className="absolute cursor-move"
-                    style={{
-                      left: `${videoCropBox.x}%`,
-                      top: `${videoCropBox.y}%`,
-                      width: `${videoCropBox.width}%`,
-                      height: `${videoCropBox.width}%`,
-                      border: '2px solid #3b82f6',
-                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      touchAction: 'none'
-                    }}
-                    onMouseDown={(e) => handleVideoCropMouseDown(e, 'drag')}
-                    onTouchStart={(e) => handleVideoCropTouchStart(e, 'drag')}
-                  >
-                    {/* Grid overlay */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="border border-white/30" />
-                      ))}
-                    </div>
-
-                    {/* Corner handles - all corners resizable with 70px touch targets */}
-                    {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((corner) => {
-                      const pos = {
-                        'top-left': '-top-2.5 -left-2.5 cursor-nw-resize',
-                        'top-right': '-top-2.5 -right-2.5 cursor-ne-resize',
-                        'bottom-left': '-bottom-2.5 -left-2.5 cursor-sw-resize',
-                        'bottom-right': '-bottom-2.5 -right-2.5 cursor-se-resize',
-                      }[corner]
-                      const isBR = corner === 'bottom-right'
-                      return (
-                        <div key={corner} className={`absolute ${pos}`}>
-                          <div className={`w-5 h-5 ${isBR ? 'bg-blue-500' : 'bg-white'} border-[3px] border-blue-500 rounded-sm`} />
-                          <div
-                            className="absolute -inset-[25px] w-[70px] h-[70px]"
-                            style={{ touchAction: 'none' }}
-                            onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', corner) }}
-                            onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', corner) }}
-                          />
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <p className="text-xs text-center text-muted-foreground">
-                  {tt("Drag to move, drag bottom-right corner to resize")}
-                </p>
-
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="flex-1">{tt("Cancel")}</Button>
-                  <Button onClick={handleVideoCropSave} className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]" disabled={uploadingVideo}>
-                    {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
-                  </Button>
-                </div>
-              </>
-            )}
+          <div className="p-4 sm:p-5">
+            {tempVideo ? (
+              <CropUpload
+                kind="video"
+                src={tempVideo.url}
+                file={tempVideo.file}
+                aspect={1}
+                shape="circle"
+                prefix="avatar-video"
+                onCancel={closeVideoCrop}
+                onSaved={(result, crop) => {
+                  updateProfile({ avatar_video_url: result.url, avatar_video_crop: crop, avatar_url: null })
+                  closeVideoCrop()
+                }}
+              />
+            ) : null}
           </div>
         </SheetDialog>
 
@@ -2665,103 +1883,41 @@ function HeaderSection() {
               <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>
               <p className="text-sm text-gray-400 mt-2">{tt("Please upload an image")}</p>
             </div>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+            {pickError ? <p role="alert" className="mt-3 text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
+            <input ref={fileInputRef} type="file" accept={ONEPAGE_IMAGE_ACCEPT} onChange={handleFileSelect} className="hidden" />
           </div>
         </SheetDialog>
 
       <SheetDialog
         open={showCropModal}
-        onClose={() => { setShowCropModal(false); if (tempImageUrl) { URL.revokeObjectURL(tempImageUrl); setTempImageUrl(null); setTempImageFile(null) } }}
+        onClose={closeImageCrop}
         phone={sheetPhone}
         label={tt("Crop Image")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+        dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
-            <button onClick={() => { setShowCropModal(false); setShowUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <button onClick={() => { closeImageCrop(); setShowUploadModal(true) }} aria-label={tt("Back")} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Image")}</SheetDialogTitle>
           </DialogHeader>
-          <div className="p-5 space-y-4">
-            {tempImageUrl && (
-              <>
-                <div 
-                  ref={containerRef}
-                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden"
-                  style={{ width: '300px', height: '300px' }}
-                >
-                  {/* Image */}
-                  <img 
-                    src={tempImageUrl} 
-                    alt={tt("Preview")} 
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
-                    style={{ 
-                      width: imageSize.width, 
-                      height: imageSize.height,
-                      maxWidth: '300px',
-                      maxHeight: '300px',
-                      objectFit: 'contain'
-                    }} 
-                    draggable={false} 
-                  />
-                  
-                  {/* Dark overlay outside crop area */}
-                  <div 
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      background: `linear-gradient(to right, 
-                        rgba(0,0,0,0.5) ${(150 - imageSize.width/2 + cropBox.x)}px, 
-                        transparent ${(150 - imageSize.width/2 + cropBox.x)}px, 
-                        transparent ${(150 - imageSize.width/2 + cropBox.x + cropBox.size)}px, 
-                        rgba(0,0,0,0.5) ${(150 - imageSize.width/2 + cropBox.x + cropBox.size)}px)`
-                    }}
-                  />
-                  
-                  {/* Crop box */}
-                  <div 
-                    /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
-                    data-sheet-no-drag=""
-                    className="absolute cursor-move"
-                    style={{
-                      left: `${150 - imageSize.width/2 + cropBox.x}px`,
-                      top: `${150 - imageSize.height/2 + cropBox.y}px`,
-                      width: `${cropBox.size}px`,
-                      height: `${cropBox.size}px`,
-                      border: '2px solid #3b82f6',
-                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
-                    }}
-                    onMouseDown={handleCropMouseDown}
-                    onTouchStart={handleCropMouseDown}
-                  >
-                    {/* Grid overlay */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="border border-white/30" />
-                      ))}
-                    </div>
-                    
-                    {/* Corner handles */}
-                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div 
-                      className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize"
-                      onMouseDown={handleResizeMouseDown}
-                      onTouchStart={handleResizeMouseDown}
-                    />
-                  </div>
-                </div>
-                
-                <p className="text-xs text-center text-muted-foreground">
-                  {tt("Drag to move, drag bottom-right corner to resize")}
-                </p>
-                
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowCropModal(false); setShowUploadModal(true) }} className="flex-1">{tt("Cancel")}</Button>
-                  <Button onClick={handleCropSave} className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]" disabled={uploading}>
-                    {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
-                  </Button>
-                </div>
-              </>
-            )}
+          <div className="p-4 sm:p-5">
+            {tempImage ? (
+              <CropUpload
+                kind="image"
+                src={tempImage.url}
+                file={tempImage.blob}
+                aspect={1}
+                shape="circle"
+                prefix="avatar"
+                bucket="avatars"
+                outputSize={800}
+                onCancel={closeImageCrop}
+                onSaved={async (result) => {
+                  await saveProfilePhoto(result.url)
+                  closeImageCrop()
+                }}
+              />
+            ) : null}
           </div>
         </SheetDialog>
 
@@ -2784,132 +1940,42 @@ function HeaderSection() {
               <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>
               <p className="text-sm text-gray-400 mt-2">{tt("PNG with transparent background recommended")}</p>
             </div>
-            <input ref={logoFileInputRef} type="file" accept="image/*" onChange={handleLogoFileSelect} className="hidden" />
+            {pickError ? <p role="alert" className="mt-3 text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
+            <input ref={logoFileInputRef} type="file" accept={ONEPAGE_IMAGE_ACCEPT} onChange={handleLogoFileSelect} className="hidden" />
           </div>
         </SheetDialog>
 
-      {/* Logo Crop Modal */}
+      {/* Logo Crop Modal: the shared cropper (components/onepage/crop-upload.tsx), any shape, kept as a PNG so a clear background stays clear. */}
       <SheetDialog
         open={showLogoCropModal}
-        onClose={() => {
-          setShowLogoCropModal(false)
-          if (tempLogoUrl) {
-            URL.revokeObjectURL(tempLogoUrl)
-            setTempLogoUrl(null)
-            setTempLogoFile(null)
-            setIsLogoDragging(false)
-            setIsLogoResizing(null)
-          }
-        }}
+        onClose={closeLogoCrop}
         phone={sheetPhone}
         label={tt("Crop Logo")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+        dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
-            <button onClick={() => { setShowLogoCropModal(false); setShowLogoUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <button onClick={() => { closeLogoCrop(); setShowLogoUploadModal(true) }} aria-label={tt("Back")} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Logo")}</SheetDialogTitle>
           </DialogHeader>
-          <div className="p-5 space-y-4">
-            {tempLogoUrl && (
-              <>
-                <div
-                  ref={logoCropContainerRef}
-                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden select-none"
-                  style={{ width: '300px', height: '300px', touchAction: 'none' }}
-                >
-                  {/* Image fills container */}
-                  <img
-                    src={tempLogoUrl}
-                    alt={tt("Preview")}
-                    className="w-full h-full object-contain pointer-events-none select-none"
-                    draggable={false}
-                  />
-
-                  {/* Crop box - percentage based like video cropper */}
-                  <div
-                    /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
-                    data-sheet-no-drag=""
-                    className="absolute border-2 border-white border-dashed cursor-move"
-                    style={{
-                      left: `${logoCropBox.x}%`,
-                      top: `${logoCropBox.y}%`,
-                      width: `${logoCropBox.width}%`,
-                      height: `${logoCropBox.height}%`,
-                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      background: 'transparent',
-                      touchAction: 'none'
-                    }}
-                    onMouseDown={(e) => handleLogoCropMouseDown(e, 'drag')}
-                    onTouchStart={(e) => handleLogoCropTouchStart(e, 'drag')}
-                  >
-                    {/* Grid lines */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="border border-white/30" />
-                      ))}
-                    </div>
-
-                    {/* Corner resize handles - larger for mobile touch */}
-                    <div
-                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
-                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top-left') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top-left') }}
-                    />
-                    <div
-                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
-                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top-right') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top-right') }}
-                    />
-                    <div
-                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
-                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom-left') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom-left') }}
-                    />
-                    <div
-                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
-                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom-right') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom-right') }}
-                    />
-
-                    {/* Edge resize handles */}
-                    <div
-                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-n-resize z-50"
-                      style={{ top: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'top') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'top') }}
-                    />
-                    <div
-                      className="absolute left-1/2 -translate-x-1/2 bg-white/90 rounded-full cursor-s-resize z-50"
-                      style={{ bottom: '-8px', width: '40px', height: '16px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'bottom') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'bottom') }}
-                    />
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-w-resize z-50"
-                      style={{ left: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'left') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'left') }}
-                    />
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 bg-white/90 rounded-full cursor-e-resize z-50"
-                      style={{ right: '-8px', width: '16px', height: '40px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleLogoCropMouseDown(e, 'resize', 'right') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleLogoCropTouchStart(e, 'resize', 'right') }}
-                    />
-                  </div>
-                </div>
-
-                <p className="text-xs text-center text-gray-500">{tt("Drag to move, use corners to resize freely")}</p>
-
-                <Button onClick={handleLogoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingLogo}>
-                  {uploadingLogo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
-                </Button>
-              </>
-            )}
+          <div className="p-4 sm:p-5">
+            {tempLogo ? (
+              <CropUpload
+                kind="image"
+                src={tempLogo.url}
+                file={tempLogo.blob}
+                aspect={null}
+                prefix="logo"
+                outputSize={600}
+                outputType="image/png"
+                help={tt("Drag to move. Drag a corner or an edge to resize.")}
+                onCancel={closeLogoCrop}
+                onSaved={(result) => {
+                  updateTheme({ title_logo_url: result.url, title_style: 'logo' } as any)
+                  closeLogoCrop()
+                }}
+              />
+            ) : null}
           </div>
         </SheetDialog>
 
@@ -3026,14 +2092,14 @@ function HeaderSection() {
                   <img src={(theme as any).title_logo_url} alt={tt("Logo")} className="h-full w-full object-contain" />
                 </div>
                 <div className="flex flex-1 gap-2">
-                  <button type="button" onClick={() => setShowLogoUploadModal(true)} className={cn(secondaryDepth, "h-11 flex-1 rounded-xl text-[14px]")}>{tt("Change logo")}</button>
+                  <button type="button" onClick={() => { setPickError(null); setShowLogoUploadModal(true) }} className={cn(secondaryDepth, "h-11 flex-1 rounded-xl text-[14px]")}>{tt("Change logo")}</button>
                   <button type="button" onClick={handleRemoveLogo} aria-label={tt("Remove logo")} className={cn(secondaryDepth, "h-11 w-11 rounded-xl text-[#b42318]")}><Trash2 className="h-4 w-4" /></button>
                 </div>
               </div>
             ) : (
               <button
                 type="button"
-                onClick={() => setShowLogoUploadModal(true)}
+                onClick={() => { setPickError(null); setShowLogoUploadModal(true) }}
                 className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-6 text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]"
               >
                 <Upload className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />
@@ -3575,7 +2641,6 @@ function DirectionDial({ value, onChange }: { value: number; onChange: (v: numbe
 
 function WallpaperSection() {
   const { onepage, updateTheme } = useOnePage()
-  const [uploading, setUploading] = useState(false)
   /* Its questions and pickers are the shared sheet on a phone (components/ui/sheet-dialog). */
   const sheetPhone = usePhone()
   const [showLayoutChangeDialog, setShowLayoutChangeDialog] = useState(false)
@@ -3583,20 +2648,21 @@ function WallpaperSection() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Video wallpaper states
-  const [showWallpaperVideoModal, setShowWallpaperVideoModal] = useState(false)
   const [showWallpaperVideoCropModal, setShowWallpaperVideoCropModal] = useState(false)
-  const [tempWallpaperVideoUrl, setTempWallpaperVideoUrl] = useState<string | null>(null)
-  const [tempWallpaperVideoFile, setTempWallpaperVideoFile] = useState<File | null>(null)
-  const [uploadingWallpaperVideo, setUploadingWallpaperVideo] = useState(false)
+  const [tempWallpaperVideo, setTempWallpaperVideo] = useState<{ url: string; file: File } | null>(null)
+  const [videoPickError, setVideoPickError] = useState<string | null>(null)
   const wallpaperVideoFileInputRef = useRef<HTMLInputElement>(null)
-  const wallpaperVideoPreviewRef = useRef<HTMLVideoElement>(null)
-  const wallpaperVideoCropContainerRef = useRef<HTMLDivElement>(null)
 
-  // Video crop state for wallpaper
-  const [wallpaperVideoCropBox, setWallpaperVideoCropBox] = useState({ x: 0, y: 0, width: 100, height: 100 }) // 9:16 container, full coverage default
-  const [isWallpaperVideoDragging, setIsWallpaperVideoDragging] = useState(false)
-  const [isWallpaperVideoResizing, setIsWallpaperVideoResizing] = useState<string | null>(null)
-  const [wallpaperVideoDragStart, setWallpaperVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
+  /* The wallpaper picture's upload, and the picture from the device shown while it goes up. */
+  const imageUp = useMediaUpload()
+  const [localImage, setLocalImage] = useState<string | null>(null)
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null)
+  /* The device picture's address is let go when the section closes (a state setter would not run then). */
+  const localImageRef = useRef<string | null>(null)
+  localImageRef.current = localImage
+  useEffect(() => () => {
+    if (localImageRef.current) URL.revokeObjectURL(localImageRef.current)
+  }, [])
 
   if (!onepage) return null
   const { theme } = onepage
@@ -3623,9 +2689,9 @@ function WallpaperSection() {
       return
     }
 
-    // For video type, open the video picker modal
-    if (type === "video") {
-      setShowWallpaperVideoModal(true)
+    /* Video with none chosen yet opens the device's picker; the page changes once a video is saved. With one, it is simply back. */
+    if (type === "video" && !(theme as any).background_video_url) {
+      pickWallpaperVideo()
       return
     }
 
@@ -3635,16 +2701,18 @@ function WallpaperSection() {
 
   const handleConfirmLayoutChange = () => {
     if (pendingBgType) {
-      // For video, also open the video picker modal after confirming layout change
-      if (pendingBgType === "video") {
+      if (pendingBgType === "video" && !(theme as any).background_video_url) {
         updateTheme({ header_layout: "classic" } as any)
-        setShowWallpaperVideoModal(true)
+        pickWallpaperVideo()
       } else {
         updateTheme({ background_type: pendingBgType, header_layout: "classic" } as any)
       }
+      /* A picture chosen before the switch was asked for goes up now. */
+      if (pendingBgType === "image" && pendingImageFile) void uploadWallpaperImage(pendingImageFile)
     }
     setShowLayoutChangeDialog(false)
     setPendingBgType(null)
+    setPendingImageFile(null)
   }
 
   const handleGradientChange = (direction: number, color1: string, color2: string) => {
@@ -3652,36 +2720,58 @@ function WallpaperSection() {
     updateTheme({ background_gradient: newGradient })
   }
 
+  /* The chosen picture shows at once from the device and goes up behind its progress; the uploaded one replaces it once it has loaded. */
+  const uploadWallpaperImage = async (file: File) => {
+    const preview = URL.createObjectURL(file)
+    setLocalImage((old) => {
+      if (old) URL.revokeObjectURL(old)
+      return preview
+    })
+    const result = await imageUp.upload(file, { prefix: "wallpaper", want: "image" })
+    if (!result) {
+      setLocalImage((old) => {
+        if (old) URL.revokeObjectURL(old)
+        return null
+      })
+      return
+    }
+    updateTheme({ background_type: "image", background_image_url: result.url })
+    const loaded = new Image()
+    loaded.src = result.url
+    const done = () => setLocalImage((old) => {
+      if (old !== preview) return old
+      URL.revokeObjectURL(preview)
+      return null
+    })
+    loaded.decode().then(done, done)
+  }
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    
-    // Check if Hero layout is active
+    // Hero layout first asks to switch to Classic; the picture is kept and goes up after.
     if (currentHeaderLayout === "hero") {
+      setPendingImageFile(file)
       setPendingBgType("image")
       setShowLayoutChangeDialog(true)
       return
     }
-    
-    setUploading(true)
+    await uploadWallpaperImage(file)
+  }
 
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+  const cancelWallpaperImage = () => {
+    imageUp.cancel()
+    setLocalImage((old) => {
+      if (old) URL.revokeObjectURL(old)
+      return null
+    })
+  }
 
-      const fileName = `${user.id}/wallpaper-${Date.now()}.${file.name.split('.').pop()}`
-      const { error } = await supabase.storage.from("onepage-assets").upload(fileName, file, { upsert: true })
-      if (error) throw error
-      confirmUpload("onepage-assets", fileName)
-
-      const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-      updateTheme({ background_type: "image", background_image_url: publicUrl })
-    } catch (error) {
-      console.error("Upload error:", error)
-    } finally {
-      setUploading(false)
-    }
+  const removeWallpaperImage = () => {
+    cancelWallpaperImage()
+    imageUp.clear()
+    updateTheme({ background_image_url: "" })
   }
 
   const handleImageSelect = (url: string) => {
@@ -3694,176 +2784,30 @@ function WallpaperSection() {
     updateTheme({ background_image_url: url })
   }
 
-  // Wallpaper video handlers
+  // Wallpaper video: MP4, MOV, WebM or M4V up to 2 GB, cropped to a phone's shape, then straight to storage.
+  const pickWallpaperVideo = () => {
+    setVideoPickError(null)
+    wallpaperVideoFileInputRef.current?.click()
+  }
+
   const handleWallpaperVideoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
-    const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v', 'video/mpeg']
-    if (!validTypes.includes(file.type) && !file.type.startsWith('video/')) {
-      alert(tt("Please select a valid video file (MP4, WebM, or MOV)"))
-      return
-    }
-
-    // Validate file size (max 100MB)
-    if (file.size > 100 * 1024 * 1024) {
-      alert(tt("Video file must be less than 100MB"))
-      return
-    }
-
-    const url = URL.createObjectURL(file)
-    setTempWallpaperVideoUrl(url)
-    setTempWallpaperVideoFile(file)
-    // Default to portrait 9:16 aspect ratio crop box (centered)
-    setWallpaperVideoCropBox({ x: 21.875, y: 0, width: 56.25, height: 100 })
-    setShowWallpaperVideoModal(false)
-    setShowWallpaperVideoCropModal(true)
     e.target.value = ''
+    if (!file) return
+    const verdict = checkMedia(file, "video")
+    if (!verdict.ok) {
+      setVideoPickError(uploadErrorText(verdict.code ?? "type", "video"))
+      return
+    }
+    setVideoPickError(null)
+    setTempWallpaperVideo({ url: URL.createObjectURL(file), file })
+    setShowWallpaperVideoCropModal(true)
   }
 
-  const handleWallpaperVideoCropMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize', corner?: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const container = wallpaperVideoCropContainerRef.current
-    if (!container) return
-
-    const rect = container.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-
-    setWallpaperVideoDragStart({
-      x,
-      y,
-      boxX: wallpaperVideoCropBox.x,
-      boxY: wallpaperVideoCropBox.y,
-      boxW: wallpaperVideoCropBox.width,
-      boxH: wallpaperVideoCropBox.height
-    })
-
-    if (type === 'drag') {
-      setIsWallpaperVideoDragging(true)
-    } else {
-      setIsWallpaperVideoResizing(corner || null)
-    }
-  }
-
-  const handleWallpaperVideoCropMouseMove = useCallback((e: MouseEvent) => {
-    const container = wallpaperVideoCropContainerRef.current
-    if (!container) return
-
-    const rect = container.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-
-    if (isWallpaperVideoDragging) {
-      const deltaX = x - wallpaperVideoDragStart.x
-      const deltaY = y - wallpaperVideoDragStart.y
-
-      let newX = wallpaperVideoDragStart.boxX + deltaX
-      let newY = wallpaperVideoDragStart.boxY + deltaY
-
-      newX = Math.max(0, Math.min(100 - wallpaperVideoCropBox.width, newX))
-      newY = Math.max(0, Math.min(100 - wallpaperVideoCropBox.height, newY))
-
-      setWallpaperVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-    } else if (isWallpaperVideoResizing) {
-      const deltaY = y - wallpaperVideoDragStart.y
-
-      // 9:16 aspect ratio locked - container is 200x356 (portrait 9:16)
-      // For 9:16 crop on 9:16 container: width% = height% (approximately 1:1 ratio in percentages)
-      const aspectFactor = 1 // Since container is already 9:16, percentages match
-
-      let newBox = { ...wallpaperVideoCropBox }
-
-      // Resize maintains square percentage (which gives 9:16 actual ratio)
-      if (isWallpaperVideoResizing.includes('bottom')) {
-        const newHeight = Math.max(30, Math.min(100 - wallpaperVideoDragStart.boxY, wallpaperVideoDragStart.boxH + deltaY))
-        const newWidth = newHeight * aspectFactor
-        if (newBox.x + newWidth <= 100) {
-          newBox.height = newHeight
-          newBox.width = newWidth
-        }
-      }
-      if (isWallpaperVideoResizing.includes('top')) {
-        const proposedHeight = wallpaperVideoDragStart.boxH - deltaY
-        const newHeight = Math.max(30, proposedHeight)
-        const newWidth = newHeight * aspectFactor
-        if (newWidth <= 100) {
-          const maxY = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - 30
-          newBox.y = Math.max(0, Math.min(maxY, wallpaperVideoDragStart.boxY + deltaY))
-          newBox.height = wallpaperVideoDragStart.boxY + wallpaperVideoDragStart.boxH - newBox.y
-          newBox.width = newBox.height * aspectFactor
-          if (newBox.x + newBox.width > 100) {
-            newBox.x = 100 - newBox.width
-          }
-        }
-      }
-      // Corner resizing
-      if (isWallpaperVideoResizing.includes('right') || isWallpaperVideoResizing.includes('left')) {
-        const newHeight = Math.max(30, Math.min(100 - newBox.y, wallpaperVideoDragStart.boxH + deltaY))
-        const newWidth = newHeight * aspectFactor
-        if (newBox.x + newWidth <= 100) {
-          newBox.height = newHeight
-          newBox.width = newWidth
-        }
-      }
-
-      setWallpaperVideoCropBox(newBox)
-    }
-  }, [isWallpaperVideoDragging, isWallpaperVideoResizing, wallpaperVideoDragStart, wallpaperVideoCropBox.width, wallpaperVideoCropBox.height])
-
-  const handleWallpaperVideoCropMouseUp = useCallback(() => {
-    setIsWallpaperVideoDragging(false)
-    setIsWallpaperVideoResizing(null)
-  }, [])
-
-  useEffect(() => {
-    if (isWallpaperVideoDragging || isWallpaperVideoResizing) {
-      window.addEventListener('mousemove', handleWallpaperVideoCropMouseMove)
-      window.addEventListener('mouseup', handleWallpaperVideoCropMouseUp)
-      return () => {
-        window.removeEventListener('mousemove', handleWallpaperVideoCropMouseMove)
-        window.removeEventListener('mouseup', handleWallpaperVideoCropMouseUp)
-      }
-    }
-  }, [isWallpaperVideoDragging, isWallpaperVideoResizing, handleWallpaperVideoCropMouseMove, handleWallpaperVideoCropMouseUp])
-
-  const handleWallpaperVideoCropSave = async () => {
-    if (!tempWallpaperVideoFile || !tempWallpaperVideoUrl) return
-    setUploadingWallpaperVideo(true)
-
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const fileName = `${user.id}/wallpaper-video-${Date.now()}.${tempWallpaperVideoFile.name.split('.').pop()}`
-      const { error } = await supabase.storage.from("onepage-assets").upload(fileName, tempWallpaperVideoFile, { upsert: true })
-      if (error) throw error
-      confirmUpload("onepage-assets", fileName)
-
-      const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-
-      // Save video URL and crop data to theme
-      updateTheme({
-        background_type: "video",
-        background_video_url: publicUrl,
-        background_video_crop: wallpaperVideoCropBox
-      } as any)
-
-      setShowWallpaperVideoCropModal(false)
-    } catch (error) {
-      console.error("Wallpaper video upload error:", error)
-      alert(tt("Failed to upload video. Please try again."))
-    } finally {
-      setUploadingWallpaperVideo(false)
-      if (tempWallpaperVideoUrl) {
-        URL.revokeObjectURL(tempWallpaperVideoUrl)
-        setTempWallpaperVideoUrl(null)
-        setTempWallpaperVideoFile(null)
-      }
-    }
+  const closeWallpaperVideoCrop = () => {
+    setShowWallpaperVideoCropModal(false)
+    if (tempWallpaperVideo) URL.revokeObjectURL(tempWallpaperVideo.url)
+    setTempWallpaperVideo(null)
   }
 
   const handleRemoveWallpaperVideo = () => {
@@ -3875,6 +2819,8 @@ function WallpaperSection() {
   }
 
   const bgType = theme.background_type as "solid" | "gradient" | "image" | "video"
+  const coverImage = localImage || theme.background_image_url || ""
+  const wallpaperVideoUrl: string = (theme as any).background_video_url || ""
   const currentPattern = (theme as any).background_pattern || "none"
   const patternRaw: string = (theme as any).pattern_color || (bgType === "gradient" ? "#ffffff90" : "#00000090")
   /* The pattern colour carries its own strength as two hex digits on the end (#00000090). The picker has no alpha, so it is kept aside and put back. */
@@ -4068,25 +3014,33 @@ function WallpaperSection() {
       {bgType === "image" && (
         <>
           <PanelSection>
-            {theme.background_image_url ? (
-              <div className="relative aspect-video overflow-hidden rounded-2xl">
-                <img src={theme.background_image_url} alt={tt("Wallpaper")} className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
-                <div className="absolute bottom-3 right-3 flex gap-2">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className={cn(secondaryDepth, "h-10 rounded-full px-4 text-[13.5px]")} disabled={uploading}>
-                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    {tt("Replace")}
-                  </button>
-                  <button type="button" aria-label={tt("Remove image")} onClick={() => updateTheme({ background_image_url: "" })} className={cn(secondaryDepth, "h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
-                </div>
+            {coverImage ? (
+              /* The picture, with Replace and Delete on it. While a new one goes up it shows at once from the device, with the progress and Stop over it, and stays until the uploaded one has loaded: no blank frame, no jump. */
+              <div data-wallpaper-cover="image" className="relative aspect-video overflow-hidden rounded-2xl bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
+                <img key={coverImage} src={coverImage} alt={tt("Wallpaper")} decoding="async" className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
+                {imageUp.busy ? (
+                  <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.6),rgba(0,0,0,0))] px-3 pb-3 pt-10">
+                    <UploadProgress state={imageUp.state} onCancel={cancelWallpaperImage} tone="dark" />
+                  </div>
+                ) : (
+                  <div className="absolute bottom-3 right-3 flex gap-2">
+                    <button type="button" data-wallpaper-replace="" onClick={() => fileInputRef.current?.click()} className={cn(secondaryDepth, "h-10 rounded-full px-4 text-[13.5px]")}>
+                      <Upload className="h-4 w-4" />
+                      {tt("Replace")}
+                    </button>
+                    <button type="button" data-wallpaper-delete="" aria-label={tt("Remove image")} onClick={removeWallpaperImage} className={cn(secondaryDepth, "h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                )}
               </div>
             ) : (
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
-                {uploading ? <Loader2 className="h-6 w-6 animate-spin text-[#6b7280]" /> : <Upload className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />}
-                <span className="text-[14px] font-medium">{uploading ? tt("Uploading") : tt("Upload an image")}</span>
-                <span className="text-[13px] text-[#6b7280]">{tt("JPG, PNG or GIF. Tall pictures fit a phone best")}</span>
+              <button type="button" data-wallpaper-upload="image" onClick={() => fileInputRef.current?.click()} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] [@media(hover:hover)]:hover:bg-[#f7f7f8]">
+                <Upload className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />
+                <span className="text-[14px] font-medium">{tt("Upload an image")}</span>
+                <span className="text-[13px] text-[#6b7280]">{tt("JPG, PNG, GIF or HEIC. Tall pictures fit a phone best")}</span>
               </button>
             )}
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+            {imageUp.state.phase === "error" ? <UploadProgress state={imageUp.state} className="mt-3" /> : null}
+            <input ref={fileInputRef} type="file" accept={ONEPAGE_IMAGE_ACCEPT} onChange={handleImageUpload} className="hidden" />
           </PanelSection>
           {theme.background_image_url ? (
             <PanelSection>
@@ -4122,11 +3076,18 @@ function WallpaperSection() {
 
       {bgType === "video" && (
         <PanelSection>
-          {(theme as any).background_video_url ? (
+          {wallpaperVideoUrl ? (
             <div className="space-y-5">
-              <div className="relative mx-auto aspect-[9/16] max-h-[300px] overflow-hidden rounded-2xl">
-                <video src={(theme as any).background_video_url} className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).video_brightness || 100}%)` }} autoPlay loop muted playsInline />
-                <button type="button" aria-label={tt("Remove video")} onClick={handleRemoveWallpaperVideo} className={cn(secondaryDepth, "absolute right-3 top-3 h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
+              {/* The video as the page draws it (the same crop), with Replace and Delete on it, like the picture. */}
+              <div data-wallpaper-cover="video" className="relative mx-auto aspect-[9/16] w-[min(100%,210px)] overflow-hidden rounded-2xl bg-[#111113] shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+                <video key={wallpaperVideoUrl} src={wallpaperVideoUrl} className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).video_brightness || 100}%)`, ...(croppedMediaStyle((theme as any).background_video_crop) as React.CSSProperties | undefined) }} autoPlay loop muted playsInline preload="metadata" />
+                <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">
+                  <button type="button" data-wallpaper-replace="" onClick={pickWallpaperVideo} className={cn(secondaryDepth, "h-10 rounded-full px-4 text-[13.5px]")}>
+                    <Upload className="h-4 w-4" />
+                    {tt("Replace")}
+                  </button>
+                  <button type="button" data-wallpaper-delete="" aria-label={tt("Remove video")} onClick={handleRemoveWallpaperVideo} className={cn(secondaryDepth, "h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
+                </div>
               </div>
               <SettingRow label={tt("Brightness")} stackOnPhone>
                 <Segmented
@@ -4137,138 +3098,56 @@ function WallpaperSection() {
                   onChange={(id) => updateTheme({ video_brightness: Number(id) } as any)}
                 />
               </SettingRow>
-              <button type="button" onClick={() => setShowWallpaperVideoModal(true)} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[14px]")}>
-                <Video className="h-4 w-4" />
-                {tt("Change video")}
-              </button>
             </div>
           ) : (
-            <button type="button" onClick={() => setShowWallpaperVideoModal(true)} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
+            <button type="button" data-wallpaper-upload="video" onClick={pickWallpaperVideo} className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-[#d9dbe0] px-4 py-8 text-[#1a1a2e] [@media(hover:hover)]:hover:bg-[#f7f7f8]">
               <Video className="h-6 w-6 text-[#6b7280]" strokeWidth={1.6} />
               <span className="text-[14px] font-medium">{tt("Upload a video")}</span>
-              <span className="text-[13px] text-[#6b7280]">{tt("MP4, WebM or MOV, up to 100MB")}</span>
+              <span className="text-[13px] text-[#6b7280]">{tt("MP4, MOV or WebM, up to 2 GB")}</span>
             </button>
           )}
         </PanelSection>
       )}
 
-      {/* Video Picker Modal */}
-      <SheetDialog
-        open={showWallpaperVideoModal}
-        onClose={() => setShowWallpaperVideoModal(false)}
-        phone={sheetPhone}
-        label={tt("Upload Video")}
-        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
-      >
-          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
-            <button onClick={() => setShowWallpaperVideoModal(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
-            <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Upload Video")}</SheetDialogTitle>
-          </DialogHeader>
-          <div className="p-5 space-y-3">
-            <button onClick={() => wallpaperVideoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><Upload className="h-6 w-6 text-gray-600" /></div>
-              <div className="flex-1 text-left">
-                <p className="font-medium">{tt("Upload from device")}</p>
-                <p className="text-sm text-gray-500">{tt("MP4, WebM, or MOV")}</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            </button>
-            <input ref={wallpaperVideoFileInputRef} type="file" accept="video/mp4,video/webm,video/quicktime" onChange={handleWallpaperVideoFileSelect} className="hidden" />
-          </div>
-        </SheetDialog>
+      {/* Always here, so the Video tile can open the device's picker from any wallpaper style. */}
+      <input ref={wallpaperVideoFileInputRef} type="file" accept={ONEPAGE_VIDEO_ACCEPT} onChange={handleWallpaperVideoFileSelect} className="hidden" />
+      {videoPickError ? (
+        <PanelSection>
+          <p role="alert" className="text-[13px] leading-snug text-[#b42318]">{videoPickError}</p>
+        </PanelSection>
+      ) : null}
 
-      {/* Video Crop Modal */}
+
+      {/* Video Crop Modal: a phone-shaped (9:16) part of the video; the page draws it through the same crop (croppedMediaStyle). */}
       <SheetDialog
         open={showWallpaperVideoCropModal}
-        onClose={() => {
-          setShowWallpaperVideoCropModal(false)
-          if (tempWallpaperVideoUrl) URL.revokeObjectURL(tempWallpaperVideoUrl)
-          setTempWallpaperVideoUrl(null)
-          setTempWallpaperVideoFile(null)
-          setIsWallpaperVideoDragging(false)
-          setIsWallpaperVideoResizing(null)
-        }}
+        onClose={closeWallpaperVideoCrop}
         phone={sheetPhone}
         label={tt("Crop Video")}
-        className="w-[calc(100%-32px)] max-w-md sm:max-w-lg md:max-w-xl p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+        className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
         dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
-            <button onClick={() => { setShowWallpaperVideoCropModal(false); setShowWallpaperVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <button onClick={() => { closeWallpaperVideoCrop(); pickWallpaperVideo() }} aria-label={tt("Back")} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Video")}</SheetDialogTitle>
           </DialogHeader>
-          <div className="p-5 space-y-4">
-            {tempWallpaperVideoUrl && (
-              <>
-                <div
-                  ref={wallpaperVideoCropContainerRef}
-                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden w-[200px] h-[356px] sm:w-[260px] sm:h-[462px] md:w-[320px] md:h-[569px]"
-                  style={{ touchAction: 'none' }}
-                >
-                  <video
-                    ref={wallpaperVideoPreviewRef}
-                    src={tempWallpaperVideoUrl}
-                    className="w-full h-full object-cover pointer-events-none rounded-xl"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-
-                  {/* Crop box - draggable */}
-                  <div
-                    /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
-                    data-sheet-no-drag=""
-                    className="absolute border-2 border-white border-dashed cursor-move"
-                    style={{
-                      left: `${wallpaperVideoCropBox.x}%`,
-                      top: `${wallpaperVideoCropBox.y}%`,
-                      width: `${wallpaperVideoCropBox.width}%`,
-                      height: `${wallpaperVideoCropBox.height}%`,
-                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      background: 'transparent',
-                      touchAction: 'none'
-                    }}
-                    onMouseDown={(e) => handleWallpaperVideoCropMouseDown(e, 'drag')}
-                  >
-                    {/* Grid lines */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="border border-white/30" />
-                      ))}
-                    </div>
-
-                    {/* Corner resize handles */}
-                    <div
-                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-nw-resize z-50"
-                      style={{ top: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'top-left') }}
-                    />
-                    <div
-                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-ne-resize z-50"
-                      style={{ top: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'top-right') }}
-                    />
-                    <div
-                      className="absolute bg-white border-2 border-blue-500 rounded-full cursor-sw-resize z-50"
-                      style={{ bottom: '-12px', left: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'bottom-left') }}
-                    />
-                    <div
-                      className="absolute bg-blue-500 border-2 border-blue-600 rounded-full cursor-se-resize z-50"
-                      style={{ bottom: '-12px', right: '-12px', width: '24px', height: '24px', touchAction: 'none' }}
-                      onMouseDown={(e) => { e.stopPropagation(); handleWallpaperVideoCropMouseDown(e, 'resize', 'bottom-right') }}
-                    />
-                  </div>
-                </div>
-
-                <p className="text-xs text-center text-gray-500">{tt("Drag to move, use corners to resize (9:16 portrait ratio locked)")}</p>
-
-                <Button onClick={handleWallpaperVideoCropSave} className="w-full bg-black hover:bg-gray-800 text-white h-12 rounded-xl" disabled={uploadingWallpaperVideo}>
-                  {uploadingWallpaperVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
-                </Button>
-              </>
-            )}
+          <div className="p-4 sm:p-5">
+            {tempWallpaperVideo ? (
+              <CropUpload
+                kind="video"
+                src={tempWallpaperVideo.url}
+                file={tempWallpaperVideo.file}
+                aspect={9 / 16}
+                prefix="wallpaper-video"
+                maxHeight={sheetPhone ? 340 : 420}
+                help={tt("Drag to move. Drag a corner to resize. The box is the shape of a phone.")}
+                onCancel={closeWallpaperVideoCrop}
+                onSaved={(result, crop) => {
+                  updateTheme({ background_type: "video", background_video_url: result.url, background_video_crop: crop } as any)
+                  closeWallpaperVideoCrop()
+                }}
+              />
+            ) : null}
           </div>
         </SheetDialog>
 
@@ -4315,7 +3194,7 @@ function WallpaperSection() {
               </button>
               
               <button
-                onClick={() => { setShowLayoutChangeDialog(false); setPendingBgType(null); }}
+                onClick={() => { setShowLayoutChangeDialog(false); setPendingBgType(null); setPendingImageFile(null) }}
                 className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
               >
                 {tt("Cancel")}
