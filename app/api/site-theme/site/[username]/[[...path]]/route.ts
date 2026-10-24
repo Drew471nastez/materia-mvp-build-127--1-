@@ -106,6 +106,21 @@ function refererPath(referer: string | null): string | undefined {
 }
 
 async function handle(req: Request, { params }: Params): Promise<Response> {
+  /*
+    WHERE A DRAWN PAGE'S TIME WENT, said in Server-Timing (read, the site and
+    its products; localize, its language and market; draw, the theme's
+    Liquid; post, the page made ready for its first paint). A browser's
+    network panel shows it, and so does a check from outside; it names no
+    store data, only milliseconds.
+  */
+  const began = performance.now()
+  const timing: string[] = []
+  let lap = began
+  const mark = (name: string) => {
+    const now = performance.now()
+    timing.push(`${name};dur=${Math.round(now - lap)}`)
+    lap = now
+  }
   const { username, path = [] } = await params
   const url = new URL(req.url)
   const host = siteHostOf(req.headers)
@@ -159,6 +174,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   let found: Awaited<ReturnType<typeof compatSiteByName>>
   try {
     found = await compatSiteByName(username, host, token)
+    mark("read")
   } catch (e) {
     if (!isSiteReadError(e)) throw e
     console.error("[site-theme] site unavailable:", e.message)
@@ -201,6 +217,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   /* The store's own currency, before the page is put in the market's: what the checkout prices the cart in. */
   const storeCurrency = found.site.shop.currency ?? "USD"
   found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry, forSite(languagesAsked, found.site.creatorId)) }
+  mark("localize")
 
   const cookie = stranger ? undefined : req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
   const { cart, note, attributes, discount } = readCartCookie(cookie)
@@ -275,6 +292,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
           return { ok: r.ok, status: r.status }
         },
   })
+  mark("draw")
   const headers = new Headers(out.headers ?? {})
   for (const c of out.cookies ?? []) headers.append("Set-Cookie", c)
   /* A redirect the theme's page makes (Add to cart, a sign in) stays in the page's language; the language selector's own answer (/localization) is the language chosen, already. */
@@ -355,6 +373,9 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     }
   }
   const body = html ?? (typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]))
+  mark("post")
+  timing.push(`total;dur=${Math.round(performance.now() - began)}`)
+  headers.set("Server-Timing", timing.join(", "))
   return new NextResponse(body, { status: out.status, headers })
 }
 
@@ -408,6 +429,8 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
     return { status: res.status, headers, body, share: res.status === 200 && res.headers.get(SHAREABLE_HEADER) === "1" && res.headers.get("Cache-Control") === PUBLIC_PAGE_CACHE && !res.headers.has("Set-Cookie") }
   })
   const headers = new Headers(page.headers)
+  /* A held page says it was held, and what its draw cost when it was drawn. */
+  if (page.held) headers.set("Server-Timing", ["hold;desc=hit", headers.get("Server-Timing")?.replace(/(^|, )(\w+);/g, "$1drawn-$2;")].filter(Boolean).join(", "))
   /* Said between the draw and the hold only. */
   headers.delete(SHAREABLE_HEADER)
   /* Said for /admin/performance and for a person checking: this page came from the hold, not a new draw. */
