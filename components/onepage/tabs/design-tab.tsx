@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useOnePage } from "@/lib/onepage/context"
+import { onePageImageSrc } from "@/lib/onepage/display-image"
 import * as ReactModule from "react"
 import { useEffect, useLayoutEffect, useState, useRef, useCallback, startTransition, memo } from "react"
 import { flushSync } from "react-dom"
@@ -1289,7 +1290,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
   const [built, setBuilt] = useState<DesignSection[]>(() => (section ? [section] : []))
   const scrollerOf = () => rootRef.current?.closest<HTMLElement>("[data-scroll-container]") ?? null
   /* The theme cards' photos, fetched and decoded while the creator is still on this list (see preloadThemeThumbs). */
-  useEffect(() => { preloadThemeThumbs() }, [])
+  useEffect(() => preloadThemeThumbs(), [])
 
   const remember = (next: DesignSection | null) => {
     try {
@@ -1749,7 +1750,7 @@ function HeaderSection() {
           {avatarVideoUrl ? (
                 <>
                   {onepage.avatar_url ? (
-                    <img src={onepage.avatar_url} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+                    <img src={onePageImageSrc(onepage.avatar_url, 96)} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
                   ) : (
                     <div className="absolute inset-0 bg-gray-200 animate-pulse" />
                   )}
@@ -1767,7 +1768,7 @@ function HeaderSection() {
                   />
                 </>
               ) : onepage.avatar_url ? (
-                <img src={onepage.avatar_url} alt={onepage.title} className="w-full h-full object-cover" />
+                <img src={onePageImageSrc(onepage.avatar_url, 96)} alt={onepage.title} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[28px] font-semibold text-[#6b7280] bg-[#f1f2f4]">{onepage.title?.trim() ? onepage.title.charAt(0) : <AvatarMark name="" size={72} />}</div>
               )}
@@ -2176,9 +2177,25 @@ const themeThumbSrc = (url: string) => optimizedImageUrl(url, THEME_THUMB_WIDTH,
   is open, so a card shown by a pick of a kind is drawn with its photo in
   the same frame, never its bare colour first.
 */
+/*
+  AND LET GO WHEN THE DESIGN TAB GOES (round 12). The kept pictures were held
+  by this module for the life of the page, so leaving the editor for /app
+  kept them decoded. The tab's effect now gives them back when it is put
+  away (hidden or gone); the next open asks for them again, from the cache.
+*/
 const keptThemeThumbs: HTMLImageElement[] = []
-function preloadThemeThumbs() {
-  if (typeof window === "undefined" || keptThemeThumbs.length) return
+let themeThumbHolders = 0
+export function preloadThemeThumbs(): () => void {
+  if (typeof window === "undefined") return () => {}
+  themeThumbHolders++
+  let held = true
+  const release = () => {
+    if (!held) return
+    held = false
+    if (--themeThumbHolders > 0) return
+    for (const img of keptThemeThumbs.splice(0)) img.src = ""
+  }
+  if (keptThemeThumbs.length) return release
   for (const t of THEME_TEMPLATES) {
     const c = t.theme_config as { background_type?: string; background_image_url?: string }
     if (c.background_type !== "image" || !c.background_image_url) continue
@@ -2188,7 +2205,11 @@ function preloadThemeThumbs() {
     img.decode?.().catch(() => null)
     keptThemeThumbs.push(img)
   }
+  return release
 }
+
+/** How many theme pictures are held decoded now (tests/memory-r12.test.ts). */
+export const keptThemeThumbCount = () => keptThemeThumbs.length
 
 /*
   A kind's grid that is not the one picked: out of the flow, under the
@@ -2876,7 +2897,7 @@ function WallpaperSection() {
     const art =
       type === "solid" ? <span className="absolute inset-0" style={{ background: bgType === "solid" ? theme.background_color : "#b2846c" }} /> :
       type === "gradient" ? <span className="absolute inset-0" style={{ background: bgType === "gradient" && theme.background_gradient ? theme.background_gradient : DEFAULT_GRADIENT }} /> :
-      type === "image" ? (theme.background_image_url ? <img src={theme.background_image_url} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <span className="absolute inset-0 grid place-items-center bg-[#f1f2f4] text-[#6b7280]"><ImageIcon className="h-5 w-5" strokeWidth={1.6} /></span>) :
+      type === "image" ? (theme.background_image_url ? <img src={onePageImageSrc(theme.background_image_url, 160)} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <span className="absolute inset-0 grid place-items-center bg-[#f1f2f4] text-[#6b7280]"><ImageIcon className="h-5 w-5" strokeWidth={1.6} /></span>) :
       <span className="absolute inset-0 grid place-items-center bg-[#f1f2f4] text-[#6b7280]"><Video className="h-5 w-5" strokeWidth={1.6} /></span>
     return (
       <ChoiceCard key={type} selected={bgType === type} onClick={() => handleBgTypeChange(type)} label={type === "solid" ? tt("Fill") : type === "gradient" ? tt("Gradient") : type === "image" ? tt("Image") : tt("Video")} className="p-1.5">
@@ -3062,7 +3083,7 @@ function WallpaperSection() {
             {coverImage ? (
               /* The picture, with Replace and Delete on it. While a new one goes up it shows at once from the device, with the progress and Stop over it, and stays until the uploaded one has loaded: no blank frame, no jump. */
               <div data-wallpaper-cover="image" className="relative aspect-video overflow-hidden rounded-2xl bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.05)]">
-                <img key={coverImage} src={coverImage} alt={tt("Wallpaper")} decoding="async" className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
+                <img key={coverImage} src={onePageImageSrc(coverImage, 400)} alt={tt("Wallpaper")} decoding="async" className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
                 {imageUp.busy ? (
                   <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(to_top,rgba(0,0,0,0.6),rgba(0,0,0,0))] px-3 pb-3 pt-10">
                     <UploadProgress state={imageUp.state} onCancel={cancelWallpaperImage} tone="dark" />

@@ -423,6 +423,19 @@ function canvasBlob(canvas: HTMLCanvasElement, type: string, quality: number): P
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), type, quality))
 }
 
+/*
+  A CANVAS GIVES ITS PIXELS BACK AS SOON AS ITS FILE IS MADE (round 12). A
+  4096px picture drawn to a canvas holds 48MB until the canvas is collected,
+  whenever that is, and Safari counts every canvas against a hard limit
+  ("Total canvas memory use exceeds the maximum limit"). Sized to nothing,
+  the canvas lets its pixels go at once.
+*/
+export function releaseCanvas(canvas: HTMLCanvasElement | null | undefined): void {
+  if (!canvas) return
+  canvas.width = 0
+  canvas.height = 0
+}
+
 /**
  * A picture this page can draw and storage keeps: a HEIC becomes a JPEG, and
  * one larger than MAX_STORED_IMAGE_BYTES is drawn again at most 4096px on its
@@ -431,9 +444,10 @@ function canvasBlob(canvas: HTMLCanvasElement, type: string, quality: number): P
 export async function prepareImage(file: Blob, maxSide = 4096): Promise<{ blob: Blob; mime: string; ext: string }> {
   const decoded = await decodeImage(file)
   if (!decoded) throw new UploadError("unreadable", uploadErrorText("unreadable"))
+  let canvas: HTMLCanvasElement | null = null
   try {
     const scale = Math.min(1, maxSide / Math.max(decoded.width, decoded.height))
-    const canvas = document.createElement("canvas")
+    canvas = document.createElement("canvas")
     canvas.width = Math.max(1, Math.round(decoded.width * scale))
     canvas.height = Math.max(1, Math.round(decoded.height * scale))
     const ctx = canvas.getContext("2d")
@@ -452,6 +466,7 @@ export async function prepareImage(file: Blob, maxSide = 4096): Promise<{ blob: 
     return { blob: jpeg, mime: "image/jpeg", ext: "jpg" }
   } finally {
     decoded.release()
+    releaseCanvas(canvas)
   }
 }
 
@@ -487,6 +502,7 @@ export async function cropImageBlob(
 ): Promise<Blob> {
   const decoded = await decodeImage(file)
   if (!decoded) throw new UploadError("unreadable", uploadErrorText("unreadable"))
+  let canvas: HTMLCanvasElement | null = null
   try {
     const sx = (crop.x / 100) * decoded.width
     const sy = (crop.y / 100) * decoded.height
@@ -494,7 +510,7 @@ export async function cropImageBlob(
     const sh = Math.max(1, (crop.height / 100) * decoded.height)
     /* Never larger than the pixels there are. */
     const scale = Math.min(1, o.size / Math.max(sw, sh))
-    const canvas = document.createElement("canvas")
+    canvas = document.createElement("canvas")
     canvas.width = Math.max(1, Math.round(sw * scale))
     canvas.height = Math.max(1, Math.round(sh * scale))
     const ctx = canvas.getContext("2d")
@@ -510,5 +526,6 @@ export async function cropImageBlob(
     return fallback
   } finally {
     decoded.release()
+    releaseCanvas(canvas)
   }
 }

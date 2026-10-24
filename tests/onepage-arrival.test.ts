@@ -186,7 +186,8 @@ async function main() {
       /const HIDDEN_GRID: React\.CSSProperties = \{ position: "absolute", top: 0, left: 0, right: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" \}/.test(design) &&
       /target\.style\.contentVisibility = "visible"/.test(design) &&
       /decoding="sync" data-theme-thumb=""/.test(design) &&
-      /useEffect\(\(\) => \{ preloadThemeThumbs\(\) \}, \[\]\)/.test(design))
+      /* Round 12: the effect now returns preloadThemeThumbs' release, so the kept pictures are let go when the Design tab goes (tests/memory-r12.test.ts). */
+      /useEffect\(\(\) => preloadThemeThumbs\(\), \[\]\)/.test(design))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
