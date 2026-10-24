@@ -392,12 +392,21 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   /* Website settings › Commerce: the free shipping banner and the cart's returns line, put on the theme's own pages (lib/storelib-theme/compat/site-commerce-markup.ts). Read only when one is on. */
   const onSite = siteCommerce(settings as Record<string, unknown>)
   const readFacts = () => shopFacts(admin, creator.creatorId)
+  /* Settings › Taxes, prices include tax: Shopify's cart.taxes_included, which a theme's cart words its tax line by. */
+  const readTaxesIncluded = async (): Promise<boolean> => {
+    const { data } = await admin.from("commerce_settings").select("tax_mode, prices_include_tax").eq("creator_id", creator.creatorId).maybeSingle()
+    const row = data as { tax_mode?: string | null; prices_include_tax?: boolean | null } | null
+    return !!row && (row.tax_mode ?? "none") !== "none" && row.prices_include_tax === true
+  }
   /* The refund policy closes with what the store's return settings say today (Settings › Returns and refunds); both read together. */
-  const [returnFacts, facts] = await Promise.all([
+  const [returnFacts, facts, taxesIncluded] = await Promise.all([
     returnFactsAsked,
     physical && (onSite.freeShippingBar || onSite.cartReturnsNote)
       ? (draft ? readFacts() : heldUnless(["compat-shop-facts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readFacts, () => false))
       : null,
+    physical
+      ? (draft ? readTaxesIncluded() : heldUnless(["compat-taxes-included", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readTaxesIncluded, () => false)).catch(() => false)
+      : false,
   ])
   /* The creator's policies (Website settings), as the theme's shop.policies and /policies/<handle> (lib/storelib-theme/compat/site.ts). */
   const policies = POLICY_HANDLES.flatMap((handle) => {
@@ -419,7 +428,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     collections,
     menus: compatMenus(menus as never, Object.keys(pages)),
     /* The website's own brand name, else Store details' store name, else the person's (lib/website-builder/storefront-data dynamicContext, the same order). */
-    shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency, moneyFormat: moneyFormatFor(currency), policies },
+    shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency, moneyFormat: moneyFormatFor(currency), policies, ...(taxesIncluded ? { taxesIncluded: true } : {}) },
     host,
     ...(origin ? { canonicalHost: new URL(origin).host } : {}),
     designMode: false,
@@ -540,8 +549,11 @@ async function storeReturnFacts(admin: ReturnType<typeof createAdminClient>, cre
 
 /** A published product's live variants and their stock, by the one rule the buy box reads (lib/physical/storefront-stock.ts); null when it has none. */
 async function readStock(admin: ReturnType<typeof createAdminClient>, creatorId: string, productId: string) {
-  const { data: product } = await admin.from("products").select("id, track_inventory, continue_selling, low_stock_threshold").eq("id", productId).eq("creator_id", creatorId).eq("status", "published").maybeSingle()
-  const { data: variants } = await admin.from("product_variants").select("id, name, active, track_inventory, inventory_policy").eq("product_id", productId)
+  /* Both at once: each needs only the product's id, and an add to cart waits for them. */
+  const [{ data: product }, { data: variants }] = await Promise.all([
+    admin.from("products").select("id, track_inventory, continue_selling, low_stock_threshold").eq("id", productId).eq("creator_id", creatorId).eq("status", "published").maybeSingle(),
+    admin.from("product_variants").select("id, name, active, track_inventory, inventory_policy").eq("product_id", productId),
+  ])
   const list = ((variants ?? []) as StockVariant[]).filter(liveVariant)
   if (!product || list.length === 0) return null
   /* With the product's id, so Limit sales holds each option's most too (lib/physical/order-limit.ts). */

@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation"
 import { after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { readSiteCheckoutParams, sameSitePath, siteGate } from "@/lib/checkout/site-checkout"
+import { readSiteCheckoutParams, siteCheckoutBack, siteGate } from "@/lib/checkout/site-checkout"
 import { siteBuyerFrom, siteOfThisHost, sessionCookieName } from "@/lib/checkout/site-checkout-server"
 import { siteQuote } from "@/lib/checkout/site-quote-server"
 import { checkoutBrandOf } from "@/lib/checkout/brand-server"
@@ -159,8 +159,10 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const noteRead = marketRead
     .then((m) => (m.pricing && !m.charge && chargeNote(m.pricing.currency, m.chargeCurrency) ? { display: m.pricing.currency, charge: m.chargeCurrency } : null))
     .catch(() => null)
+  /* Back goes exactly where the buyer came from (lib/checkout/site-checkout siteCheckoutBack): the page the link names, else the page of this site the browser came from. */
+  const back = siteCheckoutBack(q, site.host, h.get("referer"))
   /* The checkout in the language of the page the visitor came from, or the one they chose on the website (lib/markets/checkout-language.ts). */
-  const languageRead = checkoutLanguage(site.creatorId, params.back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value, q.get("lang")).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null, available: undefined }))
+  const languageRead = checkoutLanguage(site.creatorId, back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value, q.get("lang")).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null, available: undefined }))
   const [brand, config, buyer, ready, priced, currencies, language, market] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
     brandRead,
@@ -177,8 +179,6 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const t = checkoutT(language.lang, language.words)
   const currencyNote = currencies ? t(checkoutMsg("Prices in {display} are for reference. You'll pay in {charge}; your bank converts it."), currencies) : null
   const shopUrl = `${site.origin}/`
-  /* A Buy button names its page as a full address (lib/orders/checkout-origin): kept when it is this same site. */
-  const back = params.back ?? sameSitePath(q.get("cancel"), site.host) ?? sameSitePath(q.get("return"), site.host)
   const backTo = `${site.origin}${back ?? (wholeCart ? "/cart" : "/")}`
 
   /* Priced (above, beside the rest) for whoever is signed in to the website: what they already own is theirs, not a line to pay for (lib/checkout/owned). */

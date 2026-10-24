@@ -1277,7 +1277,7 @@ export function discountApplication(d: CartDiscount): O {
   }
 }
 
-export function cartObject(lines: CartLineLike[], currency: string, note = "", attributes: Record<string, string> = {}, discount: CartDiscount | null = null): O {
+export function cartObject(lines: CartLineLike[], currency: string, note = "", attributes: Record<string, string> = {}, discount: CartDiscount | null = null, taxesIncluded = false): O {
   const applied = discount && discount.applicable ? discount : null
   const application = applied ? discountApplication(applied) : null
   const items = lines.flatMap((l, i) => {
@@ -1361,7 +1361,8 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
     requires_shipping: items.some((i) => i.requires_shipping),
     checkout_charge_amount: total,
     duties_included: false,
-    taxes_included: false,
+    /* The store's own setting (Settings › Taxes, prices include tax), as Shopify's is the shop's: a theme's cart footer reads it for "Taxes included" against "Taxes and shipping calculated at checkout". */
+    taxes_included: taxesIncluded,
   }
 }
 
