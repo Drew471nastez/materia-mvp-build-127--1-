@@ -130,7 +130,8 @@ import { AddBlockPicker, AddBlockPlus } from "@/components/onepage/add-block-pic
 import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText } from "@/components/onepage/block-icons"
 import { bookingProviderName, bookingSource } from "@/lib/onepage/creator-blocks"
 import { SignupDestination } from "@/components/onepage/creator-blocks"
-import { canonicalSocialPlatform, hasSocialHandles, socialHandleUrl } from "@/lib/onepage/social-url"
+import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
+import { parseSocialInput, socialFieldIsLink, socialFieldValue, socialFormat } from "@/lib/onepage/social-input"
 import { LinkIcon, SocialIcon, hasLinkIcon, markOn, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { LINK_ICONS, LINK_ICON_CATEGORIES, resolveLinkIcon } from "@/components/onepage/link-icons"
 import { tt } from "@/lib/i18n/text"
@@ -138,89 +139,36 @@ import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBad
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 
 /**
- * WHERE EACH PLATFORM'S LINKS LIVE.
- *
- * Only seven platforms were checked before; the other fifteen took whatever
- * was typed, so "hello" saved as a Discord link. Each host list includes the
- * short and regional addresses the platform hands out itself (youtu.be,
- * lnkd.in, pin.it, spotify.link, apple.co), so a link copied from the app's
- * own share button is never refused. A website is any address at all.
- */
-const SOCIAL_HOSTS: Record<string, RegExp> = {
-  instagram: /(^|\.)(instagram\.com|instagr\.am)$/,
-  tiktok: /(^|\.)tiktok\.com$/,
-  youtube: /(^|\.)(youtube\.com|youtu\.be)$/,
-  twitter: /(^|\.)(x\.com|twitter\.com)$/,
-  spotify: /(^|\.)(spotify\.com|spotify\.link)$/,
-  threads: /(^|\.)threads\.(net|com)$/,
-  facebook: /(^|\.)(facebook\.com|fb\.com|fb\.me|fb\.watch)$/,
-  whatsapp: /(^|\.)(wa\.me|whatsapp\.com)$/,
-  snapchat: /(^|\.)snapchat\.com$/,
-  discord: /(^|\.)(discord\.gg|discord\.com|discordapp\.com)$/,
-  github: /(^|\.)github\.com$/,
-  kick: /(^|\.)kick\.com$/,
-  linkedin: /(^|\.)(linkedin\.com|lnkd\.in)$/,
-  patreon: /(^|\.)patreon\.com$/,
-  pinterest: /(^|\.)(pinterest\.[a-z.]+|pin\.it)$/,
-  soundcloud: /(^|\.)(soundcloud\.com|snd\.sc)$/,
-  applemusic: /(^|\.)(music\.apple\.com|itunes\.apple\.com|apple\.co)$/,
-  telegram: /(^|\.)(t\.me|telegram\.me|telegram\.org|telegram\.dog)$/,
-  twitch: /(^|\.)twitch\.tv$/,
-  calendly: /(^|\.)calendly\.com$/,
-}
-
-/**
- * Spotify and Apple Music have no usernames: the only thing that opens a
- * creator's page there is its link. `@name` for either used to become an
- * address that did not exist, so for these two it is refused with a hint.
+ * A SOCIAL LINK IS READ THE WAY ITS PLATFORM IS TYPED (lib/onepage/social-input):
+ * a bare username, an @username, or the whole link pasted with its www., m.,
+ * tracking junk and trailing slash, each saved as the one address it means.
+ * The host check that used to live here (so "hello" never saved as a Discord
+ * link, and a link from the app's own share button is never refused) is part
+ * of that now, per platform.
  */
 /** How many times the background check asks again for a Spotify or Apple Music link's missing picture before leaving it for the person to add. */
 const THUMBNAIL_RETRIES = 5
 
-const LINK_ONLY_PLATFORMS = new Set(["spotify", "applemusic"])
-
 // Validate social URL and transform if needed
 function validateSocialUrl(platform: string, url: string): { valid: boolean; error?: string; transformedUrl?: string } {
-  const typed = url.trim()
-  if (!typed) return { valid: true }
   const key = canonicalSocialPlatform(platform)
   const name = socialPlatformLabel(key)
-
-  if (key === "email") {
-    const address = typed.replace(/^mailto:/i, "")
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return { valid: false, error: tt("Enter an email address, like you@example.com") }
-    return { valid: true, transformedUrl: `mailto:${address}` }
+  const read = parseSocialInput(key, url)
+  if (read.ok) return { valid: true, transformedUrl: read.url }
+  switch (read.error) {
+    case "empty":
+      return { valid: true }
+    case "email":
+      return { valid: false, error: tt("Enter an email address, like you@example.com") }
+    case "phone":
+      return { valid: false, error: tt("Enter your number with its country code, or a wa.me link") }
+    case "wrong_site":
+      return { valid: false, error: tt("That isn't a {name} link", { name }) }
+    case "url":
+      return { valid: false, error: key === "website" ? tt("Enter your website address, like yoursite.com") : tt("Paste the link to your {name} page", { name }) }
+    default:
+      return { valid: false, error: tt("Enter your username, or paste the link") }
   }
-
-  // @username, a plain username, or a WhatsApp number: made into the profile address
-  if (!LINK_ONLY_PLATFORMS.has(key)) {
-    const profile = socialHandleUrl(key, typed)
-    if (profile) return { valid: true, transformedUrl: profile }
-  }
-
-  const hint =
-    key === "website" ? tt("Enter your website address, like yoursite.com")
-    : key === "whatsapp" ? tt("Enter your number with its country code, or a wa.me link")
-    : LINK_ONLY_PLATFORMS.has(key) || !hasSocialHandles(key) ? tt("Paste the link to your {name} page", { name })
-    : tt("Enter a link or an @username")
-
-  let parsed: URL
-  const full = /^https?:\/\//i.test(typed) ? typed : `https://${typed.replace(/^\/\//, "")}`
-  try {
-    parsed = new URL(full)
-  } catch {
-    return { valid: false, error: hint }
-  }
-  if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname.includes(".") || /\s/.test(typed)) {
-    return { valid: false, error: hint }
-  }
-
-  const hosts = SOCIAL_HOSTS[key]
-  if (hosts && !hosts.test(parsed.hostname.toLowerCase())) {
-    return { valid: false, error: tt("That isn't a {name} link", { name }) }
-  }
-
-  return { valid: true, transformedUrl: full }
 }
 
 // Social platforms configuration with SVG icons
@@ -245,7 +193,7 @@ const SOCIAL_PLATFORMS = [
   { id: "applemusic", get label() { return tt("Apple Music") }, placeholder: "https://music.apple.com/...", color: "#FA233B" },
   { id: "telegram", label: "Telegram", placeholder: "https://t.me/username", color: "#0088CC" },
   { id: "twitch", label: "Twitch", placeholder: "https://twitch.tv/username", color: "#9146FF" },
-  { id: "website", get label() { return tt("Website") }, placeholder: "https://yourwebsite.com", color: "#6366F1" },
+  { id: "website", get label() { return tt("Website") }, placeholder: "https://yourwebsite.com", color: "#1a1a2e" },
   { id: "calendly", label: "Calendly", placeholder: "https://calendly.com/username", color: "#006BFF" },
 ]
 
@@ -574,9 +522,16 @@ export function LinksTab() {
 
         // Also sync if platforms is empty but there are active social links
         const needsInitialSync = (data.platforms || []).length === 0 && activeSocials.length > 0
+        /* An edited address (a handle made into its link, a new paste) reaches the icons too; the row used to keep the old one. */
+        const hasChangedUrls = (data.platforms || []).some(p => {
+          const now = social_links?.[p.platform as keyof typeof social_links]
+          return !!now && now !== p.url
+        })
 
-        if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync) {
-          const existingOrder = (data.platforms || []).filter(p => social_links?.[p.platform as keyof typeof social_links])
+        if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync || hasChangedUrls) {
+          const existingOrder = (data.platforms || [])
+            .filter(p => social_links?.[p.platform as keyof typeof social_links])
+            .map(p => ({ ...p, url: social_links?.[p.platform as keyof typeof social_links] as string }))
           const existingPlatforms = new Set(existingOrder.map(p => p.platform))
           const newPlatforms = activeSocials.filter(s => !existingPlatforms.has(s.platform))
 
@@ -1287,14 +1242,14 @@ export function LinksTab() {
                 >
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: config?.color || "#6366F1" }}
+                    style={{ backgroundColor: config?.color || "#1a1a2e" }}
                     onClick={() => {
                       setSelectedSocial(platform)
-                      setSocialUrl(social_links?.[platform as keyof typeof social_links] || "")
+                      setSocialUrl(socialFieldValue(platform, social_links?.[platform as keyof typeof social_links]))
                       setShowSocialModal(true)
                     }}
                   >
-                    <SocialIcon platform={platform} size={14} color={markOn(config?.color || "#6366F1")} />
+                    <SocialIcon platform={platform} size={14} color={markOn(config?.color || "#1a1a2e")} />
                   </div>
                   <button
                     onClick={(e) => {
@@ -1647,7 +1602,7 @@ export function LinksTab() {
                       key={platform.id}
                       onClick={() => {
                         setSelectedSocial(platform.id)
-                        setSocialUrl(social_links?.[platform.id as keyof typeof social_links] || "")
+                        setSocialUrl(socialFieldValue(platform.id, social_links?.[platform.id as keyof typeof social_links]))
                       }}
                       className={cn(
                         "w-full flex items-center gap-3 p-3 rounded-xl transition-all",
@@ -1671,7 +1626,7 @@ export function LinksTab() {
                         )}
                       </div>
                       {isActive && (
-                        <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                        <div className="w-2 h-2 rounded-full bg-[#1a1a2e] shrink-0" />
                       )}
                       <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
                     </button>
@@ -1706,29 +1661,65 @@ export function LinksTab() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label className="text-sm">URL</Label>
-                      <Input
-                        value={socialUrl}
-                        onChange={(e) => {
-                          setSocialUrl(normalizeUrlInput(e.target.value))
-                          if (socialUrlError) setSocialUrlError(null)
-                        }}
-                        placeholder={platform?.placeholder}
-                        className={cn(
-                          "h-11 rounded-xl",
-                          socialUrlError && "border-red-500 focus-visible:ring-red-500"
-                        )}
-                      />
-                      {socialUrlError && (
-                        <p className="text-xs text-red-500">{socialUrlError}</p>
-                      )}
-                      {(selectedSocial === 'instagram' || selectedSocial === 'twitter' || selectedSocial === 'threads' || selectedSocial === 'tiktok' || selectedSocial === 'telegram') && (
-                        <p className="text-xs text-muted-foreground">
-                          {tt("Tip: You can enter just @username")}
-                        </p>
-                      )}
-                    </div>
+                    {/*
+                      ONE FIELD, TYPED THE PLATFORM'S WAY: a fixed "@", "github.com/",
+                      "+" or "Email" in front, and the username after it. A whole
+                      link can be pasted instead; the prefix then reads URL and the
+                      link is tidied to the right address (lib/onepage/social-input).
+                    */}
+                    {(() => {
+                      const format = socialFormat(selectedSocial ?? "")
+                      const pastedLink = format.kind !== "url" && socialFieldIsLink(selectedSocial ?? "", socialUrl)
+                      const prefix = format.kind === "url" || pastedLink ? "URL" : format.kind === "email" ? tt("Email") : format.prefix
+                      return (
+                        <div className="space-y-2">
+                          <label
+                            className={cn(
+                              "flex h-11 items-center overflow-hidden rounded-xl border bg-white transition-[border-color,box-shadow] duration-150 focus-within:ring-2 focus-within:ring-offset-0",
+                              socialUrlError ? "border-red-500 focus-within:ring-red-500/25" : "border-[#e3e4e8] focus-within:border-[#1a1a2e] focus-within:ring-[#1a1a2e]/10"
+                            )}
+                          >
+                            <span data-social-prefix={prefix} className="flex h-full shrink-0 items-center border-r border-[#ececf1] bg-[#f7f7f8] px-3 text-[13px] font-medium text-[#4b5563]">
+                              {prefix}
+                            </span>
+                            <input
+                              value={socialUrl}
+                              onChange={(e) => {
+                                setSocialUrl(normalizeUrlInput(e.target.value))
+                                if (socialUrlError) setSocialUrlError(null)
+                              }}
+                              onBlur={() => {
+                                if (!socialUrl) return
+                                const check = validateSocialUrl(selectedSocial ?? "", socialUrl)
+                                if (!check.valid) setSocialUrlError(check.error || tt("Invalid URL"))
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && socialUrl) {
+                                  e.preventDefault()
+                                  handleAddSocial()
+                                }
+                              }}
+                              inputMode={format.inputMode}
+                              type={format.kind === "email" ? "email" : "text"}
+                              autoCapitalize="none"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              aria-label={tt("Your {name} link or username", { name: platform?.label ?? "" })}
+                              aria-invalid={!!socialUrlError}
+                              placeholder={format.kind === "url" ? platform?.placeholder.replace(/^https:\/\//, "") : format.placeholder}
+                              className="h-full min-w-0 flex-1 bg-transparent px-3 text-[15px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af]"
+                            />
+                          </label>
+                          {socialUrlError ? (
+                            <p className="text-xs text-red-600">{socialUrlError}</p>
+                          ) : format.kind === "handle" || format.kind === "path" ? (
+                            <p className="text-xs text-[#6b7280]">{tt("Type your username, or paste the whole link.")}</p>
+                          ) : format.kind === "phone" ? (
+                            <p className="text-xs text-[#6b7280]">{tt("Your number with its country code.")}</p>
+                          ) : null}
+                        </div>
+                      )
+                    })()}
 
                     <div className="flex flex-col gap-2 pt-2">
                       <Button
@@ -1906,7 +1897,7 @@ export function LinksTab() {
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center"
-                      style={{ backgroundColor: config?.color || '#6366F1' }}
+                      style={{ backgroundColor: config?.color || "#1a1a2e" }}
                     >
                       {config?.icon || (
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="white">
