@@ -896,6 +896,8 @@ const SUITES = [
   "tests/wb-perf-r12.test.ts",
   /* Round 12 (website builder): Add block between two blocks in the canvas, the collection pickers' Add collection, a menu link's new tab on the live site, product descriptions bound to Storelib, the shop's filters from real products; scripts/check-wb-ux-r12.mjs measures them. */
   "tests/wb-ux-r12.test.ts",
+  /* Round 12 (live websites): a made up server action refused by the proxy, a Publish followed by its own pages drawn; scripts/check-site-perf-r12.mjs measures load and navigation. */
+  "tests/site-perf-r12.test.ts",
 ]
 
 /**
