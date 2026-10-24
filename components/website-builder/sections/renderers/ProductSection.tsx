@@ -313,6 +313,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     inert: isEditing === true,
     buy: { add, now, added, unavailable, owned: ownedNow ? owned.href : null },
     wishlist: { saved, toggle: () => { if (product.id) wishlistStore.toggle(product.id) } },
+    hasSizeChartBlock: (section.blocks ?? []).some((b) => b.type === "size_chart" && !b.hidden),
     offers: { chosen: chosenLine ? { variantId: chosenLine.variantId ?? "", variantName: chosenLine.variantName ?? null, priceCents: chosenLine.priceCents, imageUrl: chosenLine.thumbnailUrl ?? null, line: chosenLine } : null, addLines },
     radius,
     buttonRadius,

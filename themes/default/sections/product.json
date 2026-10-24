@@ -783,6 +783,13 @@
           "default": "Option"
         },
         {
+          "id": "size_guide",
+          "label": "Size guide link",
+          "type": "toggle",
+          "default": true,
+          "info": "Beside the size option, when the product has a size chart (Products, Size charts). Off while the section has a Size chart block."
+        },
+        {
           "id": "margin_top",
           "label": "Space above",
           "type": "range",
@@ -801,6 +808,86 @@
           "step": 2,
           "unit": "px",
           "default": 20
+        }
+      ]
+    },
+    {
+      "type": "size_chart",
+      "name": "Size chart",
+      "limit": 1,
+      "fields": [
+        {
+          "id": "label",
+          "label": "Label",
+          "type": "text",
+          "default": "",
+          "placeholder": "Size guide",
+          "info": "Shows when the product has a size chart (Products, Size charts)."
+        },
+        {
+          "id": "style",
+          "label": "Style",
+          "type": "select",
+          "default": "link",
+          "options": [
+            {
+              "label": "Text link",
+              "value": "link"
+            },
+            {
+              "label": "Button",
+              "value": "button"
+            }
+          ]
+        },
+        {
+          "id": "opens",
+          "label": "Opens as",
+          "type": "select",
+          "default": "modal",
+          "options": [
+            {
+              "label": "Pop-up",
+              "value": "modal"
+            },
+            {
+              "label": "Side panel",
+              "value": "drawer"
+            }
+          ],
+          "info": "On a phone it rises from the bottom either way."
+        },
+        {
+          "id": "show_icon",
+          "label": "Ruler icon",
+          "type": "toggle",
+          "default": true
+        },
+        {
+          "id": "color",
+          "label": "Color",
+          "type": "color",
+          "default": "scheme.text"
+        },
+        {
+          "id": "margin_top",
+          "label": "Space above",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "id": "margin_bottom",
+          "label": "Space below",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 16
         }
       ]
     },
