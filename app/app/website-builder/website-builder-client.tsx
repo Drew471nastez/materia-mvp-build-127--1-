@@ -28,6 +28,7 @@
 
 import * as React from "react"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
+import { liveSiteLink } from "@/lib/website-builder/live-site-link"
 import { AnalyticsSummaryFact } from "@/components/app/analytics-summary-line"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -560,9 +561,7 @@ function SiteAddress({ url, display }: { url: string; display: string }) {
   return (
     <div className="mt-1.5 flex min-w-0 items-center gap-0.5">
       <a
-        href={ownOpen(url)}
-        target="_blank"
-        rel="noopener noreferrer"
+        {...liveSiteLink(ownOpen(url))}
         className="group inline-flex min-w-0 items-center gap-1.5 rounded-md text-[14px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]"
       >
         <span className="truncate">{display}</span>
@@ -1369,7 +1368,7 @@ export function WebsiteBuilderClient({
                 )}
                 {siteUrl &&
                   (live ? (
-                    <a href={ownOpen(siteUrl)} target="_blank" rel="noopener noreferrer" aria-label={tt("View website")} data-control="view" className={HEADER_BUTTON}>
+                    <a {...liveSiteLink(ownOpen(siteUrl))} aria-label={tt("View website")} data-control="view" className={HEADER_BUTTON}>
                       <ViewLabel />
                     </a>
                   ) : (

@@ -55,7 +55,8 @@ import { cn } from "@/lib/utils"
 import { ghostTapGuardActive } from "@/lib/navigation/swallow-ghost-taps"
 import { prefetchHref } from "@/lib/nav/prefetch-policy"
 import { ENDS_COMMUNITY_CONTEXT, endCommunityContext } from "@/lib/nav/community-context"
-import { navigatorModel, parsePlaces, PLACES_URL, SIGNED_OUT_PLACES, type NavigatorCurrent, type NavigatorModel, type PlacesResponse } from "@/lib/nav/places-shared"
+import { navigatorModel, type NavigatorCurrent, type NavigatorModel } from "@/lib/nav/places-shared"
+import { forgetPlaces, readPlacesView, readPlacesViewOnServer, refresh, subscribePlaces, type PlacesView } from "@/lib/nav/places-client"
 
 export interface PlaceNavigatorProps {
   current?: NavigatorCurrent
@@ -72,75 +73,18 @@ export interface PlaceNavigatorProps {
 
 /* ── The list, held for the tab ───────────────────────────────────────── */
 
-const STORE_KEY = "storelib:places"
-/** Fresh enough to open on without asking again. */
-const FRESH_MS = 15_000
+/*
+  The store is lib/nav/places-client.ts: each answer is kept with who was
+  signed in when it was asked for, a change of who is signed in (here, in
+  another tab, or on a page back from the back/forward cache) asks again,
+  and a failed ask is tried again on its own while the panel draws what the
+  header's record of the session already says. So the panel is never empty
+  and never somebody else's.
+*/
+export { forgetPlaces }
 
-type Held = { at: number; places: PlacesResponse } | null
-let held: Held = null
-let inflight: Promise<void> | null = null
-const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((f) => f())
-
-function seed() {
-  if (held || typeof window === "undefined") return
-  try {
-    const raw = window.sessionStorage.getItem(STORE_KEY)
-    if (!raw) return
-    const v = JSON.parse(raw) as { at?: number; places?: unknown }
-    if (typeof v.at === "number") held = { at: v.at, places: parsePlaces(v.places) }
-  } catch {
-    /* no storage: asked for on open */
-  }
-}
-
-function refresh(force = false): Promise<void> {
-  seed()
-  if (!force && held && Date.now() - held.at < FRESH_MS) return Promise.resolve()
-  if (inflight) return inflight
-  inflight = (async () => {
-    try {
-      const res = await fetch(PLACES_URL, { cache: "no-store", credentials: "same-origin" })
-      if (!res.ok) return
-      held = { at: Date.now(), places: parsePlaces(await res.json()) }
-      try {
-        window.sessionStorage.setItem(STORE_KEY, JSON.stringify(held))
-      } catch {
-        /* the tab still has it in memory */
-      }
-      emit()
-    } catch {
-      /* offline: whatever is held stays */
-    } finally {
-      inflight = null
-    }
-  })()
-  return inflight
-}
-
-/** For a sign in or out in this tab: the next open asks again. */
-export function forgetPlaces() {
-  held = null
-  try {
-    window.sessionStorage.removeItem(STORE_KEY)
-  } catch {
-    /* nothing held */
-  }
-  emit()
-}
-
-function usePlaces(): PlacesResponse | null {
-  return useSyncExternalStore(
-    (f) => {
-      listeners.add(f)
-      return () => listeners.delete(f)
-    },
-    () => {
-      seed()
-      return held?.places ?? null
-    },
-    () => null,
-  )
+function usePlaces(): PlacesView {
+  return useSyncExternalStore(subscribePlaces, readPlacesView, readPlacesViewOnServer)
 }
 
 /* ── Width and motion ─────────────────────────────────────────────────── */
@@ -217,7 +161,7 @@ function Lines({ open }: { open: boolean }) {
 
 export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigatorProps) {
   const pathname = usePathname()
-  const places = usePlaces()
+  const { places, fallback, loading } = usePlaces()
   const phone = usePhone()
   const [open, setOpen] = useState(false)
   /*
@@ -318,8 +262,8 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
   const currentKind = current?.kind
   const currentId = current?.kind === "community" ? current.id : undefined
   const model = useMemo(
-    () => navigatorModel(places ?? SIGNED_OUT_PLACES, currentKind === "community" && currentId ? { kind: "community", id: currentId } : currentKind === "storelib" ? { kind: "storelib" } : undefined),
-    [places, currentKind, currentId],
+    () => navigatorModel(places ?? fallback, currentKind === "community" && currentId ? { kind: "community", id: currentId } : currentKind === "storelib" ? { kind: "storelib" } : undefined),
+    [places, fallback, currentKind, currentId],
   )
   const navigateRef = useRef(onNavigate)
   navigateRef.current = onNavigate
@@ -416,7 +360,7 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
           onKeyDown={onPanelKey}
           className={cn(PANEL, open ? PANEL_OPEN : PANEL_CLOSED)}
         >
-          <NavigatorBody model={model} loading={!places} go={go} phone={false} />
+          <NavigatorBody model={model} loading={loading} go={go} phone={false} />
         </div>
       ) : null}
 
@@ -431,7 +375,7 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
         className="rounded-t-[24px]"
       >
         <div data-place-navigator-panel="sheet" id={phone ? panelId : undefined}>
-          <NavigatorBody model={model} loading={!places} go={go} phone />
+          <NavigatorBody model={model} loading={loading} go={go} phone />
         </div>
       </BottomSheet>
     </div>

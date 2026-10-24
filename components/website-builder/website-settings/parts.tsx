@@ -16,6 +16,7 @@
 import * as React from "react"
 import { Check, Copy, ExternalLink, Globe, Moon, Sun, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { liveSiteLink } from "@/lib/website-builder/live-site-link"
 import { switchKnob, switchKnobDark, switchTrack, switchTrackDark } from "@/components/ui/switch-style"
 import { chooseAppearance, useAppearanceChoice } from "@/lib/appearance/client"
 import { tt, msg } from "@/lib/i18n/text"
@@ -247,10 +248,9 @@ export function AddressValue({ url, display }: { url: string; display: string })
       >
         {copied ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
       </button>
+      {/* In the phone app, the phone's browser and nothing in the app (lib/website-builder/live-site-link.ts). */}
       <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
+        {...liveSiteLink(url)}
         className={iconButtonClass}
         aria-label={tt("Open the website")}
       >

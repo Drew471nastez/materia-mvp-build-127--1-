@@ -29,6 +29,8 @@
  * directly (`window.open(url, "_blank", "noopener")`).
  */
 
+import { isNativeApp } from "@/lib/platform-utils"
+
 /** How long a tab may wait for its address before it says it could not open. */
 export const OPENING_TAB_TIMEOUT_MS = 20_000
 
@@ -77,6 +79,14 @@ function write(tab: Window, html: string): void {
  * when the browser refused to open one.
  */
 export function openOpeningTab(line = "One moment."): OpeningTab | null {
+  /*
+    NOT IN THE PHONE APP. There a new window is not a tab this page can point
+    later: on Android it is a WebView of the app's own that loads one of our
+    addresses in the app, over the builder. With no tab, the caller opens the
+    address once it has it, in the phone's browser (openInBrowser), which no
+    pop up rule stops.
+  */
+  if (isNativeApp()) return null
   let tab: Window | null = null
   try {
     tab = window.open("", "_blank")
