@@ -10,6 +10,13 @@
  * (lib/storelib-theme/compat/first-load.ts, 4.). And every drawn page says
  * where its time went (Server-Timing).
  *
+ * And the native (Storelib theme) websites: CLS was 0.25 on a computer and
+ * up to 1.4 on a phone because the cart, wishlist and sandbox providers
+ * made urgent updates at hydration, which made React throw away lazy
+ * sections' server HTML and draw it again. Those updates are non-urgent
+ * now. And every website stopped downloading Storelib's own app pieces
+ * (platform header, community bar, sign-in client) it never shows.
+ *
  * Run with:  npx tsx tests/live-speed-ax.test.ts
  */
 import { readFileSync } from "node:fs"
@@ -58,6 +65,26 @@ console.log("\nA drawn page says where its time went\n")
 const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
 check("read, localize, draw and post, then the total", /mark\("read"\)/.test(route) && /mark\("localize"\)/.test(route) && /mark\("draw"\)/.test(route) && /mark\("post"\)/.test(route) && /headers\.set\("Server-Timing", timing\.join\(", "\)\)/.test(route))
 check("a held page says it was held, and what its draw cost when drawn", /hold;desc=hit/.test(route) && /drawn-\$2;/.test(route))
+
+console.log("\nA native site keeps its server HTML while its sections load\n")
+const cart = code("components/website-builder/site-cart.tsx")
+const wish = code("components/website-builder/site-wishlist.tsx")
+const sandbox = code("components/website-builder/sections/section-sandbox.tsx")
+check("the cart's first read is non-urgent (an urgent one made React redraw lazy sections, CLS 0.25 to 1.0)", /startTransition\(\(\) => setReady\(true\)\)/.test(cart) && /if \(kept\.length > 0\) startTransition\(\(\) => setLines\(kept\)\)/.test(cart) && !/\n\s+setReady\(true\)\n/.test(cart))
+check("the wishlist's first read is non-urgent", /startTransition\(\(\) => setReady\(true\)\)/.test(wish) && /startTransition\(\(\) => \{\n\s+setSignedIn\(true\)/.test(wish) && (wish.match(/startTransition\(/g) ?? []).length >= 3)
+check("a section script asking for the sandbox is non-urgent", /startTransition\(\(\) => setNeeded\(true\)\)/.test(sandbox))
+
+console.log("\nA native site does not download Storelib's own app\n")
+const rootLayout = code("app/layout.tsx")
+const appOnly = code("components/platform/app-only.tsx")
+const notFound = code("app/not-found.tsx")
+const headerLazy = code("components/platform/platform-header-lazy.tsx")
+check("the root layout takes the community bar, the sign-in bridge, push and the ask from app-only", /import \{ AccountCommunityChrome, NativeOAuthBridge, NativePushInit, NotificationsAsk \} from "@\/components\/platform\/app-only"/.test(rootLayout))
+check("  and imports none of them directly (a plain import ships them to every website)", !/from "@\/components\/account\/account-community-chrome"/.test(rootLayout) && !/from "@\/app\/NativeOAuthBridge"/.test(rootLayout) && !/from "@\/components\/native-push-init"/.test(rootLayout) && !/from "@\/components\/platform\/notifications-ask"/.test(rootLayout))
+check("each is loaded on demand, drawn on the browser only (all four draw nothing on the server already)", (appOnly.match(/dynamic\(\(\) => \w+\(\), \{ ssr: false \}\)/g) ?? []).length === 4)
+check("a published website is told by the router's segments, which the server and the browser agree on", /useSelectedLayoutSegments\(\)/.test(appOnly) && /segments\[0\] === "\(site\)" && segments\[1\] === "w"/.test(appOnly) && (appOnly.match(/usePublishedWebsite\(\) \? null :/g) ?? []).length === 4)
+check("on Storelib's own pages their code is asked for before hydration, so they mount when they did", /if \(typeof window !== "undefined" && !looksLikeWebsite\(\)\)/.test(appOnly))
+check("the 404's header comes from the on-demand file, still drawn on the server for a real 404", /import \{ PlatformHeaderClient \} from "@\/components\/platform\/platform-header-lazy"/.test(notFound) && !/from "@\/components\/platform\/platform-header-client"/.test(notFound) && /dynamic\(\s*\(\) => import\("@\/components\/platform\/platform-header-client"\)/.test(headerLazy) && !/ssr: false/.test(headerLazy))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

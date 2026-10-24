@@ -26,7 +26,7 @@
  * leave anything behind in the browser they will later visit the real site
  * with. No shop id means no storage.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
 import { cartExtrasKey } from "@/lib/website-builder/cart-extras"
 import { trackFunnelStep } from "@/lib/analytics-utils"
@@ -117,8 +117,11 @@ export function SiteCartProvider({ shopId, cartType = "drawer", currency, childr
      render would overwrite a cart that was already there. */
   const loaded = useRef(false)
 
+  /* Marked non-urgent (startTransition): an urgent update at hydration reaches
+     lazy sections whose code has not arrived yet, and React then throws their
+     server HTML away and draws it again, which shifts the page (CLS). */
   useEffect(() => {
-    if (!key) { setReady(true); return }
+    if (!key) { startTransition(() => setReady(true)); return }
     try {
       /* Back from paying for this whole cart (lib/checkout/basket-link): it is an order now, so the bag is empty. */
       const url = new URL(window.location.href)
@@ -129,7 +132,7 @@ export function SiteCartProvider({ shopId, cartType = "drawer", currency, childr
         if (shopId) window.localStorage.removeItem(cartExtrasKey(shopId))
       }
       const kept = parseCart(window.localStorage.getItem(key))
-      setLines(kept)
+      if (kept.length > 0) startTransition(() => setLines(kept))
       /*
         PRICED IN ANOTHER CURRENCY. The store converted its currency since
         these lines were added (or they were saved before lines said which):
@@ -160,7 +163,7 @@ export function SiteCartProvider({ shopId, cartType = "drawer", currency, childr
          cart is the right answer and a broken shop is not. */
     }
     loaded.current = true
-    setReady(true)
+    startTransition(() => setReady(true))
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

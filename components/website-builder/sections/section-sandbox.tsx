@@ -24,7 +24,7 @@
  *     width. CSS does that better anyway;
  *   - anything that loads: no src, no href, no innerHTML. See ATTR_ALLOWED.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   EVENTS_FORWARDED,
   INDEX_ATTR,
@@ -182,7 +182,8 @@ export function SectionSandboxProvider({
   const register = useCallback(
     (section: SandboxSection, root: HTMLElement) => {
       if (!enabled) return () => {}
-      setNeeded(true)
+      /* Non-urgent, so lazy sections still hydrating keep their server HTML (see site-cart). */
+      startTransition(() => setNeeded(true))
       const nodes = elementsOf(root)
       /* The page's own numbering, so a patch names an element rather than
          a selector a script could widen. */

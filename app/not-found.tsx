@@ -3,7 +3,8 @@ import { Suspense } from "react"
 
 import { NotFoundBody } from "@/components/platform/not-found-body"
 import { SiteNotFound } from "@/components/website-builder/site-not-found"
-import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
+/* Fetched when a 404 is drawn: this tree rides in every page's payload, websites included (components/platform/platform-header-lazy.tsx). */
+import { PlatformHeaderClient } from "@/components/platform/platform-header-lazy"
 import { NotFoundActions } from "@/components/platform/not-found-actions"
 import { getMainDomain } from "@/lib/url-helpers"
 

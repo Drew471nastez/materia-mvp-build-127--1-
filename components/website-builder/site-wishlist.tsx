@@ -27,7 +27,7 @@
  * it. IN THE EDITOR it is memory only: a creator trying the heart in their
  * canvas should not leave a list behind in their own browser.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, startTransition, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   accountStorageKey,
   cleanList,
@@ -150,7 +150,8 @@ export function SiteWishlistProvider({ shopId, children }: { shopId?: string; ch
   }, [])
 
   useEffect(() => {
-    if (!guestKey || !accountKey) { setReady(true); return }
+    /* First reads are non-urgent so lazy sections keep their server HTML (see site-cart). */
+    if (!guestKey || !accountKey) { startTransition(() => setReady(true)); return }
     let cancelled = false
     const guest = load(guestKey)
     /* The cookie copy follows local storage, which is the list. */
@@ -159,16 +160,21 @@ export function SiteWishlistProvider({ shopId, children }: { shopId?: string; ch
     if (readCookie(HINT) !== "1") {
       /* Signed out: nobody's account list stays in this browser. */
       save(accountKey, [])
-      showGuest(guest)
-      setReady(true)
+      startTransition(() => {
+        if (guest.length > 0) showGuest(guest)
+        setReady(true)
+      })
       return
     }
 
     /* Signed in. Draw what this browser last knew, then ask. */
     mode.current = "account"
-    setSignedIn(true)
-    setIds(load(accountKey))
-    setReady(true)
+    const known = load(accountKey)
+    startTransition(() => {
+      setSignedIn(true)
+      setIds(known)
+      setReady(true)
+    })
     void (async () => {
       const answer = guest.length > 0 ? await call({ action: "merge", ids: guest }) : await call()
       if (cancelled) return
