@@ -93,6 +93,12 @@ check("  links that only come into view keep the light prefetch on a computer, a
 check("the public page does not ship the theme settings schema (fonts come from font-options)", /from "@\/lib\/website-builder\/font-options"/.test(code("lib/website-builder/font-link.ts")) && !/theme-settings-schema/.test(code("lib/website-builder/font-link.ts")))
 check("no bare Buffer in cart links or own-database (it shipped a 19 KB polyfill to browsers)", ["lib/physical/cart-link.ts", "lib/website-builder/own-database.ts"].every((f) => !/(^|[^.\w])Buffer\.from/m.test(code(f))))
 
+console.log("\nA creator page does not ship the owner's editing tools to visitors\n")
+const storefront = code("app/(marketing)/u/[username]/page.tsx")
+const ownerLazy = code("components/storefront/owner-controls-lazy.tsx")
+check("Edit profile, Edit about and the owner's menu come from the on-demand file", /import \{ EditAboutButton, EditProfileButton, OwnerMenu \} from "@\/components\/storefront\/owner-controls-lazy"/.test(storefront) && !/from "@\/components\/storefront\/(edit-profile-button|edit-about-button|owner-menu)"/.test(storefront))
+check("  each loaded with dynamic(), still drawn on the server for the owner", (ownerLazy.match(/= dynamic\(\(\) => import\(/g) ?? []).length === 3 && !/ssr: false/.test(ownerLazy))
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
