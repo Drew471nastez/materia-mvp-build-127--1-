@@ -1,0 +1,749 @@
+{
+ "creatorId": "c0ffee00-0000-4000-8000-000000000001",
+ "tables": {
+  "products": [
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000001",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Linen shirt",
+    "slug": "linen-shirt",
+    "price_cents": 4900,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "physical",
+    "category": "Shirts",
+    "tags": [
+     "linen",
+     "summer"
+    ],
+    "vendor": "Atelier Nord",
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-02-11T10:00:00Z",
+    "description": "<p>Linen shirt description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000002",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Oxford shirt",
+    "slug": "oxford-shirt",
+    "price_cents": 7900,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "physical",
+    "category": "Shirts",
+    "tags": [
+     "cotton"
+    ],
+    "vendor": "Atelier Nord",
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-03-12T10:00:00Z",
+    "description": "<p>Oxford shirt description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000003",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Wool trousers",
+    "slug": "wool-trousers",
+    "price_cents": 12000,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "physical",
+    "category": "Trousers",
+    "tags": [
+     "wool",
+     "winter"
+    ],
+    "vendor": "Bergen & Co",
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-04-13T10:00:00Z",
+    "description": "<p>Wool trousers description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000004",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Canvas tote",
+    "slug": "canvas-tote",
+    "price_cents": 2500,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "physical",
+    "category": "Bags",
+    "tags": [
+     "cotton",
+     "summer"
+    ],
+    "vendor": "Bergen & Co",
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-05-14T10:00:00Z",
+    "description": "<p>Canvas tote description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000005",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Leather belt",
+    "slug": "leather-belt",
+    "price_cents": 3500,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "physical",
+    "category": "Accessories",
+    "tags": [
+     "leather"
+    ],
+    "vendor": null,
+    "inventory_count": 0,
+    "track_inventory": true,
+    "created_at": "2026-06-15T10:00:00Z",
+    "description": "<p>Leather belt description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000006",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Wool socks",
+    "slug": "wool-socks",
+    "price_cents": 1200,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "physical",
+    "category": "Accessories",
+    "tags": [
+     "wool",
+     "winter"
+    ],
+    "vendor": "Bergen & Co",
+    "inventory_count": 0,
+    "track_inventory": false,
+    "created_at": "2026-07-16T10:00:00Z",
+    "description": "<p>Wool socks description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000007",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Shirt sewing pattern",
+    "slug": "shirt-pattern",
+    "price_cents": 999,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "digital",
+    "category": "Patterns",
+    "tags": [
+     "linen"
+    ],
+    "vendor": "Atelier Nord",
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-08-17T10:00:00Z",
+    "description": "<p>Shirt sewing pattern description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000008",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Tailoring course",
+    "slug": "tailoring-course",
+    "price_cents": 19900,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "course",
+    "category": null,
+    "tags": null,
+    "vendor": null,
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-09-18T10:00:00Z",
+    "description": "<p>Tailoring course description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000009",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Unreleased jacket",
+    "slug": "unreleased-jacket",
+    "price_cents": 25000,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "draft",
+    "type": "physical",
+    "category": "Jackets",
+    "tags": [
+     "wool"
+    ],
+    "vendor": "Atelier Nord",
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-01-19T10:00:00Z",
+    "description": "<p>Unreleased jacket description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000010",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Wholesale bundle",
+    "slug": "wholesale-bundle",
+    "price_cents": 50000,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "physical",
+    "category": "Shirts",
+    "tags": [
+     "linen"
+    ],
+    "vendor": "Atelier Nord",
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-02-10T10:00:00Z",
+    "description": "<p>Wholesale bundle description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000011",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000099",
+    "title": "Someone else's shirt",
+    "slug": "else-shirt",
+    "price_cents": 3000,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "physical",
+    "category": "Shirts",
+    "tags": [
+     "linen"
+    ],
+    "vendor": "Atelier Nord",
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-03-11T10:00:00Z",
+    "description": "<p>Someone else's shirt description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   },
+   {
+    "id": "aaaaaaaa-0000-4000-8000-000000000012",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "title": "Chambray shirt",
+    "slug": "chambray-shirt",
+    "price_cents": 6400,
+    "compare_at_cents": null,
+    "thumbnail_url": null,
+    "status": "published",
+    "type": "physical",
+    "category": "Shirts",
+    "tags": [
+     "cotton",
+     "summer"
+    ],
+    "vendor": "Atelier Nord",
+    "inventory_count": null,
+    "track_inventory": null,
+    "created_at": "2026-04-12T10:00:00Z",
+    "description": "<p>Chambray shirt description.</p>",
+    "gallery_urls": [],
+    "pay_what_you_want": false
+   }
+  ],
+  "product_variants": [
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000001",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000001",
+    "name": "S / White",
+    "price_cents": 4900,
+    "compare_at_price_cents": null,
+    "position": 0,
+    "option1": "S",
+    "option2": "White",
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000002",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000001",
+    "name": "M / White",
+    "price_cents": 4900,
+    "compare_at_price_cents": null,
+    "position": 1,
+    "option1": "M",
+    "option2": "White",
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000003",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000001",
+    "name": "L / White",
+    "price_cents": 5400,
+    "compare_at_price_cents": null,
+    "position": 2,
+    "option1": "L",
+    "option2": "White",
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000004",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000001",
+    "name": "S / Sand",
+    "price_cents": 4900,
+    "compare_at_price_cents": null,
+    "position": 3,
+    "option1": "S",
+    "option2": "Sand",
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000005",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000001",
+    "name": "M / Sand",
+    "price_cents": 4900,
+    "compare_at_price_cents": null,
+    "position": 4,
+    "option1": "M",
+    "option2": "Sand",
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000006",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000001",
+    "name": "L / Sand",
+    "price_cents": 5400,
+    "compare_at_price_cents": null,
+    "position": 5,
+    "option1": "L",
+    "option2": "Sand",
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000007",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000002",
+    "name": "S",
+    "price_cents": 7900,
+    "compare_at_price_cents": null,
+    "position": 0,
+    "option1": "S",
+    "option2": null,
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000008",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000002",
+    "name": "M",
+    "price_cents": 7900,
+    "compare_at_price_cents": null,
+    "position": 1,
+    "option1": "M",
+    "option2": null,
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000009",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000002",
+    "name": "L",
+    "price_cents": 7900,
+    "compare_at_price_cents": null,
+    "position": 2,
+    "option1": "L",
+    "option2": null,
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000010",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000003",
+    "name": "M",
+    "price_cents": 12000,
+    "compare_at_price_cents": null,
+    "position": 0,
+    "option1": "M",
+    "option2": null,
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "continue"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000011",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000003",
+    "name": "L",
+    "price_cents": 12000,
+    "compare_at_price_cents": null,
+    "position": 1,
+    "option1": "L",
+    "option2": null,
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000012",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000004",
+    "name": "Default",
+    "price_cents": 2500,
+    "compare_at_price_cents": null,
+    "position": 0,
+    "option1": null,
+    "option2": null,
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000013",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000009",
+    "name": "XL",
+    "price_cents": 25000,
+    "compare_at_price_cents": null,
+    "position": 0,
+    "option1": "XL",
+    "option2": null,
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000014",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000012",
+    "name": "S",
+    "price_cents": 6400,
+    "compare_at_price_cents": null,
+    "position": 0,
+    "option1": "S",
+    "option2": null,
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000015",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000012",
+    "name": "M",
+    "price_cents": 6900,
+    "compare_at_price_cents": null,
+    "position": 1,
+    "option1": "M",
+    "option2": null,
+    "option3": null,
+    "active": true,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   },
+   {
+    "id": "bbbbbbbb-0000-4000-8000-000000000016",
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000012",
+    "name": "Archived XS",
+    "price_cents": 5900,
+    "compare_at_price_cents": null,
+    "position": 2,
+    "option1": "XS",
+    "option2": null,
+    "option3": null,
+    "active": false,
+    "track_inventory": true,
+    "inventory_policy": "deny"
+   }
+  ],
+  "product_options": [
+   {
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000001",
+    "name": "Size",
+    "values": [
+     "S",
+     "M",
+     "L"
+    ],
+    "position": 0
+   },
+   {
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000001",
+    "name": "Colour",
+    "values": [
+     "White",
+     "Sand"
+    ],
+    "position": 1
+   },
+   {
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000002",
+    "name": "Size",
+    "values": [
+     "S",
+     "M",
+     "L"
+    ],
+    "position": 0
+   },
+   {
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000003",
+    "name": "Size",
+    "values": [
+     "M",
+     "L"
+    ],
+    "position": 0
+   },
+   {
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000009",
+    "name": "Size",
+    "values": [
+     "M",
+     "XL"
+    ],
+    "position": 0
+   },
+   {
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000012",
+    "name": "Size",
+    "values": [
+     "S",
+     "M"
+    ],
+    "position": 0
+   }
+  ],
+  "inventory_locations": [
+   {
+    "id": "loc-main",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "active": true,
+    "fulfills_orders": true
+   },
+   {
+    "id": "loc-closed",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "active": true,
+    "fulfills_orders": false
+   }
+  ],
+  "inventory_levels": [
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000001",
+    "location_id": "loc-main",
+    "available": 4
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000001",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000002",
+    "location_id": "loc-main",
+    "available": 0
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000002",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000003",
+    "location_id": "loc-main",
+    "available": 2
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000003",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000004",
+    "location_id": "loc-main",
+    "available": 1
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000004",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000005",
+    "location_id": "loc-main",
+    "available": 0
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000005",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000006",
+    "location_id": "loc-main",
+    "available": 0
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000006",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000007",
+    "location_id": "loc-main",
+    "available": 3
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000007",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000008",
+    "location_id": "loc-main",
+    "available": 3
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000008",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000009",
+    "location_id": "loc-main",
+    "available": 3
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000009",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000010",
+    "location_id": "loc-main",
+    "available": 0
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000010",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000011",
+    "location_id": "loc-main",
+    "available": 5
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000011",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000012",
+    "location_id": "loc-main",
+    "available": 0
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000012",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000013",
+    "location_id": "loc-main",
+    "available": 9
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000013",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000014",
+    "location_id": "loc-main",
+    "available": 2
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000014",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000015",
+    "location_id": "loc-main",
+    "available": 1
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000015",
+    "location_id": "loc-closed",
+    "available": 50
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000016",
+    "location_id": "loc-main",
+    "available": 7
+   },
+   {
+    "variant_id": "bbbbbbbb-0000-4000-8000-000000000016",
+    "location_id": "loc-closed",
+    "available": 50
+   }
+  ],
+  "store_settings": [
+   {
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "currency": "EUR",
+    "default_country": "DE"
+   }
+  ],
+  "product_channel_listings": [
+   {
+    "product_id": "aaaaaaaa-0000-4000-8000-000000000010",
+    "creator_id": "c0ffee00-0000-4000-8000-000000000001",
+    "listed": false,
+    "sales_channels.kind": "storefront"
+   }
+  ]
+ }
+}
