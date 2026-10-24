@@ -1,0 +1,10 @@
+<style>
+  h2 { display: none !important; }
+  h3, p { color: rgb(255, 0, 0) !important; }
+  body { background: rgb(0, 0, 255) !important; }
+</style>
+<div class="leaky page-width" style="padding:40px 0"><h1>{{ section.settings.text }}</h1></div>
+{% schema %}
+{ "name": "Leaky Banner", "settings": [ { "type": "text", "id": "text", "label": "Text", "default": "Big news" } ],
+  "presets": [ { "name": "Leaky Banner", "category": "Banners" } ] }
+{% endschema %}

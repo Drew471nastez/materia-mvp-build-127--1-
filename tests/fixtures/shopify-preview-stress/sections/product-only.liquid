@@ -1,0 +1,6 @@
+{%- assign p = all_products[section.settings.product] -%}
+{%- if p != blank -%}<div class="po page-width"><h2>{{ p.title }}</h2></div>{%- endif -%}
+{% schema %}
+{ "name": "Product Spotlight", "settings": [ { "type": "product", "id": "product", "label": "Product" } ],
+  "presets": [ { "name": "Product Spotlight", "category": "Products" } ] }
+{% endschema %}
