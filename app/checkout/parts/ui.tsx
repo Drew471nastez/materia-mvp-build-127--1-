@@ -243,22 +243,15 @@ export function Spinner({ className, late = false }: { className?: string; late?
  * its top edge and sitting on a short shadow, the way Stripe's Pay is.
  */
 /**
- * PAY IS ALWAYS IN REACH ON A PHONE (round 21, the owner: "make the Pay button actually sticky, smooth and clean"). The
- * button's own box was a small wrapper at the end of the form, so it scrolled away with everything else. This is that
- * wrapper, and it sticks to the foot of the screen while the form above it scrolls: the page's full width, the home
- * indicator's room under it, and a short white fade above it so the fields pass under it softly. It is a child of the
- * whole payment column, so it settles back into its place at the end of the form. From 1024px, where the form and the
- * summary sit side by side and Pay is in view, it is a plain block again.
+ * PAY SITS IN ITS PLACE AT THE END OF THE FORM (round 11, the owner: "In all checkouts across Storelib, don't make the
+ * Buy button sticky at the bottom of the page."). Round 21 had pinned it to the foot of a phone's screen; now it is a
+ * plain block under the terms, in the normal flow, on a phone and a desktop alike. The page's own bottom padding
+ * (`pb-[max(2.5rem,env(safe-area-inset-bottom))]` on each checkout's <main>) keeps it clear of the home indicator, so
+ * this box needs no safe-area room of its own. The wrapper stays so every checkout places Pay the same way.
  */
 export function PayDock({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div
-      data-pay-dock=""
-      className={cn(
-        "sticky bottom-0 z-20 -mx-5 mt-5 px-5 pb-[max(12px,env(safe-area-inset-bottom))] pt-4 [background:linear-gradient(to_top,var(--pay-dock-ground,#fff)_78%,var(--pay-dock-clear,rgba(255,255,255,0)))] sm:-mx-8 sm:px-8 lg:static lg:mx-0 lg:p-0 lg:[background:none]",
-        className,
-      )}
-    >
+    <div data-pay-dock="" className={cn("mt-5", className)}>
       {children}
     </div>
   )

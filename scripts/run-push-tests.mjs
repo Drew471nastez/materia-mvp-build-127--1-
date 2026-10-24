@@ -679,6 +679,8 @@ const SUITES = [
   "tests/round-ah.test.ts",
   "tests/round-ai.test.ts",
   "tests/round-aj.test.ts",
+  /* Round 11 STORE: a busy Add to cart shows its spinner and never its icon (imported themes), and no checkout pins Pay to the foot of the screen; scripts/check-store-r11.mjs presses them. */
+  "tests/store-r11.test.ts",
   "tests/round-ak.test.ts",
   "tests/communities-access-restore.test.ts",
   "tests/communities-platform.test.ts",

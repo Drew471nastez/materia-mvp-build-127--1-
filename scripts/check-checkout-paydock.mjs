@@ -5,8 +5,10 @@
  * The real checkout (scripts/render-checkout-paydock.tsx, the Airwallex path,
  * so no Stripe network) on a 390x844 phone:
  *
- *   STICKY     at the top of the page, Pay sits at the foot of the screen,
- *              and it settles back into its place at the end of the form
+ *   IN PLACE   Pay is never pinned to the screen (round 11, the owner: no
+ *              sticky Buy button in any checkout): at the top of a long
+ *              page it is below the fold, and at the end it sits under
+ *              the terms, in the normal flow
  *   MISSING    Pay with the name empty glides the page to the name field
  *              (over several frames, not a jump), puts it in the middle of
  *              the screen with the caret in it, and says so under it in red
@@ -82,7 +84,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     const b = dock.getBoundingClientRect()
     return { bottom: Math.round(b.bottom), top: Math.round(b.top), position: getComputedStyle(dock).position, page: document.documentElement.scrollHeight }
   })
-  expect(atTop.position === "sticky" && atTop.bottom <= 844 && atTop.bottom >= 830, "STICKY: at the top of the page, Pay sits at the foot of the screen", atTop)
+  expect(atTop.position === "static" && (atTop.page <= 844 || atTop.top > 844), "IN PLACE: Pay is not pinned to the foot of the screen", atTop)
   await p.screenshot({ path: join(shots, "1-top.png") })
   await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await sleep(300)
