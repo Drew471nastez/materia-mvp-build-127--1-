@@ -20,6 +20,7 @@ import "server-only"
  * page at a time and counted by the same rules (reports.ts wireFromRows).
  */
 
+import { refundedOrderIds, withRefundHistory } from "./refund-history-server"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import { dayRatesBetween } from "@/lib/markets/fx-server"
 import type { createAdminClient } from "@/lib/supabase/admin"
@@ -376,13 +377,16 @@ const REFUNDED_CEILING = 5000
  * scoped read of the creator's orders (scopedOrders). Lines already read
  * (`have`) are not read twice. A database without `refunded_at` has no
  * refund dates to read: nothing comes back, and those refunds stay on
- * their order's day.
+ * their order's day. `alsoIds` are orders with a part refund inside the
+ * periods on the seller's ledger (refund-history-server refundedOrderIds),
+ * whose row's refunded_at, the LAST refund, can be after them.
  */
 export async function refundedEarlier<T extends { id: string; stripe_session_id?: string | null }>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   query: () => any,
   spans: Span[],
   have: ReadonlySet<string>,
+  alsoIds: string[] = [],
 ): Promise<T[]> {
   const out: T[] = []
   const seen = new Set(have)
@@ -401,6 +405,12 @@ export async function refundedEarlier<T extends { id: string; stripe_session_id?
         .lt("refunded_at", new Date(s.end).toISOString())
         .order("refunded_at", { ascending: true })
         .limit(REFUNDED_CEILING)
+      if (error) throw new Error(error.message)
+      add(data as T[])
+    }
+    const wanted = alsoIds.filter((id) => !seen.has(id))
+    for (let i = 0; i < wanted.length && out.length < REFUNDED_CEILING; i += 100) {
+      const { data, error } = await query().eq("status", "refunded").in("id", wanted.slice(i, i + 100)).limit(1000)
       if (error) throw new Error(error.message)
       add(data as T[])
     }
@@ -452,9 +462,12 @@ export function readOrders(admin: Admin, spans: Span[], creatorId: string, produ
           .limit(PAGE) as unknown as Read<OrderRow>,
       )
       const own = ownRows(read.rows)
-      const earlier = await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, product), spans, new Set(own.map((r) => r.id)))
+      const ledgerRefunded = await refundedOrderIds(admin, creatorId, spans)
+      const earlier = await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, product), spans, new Set(own.map((r) => r.id)), ledgerRefunded)
+      /* Each part refund on its own day, from the seller's ledger (lib/analytics/refund-dates), before the money is converted. */
+      const dated = await withRefundHistory(admin, creatorId, [...own, ...ownRows(earlier)].map(asOrdersPageRow))
       /* Every amount in the store's currency, each order at its own day's ECB rate (lib/money/report-currency): Revenue never adds lei to dollars. */
-      const inStore = await inStoreCurrency(admin, creatorId, [...own, ...ownRows(earlier)].map(asOrdersPageRow), undefined, { rates: ratesFrom(admin) })
+      const inStore = await inStoreCurrency(admin, creatorId, dated, undefined, { rates: ratesFrom(admin) })
       return { rows: inStore.rows, truncated: read.truncated, conversion: { currency: inStore.currency, converted: inStore.converted, unconverted: inStore.unconverted } }
     }),
   )

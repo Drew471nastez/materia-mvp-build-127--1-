@@ -10,6 +10,7 @@ import { closeUnconfirmedDeliveries } from "@/lib/physical/unconfirmed-delivery-
 import { noteOrdersWaiting } from "@/lib/physical/orders-waiting-server"
 import { runTrackingSweep } from "@/lib/physical/tracking/sync-server"
 import { scheduleMarketingSyncs } from "@/lib/integrations/marketing/sync-server"
+import { runFollowupSweep } from "@/lib/checkout/followups-sweep"
 
 /**
  * GET /api/cron/physical
@@ -25,7 +26,9 @@ import { scheduleMarketingSyncs } from "@/lib/integrations/marketing/sync-server
  * answers { available: false }. Then open parcels whose next look is due
  * are read from the tracking aggregator and their shipments moved on
  * (lib/physical/tracking/sync-server.ts); nothing is asked when tracking is
- * not set up. Protected by CRON_SECRET.
+ * not set up. Before all of it, paid orders whose follow-ups a crashed
+ * caller left unfinished are finished (lib/checkout/followups-sweep.ts).
+ * Protected by CRON_SECRET.
  */
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -37,7 +40,13 @@ async function runJob(request: Request) {
   /* Website checkouts' payments left open past their holds are closed first, physical commerce on or off (lib/checkout/site-payment-sweep). */
   const db = createAdminClient()
   const swept = await cancelStaleSitePayments(db).catch(() => ({ shipped: 0, baskets: 0 }))
-  if (!(await isPhysicalCommerceEnabled())) return NextResponse.json({ enabled: false, swept }, { headers: { "Cache-Control": "no-store" } })
+  /* Paid orders whose follow-ups (emails, library, ledger, customer) a crashed caller left unfinished: finished, never repeated (lib/checkout/followups.ts). Every checkout, physical commerce on or off. */
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
+  const followups = await runFollowupSweep(db, { baseUrl, budgetMs: 15_000 }).catch((e) => {
+    console.error("[cron/physical] follow-ups:", e instanceof Error ? e.message : e)
+    return { resumed: 0, failed: 0 }
+  })
+  if (!(await isPhysicalCommerceEnabled())) return NextResponse.json({ enabled: false, swept, followups }, { headers: { "Cache-Control": "no-store" } })
   const started = Date.now()
   const { data: expired, error } = await db.rpc("physical_expire_holds", { p_limit: 200 })
   if (error && (error.code === "PGRST202" || error.code === "42883")) return NextResponse.json({ available: false }, { headers: { "Cache-Control": "no-store" } })
@@ -66,7 +75,7 @@ async function runJob(request: Request) {
   /* A line only when the run did something; an idle run every few minutes was a log line each time. Changed on purpose (the owner: lower Vercel costs). */
   const didWork = !tracking || Number(expired ?? 0) + jobs.done + jobs.failed + tracking.checked + tracking.moved + unconfirmed.closed + swept.shipped + swept.baskets + marketing + waiting.raised > 0
   if (didWork) console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, tracking ${tracking ? `${tracking.checked} read ${tracking.moved} moved` : "failed"}, ${unconfirmed.closed} deliveries not confirmed, ${ms}ms`)
-  return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, marketing, tracking, unconfirmed: unconfirmed.closed, waiting, ms }, { headers: { "Cache-Control": "no-store" } })
+  return NextResponse.json({ expired: Number(expired ?? 0), swept, followups, jobs, marketing, tracking, unconfirmed: unconfirmed.closed, waiting, ms }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function GET(request: Request) {

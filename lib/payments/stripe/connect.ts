@@ -17,6 +17,7 @@ import { getStorelibPaymentsStatus, statusFactsOf, type StorelibStatusView } fro
 import { accountSessionComponents } from "./session-components"
 import { creatorBusinessProfile } from "./business-profile"
 import { PaymentsProblem } from "../errors"
+import { forgetPaymentsReadiness } from "./readiness-cache"
 
 export interface PaymentsCreatorRef {
   id: string
@@ -214,6 +215,8 @@ export async function releaseConnectedAccount(creatorId: string, previousAccount
     console.error("[stripe connect] release state", state.error.message.slice(0, 160))
   }
   await noteAccountReset(creatorId, previousAccountId, reason)
+  /* Disconnected: "Connect payments" is back on the store's checklist now, not in a minute. */
+  await forgetPaymentsReadiness(creatorId)
 }
 
 /** Whether this creator once had a connection: what makes setting up again "Reconnect". Tolerates part 79 not having run. */

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { readCreatorStripe, syncStripeAccountFull } from "@/lib/payments/stripe/connect"
+import { forgetPaymentsReadiness } from "@/lib/payments/stripe/readiness-cache"
 
 /**
  * ===========================================================================
@@ -42,6 +43,8 @@ export async function GET() {
 
   try {
     const synced = await syncStripeAccountFull(creator.id, "creator")
+    /* Back from Stripe's setup: the store's cached readiness is read again, so "Connect payments" goes at once. */
+    await forgetPaymentsReadiness(creator.id)
     const chargesEnabled = !!synced.account?.charges_enabled
     const payoutsEnabled = !!synced.account?.payouts_enabled
     const detailsSubmitted = !!synced.account?.details_submitted

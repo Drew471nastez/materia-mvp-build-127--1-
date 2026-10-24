@@ -15,6 +15,7 @@ import "server-only"
  * WHO. The creator is the caller's, found from the signed in user; a place
  * that is not theirs is refused, a product that is not theirs is ignored.
  */
+import { refundedOrderIds, withRefundHistory } from "./refund-history-server"
 import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
@@ -81,8 +82,10 @@ async function readLines(admin: Admin, creatorId: string, spans: Span[]): Promis
         )
         /* Refunds made in the periods of orders placed before them: dated by the refund (report-read refundedEarlier). */
         const own = ownRows(got.rows)
-        const earlier = /refunded_at/.test(columns) ? await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, null), spans, new Set(own.map((r) => r.id))) : []
-        return { rows: [...own, ...ownRows(earlier)], truncated: got.truncated }
+        const ledgerRefunded = /refunded_at/.test(columns) ? await refundedOrderIds(admin, creatorId, spans) : []
+        const earlier = /refunded_at/.test(columns) ? await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, null), spans, new Set(own.map((r) => r.id)), ledgerRefunded) : []
+        /* Each part refund on its own day, from the seller's ledger (lib/analytics/refund-dates). */
+        return { rows: await withRefundHistory(admin, creatorId, [...own, ...ownRows(earlier)]), truncated: got.truncated }
       })
       return { rows: read.rows, truncated: read.truncated, columns }
     } catch (e) {

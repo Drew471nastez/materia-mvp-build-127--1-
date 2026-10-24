@@ -209,6 +209,7 @@ const SUITES = [
   "tests/analytics-e2e.test.ts",
   /* Round AB2: every /app Analytics figure against a fixture counted by hand and an independent reference (7 ranges, 5 places, All/Digital/Physical), the sales reports counted by the tabs' own rules, the comparison across a DST week, the yen cards, the morph by what a store sells, Add report at the bottom and the CSV export (scripts/check-analytics-ab2.mjs measures the page). */
   "tests/analytics-accuracy.test.ts",
+  "tests/order-followups.test.ts",
   /* Round AC2: a lei store selling in five other currencies through the routes' own code with day rates in the database fake, yen and dinar stores, the phantom discount of a converted line, refunds dated by the refund, shares that add up to 100, changes against nothing and below nothing, and the export's report and format choices (scripts/check-analytics-ac2.mjs measures the page). */
   "tests/analytics-currency.test.ts",
   /* Round AD1: bugs found by reading every analytics path, each a failing check first: Home's revenue line and the chart axis in the currency's own decimals, a product's orders as payments, kept answers of one period shown as another's, the jsonb origin, GA's purchase value in yen, the creator's own connected domain opened from the app. */
