@@ -10846,7 +10846,24 @@ const words: Record<string, string> = {
  "MP4, MOV or WebM, up to 2 GB": "MP4, MOV o WebM, fino a 2 GB",
  "Drag to move. Drag a corner or an edge to resize.": "Trascina per spostare. Trascina un angolo o un bordo per ridimensionare.",
  "JPG, PNG, GIF or HEIC. Tall pictures fit a phone best": "JPG, PNG, GIF o HEIC. Le immagini verticali stanno meglio su un telefono",
- "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Trascina per spostare. Trascina un angolo per ridimensionare. Il riquadro ha la forma di un telefono."
+ "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Trascina per spostare. Trascina un angolo per ridimensionare. Il riquadro ha la forma di un telefono.",
+ "What your page is connected to. You change these in Settings, Integrations.": "A cosa è collegata la tua pagina. Li cambi in Impostazioni, Integrazioni.",
+ "Analytics and ads": "Statistiche e annunci",
+ "These tags load on your page as well as your website.": "Questi tag si caricano sulla tua pagina e sul tuo sito.",
+ "On, {id}": "Attivo, {id}",
+ "Email tools": "Strumenti email",
+ "Everyone who signs up on your page is in Emails, Subscribers. A connected tool gets them too.": "Chi si iscrive sulla tua pagina è in Email, Iscritti. Uno strumento collegato li riceve anche lui.",
+ "Connected, list {name}": "Collegato, lista {name}",
+ "Your page is on {host}": "La tua pagina è su {host}",
+ "Use a domain you own, like links.yourname.com": "Usa un dominio tuo, come links.tuonome.com",
+ "Links, images and products go in a group.": "In un gruppo vanno link, immagini e prodotti.",
+ "Simple": "Semplice",
+ "Show on page": "Mostra nella pagina",
+ "Add to your page": "Aggiungi alla tua pagina",
+ "Shown in the Featured, Cover, Solid and Simple layouts.": "Si vede nei layout In evidenza, Copertina, Pieno e Semplice.",
+ "Featured, Cover, Solid and Simple show your image.": "In evidenza, Copertina, Pieno e Semplice mostrano la tua immagine.",
+ "No image needed. Add one in Settings to show it in Featured, Cover, Solid and Simple.": "Non serve un'immagine. Aggiungine una in Impostazioni per vederla in In evidenza, Copertina, Pieno e Semplice.",
+ "Remove this group? Its blocks stay on your page.": "Rimuovere questo gruppo? I suoi blocchi restano sulla tua pagina."
 }
 
 export default words

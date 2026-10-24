@@ -10846,7 +10846,24 @@ const words: Record<string, string> = {
  "MP4, MOV or WebM, up to 2 GB": "MP4, MOV ou WebM, até 2 GB",
  "Drag to move. Drag a corner or an edge to resize.": "Arraste para mover. Arraste um canto ou uma borda para redimensionar.",
  "JPG, PNG, GIF or HEIC. Tall pictures fit a phone best": "JPG, PNG, GIF ou HEIC. Imagens verticais ficam melhores no celular",
- "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Arraste para mover. Arraste um canto para redimensionar. A caixa tem o formato de um celular."
+ "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Arraste para mover. Arraste um canto para redimensionar. A caixa tem o formato de um celular.",
+ "What your page is connected to. You change these in Settings, Integrations.": "Ao que sua página está conectada. Você muda isso em Configurações, Integrações.",
+ "Analytics and ads": "Análise e anúncios",
+ "These tags load on your page as well as your website.": "Essas tags carregam na sua página e no seu site.",
+ "On, {id}": "Ativo, {id}",
+ "Email tools": "Ferramentas de e-mail",
+ "Everyone who signs up on your page is in Emails, Subscribers. A connected tool gets them too.": "Quem se inscreve na sua página está em E-mails, Inscritos. Uma ferramenta conectada também recebe.",
+ "Connected, list {name}": "Conectado, lista {name}",
+ "Your page is on {host}": "Sua página está em {host}",
+ "Use a domain you own, like links.yourname.com": "Use um domínio seu, como links.seunome.com",
+ "Links, images and products go in a group.": "Links, imagens e produtos podem ir num grupo.",
+ "Simple": "Simples",
+ "Show on page": "Mostrar na página",
+ "Add to your page": "Adicionar à sua página",
+ "Shown in the Featured, Cover, Solid and Simple layouts.": "Aparece nos layouts Destacada, Capa, Sólido e Simples.",
+ "Featured, Cover, Solid and Simple show your image.": "Destacada, Capa, Sólido e Simples mostram sua imagem.",
+ "No image needed. Add one in Settings to show it in Featured, Cover, Solid and Simple.": "Não precisa de imagem. Adicione uma em Configurações para ver em Destacada, Capa, Sólido e Simples.",
+ "Remove this group? Its blocks stay on your page.": "Remover este grupo? Os blocos dele ficam na sua página."
 }
 
 export default words

@@ -649,6 +649,8 @@ const SUITES = [
   "tests/site-customer-pages.test.ts",
   "tests/account-sections.test.ts",
   "tests/onepage-blocks.test.ts",
+  /* Round 11: the email signup's five layouts (drawn without an image), groups (what goes in, one edit in and out, what is drawn), the Products tab's short default, and the Integrations section; scripts/check-onepage-blocks-r11.mjs measures them. */
+  "tests/onepage-blocks-r11.test.ts",
   "tests/onepage-editor-ui.test.ts",
   "tests/checkout-loads.test.ts",
   "tests/notify-templates.test.ts",
@@ -876,6 +878,8 @@ const STRICT_SUITES = [
   "tests/onepage-creator-blocks.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
+  /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */
+  "tests/e2e-onepage-blocks-r11.test.ts",
   /* ShippyPro: the adapter against recorded and documented answers, and the marketplace card in each state (components/physical/integrations-marketplace.tsx only type-checks strict) */
   "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */

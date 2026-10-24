@@ -65,6 +65,7 @@ import {
   type Glyph,
 } from "@/components/onepage/block-icons"
 import type { OnePageBlockType } from "@/lib/onepage/types"
+import { canGoInGroup } from "@/lib/onepage/group"
 import { tt } from "@/lib/i18n/text"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { landContent } from "@/lib/ui/pill-switch"
@@ -558,7 +559,8 @@ export function AddBlockPicker({
     if (open) landContent(listRef.current)
   }, [category]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const allowed = React.useMemo(() => (inGroup ? PICKER_ENTRIES.filter((e) => e.type === "link_button" || e.type === "image") : PICKER_ENTRIES), [inGroup])
+  /* What a group can hold (lib/onepage/group): the same list a card dropped on a group is checked against. */
+  const allowed = React.useMemo(() => (inGroup ? PICKER_ENTRIES.filter((e) => canGoInGroup(e.type)) : PICKER_ENTRIES), [inGroup])
   const searching = query.trim().length > 0
   const found = React.useMemo(() => (searching ? searchEntries(allowed, query) : []), [allowed, query, searching])
   const recentEntries = React.useMemo(() => recent.map((id) => allowed.find((e) => e.id === id)).filter((e): e is PickerEntry => !!e), [recent, allowed])

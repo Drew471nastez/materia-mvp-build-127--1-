@@ -125,7 +125,7 @@ import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-ran
 import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
-import { BlockBadges, BlockExtras, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
+import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow } from "@/components/onepage/extra-blocks"
 import { AddBlockButton, AddBlockPicker, AddSheetGate, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
 import { IconLibrary, IconLibraryGate, setIconLibraryOpen } from "@/components/onepage/icon-library"
 import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText } from "@/components/onepage/block-icons"
@@ -142,6 +142,9 @@ import { UploadError, openableImage, prepareImage, uploadErrorText, uploadMessag
 import { CropUpload } from "@/components/onepage/crop-upload"
 import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
+import { EmailLayoutThumb } from "@/components/onepage/email-signup"
+import { emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
+import { canGoInGroup, findBlockDeep, moveIntoGroup, moveOutOfGroup, updatePlanDeep } from "@/lib/onepage/group"
 
 /**
  * A SOCIAL LINK IS READ THE WAY ITS PLATFORM IS TYPED (lib/onepage/social-input):
@@ -275,7 +278,7 @@ function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, pro
     case "group": {
       const data = block.data as GroupBlockData
       const childCount = data.children?.length || 0
-      return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout }), icon: GlyphGroup }
+      return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout === "carousel" ? tt("Carousel") : tt("Stack") }), icon: GlyphGroup }
     }
     case "pdf_document": {
       const data = block.data as PDFDocumentBlockData
@@ -471,6 +474,11 @@ export function LinksTab() {
   const reorderListRef = useRef<HTMLDivElement>(null)
   const [reorderMessage, setReorderMessage] = useState("")
   const blocksInOrder = () => [...(onepage?.draft_blocks ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+  /* An edit to a block on the page or inside one of its groups (the image library and the thumbnail picker serve both). */
+  const updateBlockDeep = (id: string, updates: Partial<OnePageBlock>) => {
+    const plan = updatePlanDeep(onepage?.draft_blocks, id, updates)
+    if (plan) updateBlock(plan.id, plan.updates)
+  }
   /* Under a Hero header the social icons stay below it, as they always had to. */
   const clampReorder = (id: string, to: number) => {
     const list = blocksInOrder()
@@ -497,20 +505,15 @@ export function LinksTab() {
       const list = blocksInOrder()
       const target = list.find((b) => b.id === targetId)
       const moving = list.find((b) => b.id === dragId)
-      return target?.type === "group" && !!moving && moving.type !== "group" && moving.type !== "header" && moving.type !== "social_row"
+      /* What the Add sheet lets into a group, and nothing else (lib/onepage/group canGoInGroup). */
+      return target?.type === "group" && !!moving && canGoInGroup(moving.type)
     },
     onReorder: writeReorder,
     /* Into a group: it joins the group's own list and leaves this one. */
     onDropInto: (id, groupId) => {
-      const list = blocksInOrder()
-      const moving = list.find((b) => b.id === id)
-      const group = list.find((b) => b.id === groupId)
-      if (!moving || group?.type !== "group") return
-      const groupData = group.data as GroupBlockData
-      const children = groupData.children || []
-      if (children.some((c) => c.id === id)) return
-      updateBlock(groupId, { data: { ...groupData, children: [...children, { ...moving, sort_order: children.length }] } })
-      removeBlock(id)
+      /* One edit, so one Undo puts it back (it was two, and one Undo left it on the page and in the group). */
+      const next = moveIntoGroup(blocksInOrder(), id, groupId)
+      if (next) reorderBlocks(next)
     },
   })
   /* The keyboard's way: an arrow on the grip moves the card one place, and a screen reader hears where it went. */
@@ -925,10 +928,10 @@ export function LinksTab() {
       /* Straight to storage under the owner's own folder, with a type storage takes (a HEIC becomes a JPEG): lib/onepage/media-upload. */
       const { url: publicUrl } = await uploadOnePageMedia(file, { prefix: `thumbnail_${thumbnailBlockId}`, want: "image" })
 
-      const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+      const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
       if (block?.type === 'product') {
         // For product blocks, use custom_thumbnail
-        updateBlock(thumbnailBlockId, {
+        updateBlockDeep(thumbnailBlockId, {
           data: {
             ...block.data,
             custom_thumbnail: publicUrl
@@ -936,7 +939,7 @@ export function LinksTab() {
         })
       } else {
         // For link_button blocks, use thumbnail_url
-        updateBlock(thumbnailBlockId, {
+        updateBlockDeep(thumbnailBlockId, {
           data: {
             ...block?.data,
             thumbnail_url: publicUrl,
@@ -960,7 +963,7 @@ export function LinksTab() {
   // Get thumbnail block data
   const getThumbnailBlockData = () => {
     if (!thumbnailBlockId) return null
-    const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+    const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
     if (!block) return null
     if (block.type === 'link_button') return block.data as LinkButtonBlockData
     if (block.type === 'product') return block.data as ProductBlockData
@@ -970,7 +973,7 @@ export function LinksTab() {
   // Get the block type for thumbnail modal
   const getThumbnailBlockType = () => {
     if (!thumbnailBlockId) return null
-    const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+    const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
     return block?.type || null
   }
 
@@ -1037,9 +1040,9 @@ export function LinksTab() {
   /* An icon chosen in the library: on the link at once (the preview redraws with it), and the sheets go. */
   const chooseLinkIcon = (iconId: string) => {
     if (thumbnailBlockId) {
-      const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+      const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
       if (block?.type === 'link_button') {
-        updateBlock(thumbnailBlockId, { data: { ...block.data, icon: iconId, thumbnail_url: null } })
+        updateBlockDeep(thumbnailBlockId, { data: { ...block.data, icon: iconId, thumbnail_url: null } })
       }
     }
     closeThumbnailSheet()
@@ -1060,8 +1063,8 @@ export function LinksTab() {
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string; icon?: string }, data?: Record<string, unknown>) => {
     // If adding to a group, handle differently
     if (addToGroupId) {
-      // Don't allow adding these types to a group
-      if (type === "header" || type === "group" || type === "social_row" || type === "product" || type === "email_capture" || type === "text" || type === "divider" || EXTRA_BLOCK_TYPES.includes(type as ExtraBlockType)) {
+      // Only what a group can hold (lib/onepage/group): links, images and products
+      if (!canGoInGroup(type)) {
         closeAddSheet()
         return
       }
@@ -1169,26 +1172,16 @@ export function LinksTab() {
   }
 
   // Handler to move a child block from a group back to the main blocks list
+  /*
+    Out of the group and right under it, in one edit (lib/onepage/group
+    moveOutOfGroup). It was two: the block put on the page with the group
+    still holding it, then the group told to let go, so one Undo left it in
+    both places. It also renumbered the page's blocks in place, editing the
+    very objects the page was drawn from.
+  */
   const handleMoveChildToMainList = (childBlock: OnePageBlock, groupId: string) => {
-    // Find the group block's index to insert the child after it
-    const groupIndex = sortedBlocks.findIndex(b => b.id === groupId)
-
-    // Create a new block with updated sort_order
-    const newBlock = {
-      ...childBlock,
-      sort_order: groupIndex + 1, // Insert right after the group
-    }
-
-    // Get current blocks and insert the child after the group
-    const newBlocks = [...sortedBlocks]
-    newBlocks.splice(groupIndex + 1, 0, newBlock)
-
-    // Update sort orders for all blocks
-    newBlocks.forEach((b, i) => {
-      b.sort_order = i
-    })
-
-    reorderBlocks(newBlocks)
+    const next = moveOutOfGroup(blocksInOrder(), groupId, childBlock.id)
+    if (next) reorderBlocks(next)
   }
 
   const handleAddSocial = () => {
@@ -1596,7 +1589,7 @@ export function LinksTab() {
             </SheetDialogTitle>
             {addToGroupId && (
               <p className="text-[12.5px] text-[#6b7280] mt-0.5">
-                {tt("Only links and images go in a group.")}
+                {tt("Links, images and products go in a group.")}
               </p>
             )}
           </DialogHeader>
@@ -2185,16 +2178,16 @@ export function LinksTab() {
                       type="button"
                       onClick={() => {
                         if (thumbnailBlockId) {
-                          const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+                          const block = findBlockDeep(onepage.draft_blocks, thumbnailBlockId)?.block
                           if (block?.type === 'product') {
-                            updateBlock(thumbnailBlockId, {
+                            updateBlockDeep(thumbnailBlockId, {
                               data: {
                                 ...block.data,
                                 custom_thumbnail: null
                               }
                             })
                           } else {
-                            updateBlock(thumbnailBlockId, {
+                            updateBlockDeep(thumbnailBlockId, {
                               data: {
                                 ...block?.data,
                                 thumbnail_url: null,
@@ -2567,10 +2560,10 @@ export function LinksTab() {
                         }
                       }
 
-                      const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                      const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
                       if (block) {
                         if (imageFieldType === 'digital_product_file') {
-                          updateBlock(imageBlockId, {
+                          updateBlockDeep(imageBlockId, {
                             data: {
                               ...block.data,
                               digital_product_file_url: url,
@@ -2579,14 +2572,14 @@ export function LinksTab() {
                             }
                           })
                         } else if (imageFieldType === 'product_image') {
-                          updateBlock(imageBlockId, {
+                          updateBlockDeep(imageBlockId, {
                             data: {
                               ...block.data,
                               product_image: url,
                             }
                           })
                         } else if (imageFieldType === 'pdf_file') {
-                          updateBlock(imageBlockId, {
+                          updateBlockDeep(imageBlockId, {
                             data: {
                               ...block.data,
                               pdf_file_url: url,
@@ -2594,7 +2587,7 @@ export function LinksTab() {
                             }
                           })
                         } else if (imageFieldType === 'thumbnail_url') {
-                          updateBlock(imageBlockId, {
+                          updateBlockDeep(imageBlockId, {
                             data: {
                               ...block.data,
                               thumbnail_url: url,
@@ -2659,7 +2652,7 @@ export function LinksTab() {
 
                 {/* Show current file/image if exists */}
                 {imageBlockId && (() => {
-                  const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                  const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
                   if (!block) return null
                   const data = block.data as any
                   const hasFile = imageFieldType === 'digital_product_file' ? data.digital_product_file_url
@@ -2694,7 +2687,7 @@ export function LinksTab() {
                         type="button"
                         onClick={() => {
                           if (imageFieldType === 'digital_product_file') {
-                            updateBlock(imageBlockId, {
+                            updateBlockDeep(imageBlockId, {
                               data: {
                                 ...block.data,
                                 digital_product_file_url: null,
@@ -2703,21 +2696,21 @@ export function LinksTab() {
                               }
                             })
                           } else if (imageFieldType === 'pdf_file') {
-                            updateBlock(imageBlockId, {
+                            updateBlockDeep(imageBlockId, {
                               data: {
                                 ...block.data,
                                 pdf_file_url: null,
                               }
                             })
                           } else if (imageFieldType === 'thumbnail_url') {
-                            updateBlock(imageBlockId, {
+                            updateBlockDeep(imageBlockId, {
                               data: {
                                 ...block.data,
                                 thumbnail_url: null,
                               }
                             })
                           } else {
-                            updateBlock(imageBlockId, {
+                            updateBlockDeep(imageBlockId, {
                               data: {
                                 ...block.data,
                                 product_image: null,
@@ -2746,7 +2739,7 @@ export function LinksTab() {
                     key={img.id}
                     onClick={() => {
                       if (imageBlockId) {
-                        const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                        const block = findBlockDeep(onepage.draft_blocks, imageBlockId)?.block
                         if (block) {
                           // Handle image_item_${id} field type for multi-image blocks
                           if (imageFieldType && imageFieldType.startsWith('image_item_')) {
@@ -2756,7 +2749,7 @@ export function LinksTab() {
                             const newImages = images.map(image =>
                               image.id === imageItemId ? { ...image, image_url: img.url } : image
                             )
-                            updateBlock(imageBlockId, {
+                            updateBlockDeep(imageBlockId, {
                               data: {
                                 ...block.data,
                                 images: newImages,
@@ -2764,7 +2757,7 @@ export function LinksTab() {
                               }
                             })
                           } else {
-                            updateBlock(imageBlockId, { data: { ...block.data, image_url: img.url } })
+                            updateBlockDeep(imageBlockId, { data: { ...block.data, image_url: img.url } })
                           }
                         }
                       }
@@ -3213,7 +3206,7 @@ function BlockItem({
       case "group": {
         const data = block.data as GroupBlockData
         const childCount = data.children?.length || 0
-        return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout }), icon: GlyphGroup }
+        return { title: data.title || tt("Group"), subtitle: tt("{childCount, plural, one {# item} other {# items}} · {layout}", { childCount, layout: data.layout === "carousel" ? tt("Carousel") : tt("Stack") }), icon: GlyphGroup }
       }
       case "pdf_document": {
         const data = block.data as PDFDocumentBlockData
@@ -3582,7 +3575,10 @@ function BlockItem({
                 </div>
               ) : (
                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <p className="text-sm text-muted-foreground text-center">{tt("Remove this block?")}</p>
+                  {/* A group lets go of its blocks rather than taking them with it (lib/onepage/context removeBlock), and says so. */}
+                  <p className="text-sm text-muted-foreground text-center" data-delete-question="">
+                    {block.type === "group" && ((block.data as GroupBlockData).children?.length ?? 0) > 0 ? tt("Remove this group? Its blocks stay on your page.") : tt("Remove this block?")}
+                  </p>
                   <div className="flex gap-2">
                     <div className="flex-1">
                       <Button
@@ -4193,10 +4189,12 @@ function BlockEditor({
                 aria-label="URL"
                 data-link-url=""
                 onChange={(e) => {
+                  /* A new link starts at "https://": a whole address typed or pasted after it is that address, not "https://https://…". */
+                  const url = e.target.value.replace(/^https?:\/\/(?=https?:\/\/)/i, "")
                   if (onUrlChangeWithAutoFetch) {
-                    onUrlChangeWithAutoFetch(block.id, e.target.value)
+                    onUrlChangeWithAutoFetch(block.id, url)
                   } else {
-                    updateData({ url: e.target.value })
+                    updateData({ url })
                   }
                 }}
                 placeholder="https://"
@@ -4783,11 +4781,16 @@ function BlockEditor({
           }
         }
 
-        // Layout options
-        const layoutOptions = [
-          { id: 'default', label: tt("Default"), description: tt("Classic email form") },
-          { id: 'pro', label: 'Pro', description: tt("Compact with image") },
-        ] as const
+        /* The five layouts (lib/onepage/email-signup), and the image they show when there is one. */
+        const emailLayouts: { id: EmailSignupLayout; label: string }[] = [
+          { id: "default", label: tt("Classic") },
+          { id: "pro", label: tt("Featured") },
+          { id: "cover", label: tt("Cover") },
+          { id: "bold", label: tt("Solid") },
+          { id: "minimal", label: tt("Simple") },
+        ]
+        const currentEmailLayout = emailSignupLayout(data.layout_type)
+        const emailImage = emailSignupImage(data)
 
         return (
           <Tabs defaultValue="settings" className="w-full">
@@ -4947,7 +4950,7 @@ function BlockEditor({
               <div className="space-y-2 pt-2 border-t">
                 <Label className="text-xs">{tt("Product Image")}</Label>
                 <p className="text-[10px] text-muted-foreground">
-                  {tt("Display an image with your email form (used in Pro layout)")}
+                  {tt("Shown in the Featured, Cover, Solid and Simple layouts.")}
                 </p>
                 <div className="flex gap-2 items-center">
                   {data.product_image ? (
@@ -5054,80 +5057,38 @@ function BlockEditor({
             </TabsContent>
 
             <TabsContent value="layout" className="mt-0 space-y-3">
-              <p className="text-xs text-muted-foreground mb-2">{tt("Choose how this block displays on your page")}</p>
-
-              {/* Layout Options Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Default Layout Option */}
-                <button
-                  type="button"
-                  onClick={() => updateData({ layout_type: 'default' as EmailCaptureLayoutType })}
-                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-                >
-                  <CardMark on={(data.layout_type || 'default') === 'default'} tint="#f7f7f8" />
-                  {/* Visual Preview */}
-                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden p-2">
-                    <div className="w-full space-y-1.5">
-                      <div className="h-2.5 w-3/4 bg-gray-300 rounded mx-auto" />
-                      <div className="h-1.5 w-1/2 bg-gray-200 rounded mx-auto" />
-                      <div className="flex gap-1.5 mt-2">
-                        <div className="flex-1 h-7 bg-white rounded border border-gray-200" />
-                        <div className="w-14 h-7 bg-gray-800 rounded" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Label */}
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                      (data.layout_type || 'default') === 'default' ? "border-[#1a1a2e]" : "border-gray-300"
-                    )}>
-                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", (data.layout_type || 'default') === 'default' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                    </div>
-                    <span className="font-medium text-sm">{tt("Default")}</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Classic centered form")}</p>
-                </button>
-
-                {/* Pro Layout Option */}
-                <button
-                  type="button"
-                  onClick={() => updateData({ layout_type: 'pro' as EmailCaptureLayoutType })}
-                  className="relative p-3 rounded-xl border-2 text-left flex flex-col isolate border-gray-200 hover:border-gray-300 bg-white"
-                >
-                  <CardMark on={data.layout_type === 'pro'} tint="#f7f7f8" />
-                  {/* Visual Preview */}
-                  <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2">
-                    <div className="w-full bg-white rounded-lg p-2 border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#e5e7eb] to-[#d1d5db] shrink-0" />
-                        <div className="flex-1 space-y-1">
-                          <div className="h-2 w-full bg-gray-200 rounded" />
-                          <div className="h-1.5 w-1/2 bg-gray-100 rounded" />
-                        </div>
-                      </div>
-                      <div className="flex gap-1 mt-2">
-                        <div className="flex-1 h-5 bg-gray-50 rounded border border-gray-100" />
-                        <div className="w-10 h-5 bg-gray-800 rounded" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Label */}
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors duration-[180ms]",
-                      data.layout_type === 'pro' ? "border-[#1a1a2e]" : "border-gray-300"
-                    )}>
-                      <div className={cn("w-2 h-2 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-[180ms] ease-out", data.layout_type === 'pro' ? "scale-100 opacity-100" : "scale-0 opacity-0")} />
-                    </div>
-                    <span className="font-medium text-sm">{tt("Featured")}</span>
-                    <Sparkles className="w-3 h-3 text-[#1a1a2e]" />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1 ml-6">{tt("Compact with image")}</p>
-                </button>
+              {/*
+                FIVE LAYOUTS, EACH DRAWN SMALL AS IT WILL LOOK (components/onepage/email-signup EmailLayoutThumb):
+                in the page's colours, with the block's image or, without one, the mark the layout shows instead.
+                Three across, so the choice fits on a phone without a scroll.
+              */}
+              <div role="radiogroup" aria-label={tt("Layout")} className="grid grid-cols-3 gap-2" data-email-layouts="">
+                {emailLayouts.map((option) => {
+                  const on = currentEmailLayout === option.id
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      data-email-layout-option={option.id}
+                      onClick={() => {
+                        if (on) return
+                        hapticTap("soft")
+                        updateData({ layout_type: option.id as EmailCaptureLayoutType })
+                      }}
+                      className="relative isolate flex flex-col gap-1.5 rounded-xl border border-[#e3e4e8] bg-white p-1.5 text-left transition-[border-color] duration-150 [@media(hover:hover)]:hover:border-[#c9cbd1]"
+                    >
+                      <CardMark on={on} width={1.5} tint="#ffffff" />
+                      <EmailLayoutThumb layout={option.id} image={emailImage} theme={onepage?.theme ?? {}} />
+                      <span className="px-1 pb-0.5 text-[12.5px] font-medium text-[#1a1a2e]">{option.label}</span>
+                    </button>
+                  )
+                })}
               </div>
+              <p className="text-[12px] leading-snug text-[#6b7280]">
+                {emailImage ? tt("Featured, Cover, Solid and Simple show your image.") : tt("No image needed. Add one in Settings to show it in Featured, Cover, Solid and Simple.")}
+              </p>
             </TabsContent>
           </Tabs>
         )
@@ -6559,7 +6520,11 @@ function BlockEditor({
         }
         case "image": {
           const d = child.data as ImageBlockData
-          return { title: tt("Image"), icon: GlyphImage, thumbnail_url: d.image_url, iconId: null }
+          return { title: tt("Image"), icon: GlyphImage, thumbnail_url: d.images?.[0]?.image_url || d.image_url || null, iconId: null }
+        }
+        case "product": {
+          const d = child.data as ProductBlockData
+          return { title: d.product_title || tt("Product"), icon: GlyphProduct, thumbnail_url: d.custom_thumbnail || d.product_thumbnail || null, iconId: null }
         }
         case "divider":
           return { title: tt("Divider"), icon: GlyphDivider, thumbnail_url: null, iconId: null }
@@ -6601,14 +6566,22 @@ function BlockEditor({
       setGroupDragOverId(null)
     }
 
+    /* Up or down one place: the rows are dragged with a mouse, and a finger has no drag here, so the open block has arrows too. */
+    const moveChild = (childId: string, dir: -1 | 1) => {
+      const children = [...(groupData.children || [])]
+      const from = children.findIndex((c) => c.id === childId)
+      const to = from + dir
+      if (from < 0 || to < 0 || to >= children.length) return
+      const [moved] = children.splice(from, 1)
+      children.splice(to, 0, moved)
+      updateData({ children: children.map((c, i) => ({ ...c, sort_order: i })) })
+    }
+
     const removeChildFromGroup = (childId: string) => {
       const childToRemove = (groupData.children || []).find(c => c.id === childId)
       if (childToRemove && onMoveChildToMainList) {
-        // Move to main list instead of deleting
+        // Out of the group and onto the page, in one edit (LinksTab handleMoveChildToMainList)
         onMoveChildToMainList(childToRemove, block.id)
-        // Update group to remove the child
-        const newChildren = (groupData.children || []).filter(c => c.id !== childId)
-        updateData({ children: newChildren })
       } else {
         // Fallback: just remove from group (but don't delete entirely)
         const newChildren = (groupData.children || []).filter(c => c.id !== childId)
@@ -6812,6 +6785,10 @@ function BlockEditor({
                         <span className="flex-1 text-sm truncate">{preview.title}</span>
                         <button
                           type="button"
+                          role="switch"
+                          aria-checked={!!child.enabled}
+                          aria-label={tt("Show on page")}
+                          data-group-child-toggle={child.id}
                           onClick={(e) => {
                             e.stopPropagation()
                             updateChildBlock(child.id, { enabled: !child.enabled })
@@ -6829,8 +6806,10 @@ function BlockEditor({
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removeChildFromGroup(child.id) }}
-                          className="text-gray-400 hover:text-blue-500 transition-colors p-1"
+                          className="text-gray-400 hover:text-[#1a1a2e] transition-colors p-1"
                           title={tt("Move out of group")}
+                          aria-label={tt("Move out of group")}
+                          data-group-child-out={child.id}
                         >
                           <ArrowUpRight className="h-3.5 w-3.5" />
                         </button>
@@ -6856,19 +6835,35 @@ function BlockEditor({
               <div className="border rounded-xl p-3 bg-white space-y-3">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-medium capitalize">{selectedChild.type.replace('_', ' ')} {tt("Settings")}</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    {(() => {
+                      const at = (groupData.children || []).findIndex((c) => c.id === selectedChild.id)
+                      const last = (groupData.children || []).length - 1
+                      return (
+                        <>
+                          <button type="button" data-group-child-up="" aria-label={tt("Move up")} disabled={at <= 0} onClick={() => moveChild(selectedChild.id, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#4b5563] transition-colors disabled:opacity-30 [@media(hover:hover)]:hover:bg-[#f4f4f6]">
+                            <ChevronUp className="h-4 w-4" />
+                          </button>
+                          <button type="button" data-group-child-down="" aria-label={tt("Move down")} disabled={at >= last} onClick={() => moveChild(selectedChild.id, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#4b5563] transition-colors disabled:opacity-30 [@media(hover:hover)]:hover:bg-[#f4f4f6]">
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                        </>
+                      )
+                    })()}
                     <button
                       type="button"
                       onClick={() => removeChildFromGroup(selectedChild.id)}
-                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      data-group-child-out=""
+                      className="ml-1 flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-[#1a1a2e] transition-colors [@media(hover:hover)]:hover:bg-[#f4f4f6]"
                     >
                       <ArrowUpRight className="h-3 w-3" />
                       {tt("Move out")}
                     </button>
                     <button
                       type="button"
+                      aria-label={tt("Close")}
                       onClick={() => setSelectedGroupChildId(null)}
-                      className="text-gray-400 hover:text-gray-600"
+                      className="grid h-8 w-8 place-items-center rounded-lg text-gray-400 hover:text-gray-600"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -6911,10 +6906,11 @@ function BlockEditor({
             >
               <CardMark on={groupData.layout === "stack"} tint="#f7f7f8" />
               {/* Visual Preview */}
-              <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex flex-col items-center justify-center overflow-hidden p-2 gap-1.5">
-                <div className="w-full h-6 bg-white rounded border border-gray-200" />
-                <div className="w-full h-6 bg-white rounded border border-gray-200" />
-                <div className="w-full h-6 bg-white rounded border border-gray-200" />
+              {/* Small, as the signup's layouts are (round 11): the shape, not a big card. */}
+              <div className="w-full h-[60px] bg-gray-100 rounded-lg mb-2 flex flex-col items-center justify-center overflow-hidden px-2.5 gap-1">
+                <div className="w-full h-3 bg-white rounded-[3px] border border-gray-200" />
+                <div className="w-full h-3 bg-white rounded-[3px] border border-gray-200" />
+                <div className="w-full h-3 bg-white rounded-[3px] border border-gray-200" />
               </div>
               
               {/* Label */}
@@ -6938,10 +6934,10 @@ function BlockEditor({
             >
               <CardMark on={groupData.layout === "carousel"} tint="#f7f7f8" />
               {/* Visual Preview */}
-              <div className="w-full aspect-[4/3] bg-gray-100 rounded-lg mb-2.5 flex items-center justify-center overflow-hidden p-2 gap-1.5">
-                <div className="w-[40%] h-full bg-white rounded border border-gray-200 shrink-0" />
-                <div className="w-[40%] h-full bg-white rounded border border-gray-200 shrink-0" />
-                <div className="w-[20%] h-full bg-white/50 rounded border border-gray-100 shrink-0" />
+              <div className="w-full h-[60px] bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden p-2 gap-1">
+                <div className="w-[40%] h-full bg-white rounded-[3px] border border-gray-200 shrink-0" />
+                <div className="w-[40%] h-full bg-white rounded-[3px] border border-gray-200 shrink-0" />
+                <div className="w-[20%] h-full bg-white/50 rounded-[3px] border border-gray-100 shrink-0" />
               </div>
               
               {/* Label */}

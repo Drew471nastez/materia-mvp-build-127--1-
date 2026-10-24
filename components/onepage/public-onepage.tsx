@@ -56,6 +56,8 @@ import { tt } from "@/lib/i18n/text"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { bookingSource } from "@/lib/onepage/creator-blocks"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
+import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
+import { emailSignupImage, emailSignupLayout, emailSignupStacked } from "@/lib/onepage/email-signup"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -2813,7 +2815,8 @@ function GroupBlockRenderer({
   const [canScrollRight, setCanScrollRight] = useState(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
-  const enabledChildren = data.children.filter(c => c.enabled)
+  const inEditorPreview = useContext(ExtraBlockPreviewContext)
+  const enabledChildren = groupChildrenShown(data.children, inEditorPreview)
   const gap = isDesktop ? 16 : 12 // gap-3 = 12px, sm:gap-4 = 16px
 
   // Calculate carousel item width based on view setting
@@ -2995,6 +2998,9 @@ function GroupBlockRenderer({
                 data-sensitive-label={sensitiveLabel(child)}
               >
                 <div className="w-full" style={{ overflow: 'visible' }}>
+                  {inEditorPreview && isIncompleteLink(child) ? (
+                    <IncompleteLinkPlaceholder label={(child.data as LinkButtonBlockData)?.label} theme={theme} />
+                  ) : (
                   <PublicBlockRenderer
                     block={child}
                     theme={theme}
@@ -3006,6 +3012,7 @@ function GroupBlockRenderer({
                     isInsideCarousel={true}
                     isInsideGroup={true}
                   />
+                  )}
                 </div>
               </div>
             ))}
@@ -3490,6 +3497,9 @@ function sensitiveLabel(block: any): string | undefined {
 
 /** Is a block on the page? The one rule the editor's preview uses too (lib/onepage/extra-blocks). */
 const isBlockVisible = (block: any): boolean => isBlockShown(block)
+/* A group's blocks by the page's one rule (lib/onepage/group): on, in their schedule, with something to show; in the editor's preview a link still waiting for its address is shown as its placeholder, as it is on the page. */
+const groupChildrenShown = (children: OnePageBlock[] | undefined, inPreview: boolean): OnePageBlock[] =>
+  (children || []).filter((c) => isBlockVisible(c) || (inPreview && isIncompleteLink(c)))
 
 function PublicBlockRenderer({
   block,
@@ -3505,6 +3515,8 @@ function PublicBlockRenderer({
 }: PublicBlockRendererProps) {
   /* A product's price in its seller's store currency (components/platform/price-currency). */
   const pageMoney = usePageMoney()
+  /* The editor's preview frame: a link inside a group that is still waiting for its address is drawn as its placeholder there. */
+  const inGroupPreview = useContext(ExtraBlockPreviewContext)
   const [emailSubmitted, setEmailSubmitted] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -4920,10 +4932,8 @@ function PublicBlockRenderer({
         success_message: "Thanks!",
       }) as EmailCaptureBlockData
 
-      const isPro = data.layout_type === "pro"
-      const hasDigitalProduct = data.enable_digital_product && data.digital_product_file_url
-      const layoutImage = data.product_image || data.digital_product_thumbnail
-      const showThumbnail = isPro && layoutImage
+      const layout = emailSignupLayout(data.layout_type)
+      const layoutImage = emailSignupImage(data)
 
       // Button styles with shadows and borders (matching link_button and product blocks)
       const buttonShadow = (theme as any).button_shadow || "none"
@@ -5172,252 +5182,67 @@ function PublicBlockRenderer({
         </a>
       ) : null
 
-      // Pro layout with thumbnail
-      if (isPro && showThumbnail) {
+      /*
+        THE FORM, ONCE, AND THE LAYOUT AROUND IT (components/onepage/email-
+        signup). It was written out four times, one for each of two layouts
+        times two button lengths, and Featured drew its own shape only with
+        an image, so choosing it on a block without one changed nothing.
+        Each of the five layouts now asks for this form in one row or
+        stacked, and the Bold card for its button in the card's text colour.
+      */
+      const renderEmailForm = ({ stacked, inverted, outlined }: EmailSignupFormOptions) => {
+        const buttonText = getButtonText()
+        const submitStyles: React.CSSProperties = inverted
+          ? { ...emailButtonStyles, backgroundColor: inverted.fill, color: inverted.text, borderColor: "transparent", boxShadow: "none", backdropFilter: undefined }
+          : emailButtonStyles
+        const buttonClass = cn(
+          "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap",
+          stacked ? "w-full" : "shrink-0",
+          !isInsideCarousel && "[@media(hover:hover)]:hover:opacity-90",
+        )
         return (
-          <div
-            className={cn("w-full rounded-xl sm:rounded-2xl overflow-hidden", getEmailAnimationClass(data.animation_type))}
-            style={{ backgroundColor: `${theme.button_color}10` }}
-          >
-            <div className="p-4 sm:p-5 space-y-3">
-              {/* Product row */}
-              <div className="flex gap-3 sm:gap-4 items-start">
-                <img
-                  src={layoutImage || ""}
-                  alt={data.headline || ""}
-                  className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl object-cover shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base sm:text-lg font-semibold" style={{ color: theme.text_color }}>
-                    {data.headline}
-                  </h3>
-                  {data.description && (
-                    <p
-                      className="text-xs sm:text-sm line-clamp-2"
-                      style={{ color: theme.secondary_text_color || theme.text_color }}
-                    >
-                      {data.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-              {/* Form - Responsive layout based on button text length */}
-              {(() => {
-                const buttonText = getButtonText()
-                const isShortButton = buttonText.length <= 12
-
-                if (isShortButton) {
-                  return (
-                    <>
-                    {emailExtras}
-                    <form onSubmit={handleSubmit} className="flex flex-row gap-2 items-stretch">
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={handleEmailChange}
-                        placeholder={data.placeholder || "Enter your email"}
-                        required
-                        disabled={isSubmitting}
-                        className="px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 flex-1 min-w-0"
-                        style={{ color: "#000", width: "60%", borderRadius: emailButtonStyles.borderRadius }}
-                      />
-                      {emailSubmitted && downloadLink ? (
-                        <button
-                          type="button"
-                          onClick={handleDownloadClick}
-                          className={cn(
-                            "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
-                            !isInsideCarousel && "hover:opacity-90"
-                          )}
-                          style={emailButtonStyles}
-                        >
-                          Download
-                        </button>
-                      ) : (
-                        <button
-                          type="submit"
-                          disabled={isSubmitting || emailSubmitted}
-                          className={cn(
-                            "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
-                            !isInsideCarousel && "hover:opacity-90"
-                          )}
-                          style={emailButtonStyles}
-                        >
-                          {isSubmitting ? "..." : buttonText}
-                        </button>
-                      )}
-                    </form>
-                    </>
-                  )
-                }
-
-                return (
-                  <>
-                  {emailExtras}
-                  <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={handleEmailChange}
-                      placeholder={data.placeholder || "Enter your email"}
-                      required
-                      disabled={isSubmitting}
-                      className="px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 w-full"
-                      style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius }}
-                    />
-                    {emailSubmitted && downloadLink ? (
-                      <button
-                        type="button"
-                        onClick={handleDownloadClick}
-                        className={cn(
-                          "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap w-full",
-                          !isInsideCarousel && "hover:opacity-90"
-                        )}
-                        style={emailButtonStyles}
-                      >
-                        Download
-                      </button>
-                    ) : (
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || emailSubmitted}
-                        className={cn(
-                          "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
-                          !isInsideCarousel && "hover:opacity-90"
-                        )}
-                        style={emailButtonStyles}
-                      >
-                        {isSubmitting ? "..." : buttonText}
-                      </button>
-                    )}
-                  </form>
-                  </>
-                )
-              })()}
-            </div>
-            {emailSubmitted && (
-              <div className="px-4 sm:px-5 pb-3 sm:pb-4">
-                <p className="text-xs text-center opacity-70" style={{ color: theme.text_color }}>
-                  {data.success_message || "Thanks for subscribing!"}
-                </p>
-                {afterSignupLink}
-              </div>
-            )}
-          </div>
+          <>
+            {emailExtras}
+            <form onSubmit={handleSubmit} className={stacked ? "flex flex-col gap-2" : "flex flex-row gap-2 items-stretch"} data-email-form={stacked ? "stacked" : "row"}>
+              <input
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                placeholder={data.placeholder || "Enter your email"}
+                aria-label={tt("Email")}
+                required
+                disabled={isSubmitting}
+                className={cn("px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70", stacked ? "w-full" : "flex-1 min-w-0", inverted && "ring-1 ring-black/10")}
+                style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius, backgroundColor: inverted ? "#fff" : undefined, boxShadow: outlined ? `inset 0 0 0 1px color-mix(in srgb, ${theme.text_color || "#111113"} 18%, transparent)` : undefined }}
+              />
+              {emailSubmitted && downloadLink ? (
+                <button type="button" onClick={handleDownloadClick} className={buttonClass} style={submitStyles}>
+                  Download
+                </button>
+              ) : (
+                <button type="submit" disabled={isSubmitting || emailSubmitted} className={cn(buttonClass, "disabled:opacity-50 disabled:cursor-not-allowed")} style={submitStyles}>
+                  {isSubmitting ? "..." : buttonText}
+                </button>
+              )}
+            </form>
+          </>
         )
       }
 
-      // Default layout
-      const buttonText = getButtonText()
-      const isShortButton = buttonText.length <= 12
-
       return (
-        <div
-          className={cn("w-full p-5 sm:p-6 rounded-xl sm:rounded-2xl", getEmailAnimationClass(data.animation_type))}
-          style={{ backgroundColor: `${theme.button_color}10` }}
-        >
-          <h3 className="text-base sm:text-lg font-semibold text-center mb-1" style={{ color: theme.text_color }}>
-            {data.headline}
-          </h3>
-          {data.description && (
-            <p
-              className="text-xs sm:text-sm text-center mb-4"
-              style={{ color: theme.secondary_text_color || theme.text_color }}
-            >
-              {data.description}
-            </p>
-          )}
-          {/* Form - Responsive layout based on button text length */}
-          {isShortButton ? (
-            <>
-            {emailExtras}
-            <form onSubmit={handleSubmit} className="flex flex-row gap-2 items-stretch">
-              <input
-                type="email"
-                value={email}
-                onChange={handleEmailChange}
-                placeholder={data.placeholder || "Enter your email"}
-                required
-                disabled={isSubmitting}
-                className="px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 flex-1 min-w-0"
-                style={{ color: "#000", width: "60%", borderRadius: emailButtonStyles.borderRadius }}
-              />
-              {emailSubmitted && downloadLink ? (
-                <button
-                  type="button"
-                  onClick={handleDownloadClick}
-                  className={cn(
-                    "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap shrink-0",
-                    !isInsideCarousel && "hover:opacity-90"
-                  )}
-                  style={emailButtonStyles}
-                >
-                  Download
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={isSubmitting || emailSubmitted}
-                  className={cn(
-                    "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0",
-                    !isInsideCarousel && "hover:opacity-90"
-                  )}
-                  style={emailButtonStyles}
-                >
-                  {isSubmitting ? "..." : buttonText}
-                </button>
-              )}
-            </form>
-            </>
-          ) : (
-            <>
-            {emailExtras}
-            <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-              <input
-                type="email"
-                value={email}
-                onChange={handleEmailChange}
-                placeholder={data.placeholder || "Enter your email"}
-                required
-                disabled={isSubmitting}
-                className="px-3 sm:px-4 py-3 text-sm bg-white/90 border-0 outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 w-full"
-                style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius }}
-              />
-              {emailSubmitted && downloadLink ? (
-                <button
-                  type="button"
-                  onClick={handleDownloadClick}
-                  className={cn(
-                    "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity whitespace-nowrap w-full",
-                    !isInsideCarousel && "hover:opacity-90"
-                  )}
-                  style={emailButtonStyles}
-                >
-                  Download
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={isSubmitting || emailSubmitted}
-                  className={cn(
-                    "px-4 sm:px-5 py-3 text-sm font-medium transition-opacity disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap w-full",
-                    !isInsideCarousel && "hover:opacity-90"
-                  )}
-                  style={emailButtonStyles}
-                >
-                  {isSubmitting ? "..." : buttonText}
-                </button>
-              )}
-            </form>
-            </>
-          )}
-          {emailSubmitted && (
-            <p className="text-xs text-center mt-2 opacity-70" style={{ color: theme.text_color }}>
-              {data.success_message || "Thanks for subscribing!"}
-            </p>
-          )}
-          {emailSubmitted ? afterSignupLink : null}
-        </div>
+        <EmailSignupView
+          layout={layout}
+          headline={data.headline || ""}
+          description={data.description}
+          image={layoutImage}
+          theme={theme}
+          stackedForm={emailSignupStacked(layout, getButtonText())}
+          renderForm={renderEmailForm}
+          submitted={emailSubmitted}
+          successMessage={data.success_message || "Thanks for subscribing!"}
+          afterSignup={afterSignupLink}
+          animationClass={getEmailAnimationClass(data.animation_type)}
+        />
       )
     }
 
@@ -5427,7 +5252,7 @@ function PublicBlockRenderer({
         return null
       }
 
-      const enabledChildren = data.children.filter((child) => child.enabled !== false)
+      const enabledChildren = groupChildrenShown(data.children, inGroupPreview)
       if (enabledChildren.length === 0) {
         return null
       }
@@ -5477,6 +5302,9 @@ function PublicBlockRenderer({
                   className="w-full px-3"
                   data-sensitive-label={sensitiveLabel(child)}
                 >
+                  {inGroupPreview && isIncompleteLink(child) ? (
+                    <IncompleteLinkPlaceholder label={(child.data as LinkButtonBlockData)?.label} theme={theme} />
+                  ) : (
                   <PublicBlockRenderer
                     block={child}
                     theme={theme}
@@ -5487,6 +5315,7 @@ function PublicBlockRenderer({
                     settings={settings}
                     isInsideGroup={true}
                   />
+                  )}
                 </div>
               )
             })}

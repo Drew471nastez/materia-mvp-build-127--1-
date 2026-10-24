@@ -211,8 +211,10 @@ async function main() {
     const live = read("components/onepage/public-onepage.tsx")
     const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
     check("the live block sends the name, the hidden field and the time on screen", /name: data\.ask_name \? leadName\.trim\(\) \|\| undefined : undefined,\s*company: leadTrap,\s*elapsed: Date\.now\(\) - leadShownAt\.current/.test(live))
-    check("all four layouts carry the name field and the hidden field", (email.match(/\{emailExtras\}/g) ?? []).length === 4)
-    check("the link after joining is offered once they have joined, in both places the thanks is", /\{afterSignupLink\}/.test(email) && /\{emailSubmitted \? afterSignupLink : null\}/.test(email) && /\/\^https\?:\\\/\\\/\/i\.test\(afterUrl\)/.test(email))
+    /* Changed on purpose (round 11): the form is written once (renderEmailForm) and every one of the five layouts asks for it (components/onepage/email-signup), so the name field and the hidden field are in one place that all of them draw. */
+    check("every layout carries the name field and the hidden field", (email.match(/\{emailExtras\}/g) ?? []).length === 1 && /renderForm=\{renderEmailForm\}/.test(email) && (read("components/onepage/email-signup.tsx").match(/renderForm\(\{/g) ?? []).length === 5)
+    /* Changed on purpose (round 11): the thanks and the link after it are drawn by the layout (EmailSignupView thanks), once they have joined. */
+    check("the link after joining is offered once they have joined, with the thanks", /afterSignup=\{afterSignupLink\}/.test(email) && /submitted \? \(\s*<div data-email-thanks="">[\s\S]*?\{afterSignup\}/.test(read("components/onepage/email-signup.tsx")) && /\/\^https\?:\\\/\\\/\/i\.test\(afterUrl\)/.test(email))
     const tab = read("components/onepage/tabs/links-tab.tsx")
     check("the editor asks for both, and says where signups go", /updateData\(\{ ask_name: checked \}\)/.test(tab) && /updateData\(\{ after_signup_url: e\.target\.value\.trim\(\) \}\)/.test(tab) && /<SignupDestination \/>/.test(tab))
     const module = read("components/onepage/creator-blocks.tsx")

@@ -10846,7 +10846,24 @@ const words: Record<string, string> = {
  "MP4, MOV or WebM, up to 2 GB": "MP4, MOV oder WebM, bis 2 GB",
  "Drag to move. Drag a corner or an edge to resize.": "Zum Verschieben ziehen. Ecke oder Kante ziehen, um die Größe zu ändern.",
  "JPG, PNG, GIF or HEIC. Tall pictures fit a phone best": "JPG, PNG, GIF oder HEIC. Hochformat passt am besten auf ein Handy",
- "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Zum Verschieben ziehen. Ecke ziehen für die Größe. Der Rahmen hat die Form eines Handys."
+ "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Zum Verschieben ziehen. Ecke ziehen für die Größe. Der Rahmen hat die Form eines Handys.",
+ "What your page is connected to. You change these in Settings, Integrations.": "Womit deine Seite verbunden ist. Du änderst das unter Einstellungen, Integrationen.",
+ "Analytics and ads": "Analyse und Werbung",
+ "These tags load on your page as well as your website.": "Diese Tags laden auf deiner Seite und auf deiner Website.",
+ "On, {id}": "An, {id}",
+ "Email tools": "E-Mail-Tools",
+ "Everyone who signs up on your page is in Emails, Subscribers. A connected tool gets them too.": "Wer sich auf deiner Seite einträgt, ist unter E-Mails, Abonnenten. Ein verbundenes Tool bekommt sie auch.",
+ "Connected, list {name}": "Verbunden, Liste {name}",
+ "Your page is on {host}": "Deine Seite ist auf {host}",
+ "Use a domain you own, like links.yourname.com": "Nutze eine eigene Domain, wie links.deinname.com",
+ "Links, images and products go in a group.": "In eine Gruppe kommen Links, Bilder und Produkte.",
+ "Simple": "Schlicht",
+ "Show on page": "Auf der Seite zeigen",
+ "Add to your page": "Zu deiner Seite hinzufügen",
+ "Shown in the Featured, Cover, Solid and Simple layouts.": "Zu sehen in den Layouts Hervorgehoben, Titelbild, Gefüllt und Schlicht.",
+ "Featured, Cover, Solid and Simple show your image.": "Hervorgehoben, Titelbild, Gefüllt und Schlicht zeigen dein Bild.",
+ "No image needed. Add one in Settings to show it in Featured, Cover, Solid and Simple.": "Kein Bild nötig. Füge in Einstellungen eins hinzu, um es in Hervorgehoben, Titelbild, Gefüllt und Schlicht zu zeigen.",
+ "Remove this group? Its blocks stay on your page.": "Diese Gruppe entfernen? Ihre Blöcke bleiben auf deiner Seite."
 }
 
 export default words

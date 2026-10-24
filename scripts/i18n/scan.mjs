@@ -40,7 +40,7 @@ export const SCOPE_INCLUDE = [
   /^components\/community\/(creator|learn|library)\/.*\.tsx?$/,
   /^components\/community\/membership\/refund-dialog\.tsx$/,
   /^components\/email\/compose\/.*\.tsx?$/,
-  /^components\/onepage\/(onepage-editor|seo-panel|onboarding-modal|date-time-field|extra-blocks|creator-blocks|add-block-picker|color-picker|link-stats-chart|editor-kit)\.tsx$/,
+  /^components\/onepage\/(onepage-editor|seo-panel|onboarding-modal|date-time-field|extra-blocks|creator-blocks|add-block-picker|color-picker|link-stats-chart|editor-kit|settings-integrations)\.tsx$/,
   /^components\/onepage\/tabs\/.*\.tsx$/,
   /^components\/physical\/(analytics-card|buy-label|carrier-live|carrier-picker|coupon-options|integrations-marketplace|order-panel|partner-links|product-cards|readiness-banner|readiness-checklist|shipping-app-facts|shipping-settings|ui|variant-options|variant-table)\.tsx$/,
   /^components\/memberships\/(creator-list|creator-screen|post-view)\.tsx$/,

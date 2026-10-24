@@ -139,7 +139,7 @@ export type SoundCloudMode = 'audio_preview' | 'go_to_url'
 export type EmailCaptureButtonPreset = 'subscribe' | 'join' | 'get_access' | 'download' | 'sign_up' | 'unlock' | 'custom'
 
 // Email capture layout types
-export type EmailCaptureLayoutType = 'default' | 'pro'
+export type EmailCaptureLayoutType = 'default' | 'pro' | 'cover' | 'bold' | 'minimal'
 
 export interface StreamingService {
   platform: 'apple_music' | 'youtube_music' | 'soundcloud' | 'tidal' | 'deezer' | 'amazon_music' | 'spotify'

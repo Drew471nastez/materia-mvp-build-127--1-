@@ -10846,7 +10846,24 @@ const words: Record<string, string> = {
  "MP4, MOV or WebM, up to 2 GB": "MP4, MOV lub WebM, do 2 GB",
  "Drag to move. Drag a corner or an edge to resize.": "Przeciągnij, aby przesunąć. Przeciągnij róg lub krawędź, aby zmienić rozmiar.",
  "JPG, PNG, GIF or HEIC. Tall pictures fit a phone best": "JPG, PNG, GIF lub HEIC. Pionowe zdjęcia najlepiej pasują do telefonu",
- "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Przeciągnij, aby przesunąć. Przeciągnij róg, aby zmienić rozmiar. Ramka ma kształt telefonu."
+ "Drag to move. Drag a corner to resize. The box is the shape of a phone.": "Przeciągnij, aby przesunąć. Przeciągnij róg, aby zmienić rozmiar. Ramka ma kształt telefonu.",
+ "What your page is connected to. You change these in Settings, Integrations.": "Z czym połączona jest Twoja strona. Zmienisz to w Ustawieniach, Integracje.",
+ "Analytics and ads": "Analityka i reklamy",
+ "These tags load on your page as well as your website.": "Te tagi ładują się na Twojej stronie i w witrynie.",
+ "On, {id}": "Włączone, {id}",
+ "Email tools": "Narzędzia e-mail",
+ "Everyone who signs up on your page is in Emails, Subscribers. A connected tool gets them too.": "Każdy, kto zapisze się na Twojej stronie, jest w E-maile, Subskrybenci. Połączone narzędzie też ich dostaje.",
+ "Connected, list {name}": "Połączono, lista {name}",
+ "Your page is on {host}": "Twoja strona jest pod {host}",
+ "Use a domain you own, like links.yourname.com": "Użyj własnej domeny, np. links.twojanazwa.com",
+ "Links, images and products go in a group.": "Do grupy trafiają linki, obrazy i produkty.",
+ "Simple": "Prosty",
+ "Show on page": "Pokaż na stronie",
+ "Add to your page": "Dodaj do swojej strony",
+ "Shown in the Featured, Cover, Solid and Simple layouts.": "Widoczne w układach Wyróżniona, Okładka, Pełny i Prosty.",
+ "Featured, Cover, Solid and Simple show your image.": "Wyróżniona, Okładka, Pełny i Prosty pokazują Twój obraz.",
+ "No image needed. Add one in Settings to show it in Featured, Cover, Solid and Simple.": "Obraz nie jest potrzebny. Dodaj go w Ustawieniach, by był w układach Wyróżniona, Okładka, Pełny i Prosty.",
+ "Remove this group? Its blocks stay on your page.": "Usunąć tę grupę? Jej bloki zostaną na Twojej stronie."
 }
 
 export default words

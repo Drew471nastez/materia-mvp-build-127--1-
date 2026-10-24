@@ -10,6 +10,8 @@ import { useRouter } from "next/navigation"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { ProMark, Segmented, SwitchRow, fieldInput } from "@/components/onepage/editor-kit"
 import { SeoPanel } from "@/components/onepage/seo-panel"
+import { OnePageDomainRow, OnePageIntegrations } from "@/components/onepage/settings-integrations"
+import { SignupDestination } from "@/components/onepage/creator-blocks"
 import { getLinksShareUrl, getOnePageDomain } from "@/lib/url-helpers"
 import { BADGE_TYPES, buttonStyleOf, checkPageSlug, type ButtonStyle } from "@/lib/onepage/settings-rules"
 import { PRO_CHECKOUT_PLAN_ID, PRO_PRICE_CENTS, formatPlanPrice, offeredPlan, planDisplayName, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
@@ -25,6 +27,8 @@ const SETTINGS_SECTIONS = [
   { id: "subscribe", get label() { return tt("Subscribe") } },
   { id: "share", get label() { return tt("Share") } },
   { id: "verified", get label() { return tt("Verified badge") } },
+  /* What the page is connected to: its analytics and pixels, the email tools its signups go to (components/onepage/settings-integrations). */
+  { id: "integrations", get label() { return tt("Integrations") } },
   { id: "billing", get label() { return tt("Billing") } },
 ] as const
 type SectionId = (typeof SETTINGS_SECTIONS)[number]["id"]
@@ -429,6 +433,9 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         </button>
       </div>
 
+      {/* The page's own domain (Settings › Domains), and how to connect one. */}
+      <OnePageDomainRow />
+
       {saveRow("basic")}
     </div>
   )
@@ -461,6 +468,8 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
         {kind === "subscribe" && enabled ? (
           <p className="text-[12.5px] text-[#6b7280]">{tt("Turning it off keeps the subscribers you have.")}</p>
         ) : null}
+        {/* Where the bell's and every signup form's addresses go: Emails › Subscribers, and Klaviyo or Omnisend when connected. */}
+        {kind === "subscribe" ? <SignupDestination /> : null}
         {saveRow(kind)}
       </div>
     )
@@ -608,6 +617,7 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
           subscribe: card("subscribe", renderToggleSection("subscribe")),
           share: card("share", renderToggleSection("share")),
           verified: card("verified", renderVerified()),
+          integrations: card("integrations", <OnePageIntegrations />),
           /* Billing is drawn as /app's Billing is: its title on the page, the plan on its own card, the plan cards under it (no card in a card). */
           billing: <div data-settings-section="billing">{renderBilling()}</div>,
         }}
