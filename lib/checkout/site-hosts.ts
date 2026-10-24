@@ -24,6 +24,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { servingHost } from "@/lib/custom-domains/hostname"
 import { checkoutReturnTarget, normalHost } from "./return-url"
+import { needsOwnHosts, onePageReturnTarget } from "@/lib/onepage/return-address"
 
 type Admin = { from: ReturnType<typeof createAdminClient>["from"] }
 
@@ -108,11 +109,31 @@ export async function checkoutReturns(input: {
 }): Promise<{ success: string | null; cancel: string | null }> {
   const asked = [input.success, input.cancel].some((v) => typeof v === "string" && v.trim() !== "")
   if (!asked) return { success: null, cancel: null }
+  /*
+    BACK TO THE ONEPAGE IT WAS PRESSED ON (lib/onepage/return-address): a
+    storelib.me page is checked as an address alone, with no read, since that
+    host serves nothing but OnePages. A OnePage on the creator's own domain
+    (<domain>/links) is one of their site hosts, read below like any other.
+  */
+  const onePageCancel = needsOwnHosts(input.cancel) ? null : onePageReturnTarget(input.cancel)
+  if (onePageCancel && !(typeof input.success === "string" && input.success.trim() !== "")) return { success: null, cancel: onePageCancel }
   const hosts = await siteHostsFor(input.creatorId)
-  if (hosts.length === 0) return { success: null, cancel: null }
+  if (hosts.length === 0) return { success: null, cancel: onePageCancel }
   const rules = { hosts, mainDomain: getMainDomain(), base: typeof input.site === "string" ? input.site : null }
   return {
     success: checkoutReturnTarget(input.success, rules),
-    cancel: checkoutReturnTarget(input.cancel, rules),
+    cancel: onePageCancel ?? checkoutReturnTarget(input.cancel, rules),
   }
+}
+
+/**
+ * The OnePage a product page's Back returns to (`?back=`), or null. A
+ * storelib.me page is checked by its address alone; one on the creator's own
+ * domain is checked against the domains the database says are theirs.
+ */
+export async function onePageReturnFor(creatorId: string | null | undefined, raw: unknown): Promise<string | null> {
+  if (typeof raw !== "string" || raw.trim() === "") return null
+  if (!needsOwnHosts(raw)) return onePageReturnTarget(raw)
+  if (!creatorId) return null
+  return onePageReturnTarget(raw, { ownHosts: await siteHostsFor(creatorId) })
 }

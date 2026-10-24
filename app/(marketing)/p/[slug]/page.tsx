@@ -61,6 +61,7 @@ import { ProductAboutSection } from "@/components/store-builder/unified-section-
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { LiveProductCreatorBar } from "@/components/store-builder/product-creator-bar"
 import { creatorPageHref } from "@/lib/navigation/back-plan"
+import { onePageReturnFor } from "@/lib/checkout/site-hosts"
 import { DiscoverStickyWrapper } from "@/components/store-builder/discover-sticky-wrapper"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
 import type { Section, ProductHeaderSettings } from "@/lib/store-builder/types"
@@ -122,6 +123,8 @@ interface ProductPageProps {
     recommended?: string
     /** Set when this page is inside the creator-page workspace's canvas. */
     embedded?: string
+    /** The OnePage this was opened from (lib/onepage/return-address), where Back returns. */
+    back?: string
   }>
 }
 
@@ -265,7 +268,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params, searchParams }: ProductPageProps) {
   const { slug } = await params
-  const { purchase, already_owned, src, layout, recommended, embedded } = await searchParams
+  const { purchase, already_owned, src, layout, recommended, embedded, back } = await searchParams
   const showDiscoverBreadcrumb = recommended === "1"
   const inEditorCanvas = embedded === "1"
   const timer = startPhaseTimer("product-timing", slug)
@@ -291,6 +294,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   if (!loaded) {
     notFound()
   }
+
+  /* Opened from a OnePage: Back goes to it, checked here (never an address the link chose freely). */
+  const onePageBack = onePageReturnFor(loaded.creator_id, back).catch(() => null)
 
   /*
     THE MARKETPLACE'S PRICE. A product page on Storelib is the marketplace:
@@ -1958,6 +1964,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                creator and now carries their line too. See the bar. */
             productTitle={product.title}
             productSlug={product.slug}
+            returnTo={await onePageBack}
           />
         </DiscoverStickyWrapper>
 
@@ -2146,6 +2153,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
              creator and now carries their line too. See the bar. */
           productTitle={product.title}
           productSlug={product.slug}
+          returnTo={await onePageBack}
         />
       </DiscoverStickyWrapper>
 

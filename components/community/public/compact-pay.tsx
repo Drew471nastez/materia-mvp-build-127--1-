@@ -52,6 +52,11 @@ export interface CompactPayProps {
   setBusy: (b: boolean) => void
   /** Drawn between the card field and the button: the order summary, as Skool places it. */
   children?: React.ReactNode
+  /**
+   * Link, Stripe's saved card wallet, inside the card field (round 11, the OnePage's instant checkout). Off unless asked:
+   * the community's join keeps its card field exactly as it was.
+   */
+  allowLink?: boolean
 }
 
 export function CompactPay(props: CompactPayProps) {
@@ -84,7 +89,7 @@ function errorText(e: unknown, fallback: string): string {
   return m && m.length < 240 ? m : fallback
 }
 
-function CompactPayInner({ dueTodayCents, currency, label, payLabel, disabled, dark = false, email, name, start, onConfirmed, onError, busy, setBusy, children }: CompactPayProps) {
+function CompactPayInner({ dueTodayCents, currency, label, payLabel, disabled, dark = false, email, name, start, onConfirmed, onError, busy, setBusy, children, allowLink = false }: CompactPayProps) {
   const stripe = useStripe()
   const elements = useElements()
   const [wallet, setWallet] = React.useState<{ request: PaymentRequest; kind: WalletKind } | null>(null)
@@ -251,7 +256,7 @@ function CompactPayInner({ dueTodayCents, currency, label, payLabel, disabled, d
         >
           <div className="w-full">
             <CardElement
-              options={{ style: cardStyle(dark), hidePostalCode: true, disableLink: true, disabled: busy || disabled }}
+              options={{ style: cardStyle(dark), hidePostalCode: true, disableLink: !allowLink, disabled: busy || disabled }}
               onReady={() => setCard((c) => ({ ...c, ready: true }))}
               onChange={(e: StripeCardElementChangeEvent) => {
                 setCard((c) => ({ ...c, complete: e.complete, error: e.error?.message ?? null }))

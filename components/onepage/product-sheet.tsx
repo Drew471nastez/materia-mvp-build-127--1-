@@ -26,6 +26,7 @@ import { shopMoneyIn } from "@/lib/store/shop-money"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { loadProductFacts, type ProductFacts } from "@/components/checkout/instant-checkout"
 import { productCheckoutUrl } from "@/lib/onepage/product-block"
+import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 
 /** Under 768px the sheet; above it the window. Known before the first paint, so it never swaps on screen. */
 export function usePhoneWidth(): boolean {
@@ -55,9 +56,11 @@ export interface ProductSheetProps {
   instant: boolean
   onBuy: (variantId: string | null) => void
   onCheckoutLink?: (href: string) => void
+  /** The OnePage to come back to from the checkout or the product page (lib/onepage/return-address). */
+  back?: string | null
 }
 
-export function ProductSheet({ open, onClose, warm = false, productId, title, image, priceText, ctaText, instant, onBuy, onCheckoutLink }: ProductSheetProps) {
+export function ProductSheet({ open, onClose, warm = false, productId, title, image, priceText, ctaText, instant, onBuy, onCheckoutLink, back = null }: ProductSheetProps) {
   const phone = usePhoneWidth()
   const [facts, setFacts] = React.useState<ProductFacts | null>(null)
   const [failed, setFailed] = React.useState<string | null>(null)
@@ -94,7 +97,10 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   const was = p && !variant && p.compareAtCents ? fmt(p.compareAtCents) : null
   const images = p?.images.length ? p.images : image ? [image] : []
   const owned = !!facts?.buyer && (facts.buyer.owned || (!!variant && facts.buyer.ownedVariants.includes(variant.id)))
-  const checkoutHref = p ? (p.ships ? p.pageUrl : productCheckoutUrl(p.id, variant?.id ?? null)) : null
+  const checkoutPath = p ? (p.ships ? p.pageUrl : productCheckoutUrl(p.id, variant?.id ?? null)) : null
+  /* On storelib.com itself, with the way back here: one navigation, and Back lands on this OnePage. */
+  const checkoutHref = checkoutPath ? onePageOutboundHref(checkoutPath, back) : null
+  const pageHref = p?.pageUrl && p.pageUrl !== "#" ? onePageOutboundHref(p.pageUrl, back) : null
 
   const buy = (e: React.MouseEvent) => {
     if (!p) return
@@ -103,7 +109,7 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
       onBuy(variant?.id ?? null)
       return
     }
-    if (checkoutHref) onCheckoutLink?.(checkoutHref)
+    if (checkoutPath) onCheckoutLink?.(checkoutPath)
   }
 
   return (
@@ -174,7 +180,7 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
               Sold out
             </p>
           ) : owned && facts?.buyer ? (
-            <a href={facts.buyer.library} className="flex h-12 items-center justify-center rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-[opacity] duration-150 hover:opacity-90">
+            <a href={platformHref(facts.buyer.library)} className="flex h-12 items-center justify-center rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-[opacity] duration-150 hover:opacity-90">
               Open in your library
             </a>
           ) : (
@@ -191,8 +197,8 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
               <span className="relative">{p?.ships ? "Choose options" : ctaText}</span>
             </a>
           )}
-          {p?.pageUrl && p.pageUrl !== "#" ? (
-            <a href={p.pageUrl} className="mt-2 flex h-10 items-center justify-center gap-1.5 text-[13.5px] font-medium text-[#6b7280] transition-colors hover:text-[#111113]" data-product-sheet-page="">
+          {pageHref ? (
+            <a href={pageHref} className="mt-2 flex h-10 items-center justify-center gap-1.5 text-[13.5px] font-medium text-[#6b7280] transition-colors hover:text-[#111113]" data-product-sheet-page="">
               See full page
               <ExternalLink aria-hidden className="h-3.5 w-3.5" />
             </a>

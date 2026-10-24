@@ -949,6 +949,8 @@ const STRICT_SUITES = [
   "tests/app-polish-z7.test.ts",
   /* Round 10: the OnePage's instant checkout bought end to end: facts, a code, paid and free, drafts refused (tests/_journey) */
   "tests/e2e-onepage-instant.test.ts",
+  /* Round 11: the OnePage as storelib.me serves it: the way back from the checkout and the product page (never an open redirect), one-hop links, Instant checkout with every call routed as the host routes it, no Open in app card in the editor (tests/_journey) */
+  "tests/e2e-onepage-live.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

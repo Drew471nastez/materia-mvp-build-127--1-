@@ -33,13 +33,15 @@
  * community's window does for a plan it cannot sell.
  */
 import * as React from "react"
-import Link from "next/link"
 import { Check, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { digitalTax, type CheckoutTax } from "@/lib/tax/rules"
 import { WAIT_MS, requestJson } from "@/lib/net/request"
 import { instantOrderBody } from "@/lib/onepage/product-block"
+import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
+import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
+import { tt } from "@/lib/i18n/text"
 import { CompactPay, type StartedPayment } from "@/components/community/public/compact-pay"
 import { CheckoutMark, CheckoutWindow } from "./checkout-window"
 
@@ -105,9 +107,18 @@ export interface InstantCheckoutProps {
   onClose: () => void
   /** Back to the product sheet it was opened from. */
   onBack?: (() => void) | null
+  /** The OnePage to come back to, for a way out to the checkout page (lib/onepage/return-address). */
+  back?: string | null
 }
 
-export function InstantCheckout({ productId, title, sellerName, sellerAvatar, variantId: initialVariant = null, dark = false, origin, onClose, onBack = null }: InstantCheckoutProps) {
+export function InstantCheckout({ productId, title, sellerName, sellerAvatar, variantId: initialVariant = null, dark = false, origin, onClose, onBack = null, back = null }: InstantCheckoutProps) {
+  /*
+    IN THE EDITOR'S PREVIEW NOTHING IS CHARGED (round 11). The window opens
+    exactly as it does live, so the creator sees it, and Pay says it is a
+    preview instead of starting a payment: no PaymentIntent is made, nothing
+    is sent (components/onepage/preview-document answers the writes anyway).
+  */
+  const [preview] = React.useState(isOnePagePreview)
   const [facts, setFacts] = React.useState<ProductFacts | null>(null)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -185,6 +196,10 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
   /* ── Paid: the checkout's own PaymentIntent, confirmed by Stripe, the order by confirm-payment ── */
   const start = async (paymentMethodId: string): Promise<StartedPayment> => {
     void paymentMethodId
+    if (preview) {
+      showPreviewNotice("payment")
+      throw new Error(tt("This is a preview. Nothing was charged."))
+    }
     const p = problem()
     if (p) throw new Error(p)
     const res = await postJson<{ clientSecret?: string; paymentIntentId?: string }>("/api/checkout/stripe-session", order(false))
@@ -214,6 +229,10 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
   /* ── Free: the free checkout ── */
   const takeFree = async () => {
     if (busy) return
+    if (preview) {
+      showPreviewNotice("payment")
+      return setError(tt("This is a preview. Nothing was charged."))
+    }
     const p = problem()
     if (p) return setError(p)
     setBusy(true)
@@ -249,7 +268,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
   const field = "h-12 w-full rounded-xl border border-[#e1e3e7] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_1px_#1a1a2e] disabled:opacity-60"
   const shownName = facts?.seller.name || sellerName || ""
   const continueLink = (label: string, href: string) => (
-    <a href={href} className="inline-flex h-11 items-center rounded-xl border border-[#e5e7eb] px-4 text-[14px] font-medium text-[#1a1a2e] hover:bg-[#f7f7f8]" data-instant-continue="">
+    <a href={onePageOutboundHref(href, back)} className="inline-flex h-11 items-center rounded-xl border border-[#e5e7eb] px-4 text-[14px] font-medium text-[#1a1a2e] hover:bg-[#f7f7f8]" data-instant-continue="">
       {label}
     </a>
   )
@@ -286,7 +305,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
           <p className="mt-3 text-[18px] font-semibold text-[#1a1a2e]">{done.free ? "It's yours" : "Payment complete"}</p>
           <p className="mt-1 text-[14px] text-[#6b7280]">We sent your receipt and your access to {done.email}.</p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <a href={`/receipt/${encodeURIComponent(done.receiptToken)}`} className="inline-flex h-11 items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white hover:bg-[#2a2a40]" data-instant-receipt="">
+            <a href={platformHref(`/receipt/${encodeURIComponent(done.receiptToken)}`)} className="inline-flex h-11 items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white hover:bg-[#2a2a40]" data-instant-receipt="">
               Open it now
             </a>
           </div>
@@ -294,7 +313,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
       ) : ownsThis ? (
         <div className="space-y-3 py-4 text-center" data-instant-owned="">
           <p className="text-[14.5px] text-[#4b5563]">You already have this. It is in your library.</p>
-          {continueLink("Open your library", facts.buyer!.library)}
+          {continueLink("Open your library", platformHref(facts.buyer!.library))}
         </div>
       ) : !facts.checkout.instant ? (
         <div className="space-y-3 py-4 text-center" data-checkout-unavailable="">
@@ -303,6 +322,11 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
         </div>
       ) : (
         <div className="space-y-5">
+          {preview ? (
+            <p role="status" className="rounded-xl bg-[#f4f4f6] px-3.5 py-2.5 text-center text-[13px] leading-snug text-[#4b5563]" data-instant-preview="">
+              {tt("This is a preview. Nothing is charged here.")}
+            </p>
+          ) : null}
           {product.variants.length > 1 ? (
             <section aria-labelledby="instant-options">
               <h3 id="instant-options" className="mb-2 text-[14.5px] font-semibold text-[#1a1a2e]">
@@ -436,6 +460,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
                 onError={setError}
                 busy={busy}
                 setBusy={setBusy}
+                allowLink
               />
             </section>
           )}
@@ -446,9 +471,9 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
           ) : null}
           <p className="text-center text-[11.5px] leading-relaxed text-[#8b919a]" data-instant-terms="">
             {free ? "By getting it" : "By paying"} you agree to the{" "}
-            <Link href="/terms" target="_blank" className="underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]">
+            <a href={platformHref("/terms")} target="_blank" rel="noopener" className="underline decoration-[#d1d5db] underline-offset-2 hover:text-[#1a1a2e]">
               Terms
-            </Link>
+            </a>
             . Your receipt and access come by email.
           </p>
         </div>

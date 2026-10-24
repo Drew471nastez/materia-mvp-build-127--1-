@@ -152,6 +152,13 @@ export function appLinkConfig(env: Env = process.env): AppLinkConfig {
 export function appleAppSiteAssociation(config: AppLinkConfig = appLinkConfig()) {
   const appID = `${config.teamId}.${config.bundleId}`
   const components = [
+    /*
+      A PRODUCT OPENED FROM A ONEPAGE STAYS ON THE WEB (round 11). Its link
+      carries the OnePage to come back to (`?back=`, lib/onepage/return-address),
+      and the app cannot take the visitor back to a page on storelib.me: the
+      visitor is in the middle of the page they came from.
+    */
+    { "/": "/p/*", "?": { back: "?*" }, exclude: true, comment: "a product opened from a OnePage stays on the web" },
     ...APP_PATHS.map((path) => ({ "/": path })),
     { "/": "/", exclude: true, comment: "Storelib's home page stays on the web" },
     ...WEB_ONLY_SEGMENTS.flatMap((seg) => [
@@ -187,6 +194,8 @@ export function assetLinks(config: AppLinkConfig = appLinkConfig()) {
 export function opensInApp(path: string): boolean {
   const clean = (path.split(/[?#]/)[0] || "/").replace(/\/+$/, "") || "/"
   for (const c of appleAppSiteAssociation().applinks.details[0].components) {
+    /* A rule that also asks about the query (a OnePage's ?back=) is not about a path on its own. */
+    if ("?" in c) continue
     if (globMatch(c["/"], clean)) return !("exclude" in c && c.exclude)
   }
   return false

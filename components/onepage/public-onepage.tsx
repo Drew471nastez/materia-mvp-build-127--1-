@@ -29,7 +29,7 @@ import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { AvatarMark } from "@/components/app/app-avatar"
+import { AppAvatar, AvatarMark } from "@/components/app/app-avatar"
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContext, useContext } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
@@ -54,6 +54,7 @@ import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onep
 import { pairProductTiles } from "@/lib/onepage/product-block"
 import { tt } from "@/lib/i18n/text"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
+import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { bookingSource } from "@/lib/onepage/creator-blocks"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
@@ -703,8 +704,6 @@ function ShareButton({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [avatarImgLoaded, setAvatarImgLoaded] = useState(false)
-  const [avatarImgError, setAvatarImgError] = useState(false)
 
   // Returns true if a hex color is near-white (all channels > 200)
   const isNearWhite = (hex: string): boolean => {
@@ -808,6 +807,8 @@ function ShareButton({
   }
 
   const openExternalUrl = async (url: string) => {
+    /* In the editor's preview nothing leaves it: a note instead (lib/onepage/preview-notice). */
+    if (isOnePagePreview()) return showPreviewNotice("link")
     /* Storelib itself (the Made with Storelib mark) opens in the app's own WebView, not a browser over it (lib/native-links.ts). */
     if (navigateInApp(url)) return
     if (isNativeApp()) {
@@ -854,6 +855,8 @@ function ShareButton({
     webUrl: string,
     preferSystem = false,
   ) => {
+    /* In the editor's preview a share would leave it (an app, a tab): a note instead. */
+    if (isOnePagePreview()) return showPreviewNotice("link")
     if (isNativeApp()) {
       if (nativeScheme) {
         // Synchronous — keeps user-gesture context so the OS accepts the call.
@@ -1077,31 +1080,34 @@ function ShareButton({
           </button>
 
           <div className="text-center">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-white/25 flex items-center justify-center ring-4 ring-white/30 shadow-xl relative">
-              {avatarVideoUrl ? (
+            {avatarVideoUrl ? (
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-white/25 flex items-center justify-center ring-4 ring-white/30 shadow-xl relative">
                 <SmoothAvatarVideo
                   videoUrl={avatarVideoUrl}
                   imageUrl={avatarUrl}
                   alt={pageTitle}
                 />
-              ) : avatarUrl ? (
-                <>
-                  <img
-                    src={avatarUrl}
-                    alt={pageTitle}
-                    className="w-full h-full object-cover"
-                    onLoad={() => setAvatarImgLoaded(true)}
-                    onError={() => { setAvatarImgError(true); setAvatarImgLoaded(false) }}
-                  />
-                  {(!avatarImgLoaded || avatarImgError) && (
-                    <span className={cn("text-3xl font-bold absolute inset-0 flex items-center justify-center", headerTextClass)}>{pageTitle.trim() ? pageTitle.charAt(0).toUpperCase() : <AvatarMark name="" size={64} />}</span>
-                  )}
-                </>
-              ) : (
-                /* An untitled page drew nothing at all here: a plain person instead. */
-                <span className={cn("text-3xl font-bold", headerTextClass)}>{pageTitle.trim() ? pageTitle.charAt(0).toUpperCase() : <AvatarMark name="" size={64} />}</span>
-              )}
-            </div>
+              </div>
+            ) : (
+              /*
+                THE APP'S ONE AVATAR (components/app/app-avatar), round 11: "the
+                initial overlaps the profile image". The letter was drawn over the
+                photo until the photo's onLoad said otherwise, and a photo already
+                in the cache loads before React listens, so the letter stayed on
+                top of it for good. AppAvatar draws the photo when it is there and
+                the page's initials only when there is none (or it fails, or is
+                slow past its limit), never both.
+              */
+              <AppAvatar
+                src={avatarUrl}
+                name={pageTitle}
+                alt={pageTitle}
+                size={80}
+                kind="mark"
+                sizedByClass
+                className={cn("mx-auto mb-4 flex h-20 w-20 bg-white/25 text-3xl font-bold ring-4 ring-white/30 shadow-xl", headerTextClass)}
+              />
+            )}
             <h3 className={cn("text-xl font-bold mb-1", headerTextClass)}>{pageTitle}</h3>
             <p className={cn("text-sm truncate max-w-[200px] mx-auto", headerSubTextClass)}>
               {pageUrl.replace(/^https?:\/\//, "")}
