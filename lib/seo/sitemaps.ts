@@ -669,6 +669,56 @@ export async function websitesSitemap(chunk: number): Promise<SitemapEntry[]> {
   return entries
 }
 
+/**
+ * EVERY PUBLISHED WEBSITE'S ADDRESS, FOR WARMING THE CACHE AFTER A DEPLOY.
+ *
+ * A new deployment starts with an empty page cache, so the first visitor to
+ * each page of each site waited for it to be drawn (0.5 to 1.6 s to the first
+ * byte, measured on five sites right after a deploy, against about 0.2 s once
+ * held). lib/website-builder/warm-sites.ts asks for these pages once per
+ * deploy so a visitor does not. Unlike the sitemap this keeps sites on their
+ * own domain (at that domain, the host a visitor uses) and sites not open to
+ * search engines, since both still get visitors. Banned creators are left out.
+ */
+export async function publishedWebsiteOrigins(from: number, count: number): Promise<{ origins: string[]; read: number }> {
+  const admin = createAdminClient()
+  const installs = await readRange<{ creator_id: string }>(
+    (a, b) =>
+      admin
+        .from("store_theme_installs")
+        .select("creator_id")
+        .eq("status", "published")
+        .order("id", { ascending: true })
+        .range(a, b) as unknown as PromiseLike<Rows<{ creator_id: string }>>,
+    from,
+    count,
+    "warm websites",
+  )
+  const banned = await bannedCreatorIds(admin)
+  const creatorIds = [...new Set(installs.map((i) => i.creator_id).filter((id) => !banned.has(id)))]
+  const creators = await eachBatch(creatorIds, (batch) =>
+    rowsOf<{ id: string; user_id: string }>(() => admin.from("creators").select("id, user_id").in("id", batch), "warm website creators"),
+  )
+  const userOf = new Map(creators.flat().map((c) => [c.id, c.user_id]))
+  const [names, domains, chosen] = await Promise.all([
+    usernames(admin, [...userOf.values()]),
+    activeDomains(admin, creatorIds),
+    websiteNames(admin, creatorIds),
+  ])
+  const main = getMainDomain()
+  const origins: string[] = []
+  for (const id of creatorIds) {
+    const domain = domains.get(id)
+    if (domain) {
+      origins.push(`https://${domain}`)
+      continue
+    }
+    const handle = chosen.get(id) ?? names.get(userOf.get(id) ?? "")
+    if (handle) origins.push(siteOrigin({ handle, mainDomain: main }))
+  }
+  return { origins, read: installs.length }
+}
+
 /* ── One built site, on its own host ───────────────────────────────────── */
 
 export interface SiteSitemap {

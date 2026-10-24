@@ -67,6 +67,10 @@
     {
       "path": "/api/cron/translation-jobs",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/warm-sites",
+      "schedule": "*/5 * * * *"
     }
   ],
   "rewrites": [
