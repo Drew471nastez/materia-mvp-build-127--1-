@@ -10781,7 +10781,32 @@ const words: Record<string, string> = {
  "This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.": "Dieser Zeitraum hat mehr Bestellungen, als ein Bericht auf einmal liest, daher fehlen in diesen Zahlen die neuesten. Wähle einen kürzeren Zeitraum für genaue Zahlen.",
  "Orders do not record their page on this store yet, so the sales reports count every page.": "Bestellungen speichern in diesem Shop ihre Seite noch nicht, daher zählen die Verkaufsberichte alle Seiten.",
  "{count, plural, one {# visit} other {# visits}}": "{count, plural, one {# Besuch} other {# Besuche}}",
- "Analytics file": "Analysedatei"
+ "Analytics file": "Analysedatei",
+ "Refunds made, by the day of the refund.": "Erstattungen nach dem Tag der Erstattung.",
+ "of visitors ordered": "der Besucher haben bestellt",
+ "{digital}% digital · {physical}% physical": "{digital} % digital · {physical} % physisch",
+ "Sales of each product in this period, less the refunds made in it, with its orders and how often its page was opened. With both kinds on sale, each row says which it is.": "Umsatz jedes Produkts in diesem Zeitraum, abzüglich der darin erfolgten Erstattungen, mit seinen Bestellungen und wie oft seine Seite geöffnet wurde. Verkaufst du beide Arten, steht in jeder Zeile, welche es ist.",
+ "Refunds made in this period, on the day each was made, whenever the order was placed. Total sales takes them off on that day too.": "Erstattungen in diesem Zeitraum, am Tag der jeweiligen Erstattung, egal wann bestellt wurde. Der Gesamtumsatz zieht sie an diesem Tag ab.",
+ "{amount} back": "{amount} zurück",
+ "Gross sales at list price, less discounts and returns, is net sales. Add shipping, taxes and tips for total sales. Sales are dated by the order, returns by the day of the refund.": "Bruttoumsatz zum Listenpreis, abzüglich Rabatte und Rückgaben, ist der Nettoumsatz. Mit Versand, Steuern und Trinkgeld ergibt sich der Gesamtumsatz. Umsätze zählen am Tag der Bestellung, Rückgaben am Tag der Erstattung.",
+ "This period against the one before it, at the same points. Point at a day to read it.": "Dieser Zeitraum gegenüber dem davor, an denselben Punkten. Zeig auf einen Tag, um ihn zu lesen.",
+ "This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid.": "Die physischen Bestellungen dieses Zeitraums: der Anteil versendet oder zugestellt, wie lange ein Paket von der Zahlung bis zum Versand wartete, und der Versand, den Käufer bezahlt haben.",
+ "Time to ship": "Zeit bis Versand",
+ "{count, plural, one {# parcel} other {# parcels}}": "{count, plural, one {# Paket} other {# Pakete}}",
+ "None shipped yet": "Noch nichts versendet",
+ "Shipping charged": "Berechneter Versand",
+ "{count, plural, one {# physical order} other {# physical orders}}": "{count, plural, one {# physische Bestellung} other {# physische Bestellungen}}",
+ "Traffic sources and referrers": "Traffic-Quellen und Verweise",
+ "Pages and links": "Seiten und Links",
+ "Products and downloads": "Produkte und Downloads",
+ "Devices and systems": "Geräte und Systeme",
+ "Clear all": "Alle abwählen",
+ "Range": "Zeitraum",
+ "Format": "Format",
+ "CSV": "CSV",
+ "One file, a section per report": "Eine Datei, ein Abschnitt pro Bericht",
+ "CSV per report": "Eine CSV pro Bericht",
+ "A .zip with one file for each report": "Eine .zip mit einer Datei pro Bericht"
 }
 
 export default words

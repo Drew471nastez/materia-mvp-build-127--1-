@@ -10781,7 +10781,32 @@ const words: Record<string, string> = {
  "This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.": "Cette période compte plus de commandes qu'un rapport n'en lit d'un coup, ces chiffres laissent donc de côté les plus récentes. Choisissez une période plus courte pour des chiffres exacts.",
  "Orders do not record their page on this store yet, so the sales reports count every page.": "Les commandes de cette boutique n'enregistrent pas encore leur page, les rapports de ventes comptent donc toutes les pages.",
  "{count, plural, one {# visit} other {# visits}}": "{count, plural, one {# visite} other {# visites}}",
- "Analytics file": "Fichier d’analyses"
+ "Analytics file": "Fichier d’analyses",
+ "Refunds made, by the day of the refund.": "Remboursements effectués, par jour de remboursement.",
+ "of visitors ordered": "des visiteurs ont commandé",
+ "{digital}% digital · {physical}% physical": "{digital} % numérique · {physical} % physique",
+ "Sales of each product in this period, less the refunds made in it, with its orders and how often its page was opened. With both kinds on sale, each row says which it is.": "Ventes de chaque produit sur cette période, moins les remboursements effectués, avec ses commandes et le nombre d'ouvertures de sa page. Si vous vendez les deux types, chaque ligne indique lequel.",
+ "Refunds made in this period, on the day each was made, whenever the order was placed. Total sales takes them off on that day too.": "Remboursements effectués sur cette période, le jour de chacun, quelle que soit la date de la commande. Les ventes totales les déduisent ce même jour.",
+ "{amount} back": "{amount} rendus",
+ "Gross sales at list price, less discounts and returns, is net sales. Add shipping, taxes and tips for total sales. Sales are dated by the order, returns by the day of the refund.": "Les ventes brutes au prix catalogue, moins les remises et les retours, donnent les ventes nettes. Ajoutez la livraison, les taxes et les pourboires pour les ventes totales. Les ventes sont datées par la commande, les retours par le jour du remboursement.",
+ "This period against the one before it, at the same points. Point at a day to read it.": "Cette période face à la précédente, aux mêmes points. Pointez un jour pour le lire.",
+ "This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid.": "Les commandes physiques de cette période : la part expédiée ou livrée, le délai entre le paiement et l'expédition d'un colis, et la livraison payée par les acheteurs.",
+ "Time to ship": "Délai d'expédition",
+ "{count, plural, one {# parcel} other {# parcels}}": "{count, plural, one {# colis} other {# colis}}",
+ "None shipped yet": "Aucun expédié pour l'instant",
+ "Shipping charged": "Livraison facturée",
+ "{count, plural, one {# physical order} other {# physical orders}}": "{count, plural, one {# commande physique} other {# commandes physiques}}",
+ "Traffic sources and referrers": "Sources de trafic et référents",
+ "Pages and links": "Pages et liens",
+ "Products and downloads": "Produits et téléchargements",
+ "Devices and systems": "Appareils et systèmes",
+ "Clear all": "Tout désélectionner",
+ "Range": "Période",
+ "Format": "Format",
+ "CSV": "CSV",
+ "One file, a section per report": "Un fichier, une section par rapport",
+ "CSV per report": "Un CSV par rapport",
+ "A .zip with one file for each report": "Un .zip avec un fichier par rapport"
 }
 
 export default words

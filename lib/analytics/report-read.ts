@@ -21,6 +21,7 @@ import "server-only"
  */
 
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
+import { dayRatesBetween } from "@/lib/markets/fx-server"
 import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
@@ -357,7 +358,63 @@ export async function onePageLinkLabels(admin: Admin, onePageId: string | null):
 
 /* What the figures read of an order (lib/orders/order-view, reports.ts moneyOf), and where it was made. */
 const ORDER_COLUMNS =
-  "id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, source, source_detail, property_type, property_id, buyer_country_code, buyer_country, currency, quantity"
+  "id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, refunded_at, source, source_detail, property_type, property_id, buyer_country_code, buyer_country, currency, quantity"
+
+/** The day rates through the reports' own client (lib/markets/fx-server fx_rates): the database that answers the question answers its rates. */
+export const ratesFrom = (admin: Admin) => (from: string, to: string) => dayRatesBetween(from, to, admin)
+
+/** The most refunded lines of older orders read for one question (refundedEarlier). */
+const REFUNDED_CEILING = 5000
+
+/**
+ * REFUNDS MADE IN THE PERIODS, OF ORDERS PLACED BEFORE THEM. A refund is
+ * dated by the day it was made (lib/analytics/refund-dates), so a refund
+ * today of an order from March takes its money off today's figures; the
+ * order is outside every read by its own date, so its refunded lines are
+ * read by `refunded_at`, with the rest of their basket, so the payment is
+ * whole and placed as the Orders page places it. `query` makes a fresh
+ * scoped read of the creator's orders (scopedOrders). Lines already read
+ * (`have`) are not read twice. A database without `refunded_at` has no
+ * refund dates to read: nothing comes back, and those refunds stay on
+ * their order's day.
+ */
+export async function refundedEarlier<T extends { id: string; stripe_session_id?: string | null }>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query: () => any,
+  spans: Span[],
+  have: ReadonlySet<string>,
+): Promise<T[]> {
+  const out: T[] = []
+  const seen = new Set(have)
+  const add = (rows: T[] | null | undefined) => {
+    for (const r of rows ?? []) {
+      if (!r || seen.has(r.id)) continue
+      seen.add(r.id)
+      out.push(r)
+    }
+  }
+  try {
+    for (const s of spans) {
+      const { data, error } = await query()
+        .eq("status", "refunded")
+        .gte("refunded_at", new Date(s.start).toISOString())
+        .lt("refunded_at", new Date(s.end).toISOString())
+        .order("refunded_at", { ascending: true })
+        .limit(REFUNDED_CEILING)
+      if (error) throw new Error(error.message)
+      add(data as T[])
+    }
+    const baskets = [...new Set(out.map((r) => r.stripe_session_id).filter((x): x is string => !!x))]
+    for (let i = 0; i < baskets.length && out.length < REFUNDED_CEILING * 2; i += 100) {
+      const { data, error } = await query().in("stripe_session_id", baskets.slice(i, i + 100)).limit(1000)
+      if (error) throw new Error(error.message)
+      add(data as T[])
+    }
+  } catch (error) {
+    console.warn("[analytics] refunds of earlier orders not read:", (error as Error).message)
+  }
+  return out
+}
 
 /**
  * A day either side of each stretch. A basket's lines are written one at a
@@ -394,8 +451,10 @@ export function readOrders(admin: Admin, spans: Span[], creatorId: string, produ
           .order("id", { ascending: true })
           .limit(PAGE) as unknown as Read<OrderRow>,
       )
+      const own = ownRows(read.rows)
+      const earlier = await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, product), spans, new Set(own.map((r) => r.id)))
       /* Every amount in the store's currency, each order at its own day's ECB rate (lib/money/report-currency): Revenue never adds lei to dollars. */
-      const inStore = await inStoreCurrency(admin, creatorId, ownRows(read.rows).map(asOrdersPageRow))
+      const inStore = await inStoreCurrency(admin, creatorId, [...own, ...ownRows(earlier)].map(asOrdersPageRow), undefined, { rates: ratesFrom(admin) })
       return { rows: inStore.rows, truncated: read.truncated, conversion: { currency: inStore.currency, converted: inStore.converted, unconverted: inStore.unconverted } }
     }),
   )

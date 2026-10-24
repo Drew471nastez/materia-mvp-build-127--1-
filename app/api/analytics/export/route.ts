@@ -5,7 +5,8 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { creatorFor } from "@/lib/team/server"
 import { countReportAnswer, reportQuestion } from "@/lib/analytics/report-answer"
 import { countCommerce } from "@/lib/analytics/commerce-server"
-import { analyticsCsv, exportFileName } from "@/lib/analytics/export-csv"
+import JSZip from "jszip"
+import { analyticsCsv, analyticsFiles, exportFileName, parseExportFormat, parseExportReports } from "@/lib/analytics/export-csv"
 import { profileOf, sectionsFor, modeFor } from "@/lib/analytics/sections"
 import { propertyLabel, propertyParam } from "@/lib/analytics/properties"
 import { todayIn } from "@/lib/date-range/range"
@@ -23,6 +24,10 @@ export const dynamic = "force-dynamic"
  * lib/analytics/commerce-server) and written by lib/analytics/export-csv.
  *
  *   GET  ?start=&end=&cstart=&cend=&tz=&property=&product=&kind=
+ *        &reports=summary,sales,...   which reports (lib/analytics/export-csv
+ *                                     EXPORT_REPORTS); none named is all
+ *        &format=csv|zip              one CSV with them all, or a zip with
+ *                                     a CSV per report (jszip)
  *        signed in: the file, as a download
  *   POST the same question as `query`: a link signed for this person and
  *        this question, good for five minutes, for the phone app, whose
@@ -70,7 +75,7 @@ async function fileFor(userId: string, query: string): Promise<NextResponse> {
   const reports = answer.reports as Reports
   const conversion = answer.conversion as { currency?: string } | undefined
   const day = (ms: number) => todayIn(q.timeZone, ms)
-  const csv = analyticsCsv({
+  const input = {
     meta: {
       store: who.store,
       from: day(q.window.start),
@@ -87,23 +92,32 @@ async function fileFor(userId: string, query: string): Promise<NextResponse> {
     commerce,
     sections,
     timeZone: q.timeZone,
-  })
+    only: parseExportReports(url.searchParams.get("reports")),
+  }
+  const from = day(q.window.start)
+  const to = day(q.window.end - 1)
+  const headers = { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" }
+  if (parseExportFormat(url.searchParams.get("format")) === "zip") {
+    /* A CSV per report, each with the same head, in one zip. A byte order mark on each, for Excel. */
+    const zip = new JSZip()
+    for (const f of analyticsFiles(input)) zip.file(f.name, `﻿${f.csv}`)
+    const bytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" })
+    return new NextResponse(Buffer.from(bytes), {
+      status: 200,
+      headers: { ...headers, "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="${exportFileName(from, to, "zip")}"` },
+    })
+  }
   /* A byte order mark first, so Excel reads the names in their own letters. */
-  return new NextResponse(`﻿${csv}`, {
+  return new NextResponse(`﻿${analyticsCsv(input)}`, {
     status: 200,
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${exportFileName(day(q.window.start), day(q.window.end - 1))}"`,
-      "Cache-Control": "private, no-store",
-      "Referrer-Policy": "no-referrer",
-    },
+    headers: { ...headers, "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${exportFileName(from, to)}"` },
   })
 }
 
 /** The page's question, without anything that is not part of it. */
 function questionOf(params: URLSearchParams): string {
   const keep = new URLSearchParams()
-  for (const k of ["start", "end", "cstart", "cend", "compare", "tz", "property", "product", "kind"]) {
+  for (const k of ["start", "end", "cstart", "cend", "compare", "tz", "property", "product", "kind", "reports", "format"]) {
     const v = params.get(k)
     if (v !== null && v.length <= 200) keep.set(k, v)
   }

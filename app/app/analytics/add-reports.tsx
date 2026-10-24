@@ -133,7 +133,7 @@ const LINES: Record<ReportId, { label: string; line: string; group: "traffic" | 
   sessions: { get label() { return tt("Visits") }, get line() { return tt("Visits to your pages, by day.") }, group: "traffic" },
   clicks: { get label() { return tt("Link clicks") }, get line() { return tt("Links and buttons tapped, by day.") }, group: "traffic" },
   toplinks: { get label() { return tt("OnePage links") }, get line() { return tt("Which links on your OnePage were tapped.") }, group: "traffic" },
-  refunds: { get label() { return tt("Refunded orders") }, get line() { return tt("Orders refunded, by day.") }, group: "sales" },
+  refunds: { get label() { return tt("Refunds") }, get line() { return tt("Refunds made, by the day of the refund.") }, group: "sales" },
   downloads: { get label() { return tt("Downloads") }, get line() { return tt("Digital orders downloaded, by product.") }, group: "sales" },
 }
 
@@ -198,9 +198,9 @@ function Choices({ options, picked, toggle }: { options: readonly ReportId[]; pi
   )
 }
 
-const SECONDARY =
+export const SECONDARY_BUTTON =
   "inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#e5e7eb] bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none hover:bg-[#f8f9fa] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.2)] active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
-const PRIMARY =
+export const PRIMARY_BUTTON =
   "inline-flex h-10 cursor-pointer items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-medium text-white outline-none hover:bg-[#2b2b42] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)] active:bg-[#11111f] [-webkit-tap-highlight-color:transparent]"
 
 /**
@@ -240,10 +240,10 @@ export function ReportPicker({
   }
   const footer = (
     <div className="flex items-center justify-end gap-2">
-      <button type="button" className={cn(SECONDARY, phone && "flex-1")} onClick={() => onOpenChange(false)}>
+      <button type="button" className={cn(SECONDARY_BUTTON, phone && "flex-1")} onClick={() => onOpenChange(false)}>
         {tt("Cancel")}
       </button>
-      <button type="button" data-add-reports-save="" className={cn(PRIMARY, phone && "flex-1")} onClick={save}>
+      <button type="button" data-add-reports-save="" className={cn(PRIMARY_BUTTON, phone && "flex-1")} onClick={save}>
         {tt("Save")}
       </button>
     </div>
@@ -281,11 +281,31 @@ export function ReportPicker({
   )
 }
 
-/** The button that opens the picker: "Add report" beside the title, "Add more" at the bottom of the page. */
+/**
+ * THE BUTTON THAT OPENS THE PICKER, under the last card. The owner: "+ Add
+ * report button. Very important." A small outlined button centred under the
+ * grid read as an afterthought, so it is the grid's last tile: the full
+ * width, a dashed outline where the next card would go, its plus in a round
+ * mark and its name in the cards' ink. It warms to white on hover and dips
+ * on a press, the way a card does, on a phone as on a computer.
+ */
 export function AddReportButton({ label, onClick, className, marker }: { label: string; onClick: () => void; className?: string; marker: "add-report" | "add-more" }) {
   return (
-    <button type="button" aria-haspopup="dialog" onClick={onClick} data-add-reports={marker} data-add-more={marker === "add-more" ? "" : undefined} className={cn(SECONDARY, className)}>
-      <Plus className="h-4 w-4" aria-hidden />
+    <button
+      type="button"
+      aria-haspopup="dialog"
+      onClick={onClick}
+      data-add-reports={marker}
+      data-add-more={marker === "add-more" ? "" : undefined}
+      className={cn(
+        "group flex h-[64px] w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl border border-dashed border-[#cfd3da] bg-transparent text-[14px] font-medium text-[#1a1a2e] outline-none transition-[background-color,border-color,scale] duration-150 [-webkit-tap-highlight-color:transparent]",
+        "hover:border-[#9ca3af] hover:bg-white focus-visible:border-[#1a1a2e] focus-visible:bg-white active:scale-[0.995] active:bg-[#f4f5f7] motion-reduce:transition-none",
+        className,
+      )}
+    >
+      <span aria-hidden className="grid h-7 w-7 place-items-center rounded-full bg-white shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.06)] transition-colors duration-150 group-hover:bg-[#1a1a2e] group-hover:text-white">
+        <Plus className="h-4 w-4" strokeWidth={2.25} />
+      </span>
       {label}
     </button>
   )

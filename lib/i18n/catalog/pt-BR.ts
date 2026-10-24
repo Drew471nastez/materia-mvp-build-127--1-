@@ -10781,7 +10781,32 @@ const words: Record<string, string> = {
  "This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.": "Este período tem mais pedidos do que um relatório lê de uma vez, então estes números deixam de fora os mais recentes. Escolha um período mais curto para números exatos.",
  "Orders do not record their page on this store yet, so the sales reports count every page.": "Os pedidos desta loja ainda não registram a página, então os relatórios de vendas contam todas as páginas.",
  "{count, plural, one {# visit} other {# visits}}": "{count, plural, one {# visita} other {# visitas}}",
- "Analytics file": "Arquivo de análises"
+ "Analytics file": "Arquivo de análises",
+ "Refunds made, by the day of the refund.": "Reembolsos feitos, pelo dia do reembolso.",
+ "of visitors ordered": "dos visitantes compraram",
+ "{digital}% digital · {physical}% physical": "{digital}% digital · {physical}% físico",
+ "Sales of each product in this period, less the refunds made in it, with its orders and how often its page was opened. With both kinds on sale, each row says which it is.": "Vendas de cada produto neste período, menos os reembolsos feitos nele, com seus pedidos e quantas vezes sua página foi aberta. Se você vende os dois tipos, cada linha diz qual é.",
+ "Refunds made in this period, on the day each was made, whenever the order was placed. Total sales takes them off on that day too.": "Reembolsos feitos neste período, no dia em que cada um foi feito, não importa quando o pedido foi feito. As vendas totais os descontam nesse mesmo dia.",
+ "{amount} back": "{amount} devolvidos",
+ "Gross sales at list price, less discounts and returns, is net sales. Add shipping, taxes and tips for total sales. Sales are dated by the order, returns by the day of the refund.": "Vendas brutas pelo preço de tabela, menos descontos e devoluções, são as vendas líquidas. Some frete, impostos e gorjetas para as vendas totais. As vendas são datadas pelo pedido; as devoluções, pelo dia do reembolso.",
+ "This period against the one before it, at the same points. Point at a day to read it.": "Este período em relação ao anterior, nos mesmos pontos. Aponte para um dia para lê-lo.",
+ "This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid.": "Os pedidos físicos deste período: a parte enviada ou entregue, quanto tempo um pacote esperou do pagamento ao envio e o frete que os compradores pagaram.",
+ "Time to ship": "Tempo até o envio",
+ "{count, plural, one {# parcel} other {# parcels}}": "{count, plural, one {# pacote} other {# pacotes}}",
+ "None shipped yet": "Nenhum enviado ainda",
+ "Shipping charged": "Frete cobrado",
+ "{count, plural, one {# physical order} other {# physical orders}}": "{count, plural, one {# pedido físico} other {# pedidos físicos}}",
+ "Traffic sources and referrers": "Fontes de tráfego e referências",
+ "Pages and links": "Páginas e links",
+ "Products and downloads": "Produtos e downloads",
+ "Devices and systems": "Dispositivos e sistemas",
+ "Clear all": "Limpar tudo",
+ "Range": "Período",
+ "Format": "Formato",
+ "CSV": "CSV",
+ "One file, a section per report": "Um arquivo, uma seção por relatório",
+ "CSV per report": "Um CSV por relatório",
+ "A .zip with one file for each report": "Um .zip com um arquivo por relatório"
 }
 
 export default words

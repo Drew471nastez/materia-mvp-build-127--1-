@@ -33,7 +33,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { FakeSupabase, type Row } from "./fake-supabase"
-import { buildReports, type StepRow, type SubscriberRow, type ViewRow, type Reports } from "../lib/analytics/reports"
+import { buildReports, moneyOf, salesFor, type StepRow, type SubscriberRow, type ViewRow, type Reports } from "../lib/analytics/reports"
 import { breakdownOf, commerceReport, commerceRowCounts, type CommerceOrderRow, type CommerceReport } from "../lib/analytics/commerce"
 import { boundsOf, compareBounds, midnightOf, presetRange, type DateRange } from "../lib/date-range/range"
 import { modeFor, profileOf, sectionsFor, sellsOf, type SalesMode } from "../lib/analytics/sections"
@@ -94,8 +94,10 @@ const line = (o: Partial<Line> & { created_at: string; product_id: string; amoun
 const ORDERS: Line[] = [
   /* Before the comparison: Cy's first order, so Cy returns this week. */
   line({ product_id: EBOOK, amount_cents: 2000, created_at: "2026-09-30T10:00:00Z", property_type: "creator_page", buyer_email: "cy@example.com" }),
-  /* The week before. p1 inside it; p2 at 15:30 on its last day, after the hour the week has reached today. */
-  line({ product_id: EBOOK, amount_cents: 2000, created_at: "2026-10-15T10:00:00Z", property_type: "website", property_id: W1, buyer_email: "ana@example.com" }),
+  /* Kim's ebook from early October, 10 of its 20 lei refunded on Saturday the 24th of this week: the refund is this week's, the sale stays October's. */
+  line({ product_id: EBOOK, amount_cents: 2000, status: "refunded", refund_amount_cents: 1000, refunded_at: "2026-10-24T08:00:00Z", created_at: "2026-10-05T10:00:00Z", property_type: "creator_page", buyer_email: "kim@example.com" }),
+  /* The week before. p1 inside it, refunded in full on Thursday the 22nd of this week; p2 at 15:30 on its last day, after the hour the week has reached today. */
+  line({ product_id: EBOOK, amount_cents: 2000, status: "refunded", refund_amount_cents: 2000, refunded_at: "2026-10-22T07:00:00Z", created_at: "2026-10-15T10:00:00Z", property_type: "website", property_id: W1, buyer_email: "ana@example.com" }),
   line({ product_id: MUG, amount_cents: 6500, shipping_cents: 1500, unit_price_cents: 5000, created_at: "2026-10-20T12:30:00Z", property_type: "creator_page", buyer_email: "hal@example.com", checkout_id: "ck4" }),
   /* A basket across the week's start: its first line at 23:59:50 on the 20th, its second ten seconds into the 21st. */
   line({ product_id: MUG, amount_cents: 6500, shipping_cents: 1500, unit_price_cents: 5000, created_at: "2026-10-20T20:59:50Z", stripe_session_id: "cs_s2", property_type: "website", property_id: W1, buyer_email: "bob@example.com", checkout_id: "ck1" }),
@@ -104,14 +106,14 @@ const ORDERS: Line[] = [
   line({ product_id: EBOOK, amount_cents: 2000, created_at: "2026-10-20T21:30:00Z", property_type: "website", property_id: W1, buyer_email: "ana@example.com" }),
   /* o9: a tip of 5 lei inside 25, from a checkout link. */
   line({ product_id: EBOOK, amount_cents: 2500, tip_cents: 500, unit_price_cents: 2000, created_at: "2026-10-22T10:00:00Z", property_type: "creator_page", source_detail: { surface: "link" }, buyer_email: "gus@example.com" }),
-  /* o3: a mug refunded in part (20 of 65), on the creator page; Ana's second order of the week. */
-  line({ product_id: MUG, amount_cents: 6500, shipping_cents: 1500, unit_price_cents: 5000, status: "refunded", refund_amount_cents: 2000, created_at: "2026-10-23T10:00:00Z", property_type: "creator_page", buyer_email: "Ana@Example.com", checkout_id: "ck2" }),
+  /* o3: a mug refunded in part (20 of 65) on Monday the 26th, on the creator page; Ana's second order of the week. */
+  line({ product_id: MUG, amount_cents: 6500, shipping_cents: 1500, unit_price_cents: 5000, status: "refunded", refund_amount_cents: 2000, refunded_at: "2026-10-26T09:00:00Z", created_at: "2026-10-23T10:00:00Z", property_type: "creator_page", buyer_email: "Ana@Example.com", checkout_id: "ck2" }),
   /* o10: a basket with one line still pending: no sale yet, either line. */
   line({ product_id: EBOOK, amount_cents: 2000, created_at: "2026-10-23T15:00:00Z", stripe_session_id: "cs_s10", property_type: "website", property_id: W1, buyer_email: "ivy@example.com" }),
   line({ product_id: MUG, amount_cents: 6500, shipping_cents: 1500, unit_price_cents: 5000, status: "pending", created_at: "2026-10-23T15:00:10Z", stripe_session_id: "cs_s10", property_type: "website", property_id: W1, buyer_email: "ivy@example.com" }),
   /* o4: the club, on the OnePage. */
   line({ product_id: CLUB, amount_cents: 1500, created_at: "2026-10-24T09:00:00Z", property_type: "onepage", property_id: OP, buyer_email: "cy@example.com" }),
-  /* o5: refunded in full on the imported site, no amount recorded (the whole of it). */
+  /* o5: refunded in full on the imported site, no amount recorded (the whole of it) and no refund date: dated by its order, the 25th. */
   line({ product_id: EBOOK, amount_cents: 2000, status: "refunded", created_at: "2026-10-25T12:00:00Z", property_type: "website", property_id: W2, buyer_email: "dee@example.com" }),
   /* o6: pending. */
   line({ product_id: EBOOK, amount_cents: 2000, status: "pending", created_at: "2026-10-26T12:00:00Z", property_type: "website", property_id: W1, buyer_email: "joe@example.com" }),
@@ -189,32 +191,44 @@ function referenceSales(span: { start: number; end: number }, s: PropertySelecto
   }
   let orders = 0
   const m = { revenue: 0, gross: 0, discounts: 0, returns: 0, shipping: 0, taxes: 0, tips: 0 }
+  const inside = (t: number) => t >= span.start && t < span.end
+  let refunds = 0
   for (const lines of byPay.values()) {
     lines.sort((a, b) => a.created_at.localeCompare(b.created_at))
     const at = Date.parse(lines[0].created_at)
-    if (!(at >= span.start && at < span.end)) continue
     if (lines.some((l) => l.status === "pending" || l.status === "failed" || l.status === "disputed")) continue
     if (!under(s, placeOfOrder(lines))) continue
     const mine = lines.filter((l) => inKind(l.product_id, mode))
     if (!mine.length) continue
+    /* Refunds on the day they were made (the order's day when none is recorded), whenever the order was placed. */
+    const refundDays = new Set<number>()
+    for (const l of mine) {
+      if (l.status !== "refunded") continue
+      const when = l.refunded_at ? Date.parse(l.refunded_at) : at
+      if (!inside(when)) continue
+      const refund = l.refund_amount_cents ?? l.amount_cents
+      m.revenue -= refund
+      m.returns += refund
+      refundDays.add(Math.floor(when / 86_400_000))
+    }
+    refunds += refundDays.size
+    if (!inside(at)) continue
     orders++
     for (const l of mine) {
-      const refund = l.status === "refunded" ? (l.refund_amount_cents ?? l.amount_cents) : 0
       const tip = l.tip_cents ?? 0
       const ship = l.shipping_cents ?? 0
       const tax = l.tax_cents ?? 0
       const charged = l.amount_cents - tip - ship - tax
       const list = (l.unit_price_cents ?? 0) * (l.quantity ?? 1) - (l.tax_included ? tax : 0)
-      m.revenue += l.amount_cents - refund
+      m.revenue += l.amount_cents
       m.gross += Math.max(list, charged)
       m.discounts += Math.max(list, charged) - charged
-      m.returns += refund
       m.shipping += ship
       m.taxes += tax
       m.tips += tip
     }
   }
-  return { orders, ...m }
+  return { orders, refunds, ...m }
 }
 
 /** Visitors, page views and link clicks of a place in a span, from the event rows. */
@@ -256,25 +270,28 @@ console.log("\nLast 7 days in Bucharest, All pages: every figure counted by hand
   check("visits 6: v1's two visits on two places", r.sessions.value === 6, r.sessions.value)
   check("link clicks 2, both on the OnePage", r.linkClicks.value === 2, r.linkClicks.value)
   check("orders 7: the basket from the 20th, two pending payments are not orders of the week", r.orders.value === 7, r.orders.value)
-  check("revenue 200.00 lei: 20 + 45 + 15 + 0 + 80 + 15 + 25", r.sales.value === 20000, r.sales.value)
+  check("revenue 170.00 lei: 20 + 45 + 15 + 0 + 80 + 15 + 25 of the week's orders, less this week's refunds of Ana's order of the 15th (20) and Kim's of the 5th (10)", r.sales.value === 17000, r.sales.value)
+  check("refunds 4, each on its own day: Ana's on the 22nd, Kim's on the 24th, o5 on the 25th (its order's day), o3 on the 26th; 70.00 lei", r.refunds.value === 4 && r.refunds.cents === 7000 && r.refunds.previous === 0, [r.refunds.value, r.refunds.cents, r.refunds.previous])
   check("the week before: 1 order, 20.00 lei (the mug at 15:30 on the 20th is after the hour)", r.orders.previous === 1 && r.sales.previous === 2000, [r.orders.previous, r.sales.previous])
   check("conversion 7 orders over 5 visitors", r.conversion.value === 7 / 5, r.conversion.value)
   const b = c.breakdown
   check("gross sales 212.00: list prices, the VAT inside the ebook's price taken out (20 - 3)", b.gross === 21200, b.gross)
   check("discounts 5.00: listed 17 without tax, charged 12", b.discounts === 500, b.discounts)
-  check("returns 40.00: 20 of the mug, all 20 of the ebook", b.returns === 4000, b.returns)
-  check("net sales 167.00", b.net === 16700, b.net)
+  check("returns 70.00, by the refund's day: 20 of the mug, 20 of o5, 20 of Ana's order of the 15th, 10 of Kim's", b.returns === 7000, b.returns)
+  check("net sales 137.00", b.net === 13700, b.net)
   check("shipping 25.00 (15 + 10), taxes 3.00, tips 5.00", b.shipping === 2500 && b.taxes === 300 && b.tips === 500, [b.shipping, b.taxes, b.tips])
-  check("total sales 200.00, Revenue on the tab to the cent", b.total === 20000 && b.total === r.sales.value, b.total)
+  check("total sales 170.00, Revenue on the tab to the cent", b.total === 17000 && b.total === r.sales.value, b.total)
   check("orders in the breakdown: 7, the tab's", b.orders === 7, b.orders)
   check("average order value 29.57: (212 - 5) / 7", b.aov === Math.round(20700 / 7) && b.aov === 2957, b.aov)
   check("returning customer rate 2 of 6: Ana twice this week, Cy bought in September", b.customers === 6 && b.returningCustomers === 2 && Math.abs(b.returningRate - 1 / 3) < 1e-9, [b.customers, b.returningCustomers])
   check("fulfillment rate 1 of 2 physical orders (o3 waits, the old basket went out)", c.fulfillmentRate.orders === 2 && c.fulfillmentRate.fulfilled === 1 && c.fulfillmentRate.rate === 0.5, c.fulfillmentRate)
   const ch = Object.fromEntries(c.channels.map((x) => [x.label, [x.total, x.orders]]))
-  check("by channel: Studio 100.00 (2), Creator page 45.00, Checkout links 25.00, OnePage 15.00, Explore 15.00, Imported shop 0.00", JSON.stringify(ch) === JSON.stringify({ Studio: [10000, 2], "Creator page": [4500, 1], "Checkout links": [2500, 1], OnePage: [1500, 1], "Storelib Explore": [1500, 1], "Imported shop": [0, 1] }), ch)
+  check("by channel: Studio 80.00 (2, less Ana's refund), Checkout links 25.00, Creator page 35.00 (less Kim's), OnePage 15.00, Explore 15.00, Imported shop 0.00", JSON.stringify(ch) === JSON.stringify({ Studio: [8000, 2], "Creator page": [3500, 1], "Checkout links": [2500, 1], OnePage: [1500, 1], "Storelib Explore": [1500, 1], "Imported shop": [0, 1] }), ch)
   check("the channels add up to total sales", c.channels.reduce((a, x) => a + x.total, 0) === b.total)
   check("sales over time adds up to total sales, in Bucharest's days", c.series.reduce((a, p) => a + p.total, 0) === b.total && c.series.length === 7, c.series.length)
   check("the day of o1 (00:30 on the 21st, the 20th in UTC) is the 21st", c.series[0].total === 2000, c.series[0])
+  check("the 22nd is o9's 25.00 less Ana's refund of 20.00 made that morning: 5.00, on the sales chart and the tab's", c.series[1].total === 500 && r.sales.series.current[1] === 500, [c.series[1].total, r.sales.series.current[1]])
+  check("the 26th: o7's 80.00 less the mug's refund of 20.00: 60.00", c.series[5].total === 6000 && r.sales.series.current[5] === 6000, [c.series[5].total, r.sales.series.current[5]])
   const f = Object.fromEntries(r.funnel.map((s) => [s.key, s.value]))
   check("funnel: 5 visitors, 2 opened a product, 2 added to cart, 2 started checkout, 7 orders", f.visitors === 5 && f.product === 2 && f.cart === 2 && f.checkout === 2 && f.orders === 7, f)
   const os = Object.fromEntries(r.breakdowns.os.map((x) => [x.label, x.value]))
@@ -291,26 +308,29 @@ console.log("\nLast 7 days, each place: by hand")
 {
   const by = (s: PropertySelector) => ask(WEEK, s)
   const cp = by({ type: "creator_page" })
-  check("creator page: 2 visitors, 3 page views, 3 orders, 85.00 lei", cp.reports.visitors.value === 2 && cp.reports.views.value === 3 && cp.reports.orders.value === 3 && cp.reports.sales.value === 8500, [cp.reports.visitors.value, cp.reports.views.value, cp.reports.orders.value, cp.reports.sales.value])
-  check("  its total sales are its revenue", cp.commerce.breakdown.total === 8500 && cp.commerce.breakdown.orders === 3)
+  check("creator page: 2 visitors, 3 page views, 3 orders, 75.00 lei (85.00 less Kim's refund)", cp.reports.visitors.value === 2 && cp.reports.views.value === 3 && cp.reports.orders.value === 3 && cp.reports.sales.value === 7500, [cp.reports.visitors.value, cp.reports.views.value, cp.reports.orders.value, cp.reports.sales.value])
+  check("  its total sales are its revenue", cp.commerce.breakdown.total === 7500 && cp.commerce.breakdown.orders === 3)
   const op = by({ type: "onepage" })
   check("OnePage: 1 visitor, 2 link clicks, 1 order, 15.00 lei", op.reports.visitors.value === 1 && op.reports.linkClicks.value === 2 && op.reports.orders.value === 1 && op.reports.sales.value === 1500)
   const w1 = by({ type: "website", id: W1 })
-  check("Studio: 2 visitors, 3 page views, 2 orders (the old basket belongs to the live site), 100.00 lei", w1.reports.visitors.value === 2 && w1.reports.views.value === 3 && w1.reports.orders.value === 2 && w1.reports.sales.value === 10000, [w1.reports.visitors.value, w1.reports.orders.value, w1.reports.sales.value])
+  check("Studio: 2 visitors, 3 page views, 2 orders (the old basket belongs to the live site), 80.00 lei (100.00 less Ana's refund)", w1.reports.visitors.value === 2 && w1.reports.views.value === 3 && w1.reports.orders.value === 2 && w1.reports.sales.value === 8000, [w1.reports.visitors.value, w1.reports.orders.value, w1.reports.sales.value])
   check("  its fulfillment rate is the old basket's, 1 of 1", w1.commerce.fulfillmentRate.orders === 1 && w1.commerce.fulfillmentRate.fulfilled === 1)
   const w2 = by({ type: "website", id: W2 })
   check("Imported shop: 1 visitor, 1 order refunded in full: 0.00 lei, returns 20.00", w2.reports.visitors.value === 1 && w2.reports.orders.value === 1 && w2.reports.sales.value === 0 && w2.commerce.breakdown.returns === 2000 && w2.commerce.breakdown.gross === 2000)
   const parts = [cp, op, w1, w2]
-  check("the places add up to All: orders and revenue, nothing counted twice or dropped", parts.reduce((a, p) => a + p.reports.orders.value, 0) === 7 && parts.reduce((a, p) => a + p.reports.sales.value, 0) === 20000)
+  check("the places add up to All: orders and revenue, nothing counted twice or dropped", parts.reduce((a, p) => a + p.reports.orders.value, 0) === 7 && parts.reduce((a, p) => a + p.reports.sales.value, 0) === 17000)
 }
 
 console.log("\nLast 7 days, the switch: by hand")
 {
   const d = ask(WEEK, ALL, "digital")
-  check("Digital: 6 orders, 95.00 lei, no shipping", d.reports.orders.value === 6 && d.reports.sales.value === 9500 && d.commerce.breakdown.total === 9500 && d.commerce.breakdown.shipping === 0, [d.reports.orders.value, d.reports.sales.value])
+  check("Digital: 6 orders, 65.00 lei (95.00 less this week's 30.00 of ebook refunds of older orders), no shipping", d.reports.orders.value === 6 && d.reports.sales.value === 6500 && d.commerce.breakdown.total === 6500 && d.commerce.breakdown.shipping === 0, [d.reports.orders.value, d.reports.sales.value])
   const p = ask(WEEK, ALL, "physical")
   check("Physical: 2 orders, 105.00 lei, 25.00 of shipping", p.reports.orders.value === 2 && p.reports.sales.value === 10500 && p.commerce.breakdown.shipping === 2500)
-  check("Digital and Physical add up to All in money (the mixed basket is an order of each)", d.reports.sales.value + p.reports.sales.value === 20000)
+  check("Digital and Physical add up to All in money (the mixed basket is an order of each)", d.reports.sales.value + p.reports.sales.value === 17000)
+  const all = ask(WEEK, ALL)
+  const k = all.commerce.kinds
+  check("the breakdown's Digital and Physical columns are those very figures, and add up to All line by line", !!k && k.digital.total === 6500 && k.physical.total === 10500 && (["gross", "discounts", "returns", "shipping", "taxes", "tips", "total"] as const).every((f) => k.digital[f] + k.physical[f] === all.commerce.breakdown[f]), k && [k.digital.total, k.physical.total])
   check("the pending basket stays out under Digital too (its pending line is the mug)", d.commerce.orders.every((o) => o.lines.every((l) => l.stripe_session_id !== "cs_s10")))
   check("visits are the store's whatever the switch says", d.reports.visitors.value === 5 && p.reports.visitors.value === 5)
 }
@@ -329,8 +349,8 @@ console.log("\nEvery place, every range, every switch: the code against the refe
         const want = referenceSales(span, s, mode)
         const before = previous ? referenceSales(previous, s, mode) : null
         const visits = referenceVisits(span, s)
-        const got = { orders: r.orders.value, revenue: r.sales.value, total: c.breakdown.total, corders: c.breakdown.orders, gross: c.breakdown.gross, discounts: c.breakdown.discounts, returns: c.breakdown.returns, shipping: c.breakdown.shipping, taxes: c.breakdown.taxes, tips: c.breakdown.tips, visitors: r.visitors.value, views: r.views.value, clicks: r.linkClicks.value, porders: r.orders.previous, prevenue: r.sales.previous, ptotal: c.previous.total }
-        const exp = { orders: want.orders, revenue: want.revenue, total: want.revenue, corders: want.orders, gross: want.gross, discounts: want.discounts, returns: want.returns, shipping: want.shipping, taxes: want.taxes, tips: want.tips, visitors: visits.visitors, views: visits.views, clicks: visits.clicks, porders: before ? before.orders : 0, prevenue: before ? before.revenue : 0, ptotal: before ? before.revenue : 0 }
+        const got = { refunds: r.refunds.value, orders: r.orders.value, revenue: r.sales.value, total: c.breakdown.total, corders: c.breakdown.orders, gross: c.breakdown.gross, discounts: c.breakdown.discounts, returns: c.breakdown.returns, shipping: c.breakdown.shipping, taxes: c.breakdown.taxes, tips: c.breakdown.tips, visitors: r.visitors.value, views: r.views.value, clicks: r.linkClicks.value, porders: r.orders.previous, prevenue: r.sales.previous, ptotal: c.previous.total }
+        const exp = { refunds: want.refunds, orders: want.orders, revenue: want.revenue, total: want.revenue, corders: want.orders, gross: want.gross, discounts: want.discounts, returns: want.returns, shipping: want.shipping, taxes: want.taxes, tips: want.tips, visitors: visits.visitors, views: visits.views, clicks: visits.clicks, porders: before ? before.orders : 0, prevenue: before ? before.revenue : 0, ptotal: before ? before.revenue : 0 }
         for (const k of Object.keys(exp) as Array<keyof typeof exp>) if (got[k] !== exp[k]) wrong.push(`${rangeName} / ${placeName} / ${mode}: ${k} ${got[k]} != ${exp[k]}`)
       }
     }
@@ -348,10 +368,10 @@ console.log("\nBugs fixed, with the old code's number beside the new one")
     breakdownOf(ORDERS.filter((o) => Date.parse(o.created_at) >= w.start && Date.parse(o.created_at) < w.end).filter((o) => commerceRowCounts(o as unknown as CommerceOrderRow, { productId: null, property: s, defaultWebsite: W1 })) as unknown as CommerceOrderRow[])
   const old = oldOf(ALL, span)
   check(`BUG 1 Total sales disagreed with Revenue: was ${old.total / 100} lei and ${old.orders} orders against the tab's ${r.sales.value / 100} and ${r.orders.value}; now ${c.breakdown.total / 100} and ${c.breakdown.orders}`, old.total === 24000 && old.orders === 9 && c.breakdown.total === r.sales.value && c.breakdown.orders === r.orders.value, [old.total, old.orders])
-  check("  half a basket across the week's start was counted in the week (20.00 lei), and a basket with a pending line was a sale (20.00 lei)", old.total - c.breakdown.total === 4000)
+  check("  half a basket across the week's start was counted in the week (20.00 lei), and a basket with a pending line was a sale (20.00 lei); the other 30.00 is this week's refunds of older orders", old.total - (c.breakdown.total + 3000) === 4000)
   const oldCp = oldOf({ type: "creator_page" }, span)
   const cp = ask(WEEK, { type: "creator_page" })
-  check(`BUG 2 a basket with no page was the creator page's in the sales reports and Studio's on the tabs: creator page was ${oldCp.total / 100} lei over ${oldCp.orders} orders, now ${cp.commerce.breakdown.total / 100} over ${cp.commerce.breakdown.orders}`, oldCp.total === 16500 && oldCp.orders === 4 && cp.commerce.breakdown.total === 8500 && cp.commerce.breakdown.orders === 3, [oldCp.total, oldCp.orders])
+  check(`BUG 2 a basket with no page was the creator page's in the sales reports and Studio's on the tabs: creator page was ${oldCp.total / 100} lei over ${oldCp.orders} orders, now ${cp.commerce.breakdown.total / 100} over ${cp.commerce.breakdown.orders}`, oldCp.total === 16500 && oldCp.orders === 4 && cp.commerce.breakdown.total === 7500 && cp.commerce.breakdown.orders === 3, [oldCp.total, oldCp.orders])
   check(`BUG 3 returning customer rate counted only orders inside the period: was ${Math.round(old.returningRate * 1000) / 10}%, now ${Math.round(c.breakdown.returningRate * 1000) / 10}% (Cy bought in September)`, Math.abs(old.returningRate - 1 / 8) < 1e-9 && Math.abs(c.breakdown.returningRate - 1 / 3) < 1e-9, old.returningRate)
   /* The old comparison end: the period's elapsed milliseconds from the comparison's start. */
   const full = boundsOf(WEEK, TZ)
@@ -367,7 +387,12 @@ console.log("\nBugs fixed, with the old code's number beside the new one")
   const oldShips = digitalWithSite.physical || digitalWithSite.publishedWebsite
   check(`BUG 6 a seller of downloads with a website was shown shipping and fulfilment: was ${oldShips}, now ${sectionsFor(digitalWithSite, { property: "all", productKind: null }).shipping}`, oldShips === true && !sectionsFor(digitalWithSite, { property: "all", productKind: null }).shipping && !sectionsFor(digitalWithSite, { property: "all", productKind: null }).fulfillment)
   check("BUG 7 the sales reports read at most 50,000 lines and said nothing: the cap is now 200,000 a stretch, and the page says when it is reached", /truncated: read\.truncated/.test(read("lib/analytics/commerce-server.ts")) && /data-commerce-truncated/.test(read("app/app/analytics/commerce-reports.tsx")) && !/CEILING = 50_000/.test(read("app/api/analytics/commerce/route.ts")))
-  check("BUG 8 there was no order fulfillment rate, only a time: now fulfilled of the physical orders, by the same filters", c.fulfillmentRate.rate === 0.5 && /Order fulfillment rate/.test(read("app/app/analytics/commerce-reports.tsx")))
+  check("BUG 8 there was no order fulfillment rate, only a time: now fulfilled of the physical orders, by the same filters", c.fulfillmentRate.rate === 0.5 && /data-card="fulfil"/.test(read("app/app/analytics/commerce-reports.tsx")) && /card="shipping" title=\{tt\("Shipping"\)\}/.test(read("app/app/analytics/commerce-reports.tsx")))
+  /* The old rule: each order's money less whatever it ever had refunded, on the order's own day. */
+  const byOrderDay = (w: { start: number; end: number }) => salesFor(ORDERS, ALL, W1).filter((o) => Date.parse(o.createdAt) >= w.start && Date.parse(o.createdAt) < w.end).reduce((a, o) => a + moneyOf(o).net, 0)
+  const oldWeek = byOrderDay(span)
+  const oldBefore = byOrderDay(previous!)
+  check(`BUG 10 a refund was dated by its order: this week was ${oldWeek / 100} lei and the week before ${oldBefore / 100} (Ana's refund on the 22nd rewrote the 15th); now ${r.sales.value / 100} and ${r.sales.previous / 100}, Shopify's way`, oldWeek === 20000 && oldBefore === 0 && r.sales.value === 17000 && r.sales.previous === 2000, [oldWeek, oldBefore])
   check("BUG 9 every website was one 'Online store' channel: now each by its name, and Explore, links and test sales apart", c.channels.some((x) => x.label === "Studio") && c.channels.some((x) => x.label === "Imported shop") && c.channels.some((x) => x.label === "Storelib Explore"))
 }
 
@@ -388,18 +413,22 @@ console.log("\nThe page morphs to what the store sells")
   check("nothing to sell yet: no sales sections", sellsOf(none) === "none" && !s(none).sales && !s(none).shipping)
   const client = read("app/app/analytics/analytics-client.tsx")
   check("  and the page draws the visits and one line, not zeros: three traffic tabs and the no-sales note", /sells === "none" \? TRAFFIC_TABS : CORE_TABS/.test(client) && /data-no-sales/.test(client))
-  check("  the switch is drawn only for a store that sells both, and follows every sales card", /sells === "both" && !chosenProduct/.test(client) && /kind: mode/.test(client) && /kind=\{mode\}/.test(client))
+  /* Changed on purpose (round AC2, the owner: "I don't like the All / Digital / Physical switch"): no switch; both kinds together, split where it matters. */
+  check("  no All / Digital / Physical switch: every figure counts both kinds, an old ?kind= is dropped from the address", !/data-sales-mode|What to count|setMode\(/.test(client) && /const mode: SalesMode = "all"/.test(client) && /url\.searchParams\.delete\("kind"\)/.test(client))
+  check("  and the split is drawn where it matters: the breakdown's kind columns, the kind of each top product, Shipping only with a physical order", /showKinds=\{sections\.productKinds\}/.test(client) && /data-kind-columns/.test(read("app/app/analytics/commerce-reports.tsx")) && /physicalOrders > 0/.test(read("app/app/analytics/commerce-reports.tsx")) && /data-kind-split/.test(read("app/app/analytics/analytics-reports.tsx")))
 }
 
 /* ═══ 5. THE LAYOUT AND THE EXPORT ══════════════════════════════════════ */
 
-console.log("\nAdd report at the bottom, Export beside the heading")
+console.log("\nAdd report at the bottom, Export in the period's row")
 {
   const client = read("app/app/analytics/analytics-client.tsx")
   const head = client.slice(client.indexOf("data-analytics-head"), client.indexOf("data-analytics-controls"))
-  check("no Add report in the heading row: the heading and Export only", !/marker="add-report"/.test(client) && !/AddReportButton/.test(head) && /<ExportButton query=\{exportQuery\}/.test(head))
+  check("no Add report and no Export in the heading row: the heading alone", !/marker="add-report"/.test(client) && !/AddReportButton|ExportButton/.test(head))
   check("Add report under the last card, on every width", /<AddReportButton marker="add-more" label=\{tt\("Add report"\)\}/.test(client) && client.indexOf('marker="add-more"') > client.indexOf("<AnalyticsReports"))
-  check("Export sits at the right of the heading, on a phone too (in the controls strip it scrolled off a 390 wide screen)", /justify-between gap-3" data-analytics-head=""/.test(client) && client.indexOf("<ExportButton") < client.indexOf("data-analytics-controls"))
+  /* Changed on purpose (round AC2, "positioned somewhere else, without creating multiple rows"): the last control of the period's row, outside the strip that scrolls, so it never scrolls off a phone. */
+  const controls = client.slice(client.indexOf("data-analytics-controls"), client.indexOf("{/* The four figures and the chart"))
+  check("Export is the last control in the period's row, outside the strip that scrolls sideways", /<ExportButton query=\{exportQuery\} name=\{exportName\} options=\{exportOptions\} range=\{exportRange\} \/>/.test(controls) && controls.indexOf("<ExportButton") > controls.indexOf("data-analytics-pickers") && /<\/div>\s*<ExportButton/.test(controls))
   const route = read("app/api/analytics/export/route.ts")
   check("the export is the owner's: area analytics through lib/team, a member working in another store refused", /creatorFor<[^>]+>\(admin, userId, "analytics"/.test(route) && /found\.acting/.test(route) && /q\.creatorId !== who\.creatorId/.test(route))
   check("the phone app gets a link signed for this one file, five minutes", /signOrderLink\(\{ k: "analytics"/.test(route) && /link\.k !== "analytics"/.test(route))
@@ -419,9 +448,9 @@ console.log("\nThe CSV holds what the page shows, with the currency and the time
   const lines = csv.split("\r\n")
   const has = (l: string) => lines.includes(l)
   check("names the time zone, the period, the comparison and the currency", has(`Time zone,${TZ}`) && has("Period,2026-10-21 to 2026-10-27") && has("Compared with,2026-10-14 to 2026-10-20") && has("Currency,\"RON, amounts in RON with 2 decimals\""), lines.slice(0, 9))
-  check("the summary: 5 visitors, 8 page views, 6 visits, 2 link clicks, 7 orders, 200.00 lei", has("Visitors,5,1") && has("Page views,8,1") && has("Visits,6,1") && has("Link clicks,2,0") && has("Orders,7,1") && has("Total sales (RON),200.00,20.00"))
-  check("the breakdown, signed: 212.00, -5.00, -40.00, 167.00, 25.00, 3.00, 5.00, 200.00", ["Gross sales,212.00,20.00", "Discounts,-5.00,0.00", "Returns,-40.00,0.00", "Net sales,167.00,20.00", "Shipping charges,25.00,0.00", "Taxes,3.00,0.00", "Tips,5.00,0.00", "Total sales,200.00,20.00"].every(has), lines.filter((l) => /^(Gross|Discounts|Returns|Net|Shipping|Taxes|Tips|Total sales),/.test(l)))
-  check("channels, customers and fulfillment", has("Studio,100.00,2") && has("Returning customer rate (%),33.3,0.0") && has("Order fulfillment rate (%),50.0,") && has("Average order value (RON),29.57,20.00"))
+  check("the summary: 5 visitors, 8 page views, 6 visits, 2 link clicks, 7 orders, 170.00 lei, 4 refunds of 70.00", has("Visitors,5,1") && has("Page views,8,1") && has("Visits,6,1") && has("Link clicks,2,0") && has("Orders,7,1") && has("Total sales (RON),170.00,20.00") && has("Refunds,4,0") && has("Refunded (RON),70.00,0.00"), lines.slice(10, 22))
+  check("the breakdown, signed, with the Digital and Physical columns that add up to it: 212.00 (112 + 100), -5.00, -70.00 (-50 - 20), 137.00, 25.00, 3.00, 5.00, 170.00 (65 + 105)", has("Line,This period (RON),Digital (RON),Physical (RON),Previous period (RON)") && ["Gross sales,212.00,112.00,100.00,20.00", "Discounts,-5.00,-5.00,0.00,0.00", "Returns,-70.00,-50.00,-20.00,0.00", "Net sales,137.00,57.00,80.00,20.00", "Shipping charges,25.00,0.00,25.00,0.00", "Taxes,3.00,3.00,0.00,0.00", "Tips,5.00,5.00,0.00,0.00", "Total sales,170.00,65.00,105.00,20.00"].every(has), lines.filter((l) => /^(Gross|Discounts|Returns|Net|Shipping|Taxes|Tips|Total sales),/.test(l)))
+  check("channels, customers and fulfillment", has("Studio,80.00,2") && has("Returning customer rate (%),33.3,0.0") && has("Order fulfillment rate (%),50.0,") && has("Average order value (RON),29.57,20.00"))
   check("every report is a section of its own", ["Summary", "Over time", "Total sales breakdown", "Total sales over time", "Total sales by channel", "Customers and orders", "Traffic sources", "Referrers", "Top pages", "Link clicks by link", "Top products", "Funnel", "Subscribers", "Countries", "Operating systems", "Devices", "Browsers"].every((t) => has(t)))
   check("the days over time are Bucharest's", lines.indexOf("Over time") > 0 && lines[lines.indexOf("Over time") + 2].startsWith("Oct 21"), lines[lines.indexOf("Over time") + 2])
   const digitalOnly = profileOf({ products: [{ type: "digital" }], onePageId: null, websites: [{ published: true }], communities: 0 })

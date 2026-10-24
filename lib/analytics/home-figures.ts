@@ -55,7 +55,7 @@ export interface HomePoint {
   value: number | null
   /** Visitors only: link clicks in the same bucket. */
   secondaryValue?: number
-  /** Orders only: orders placed in the bucket that have since been refunded. */
+  /** Orders only: refunds made in the bucket, of orders placed whenever (lib/analytics/refund-dates). */
   refunds?: number
 }
 
