@@ -323,7 +323,7 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
 .acct__h2row .acct__add { margin-top: -12px; }
 .acct__link--quiet { color: var(--s-para); }
 .acct__notice.is-error { padding: 10px 12px; border: 1px solid var(--s-border); border-radius: var(--s-radius); }
-.edit__error { flex-basis: 100%; margin: 0; font-size: 14px; line-height: 1.45; color: #b42318; }
+.edit__error { flex-basis: 100%; margin: 0; font-size: 14px; line-height: 1.45; color: var(--s-error, #b42318); }
 .edit__error[hidden] { display: none; }
 .addr-form { margin: 20px 0 8px; padding: 20px; border: 1px solid var(--s-border); border-radius: var(--s-radius); }
 .addr-form__h { margin: 0 0 4px; font-size: 16px; font-weight: 600; color: var(--s-heading); }

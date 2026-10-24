@@ -178,7 +178,7 @@ export function SizeChartDialog({ chart, open, onClose, opens, palette, radius, 
       ? cn("absolute inset-x-0 bottom-0 max-h-[88%] rounded-t-[18px] pb-[max(16px,env(safe-area-inset-bottom))] transition-transform duration-300 ease-out", shown ? "translate-y-0" : "translate-y-full")
       : shape === "drawer"
         ? cn("absolute inset-y-0 right-0 w-full max-w-[520px] transition-transform duration-300 ease-out", shown ? "translate-x-0" : "translate-x-full")
-        : cn("relative mx-4 max-h-[min(86%,760px)] w-full max-w-[680px] transition-[opacity,transform] duration-200", shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0")
+        : cn("relative mx-4 max-h-[min(86%,760px)] w-full max-w-[680px] transition-[opacity,translate] duration-200", shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0")
 
   return createPortal(
     <div className={cn("fixed inset-0 z-[70]", shape === "modal" && "flex items-center justify-center")} role="presentation" data-size-chart-dialog={shape} onClick={(e) => e.stopPropagation()}>

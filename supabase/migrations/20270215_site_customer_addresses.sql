@@ -1,14 +1,4 @@
--- Customer accounts on websites, round BC: a customer keeps their own phone
--- number and their own address book on the website they signed in to (add,
--- change, delete, pick the default), and checkout fills in the default one.
--- Two columns on site_customers, both optional:
---   phone      what the customer typed on their profile, at most 40 characters
---   addresses  the address book, a JSON list of at most 10 addresses. NULL
---              means the customer never changed it, and the account shows the
---              addresses their orders were sent to instead; [] means they
---              removed every one.
--- Server only, like the rest of the table. Until it runs, the account page
--- shows the addresses of past orders and the forms say they could not save.
+/* Customer accounts on websites, round BC: a customer keeps their own phone number and their own address book on the website they signed in to (add, change, delete, pick the default), and checkout fills in the default one. Two optional columns on site_customers: phone (at most 40 characters) and addresses (a JSON list of at most 10; NULL means never changed, so the account shows the addresses their orders went to). Server only, like the rest of the table. Run after 33. Until it runs, the account shows the addresses of past orders and saving one says it could not be saved. Source: supabase/migrations/20270215_site_customer_addresses.sql. */
 ALTER TABLE public.site_customers ADD COLUMN IF NOT EXISTS phone text;
 ALTER TABLE public.site_customers ADD COLUMN IF NOT EXISTS addresses jsonb;
 ALTER TABLE public.site_customers DROP CONSTRAINT IF EXISTS site_customers_phone_size;
