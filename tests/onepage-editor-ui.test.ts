@@ -352,8 +352,20 @@ function main() {
     const add = links.slice(links.indexOf('data-add-block=""') - 40, links.indexOf('data-add-block=""') + 900)
     check("it is the app's violet primary (accentDepth, #8b5cf6)", /className=\{cn\(accentDepth, "h-11 w-full gap-2 rounded-xl text-\[15px\]"\)\}/.test(add) && /accentDepth =[\s\S]{0,200}bg-\[#8b5cf6\]/.test(read("components/ui/depth-button.ts")))
     check("and not inside a .group, whose transforms a touch screen loses", !/"group /.test(add) && !/\bgroup-hover:/.test(add))
-    check("its + turns 45deg while its sheet is up, over 200ms, and not under reduced motion",
-      /transition-\[rotate\] duration-200 [^"]*motion-reduce:transition-none/.test(add) && /addSheetFromButton \? "rotate-45" : "rotate-0"/.test(add)
+    /*
+      Round 10, on purpose: "when I hover over it, the + rotates very smooth,
+      clean, 360; on hover out it smoothly rotates back." The + is
+      AddBlockPlus (components/onepage/add-block-picker.tsx): a full turn
+      under a mouse, back as it leaves, 600ms on one ease in and out, and it
+      rests at 405 (the sheet's x, a turn and 45) while the sheet is up, so a
+      hover that opens it goes on forward. Still the rotate property alone,
+      still off under reduced motion. Measured by scripts/check-onepage-blocks.mjs.
+    */
+    const plus = read("components/onepage/add-block-picker.tsx")
+    check("its + turns a full circle under a mouse and back, rests at the sheet's x while it is up, and not under reduced motion",
+      /<AddBlockPlus open=\{addSheetFromButton\} \/>/.test(add)
+      && /transition-\[rotate\] duration-\[600ms\] ease-\[cubic-bezier\(0\.4,0,0\.2,1\)\] motion-reduce:transition-none/.test(plus)
+      && /open \? "rotate-\[405deg\]" : "rotate-0 \[@media\(hover:hover\)_and_\(pointer:fine\)\]:\[\[data-add-block\]:hover_&\]:rotate-\[360deg\]"/.test(plus)
       && /const addSheetFromButton = showAddModal && insertAfterId === null && addToGroupId === null/.test(links))
     check("the rest of the Links tab stays ink: this is the one violet", (links.match(/accentDepth/g) ?? []).length === 3 && !/bg-violet-500/.test(links))
   }

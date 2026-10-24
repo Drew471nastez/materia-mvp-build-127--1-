@@ -51,6 +51,8 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
+import { tt } from "@/lib/i18n/text"
+import { bookingSource } from "@/lib/onepage/creator-blocks"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -3421,6 +3423,13 @@ function PublicBlockRenderer({
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [downloadLink, setDownloadLink] = useState<string | null>(null)
+  /* The email signup's first name (when the block asks), its hidden field and when it came on screen: the same spam checks as a website's forms (lib/site-contact looksAutomated). */
+  const [leadName, setLeadName] = useState("")
+  const [leadTrap, setLeadTrap] = useState("")
+  const leadShownAt = useRef(0)
+  useEffect(() => {
+    leadShownAt.current = Date.now()
+  }, [])
   const videoRef = useRef<HTMLVideoElement>(null)
 
   // Load email subscription state from localStorage on mount
@@ -4971,6 +4980,9 @@ function PublicBlockRenderer({
             body: JSON.stringify({
               onepage_id: onepageId,
               email,
+              name: data.ask_name ? leadName.trim() || undefined : undefined,
+              company: leadTrap,
+              elapsed: Date.now() - leadShownAt.current,
               block_id: block.id,
               lead_magnet_id: data.lead_magnet_id,
               enable_digital_product: data.enable_digital_product,
@@ -5039,6 +5051,47 @@ function PublicBlockRenderer({
         void downloadFile({ url: downloadUrl, fileName: name })
       }
 
+      /*
+        ASKED FOR A FIRST NAME, AND THE HIDDEN FIELD. Above the form, so the
+        email box and its button stay one row. The name goes on the
+        subscriber (Emails › Subscribers) and into the welcome automation.
+      */
+      const emailExtras = (
+        <>
+          <input type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden value={leadTrap} onChange={(e) => setLeadTrap(e.target.value)} className="absolute -left-[9999px] h-px w-px opacity-0" />
+          {data.ask_name && !emailSubmitted ? (
+            <input
+              type="text"
+              value={leadName}
+              onChange={(e) => setLeadName(e.target.value)}
+              placeholder={tt("First name")}
+              aria-label={tt("First name")}
+              autoComplete="given-name"
+              maxLength={80}
+              disabled={isSubmitting}
+              data-email-name=""
+              className="mb-2 w-full border-0 bg-white/90 px-3 py-3 text-[16px] outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-70 sm:px-4 sm:text-sm"
+              style={{ color: "#000", borderRadius: emailButtonStyles.borderRadius }}
+            />
+          ) : null}
+        </>
+      )
+      /* After they join: the link the creator chose (a guide, a private video, a group), as the page's own button. */
+      const afterUrl = (data.after_signup_url || "").trim()
+      const afterSignupLink = afterUrl && /^https?:\/\//i.test(afterUrl) ? (
+        <a
+          href={afterUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-after-signup=""
+          onClick={() => trackClick(block.id, afterUrl)}
+          className="mt-3 flex w-full items-center justify-center px-4 py-3 text-sm font-medium"
+          style={emailButtonStyles}
+        >
+          {(data.after_signup_label || "").trim() || tt("Open your free gift")}
+        </a>
+      ) : null
+
       // Pro layout with thumbnail
       if (isPro && showThumbnail) {
         return (
@@ -5075,6 +5128,8 @@ function PublicBlockRenderer({
 
                 if (isShortButton) {
                   return (
+                    <>
+                    {emailExtras}
                     <form onSubmit={handleSubmit} className="flex flex-row gap-2 items-stretch">
                       <input
                         type="email"
@@ -5112,10 +5167,13 @@ function PublicBlockRenderer({
                         </button>
                       )}
                     </form>
+                    </>
                   )
                 }
 
                 return (
+                  <>
+                  {emailExtras}
                   <form onSubmit={handleSubmit} className="flex flex-col gap-2">
                     <input
                       type="email"
@@ -5153,6 +5211,7 @@ function PublicBlockRenderer({
                       </button>
                     )}
                   </form>
+                  </>
                 )
               })()}
             </div>
@@ -5161,6 +5220,7 @@ function PublicBlockRenderer({
                 <p className="text-xs text-center opacity-70" style={{ color: theme.text_color }}>
                   {data.success_message || "Thanks for subscribing!"}
                 </p>
+                {afterSignupLink}
               </div>
             )}
           </div>
@@ -5189,6 +5249,8 @@ function PublicBlockRenderer({
           )}
           {/* Form - Responsive layout based on button text length */}
           {isShortButton ? (
+            <>
+            {emailExtras}
             <form onSubmit={handleSubmit} className="flex flex-row gap-2 items-stretch">
               <input
                 type="email"
@@ -5226,7 +5288,10 @@ function PublicBlockRenderer({
                 </button>
               )}
             </form>
+            </>
           ) : (
+            <>
+            {emailExtras}
             <form onSubmit={handleSubmit} className="flex flex-col gap-2">
               <input
                 type="email"
@@ -5264,12 +5329,14 @@ function PublicBlockRenderer({
                 </button>
               )}
             </form>
+            </>
           )}
           {emailSubmitted && (
             <p className="text-xs text-center mt-2 opacity-70" style={{ color: theme.text_color }}>
               {data.success_message || "Thanks for subscribing!"}
             </p>
           )}
+          {emailSubmitted ? afterSignupLink : null}
         </div>
       )
     }
@@ -5747,7 +5814,8 @@ function PublicBlockRenderer({
       const data = block.data as CalendlyBlockData
       const isPro = data.layout_type === "pro"
       const thumbnailUrl = data.thumbnail_url
-      const calendlyUrl = data.calendly_url
+      /* A Calendly or a Cal.com page (lib/onepage/creator-blocks bookingSource), on https; anything older is drawn as it was saved. */
+      const calendlyUrl = bookingSource(data.calendly_url)?.url ?? data.calendly_url
 
       // Button styles for Calendly block (matching other blocks)
       const buttonShadow = (theme as any).button_shadow || "none"
@@ -6034,12 +6102,17 @@ function PublicBlockRenderer({
       )
     }
 
+    /* Course, music, testimonials and the contact form (components/onepage/creator-blocks): the same one component; the contact form needs the page's creator. */
+    case "course":
+    case "music":
+    case "testimonials":
+    case "contact_form":
     case "heading":
     case "faq":
     case "countdown":
     case "map":
     case "video":
-      return <ExtraBlock block={block} look={{ theme, scale: "live" }} />
+      return <ExtraBlock block={block} look={{ theme, scale: "live", sellerId }} />
 
     default:
       return null

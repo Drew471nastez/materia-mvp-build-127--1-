@@ -51,6 +51,8 @@ export type LiveProduct = {
   compare_at_cents?: number | null
   pay_what_you_want?: boolean | null
   pwyw_min_price_cents?: number | null
+  /** A course's lessons, counted now; asked only when a course block names it. */
+  lessons_count?: number | null
 }
 
 /**
@@ -81,6 +83,10 @@ export function productIdsInBlocks(blocks: unknown): string[] {
       } else if (block.type === "email_capture") {
         const id = idOf(data.digital_product_id)
         if (id && data.enable_digital_product !== false) found.add(id)
+      } else if (block.type === "course") {
+        /* A course block (components/onepage/creator-blocks): the same product row, read the same way. */
+        const id = idOf(data.product_id)
+        if (id) found.add(id)
       } else if (block.type === "group") {
         walk(data.children)
       }
@@ -148,6 +154,29 @@ export function resolveProductBlocks<T>(blocks: T, answers: ProductAnswers): T {
         /* Gone, archived or unpublished: the row leaves the page entirely. */
         if (!product) continue
         out.push({ ...block, data: refreshed(data, product) })
+        continue
+      }
+
+      if (block.type === "course") {
+        const id = idOf(data.product_id)
+        if (!id || !answers.has(id)) {
+          out.push(block)
+          continue
+        }
+        const product = answers.get(id)
+        /* Gone, archived, unpublished or not a course any more: the block leaves the page. */
+        if (!product || (product.type && product.type !== "course")) continue
+        out.push({
+          ...block,
+          data: {
+            ...data,
+            course_title: product.title ?? null,
+            course_slug: product.slug ?? null,
+            course_price_cents: typeof product.price_cents === "number" ? product.price_cents : null,
+            course_thumbnail: product.thumbnail_url ?? null,
+            lessons_count: typeof product.lessons_count === "number" ? product.lessons_count : data.lessons_count ?? null,
+          },
+        })
         continue
       }
 
@@ -237,12 +266,47 @@ export async function answersForBlocks(db: ProductsDb, creatorId: string, blocks
         const intervals = await planIntervals(db as never, memberships.map((p) => p.id))
         for (const p of memberships) answers.set(p.id, { ...p, price_interval: intervals.get(p.id) ?? "month" })
       }
+      /* A course's lessons, counted (course, its modules, their lessons); a read that fails keeps the block's own count. */
+      const courses = [...answers.values()].filter((p): p is LiveProduct => !!p && p.type === "course")
+      if (courses.length > 0) {
+        const counts = await lessonCounts(db, courses.map((p) => p.id))
+        for (const p of courses) if (counts.has(p.id)) answers.set(p.id, { ...p, lessons_count: counts.get(p.id) ?? null })
+      }
       return answers
     } catch {
       /* Try the narrower column list, then give up and answer about nothing. */
     }
   }
   return new Map()
+}
+
+/** How many lessons each course product has, for the ones that could be read. Never throws. */
+export async function lessonCounts(db: ProductsDb, productIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  if (productIds.length === 0) return out
+  /* The narrow type above is the products read; these three are plain reads by id. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const q = db as any
+  try {
+    const { data: courses, error } = await q.from("courses").select("id, product_id").in("product_id", productIds)
+    if (error || !Array.isArray(courses)) return out
+    const productOf = new Map<string, string>((courses as { id: string; product_id: string }[]).map((c) => [c.id, c.product_id]))
+    for (const c of courses as { product_id: string }[]) out.set(c.product_id, 0)
+    if (productOf.size === 0) return out
+    const { data: modules, error: mErr } = await q.from("course_modules").select("id, course_id").in("course_id", [...productOf.keys()])
+    if (mErr || !Array.isArray(modules)) return new Map()
+    const moduleProduct = new Map<string, string | undefined>((modules as { id: string; course_id: string }[]).map((m) => [m.id, productOf.get(m.course_id)]))
+    if (moduleProduct.size === 0) return out
+    const { data: lessons, error: lErr } = await q.from("course_lessons").select("module_id").in("module_id", [...moduleProduct.keys()])
+    if (lErr || !Array.isArray(lessons)) return new Map()
+    for (const l of lessons as { module_id: string }[]) {
+      const p = moduleProduct.get(l.module_id)
+      if (p) out.set(p, (out.get(p) ?? 0) + 1)
+    }
+    return out
+  } catch {
+    return new Map()
+  }
 }
 
 /** The page's blocks, with every product read from the product row. */

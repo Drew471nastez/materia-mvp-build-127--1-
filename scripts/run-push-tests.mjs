@@ -854,6 +854,10 @@ const SUITES = [
  * directory, run after the list above.
  */
 const STRICT_SUITES = [
+  /* Round 10: the course, music, testimonials and contact blocks, the Add block sheet's catalogue and search, the + that turns under a mouse, the email signup's name, link and spam checks (strict: it draws components/onepage/brand-icons, which only type-checks strict); scripts/check-onepage-blocks.mjs measures them. */
+  "tests/onepage-creator-blocks.test.ts",
+  /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
+  "tests/e2e-onepage-signup.test.ts",
   /* ShippyPro: the adapter against recorded and documented answers, and the marketplace card in each state (components/physical/integrations-marketplace.tsx only type-checks strict) */
   "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */

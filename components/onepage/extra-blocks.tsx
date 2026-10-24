@@ -40,7 +40,7 @@
 
 import * as React from "react"
 import { useSyncExternalStore } from "react"
-import { CalendarClock, ChevronDown, ChevronRight, Clock, EyeOff, HelpCircle, Heading, MapPin, Play, Plus, Timer, Trash2 } from "lucide-react"
+import { CalendarClock, ChevronDown, ChevronRight, Clock, EyeOff, MapPin, Play, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -49,7 +49,14 @@ import { scheduleLabel, videoSource } from "@/lib/onepage/extra-blocks"
 import { viewerZone, zoneLabel } from "@/lib/onepage/schedule"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DateTimeField } from "@/components/onepage/date-time-field"
+import { CreatorBlock, CreatorBlockEditor } from "@/components/onepage/creator-blocks"
+import { GlyphBooking, GlyphContact, GlyphCountdown, GlyphCourse, GlyphFaq, GlyphHeading, GlyphMap, GlyphMusic, GlyphTestimonials, GlyphVideo } from "@/components/onepage/block-icons"
+import { MUSIC_PROVIDER_NAME, cleanTestimonials, lessonsLabel, musicSource } from "@/lib/onepage/creator-blocks"
 import type {
+  ContactFormBlockData,
+  CourseBlockData,
+  MusicBlockData,
+  TestimonialsBlockData,
   CountdownBlockData,
   FaqBlockData,
   HeadingBlockData,
@@ -74,6 +81,8 @@ export interface ExtraBlockLook {
   scale: Scale
   /** The editor's preview, where the page changes as the creator types. */
   preview?: boolean
+  /** The page's creator (creators.id): where the contact block's messages go. */
+  sellerId?: string | null
 }
 
 function hexToRgba(hex: string, alpha: number) {
@@ -387,7 +396,8 @@ export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: 
     case "video":
       return <VideoView data={block.data as VideoBlockData} look={look} />
     default:
-      return null
+      /* Course, music, testimonials and the contact form (./creator-blocks). */
+      return <CreatorBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, sellerId: look.sellerId, button: themeButtonStyle(look.theme) }} />
   }
 }
 
@@ -498,11 +508,15 @@ export function SensitiveLinkQuestion() {
 
 /** The entries the Add block sheet lists for these blocks, in the category each belongs to. */
 export const EXTRA_BLOCK_CATALOG = {
-  heading: { type: "heading" as const, get label() { return tt("Heading") }, get description() { return tt("A title between your links") }, icon: Heading },
-  faq: { type: "faq" as const, label: "FAQ", get description() { return tt("Questions and answers that open") }, icon: HelpCircle },
-  countdown: { type: "countdown" as const, get label() { return tt("Countdown") }, get description() { return tt("Count down to a launch or a drop") }, icon: Timer },
-  map: { type: "map" as const, get label() { return tt("Map") }, get description() { return tt("Show where to find you") }, icon: MapPin },
-  video: { type: "video" as const, get label() { return tt("Video") }, get description() { return tt("Play a YouTube, Vimeo or TikTok video") }, icon: Play },
+  heading: { type: "heading" as const, get label() { return tt("Heading") }, get description() { return tt("A title between your links") }, icon: GlyphHeading },
+  faq: { type: "faq" as const, label: "FAQ", get description() { return tt("Questions and answers that open") }, icon: GlyphFaq },
+  countdown: { type: "countdown" as const, get label() { return tt("Countdown") }, get description() { return tt("Count down to a launch or a drop") }, icon: GlyphCountdown },
+  map: { type: "map" as const, get label() { return tt("Map") }, get description() { return tt("Show where to find you") }, icon: GlyphMap },
+  video: { type: "video" as const, get label() { return tt("Video") }, get description() { return tt("Play a YouTube, Vimeo or TikTok video") }, icon: GlyphVideo },
+  course: { type: "course" as const, get label() { return tt("Course") }, get description() { return tt("Show one of your courses") }, icon: GlyphCourse },
+  music: { type: "music" as const, get label() { return tt("Music") }, get description() { return tt("Play Spotify, SoundCloud or Apple Music") }, icon: GlyphMusic },
+  testimonials: { type: "testimonials" as const, get label() { return tt("Testimonials") }, get description() { return tt("Show what buyers said") }, icon: GlyphTestimonials },
+  contact_form: { type: "contact_form" as const, get label() { return tt("Contact form") }, get description() { return tt("Let people send you a message") }, icon: GlyphContact },
 }
 
 /** The title, the line under it and the icon a block's row shows in the editor's list. */
@@ -510,12 +524,12 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
   switch (block.type) {
     case "heading": {
       const d = block.data as HeadingBlockData
-      return { title: d.text?.trim() || tt("Heading"), subtitle: tt("Heading"), icon: Heading }
+      return { title: d.text?.trim() || tt("Heading"), subtitle: tt("Heading"), icon: GlyphHeading }
     }
     case "faq": {
       const d = block.data as FaqBlockData
       const n = (d.items || []).filter((i) => i.question?.trim()).length
-      return { title: d.title?.trim() || "FAQ", subtitle: `${n} question${n === 1 ? "" : "s"}`, icon: HelpCircle }
+      return { title: d.title?.trim() || "FAQ", subtitle: `${n} question${n === 1 ? "" : "s"}`, icon: GlyphFaq }
     }
     case "countdown": {
       const d = block.data as CountdownBlockData
@@ -523,20 +537,39 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
       return {
         title: d.title?.trim() || tt("Countdown"),
         subtitle: Number.isNaN(t) ? tt("Pick a date") : new Date(t).toLocaleString(appLocale(), zoned({ month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })),
-        icon: Timer,
+        icon: GlyphCountdown,
       }
     }
     case "map": {
       const d = block.data as MapBlockData
-      return { title: d.title?.trim() || tt("Map"), subtitle: d.address?.trim() || tt("Add an address"), icon: MapPin }
+      return { title: d.title?.trim() || tt("Map"), subtitle: d.address?.trim() || tt("Add an address"), icon: GlyphMap }
     }
     case "video": {
       const d = block.data as VideoBlockData
       const s = videoSource(d.url)
-      return { title: d.title?.trim() || tt("Video"), subtitle: s ? tt("{value} video", { value: s.kind === "youtube" ? "YouTube" : s.kind === "vimeo" ? "Vimeo" : "TikTok" }) : tt("Paste a video link"), icon: Play }
+      return { title: d.title?.trim() || tt("Video"), subtitle: s ? tt("{value} video", { value: s.kind === "youtube" ? "YouTube" : s.kind === "vimeo" ? "Vimeo" : "TikTok" }) : tt("Paste a video link"), icon: GlyphVideo }
+    }
+    case "course": {
+      const d = block.data as CourseBlockData
+      const lessons = lessonsLabel(d.lessons_count)
+      return { title: d.course_title?.trim() || tt("Course"), subtitle: !d.product_id ? tt("Pick a course") : lessons ? tt("{count, plural, one {# lesson} other {# lessons}}", lessons) : tt("Course"), icon: GlyphCourse }
+    }
+    case "music": {
+      const d = block.data as MusicBlockData
+      const s = musicSource(d.url)
+      return { title: d.title?.trim() || tt("Music"), subtitle: s ? MUSIC_PROVIDER_NAME[s.kind] : tt("Paste a music link"), icon: GlyphMusic }
+    }
+    case "testimonials": {
+      const d = block.data as TestimonialsBlockData
+      const n = cleanTestimonials(d.items).length
+      return { title: d.title?.trim() || tt("Testimonials"), subtitle: n ? tt("{count, plural, one {# review} other {# reviews}}", { count: n }) : tt("Add a review"), icon: GlyphTestimonials }
+    }
+    case "contact_form": {
+      const d = block.data as ContactFormBlockData
+      return { title: d.title?.trim() || tt("Contact form"), subtitle: tt("Messages go to Emails"), icon: GlyphContact }
     }
     default:
-      return { title: block.type, subtitle: "", icon: Heading }
+      return { title: block.type, subtitle: "", icon: GlyphBooking }
   }
 }
 
@@ -712,7 +745,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
       )
     }
     default:
-      return null
+      return <CreatorBlockEditor block={block} updateData={updateData} />
   }
 }
 

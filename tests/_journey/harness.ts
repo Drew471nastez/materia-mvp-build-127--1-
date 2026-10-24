@@ -104,6 +104,9 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/store/translations": () => import("@/app/api/store/translations/route"),
   "/api/store/translations/draft": () => import("@/app/api/store/translations/draft/route"),
   "/api/store/translations/jobs": () => import("@/app/api/store/translations/jobs/route"),
+  /* The OnePage's email signup and contact form (tests/e2e-onepage-signup.test.ts). */
+  "/api/onepage/leads": () => import("@/app/api/onepage/leads/route"),
+  "/api/website-builder/contact": () => import("@/app/api/website-builder/contact/route"),
 }
 
 /* Columns production has that no SQL file created were added by run-now part 165; none are taken on trust any more. */
