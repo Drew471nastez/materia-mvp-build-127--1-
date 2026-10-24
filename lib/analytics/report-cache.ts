@@ -29,6 +29,7 @@
 import { boundsOf, compareBounds, isMidnightIn, resolveValue, todayIn, type CompareValue } from "@/lib/date-range/range"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { askCommerce, commerceKey, keptCommerce } from "./commerce-cache"
+import { notedStoreCurrency } from "./noted-currency"
 
 /** How long a kept answer may be shown while the page asks again. */
 export const KEEP_MS = 30 * 60_000
@@ -325,17 +326,8 @@ async function read(key: string, signal: AbortSignal, onFigures: (figures: Line)
 
 /* ─── The store currency the open app is showing ──────────────────────── */
 
-let notedCurrency = ""
-
-/** Settings told the app the store's currency (lib/store/currency-context). The prefetch uses it so its question matches the page. */
-export function noteStoreCurrency(code: string) {
-  const currency = code.trim().toUpperCase()
-  if (/^[A-Z]{3}$/.test(currency)) notedCurrency = currency
-}
-
-export function notedStoreCurrency(): string {
-  return notedCurrency
-}
+/* Kept in ./noted-currency.ts, so the currency context notes it without loading this cache (round 12). */
+export { noteStoreCurrency, notedStoreCurrency } from "./noted-currency"
 
 /* ─── Warming ──────────────────────────────────────────────────────────── */
 
@@ -361,10 +353,10 @@ export function warmAnalytics() {
       product: "all",
       property: "all",
       timeZone,
-      currency: notedCurrency || undefined,
+      currency: notedStoreCurrency() || undefined,
     })
     /* The sales reports under the chart too, for the very question the page will ask (app/app/analytics/commerce-reports). */
-    const sales = commerceKey({ start: span.start, end: Math.max(span.end, span.start + 1), compare: compareBounds(period, PREVIOUS_PERIOD, timeZone, now), product: "all", property: "all", timeZone, currency: notedCurrency || undefined })
+    const sales = commerceKey({ start: span.start, end: Math.max(span.end, span.start + 1), compare: compareBounds(period, PREVIOUS_PERIOD, timeZone, now), product: "all", property: "all", timeZone, currency: notedStoreCurrency() || undefined })
     const k = kept().get(questionOf(key))
     if (k && Date.now() - k.at < FRESH_MS) return
     warmedAt = Date.now()
