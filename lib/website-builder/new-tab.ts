@@ -54,3 +54,44 @@ export function checkoutProductOf(href: string | null | undefined): string | nul
   const id = new URLSearchParams(m[1].split("#")[0]).get("productId")
   return id || null
 }
+
+/* ── Drawn as a real new tab link ────────────────────────────────────── */
+
+/**
+ * What an `<a>` for this address carries: the address without the mark, and
+ * `target="_blank"` with `rel="noopener noreferrer"` when it asked for a new
+ * tab. A React section spreads it; `openInNew` is a link's own setting (the
+ * header's `open_in_new_tab`), which asks the same thing.
+ */
+export function newTabLink(href: string | null | undefined, openInNew = false): { href: string; target?: "_blank"; rel?: string } {
+  const raw = href ?? ""
+  const bare = withoutNewTab(raw)
+  return openInNew || opensNewTab(raw) ? { href: bare, target: "_blank", rel: "noopener noreferrer" } : { href: bare }
+}
+
+/* An address before the mark: "#_blank" alone is a place on the page, never a link the picker made (withNewTab). */
+const MARKED_ANCHOR = /<a\b[^>]*?\shref\s*=\s*(?:"[^"]+#_blank"|'[^']+#_blank'|[^\s"'>]+#_blank(?=[\s>]))[^>]*>/gi
+
+/**
+ * The same, in markup a template drew: every `<a>` whose address ends in the
+ * mark loses it and gains `target="_blank" rel="noopener noreferrer"`. For
+ * the pages that are strings rather than React: an imported theme's Liquid
+ * (its header, drawers, mega menus and footer all print `link.url`) and a
+ * coded section. Done where the page is drawn, so the live site and the
+ * builder's canvas get the same real link, with no script waiting to fix it.
+ * Pure; a page with no marked link comes back as it was.
+ */
+export function withNewTabAnchors(html: string): string {
+  if (!html.includes(NEW_TAB_MARK)) return html
+  return html.replace(MARKED_ANCHOR, (tag) => {
+    let out = tag.replace(/(\shref\s*=\s*)(?:"([^"]+)#_blank"|'([^']+)#_blank'|([^\s"'>]+)#_blank(?=[\s>]))/i, (_m, lead: string, dq?: string, sq?: string, bare?: string) =>
+      dq !== undefined ? `${lead}"${dq}"` : sq !== undefined ? `${lead}'${sq}'` : `${lead}${bare ?? ""}`,
+    )
+    /* The theme's own target or rel, if it wrote one, gives way: the creator asked for a new tab. */
+    out = out.replace(/\s\btarget\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i, "")
+    const rel = out.match(/\s\brel\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i)
+    const words = new Set(((rel?.[1] ?? rel?.[2] ?? rel?.[3] ?? "") + " noopener noreferrer").split(/\s+/).filter(Boolean))
+    if (rel) out = out.replace(rel[0], "")
+    return out.replace(/\s*(\/?)>$/, ` target="_blank" rel="${[...words].join(" ")}"$1>`)
+  })
+}

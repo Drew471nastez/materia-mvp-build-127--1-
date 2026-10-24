@@ -14,6 +14,7 @@
  *   header_transparent_scope which pages the header is see-through on
  */
 import type { Menu, MenuLink } from "@/lib/storelib-theme/values"
+import { opensNewTab, withoutNewTab } from "./new-tab"
 
 type NavBlock = { id: string; type: "nav_link"; settings: Record<string, unknown> }
 
@@ -55,9 +56,10 @@ export function headerMenuBlocks(handle: string, menus: Record<string, Menu>): N
   const out: NavBlock[] = []
   menu.links.forEach((link: MenuLink, i: number) => {
     const id = `menu-${handle}-${i}`
-    out.push({ id, type: "nav_link", settings: { label: link.title, url: link.url, link_type: "custom" } })
+    /* "Open in a new tab" from the menu editor is a mark on the address (./new-tab.ts): it becomes the link's own open_in_new_tab, which the header and its drawer draw as target="_blank". */
+    out.push({ id, type: "nav_link", settings: { label: link.title, url: withoutNewTab(link.url), link_type: "custom", open_in_new_tab: opensNewTab(link.url) } })
     ;(link.links ?? []).forEach((child, j) => {
-      out.push({ id: `${id}-${j}`, type: "nav_link", settings: { label: child.title, url: child.url, link_type: "custom", parent_id: id } })
+      out.push({ id: `${id}-${j}`, type: "nav_link", settings: { label: child.title, url: withoutNewTab(child.url), link_type: "custom", parent_id: id, open_in_new_tab: opensNewTab(child.url) } })
     })
   })
   return out

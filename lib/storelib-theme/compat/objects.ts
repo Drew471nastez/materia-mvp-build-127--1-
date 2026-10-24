@@ -18,6 +18,7 @@ import { handleize, parseColor, toHex } from "./filters"
 import { shopifyAddress } from "./links"
 import { FLAG_SVG_OPEN } from "./first-load"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
+import { withoutNewTab } from "@/lib/website-builder/new-tab"
 import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
 import { currencyWord } from "@/lib/markets/money"
 import { isVideoUrl, videoDuration, videoMime, videoPosterUrl } from "@/lib/media/video"
@@ -668,8 +669,16 @@ export function linkObject(l: MenuLinkLike, currentPath: string, level = 1, reso
   const title = String(l.title ?? l.label ?? "")
   const written = String(l.url ?? "#")
   const url = resolve ? resolve(written) || written : written
+  /*
+    "Open in a new tab" rides on the address as a mark (lib/website-builder/new-tab.ts)
+    and stays on `link.url`, so whatever the theme prints it in (a header, a drawer,
+    a mega menu, a footer) carries it, and the drawn page turns it into
+    target="_blank" (./page.ts). What the link IS, active, its type, its object, is
+    read without it.
+  */
+  const plain = withoutNewTab(url)
   const links = (l.links ?? []).map((c) => linkObject(c, currentPath, level + 1, resolve, target))
-  const active = url === currentPath
+  const active = plain === currentPath
   const child_active = links.some((c) => c.active || c.child_active)
   const out: O = {
     [OUTPUT]: title,
@@ -682,13 +691,13 @@ export function linkObject(l: MenuLinkLike, currentPath: string, level = 1, reso
     child_current: child_active,
     links,
     levels: links.length ? 1 + Math.max(0, ...links.map((c) => Number(c.levels ?? 0))) : 0,
-    type: linkType(url),
+    type: linkType(plain),
     object: null,
   }
   if (target) {
     let made = false
     let value: O | null = null
-    Object.defineProperty(out, "object", { enumerable: true, configurable: true, get: () => { if (!made) { made = true; value = target(url) } return value } })
+    Object.defineProperty(out, "object", { enumerable: true, configurable: true, get: () => { if (!made) { made = true; value = target(plain) } return value } })
   }
   return out
 }
