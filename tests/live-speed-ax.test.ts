@@ -89,7 +89,7 @@ check("the 404's header comes from the on-demand file, still drawn on the server
 console.log("\nA link pointed at opens at once\n")
 const links = code("components/website-builder/site-links.tsx")
 check("a pointer, focus or touch on a link fetches the whole page (Next's default fetched only its outline)", /if \(to\) ahead\(to, true\)/.test(links) && /router\.prefetch\(key, \{ kind: FULL \}\)/.test(links) && /const FULL = "full" as PrefetchKind/.test(links))
-check("  links that only come into view keep the light prefetch", /\n\s+ahead\(to\)\n/.test(links) && /else router\.prefetch\(key\)/.test(links))
+check("  links that only come into view keep the light prefetch on a computer, and are fetched whole on a touch screen (no hover there)", /\n\s+ahead\(to, touchOnly\)\n/.test(links) && /matchMedia\("\(hover: none\)"\)/.test(links) && /else router\.prefetch\(key\)/.test(links))
 check("the public page does not ship the theme settings schema (fonts come from font-options)", /from "@\/lib\/website-builder\/font-options"/.test(code("lib/website-builder/font-link.ts")) && !/theme-settings-schema/.test(code("lib/website-builder/font-link.ts")))
 check("no bare Buffer in cart links or own-database (it shipped a 19 KB polyfill to browsers)", ["lib/physical/cart-link.ts", "lib/website-builder/own-database.ts"].every((f) => !/(^|[^.\w])Buffer\.from/m.test(code(f))))
 
