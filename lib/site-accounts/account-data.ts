@@ -288,9 +288,19 @@ async function shippingFacts(db: Db, creatorId: string, checkoutIds: string[]): 
 
 /**
  * The orders placed with this email on this creator's website, one per
- * payment, newest first. `platform` is "https://storelib.com", where the
- * receipts are.
+ * payment, newest first. `platform` is where the receipts are opened:
+ * SITE_RECEIPTS ("", the website's own host) from a website's account.
  */
+/**
+ * A RECEIPT OPENED FROM A WEBSITE'S ACCOUNT STAYS ON THE WEBSITE. Its orders
+ * linked to storelib.com/receipt/..., which took the buyer off the seller's
+ * address and branding. The website's host serves its receipts itself
+ * (proxy.ts siteCheckoutFor, lib/checkout/site-checkout), so the link is
+ * the same path on the same host. A course opened from the receipt still
+ * plays on Storelib, where the player is.
+ */
+export const SITE_RECEIPTS = ""
+
 export async function customerOrders(db: Db, scope: { creatorId: string; email: string }, platform: string, opts: OrderLinks = {}): Promise<CustomerOrder[]> {
   if (!UUID.test(scope.creatorId) || !scope.email) return []
   let rows: OrderRow[] = []

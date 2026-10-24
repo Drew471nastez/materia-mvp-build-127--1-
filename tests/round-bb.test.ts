@@ -68,6 +68,16 @@ console.log("\nThe wishlist page of an imported theme\n")
   check("  on load, on back/forward and on every change", /window\.addEventListener\("pageshow",reveal\)/.test(shims) && /materia:wishlist-change/.test(shims))
 }
 
+console.log("\nA receipt opened from a website's account stays on the website\n")
+{
+  const data = code("lib/site-accounts/account-data.ts")
+  check("the website's account links receipts on its own host", /export const SITE_RECEIPTS = ""/.test(data) && /\$\{platform\}\/receipt\/\$\{encodeURIComponent\(token\)\}/.test(data))
+  const callers = ["app/(site)/w/[username]/account/page.tsx", "app/(site)/w/[username]/account/orders/[id]/page.tsx", "lib/site-accounts/theme-visitor.ts"].map(code)
+  check("  every account page of a website uses it, none storelib.com", callers.every((c) => /siteCustomer\(.*SITE_RECEIPTS/.test(c) && !/siteCustomer\(.*getMainDomain/.test(c)))
+  const route = code("lib/checkout/site-checkout.ts")
+  check("  and the website's host serves /receipt itself", /if \(path === "\/receipt" \|\| path\.startsWith\("\/receipt\/"\)\) return \{ kind: "pass" \}/.test(route))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

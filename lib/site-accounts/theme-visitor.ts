@@ -1,9 +1,8 @@
 import "server-only"
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getMainDomain } from "@/lib/url-helpers"
 import type { SiteAccount } from "@/lib/storelib-theme/compat/account"
-import { siteCustomer } from "./account-data"
+import { SITE_RECEIPTS, siteCustomer } from "./account-data"
 import { customerOrderAccess } from "./order-files"
 import { customerById } from "./customers"
 import { cookieFrom, hostOf, pendingCookieName, pendingFrom, sessionCookieName, visitorFrom } from "./session"
@@ -31,10 +30,10 @@ export async function siteAccountOf(request: Request, creatorId: string, opts: {
       if (row) {
         /* On an order's own page, that order, read only if it is this customer's (./order-files.ts). */
         if (opts.order) {
-          const [customer, access] = await Promise.all([siteCustomer(db, row, `https://${getMainDomain()}`, { orderPages: true }), customerOrderAccess(db, { creatorId, email: row.email }, opts.order)])
+          const [customer, access] = await Promise.all([siteCustomer(db, row, SITE_RECEIPTS, { orderPages: true }), customerOrderAccess(db, { creatorId, email: row.email }, opts.order)])
           return { customer, order: access?.detail ?? null }
         }
-        if (opts.orders) return { customer: await siteCustomer(db, row, `https://${getMainDomain()}`, { orderPages: true }) }
+        if (opts.orders) return { customer: await siteCustomer(db, row, SITE_RECEIPTS, { orderPages: true }) }
         const name = (row.name ?? "").trim()
         return { customer: { name, first_name: name.split(/\s+/)[0] ?? "", email: row.email, orders: [], orders_count: 0 } }
       }
