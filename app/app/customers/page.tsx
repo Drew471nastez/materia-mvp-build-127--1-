@@ -12,7 +12,7 @@ import { getServerTt } from "@/lib/i18n/server"
 import { LOCALE_TAG } from "@/lib/i18n/text"
 import { accountTimeZone } from "@/lib/account/time-zone"
 import { orderCurrency } from "@/lib/orders/money"
-import { minorUnits } from "@/lib/markets/money"
+import { formatMinor } from "@/lib/markets/money"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -71,9 +71,8 @@ export default async function CustomersPage() {
 
   /* In what the order was charged in, and a total in the platform's charge currency, every checkout's (lib/orders/money). */
   const formatPrice = (cents: number, currency?: unknown) => {
-    const code = orderCurrency(currency)
-    const decimals = minorUnits(code)
-    return new Intl.NumberFormat(locale, { style: "currency", currency: code, minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(cents / 10 ** decimals)
+    /* "25.00 lei" as Orders writes it (lib/markets/money formatMinor), never "RON 25.00". */
+    return formatMinor(cents, orderCurrency(currency), locale)
   }
 
   /* The day in the zone chosen in Settings, as the rest of /app shows it; the server's own clock is UTC. */

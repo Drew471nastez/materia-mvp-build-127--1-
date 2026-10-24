@@ -14,6 +14,14 @@
  */
 import { FULFILLMENT_LABEL, PAYMENT_LABEL, SOURCE_LABEL, type Order } from "./order-view"
 import { sourceDetailText } from "./order-source"
+import { orderCurrency } from "./money"
+import { minorUnits } from "@/lib/markets/money"
+
+/** Minor units as a plain number in the currency's own decimals: 1000 USD is "10.00", 2500 JPY is "2500". */
+function units(minor: number, currency: string | null | undefined): string {
+  const d = minorUnits(orderCurrency(currency))
+  return ((Number.isFinite(minor) ? minor : 0) / 10 ** d).toFixed(d)
+}
 
 export type ExportFormat = "spreadsheet" | "plain"
 
@@ -39,6 +47,7 @@ export const CSV_HEADER = [
   "Products",
   "Total",
   "Refunded",
+  "Currency",
   "Payment status",
   "Fulfillment status",
   "Delivery status",
@@ -65,8 +74,10 @@ export function ordersCsv(orders: Order[], timeZone: string, format: ExportForma
       sourceDetailText(o.source, o.sourceDetail ?? null),
       o.itemCount,
       o.lines.map((l) => l.product?.title || "").join("; "),
-      (o.totalCents / 100).toFixed(2),
-      (o.refundedCents / 100).toFixed(2),
+      /* In the order's own currency and its own decimals (¥2500 is "2500", never "25.00"), named in the next column, as Shopify's export does: a sheet of lei and euro orders never reads as one currency. */
+      units(o.totalCents, o.currency),
+      units(o.refundedCents, o.currency),
+      orderCurrency(o.currency),
       PAYMENT_LABEL[o.payment],
       FULFILLMENT_LABEL[o.fulfillment],
       o.delivery === "delivered" ? "Delivered" : o.delivery === "failed" ? "Not delivered" : "",

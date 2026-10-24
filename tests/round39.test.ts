@@ -154,8 +154,9 @@ async function files() {
       { bucket: "store-builder-images", path: PHOTO },
       { bucket: "store-builder-images", path: UNUSED },
     ])
-    check("before part 280: the used one stays in Files and in storage", out.ok === true && out.kept.length === 1 && out.kept[0].id === `store-builder-images:${PHOTO}` && !db.removed.some((r) => r.paths.includes(PHOTO)), out)
-    check("  the unused one is still removed (the catch-all not trusted yet: alt text counts there)", out.ok === true && out.deleted.length === 1 && db.rpcCalls.length === 0, { out, rpc: db.rpcCalls })
+    check("before part 280: the used one stays in Files and in storage", out.ok === true && out.kept.some((k) => k.id === `store-builder-images:${PHOTO}` && k.uses[0]?.label === "Black Sleeves") && !db.removed.some((r) => r.paths.includes(PHOTO)), out)
+    /* Changed on purpose (AA3): the catch-all is asked before part 280 too, so a picture only a lesson or an email shows is never removed; its yes keeps the file. */
+    check("  the one no row names is asked about too, and the catch-all's yes keeps it", out.ok === true && out.deleted.length === 0 && out.kept.length === 2 && db.rpcCalls.length === 1 && !db.removed.length, { out, rpc: db.rpcCalls })
     check("  nothing is written to a column that is not there", !db.writes.some((w) => w.op === "upsert"))
     const note = out.ok === true ? keptMessage(out.kept) : null
     check("  the note names the place and part 280", !!note && /Black Sleeves/.test(note) && /part 280/.test(note) && !note.includes("—"), note)
@@ -188,7 +189,7 @@ async function files() {
     const route = raw("app/api/files/route.ts")
     check("the route deletes through removeFromFiles, one or several, and lists without the hidden", /removeFromFiles\(c\.db, \{ userId: c\.userId, creatorId: c\.creatorId \}, list\)/.test(route) && /details\.hidden\.has\(f\.id\)/.test(route) && !/deleteLibraryFiles?\(/.test(route))
     const lib = raw("components/files/files-library.tsx")
-    check("Files says what stays: in use, Remove from Files, kept where it shows", /tt\("Remove from Files"\)/.test(lib) && /tt\("Removed from Files\. It stays where it's used\."\)/.test(lib) && /tt\("It leaves Files and stays in those places\."\)/.test(lib))
+    check("Files says what stays: in use, Remove from Files, kept where it shows", /tt\("Remove from Files"\)/.test(lib) && /hiddenNote\(keptThere\.uses,/.test(lib) && /tt\("It leaves Files and stays in those places\."\)/.test(lib))
     check("  and no longer that those places will show nothing", !/will show nothing/.test(lib))
   }
 

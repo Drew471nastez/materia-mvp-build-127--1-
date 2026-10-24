@@ -1,4 +1,5 @@
 import { sendPushToUser } from "./sender"
+import { formatMinor } from "@/lib/markets/money"
 
 /**
  * Push notification builders for Storelib seller events.
@@ -10,11 +11,12 @@ function moneyText(minor: number, currency: string | null | undefined): string {
   const code = typeof currency === "string" && /^[a-z]{3}$/i.test(currency.trim()) ? currency.trim().toUpperCase() : null
   if (!code || !Number.isFinite(minor)) return ""
   try {
-    const digits = new Intl.NumberFormat("en", { style: "currency", currency: code }).resolvedOptions().maximumFractionDigits ?? 2
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(minor / 10 ** digits)
+    new Intl.NumberFormat("en", { style: "currency", currency: code })
   } catch {
     return ""
   }
+  /* "25.00 lei", as Orders writes the same sale (lib/markets/money formatMinor). */
+  return formatMinor(minor, code, "en-US")
 }
 
 // ── Sale ─────────────────────────────────────────────────────────────────────

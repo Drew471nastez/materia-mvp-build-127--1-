@@ -26,6 +26,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import type { ExplainerId } from "@/lib/settings/explainers"
 import { useMoneyMark, useStoreCurrency } from "@/lib/store/currency-context"
 import { SHOP_CURRENCY, shopMoney, shopMoneyIn } from "@/lib/store/shop-money"
+import { currencyCode, formatMinor } from "@/lib/markets/money"
 import { countTyped, decimalTyped, moneyTyped } from "@/lib/physical/typed-values"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
@@ -272,11 +273,8 @@ export function useShopMoney(): (cents: number) => string {
 
 /** An amount in `currency`: an order's own, or the platform's when none is given. In a store's settings use useShopMoney. */
 export function money(cents: number, currency = SHOP_CURRENCY): string {
-  try {
-    return new Intl.NumberFormat(appLocale(), { style: "currency", currency: currency.toUpperCase() }).format(cents / 100)
-  } catch {
-    return shopMoney(cents)
-  }
+  /* The currency's own decimals and word ("25.00 lei", "¥2,500"), as Orders writes the same amount. */
+  return currencyCode(currency) ? formatMinor(cents, currencyCode(currency) as string, appLocale()) : shopMoney(cents)
 }
 
 export function NumberInput({ value, onChange, className, allowNegative = false, compact, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void; allowNegative?: boolean; compact?: boolean }) {

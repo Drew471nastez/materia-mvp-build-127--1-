@@ -172,8 +172,8 @@ export interface SiteRequest {
   referer?: string
   /** Who is visiting, from the website's own session cookie (the route reads it; lib/site-accounts/session.ts). */
   account?: SiteAccount
-  /** What the signed in visitor already owns of a product (lib/site-accounts/owned-products): its page says so (owned-banner.ts). */
-  owned?: (productId: string) => Promise<{ whole: boolean; options: string[] } | null>
+  /** What the visitor already owns of a product: signed in (lib/site-accounts/owned-products), or bought as a guest in this browser (lib/receipts/guest-access.ts, with `href` its receipt). Its page says so (owned-banner.ts). */
+  owned?: (productId: string) => Promise<{ whole: boolean; options: string[]; href?: string } | null>
   /**
    * Sends a contact message or a newsletter sign up through Storelib's own
    * endpoints, which carry the spam checks and the rate limits (the route
@@ -849,11 +849,11 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const route = at("product", { product: card, selectedVariantId, selectedValues, title: seoTitle ?? String(card.settings.title ?? ""), reviews }, undefined, seoTitle)
     /* Storelib Reviews on, with "Add to product pages": the theme's stars under the title and the reviews under the product, on a page that has none (./storelib-reviews.ts). */
     if (route && reviews && reviews.enabled === true && reviews.product_page === true) route.sections = withProductPageReviews(route.sections, site.theme)
-    /* Signed in and already theirs: said at the foot of the page, with the way to the downloads. */
-    const owned = route && req.account?.customer && req.owned ? await req.owned(card.id).catch(() => null) : null
+    /* Already theirs (signed in, or bought as a guest in this browser): said at the foot of the page, with the way to the downloads. The route only passes `owned` for one of the two. */
+    const owned = route && req.owned ? await req.owned(card.id).catch(() => null) : null
     if (route && owned) {
       const first = (productObject(card).selected_or_first_available_variant as O | null)?.id
-      route.bodyEnd = ownedBanner(owned, selectedVariantId ?? (typeof first === "string" ? first : null))
+      route.bodyEnd = ownedBanner(owned, selectedVariantId ?? (typeof first === "string" ? first : null), owned.href)
     }
     return route
   }

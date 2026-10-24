@@ -30,16 +30,18 @@ import "server-only"
  * catch-all that answered with an error, keeps the file (hidden), never
  * removes it.
  *
- * BEFORE PART 280 there is no hidden_at to write and the catch-all still
- * counts a file's own alt text as a use, so only the named rows decide: a
- * file they name is kept and stays in Files, and the answer says which and
- * that part 280 lets Files hide them. Nothing in use is ever removed.
+ * BEFORE PART 280 there is no hidden_at to write: a file in use is kept and
+ * stays in Files, and the answer says which and that part 280 lets Files
+ * hide them. The catch-all is still asked (it then also counts a file's own
+ * alt text as a use, which keeps a few files that could have gone, never
+ * the other way). Nothing in use is ever removed.
  *
  * The daily cleanup (lib/storage/cleanup.ts) asks the same catch-all before
  * it removes a product photo, so a hidden file that something shows is never
  * swept; one nothing shows any more is, like any other.
  */
 import { MAX_DELETE_AT_ONCE, deleteLibraryFiles, ownsFile, type LibraryBucket } from "./library"
+import { usedByPhrase } from "./kept-words"
 import { ELSEWHERE, hiddenColumnReady, loadUseSources, referencedAnywhere, usesIn, type FileUse } from "./usage-server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -93,15 +95,19 @@ export async function removeFromFiles(admin: Admin, owner: Owner, list: unknown)
     if (uses.length || src.doubt) inUse.set(f.id, uses)
     else free.push(f)
   }
-  /* What no row names by place: the catch-all, once part 280 makes its answer mean "used". */
+  /*
+    What no row names by place: the catch-all. Asked before part 280 too
+    (AA3): a picture in a course lesson, an email or a community post is
+    named by no row above, and removing it would leave that place blank.
+    Before 280 the catch-all also counts a file's own alt text as a use, so
+    a file with alt text is kept rather than removed: on a doubt, keep.
+  */
   const clear: typeof files = []
-  if (ready) {
-    await eachLimited(free, async (f) => {
-      const anywhere = await referencedAnywhere(admin, f.bucket, f.path)
-      if (anywhere === true) inUse.set(f.id, [ELSEWHERE])
-      else clear.push(f)
-    })
-  } else clear.push(...free)
+  await eachLimited(free, async (f) => {
+    const anywhere = await referencedAnywhere(admin, f.bucket, f.path)
+    if (anywhere === true) inUse.set(f.id, [ELSEWHERE])
+    else clear.push(f)
+  })
 
   const deleted: string[] = []
   if (clear.length) {
@@ -133,9 +139,9 @@ export async function removeFromFiles(admin: Admin, owner: Owner, list: unknown)
 /** What Files says about the ones it kept and could not hide: where they show, in a few words. */
 export function keptMessage(kept: KeptFile[]): string | null {
   if (!kept.length) return null
-  const places = [...new Set(kept.flatMap((k) => k.uses.map((u) => u.label)))]
-  if (!places.length) return kept.length === 1 ? "This file could not be checked right now, so it stays. Try again in a moment." : `${kept.length} files could not be checked right now, so they stay. Try again in a moment.`
-  const named = places.slice(0, 3).join(", ") + (places.length > 3 ? ` and ${places.length - 3} more` : "")
+  const uses = kept.flatMap((k) => k.uses)
+  if (!uses.length) return kept.length === 1 ? "This file could not be checked right now, so it stays. Try again in a moment." : `${kept.length} files could not be checked right now, so they stay. Try again in a moment.`
+  const by = usedByPhrase(uses)
   const what = kept.length === 1 ? "This file is still used" : `${kept.length} files are still used`
-  return `${what}${named ? ` on ${named}` : ""}, so ${kept.length === 1 ? "it stays" : "they stay"}. Run SQL part 280 in Supabase so Files can hide ${kept.length === 1 ? "it" : "them"} and keep ${kept.length === 1 ? "it" : "them"} there.`
+  return `${what}${by ? ` by ${by}` : ""}, so ${kept.length === 1 ? "it stays" : "they stay"}. Run SQL part 280 in Supabase so Files can hide ${kept.length === 1 ? "it" : "them"} and keep ${kept.length === 1 ? "it" : "them"} there.`
 }

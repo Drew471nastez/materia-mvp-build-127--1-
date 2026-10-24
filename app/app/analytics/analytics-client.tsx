@@ -70,7 +70,7 @@ import { LoadingLine } from "@/components/app/loading-line"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
-import { formatCurrency } from "@/lib/markets/money"
+import { formatMinor } from "@/lib/markets/money"
 
 /* The four figures that always show, in order. A seller can add more (./add-reports). "views" is the Visitors tab. */
 const CORE_TABS = ["views", "revenue", "orders", "conversion"] as const
@@ -478,7 +478,8 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
     time anything on this page changed.
   */
   /* In the store's own currency (Settings › Languages & Currency), as its prices and orders are: a store in lei reads lei, never dollars. */
-  const formatPrice = useCallback((cents: number) => formatCurrency(cents / 100, storeCurrency, appLocale()), [storeCurrency])
+  /* Minor units in the store's own decimals: a yen store's ¥2,500 is 2500, never ¥25. */
+  const formatPrice = useCallback((cents: number) => formatMinor(cents, storeCurrency, appLocale()), [storeCurrency])
   const formatCompactNumber = (num: number) => {
     if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
     if (num >= 10_000) return `${Math.round(num / 1000)}k`

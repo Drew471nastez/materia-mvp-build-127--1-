@@ -97,6 +97,7 @@ import { ActionDropdownContent, ActionSheetRows, groupsOf, type ActionMenuItem }
 import { afterLayout } from "@/lib/ui/after-layout"
 import { VIDEO_ACCEPT, durationText } from "@/lib/media/video"
 import { isVideoFile, putObject, uploadVideo, videoRefusal } from "@/lib/files/upload-video"
+import { hiddenNote, manyNote } from "@/lib/files/kept-words"
 import { tt, msg } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
@@ -1105,7 +1106,7 @@ export function FilesLibrary({
       toast.error(r.data.note ?? tt("This file is still used, so it stays."))
       return
     }
-    const keptThere = !!r.data.hidden?.some((k) => k.id === f.id)
+    const keptThere = r.data.hidden?.find((k) => k.id === f.id) ?? null
     usage.delete(f.id)
     /* Deleted from the details view: the next file in the grid opens in its place, as a photo viewer does. */
     const at = shown.findIndex((x) => x.id === f.id)
@@ -1115,7 +1116,8 @@ export function FilesLibrary({
     setConfirming(null)
     if (after) setOpen(after)
     setOpen((o) => (o?.id === f.id ? null : o))
-    toast.success(keptThere ? tt("Removed from Files. It stays where it's used.") : tt("Deleted"))
+    /* Said plainly, with where it still shows: "Removed from Files. Still used by 3 products, so the picture stays." (lib/files/kept-words). */
+    toast.success(keptThere ? hiddenNote(keptThere.uses, isVideoFile({ name: f.name, type: f.type ?? "" }) ? "video" : "picture") : tt("Deleted"))
   }
 
   /* Several at once (Files, Select, Delete): the API takes up to MAX_DELETE_AT_ONCE (100) a request. */
@@ -1151,7 +1153,7 @@ export function FilesLibrary({
     if (notes.length) toast.error(notes[0])
     if (!done.size) return
     const said = done.size === 1 ? tt("Deleted") : tt("{size} files deleted", { size: done.size })
-    toast.success(keptThere ? `${said}. ${tt("{count, plural, one {# is still used, so it stays where it shows.} other {# are still used, so they stay where they show.}}", { count: keptThere })}` : said)
+    toast.success(keptThere ? manyNote(done.size - keptThere, keptThere) : said)
   }
 
   /* ── The swap ── */

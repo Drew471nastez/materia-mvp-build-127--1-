@@ -148,6 +148,7 @@ export function AccountHub({ identity, communities = false, children }: { identi
         signedIn
         isSelf
         usernameEditable={!identity.creator}
+        showCounts={!identity.creator}
         avatar={
           <AvatarLightbox src={shown} name={name}>
             <AccountAvatar
