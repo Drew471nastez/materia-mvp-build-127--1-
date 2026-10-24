@@ -5,9 +5,10 @@ import { HERO_BACKDROP } from "@/lib/marketing/hero-media"
 import { HERO_PHRASES } from "@/lib/marketing/hero-typing"
 
 /**
- * storelib.com's front page hero: a dark panel inset from the page, a dim
- * collage of Storelib pages behind it, the typed heading, one button and the
- * marketplace search, and the slider of Storelib screens along the bottom.
+ * storelib.com's front page hero: a dark rounded panel inset from the page
+ * under the header, a dim collage of demo Storelib stores behind it, the
+ * typed heading, the button and the marketplace search, and the slider of
+ * demo stores crossing the panel's bottom edge.
  *
  * A SERVER COMPONENT. The heading's first phrase, the subheading, the button
  * and the search form are in the HTML, so the largest text paint arrives with
@@ -16,12 +17,15 @@ import { HERO_PHRASES } from "@/lib/marketing/hero-typing"
  * label by who is signed in (hero-cta) and the slider (hero-carousel). Every
  * picture is listed in lib/marketing/hero-media.ts.
  *
- * ON A PHONE THE SLIDER LEAVES THE PANEL. The panel ends half way down the
- * slides and the slides run to the screen's edges, so the hero closes on the
- * pictures rather than on a strip of empty black, and the page below starts
- * right under them. From 640px the slider sits inside the panel, cut by it.
- * The panel itself does not clip: the collage has its own rounded clip, so
- * the slider can cross the panel's edge.
+ * THE SLIDER LEAVES THE PANEL at every width. The panel ends part way down
+ * the slides and the slides run to the page's edges, so the hero closes on
+ * the pictures rather than on a strip of empty black, and the page below
+ * starts right under them. The panel itself does not clip: the collage has
+ * its own rounded clip, so the slider can cross the panel's edge.
+ *
+ * ONE LOOK IN BOTH OF THE SITE'S LOOKS. data-own-look keeps the dark look
+ * (app/theme-dark.css) off the panel: it turns a near black fill into its
+ * graphite, which made the panel, the badge and the search a flat grey.
  *
  * THE ENTRANCE is CSS only, from the first paint: each part rises 10px, 40ms
  * after the one above it, 560ms for all of it. The badge, the subheading and
@@ -36,7 +40,7 @@ const HERO_CSS = `
   --hc-h: calc(var(--hc-w) / 1.6);
   --hc-overlap: calc(var(--hc-h) * 0.46);
 }
-@media (min-width: 640px) { [data-home-hero] { --hc-w: min(56vw, 560px); --hc-overlap: 0px; } }
+@media (min-width: 640px) { [data-home-hero] { --hc-w: min(56vw, 560px); --hc-overlap: calc(var(--hc-h) * 0.5); } }
 @media (min-width: 1024px) { [data-home-hero] { --hc-w: min(50vw, 680px); } }
 .hero-stage {
   height: calc(var(--hc-w) / var(--hc-ratio));
@@ -54,12 +58,20 @@ const HERO_CSS = `
   border-radius: 12px;
   overflow: hidden;
   background: #eceef1;
-  box-shadow: 0 0 0 1px rgba(15, 15, 25, 0.08), 0 16px 34px -14px rgba(15, 15, 30, 0.45);
+  box-shadow: 0 0 0 1px rgba(15, 15, 25, 0.08), 0 22px 44px -18px rgba(10, 10, 22, 0.5);
   will-change: transform, opacity;
   backface-visibility: hidden;
 }
-@media (min-width: 640px) {
-  .hero-slide { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 18px 40px -16px rgba(0, 0, 0, 0.6); }
+/* A slide away from the centre is dimmer: this layer's opacity, set by the
+   slider from the same position as the slide's pose, so a slide brightens as
+   it arrives in the centre. Its own layer, so a frame only composites. */
+.hero-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #08080b;
+  pointer-events: none;
+  will-change: opacity;
 }
 .hero-shimmer::after {
   content: "";
@@ -102,20 +114,26 @@ const HERO_CSS = `
 
 const enter = (i: number, rise = false) => ({ "data-hero-enter": rise ? "rise" : "", style: { ["--enter" as string]: i } })
 
+/* Both controls: one height, the header buttons' corner (rounded-action), a solid surface each. Full width and stacked on a phone, side by side from 640px. */
+const CONTROL = "h-[52px] w-full rounded-action text-[16px] sm:h-12 sm:text-[15px]"
+
 export function Hero() {
   return (
-    <section data-home-hero="" className="px-2 pt-2 sm:px-3 sm:pt-3" style={{ paddingBottom: "var(--hc-overlap)" }}>
+    <section data-home-hero="" data-own-look="" className="px-2.5 pt-2.5 sm:px-4 sm:pt-3 lg:px-5" style={{ paddingBottom: "var(--hc-overlap)" }}>
       <style dangerouslySetInnerHTML={{ __html: HERO_CSS }} />
-      <div data-hero-panel="" className="relative isolate flow-root rounded-[24px] bg-[#0e0e10] sm:rounded-[32px]">
+      <div
+        data-hero-panel=""
+        className="relative isolate flow-root rounded-[26px] bg-[#0e0e10] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06),0_1px_2px_rgba(10,10,20,0.18),0_28px_64px_-30px_rgba(10,10,24,0.55)] sm:rounded-[36px]"
+      >
         <Backdrop />
 
-        <div className="relative z-10 mx-auto flex max-w-[860px] flex-col items-center px-5 pt-8 text-center sm:pt-12 lg:pt-14">
-          <p data-hero-badge="" {...enter(0)} className="inline-flex h-[26px] items-center gap-2 rounded-[9px] border border-white/[0.09] bg-[#1a1a1f] px-2.5 text-[12px] font-medium leading-none text-white/[0.86] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.5),0_6px_16px_-8px_rgba(0,0,0,0.7)]">
-            <span aria-hidden className="size-[6px] rounded-full bg-[#8b5cf6] shadow-[0_0_0_3px_rgba(139,92,246,0.18)]" />
-            Built for creators
+        <div className="relative z-10 mx-auto flex max-w-[860px] flex-col items-center px-4 pt-8 text-center sm:px-5 sm:pt-14 lg:pt-16">
+          <p data-hero-badge="" {...enter(0)} className="inline-flex h-[30px] items-center gap-2 rounded-full border border-white/[0.1] bg-[#18181d] px-3.5 text-[12.5px] font-medium leading-none text-white/[0.88] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_1px_2px_rgba(0,0,0,0.55),0_8px_20px_-8px_rgba(0,0,0,0.8)]">
+            <span aria-hidden className="size-[6px] rounded-full bg-[#8b5cf6] shadow-[0_0_0_3px_rgba(139,92,246,0.2)]" />
+            Stores, courses, communities
           </p>
 
-          <h1 {...enter(1, true)} aria-label={HERO_PHRASES[0].replace(/\.$/, "")} className="mt-4 text-[32px] font-bold leading-[1.1] tracking-[-0.025em] text-white sm:mt-5 sm:text-[48px] lg:text-[60px]">
+          <h1 {...enter(1, true)} aria-label={HERO_PHRASES[0].replace(/\.$/, "")} className="mt-4 text-[length:min(30px,7.6vw)] font-bold leading-[1.1] tracking-[-0.025em] text-white sm:mt-5 sm:text-[48px] lg:text-[60px]">
             <HeroTypedHeading className="mx-auto max-w-[12.5em]" />
           </h1>
 
@@ -123,32 +141,36 @@ export function Hero() {
             The #1 e-commerce platform for creators & entrepreneurs. Sell products, manage links & grow an audience.
           </p>
 
-          <div data-hero-actions="" {...enter(3)} className="mt-6 flex flex-wrap items-center justify-center gap-2.5 sm:mt-8 sm:gap-3">
-            <HeroCta className="inline-flex h-11 min-w-[176px] items-center justify-center gap-2 rounded-action bg-[#7c3aed] px-5 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.4)] transition-colors hover:bg-[#6d28d9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:h-12 sm:px-6" />
-            <form action="/explore" method="get" role="search" className="relative w-[272px] sm:w-[260px]">
-              <input
-                type="search"
-                name="q"
-                aria-label="Search marketplace"
-                placeholder="Search marketplace ..."
-                autoComplete="off"
-                enterKeyHint="search"
-                className="h-11 w-full rounded-action border border-[#2e2e36] bg-[#19191e] pl-4 pr-12 text-[15px] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.45)] outline-none transition-colors placeholder:text-[#a1a1ad] hover:border-[#3a3a44] focus:border-[#8b5cf6] sm:h-12 [&::-webkit-search-cancel-button]:hidden"
-              />
-              <button type="submit" aria-label="Search" className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[#c4c4cc] hover:text-white">
-                <svg aria-hidden width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-3.5-3.5" />
-                </svg>
-              </button>
-            </form>
+          <div data-hero-actions="" {...enter(3)} className="mt-6 flex w-full max-w-[400px] flex-col items-center sm:mt-8 sm:max-w-none">
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+              <HeroCta className={`${CONTROL} inline-flex items-center justify-center gap-2 bg-[#7c3aed] px-5 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(0,0,0,0.4)] transition-colors hover:bg-[#6d28d9] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto sm:min-w-[176px] sm:px-6`} />
+              <form action="/explore" method="get" role="search" className="relative w-full sm:w-[260px]">
+                <input
+                  type="search"
+                  name="q"
+                  aria-label="Search marketplace"
+                  placeholder="Search marketplace ..."
+                  autoComplete="off"
+                  enterKeyHint="search"
+                  className={`${CONTROL} block border border-[#2c2c34] bg-[#1c1c22] pl-4 pr-12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.45)] outline-none transition-colors placeholder:text-[#a1a1ad] hover:border-[#3a3a44] focus:border-[#8b5cf6] [&::-webkit-search-cancel-button]:hidden`}
+                />
+                <button type="submit" aria-label="Search" className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-[#c4c4cc] hover:text-white">
+                  <svg aria-hidden width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                </button>
+              </form>
+            </div>
+            {/* True of the Free plan (lib/billing/plans.ts): signing up and selling on it takes no card. */}
+            <p data-hero-note="" className="mt-4 text-[13px] text-white/[0.62] sm:text-[13.5px]">Free to start. No card needed.</p>
           </div>
         </div>
 
         <div
           data-hero-slider=""
           data-hero-enter="rise"
-          className="relative z-10 mt-9 max-sm:-mx-2 max-sm:[overflow-x:clip] sm:mt-12 sm:overflow-hidden sm:rounded-b-[32px] sm:pb-12 sm:pt-2 lg:mt-14"
+          className="relative z-10 -mx-2.5 mt-9 [overflow-x:clip] sm:-mx-4 sm:mt-12 lg:-mx-5 lg:mt-14"
           style={{ ["--enter" as string]: 4, marginBottom: "calc(var(--hc-overlap) * -1)" }}
         >
           <HeroCarousel />
@@ -159,17 +181,18 @@ export function Hero() {
 }
 
 /**
- * Storelib's own pages behind the heading, tilted and dimmed, each tile with
- * a hairline and a soft drop so the collage has some depth. Decoration:
- * hidden from screen readers. Hung from the panel's top, not centred on it:
- * centred, it moved whenever the panel's height did (the web font arriving),
- * and one production load measured a layout shift of 0.58 from this grid.
- * The tiles are small WebP files served as they are (a few KB each, the same
- * ten repeated), lazy and low priority, so they never compete with the text.
+ * Demo Storelib stores behind the heading, tilted and dimmed well down (the
+ * owner, round AC1: 40% darker again), each tile with a hairline and a soft
+ * drop so the collage has some depth. Decoration: hidden from screen
+ * readers. Hung from the panel's top, not centred on it: centred, it moved
+ * whenever the panel's height did (the web font arriving), and one
+ * production load measured a layout shift of 0.58 from this grid. The tiles
+ * are small WebP files served as they are (a few KB each, repeated), lazy
+ * and low priority, so they never compete with the text.
  */
 function Backdrop() {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
+    <div aria-hidden data-hero-backdrop="" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden rounded-[inherit]">
       <div className="absolute left-1/2 -top-36 grid w-[220%] -translate-x-1/2 rotate-[-10deg] grid-cols-6 gap-3 sm:w-[130%] sm:grid-cols-8 sm:gap-4">
         {HERO_BACKDROP.map((tile, i) => (
           <div key={i} className="relative aspect-[4/5] overflow-hidden rounded-[10px] bg-[#1d1d22] shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_14px_30px_-12px_rgba(0,0,0,0.9)]">
@@ -180,7 +203,7 @@ function Backdrop() {
           </div>
         ))}
       </div>
-      <div className="absolute inset-0 bg-[#0e0e10]/[0.85]" />
+      <div className="absolute inset-0 bg-[#0e0e10]/[0.91]" />
     </div>
   )
 }

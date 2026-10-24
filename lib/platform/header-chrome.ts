@@ -104,5 +104,10 @@ export function headerChrome(light: boolean): HeaderChrome {
  */
 export function hasConcaveEdge(pathname: string): boolean {
   if (pathname === "/faq") return false
-  return pathname === "/" || pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing") || pathname === "/developers" || pathname.startsWith("/developers/")
+  /*
+    Not on the front page (round AC1): its hero is a rounded panel of its own,
+    inset under the header, and the owner asked for less room between the
+    two. The edge was 20px of it.
+  */
+  return pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing") || pathname === "/developers" || pathname.startsWith("/developers/")
 }

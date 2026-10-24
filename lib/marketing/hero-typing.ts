@@ -13,16 +13,25 @@
  */
 
 /**
- * Each fits in two lines in the hero at 390px, so the heading's height,
- * which is the tallest phrase's, never leaves a blank line under a short one.
- * scripts/check-home-hero.mjs measures that in Chromium with Inter.
+ * Each takes exactly two lines in the hero at 390px and at 1280px, so the
+ * heading's height, which is the tallest phrase's, never leaves a blank line
+ * under a short one. scripts/check-home-hero.mjs measures that in Chromium
+ * with Inter.
+ *
+ * A "\n" is where a phrase breaks: "Build your online store." is narrower
+ * than one line at every width the first phrase still needs two lines at,
+ * so it says where its second line starts. The heading draws it with
+ * white-space: pre-line; the typing counts it as a space.
  */
 export const HERO_PHRASES = [
-  "Build a business around your work.",
-  "Sell digital products from your store.",
+  "Build a business around what you create.",
+  "Build your\nonline store.",
   "Your links and products on one page.",
   "Run a community for your audience.",
 ]
+
+/** A phrase as words on one line: what a screen reader or a test compares. */
+export const phraseText = (phrase: string) => phrase.replace(/\s+/g, " ")
 
 /** A letter's gap: the base, a little either way, more after a space or a stop. */
 export const TYPE_MS = 54
@@ -74,7 +83,7 @@ export function phraseTimeline(phrase: string, index: number): PhraseTimeline {
     drift = drift * 0.6 + (rand() * 2 - 1) * 0.4
     let gap = TYPE_MS + drift * TYPE_SPREAD_MS
     const ch = phrase[i]
-    if (ch === " ") gap += SPACE_EXTRA_MS
+    if (ch === " " || ch === "\n") gap += SPACE_EXTRA_MS
     if (ch === "," || ch === ".") gap += STOP_EXTRA_MS
     t += gap
   }
@@ -115,7 +124,7 @@ export function restTime(phrase: string, tl: PhraseTimeline, t: number): number 
   if (t >= tl.outStart) return Math.max(t, tl.end - EMPTY_MS)
   if (t >= tl.typed) return t
   for (let j = lettersStarted(tl, t); j < phrase.length; j++) {
-    if (j === 0 || phrase[j - 1] === " ") return Math.max(t, tl.reveal[j] - 0.01)
+    if (j === 0 || phrase[j - 1] === " " || phrase[j - 1] === "\n") return Math.max(t, tl.reveal[j] - 0.01)
   }
   /* In the last word: it is finished, and the phrase holds. */
   return tl.typed

@@ -3,27 +3,33 @@
  *  THE FRONT PAGE HERO'S PICTURES, TAKEN FROM STORELIB'S OWN SCREENS
  * ===========================================================================
  * Every picture in public/marketing/hero/ is a real Storelib screen drawn by
- * Chromium from the real components, with made up content: one invented
- * creator (Juniper Studio), invented products, and product pictures this
- * script draws itself. No real creator's name, page or photo is used.
+ * Chromium from the real components, as five demo stores, each on Storelib's
+ * real theme with its own theme settings (scripts/render-hero-shots.tsx):
+ *
+ *   watch       Maison Verlaine, a watch atelier: a product page
+ *   pet         Marrow & Oat, dog food: the front page
+ *   meal        Fennel & Fig, meal kits: the front page
+ *   presets     Halcyon, Lightroom presets: the front page, a dark theme
+ *   course      Wheel & Kiln, a pottery course: the landing page
+ *   onepage     Studio Arlo's link in bio in three OnePage themes
+ *   editor      the website builder with Fennel & Fig open (scripts/render-editor-probe.tsx,
+ *               through scripts/editor-probe-harness.mjs)
+ *   dashboard   Marrow & Oat's /app home with a demo week (1,284 visitors, 46 orders, $3,420)
+ *
+ * The brands, products and figures are made up. The product pictures are
+ * drawn by scripts/hero-demo-art.mjs; the theme fonts are Google fonts (OFL),
+ * fetched once by scripts/hero-fonts.mjs. No real creator's name, page or
+ * photo is used.
  *
  *   slide-*.webp   the slider, 1200 x 750 (16:10), from a 1280 x 800 window at 1.5x
  *   tile-*.webp    the dim backdrop, 360 x 450 (4:5), mostly phone screens at 2x
- *
- * The screens (scripts/render-hero-shots.tsx unless named):
- *   store       a website on the default theme (header, hero, product grid, footer)
- *   product     its product page
- *   editor      the website builder with that website open (scripts/render-editor-probe.tsx,
- *               through scripts/editor-probe-harness.mjs, with the demo sections and products)
- *   dashboard   the /app home beside the sidebar
- *   creator     a creator page
- *   onepage     link in bio pages in a few OnePage themes
  *
  * Then lib/marketing/hero-media.ts lists them (by hand: the alt text is
  * written for each).
  *
  *   node scripts/hero-shots.mjs
  *   SHOTS_KEEP=<dir> node scripts/hero-shots.mjs     also keeps the full PNGs
+ *   HERO_FONTS=<dir>                                 where the font copies are kept (default node_modules/.cache)
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
@@ -33,6 +39,8 @@ import { extname, join, normalize } from "node:path"
 import puppeteer from "puppeteer-core"
 import sharp from "sharp"
 import { appCss, interFaces } from "./probe-css.mjs"
+import { DEMO_ART } from "./hero-demo-art.mjs"
+import { fontCache } from "./hero-fonts.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
@@ -43,33 +51,12 @@ if (keep) mkdirSync(keep, { recursive: true })
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const work = mkdtempSync(join(tmpdir(), "storelib-hero-shots-"))
 
-/* ── The demo pictures ─────────────────────────────────────────────────── */
+/* ── The demo pictures: drawn once the browser is up (below) ─────────────── */
 
 const demo = join(work, "demo")
 mkdirSync(demo, { recursive: true })
-const font = "Inter, sans-serif"
 const svg = (w, h, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`
-const grad = (id, a, b, x2 = 1, y2 = 1) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>`
-const frames = (y, tone) => [0, 1, 2].map((i) => `<rect x="${110 + i * 200}" y="${y}" width="180" height="230" rx="10" fill="${tone[i]}"/><rect x="${110 + i * 200}" y="${y + 190}" width="180" height="40" rx="0" fill="rgba(0,0,0,0.12)"/>`).join("")
-const DEMO = {
-  presets: svg(800, 800, `${grad("g", "#f4a261", "#c8553d")}<rect width="800" height="800" fill="url(#g)"/>${frames(250, ["#f7d6a8", "#e9b48a", "#f2c49b"])}<text x="110" y="170" font-family="${font}" font-weight="800" font-size="64" fill="#2b1810">Film Presets</text><text x="110" y="600" font-family="${font}" font-weight="600" font-size="34" fill="#2b1810" opacity="0.8">Vol. 2  ·  12 presets</text>`),
-  "presets-2": svg(800, 800, `${grad("g", "#e9c46a", "#e76f51", 0, 1)}<rect width="800" height="800" fill="url(#g)"/><circle cx="400" cy="380" r="200" fill="#fff3e0" opacity="0.55"/><rect x="200" y="560" width="400" height="18" rx="9" fill="#2b1810" opacity="0.5"/><rect x="250" y="600" width="300" height="18" rx="9" fill="#2b1810" opacity="0.3"/>`),
-  "presets-3": svg(800, 800, `${grad("g", "#264653", "#2a9d8f")}<rect width="800" height="800" fill="url(#g)"/>${frames(280, ["#e9c46a", "#f4a261", "#e76f51"])}`),
-  planner: svg(800, 800, `<rect width="800" height="800" fill="#f3efe6"/>${Array.from({ length: 7 }, (_, i) => `<rect x="${90 + (i % 4) * 160}" y="${250 + Math.floor(i / 4) * 230}" width="140" height="200" rx="12" fill="#fff" stroke="#d9d2c3" stroke-width="2"/><rect x="${106 + (i % 4) * 160}" y="${268 + Math.floor(i / 4) * 230}" width="70" height="12" rx="6" fill="#2f5d46"/>`).join("")}<text x="90" y="180" font-family="${font}" font-weight="800" font-size="60" fill="#2f5d46">Weekly Planner</text>`),
-  brushes: svg(800, 800, `<rect width="800" height="800" fill="#fbf7f2"/><circle cx="300" cy="330" r="170" fill="#8ecae6" opacity="0.55"/><circle cx="470" cy="300" r="150" fill="#ffb4a2" opacity="0.6"/><circle cx="420" cy="470" r="160" fill="#b5e48c" opacity="0.5"/><text x="400" y="700" text-anchor="middle" font-family="${font}" font-weight="800" font-size="56" fill="#3d405b">Watercolor Brushes</text>`),
-  ebook: svg(800, 800, `<rect width="800" height="800" fill="#e8ded2"/><rect x="230" y="110" width="340" height="500" rx="10" fill="#1d3557"/><rect x="230" y="110" width="22" height="500" fill="#14243d"/><circle cx="400" cy="330" r="80" fill="#f1faee" opacity="0.9"/><text x="410" y="490" text-anchor="middle" font-family="${font}" font-weight="800" font-size="38" fill="#f1faee">Sourdough</text><text x="410" y="535" text-anchor="middle" font-family="${font}" font-weight="500" font-size="28" fill="#a8dadc">at Home</text><rect x="250" y="640" width="300" height="16" rx="8" fill="#b9ad9f"/>`),
-  posters: svg(800, 800, `${grad("g", "#caf0f8", "#90e0ef", 0, 1)}<rect width="800" height="800" fill="url(#g)"/><polygon points="80,620 300,250 520,620" fill="#03045e"/><polygon points="300,620 520,300 740,620" fill="#0077b6"/><polygon points="250,330 300,250 350,330" fill="#fff"/><rect y="620" width="800" height="180" fill="#023e8a"/><text x="400" y="150" text-anchor="middle" font-family="${font}" font-weight="800" font-size="70" fill="#03045e" letter-spacing="8">ALPINE</text>`),
-  course: svg(800, 800, `${grad("g", "#22223b", "#4a4e69")}<rect width="800" height="800" fill="url(#g)"/><rect x="290" y="170" width="220" height="400" rx="34" fill="#f2e9e4"/><rect x="306" y="200" width="188" height="300" rx="16" fill="#c9ada7"/><polygon points="375,300 375,400 455,350" fill="#22223b"/><text x="400" y="680" text-anchor="middle" font-family="${font}" font-weight="800" font-size="52" fill="#f2e9e4">Mobile Editing</text>`),
-  avatar: svg(400, 400, `${grad("g", "#2f5d46", "#7fb685")}<rect width="400" height="400" fill="url(#g)"/><text x="200" y="262" text-anchor="middle" font-family="${font}" font-weight="800" font-size="190" fill="#f3efe6">J</text>`),
-  cover: svg(1500, 500, `${grad("g", "#e9e4d8", "#cfd8c4", 0, 1)}<rect width="1500" height="500" fill="url(#g)"/><path d="M0 330 Q 250 230 500 320 T 1000 300 T 1500 310 V500 H0Z" fill="#9db48a"/><path d="M0 400 Q 300 330 600 400 T 1200 380 T 1500 400 V500 H0Z" fill="#5f8a5a"/><circle cx="1180" cy="140" r="60" fill="#f6d39b"/>`),
-}
-for (const [name, body] of Object.entries(DEMO)) await sharp(Buffer.from(body)).png().toFile(join(demo, `${name}.png`))
-/* The website's hero picture: a few of the products laid out on a table. */
-{
-  const tiles = ["presets", "planner", "ebook", "posters"]
-  const comp = await Promise.all(tiles.map(async (t, i) => ({ input: await sharp(join(demo, `${t}.png`)).resize(380, 380).png().toBuffer(), left: [90, 520, 160, 600][i], top: [80, 120, 500, 540][i] })))
-  await sharp({ create: { width: 1100, height: 1000, channels: 3, background: "#e7e1d6" } }).composite(comp).png().toFile(join(demo, "hero.png"))
-}
+const fonts = fontCache(process.env.HERO_FONTS || join(root, "node_modules/.cache/storelib-hero-fonts"))
 
 /* ── The screens' bundle (stubs as scripts/onepage-probe-server.mjs has them) ── */
 
@@ -94,7 +81,10 @@ writeFileSync(join(stubs, "supabase.js"), `const result = { data: null, error: n
 const q = new Proxy(function () {}, { get: (_, k) => k === "then" ? (r) => r(result) : q, apply: () => q })
 export function isNativePlatform() { return false }
 export const capacitorStorage = {}
-export function createClient() { return { auth: { getUser: async () => ({ data: { user: { id: "demo-user" } } }), getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) }, from: () => q, rpc: () => q, storage: { from: () => q }, channel: () => ({ on() { return this }, subscribe() { return this }, unsubscribe() {} }), removeChannel() {} } }
+/* The dashboard's "live" pill reads the last five minutes of views: three demo visitors. */
+const live = { data: [{ visitor_id: "demo-a" }, { visitor_id: "demo-b" }, { visitor_id: "demo-c" }], error: null }
+const liveQ = new Proxy(function () {}, { get: (_, k) => k === "then" ? (r) => r(live) : liveQ, apply: () => liveQ })
+export function createClient() { return { auth: { getUser: async () => ({ data: { user: { id: "demo-user" } } }), getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) }, from: (t) => t === "analytics_events" ? liveQ : q, rpc: () => q, storage: { from: () => q }, channel: () => ({ on() { return this }, subscribe() { return this }, unsubscribe() {} }), removeChannel() {} } }
 `)
 /* The section compiler keys a cache on a hash; a browser has no node:crypto, so a plain one stands in. */
 writeFileSync(join(stubs, "crypto.js"), `export function createHash() { let a = ""; return { update(s) { a += String(s); return this }, digest() { let h = 0x811c9dc5; for (let i = 0; i < a.length; i++) { h ^= a.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0 } return h.toString(16).padStart(8, "0").repeat(4) } } }
@@ -147,20 +137,7 @@ const page = (script, globals = "") => `<!doctype html><html class="light"><head
   `<style>${faces}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}*{caret-color:transparent}::-webkit-scrollbar{display:none}</style>` +
   `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};${globals}</script><script src="${script}"></script></body></html>`
 
-/* The website the editor opens: the same sections and products as the store screen. */
-const pic = (name) => `/demo/${name}.png`
-const PRODUCT_CARDS = [["Film Presets Vol. 2", "$24.00", "presets"], ["Weekly Planner for Notion", "$12.00", "planner"], ["Watercolor Brush Set", "$18.00", "brushes"], ["Sourdough at Home", "$15.00", "ebook"], ["Alpine Poster Pack", "$29.00", "posters"], ["Mobile Editing Course", "$49.00", "course"]]
-  .map(([title, price, image], i) => ({ id: `10000000-0000-4000-8000-00000000000${i + 1}`, type: "product", settings: { title, price, compare_price: "", image: pic(image), url: "#", tag: "" } }))
-const EDITOR_PAGE = [
-  { id: "hdr", type: "header", settings: { logo_text: "Juniper Studio", header_sticky: false }, blocks: [{ id: "n1", type: "nav_link", settings: { label: "Shop", url: "/shop" } }, { id: "n2", type: "nav_link", settings: { label: "Presets", url: "/presets" } }, { id: "n3", type: "nav_link", settings: { label: "About", url: "/about" } }] },
-  { id: "hero", type: "hero_split", settings: { heading: "Presets and planners for slow, careful work", subheading: "Made in a small studio. Instant download, yours to keep.", image: pic("hero") }, blocks: [] },
-  { id: "grid", type: "product_grid", settings: { heading: "New in the shop" }, blocks: [] },
-  { id: "ftr", type: "footer", settings: { logo_text: "Juniper Studio", tagline: "Presets, planners and prints from a small studio." }, blocks: [] },
-]
-const editorGlobals = `window.PROBE_SHORT=false;window.PROBE_CARDS=${JSON.stringify(PRODUCT_CARDS)};window.PROBE_PAGES=${JSON.stringify({ home: EDITOR_PAGE })};`
-
 writeFileSync(join(work, "index.html"), page("/shots.js"))
-writeFileSync(join(work, "editor.html"), page("/editor-probe.js", editorGlobals))
 writeFileSync(join(work, "editor-probe.js"), readFileSync(editor.bundle))
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".png": "image/png", ".webp": "image/webp", ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".woff2": "font/woff2" }
@@ -192,17 +169,42 @@ const server = createServer((req, res) => {
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const base = `http://127.0.0.1:${server.address().port}`
 
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--font-render-hinting=none"] })
+
+/* ── The product pictures (scripts/hero-demo-art.mjs) ───────────────────── */
+{
+  const faces = fonts.inline(["Cormorant Garamond"])
+  const p = await browser.newPage()
+  for (const [name, draw] of Object.entries(DEMO_ART)) {
+    const { w, h, svg } = draw()
+    await p.setViewport({ width: w, height: h })
+    await p.setContent(`<!doctype html><html><head><style>${faces}html,body{margin:0}</style></head><body>${svg}</body></html>`)
+    await p.evaluate(() => document.fonts.ready)
+    const png = await p.screenshot({ type: "png" })
+    writeFileSync(join(demo, `${name}.png`), png)
+  }
+  await p.close()
+  console.log(`  drew ${Object.keys(DEMO_ART).length} product pictures`)
+}
+
 /* ── The photographs ───────────────────────────────────────────────────── */
 
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--font-render-hinting=none"] })
 const DESK = { width: 1280, height: 800, deviceScaleFactor: 1.5 }
 const PHONE = { width: 390, height: 488, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
 const errors = []
 
-async function take(name, path, viewport, { settle = 1600, scroll = 0, prepare = null } = {}) {
+async function open(path, viewport, { settle = 1600 } = {}) {
   const p = await browser.newPage()
-  p.on("pageerror", (e) => errors.push(`${name}: ${e.message}`))
-  p.on("console", (m) => { if (m.type() === "error") errors.push(`${name}: ${m.text().slice(0, 300)}`) })
+  p.on("pageerror", (e) => errors.push(`${path}: ${e.message}`))
+  p.on("console", (m) => { if (m.type() === "error") errors.push(`${path}: ${m.text().slice(0, 300)}`) })
+  /* The theme's Google fonts, answered from the local copy (scripts/hero-fonts.mjs). */
+  await p.setRequestInterception(true)
+  p.on("request", (r) => {
+    const answer = /^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(r.url()) ? fonts.answer(r.url()) : null
+    if (answer) return r.respond(answer)
+    if (/^https?:\/\/(?!127\.0\.0\.1)/.test(r.url())) return r.abort()
+    return r.continue()
+  })
   await p.emulateTimezone("America/New_York")
   await p.setExtraHTTPHeaders({ "accept-language": "en-US,en;q=0.9" })
   await p.evaluateOnNewDocument(() => { Object.defineProperty(navigator, "language", { get: () => "en-US" }); Object.defineProperty(navigator, "languages", { get: () => ["en-US", "en"] }) })
@@ -211,6 +213,11 @@ async function take(name, path, viewport, { settle = 1600, scroll = 0, prepare =
   await p.goto(`${base}${path}`, { waitUntil: "networkidle0", timeout: 60000 }).catch(() => {})
   await p.evaluate(() => document.fonts.ready)
   await wait(settle)
+  return p
+}
+
+async function take(name, path, viewport, { settle = 1600, scroll = 0, prepare = null } = {}) {
+  const p = await open(path, viewport, { settle })
   if (prepare) await p.evaluate(prepare)
   if (scroll) { await p.evaluate((y) => window.scrollTo(0, y), scroll); await wait(400) }
   /* Every picture on screen drawn before the photograph (a lazy one below the fold never loads; three seconds at most). */
@@ -218,6 +225,7 @@ async function take(name, path, viewport, { settle = 1600, scroll = 0, prepare =
     Promise.all([...document.images].filter((i) => i.getBoundingClientRect().top < innerHeight).map((i) => (i.complete ? null : new Promise((r) => { i.onload = i.onerror = r })))),
     new Promise((r) => setTimeout(r, 3000)),
   ]))
+  await p.evaluate(() => document.fonts.ready)
   console.log(`  took ${name}`)
   await wait(250)
   const png = await p.screenshot({ type: "png" })
@@ -240,26 +248,21 @@ async function tile(name, png, crop = null) {
   sizes.push([`tile-${name}.webp`, statSync(file).size])
 }
 
-/* The slides. */
-const store = await take("store", "/shot?shot=store", DESK)
-await slide("store", store)
-await slide("product", await take("product", "/shot?shot=product", DESK))
-await slide("creator", await take("creator", "/shot?shot=creator", DESK))
-await slide("dashboard", await take("dashboard", "/shot?shot=dashboard", DESK, { settle: 2500 }))
-/*
-  The builder names the website after the probe's install ("Probe store"):
-  the demo's name instead. And the assistant's prompt bar is left out of the
-  picture, so the slide shows the website and the panel beside it.
-*/
-const builder = await take("editor", "/website-builder/editor/probe-install", DESK, {
-  settle: 5000,
-  prepare: () => {
-    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
-    for (let n = walk.nextNode(); n; n = walk.nextNode()) if (n.nodeValue.includes("Probe store")) n.nodeValue = n.nodeValue.replace("Probe store", "Juniper Studio")
-    for (const dock of document.querySelectorAll("[data-ask-dock]")) dock.style.display = "none"
-  },
-})
-await slide("editor", builder)
+/* The website builder opens the meal kit's own page, in its own theme. */
+{
+  const p = await open("/shot?shot=meal", DESK, { settle: 300 })
+  const demoEditor = await p.evaluate(() => window.__demoEditor)
+  await p.close()
+  const editorGlobals = `window.PROBE_SHORT=false;window.PROBE_STORE_NAME="Fennel & Fig";window.PROBE_THEME_SETTINGS=${JSON.stringify(demoEditor.theme)};window.PROBE_CARDS=${JSON.stringify(demoEditor.items)};window.PROBE_PAGES=${JSON.stringify({ home: demoEditor.page })};`
+  writeFileSync(join(work, "editor.html"), page("/editor-probe.js", editorGlobals))
+}
+
+/* The slides, in the order the slider shows them. The first is the one in the centre when the page opens. */
+const shots = {}
+for (const name of ["watch", "pet", "meal", "presets", "course"]) {
+  shots[name] = await take(name, `/shot?shot=${name}`, DESK, { settle: 2200 })
+  await slide(name, shots[name])
+}
 
 /* Link in bio: three themes side by side, as phones on a quiet table. */
 const BIO_THEMES = ["default", "sunset", "ocean"]
@@ -269,27 +272,32 @@ for (const t of BIO_THEMES) bios.push(await take(`onepage-${t}`, `/shot?shot=one
   const w = 300, h = Math.round((300 * 760) / 390), r = 30
   const mask = Buffer.from(svg(w, h, `<rect width="${w}" height="${h}" rx="${r}" fill="#fff"/>`))
   const phones = await Promise.all(bios.map((b) => sharp(b).resize(w, h).composite([{ input: mask, blend: "dest-in" }]).png().toBuffer()))
-  const shadow = await sharp(Buffer.from(svg(w + 60, h + 60, `<defs><filter id="f"><feGaussianBlur stdDeviation="14"/></filter></defs><rect x="30" y="38" width="${w}" height="${h}" rx="${r}" fill="rgba(20,20,40,0.28)" filter="url(#f)"/>`))).png().toBuffer()
+  const shadow = await sharp(Buffer.from(svg(w + 60, h + 60, `<defs><filter id="f"><feGaussianBlur stdDeviation="14"/></filter></defs><rect x="30" y="38" width="${w}" height="${h}" rx="${r}" fill="rgba(40,30,20,0.3)" filter="url(#f)"/>`))).png().toBuffer()
   const top = Math.round((750 - h) / 2)
   const lefts = [600 - w / 2 - w - 44, 600 - w / 2, 600 + w / 2 + 44]
   const layers = lefts.flatMap((left, i) => [{ input: shadow, left: Math.round(left - 30), top: top - 30 }, { input: phones[i], left: Math.round(left), top }])
-  const png = await sharp({ create: { width: 1200, height: 750, channels: 3, background: "#eceef1" } }).composite(layers).png().toBuffer()
+  const png = await sharp({ create: { width: 1200, height: 750, channels: 3, background: "#ece4d8" } }).composite(layers).png().toBuffer()
   if (keep) writeFileSync(join(keep, "onepage-trio.png"), png)
   await slide("onepage", png)
 }
 
+/* The builder, the assistant's prompt bar left out so the slide shows the website and the panel beside it. */
+const builder = await take("editor", "/website-builder/editor/probe-install", DESK, {
+  settle: 5000,
+  prepare: () => { for (const dock of document.querySelectorAll("[data-ask-dock]")) dock.style.display = "none" },
+})
+await slide("editor", builder)
+shots.dashboard = await take("dashboard", "/shot?shot=dashboard", DESK, { settle: 3000 })
+await slide("dashboard", shots.dashboard)
+
 /* The backdrop tiles: phone screens, and a few corners of the computer ones. */
-await tile("store", await take("store-phone", "/shot?shot=store", PHONE))
-await tile("store-grid", await take("store-phone-grid", "/shot?shot=store", PHONE, { scroll: 760 }))
-await tile("product", await take("product-phone", "/shot?shot=product", PHONE))
-await tile("creator", await take("creator-phone", "/shot?shot=creator", PHONE))
-for (const t of ["default", "sunset", "ocean", "sage", "aurora", "riso"]) {
-  await tile(`onepage-${t}`, await take(`onepage-${t}-tile`, `/shot?shot=onepage&theme=${t}`, PHONE))
-}
+for (const name of ["watch", "pet", "meal", "presets", "course"]) await tile(name, await take(`${name}-phone`, `/shot?shot=${name}`, PHONE, { settle: 1800 }))
+await tile("pet-grid", await take("pet-phone-grid", "/shot?shot=pet", PHONE, { scroll: 820, settle: 1800 }))
+for (const t of ["default", "sunset", "ocean", "sage"]) await tile(`onepage-${t}`, await take(`onepage-${t}-tile`, `/shot?shot=onepage&theme=${t}`, PHONE))
+await tile("dashboard", await take("dashboard-phone", "/shot?shot=dashboard", PHONE, { settle: 3000 }))
 /* 1.5x pictures are 1920 x 1200: a 4:5 piece of each. */
-await tile("dashboard", await take("dashboard-phone", "/shot?shot=dashboard", PHONE, { settle: 2500 }))
 await tile("editor", builder, { left: 0, top: 0, width: 960, height: 1200 })
-await tile("store-desk", store, { left: 960, top: 0, width: 960, height: 1200 })
+await tile("watch-desk", shots.watch, { left: 960, top: 0, width: 960, height: 1200 })
 
 await browser.close()
 server.close()
