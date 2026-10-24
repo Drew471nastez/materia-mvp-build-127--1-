@@ -44,6 +44,7 @@ import { screenEdit, screenWrite } from "./safety"
 import { blockedBetween, chatGate, chatMemberState, chatPrefsFor, loadChatSettings } from "./chat-settings"
 import { chatMediaOf, checkChatMedia } from "./chat-media"
 import { directPushWanted } from "./chat-push"
+import { noteDirectMessage, readDirectNote } from "./direct-notify"
 import { replyPreviews } from "./chat"
 import { checkPostShare, postCardOf, sharedPostViews, withPost } from "./chat-post"
 
@@ -472,7 +473,8 @@ export async function markConversationRead(db: Db, conversation: ConversationRow
   if (!viewer.userId) return
   const column = conversation.user_a === viewer.userId ? "a_read_at" : "b_read_at"
   try {
-    await db.from("community_conversations").update({ [column]: nowIso() }).eq("id", conversation.id)
+    /* Round BC: its row in the bell is read with it, so a message seen in the conversation is not news there. */
+    await Promise.all([db.from("community_conversations").update({ [column]: nowIso() }).eq("id", conversation.id), readDirectNote(db, conversation.id, viewer.userId)])
   } catch (e) {
     console.error(`[communities] conversation read mark: ${reasonOf(e)}`)
   }
@@ -555,13 +557,17 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
     touchMember(db, community.id, viewer.userId),
   ])
   /*
-    The other person's phone, right away (after the response): lib/notifications/push-bridge.ts. A message has no bell row; the push is its notice.
+    The other person's phone, right away (after the response): lib/notifications/push-bridge.ts.
     Round 37: not while they muted the conversation or have it open (their read mark is fresh), and the words only when the admins show previews.
+    Round BC: and their bell, one row per conversation (./direct-notify.ts). While that row is unread and was raised a moment ago the
+    message only updates it and nothing is pushed; before part 283 there is no row and the push goes as it always did.
   */
   const senderId = viewer.userId
   const otherReadAt = conversation.user_a === other ? conversation.a_read_at : conversation.b_read_at
   const pushText = pushPreviewText(gate.settings.pushPreviews, body, stored)
   await pushSoon(async () => {
+    const bell = await noteDirectMessage(db, { communityId: community.id, communitySlug: community.slug, conversationId: conversation.id, senderId, recipientId: other, recipientReadAt: otherReadAt, preview: pushText })
+    if (bell === "quiet") return
     if (!(await directPushWanted(db, { conversationId: conversation.id, senderId, recipientId: other, recipientReadAt: otherReadAt }))) return
     await pushDirectMessage(db, { communityId: community.id, communitySlug: community.slug, conversationId: conversation.id, senderId, recipientId: other, text: pushText })
   })
