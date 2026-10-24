@@ -42,7 +42,7 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+import { WallpaperNoise, WallpaperPattern, wallpaperImage } from "@/components/onepage/wallpaper-layers"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
@@ -2388,7 +2388,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               bottom: 0,
               width: "100vw",
               height: "100vh",
-              backgroundImage: `url(${safeTheme.background_image_url})`,
+              backgroundImage: wallpaperImage(safeTheme.background_image_url),
               backgroundSize: "cover",
               backgroundPosition: "center",
               backgroundAttachment: "fixed",
@@ -2450,7 +2450,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                   left: "-50px",
                   right: "-50px",
                   bottom: "-50px",
-                  backgroundImage: `url(${safeTheme.background_image_url})`,
+                  backgroundImage: wallpaperImage(safeTheme.background_image_url),
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   zIndex: 0,
@@ -2524,7 +2524,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 bottom: 0,
                 width: "100%",
                 height: "100%",
-                backgroundImage: `url(${safeTheme.background_image_url})`,
+                backgroundImage: wallpaperImage(safeTheme.background_image_url),
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 zIndex: 0,

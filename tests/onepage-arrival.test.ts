@@ -158,8 +158,9 @@ async function main() {
     const design = code("components/onepage/tabs/design-tab.tsx")
     /* The kinds are the editor's one pill-tab row now (components/onepage/pill-tabs PillTabs, the pill sliding from the press); a pick still goes through the steady filter. */
     check("the pills pick through the steady filter", /onChange=\{pickFilter\}/.test(design) && /itemAttr="data-theme-filter"/.test(design) && /const \{ gridRef, pickFilter \} = useSteadyFilter\(filter, setFilter\)/.test(design))
+    /* Changed on purpose (round 11): at the top of the panel nothing is held, so nothing is measured in the press either. */
     check("the rest of the panel is measured before the change, the scroll put back after it",
-      /rest: box\.scrollHeight - grid\.offsetHeight/.test(design) && /if \(at\.top > 0 && need > natural\) \{\s*grid\.style\.minHeight = `\$\{need\}px`/.test(design) && /if \(at\.box\.scrollTop !== at\.top\) at\.box\.scrollTop = at\.top/.test(design))
+      /rest: box\.scrollHeight - grid\.offsetHeight/.test(design) && /if \(need > natural\) \{\s*grid\.style\.minHeight = `\$\{need\}px`/.test(design) && /if \(at\.box\.scrollTop !== at\.top\) at\.box\.scrollTop = at\.top/.test(design))
     check("the grid never stretches its rows to the held height", /grid grid-cols-2 content-start gap-3 sm:grid-cols-3/.test(design))
     /*
       Was: the whole grid faded up from opacity 0 on every pick, over cards
@@ -169,11 +170,21 @@ async function main() {
       fade in (round 10, scripts/check-onepage-themes.mjs samples the frames).
     */
     check("every theme card is kept; a pick only shows or hides them", /\{THEME_TEMPLATES\.map\(\(template\) => \(\s*<ThemeCard key=\{template\.id\}[^>]*shown=\{filter === "all" \|\| template\.category === filter\}/.test(design) && !/filteredTemplates/.test(design))
-    check("cards that stay slide, cards that arrive fade in, none with reduced motion",
-      /if \(typeof grid\.animate !== "function" \|\| reducedMotion\(\)\) return/.test(design) &&
-      /el\.animate\(\[\{ transform: `translate3d\(\$\{dx\}px, \$\{dy\}px, 0\)` \}, \{ transform: "translate3d\(0, 0, 0\)" \}\], \{ duration: THEME_FILTER_MOVE_MS/.test(design) &&
-      /el\.animate\(\[\{ opacity: 0, transform: "scale\(0\.97\)" \}, \{ opacity: 1, transform: "scale\(1\)" \}\], \{ duration: THEME_FILTER_FADE_MS/.test(design) &&
-      !/grid\.animate\(\[\{ opacity: 0 \}/.test(design))
+    /*
+      Changed on purpose (round 11): "the themes flash when I land on each
+      category". The round 10 slide and fade were the flash the owner saw.
+      A pick is now one still swap: no card is animated, faded or moved,
+      hidden cards are hidden with nothing their insides inherit (no
+      tabindex, which the app's card rule names), and every card's photo is
+      decoded before it can be shown (scripts/check-onepage-themes.mjs films
+      the picks).
+    */
+    check("a pick is one still swap: no card is animated, faded in or slid",
+      !/el\.animate\(/.test(design.slice(design.indexOf("function useSteadyFilter"), design.indexOf("function ThemeSection"))) &&
+      /const HIDDEN_CARD: React\.CSSProperties = \{ position: "absolute", top: 0, left: 0, zIndex: -1, opacity: 0, contentVisibility: "hidden" \}/.test(design) &&
+      /inert=\{!shown\}/.test(design) &&
+      /decoding="sync" data-theme-thumb=""/.test(design) &&
+      /useEffect\(\(\) => \{ preloadThemeThumbs\(\) \}, \[\]\)/.test(design))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
