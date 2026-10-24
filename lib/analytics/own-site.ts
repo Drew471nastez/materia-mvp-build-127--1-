@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { OWN_HASH_PARAM } from "./events"
+import { isNativeApp } from "@/lib/platform-utils"
 
 /**
  * ===========================================================================
@@ -14,13 +16,14 @@ import { useEffect, useState } from "react"
  *   useOwnMarker()  once, in a screen that can open the site: asks the
  *                   server for a token naming this creator, keeps it in
  *                   memory only, and draws again when it arrives
- *   ownOpen(url)    the address to OPEN, which carries that token to the
- *                   site's own marker route
+ *   ownOpen(url)    the address to OPEN, which carries that token in its
+ *                   fragment (#sl_own=) to the site's own tracker
  *
  * `ownOpen` is for opening and nothing else: what the screen SHOWS and what
  * a Copy button COPIES stays the plain address, so a creator never shares a
- * link with a token on it, and the marker route takes the token back out of
- * the address before the page is drawn.
+ * link with a token on it, and the site's tracker takes the token back out
+ * of the address as soon as it runs (lib/analytics/page-tracker
+ * takeOwnHandoff). A token lasts half an hour (HANDOFF_TTL_MS).
  *
  * It is called with an address the app built for this creator's own site,
  * and a connected domain can be any name at all, so the only address rule it
@@ -70,19 +73,43 @@ export function primeOwnMarker(): void {
 }
 
 /**
- * The address to open for the creator's own site: the plain address, always.
+ * The address to open for the creator's own site, opened at once, never
+ * through a route first.
  *
  * A site on Storelib's own domain is already marked when the app asks for
  * its token (sl_own_d, set by /api/analytics/own/token), so the creator's
- * visit is still left out of their analytics. Anything else (a connected
- * domain, the phone app, a press before the token arrived) used to go
- * through the marker route first: the owner watched /api/analytics/own?t=...
- * sit in the address bar while the server answered, a whole extra round trip
- * before the site even started loading. Now it opens at once, and such a
- * visit is counted, which is the smaller cost.
+ * visit is left out of their analytics. Anything else (a connected domain,
+ * storelib.me, the phone app) used to go through the marker route first:
+ * the owner watched /api/analytics/own?t=... sit in the address bar while
+ * the server answered, a whole extra round trip before the site even
+ * started loading. That hop is gone and stays gone; the token goes in the
+ * fragment instead.
  */
 export function ownOpen(siteUrl: string | null | undefined): string {
-  return typeof siteUrl === "string" ? siteUrl : ""
+  if (typeof siteUrl !== "string") return ""
+  /*
+    THE HAND-OFF IN THE FRAGMENT, NOT THROUGH A HOP (round AD1). A connected
+    domain, storelib.me and the phone's own browser cannot have the marker
+    yet, so the creator's every look at them was a visitor. The token now
+    rides in #sl_own=: the site opens at once, as above, the browser never
+    sends a fragment to any server, the page's tracker takes it off the
+    address straight away and sends it with its view, and the answer marks
+    this browser on that host (lib/analytics/collect). A site under
+    Storelib's own domain already marked here (sl_own_d) opens plain.
+  */
+  if (!token) return siteUrl
+  let url: URL
+  try {
+    url = new URL(siteUrl)
+  } catch {
+    return siteUrl
+  }
+  if (url.protocol !== "https:" || url.hash) return siteUrl
+  const host = url.hostname.toLowerCase()
+  /* The phone app opens a site in the phone's own browser, which holds none of the app's cookies: it always carries the hand-off. */
+  if (sitesDomain && (host === sitesDomain || host.endsWith(`.${sitesDomain}`)) && !isNativeApp()) return siteUrl
+  url.hash = `${OWN_HASH_PARAM}=${encodeURIComponent(token)}`
+  return url.toString()
 }
 
 /**

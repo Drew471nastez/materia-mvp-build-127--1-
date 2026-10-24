@@ -55,6 +55,7 @@ import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { ACCOUNT_FORMS_SCRIPT, ACCOUNT_FORMS_STYLE } from "@/lib/site-accounts/forms-script"
 import { withAccountWords } from "@/lib/site-accounts/account-sections"
+import { customerInLanguage } from "@/lib/site-accounts/account-language"
 
 export type AccountPageKey = "account" | "login" | "wishlist" | "contact" | "password" | "reviews"
 
@@ -135,7 +136,8 @@ export async function renderAccountPage(
 
   const globals: StorefrontGlobals = {
     shop: { name: site.displayName, email: wantsEmail(sections) ? await supportEmail(site.creatorId) : "" },
-    customer: extras.customer ?? null,
+    /* Its orders' dates, states and buttons in the page's language too (lib/site-accounts/account-language.ts). */
+    customer: (localizer ? customerInLanguage(extras.customer, localizer.locale, localizer.words) : extras.customer) ?? null,
     wishlist: extras.wishlist ?? null,
   }
   /* The page's language, for the hidden field every account form sends, so the route answers in it (lib/site-accounts/lang.ts). */

@@ -26,15 +26,26 @@ export const NOTICE_HOUR_UTC = 14
 /** The stores to tell today: one entry per store, with its owner's user id. */
 export async function storesWithOrdersWaiting(db: Db, now = Date.now()): Promise<{ creatorId: string; userId: string; count: number }[]> {
   const cutoff = new Date(now - OVERDUE_DAYS * 86_400_000).toISOString()
-  const { data, error } = await db
-    .from("commerce_checkouts")
-    .select("creator_id")
-    .in("status", ["paid", "partially_refunded"])
-    .is("cancelled_at", null)
-    .in("fulfillment_status", ["unfulfilled", "processing", "partially_fulfilled"])
-    .lt("paid_at", cutoff)
-    .limit(5000)
-  if (error || !data) return []
+  /* A page at a time: one read answers at most the database's cap (1,000 rows), so `limit(5000)` read an arbitrary thousand and every store past them was never told. */
+  const data: { creator_id: string | null }[] = []
+  for (let from = 0; from < 50_000; from += 1000) {
+    const { data: page, error } = await db
+      .from("commerce_checkouts")
+      .select("id, creator_id")
+      .in("status", ["paid", "partially_refunded"])
+      .is("cancelled_at", null)
+      .in("fulfillment_status", ["unfulfilled", "processing", "partially_fulfilled"])
+      .lt("paid_at", cutoff)
+      .order("id", { ascending: true })
+      .range(from, from + 999)
+    if (error || !page) return from === 0 ? [] : storesFrom(db, data)
+    data.push(...(page as { creator_id: string | null }[]))
+    if (page.length < 1000) break
+  }
+  return storesFrom(db, data)
+}
+
+async function storesFrom(db: Db, data: { creator_id: string | null }[]): Promise<{ creatorId: string; userId: string; count: number }[]> {
   const counts = new Map<string, number>()
   for (const r of data as { creator_id: string | null }[]) if (r.creator_id) counts.set(r.creator_id, (counts.get(r.creator_id) ?? 0) + 1)
   if (counts.size === 0) return []

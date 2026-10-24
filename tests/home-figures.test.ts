@@ -139,9 +139,9 @@ console.log("\nHome: visitors and conversion")
 console.log("\nHome: the page reads it this way")
 {
   const dash = code("components/app/dashboard-client.tsx")
-  /* Changed on purpose: Home no longer counts from rows it read itself (1,000 at most); it draws the Analytics answer (homeFromReports). */
+  /* Changed on purpose: Home no longer counts from rows it read itself (1,000 at most); it draws the Analytics answer (homeFromReports), its revenue line in the store's own decimals (round AD1). */
   check("the figures and the chart are the Analytics answer for the period, with the viewer's zone",
-    /homeFromReports\(homeAnswer\.reports\)/.test(dash) && /homeQuestion\(period, dashTimeZone, reportNow\(/.test(dash) && /askReport\(key, /.test(dash))
+    /homeFromReports\(homeAnswer\.reports, storeCurrencyCode\)/.test(dash) && /homeQuestion\(period, dashTimeZone, reportNow\(/.test(dash) && /askReport\(key, /.test(dash))
   check("  and all time under each figure is Analytics' all time line", /const totals = homeAllTime\(homeAnswer\?\.allTime\)/.test(dash))
   check("no bucket shapes or comparison of its own are left",
     !/generateTimeBuckets/.test(dash) && !/start\.getTime\(\) - 1/.test(dash) && !/o\.status === "completed"/.test(dash) && !/DASH_LEGACY_TIMEFRAME/.test(dash))

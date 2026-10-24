@@ -255,7 +255,7 @@ for (const path of ["/", "/explore"]) {
         const box = document.querySelector("[data-hero-actions]")
         /* The owner's remake (round AA1): one button and the marketplace search, under the subheading. */
         const links = [...box.querySelectorAll("a, input")].map((a) => ({ text: (a.textContent || a.placeholder).trim(), radius: getComputedStyle(a).borderTopLeftRadius, top: a.getBoundingClientRect().top }))
-        const sub = [...document.querySelectorAll("p")].find((x) => /#1 e-commerce platform/.test(x.textContent))
+        const sub = [...document.querySelectorAll("p")].find((x) => /e-commerce platform for creators/.test(x.textContent))
         return { links, subBottom: sub?.getBoundingClientRect().bottom }
       })
       expect(hero.links.length === 2 && hero.links.every((l) => l.radius === d.login.radius), "/ hero: Start Now and the search field take the Log in button's corner, not a pill", hero.links.map((l) => `${l.text} ${l.radius}`))

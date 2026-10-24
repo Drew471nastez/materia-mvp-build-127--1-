@@ -8,7 +8,7 @@ import { anonSession, anonVisitorId, clientIp, dailyKey } from "./anon-visit"
 import { EVENT, EXPLORE_SOURCE, PAGE_VIEW_REPEAT_MS, SESSION_TIMEOUT_MS, normalizeLinkUrl, normalizePath, type PropertyType } from "./events"
 import { resolveProperty, type ResolvedProperty } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost, sourceParamOf } from "./sources"
-import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE } from "./own-marker"
+import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE, readOwnToken, signOwnMarker } from "./own-marker"
 import { isBotAgent, osFromPlatformHint, parseUserAgent } from "./user-agent"
 
 /**
@@ -77,7 +77,8 @@ export interface CollectDeps {
   db: Db
   now: () => number
   mainDomain: string
-  isOwnVisit: (cookieNames: string[], ownerUserId: string | null | undefined) => Promise<boolean>
+  /** The signed in account is the owner, or on the store's team (lib/analytics/own-visit). */
+  isOwnVisit: (cookieNames: string[], ownerUserId: string | null | undefined, creatorId?: string | null) => Promise<boolean>
   /** Whether this host's marker cookie names this creator (lib/analytics/own-marker). */
   marksOwner: (cookieValue: string | undefined, creatorId: string) => boolean
   /** True when this address has asked too often (lib/api/rate-limit, bucket "track"). */
@@ -92,6 +93,8 @@ export interface CollectOutcome {
   row?: Record<string, unknown>
   /** For a page view: the server's visitor cookie to set, or to clear. */
   visitorCookie?: { set: string } | { clear: true } | null
+  /** The creator's own browser, told by the app's hand-off: the marker (OWN_MARKER_COOKIE) to set on this host. */
+  ownMarker?: string | null
 }
 
 /* ─── Fields ─────────────────────────────────────────────────────────── */
@@ -271,8 +274,17 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     page from the app (lib/analytics/own-marker). Either answer is enough.
   */
   const ownerUserId = (owner as { user_id?: string | null }).user_id ?? null
+  /*
+    The app's hand-off, in the address's fragment rather than through the
+    marker route's extra hop (lib/analytics/own-site ownOpen): the page sends
+    it with its view, and the answer marks this browser on this host, as
+    /api/analytics/own would have. A connected domain opened from the app was
+    counted as a visitor every time the creator looked at it.
+  */
+  const handoff = typeof body.own === "string" && body.own.length <= 4096 ? body.own : null
+  if (handoff && readOwnToken(handoff, "hand", now) === creatorId) return { recorded: false, reason: "own", ownMarker: signOwnMarker(creatorId, now) }
   if (deps.marksOwner(req.cookie(OWN_MARKER_COOKIE), creatorId) || deps.marksOwner(req.cookie(OWN_MARKER_DOMAIN_COOKIE), creatorId)) return { recorded: false, reason: "own" }
-  if (await deps.isOwnVisit(req.cookieNames, ownerUserId)) return { recorded: false, reason: "own" }
+  if (await deps.isOwnVisit(req.cookieNames, ownerUserId, creatorId)) return { recorded: false, reason: "own" }
 
   /* 9, first half. Consent is the visitor's own record, read here, never the page's word. */
   const consented = allows(parse(req.cookie(CONSENT_COOKIE), now), "analytics")

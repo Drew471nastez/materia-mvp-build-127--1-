@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
-import { creatorTag } from "@/lib/commerce/product-page-cache"
+import { identityChanged } from "@/lib/account/identity-caches"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -24,8 +23,8 @@ export const dynamic = "force-dynamic"
  * showing before. The server reads the name the profile holds NOW, and moves
  * only the copies that still hold the old one (lib/account/profile-follow) —
  * a page title somebody typed is never touched. Then the caches the public
- * pages read the profile through are cleared, so the new name is on the next
- * view rather than up to a minute later.
+ * pages read the profile through are expired, the creator page's and the live
+ * website's, so the new name is on the next view.
  *
  * `previous` comes from the caller and decides nothing but WHICH of this
  * person's own copies move; every row it can reach belongs to the signed in
@@ -60,12 +59,8 @@ export async function POST(request: NextRequest) {
     ...(previousPhoto !== undefined ? { photo: { before: previousPhoto, after: profile.avatar_url } } : {}),
   })
 
-  try {
-    revalidateTag(creatorTag(user.id), "max")
-    if (followed.creatorId) revalidateTag(creatorTag(followed.creatorId), "max")
-  } catch {
-    /* Outside a request that can revalidate: the cache's own minute does it. */
-  }
+  /* The creator page's cache and the live website's, expired: the next view has the new name (lib/account/identity-caches). */
+  await identityChanged({ userId: user.id, creatorId: followed.creatorId })
 
   return NextResponse.json({ ok: true, followed }, { headers: NO_STORE })
 }

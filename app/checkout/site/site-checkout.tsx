@@ -56,6 +56,7 @@ import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/check
 import type { SiteQuote } from "@/lib/checkout/site-quote-server"
 import { CheckRow, ErrorBanner, Field, PayButton, PayDock, PoweredByStripe, Reveal, SectionTitle, TextInput, inputClass, useCheckoutCurrency, useMoney, FIELD_SHADOW } from "../parts/ui"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
+import { TOTAL_CHANGED } from "@/lib/checkout/shown-total"
 import { DiscountForm, Totals } from "../parts/order-summary"
 import { BusinessFields } from "../parts/business-fields"
 import { PaidOverlay } from "../parts/success"
@@ -249,6 +250,8 @@ export function SiteCheckout({
   }, [shopId, quoteProducts])
   const [quoteError, setQuoteError] = React.useState<string | null>(initialError)
   const [quoting, setQuoting] = React.useState(false)
+  /* Pay found the total had moved since this page priced it (lib/checkout/shown-total): the page prices itself again. */
+  const [requote, setRequote] = React.useState(0)
   /* Cash on delivery chosen in the payment form: the quote is asked with it, so its fee is in the total (Settings › Checkout). */
   const [byCash, setByCash] = React.useState(false)
   React.useEffect(() => {
@@ -434,7 +437,7 @@ export function SiteCheckout({
     }, wait)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, appliedCode, shipsKey, optionId, byCash])
+  }, [items, appliedCode, shipsKey, optionId, byCash, requote])
 
   /* ── Already yours ───────────────────────────────────────────────── */
   const owned = React.useMemo(() => quote?.owned ?? [], [quote])
@@ -684,7 +687,9 @@ export function SiteCheckout({
     const fresh = !!before && Date.now() - before.at < INTENT_REUSE_MS
     const key = before && fresh && before.sig === sig ? before.key : newKey()
     intentKey.current = { key, sig, at: key === before?.key ? before.at : Date.now() }
-    const res = await call<{ clientSecret?: string; paymentIntentId?: string; thanks?: string; free?: boolean }>({ action: "intent", ...body, paymentMethods: methods, clientKey: key, replaces: before && before.key !== key ? before.key : null })
+    /* The total this page shows, in what it shows it in: the server charges that or says it changed (lib/checkout/shown-total). */
+    const shownTotal = { cents: total, currency: (quote as { currency?: string } | null)?.currency || chargeCurrency }
+    const res = await call<{ clientSecret?: string; paymentIntentId?: string; thanks?: string; free?: boolean }>({ action: "intent", ...body, shownTotal, paymentMethods: methods, clientKey: key, replaces: before && before.key !== key ? before.key : null })
     /* A code took it to 0 since the page was priced: the server placed it as a free order. Its thank you page; the card form never opens. */
     if (res.ok && res.data.free && typeof res.data.thanks === "string") {
       setPaid({ total: 0, free: true })
@@ -696,6 +701,7 @@ export function SiteCheckout({
       if (field && field in EMPTY_BUSINESS) setBusinessErrors({ [field]: ct(res.data.error || "Check this field.") })
       /* A failed start is a new checkout next time, which lets this one's stock go first (if it held any). */
       intentKey.current = { key, sig: "", at: 0 }
+      if (res.data.code === TOTAL_CHANGED) setRequote((n) => n + 1)
       throw new Error(ct(res.data.error || "The payment could not be started. Nothing was charged."))
     }
     secretRef.current = res.data.clientSecret

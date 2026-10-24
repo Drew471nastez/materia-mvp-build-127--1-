@@ -21,6 +21,7 @@ import { tt } from "@/lib/i18n/text"
  */
 
 import { GA_PAGE_JS, gaConsentJs, gaSeenJs, scriptJson, type GaItem } from "./ga"
+import { majorValue } from "@/lib/analytics/pixels"
 
 export type TrackerId = "ga4" | "gtm" | "google_ads" | "meta_pixel" | "tiktok_pixel" | "pinterest_tag" | "clarity" | "klaviyo" | "omnisend"
 
@@ -249,7 +250,8 @@ export const TRACKER_HOSTS = [...new Set(TRACKER_ORDER.flatMap((id) => TRACKERS[
 export function purchaseTags(stored: unknown, order: { id: string; valueCents: number; currency: string; quantity: number; items?: GaItem[] }): { key: string; inline: string }[] {
   const t = readTracking(stored)
   if (!/^[A-Za-z0-9-]{1,64}$/.test(order.id) || !/^[A-Z]{3}$/.test(order.currency.toUpperCase())) return []
-  const value = Math.max(0, Math.round(order.valueCents)) / 100
+  /* In the currency's own decimals: a yen order's 2500 is 2500, not 25 (lib/analytics/pixels majorValue). */
+  const value = majorValue(order.valueCents, order.currency.toUpperCase())
   const currency = JSON.stringify(order.currency.toUpperCase())
   const id = JSON.stringify(order.id)
   const qty = Math.max(1, Math.floor(order.quantity) || 1)

@@ -3,8 +3,20 @@
  * Classes only; no CSS scale.
  */
 
-/** Dark mode bar: near-black, not pure #000. */
-export const BUYER_HEADER_DARK_BG = "#0e0e10"
+/*
+  DARK MODE BAR: A SURFACE A STEP ABOVE THE PAGE, NOT BLACK ON BLACK (round
+  AD5). It was #0e0e10, darker than the dark look's page (#111113) and the
+  same as the front page's hero panel, so on Explore it read as "pitch black
+  with no depth". Now a near black a step lighter than both, with a hairline
+  at its foot (headerBorder), a faint top light and, once the page is
+  scrolled, a soft shadow (app/globals.css .platform-header-depth). Still
+  near black, never the dark look's graphite.
+
+  The classes are built from this value below; Tailwind sees them written
+  out in components/marketing/conditional-header.tsx and
+  platform-header-client.tsx: bg-[#16161a] ring-offset-[#16161a].
+*/
+export const BUYER_HEADER_DARK_BG = "#16161a"
 /*
   LIGHT MODE BAR: WHITE, AND ONE SURFACE WITH THE STATUS BAR ABOVE IT. It was
   #fcfcfd at 98% over a blur, so on a phone it read as a grey a shade off the
@@ -50,7 +62,7 @@ export function headerChrome(light: boolean): HeaderChrome {
     return {
       root: `platform-header-depth z-40 w-full bg-[${BUYER_HEADER_DARK_BG}] backdrop-blur supports-[backdrop-filter]:bg-[${BUYER_HEADER_DARK_BG}]`,
       header: `w-full bg-[${BUYER_HEADER_DARK_BG}]`,
-      headerBorder: "border-b border-white/10",
+      headerBorder: "border-b border-white/[0.08]",
       focus: DARK_FOCUS,
       wordmark: "text-[21px] font-bold text-white tracking-tight",
       wordmarkPhone: "text-[19px] font-bold text-white tracking-tight",

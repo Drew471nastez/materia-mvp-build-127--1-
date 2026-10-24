@@ -69,7 +69,10 @@ check("each slide under 60 KB and each backdrop tile under 16 KB", slideKb.every
 check("no picture sits beside or above itself in the backdrop (6 and 8 columns)", HERO_BACKDROP.every((t, i) => (i % 8 === 0 || HERO_BACKDROP[i - 1].src !== t.src) && (i < 8 || HERO_BACKDROP[i - 8].src !== t.src) && (i < 6 || HERO_BACKDROP[i - 6].src !== t.src)))
 const hero = readCode("components/marketing/hero.tsx")
 check("the backdrop's tiles are lazy, low priority, decoded off the main thread", /loading="lazy"/.test(hero) && /fetchPriority="low"/.test(hero) && /decoding="async"/.test(hero))
-check("the generator is the one that made them, from demo content only", ["Maison Verlaine", "Marrow & Oat", "Fennel & Fig", "Halcyon", "Wheel & Kiln", "Studio Arlo"].every((b) => readSource("scripts/render-hero-shots.tsx").includes(b)) && /DEMO_ART/.test(readSource("scripts/hero-shots.mjs")) && /public\/marketing\/hero/.test(readSource("scripts/hero-shots.mjs")) && !/supabase\.co\/storage|storelib\.com\/media/.test(readCode("scripts/render-hero-shots.tsx") + readCode("scripts/hero-shots.mjs")))
+/* Changed on purpose (round AD5): the watch, dog food and meal kit stores are gone; two stores on a computer and a phone, a creator page, a community and three people's link in bio pages came in. */
+check("no store from round AB1 is left in the pictures or their list", !/Maison Verlaine|Marrow & Oat|Fennel & Fig|Studio Arlo|slide-(watch|pet|meal)|tile-(watch|pet|meal)/.test(readSource("scripts/render-hero-shots.tsx") + readSource("lib/marketing/hero-media.ts") + readSource("scripts/hero-shots.mjs")))
+check("no face is drawn: people are initials or their own work", !/portrait\(|"face-/.test(readSource("scripts/hero-demo-art.mjs") + readSource("scripts/render-hero-shots.tsx")))
+check("the generator is the one that made them, from demo content only", ["Pale Hours", "Ferne", "Halcyon", "Wheel & Kiln", "Theo Lindqvist", "Kiln Club", "Noor Haddad", "Ana Ribeiro"].every((b) => readSource("scripts/render-hero-shots.tsx").includes(b)) && /DEMO_ART/.test(readSource("scripts/hero-shots.mjs")) && /public\/marketing\/hero/.test(readSource("scripts/hero-shots.mjs")) && !/supabase\.co\/storage|storelib\.com\/media/.test(readCode("scripts/render-hero-shots.tsx") + readCode("scripts/hero-shots.mjs")))
 
 console.log("\nThe typing (lib/marketing/hero-typing)")
 check("four phrases, the first the one the page is served with (round AC1: the owner's words)", HERO_PHRASES.length === 4 && HERO_PHRASES[0] === "Build a business around what you create.")
@@ -97,8 +100,10 @@ check("reduced motion: nothing runs", /prefers-reduced-motion: reduce\)"\)\.matc
 
 console.log("\nThe copy")
 const copy = [readSource("components/marketing/hero.tsx"), readSource("components/marketing/hero-typed-heading.tsx"), readSource("lib/marketing/hero-typing.ts"), readSource("lib/marketing/hero-cta-state.ts"), readSource("lib/marketing/hero-media.ts")].join("\n")
-const badge = (hero.match(/data-hero-badge=""[\s\S]*?\/>\s*([^<{]+?)\s*<\/p>/) ?? [])[1] ?? ""
-check("the badge: three words at most, no invented numbers (round AC1: not \"Built for creators\")", badge === "Stores, courses, communities" && badge.split(/\s+/).length <= 3 && !/Shopify|Powering|\d/.test(badge), badge)
+const badge = (hero.match(/data-hero-badge=""[\s\S]*?<\/span>\s*([^<{]+?)\s*<\/p>/) ?? [])[1] ?? ""
+/* Changed on purpose (round AD5): the owner's words, and a white mark in place of the purple dot. */
+check("the badge: \"All in one platform\", four words at most, no invented numbers", badge === "All in one platform" && badge.split(/\s+/).length <= 4 && !/Shopify|Powering|\d/.test(badge), badge)
+check("its mark is a white drawing, not the purple dot", /data-hero-badge-icon=""[\s\S]*?<svg[\s\S]*?fill="#fff"/.test(hero) && !/data-hero-badge=""[\s\S]{0,600}bg-\[#8b5cf6\]/.test(hero))
 check("none of the banned words", !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform your)\b/i.test(copy))
 check("no em dashes", !/—/.test(copy))
 check("the search goes to the marketplace's own search", /<form action="\/explore" method="get" role="search"/.test(copy) && /name="q"/.test(copy) && /Search marketplace \.\.\./.test(copy))
@@ -109,9 +114,13 @@ check("the search field is solid: an opaque background, no white/ alpha", /bg-\[
 /* Changed on purpose (round AC1): the owner now asks for full width stacked controls on a phone (their picture), side by side from 640px. */
 check("on a phone the button and the search are full width, 52px, the shared corner; side by side from 640px", /const CONTROL = "h-\[52px\] w-full rounded-action/.test(hero) && /sm:min-w-\[176px\]/.test(hero) && /sm:w-\[260px\]/.test(hero) && /flex w-full flex-col gap-3 sm:w-auto sm:flex-row/.test(hero))
 check("a short true line under them, from the Free plan", /data-hero-note=""[^>]*>Free to start\. No card needed\.</.test(hero))
-check("the slider leaves the panel at every width: to the page's edges and across its bottom edge", /-mx-2\.5/.test(hero) && /\[overflow-x:clip\]/.test(hero) && /--hc-overlap: calc\(var\(--hc-h\) \* 0\.46\)/.test(hero) && /--hc-overlap: calc\(var\(--hc-h\) \* 0\.5\)/.test(hero) && /marginBottom: "calc\(var\(--hc-overlap\) \* -1\)"/.test(hero) && /flow-root/.test(hero))
-check("the panel: inset, generous corners, depth, and near black in both of the site's looks", /data-own-look=""/.test(hero) && /lg:px-5/.test(hero) && /sm:rounded-\[36px\]/.test(hero) && /shadow-\[inset_0_0_0_1px_rgba\(255,255,255,0\.06\)/.test(hero))
-check("the backdrop is 40% darker than round AB1's (its veil 0.91, was 0.85)", /bg-\[#0e0e10\]\/\[0\.91\]/.test(hero))
+/* Changed on purpose (round AD5): the panel's inset is the header's padding now, so the slider reaches the page's edges by the window's width rather than by a fixed negative margin. */
+check("the slider leaves the panel at every width: to the page's edges and across its bottom edge", /\[data-hero-slider\] \{ width: 100vw; margin-inline: calc\(50% - 50vw\); \}/.test(hero) && /\[overflow-x:clip\]/.test(hero) && /--hc-overlap: calc\(var\(--hc-h\) \* 0\.46\)/.test(hero) && /--hc-overlap: calc\(var\(--hc-h\) \* 0\.5\)/.test(hero) && /marginBottom: "calc\(var\(--hc-overlap\) \* -1\)"/.test(hero) && /flow-root/.test(hero))
+check("the panel: inset, generous corners, depth, and near black in both of the site's looks", /data-own-look=""/.test(hero) && /sm:rounded-\[36px\]/.test(hero) && /shadow-\[inset_0_0_0_1px_rgba\(255,255,255,0\.06\)/.test(hero))
+/* Changed on purpose (round AD5): a fifth less light again, and a vignette. */
+check("the backdrop is a fifth darker than round AC1's (its veil 0.928, was 0.91) and has a vignette", /bg-\[#0e0e10\]\/\[0\.928\]/.test(hero) && /data-hero-vignette=""[^>]*radial-gradient/.test(hero))
+check("the panel's sides are the header's content edges: its padding (16, 24, 32px) inside the same 1400px row", /--hero-pad: 16px;/.test(hero) && /--hero-pad: 24px;/.test(hero) && /--hero-pad: 32px;/.test(hero) && /padding-inline: max\(var\(--hero-pad\), calc\(\(100% - 1400px\) \/ 2 \+ var\(--hero-pad\)\)\)/.test(hero) && /mx-auto max-w-\[1400px\] px-4 sm:px-6 lg:px-8/.test(readCode("components/platform/platform-header-client.tsx")))
+check("the search's focus is a neutral ring, never the accent", /\[data-hero-search\]:focus \{ border-color: rgba\(255, 255, 255, 0\.34\); box-shadow: [^}]*0 0 0 4px rgba\(255, 255, 255, 0\.09\)/.test(hero) && !/focus:border-\[#8b5cf6\]/.test(hero))
 check("the badge is a pill", /data-hero-badge=""[^>]*rounded-full/.test(hero))
 check("the front page has no curved edge under the header, so the hero sits close under it", hasConcaveEdge("/") === false && hasConcaveEdge("/pricing") === true)
 check("the entrance: CSS only, transform and opacity, under reduced motion none", /@keyframes hero-enter \{ from \{ opacity: 0; transform: translate3d\(0, 10px, 0\); \} \}/.test(hero) && /@media \(prefers-reduced-motion: no-preference\) \{\s*\[data-hero-enter\]/.test(hero))
@@ -119,7 +128,7 @@ check("the next section starts close under the hero on a phone", /data-home-afte
 
 console.log("\nThe header's dark style (round AC1)")
 const darkCss = readSource("app/theme-dark.css")
-check("the dark look keeps the dark header near black: its bar, its row and its curved edge", /#platform-header-root\[data-header-tone="dark"\],\s*\n:is\(html\[data-sl-dark\], \[data-community-theme="dark"\]\) #platform-header-root\[data-header-tone="dark"\] > header,\s*\n:is\(html\[data-sl-dark\], \[data-community-theme="dark"\]\) \[data-header-concave="dark"\]\[data-header-concave\] \{\s*background-color: #0e0e10;/.test(darkCss))
+check("the dark look keeps the dark header near black: its bar, its row and its curved edge", /#platform-header-root\[data-header-tone="dark"\],\s*\n:is\(html\[data-sl-dark\], \[data-community-theme="dark"\]\) #platform-header-root\[data-header-tone="dark"\] > header,\s*\n:is\(html\[data-sl-dark\], \[data-community-theme="dark"\]\) \[data-header-concave="dark"\]\[data-header-concave\] \{\s*background-color: #16161a;/.test(darkCss))
 check("written by the generator, from the one colour in lib/platform/header-chrome.ts", /BUYER_HEADER_DARK_BG = \/BUYER_HEADER_DARK_BG/.test(readSource("scripts/gen-theme-dark.mjs")))
 check("the header and its stand in say their tone and mark their curved edge", /data-header-concave=\{buyerHeaderLight \? "light" : "dark"\}/.test(readCode("components/platform/platform-header-client.tsx")) && /data-header-tone=\{buyerHeaderLight \? "light" : "dark"\}/.test(readCode("components/marketing/conditional-header.tsx")) && /data-header-concave=/.test(readCode("components/marketing/conditional-header.tsx")))
 

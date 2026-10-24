@@ -49,3 +49,30 @@ export function marketsForNewBase(markets: unknown, change: BaseChange): { marke
   })
   return { markets: out, changed }
 }
+
+/**
+ * A WEBSITE'S OWN AMOUNTS. The free shipping banner's amount (Website
+ * settings › Commerce, `free_shipping_threshold`) is in the store's
+ * currency, kept with the website's theme settings rather than in the
+ * catalog the database change converts. Converted at the change's rate it
+ * says what the shipping rates now say; kept, it keeps its number like every
+ * price. The settings come back with only that amount changed, or null when
+ * there is nothing to move.
+ */
+export const THEME_MONEY_SETTINGS = ["free_shipping_threshold"] as const
+
+export function themeSettingsForNewBase(settings: unknown, change: BaseChange): Record<string, unknown> | null {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return null
+  const rate = change.mode === "convert" && typeof change.rate === "number" && Number.isFinite(change.rate) && change.rate > 0 ? change.rate : null
+  if (rate === null) return null
+  const out: Record<string, unknown> = { ...(settings as Record<string, unknown>) }
+  let changed = false
+  for (const key of THEME_MONEY_SETTINGS) {
+    const raw = out[key]
+    const n = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : NaN
+    if (!Number.isFinite(n) || n <= 0) continue
+    out[key] = Math.round(n * rate * 100) / 100
+    changed = true
+  }
+  return changed ? out : null
+}

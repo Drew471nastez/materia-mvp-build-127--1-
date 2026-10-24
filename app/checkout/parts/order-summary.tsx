@@ -379,7 +379,7 @@ export function TipPicker({
                     on ? "text-[#1a1a2e]" : "text-[#4b5563] hover:text-[#1a1a2e]",
                   )}
                 >
-                  {cents === OTHER ? ct("Other") : cents === 0 ? ct("None") : money(cents).replace(".00", "")}
+                  {cents === OTHER ? ct("Other") : cents === 0 ? ct("None") : money(cents).replace(/[.,]00(?!\d)/, "")}
                 </button>
               )
             })}

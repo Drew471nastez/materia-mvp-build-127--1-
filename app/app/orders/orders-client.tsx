@@ -645,7 +645,8 @@ export function OrdersClient(props: OrdersClientProps) {
         if (data?.pending) return tt("Refund of {amount} is processing. The order updates once it goes through.", { amount: formatMoney(cents, order.currency) })
         patchRows([action.line.id], {
           status: "refunded",
-          refund_amount_cents: cents,
+          /* The line's running total, as the row now holds it: a second part refund of $3 after $2 is $5 refunded, not $3. */
+          refund_amount_cents: typeof data?.refundedCents === "number" ? data.refundedCents : (action.line.status === "refunded" ? (action.line.refund_amount_cents || 0) : 0) + cents,
           refunded_at: typeof data?.refundedAt === "string" ? data.refundedAt : new Date().toISOString(),
           refund_reason: action.reason,
         })

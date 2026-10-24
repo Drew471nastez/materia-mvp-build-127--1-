@@ -58,7 +58,7 @@ import { CarrierLogo } from "@/components/physical/carrier-logo"
 import { carrierOf } from "@/lib/physical/carriers"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
-import { SOURCE_LABEL, dayHeading, fullDate, itemsLabel, shipStageOf, timeOfDay, type Order, type OrderRow } from "@/lib/orders/order-view"
+import { SOURCE_LABEL, canRefundLine, dayHeading, fullDate, itemsLabel, refundableCents, shipStageOf, timeOfDay, type Order, type OrderRow } from "@/lib/orders/order-view"
 import { originCampaign, sourceText } from "@/lib/orders/order-source"
 import {
   groupTimeline,
@@ -120,9 +120,9 @@ export interface OrderDetailProps {
   canRefund?: boolean
 }
 
-/** A row the buyer has paid for and can download, so its access email can be sent. */
+/** A row the buyer has paid for and can download, so its access email can be sent. Never a product that ships: Resend receipt sent a mug's buyer a download email (lib/orders/owned canEmailAccess). */
 function canEmail(line: OrderRow): boolean {
-  return line.status === "completed" && Boolean(line.receipt_token)
+  return line.status === "completed" && Boolean(line.receipt_token) && line.product?.type !== "physical"
 }
 
 /** A phone: the width from which the shared sheets are not drawn (components/ui/bottom-sheet). */
@@ -186,7 +186,8 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
   }, [parcel?.id, parcel?.fulfillmentStatus, parcel?.returnStatus, parcel?.payment, row?.physical_fulfillment, row?.physical_return, row?.physical_cash_due]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /* A card payment, or cash on delivery once the seller has it (lib/physical/cash-on-delivery.ts): before that there is nothing to give back. */
-  const refundable = order.lines.filter((l) => l.status === "completed" && (l.amount_cents || 0) > 0 && (l.stripe_payment_intent_id || (l.payment_method === COD_PAYMENT_METHOD && l.physical_cash_due === false)))
+  /* Every line with money left to send back, a part refunded one too, on Stripe, Airwallex or collected cash (lib/orders/order-view canRefundLine). */
+  const refundable = order.lines.filter(canRefundLine)
   const emailable = order.lines.some(canEmail)
   const firstReceipt = order.lines.find((l) => l.receipt_token)?.receipt_token
 
@@ -215,7 +216,8 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
     setBusy("refund")
     try {
       for (const line of refundable) {
-        const cents = line.amount_cents || 0
+        /* What is left on the line: a part refunded line gives back the rest, never its whole amount again. */
+        const cents = refundableCents(line)
         if (cents <= 0) continue
         await onAction(order, { kind: "refund", line, amountCents: cents, reason: "cancelled" })
         total += cents
@@ -343,7 +345,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
           {/* Something shipped: what is to send, each shipment and its tracking, returns (components/physical/order-panel.tsx), while physical commerce is on. */}
           {physicalOrder && physicalCommerce ? (
             <div className="grid min-w-0 gap-4 lg:col-start-1 lg:row-start-1">
-              <PhysicalFulfillment state={physical} number={order.number} onNotice={onNotice} onRefund={refundable.length > 0 ? () => setDialog("refund") : null} onRefundAll={canRefund && refundable.length > 0 ? refundAll : null} />
+              <PhysicalFulfillment state={physical} number={order.number} onNotice={onNotice} onRefund={canRefund && refundable.length > 0 ? () => setDialog("refund") : null} onRefundAll={canRefund && refundable.length > 0 ? refundAll : null} />
               {digitalLines.length > 0 ? (
                 <FulfillmentCard order={order} lines={digitalLines} timeZone={timeZone} busy={busy} onResend={emailable ? () => void run("resend", { kind: "resend" }) : null} />
               ) : null}
@@ -1074,12 +1076,13 @@ function RefundDialog({
   /* Typed in whole units of the order's currency: 100 to the unit for most, 1 for yen. */
   const unit = minorPerUnit(currency)
   const places = Math.round(Math.log10(unit))
-  const max = line ? (line.amount_cents || 0) / unit : 0
+  /* What is left to refund on the line: after a part refund, the rest. */
+  const max = line ? refundableCents(line) / unit : 0
 
   React.useEffect(() => {
     if (!open) return
     setLineId(lines[0]?.id ?? "")
-    setAmount(lines[0] ? ((lines[0].amount_cents || 0) / unit).toFixed(places) : "")
+    setAmount(lines[0] ? (refundableCents(lines[0]) / unit).toFixed(places) : "")
     setReason("requested_by_customer")
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1117,13 +1120,13 @@ function RefundDialog({
               onChange={(e) => {
                 const next = lines.find((l) => l.id === e.target.value)
                 setLineId(e.target.value)
-                if (next) setAmount(((next.amount_cents || 0) / unit).toFixed(places))
+                if (next) setAmount((refundableCents(next) / unit).toFixed(places))
               }}
               className={field}
             >
               {lines.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {(l.product?.title || tt("Product")) + ", " + formatMoney(l.amount_cents || 0, currency)}
+                  {(l.product?.title || tt("Product")) + ", " + formatMoney(refundableCents(l), currency)}
                 </option>
               ))}
             </select>

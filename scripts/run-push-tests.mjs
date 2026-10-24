@@ -199,6 +199,8 @@ const SUITES = [
   "tests/analytics-review.test.ts",
   "tests/own-marker.test.ts",
   "tests/dispute-orders.test.ts",
+  /* Round AD2: orders end to end. A chargeback closes the library entry and a won one opens it, ledger money converted for memberships and disputes, a corrected email reaches an order that ships, money in its own unit, refunds of what is left, lists past 1,000 rows. */
+  "tests/orders-ad2.test.ts",
   "tests/anon-visit.test.ts",
   "tests/analytics-completeness.test.ts",
   /* Round Z6: operating systems, referrers by company (official marks), page titles, the five step funnel, physical and digital sales, and the physical checkout's steps tracked (scripts/check-analytics-reports.mjs measures the cards). */
@@ -209,6 +211,8 @@ const SUITES = [
   "tests/analytics-accuracy.test.ts",
   /* Round AC2: a lei store selling in five other currencies through the routes' own code with day rates in the database fake, yen and dinar stores, the phantom discount of a converted line, refunds dated by the refund, shares that add up to 100, changes against nothing and below nothing, and the export's report and format choices (scripts/check-analytics-ac2.mjs measures the page). */
   "tests/analytics-currency.test.ts",
+  /* Round AD1: bugs found by reading every analytics path, each a failing check first: Home's revenue line and the chart axis in the currency's own decimals, a product's orders as payments, kept answers of one period shown as another's, the jsonb origin, GA's purchase value in yen, the creator's own connected domain opened from the app. */
+  "tests/analytics-ad1.test.ts",
   "tests/analytics-filters.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
@@ -341,6 +345,8 @@ const SUITES = [
   "tests/header-buttons.test.ts",
   /* Round AA1: the front page hero remade (the button by who is looking, the storefront slider, the typed heading, the marketplace search). Round AB1: the typing on one frame clock (lib/marketing/hero-typing), Storelib screens as the pictures (scripts/hero-shots.mjs), the phone layout. scripts/check-home-hero.mjs measures it, scripts/check-home-perf.mjs times a production build. Round AC1: demo stores as the pictures, dimmer side slides, the inset panel, full width phone controls, and the header's dark style near black in both looks. */
   "tests/home-hero.test.ts",
+  /* Round AD5: Library > Courses as compact cards with a thin bar and one line (no progress pills), and the dark header a step above the page with a hairline and a shadow once scrolled. scripts/check-library-courses.mjs and scripts/check-home-hero.mjs measure them. */
+  "tests/library-courses-ad5.test.ts",
   "tests/header-flex.test.ts",
   "tests/search-strip-entrance.test.ts",
   "tests/site-autosave-safety.test.ts",
@@ -396,6 +402,8 @@ const SUITES = [
   "tests/website-builder.test.ts",
   /* Round Z5: the theme marketplace (library cards, storelib.com/themes, /admin/themes zip checks) and a plan set from /admin; scripts/check-theme-marketplace.mjs measures the cards and pages. */
   "tests/theme-marketplace.test.ts",
+  /* Round AD3: every setting in /app/settings reaches what reads it (the live website's name and photo, Store details' form, the checklist, campaign emails). */
+  "tests/settings-reach-ad3.test.ts",
   "tests/nav-links.test.ts",
   "tests/menus-main-menu.test.ts",
   "tests/store-menus.test.ts",
@@ -589,6 +597,8 @@ const SUITES = [
   "tests/store-settings-t.test.ts",
   "tests/taxes-t.test.ts",
   "tests/markets.test.ts",
+  /* Round AD4: currencies and languages, the bugs found and fixed. */
+  "tests/ad4-currency-language.test.ts",
   "tests/visitors25.test.ts",
   "tests/compat-languages.test.ts",
   "tests/canvas-currency.test.ts",

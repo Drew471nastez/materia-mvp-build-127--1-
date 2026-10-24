@@ -4,6 +4,7 @@ import { storeIdFor } from "@/lib/team/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { cleanEmail, ownedOrderLines } from "@/lib/orders/owned"
 import { recordOrderEvent, sendAccessEmails } from "@/lib/orders/notify"
+import { moveCheckoutEmail } from "@/lib/orders/checkout-email"
 
 export const runtime = "nodejs"
 
@@ -58,6 +59,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (withCustomerEmail.length > 0) {
     await admin.from("orders").update({ customer_email: email }).in("id", withCustomerEmail)
   }
+  /* An order that ships is emailed from its checkout: the shipped and delivered emails go to the new address too (lib/orders/checkout-email). */
+  await moveCheckoutEmail(admin, lines, creatorId, email)
 
   const report = await sendAccessEmails(admin, creatorId, lines, email)
   await recordOrderEvent(admin, lines[0].id, "email_changed_by_creator", { sent: report.sent, failed: report.failed })

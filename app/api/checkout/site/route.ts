@@ -38,6 +38,8 @@ import { timed } from "@/lib/perf/server-timing"
 import { checkoutMarket, countryOfRequest } from "@/lib/markets/checkout-market-server"
 import { quoteInMarket } from "@/lib/checkout/site-quote-market"
 import { convertOrder, lineTaxShares } from "@/lib/markets/checkout-charge"
+import { differsFromShown, shownTotalOf, TOTAL_CHANGED } from "@/lib/checkout/shown-total"
+import { formatMinor } from "@/lib/markets/money"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -394,6 +396,12 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   }
 
   const chargeCurrency = chargeCurrencyUpper.toLowerCase()
+  /* What the page showed is what is charged (lib/checkout/shown-total): a rate or a market that moved since the quote is said, never charged unseen. */
+  if (differsFromShown(shownTotalOf(body.shownTotal), chargeCents, chargeCurrencyUpper)) {
+    if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    await releaseSales(admin, heldCopies, saleHolder)
+    return json({ error: `The total is now ${formatMinor(chargeCents, chargeCurrencyUpper, "en")}. Check your order and press Pay again.`, code: TOTAL_CHANGED }, 409)
+  }
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
     fee = await calculatePlatformFeeForCheckout(goodsCharged, site.creatorId, admin, chargeCurrency)
@@ -553,6 +561,16 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
     return NextResponse.json({ free: true, thanks: siteThanksHref(started.receiptToken, { whole: body.wholeCart === true }) }, { headers: afterPaidHeaders(site, (co as { session_fingerprint?: string } | null)?.session_fingerprint ?? null, body.wholeCart === true) })
   }
   if (!started.clientSecret || !started.paymentIntentId) return json({ error: "Could not start the payment. Try again in a moment." }, 500)
+  /* What the page showed is what is charged (lib/checkout/shown-total): a total that moved since the quote lets the held checkout go, before the card form can confirm it. */
+  const shown = shownTotalOf(body.shownTotal)
+  if (shown) {
+    const { data: held } = await admin.from("commerce_checkouts").select("total_cents, currency").eq("id", started.checkoutId).maybeSingle()
+    const charged = held as { total_cents?: number | null; currency?: string | null } | null
+    if (charged && typeof charged.total_cents === "number" && differsFromShown(shown, charged.total_cents, String(charged.currency || ""))) {
+      await abandonCheckout(admin, { shopId: site.creatorId, clientKey: body.clientKey }).catch(() => false)
+      return json({ error: `The total is now ${formatMinor(charged.total_cents, String(charged.currency || "USD").toUpperCase(), "en")}. Check your order and press Pay again.`, code: TOTAL_CHANGED }, 409)
+    }
+  }
   const pi = started.paymentIntentId
   after(async () => {
     const { data: co } = await admin.from("commerce_checkouts").select("lines").eq("id", started.checkoutId).maybeSingle()

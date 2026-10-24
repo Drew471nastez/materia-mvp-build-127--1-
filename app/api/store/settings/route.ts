@@ -8,6 +8,7 @@ import { recordActivity } from "@/lib/activity/log-server"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { revalidateTag } from "next/cache"
+import { readinessChanged } from "@/lib/physical/readiness-server"
 import { creatorShopTag, revalidatePublishedSite } from "@/lib/website-builder/published-site"
 
 export const runtime = "nodejs"
@@ -55,10 +56,15 @@ export async function PUT(request: Request) {
   const saved = await saveStoreSettings(c.db, c.creatorId, body)
   if (!saved.ok) return physicalJson({ error: saved.error }, saved.status)
   await recordActivity(c.db, c, { action: "checkout" in body ? "settings.checkout" : "settings.store" })
-  /* The store's name and contact are the website's shop.name and shop.email: the live site shows a change now, not in a minute. */
+  /* Home's and Products' checklist reads the contact email and the business details (lib/physical/readiness-server): asked again now, so a fixed item goes at once. */
+  if ("supportEmail" in body || "legal" in body) readinessChanged(c)
+  /*
+    The store's name and contact are the website's shop.name and shop.email: the live site shows a change now, not in a minute.
+    EXPIRED, NOT "max": in Next 16 "max" marks the entry stale and hands the next visitor the old name while a new one is read.
+  */
   if ("storeName" in body || "supportEmail" in body) {
     try {
-      revalidateTag(creatorShopTag(c.creatorId), "max")
+      revalidateTag(creatorShopTag(c.creatorId), { expire: 0 })
       await revalidatePublishedSite(c.creatorId)
     } catch {
       /* The site catches up on its own within a minute. */

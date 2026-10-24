@@ -18,7 +18,20 @@
  * The imported theme's tracker (lib/storelib-theme/compat/track-script.ts)
  * writes the same calls inline: PIXEL_EVENT_JS below is that code.
  */
+import { minorUnits } from "@/lib/markets/money"
+
 export type PixelStep = "view_item" | "add_to_cart" | "begin_checkout"
+
+/**
+ * Minor units as the major amount GA4, Meta, TikTok and Pinterest take, in
+ * that currency's own decimals: 1250 USD is 12.5, 2500 JPY is 2500, 1250 KWD
+ * is 1.25. Divided by 100 whatever the currency, a yen store told Google its
+ * 2,500 yen sale was worth 25 yen.
+ */
+export function majorValue(minor: number, currency: string | null | undefined): number {
+  const cents = Math.max(0, Math.round(Number(minor) || 0))
+  return cents / 10 ** (currency ? minorUnits(currency) : 2)
+}
 
 type PixelWindow = Window & {
   __slGaWait?: boolean
@@ -64,7 +77,7 @@ export function gaBeginCheckout(win: Window | undefined, params: { currency: str
   } catch {
     /* storage off: told once more at most */
   }
-  gaStep(w, "begin_checkout", { ...(params.currency ? { currency: params.currency, value: Math.max(0, Math.round(params.valueCents)) / 100 } : {}), items: params.items }, 0)
+  gaStep(w, "begin_checkout", { ...(params.currency ? { currency: params.currency, value: majorValue(params.valueCents, params.currency) } : {}), items: params.items }, 0)
 }
 
 /** A purchase paid on this page, to the store's Google Analytics only, once per order in this browser (the thank you pages use purchaseTags). */
@@ -78,7 +91,7 @@ export function gaPurchase(win: Window | undefined, p: { transactionId: string; 
   } catch {
     /* storage off: Google drops a repeated transaction_id */
   }
-  gaStep(w, "purchase", { transaction_id: p.transactionId, ...(p.currency ? { currency: p.currency, value: Math.max(0, Math.round(p.valueCents)) / 100 } : {}), items: p.items, transport_type: "beacon" }, 0)
+  gaStep(w, "purchase", { transaction_id: p.transactionId, ...(p.currency ? { currency: p.currency, value: majorValue(p.valueCents, p.currency) } : {}), items: p.items, transport_type: "beacon" }, 0)
 }
 
 export function pixelEvent(win: Window | undefined, step: PixelStep, productId?: string | null): void {

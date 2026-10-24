@@ -6735,6 +6735,7 @@ const words: Record<string, string> = {
  "Rounding": "Arrotondamento",
  "Rounding and price adjustment": "Arrotondamento e adeguamento prezzi",
  "Rounding, adjustment and exchange rate": "Arrotondamento, regolazione e tasso di cambio",
+ "Rounding and exchange rate": "Arrotondamento e tasso di cambio",
  "Row": "Riga",
  "Row {line}: {error}": "Riga {line}: {error}",
  "Row {n}": "Riga {n}",

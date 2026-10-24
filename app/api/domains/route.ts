@@ -121,9 +121,9 @@ async function fallbackFor(purpose: DomainPurpose, creatorId: string, username: 
   return handle ? `https://${handle}.${main}` : `https://${main}`
 }
 
-/** Canonicals and share links read the primary domain through a cache; this empties it. */
+/** Canonicals, share links and order emails' store link read the primary domain through a cache; this empties it. Expired, not "max", which handed the next reader the old domain once. */
 function changed(creatorId: string) {
-  revalidateTag(creatorDomainsTag(creatorId), "max")
+  revalidateTag(creatorDomainsTag(creatorId), { expire: 0 })
 }
 
 // GET - List the creator's domains

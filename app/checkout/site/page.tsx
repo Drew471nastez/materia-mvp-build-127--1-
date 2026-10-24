@@ -22,7 +22,7 @@ import { gaCheckoutOf } from "@/lib/store/ga"
 import { checkoutMarket, checkoutVisitorCountry, deliveryCountryGuess } from "@/lib/markets/checkout-market-server"
 import { siteLanguages } from "@/lib/markets/live"
 import { quoteInMarket } from "@/lib/checkout/site-quote-market"
-import { checkoutConfigInMarket } from "@/lib/markets/checkout-charge"
+import { checkoutConfigInMarket, checkoutMoneyLocale } from "@/lib/markets/checkout-charge"
 import { countryCode } from "@/lib/checkout/countries"
 import { CHECKOUT_COUNTRY_COOKIE } from "@/lib/checkout/checkout-country"
 import { checkoutLanguage } from "@/lib/markets/checkout-language"
@@ -201,7 +201,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     <CheckoutWords lang={language.lang} words={language.words}>
     {/* The store's own Google Analytics and pixels on its checkout: begin_checkout with what is in it (lib/store/ga.ts). */}
     <StoreTracking creatorId={site.creatorId} checkout={answer?.ok ? gaCheckoutOf(answer.quote.lines, null) : null} />
-    <CheckoutCurrency currency={market.chargeCurrency}>
+    <CheckoutCurrency currency={market.chargeCurrency} locale={checkoutMoneyLocale(market.charge, language.lang)}>
     <SiteCheckout
       shopId={site.creatorId}
       brand={brand}

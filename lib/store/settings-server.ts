@@ -150,12 +150,16 @@ export async function saveStoreSettings(db: Db, creatorId: string, body: Record<
     row.logo_url = raw || null
   }
 
-  /* The contact email lives on the creator row, where receipts already read it (lib/email.tsx resolveCreatorIdentity). */
+  /*
+    The contact email lives on the creator row, where receipts already read it (lib/email.tsx resolveCreatorIdentity).
+    Checked here, written only once everything else is: a save refused over another field, or one the database
+    did not take, used to have changed the email already while it said nothing was saved.
+  */
+  let supportEmail: string | null | undefined
   if ("supportEmail" in body) {
     const raw = typeof body.supportEmail === "string" ? body.supportEmail.trim().toLowerCase() : ""
     if (raw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return { ok: false, error: "That email address does not look right.", status: 400 }
-    const { error: emailError } = await db.from("creators").update({ support_email: raw || null }).eq("id", creatorId)
-    if (emailError) return { ok: false, error: "The contact email could not be saved. Try again in a moment.", status: 400 }
+    supportEmail = raw || null
   }
 
   /*
@@ -179,6 +183,10 @@ export async function saveStoreSettings(db: Db, creatorId: string, body: Record<
   if (error && "legal" in row && (error.code === "42703" || error.code === "PGRST204")) return { ok: false, error: LEGAL_NEEDS_PART, status: 503 }
   if (error && "logo_url" in row && (error.code === "42703" || error.code === "PGRST204")) return { ok: false, error: "The store logo needs its database update. Run SQL part 118 in Supabase, then try again.", status: 503 }
   if (error) return { ok: false, error: isMissingTable(error) ? NEEDS_PART : "That could not be saved. Try again in a moment.", status: isMissingTable(error) ? 503 : 400 }
+  if (supportEmail !== undefined) {
+    const { error: emailError } = await db.from("creators").update({ support_email: supportEmail }).eq("id", creatorId)
+    if (emailError) return { ok: false, error: "The contact email could not be saved. Try again in a moment.", status: 400 }
+  }
   return { ok: true, settings: await loadStoreSettings(db, creatorId) }
 }
 

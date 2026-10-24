@@ -15,8 +15,9 @@
  * (`chargeNote`). Amounts are integers in each currency's own minor unit
  * (cents, yen, fils), read from Intl, so ¥ has none and the dinar three.
  * A rate is a number per euro with the day it is for (the ECB's daily
- * reference rates, lib/markets/fx-server.ts); a rate older than
- * FX_FRESH_DAYS is not used at all rather than used stale.
+ * reference rates, lib/markets/fx-server.ts); a day's rates followed by
+ * more than FX_MISSED_DAYS publications that never arrived are not used at
+ * all rather than used stale.
  *
  * Pure: the storefront, the checkout and the tests read it the same way.
  */
@@ -49,13 +50,73 @@ export interface FxRates {
   rates: Record<string, number>
 }
 
-/** A rate this many days old (or older) is not used: the ECB publishes on working days, so four covers a long weekend. */
-export const FX_FRESH_DAYS = 4
+/*
+  FRESH IS COUNTED IN THE ECB'S OWN WORKING DAYS. The ECB publishes on
+  TARGET working days only, about 16:00 Frankfurt time: never at weekends,
+  New Year's Day, Good Friday, Easter Monday, 1 May, 25 and 26 December. A
+  fixed four day window ran out over its longer closures (Thursday's rates
+  before Easter, the Christmas weekend), and every market price, marketplace
+  dollar price and currency change stopped until the next publication.
+
+  So a day's rates are fresh while at most FX_MISSED_DAYS publications that
+  were due since have not arrived: one late run of the daily fetch is fine,
+  two are fine, a third is stale. A publication is due at 16:00 UTC of its
+  day, which is after it in summer and in winter.
+*/
+/** How many ECB publications may be missing before a day's rates are stale. */
+export const FX_MISSED_DAYS = 2
+
+const DAY = 86_400_000
+const PUBLISHED_BY_UTC_HOUR = 16
+
+/** Easter Sunday of a year, as midnight UTC (the Gregorian computus). */
+function easterSunday(year: number): number {
+  const a = year % 19
+  const b = Math.floor(year / 100)
+  const c = year % 100
+  const d = Math.floor(b / 4)
+  const e = b % 4
+  const f = Math.floor((b + 8) / 25)
+  const g = Math.floor((b - f + 1) / 3)
+  const h = (19 * a + b - d - g + 15) % 30
+  const i = Math.floor(c / 4)
+  const k = c % 4
+  const l = (32 + 2 * e + 2 * i - h - k) % 7
+  const m = Math.floor((a + 11 * h + 22 * l) / 451)
+  const month = Math.floor((h + l - 7 * m + 114) / 31)
+  const day = ((h + l - 7 * m + 114) % 31) + 1
+  return Date.UTC(year, month - 1, day)
+}
+
+/** Whether the ECB publishes reference rates on this day (midnight UTC). */
+export function ecbPublishes(day: number): boolean {
+  const d = new Date(day)
+  const wd = d.getUTCDay()
+  if (wd === 0 || wd === 6) return false
+  const m = d.getUTCMonth() + 1
+  const dom = d.getUTCDate()
+  if ((m === 1 && dom === 1) || (m === 5 && dom === 1) || (m === 12 && (dom === 25 || dom === 26))) return false
+  const easter = easterSunday(d.getUTCFullYear())
+  return day !== easter - 2 * DAY && day !== easter + DAY
+}
+
+/** How many ECB publications were due after `asOf` and before `now`. */
+export function missedEcbDays(asOf: string, now = Date.now()): number {
+  const from = Date.parse(`${asOf}T00:00:00Z`)
+  if (!Number.isFinite(from) || !Number.isFinite(now)) return Infinity
+  let missed = 0
+  /* At most a few weeks are ever counted: anything past the limit is stale whatever follows. */
+  for (let day = from + DAY; day + PUBLISHED_BY_UTC_HOUR * 3_600_000 <= now; day += DAY) {
+    if (ecbPublishes(day)) missed++
+    if (missed > FX_MISSED_DAYS) break
+  }
+  return missed
+}
 
 export function fxFresh(fx: FxRates | null | undefined, now = Date.now()): boolean {
   if (!fx || !/^\d{4}-\d{2}-\d{2}$/.test(fx.asOf)) return false
   const at = Date.parse(`${fx.asOf}T00:00:00Z`)
-  return Number.isFinite(at) && now - at <= FX_FRESH_DAYS * 86_400_000 && now - at >= -86_400_000
+  return Number.isFinite(at) && now - at >= -DAY && missedEcbDays(fx.asOf, now) <= FX_MISSED_DAYS
 }
 
 function ratePerEuro(fx: FxRates, currency: string): number | null {
