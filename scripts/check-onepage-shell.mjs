@@ -31,6 +31,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
+import sharp from "sharp"
 import { serveEditorProbe } from "./onepage-probe-server.mjs"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
@@ -265,6 +266,100 @@ if (wants("sheets")) {
   report[label || "now"] = { rows: rows.map(({ gaps, ...r }) => r), totals }
   }
   if (process.env.OUT) writeFileSync(process.env.OUT, JSON.stringify(report, null, 2))
+}
+
+/* ── An open sheet is opaque ─────────────────────────────────────────── */
+/*
+  A KEPT SHEET THAT IS OPEN SHOWS NOTHING OF THE PAGE THROUGH IT. A kept
+  sheet rests at REST_OPACITY (components/ui/bottom-sheet.tsx); open, its
+  panel must be whole. A black layer is put under the sheet (over the
+  editor), the sheet opened, and from the end of the open for a second the
+  panel's computed opacity and a column of its pixels down its right margin,
+  where nothing is usually drawn, are read; then the same frame is taken
+  over black and over white, and must not differ.
+  Pictures at 100, 300 and 1000ms after the tap.
+*/
+if (wants("opaque")) {
+  console.log("\nAn open kept sheet is opaque, at 390, touch, CPU 4x")
+  const KEPT = [
+    ["Add block", "links", clickText("Add")],
+    ["Share", "links", clickSel("[data-onepage-share]")],
+    ["Unsaved changes", "settings", clickSel("[data-onepage-exit]"), `(() => { const i = document.querySelector("[data-settings-name]"); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(i, i.value + "!"); i.dispatchEvent(new Event("input", { bubbles: true })) })()`],
+    ["Font picker", "design", `(async () => { const t = document.querySelector('[data-nav-row="text"]'); if (t) t.click(); await new Promise((r) => setTimeout(r, 900)); const b = [...document.querySelectorAll("[data-font-picker]")].find((e) => e.getClientRects().length); if (b) b.click(); return !!b })()`],
+  ]
+  /* The darkest value in a column of the panel's right margin, from 40px under its top to its foot. */
+  const column = async (s) => {
+    const r = await s.p.evaluate(() => {
+      const el = document.querySelector('[data-app-sheet="open"] [data-sheet-panel]')
+      if (!el) return null
+      const b = el.getBoundingClientRect()
+      const chain = []
+      for (let n = el; n && n !== document.body; n = n.parentElement) chain.push(Number(getComputedStyle(n).opacity))
+      return { top: Math.max(0, b.top + 40), bottom: Math.min(innerHeight, b.bottom), x: b.right - 2, opacity: chain.reduce((a, o) => a * o, 1) }
+    })
+    if (!r || r.bottom - r.top < 10) return null
+    const png = await s.p.screenshot({ clip: { x: r.x, y: r.top, width: 1, height: r.bottom - r.top }, captureBeyondViewport: false })
+    const { data } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+    let min = 255
+    for (const v of data) min = Math.min(min, v)
+    return { min, opacity: Math.round(r.opacity * 10000) / 10000 }
+  }
+  for (const [name, hash, opener, prepare] of KEPT) {
+    const s = await open(PHONE, hash, { cpu: 4 })
+    if (prepare) { await s.p.evaluate(prepare); await sleep(1200) }
+    /* Black under the sheet's layer (z 200), over everything else. */
+    await s.p.evaluate(() => { const d = document.createElement("div"); d.style.cssText = "position:fixed;inset:0;background:#000;z-index:199;pointer-events:none"; document.body.appendChild(d) })
+    const kept = await s.p.evaluate(() => [...document.querySelectorAll("[data-app-sheet-rest]")].length)
+    /* From the tap: an opener that first walks to its page (the font picker) taps at its end. */
+    const found = await s.p.evaluate(opener)
+    const t0 = Date.now()
+    const samples = []
+    for (const at of [100, 300]) {
+      await sleep(Math.max(0, at - (Date.now() - t0)))
+      if (shots) await s.p.screenshot({ path: join(shots, `shell-opaque-${name.replace(/\W+/g, "-").toLowerCase()}-${at}ms.png`) })
+    }
+    /* The open is 360ms (SHEET_OPEN_MS); from 500ms it is settled. */
+    await sleep(Math.max(0, 500 - (Date.now() - t0)))
+    while (Date.now() - t0 < 1500) samples.push(await column(s))
+    if (shots) await s.p.screenshot({ path: join(shots, `shell-opaque-${name.replace(/\W+/g, "-").toLowerCase()}-1000ms.png`) })
+    /*
+      The whole panel, not only its margin: the same frame over black and
+      then over white. An opaque panel draws the same pixels over both; any
+      difference is the page showing through.
+    */
+    const box = await s.p.evaluate(() => { const b = document.querySelector('[data-app-sheet="open"] [data-sheet-panel]')?.getBoundingClientRect(); return b ? { x: 0, y: Math.max(0, b.top + 24), width: innerWidth, height: Math.min(innerHeight, b.bottom) - Math.max(0, b.top + 24) } : null })
+    let through = null
+    if (box && box.height > 10) {
+      const grab = async () => (await sharp(await s.p.screenshot({ clip: box })).removeAlpha().raw().toBuffer())
+      const overBlack = await grab()
+      await s.p.evaluate(() => { for (const d of document.querySelectorAll("body > div")) if (d.style.zIndex === "199") d.style.background = "#fff" })
+      await sleep(150)
+      const overWhite = await grab()
+      await s.p.evaluate(() => { for (const d of document.querySelectorAll("body > div")) if (d.style.zIndex === "199") d.style.background = "#000" })
+      await sleep(150)
+      /* A pixel that changed between the two black frames is something moving (a caret, a settling edge), not the page through the panel. */
+      const overBlackAgain = await grab()
+      through = 0
+      let where = null
+      let moving = 0
+      for (let i = 0; i < Math.min(overBlack.length, overWhite.length, overBlackAgain.length); i++) {
+        if (overBlack[i] !== overBlackAgain[i]) { moving++; continue }
+        const d = Math.abs(overBlack[i] - overWhite[i])
+        if (d > through) { through = d; const px = Math.floor(i / 3); where = { x: px % Math.round(box.width * 2), y: Math.floor(px / Math.round(box.width * 2)) } }
+      }
+      if (moving) console.log(`  (${name}: ${moving} channel values moved between the two black frames, left out)`)
+      if (through > 2) console.log(`  (${name}: largest difference at device pixel ${JSON.stringify(where)} of the clip from y=${Math.round(box.y)})`)
+    }
+    const read = samples.filter(Boolean)
+    const worst = read.reduce((a, r) => Math.min(a, r.min), 255)
+    const opacities = [...new Set(read.map((r) => r.opacity))]
+    console.log(`  ${name.padEnd(16)} kept sheets at rest before the tap ${kept}, ${read.length} samples from 500ms to 1500ms: panel opacity ${opacities.join(", ")}, darkest margin pixel ${worst}`)
+    expect(found && read.length > 0, `${name}: opens`, { found, n: read.length })
+    expect(through !== null && through <= 2, `${name}: the same panel over black and over white (largest difference ${through} of 255)`, through)
+    /* The margin column is only a reading (a row of chips can run to the edge); the over black and over white difference above is the test. */
+    expect(read.length > 0 && opacities.every((o) => o >= 0.99), `${name}: settled, every frame from the end of the open its panel is at full opacity`, { opacities })
+    await s.p.close()
+  }
 }
 
 /* ── Settings ─────────────────────────────────────────────────────────── */
