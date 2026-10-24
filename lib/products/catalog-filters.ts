@@ -47,6 +47,8 @@ type Words = Partial<Record<string, string>> | undefined
 /** The fields of a product card this reads. */
 export interface FilterableCard {
   id: string
+  /** The asking price in the store's minor units, beside the settings (lib/website-builder/shop-products.ts toCard). */
+  price_cents?: unknown
   settings: {
     title?: unknown
     price?: unknown
@@ -186,7 +188,7 @@ export function moneyCents(price: unknown): number {
 
 /** A card's asking price in minor units: what the card carries (round 12), else read back from its formatted price. Free is 0. */
 export function cardPriceCents(card: FilterableCard): number {
-  const cents = card.settings.price_cents
+  const cents = card.price_cents ?? card.settings.price_cents
   if (typeof cents === "number" && Number.isFinite(cents)) return Math.max(0, Math.round(cents))
   return moneyCents(card.settings.price)
 }
@@ -206,7 +208,8 @@ function cardVariants(card: FilterableCard): VariantFacts[] {
     if (!r || typeof r !== "object") continue
     out.push({
       available: r.available !== false,
-      cents: typeof r.price_cents === "number" && Number.isFinite(r.price_cents) ? Math.max(0, Math.round(r.price_cents)) : r.price !== undefined ? moneyCents(r.price) : cardPriceCents(card),
+      /* Its own price, or the product's when it has none written ("" on an older card means the product's price). */
+      cents: typeof r.price_cents === "number" && Number.isFinite(r.price_cents) ? Math.max(0, Math.round(r.price_cents)) : typeof r.price === "string" && r.price.trim() ? moneyCents(r.price) : cardPriceCents(card),
       options: Array.isArray(r.options) ? (r.options as unknown[]).map((x) => (typeof x === "string" && x.trim() ? x.trim() : null)) : null,
     })
   }

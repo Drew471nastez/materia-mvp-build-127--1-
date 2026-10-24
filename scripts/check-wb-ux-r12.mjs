@@ -534,7 +534,6 @@ async function newTabImported() {
   const { convertShopifyTheme } = await import("../lib/storelib-theme/shopify/convert.ts")
   const { themeOfInstall } = await import("../lib/storelib-theme/compat/page.ts")
   const { answer } = await import("../lib/storelib-theme/compat/site.ts")
-  const { markNewTabLinksInHtml } = await import("../lib/website-builder/new-tab.ts")
   const dir = join(process.cwd(), "tests/fixtures/shopify-materia")
   const zip = new JSZip()
   const walk = (d, rel) => { for (const n of readdirSync(d)) { const p = join(d, n); if (statSync(p).isDirectory()) walk(p, `${rel}${n}/`); else zip.file(`${rel}${n}`, readFileSync(p)) } }
@@ -546,10 +545,9 @@ async function newTabImported() {
   const menus = { "main-menu": { title: "Main menu", links: [{ title: "Shop", url: "/collections/all" }, { title: "Journal", url: "/collections/all#_blank" }, { title: "Instagram", url: "https://instagram.example.invalid/atelier#_blank" }] } }
   const site = { creatorId: "c", theme, pages, products: [], collections: [], menus, shop: { name: "Atelier Nord", currency: "EUR", moneyFormat: "€{{amount}}" }, host: "127.0.0.1" }
   const out = await answer(site, { method: "GET", path: "/", query: new URLSearchParams(), body: null, cart: [] })
-  const drawn = String(out.body)
-  /* What the site route sends (app/api/site-theme/site/[username]/[[...path]]/route.ts): the theme's page with every marked link drawn as a new tab link. */
-  const html = markNewTabLinksInHtml(drawn)
-  expect(/href="\/collections\/all#_blank"/.test(drawn), "the theme prints the menu link with its mark ({{ link.url }})", drawn.match(/<a[^>]*#_blank[^>]*>/)?.[0])
+  /* The page as the site route sends it: the theme prints {{ link.url }} with the mark, and the drawn page turns it into a real new tab link (lib/storelib-theme/compat/page.ts, withNewTabAnchors). */
+  const html = String(out.body)
+  expect(!/#_blank/.test(html), "no link on the page still carries the mark", html.match(/<a[^>]*#_blank[^>]*>/)?.[0])
   const { server, base } = await newTabServer({ page: html })
   const puppeteer = (await import("puppeteer-core")).default
   const browser = await puppeteer.launch({ executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox"] })

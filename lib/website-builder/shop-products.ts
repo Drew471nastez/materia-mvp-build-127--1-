@@ -95,6 +95,13 @@ export interface ProductVariantCard {
 export interface ProductCard {
   id: string
   type: "product"
+  /**
+   * Round 12: its asking price in the store's currency's minor units, for the
+   * shop's filters and sort (lib/products/catalog-filters.ts), which cannot
+   * read every currency back from the formatted price. Beside the settings,
+   * not in them: a template is handed money as words and never does sums.
+   */
+  price_cents?: number
   settings: {
     title: string
     /** Formatted, e.g. "$48.00". "" when it costs nothing. The minimum for pay what you want. Templates do not do money. */
@@ -130,15 +137,11 @@ export interface ProductCard {
     category?: string
     /** A shipped product's options, such as Size and Colour, with their values. Empty for the rest. */
     options?: { name: string; values: string[] }[]
-    /**
-     * Round 12, for the shop's filters (lib/products/catalog-filters.ts): its
-     * asking price in the store's currency's minor units (the formatted price
-     * cannot be read back in every currency), its tags and its brand
-     * (vendor) as Products holds them; absent on a database without them.
-     */
-    price_cents?: number
+    /** Round 12, for the shop's filters (lib/products/catalog-filters.ts): its tags and its brand (vendor) as Products holds them; absent on a database without them. */
     tags?: string[]
     vendor?: string
+    /** Round 12: the product's description from Products as cleaned markup, on the cards a section featuring a product reads (lib/website-builder/product-descriptions.ts). */
+    description_html?: string
   }
   /**
    * Storelib Reviews, while the store has it on with stars on cards
@@ -313,6 +316,7 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
   return {
     id: row.id,
     type: "product",
+    price_cents: cents,
     settings: {
       title: row.title ?? "",
       /* A membership's price is per month, "$9.00/month", as on Storelib's own cards (lib/pricing/list-price). */
@@ -342,7 +346,6 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
           return { name: o.name.trim(), values, ...(Object.keys(swatches).length ? { swatches } : {}) }
         })
         .filter((o) => o.name && o.values.length > 0),
-      price_cents: cents,
       ...(Array.isArray(row.tags) ? { tags: [...new Set((row.tags as unknown[]).filter((t): t is string => typeof t === "string" && t.trim() !== "").map((t) => t.trim()))] } : {}),
       ...(typeof row.vendor === "string" && row.vendor.trim() ? { vendor: row.vendor.trim() } : {}),
     },

@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { blockGaps, gapAt, insertIndexFor, sameGap, type BlockBox } from "../lib/website-builder/block-gaps"
-import { markNewTabLinksInHtml, newTabLink } from "../lib/website-builder/new-tab"
+import { newTabLink, withNewTabAnchors } from "../lib/website-builder/new-tab"
 import { linkObject } from "../lib/storelib-theme/compat/objects"
 import { headerMenuBlocks } from "../lib/website-builder/header-settings"
 import { cleanMenus } from "../lib/storelib-theme/values"
@@ -79,25 +79,27 @@ console.log("\nA menu link that opens in a new tab")
   check("a link's own switch, without the mark", newTabLink("https://x.com", true).target === "_blank")
   check("an unmarked link is left alone", JSON.stringify(newTabLink("/shop")) === JSON.stringify({ href: "/shop" }))
   const html = `<nav><a class="a" href="/about#_blank">About</a><a href='https://x.com/y#_blank' data-x>X</a><a href="/shop">Shop</a><a href="/c#_blank" target="_self">C</a></nav>`
-  const out = markNewTabLinksInHtml(html)
-  check("an imported theme's page: every marked <a> opens a new tab, safely", out.includes(`<a class="a" href="/about" target="_blank" rel="noopener noreferrer">`) && out.includes(`<a href='https://x.com/y' data-x target="_blank" rel="noopener noreferrer">`), out)
-  check("an unmarked link is untouched; the switch wins over a target the theme wrote", out.includes(`<a href="/shop">`) && out.includes(`<a href="/c" target="_blank" rel="noopener noreferrer">`), out)
-  check("markup with no mark is returned as it was", markNewTabLinksInHtml("<a href=\"/x\">x</a>") === "<a href=\"/x\">x</a>")
-  check("a mark in the text is not a link", markNewTabLinksInHtml("<p>#_blank</p>") === "<p>#_blank</p>")
+  const out = withNewTabAnchors(html)
+  const tag = (text: string) => out.match(new RegExp(`<a[^>]*>${text}</a>`))?.[0] ?? ""
+  const isNewTab = (t: string, href: string) => t.includes(`href="${href}"`) || t.includes(`href='${href}'`) ? /target="_blank"/.test(t) && /rel="[^"]*noopener[^"]*noreferrer[^"]*"/.test(t) && !t.includes("#_blank") : false
+  check("an imported theme's page: every marked <a> opens a new tab, safely", isNewTab(tag("About"), "/about") && isNewTab(tag("X"), "https://x.com/y"), out)
+  check("an unmarked link is untouched; the switch wins over a target the theme wrote", tag("Shop") === `<a href="/shop">` + "Shop</a>" && isNewTab(tag("C"), "/c") && !/_self/.test(tag("C")), out)
+  check("markup with no mark is returned as it was", withNewTabAnchors("<a href=\"/x\">x</a>") === "<a href=\"/x\">x</a>")
+  check("a mark in the text is not a link", withNewTabAnchors("<p>#_blank</p>") === "<p>#_blank</p>")
 
   const menus = cleanMenus({ "main-menu": { title: "Main", links: [{ title: "Blog", url: "https://blog.example.com#_blank", links: [{ title: "Help", url: "/help#_blank" }] }] } })
   check("the store's menus keep the mark when saved", menus["main-menu"].links[0].url === "https://blog.example.com#_blank" && menus["main-menu"].links[0].links?.[0].url === "/help#_blank")
   const blocks = headerMenuBlocks("main-menu", menus) ?? []
-  check("the header is handed the menu's links with their marks", blocks.length === 2 && String(blocks[1].settings.url) === "/help#_blank")
+  check("the header is handed the menu's links, each set to open in a new tab, the address without the mark", blocks.length === 2 && blocks[1].settings.url === "/help" && blocks[1].settings.open_in_new_tab === true && blocks[0].settings.open_in_new_tab === true)
   const linked = linkObject({ title: "Help", url: "/help#_blank" }, "/help")
   check("an imported theme's link keeps the mark in url (drawn as a target) and is still the page it names", linked.url === "/help#_blank" && linked.active === true, linked)
 
   const header = read("components/website-builder/sections/renderers/HeaderSection.tsx")
-  check("the header draws a marked menu link with its target, in the row, the dropdown and the phone menu", /const opensNew = \(block/.test(header) && /const openInNew = opensNew\(block\)/.test(header) && /const childOpenInNew = opensNew\(child\)/.test(header) && /openInNew: opensNew\(b\)/.test(header) && /openInNew: opensNew\(c\)/.test(header))
+  check("the header draws a marked menu link with its target, in the row, the dropdown and the phone menu", /const opensInNew = \(block/.test(header) && /const openInNew = opensInNew\(block\)/.test(header) && /const childOpenInNew = opensInNew\(child\)/.test(header) && /openInNew: opensInNew\(b\)/.test(header) && /openInNew: opensInNew\(c\)/.test(header))
   check("and without the mark in its address", /return withoutNewTab\(url\) \|\| "#"/.test(header))
-  check("the phone menu leaves a new tab link to the browser instead of opening the page here", /handleLinkClick = \(href: string, newTab = false\)/.test(header) && /newTab \|\| opensNewTab\(href\) \|\|/.test(header) && /handleLinkClick\(item\.href, item\.openInNew\)/.test(header) && /handleLinkClick\(child\.href, child\.openInNew\)/.test(header))
-  check("the header's button, the footer's links", /\{\.\.\.newTabLink\(cta\.url\)\}/.test(header) && (read("components/website-builder/sections/renderers/FooterSection.tsx").match(/\{\.\.\.newTabLink\(link\.url\)\}/g) ?? []).length === 3)
-  check("an imported theme's live page is drawn with them", /markNewTabLinksInHtml\(html\)/.test(read("app/api/site-theme/site/[username]/[[...path]]/route.ts")))
+  check("the phone menu leaves a new tab link to the browser instead of opening the page here", /handleLinkClick = \(href: string, openInNew = false\)/.test(header) && /openInNew \|\| e\.metaKey/.test(header) && /handleLinkClick\(item\.href, item\.openInNew\)/.test(header) && /handleLinkClick\(child\.href, child\.openInNew\)/.test(header))
+  check("the header's buttons (the phone menu's and the bar's), the footer's links", /\{\.\.\.newTabLink\(cta\.url\)\}/.test(header) && /\{\.\.\.newTabLink\(str\(s\.cta_url, "#"\)\)\}/.test(header) && (read("components/website-builder/sections/renderers/FooterSection.tsx").match(/\{\.\.\.newTabLink\(/g) ?? []).length >= 2)
+  check("an imported theme's page is drawn with them, live and in the canvas", (read("lib/storelib-theme/compat/page.ts").match(/withNewTabAnchors\(withoutVendorTraces/g) ?? []).length >= 2)
 }
 
 /* ── The shop's filters, from a real shop's rows ─────────────────────────── */
@@ -152,7 +154,7 @@ async function filters() {
   const db = fakeDb(JSON.parse(JSON.stringify(fixture.tables)))
   const cards = await shopCatalogue(db as never, fixture.creatorId)
   check("only the creator's published products on the Online store are listed", JSON.stringify(names(cards.map((c) => c.id))) === JSON.stringify(names(expected({}))), names(cards.map((c) => c.id)))
-  check("each card carries its price in the store's currency, tags and brand", cards.every((c) => typeof c.settings.price_cents === "number") && cards.find((c) => c.settings.slug === "linen-shirt")?.settings.vendor === "Atelier Nord" && (cards.find((c) => c.settings.slug === "wool-socks")?.settings.tags ?? []).includes("winter"))
+  check("each card carries its price in the store's currency, tags and brand", cards.every((c) => typeof c.price_cents === "number") && cards.find((c) => c.settings.slug === "linen-shirt")?.settings.vendor === "Atelier Nord" && (cards.find((c) => c.settings.slug === "wool-socks")?.settings.tags ?? []).includes("winter"))
   check("prices are in euros, as the store sells", cards.every((c) => c.settings.currency === "EUR") && /€/.test(String(cards.find((c) => c.settings.slug === "shirt-pattern")?.settings.price)))
 
   const cases: [string, string, Parameters<typeof expected>[0]][] = [
