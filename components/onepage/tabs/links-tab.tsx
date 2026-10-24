@@ -501,9 +501,12 @@ export function LinksTab() {
     requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-reorder-grip="${CSS.escape(id)}"]`)?.focus({ preventScroll: false }))
   }
 
-  if (!onepage) return null
-
-  const { draft_blocks, title, avatar_url, social_links } = onepage
+  /* Every hook of this component runs before its early return (rules of hooks): the page's parts are read null-safe
+     here, and the return for a page not loaded yet comes after the last hook, below. */
+  const draft_blocks = onepage?.draft_blocks ?? []
+  const title = onepage?.title ?? ""
+  const avatar_url = onepage?.avatar_url ?? null
+  const social_links = onepage?.social_links ?? ({} as OnePageSocialLinks)
   const sortedBlocks = [...draft_blocks].sort((a, b) => a.sort_order - b.sort_order)
 
   // Sync social_links to all social_row blocks for instant preview updates
@@ -882,6 +885,8 @@ export function LinksTab() {
 
     return () => clearInterval(interval)
   }, [onepage?.draft_blocks, autoFetchThumbnail])
+
+  if (!onepage) return null
 
   // Handle thumbnail upload for modal
   const handleThumbnailUploadForModal = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -4345,19 +4350,26 @@ function BlockEditor({
 
       // Also sync if platforms is empty but there are active social links (initial mount fix)
       const needsInitialSync = (data.platforms || []).length === 0 && activeSocials.length > 0
+      const hasChangedUrls = (data.platforms || []).some(p => {
+        const now = socialLinks?.[p.platform as keyof typeof socialLinks]
+        return !!now && now !== p.url
+      })
 
-      if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync) {
+      if (hasNewPlatforms || hasRemovedPlatforms || needsInitialSync || hasChangedUrls) {
         // Preserve existing order, add new ones at end, remove deleted ones
-        const existingOrder = (data.platforms || []).filter(p => socialLinks?.[p.platform as keyof typeof socialLinks])
+        const existingOrder = (data.platforms || [])
+          .filter(p => socialLinks?.[p.platform as keyof typeof socialLinks])
+          .map(p => ({ ...p, url: socialLinks?.[p.platform as keyof typeof socialLinks] as string }))
         const existingPlatforms = new Set(existingOrder.map(p => p.platform))
         const newPlatforms = activeSocials.filter(s => !existingPlatforms.has(s.platform))
 
-        updateBlock(block.id, {
+        /* Silent, as the list's own sync is: bringing the row in line with the links is no edit, so opening this editor never marks the page Unsaved or adds an Undo step. A social row is never inside a group, so this is the page's own update. */
+        contextUpdateBlock(block.id, {
           data: {
             ...block.data,
             platforms: [...existingOrder, ...newPlatforms]
           }
-        })
+        }, { silent: true })
       }
     }
   }, [socialLinks, block.type, block.id])
