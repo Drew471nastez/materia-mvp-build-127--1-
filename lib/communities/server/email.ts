@@ -128,6 +128,50 @@ interface CommunityFacts {
   slug: string
   creatorName: string | null
   open: boolean
+  /** The community's picture, the address members reply to, and its own domain: what its emails are branded with (./email-templates.ts communityBrand). */
+  logoUrl: string | null
+  replyTo: string | null
+  host: string | null
+}
+
+/** The address a member's reply goes to: the community's contact address (part 101), else the owner's support address. */
+async function replyAddressOf(db: Db, communityId: string, creatorId: string | null): Promise<string | null> {
+  try {
+    const { data, error } = await db.from("communities").select("contact_email").eq("id", communityId).maybeSingle()
+    const own = !error && typeof data?.contact_email === "string" ? data.contact_email.trim() : ""
+    if (EMAIL.test(own)) return own.toLowerCase()
+  } catch {
+    /* before part 101: the owner's address below */
+  }
+  if (!creatorId) return null
+  try {
+    const { data } = await db.from("creators").select("support_email").eq("id", creatorId).maybeSingle()
+    const support = typeof data?.support_email === "string" ? data.support_email.trim() : ""
+    return EMAIL.test(support) ? support.toLowerCase() : null
+  } catch {
+    return null
+  }
+}
+
+/** The community's own domain once it is live (lib/custom-domains/community-server.ts), else none: links stay on storelib.com. */
+async function ownHostOf(communityId: string): Promise<string | null> {
+  try {
+    const { communityDomainHost } = await import("@/lib/custom-domains/community-server")
+    return await communityDomainHost(communityId)
+  } catch {
+    return null
+  }
+}
+
+/** The member's own name, for {{first_name}} in the community's words. */
+async function memberNameOf(db: Db, userId: string): Promise<string | null> {
+  try {
+    const { data } = await db.from("profiles").select("display_name").eq("id", userId).maybeSingle()
+    const name = typeof data?.display_name === "string" ? data.display_name.replace(/\s+/g, " ").trim() : ""
+    return name ? name.slice(0, 60) : null
+  } catch {
+    return null
+  }
 }
 
 const factsCache = new Map<string, { at: number; facts: CommunityFacts | null }>()
@@ -137,7 +181,7 @@ const FACTS_TTL_MS = 60_000
 async function communityFacts(db: Db, communityId: string): Promise<CommunityFacts | null> {
   const hit = factsCache.get(communityId)
   if (hit && Date.now() - hit.at < FACTS_TTL_MS) return hit.facts
-  const { data, error } = await db.from("communities").select("id, name, slug, status, creator_id, suspended_at, deleted_at").eq("id", communityId).maybeSingle()
+  const { data, error } = await db.from("communities").select("id, name, slug, status, creator_id, suspended_at, deleted_at, logo_url").eq("id", communityId).maybeSingle()
   if (error) throw error
   let facts: CommunityFacts | null = null
   if (data) {
@@ -146,7 +190,16 @@ async function communityFacts(db: Db, communityId: string): Promise<CommunityFac
       const { data: c } = await db.from("creators").select("display_name, username").eq("id", data.creator_id).maybeSingle()
       creatorName = (c?.display_name as string | null) || (c?.username as string | null) || null
     }
-    facts = { name: data.name, slug: data.slug, creatorName, open: !data.deleted_at && !data.suspended_at && data.status !== "suspended" }
+    const [replyTo, host] = await Promise.all([replyAddressOf(db, communityId, data.creator_id ?? null), ownHostOf(communityId)])
+    facts = {
+      name: data.name,
+      slug: data.slug,
+      creatorName,
+      open: !data.deleted_at && !data.suspended_at && data.status !== "suspended",
+      logoUrl: typeof data.logo_url === "string" && data.logo_url ? data.logo_url : null,
+      replyTo,
+      host,
+    }
   }
   factsCache.set(communityId, { at: Date.now(), facts })
   return facts
@@ -215,8 +268,10 @@ export async function sendCommunityEmail(
       recipient = `u:${userId}`
     }
 
-    /* Round AG: the owner's own subject, heading and opening line for this kind, when they wrote any (./email-templates.ts). */
+    /* Round AG: the owner's own subject, heading, opening line and button for this kind, when they wrote any (./email-templates.ts). */
     const words = wordsPayload(await emailWordsFor(db, input.communityId, kind))
+    /* The member's own name, for "Hi Maria," and {{first_name}}. Not for an invite (no account yet) or a broadcast, which fans out to everyone and greets no one. */
+    const memberName = kind !== "invite" && kind !== "broadcast" && input.userId ? await memberNameOf(db, input.userId) : null
     const result = await storeOf(db).insertEvent({
       name: `community.${kind}` as DomainEventName,
       key: communityEmailKey(kind, input.communityId, recipient, key),
@@ -226,6 +281,9 @@ export async function sendCommunityEmail(
       /* The same payload its preview in Emails draws (./email-templates.ts communityEmailPayload), with the address and the key. */
       payload: {
         ...communityEmailPayload(plainData(input.data), input.communityId, community, words),
+        ...(memberName ? { memberName } : {}),
+        /* The member, for the link that turns this community's emails off for them (lib/notify/unsubscribe.ts communityUnsubscribeUrl). */
+        ...(kind !== "invite" && input.userId ? { memberUserId: input.userId } : {}),
         recipientEmail,
         dedupeKey: key.slice(0, 200),
       },

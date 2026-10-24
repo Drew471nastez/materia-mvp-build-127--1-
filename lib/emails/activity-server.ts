@@ -87,6 +87,17 @@ const COMMUNITY_TYPE_TO_ID: Record<string, string> = {
   COMMUNITY_EVENT_CANCELLED: "community_event_cancelled",
 }
 
+/* A membership's emails: the store's own (Digital products) or, for a community's paid plan (data.communityId), that community's. */
+const MEMBERSHIP_TYPE_TO_ID: Record<string, string> = {
+  MEMBERSHIP_STARTED: "membership_started",
+  MEMBERSHIP_RENEWED: "membership_renewed",
+  MEMBERSHIP_RENEWAL_REMINDER: "membership_renewal_reminder",
+  MEMBERSHIP_PAYMENT_FAILED: "membership_payment_failed",
+  MEMBERSHIP_CANCELED: "membership_canceled",
+  MEMBERSHIP_PLAN_CHANGED: "membership_plan_changed",
+  MEMBERSHIP_ENDED: "membership_ended",
+}
+
 async function quietly<T>(read: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await read()
@@ -149,6 +160,27 @@ export async function emailActivity(db: Db, creatorId: string, opts: { physical:
       }, undefined)
     : Promise.resolve()
 
+  const memberships = quietly(async () => {
+    const { data, error } = await db
+      .from("notification_jobs")
+      .select("type, data, sent_at")
+      .eq("creator_id", creatorId)
+      .eq("entity_type", "membership")
+      .eq("state", "sent")
+      .gte("sent_at", since)
+      .in("type", Object.keys(MEMBERSHIP_TYPE_TO_ID))
+      .limit(20000)
+    if (error) return
+    const mine = new Set(opts.communityIds)
+    for (const r of (data ?? []) as Array<{ type: string; data: { communityId?: unknown } | null; sent_at: string | null }>) {
+      const id = MEMBERSHIP_TYPE_TO_ID[r.type]
+      if (!id) continue
+      const community = typeof r.data?.communityId === "string" ? r.data.communityId : null
+      if (community && mine.has(community)) add((communities[community] ??= {}), `community_${id}`, r.sent_at)
+      else if (!community) add(emails, id, r.sent_at)
+    }
+  }, undefined)
+
   const flows = quietly(async (): Promise<{ flows: FlowActivity[]; replaced: EmailActivity["reminderReplacedBy"] }> => {
     const { data, error } = await db.from("email_flows").select("id, name, trigger_type, trigger_config, status").eq("creator_id", creatorId).order("created_at", { ascending: false })
     if (error) return { flows: [], replaced: null }
@@ -179,6 +211,6 @@ export async function emailActivity(db: Db, creatorId: string, opts: { physical:
     return { flows: list, replaced: on ? { id: on.id, name: on.name } : null }
   }, { flows: [], replaced: null })
 
-  const [, , , , automations] = await Promise.all([receipts, refunds, physical, members, flows])
+  const [, , , , , automations] = await Promise.all([receipts, refunds, physical, members, memberships, flows])
   return { days: ACTIVITY_DAYS, emails, communities, flows: automations.flows, reminderReplacedBy: automations.replaced }
 }

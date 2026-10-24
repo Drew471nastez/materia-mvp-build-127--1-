@@ -54,7 +54,8 @@ import "server-only"
  * Before part 202 a community nobody pays for is still deleted at once;
  * scheduling one that somebody pays for answers 503 and changes nothing.
  */
-import { platformEmail } from "@/lib/emails/layout"
+import { platformEmail as drawEmail, type EmailSender, type PlatformEmailInput } from "@/lib/emails/layout"
+import { inboxPicture } from "@/lib/notify/templates"
 import { money } from "@/lib/memberships/state"
 import type { CommunityRow } from "../types"
 import { canUndoDeletion, deletionDate, deletionRefundKey, emailDate, isDeletionMode, proratedRefundCents, renews, stillPaid, type DeletionMode, type DeletionPlanView, type ScheduledDeletionView } from "../community-deletion"
@@ -275,9 +276,12 @@ async function lastPayment(db: Db, membershipId: string): Promise<{ orderId: str
 
 type MailKind = "closing" | "closed" | "staying"
 
-function memberEmail(kind: MailKind, m: { communityName: string; url: string; date: string | null; refund: string | null }): { subject: string; html: string; text: string } {
+function memberEmail(kind: MailKind, m: { communityName: string; url: string; date: string | null; refund: string | null; logoUrl?: string | null }): { subject: string; html: string; text: string } {
   const name = m.communityName.replace(/[\r\n]+/g, " ").trim() || "This community"
   const date = emailDate(m.date)
+  /* From the community, by its own name and picture, as every email it sends its members (lib/notify/templates brandOf). */
+  const sender: EmailSender = { kind: "store", name, pictureUrl: inboxPicture(m.logoUrl, 36), picture: "mark", url: m.url }
+  const platformEmail = (input: PlatformEmailInput) => drawEmail({ ...input, sender })
   if (kind === "staying") {
     const subject = `${name} is staying open`
     const paragraphs = [`The owner of ${name} changed their mind: the community stays open.`, `Your membership carries on as before and renews on ${date}.`]
@@ -303,12 +307,12 @@ const sendable = (to: string | null | undefined): to is string => typeof to === 
  * update first (only the run that changes it from empty sends), and given
  * back when the send fails, so the next run tries again.
  */
-async function emailOnce(db: Db, deps: DeletionDeps, community: Pick<CommunityRow, "id" | "name" | "slug">, row: DeletionMemberRow, kind: "closing" | "closed", facts: { date: string | null; refundCents: number; currency: string }): Promise<boolean> {
+async function emailOnce(db: Db, deps: DeletionDeps, community: Pick<CommunityRow, "id" | "name" | "slug"> & { logo_url?: string | null }, row: DeletionMemberRow, kind: "closing" | "closed", facts: { date: string | null; refundCents: number; currency: string }): Promise<boolean> {
   if (!sendable(row.buyer_email)) return false
   const stamp = nowIso(deps.now())
   const { data } = await db.from("community_deletion_members").update({ emailed_at: stamp }).eq("community_id", community.id).eq("membership_id", row.membership_id).is("emailed_at", null).select("membership_id")
   if (!Array.isArray(data) || data.length !== 1) return false
-  const mail = memberEmail(kind, { communityName: community.name, url: `${deps.baseUrl()}/community/${community.slug}`, date: facts.date, refund: facts.refundCents > 0 ? money(facts.refundCents, facts.currency) : null })
+  const mail = memberEmail(kind, { communityName: community.name, url: `${deps.baseUrl()}/community/${community.slug}`, date: facts.date, refund: facts.refundCents > 0 ? money(facts.refundCents, facts.currency) : null, logoUrl: community.logo_url ?? null })
   const sent = await deps.sendMail({ to: row.buyer_email, ...mail, fromName: community.name, replyTo: null }).catch(() => ({ success: false }))
   if (!sent.success) {
     await db.from("community_deletion_members").update({ emailed_at: null }).eq("community_id", community.id).eq("membership_id", row.membership_id)
@@ -657,7 +661,7 @@ export async function undoDeletion(db: Db, a: { community: CommunityRow; actorId
       const next = await deps.sync(m.stripe_subscription_id)
       resumed++
       if (sendable(m.buyer_email)) {
-        const mail = memberEmail("staying", { communityName: c.name, url: `${deps.baseUrl()}/community/${c.slug}`, date: next?.current_period_end ?? live.current_period_end, refund: null })
+        const mail = memberEmail("staying", { communityName: c.name, url: `${deps.baseUrl()}/community/${c.slug}`, date: next?.current_period_end ?? live.current_period_end, refund: null, logoUrl: (c as { logo_url?: string | null }).logo_url ?? null })
         await deps.sendMail({ to: m.buyer_email, ...mail, fromName: c.name, replyTo: null }).catch(() => ({ success: false }))
       }
       await audit(db, { communityId: c.id, actorId: a.actorId, actorKind: "member", action: "membership.resumed", targetType: "member", targetId: m.buyer_id, reason: "community_kept", detail: { membershipId: m.membership_id } })

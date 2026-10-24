@@ -771,11 +771,14 @@ export interface PlatformEmailInput {
   reason?: string | null
   footerLinks?: EmailLink[]
   homeUrl?: string | null
+  /** Who it is from when it is not Storelib: a community writing to its members, by its own name and picture. */
+  sender?: EmailSender | null
 }
 
 /** A Storelib email from a few plain pieces: the HTML and the plain text part, drawn together. */
 export function platformEmail(input: PlatformEmailInput): { subject: string; html: string; text: string } {
-  const k = emailKit({ kind: "storelib", homeUrl: input.homeUrl })
+  const sender: EmailSender = input.sender ?? { kind: "storelib", homeUrl: input.homeUrl }
+  const k = emailKit(sender)
   const paraHtml = (p: PlatformEmailInput["paragraphs"][number]) => (typeof p === "string" ? k.text(p) : k.html(p.html))
   const paraText = (p: PlatformEmailInput["paragraphs"][number]) => (typeof p === "string" ? p : p.text)
   const first = input.paragraphs[0]
@@ -796,11 +799,11 @@ export function platformEmail(input: PlatformEmailInput): { subject: string; htm
     input.note ? k.small(input.note) : "",
   ]
   const html = emailDocument({
-    sender: { kind: "storelib", homeUrl: input.homeUrl },
+    sender,
     subject: input.subject,
     preview,
     rows,
-    footer: { reason: input.reason, links: input.footerLinks },
+    footer: { reason: input.reason, links: input.footerLinks, legal: sender.kind === "store" ? `Sent by ${sender.name} through Storelib.` : null },
   })
   const text = emailText(
     [
@@ -816,7 +819,7 @@ export function platformEmail(input: PlatformEmailInput): { subject: string; htm
       input.secondary ? `${input.secondary.label}: ${input.secondary.url.replace(/^mailto:/, "")}` : null,
       input.note,
     ],
-    ["Storelib", input.reason, ...(input.footerLinks ?? []).map((l) => `${l.label}: ${l.url}`)],
+    [sender.kind === "store" ? sender.name : "Storelib", input.reason, ...(input.footerLinks ?? []).map((l) => `${l.label}: ${l.url}`)],
   )
   return { subject: input.subject, html, text }
 }

@@ -205,10 +205,11 @@ async function main() {
     const w = renderEmail("COMMUNITY_WELCOME", { ...base, tplSubject: "You made it into {community}", tplIntro: "So glad you are here. {creator}" }, { baseUrl: "https://storelib.com" })
     const plain = renderEmail("COMMUNITY_WELCOME", base, { baseUrl: "https://storelib.com" })
     check("a community's own words change the subject and open the email; the button stays", w.subject === "You made it into Makers Club" && /So glad you are here\. Ana Lopez/.test(w.text) && /Open the community/.test(w.html) && plain.subject === "Welcome to Makers Club")
-    const tickets = renderEmail("COMMUNITY_EVENT_TICKET", { ...base, tplSubject: "Changed" }, { baseUrl: "https://storelib.com" })
-    check("money emails never take the community's words", tickets.subject !== "Changed")
+    /* Changed on purpose (round AE2): a ticket email takes the community's words too; what was paid stays in the facts. */
+    const tickets = renderEmail("COMMUNITY_EVENT_TICKET", { ...base, tplSubject: "Changed", eventTitle: "Live Q&A", amountCents: 1500, currency: "eur" }, { baseUrl: "https://storelib.com" })
+    check("a ticket email takes the community's words, and still says what was paid", tickets.subject === "Changed" && /Paid: €15\.00/.test(tickets.text))
     const t = await import("@/lib/communities/server/email-templates")
-    check("the words are checked: too long is refused, empty keeps Storelib's", "error" in t.wordsInput({ subject: "x".repeat(121) }) && t.emptyWords(t.wordsInput({ subject: "", heading: "" }) as never) && !t.isEditableEmail("event_ticket"))
+    check("the words are checked: too long is refused, empty keeps Storelib's", "error" in t.wordsInput({ subject: "x".repeat(121) }) && t.emptyWords(t.wordsInput({ subject: "", heading: "" }) as never) && t.isEditableEmail("event_ticket") && !t.isEditableEmail("announcement"))
     check("sendCommunityEmail puts the community's words in the event", /wordsPayload\(await emailWordsFor\(db, input\.communityId, kind\)\)/.test(emailSrc))
     const panel = read("components/community/creator/settings-section.tsx")
     /* Changed on purpose: member emails are managed in Emails › Customer emails › Communities with the store's other emails; the community's old settings link opens them there (still the owner and admins: every route keeps the settings permission). */

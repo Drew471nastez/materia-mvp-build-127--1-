@@ -24,7 +24,7 @@ import { notifyLog } from "./log"
 import { emailProvider, mailgunDomain } from "./providers/mailgun"
 import { supabaseNotifyStore } from "./store"
 import { renderEmail, renderInApp } from "./templates"
-import { reviewUnsubscribeUrl, unsubscribeUrl } from "./unsubscribe"
+import { communityUnsubscribeUrl, reviewUnsubscribeUrl, unsubscribeUrl } from "./unsubscribe"
 import { baseUrl, preferencesUrl } from "./urls"
 
 export type { WorkSummary }
@@ -43,8 +43,8 @@ export async function runNotificationWork(budgetMs: number): Promise<WorkSummary
         render: renderEmail,
         baseUrl,
         unsubscribeUrl,
-        /* A review request names its order; the link turns review requests off for that order's address. */
-        customerUnsubscribeUrl: (job) => (job.entity_type === "order" && job.entity_id ? reviewUnsubscribeUrl(job.entity_id) : null),
+        /* A review request names its order; the link turns review requests off for that order's address. A community's own email names the community and the member; its link turns that community's emails off for them (lib/notify/unsubscribe.ts). */
+        customerUnsubscribeUrl: (job) => (job.entity_type === "order" && job.entity_id ? reviewUnsubscribeUrl(job.entity_id) : job.entity_type === "community" && job.entity_id ? communityUnsubscribeUrl(job.entity_id, job.data?.memberUserId) : null),
         preferencesUrl,
         messageDomain: mailgunDomain(),
       }),

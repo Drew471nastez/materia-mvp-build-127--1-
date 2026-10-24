@@ -424,6 +424,12 @@ export interface RenderedEmail {
    * which comes from Storelib. The address sent from never changes.
    */
   fromName?: string | null
+  /**
+   * The name is the whole From name: a community's email, or a membership's
+   * from the creator, comes from "Makers Club", as a store's receipt comes
+   * from the store. Otherwise the channel writes "<name> via Storelib".
+   */
+  fromNameExact?: boolean
   /** Where a reply goes: the seller's support inbox when they have one. Null leaves Storelib's. */
   replyTo?: string | null
   /** What the email carries beside its words: the event's .ics on a ticket receipt. */

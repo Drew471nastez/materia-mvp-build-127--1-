@@ -206,10 +206,80 @@ async function creatorNameOf(admin: Db, creatorId: string | null): Promise<strin
   return (profile?.display_name || profile?.username || creator.slug || null) as string | null
 }
 
+/** The editor's id for each membership event (lib/emails/customer-custom.ts DEFAULT_COPY). */
+const STORE_EMAIL_ID: Record<MembershipEvent, string> = {
+  "membership.started": "membership_started",
+  "membership.renewed": "membership_renewed",
+  "membership.renewal_upcoming": "membership_renewal_reminder",
+  "membership.payment_failed": "membership_payment_failed",
+  "membership.canceled": "membership_canceled",
+  "membership.ended": "membership_ended",
+  "membership.plan_changed": "membership_plan_changed",
+}
+
+/**
+ * WHO A MEMBERSHIP'S EMAIL IS FROM, AND IN WHOSE WORDS. A community's paid
+ * plan (its product names the community) is the community's: its name,
+ * picture, reply address and domain, and the community's own words for this
+ * email (Emails › Customer emails › Communities). A membership sold on its
+ * own is the creator's, as a download's receipt bought on Storelib is: the
+ * store's name, the creator's one picture, their support address, and the
+ * store's own words (Emails › Customer emails › Digital products). Anything
+ * that cannot be read leaves Storelib's words and Storelib's name: the
+ * email always goes.
+ */
+export async function membershipVoice(admin: Db, row: MembershipRow, name: MembershipEvent): Promise<Record<string, unknown>> {
+  let communityId: string | null = null
+  if (row.product_id) {
+    try {
+      const { data, error } = await admin.from("products").select("community_id").eq("id", row.product_id).maybeSingle()
+      communityId = !error && typeof data?.community_id === "string" ? data.community_id : null
+    } catch {
+      communityId = null
+    }
+  }
+  if (communityId) {
+    const { data: c } = await admin.from("communities").select("id, name, slug, creator_id, logo_url").eq("id", communityId).maybeSingle()
+    if (c?.id && c.name) {
+      const t = await import("@/lib/communities/server/email-templates")
+      const facts = await t.communityEmailFacts(admin, c)
+      const kind = t.MEMBERSHIP_WORD_KIND[name]
+      const words = kind ? t.wordsPayload(await t.emailWordsFor(admin, c.id, kind)) : {}
+      return { communityId: c.id, communityName: facts.name, communitySlug: facts.slug, ...(facts.creatorName ? { creatorName: facts.creatorName } : {}), ...t.communityBrand(facts), ...words }
+    }
+  }
+  if (!row.creator_id) return {}
+  const [{ resolveCreatorIdentity }, { loadBrand }, { senderPicture }, { loadCustomerEmailCopy }, { buyerEmailLanguage }] = await Promise.all([
+    import("@/lib/email"),
+    import("@/lib/email-campaigns/brand-server"),
+    import("@/lib/email-campaigns/sender"),
+    import("@/lib/emails/customer-copy-server"),
+    import("@/lib/emails/words-server"),
+  ])
+  const [identity, look, saved, language] = await Promise.all([
+    resolveCreatorIdentity(admin, row.creator_id).catch(() => null),
+    loadBrand(admin, row.creator_id).catch(() => null),
+    loadCustomerEmailCopy(admin, row.creator_id).catch(() => ({}) as Record<string, undefined>),
+    buyerEmailLanguage(row.creator_id, "storelib", null).catch(() => null),
+  ])
+  const shop = (identity?.fromName || look?.creatorName || "").trim()
+  const picture = senderPicture({ photoUrl: look?.avatarUrl, logoUrl: look?.logoUrl })
+  /* The store's words are written in its website's language; a membership's email is English, so they go on it only when that is English too (lib/emails/buyer-channel.ts ownWordsApply). */
+  const copy = language?.own === false ? undefined : (saved as Record<string, { subject?: string; heading?: string; body?: string; button?: string } | undefined>)[STORE_EMAIL_ID[name]]
+  return {
+    ...(shop && shop !== "Storelib" ? { storeName: shop, brandName: shop, brandKind: "creator", brandPicture: picture?.kind === "photo" ? "avatar" : "mark" } : {}),
+    ...(picture?.url ? { brandLogoUrl: picture.url } : {}),
+    ...(identity?.replyTo && !/@storelib\.com$/i.test(identity.replyTo) ? { brandReplyTo: identity.replyTo } : {}),
+    ...(copy ? { tplMode: "body", ...(copy.subject ? { tplSubject: copy.subject } : {}), ...(copy.heading ? { tplHeading: copy.heading } : {}), ...(typeof copy.body === "string" ? { tplIntro: copy.body } : {}), ...(copy.button ? { tplButton: copy.button } : {}) } : {}),
+  }
+}
+
 /** One event for the member (lib/notify/workflows/memberships.ts). Never throws. */
 export async function notice(admin: Db, row: MembershipRow, name: MembershipEvent, key: string, extra: Record<string, unknown> = {}): Promise<void> {
   if (!row.buyer_email || row.buyer_email.endsWith("@storelib.invalid")) return
   const creatorName = await creatorNameOf(admin, row.creator_id).catch(() => null)
+  /* Whose name, picture and words the email carries; Storelib's when none can be read. */
+  const voice = await membershipVoice(admin, row, name).catch(() => ({}) as Record<string, unknown>)
   await emit({
     name,
     key,
@@ -229,6 +299,8 @@ export async function notice(admin: Db, row: MembershipRow, name: MembershipEven
       trialEnd: row.status === "trialing" ? row.trial_end : null,
       cardLast4: row.card_last4,
       graceEndsAt: graceEndsAt(row),
+      ...(row.buyer_name ? { buyerName: row.buyer_name } : {}),
+      ...voice,
       ...extra,
     },
   })

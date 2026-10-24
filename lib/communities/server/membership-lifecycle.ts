@@ -826,11 +826,18 @@ async function emailRefundOnce(
 async function refundEmail(
   db: Db,
   deps: RefundDeps,
-  r: { order: Record<string, any>; product: CommunityProduct; communityName: string; amountCents: number; currency: string },
+  r: { order: Record<string, any>; product: CommunityProduct; communityId?: string; communityName: string; amountCents: number; currency: string },
 ): Promise<{ subject: string; html: string; text: string; fromName: string | null; replyTo: string | null }> {
   const { renderEmail } = await import("@/lib/notify/templates")
   const { orderNumberOf } = await import("@/lib/receipts/rules")
   const creatorName = r.product.creator_id ? await creatorNameOf(db, r.product.creator_id).catch(() => null) : null
+  /* The community's own name, picture, reply address and domain on its refund, as on every email it sends (./email-templates.ts communityBrand). */
+  const brand = await (async () => {
+    if (!r.communityId) return { brandName: r.communityName, brandKind: "community" }
+    const t = await import("./email-templates")
+    const { data: c } = await db.from("communities").select("id, name, slug, creator_id, logo_url").eq("id", r.communityId).maybeSingle()
+    return c?.id ? t.communityBrand(await t.communityEmailFacts(db, c)) : { brandName: r.communityName, brandKind: "community" }
+  })().catch(() => ({ brandName: r.communityName, brandKind: "community" }))
   const rendered = renderEmail(
     "CUSTOMER_REFUND_PROCESSED",
     {
@@ -841,6 +848,7 @@ async function refundEmail(
       storeName: r.communityName,
       creatorName: creatorName ?? "",
       receiptToken: r.order.receipt_token ?? "",
+      ...brand,
     },
     { baseUrl: deps.baseUrl(), recipientName: [r.order.buyer_first_name, r.order.buyer_last_name].filter(Boolean).join(" ") || null },
   )

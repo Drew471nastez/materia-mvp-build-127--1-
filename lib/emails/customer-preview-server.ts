@@ -50,6 +50,6 @@ export async function storePreview(db: Db, creatorId: string, id: string, words:
     { channel, language, creator: { name: creatorName, photoUrl: look?.avatarUrl ?? null, logoUrl: look?.logoUrl ?? null } },
   )
   /* Who the inbox shows it from: the shop, or the creator for a download bought on Storelib. */
-  const signed = channel === "storelib" && (id === "receipt" || id === "digital_refund") ? creatorName : shopName
+  const signed = (channel === "storelib" && (id === "receipt" || id === "digital_refund")) || id.startsWith("membership_") ? creatorName : shopName
   return { name: signed, mail }
 }

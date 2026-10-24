@@ -27,7 +27,8 @@ const SHOP = { name: "Astrid Studio", supportEmail: "hello@astrid.studio", curre
 console.log("\nEvery email in Settings can be changed, and has defaults\n")
 {
   /* Changed on purpose: the digital Refund is listed with nothing to edit (its words are Storelib's, drawn by lib/emails/notices.ts); every email that can be edited has its four parts. */
-  check("every listed email has default words for all four parts", CUSTOMER_EMAILS.filter((e) => e.editable).every((e) => DEFAULT_COPY[e.id] && COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id][f] === "string")) && CUSTOMER_EMAILS.filter((e) => !e.editable).map((e) => e.id).join() === "digital_refund")
+  /* Changed on purpose (round AE2): the digital Refund and the seven membership emails take the store's words too, so every listed email is editable. */
+  check("every listed email has default words for all four parts", CUSTOMER_EMAILS.every((e) => e.editable) && CUSTOMER_EMAILS.every((e) => DEFAULT_COPY[e.id] && COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id][f] === "string")))
   check("every listed email draws a preview", CUSTOMER_EMAILS.every((e) => !!previewCustomerEmail(e.id, SHOP)?.html))
   check("the checkout reminder is listed for every store; shipping ones only with physical commerce", visibleCustomerEmails(false).some((e) => e.id === "checkout_reminder") && !visibleCustomerEmails(false).some((e) => e.id === "shipping_confirmation") && visibleCustomerEmails(true).some((e) => e.id === "shipping_confirmation"))
   const words = Object.values(DEFAULT_COPY).flatMap((c) => Object.values(c)).join(" ")
@@ -133,7 +134,8 @@ console.log("\nThe sheet opens at once, as a bottom sheet on a phone\n")
   check("  from what Settings already fetched", /peekGet<CustomerEmailsData>\(CUSTOMER_EMAILS_PATH\)/.test(panel) && /emails: \(\) => \["\/api\/store\/emails"\]/.test(read("components/app/settings-form-new.tsx")))
   check("a dialog on a computer, the shared bottom sheet on a phone", /<SheetDialog/.test(panel) && /phone=\{phone\}/.test(panel) && /usePhoneWidth\(\)/.test(panel))
   check("an editor with live preview, Save and Reset to default", /useDeferredValue\(draft\)/.test(panel) && /data-email-save/.test(panel) && /Reset to default/.test(panel))
-  check("  placeholders can be added with a tap", /PLACEHOLDERS\.map/.test(panel) && /data-placeholder/.test(panel))
+  /* Each email offers its own values (a membership's price and dates, an order's number): placeholdersFor(id). */
+  check("  placeholders can be added with a tap", /placeholdersFor\(id\)\.map/.test(panel) && /data-placeholder/.test(panel))
   check("  closing with unsaved words asks first", /Leave without saving your changes/.test(panel))
   /* Round AD. */
   check("it closes the way it opened: the last email stays in it while it slides away", /const email = asked \?\? kept\.current/.test(panel) && /const saved = asked \? savedAsked : keptSaved\.current/.test(panel))

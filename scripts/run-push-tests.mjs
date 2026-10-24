@@ -619,6 +619,8 @@ const SUITES = [
   "tests/emails-language.test.ts",
   "tests/emails-identity.test.ts",
   "tests/emails-preview.test.ts",
+  /* Round AE2: every buyer and member email editable (Digital, Physical, Community), every community email in the community's name, picture, reply address and domain, per community unsubscribe; scripts/check-ae2-email-branding.mjs opens a sample at 390 and 600. SQL part 301. */
+  "tests/ae2-emails-branding.test.ts",
   "tests/files-t.test.ts",
   "tests/files-inventory-v.test.ts",
   "tests/activity-t.test.ts",

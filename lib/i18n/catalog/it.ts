@@ -10892,7 +10892,28 @@ const words: Record<string, string> = {
  "Shown in the Featured, Cover, Solid and Simple layouts.": "Si vede nei layout In evidenza, Copertina, Pieno e Semplice.",
  "Featured, Cover, Solid and Simple show your image.": "In evidenza, Copertina, Pieno e Semplice mostrano la tua immagine.",
  "No image needed. Add one in Settings to show it in Featured, Cover, Solid and Simple.": "Non serve un'immagine. Aggiungine una in Impostazioni per vederla in In evidenza, Copertina, Pieno e Semplice.",
- "Remove this group? Its blocks stay on your page.": "Rimuovere questo gruppo? I suoi blocchi restano sulla tua pagina."
+ "Remove this group? Its blocks stay on your page.": "Rimuovere questo gruppo? I suoi blocchi restano sulla tua pagina.",
+ "No opening line": "Nessuna frase di apertura",
+ "Values fill in for each member. Tap one to add it where you're typing.": "I valori si compilano per ogni membro. Toccane uno per aggiungerlo dove stai scrivendo.",
+ "{value} isn't one of this email's values.": "{value} non è uno dei valori di questa email.",
+ "The facts, the link and the note on why it came stay as they are.": "I dati, il link e la nota sul perché è arrivata restano come sono.",
+ "As a member of {name} gets it, from {from}, in English.": "Come la riceve un membro di {name}, da {from}, in inglese.",
+ "The price, the dates, the card and the link stay as they are, filled in from each membership.": "Il prezzo, le date, la carta e il link restano come sono, compilati da ogni abbonamento.",
+ "Bought on your creator page: in English, from {name}.": "Acquistato sulla tua pagina creator: in inglese, da {name}.",
+ "A sample membership, drawn the way the real email is sent. The real email has the member's own plan, price and dates.": "Un abbonamento di esempio, disegnato come viene inviata l'email reale. L'email reale ha il piano, il prezzo e le date del membro.",
+ "When someone joins a membership you sell on its own, with what they pay and when.": "Quando qualcuno si iscrive a un abbonamento che vendi da solo, con quanto paga e quando.",
+ "Each time a membership renews and is paid.": "Ogni volta che un abbonamento si rinnova ed è pagato.",
+ "Three days before a monthly membership renews, seven before a yearly one.": "Tre giorni prima che un abbonamento mensile si rinnovi, sette prima di uno annuale.",
+ "When the bank declines a renewal. It asks the member to update their card.": "Quando la banca rifiuta un rinnovo. Chiede al membro di aggiornare la carta.",
+ "When a member cancels. It says until when they keep access.": "Quando un membro annulla. Dice fino a quando mantiene l'accesso.",
+ "When a member moves to another plan or billing period.": "Quando un membro passa a un altro piano o periodo di fatturazione.",
+ "When a membership ends and access stops.": "Quando un abbonamento finisce e l'accesso si interrompe.",
+ "When someone joins a paid plan, with what they pay and when.": "Quando qualcuno si iscrive a un piano a pagamento, con quanto paga e quando.",
+ "Each time a plan renews and is paid.": "Ogni volta che un piano si rinnova ed è pagato.",
+ "Three days before a monthly plan renews, seven before a yearly one.": "Tre giorni prima che un piano mensile si rinnovi, sette prima di uno annuale.",
+ "When a paid membership ends and access stops.": "Quando un abbonamento a pagamento finisce e l'accesso si interrompe.",
+ "Bread club": "Club del pane",
+ "Bread club lite": "Club del pane base"
 }
 
 export default words
