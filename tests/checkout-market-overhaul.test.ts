@@ -84,7 +84,7 @@ console.log("\nCHARGE: the market's currency when Storelib can charge it")
   const server = code("lib/physical/checkout-server.ts")
   check("  the held checkout converts its lines, delivery and totals, and keeps the currency", /const converted = convertOrder\(q\.lines, q\.totals, charge\)/.test(server) && /const storeCurrency = market\?\.charge \? market\.chargeCurrency : ownCurrency/.test(server))
   const page = code("app/checkout/site/page.tsx")
-  check("the checkout page draws the first quote in it and charges in it", /quoteInMarket\(priced\.quote, market\.charge\)/.test(page) && /<CheckoutCurrency currency=\{market\.chargeCurrency\}>/.test(page))
+  check("the checkout page draws the first quote in it and charges in it", /quoteInMarket\(priced\.quote, market\.charge\)/.test(page) && /* Changed on purpose (AD4): with the way its amounts are written. */ /<CheckoutCurrency currency=\{market\.chargeCurrency\}( locale=\{[^}]+\})?>/.test(page))
   check("the live site's cart note follows the same rule", /storefrontDisplay\(pricing, moneyLocale, chargeCurrencyFor\(pricing, base\)\)/.test(code("lib/markets/live.ts")))
 }
 

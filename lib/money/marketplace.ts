@@ -20,7 +20,7 @@
  *   - rounded to the cent, never "psychologically" (no .99, no whole dollars)
  *   - a pay-what-you-want minimum rounds UP, so the creator never gets less
  *     than they asked for
- *   - a rate older than lib/markets/money FX_FRESH_DAYS is not used: the
+ *   - a stale rate (lib/markets/money fxFresh) is not used: the
  *     purchase is paused instead, and a dollar checkout is NEVER switched to
  *     lei behind the buyer's back
  *   - converted once: the amounts carry the day of the rate (`fxAsOf`), and

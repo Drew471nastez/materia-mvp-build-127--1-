@@ -340,7 +340,7 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
           { label: "Show a short notice", value: "notification" },
         ],
       },
-      { id: "free_shipping_threshold", label: "Free shipping threshold ($)", type: "number", min: 0, default: 0, unit: "$", info: "0 uses the amount from your shipping rates." },
+      { id: "free_shipping_threshold", label: "Free shipping threshold", type: "number", min: 0, default: 0, info: "In your store currency. 0 uses the amount from your shipping rates." },
       { id: "free_shipping_bar", label: "Show free shipping progress bar", type: "toggle", default: false },
     ],
   },

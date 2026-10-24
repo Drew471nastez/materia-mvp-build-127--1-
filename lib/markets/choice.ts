@@ -51,6 +51,8 @@ export function languageChoiceOf(input: {
   base: string
   /** What the card is charged in. */
   charge: string
+  /** The charge note in the page's language (lib/markets/checkout-words chargeNoteIn); without it, the English. */
+  say?: (display: string, charge: string) => string | null
 }): SiteLanguageChoice {
   const all = [input.defaultLanguage, ...input.others]
   const code = (input.locale && all.find((l) => l.toLowerCase() === input.locale!.toLowerCase())) || input.defaultLanguage
@@ -68,7 +70,7 @@ export function languageChoiceOf(input: {
             options: currencies,
             current: input.pricing ? input.pricing.market.id : "home",
             /* Said plainly before anyone pays, only when the card is charged in another currency than the one shown. */
-            note: input.pricing ? chargeNote(input.pricing.currency, input.charge) : null,
+            note: input.pricing ? (input.say ?? chargeNote)(input.pricing.currency, input.charge) : null,
           },
         }
       : {}),

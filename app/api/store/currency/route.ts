@@ -11,7 +11,7 @@ import { latestRates, refreshRates } from "@/lib/markets/fx-server"
 import { exchangeRate, fxFresh, type FxRates } from "@/lib/markets/money"
 import { localizationTag } from "@/lib/markets/server"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
-import { marketsForNewBase } from "@/lib/markets/base-change"
+import { marketsForNewBase, themeSettingsForNewBase } from "@/lib/markets/base-change"
 import { storeCurrencyNow } from "@/lib/store/currency-guard"
 import { creatorShopTag, revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
@@ -261,8 +261,11 @@ export async function PUT(request: Request) {
         return physicalJson({ error: "Your currency could not be changed. Nothing was changed. Try again in a moment." }, 500)
       }
       await recordActivity(c.db, c, { action: "settings.currency", subjectLabel: `${store.currency} to ${to}`, meta: { from: store.currency, to, mode, rate, asOf, changes: (data as { counts?: unknown } | null)?.counts ?? null } })
-      /* A retry of the same press converted nothing again, so the markets are not moved twice. */
-      if ((data as { repeat?: boolean } | null)?.repeat !== true) await moveMarkets(c.db, c.creatorId, { from: store.currency, to, mode, rate })
+      /* A retry of the same press converted nothing again, so the markets and the websites' amounts are not moved twice. */
+      if ((data as { repeat?: boolean } | null)?.repeat !== true) {
+        await moveMarkets(c.db, c.creatorId, { from: store.currency, to, mode, rate })
+        await moveThemeSettings(c.db, c.creatorId, { from: store.currency, to, mode, rate })
+      }
     }
     await refreshPages(c.db, c.creatorId)
   }
@@ -285,6 +288,35 @@ async function moveMarkets(db: Db, creatorId: string, change: { from: string; to
     await db.from("store_localization").update({ markets: moved.markets, updated_at: new Date().toISOString() }).eq("creator_id", creatorId)
   } catch {
     /* Markets keep their saved rates; the settings show them to change by hand. */
+  }
+}
+
+/**
+ * THE WEBSITES' OWN AMOUNTS (lib/markets/base-change themeSettingsForNewBase):
+ * the free shipping banner's amount in each website's settings, published
+ * and draft, moved with the prices when they were converted, so the banner
+ * and the shipping rates name the same amount. Only that key is written.
+ * Never fails the change.
+ */
+async function moveThemeSettings(db: Db, creatorId: string, change: { from: string; to: string; mode: string; rate: number | null }) {
+  const move = { from: change.from, to: change.to, mode: change.mode === "convert" ? ("convert" as const) : ("keep" as const), rate: change.rate }
+  if (move.mode !== "convert") return
+  try {
+    const { data: installs, error } = await db.from("store_theme_installs").select("id").eq("creator_id", creatorId)
+    if (error || !installs?.length) return
+    const ids = (installs as { id: string }[]).map((i) => i.id)
+    const { data: rows } = await db.from("store_theme_settings").select("id, settings, draft_settings").in("install_id", ids)
+    for (const row of (rows ?? []) as { id: string; settings: unknown; draft_settings: unknown }[]) {
+      const settings = themeSettingsForNewBase(row.settings, move)
+      const draft = themeSettingsForNewBase(row.draft_settings, move)
+      if (!settings && !draft) continue
+      await db
+        .from("store_theme_settings")
+        .update({ ...(settings ? { settings } : {}), ...(draft ? { draft_settings: draft } : {}) })
+        .eq("id", row.id)
+    }
+  } catch {
+    /* The banner keeps its amount; Website settings › Commerce changes it by hand. */
   }
 }
 
@@ -349,6 +381,7 @@ export async function PATCH(request: Request) {
   await recordActivity(c.db, c, { action: "settings.currency", subjectLabel: `${latest.to} back to ${latest.from}`, meta: { undo: id, from: latest.to, to: latest.from } })
   /* The markets' own rates go back with the prices: a converted change is undone at the inverse of its rate. */
   await moveMarkets(c.db, c.creatorId, { from: latest.to, to: latest.from, mode: latest.mode, rate: latest.rate ? 1 / latest.rate : null })
+  await moveThemeSettings(c.db, c.creatorId, { from: latest.to, to: latest.from, mode: latest.mode, rate: latest.rate ? 1 / latest.rate : null })
   await refreshPages(c.db, c.creatorId)
   return physicalJson(await state(c.db, c.creatorId, request.headers))
 }

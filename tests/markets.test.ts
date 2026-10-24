@@ -238,7 +238,7 @@ console.log("\nThis round: Translate waits for the language, flags, and the stor
     /readStoreCurrency\(db, priced\.creatorId\)/.test(read("lib/physical/checkout-server.ts")) &&
     !/payout_currency/.test(read("lib/physical/checkout-server.ts")))
   check("  the checkout pages show that currency, and the card form is drawn for it",
-    /* Changed on purpose (overhaul): the currency it is charged in, the store's or the visitor's market's. */ /<CheckoutCurrency currency=\{market\.chargeCurrency\}>/.test(read("app/checkout/site/page.tsx")) && /<CheckoutCurrency currency=\{currency\}>/.test(read("app/checkout/physical/page.tsx")) &&
+    /* Changed on purpose (overhaul): the currency it is charged in, the store's or the visitor's market's. */ /<CheckoutCurrency currency=\{market\.chargeCurrency\}( locale=\{[^}]+\})?>/.test(read("app/checkout/site/page.tsx")) && /<CheckoutCurrency currency=\{currency\}>/.test(read("app/checkout/physical/page.tsx")) &&
     /const chargeCurrency = useCheckoutCurrency\(\)\.toLowerCase\(\)/.test(read("app/checkout/parts/stripe-pay.tsx")))
   check("  a basket's order rows say what Stripe charged, not a fixed usd",
     /currency: \(ctx\.currency \|\| "usd"\)\.toLowerCase\(\)/.test(read("lib/checkout/fulfil-cart-item.ts")) && /currency: session\.currency \|\| pi\?\.currency \|\| null/.test(read("lib/checkout/fulfil-cart-session.ts")))

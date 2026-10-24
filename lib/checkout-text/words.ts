@@ -29,6 +29,7 @@ import { CORE_DICTIONARIES } from "./dict/core"
 import { EDITABLE_TEXTS } from "./registry"
 import type { TranslationMap } from "@/lib/markets/translate"
 import { sourceHash } from "@/lib/markets/translate"
+import { keepsFixedParts } from "@/lib/markets/draft-check"
 
 const CURATED: Readonly<Record<string, Record<string, string>>> = { ro, ...CORE_DICTIONARIES }
 
@@ -114,7 +115,8 @@ export function layeredWords(input: LayerInput): Record<string, string> {
     /* The merchant's own translation stays theirs, even once its English changed (lib/markets/translate.ts needsReview). */
     const manual = usable && usable.source === "manual" ? usable.value : null
     /* A machine translation only while it was written for the English as it is now. */
-    const machine = usable && usable.source === "ai" && (!usable.sourceHash || usable.sourceHash === sourceHash(s)) ? usable.value : null
+    /* And only one that kept the sentence's placeholders and plurals: one saved before that was checked drew "Dans 14 après la livraison". */
+    const machine = usable && usable.source === "ai" && (!usable.sourceHash || usable.sourceHash === sourceHash(s)) && keepsFixedParts(s, usable.value) ? usable.value : null
     const v = input.overrides?.[s] || manual || curated[s] || machine
     if (v && v !== s) words[s] = v
   }
