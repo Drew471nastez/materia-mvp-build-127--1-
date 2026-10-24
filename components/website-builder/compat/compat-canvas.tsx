@@ -665,7 +665,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* `ahead`: a page drawn out of sight (KEPT PAGES): its own page, at its top, never an account page. */
   const draw = (list: StoredSection[], ahead?: CompatPage) => {
     const drawnPage = ahead ?? page
-    const restore = `<script>(function(){var y=${ahead ? 0 : Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
+    const restore = `<script data-sl-own>(function(){var y=${ahead ? 0 : Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
     let site = ""
     try {
       site = props.siteUrl ? new URL(props.siteUrl).origin : ""
@@ -970,6 +970,23 @@ export function CompatCanvas(props: CompatCanvasProps) {
       loadBehind(html, docKey, list)
       return
     }
+    /*
+      A SETTING THE THEME'S JAVASCRIPT READS AT START (round BC). The owner:
+      a Display style switched in Theme settings, and the canvas showed it
+      only after a reload. The theme printed it in a script of its layout
+      (window.theme = { settings: ... }) that its JavaScript reads once, when
+      the page starts, so writing the page in place changed nothing a
+      visitor sees. The page is drawn again behind the one on screen, where
+      it was scrolled to, as a reload would show it. While a finger is down
+      the rest is written in place as before and the script waits for the
+      release, which draws the page again once: the frame still holds the
+      scripts it started with.
+    */
+    if (plan.scripts && !isLive()) {
+      loadBehind(html, docKey, list)
+      return
+    }
+    if (plan.scripts) next.scripts = now.shape.scripts
     now.stamp = stampRef.current
     now.lastHtml = html
     if (plan.empty) { now.shape = next; tell(win, isLive()); return }
@@ -2109,6 +2126,15 @@ export interface DocShape {
   headLayout?: string[]
   /** <body> with each section, script and noscript as a mark in its place: the layout around the sections, to change in place. */
   bodyLayout?: string
+  /**
+   * The theme's own inline scripts outside every section, as their type and
+   * text, in order (round BC). A theme prints settings for its JavaScript
+   * there (`window.theme = { settings: ... }`, a JSON block), and its
+   * JavaScript reads them once, when the page starts: written into the page
+   * they change nothing, so a change here draws the page again (planPatch,
+   * `scripts`). Storelib's own scripts are not among them.
+   */
+  scripts?: string[]
 }
 
 /*
@@ -2128,6 +2154,8 @@ const markOf = (doc: Document, attr: string, value: string) => {
 }
 
 const attrsOf = (el: Element): Record<string, string> => Object.fromEntries(Array.from(el.attributes).map((a) => [a.name, a.value]))
+/* A script the canvas or Storelib's runtime adds (marked, or reading the canvas's own globals): drawn differently each time (where the page was scrolled to, what is in storage), never the theme's. */
+const ownScript = (el: Element) => Array.from(el.attributes).some((a) => a.name.startsWith("data-sl") || a.name.startsWith("data-storelib")) || /__sl[A-Z]|storelib:\s*1\b/.test(el.textContent ?? "")
 
 export function docShape(html: string): DocShape {
   const doc = new DOMParser().parseFromString(html, "text/html")
@@ -2164,7 +2192,10 @@ export function docShape(html: string): DocShape {
     bodyStyles.push(el.textContent ?? "")
     el.remove()
   })
-  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML }
+  const scripts = Array.from(doc.querySelectorAll("script:not([src])"))
+    .filter((el) => !el.closest(".shopify-section[data-section-id]") && !ownScript(el))
+    .map((el) => `${el.getAttribute("type") ?? ""}|${el.textContent ?? ""}`)
+  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML, scripts }
 }
 
 const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
@@ -2197,7 +2228,7 @@ const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.
  * (htmlFrom, bodyFrom), so a class the theme's script added (js, loaded)
  * stays where a setting changes another.
  */
-export function planPatch(from: DocShape, to: DocShape): { empty: boolean; message: Record<string, unknown>; swaps: { id: string; html: string }[] } | null {
+export function planPatch(from: DocShape, to: DocShape): { empty: boolean; message: Record<string, unknown>; swaps: { id: string; html: string }[]; scripts?: boolean } | null {
   const headMoved = from.head !== to.head || from.styles.length !== to.styles.length || from.headNodes.length !== to.headNodes.length
   const bodyMoved = from.skeleton !== to.skeleton || from.bodyStyles.length !== to.bodyStyles.length
   if (headMoved && !(from.headLayout && to.headLayout)) return null
@@ -2223,5 +2254,7 @@ export function planPatch(from: DocShape, to: DocShape): { empty: boolean; messa
   const moved = kept.join("|") !== to.order.filter((x) => from.sections.has(x.id)).map((x) => x.id).join("|")
   const added = to.order.some((x) => !from.sections.has(x.id))
   if (moved || added) message.order = to.order.map((x) => ({ ...x, html: from.sections.has(x.id) ? undefined : to.sections.get(x.id) }))
-  return { empty: Object.keys(message).length === 0 && swaps.length === 0, message, swaps }
+  /* A theme's script outside the sections drawn with another setting (DocShape scripts): the page is drawn again for its JavaScript to start with it. */
+  const scripts = !!from.scripts && !!to.scripts && !sameList(from.scripts, to.scripts)
+  return { empty: Object.keys(message).length === 0 && swaps.length === 0 && !scripts, message, swaps, ...(scripts ? { scripts } : {}) }
 }

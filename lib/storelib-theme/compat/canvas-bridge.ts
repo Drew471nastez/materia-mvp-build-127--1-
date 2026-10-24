@@ -1220,8 +1220,15 @@ export const CANVAS_BRIDGE = `
       /* Held at its height until its pictures are in: a new <img> has no size until it decodes. */
       var y = scrollY;
       var held = el.getBoundingClientRect().height;
-      /* Its scripts are not run again: they ran with the page, and the custom elements they defined take the new markup as it connects. */
+      /*
+        Its scripts are not run again: they ran with the page, and the custom
+        elements they defined take the new markup as it connects. One whose
+        text is new (a setting printed in it, round BC) is run, as Shopify's
+        editor runs a section drawn again: the theme's script reads the value
+        there, once, as it starts.
+      */
       el.replaceWith(next);
+      runScripts(next);
       next.style.minHeight = held + "px";
       var pending = Array.prototype.filter.call(next.querySelectorAll("img"), function (i) { return !i.complete; });
       var release = function () { next.style.minHeight = ""; };
