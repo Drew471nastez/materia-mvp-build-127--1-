@@ -222,7 +222,8 @@ function importedTheme() {
 
   console.log("\nSTORELIB'S OWN EVENTS")
   check("the settings that changed, with their new values", JSON.stringify(changedCompatSettings({ shopify: { a: 1, b: { x: 1 }, c: 3 } }, { shopify: { a: 1, b: { x: 2 }, d: 4 } })) === JSON.stringify({ b: { x: 2 }, c: undefined, d: 4 }))
-  check("storelib:settings-change on the document, after what was asked before it is on the page", /if \(m\.type === "settings"\) \{\s*queue = queue\.then\(function \(\) \{\s*try \{ document\.dispatchEvent\(new CustomEvent\("storelib:settings-change", \{ detail: \{ settings: m\.settings \|\| \{\}, live: !!m\.live \} \}\)\);/.test(bridge))
+  /* Changed on purpose (round BB): a section's own setting carries the section's id in the detail. */
+  check("storelib:settings-change on the document, after what was asked before it is on the page", /if \(m\.type === "settings"\) \{\s*queue = queue\.then\(function \(\) \{\s*try \{ document\.dispatchEvent\(new CustomEvent\("storelib:settings-change", \{ detail: m\.section \? \{ settings: m\.settings \|\| \{\}, live: !!m\.live, section: String\(m\.section\) \} : \{ settings: m\.settings \|\| \{\}, live: !!m\.live \} \}\)\);/.test(bridge))
   check("  sent for a drawing of the page, a value under a finger and the release", /tell\(win, isLive\(\)\)/.test(canvas) && /tell\(liveWin, true\)/.test(canvas) && (canvas.match(/sayLive\(\)/g) ?? []).length >= 3 && /tellSettings\(w, before, drawnWith\.current\.settings, false\)/.test(canvas))
   check("storelib:section-load on a section drawn again, swapped or changed in place", (bridge.match(/sectionLoaded\(m\.id\)/g) ?? []).length === 4 && /fire\(el, "shopify:section:load", \{ sectionId: id, load: true \}\);\s*fire\(el, "storelib:section-load", \{ sectionId: id \}\);/.test(bridge))
   const docs = read("content/developers/imported-shopify-themes.md")
