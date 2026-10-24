@@ -374,7 +374,7 @@ function Editor({ data, onCancel, onSaved }: { data: CurrencyState; onCancel: ()
               onChange={(e) => setUnderstood(e.target.checked)}
               className="peer absolute inset-0 m-0 cursor-pointer appearance-none rounded-[5px] border border-[#c9cdd3] bg-white shadow-[0_1px_0_rgba(26,26,46,0.04)] transition-[background-color,border-color,box-shadow] duration-150 group-hover:border-[#9ca3af] checked:border-[#1a1a2e] checked:bg-[#1a1a2e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
             />
-            <svg aria-hidden viewBox="0 0 12 12" className="pointer-events-none relative h-3 w-3 scale-75 text-white opacity-0 transition-[opacity,transform] duration-150 peer-checked:scale-100 peer-checked:opacity-100">
+            <svg aria-hidden viewBox="0 0 12 12" className="pointer-events-none relative h-3 w-3 scale-75 text-white opacity-0 transition-[opacity,translate,scale] duration-150 peer-checked:scale-100 peer-checked:opacity-100">
               <path d="M2.5 6.2 4.9 8.5 9.5 3.6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </span>

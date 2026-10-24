@@ -153,7 +153,7 @@ export function ContactForm({ initialReason }: { initialReason?: string }) {
                 <span
                   aria-hidden
                   className={cn(
-                    "absolute right-3 top-3 grid h-4 w-4 place-items-center rounded-full transition-[background-color,opacity,transform] duration-200",
+                    "absolute right-3 top-3 grid h-4 w-4 place-items-center rounded-full transition-[background-color,opacity,translate,scale] duration-200",
                     on ? "scale-100 bg-[#1a1a2e] opacity-100" : "scale-75 opacity-0",
                   )}
                 >
@@ -257,7 +257,7 @@ export function ContactForm({ initialReason }: { initialReason?: string }) {
               <button
                 type="submit"
                 disabled={sending}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-5 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.12),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[background-color,transform] duration-150 hover:bg-[#2b2b42] active:scale-[0.98] disabled:opacity-70 sm:min-w-[150px]"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-5 text-[14.5px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.12),inset_0_1px_0_rgba(255,255,255,0.08)] transition-[background-color,translate,scale] duration-150 hover:bg-[#2b2b42] active:scale-[0.98] disabled:opacity-70 sm:min-w-[150px]"
               >
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {sending ? "Sending" : "Send message"}
