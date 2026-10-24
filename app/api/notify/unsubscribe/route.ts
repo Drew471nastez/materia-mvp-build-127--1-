@@ -4,7 +4,7 @@ import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { setPreference } from "@/lib/notify/preferences"
 import { infoFor } from "@/lib/notify/preference-view"
 import { page, readRequest, type PageState, type UnsubscribeAction } from "@/lib/notify/unsubscribe-page"
-import { preferencesUrl, verifyReviewUnsubscribe, verifyUnsubscribe } from "@/lib/notify/unsubscribe"
+import { preferencesUrl, verifyCommunityUnsubscribe, verifyReviewUnsubscribe, verifyUnsubscribe } from "@/lib/notify/unsubscribe"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
@@ -42,6 +42,34 @@ export const dynamic = "force-dynamic"
  */
 
 const REVIEW_EMAILS = "review request emails"
+
+/*
+  A COMMUNITY'S OWN EMAIL names the community and the member: the link turns that community's emails off for them
+  (community_members.email_announcements, the switch in the community's notification settings) and nothing else.
+*/
+async function communityEmails(communityId: string): Promise<string> {
+  try {
+    const { data } = await createAdminClient().from("communities").select("name").eq("id", communityId).maybeSingle()
+    const name = typeof data?.name === "string" ? data.name.replace(/\s+/g, " ").trim().slice(0, 60) : ""
+    return name ? `emails from ${name}` : "emails from this community"
+  } catch {
+    return "emails from this community"
+  }
+}
+
+async function applyCommunity(communityId: string, userId: string, action: UnsubscribeAction): Promise<boolean> {
+  try {
+    const { error } = await createAdminClient()
+      .from("community_members")
+      .update({ email_announcements: action === "resubscribe", updated_at: new Date().toISOString() })
+      .eq("community_id", communityId)
+      .eq("user_id", userId)
+    return !error
+  } catch (err) {
+    console.error(`[notify-unsubscribe] community choice not saved (${err instanceof Error ? err.message.slice(0, 120) : "unknown"})`)
+    return false
+  }
+}
 
 async function applyReview(orderId: string, action: UnsubscribeAction): Promise<boolean> {
   try {
@@ -96,6 +124,8 @@ export async function GET(request: NextRequest) {
 
   const token = request.nextUrl.searchParams.get("token")
   if (token && verifyReviewUnsubscribe(token)) return html({ kind: "confirm", emails: REVIEW_EMAILS, token, preferencesUrl: prefs })
+  const member = token ? verifyCommunityUnsubscribe(token) : null
+  if (member && token) return html({ kind: "confirm", emails: await communityEmails(member.communityId), token, preferencesUrl: prefs })
   const ok = verifyUnsubscribe(token)
   const info = ok ? infoFor(ok.category) : null
   if (!ok || !info || !token) return html({ kind: "invalid", preferencesUrl: prefs }, 400)
@@ -118,6 +148,17 @@ export async function POST(request: NextRequest) {
     }
     if (!saved) return NextResponse.json({ error: "That did not save. Try again." }, { status: 500, headers: HEADERS })
     return NextResponse.json(req.mode === "one_click" ? { ok: true } : { ok: true, reviewRequests: req.action === "resubscribe" }, { headers: HEADERS })
+  }
+
+  const member = verifyCommunityUnsubscribe(req.token)
+  if (member && req.token) {
+    const saved = await applyCommunity(member.communityId, member.userId, req.action)
+    if (req.mode === "form") {
+      if (!saved) return html({ kind: "error", preferencesUrl: prefs }, 500)
+      return html({ kind: req.action === "resubscribe" ? "on" : "off", emails: await communityEmails(member.communityId), token: req.token, preferencesUrl: prefs })
+    }
+    if (!saved) return NextResponse.json({ error: "That did not save. Try again." }, { status: 500, headers: HEADERS })
+    return NextResponse.json(req.mode === "one_click" ? { ok: true } : { ok: true, communityEmails: req.action === "resubscribe" }, { headers: HEADERS })
   }
 
   const ok = verifyUnsubscribe(req.token)

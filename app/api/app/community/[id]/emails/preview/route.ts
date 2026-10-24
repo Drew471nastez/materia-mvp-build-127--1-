@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { manageLimit } from "@/lib/communities/server/creator"
-import { isEditableEmail, isPreviewOnlyEmail, previewBroadcast, previewEmailWords, wordsInput } from "@/lib/communities/server/email-templates"
+import { communityEmailFacts, isEditableEmail, previewBroadcast, previewEmailWords, wordsInput } from "@/lib/communities/server/email-templates"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { BROADCAST_LIMITS } from "@/lib/communities/server/broadcasts"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
@@ -13,13 +13,14 @@ export const dynamic = "force-dynamic"
 type Params = { params: Promise<{ id: string }> }
 
 /**
- * THE EMAIL AS A MEMBER GETS IT (round AG), drawn by the same templates that send it, with sample facts.
+ * THE EMAIL AS A MEMBER GETS IT, drawn by the same templates that send it, with sample facts and the community's own
+ * name, picture, reply address and domain (lib/communities/server/email-templates.ts communityBrand).
  *
  * POST /api/app/community/<id>/emails/preview
- *      { kind: "broadcast", subject, message }          the owner's own email
- *      { kind: <editable kind>, subject, heading, intro } one of the community's emails with their words
- *      { kind: <ticket kind> }                            a ticket email, Storelib's words, in the store's currency
- *      -> { subject, preview, html }. Nothing is saved or sent.
+ *      { kind: "broadcast", subject, message }                     the owner's own email
+ *      { kind: <editable kind>, subject, heading, intro, button }  one of the community's emails with their words,
+ *                                                                  amounts in the store's currency
+ *      -> { subject, preview, html, fromName, replyTo }. Nothing is saved or sent.
  */
 export async function POST(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
@@ -31,12 +32,7 @@ export async function POST(request: Request, { params }: Params) {
   if (limited) return limited
   const body = await readJson(request)
   const db = gate.ctx.admin
-  let creatorName: string | null = null
-  if (gate.community.creator_id) {
-    const { data } = await db.from("creators").select("display_name, username").eq("id", gate.community.creator_id).maybeSingle()
-    creatorName = (data?.display_name as string | null) || (data?.username as string | null) || null
-  }
-  const community = { id: gate.community.id, name: gate.community.name, slug: gate.community.slug, creatorName }
+  const community = await communityEmailFacts(db, gate.community)
   if (body.kind === "broadcast") {
     const subject = typeof body.subject === "string" ? body.subject.slice(0, BROADCAST_LIMITS.subject) : ""
     const message = typeof body.message === "string" ? body.message.slice(0, BROADCAST_LIMITS.message) : ""
@@ -44,13 +40,11 @@ export async function POST(request: Request, { params }: Params) {
     const authorName = ((me?.display_name as string | null) || (me?.username as string | null) || "").trim()
     return NextResponse.json(previewBroadcast({ subject, message, authorName }, community), { headers: noStore })
   }
-  /* A ticket email: Storelib's words about someone's money, drawn in the store's currency, nothing to change. */
-  if (isPreviewOnlyEmail(body.kind)) {
-    const currency = gate.community.creator_id ? (await readStoreCurrency(db, gate.community.creator_id).catch(() => null))?.currency : null
-    return NextResponse.json(previewEmailWords(body.kind, { subject: "", heading: "", intro: "" }, { ...community, currency: currency || "USD" }), { headers: noStore })
-  }
   if (!isEditableEmail(body.kind)) return NextResponse.json({ error: "Pick one of the emails." }, { status: 400, headers: noStore })
-  const words = wordsInput(body)
+  const words = wordsInput(body, body.kind)
   if ("error" in words) return NextResponse.json(words, { status: 400, headers: noStore })
-  return NextResponse.json(previewEmailWords(body.kind, words, community), { headers: noStore })
+  /* A ticket's or a plan's amounts in the store's selling currency, as they are charged. */
+  const currency = gate.community.creator_id ? (await readStoreCurrency(db, gate.community.creator_id).catch(() => null))?.currency : null
+  const e = previewEmailWords(body.kind, words, { ...community, currency: currency || "USD" })
+  return NextResponse.json({ subject: e.subject, preview: e.preview, html: e.html, fromName: e.fromName, replyTo: e.replyTo }, { headers: noStore })
 }

@@ -157,6 +157,70 @@ export function verifyReviewUnsubscribe(token: unknown): { orderId: string } | n
   return verifyReviewWith(secret(), token)
 }
 
+/* ── One community's emails ────────────────────────────────────────────── */
+
+/**
+ * A COMMUNITY'S OWN EMAIL (Email your members) carries a link, and the
+ * List-Unsubscribe header, that turns off that community's emails for that
+ * member and nothing else: community_members.email_announcements, the same
+ * switch as the community's own notification settings. Every other
+ * community, and everything else Storelib sends, is left as it was. The
+ * token names the community and the member, signed with a label of its own;
+ * no address is in it.
+ */
+const COMMUNITY_LABEL = "storelib.notify-community-unsubscribe.v1"
+const UUID = ORDER_ID
+
+function communityKey(raw: string): Buffer | null {
+  if (raw.length < 16) return null
+  return createHmac("sha256", raw).update(COMMUNITY_LABEL).digest()
+}
+
+/** Signs with a given secret. Exported for the tests. */
+export function signCommunityWith(rawSecret: string, communityId: string, userId: string, issuedAt = Math.floor(Date.now() / 1000)): string {
+  const key = communityKey(rawSecret)
+  if (!key) throw new Error("No unsubscribe key is configured")
+  if (!UUID.test(communityId) || !UUID.test(userId)) throw new Error("Not a community or a member")
+  const payload = `community.${communityId.toLowerCase()}.${userId.toLowerCase()}.${issuedAt}`
+  return `${Buffer.from(payload, "utf8").toString("base64url")}.${mac(key, payload).toString("base64url")}`
+}
+
+export function verifyCommunityWith(rawSecret: string, token: unknown): { communityId: string; userId: string } | null {
+  const key = communityKey(rawSecret)
+  if (!key || typeof token !== "string" || token.length > 400) return null
+  const parts = token.split(".")
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return null
+  let payload: string
+  let sig: Buffer
+  try {
+    payload = Buffer.from(parts[0], "base64url").toString("utf8")
+    sig = Buffer.from(parts[1], "base64url")
+  } catch {
+    return null
+  }
+  const expected = mac(key, payload)
+  if (sig.length !== expected.length || !timingSafeEqual(sig, expected)) return null
+  const [kind, communityId, userId, issued, extra] = payload.split(".")
+  if (kind !== "community" || extra !== undefined || !UUID.test(communityId ?? "") || !UUID.test(userId ?? "")) return null
+  const issuedAt = Number(issued)
+  if (!Number.isInteger(issuedAt) || issuedAt <= 0 || issuedAt > Date.now() / 1000 + 86_400) return null
+  return { communityId, userId }
+}
+
+export function verifyCommunityUnsubscribe(token: unknown): { communityId: string; userId: string } | null {
+  return verifyCommunityWith(secret(), token)
+}
+
+/** The footer link of a community's own email; without a key or a member, null, and the email carries no link rather than a broken one. */
+export function communityUnsubscribeUrl(communityId: string, userId: unknown): string | null {
+  if (typeof userId !== "string") return null
+  try {
+    return `${baseUrl()}/api/notify/unsubscribe?token=${encodeURIComponent(signCommunityWith(secret(), communityId, userId))}`
+  } catch {
+    return null
+  }
+}
+
 /** The footer link of a review request email; without a key, null, and the email carries no link rather than a broken one. */
 export function reviewUnsubscribeUrl(orderId: string): string | null {
   try {

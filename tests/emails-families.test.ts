@@ -32,7 +32,8 @@ async function main() {
   const digital = emailsOf("digital", true).map((e) => e.id)
   const physical = emailsOf("physical", true).map((e) => e.id)
   const communities = emailsOf("communities", true).map((e) => e.id)
-  check("Digital products: the receipt, its refund, the checkout reminder", digital.join() === "receipt,digital_refund,checkout_reminder", digital)
+  /* Changed on purpose (round AE2): a membership sold on its own lists its seven emails under Digital products. */
+  check("Digital products: the receipt, its refund, a membership's seven, the checkout reminder", digital.join() === "receipt,digital_refund,membership_started,membership_renewed,membership_renewal_reminder,membership_payment_failed,membership_canceled,membership_plan_changed,membership_ended,checkout_reminder", digital)
   check("Physical products: every order that ships, nothing digital or community", physical.length === 17 && physical.every((id) => !id.startsWith("community_") && id !== "receipt" && id !== "digital_refund"), physical)
   check("Communities: the members' and the ticket emails, nothing of the store's", communities.length === COMMUNITY_EMAILS.length && communities.every((id) => id.startsWith("community_")), communities)
   check("  no family shares an email with another", digital.every((id) => !physical.includes(id) && !communities.includes(id)) && physical.every((id) => !communities.includes(id)))
@@ -56,9 +57,10 @@ async function main() {
   const remind = read("lib/communities/server/jobs/event_reminder.ts")
   check("an announcement and an event reminder are emailed only if the budget allows, and it does not", /emailAllowed\("COMMUNITY_ANNOUNCEMENT"\)/.test(announce) && /emailAllowed\("COMMUNITY_EVENT_REMINDER"\)/.test(remind) && !emailAllowed("COMMUNITY_ANNOUNCEMENT") && !emailAllowed("COMMUNITY_EVENT_REMINDER") && !emailAllowed("COMMUNITY_COURSE_AVAILABLE"))
   const t = await import("@/lib/communities/server/email-templates")
-  check("a community's words go on the three it really sends, and no more", t.EDITABLE_EMAILS.join() === "welcome,join_approved,invite" && !t.isEditableEmail("announcement") && !t.isEditableEmail("event_reminder") && !t.isEditableEmail("course_available"))
+  /* Changed on purpose (round AE2, the owner: "I can edit all emails ... the community ones"): every email a community really sends takes its words, the tickets and a paid plan's seven included; still never one that is not an email. */
+  check("a community's words go on every email it really sends, and no more", t.EDITABLE_EMAILS.join() === "welcome,join_approved,invite,event_ticket,event_ticket_invite,event_refund,event_cancelled,membership_started,membership_renewed,membership_renewal_reminder,membership_payment_failed,membership_canceled,membership_plan_changed,membership_ended" && !t.isEditableEmail("announcement") && !t.isEditableEmail("event_reminder") && !t.isEditableEmail("course_available"))
   check("  the listed community emails that take words are exactly those", COMMUNITY_EMAILS.filter((e) => e.editable).map((e) => e.community).join() === t.EDITABLE_EMAILS.join())
-  check("  ticket emails preview, never take words", t.PREVIEW_ONLY_EMAILS.every((k) => COMMUNITY_EMAILS.some((e) => e.community === k && !e.editable)) && t.PREVIEW_ONLY_EMAILS.every((k) => !t.isEditableEmail(k)))
+  check("  only Email your members is written each time instead", COMMUNITY_EMAILS.filter((e) => !e.editable).map((e) => e.community).join() === "broadcast")
   check("  rows saved for the removed ones stay where they are: nothing deletes them", !/announcement|course_available/.test(read("lib/communities/server/email-templates.ts").split("export function wordsInput")[1] ?? ""))
   check("the welcome, an approved request and an invite are still sent, with their words", /sendCommunityEmail\(db, "welcome"/.test(read("lib/communities/server/join.ts")) && /sendCommunityEmail\(db, "join_approved"/.test(read("lib/communities/server/moderation.ts")) && /wordsPayload\(await emailWordsFor\(db, input\.communityId, kind\)\)/.test(read("lib/communities/server/email.ts")))
 

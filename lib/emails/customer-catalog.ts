@@ -8,21 +8,26 @@
  * template that sends it. Nothing here sends anything.
  *
  *   Digital products    a download's, course's or membership's receipt, its
- *                       refund, and the checkout reminder
+ *                       refund, the seven emails of a membership sold on its
+ *                       own (drawn by lib/notify/templates, sent by
+ *                       lib/memberships/sync.ts), and the checkout reminder
  *                       (lib/receipts/receipt-mail.ts, lib/emails/notices.ts)
  *   Physical products   everything about an order that ships or is picked
  *                       up, in Shopify's groups (lib/physical/email-templates.ts),
  *                       listed while physical commerce is on
  *   Communities         what a community sends its members: the welcome, an
  *                       approved request, an invite, the owner's own email
- *                       (Email your members) and the four ticket emails
- *                       (lib/notify/templates, drawn on the server with the
- *                       community's own name: /api/app/community/<id>/emails/preview)
+ *                       (Email your members), the four ticket emails and the
+ *                       seven of its paid plan (lib/notify/templates, drawn
+ *                       on the server in the community's own name and picture:
+ *                       /api/app/community/<id>/emails/preview)
  *
  *   group       the heading a row sits under inside its family (GROUP_ORDER)
  *   editable    its subject, heading, opening and button can be the store's
  *               own words (lib/emails/customer-custom.ts DEFAULT_COPY), or
- *               for a community email the community's (EDITABLE_EMAILS)
+ *               for a community email the community's
+ *               (lib/emails/community-words.ts). Every email is, but Email
+ *               your members, which is written each time.
  *   sentWhen    the moment it goes, in the store's words
  *
  * LEFT OUT, ON PURPOSE (LEFT_OUT below, each with why): emails that are
@@ -40,12 +45,15 @@ import { et, inEmailLanguage } from "./words"
 import { itemsText, resolveCopy, isCustomizable, type EmailCopy } from "./customer-custom"
 import { signedBy, type BuyerChannel, type EmailFamily } from "./buyer-channel"
 import { tt } from "@/lib/i18n/text"
+import { renderEmail } from "@/lib/notify/templates"
+import type { NotificationType } from "@/lib/notify/types"
+import type { CommunityWordKind } from "./community-words"
 
 export type { EmailFamily }
-export type CustomerEmailGroup = "digital" | "orders" | "payments" | "shipping" | "pickup" | "returns" | "checkout" | "members" | "tickets"
+export type CustomerEmailGroup = "digital" | "memberships" | "orders" | "payments" | "shipping" | "pickup" | "returns" | "checkout" | "members" | "tickets" | "plans"
 
-/** A community email's kind, as lib/communities/server/email.ts sends it. */
-export type CommunityEmailKind = "welcome" | "join_approved" | "invite" | "broadcast" | "event_ticket" | "event_ticket_invite" | "event_refund" | "event_cancelled"
+/** A community email's kind, as lib/communities/server/email.ts sends it (and lib/memberships/sync.ts for a paid plan). */
+export type CommunityEmailKind = CommunityWordKind | "broadcast"
 
 export interface CustomerEmail {
   id: string
@@ -71,6 +79,7 @@ export const FAMILY_NAMES: Record<EmailFamily, string> = {
 export const GROUP_NAMES: Record<CustomerEmailGroup, string> = {
   /* Under the Digital products family: what was bought, and given back. */
   get digital() { return tt("Purchases") },
+  get memberships() { return tt("Memberships") },
   get orders() { return tt("Orders") },
   get payments() { return tt("Payments") },
   get shipping() { return tt("Shipping") },
@@ -79,6 +88,7 @@ export const GROUP_NAMES: Record<CustomerEmailGroup, string> = {
   get checkout() { return tt("Checkout") },
   get members() { return tt("Members") },
   get tickets() { return tt("Event tickets") },
+  get plans() { return tt("Paid membership") },
 }
 
 /**
@@ -93,7 +103,7 @@ export const GROUP_NAMES: Record<CustomerEmailGroup, string> = {
  * reminder for the same cart. There is no Order invoice email: every order
  * is paid at checkout, and its invoice is a download on the order page.
  */
-export const GROUP_ORDER: CustomerEmailGroup[] = ["digital", "checkout", "orders", "payments", "shipping", "pickup", "returns", "members", "tickets"]
+export const GROUP_ORDER: CustomerEmailGroup[] = ["digital", "memberships", "checkout", "orders", "payments", "shipping", "pickup", "returns", "members", "tickets", "plans"]
 
 /** An entry, `editable` filled in from DEFAULT_COPY when it does not say. The object is kept, so `sentWhen` stays a getter in the person's language. */
 function E(e: Omit<CustomerEmail, "editable"> & { editable?: boolean }): CustomerEmail {
@@ -105,6 +115,13 @@ function E(e: Omit<CustomerEmail, "editable"> & { editable?: boolean }): Custome
 export const CUSTOMER_EMAILS: CustomerEmail[] = [
   E({ id: "receipt", name: "Receipt", group: "digital", family: "digital", get sentWhen() { return tt("Right after a buyer pays for a download, course or membership, with the link to it.") }, physical: false }),
   E({ id: "digital_refund", name: "Refund", group: "digital", family: "digital", get sentWhen() { return tt("When you refund a download, course or membership, here or in Stripe. Its download stops working.") }, physical: false }),
+  E({ id: "membership_started", name: "Membership started", group: "memberships", family: "digital", get sentWhen() { return tt("When someone joins a membership you sell on its own, with what they pay and when.") }, physical: false }),
+  E({ id: "membership_renewed", name: "Membership renewed", group: "memberships", family: "digital", get sentWhen() { return tt("Each time a membership renews and is paid.") }, physical: false }),
+  E({ id: "membership_renewal_reminder", name: "Renewal reminder", group: "memberships", family: "digital", get sentWhen() { return tt("Three days before a monthly membership renews, seven before a yearly one.") }, physical: false }),
+  E({ id: "membership_payment_failed", name: "Membership payment failed", group: "memberships", family: "digital", get sentWhen() { return tt("When the bank declines a renewal. It asks the member to update their card.") }, physical: false }),
+  E({ id: "membership_canceled", name: "Membership cancelled", group: "memberships", family: "digital", get sentWhen() { return tt("When a member cancels. It says until when they keep access.") }, physical: false }),
+  E({ id: "membership_plan_changed", name: "Plan changed", group: "memberships", family: "digital", get sentWhen() { return tt("When a member moves to another plan or billing period.") }, physical: false }),
+  E({ id: "membership_ended", name: "Membership ended", group: "memberships", family: "digital", get sentWhen() { return tt("When a membership ends and access stops.") }, physical: false }),
   E({ id: "checkout_reminder", name: "Checkout reminder", group: "checkout", family: "digital", get sentWhen() { return tt("An hour after a buyer leaves checkout without paying, if they asked for news.") }, physical: false }),
   E({ id: "order_confirmation", name: "Order confirmation", group: "orders", family: "physical", get sentWhen() { return tt("Right after a buyer pays for something you ship or they pick up.") }, physical: true }),
   E({ id: "order_updated", name: "Order updated", group: "orders", family: "physical", get sentWhen() { return tt("When you change the shipping address on an order before it ships.") }, physical: true }),
@@ -126,20 +143,28 @@ export const CUSTOMER_EMAILS: CustomerEmail[] = [
 ]
 
 /**
- * A community's emails to its members: the welcome, an approved request and
- * an invite take the community's own words (lib/communities/server/
- * email-templates.ts EDITABLE_EMAILS); Email your members is written each
- * time; the four ticket emails are about someone's money and stay Storelib's.
+ * A community's emails to its members, every one in the community's own name
+ * and picture, and every one but Email your members (written each time)
+ * taking the community's own words (lib/emails/community-words.ts): the
+ * welcome, an approved request, an invite, the four ticket emails and its
+ * paid plan's seven. The facts about a ticket or a payment stay Storelib's.
  */
 export const COMMUNITY_EMAILS: CustomerEmail[] = [
   E({ id: "community_welcome", community: "welcome", name: "Welcome", group: "members", family: "communities", get sentWhen() { return tt("When someone joins, or is let back in.") }, physical: false, editable: true }),
   E({ id: "community_join_approved", community: "join_approved", name: "Request approved", group: "members", family: "communities", get sentWhen() { return tt("When you approve a request to join. In a paid community it says how to finish joining.") }, physical: false, editable: true }),
   E({ id: "community_invite", community: "invite", name: "Invite", group: "members", family: "communities", get sentWhen() { return tt("When you invite someone by email.") }, physical: false, editable: true }),
   E({ id: "community_broadcast", community: "broadcast", name: "Email your members", group: "members", family: "communities", get sentWhen() { return tt("When you write one. It goes to members who keep community emails on, one a day at most.") }, physical: false, editable: false }),
-  E({ id: "community_event_ticket", community: "event_ticket", name: "Event ticket", group: "tickets", family: "communities", get sentWhen() { return tt("When someone buys a ticket to a paid event, with the calendar file.") }, physical: false, editable: false }),
-  E({ id: "community_event_ticket_invite", community: "event_ticket_invite", name: "Free ticket", group: "tickets", family: "communities", get sentWhen() { return tt("When you give someone a ticket.") }, physical: false, editable: false }),
-  E({ id: "community_event_refund", community: "event_refund", name: "Ticket refunded", group: "tickets", family: "communities", get sentWhen() { return tt("When a ticket is refunded.") }, physical: false, editable: false }),
-  E({ id: "community_event_cancelled", community: "event_cancelled", name: "Event cancelled", group: "tickets", family: "communities", get sentWhen() { return tt("When you cancel a paid event. It says the money is on its way.") }, physical: false, editable: false }),
+  E({ id: "community_event_ticket", community: "event_ticket", name: "Event ticket", group: "tickets", family: "communities", get sentWhen() { return tt("When someone buys a ticket to a paid event, with the calendar file.") }, physical: false, editable: true }),
+  E({ id: "community_event_ticket_invite", community: "event_ticket_invite", name: "Free ticket", group: "tickets", family: "communities", get sentWhen() { return tt("When you give someone a ticket.") }, physical: false, editable: true }),
+  E({ id: "community_event_refund", community: "event_refund", name: "Ticket refunded", group: "tickets", family: "communities", get sentWhen() { return tt("When a ticket is refunded.") }, physical: false, editable: true }),
+  E({ id: "community_event_cancelled", community: "event_cancelled", name: "Event cancelled", group: "tickets", family: "communities", get sentWhen() { return tt("When you cancel a paid event. It says the money is on its way.") }, physical: false, editable: true }),
+  E({ id: "community_membership_started", community: "membership_started", name: "Membership started", group: "plans", family: "communities", get sentWhen() { return tt("When someone joins a paid plan, with what they pay and when.") }, physical: false, editable: true }),
+  E({ id: "community_membership_renewed", community: "membership_renewed", name: "Membership renewed", group: "plans", family: "communities", get sentWhen() { return tt("Each time a plan renews and is paid.") }, physical: false, editable: true }),
+  E({ id: "community_membership_renewal_reminder", community: "membership_renewal_reminder", name: "Renewal reminder", group: "plans", family: "communities", get sentWhen() { return tt("Three days before a monthly plan renews, seven before a yearly one.") }, physical: false, editable: true }),
+  E({ id: "community_membership_payment_failed", community: "membership_payment_failed", name: "Payment failed", group: "plans", family: "communities", get sentWhen() { return tt("When the bank declines a renewal. It asks the member to update their card.") }, physical: false, editable: true }),
+  E({ id: "community_membership_canceled", community: "membership_canceled", name: "Membership cancelled", group: "plans", family: "communities", get sentWhen() { return tt("When a member cancels. It says until when they keep access.") }, physical: false, editable: true }),
+  E({ id: "community_membership_plan_changed", community: "membership_plan_changed", name: "Plan changed", group: "plans", family: "communities", get sentWhen() { return tt("When a member moves to another plan or billing period.") }, physical: false, editable: true }),
+  E({ id: "community_membership_ended", community: "membership_ended", name: "Membership ended", group: "plans", family: "communities", get sentWhen() { return tt("When a paid membership ends and access stops.") }, physical: false, editable: true }),
 ]
 
 export const ALL_EMAILS: CustomerEmail[] = [...CUSTOMER_EMAILS, ...COMMUNITY_EMAILS]
@@ -268,9 +293,60 @@ export function previewCustomerEmail(
     return buyerRefundMail(
       { storeName: signerName, productTitle: tt("The bread baking course"), amountCents: 4900, currency, orderId: SAMPLE_ORDER_ID, reason: "requested_by_customer", orderDate: SAMPLE_AT, refundDate: SAMPLE_REFUND_AT, contactEmail: shop.supportEmail || "hello@example.com", sellerPictureUrl: emailImageSrc(picture, 36) },
       language,
+      words,
     )
   }
+  if (id.startsWith("membership_")) return membershipPreview(id, shop, ctx, words)
   return inEmailLanguage(language?.lang, language?.words, () => physicalPreview(id, shop, shopName, currency, own ? words : null))
+}
+
+const MEMBERSHIP_TYPES: Record<string, NotificationType> = {
+  membership_started: "MEMBERSHIP_STARTED",
+  membership_renewed: "MEMBERSHIP_RENEWED",
+  membership_renewal_reminder: "MEMBERSHIP_RENEWAL_REMINDER",
+  membership_payment_failed: "MEMBERSHIP_PAYMENT_FAILED",
+  membership_canceled: "MEMBERSHIP_CANCELED",
+  membership_plan_changed: "MEMBERSHIP_PLAN_CHANGED",
+  membership_ended: "MEMBERSHIP_ENDED",
+}
+
+/**
+ * A membership sold on its own, as lib/memberships/sync.ts sends it through
+ * the notification engine: from the creator by the store's name and the
+ * creator's one picture, in the store's words when it wrote any (tplMode
+ * "body"), with a sample plan's price and dates in the store's currency.
+ */
+function membershipPreview(id: string, shop: PreviewShop, ctx: PreviewContext, words: EmailCopy | null | undefined): { subject: string; html: string; text: string } | null {
+  const type = MEMBERSHIP_TYPES[id]
+  if (!type) return null
+  const currency = (shop.currency || "USD").toUpperCase()
+  const name = ctx.creator?.name || shop.name || tt("Your store")
+  const picture = senderPicture({ photoUrl: ctx.creator?.photoUrl, logoUrl: ctx.creator?.logoUrl ?? shop.logoUrl })
+  const month = "2026-11-10T12:00:00Z"
+  const data: Record<string, unknown> = {
+    membershipId: "00000000-0000-4000-8000-000000000001",
+    membershipTitle: tt("Bread club"),
+    creatorName: name,
+    storeName: name,
+    buyerName: tt("Maria"),
+    amountCents: 1500,
+    currency,
+    interval: "month",
+    periodEnd: month,
+    endsAt: month,
+    cardLast4: "4242",
+    graceEndsAt: "2026-10-17T12:00:00Z",
+    fromTitle: tt("Bread club lite"),
+    changeKind: "tier",
+    brandName: name,
+    brandKind: "creator",
+    brandPicture: picture?.kind === "photo" ? "avatar" : "mark",
+    ...(picture?.url ? { brandLogoUrl: picture.url } : {}),
+    ...(shop.supportEmail ? { brandReplyTo: shop.supportEmail } : {}),
+    ...(words ? { tplMode: "body", ...(words.subject ? { tplSubject: words.subject } : {}), ...(words.heading ? { tplHeading: words.heading } : {}), ...(typeof words.body === "string" ? (words.body.trim() ? { tplIntro: words.body } : { tplDropIntro: true }) : {}), ...(words.button ? { tplButton: words.button } : {}) } : {}),
+  }
+  const m = renderEmail(type, data, { baseUrl: "https://storelib.com", recipientName: null, unsubscribeUrl: null, preferencesUrl: null, when: null })
+  return { subject: m.subject, html: m.html, text: m.text }
 }
 
 /** An order that ships, or the checkout reminder, as lib/physical/jobs-server.ts and lib/automations/abandoned-reminder.ts draw it. */

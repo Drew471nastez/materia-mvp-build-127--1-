@@ -117,14 +117,16 @@ async function main() {
   const community = { id: "11111111-1111-4111-8111-111111111111", name: "Makers Club", slug: "makers", creatorName: "Ana Lopez" }
   const words = { subject: "You made it into {community}", heading: "", intro: "So glad you are here." }
   const shown = t.previewEmailWords("welcome", words, community)
-  const payload = t.communityEmailPayload({}, community.id, community, t.wordsPayload(words))
+  /* sendCommunityEmail adds the member's own name beside the payload (round AE2), as the preview's sample member is named. */
+  const payload = { ...t.communityEmailPayload({}, community.id, community, t.wordsPayload(words)), memberName: "Maria" }
   const sent = renderEmail("COMMUNITY_WELCOME", safeData(payload, { communityId: community.id }), { baseUrl: baseUrl(), recipientName: null, unsubscribeUrl: null, preferencesUrl: null, when: null })
   check("the welcome's preview is what the engine sends a member, words and all", shown.html === sent.html && shown.subject === "You made it into Makers Club", shown.subject)
   const src = read("lib/communities/server/email.ts")
   check("sendCommunityEmail builds the event's payload with that same function", /\.\.\.communityEmailPayload\(plainData\(input\.data\), input\.communityId, community, words\)/.test(src))
   check("the email channel draws a member's email with no name and no unsubscribe link, as the preview does", /customerUnsubscribeUrl: \(job\) => \(job\.entity_type === "order"/.test(read("lib/notify/worker.ts")))
-  const ticket = t.previewEmailWords("event_ticket", { subject: "Changed", heading: "", intro: "" }, { ...community, currency: "EUR" })
-  check("a ticket email: Storelib's words, the store's currency", !/Changed/.test(ticket.subject) && /€15\.00/.test(ticket.html), ticket.subject)
+  /* Changed on purpose (round AE2): a ticket email takes the community's words; the price is still drawn in the store's currency. */
+  const ticket = t.previewEmailWords("event_ticket", { subject: "Changed", heading: "", intro: "", button: "" }, { ...community, currency: "EUR" })
+  check("a ticket email: the community's words, the store's currency", ticket.subject === "Changed" && /€15\.00/.test(ticket.html), ticket.subject)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) process.exit(1)

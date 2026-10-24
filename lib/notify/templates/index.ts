@@ -24,7 +24,7 @@ import { CATALOG, DATA_KEYS, Data, factsOf, type Audience, type Message } from "
 import { actionUrl, canonicalOrigin, cleanText, mailtoUrl, safeImageUrl, sameSiteUrl } from "./escape"
 import { ITEM_PX, MEDIA_PX, renderHtml, renderText, type LayoutInput, type OrderSummary } from "./layout"
 
-export { DATA_KEYS, PATHS, formatMoney, formatDate } from "./catalog"
+export { DATA_KEYS, PATHS, BRAND_KEYS, formatMoney, formatDate } from "./catalog"
 export { FAMILY_STYLES, EMAIL_LOGO_URL } from "./layout"
 
 /** A picture for an inbox: https only, at Storelib's own address (never the storage host), resized through the image endpoint; null for anything else. */
@@ -61,8 +61,65 @@ function replyAddress(value: unknown): string | null {
   return url ? url.slice("mailto:".length) : null
 }
 
-function greeting(ctx: TemplateContext): string {
-  const first = cleanText(ctx.recipientName, 60).split(" ")[0]
+/**
+ * WHO A BUYER'S OR A MEMBER'S EMAIL IS FROM, when its data names someone
+ * (catalog.ts BRAND_KEYS): a community, or the creator selling a membership.
+ * Only on an email to a customer; a creator's own notices stay Storelib's.
+ */
+export interface EmailBrand {
+  name: string
+  kind: "community" | "creator"
+  /** https, at Storelib's address, sized for the header. Null draws the name's first letter. */
+  pictureUrl: string | null
+  picture: "mark" | "avatar"
+  replyTo: string | null
+  /** The community's own domain (https://club.example.com) and the Storelib path it stands for (/community/<slug>). */
+  origin: string | null
+  prefix: string | null
+}
+
+const HOST = /^(?=.{4,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/
+
+/** The drawn size of the community's or creator's picture in the header (lib/emails/layout.ts draws it at 36px). */
+const BRAND_PX = 36
+
+export function brandOf(data: Record<string, unknown>, audience: Audience): EmailBrand | null {
+  if (audience !== "customer" || !data || typeof data !== "object") return null
+  const d = new Data(data)
+  const name = senderName(d.text("brandName", 60))
+  if (!name) return null
+  const host = d.text("brandHost", 253).toLowerCase()
+  const slug = d.id("brandSlug")
+  const origin = HOST.test(host) && slug ? `https://${host}` : null
+  return {
+    name,
+    kind: d.text("brandKind", 12) === "creator" ? "creator" : "community",
+    pictureUrl: inboxPicture(data.brandLogoUrl, BRAND_PX),
+    picture: d.text("brandPicture", 8) === "avatar" ? "avatar" : "mark",
+    replyTo: replyAddress(d.text("brandReplyTo", 200)),
+    origin,
+    prefix: slug ? `/community/${slug}` : null,
+  }
+}
+
+/** A community's page on its own domain, when it has one: /community/<slug>/events/1 becomes https://club.example.com/events/1. */
+function onOwnDomain(brand: EmailBrand | null, path: string): string | null {
+  if (!brand?.origin || !brand.prefix) return null
+  const p = brand.prefix
+  if (path !== p && !path.startsWith(`${p}/`) && !path.startsWith(`${p}?`) && !path.startsWith(`${p}#`)) return null
+  let rest = path.slice(p.length)
+  if (!rest.startsWith("/")) rest = `/${rest}`
+  try {
+    const u = new URL(rest, brand.origin)
+    return u.origin === brand.origin ? u.toString() : null
+  } catch {
+    return null
+  }
+}
+
+/** "Hi Maria,": the recipient's name the engine knows, else the buyer's or member's name the email's own data carries, else "Hi there,". */
+function greeting(ctx: TemplateContext, data?: Record<string, unknown>): string {
+  const first = (cleanText(ctx.recipientName, 60) || cleanText(data?.buyerName, 60) || cleanText(data?.memberName, 60)).split(" ")[0]
   return first ? `Hi ${first},` : "Hi there,"
 }
 
@@ -74,11 +131,14 @@ export function audienceOf(type: NotificationType): Audience {
 export function renderEmail(type: NotificationType, data: Record<string, unknown>, ctx: TemplateContext): RenderedEmail {
   const m = message(type, data, ctx)
   const base = ctx.baseUrl
+  const brand = brandOf(data, m.audience)
   const link = (l?: { label: string; path: string } | null) => {
     if (!l) return null
-    const url = actionUrl(base, l.path)
+    const url = onOwnDomain(brand, l.path) ?? actionUrl(base, l.path)
     return url ? { label: l.label, url } : null
   }
+  /* Where the name on top links to: the community's own page (its domain when it has one). */
+  const brandHome = brand?.prefix ? (onOwnDomain(brand, brand.prefix) ?? actionUrl(base, brand.prefix)) : null
   const noticeLink = m.notice?.link ? link(m.notice.link) : null
   /* The one link that is not Storelib's: a mailto to the buyer, on a creator's own sale email, when the address is a plain one. */
   const replyUrl = m.reply && m.audience === "creator" ? mailtoUrl(m.reply.email, m.reply.subject) : null
@@ -87,7 +147,7 @@ export function renderEmail(type: NotificationType, data: Record<string, unknown
     subject: cleanText(m.subject, 90),
     preview: cleanText(m.preview, 140),
     heading: m.heading,
-    greeting: m.greet === false ? null : greeting(ctx),
+    greeting: m.greet === false ? null : greeting(ctx, data),
     paragraphs: m.paragraphs.filter((p) => p && p.trim()),
     facts: factsOf(m),
     /* The product's own picture, sized for an inbox and https only; anything else draws the letter tile. */
@@ -99,16 +159,17 @@ export function renderEmail(type: NotificationType, data: Record<string, unknown
     secondary: replyUrl && m.reply ? { label: m.reply.label, url: replyUrl } : null,
     notice: m.notice ? { title: m.notice.title, text: m.notice.text, link: noticeLink } : null,
     note: m.note ?? null,
-    reason: reasonLine(m),
+    reason: m.reason || (brand ? (brand.kind === "community" ? `You get this because you are a member of ${brand.name}.` : `You get this because you bought a membership from ${brand.name}.`) : reasonLine(m)),
     homeUrl: `${canonicalOrigin(base)}/`,
+    brand: brand ? { name: brand.name, pictureUrl: brand.pictureUrl, picture: brand.picture, url: brandHome } : null,
     unsubscribeUrl: sameSiteUrl(base, ctx.unsubscribeUrl),
     unsubscribeLabel: m.unsubscribeLabel ?? null,
     // A customer has no settings page in /app to go to; the unsubscribe link is their way out.
     preferencesUrl: m.audience === "customer" ? null : sameSiteUrl(base, ctx.preferencesUrl),
   }
-  /* Who the inbox shows as the sender. Only a template that asks for one; everything else stays Storelib. */
+  /* Who the inbox shows as the sender: a template that asks for one (a review request, "<Seller> via Storelib"), or the community or creator the email is from, by its own name. Everything else stays Storelib. */
   const name = senderName(m.sender?.name)
-  const sender = name ? { fromName: name, replyTo: replyAddress(m.sender?.replyTo) } : null
+  const sender = name ? { fromName: name, replyTo: replyAddress(m.sender?.replyTo), exact: false } : brand ? { fromName: brand.name, replyTo: brand.replyTo, exact: true } : null
   /* The one file an email may carry: the event's own calendar file on a ticket email, drawn from the same data as the words. */
   const calendar = m.calendar && m.calendar.text ? [{ filename: m.calendar.filename, content: new TextEncoder().encode(m.calendar.text), contentType: "text/calendar; charset=utf-8" }] : undefined
   return {
@@ -118,6 +179,7 @@ export function renderEmail(type: NotificationType, data: Record<string, unknown
     text: renderText(input),
     fromName: sender?.fromName ?? null,
     replyTo: sender?.replyTo ?? null,
+    ...(sender?.exact ? { fromNameExact: true } : {}),
     ...(calendar ? { attachments: calendar } : {}),
   }
 }
