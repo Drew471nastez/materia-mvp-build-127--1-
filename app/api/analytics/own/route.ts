@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { MARKER_TTL_MS, OWN_MARKER_COOKIE, OWN_MARKER_PARAM, ownReturnPath, readOwnToken, signOwnMarker } from "@/lib/analytics/own-marker"
+import { MARKER_TTL_MS, OWN_MARKER_COOKIE, OWN_MARKER_PARAM, consumeOwnHandoff, ownReturnPath, readOwnToken, signOwnMarker } from "@/lib/analytics/own-marker"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -27,7 +27,17 @@ export const runtime = "nodejs"
 export async function GET(req: NextRequest) {
   const here = new URL(req.url)
   const to = ownReturnPath(here.searchParams.get("to"))
-  const creatorId = readOwnToken(here.searchParams.get(OWN_MARKER_PARAM), "hand")
+  const given = here.searchParams.get(OWN_MARKER_PARAM)
+  /* Taken once on this host (own-marker consumeOwnHandoff): the same link opened again, by anyone, leaves no marker. */
+  let creatorId: string | null = null
+  if (readOwnToken(given, "hand")) {
+    try {
+      const { createAdminClient } = await import("@/lib/supabase/admin")
+      creatorId = await consumeOwnHandoff(createAdminClient(), given, here.host)
+    } catch {
+      creatorId = readOwnToken(given, "hand")
+    }
+  }
 
   const res = NextResponse.redirect(new URL(to, here.origin), { status: 303 })
   res.headers.set("Cache-Control", "no-store")

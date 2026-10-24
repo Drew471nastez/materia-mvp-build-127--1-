@@ -235,7 +235,13 @@ function Backdrop() {
       </div>
       {/* Round AD5: a fifth less of the pictures' light again (0.928 where it was 0.91), and the corners closed in further. */}
       <div data-hero-veil="" className="absolute inset-0 bg-[#0e0e10]/[0.928]" />
-      <div data-hero-vignette="" className="absolute inset-0 bg-[radial-gradient(ellipse_75%_70%_at_50%_42%,transparent_40%,rgba(10,10,12,0.72)_100%)]" />
+      {/*
+        Round AE4: on a phone the panel is narrow and the AD5 corners covered
+        nearly all of it, so the collage was gone. A lighter, wider vignette
+        there keeps it faintly in sight; from 640px it is AD5's as it was
+        (scripts/check-home-hero.mjs measures both).
+      */}
+      <div data-hero-vignette="" className="absolute inset-0 bg-[radial-gradient(ellipse_95%_85%_at_50%_42%,transparent_45%,rgba(10,10,12,0.45)_100%)] sm:bg-[radial-gradient(ellipse_75%_70%_at_50%_42%,transparent_40%,rgba(10,10,12,0.72)_100%)]" />
     </div>
   )
 }

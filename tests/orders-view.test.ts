@@ -451,7 +451,8 @@ async function main() {
         && /\.orders-bar\[data-scrolled="true"\] \{\s*box-shadow: 0 1px 0 rgba\(17, 24, 39, 0\.07\)/.test(read("app/globals.css")))
     check("no comparison control; the changes are always against the period before",
       !/ComparePicker/.test(list) && /const compare = PREVIOUS_PERIOD/.test(client))
-    check("the export does not let a cell run as a formula", /\^\[=\+\\-@\\t\\r\]/.test(read("lib/orders/export-csv.ts")))
+    /* Changed on purpose (round AE4): the one guard every export shares (lib/csv/formula-guard), which also looks past a leading space, tab or line break; tests/ae4-leftovers.test.ts runs it. */
+    check("the export does not let a cell run as a formula", /s = guardFormula\(s\)/.test(read("lib/orders/export-csv.ts")) && /import \{ guardFormula \} from "@\/lib\/csv\/formula-guard"/.test(read("lib/orders/export-csv.ts")))
     check("  and the dialog writes its file with that same function", /from "@\/lib\/orders\/export-csv"/.test(read("app/app/orders/export-dialog.tsx")))
   }
 

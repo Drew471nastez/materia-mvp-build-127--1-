@@ -11,7 +11,9 @@
  *
  * Asked once the screen is up (app/api/analytics/summary counts it, and
  * keeps it a minute), and kept in this tab for a minute too, so coming back
- * to the screen draws it at once. A read that fails draws nothing: a glance
+ * to the screen draws it at once. Kept under the signed in account: another
+ * account signing in on the same tab never sees the last one's numbers, and
+ * a line not told whose they are keeps nothing. A read that fails draws nothing: a glance
  * that cannot be had is not an error worth a message.
  */
 import * as React from "react"
@@ -19,13 +21,13 @@ import Link from "next/link"
 import { ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
-import { summaryText } from "@/lib/analytics/summary"
+import { summaryKey, summaryText } from "@/lib/analytics/summary"
 import { tt } from "@/lib/i18n/text"
 
 type Summary = { visitors: number; orders: number; href: string }
 
 const KEEP_MS = 60_000
-const STORE = "storelib.analytics.summary.v1"
+const STORE = "storelib.analytics.summary.v2"
 
 function keptSummary(key: string): Summary | null {
   try {
@@ -48,13 +50,15 @@ function keepSummary(key: string, s: Summary) {
 }
 
 /** The place's summary, or null while it is on its way or could not be had. */
-export function usePlaceSummary(property: string): { summary: Summary | null; failed: boolean } {
+export function usePlaceSummary(property: string, account: string | null = null): { summary: Summary | null; failed: boolean } {
   const [summary, setSummary] = React.useState<Summary | null>(null)
   const [failed, setFailed] = React.useState(false)
   React.useEffect(() => {
     const timeZone = viewerTimeZone()
-    const key = `${property}|${timeZone}`
-    const kept = keptSummary(key)
+    const key = summaryKey(account, property, timeZone)
+    setSummary(null)
+    setFailed(false)
+    const kept = key ? keptSummary(key) : null
     if (kept) {
       setSummary(kept)
       return
@@ -64,14 +68,14 @@ export function usePlaceSummary(property: string): { summary: Summary | null; fa
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
       .then((json: Summary) => {
         const s = { visitors: Number(json.visitors) || 0, orders: Number(json.orders) || 0, href: String(json.href || "/app/analytics") }
-        keepSummary(key, s)
+        if (key) keepSummary(key, s)
         setSummary(s)
       })
       .catch((e) => {
         if ((e as Error).name !== "AbortError") setFailed(true)
       })
     return () => ctrl.abort()
-  }, [property])
+  }, [property, account])
   return { summary, failed }
 }
 
@@ -79,8 +83,8 @@ export function usePlaceSummary(property: string): { summary: Summary | null; fa
  * The line itself. Its height is held from the first frame, so the screen
  * does not move when the numbers arrive; the words fade in.
  */
-export function AnalyticsSummaryLine({ property, className }: { property: string; className?: string }) {
-  const { summary, failed } = usePlaceSummary(property)
+export function AnalyticsSummaryLine({ property, account, className }: { property: string; account?: string | null; className?: string }) {
+  const { summary, failed } = usePlaceSummary(property, account ?? null)
   if (failed) return null
   const empty = !!summary && summary.visitors <= 0 && summary.orders <= 0
   return (
@@ -109,8 +113,8 @@ export function AnalyticsSummaryLine({ property, className }: { property: string
  * The same, as the facts of the live website state things (a label on the
  * left, the value on the right): "Last 30 days", then the numbers.
  */
-export function AnalyticsSummaryFact({ property }: { property: string }) {
-  const { summary, failed } = usePlaceSummary(property)
+export function AnalyticsSummaryFact({ property, account }: { property: string; account?: string | null }) {
+  const { summary, failed } = usePlaceSummary(property, account ?? null)
   if (failed) return null
   const empty = !!summary && summary.visitors <= 0 && summary.orders <= 0
   const numbers = summary ? summaryText(summary).replace(/^Last 30 days: /, "") : ""

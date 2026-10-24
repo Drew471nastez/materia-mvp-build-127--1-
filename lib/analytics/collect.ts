@@ -8,7 +8,7 @@ import { anonSession, anonVisitorId, clientIp, dailyKey } from "./anon-visit"
 import { EVENT, EXPLORE_SOURCE, PAGE_VIEW_REPEAT_MS, SESSION_TIMEOUT_MS, normalizeLinkUrl, normalizePath, type PropertyType } from "./events"
 import { resolveProperty, type ResolvedProperty } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost, sourceParamOf } from "./sources"
-import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE, readOwnToken, signOwnMarker } from "./own-marker"
+import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE, consumeOwnHandoff, readOwnToken, signOwnMarker } from "./own-marker"
 import { isBotAgent, osFromPlatformHint, parseUserAgent } from "./user-agent"
 
 /**
@@ -45,6 +45,18 @@ import { isBotAgent, osFromPlatformHint, parseUserAgent } from "./user-agent"
  */
 
 type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** The host a hand-off is used on: the page's own, else the request's. */
+function handoffHost(href: unknown, requestHost: string | null): string {
+  if (typeof href === "string") {
+    try {
+      return new URL(href).host
+    } catch {
+      /* the request's, below */
+    }
+  }
+  return requestHost ?? ""
+}
 
 export type CollectKind = "view" | "link_click" | "buy_click" | "checkout_start" | "checkout_complete" | "download"
 export const FUNNEL_KINDS = ["buy_click", "checkout_start", "checkout_complete", "download"] as const
@@ -282,8 +294,10 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     counted as a visitor every time the creator looked at it.
   */
   const handoff = typeof body.own === "string" && body.own.length <= 4096 ? body.own : null
-  if (handoff && readOwnToken(handoff, "hand", now) === creatorId) return { recorded: false, reason: "own", ownMarker: signOwnMarker(creatorId, now) }
+  /* A browser already marked first: the tab keeps sending its hand-off with each view, and only the first one on this host needs it. */
   if (deps.marksOwner(req.cookie(OWN_MARKER_COOKIE), creatorId) || deps.marksOwner(req.cookie(OWN_MARKER_DOMAIN_COOKIE), creatorId)) return { recorded: false, reason: "own" }
+  /* Taken once on this page's host (own-marker consumeOwnHandoff): a copied link carrying it marks nobody else. */
+  if (handoff && readOwnToken(handoff, "hand", now) === creatorId && (await consumeOwnHandoff(db, handoff, handoffHost(body.href, req.headers.get("host")), now)) === creatorId) return { recorded: false, reason: "own", ownMarker: signOwnMarker(creatorId, now) }
   if (await deps.isOwnVisit(req.cookieNames, ownerUserId, creatorId)) return { recorded: false, reason: "own" }
 
   /* 9, first half. Consent is the visitor's own record, read here, never the page's word. */

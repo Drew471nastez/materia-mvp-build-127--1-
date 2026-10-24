@@ -159,7 +159,7 @@ export default async function WebsiteBuilderPage() {
 
   /* The website's own name on Storelib, when its creator gave it one. */
   const siteHandle = await handle
-  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} listings={await listings} />
+  return <WebsiteBuilderClient installs={installs} username={username} siteHandle={siteHandle} listings={await listings} account={user.id} />
 }
 
 /**

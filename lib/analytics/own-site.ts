@@ -23,7 +23,10 @@ import { isNativeApp } from "@/lib/platform-utils"
  * a Copy button COPIES stays the plain address, so a creator never shares a
  * link with a token on it, and the site's tracker takes the token back out
  * of the address as soon as it runs (lib/analytics/page-tracker
- * takeOwnHandoff). A token lasts half an hour (HANDOFF_TTL_MS).
+ * takeOwnHandoff). A token lasts two minutes and is taken once on each host
+ * (HANDOFF_TTL_MS, consumeOwnHandoff), so a link copied with one on it
+ * marks nobody: a screen that can open the site asks for a new one every
+ * REFRESH_MS while it is up, and its links are drawn again with it.
  *
  * It is called with an address the app built for this creator's own site,
  * and a connected domain can be any name at all, so the only address rule it
@@ -37,7 +40,10 @@ import { isNativeApp } from "@/lib/platform-utils"
  * was before. Nothing here can stop a creator opening their own site.
  */
 
-const REFRESH_MS = 25 * 60_000
+/* Under HANDOFF_TTL_MS (two minutes), so a link on screen always carries a token that is still good. */
+export const REFRESH_MS = 75_000
+/* The server takes one for two minutes; a little less here for the walk to the site. */
+const TOKEN_USABLE_MS = 110_000
 
 let token: string | null = null
 /* Storelib's own domain, when the token's answer also marked every site under it (sl_own_d): those open at their plain address. */
@@ -97,7 +103,8 @@ export function ownOpen(siteUrl: string | null | undefined): string {
     this browser on that host (lib/analytics/collect). A site under
     Storelib's own domain already marked here (sl_own_d) opens plain.
   */
-  if (!token) return siteUrl
+  /* A token the server would no longer take (the refresh failed, the laptop slept) is not put on a link. */
+  if (!token || Date.now() - mintedAt > TOKEN_USABLE_MS) return siteUrl
   let url: URL
   try {
     url = new URL(siteUrl)
@@ -121,12 +128,19 @@ export function ownOpen(siteUrl: string | null | undefined): string {
 export function useOwnMarker(): void {
   const [, redraw] = useState(0)
   useEffect(() => {
-    if (token) return
     const draw = () => redraw((n) => n + 1)
     waiting.add(draw)
     primeOwnMarker()
+    /* A new token before the last one runs out, and on coming back to the tab: the links are drawn again with it. */
+    const timer = window.setInterval(primeOwnMarker, 15_000)
+    const back = () => {
+      if (document.visibilityState === "visible") primeOwnMarker()
+    }
+    document.addEventListener("visibilitychange", back)
     return () => {
       waiting.delete(draw)
+      window.clearInterval(timer)
+      document.removeEventListener("visibilitychange", back)
     }
   }, [])
 }

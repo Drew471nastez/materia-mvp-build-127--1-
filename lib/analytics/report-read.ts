@@ -20,6 +20,7 @@ import "server-only"
  * page at a time and counted by the same rules (reports.ts wireFromRows).
  */
 
+import { unconvertedIncluded } from "./unconverted-count"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
 import { dayRatesBetween } from "@/lib/markets/fx-server"
 import type { createAdminClient } from "@/lib/supabase/admin"
@@ -442,7 +443,14 @@ function asOrdersPageRow(row: OrderRow): OrderRow {
 }
 
 /* The creator's orders by the order's own creator, never by a list of product ids (lib/analytics/creator-orders). */
-export function readOrders(admin: Admin, spans: Span[], creatorId: string, product: string | null): Promise<{ rows: OrderRow[]; truncated: boolean; conversion: { currency: string; converted: number; unconverted: number } }> {
+export function readOrders(
+  admin: Admin,
+  spans: Span[],
+  creatorId: string,
+  product: string | null,
+  /** The period the figures add up: the "could not be converted" count is of its sales only (lib/analytics/unconverted-count). */
+  counted?: Span,
+): Promise<{ rows: OrderRow[]; truncated: boolean; conversion: { currency: string; converted: number; unconverted: number } }> {
   return byCreator((scope) =>
     withColumns(ORDER_COLUMNS, async (columns) => {
       const read = await readSpans<OrderRow>(orderSpans(spans), (start, end, after) =>
@@ -455,7 +463,8 @@ export function readOrders(admin: Admin, spans: Span[], creatorId: string, produ
       const earlier = await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, product), spans, new Set(own.map((r) => r.id)))
       /* Every amount in the store's currency, each order at its own day's ECB rate (lib/money/report-currency): Revenue never adds lei to dollars. */
       const inStore = await inStoreCurrency(admin, creatorId, [...own, ...ownRows(earlier)].map(asOrdersPageRow), undefined, { rates: ratesFrom(admin) })
-      return { rows: inStore.rows, truncated: read.truncated, conversion: { currency: inStore.currency, converted: inStore.converted, unconverted: inStore.unconverted } }
+      const unconverted = inStore.unconverted > 0 ? unconvertedIncluded(inStore.left, counted ?? spans[spans.length - 1]) : 0
+      return { rows: inStore.rows, truncated: read.truncated, conversion: { currency: inStore.currency, converted: inStore.converted, unconverted } }
     }),
   )
 }

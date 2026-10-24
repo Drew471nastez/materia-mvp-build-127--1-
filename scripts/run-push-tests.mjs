@@ -41,6 +41,8 @@ const SUITES = [
   "tests/commerce-attention.test.ts",
   "tests/cash-on-delivery.test.ts",
   "tests/order-currency.test.ts",
+  /* Round AE4: one store logo for receipts, the Logo card and the checkout; the summary line kept per account; the owner's hand-off once per host for two minutes; legacy orders in the store's currency of their day; the unconverted count; CSV formulas behind a space; a second free claim; Customers less refunds. */
+  "tests/ae4-leftovers.test.ts",
   "tests/ai-theme-settings.test.ts",
   "tests/translation-integrity.test.ts",
   "tests/translations-k3.test.ts",

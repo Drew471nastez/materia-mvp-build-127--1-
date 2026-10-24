@@ -10,6 +10,7 @@
  *
  * Browser safe and pure, so the route, the panel and the tests read the same.
  */
+import { guardFormula } from "@/lib/csv/formula-guard"
 
 export interface TaxOrderRow {
   id: string
@@ -96,7 +97,7 @@ export function summarizeTax(rows: readonly TaxOrderRow[], storeCurrency?: strin
 /** One quoted CSV cell; a value starting like a formula is made plain text for a spreadsheet. */
 function cell(v: string | number | null): string {
   let s = v === null ? "" : String(v)
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+  s = guardFormula(s)
   return `"${s.replace(/"/g, '""')}"`
 }
 

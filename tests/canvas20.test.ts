@@ -227,7 +227,8 @@ async function main() {
   console.log("\nThe editor (editor/[installId]/page.tsx)\n")
   {
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
-    check("an imported theme's canvas is not dimmed when the page changes", /if \(importedTheme\.current\) return\s*\n\s*const page = document\.getElementById\("wb-preview-root"\)\?\.firstElementChild/.test(editor))
+    /* Since the cut between pages (canvas-still.ts swapCanvasPage), no page on the canvas is faded at all, and an imported theme's canvas is not even held: its frames hand over on their own. */
+    check("an imported theme's canvas is not dimmed when the page changes", !/getElementById\("wb-preview-root"\)\?\.firstElementChild[\s\S]{0,400}\.animate\(\[\{ opacity/.test(editor) && (editor.match(/if \(!importedTheme\.current\) swapCanvasPage\(show\)\s*\n\s*else show\(\)/g) ?? []).length === 2 && !/opacity/.test(read("lib/website-builder/canvas-still.ts")))
     check("grey bars only on the editor's first load, never on a page switch", /\{loading \? \(\s*<div data-sheet-scroll[^>]*skeleton-deferred/.test(editor) && !/sectionsLoading \|\| loading \?/.test(editor))
     check("the panel keeps its list while the next page is fetched and until the canvas shows it", /const panelHeld = sectionsLoading \|\| panelHeldForCanvas/.test(editor) && /sections=\{panelHeld \? panelSections\.current : sections\}/.test(editor) && /onPageShown=\{setCompatShownPage\}/.test(editor))
     check("  untouchable while held, and never longer than LIST_HOLD_MS", /style=\{panelHeld \? \{ pointerEvents: "none" \} : undefined\}/.test(editor) && /const LIST_HOLD_MS = 3000/.test(editor) && /setTimeout\(\(\) => setCompatShownPage\(panelPage\), LIST_HOLD_MS\)/.test(editor))

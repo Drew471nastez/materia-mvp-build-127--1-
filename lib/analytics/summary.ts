@@ -10,6 +10,15 @@ import { tt } from "@/lib/i18n/text"
 /** The period the line counts: the Analytics page's own "Last 30 days", so the link opens on the same numbers. */
 export const SUMMARY_PRESET = "last_30_days" as const
 
+/**
+ * Where the line keeps a summary in the tab: the account it belongs to, the
+ * place, the time zone. Null without an account, and then nothing is kept,
+ * so another account signing in on the same tab never sees the last one's.
+ */
+export function summaryKey(account: string | null | undefined, property: string, timeZone: string): string | null {
+  return account ? `${account}|${property}|${timeZone}` : null
+}
+
 /** Analytics, on the same period, already filtered to this place. */
 export function summaryHref(selector: PropertySelector): string {
   const p = new URLSearchParams({ range: SUMMARY_PRESET })

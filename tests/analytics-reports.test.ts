@@ -478,7 +478,7 @@ console.log("\nThe summaries on the Website and OnePage screens")
     looked at on purpose, and the line this check covers still goes there.
   */
   check("  and on screen in the website builder",
-    /<AnalyticsSummaryFact property=\{`website:\$\{live\.id\}`\} \/>/.test(read("app/app/website-builder/website-builder-client.tsx"))
+    /<AnalyticsSummaryFact property=\{`website:\$\{live\.id\}`\} account=\{account\} \/>/.test(read("app/app/website-builder/website-builder-client.tsx"))
       && /summaryText\(/.test(line) && /data-analytics-summary-link/.test(line))
   check("  and nowhere over the OnePage editor's links", !/AnalyticsSummaryLine/.test(read("components/onepage/onepage-editor.tsx")))
 }

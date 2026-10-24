@@ -14,6 +14,7 @@
  * A rate is a percentage with one decimal. Nothing is rounded twice: each
  * figure is the very number the page draws.
  */
+import { guardFormula } from "@/lib/csv/formula-guard"
 import type { Reports, BreakdownRow, Series } from "./reports"
 import type { SalesBreakdown, ChannelRow, CommercePoint, FulfillmentFigures } from "./commerce"
 import type { Sections } from "./sections"
@@ -56,7 +57,7 @@ export interface ExportCommerce {
 export function cell(v: unknown): string {
   if (v === null || v === undefined) return ""
   let s = typeof v === "number" ? (Number.isFinite(v) ? String(v) : "") : String(v)
-  if (/^[=+\-@\t\r]/.test(s) && typeof v !== "number" && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`
+  if (typeof v !== "number" && !/^-?\d+(\.\d+)?$/.test(s)) s = guardFormula(s)
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 

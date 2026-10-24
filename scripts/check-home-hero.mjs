@@ -545,6 +545,27 @@ for (const size of [{ width: 390, height: 844, phone: true }, { width: 1280, hei
       await p.js(`(() => { document.querySelector("[data-hero-veil]").style.backgroundColor = ""; document.querySelector("[data-hero-vignette]").style.visibility = "" })()`)
       const add = now - 14.1, addWas = was - 14.1
       check(`the backdrop at ${spot.name} is at least a fifth darker than round AC1's`, addWas > 0 && add / addWas <= 0.8, `mean luma ${now.toFixed(1)} (was ${was.toFixed(1)}): the pictures add ${add.toFixed(1)} where they added ${addWas.toFixed(1)}, ${((1 - add / addWas) * 100).toFixed(0)}% less`)
+      /*
+        Round AE4: "the backdrop is now barely visible" on a phone. There the
+        vignette is lighter, so the collage at the panel's edge adds at least
+        a fifth more light than under AD5's vignette (put back for a
+        moment), and still adds at most 0.8 of AC1's (above); from 640px the
+        vignette is AD5's, exactly.
+      */
+      if (spot.name === "the left edge") {
+        const AD5 = "radial-gradient(75% 70% at 50% 42%, rgba(0, 0, 0, 0) 40%, rgba(10, 10, 12, 0.72) 100%)"
+        const drawn = await p.js(`getComputedStyle(document.querySelector("[data-hero-vignette]")).backgroundImage`)
+        if (size.phone) {
+          await p.js(`(() => { document.querySelector("[data-hero-vignette]").style.backgroundImage = ${JSON.stringify(AD5)} })()`)
+          await sleep(80)
+          const before = await luma(spot)
+          await p.js(`(() => { document.querySelector("[data-hero-vignette]").style.backgroundImage = "" })()`)
+          const addBefore = before - 14.1
+          check("on a phone the collage stays faintly in sight: a fifth more of its light at the panel's edge than under AD5's vignette", addBefore > 0 && add >= addBefore * 1.2 && add >= 12, `the pictures add ${add.toFixed(1)} where AD5's vignette let them add ${addBefore.toFixed(1)} (${((add / addBefore - 1) * 100).toFixed(0)}% more)`)
+        } else {
+          check("from 640px the vignette is AD5's as it was", /75% 70% at 50% 42%/.test(drawn) && /0\.72\) 100%/.test(drawn) && /40%/.test(drawn), drawn.slice(0, 120))
+        }
+      }
     }
   }
 

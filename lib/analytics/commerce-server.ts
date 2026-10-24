@@ -15,6 +15,7 @@ import "server-only"
  * WHO. The creator is the caller's, found from the signed in user; a place
  * that is not theirs is refused, a product that is not theirs is ignored.
  */
+import { unconvertedIncluded } from "./unconverted-count"
 import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
@@ -225,7 +226,8 @@ export async function countCommerce(admin: Admin, q: CommerceQuestion): Promise<
     timeZone: q.timeZone,
     compared: !!q.previous,
     truncated: read.truncated,
-    unconverted: inStore.unconverted,
+    /* Only the period's own sales that no rate converted, not every row read around it (lib/analytics/unconverted-count). */
+    unconverted: inStore.unconverted > 0 ? unconvertedIncluded(inStore.left as unknown as Array<{ created_at: string }>, q.span) : 0,
     fulfillment,
     fulfillmentBefore,
     placeUnknown,

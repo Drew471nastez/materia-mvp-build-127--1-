@@ -101,12 +101,19 @@ async function handlePOST(request: Request) {
 
     // Check if user already owns product
     if (user) {
-      const { data: existingEntitlement } = await admin
+      /*
+        Any one of them: a buyer with an entitlement for each of two options
+        has two rows, and .maybeSingle() answered two rows with an error and
+        no data, which read as "does not own it" and wrote a second free
+        order.
+      */
+      const { data: owned } = await admin
         .from("entitlements")
         .select("id")
         .eq("buyer_id", user.id)
         .eq("product_id", product_id)
-        .maybeSingle()
+        .limit(1)
+      const existingEntitlement = Array.isArray(owned) ? owned[0] ?? null : null
 
       if (existingEntitlement) {
         console.log("[quick-free] User already owns this product, fetching assets")
