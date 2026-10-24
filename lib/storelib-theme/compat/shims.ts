@@ -265,6 +265,13 @@ const TERMS = `document.addEventListener("change",function(e){var box=e.target;i
   Wishlist page is copied back into the theme's key on the next page, so
   its hearts and its count agree. A theme that keeps handles has them read
   as ids from /products/<handle>.js.
+
+  A THEME'S OWN WISHLIST PAGE that draws every product hidden and shows the
+  saved ones ([data-wishlist-local], each card with data-wishlist-id and
+  data-product-handle) is shown from both lists, by id or by handle: the
+  theme's hearts keep handles while its page compared ids, so it showed
+  nothing (andrewrullz.storelib.com/wishlist with two saved). Its "no
+  products" line follows.
 */
 const WISHLIST = `if(!EDITING&&SID)(function(){var ls;try{ls=window.localStorage;ls.getItem("x")}catch(e){return}
 var U=/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,P=Storage.prototype,rg=P.getItem,rs=P.setItem,rr=P.removeItem;
@@ -287,7 +294,9 @@ var changed=function(k,raw){var list=raw==null?[]:entries(raw);if(!list)return;r
 P.setItem=function(k,v){var r=rs.apply(this,arguments);if(this===ls&&themeKey(k))changed(k,String(v));return r};
 P.removeItem=function(k){var r=rr.apply(this,arguments);if(this===ls&&themeKey(k))changed(k,null);return r};
 try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(!themeKey(k))continue;var raw=get(k),snap=json(get(SN)),w=mine(),t=ids((entries(raw)||[]).map(function(x){return x.id}));
-if(Array.isArray(snap)&&same(t,ids(snap))&&!same(w,ids(snap))){if(plain(raw)){put(k,JSON.stringify(w));put(SN,JSON.stringify(w));if(!signed())cookie(w)}}else if(!Array.isArray(snap)||!same(t,ids(snap)))changed(k,raw)}}catch(e){}})();`
+if(Array.isArray(snap)&&same(t,ids(snap))&&!same(w,ids(snap))){if(plain(raw)){put(k,JSON.stringify(w));put(SN,JSON.stringify(w));if(!signed())cookie(w)}}else if(!Array.isArray(snap)||!same(t,ids(snap)))changed(k,raw)}}catch(e){}
+var reveal=function(){var lists=document.querySelectorAll("[data-wishlist-local]");if(!lists.length)return;var saved=mine().slice();try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(themeKey(k))(entries(get(k))||[]).forEach(function(x){var v=x.id||x.handle;if(v&&saved.indexOf(v)<0)saved.push(v)})}}catch(e){}Object.keys(handles).forEach(function(h){if(saved.indexOf(handles[h])>=0&&saved.indexOf(h)<0)saved.push(h)});lists.forEach(function(list){var shown=0;Array.prototype.forEach.call(list.children,function(c){var id=String(c.getAttribute("data-wishlist-id")||"").toLowerCase(),h=String(c.getAttribute("data-product-handle")||"").toLowerCase();if(!id&&!h)return;var on=(!!id&&saved.indexOf(id)>=0)||(!!h&&saved.indexOf(h)>=0);if(c.hidden===on)c.hidden=!on;if(on)shown++});var box=list.closest("section,.shopify-section,[class*=wishlist-page]")||list.parentElement;if(box)box.querySelectorAll("[class*=no-product],[data-wishlist-empty]").forEach(function(e){if(shown){e.classList.add("hidden");e.hidden=true}else{e.classList.remove("hidden");e.hidden=false}})})};
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",reveal);else reveal();window.addEventListener("pageshow",reveal);document.addEventListener("materia:wishlist-change",function(){setTimeout(reveal,0)})})();`
 
 /*
   THE ACCOUNT BUTTON. Dawn and Horizon draw it as <shopify-account>, a
