@@ -47,7 +47,7 @@ check("Open Settings opens the phone's own settings", /data-push-ask-allow/.test
 check("Not now is remembered", /data-push-ask-later/.test(ask) && /writeRecord\(/.test(ask))
 
 console.log("\nIt is mounted everywhere, and Settings still owns the detail")
-check("the root layout draws it, so any page in the app can ask", /<NotificationsAsk \/>/.test(layout) && /components\/platform\/notifications-ask/.test(layout))
+check("the root layout draws it, so any page in the app can ask", /<NotificationsAsk \/>/.test(layout) && /* Changed on purpose (live speed): through app-only, which loads it on demand and not on websites. */ /components\/platform\/app-only/.test(layout) && /import\("@\/components\/platform\/notifications-ask"\)/.test(readFileSync("components/platform/app-only.tsx", "utf8")))
 check("Settings keeps the switch, the kinds, quiet hours and the phone's own state", /PushSwitchRow/.test(settings) && /PUSH_KINDS/.test(settings) && /QuietHours/.test(settings) && /data-phone-permission/.test(settings))
 check("  and a no opens the phone's settings from there too", /phoneSettingsPath/.test(settings) && /data-phone-open-settings/.test(settings) && /openPhoneSettings\(\)/.test(settings))
 
