@@ -51,11 +51,13 @@ import { viewerZone, zoneLabel } from "@/lib/onepage/schedule"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DateTimeField } from "@/components/onepage/date-time-field"
 import { CreatorBlock, CreatorBlockEditor } from "@/components/onepage/creator-blocks"
-import { GlyphBooking, GlyphContact, GlyphCountdown, GlyphCourse, GlyphFaq, GlyphHeading, GlyphMap, GlyphMusic, GlyphTestimonials, GlyphVideo } from "@/components/onepage/block-icons"
-import { MUSIC_PROVIDER_NAME, cleanTestimonials, lessonsLabel, musicSource } from "@/lib/onepage/creator-blocks"
+import { GlyphBooking, GlyphContact, GlyphCountdown, GlyphCourse, GlyphFaq, GlyphHeading, GlyphIntegration, GlyphMap, GlyphMusic, GlyphTestimonials, GlyphVideo } from "@/components/onepage/block-icons"
+import { EMBED_PROVIDER_NAME, MUSIC_PROVIDER_NAME, cleanTestimonials, embedSource, lessonsLabel, musicSource, type EmbedKind } from "@/lib/onepage/creator-blocks"
+import { SocialIcon } from "@/components/onepage/brand-icons"
 import type {
   ContactFormBlockData,
   CourseBlockData,
+  EmbedBlockData,
   MusicBlockData,
   TestimonialsBlockData,
   CountdownBlockData,
@@ -538,7 +540,29 @@ export const EXTRA_BLOCK_CATALOG = {
   music: { type: "music" as const, get label() { return tt("Music") }, get description() { return tt("Play Spotify, SoundCloud or Apple Music") }, icon: GlyphMusic },
   testimonials: { type: "testimonials" as const, get label() { return tt("Testimonials") }, get description() { return tt("Show what buyers said") }, icon: GlyphTestimonials },
   contact_form: { type: "contact_form" as const, get label() { return tt("Contact form") }, get description() { return tt("Let people send you a message") }, icon: GlyphContact },
+  embed: { type: "embed" as const, get label() { return tt("Embed") }, get description() { return tt("A post, form, player or calendar") }, icon: GlyphIntegration },
 }
+
+/*
+  A ROW FOR A SERVICE WEARS THAT SERVICE'S MARK, in its colour (round 11:
+  brand marks in the editor too). One component per mark, made once, so a
+  row's icon is the same component from render to render.
+*/
+const brandGlyphs = new Map<string, React.ComponentType<{ className?: string }>>()
+function brandGlyph(platform: string): React.ComponentType<{ className?: string }> {
+  let G = brandGlyphs.get(platform)
+  if (!G) {
+    const B = ({ className }: { className?: string }) => <SocialIcon platform={platform} tone="brand" color="#1a1a2e" className={className} size={19} />
+    B.displayName = `BrandGlyph(${platform})`
+    G = B
+    brandGlyphs.set(platform, G)
+  }
+  return G
+}
+/* i18n-ignore-start: marks' names, not words. */
+const EMBED_MARK: Partial<Record<EmbedKind, string>> = { instagram: "instagram", x: "twitter", typeform: "typeform", googleforms: "google-forms", substack: "substack", podcasts: "apple-podcasts", twitch: "twitch", loom: "loom", mixcloud: "mixcloud", bandcamp: "bandcamp", gcal: "google-calendar" }
+const MUSIC_MARK: Record<string, string> = { spotify: "spotify", soundcloud: "soundcloud", apple: "applemusic" }
+/* i18n-ignore-end */
 
 /** The title, the line under it and the icon a block's row shows in the editor's list. */
 export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: string; icon: React.ComponentType<{ className?: string }> } {
@@ -568,7 +592,7 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
     case "video": {
       const d = block.data as VideoBlockData
       const s = videoSource(d.url)
-      return { title: d.title?.trim() || tt("Video"), subtitle: s ? tt("{value} video", { value: s.kind === "youtube" ? "YouTube" : s.kind === "vimeo" ? "Vimeo" : "TikTok" }) : tt("Paste a video link"), icon: GlyphVideo }
+      return { title: d.title?.trim() || tt("Video"), subtitle: s ? tt("{value} video", { value: s.kind === "youtube" ? "YouTube" : s.kind === "vimeo" ? "Vimeo" : "TikTok" }) : tt("Paste a video link"), icon: s ? brandGlyph(s.kind) : GlyphVideo }
     }
     case "course": {
       const d = block.data as CourseBlockData
@@ -578,7 +602,7 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
     case "music": {
       const d = block.data as MusicBlockData
       const s = musicSource(d.url)
-      return { title: d.title?.trim() || tt("Music"), subtitle: s ? MUSIC_PROVIDER_NAME[s.kind] : tt("Paste a music link"), icon: GlyphMusic }
+      return { title: d.title?.trim() || tt("Music"), subtitle: s ? MUSIC_PROVIDER_NAME[s.kind] : tt("Paste a music link"), icon: s ? brandGlyph(MUSIC_MARK[s.kind]) : GlyphMusic }
     }
     case "testimonials": {
       const d = block.data as TestimonialsBlockData
@@ -588,6 +612,12 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
     case "contact_form": {
       const d = block.data as ContactFormBlockData
       return { title: d.title?.trim() || tt("Contact form"), subtitle: tt("Messages go to Emails"), icon: GlyphContact }
+    }
+    case "embed": {
+      const d = block.data as EmbedBlockData
+      const s = embedSource(d.url)
+      const mark = s ? EMBED_MARK[s.kind] : undefined
+      return { title: d.title?.trim() || (s ? EMBED_PROVIDER_NAME[s.kind] : tt("Embed")), subtitle: s ? EMBED_PROVIDER_NAME[s.kind] : tt("Paste a link"), icon: mark ? brandGlyph(mark) : GlyphIntegration }
     }
     default:
       return { title: block.type, subtitle: "", icon: GlyphBooking }

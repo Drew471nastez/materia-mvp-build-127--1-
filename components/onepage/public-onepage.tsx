@@ -3547,6 +3547,8 @@ function PublicBlockRenderer({
 
   const socialStyle = (theme as any).social_icon_style || "filled"
   const socialColor = (theme as any).social_icon_color || theme.text_color
+  /* Design › Social icons: each mark in its brand's colour, or all in the icon colour. A page saved before the choice existed has none, and stays one colour. */
+  const socialTone: "brand" | "mono" = (theme as any).social_icon_tone === "brand" ? "brand" : "mono"
 
   // Button hover animation - based on theme setting, disabled inside carousel or group
   const buttonHoverAnimation = (theme as any).button_hover_animation || "default"
@@ -4090,7 +4092,7 @@ function PublicBlockRenderer({
               >
                 {/* Mobile: 20px (+2px), Desktop: 19px (+2px) */}
                 <span className="w-[20px] h-[20px] sm:w-[19px] sm:h-[19px] flex items-center justify-center [&>svg]:w-full [&>svg]:h-full">
-                  <SocialIcon platform={platform} size={20} color={socialColor} title={socialPlatformLabel(platform)} />
+                  <SocialIcon platform={platform} size={20} color={socialColor} title={socialPlatformLabel(platform)} tone={socialTone} />
                 </span>
               </a>
             )
@@ -6170,6 +6172,7 @@ function PublicBlockRenderer({
     case "music":
     case "testimonials":
     case "contact_form":
+    case "embed":
     case "heading":
     case "faq":
     case "countdown":

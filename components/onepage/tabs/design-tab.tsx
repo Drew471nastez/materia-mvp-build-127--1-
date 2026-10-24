@@ -3751,6 +3751,31 @@ function SocialsSection() {
           ))}
         </div>
       </PanelSection>
+      {/*
+        ROUND 11: BRAND COLOURS OR ONE COLOUR. "Make them colorful, use their
+        actual icons." A new page starts on brand colours (lib/onepage/ensure-
+        onepage); a page made before this choice has none saved and stays one
+        colour, as it looked, until its owner picks.
+      */}
+      <PanelSection>
+        <SectionTitle title={tt("Icon colours")} />
+        <div className="grid grid-cols-2 gap-3" data-social-tone-choice="">
+          {([
+            { id: "brand" as const, label: tt("Brand colours") },
+            { id: "mono" as const, label: tt("One colour") },
+          ]).map((choice) => (
+            <ChoiceCard key={choice.id} selected={((theme as any).social_icon_tone === "brand" ? "brand" : "mono") === choice.id} onClick={() => updateTheme({ social_icon_tone: choice.id } as any)} label={choice.label}>
+              <div className="flex h-[60px] items-center justify-center gap-1.5 rounded-xl" style={{ background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8" }}>
+                {["instagram", "youtube", "spotify"].map((platform) => (
+                  <span key={platform} className="grid h-7 w-7 place-items-center rounded-full" style={{ backgroundColor: socialStyle === "filled" ? `${socialColor}22` : "transparent" }}>
+                    <SocialIcon platform={platform} size={13} color={socialColor} tone={choice.id} />
+                  </span>
+                ))}
+              </div>
+            </ChoiceCard>
+          ))}
+        </div>
+      </PanelSection>
       <PanelSection>
         <ColorRow
           label={tt("Icon colour")}
