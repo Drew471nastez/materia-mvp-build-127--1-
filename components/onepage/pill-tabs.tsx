@@ -58,6 +58,8 @@ export const PILL_MS = 220
 export const PILL_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 /** A panel's crossfade. */
 export const PANEL_FADE_MS = 180
+/** How far a sliding panel comes in from (PillPanels `slide`): enough to read as a direction, too little to read as a move. */
+export const PANEL_SLIDE_PX = 10
 
 function reducedMotion() {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -236,6 +238,7 @@ export function PillTabs<T extends string>({
   dataRow,
   rowAttrs,
   itemAttr,
+  keepInView = false,
 }: {
   items: readonly PillTabItem<T>[]
   value: T
@@ -254,9 +257,40 @@ export function PillTabs<T extends string>({
   rowAttrs?: Record<string, string>
   /** A data attribute each tab carries its id in, as well as data-tab. */
   itemAttr?: `data-${string}`
+  /** A row that scrolls sideways brings the chosen tab fully into view (see THE CHOSEN PILL IS ALWAYS IN VIEW). */
+  keepInView?: boolean
 }) {
   const { rowRef, pillRef, slideTo } = usePillSlide(value)
   const pressFor = usePillPress(slideTo, value)
+
+  /*
+    THE CHOSEN PILL IS ALWAYS IN VIEW. A row wider than the screen (Settings'
+    six sections on a phone) could open on a section whose pill was past the
+    edge (#settings-billing), or leave a pressed pill half cut off. The row
+    itself is scrolled, never the page: at once on the first draw, smoothly
+    after a press, and only when the pill is not already wholly inside, with
+    a little room beside it so its neighbour shows there is more. Scrolling
+    a row moves nothing in the layout.
+  */
+  const firstPlace = useRef(true)
+  useLayoutEffect(() => {
+    if (!keepInView) return
+    const row = rowRef.current
+    const tab = row?.querySelector<HTMLElement>(`[data-tab="${CSS.escape(value)}"]`)
+    const instant = firstPlace.current
+    firstPlace.current = false
+    if (!row || !tab || row.scrollWidth <= row.clientWidth + 1) return
+    const room = 24
+    const left = tab.offsetLeft
+    const right = left + tab.offsetWidth
+    const from = row.scrollLeft
+    let to = from
+    if (left - room < from) to = left - room
+    else if (right + room > from + row.clientWidth) to = right + room - row.clientWidth
+    to = Math.max(0, Math.min(to, row.scrollWidth - row.clientWidth))
+    if (Math.abs(to - from) < 1) return
+    row.scrollTo({ left: to, behavior: instant || reducedMotion() ? "auto" : "smooth" })
+  }, [keepInView, value, rowRef])
 
   return (
     <div ref={rowRef} role="tablist" aria-label={label} data-pill-row={dataRow ?? ""} {...rowAttrs} className={cn("relative isolate", className)}>
@@ -318,6 +352,7 @@ export function PillPanels<T extends string>({
   build = "idle",
   buildAfter = 0,
   layered = true,
+  slide = false,
 }: {
   value: T
   panels: readonly { id: T; node: React.ReactNode }[]
@@ -329,6 +364,12 @@ export function PillPanels<T extends string>({
   buildAfter?: number
   /** Each panel on a layer of its own, painted once (see below). Off for large panels, where the layers cost more than the paint. */
   layered?: boolean
+  /**
+   * The new panel also comes in from a few pixels to the side the pill went
+   * (PANEL_SLIDE_PX), on transform, with the fade: a switch reads as moving
+   * along the row rather than one picture swapped for another.
+   */
+  slide?: boolean
 }) {
   /*
     `live` is the panel that takes presses and focus; the rest are inert.
@@ -365,6 +406,8 @@ export function PillPanels<T extends string>({
   }, [ids, build, buildAfter])
 
   const refs = useRef<Partial<Record<T, HTMLDivElement | null>>>({})
+  const panelsRef = useRef(panels)
+  panelsRef.current = panels
   const scrolls = useRef<Partial<Record<T, number>>>({})
   const drawnRef = useRef(state.shown)
   const fades = useRef<Animation[]>([])
@@ -390,7 +433,13 @@ export function PillPanels<T extends string>({
       letGo()
       return
     }
-    const into = incoming.animate([{ opacity: 0 }, { opacity: 1 }], { duration: PANEL_FADE_MS, easing: "cubic-bezier(0.2, 0, 0, 1)" })
+    /* Which way along the row: the panels are in the row's order. */
+    const order = panelsRef.current.map((p) => p.id)
+    const dx = slide ? (order.indexOf(to) >= order.indexOf(from) ? PANEL_SLIDE_PX : -PANEL_SLIDE_PX) : 0
+    const into = incoming.animate(
+      dx ? [{ opacity: 0, transform: `translate3d(${dx}px, 0, 0)` }, { opacity: 1, transform: "translate3d(0, 0, 0)" }] : [{ opacity: 0 }, { opacity: 1 }],
+      { duration: PANEL_FADE_MS, easing: "cubic-bezier(0.2, 0, 0, 1)" },
+    )
     /* The old one goes a little faster than the new one comes, so two panels of different lengths are superimposed for as short a time as can be, without a frame of neither. */
     const out = outgoing.animate([{ opacity: 1 }, { opacity: 0 }], { duration: PANEL_FADE_MS - 60, easing: "cubic-bezier(0.3, 0, 0.7, 1)", fill: "forwards" })
     fades.current = [into, out]
