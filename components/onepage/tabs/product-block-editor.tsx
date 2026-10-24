@@ -143,18 +143,23 @@ export function ProductStateNote({ state, productId, onRemove }: { state: Editor
  * product (its name, price and files) and the product page (how its page looks). Same places as before.
  */
 export function ProductEditLinks({ productId }: { productId: string }) {
+  /*
+    A small "Edit" in front of two short labels, so both read in full at 390 wide ("Edit product page" was cut to
+    "Edit product ..."). Each says in full what it opens on hover and to a screen reader.
+  */
   const btn =
-    "group inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2.5 text-[12.5px] font-medium text-[#1a1a2e] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-white hover:shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.06)] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)]"
+    "group inline-flex h-9 min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2 text-[13px] font-medium text-[#1a1a2e] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-white hover:shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.06)] focus-visible:shadow-[0_0_0_2px_rgba(26,26,46,0.35)]"
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#f4f4f6] p-1" data-product-edit-links="">
-      <a href={`/app/products/${encodeURIComponent(productId)}`} target="_blank" rel="noopener noreferrer" className={btn} data-edit-product="" title={tt("Edit the product: name, price and files")}>
+    <div className="grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-1 rounded-xl bg-[#f4f4f6] p-1" data-product-edit-links="">
+      <span className="pl-2 pr-1 text-[12px] font-medium text-[#6b7280]">{tt("Edit")}</span>
+      <a href={`/app/products/${encodeURIComponent(productId)}`} target="_blank" rel="noopener noreferrer" className={btn} data-edit-product="" title={tt("Edit the product: name, price and files")} aria-label={tt("Edit product")}>
         <Package className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" strokeWidth={1.8} />
-        <span className="truncate">{tt("Edit product")}</span>
+        <span className="whitespace-nowrap">{tt("Product")}</span>
         <ExternalLink className="h-3 w-3 shrink-0 text-[#9ca3af] transition-colors group-hover:text-[#6b7280]" />
       </a>
-      <a href="/creator-page?pageType=product" target="_blank" rel="noopener noreferrer" className={btn} data-edit-product-page="" title={tt("Edit how product pages look")}>
+      <a href="/creator-page?pageType=product" target="_blank" rel="noopener noreferrer" className={btn} data-edit-product-page="" title={tt("Edit how product pages look")} aria-label={tt("Edit product page")}>
         <LayoutTemplate className="h-3.5 w-3.5 shrink-0 text-[#6b7280]" strokeWidth={1.8} />
-        <span className="truncate">{tt("Edit product page")}</span>
+        <span className="whitespace-nowrap">{tt("Product page")}</span>
         <ExternalLink className="h-3 w-3 shrink-0 text-[#9ca3af] transition-colors group-hover:text-[#6b7280]" />
       </a>
     </div>
@@ -169,13 +174,14 @@ export function ProductTapSetting({ data, onChange }: { data: ProductBlockData; 
   const instantOn = (data.instant_checkout === true || (data.quick_checkout === true && !(data.product_price_cents ?? 0))) && instantKind
   const options: { id: ProductTapAction; icon: typeof CreditCard; label: string; hint: string }[] = [
     { id: "checkout", icon: CreditCard, label: tt("Go to checkout"), hint: tt("Straight to paying") },
-    { id: "sheet", icon: PanelBottom, label: tt("Open in a sheet"), hint: tt("The product slides up, they stay on your page") },
+    { id: "sheet", icon: PanelBottom, label: tt("Open in a sheet"), hint: tt("It slides up over your page") },
     { id: "page", icon: ExternalLink, label: tt("Open product page"), hint: tt("Its full page") },
   ]
   return (
     <div className="space-y-2.5 border-t pt-3" data-product-tap-setting="">
       <p className="text-[13px] font-semibold text-[#1a1a2e]">{tt("When someone taps it")}</p>
-      <div role="radiogroup" aria-label={tt("When someone taps it")} className="grid gap-1.5">
+      {/* One column that is the panel's width: a long hint is cut with an ellipsis, it never widens the column (min-w-0). */}
+      <div role="radiogroup" aria-label={tt("When someone taps it")} className="grid grid-cols-[minmax(0,1fr)] gap-1.5">
         {options.map((o) => {
           const on = action === o.id
           const Icon = o.icon
@@ -186,7 +192,7 @@ export function ProductTapSetting({ data, onChange }: { data: ProductBlockData; 
               role="radio"
               aria-checked={on}
               onClick={() => onChange({ tap_action: o.id })}
-              className="relative flex min-h-12 items-center gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2 text-left outline-none transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
+              className="relative flex min-h-12 w-full min-w-0 items-center gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2 text-left outline-none transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
               data-tap-choice={o.id}
             >
               <ChoiceMark on={on} />

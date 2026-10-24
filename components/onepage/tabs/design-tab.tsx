@@ -37,6 +37,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { usePhone } from "@/components/app/date-range-picker"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { familyOf, fontStack, onePageFontSampleHref } from "@/lib/onepage/fonts"
+import { PILL_FROM, PILL_RADIUS, type ButtonHover, buttonAlign, buttonFill, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow, buttonShape, buttonSize, themeButtonStyle } from "@/lib/onepage/button-style"
 import { normalizeHex } from "@/lib/onepage/color"
 import { WALLPAPER_PATTERNS, isPatternId, patternStyle, type PatternOpacity } from "@/lib/onepage/wallpaper"
 import { WallpaperPattern } from "@/components/onepage/wallpaper-layers"
@@ -157,15 +158,19 @@ const BACKGROUND_IMAGES = [
 
 /*
   THE THEMES. Each one a different kind of page, not the same page in
-  another colour: paper and ink (Studio, Cream, Riso), a bold block of
-  colour with hard shadows (Blocks), warm and cool gradients (Sunset, Peach,
-  Ocean, Aurora), quiet darks (Olive, Astrid, Night, Midnight, Space), one
-  loud one (Neon) and two photographs. No violet: Blocks was a violet to pink
-  gradient, Aurora violet glass, Night a violet black with lilac buttons and
-  Fusion violet buttons; each is now its own thing under the same name, so a
-  page that chose one keeps the id it saved. What a page has saved is its own
-  copy of the settings and is not touched. Riso and Olive are new. Only
-  settings the editor already has, so each can be changed piece by piece.
+  another colour. Light: Default, Air, Studio, Paper (warm paper, a serif
+  title, hairline cards), Cream, Riso and Blocks (a bold block of colour with
+  hard shadows). Gradient: Sunset (a deep dusk), Peach, Sage (muted sage to
+  moss, deep green buttons), Ocean and Aurora. Dark: Olive, Astrid, Night,
+  Graphite (graphite with soft glass cards), Midnight, Space and Neon (the
+  one loud one). Image: Nature and Fusion (a warm grain). No violet: Blocks
+  was a violet to pink gradient, Aurora violet glass, Night a violet black
+  with lilac buttons and Fusion a violet swirl; each is now its own thing
+  under the same name, so a page that chose one keeps the id it saved. What
+  a page has saved is its own copy of the settings and is not touched. Every
+  theme's bio and text read at 4.5:1 or more on what is behind them
+  (scripts/check-onepage-themes.mjs). Only settings the editor already has,
+  so each can be changed piece by piece.
 */
 export const THEME_TEMPLATES = [
   {
@@ -496,23 +501,23 @@ export const THEME_TEMPLATES = [
     category: "gradient",
     theme_config: {
       background_type: "gradient" as const,
-      background_color: "#e6e3d3",
-      background_gradient: "linear-gradient(180deg, #d9dfcf 0%, #e6e3d3 55%, #eee6d6 100%)",
+      background_color: "#b9c6ad",
+      background_gradient: "linear-gradient(180deg, #c9d3bf 0%, #b9c6ad 55%, #a9b89c 100%)",
       background_image_url: "",
-      text_color: "#1f261d",
-      secondary_text_color: "#4f5a4a",
-      button_color: "#fbfaf5",
-      button_text_color: "#1f261d",
+      text_color: "#1f2a1f",
+      secondary_text_color: "#2e3d2b",
+      button_color: "#2f4a32",
+      button_text_color: "#f1f3ea",
       button_style: "filled" as const,
       button_border_radius: 24,
       button_border_width: 0,
-      button_border_color: "#fbfaf5",
+      button_border_color: "#2f4a32",
       button_shadow: "subtle",
-      button_shadow_color: "#3d4a36",
+      button_shadow_color: "#1f2a1f",
       font_family: "'DM Sans', sans-serif",
       title_font: "'Lora', serif",
-      title_color: "#1f261d",
-      social_icon_color: "#2f3a2c",
+      title_color: "#1f2a1f",
+      social_icon_color: "#1f2a1f",
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
@@ -520,10 +525,10 @@ export const THEME_TEMPLATES = [
       background_pattern: "none",
     },
     profile_layout: "classic" as const,
-    light_button_text_color: "#1f261d",
-    solid_button_text_color: "#1f261d",
-    outline_button_text_color: "#1f261d",
-    glass_button_text_color: "#1f261d",
+    light_button_text_color: "#1f2a1f",
+    solid_button_text_color: "#f1f3ea",
+    outline_button_text_color: "#1f2a1f",
+    glass_button_text_color: "#1f2a1f",
     share_style: "white",
     subscribe_style: "white",
   },
@@ -887,8 +892,8 @@ export const THEME_TEMPLATES = [
       spacing: "normal" as const,
       card_width: "standard" as const,
       header_layout: "classic",
-      // Wallpaper settings: 40% brightness (white words read on its lightest part) and 40% noise strength
-      image_brightness: 40,
+      // Wallpaper settings: 36% brightness (white words read on its lightest part, grain and all) and 40% noise strength
+      image_brightness: 36,
       image_noise: true,
       noise_strength: 40,
     },
@@ -1249,7 +1254,7 @@ export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" |
               subtitle={<span style={{ fontFamily: fontStack(theme.font_family) }}>{titleFont && titleFont !== bodyFont ? tt("{bodyFont}, titles in {titleFont}", { bodyFont, titleFont }) : bodyFont}</span>}
               onClick={() => setSection("text")}
             />
-            <NavRow dataKey="buttons" icon={RectangleHorizontal} title={tt("Buttons")} subtitle={tt("{value}, {value2}px corners", { value: theme.button_style === "filled" ? tt("Solid") : theme.button_style === "outline" ? tt("Outline") : tt("Glass"), value2: theme.button_border_radius ?? 8 })} trailing={swatch(theme.button_color)} onClick={() => setSection("buttons")} />
+            <NavRow dataKey="buttons" icon={RectangleHorizontal} title={tt("Buttons")} subtitle={(() => { const fill = theme.button_style === "filled" ? tt("Solid") : theme.button_style === "soft" ? tt("Soft") : theme.button_style === "outline" ? tt("Outline") : tt("Glass"); const shape = buttonShape(theme.button_border_radius); return shape === "rounded" ? tt("{value}, {value2}px corners", { value: fill, value2: theme.button_border_radius ?? 8 }) : tt("{value}, {value2}", { value: fill, value2: shape === "pill" ? tt("Pill") : tt("Square") }) })()} trailing={swatch(theme.button_color)} onClick={() => setSection("buttons")} />
             <NavRow dataKey="socials" icon={AtSign} title={tt("Social icons")} subtitle={SOCIAL_STYLES.find((x) => x.id === (t.social_icon_style || "filled"))?.label || tt("Solid")} onClick={() => setSection("socials")} />
             <NavRow dataKey="footer" icon={PanelBottom} title={tt("Footer")} subtitle={settings.show_branding === false ? tt("Storelib badge hidden") : tt("Storelib badge shown")} onClick={() => setSection("footer")} />
           </nav>
@@ -4364,9 +4369,20 @@ function ButtonsSection() {
   }
 
   // Handler for button style changes - auto-adjusts text color for light backgrounds
-  const handleButtonStyleChange = (style: "filled" | "outline" | "glass") => {
-    const updates: any = { button_style: style }
-
+  /*
+    WHAT PICKING A STYLE CHANGES, so the words stay readable: the same
+    object draws that style's card above, so the card shows what a press does.
+    Solid: words readable on the button (white on a dark one, near black on a
+    light one; it was always white, so a white button went blank). Soft: the
+    words take the button colour. Outline and glass on a light page: the
+    theme's dark words. Outline: its border matches its words.
+  */
+  const styleUpdates = (style: "filled" | "soft" | "outline" | "glass") => {
+    const updates: Record<string, unknown> = { button_style: style }
+    if (style === "soft") {
+      updates.button_text_color = theme.button_color
+      return updates
+    }
     // If selecting outline or glass on a light background, use dark text color
     if ((style === "outline" || style === "glass") && theme.background_type === "solid") {
       const bgColor = theme.background_color || "#ffffff"
@@ -4377,49 +4393,162 @@ function ButtonsSection() {
         updates.button_text_color = lightButtonTextColor
       }
     }
-    // If selecting filled (solid) style, use white text color for better contrast
+    // Solid: words that read on the button itself
     else if (style === "filled") {
-      updates.button_text_color = "#ffffff"
+      updates.button_text_color = /^#[0-9a-f]{6}$/i.test(theme.button_color || "") && isLightBackground(theme.button_color) ? "#111113" : "#ffffff"
     }
+    if (style === "outline") updates.button_border_color = (updates.button_text_color as string) || theme.button_text_color
+    return updates
+  }
+  const handleButtonStyleChange = (style: "filled" | "soft" | "outline" | "glass") => updateTheme(styleUpdates(style) as any)
 
-    updateTheme(updates)
+  const shadow = buttonShadow(theme)
+  const radius = theme.button_border_radius ?? 8
+  const shape = buttonShape(radius)
+  const size = buttonSize(theme)
+  const align = buttonAlign(theme)
+  const iconSide = buttonIconSide(theme)
+  const hover = buttonHover(theme)
+  const pageBg = theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8"
+
+  /*
+    EVERY CHOICE SHOWS ITSELF. Each card draws the page's own button with that
+    one thing changed, from the same lib/onepage/button-style.ts the page
+    draws with, so what is picked here is what the phone shows. The hover
+    cards run the real hover rules (.op-btn in app/globals.css) when pointed at.
+  */
+  const sample = (over: Record<string, unknown>, opts: { height?: number; width?: string; label?: React.ReactNode; hover?: string; className?: string } = {}) => {
+    const t = { ...theme, ...over } as typeof theme
+    const r = Number(t.button_border_radius ?? 8)
+    const look = { ...themeButtonStyle(t), ...buttonHoverVars(t) }
+    return (
+      <div className="grid h-[64px] place-items-center rounded-xl px-3" style={{ background: pageBg }}>
+        <span
+          className={cn("op-btn flex items-center justify-center overflow-visible text-[10px] font-semibold leading-none", opts.className)}
+          data-hover={opts.hover ?? "none"}
+          data-shadow={buttonShadow(t)}
+          style={{ ...look, height: opts.height ?? 24, width: opts.width ?? "100%", maxWidth: 96, borderRadius: r >= PILL_FROM ? 999 : Math.min(r, 10) }}
+        >
+          {opts.label ?? null}
+        </span>
+      </div>
+    )
   }
 
-  const shadow = ((theme as any).button_shadow || "none") as "none" | "subtle" | "strong" | "hard"
-  const radius = theme.button_border_radius ?? 8
-  /* A small drawing of the button in each style, in the page's own colours. */
-  const sample = (style: "filled" | "outline" | "glass") => (
-    <div className="grid h-[68px] place-items-center rounded-xl px-3" style={{ background: theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8" }}>
-      <span
-        className="block h-6 w-full max-w-[92px]"
-        style={{
-          borderRadius: Math.min(radius, 12),
-          background: style === "filled" ? theme.button_color : style === "glass" ? "rgba(255,255,255,0.28)" : "transparent",
-          border: style === "filled" ? "none" : `1.5px solid ${style === "glass" ? "rgba(255,255,255,0.55)" : theme.button_color}`,
-          backdropFilter: style === "glass" ? "blur(6px)" : undefined,
-        }}
-      />
-    </div>
-  )
+  /* Picking a shape keeps a Rounded page's own corners when it comes back to Rounded. */
+  const setShape = (next: "square" | "rounded" | "pill") => {
+    if (next === shape) return
+    updateTheme({ button_border_radius: next === "square" ? 0 : next === "pill" ? PILL_RADIUS : 12 })
+  }
+
+  const hoverChoices = [
+    { id: "none", label: tt("None") },
+    { id: "lift", label: tt("Lift") },
+    { id: "zoom", label: tt("Bigger") },
+    { id: "glow", label: tt("Glow") },
+    { id: "fill", label: tt("Fill") },
+    { id: "underline", label: tt("Underline") },
+    /* Fade is still drawn for the pages that chose it, and offered only to them. */
+    ...(hover === "fade" ? [{ id: "fade", label: tt("Fade") }] : []),
+  ] as const
 
   return (
     <div>
       <PanelSection>
-        <SectionTitle title={tt("Button style")} />
-        <div className="grid grid-cols-3 gap-3">
-          {(["filled", "outline", "glass"] as const).map((style) => (
-            <ChoiceCard key={style} selected={theme.button_style === style} onClick={() => handleButtonStyleChange(style)} label={style === "filled" ? tt("Solid") : style === "outline" ? tt("Outline") : tt("Glass")}>
-              {sample(style)}
+        <SectionTitle title={tt("Style")} />
+        <div className="grid grid-cols-4 gap-2">
+          {(["filled", "soft", "outline", "glass"] as const).map((style) => (
+            <ChoiceCard key={style} selected={buttonFill(theme) === style} onClick={() => handleButtonStyleChange(style)} label={style === "filled" ? tt("Solid") : style === "soft" ? tt("Soft") : style === "outline" ? tt("Outline") : tt("Glass")}>
+              {sample(buttonFill(theme) === style ? {} : styleUpdates(style), { label: "Aa" })} {/* i18n-ignore: a type sample, the same in every language */}
             </ChoiceCard>
           ))}
         </div>
       </PanelSection>
 
       <PanelSection>
-        <div className="space-y-5">
-          <RangeRow label={tt("Corners")} value={radius} min={0} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" ends={[tt("Square"), tt("Round")]} />
-          <RangeRow label={tt("Border")} value={theme.button_border_width ?? 0} min={0} max={4} step={1} onChange={(v) => updateTheme({ button_border_width: v })} unit="px" />
+        <SectionTitle title={tt("Shape")} />
+        <div className="grid grid-cols-3 gap-3">
+          {(["square", "rounded", "pill"] as const).map((id) => (
+            <ChoiceCard key={id} selected={shape === id} onClick={() => setShape(id)} label={id === "square" ? tt("Square") : id === "rounded" ? tt("Rounded") : tt("Pill")}>
+              {sample({ button_border_radius: id === "square" ? 0 : id === "pill" ? PILL_RADIUS : shape === "rounded" ? radius : 12 })}
+            </ChoiceCard>
+          ))}
         </div>
+        {shape === "rounded" ? (
+          <div className="mt-5">
+            <RangeRow label={tt("Corners")} value={Math.min(radius, 24)} min={2} max={24} step={2} onChange={(v) => updateTheme({ button_border_radius: v })} unit="px" />
+          </div>
+        ) : null}
+      </PanelSection>
+
+      <PanelSection>
+        <SectionTitle title={tt("Size")} />
+        <div className="grid grid-cols-3 gap-3">
+          {(["compact", "regular", "large"] as const).map((id) => (
+            <ChoiceCard key={id} selected={size === id} onClick={() => updateTheme({ button_size: id })} label={id === "compact" ? tt("Small") : id === "regular" ? tt("Medium") : tt("Large")}>
+              {sample({}, { height: id === "compact" ? 18 : id === "regular" ? 24 : 30 })}
+            </ChoiceCard>
+          ))}
+        </div>
+      </PanelSection>
+
+      <PanelSection>
+        <SectionTitle title={tt("Text and icon")} />
+        <div className="grid grid-cols-2 gap-3">
+          {(["center", "left"] as const).map((id) => (
+            <ChoiceCard key={id} selected={align === id} onClick={() => updateTheme({ button_text_align: id })} label={id === "center" ? tt("Text in the middle") : tt("Text on the left")}>
+              {sample({}, {
+                height: 26,
+                className: id === "left" ? "justify-start pl-2" : undefined,
+                label: <span className="block h-[3px] w-8 rounded-full" style={{ background: "currentColor", opacity: 0.85 }} />,
+              })}
+            </ChoiceCard>
+          ))}
+          {(["left", "right"] as const).map((id) => (
+            <ChoiceCard key={`icon-${id}`} selected={iconSide === id} onClick={() => updateTheme({ button_icon_position: id })} label={id === "left" ? tt("Icon on the left") : tt("Icon on the right")}>
+              {sample({}, {
+                height: 26,
+                className: cn("relative", id === "right" && "flex-row-reverse"),
+                label: (
+                  <span className={cn("flex w-full items-center gap-1.5 px-1.5", id === "right" && "flex-row-reverse")}>
+                    <span className="block h-3.5 w-3.5 shrink-0 rounded-[4px]" style={{ background: "currentColor", opacity: 0.85 }} />
+                    <span className="mx-auto block h-[3px] w-7 rounded-full" style={{ background: "currentColor", opacity: 0.85 }} />
+                    <span className="block h-3.5 w-3.5 shrink-0" />
+                  </span>
+                ),
+              })}
+            </ChoiceCard>
+          ))}
+        </div>
+      </PanelSection>
+
+      <PanelSection>
+        <SectionTitle title={tt("Shadow")} />
+        <div className="grid grid-cols-4 gap-2">
+          {(["none", "subtle", "strong", "hard"] as const).map((id) => (
+            <ChoiceCard key={id} selected={shadow === id} onClick={() => updateTheme({ button_shadow: id })} label={id === "none" ? tt("None") : id === "subtle" ? tt("Soft") : id === "strong" ? tt("Strong") : tt("Hard")}>
+              {sample({ button_shadow: id })}
+            </ChoiceCard>
+          ))}
+        </div>
+        {shadow !== "none" ? (
+          <div className="mt-4">
+            <ColorRow label={tt("Shadow colour")} value={theme.button_shadow_color || "#000000"} onChange={(color) => updateTheme({ button_shadow_color: color })} suggestions={["#000000", "#1a1a2e", "#ffffff", theme.button_color]} />
+          </div>
+        ) : null}
+      </PanelSection>
+
+      <PanelSection>
+        <SectionTitle title={tt("Border")} />
+        <Segmented
+          label={tt("Border")}
+          value={String(Math.min(4, Math.max(0, theme.button_border_width ?? 0))) as "0" | "1" | "2" | "3" | "4"}
+          options={[{ id: "0", label: tt("None") }, { id: "1", label: "1px" }, { id: "2", label: "2px" }, { id: "3", label: "3px" }, { id: "4", label: "4px" }] as const}
+          onChange={(id) => updateTheme({ button_border_width: Number(id) })}
+        />
+        {theme.button_style === "outline" && (theme.button_border_width ?? 0) < 2 ? (
+          <p className="mt-2 text-[13px] text-[#6b7280]">{tt("Outline buttons always have at least a 2px border.")}</p>
+        ) : null}
       </PanelSection>
 
       <PanelSection>
@@ -4449,28 +4578,15 @@ function ButtonsSection() {
       </PanelSection>
 
       <PanelSection>
-        <SectionTitle title={tt("Shadow")} />
-        <Segmented
-          label={tt("Shadow")}
-          value={shadow}
-          options={[{ id: "none", label: tt("None") }, { id: "subtle", label: tt("Soft") }, { id: "strong", label: tt("Strong") }, { id: "hard", label: tt("Hard") }] as const}
-          onChange={(id) => updateTheme({ button_shadow: id } as any)}
-        />
-        {shadow !== "none" ? (
-          <div className="mt-4">
-            <ColorRow label={tt("Shadow colour")} value={(theme as any).button_shadow_color || "#000000"} onChange={(color) => updateTheme({ button_shadow_color: color } as any)} suggestions={["#000000", "#1a1a2e", "#ffffff", theme.button_color]} />
-          </div>
-        ) : null}
-      </PanelSection>
-
-      <PanelSection>
-        <SectionTitle title={tt("On hover")} description={tt("How a button answers a pointer on a computer")} />
-        <Segmented
-          label={tt("On hover")}
-          value={((theme as any).button_hover_animation || "default") as "default" | "fade" | "zoom"}
-          options={[{ id: "default", label: tt("Lift"), hint: tt("Scales up") }, { id: "fade", label: tt("Fade"), hint: tt("Dims") }, { id: "zoom", label: "Zoom", hint: tt("Grows") }] as const}
-          onChange={(id) => updateTheme({ button_hover_animation: id } as any)}
-        />
+        <SectionTitle title={tt("On hover")} description={tt("What a button does when a mouse points at it. Point at one to try it.")} />
+        <div className="grid grid-cols-3 gap-3">
+          {hoverChoices.map((choice) => (
+            <ChoiceCard key={choice.id} className="op-demo" selected={hover === choice.id} onClick={() => updateTheme({ button_hover_animation: choice.id as ButtonHover })} label={choice.label}>
+              {sample({}, { hover: choice.id, label: <span className="op-label">Aa</span> })} {/* i18n-ignore: a type sample */}
+            </ChoiceCard>
+          ))}
+        </div>
+        <p className="mt-3 text-[13px] text-[#6b7280]">{tt("To make one link stand out, use the sparkle button on that link in Links.")}</p>
       </PanelSection>
     </div>
   )

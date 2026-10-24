@@ -260,3 +260,24 @@ export function instantOrderBody(o: InstantOrder, free: boolean): Record<string,
   }
   return body
 }
+
+/* ── Remove, wherever the block is ──────────────────────────────────────── */
+
+/**
+ * How to take a block off the page from its own editor: a block on the page is
+ * removed by the page (the context's removeBlock); a block inside a group is
+ * taken out of that group's children, which the page's removeBlock never
+ * looked at (it searched the top level only, so Remove on an Unavailable
+ * product inside a group did nothing).
+ */
+export type RemovePlan = { kind: "top" } | { kind: "child"; groupId: string; children: unknown[] } | { kind: "none" }
+export function removePlanFor(blocks: readonly { id: string; type?: string; data?: unknown }[] | null | undefined, blockId: string): RemovePlan {
+  if (!blocks) return { kind: "none" }
+  if (blocks.some((b) => b.id === blockId)) return { kind: "top" }
+  for (const b of blocks) {
+    if (b.type !== "group") continue
+    const children = ((b.data as { children?: { id: string }[] } | undefined)?.children ?? []) as { id: string }[]
+    if (children.some((c) => c.id === blockId)) return { kind: "child", groupId: b.id, children: children.filter((c) => c.id !== blockId) }
+  }
+  return { kind: "none" }
+}

@@ -223,6 +223,8 @@ const SUITES = [
   "tests/creator-page-products.test.ts",
   "tests/deleted-product-gone.test.ts",
   "tests/onepage-preview-parity.test.ts",
+  /* Round 10 audit: the preview and the live page from one saved page (currency, social row, link addresses), the editor opens clean, archive and undo, undo back to saved; scripts/check-onepage-audit.mjs drives the real editor through the same cases. */
+  "tests/onepage-preview-live-r10.test.ts",
   "tests/product-delete.test.ts",
   "tests/product-visibility.test.ts",
   "tests/course-player.test.ts",
@@ -626,6 +628,9 @@ const SUITES = [
   "tests/onepage-editor-shell.test.ts",
   "tests/onepage-leave.test.ts",
   "tests/onepage-theme-apply.test.ts",
+  /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
+  "tests/onepage-buttons.test.ts",
+  "tests/onepage-social-input.test.ts",
   "tests/onepage-open.test.ts",
   "tests/onepage-arrival.test.ts",
   "tests/own-section-html.test.ts",

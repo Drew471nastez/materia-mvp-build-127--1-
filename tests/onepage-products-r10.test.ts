@@ -30,6 +30,7 @@ import {
   productTapAction,
   productTapPlan,
   sellsInstantly,
+  removePlanFor,
 } from "@/lib/onepage/product-block"
 import { resolveProductBlocks, answersForBlocks, type ProductsDb } from "@/lib/onepage/live-products"
 
@@ -166,6 +167,19 @@ async function main() {
   check("eight layouts to pick from", /<ProductLayoutPicker/.test(tab) && /PRODUCT_LAYOUTS\.map/.test(editor))
   check("a draft says so and how to show it; a product that is gone offers Remove", /Publish it to show it on your page/.test(read("components/onepage/tabs/product-block-editor.tsx")) && /data-product-remove/.test(editor) && /<ProductStateNote/.test(tab))
   check("the picker lists drafts with a badge and leaves archived out", /pickableProducts\(effectiveSellerProducts/.test(tab) && /<ProductStateBadge state=\{editorProductState\(product\.id/.test(tab))
+
+  console.log("\nRemove, on the page or inside a group")
+  const page = [
+    { id: "top", type: "product", data: {} },
+    { id: "g", type: "group", data: { children: [{ id: "kid", type: "product", data: {} }, { id: "other", type: "link_button", data: {} }] } },
+  ]
+  check("a block on the page: the page removes it", removePlanFor(page, "top").kind === "top")
+  const kid = removePlanFor(page, "kid")
+  check("a block inside a group: taken out of the group's children, the rest kept", kid.kind === "child" && kid.groupId === "g" && JSON.stringify(kid.children.map((c: any) => c.id)) === '["other"]', kid)
+  check("a block nowhere: nothing", removePlanFor(page, "ghost").kind === "none")
+  check("the Unavailable note's Remove follows the plan", /removePlanFor\(onepage\?\.draft_blocks, block\.id\)/.test(tab) && /plan\.kind === "child"/.test(tab))
+  check("the edit buttons read in full: a small Edit, then Product and Product page, each named in full", /\{tt\("Product page"\)\}/.test(editor) && /aria-label=\{tt\("Edit product page"\)\}/.test(editor))
+  check("the tap choices never widen their column", /grid-cols-\[minmax\(0,1fr\)\]/.test(editor) && /min-w-0 items-center gap-3 rounded-xl/.test(editor))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
