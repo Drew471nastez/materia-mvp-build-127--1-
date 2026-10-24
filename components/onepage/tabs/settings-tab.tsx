@@ -80,6 +80,17 @@ function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<
         library/library-tabs PILL: 40px on a phone, 36px from 640px, 16px in
         from each side of the word, 8px apart) and a little more under it.
         The pills themselves are Storelib's (components/onepage/pill-tabs).
+
+        SEVEN PILLS, NONE CUT OFF. With Integrations there are seven, about
+        690px of pills at Storelib's size. From 768px the row is never cut:
+        one row where the column holds them (the editor gives Settings 768px,
+        720 inside), and where it does not (the column beside the phone
+        preview is 364px at 1024 and 620px at 1280) the pills that do not fit
+        go on to a second row, the same size, rather than past the edge. On a
+        phone it scrolls sideways with no bar, the chosen pill kept in view,
+        and the last one reaches the screen's 16px margin like the first: a
+        flex row drops its end padding from what scrolls, so a 1px end piece
+        (`after:`) plus the 8px gap and the row's own padding hold it.
       */}
       <div className="sticky top-0 z-20 -mx-4 -mt-4 mb-4 bg-white px-4 pb-3 pt-4 md:-mx-6 md:-mt-6 md:px-6 md:pt-6" data-settings-pills="">
         <PillTabs
@@ -89,7 +100,7 @@ function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<
           value={active}
           onChange={choose}
           keepInView
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 no-scrollbar md:mx-0 md:px-0"
+          className="-mx-4 flex gap-2 overflow-x-auto scroll-px-4 px-4 py-0.5 app-no-scrollbar after:block after:w-px after:shrink-0 after:content-[''] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:after:hidden"
           itemClassName="h-10 px-4 text-[13px] sm:h-9"
         />
       </div>
@@ -622,17 +633,6 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
           billing: <div data-settings-section="billing">{renderBilling()}</div>,
         }}
       />
-
-      {/* Add custom scrollbar hiding CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}} />
     </>
   )
 })

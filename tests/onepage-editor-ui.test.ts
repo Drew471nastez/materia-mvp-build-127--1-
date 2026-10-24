@@ -240,7 +240,7 @@ function main() {
     const editorSrc = read("components/onepage/onepage-editor.tsx")
     check("each page is the column: the editor gives Design the whole column, and the stack cuts sideways at its edges",
       /* The room under the content is the phone tab bar's own height (app/globals.css --op-tabbar-h, .op-tabbar-clearance). */
-      /t === "design" \? null : "p-4 md:p-6 op-tabbar-clearance md:pb-6"/.test(editorSrc) && /t === "settings" \? "max-w-2xl" : t === "design" \? null : "max-w-xl"/.test(editorSrc)
+      /t === "design" \? null : "p-4 md:p-6 op-tabbar-clearance md:pb-6"/.test(editorSrc) && /* Changed on purpose (round 11): Settings is 768px wide so its seven pills fit on one row where the column allows. */ /t === "settings" \? "max-w-3xl" : t === "design" \? null : "max-w-xl"/.test(editorSrc)
       && /style=\{\{ overflowX: "clip" \}\} data-design-stack=""/.test(design) && /const readingClass = "mx-auto w-full max-w-xl p-4 op-tabbar-clearance md:p-6 md:pb-6"/.test(design))
     /* Side by side on a computer was the slide too: now no page moves sideways anywhere, and there is no shade or edge shadow ("NO SLIDE"). */
     /* Changed on purpose (round 11): the panel moves up and down on a phone (translate3d(0, y)), never sideways, and nothing dims the list. */

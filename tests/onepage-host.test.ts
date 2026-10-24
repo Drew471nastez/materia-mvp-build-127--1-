@@ -207,7 +207,7 @@ function routing() {
     ["POST", "/api/analytics/reports"],
   ]
   /* Every call the public page's own code makes answers on its host: a new block or window cannot ship a 404 again. */
-  for (const file of ["components/onepage/public-onepage.tsx", "components/onepage/product-sheet.tsx", "components/onepage/product-block.tsx", "components/checkout/instant-checkout.tsx", "components/checkout/checkout-window.tsx", "lib/website-builder/contact-client.ts"]) {
+  for (const file of ["components/onepage/public-onepage.tsx", "components/onepage/product-sheet.tsx", "components/onepage/product-block.tsx", "components/checkout/instant-checkout.tsx", "components/checkout/checkout-window.tsx", "lib/website-builder/contact-client.ts", "lib/platform/use-flags.ts"]) {
     let src = ""
     try { src = readFileSync(join(process.cwd(), file), "utf8") } catch { src = "" }
     const calls = [...src.matchAll(/fetch\(\s*[`"'](\/api\/[^`"'?$]+)/g)].map((m) => m[1])
@@ -217,6 +217,10 @@ function routing() {
     const r = route("storelib.me", p.split("?")[0], { method })
     check(`${method} ${p} is a 404 on storelib.me`, isMissing(r, true), show(r))
   }
+
+  /* Round 11: the footer badge's logo, should a request for it ever reach the router (the proxy's matcher skips picture files). */
+  check("the app's own pictures in /images answer on storelib.me (the badge's logo)", route("storelib.me", "/images/brand/storelib-logo-v2.webp")?.kind === "next")
+  check("  but only real picture files there", route("storelib.me", "/images/../app")?.kind !== "next" && route("storelib.me", "/images/x")?.kind !== "next" && route("storelib.me", "/images/x.html")?.kind !== "next")
 
   console.log("\nwww.storelib.me, should it ever be attached")
   check("is sent to storelib.me, path and query kept", isRedirect(route("www.storelib.me", "/mara?utm_source=x"), "https://storelib.me/mara?utm_source=x"))

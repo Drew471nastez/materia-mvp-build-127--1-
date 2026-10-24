@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { useTap } from "@/lib/gestures/use-tap"
 import { creatorPageHref, fallbackHref, isPlainClick, planBack } from "@/lib/navigation/back-plan"
-import { goBackOr, readBackEvidence } from "@/lib/navigation/go-back"
+import { backThen, goBackOr, readBackEvidence } from "@/lib/navigation/go-back"
+import { backToOnePage } from "@/lib/onepage/return-address"
 import { Mail, ArrowLeft, Check, Flag, MoreHorizontal, Share2 } from "lucide-react"
 import { getProductShareUrl } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
@@ -908,6 +909,12 @@ function ProductBarMenu({ title, slug, handle }: { title: string; slug: string; 
  */
 interface LiveProductCreatorBarProps {
   settings: ProductCreatorBarSettings
+  /**
+   * The OnePage this product was opened from (`?back=`, checked on the server
+   * by lib/checkout/site-hosts onePageReturnFor). Back goes there, not to the
+   * creator page: it is another origin, so nothing else can tell it is behind.
+   */
+  returnTo?: string | null
   creatorName: string
   creatorId?: string
   creatorUsername?: string
@@ -937,6 +944,7 @@ export function LiveProductCreatorBar({
   buttonLabel,
   productTitle,
   productSlug,
+  returnTo = null,
 }: LiveProductCreatorBarProps) {
   // IMPORTANT: All hooks must be called BEFORE any early returns to avoid React error #310
   const [subscribed, setSubscribed] = useState(false)
@@ -1075,12 +1083,22 @@ export function LiveProductCreatorBar({
      */
     const target = fallbackHref(creatorHref)
     setLeaving(true)
+    /*
+      OPENED FROM A ONEPAGE (round 11): Back is that OnePage. It is on
+      storelib.me, so the history entry behind is the browser's to return to
+      (from its cache, with its scroll); when there is none (a link opened in
+      a new tab), the OnePage is loaded in this tab's place.
+    */
+    if (returnTo) {
+      backToOnePage(returnTo, backThen)
+      return
+    }
     goBackOr(target, (href) => {
       startBackTransition(() => router.push(href))
       if (pushWatch.current) window.clearTimeout(pushWatch.current)
       pushWatch.current = window.setTimeout(() => window.location.assign(href), PUSH_GIVE_UP_MS)
     })
-  }, [creatorHref, router])
+  }, [creatorHref, router, returnTo])
 
   /**
    * ═════════════════════════════════════════════════════════════════════════
@@ -1102,6 +1120,8 @@ export function LiveProductCreatorBar({
   useEffect(() => {
     if (typeof window === "undefined") return
     if (!creatorHref || creatorHref === "#") return
+    /* Back is a OnePage on another origin: the creator page is not where it goes. */
+    if (returnTo) return
     if (planBack(readBackEvidence(), creatorHref).kind === "history") return
     try {
       router.prefetch(creatorHref)
@@ -1109,7 +1129,7 @@ export function LiveProductCreatorBar({
       /* A malformed href is the bar's problem to show, not a reason to throw
          out of an effect. */
     }
-  }, [creatorHref, router])
+  }, [creatorHref, router, returnTo])
 
   /**
    * The back half has no completion event of its own, so it is given a limit.
@@ -1348,7 +1368,7 @@ export function LiveProductCreatorBar({
         width: out, who, and more.
       */}
       <div data-product-bar="phone" className="flex w-full items-center gap-2.5 px-3 py-2 sm:hidden">
-        <BackControl onBack={goBack} href={fallbackHref(creatorHref)} label="Back" pending={backPending || leaving} />
+        <BackControl onBack={goBack} href={returnTo ?? fallbackHref(creatorHref)} label="Back" pending={backPending || leaving} />
 
         <SmartLink
           href={creatorHref}
@@ -1387,7 +1407,7 @@ export function LiveProductCreatorBar({
       <div className={cn("hidden sm:block py-[calc(0.625rem+5px)] px-4 sm:px-5")}>
         <div className={cn("mx-auto w-full", LIVE_DESKTOP_MAX_W)}>
           <div className="w-full flex items-center gap-3">
-            <BackControl onBack={goBack} href={fallbackHref(creatorHref)} label="Back" pending={backPending || leaving} />
+            <BackControl onBack={goBack} href={returnTo ?? fallbackHref(creatorHref)} label="Back" pending={backPending || leaving} />
             <SmartLink
               href={creatorHref}
               className="flex items-center gap-2 min-w-0 group"

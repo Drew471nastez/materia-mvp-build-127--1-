@@ -57,6 +57,8 @@ import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { backThen } from "@/lib/navigation/go-back"
 import { instantCheckoutOn, productHref, productLayoutOf, productPriceParts, productSheetHash, productTapPlan, shipsProduct } from "@/lib/onepage/product-block"
+import { onePageOutboundHref, platformOrigin, currentOnePageAddress } from "@/lib/onepage/return-address"
+import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { ProductSheet } from "./product-sheet"
 import { InstantCheckout, loadProductFacts } from "@/components/checkout/instant-checkout"
 
@@ -95,6 +97,47 @@ export const PRODUCT_CTA_HOVER = "op-btn"
 /** The card that hands its hover to the button inside it. */
 export const PRODUCT_CARD_HOST = "op-host"
 
+/*
+  WHERE A TAP GOES, AND HOW TO COME BACK (round 11). The OnePage is on
+  storelib.me and the checkout and product pages on storelib.com: a link to
+  "/checkout" was a 308 from storelib.me first, and Back from there went to the
+  product or the creator page, never the OnePage. So the link is the final
+  address on storelib.com, carrying the OnePage to come back to
+  (lib/onepage/return-address). The OnePage's own address is known only in the
+  browser, so the server draws the link without it and the first render after
+  hydration adds it: one value, read once (useSyncExternalStore's server
+  snapshot is null, so hydration matches).
+*/
+const noSubscribe = () => () => {}
+function useOnePageBack(): string | null {
+  return React.useSyncExternalStore(noSubscribe, () => (isOnePagePreview() ? null : currentOnePageAddress()), () => null)
+}
+
+/*
+  READ AHEAD WHERE THE BROWSER CAN. A press on a link to the checkout or a
+  product page has the browser fetch it while the finger is still down
+  (speculation rules, "moderate": a pointer held on it, or 200ms of hover on
+  a computer). Across sites the browser only does this for a visitor with no
+  storelib.com cookies, which is most people arriving from a bio link; for the
+  rest it is simply the one navigation. Added once per page.
+*/
+let readAheadAdded = false
+function addReadAhead() {
+  if (readAheadAdded || typeof document === "undefined") return
+  readAheadAdded = true
+  try {
+    const supports = (HTMLScriptElement as unknown as { supports?: (t: string) => boolean }).supports
+    if (!supports?.("speculationrules")) return
+    const origin = platformOrigin()
+    const s = document.createElement("script")
+    s.type = "speculationrules"
+    s.textContent = JSON.stringify({ prefetch: [{ source: "document", where: { or: [{ href_matches: `${origin}/checkout*` }, { href_matches: `${origin}/p/*` }] }, eagerness: "moderate" }] })
+    document.head.appendChild(s)
+  } catch {
+    /* no read ahead: the press is still one navigation */
+  }
+}
+
 export function OnePageProductBlock({ block, theme, quiet = false, inPair = false, seller, pageMoney, plainText, trackClick, animationClass, quick }: OnePageProductBlockProps) {
   const data = block.data as ProductBlockData
   const [sheetOpen, setSheetOpen] = React.useState(false)
@@ -105,7 +148,10 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
 
   const layout = productLayoutOf(data)
   const plan = productTapPlan(data)
-  const href = productHref(data)
+  const back = useOnePageBack()
+  /* The final address on storelib.com, with the OnePage to come back to once it is known (see useOnePageBack). */
+  const path = productHref(data)
+  const href = onePageOutboundHref(path, back)
   const hash = productSheetHash(data.product_slug)
   const instant = instantCheckoutOn(data)
 
@@ -163,6 +209,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     screen, so the tap opens something already drawn: on a phone four times slower, reading and drawing it on the tap
     cost frames of 80 to 100ms while the sheet slid (scripts/check-onepage-products.mjs).
   */
+  React.useEffect(() => {
+    if (plan === "navigate" && !isOnePagePreview()) addReadAhead()
+  }, [plan])
   React.useEffect(() => {
     const el = seen.current
     if (!el || warm || plan === "navigate" || !data.product_id) return
@@ -222,8 +271,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   const purchased = legacyQuick && quick!.purchasedProducts?.[data.product_id] !== undefined
   const cta = purchased ? "Download" : data.cta_text || "Get My Guide"
 
+  /* Counted by the block's own address, as it always was: the way back is the visitor's, not the link's. */
   const onClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    trackClick(block.id, href)
+    trackClick(block.id, path)
     /* A press with a key held (a new tab, a new window) is the browser's, always. */
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
     if (legacyQuick && quick) {
@@ -240,8 +290,16 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     if (plan === "instant" && data.product_id) {
       e.preventDefault()
       setCheckout({ variantId: null, fromSheet: false })
+      return
+    }
+    /* The checkout or the product page only make sense live: in the editor's preview, a note instead of leaving it. */
+    if (isOnePagePreview()) {
+      e.preventDefault()
+      showPreviewNotice("link")
     }
   }
+  /* A tap that opens something on this page: the platform's loading line must not start for it (components/navigation/route-loading-bar). */
+  const staysHere = legacyQuick || ((plan === "sheet" || plan === "instant") && !!data.product_id) ? "" : undefined
 
   const priceLine = (cls: string, color: string) =>
     showPrice && !purchased ? (
@@ -274,6 +332,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
       style={style}
       data-product-block={layout}
       data-product-tap={plan}
+      data-stays-here={staysHere}
       aria-label={`${title}${showPrice ? `, ${now}` : ""}`}
     >
       {children}
@@ -292,6 +351,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           {...hoverAttrs(theme as ButtonThemeLike)}
           data-product-block="button"
           data-product-tap={plan}
+          data-stays-here={staysHere}
         >
           {data.product_thumbnail ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -481,6 +541,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           instant={instant && !shipsProduct(data.product_type)}
           onBuy={(variantId) => setCheckout({ variantId, fromSheet: true })}
           onCheckoutLink={(to) => trackClick(block.id, to)}
+          back={back}
         />
       ) : null}
       {checkout && data.product_id ? (
@@ -494,6 +555,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           origin={pageOrigin}
           onClose={() => setCheckout(null)}
           onBack={checkout.fromSheet ? () => setCheckout(null) : null}
+          back={back}
         />
       ) : null}
     </>

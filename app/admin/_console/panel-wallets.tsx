@@ -35,7 +35,12 @@ type Answer = WalletDomainReport & { did?: "create" | "validate"; notes?: string
 const stateOf = (s: "active" | "inactive" | "unknown") => (s === "active" ? "ok" : s === "inactive" ? "failed" : "late")
 const wordOf = (s: "active" | "inactive" | "unknown") => (s === "active" ? "Active" : s === "inactive" ? "Not active" : "Unknown")
 
-export function WalletDomainsPanel() {
+/**
+ * `domain`: another host than the site's own, asked about and registered the
+ * same way. The OnePage host (storelib.me) is one: Instant checkout and its
+ * Apple Pay run there, and Apple checks every domain on its own.
+ */
+export function WalletDomainsPanel({ domain }: { domain?: string } = {}) {
   const [answer, setAnswer] = React.useState<Answer | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
@@ -45,10 +50,10 @@ export function WalletDomainsPanel() {
     setError(null)
     if (method === "POST") setBusy(true)
     try {
-      const res = await fetch("/api/admin/payment-domains", {
+      const res = await fetch(`/api/admin/payment-domains${domain && method === "GET" ? `?domain=${encodeURIComponent(domain)}` : ""}`, {
         method,
         cache: "no-store",
-        ...(method === "POST" ? { headers: { "Content-Type": "application/json" }, body: "{}" } : {}),
+        ...(method === "POST" ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(domain ? { domain } : {}) } : {}),
       })
       if (res.status === 401) {
         window.location.reload()
@@ -69,7 +74,7 @@ export function WalletDomainsPanel() {
     } finally {
       if (method === "POST") setBusy(false)
     }
-  }, [])
+  }, [domain])
 
   React.useEffect(() => {
     void ask("GET")
@@ -79,8 +84,8 @@ export function WalletDomainsPanel() {
 
   return (
     <Panel
-      id="wallet-domains"
-      title="Wallet buttons at checkout"
+      id={domain ? `wallet-domains-${domain}` : "wallet-domains"}
+      title={domain ? `Wallet buttons on ${domain}` : "Wallet buttons at checkout"}
       meta={answer ? answer.domain : "Apple Pay, Google Pay and Link"}
       action={
         <Button

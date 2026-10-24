@@ -160,7 +160,7 @@ async function main() {
   check("the card itself has no hover that moves or recolours it", !/group\/pc[^"]*hover:(scale|-translate|opacity|bg-)/.test(block) && !/hoverEffect/.test(block) && !/\.op-host:hover \{/.test(css))
   check("hover only where the device hovers, so no stuck hover on a phone", /@media \(hover: hover\) and \(pointer: fine\) \{\s*:is\(\.op-btn:hover, \.op-demo:hover \.op-btn, \.op-host:hover \.op-btn\)/.test(css))
   check("the old product case in public-onepage is gone, the block draws it", !/const calloutContent =/.test(read("components/onepage/public-onepage.tsx")) && /<ProductBlockWithQuickCheckout/.test(read("components/onepage/public-onepage.tsx")))
-  check("a tap is counted before anything else, as before", /const onClick = \(e: React\.MouseEvent<HTMLAnchorElement>\) => \{\s*trackClick\(block\.id, href\)/.test(block))
+  check("a tap is counted before anything else, as before", /const onClick = \(e: React\.MouseEvent<HTMLAnchorElement>\) => \{\s*trackClick\(block\.id, (?:href|path)\)/.test(block) /* round 11: `path`, the block's own address without the way back */)
   check("tiles are paired on the page", /pairProductTiles\(/.test(read("components/onepage/public-onepage.tsx")))
 
   console.log("\nThe editor")

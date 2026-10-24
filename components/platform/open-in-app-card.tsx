@@ -41,6 +41,7 @@ import {
   OPEN_CARD_QUIET_DAYS,
   STORE_FALLBACK_MS,
   type HandoffCard,
+  handoffRefused,
   inAppBrowser,
   isOurApp,
 } from "@/lib/platform/open-in-app"
@@ -194,6 +195,15 @@ export function OpenInAppCard() {
       in `x-requested-with` before answering.
     */
     if (isOurApp(ua, !!bridge?.isNativePlatform?.()) || quietAlready()) return
+    /*
+      NEVER IN THE ONEPAGE EDITOR OR ITS PREVIEW (round 11, the owner: "make
+      sure that I don't receive notification modals showing Open in Storelib
+      app in the OnePage editor at all"). The creator is working there, and
+      the preview is a frame of the live page inside it: a hand off from
+      either is a card over their work. Nor in any frame: a page drawn
+      inside another is never the page someone shared.
+    */
+    if (handoffRefused(pathname) || window.self !== window.top) return
     /* Only a web view is asked about: Safari and Chrome make no request. */
     if (!inAppBrowser(ua, null)) return
     let gone = false

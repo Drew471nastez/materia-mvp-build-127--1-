@@ -6,6 +6,7 @@ import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { settingsStaysHere } from "@/components/account/settings-subpage"
 import { isHistoryLayerRestoring } from "@/components/community/member/lightbox"
 import { PageSpinner } from "@/components/ui/activity-spinner"
+import { isOnePageHost } from "@/lib/onepage/address"
 import { pullRefreshVisualActive } from "@/hooks/use-pull-to-refresh"
 import { isPhoneShell, NAV_PHONE_SPINNER_AFTER_MS, NAV_SPINNER_AFTER_MS, NAV_SPINNER_FADE_MS, NAV_SPINNER_OUT_MS } from "@/lib/ui/app-navigation"
 
@@ -120,6 +121,22 @@ function RouteLoadingBarInner() {
       /* A post opens over the feed at its own address; a settings pill on a phone is a layer, not a fetch. */
       if (anchor.closest("[data-community-tabs]")) return
       if (anchor.hasAttribute("data-post-open") || anchor.closest("[data-post-open]")) return
+      /*
+        A LINK THAT OPENS SOMETHING ON THIS PAGE (round 11): a OnePage product
+        that opens its sheet or the checkout window. This listener runs before
+        the link's own handler cancels the navigation, so it started the wait
+        anyway, and half a second later the white page with the spinner
+        covered the OnePage for the full GIVE_UP_MS: the owner's "blank white
+        page with a spinner, then it takes me back".
+      */
+      if (anchor.closest("[data-stays-here]")) return
+      /*
+        AND NOTHING ON A ONEPAGE. storelib.me has no client routing at all
+        (nor does the app's /{name}/links): every link there is a whole
+        document, during which the browser keeps the page on screen, so a
+        cover over it is only a blank page.
+      */
+      if (isOnePageHost(window.location.host) || /^\/[^/]+\/links\/?$/.test(window.location.pathname)) return
       if (settingsStaysHere() && /\/account\/settings/.test(url.pathname)) return
       setCover(false)
       setLineOnly(false)
@@ -172,6 +189,21 @@ function RouteLoadingBarInner() {
     }
     window.addEventListener("popstate", onPop)
     return () => window.removeEventListener("popstate", onPop)
+  }, [])
+
+  /*
+    A PAGE BROUGHT BACK FROM THE BROWSER'S CACHE IS NOT STILL LEAVING. Back
+    from the checkout restores the page exactly as it was left, wait and all,
+    and the cover came back with it. Whatever was pending when it was left is
+    over.
+  */
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return
+      setPendingSince(null)
+    }
+    window.addEventListener("pageshow", onShow)
+    return () => window.removeEventListener("pageshow", onShow)
   }, [])
 
   /* A push that never became a click (the phone's tab bar). */
@@ -344,6 +376,17 @@ function SlowPage({ pendingSince, from, cover, lineOnly = false }: { pendingSinc
     }, Math.max(0, wait - (Date.now() - pendingSince)))
     return () => window.clearTimeout(t)
   }, [pendingSince, from, cover, lineOnly])
+
+  /* Brought back from the browser's cache with the cover up: gone at once, never faded over the page coming back. */
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return
+      leaving.current = false
+      setShown(false)
+    }
+    window.addEventListener("pageshow", onShow)
+    return () => window.removeEventListener("pageshow", onShow)
+  }, [])
 
   /* The page landed, or the cap gave up: fade out over the page already painted under it. */
   useEffect(() => {
