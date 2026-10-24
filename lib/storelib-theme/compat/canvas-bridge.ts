@@ -950,6 +950,8 @@ export const CANVAS_BRIDGE = `
   unlockCss.textContent = "html[data-sl-unlock]{overflow-y:auto!important}html[data-sl-unlock] body{overflow-y:visible!important}html[data-sl-unlock=fixed] body{position:static!important;top:auto!important}";
   document.head.appendChild(unlockCss);
   var lockedNow = function () {
+    /* Only where a page is drawn: a script run without one (a test's sandbox) holds nothing. */
+    if (typeof getComputedStyle !== "function") return null;
     var se = document.scrollingElement || document.documentElement;
     var hs = getComputedStyle(document.documentElement), bs = document.body ? getComputedStyle(document.body) : null;
     var clip = function (v) { return v === "hidden" || v === "clip"; };
@@ -1018,6 +1020,8 @@ export const CANVAS_BRIDGE = `
   stalledCss.textContent = "[data-sl-stalled],[data-sl-stalled] *{visibility:hidden!important;pointer-events:none!important;transition-duration:1ms!important;animation-duration:1ms!important}";
   document.head.appendChild(stalledCss);
   var stalledLoaders = function () {
+    /* Only where a page is drawn (as lockedNow). */
+    if (typeof innerWidth !== "number" || typeof document.elementsFromPoint !== "function") return;
     var vw = innerWidth, vh = innerHeight, hit = false;
     var seen = [];
     [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7]].forEach(function (p) {
