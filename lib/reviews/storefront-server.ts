@@ -52,28 +52,36 @@ async function readRows(db: Db, key: "creator_id" | "product_id", value: string,
   return (res.data ?? []) as StorefrontReviewRow[]
 }
 
-async function readRatings(db: Db, key: "creator_id" | "product_id", value: string): Promise<number[]> {
+async function readRatingRows(db: Db, key: "creator_id" | "product_id", value: string): Promise<{ product_id: string; rating: number }[]> {
   const run = (site: boolean) => {
-    const q = db.from("reviews").select("rating").eq(key, value).eq("status", "published")
+    const q = db.from("reviews").select("product_id, rating").eq(key, value).eq("status", "published")
     return (site ? q.eq("site_status", "shown") : q).limit(5000)
   }
   let res = await run(true)
   if (res.error && missingColumn(res.error)) res = await run(false)
   if (res.error) return []
-  return ((res.data ?? []) as { rating: number }[]).map((r) => Number(r.rating))
+  return ((res.data ?? []) as { product_id: string; rating: number }[]).map((r) => ({ product_id: String(r.product_id ?? ""), rating: Number(r.rating) }))
+}
+
+async function readRatings(db: Db, key: "creator_id" | "product_id", value: string): Promise<number[]> {
+  return (await readRatingRows(db, key, value)).map((r) => r.rating)
 }
 
 interface ShopReviews {
   rows: StorefrontReviewRow[]
   ratings: number[]
+  /** Every published rating of the shop by product: the stars of a product that is not the page's own (a featured product, a card's Star rating block). */
+  byProduct?: Record<string, number[]>
   products: StorefrontProductRow[]
 }
 
 async function readShop(db: Db, creatorId: string): Promise<ShopReviews> {
-  const [rows, ratings] = await Promise.all([readRows(db, "creator_id", creatorId, SHOP_LIMIT), readRatings(db, "creator_id", creatorId)])
+  const [rows, rated] = await Promise.all([readRows(db, "creator_id", creatorId, SHOP_LIMIT), readRatingRows(db, "creator_id", creatorId)])
   const ids = [...new Set(rows.map((r) => r.product_id))]
   const { data } = ids.length ? await db.from("products").select("id, title, slug, thumbnail_url").in("id", ids) : { data: [] }
-  return { rows, ratings, products: (data ?? []) as StorefrontProductRow[] }
+  const byProduct: Record<string, number[]> = {}
+  for (const r of rated) if (r.product_id) (byProduct[r.product_id] ??= []).push(r.rating)
+  return { rows, ratings: rated.map((r) => r.rating), byProduct, products: (data ?? []) as StorefrontProductRow[] }
 }
 
 function cachedShop(creatorId: string): Promise<ShopReviews> {
@@ -133,6 +141,7 @@ export async function storefrontReviews(
     creatorId,
     rows: shop.rows,
     shopRatings: shop.ratings,
+    ratingsByProduct: shop.byProduct,
     products,
     product: product?.id && own ? { id: product.id, title: product.title, rows: own.rows, ratings: own.ratings } : null,
     limit: PRODUCT_LIMIT,
@@ -158,6 +167,6 @@ export async function canvasReviews(db: Db, creatorId: string, product?: { id: s
   /* The store's saved widget looks as they are now, so a section's look follows the gallery without waiting for a cache. */
   const widgets = publicConfigs((await listWidgetConfigs(db, creatorId).catch(() => ({ configs: [] }))).configs)
   if (shop.rows.length === 0 && !(own && own.rows.length)) return { ...sampleStorefrontReviews(settings, creatorId, product ?? null), enabled: true, widgets }
-  const built = buildStorefrontReviews({ settings, creatorId, rows: shop.rows, shopRatings: shop.ratings, products: shop.products, product: product?.id && own ? { id: product.id, title: product.title, rows: own.rows, ratings: own.ratings } : null })
+  const built = buildStorefrontReviews({ settings, creatorId, rows: shop.rows, shopRatings: shop.ratings, ratingsByProduct: shop.byProduct, products: shop.products, product: product?.id && own ? { id: product.id, title: product.title, rows: own.rows, ratings: own.ratings } : null })
   return { ...built, enabled: true, widgets }
 }

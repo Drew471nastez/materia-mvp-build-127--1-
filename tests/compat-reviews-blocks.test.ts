@@ -173,7 +173,8 @@ function reviewsFor(product: { id: string; title: string } | null, enabled = tru
     const catalog = themeBlockCatalog(files, { builtIn: false })
     const names = (list: { name: string }[]) => list.map((b) => b.name)
     const main = schemaFor("main-product", files, {})
-    check("Dawn's main product (section blocks, @app): Star rating and Reviews after its own", JSON.stringify(names(addableBlocks(main, catalog)).slice(-2)) === '["Star rating","Reviews"]' && names(addableBlocks(main, catalog)).includes("Product rating"))
+    /* Changed on purpose (round BC): Storelib's Stock status and Estimated delivery app blocks follow Storelib Reviews' two. */
+    check("Dawn's main product (section blocks, @app): Star rating and Reviews after its own", JSON.stringify(names(addableBlocks(main, catalog)).slice(-4, -2)) === '["Star rating","Reviews"]' && names(addableBlocks(main, catalog)).includes("Product rating"))
     check("  each with its panel", (blockSchemaIn(main, catalog, REVIEW_STARS_BLOCK)?.fields ?? []).map((f) => f.id).join() === "show_average,show_count,link,star_color" && (blockSchemaIn(main, catalog, REVIEWS_LIST_BLOCK)?.fields ?? []).some((f) => f.id === "show_write"))
     const pi = schemaFor("product-information", files, {})
     check("Horizon's product information (@theme and @app): among its theme blocks", names(addableBlocks(pi, catalog)).includes("Star rating") && names(addableBlocks(pi, catalog)).includes("Product title"))
@@ -195,7 +196,8 @@ function reviewsFor(product: { id: string; title: string } | null, enabled = tru
   console.log("\nThe builder's canvas")
   {
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
-    check("a product page asks for the store's real reviews, as do the Storelib Reviews section and a reviews block", /const wantsReviews = productId !== null \|\| props\.sections\.some\(\(s\) => s\.type === REVIEW_WIDGET_SECTION_TYPE \|\| s\.type === REVIEWS_SECTION_TYPE \|\| holdsReviewsBlock\(s\.blocks\)\)/.test(canvas))
+    /* Changed on purpose (round BC): the product the page shows (the one picked, else the shop's first), not only one picked. */
+    check("a product page asks for the store's real reviews, as do the Storelib Reviews section and a reviews block", /const wantsReviews = reviewsProductId !== null \|\| props\.sections\.some\(\(s\) => s\.type === REVIEW_WIDGET_SECTION_TYPE \|\| s\.type === REVIEWS_SECTION_TYPE \|\| holdsReviewsBlock\(s\.blocks\)\)/.test(canvas))
     const settings = readReviewsApp({ enabled: true })
     const sample = { ...sampleStorefrontReviews(settings, "", { id: P1, title: "Prime1 Clarity" }), enabled: true }
     const dawn = productTemplate.map((s) => (s.type === "main-product" ? { ...s, blocks: [...s.blocks, { id: "stars", type: REVIEW_STARS_BLOCK, settings: {} }] } : s))

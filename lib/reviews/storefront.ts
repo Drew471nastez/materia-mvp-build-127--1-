@@ -105,6 +105,13 @@ export interface StorefrontReviews {
   here: { scope: "product" | "shop"; product_id: string; summary: StorefrontReviewSummary; items: StorefrontReview[] }
   /** /reviews on this website. */
   page_url: string
+  /**
+   * Every product's own stars, by product id, from all the shop's published
+   * reviews the website shows: what Star rating draws for a product that is
+   * not the page's (a featured product, a card), whether or not "Stars on
+   * product cards" is on. Absent on sample reviews.
+   */
+  ratings?: Record<string, { count: number; average: number }>
   /** The store's saved widget looks, by id: what a Reviews widget section names (lib/reviews/widgets). Type and settings only. */
   widgets?: Record<string, { type: string; settings: Record<string, unknown> }>
   /** The page's language, for a widget's own words (lib/reviews/widgets/config.ts widgetWords); absent, the website's own. */
@@ -298,6 +305,8 @@ export function buildStorefrontReviews(input: {
   rows: StorefrontReviewRow[]
   /** Every published rating of the shop, for its summary; the rows when absent. */
   shopRatings?: number[]
+  /** Every published rating of the shop, by product (StorefrontReviews.ratings). */
+  ratingsByProduct?: Record<string, number[]>
   products: StorefrontProductRow[]
   product?: { id: string; title?: string | null; rows: StorefrontReviewRow[]; ratings: number[] } | null
   limit?: number
@@ -312,6 +321,14 @@ export function buildStorefrontReviews(input: {
   if (input.product) {
     const items = sortReviews(input.product.rows.map((r) => toStorefrontReview(r, byId.get(r.product_id), show)), settings.display.sort).slice(0, limit)
     base.product = { id: input.product.id, title: (input.product.title ?? "").trim(), summary: summaryOf(input.product.ratings), items }
+  }
+  if (input.ratingsByProduct) {
+    const ratings: Record<string, { count: number; average: number }> = {}
+    for (const [id, list] of Object.entries(input.ratingsByProduct)) {
+      const s = summaryOf(list)
+      if (s.count > 0) ratings[id] = { count: s.count, average: s.average }
+    }
+    base.ratings = ratings
   }
   return finish(base)
 }
