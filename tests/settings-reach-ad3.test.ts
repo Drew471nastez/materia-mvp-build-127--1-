@@ -94,6 +94,11 @@ async function main() {
   const route = read("app/api/store/settings/route.ts")
   check("the shop's name and email: expired, not stale", /revalidateTag\(creatorShopTag\(c\.creatorId\), \{ expire: 0 \}\)/.test(route) && !/creatorShopTag\(c\.creatorId\), "max"/.test(route))
 
+  for (const f of ["app/api/domains/route.ts", "app/api/domains/verify/route.ts"]) {
+    const src = read(f)
+    check(`a domain change expires the primary domain's cache (${f})`, /revalidateTag\(creatorDomainsTag\(creatorId\), \{ expire: 0 \}\)/.test(src) && !/creatorDomainsTag\(creatorId\), "max"/.test(src))
+  }
+
   console.log("\n4. Readiness is asked again after a fix")
   check("Store details (contact email, business details)", /readinessChanged\(c\)/.test(route))
   for (const f of ["app/api/store/taxes/route.ts", "app/api/store/taxes/regions/route.ts", "app/api/store/taxes/regions/[id]/route.ts"]) {
