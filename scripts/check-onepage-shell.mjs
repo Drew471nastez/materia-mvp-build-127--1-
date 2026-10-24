@@ -225,12 +225,13 @@ if (wants("sheets")) {
     ["Stats", "links", clickTitle("View Stats")],
     ["Edit profile", "links", `(() => { const b = [...document.querySelectorAll("button")].find((e) => e.querySelector("h2") && e.getClientRects().length); if (b) b.click(); return !!b })()`],
     ["Profile image", "links", clickSel("[data-scroll-container] .relative.group.cursor-pointer")],
-    ["Add product", "products", clickText("Add Product")],
+    ["Add product", "products", `(() => { const b = [...document.querySelectorAll("button")].find((e) => /^add product$/i.test(e.textContent.trim()) && e.getClientRects().length); if (b) b.click(); return !!b })()`],
     ["Unsaved changes", "settings", clickSel("[data-onepage-exit]"), `(() => { const i = document.querySelector("[data-settings-name]"); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(i, i.value + "!"); i.dispatchEvent(new Event("input", { bubbles: true })) })()`],
   ]
   /* Each sheet REPEAT times (default 2), each on a fresh page: one run is too noisy to compare. */
   const repeat = Math.max(1, Number(process.env.REPEAT) || 2)
-  for (const [name, hash, opener, prepare] of SHEETS) {
+  /* SHEET=<name> measures one sheet only. */
+  for (const [name, hash, opener, prepare] of SHEETS.filter(([n]) => !process.env.SHEET || n === process.env.SHEET)) {
     for (let k = 0; k < repeat; k++) {
       for (const [label, at] of runs) {
         if (label) console.log(`  [${label}]`)

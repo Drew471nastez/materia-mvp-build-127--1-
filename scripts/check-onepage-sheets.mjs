@@ -154,7 +154,7 @@ await sheet("links", "Add block", "Add Block", clickText("Add"), ".overflow-y-au
 await sheet("links", "A link's thumbnail", "Edit Thumbnail", `(() => { const b = [...document.querySelectorAll("[data-scroll-container] button.w-10.h-10.rounded-lg")].find((e) => e.getClientRects().length); if (b) b.click(); return !!b })()`)
 await sheet("links", "A block's animation", "Animation", clickTitle("Animation"))
 await sheet("links", "A block's stats", "Link Stats", clickTitle("View Stats"))
-await sheet("products", "Add product", "Add Product", clickText("Add Product"))
+await sheet("products", "Add product", "Add Product", `(() => { const b = [...document.querySelectorAll("button")].find((e) => /^add product$/i.test(e.textContent.trim()) && e.getClientRects().length); if (b) b.click(); return !!b })()`)
 
 /*
   THE LAST CENTRED DIALOGS, NOW THE SHARED SHEET ON A PHONE: the name and
