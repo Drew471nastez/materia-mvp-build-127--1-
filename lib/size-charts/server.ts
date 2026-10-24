@@ -103,18 +103,19 @@ export async function productSizeChartId(db: Db, creatorId: string, productId: s
 export async function setProductSizeChart(db: Db, creatorId: string, productId: unknown, chartId: unknown): Promise<{ ok: true; chartId: string | null } | Failure> {
   if (!isUuid(productId)) return { ok: false, error: "Not found.", status: 404 }
   if (chartId !== null && !isUuid(chartId)) return { ok: false, error: "Choose a size chart.", status: 400 }
+  const chosen = chartId === null ? null : String(chartId)
   const { data: product } = await db.from("products").select("id").eq("id", productId).eq("creator_id", creatorId).maybeSingle()
   if (!product) return { ok: false, error: "Not found.", status: 404 }
-  if (chartId === null) {
+  if (chosen === null) {
     const { error } = await db.from("product_size_charts").delete().eq("product_id", productId).eq("creator_id", creatorId)
     /* Nothing to take away on a database without the table: the product has no chart either way. */
     if (error && !missingTable(error)) return failure(error)
     return { ok: true, chartId: null }
   }
-  const { data: chart, error: chartError } = await db.from("size_charts").select("id").eq("id", chartId).eq("creator_id", creatorId).maybeSingle()
+  const { data: chart, error: chartError } = await db.from("size_charts").select("id").eq("id", chosen).eq("creator_id", creatorId).maybeSingle()
   if (chartError) return failure(chartError)
   if (!chart) return { ok: false, error: "That size chart is gone. Choose another.", status: 404 }
-  const { error } = await db.from("product_size_charts").upsert({ product_id: productId, size_chart_id: chartId, creator_id: creatorId }, { onConflict: "product_id" })
+  const { error } = await db.from("product_size_charts").upsert({ product_id: productId, size_chart_id: chosen, creator_id: creatorId }, { onConflict: "product_id" })
   if (error) return failure(error)
-  return { ok: true, chartId }
+  return { ok: true, chartId: chosen }
 }
