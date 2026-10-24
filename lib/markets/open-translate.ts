@@ -355,7 +355,13 @@ const llmBatch = (texts: string[], from: string, to: string, timeoutMs: number, 
 /* ----------------------------------------------------------------- gemini */
 
 const GEMINI_URL = () => env("GEMINI_URL").replace(/\/+$/, "") || "https://generativelanguage.googleapis.com/v1beta/openai"
-const GEMINI_MODELS = () => (env("GEMINI_TRANSLATE_MODEL") ? env("GEMINI_TRANSLATE_MODEL").split(",").map((m) => m.trim()).filter(Boolean) : ["gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-2.0-flash"])
+/*
+ * Checked against https://ai.google.dev/gemini-api/docs/models on 2026-10-24:
+ * gemini-2.0-flash and gemini-2.0-flash-lite are shut down (404 "no longer
+ * available"), 2.5 Flash-Lite only answers keys that used it before, and new
+ * keys are pointed at 3.5 Flash-Lite (stable, thinking "minimal" by default).
+ */
+const GEMINI_MODELS = () => (env("GEMINI_TRANSLATE_MODEL") ? env("GEMINI_TRANSLATE_MODEL").split(",").map((m) => m.trim()).filter(Boolean) : ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"])
 const noGemini = new Set<string>()
 
 /** One batch through Gemini's OpenAI-compatible endpoint: the first of its models this key can use. */

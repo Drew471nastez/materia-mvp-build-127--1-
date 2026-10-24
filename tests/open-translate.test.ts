@@ -62,7 +62,7 @@ async function answer(req: IncomingMessage, res: ServerResponse) {
   }
   if (path === "/gem/chat/completions") {
     const model = b.model as string
-    if (model === "gemini-2.5-flash-lite" && process.env.GEMINI_OLD_ONLY) return send(res, 404, { error: { message: `models/${model} is not found` } })
+    if (model === "gemini-3.5-flash-lite" && process.env.GEMINI_OLD_ONLY) return send(res, 404, { error: { message: `models/${model} is not found` } })
     if (process.env.GEMINI_BUSY) return send(res, 429, { error: { message: "Resource has been exhausted (e.g. check quota)." } })
     const list = JSON.parse((b.messages as { content: string }[])[1].content) as string[]
     /* Drops the placeholder from a whole sentence: the check catches it and the words go again on their own. */
@@ -187,12 +187,14 @@ async function main() {
   delete process.env.LIBRETRANSLATE_URL
   seen.length = 0
   r = await mod.translateOpen(["Free shipping on orders over 200 lei", "<p>Our <b>linen</b> shirts</p>", "Hi {{ customer.first_name }}, welcome"], "en", "fr", { keep: ["Green Garden"] })
-  check("first when set up, whole sentences with markup kept", r.out.get(0) === "GEM(gemini-2.5-flash-lite) Free shipping on orders over 200 lei" && r.out.get(1) === "GEM(gemini-2.5-flash-lite) <p>Our <b>linen</b> shirts</p>", JSON.stringify([...r.out]))
-  check("one that lost its placeholder goes again as its words, and keeps it", r.out.get(2) === "GEM(gemini-2.5-flash-lite) Hi {{ customer.first_name }}GEM(gemini-2.5-flash-lite) , welcome" || /\{\{ customer\.first_name \}\}/.test(r.out.get(2) ?? ""), r.out.get(2))
+  check("first when set up, whole sentences with markup kept", r.out.get(0) === "GEM(gemini-3.5-flash-lite) Free shipping on orders over 200 lei" && r.out.get(1) === "GEM(gemini-3.5-flash-lite) <p>Our <b>linen</b> shirts</p>", JSON.stringify([...r.out]))
+  check("one that lost its placeholder goes again as its words, and keeps it", r.out.get(2) === "GEM(gemini-3.5-flash-lite) Hi {{ customer.first_name }}GEM(gemini-3.5-flash-lite) , welcome" || /\{\{ customer\.first_name \}\}/.test(r.out.get(2) ?? ""), r.out.get(2))
   check("the store's name is named in the prompt to keep", seen.some((x) => /"Green Garden"/.test(String((x.body.messages as { content: string }[] | undefined)?.[0]?.content))))
   process.env.GEMINI_OLD_ONLY = "1"
   r = await mod.translateOpen(["Another sentence"], "en", "de")
-  check("a model the key cannot use: the next Gemini model", r.out.get(0) === "GEM(gemini-2.0-flash-lite) Another sentence", r.out.get(0))
+  check("a model the key cannot use: the next Gemini model", r.out.get(0) === "GEM(gemini-3.1-flash-lite) Another sentence", r.out.get(0))
+  /* Google shut these down (404 "no longer available"): never asked by default again. */
+  check("no shut down Gemini model is asked", !seen.some((x) => /^gemini-2\.0-/.test(String(x.body.model))), seen.map((x) => x.body.model).join(","))
   delete process.env.GEMINI_OLD_ONLY
   process.env.GEMINI_BUSY = "1"
   r = await mod.translateOpen(["Out of allowance today"], "en", "es")
