@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { isMissingTable, UUID, type Db } from "./db"
+import { isMissingColumn, isMissingTable, UUID, type Db } from "./db"
 
 /**
  * ===========================================================================
@@ -25,6 +25,10 @@ export interface CustomerRow {
   email: string
   name: string | null
   created_at: string | null
+  /** What they typed on their profile (supabase/sql/run-now/283); absent before that part has run. */
+  phone?: string | null
+  /** Their own address book (./addresses.ts), NULL while never changed; absent before part 283. */
+  addresses?: unknown
 }
 
 export type CustomerResult =
@@ -32,6 +36,8 @@ export type CustomerResult =
   | { ok: false; why: "unavailable" | "failed" }
 
 const COLUMNS = "id, creator_id, email, name, created_at"
+/* With the profile's phone and the address book (part 283). A database without them is read with COLUMNS: a missing column must never sign everybody out. */
+const FULL_COLUMNS = `${COLUMNS}, phone, addresses`
 
 /** The customer for this email on this creator's website, made now if there is none. */
 export async function findOrCreateCustomer(
@@ -68,6 +74,9 @@ export async function findOrCreateCustomer(
 export async function customerById(db: Db, scope: { customerId: string; creatorId: string }): Promise<CustomerRow | null> {
   if (!UUID.test(scope.customerId) || !UUID.test(scope.creatorId)) return null
   try {
+    const full = await db.from(CUSTOMERS).select(FULL_COLUMNS).eq("id", scope.customerId).eq("creator_id", scope.creatorId).maybeSingle()
+    if (!full.error) return (full.data as CustomerRow | null) ?? null
+    if (!isMissingColumn(full.error)) return null
     const { data, error } = await db.from(CUSTOMERS).select(COLUMNS).eq("id", scope.customerId).eq("creator_id", scope.creatorId).maybeSingle()
     if (error || !data) return null
     return data as CustomerRow
@@ -92,6 +101,22 @@ export async function renameCustomer(db: Db, scope: { customerId: string; creato
     const { data, error } = await db
       .from(CUSTOMERS)
       .update({ name: name || null })
+      .eq("id", scope.customerId)
+      .eq("creator_id", scope.creatorId)
+      .select("id")
+    return !error && Array.isArray(data) && data.length === 1
+  } catch {
+    return false
+  }
+}
+
+/** Changes the customer's own phone number ("" clears it). False before part 283 has run, or when nothing changed. */
+export async function setCustomerPhone(db: Db, scope: { customerId: string; creatorId: string }, phone: string): Promise<boolean> {
+  if (!UUID.test(scope.customerId) || !UUID.test(scope.creatorId)) return false
+  try {
+    const { data, error } = await db
+      .from(CUSTOMERS)
+      .update({ phone: phone || null })
       .eq("id", scope.customerId)
       .eq("creator_id", scope.creatorId)
       .select("id")
