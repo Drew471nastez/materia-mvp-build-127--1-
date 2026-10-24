@@ -176,7 +176,8 @@ console.log("\nNothing ends under it, and nothing fights it")
 const css = read("app/globals.css")
 check("its height is said once, in globals.css", /--buyer-tabs-bar: 56px;/.test(css) && /--buyer-tabs-room: calc\(var\(--buyer-tabs-bar\) \+ env\(safe-area-inset-bottom, 0px\)\);/.test(css))
 check("and --buyer-tabs-h exists only while it is on screen on a phone", /@media \(max-width: 767px\) \{\s*html\[data-buyer-tabs="shown"\] \{\s*--buyer-tabs-h: var\(--buyer-tabs-room\);/.test(css))
-check("it brings its own room at the end of the page", /data-buyer-tabs-room="" className="shrink-0 md:hidden" style=\{\{ height: "var\(--buyer-tabs-room\)" \}\}/.test(bar))
+/* Changed on purpose (round 39): the room is marked pending with the bar until the page knows who is signed in (below). */
+check("it brings its own room at the end of the page", /data-buyer-tabs-room="" data-tabs-auth=\{pending \? "pending" : undefined\} className="shrink-0 md:hidden" style=\{\{ height: "var\(--buyer-tabs-room\)" \}\}/.test(bar))
 const buy = read("components/store-builder/sticky-add-to-cart.tsx")
 check("the product page's buy bar stands on it, and hands it the home indicator", /bottom: "var\(--buyer-tabs-h, 0px\)"/.test(buy) && /paddingBottom: "max\(0px, env\(safe-area-inset-bottom, 0px\) - var\(--buyer-tabs-h, 0px\)\)"/.test(buy))
 check("the cookie card lifts over it", /html\[data-buyer-tabs="shown"\] \[data-cookie-banner\] \{\s*bottom: var\(--buyer-tabs-h\);/.test(css))
@@ -245,6 +246,27 @@ check("log out here or everywhere, and the header forgets the session at once", 
 check("deleting is the existing flow: a code, then the code", /action: "send-code"/.test(account) && /action: "verify", code/.test(account))
 check("no em dashes in what a person reads", ["components/account/account-settings.tsx", "components/account/account-hub.tsx", "components/nav/buyer-tab-bar.tsx", "components/nav/buyer-tab-icons.tsx", "components/search/search-screen.tsx", "components/search/search-overlay.tsx"].every((f) => !/\u2014/.test(read(f))))
 check("/library/settings is the profile's Settings now", legacyLibraryTarget("/library/settings") === "/account/settings" && !existsSync(join(process.cwd(), "app/library/settings")) && !existsSync(join(process.cwd(), "app/account/library/settings")))
+
+/*
+  ROUND 39, the owner: "inside Storelib when logged out it should not have on mobile the mobile bottom navigation bar".
+  Measured frame by frame, server HTML then hydration, in scripts/check-tab-bar-auth-r39.mjs; this is the wiring.
+*/
+console.log("\nRound 39: signed out, no bar in a browser, decided before the first paint")
+for (const p of ["/explore", "/explore/design", SEARCH_HREF, "/wishlist", "/receipt/tok", "/community/clay-studio", "/community/clay-studio/members", "/u/alex"]) {
+  check(`signed out, not on ${p}`, !buyerTabsBelongOn(p, { signedIn: false }))
+}
+for (const p of ["/explore", "/account/library", "/receipt/tok", "/community/clay-studio"]) check(`signed in, still on ${p}`, buyerTabsBelongOn(p, { signedIn: true }))
+check("not known yet (the server, the page waking up): drawn, so the page can decide before it paints", buyerTabsBelongOn("/explore") && buyerTabsBelongOn("/explore", { signedIn: undefined }) && buyerTabsBelongOn("/community/clay-studio"))
+check("the app keeps it signed out outside a community, as its signed-out start is Explore; inside one, as before, a visitor has none", buyerTabsBelongOn("/explore", { signedIn: false, native: true }) && !buyerTabsBelongOn("/community/clay-studio", { signedIn: false, native: true }))
+{
+  const where = code("lib/nav/use-buyer-tabs-where.ts")
+  check("who is signed in is null on the server and while the page wakes, never a guess", /useSyncExternalStore\(subscribeAuthSnapshot, readSignedIn, unknown\)/.test(where) && /const unknown = \(\) => null/.test(where))
+  check("the app is the class the root layout's first script puts on <html>", /classList\.contains\("capacitor"\)/.test(where) && /html\.classList\.add\('capacitor'\)|h\.classList\.add\('capacitor'\)/.test(read("app/layout.tsx")))
+  check("the bar and the header ask the same question with the same answers", /signedIn: signedIn \?\? undefined, native: native \?\? false/.test(where) && /signedIn: signedIn \?\? undefined, native: native \?\? false/.test(bar))
+  check("drawn pending until the page knows: the bar and its room marked, the record read in a line printed before them", /pending=\{signedIn === null\}/.test(bar) && /<script dangerouslySetInnerHTML=\{\{ __html: SIGNED_IN_BOOT \}\} \/>[\s{}]*<div aria-hidden="true" data-buyer-tabs-room=""/.test(bar) && /data-buyer-tab-bar=\{away \? "away" : "shown"\}\s*data-tabs-auth=\{pending \? "pending" : undefined\}/.test(bar) && /localStorage\.getItem\('_sl_auth_v1'\)/.test(bar) && /setAttribute\('data-sl-signed-in',''\)/.test(bar))
+  check("a pending bar and its room are not drawn on an <html> not marked signed in (the app's excepted)", /html:not\(\[data-sl-signed-in\]\):not\(\.capacitor\) \[data-tabs-auth="pending"\] \{\s*display: none;/.test(css))
+  check("a pending bar makes no room in the page and keeps the body's inset unless it will be seen", /if \(pending\) return\s*const root = document\.documentElement/.test(bar) && /\[away, pending\]/.test(bar) && /<style>\{pending \? TAB_BAR_BODY_PENDING : TAB_BAR_BODY\}<\/style>/.test(bar) && /html\[data-sl-signed-in\] body,html\.capacitor body\{padding-bottom:0\}/.test(bar))
+}
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)

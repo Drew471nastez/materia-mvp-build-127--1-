@@ -8,7 +8,7 @@
  * imports the engine, which is what keeps it out of every published site's
  * bundle — see storelib-sources.tsx.
  */
-import { useCallback, useMemo, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, type ReactNode } from "react"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { themeWithHeaderLogo, type HeaderLogo } from "@/lib/website-builder/chrome-logo"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -89,6 +89,33 @@ export function editorPageExtras(template: string, products: Card[], data?: Stor
   return out
 }
 
+/** What the builder canvas draws its sections with, past the sources: the page's template, the shop's products, its facts and the header's logo. */
+/*
+  The builder's canvas draws a section's scheme colours as the variables its
+  root holds, where its template allows (lib/storelib-theme/scheme-vars.ts):
+  a scheme colour under a finger is then those variables alone, written by
+  hand (editor page.tsx canvasThemePatcher). Only the canvas: the picker's
+  previews and the published page print the colours.
+*/
+const CANVAS_RENDER = { schemeVariables: true } as const
+
+export interface CanvasLive {
+  page?: { template: string }
+  products?: RenderContext["products"]
+  data?: StorefrontData
+  headerLogo?: HeaderLogo | null
+}
+let canvasLive: CanvasLive | null = null
+/**
+ * The canvas's own, as it last drew. The Add block picker draws its previews
+ * outside the canvas (components/website-builder/editor/block-picker.tsx)
+ * and reads this, so a product page's block is drawn with that product and
+ * a catalogue block with the shop's products, as the canvas will draw it.
+ */
+export function editorCanvasLive(): CanvasLive | null {
+  return canvasLive
+}
+
 export function StorelibLiveProvider({
   sources,
   page,
@@ -96,8 +123,15 @@ export function StorelibLiveProvider({
   products,
   data,
   headerLogo,
+  asCanvas,
   children,
 }: {
+  /**
+   * Whether this provider is the builder canvas's, whose values the picker's
+   * previews borrow (editorCanvasLive). By default, an editor provider that
+   * names its page is; the picker's own passes false.
+   */
+  asCanvas?: boolean
   /** Saved `.storelib` files, path to source. The bundled theme is the fallback. */
   sources: Record<string, string>
   page?: { template: string }
@@ -132,6 +166,10 @@ export function StorelibLiveProvider({
   children: ReactNode
 }) {
   const template = page?.template ?? "index"
+  const canvas = asCanvas ?? (inEditor === true && !!page)
+  useEffect(() => {
+    if (canvas) canvasLive = { page: { template }, products, data, headerLogo }
+  }, [canvas, template, products, data, headerLogo])
   /*
     THE ACCOUNT PAGES, DRAWN SIGNED IN. A creator designing the account page
     or the wishlist is nobody's customer, and an account page with no
@@ -148,8 +186,8 @@ export function StorelibLiveProvider({
   const extras = useMemo(() => editorPageExtras(template, products ?? [], data), [template, products, data])
   const render = useCallback<SectionRenderFn>(
     (section: SectionInstance, theme: ThemeSettingsValues) =>
-      renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sources, products, data, globals),
-    [sources, template, inEditor, products, data, globals, extras, headerLogo],
+      renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sources, products, data, globals, canvas ? CANVAS_RENDER : undefined),
+    [sources, template, inEditor, products, data, globals, extras, headerLogo, canvas],
   )
   /* The same object while the template is the same. Inline, it was a new
      context value on every render of the canvas, and every section that reads

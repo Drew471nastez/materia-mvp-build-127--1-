@@ -56,10 +56,15 @@ import {
   statusLine,
   type PushPayload,
 } from "./core"
-import { GitHubError, blobAt, commentOnCommit, commitChanges, compareFiles, compareStatus, installationToken, listTree, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
-import { GENERATED, SETTINGS_DATA_PATH, gitBlobSha, jsonError, mergePages, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
+import { GitHubError, blobAt, commentOnCommit, commitIsolating, compareFiles, compareStatus, installationToken, listTree, noteOnCommit, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
+import { GENERATED, PLATFORM_SETTINGS_PATH, SETTINGS_DATA_PATH, SETTINGS_PATH, gitBlobSha, jsonError, mergePages, platformContext, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
+import { checkPlatformValues, placementNotes, withoutPlatformDefaults } from "@/lib/storelib-theme/platform-settings"
+import { writeStoreMenus } from "@/lib/website-builder/store-menus-server"
+import { cleanMenus } from "@/lib/storelib-theme/values"
 import { explainFailure, failureLine } from "./errors"
 import { readSnapshot, SnapshotError } from "./snapshot"
+import { keepKeysOut, keptNote, putKeysBack, type KeptKey } from "./secrets"
+import { ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { recordEvent } from "./events"
 import { fillSchemaDefaults, readThemeSchemaText, saveSettingsData } from "@/lib/website-builder/theme-config-store"
 
@@ -77,7 +82,7 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").repl
  * and offer the one button that fixes it (lib/github-sync/editor-status.ts).
  * `error` stays the developer's line, for the commit comment.
  */
-export type FileProblemKind = "invalid" | "wrong-kind" | "built-in" | "theme-settings" | "binary" | "too-large" | "not-saved" | "unreadable" | "page"
+export type FileProblemKind = "invalid" | "wrong-kind" | "built-in" | "theme-settings" | "binary" | "too-large" | "not-saved" | "unreadable" | "page" | "refused" | "not-sent"
 
 export interface FileProblem {
   path: string
@@ -107,12 +112,19 @@ export interface LastSync {
   head_at?: string | null
   /** Theme files a push changed that were not read (too many in one push, or out of time): Pull takes them. */
   unread?: number
+  /** Theme files a send did not reach in its time (pictures, fonts): the next send takes them. */
+  pending?: number
+  /** Files the send was made of, and how many GitHub now holds as sent. */
+  total?: number
+  sent?: number
 }
 
 export interface SyncState {
   /** Path in the theme to the blob GitHub and Storelib last agreed on. */
   files?: Record<string, string>
   last?: LastSync
+  /** Each picture sent, by name, with the address it was fetched from, for the repository it went to. Unchanged ones are not fetched again. */
+  media?: { at: string; urls: Record<string, string> }
   /** The newest push to another branch of the linked repository, which Storelib does not read. */
   ignored?: { branch: string; at: string; commit: string | null }
 }
@@ -184,15 +196,42 @@ export function repoFilesFor(snap: ThemeSnapshot, link: Pick<GitHubLink, "branch
   const source = !snap.compat && Object.keys(snap.defaults).length ? snap.defaults : { ...snap.defaults, ...snap.files }
   /* A page changes with every edit in the builder, so the page example is a fixed one (core.ts formatGuide), not this site's. */
   const examples = folderExamples(source, snap.compat)
-  return themeFiles(snap, ({ overrides, skipped }) => ({
+  const theme = themeFiles(snap, ({ overrides, skipped }) => ({
     readme: repoReadme({ siteName: snap.name, branch: link.branch ?? "main", root: link.root_path, compat: snap.compat, overrides, skipped }),
     agents: agentsGuide({ siteName: snap.name, branch: link.branch ?? "main", root: link.root_path, kind: snap.compat ? "shopify" : "storelib", examples }),
     claude: CLAUDE_MD,
   }))
+  /* A key in a theme file stays in Storelib; the repository's copy has a marker in its place (./secrets.ts). */
+  const keys: { path: string; kept: KeptKey[] }[] = []
+  const files = theme.files.map((f) => {
+    if (f.bytes || typeof f.text !== "string" || f.role === "generated") return f
+    const r = keepKeysOut(f.text)
+    if (r.kept.length === 0) return f
+    keys.push({ path: f.path, kept: r.kept })
+    return { ...f, text: r.text }
+  })
+  return { ...theme, files, keys }
 }
 
 function changeOf(root: string, f: RepoFile): FileChange {
   return f.bytes ? { path: `${root}${f.path}`, bytes: f.bytes } : { path: `${root}${f.path}`, content: f.text ?? "" }
+}
+
+/** A send's whole time: the route has a minute, and saving what happened takes some of it. */
+const SEND_BUDGET_MS = 42_000
+/** Of that, the most spent fetching an imported theme's pictures. */
+const MEDIA_BUDGET_MS = 18_000
+
+export interface ExportReport {
+  /** The commit made, or null when GitHub already had it all (or nothing could go yet). */
+  sha: string | null
+  /** Files in the theme as sent, and how many GitHub holds now. */
+  total: number
+  sent: number
+  /** Files still to send: the route sends again until this is 0. */
+  pending: number
+  /** Files GitHub turned down, each with why. */
+  failed: FileProblem[]
 }
 
 /** Storelib → GitHub, in one commit. Returns the commit, or null when the repository already matched. */
@@ -201,49 +240,148 @@ export async function exportSite(
   cfg: GitHubConfig,
   link: GitHubLink,
   siteName: string,
-  /* fetchMedia null: pictures are not fetched (an export after Publish; the repository keeps the ones it has). reason: what started it, for the activity list. */
-  deps: { fetchMedia?: ((url: string, maxBytes: number) => Promise<Uint8Array | null>) | null; reason?: string } = {},
+  deps: { fetchMedia?: ((url: string, maxBytes: number) => Promise<Uint8Array | null>) | null; reason?: string; deadline?: number } = {},
 ): Promise<string | null> {
+  return (await exportSiteReport(db, cfg, link, siteName, deps)).sha
+}
+
+/**
+ * The whole theme to GitHub, with what happened to every file.
+ *
+ * WHY MATERIA'S REPOSITORY HELD ONLY config/settings.json. An empty
+ * repository's first commit is one file through the contents API, and the
+ * rest of the theme follows in a second commit. For an imported theme the
+ * first file was config/settings.json, and before it the send had fetched
+ * every picture one at a time, so the minute ran out (or GitHub turned the
+ * second commit down) with only that one file there. And a refusal while
+ * moving the branch was reported as a protected branch without asking
+ * GitHub. Now: README.md goes first, pictures are fetched a few at a time and
+ * only when the repository does not have them already, a send stops in time
+ * and says what is still to go (the route sends again until nothing is), a
+ * file GitHub refuses is set apart from the rest (./github.ts
+ * commitIsolating), the commit is read back, and a branch is called
+ * protected only when GitHub says it is (./errors.ts).
+ */
+export async function exportSiteReport(
+  db: Db,
+  cfg: GitHubConfig,
+  link: GitHubLink,
+  siteName: string,
+  /* fetchMedia null: pictures are not fetched (an export after Publish; the repository keeps the ones it has). reason: what started it, for the activity list. */
+  deps: { fetchMedia?: ((url: string, maxBytes: number) => Promise<Uint8Array | null>) | null; reason?: string; deadline?: number } = {},
+): Promise<ExportReport> {
   if (!link.repo_full_name || !link.branch) throw new SyncError("Pick a repository first")
+  const started = Date.now()
+  const deadline = deps.deadline ?? started + SEND_BUDGET_MS
+  const where = `${link.repo_full_name}@${link.branch}/${link.root_path}`
+  const prevFiles = link.sync_state?.files ?? {}
+  const prevMedia = link.sync_state?.media?.at === where ? (link.sync_state.media.urls ?? {}) : {}
   let snap: ThemeSnapshot
   try {
-    snap = await readSnapshot(db, link.install_id, { name: siteName, fetchMedia: deps.fetchMedia === null ? undefined : (deps.fetchMedia ?? storageMedia) })
+    snap = await readSnapshot(db, link.install_id, {
+      name: siteName,
+      creatorId: link.creator_id,
+      fetchMedia: deps.fetchMedia === null ? undefined : (deps.fetchMedia ?? storageMedia),
+      keepMedia: (name, url) => prevMedia[name] === url && typeof prevFiles[`shopify/assets/${name}`] === "string",
+      mediaDeadline: Math.min(deadline, started + MEDIA_BUDGET_MS),
+    })
   } catch (e) {
     const line = e instanceof SnapshotError ? e.message : "Could not read this website. Try again."
     await saveLink(db, link.install_id, { last_error: `Sending to GitHub: ${line}` })
     await recordEvent(db, link.install_id, { direction: "to_github", ok: false, summary: `${deps.reason ? `${deps.reason}, not sent` : "Not sent"}: ${line}` })
     throw new SyncError(line)
   }
-  const { files, skipped, overrides } = repoFilesFor(snap, link)
+  const { files, skipped, overrides, keys } = repoFilesFor(snap, link)
+  const keyNotes: FileNote[] = keys.map((k) => ({ path: k.path, note: keptNote(k.path, k.kept) }))
   const at = new Date().toISOString()
+  const root = link.root_path
   try {
     const token = await installationToken(cfg, link.installation_id)
-    const r = await commitChanges(
+    const r = await commitIsolating(
       token,
       link.repo_full_name,
       link.branch,
-      files.map((f) => changeOf(link.root_path, f)),
+      files.map((f) => changeOf(root, f)),
       `Storelib: ${siteName}, the whole theme\n\n${COMMIT_MARKER}`,
+      { deadline },
     )
+    const local = (p: string) => (root && p.startsWith(root) ? p.slice(root.length) : p)
+    const deferred = new Set(r.deferred.map(local))
+    const missing = new Set(r.missing.map(local))
+    const refused = new Map(r.refused.map((x) => [local(x.path), x.error]))
+    const later = (snap.mediaLater ?? []).map((n) => `shopify/assets/${n}`)
+
+    /* What GitHub and Storelib now agree on: what landed, and for what did not, what they agreed on before. */
     const shas: Record<string, string> = {}
-    for (const f of files) shas[f.path] = gitBlobSha(f.bytes ?? f.text ?? "")
-    const last: LastSync = { at, direction: "to_github", commit: r.sha, ok: true, saved: [], failed: [], notes: [], skipped, head_at: r.sha ? at : (link.sync_state?.last?.head_at ?? null) }
+    for (const f of files) {
+      if (deferred.has(f.path) || missing.has(f.path) || refused.has(f.path)) {
+        if (prevFiles[f.path]) shas[f.path] = prevFiles[f.path]
+      } else shas[f.path] = gitBlobSha(f.bytes ?? f.text ?? "")
+    }
+    for (const name of snap.mediaKept ?? []) if (prevFiles[`shopify/assets/${name}`]) shas[`shopify/assets/${name}`] = prevFiles[`shopify/assets/${name}`]
+    for (const p of later) if (prevFiles[p]) shas[p] = prevFiles[p]
+    let assetMap: Record<string, string> = {}
+    try {
+      assetMap = JSON.parse(snap.files[ASSET_MAP_PATH] ?? "{}") as Record<string, string>
+    } catch {
+      assetMap = {}
+    }
+    /* A send that did not fetch pictures (after Publish) leaves the repository's as they are, and remembers them. */
+    if (!snap.media) for (const [p, sha] of Object.entries(prevFiles)) if (p.startsWith("shopify/assets/") && !(p in shas) && typeof assetMap[p.slice("shopify/assets/".length)] === "string") shas[p] = sha
+    const urls: Record<string, string> = {}
+    for (const [name, url] of Object.entries(assetMap)) if (typeof url === "string" && shas[`shopify/assets/${name}`] && (name in (snap.media ?? {}) ? !deferred.has(`shopify/assets/${name}`) && !refused.has(`shopify/assets/${name}`) && !missing.has(`shopify/assets/${name}`) : (snap.mediaKept ?? []).includes(name) || prevMedia[name] === url)) urls[name] = url
+
+    const failed: FileProblem[] = [
+      /* One short reason per file; what to do is said once, above the list. */
+      ...[...refused].map(([path, e]) => ({ path, error: `${path}: ${explainFailure(e, { repo: link.repo_full_name, branch: link.branch }).message}`, kind: "refused" as const })),
+      ...[...missing].map((path) => ({ path, error: `${path}: GitHub's commit does not hold this file as Storelib sent it`, kind: "not-sent" as const })),
+    ]
+    const pending = deferred.size + later.length
+    const total = files.length + (snap.mediaKept?.length ?? 0) + later.length
+    const sent = total - pending - failed.length
+    const ok = failed.length === 0 && pending === 0
+    const firstRefusal = r.refused[0]?.error
+    const problem = ok ? undefined : firstRefusal ? explainFailure(firstRefusal, {}).problem : "partial"
+    const last: LastSync = {
+      at,
+      direction: "to_github",
+      commit: r.sha,
+      ok,
+      saved: [],
+      failed,
+      notes: keyNotes,
+      skipped,
+      head_at: r.sha ? at : (link.sync_state?.last?.head_at ?? null),
+      ...(problem ? { problem } : {}),
+      ...(pending ? { pending } : {}),
+      total,
+      sent,
+    }
+    const errorLine = ok
+      ? null
+      : firstRefusal
+        ? `${refused.size === 1 ? "1 file stayed" : `${refused.size} files stayed`} in Storelib: GitHub would not take ${refused.size === 1 ? "it" : "them"}. Everything else is on GitHub, and the site still uses ${refused.size === 1 ? "it" : "them"}.`
+        : `Sent ${sent} of ${total} files. ${pending ? `${pending} still to send: press Push to send them.` : `${missing.size} did not land: press Push again.`}`
     await saveLink(db, link.install_id, {
       last_synced_sha: r.sha ?? link.last_synced_sha,
       last_synced_at: at,
-      last_error: null,
-      sync_state: { files: shas, last },
+      last_error: errorLine,
+      sync_state: { files: shas, media: { at: where, urls }, last },
     })
-    const theme = `${files.length} files${overrides.length ? `, ${overrides.length} built-in edited here` : ""}`
+    const theme = `${total} files${overrides.length ? `, ${overrides.length} built-in edited here` : ""}`
+    const head = deps.reason ? `${deps.reason}. ` : ""
+    const tail = `${skipped.length ? `. ${skipped.length} left out, listed in storelib.json` : ""}${pending ? `. ${pending} still to send` : ""}${failed.length ? `. ${failed.length} not taken by GitHub: ${failed.slice(0, 3).map((f) => f.path).join(", ")}` : ""}`
     await recordEvent(db, link.install_id, {
       direction: "to_github",
-      ok: true,
-      summary: (deps.reason ? `${deps.reason}. ` : "") + (r.sha
-        ? `Sent the whole theme to GitHub (${theme}): ${r.written} changed${r.removed ? `, ${r.removed} removed` : ""}${skipped.length ? `. ${skipped.length} left out, listed in storelib.json` : ""}`
-        : `GitHub already had the whole theme (${theme})`),
+      ok,
+      summary: head + (r.sha
+        ? `Sent the whole theme to GitHub (${theme}): ${r.written} changed${r.removed ? `, ${r.removed} removed` : ""}${tail}`
+        : pending || failed.length
+          ? `Nothing new went to GitHub yet (${theme})${tail}`
+          : `GitHub already had the whole theme (${theme})`),
       commit_sha: r.sha,
     })
-    return r.sha
+    return { sha: r.sha, total, sent, pending, failed }
   } catch (e) {
     const x = e instanceof GitHubError ? explainFailure(e, { repo: link.repo_full_name, branch: link.branch }) : null
     const line = x ? failureLine(x) : "Something went wrong sending the theme to GitHub. Press Push again."
@@ -376,6 +514,8 @@ export async function applyFiles(
       if (refused) out.failed.push({ path: f.path, error: refused, kind: "theme-settings" })
       else if (role === "media") out.notes.push({ path: f.path, note: `${f.path}: pictures are not taken from GitHub. Upload it in Files in the builder.` })
       else if (f.path === SETTINGS_PANEL_FILE) out.notes.push({ path: f.path, note: `${f.path} is made by Storelib from ${SETTINGS_SCHEMA_FILE}, which is the file to change. Theme settings in the builder follow it.` })
+      /* Storelib's own settings: their definitions are Storelib's, their values are config/settings.json's. Said, never refused. */
+      else if (f.path === PLATFORM_SETTINGS_PATH) out.notes.push({ path: f.path, note: platformDefinitionNote(snap.compat) })
       else if (role === "reference") out.notes.push({ path: f.path, note: `${f.path} is there to read. Storelib does not take changes to it.` })
       else if (role === "generated") out.notes.push({ path: f.path, note: `${f.path} is written by Storelib, so this change is replaced on the next Push.` })
       continue
@@ -404,6 +544,10 @@ export async function applyFiles(
         continue
       }
       text = Buffer.from(f.bytes).toString("utf8")
+      /* A key kept out of the repository goes back in from Storelib's own copy (./secrets.ts). */
+      const back = putKeysBack(text, snap.files[f.path])
+      text = back.text
+      if (back.missing.length) out.notes.push({ path: f.path, note: `${f.path}: it names a key Storelib does not hold, so that spot was left as it is. Put the key in the file in the builder.` })
     }
 
     /* Shopify's values file: what it sets is set, what it leaves out stays (lib/website-builder/theme-config-store.ts). */
@@ -439,6 +583,15 @@ export async function applyFiles(
         continue
       }
       let next = { ...(v as Record<string, unknown>) }
+      /*
+        Storelib's own settings (lib/storelib-theme/platform-settings.ts): a
+        value its control cannot take is kept as it was and said, and a
+        default the export wrote out and the push left alone stays unset.
+      */
+      const platform = platformContext(snap)
+      const checkedPlatform = checkPlatformValues(next, snap.settings, platform.kind, platform)
+      for (const n of checkedPlatform.notes) out.notes.push({ path: f.path, note: `${f.path}: ${n}.` })
+      next = withoutPlatformDefaults(checkedPlatform.settings, snap.settings, platform.kind, platform)
       /* What kind of theme this is, is not the repository's to change. */
       if (snap.compat) {
         if (JSON.stringify(next.compat) !== JSON.stringify((snap.settings as Record<string, unknown>).compat)) {
@@ -467,6 +620,11 @@ export async function applyFiles(
       conflictNote(f.path)
       out.saved.push(f.path)
       out.shas[f.path] = f.sha
+      /* Menus are the store's, on every theme, once it keeps them: a change here is written there, as the builder's Navigation writes it. */
+      if (snap.storeMenus && "menus" in next && JSON.stringify(cleanMenus(next.menus)) !== JSON.stringify(cleanMenus(snap.settings.menus))) {
+        const menus = await writeStoreMenus(db, link.creator_id, next.menus)
+        if (menus.ok === false) out.notes.push({ path: f.path, note: `${f.path}: the menus were saved with this theme, and the store's menus could not be changed just now. Push again.` })
+      }
       /* An imported theme's Theme settings list its colour schemes from these values: made again with them. */
       if (snap.compat) await refreshCompatSettingsPanel(db, link.install_id)
       /* The defaults the theme's own settings_schema.json gives, under any value the push left out. */
@@ -550,6 +708,8 @@ export async function applyFiles(
     out.shas[f.path] = f.sha
     /* What the builder cannot show of a schema it took (a setting with no control): said on the commit and in the builder. */
     for (const note of saved.notes ?? []) out.notes.push({ path: f.path, note })
+    /* Storelib's own settings this schema now places, or no longer does: where each shows in the builder, said on the commit. */
+    if (snap.compat && f.path === SETTINGS_SCHEMA_FILE) for (const note of placementNotes(snap.files[f.path] ?? null, text)) out.notes.push({ path: f.path, note: `${f.path}: ${note}.` })
     const m = /^sections\/([a-z0-9_-]+)\.storelib$/.exec(f.path)
     if (m) savedTypes.add(m[1])
     if (role === "source" && !snap.compat && repoMayWrite(f.path, compat).ok && (f.path in snap.defaults || (m && SECTION_SCHEMAS[m[1]]))) {
@@ -600,6 +760,13 @@ export async function applyFiles(
   return out
 }
 
+/** What a push that changed config/storelib_settings_schema.json is told: where the values are, and how a theme places one itself. */
+export function platformDefinitionNote(compat: boolean): string {
+  return compat
+    ? `${PLATFORM_SETTINGS_PATH} describes the settings Storelib adds, and Storelib rewrites it, so this change is not taken. Change their values in ${SETTINGS_PATH} under "shopify". To draw one where the theme wants it, declare its id in shopify/config/settings_schema.json.`
+    : `${PLATFORM_SETTINGS_PATH} describes Storelib's own Theme settings, and Storelib rewrites it, so this change is not taken. Change their values in ${SETTINGS_PATH}, and their order, labels or defaults in config/settings_schema.json.`
+}
+
 /** "faq, hero and 3 more" from the saved paths, for a line in the activity list. */
 function fileNames(paths: string[]): string {
   const names = paths.map((p) => p.replace(/^(sections|blocks|templates|snippets|layout)\//, "").replace(/\.(storelib|json)$/, ""))
@@ -616,9 +783,11 @@ export function takenSummary(r: { saved: string[]; failed: FileProblem[]; notes?
 }
 
 /** The comment on a commit that lists every file a push could not bring in. */
-export function commitComment(r: { saved: string[]; failed: FileProblem[]; notes: FileNote[] }, editor: string): string {
+export function commitComment(r: { saved: string[]; failed: FileProblem[]; notes: FileNote[]; skipped?: string }, editor: string): string {
   const lines = ["**Storelib** read this push."]
   lines.push("", `${r.saved.length} file${r.saved.length === 1 ? "" : "s"} taken into the site as a draft.`)
+  if (r.saved.length && r.saved.length <= 30) lines.push("", ...r.saved.map((p) => `- \`${p}\``))
+  if (r.skipped) lines.push("", r.skipped)
   if (r.failed.length) {
     lines.push("", `${r.failed.length} not taken. Fix each and push again; the files above are already in:`, "")
     for (const f of r.failed.slice(0, 50)) lines.push(`- ${f.error.replace(/\n+/g, " ")}`)
@@ -628,7 +797,7 @@ export function commitComment(r: { saved: string[]; failed: FileProblem[]; notes
     lines.push("", "Notes:", "")
     for (const n of r.notes.slice(0, 30)) lines.push(`- ${n.note}`)
   }
-  lines.push("", `Open the builder: ${editor}`)
+  lines.push("", "Nothing is live until the creator presses Publish.", "", `Open the builder: ${editor}`)
   return lines.join("\n")
 }
 
@@ -729,7 +898,7 @@ export async function pullNow(db: Db, cfg: GitHubConfig, link: GitHubLink, siteN
   }
   let snap: ThemeSnapshot
   try {
-    snap = await readSnapshot(db, link.install_id, { name: siteName })
+    snap = await readSnapshot(db, link.install_id, { name: siteName, creatorId: link.creator_id })
   } catch (e) {
     throw new SyncError(e instanceof SnapshotError ? e.message : "Could not read this website. Try again.")
   }
@@ -854,7 +1023,7 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
     let snap: ThemeSnapshot
     try {
       const { data: install } = await db.from("store_theme_installs").select("name").eq("id", link.install_id).maybeSingle()
-      snap = await readSnapshot(db, link.install_id, { name: (install?.name as string) || "Site" })
+      snap = await readSnapshot(db, link.install_id, { name: (install?.name as string) || "Site", creatorId: link.creator_id })
     } catch {
       await failWhole(db, link, { problem: "site-unreadable", line: "Storelib could not read this website to take a push. Press Pull to try again.", commit: after })
       continue
@@ -897,7 +1066,13 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
     outcomes.push(out)
   }
 
-  /* One status on the commit for everything this push did, and a comment listing each file that was not taken. */
+  /*
+    One status on the commit for everything this push did, a comment saying
+    what was taken and listing each file that was not, and the same words as
+    a git note. The status's Details link is the comment, on GitHub, so
+    whoever can read the repository can read why: the builder's address
+    needs a Storelib login, and an agent working in the repository has none.
+  */
   const touched = outcomes.some((o) => o.saved.length || o.failed.length || o.skipped || o.unchanged.length || o.notes.length)
   if (touched) {
     const failed = outcomes.flatMap((o) => o.failed)
@@ -909,18 +1084,25 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
       : skipped
         ? statusLine(skipped)
         : statusLine(saved === 0 ? "Already up to date" : `${saved} file${saved === 1 ? "" : "s"} saved as a draft`)
-    try {
-      await setStatus(token, repo, after, { state, description, target_url: editorUrl(links[0].install_id) })
-    } catch {
-      /* the app may not have been given commit statuses; the sync stands */
-    }
     const notes = outcomes.flatMap((o) => o.notes)
-    if (failed.length || notes.length) {
+    let details: string | null = null
+    if (saved || failed.length || notes.length || skipped) {
+      const body = commitComment({ saved: [...new Set(outcomes.flatMap((o) => o.saved))], failed, notes, skipped }, editorUrl(links[0].install_id))
       try {
-        await commentOnCommit(token, repo, after, commitComment({ saved: outcomes.flatMap((o) => o.saved), failed, notes }, editorUrl(links[0].install_id)))
+        details = (await commentOnCommit(token, repo, after, body)).html_url
       } catch {
         /* the status says the first problem; the builder lists them all */
       }
+      try {
+        await noteOnCommit(token, repo, after, body)
+      } catch {
+        /* the comment and the status say it */
+      }
+    }
+    try {
+      await setStatus(token, repo, after, { state, description, target_url: details ?? editorUrl(links[0].install_id) })
+    } catch {
+      /* the app may not have been given commit statuses; the comment and the note say it */
     }
   }
   return outcomes

@@ -501,6 +501,16 @@ export function readFresh<T>(path: string): Promise<ApiResult<T>> {
   return keep(path) as Promise<ApiResult<T>>
 }
 
+/**
+ * Every kept read, read again: after a change that moves numbers in all of
+ * them at once (the store's currency, Settings › Languages & Currency), so a
+ * tab opened next does not draw its shipping rates, cash on delivery fee or
+ * tax amounts as they were before it.
+ */
+export function rereadKept(): void {
+  for (const path of [...kept.keys()]) void keep(path)
+}
+
 /** What a prefetch already brought back for this address, for a panel's first draw: the last good answer, however old. */
 export function peekGet<T>(path: string): T | null {
   const e = kept.get(path)

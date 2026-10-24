@@ -208,7 +208,8 @@ async function main() {
   console.log("\nThe layout")
   {
     const frame = code("components/community/member/shell-frame.tsx")
-    check("a profile has no right column: it takes that room, like About and the classroom", /const profilePage = shown\.kind === "profile"/.test(frame) && /const wideCenter = about \|\| lessonPage \|\| profilePage \|\|/.test(frame) && /profilePage \? "profile"/.test(frame))
+    /* Changed on purpose (round 39): no place has a right column any more (two columns, shell-frame.tsx), so a profile has that room like every page. */
+    check("a profile has no right column: it takes that room, like About and the classroom", /const profilePage = shown\.kind === "profile"/.test(frame) && /xl:grid-cols-\[280px_minmax\(0,1fr\)\]"/.test(frame) && !/data-community-right/.test(frame) && /profilePage \? "profile"/.test(frame))
     const view = code("components/community/member/member-profile.tsx")
     /* Changed on purpose (the owner: "the content is a bit too wide"): from 1280px the cards take 95.2% of the column, at most 944px, centred; below it as before. */
     check("the profile's cards fill that column (680px before), a little narrower on a computer", new RegExp(`const COLUMN_CLASS = "max-w-\\[${PROFILE_COLUMN_PX}px\\] xl:max-w-\\[min\\(${PROFILE_COLUMN_WIDE_PX}px,${Math.round(PROFILE_COLUMN_SHARE * 1000) / 10}%\\)\\]"`).test(view) && !/max-w-\[680px\]/.test(view))

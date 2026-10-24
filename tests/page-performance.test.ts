@@ -2052,6 +2052,8 @@ check(
           if (/\.storage\./.test(target)) continue
           /* Changed on purpose: Promise.all over builders is a real Promise, so its .catch() is correct (lib/physical/tracking/accounts-server.ts, 62e142c2f). */
           if (/^Promise\.(all|allSettled)\(/.test(target)) continue
+          /* Changed on purpose (round 39): Promise.resolve(builder) makes a real Promise of it, so its .catch() is correct (lib/communities/server/direct.ts). */
+          if (/^Promise\.resolve\(/.test(target)) continue
           if (/\.(json|text|arrayBuffer)\(\)$/.test(target.trim())) continue
           offenders.push(`${rel}:${i + 1}  ${lines[i].trim().slice(0, 84)}`)
         }
@@ -2184,7 +2186,8 @@ check(
 
     if (/\{productCount\} products/.test(body)) missing.push("the product count is back in the name area")
     if (!/reviewCount > 0 && reviewAverage > 0/.test(body)) missing.push("the rating left the meta row")
-    if (!/followerCount > 0/.test(body)) missing.push("the follower count left the meta row")
+    /* Changed on purpose (round 38): no followers on a creator page at all, so none in the meta row either. */
+    if (/followerCount/.test(body)) missing.push("a follower count is back in the meta row")
 
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -3305,10 +3308,11 @@ check(
 
     if (!/\(settings\.showReviews \?\? true\)/.test(renderer))
       missing.push("the rating is not individually toggleable, or defaults to hidden")
-    if (!/\(settings\.showFollowers \?\? true\)/.test(renderer))
-      missing.push("followers are not individually toggleable, or default to hidden")
+    /* Changed on purpose (round 38): a creator page shows no followers, so the renderer reads no followers switch and the dialog has none. */
+    if (/settings\.showFollowers/.test(renderer)) missing.push("the renderer still reads a followers switch")
+    if (/"showFollowers", "Followers"/.test(dialog)) missing.push("the profile dialog still has a Followers switch")
 
-    for (const label of ["Rating and reviews", "Followers", "Sales count", "Social links"]) {
+    for (const label of ["Rating and reviews", "Sales count", "Social links"]) {
       if (!dialog.includes(label)) missing.push(`the profile dialog has no "${label}" switch`)
     }
     if (!/display: shown/.test(dialog)) missing.push("the switches are not sent when saving")

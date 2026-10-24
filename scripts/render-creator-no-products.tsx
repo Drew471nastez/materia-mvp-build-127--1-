@@ -108,9 +108,8 @@ if (q.has("rows")) {
         profile={{ display_name: "Maya Ortiz", avatar_url: FACE, username: "maya", created_at: "2024-01-01" } as never}
         productCount={0}
         globalSettings={defaultGlobalStoreSettings as never}
-        followerCount={128}
         surface={{ textColor: chrome.text, mutedColor: chrome.muted, avatarBorderColor: chrome.avatarBorder }}
-        followRow={<ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Maya Ortiz" followers={128} following={12} viewerFollowing={false} signedIn isSelf={owner} />}
+        followRow={owner ? null : <ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Maya Ortiz" showCounts={false} viewerFollowing={false} signedIn isSelf={false} />}
       />
       <div data-probe-catalogue="">
         {owner ? <FirstProductPrompt scheme={chrome.action} /> : null}

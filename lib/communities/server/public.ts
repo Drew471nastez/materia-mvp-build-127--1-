@@ -573,14 +573,20 @@ export type LoadSalesPageOpts = {
   light?: boolean
   /** Round AG: the join as a signed out visitor sees it, for the owner's "Preview" of the plans. The staff check still reads the real viewer. */
   asVisitor?: boolean
+  /**
+   * Round 39: the community and the viewer this request already read (a member's About and Membership places,
+   * lib/communities/server/places.ts), so they are not read a second time before the page's own reads.
+   */
+  known?: { community: CommunityRow; viewer: Viewer }
 }
 
 export async function loadSalesPage(slug: string, userId: string | null, given?: Db, opts?: LoadSalesPageOpts): Promise<SalesPageLoad | null> {
   /* The page's own read is shared with its metadata (communityBySlug); a caller with its own database reads its own. */
   const db: Db = given ?? admin()
-  const community = given ? await loadCommunity(db, { slug }) : await communityBySlug(slug)
+  const known = opts?.known && opts.known.viewer.userId === userId ? opts.known : null
+  const community = known ? known.community : given ? await loadCommunity(db, { slug }) : await communityBySlug(slug)
   if (!community) return null
-  const viewer = await viewerContext(db, community, userId)
+  const viewer = known ? known.viewer : await viewerContext(db, community, userId)
   const suspended = !communityOpen(community)
   const staff = isStaff(viewer)
   if (suspended && !staff) return null
@@ -730,14 +736,12 @@ export function communityIndexable(c: Pick<CommunityRow, "status" | "visibility"
 /* ── The community's own top bar ────────────────────────────────────────── */
 
 /**
- * What the top bar draws on every page of a community, for this viewer:
- * whose it is ("By <name>", to their page), who is looking (their name,
- * picture and page) and the communities they are in, for the switcher.
- * Four small reads, once per page load: a layout is kept while somebody
- * moves around inside the community.
+ * THE TOP BAR'S READS, which need only the community and who is looking (round 39). The bar's frame waited for the
+ * viewer's standing in the community and then asked these, three round trips more (scripts/measure-community-member-
+ * server.mjs); now the community's page asks them the moment it knows the community and the person (components/
+ * community/member/data.ts memberPage, warmTopBar), beside the standing, and the bar takes the same answer here.
  */
-export async function topBarData(community: CommunityRow, viewer: Viewer | null, db: Db = admin()): Promise<TopBarData> {
-  const userId = viewer?.userId ?? null
+async function readTopBar(db: Db, community: Pick<CommunityRow, "creator_id">, userId: string | null) {
   const [creators, me, stores, mine, sellerRows] = await Promise.all([
     readCreators(db, [community.creator_id ?? ""]),
     userId ? rows<ProfileLite>("top bar profile", () => db.from("profiles").select("id, username, display_name, avatar_url").eq("id", userId).limit(1)) : Promise.resolve([] as ProfileLite[]),
@@ -756,6 +760,27 @@ export async function topBarData(community: CommunityRow, viewer: Viewer | null,
         db.from("communities").select("id, slug, name, logo_url, status, suspended_at").in("id", ids).is("deleted_at", null),
       )
     : []
+  return { creators, me, stores, mine, sellerRows, found }
+}
+
+/** One per request (React's cache): the community's page starts it, the bar ends it. */
+const topBarReads = cache((communityId: string, creatorId: string | null, userId: string | null) => readTopBar(admin(), { creator_id: creatorId }, userId))
+
+/** Starts the top bar's reads for this request, before anything else about the viewer is known. */
+export function warmTopBar(community: Pick<CommunityRow, "id" | "creator_id">, userId: string | null): void {
+  topBarReads(community.id, community.creator_id ?? null, userId).catch(() => undefined)
+}
+
+/**
+ * What the top bar draws on every page of a community, for this viewer:
+ * whose it is ("By <name>", to their page), who is looking (their name,
+ * picture and page) and the communities they are in, for the switcher.
+ * Four small reads, once per page load: a layout is kept while somebody
+ * moves around inside the community.
+ */
+export async function topBarData(community: CommunityRow, viewer: Viewer | null, db?: Db): Promise<TopBarData> {
+  const userId = viewer?.userId ?? null
+  const { creators, me, stores, mine, sellerRows, found } = db ? await readTopBar(db, community, userId) : await topBarReads(community.id, community.creator_id ?? null, userId)
   const byId = new Map(found.map((c) => [c.id, c]))
   const communities: TopBarCommunity[] = []
   for (const m of mine) {

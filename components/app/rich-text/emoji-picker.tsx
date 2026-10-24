@@ -313,15 +313,23 @@ export function EmojiControl({
   onBeforeOpen,
   onInsert,
   size = { w: 344, h: 360 },
+  startOpen = false,
 }: {
   className: string
   onBeforeOpen: () => void
   onInsert: (emoji: string) => void
   /** The popover's width and its tallest; it is never taller than the room it has (components/ui/popover-fit.ts). */
   size?: { w: number; h: number }
+  /** Open as it is drawn: the community chat's box draws this control only when its emoji button is first pressed. */
+  startOpen?: boolean
 }) {
   const phone = usePhone()
   const [open, setOpen] = React.useState(false)
+  /* Opened in the same pass as the phone check above, so a phone opens its sheet and never the popover first. */
+  React.useEffect(() => {
+    if (startOpen) setOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const close = React.useCallback(() => setOpen(false), [])
   const onInsertRef = React.useRef(onInsert)
   React.useEffect(() => {

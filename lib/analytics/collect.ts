@@ -5,7 +5,7 @@ import { createHmac } from "node:crypto"
 import { CONSENT_COOKIE, allows, parse } from "@/lib/consent/consent"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { anonSession, anonVisitorId, clientIp, dailyKey } from "./anon-visit"
-import { EVENT, PAGE_VIEW_REPEAT_MS, SESSION_TIMEOUT_MS, normalizeLinkUrl, normalizePath, type PropertyType } from "./events"
+import { EVENT, EXPLORE_SOURCE, PAGE_VIEW_REPEAT_MS, SESSION_TIMEOUT_MS, normalizeLinkUrl, normalizePath, type PropertyType } from "./events"
 import { resolveProperty, type ResolvedProperty } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost, sourceParamOf } from "./sources"
 import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE } from "./own-marker"
@@ -429,7 +429,17 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
       /* No city or region without consent: the country only. */
       city: consented ? short(req.headers.get("x-vercel-ip-city"), 100) : null,
       region: consented ? short(req.headers.get("x-vercel-ip-country-region"), 100) : null,
-      source_category: categorizeServerSource(referrerDomain, utmSource, short(body.utm_medium, 200), clientApp || null),
+      /*
+        Opened from Storelib Explore: the page says so (components/analytics/explore-mark,
+        a mark Explore leaves in the tab for 30 minutes), since a Next route change from
+        Explore to a product keeps the referrer of the visit's first page. Only for a
+        creator page or OnePage on storelib.com, where Explore's links go, and never over
+        a tagged link, which names its own source.
+      */
+      source_category:
+        body.via === "explore" && !utmSource && !short(body.utm_medium, 200) && property !== null && property.type !== "website"
+          ? EXPLORE_SOURCE
+          : categorizeServerSource(referrerDomain, utmSource, short(body.utm_medium, 200), clientApp || null),
     }
     /* The page's own title (supabase/sql/run-now part 253): left out until it is there, so the row is the one it always was. */
     const pageTitle = short(body.pageTitle, 200)

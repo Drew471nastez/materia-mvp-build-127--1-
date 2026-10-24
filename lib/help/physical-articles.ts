@@ -1095,7 +1095,7 @@ const ARTICLES: Article[] = [
           "Delivery, for orders that ship: Ship or Pick up (Pick up only if you offer it), the country first, then the name and address in that country's format, and the fields you chose in Settings > Checkout.",
           "Shipping method: the rates that fit the address and cart, with price and delivery time. One is picked for them, and they can change it.",
           "Payment method: the card form.",
-          "Optional: a note for the shop, and Buying for a business to get an invoice with a company name and tax number.",
+          "Optional: a note for the shop, and Buying for a business to get an invoice with a company name and tax number, when you turn on Company invoices in Settings > Checkout.",
           "A box to agree to the terms and the refund policy, then Pay with the total on it.",
         ],
       },
@@ -1884,7 +1884,7 @@ const ARTICLES: Article[] = [
       },
       { type: "h", text: "Registrations and exemptions" },
       { type: "p", text: "Add a region only where you're registered or required to collect. Storelib doesn't file or pay tax for you, and doesn't check registration numbers." },
-      { type: "p", text: "A buyer can tick Buying for a business at checkout and add the company's name, address and tax number. They go on the invoice, but they don't remove the tax. For a business buyer who is exempt, refund the tax part from the order." },
+      { type: "p", text: "With Company invoices on in Settings > Checkout, a buyer can tick Buying for a business at checkout and add the company's name, address and tax number. They go on the invoice, but they don't remove the tax. For a business buyer who is exempt, refund the tax part from the order." },
       { type: "h", text: "When something looks wrong" },
       {
         type: "table",

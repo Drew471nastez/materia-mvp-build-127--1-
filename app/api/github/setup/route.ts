@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { githubConfig, installationAccount, userCanReachInstallation } from "@/lib/github-sync/github"
 import { verifyState } from "@/lib/github-sync/core"
 import { linksNotSetUp, ownInstall } from "@/lib/github-sync/own-install"
+import { handBackToApp } from "@/lib/connect/app-return"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -31,6 +32,9 @@ export async function GET(req: Request) {
   const q = new URL(req.url).searchParams
   const state = verifyState(q.get("state"), cfg?.clientSecret)
   if (!cfg || !state) return back(req, null, "expired")
+  /* Started in the phone app, and this is its in-app browser: finished in the app, signed in (lib/connect/app-return.ts). */
+  const handBack = handBackToApp(req, state)
+  if (handBack) return handBack
 
   const own = await ownInstall(state.installId)
   if (!own || own.creatorId !== state.creatorId) return back(req, null, "expired")

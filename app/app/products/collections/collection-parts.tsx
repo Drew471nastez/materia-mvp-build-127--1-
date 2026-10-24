@@ -16,6 +16,7 @@ import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/imag
 import { readRules, type CollectionRule, type RuleField, type RuleOp, type RuleProduct } from "@/lib/physical/collections"
 import type { CollectionProduct, CollectionView } from "@/lib/physical/collections-server"
 import { tt, msg } from "@/lib/i18n/text"
+import { currencyMark } from "@/lib/store/currency"
 
 export type Collection = CollectionView
 export type { CollectionProduct }
@@ -65,10 +66,13 @@ export const SORTS = [
   ["title", msg("Name, A to Z")],
 ] as const
 
-/** A rule's value as a person would say it: Course, not course; $30, not 30. */
-export function valueWords(rule: CollectionRule): string {
+/** A rule's value as a person would say it: Course, not course; $30 or 30 lei, not 30 (in the store's currency, which a price rule compares in). */
+export function valueWords(rule: CollectionRule, currency = "USD"): string {
   if (rule.field === "type") return KIND_LABEL[rule.value] ? tt(KIND_LABEL[rule.value]) : rule.value
-  if (rule.field === "price" || rule.field === "compare_at_price") return `$${rule.value}`
+  if (rule.field === "price" || rule.field === "compare_at_price") {
+    const mark = currencyMark(currency)
+    return mark.position === "prefix" ? `${mark.symbol}${rule.value}` : `${rule.value} ${mark.symbol}`
+  }
   if (rule.field === "weight") return `${rule.value} g`
   return rule.value
 }
@@ -88,11 +92,11 @@ const FIELD_WORDS: Record<RuleField, string> = {
 export const fieldWords = (field: RuleField) => FIELD_WORDS[field]
 
 /** What decides a collection's products, in one line: "Product type is Course and 1 more", or "Picked by hand". */
-export function howWords(c: Pick<Collection, "kind" | "rules" | "match">): string {
+export function howWords(c: Pick<Collection, "kind" | "rules" | "match">, currency = "USD"): string {
   if (c.kind !== "smart") return tt("Picked by hand")
   const [first, ...rest] = c.rules
   if (!first) return tt("No conditions yet")
-  const lead = `${FIELD_WORDS[first.field]} ${OP_WORDS[first.op]} ${valueWords(first)}`
+  const lead = `${FIELD_WORDS[first.field]} ${OP_WORDS[first.op]} ${valueWords(first, currency)}`
   return rest.length ? tt("{lead} {value} {length} more", { lead, value: c.match === "any" ? "or" : "and", length: rest.length }) : lead
 }
 

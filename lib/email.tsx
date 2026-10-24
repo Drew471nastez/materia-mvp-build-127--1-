@@ -12,7 +12,8 @@ import { CURRENCY_UNKNOWN_HOLD, flagHeldEmail, moneyWithoutCurrency } from "@/li
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
 import { emailImageSrc, senderPicture, type SenderPicture } from "@/lib/email-campaigns/sender"
 import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } from "@/lib/receipts/email"
-import { et, inEmailLanguage } from "@/lib/emails/words"
+import { buildReceiptEmail } from "@/lib/receipts/receipt-mail"
+import { buyerChannel, signedBy } from "@/lib/emails/buyer-channel"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
 import { creatorTimeZone, formatForCreator } from "@/lib/account/time-zone"
 import type { MailAttachment } from "./mailgun"
@@ -24,7 +25,7 @@ import { maskEmail } from "@/lib/privacy/mask-email"
 import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
-import { buyerRefundEmail, leadMagnetEmail, reviewNoticeEmail, sellerRefundEmail } from "@/lib/emails/notices"
+import { buyerRefundMail, leadMagnetEmail, reviewNoticeEmail, sellerRefundEmail } from "@/lib/emails/notices"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -155,6 +156,14 @@ export interface SendBuyerEmailParams {
   receiptBaseUrl?: string | null
   /** The language the order was placed in (its origin's `lang`): the email is written in it (lib/emails/words.ts). */
   lang?: string | null
+  /**
+   * Where it was bought (lib/emails/buyer-channel.ts): orders.source and the
+   * page Buy was pressed on. A website order is in the website's language and
+   * signed by the shop; one on the creator page, Explore or a community is in
+   * English and signed by the creator. Read from the order when not given.
+   */
+  source?: string | null
+  origin?: { surface?: string | null; lang?: string | null } | null
 }
 
 export interface SendSellerEmailParams {
@@ -447,6 +456,12 @@ async function receiptEmailModel(
     /** The seller, for their one picture as every email of theirs carries it (lib/email-campaigns/sender). */
     creatorId?: string | null
     fallback: { productTitle: string; variantName?: string | null; amountCents?: number | null; orderId: string }
+    /**
+     * Who signs it (lib/emails/buyer-channel.ts signedBy): the shop, by its
+     * name and logo, for an order on its website; the creator, by their name
+     * (sellerName) and photo, for one on Storelib.
+     */
+    signer?: "shop" | "creator"
   },
 ): Promise<ReceiptEmailModel> {
   const { loadReceiptByToken } = await import("@/lib/receipts/load")
@@ -463,7 +478,9 @@ async function receiptEmailModel(
     ? await import("@/lib/store/identity-server").then(({ storeIdentity }) => storeIdentity(admin, params.creatorId as string, { logoOnly: true })).catch(() => null)
     : null
   const storePicture = store?.logoUrl ? (store.logoFrom === "profile" ? senderPicture({ photoUrl: store.logoUrl }) : senderPicture({ logoUrl: store.logoUrl })) : null
-  const pictureOf = (photo: unknown): SenderPicture | null => storePicture ?? senderPicture({ photoUrl: photo, logoUrl: brand?.logoUrl })
+  /* Bought on Storelib: the creator's own name and photo, as every other email of theirs (lib/email-campaigns/sender). */
+  const asCreator = params.signer === "creator"
+  const pictureOf = (photo: unknown): SenderPicture | null => (asCreator ? senderPicture({ photoUrl: brand?.avatarUrl ?? photo, logoUrl: brand?.logoUrl }) : (storePicture ?? senderPicture({ photoUrl: photo, logoUrl: brand?.logoUrl })))
   const { formatMoney, orderNumberOf } = await import("@/lib/receipts/rules")
   const dateOf = (iso: string) => {
     try {
@@ -494,11 +511,12 @@ async function receiptEmailModel(
     return {
       heldForCurrency: v.currencyKnown === false && v.totalCents > 0,
       firstName: v.buyer.firstName || params.buyerFirstName,
-      sellerName: v.seller.name || params.sellerName,
+      sellerName: asCreator ? params.sellerName || v.seller.name : v.seller.name || params.sellerName,
       /* Both read profiles.avatar_url; the loader's is the one to hand when the brand could not be read. */
       sellerPicture: pictureOf(brand?.avatarUrl ?? v.seller.avatarUrl),
       orderNumber: v.number,
       dateText: dateOf(v.createdAt),
+      dateIso: v.createdAt,
       items: v.items.map((i) => ({
         title: i.title,
         variantName: i.variantName,
@@ -539,7 +557,7 @@ async function receiptEmailModel(
   return {
     heldForCurrency: currency === null && amount > 0,
     firstName: params.buyerFirstName,
-    sellerName: params.sellerName,
+    sellerName: asCreator ? params.sellerName : store?.name || params.sellerName,
     sellerPicture: pictureOf(brand?.avatarUrl),
     orderNumber: orderNumberOf(params.fallback.orderId),
     dateText: dateOf(new Date().toISOString()),
@@ -553,26 +571,6 @@ async function receiptEmailModel(
     supportEmail: params.supportEmail,
     accent: brand?.accent ?? null,
   }
-}
-
-/**
- * Settings › Customer emails › Receipt: the store's own subject, heading,
- * opening text and button label (lib/emails/customer-custom.ts), on the
- * model the receipt is drawn from. Nothing saved, nothing changes.
- */
-export async function withReceiptCopy(admin: any, creatorId: string | null | undefined, model: ReceiptEmailModel, subject: string): Promise<string> {
-  if (!creatorId) return subject
-  const [{ loadCustomerEmailCopy }, { resolveCopy, itemsText }] = await Promise.all([import("@/lib/emails/customer-copy-server"), import("@/lib/emails/customer-custom")])
-  const saved = await loadCustomerEmailCopy(admin, creatorId)
-  const copy = resolveCopy(saved.receipt, { customer_name: model.firstName, order_number: model.orderNumber, shop_name: model.sellerName, items: itemsText(model.items.map((i) => i.title)) })
-  if (!copy) return subject
-  if (copy.heading) model.heading = copy.heading
-  if (copy.introHtml !== undefined) {
-    model.introHtml = copy.introHtml || null
-    model.introText = copy.introText || null
-  }
-  if (copy.button) model.buttonLabel = copy.button
-  return copy.subject ?? subject
 }
 
 /* ─── The seller's sale email: its data ──────────────────────────────── */
@@ -827,6 +825,24 @@ async function isFirstPaidSale(admin: any, creatorId: string, these: string[]): 
   return !error && count === 0
 }
 
+/**
+ * Where an order was bought, as the checkout recorded it (lib/orders/order-source.ts):
+ * what the caller passed, else the order's own row. A database without the
+ * columns, or an order not tagged yet, answers nothing and the rule in
+ * lib/emails/buyer-channel.ts decides from what else it knows.
+ */
+async function purchasePlace(admin: any, orderId: string, given: Pick<SendBuyerEmailParams, "source" | "origin">): Promise<{ source: string | null; origin: { surface?: string | null; lang?: string | null } | null }> {
+  if (given.source || given.origin) return { source: given.source ?? null, origin: given.origin ?? null }
+  try {
+    const { data, error } = await admin.from("orders").select("source, source_detail").eq("id", orderId).maybeSingle()
+    if (error || !data) return { source: null, origin: null }
+    const { cleanOrigin } = await import("@/lib/orders/order-source")
+    return { source: typeof data.source === "string" ? data.source : null, origin: cleanOrigin(data.source_detail) }
+  } catch {
+    return { source: null, origin: null }
+  }
+}
+
 // -------------------------
 // Public send functions
 // -------------------------
@@ -858,7 +874,9 @@ export async function sendBuyerDownloadEmail(
   }
 
   const identity = creatorId ? await resolveCreatorIdentity(admin, creatorId) : null
-  const fromName = identity?.fromName || PLATFORM_BRAND_NAME
+  /* Where it was bought decides its language and who signs it (lib/emails/buyer-channel.ts). */
+  const where = await purchasePlace(admin, orderId, params)
+  const channel = buyerChannel({ family: "digital", source: where.source, surface: where.origin?.surface, lang: params.lang ?? where.origin?.lang, siteBase })
 
   // Reply-To priority for buyer emails (purchases):
   // 1) sellerReplyTo param (explicitly passed seller email)
@@ -879,11 +897,14 @@ export async function sendBuyerDownloadEmail(
     receiptToken,
     receiptLink,
     buyerFirstName,
-    sellerName: fromName,
+    sellerName: identity?.fromName || PLATFORM_BRAND_NAME,
     supportEmail: replyTo,
     creatorId,
     fallback: { productTitle, variantName, amountCents: params.amountCents, orderId },
+    signer: signedBy(channel),
   })
+  /* The inbox shows who signs it: the shop on its website, the creator on Storelib. */
+  const fromName = model.sellerName || identity?.fromName || PLATFORM_BRAND_NAME
   /* An amount owed with no currency to write it in: held for the admin, never sent with a guess (lib/money/held-email). */
   if (model.heldForCurrency) {
     if (logId) await updateEmailLog(admin, logId, "failed", CURRENCY_UNKNOWN_HOLD)
@@ -899,23 +920,12 @@ export async function sendBuyerDownloadEmail(
       link: receiptUrl(`/api/checkout/invoice?token=${encodeURIComponent(receiptToken)}`),
     }
   }
-  const firstTitle = model.items[0]?.title ?? productTitle
-  /* In the language the order was placed in (lib/emails/words.ts): the model's own words, the subject and the email are built in it. */
-  const language = creatorId ? await import("@/lib/emails/words-server").then((m) => m.emailLanguageFor(creatorId, params.lang)).catch(() => null) : null
-  const say = <T,>(build: () => T): T => inEmailLanguage(language?.lang, language?.words, build)
-  const standard = say(() => {
-    const word = (v: string | null | undefined) =>
-      v === "Free" ? et("Free") : v === "Download your files" ? et("Download your files") : v === "View your receipt" ? et("View your receipt") : v === "Waiting for payment" ? et("Waiting for payment") : v === "Refunded" ? et("Refunded") : v === "Payment failed" ? et("Payment failed") : v === "On hold" ? et("On hold") : v
-    model.buttonLabel = word(model.buttonLabel) ?? model.buttonLabel
-    model.totalText = word(model.totalText) ?? model.totalText
-    model.subtotalText = word(model.subtotalText) ?? model.subtotalText
-    model.items = model.items.map((i) => ({ ...i, note: word(i.note) ?? null, amountText: word(i.amountText) ?? i.amountText }))
-    return model.items.length > 1 ? et("Your receipt from {shop}: {count} items", { shop: safeText(model.sellerName), count: model.items.length }) : et("Your receipt for {title}", { title: safeText(firstTitle) })
-  })
-  /* The store's own words (Settings › Customer emails) are in its website's language: a buyer in another gets the standard ones in theirs. */
-  const subject = language && !language.own ? standard : await withReceiptCopy(admin, creatorId, model, standard)
-  const html = say(() => buyerReceiptEmailHtml(model))
-  const text = say(() => buyerReceiptEmailText(model))
+  /* The same build as its preview in Emails (lib/receipts/receipt-mail.ts): the language, then the store's own words when the email is in its website's language. */
+  const [language, saved] = await Promise.all([
+    creatorId ? import("@/lib/emails/words-server").then((m) => m.buyerEmailLanguage(creatorId, channel, params.lang ?? where.origin?.lang)).catch(() => null) : null,
+    creatorId ? import("@/lib/emails/customer-copy-server").then((m) => m.loadCustomerEmailCopy(admin, creatorId)).catch(() => ({}) as Record<string, undefined>) : ({} as Record<string, undefined>),
+  ])
+  const { subject, html, text } = buildReceiptEmail(model, language, saved.receipt)
 
   try {
     const result = await withRetry(
@@ -971,38 +981,41 @@ export async function sendReceiptCopyEmail(
 ): Promise<{ success: boolean; error?: string }> {
   if (!isSmtpConfigured()) return { success: false, error: "Email service not configured" }
   const identity = params.creatorId ? await resolveCreatorIdentity(admin, params.creatorId) : null
-  const fromName = identity?.fromName || PLATFORM_BRAND_NAME
   const replyTo = normalizeEmail(params.sellerReplyTo || "") || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
   /* A website's own address for the receipt link, when the copy is sent from that website (lib/checkout/access-link), as sendBuyerDownloadEmail takes it. */
   const siteBase = typeof params.receiptBaseUrl === "string" && /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(params.receiptBaseUrl) ? params.receiptBaseUrl : null
+  /* The same language and signature as the receipt itself (lib/emails/buyer-channel.ts). */
+  const where = await purchasePlace(admin, params.orderId, params)
+  const channel = buyerChannel({ family: "digital", source: where.source, surface: where.origin?.surface, lang: params.lang ?? where.origin?.lang, siteBase })
   const model = await receiptEmailModel(admin, {
     receiptToken: params.receiptToken,
     receiptLink: siteBase ? new URL(`/receipt/${encodeURIComponent(params.receiptToken)}`, siteBase).toString() : buildUrl(`/receipt/${encodeURIComponent(params.receiptToken)}`, params.baseUrl),
     buyerFirstName: params.buyerFirstName,
-    sellerName: fromName,
+    sellerName: identity?.fromName || PLATFORM_BRAND_NAME,
     supportEmail: replyTo,
     creatorId: params.creatorId,
     fallback: { productTitle: params.productTitle, variantName: params.variantName, amountCents: params.amountCents, orderId: params.orderId },
+    signer: signedBy(channel),
   })
+  const fromName = model.sellerName || identity?.fromName || PLATFORM_BRAND_NAME
   if (model.heldForCurrency) {
     await flagHeldEmail({ email: "Receipt copy", orderId: params.orderId })
     return { success: false, error: CURRENCY_UNKNOWN_HOLD }
   }
-  const firstTitle = model.items[0]?.title ?? params.productTitle
-  const subject = await withReceiptCopy(
-    admin,
-    params.creatorId,
-    model,
-    model.items.length > 1 ? `Your receipt from ${safeText(model.sellerName)}: ${model.items.length} items` : `Your receipt for ${safeText(firstTitle)}`,
-  )
+  const creatorId = params.creatorId
+  const [language, saved] = await Promise.all([
+    creatorId ? import("@/lib/emails/words-server").then((m) => m.buyerEmailLanguage(creatorId, channel, params.lang ?? where.origin?.lang)).catch(() => null) : null,
+    creatorId ? import("@/lib/emails/customer-copy-server").then((m) => m.loadCustomerEmailCopy(admin, creatorId)).catch(() => ({}) as Record<string, undefined>) : ({} as Record<string, undefined>),
+  ])
+  const { subject, html, text } = buildReceiptEmail(model, language, saved.receipt)
   try {
     const sent = await sendEmail({
       from: buildFromHeaderLocal(fromName),
       to: normalizeEmail(params.buyerEmail),
       replyTo,
       subject,
-      html: buyerReceiptEmailHtml(model),
-      text: buyerReceiptEmailText(model),
+      html,
+      text,
     })
     if (!sent.success) console.error("[email] receipt copy for order", params.orderId, "failed:", sent.error)
     return sent.success ? { success: true } : { success: false, error: sent.error || "Failed to send email" }
@@ -1228,6 +1241,9 @@ export async function sendOrderEmails(
     attachments?: MailAttachment[]
     /** For the seller's email: the code and what it took off. */
     sale?: SaleExtras
+    /** Where it was bought (lib/orders/order-source.ts), for the receipt's language and signature (lib/emails/buyer-channel.ts). */
+    source?: string | null
+    origin?: { surface?: string | null; lang?: string | null } | null
   },
 ): Promise<{ buyerSuccess: boolean; sellerSuccess: boolean }> {
   const {
@@ -1278,6 +1294,8 @@ export async function sendOrderEmails(
       variantName,
       attachments,
       amountCents,
+      source: params.source ?? null,
+      origin: params.origin ?? null,
     })
     console.log("[sendOrderEmails] Buyer email result:", buyerResult.success ? "✅ sent" : "❌ failed", buyerResult.error || "")
   } catch (buyerErr: any) {
@@ -1749,6 +1767,28 @@ interface SendRefundEmailsParams {
 }
 
 
+/**
+ * Who signs a digital refund and in what language, from the order: the shop
+ * and the website's language for an order on its website, nothing (the
+ * creator the caller named, in English) for one on Storelib.
+ */
+async function refundSigner(orderId: string): Promise<{ name: string | null; pictureUrl: string | null; language: { lang: string; words: Record<string, string> } | null } | null> {
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  const admin = createAdminClient()
+  const { data: row, error } = await admin.from("orders").select("product_id, source, source_detail").eq("id", orderId).maybeSingle()
+  if (error || !row) return null
+  const { cleanOrigin } = await import("@/lib/orders/order-source")
+  const origin = cleanOrigin((row as { source_detail?: unknown }).source_detail)
+  const channel = buyerChannel({ family: "digital", source: (row as { source?: unknown }).source, surface: origin?.surface, lang: origin?.lang })
+  if (channel !== "website") return null
+  const { data: product } = await admin.from("products").select("creator_id").eq("id", (row as { product_id?: string }).product_id ?? "").maybeSingle()
+  const creatorId = (product as { creator_id?: string } | null)?.creator_id
+  if (!creatorId) return null
+  const [{ storeIdentity }, { buyerEmailLanguage }] = await Promise.all([import("@/lib/store/identity-server"), import("@/lib/emails/words-server")])
+  const [store, language] = await Promise.all([storeIdentity(admin, creatorId, { logoOnly: true }).catch(() => null), buyerEmailLanguage(creatorId, channel, origin?.lang).catch(() => null)])
+  return { name: store?.name ?? null, pictureUrl: store?.logoUrl ?? null, language }
+}
+
 export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<void> {
   const { buyerEmail, sellerEmail, sellerContactEmail, productTitle, refundAmount, currency, orderId, reason, storeName, orderDate, sellerAvatarUrl } = params
 
@@ -1775,17 +1815,29 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
     ? new Date(orderDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : "Not known"
 
-  const escapedStoreName = safeText(storeName || "Store")
   const escapedProduct = safeText(productTitle)
   const shortOrderId = `#${orderId.slice(0, 8).toUpperCase()}`
   const contactEmail = sellerContactEmail || sellerEmail || DEFAULT_SUPPORT
   const baseUrl = getStableBaseUrl()
 
+  /*
+    THE BUYER'S, BY WHERE THEY BOUGHT (lib/emails/buyer-channel.ts): an order
+    on the store's website is refunded in the language it was bought in and
+    signed by the shop, its name and logo; one on Storelib in English, signed
+    by the creator the caller named. The same build as its preview in Emails
+    (lib/emails/notices.ts buyerRefundMail).
+  */
+  const signer = buyerEmail ? await refundSigner(orderId).catch(() => null) : null
+  const signedName = safeText(signer?.name || storeName || "Store")
   /* The seller's one picture (lib/email-campaigns/sender senderPicture, read by the caller), https only
      and sized for the inbox; the initials when there is none, never a broken image. */
-  const sellerAvatarSrc = emailImageSrc(sellerAvatarUrl, 36)
-  const facts = { storeName: escapedStoreName, productTitle: escapedProduct, amount: formattedAmount, orderDate: orderDateFormatted, refundDate: refundDateFormatted, reason, orderRef: shortOrderId }
-  const buyerMail = buyerRefundEmail({ ...facts, contactEmail, sellerPictureUrl: sellerAvatarSrc })
+  const sellerAvatarSrc = emailImageSrc(signer?.pictureUrl ?? sellerAvatarUrl, 36)
+  const buyerMail = buyerRefundMail(
+    { storeName: signedName, productTitle: escapedProduct, amountCents: refundAmount, currency: code, orderId, reason, orderDate: orderDate ?? null, refundDate: new Date().toISOString(), contactEmail, sellerPictureUrl: sellerAvatarSrc },
+    signer?.language ?? null,
+  )
+  const escapedStoreName = signedName
+  const facts = { storeName: safeText(storeName || "Store"), productTitle: escapedProduct, amount: formattedAmount, orderDate: orderDateFormatted, refundDate: refundDateFormatted, reason, orderRef: shortOrderId }
   const sellerMail = sellerRefundEmail({ ...facts, buyerEmail: buyerEmail ?? null, payoutsUrl: `${baseUrl}/dashboard/payouts` })
 
   // Send buyer refund confirmation

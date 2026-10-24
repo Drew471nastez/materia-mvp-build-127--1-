@@ -157,7 +157,10 @@ console.log("\nA website shared or searched for is its creator's, with a picture
   check("and they are on the website's owner in its structured data", ld["@graph"][1]["@type"] === "Organization" && ld["@graph"][1].sameAs?.length === 2)
   const render = read("app/(site)/w/[username]/render-site.tsx")
   check("the share card falls back to the logo, then the hero, then the creator's avatar, and only without its own",
-    /const shareImage = hasShareImage\s*\? undefined\s*: logo \|\| heroImage\(found\.site\.pages\.home \?\? found\.site\.sections\) \|\| \(await creatorAvatar\(creator\.creatorId\)\) \|\| undefined/.test(render))
+    /* Changed on purpose (round 36): the avatar is asked early when the published page has nothing better, with the account the name lookup already found. */
+    /const shareImage = hasShareImage\s*\? undefined\s*: logo \|\| heroImage\(found\.site\.pages\.home \?\? found\.site\.sections\) \|\| \(await \(avatarEarly \?\? creatorAvatar\(creator\.creatorId, creator\.userId\)\)\) \|\| undefined/.test(render)
+      && /const avatarEarly = shareCardWantsAvatar\(found\.site\.themeSettings \?\? \{\}, pageKey, found\.site\.pages\.home \?\? found\.site\.sections\) \? creatorAvatar\(creator\.creatorId, creator\.userId\) : null/.test(render)
+      && /return !hasOwnShareImage\(settings, pageKey\) && !shareLogo\(settings\) && !heroImage\(home\)/.test(render))
   check("the home page's structured data carries the site's sameAs", /sameAs: siteSameAs\(t\)/.test(render))
   const layout = read("app/(site)/layout.tsx")
   check("no page of a website inherits Storelib as its keywords, author, creator, publisher or generator",

@@ -10,18 +10,17 @@
  * Storelib account menu behind "...", with Invite people and Saved posts).
  * Under it, at every width, the places in the community (Community, Learn,
  * Calendar, Members, Leaderboards, About) as one row of plain text tabs
- * (round 26). From 1280px, three columns under that (round 27 brought the
- * card back on the left; the places stay the row):
+ * (round 26). From 1024px, two columns under that (round 39; round 27 had
+ * a third on the right from 1280px):
  *
  *   LEFT    the community card (cover, name, its address, Members / Online
- *           / Admins, the faces of who was here last, Settings for staff).
- *   CENTER  the page: the feed with its space chips and composer, a post,
- *           Members, the classroom, events, a profile...
- *   RIGHT   the next event and the top contributors, each only when there
- *           is one, sticking under the bar.
+ *           / Admins, the faces of who was here last, Settings for staff),
+ *           then the next event and the top contributors, each only when
+ *           there is one, at the card's width.
+ *   MAIN    the page: the feed with its space chips and composer, the chat,
+ *           a post, Members, the classroom, events, a profile...
  *
- * From 1024px to 1279px the left column holds the card, then the event and
- * the contributors. The bar, the tabs and the side columns are the same on
+ * The bar, the tabs and the left column are the same on
  * every page inside the community, so moving between places never moves or
  * redraws anything but the middle (round 9: "the frame (header, columns,
  * chips) never re-renders or flashes"): the bar and the cards are memoised
@@ -91,7 +90,8 @@ import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
 import { useCommunityAppearance } from "@/lib/communities/client/appearance-choice"
 import "../community-theme.css"
-import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
+import { MESSAGES_EVENT, useUnreadMessages } from "./messages-signal"
+import { MessagesPanelLazy } from "./messages-lazy"
 import { FULL_ON_HOVER, navEntries, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
 import { toast, Toasts } from "./toast"
@@ -99,7 +99,7 @@ import { CommunityTopBar, TOP_BAR_GROUND } from "./top-bar"
 import { whenIdle } from "./feed-cache"
 import { enterCommunityContext } from "@/lib/nav/community-context"
 import { rememberCommunityChrome } from "@/lib/nav/community-chrome-cache"
-import { InviteSheet } from "./invite-sheet"
+import type { InviteSheet as InviteSheetView } from "./invite-sheet"
 import { preloadSearchIndex } from "./search"
 import { press, TAB, TAB_OFF, TAB_ON } from "./ui"
 import { CLICK_AFTER_MS, isTap, pressShowsAtOnce, type Press } from "./chip-hit"
@@ -214,6 +214,22 @@ const ABOUT_BOX = "max-sm:-mx-4 max-sm:-mt-4 [&_[data-community-sales]]:bg-trans
 */
 const GUTTER = "html{scrollbar-gutter:stable}html{overscroll-behavior-y:none}"
 
+/*
+  THE INVITE SHEET ON DEMAND (round 39). It opens from one row of the "..." menu, and its code rode on every community
+  page's first load (scripts/measure-community-js-r39.mjs). It is asked for once the frame is idle, and by the press
+  itself when that comes first; the sheet opens as soon as its code is here.
+*/
+let InviteSheetCode: typeof InviteSheetView | null = null
+let inviteAsked: Promise<typeof InviteSheetView> | null = null
+const loadInviteSheet = () =>
+  (inviteAsked ??= import("./invite-sheet").then(
+    (m) => (InviteSheetCode = m.InviteSheet),
+    (e) => {
+      inviteAsked = null
+      throw e
+    },
+  ))
+
 /** What ?dm= may carry: an id's characters and nothing else. The server checks it is somebody here. */
 const DM_TARGET = /^[0-9a-z-]{1,64}$/i
 
@@ -293,10 +309,24 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const staff = !!viewer.can.manage_members
   const entries = useMemo(() => navEntries(community, staff), [community, staff])
   const [messages, refreshMessages] = useUnreadMessages(community.id, viewer.userId, unreadMessages)
-  const [chat, setChat] = useState<{ userId?: string } | null>(null)
+  const [chat, setChat] = useState<{ userId?: string; groupId?: string } | null>(null)
   /* The invite sheet, opened from "Invite people" in the bar's "..." menu (round 9; the card and the tabs had it in round 8). */
   const [inviting, setInviting] = useState(false)
-  const openInvite = useCallback(() => setInviting(true), [])
+  /* Drawn shut once its code is here, so opening it is the sheet's own entrance, as before. */
+  const [Invite, setInvite] = useState<typeof InviteSheetView | null>(() => InviteSheetCode)
+  const openInvite = useCallback(() => {
+    if (InviteSheetCode) {
+      setInvite(() => InviteSheetCode)
+      return setInviting(true)
+    }
+    loadInviteSheet().then(
+      (code) => {
+        setInvite(() => code)
+        requestAnimationFrame(() => setInviting(true))
+      },
+      () => toast("Could not open invites. Check your connection and try again."),
+    )
+  }, [])
   const canInvite = !!viewer.can.invite && !community.archived
   /* The creator side's list of invites, for whoever has it (the owner, or a creator account that runs this community). */
   const manageInvites = canInvite && (viewer.isOwner || viewer.isCreatorAccount) ? `/app/community/${community.slug}/members` : null
@@ -381,7 +411,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
 
   /* "Message" on a person's card or a member row opens the panel. */
   useEffect(() => {
-    const on = (e: Event) => setChat(((e as CustomEvent<{ userId?: string }>).detail ?? {}) as { userId?: string })
+    const on = (e: Event) => setChat(((e as CustomEvent<{ userId?: string; groupId?: string }>).detail ?? {}) as { userId?: string; groupId?: string })
     window.addEventListener(MESSAGES_EVENT, on)
     return () => window.removeEventListener(MESSAGES_EVENT, on)
   }, [])
@@ -408,6 +438,18 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
     setChat({ userId: dm })
   }, [dm, canMessage, viewer.userId])
 
+  /* ?group=<groupId> (round 37): a group chat's push opens that group, the same way, once. */
+  const groupAsked = search?.get("group") ?? null
+  useEffect(() => {
+    if (!groupAsked) return
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has("group")) return
+    url.searchParams.delete("group")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    if (!canMessage || !DM_TARGET.test(groupAsked)) return
+    setChat({ groupId: groupAsked })
+  }, [groupAsked, canMessage])
+
   /*
     THE PLACE MARKED AT ONCE (round 15): the navigator's place changes on the tap itself, so the row and the left column mark
     it on that frame, before the place's data has arrived. The columns follow the place actually in the middle (`shown`),
@@ -420,18 +462,17 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const screens = usePlaceScreens({ communityId: community.id, slug: community.slug, chatSpaces, entries, renderProfile, viewer, readOnly: community.archived || !!viewer.mutedUntil, children })
   hooksRef.current = screens.hooks
   const shown = screens.shown
-  const tab = placeTab(nav.place)
+  /* Round 38: with a Chat tab, a chat channel lights Chat rather than Community. */
+  const chatTabSet = useMemo(() => (community.chatTab ? new Set(chatSpaces.map((c) => c.toLowerCase())) : null), [community.chatTab, chatSpaces])
+  const tab = placeTab(nav.place, chatTabSet)
   const about = shown.kind === "about"
-  /** Lesson player: the middle column takes the right column's room (like About), so the video is not squeezed beside the curriculum. */
+  /** Lesson player: the page takes the whole width, so the video is not squeezed beside the curriculum. */
   const lessonPage = shown.kind === "program"
-  /* A member's profile too (round J1, the owner: "no longer tabs in the right side, and larger cards"): it takes the right column's room. */
   const profilePage = shown.kind === "profile"
-  /* And the person's membership (round 29, the owner: no Top contributors beside it): their plan is the page, not the community's leaders. */
-  const wideCenter = about || lessonPage || profilePage || shown.kind === "learn" || shown.kind === "calendar" || shown.kind === "event" || shown.kind === "membership"
   const noGo = useCallback(() => {}, [])
   const place = useMemo<PlaceState>(() => ({ tab, onGo: noGo }), [tab, noGo])
   const membersHref = entries.find((e) => e.key === "members")?.href ?? null
-  /* The right column is the community's, the same on every place (round 9): the next event and who takes part. */
+  /* The community's own cards under its card (round 39), the same on every place: the next event and who takes part. */
   const upcoming = wall?.upcoming ?? null
   const contributors = wall?.contributors ?? null
   const contributorsAll = contributors ? (contributors.basis === "points" ? (community.gamificationEnabled ? `/community/${community.slug}/leaderboard` : null) : membersHref) : null
@@ -458,8 +499,10 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
       whenIdle(() => {
         /* What the search knows before a key is pressed (round 10), so its first results come at once. */
         void preloadSearchIndex(community.id)
+        /* The invite sheet's code, so Invite people opens at once (round 39). */
+        if (!community.archived) loadInviteSheet().then((code) => setInvite(() => code), () => undefined)
       }),
-    [community.id],
+    [community.id, community.archived],
   )
 
   /*
@@ -668,33 +711,28 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
         */}
         <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
           {/*
-            ROUND 27 (the owner: "it should be how it was before, the card on the left with the cover and the name, but keep
-            the navigation under the header"): the places stay the row under the bar at every width, and the columns are
-            round 9's again without the list of places: the community card on the LEFT (on every place but a lesson, and
-            About from 1280px, which carries its own), the page in the middle, the next event and who takes part on the
-            RIGHT from 1280px (under the card from 1024px).
+            ROUND 39, TWO COLUMNS (the owner: "the Top contributors should sit in the left side under the main card with the
+            cover, community and things, not right aligned", and on the Chat tab nothing on the right). From 1024px: the
+            community's column on the LEFT (its card, the creator's links, the next event, the top contributors, all at the
+            card's width) and the page beside it, which has the rest of the row on every place. Nothing is drawn to the
+            right of the page any more, so it can never run past the window's edge, the chat has the room, and moving
+            between places never changes the middle's width (Learn, the Calendar and a profile were already this wide).
+            A lesson takes the whole row; About from 1280px too, with its own card.
           */}
           <div
-            data-community-columns="three"
+            data-community-columns="two"
             data-community-place={about ? "about" : lessonPage ? "lesson" : profilePage ? "profile" : shown.kind === "learn" ? "learn" : shown.kind === "calendar" ? "events" : shown.kind === "event" ? "event" : undefined}
-            className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
+            className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)]"
           >
-            {/* LEFT: the community card. */}
+            {/* LEFT: the community card, then its cards. Not the top contributors beside the leaderboard itself, nor beside a member's own plan (round 29). */}
             <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 ${lessonPage ? "" : about ? "lg:block xl:hidden" : "lg:block"} ${landing ? LAND : ""}`} data-community-left="">
               {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
               {/* Round 26: the creator's links for members, quiet lines of text under the card (member-links.tsx). */}
               {memberLinks.length ? <MemberLinks communityId={community.id} links={memberLinks} variant="column" className="pt-1" /> : null}
+              {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
+              {contributors && !onLeaderboard && shown.kind !== "membership" ? <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributorsAll} /> : null}
             </div>
-            {/* RIGHT from 1280px (under the card from 1024px): the next event, then who takes part, sticking under the bar. */}
-            <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${wideCenter ? "" : "lg:block"} ${landing ? LAND : ""}`} data-community-right="" data-leaderboard-page={onLeaderboard ? "" : undefined}>
-              {upcoming || (contributors && !onLeaderboard) ? (
-                <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,107px)+24px)]" data-community-right-cards="">
-                  {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
-                  {contributors && !onLeaderboard ? <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributorsAll} /> : null}
-                </div>
-              ) : null}
-            </aside>
-            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${lessonPage ? "lg:col-span-full lg:col-start-1" : about ? "lg:col-start-2 xl:col-span-full xl:col-start-1" : wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"}`} data-community-main="">
+            <div className={`min-w-0 lg:row-start-1 ${lessonPage ? "lg:col-span-full lg:col-start-1" : about ? "lg:col-start-2 xl:col-span-full xl:col-start-1" : "lg:col-start-2"}`} data-community-main="">
               <div className={about ? ABOUT_BOX : ""} data-community-body="">
                 <CommunityPullRefresh slug={community.slug} place={shown} off={shown.kind === "space" && chatSpaces.includes(shown.slug)} onRefresh={nav.refresh}>
                   {screens.middle}
@@ -704,9 +742,9 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
           </div>
         </div>
 
-        {community.archived ? null : <InviteSheet open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
+        {community.archived || !Invite ? null : <Invite open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
         <PersonCardLayer communityId={community.id} canMessage={canMessage} />
-        {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
+        {canMessage ? <MessagesPanelLazy communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
         {viewer.active ? <WebPushPrompt communityName={community.name} joinedAt={viewer.joinedAt ?? null} placement="floating" /> : null}
         <Toasts />
       </div>

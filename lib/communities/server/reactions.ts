@@ -113,8 +113,14 @@ export async function setReaction(w: WriteContext, type: ReactionTarget, targetI
         url: target.url,
         dedupeKey: `reaction:${type}:${targetId}:${viewer.userId}`,
       })
-      await recordActivity(db, { communityId: community.id, userId: viewer.userId, kind: "reaction", targetType: type, targetId })
     }
+    /*
+      EVERY NEW LIKE IS SOMETHING THE MEMBER DID (round 37), a like on their
+      own post or on one whose author has gone included: it marks them active
+      today and is in the community's activity like a post or a comment. The
+      points and the bell above are the author's, and stay where they were.
+    */
+    if (!error) await recordActivity(db, { communityId: community.id, userId: viewer.userId, kind: "reaction", targetType: type, targetId })
   } else {
     const { error } = await db.from("community_reactions").delete().eq("target_type", type).eq("target_id", targetId).eq("user_id", viewer.userId)
     if (error) return { ok: false, error: "That did not save. Try again.", status: missing(error) ? 503 : 500 }

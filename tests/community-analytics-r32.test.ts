@@ -333,7 +333,9 @@ async function main() {
   const s = readFileSync("components/community/creator/analytics-section.tsx", "utf8")
   check("no progress line above a chart", !/LoadingLine|loading-line/.test(s))
   check("nothing blurs while figures are replaced", !/blur-\[|soft=\{/.test(s))
-  check("the cards are /app Analytics' card and report grid", s.includes('"relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden"') && s.includes('"grid gap-4 md:grid-cols-2 xl:grid-cols-3"'))
+  /* Changed on purpose (round 37): no report grid any more; one chart card and one details card, both /app Analytics' own. */
+  /* Changed on purpose (round 39): the one details card is a grid of /app Analytics' report cards, each drawn by Report (tests/community-analytics-r39.test.ts). */
+  check("the cards are /app Analytics' card and report card", s.includes('"relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden"') && /<ReportCard\s+card=\{spec\.card\}/.test(s))
   check("the dates, legend and lines drawn are the answer's own period", /labelsFor\(shown\?\.span \?\? ask\.span/.test(s) && /<ChartLegend range=\{drawnPeriod\} compare=\{drawnCompared\} \/>/.test(s))
   check("the minute's refresh is not asked while the section is hidden behind another", /root\.current\?\.offsetParent/.test(s))
   for (const f of ["components/community/creator/analytics-section.tsx", "lib/communities/client/report-cache.ts", "scripts/check-community-analytics-round32.mjs", "scripts/render-community-analytics-round31.tsx"]) {

@@ -59,8 +59,8 @@
  *   is not this year): lib/communities/format.ts relativeTime.
  */
 import Link from "next/link"
-import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { BarChart3, Bookmark, Lock, MessageCircle, Paperclip, VolumeX, Ban } from "lucide-react"
+import { Suspense, createContext, lazy, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { BarChart3, Bookmark, Lock, MessageCircle, Paperclip, Send, VolumeX, Ban } from "lucide-react"
 import { FlagIcon } from "@solar-icons/react/linear/flag"
 import { LinkMinimalistic2Icon } from "@solar-icons/react/linear/link-minimalistic-2"
 import { MenuDotsIcon } from "@solar-icons/react/linear/menu-dots"
@@ -99,6 +99,13 @@ import { toast } from "./toast"
 import { BTN_GHOST, CARD, ICON_BTN, STACK, STACK_FACE } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
+
+/*
+  SEND IN A MESSAGE (round 39): the picker of chats is its own chunk (share-to-chat.tsx), asked for when a press on the
+  card's menus starts, so a feed of cards costs nothing for it and the picker is here by the time the menu row is pressed.
+*/
+const SendInMessage = lazy(() => import("./share-to-chat").then((m) => ({ default: m.SendInMessage })))
+const warmSendInMessage = () => void import("./share-to-chat")
 
 /** "New comment 2d ago", "New comment just now". */
 export function newCommentLabel(iso: string, now = Date.now()): string {
@@ -311,6 +318,8 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   const [report, setReport] = useState<ReportTargetRef | null>(null)
   const [opened, setOpened] = useState(false)
   const canShare = useCanShare()
+  const [sending, setSending] = useState(false)
+  const canSend = viewer.active && !readOnly
   /* The dialogs are built the first time one is asked for, then kept (so they can animate out). */
   const asked = useRef(false)
   if (confirm || report) asked.current = true
@@ -319,6 +328,14 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
       <ConfirmSheet state={confirm} onClose={() => setConfirm(null)} />
       <ReportSheet communityId={post.communityId} target={report} onClose={() => setReport(null)} />
     </>
+  ) : null
+  /* Send in a message, the same way: built on its first press, then kept. */
+  const askedSend = useRef(false)
+  if (sending) askedSend.current = true
+  const sendPicker = askedSend.current ? (
+    <Suspense fallback={null}>
+      <SendInMessage post={{ id: post.id, communityId: post.communityId, title: post.title, bodyText: post.bodyText }} open={sending} onClose={() => setSending(false)} />
+    </Suspense>
   ) : null
   /* Its height, remembered for the next time the feed is drawn (A PAGE OF POSTS COSTS ONE SCREENFUL). */
   const cardRef = useRef<HTMLElement>(null)
@@ -443,9 +460,13 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     toast(said)
   }
 
+  const sendItem: ActionMenuItem = { label: "Send in a message", icon: <Send className="h-4 w-4" strokeWidth={1.75} />, onClick: () => setSending(true) }
   const items: ActionMenuItem[] = []
+  if (canSend) items.push(sendItem)
   if (canShare) items.push({ label: "Share post", icon: <ShareIcon size={16} />, onClick: () => void share() })
   items.push({ label: "Copy link", icon: <LinkMinimalistic2Icon size={16} />, onClick: () => void copyLink() })
+  /* The footer's share button: in a chat here, out through the phone's share sheet, or the link. */
+  const shareItems: ActionMenuItem[] = [sendItem, ...(canShare ? [{ label: "Share to other apps", icon: <ShareIcon size={16} />, onClick: () => void share() }] : []), { label: "Copy link", icon: <LinkMinimalistic2Icon size={16} />, onClick: () => void copyLink() }]
   if (!full && viewer.active) items.push({ label: bookmarked ? "Remove from Saved" : "Save post", icon: <Bookmark className="h-4 w-4" strokeWidth={1.75} />, onClick: () => save() })
   if (own && !readOnly) {
     items.push({ label: "Edit post", icon: <PenIcon size={16} />, onClick: startEdit })
@@ -591,7 +612,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           ) : null}
         </div>
       </div>
-      <div className="-mr-2 -mt-1 flex shrink-0 items-center">
+      <div className="-mr-2 -mt-1 flex shrink-0 items-center" onPointerDown={canSend ? warmSendInMessage : undefined}>
         <ResponsiveActionMenu
           title="Post"
           items={[...items, ...modItems]}
@@ -734,6 +755,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         </footer>
 
         {dialogs}
+        {sendPicker}
         {opened ? (
           <PostOverlay
             post={post}
@@ -790,7 +812,19 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
             Comments closed
           </span>
         ) : null}
-        {canShare ? (
+        {canSend ? (
+          <span className="contents" onPointerDown={warmSendInMessage}>
+            <ResponsiveActionMenu
+              title="Share"
+              items={shareItems}
+              trigger={
+                <button type="button" aria-label="Share post" className={`${BTN_GHOST} !px-2.5`} data-share-post="">
+                  <ShareIcon size={18} aria-hidden />
+                </button>
+              }
+            />
+          </span>
+        ) : canShare ? (
           <button
             type="button"
             onClick={() => void share()}
@@ -805,6 +839,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
       </footer>
 
       {dialogs}
+      {sendPicker}
     </article>
   )
 }

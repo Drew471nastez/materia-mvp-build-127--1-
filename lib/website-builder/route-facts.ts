@@ -22,7 +22,23 @@
  * moment, so no answer is older than it was.
  */
 
-type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/**
+ * What the proxy asks next about the same name, answered by the same read
+ * when SQL part 257 (`site_route_facts`) has run: the website's languages and
+ * markets, the store's own country and currency, and the website's primary
+ * domain. Absent when the facts came from the rows one by one; the proxy then
+ * reads these itself, as before.
+ */
+export interface SiteExtras {
+  /** The store_localization row, or null: none saved, or part 136 not run. */
+  localization: Record<string, unknown> | null
+  /** Store details: its default country and selling currency, or null. */
+  store: { default_country?: unknown; currency?: unknown } | null
+  /** The primary active website domain and its certificate's state, or null. */
+  websiteDomain: { domain?: string | null; ssl_status?: string | null } | null
+}
 
 export interface SiteFacts {
   creatorId: string | null
@@ -30,6 +46,7 @@ export interface SiteFacts {
   published: boolean
   /** The published install's theme was imported from Shopify. */
   compat: boolean
+  extras?: SiteExtras
 }
 
 export interface SiteFactsRead {
@@ -41,12 +58,58 @@ export interface SiteFactsRead {
 /* "No row" is an answer; any other error is the database not answering. */
 const failedRead = (error: { code?: string } | null | undefined) => !!error && error.code !== "PGRST116"
 
+/*
+  ONE ROUND TRIP FOR ALL OF IT (SQL part 257, site_route_facts): the name to
+  its creator, its published install, the compat kind, and the extras above.
+  The rows one by one were three round trips in a row before the languages,
+  and a fourth and fifth after them, on every page of a website a server had
+  not seen in the last half minute. A database without the function (part
+  257 not run, or the anon key, which may not call it) is asked the old way
+  and not asked again for ten minutes; any other failure of the call is
+  answered by the rows as well, so the function never makes a page fail.
+*/
+const FUNCTION_AWAY_MS = 10 * 60_000
+let functionAwayUntil = 0
+const functionMissing = (error: { code?: string; message?: string } | null | undefined) =>
+  !!error && (error.code === "PGRST202" || error.code === "42883" || error.code === "42501" || /site_route_facts/.test(error.message ?? ""))
+
+/** For tests: ask the function again. */
+export function forgetRouteFactsFunction() {
+  functionAwayUntil = 0
+}
+
+function factsOf(raw: Record<string, unknown>): SiteFacts {
+  const creatorId = typeof raw.creator_id === "string" ? raw.creator_id : null
+  const obj = (v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null)
+  return {
+    creatorId,
+    published: creatorId !== null && raw.published === true,
+    compat: creatorId !== null && raw.compat === true,
+    ...(creatorId ? { extras: { localization: obj(raw.localization), store: obj(raw.store), websiteDomain: obj(raw.website_domain) as SiteExtras["websiteDomain"] } } : {}),
+  }
+}
+
+async function readByFunction(db: Db, lower: string, now: number): Promise<SiteFactsRead | null> {
+  if (!db.rpc || now < functionAwayUntil) return null
+  try {
+    const r = await db.rpc("site_route_facts", { p_name: lower })
+    if (!r?.error && r?.data && typeof r.data === "object") return { facts: factsOf(r.data as Record<string, unknown>), failed: false }
+    if (functionMissing(r?.error)) functionAwayUntil = now + FUNCTION_AWAY_MS
+  } catch {
+    /* the rows answer */
+  }
+  return null
+}
+
 /**
  * The name to its creator, its published install and that install's compat
- * kind, in at most three round trips (one when the creator is known).
+ * kind: one round trip with SQL part 257, else at most three (one when the
+ * creator is known).
  */
-export async function readSiteFacts(db: Db, name: string, knownCreatorId: string | null = null): Promise<SiteFactsRead> {
+export async function readSiteFacts(db: Db, name: string, knownCreatorId: string | null = null, now = Date.now()): Promise<SiteFactsRead> {
   const lower = name.toLowerCase()
+  const byFunction = await readByFunction(db, lower, now)
+  if (byFunction) return byFunction
   const none: SiteFacts = { creatorId: null, published: false, compat: false }
   let failed = false
   const read = <T,>(r: { data: T | null; error: { code?: string } | null }) => {
@@ -115,14 +178,20 @@ export function siteFactsFor(db: Db, name: string, now = Date.now()): Promise<Si
   const held = shared.get(lower)
   if (held && now - held.at < SHARED_MS) return held.read
   const hint = known.get(lower)
-  const read = readSiteFacts(db, lower, hint && now - hint.at < KNOWN_MS ? hint.creatorId : null)
+  const read = readSiteFacts(db, lower, hint && now - hint.at < KNOWN_MS ? hint.creatorId : null, now)
   if (shared.size > 5000) shared.clear()
   shared.set(lower, { at: now, read })
   return read
+}
+
+/** The shared read for one name, forgotten: the next question about it reads again (proxy.ts, a renderer saying the answer is old). */
+export function forgetSharedSiteFacts(name: string) {
+  shared.delete(name.toLowerCase())
 }
 
 /** For tests: forget everything held. */
 export function forgetSiteFacts() {
   shared.clear()
   known.clear()
+  functionAwayUntil = 0
 }

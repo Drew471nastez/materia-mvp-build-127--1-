@@ -13,6 +13,64 @@ import { visit, type VisitResult } from "./context"
 import { setRtt, useFixture, missingRelations, signedInCookies } from "./fake-postgrest"
 import { clock, resetCache, pending } from "./shims/next-cache"
 import { buildFixture, SITE, EXPLORE, ONEPAGE } from "./fixture"
+import { readFileSync, readdirSync, statSync } from "node:fs"
+import { join, relative } from "node:path"
+import JSZip from "jszip"
+
+/*
+  AN IMPORTED SHOPIFY THEME'S LIVE SITE (app/api/site-theme/site): the
+  posture fixture (tests/fixtures/shopify-posture) converted by the import's
+  own code and stored as Maya's published install, then asked for as the
+  proxy asks for it: sealed, and for a stranger at the marked address.
+*/
+async function postureTheme() {
+  const { convertShopifyTheme } = await import("@/lib/storelib-theme/shopify/convert")
+  /* COMPAT_THEME_DIR: another unpacked theme (Dawn, say) for a page the size of a real store's. */
+  const dir = process.env.COMPAT_THEME_DIR || join(process.cwd(), "tests", "fixtures", "shopify-posture")
+  const zip = new JSZip()
+  const walk = (d: string) => {
+    for (const n of readdirSync(d)) {
+      if (n.startsWith(".")) continue
+      const p = join(d, n)
+      if (statSync(p).isDirectory()) walk(p)
+      else zip.file(relative(dir, p), readFileSync(p))
+    }
+  }
+  walk(dir)
+  const r = await convertShopifyTheme(zip)
+  if (!r.ok) throw new Error(r.error)
+  return r.theme
+}
+const POSTURE = await postureTheme()
+function compatFixture(f: ReturnType<typeof buildFixture>) {
+  const st = f.tables.store_theme_settings.find((r) => r.install_id === SITE.installId)!
+  st.settings = { ...POSTURE.settings }
+  st.draft_settings = { ...POSTURE.settings }
+  f.tables.store_theme_custom_files = Object.entries(POSTURE.files).map(([path, content], i) => ({ id: `f${i}`, install_id: SITE.installId, path, content, draft_content: null }))
+  f.tables.store_theme_pages = [
+    ...f.tables.store_theme_pages.filter((r) => r.install_id !== SITE.installId),
+    ...POSTURE.pages.map((p, i) => ({ id: `p${i}`, install_id: SITE.installId, page_key: p.page_key, sections: p.sections, draft_sections: null })),
+  ]
+}
+/** One page of the imported theme's site, asked of the route as the proxy rewrites it: a stranger's at the marked address, anybody else's with their cookie. */
+async function compatPage(path: string, opts: { stranger: boolean; cookie?: string } = { stranger: true }) {
+  const { sealSite } = await import("@/lib/storelib-theme/compat/site-seal")
+  const { strangerMarker } = await import("@/lib/storelib-theme/compat/anonymous-cache")
+  const route = await import("@/app/api/site-theme/site/[username]/[[...path]]/route")
+  const { NextRequest } = await import("next/server")
+  const host = "maya.storelib.com"
+  const marker = opts.stranger ? strangerMarker({ host, country: "US", locale: null, market: null }) : null
+  const segs = [...(marker ? [marker] : []), ...path.split("/").filter(Boolean)]
+  const headers: Record<string, string> = { host, "x-forwarded-host": host, accept: "text/html", "sec-fetch-dest": "document", "x-storelib-site-country": "US", "user-agent": "Mozilla/5.0 (iPhone)" }
+  const seal = await sealSite(SITE.username, host)
+  if (seal) headers["x-storelib-theme-site"] = seal
+  if (opts.cookie) headers.cookie = opts.cookie
+  const req = new NextRequest(`https://${host}/api/site-theme/site/${SITE.username}/${segs.join("/")}`, { headers })
+  const res = (await route.GET(req, { params: Promise.resolve({ username: SITE.username, path: segs }) })) as Response
+  const body = await res.text()
+  if (process.env.DUMP_COMPAT) (await import("node:fs")).writeFileSync(`${process.env.DUMP_COMPAT}/${path.replace(/\W+/g, "_") || "home"}-${opts.stranger ? "stranger" : "cart"}.html`, body)
+  return `${res.status} ${res.headers.get("cache-control")} ${res.headers.get("x-storelib-held") ?? ""} ${body.length}B`
+}
 
 type Scenario = {
   name: string
@@ -29,12 +87,41 @@ type Scenario = {
 /* Every clock in the process moves with the bench's, so a TTL kept with Date.now() runs out too. */
 Date.now = clock.now
 
-async function proxyVisit(url: string) {
+async function proxyVisit(url: string, cookie?: string) {
   const { proxy } = await import("@/proxy")
   const { NextRequest } = await import("next/server")
-  const res = (await proxy(new NextRequest(url, { headers: { host: new URL(url).host, "user-agent": "Mozilla/5.0 (iPhone)", accept: "text/html" } }))) as Response
+  const res = (await proxy(new NextRequest(url, { headers: { host: new URL(url).host, "user-agent": "Mozilla/5.0 (iPhone)", accept: "text/html", ...(cookie ? { cookie } : {}) } }))) as Response
   const to = res.headers.get("x-middleware-rewrite") ?? res.headers.get("location") ?? `status ${res.status}`
   return to
+}
+
+/**
+ * A whole page of an imported theme's site as Vercel runs it: the proxy
+ * (proxy.ts), then the route it rewrote to with the headers it set, so the
+ * round trips and the time are the visitor's, both halves together. What
+ * comes back says where it went and how it may be kept.
+ */
+async function siteVisit(url: string, cookie?: string) {
+  const { proxy } = await import("@/proxy")
+  const { NextRequest } = await import("next/server")
+  const headers: Record<string, string> = { host: new URL(url).host, "user-agent": "Mozilla/5.0 (iPhone)", accept: "text/html", "sec-fetch-dest": "document", ...(cookie ? { cookie } : {}) }
+  const res = (await proxy(new NextRequest(url, { headers }))) as Response
+  const to = res.headers.get("x-middleware-rewrite")
+  if (!to) return `proxy ${res.status} ${res.headers.get("location") ?? ""}`
+  const sent = new Headers(headers)
+  for (const name of (res.headers.get("x-middleware-override-headers") ?? "").split(",").map((n) => n.trim()).filter(Boolean)) {
+    const v = res.headers.get(`x-middleware-request-${name}`)
+    if (v === null) sent.delete(name)
+    else sent.set(name, v)
+  }
+  const at = new URL(to)
+  const m = at.pathname.match(/^\/api\/site-theme\/site\/([^/]+)\/?(.*)$/)
+  if (!m) return `rewrite ${at.pathname}`
+  const route = await import("@/app/api/site-theme/site/[username]/[[...path]]/route")
+  const path = m[2] ? m[2].split("/").map(decodeURIComponent) : []
+  const answer = (await route.GET(new NextRequest(at, { headers: sent }), { params: Promise.resolve({ username: m[1], path }) })) as Response
+  const body = await answer.text()
+  return `${answer.status} ${answer.headers.get("cache-control")} ${answer.headers.get("x-storelib-held") ?? "drawn"} ${path[0]?.startsWith("~anon~") ? "marked" : "unmarked"} ${body.length}B`
 }
 
 const scenarios: Scenario[] = [
@@ -71,6 +158,55 @@ const scenarios: Scenario[] = [
     warm: () => proxyVisit("https://www.leostudio.com/"),
     run: () => proxyVisit("https://www.mayastudio.com/products/maya-product-3"),
   },
+  {
+    /* andrewrullz.storelib.com's shape: an imported theme on a storelib.com subdomain, no domain of its own. */
+    name: "proxy: compat subdomain page",
+    held: "proxy runs on every visit",
+    fixture: (f) => {
+      compatFixture(f)
+      f.tables.custom_domains = f.tables.custom_domains.filter((r) => r.creator_id !== SITE.creatorId)
+    },
+    warm: () => proxyVisit("https://leo.storelib.com/"),
+    run: () => proxyVisit("https://maya.storelib.com/products/maya-product-3"),
+  },
+  {
+    /* A visitor's second page: Storelib's tracker ids, the consent choice, the store's analytics and a theme app's own cookie. Held (marked) or drawn for them alone. */
+    name: "proxy: compat second page",
+    held: "proxy runs on every visit",
+    fixture: (f) => {
+      compatFixture(f)
+      f.tables.custom_domains = f.tables.custom_domains.filter((r) => r.creator_id !== SITE.creatorId)
+    },
+    warm: () => proxyVisit("https://leo.storelib.com/"),
+    run: () => proxyVisit("https://maya.storelib.com/collections/maya-best", "_ga=GA1.1.5; materia_visitor=v_abc; sl_asid=s_def; storelib_consent=2.p0.a1.x; __kla_id=eyJ; recently_viewed=a,b"),
+  },
+  ...([
+    ["site visit: first page", "https://maya.storelib.com/collections/maya-best", undefined],
+    ["site visit: next page (returning visitor)", "https://maya.storelib.com/products/maya-product-3", "_ga=GA1.1.5; materia_visitor=v_abc; sl_asid=s_def; storelib_consent=2.p0.a1.x; __kla_id=eyJ; recently_viewed=a,b"],
+    ["site visit: next page (cart)", "https://maya.storelib.com/products/maya-product-3", "sl_theme_cart=; materia_visitor=v_abc"],
+  ] as const).map(([name, url, cookie]) => ({
+    name,
+    held: "proxy and route",
+    fixture: (f: ReturnType<typeof buildFixture>) => {
+      compatFixture(f)
+      f.tables.custom_domains = f.tables.custom_domains.filter((r) => r.creator_id !== SITE.creatorId)
+    },
+    /* Loads the modules on another site's page (Leo has no imported theme), so the visit measured starts with nothing held. */
+    warm: () => siteVisit("https://leo.storelib.com/about"),
+    run: () => siteVisit(url, cookie),
+  })),
+  ...([
+    ["compat-home (stranger)", "/", { stranger: true }],
+    ["compat-product (stranger)", "/products/maya-product-3", { stranger: true }],
+    ["compat-collection (stranger)", "/collections/maya-best", { stranger: true }],
+    ["compat-home (cart)", "/", { stranger: false, cookie: "sl_theme_cart=" }],
+    ["compat-product (cart)", "/products/maya-product-3", { stranger: false, cookie: "sl_theme_cart=" }],
+  ] as const).map(([name, path, opts]) => ({
+    name,
+    held: "route",
+    fixture: compatFixture,
+    run: () => compatPage(path, opts),
+  })),
   {
     name: "site-home",
     held: "route",

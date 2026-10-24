@@ -15,7 +15,7 @@ import { ChevronDown, ChevronRight } from "lucide-react"
 import { loadCompatFiles } from "./compat-files"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import type { SchemaField } from "@/lib/website-builder/types"
-import { OVERRIDE_GROUP } from "@/lib/storelib-theme/compat/overrides"
+import { compatThemeGroups, type PanelGroup } from "@/lib/storelib-theme/platform-settings"
 import { tt } from "@/lib/i18n/text"
 
 /**
@@ -67,6 +67,9 @@ interface Group {
   settings: SchemaField[]
 }
 
+/** The theme's groups and Storelib's after them, as the repository's config/storelib_settings_schema.json describes them. */
+const themeGroups = (parsed: Group[]): Group[] => compatThemeGroups(parsed as PanelGroup[]) as Group[]
+
 /** The panel's own file, made from the theme's settings_schema.json at import and again whenever that changes. */
 const PANEL_FILE = "shopify/config/settings_panel.json"
 
@@ -114,14 +117,17 @@ export function CompatThemeSettings({
       if (!live || fresh.current) return
       try {
         const parsed = JSON.parse(files[PANEL_FILE] ?? "[]") as Group[]
-        /* The theme's own groups, then Storelib's Hover and focus (lib/storelib-theme/compat/overrides.ts). */
-        setGroups([...(Array.isArray(parsed) ? parsed : []), OVERRIDE_GROUP as unknown as Group])
+        /*
+          The theme's own groups, then Storelib's Hover and focus without what
+          the theme places itself (lib/storelib-theme/platform-settings.ts).
+        */
+        setGroups(themeGroups(Array.isArray(parsed) ? parsed : []))
       } catch {
-        setGroups([OVERRIDE_GROUP as unknown as Group])
+        setGroups(themeGroups([]))
       }
     }, () => {
       /* The theme's files could not be had (compat-canvas.tsx loadCompatFiles): Storelib's own group, never "Loading…" for good. */
-      if (live) setGroups([OVERRIDE_GROUP as unknown as Group])
+      if (live) setGroups(themeGroups([]))
     })
     return () => { live = false }
   }, [installId])
@@ -146,7 +152,7 @@ export function CompatThemeSettings({
         const parsed = JSON.parse(d.content) as Group[]
         if (!Array.isArray(parsed)) return
         fresh.current = true
-        setGroups([...parsed, OVERRIDE_GROUP as unknown as Group])
+        setGroups(themeGroups(parsed))
       })
       .catch(() => {
         /* the groups already shown stay */
@@ -213,7 +219,7 @@ export function CompatThemeSettings({
               const owner = parts.length >= 4 && parts[2] === "settings" && SCHEME_HEADER.test(fields.slice(0, i).reverse().find((f) => SCHEME_HEADER.test(f.id))?.id ?? "") ? `${parts[0]}${SEP}${parts[1]}` : null
               if (owner && owner !== opened) return null
               return (
-                <div key={field.id} className={owner ? "pl-1" : undefined}>
+                <div key={field.id} className={owner ? "pl-1" : undefined} data-compat-setting={field.id}>
                   {renderField(field, readAt(values, field.id) ?? field.default, (v) => {
                     if (!field.id.includes(SEP)) return onChange(field.id, v)
                     const [top, ...rest] = field.id.split(SEP)

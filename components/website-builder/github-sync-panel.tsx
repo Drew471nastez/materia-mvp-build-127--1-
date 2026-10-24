@@ -34,6 +34,7 @@ import { ConnectionRow, InlineButton, RowNote, type ConnectionTone } from "@/com
 import { buttonClass, primaryButtonClass } from "@/components/website-builder/website-settings/parts"
 import { tt, msg } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
+import { CONNECT_CLOSED_EVENT, inNativeApp, startConnect } from "@/lib/native-connect"
 
 interface Link {
   account: string
@@ -268,6 +269,9 @@ export function githubStatus(
   const link = status.link
   if (!link) return { tone: "off", status: "Not connected", action: tt("Connect") }
   if (!link.repo) return { tone: "attention", status: "Pick a repository", detail: link.account || undefined, action: tt("Continue") }
+  /* A send that got most of the theme there is not a failed one: said for what it is. */
+  if (link.lastError && link.problem === "partial") return { tone: "attention", status: "Files still to send", detail: link.repo, action: tt("Manage") }
+  if (link.lastError && link.problem === "secret-blocked") return { tone: "attention", status: "Synced, a file stayed in Storelib", detail: link.repo, action: tt("Manage") }
   if (link.lastError) return { tone: "attention", status: "Last sync failed", detail: link.repo, action: tt("Manage") }
   return { tone: "on", status: "Connected", detail: link.repo, action: tt("Manage") }
 }
@@ -316,6 +320,13 @@ export function GitHubSyncPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installId])
 
+  /* The GitHub sheet closed without handing back (Done, a swipe down): what GitHub has now, read again. */
+  useEffect(() => {
+    const again = () => void load()
+    window.addEventListener(CONNECT_CLOSED_EVENT, again)
+    return () => window.removeEventListener(CONNECT_CLOSED_EVENT, again)
+  }, [load])
+
   const post = async (body: Record<string, unknown>, kind: Action) => {
     setBusy(kind)
     setError(null)
@@ -326,9 +337,23 @@ export function GitHubSyncPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
-      const d = (await res.json().catch(() => ({}))) as { error?: string; upToDate?: boolean; saved?: number; failed?: unknown[] }
+      type Sent = { error?: string; upToDate?: boolean; saved?: number; failed?: unknown[]; more?: boolean; sent?: number; total?: number }
+      let d = (await res.json().catch(() => ({}))) as Sent
       if (!res.ok) throw new Error(d.error || tt("GitHub did not answer"))
-      if (kind === "export" || kind === "select") setNotice(d.upToDate ? tt("GitHub already has the whole theme.") : tt("Sent the whole theme to GitHub."))
+      /* A large theme goes in more than one send: each takes what GitHub does not have yet, until nothing is left. */
+      for (let round = 0; d.more && round < 12; round++) {
+        setNotice(tt("Sending to GitHub, {sent} of {total} files", { sent: d.sent ?? 0, total: d.total ?? 0 }))
+        const again = await fetch(`/api/website-builder/themes/${installId}/github`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "export" }) })
+        const next = (await again.json().catch(() => ({}))) as Sent
+        if (!again.ok) throw new Error(next.error || tt("GitHub did not answer"))
+        d = next
+      }
+      if (kind === "export" || kind === "select" || (kind === "branch" && body.then !== "pull")) {
+        const bad = d.failed?.length ?? 0
+        if (d.more) setNotice(tt("Sent {sent} of {total} files. Press Push to send the rest.", { sent: d.sent ?? 0, total: d.total ?? 0 }))
+        else if (bad) setNotice(tt("Sent {sent} of {total} files. {bad} stayed in Storelib, listed below.", { sent: d.sent ?? 0, total: d.total ?? 0, bad }))
+        else if (kind !== "branch") setNotice(d.upToDate ? tt("GitHub already has the whole theme.") : tt("Sent the whole theme to GitHub, {total} files.", { total: d.total ?? 0 }))
+      }
       if (kind === "pull") {
         const n = d.saved ?? 0
         const bad = d.failed?.length ?? 0
@@ -365,7 +390,19 @@ export function GitHubSyncPanel({
 
   const connectButtons = status ? (
     <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
-      <a href={`/api/github/connect?installId=${encodeURIComponent(installId)}`} className={primaryButtonClass}>
+      <a
+        href={`/api/github/connect?installId=${encodeURIComponent(installId)}`}
+        className={primaryButtonClass}
+        onClick={(e) => {
+          /* In the phone app: GitHub in the in-app browser sheet, never out to Safari or Chrome (lib/native-connect.ts). */
+          if (!inNativeApp()) return
+          e.preventDefault()
+          setError(null)
+          void startConnect(e.currentTarget.getAttribute("href") ?? "").then((r) => {
+            if (r.ok === false) setError(r.error)
+          })
+        }}
+      >
         <GitHubMark className="h-4 w-4" />
         {tt("Continue to GitHub")}
       </a>
@@ -553,12 +590,20 @@ export function GitHubSyncPanel({
         {link.last && link.last.failed.length > 0 && (
           <div className="mt-4">
             <p className="text-[13px] font-medium text-white/60">
-              {tt("Not taken from")} {link.last.commit ? <span className="font-mono">{link.last.commit.slice(0, 7)}</span> : tt("the last sync")}{tt(". Fix these in the repository and push again:")}
+              {link.last.direction === "to_github" ? (
+                tt("Not on GitHub yet. Your site still uses them; change the file in the builder, then press Push:")
+              ) : (
+                <>
+                  {tt("Not taken from")} {link.last.commit ? <span className="font-mono">{link.last.commit.slice(0, 7)}</span> : tt("the last sync")}{tt(". Fix these in the repository and push again:")}
+                </>
+              )}
             </p>
             <ul className="mt-1.5 space-y-1.5">
               {link.last.failed.map((f) => (
-                <li key={f.path + f.error} className="text-[13px] leading-relaxed text-red-200/90">
-                  {plainWords(f.error, 400)}
+                <li key={f.path + f.error} className="text-[13px] leading-relaxed">
+                  {/* The path as it is: plainWords is for sentences, and it renamed shopify/ folders. */}
+                  <span className="font-mono text-white/80">{f.path}</span>
+                  <span className="text-amber-200/80"> {plainWords(f.error.startsWith(`${f.path}:`) ? f.error.slice(f.path.length + 1) : f.error, 300)}</span>
                 </li>
               ))}
             </ul>
@@ -567,7 +612,15 @@ export function GitHubSyncPanel({
         {link.last && link.last.notes.length > 0 && (
           <ul className="mt-3 space-y-1">
             {link.last.notes.slice(0, 6).map((n) => (
-              <li key={n.path + n.note} className="text-[13px] leading-relaxed text-white/50">{plainWords(n.note, 400)}</li>
+              <li key={n.path + n.note} className="text-[13px] leading-relaxed text-white/50">
+                {n.note.startsWith(`${n.path}:`) ? (
+                  <>
+                    <span className="font-mono text-white/70">{n.path}</span> {plainWords(n.note.slice(n.path.length + 1), 400)}
+                  </>
+                ) : (
+                  plainWords(n.note, 400)
+                )}
+              </li>
             ))}
           </ul>
         )}

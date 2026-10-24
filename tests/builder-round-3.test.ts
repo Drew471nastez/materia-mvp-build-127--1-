@@ -171,7 +171,7 @@ async function main() {
     check("and revealWithin leaves a section with any part on screen alone", /if \(seen\) return null/.test(read("lib/website-builder/canvas-scroll.ts")))
     check("adding a section still brings it into view", /* Changed on purpose (round AH, the owner: a section added, pasted or duplicated glides smoothly to the top of the canvas, even when part of it shows). */ /revealSection\(newSection\.id, true\)/.test(editor))
     check("so does duplicating one from the layer list", /* Changed on purpose (round AH, the owner: a section added, pasted or duplicated glides smoothly to the top of the canvas, even when part of it shows). */ /if \(fromCanvas\) return[\s\S]{0,200}revealSection\(copy\.id, true\)/.test(editor))
-    check("but never the canvas toolbar's Duplicate, which is a press in the canvas", /onDuplicate=\{\(\) => selectedSectionId && duplicateSection\(selectedSectionId, true\)\}/.test(editor))
+    check("but never the canvas toolbar's Duplicate, which is a press in the canvas", /* Changed on purpose (round 36): the toolbar follows the section shown as selected, which the canvas's press sets before its panel lands */ /onDuplicate=\{\(\) => shownSectionId && duplicateSection\(shownSectionId, true\)\}/.test(editor))
     check("and every sidebar row still does, through the one handler the list is given",
       /onSelect=\{\(id\) => \{ setSelectedBlockId\(null\); setSelectedPanel\(\{ type: "section", sectionId: id \}\); revealSection\(id\) \}\}/.test(editor))
     check("nothing still scrolls a section to the top unconditionally", !/scrollToSection\(/.test(editor))
@@ -180,8 +180,9 @@ async function main() {
      * sidebar row into view could bring the canvas with it on a phone,
      * where the sidebar is a sheet over the canvas.
      */
-    check("the sidebar row is scrolled by its own container, not by scrollIntoView", /const scroller = row\.closest\("\[data-sheet-scroll\], \[data-wb-sidebar-scroll\]"\)/.test(editor) && /scroller\.scrollBy\(\{ top: delta, behavior: "smooth" \}\)/.test(editor))
-    check("and a row already in view is left alone", /if \(r\.top >= box\.top && r\.bottom <= box\.bottom\) return/.test(editor))
+    /* Changed on purpose (round 1023, part 2): the distance is rowIntoView's (steady-focus.ts), which also brings a row taller than the sidebar in by its top. */
+    check("the sidebar row is scrolled by its own container, not by scrollIntoView", /const scroller = row\.closest\("\[data-sheet-scroll\], \[data-wb-sidebar-scroll\]"\)/.test(editor) && /if \(delta\) scroller\.scrollBy\(\{ top: delta, behavior: "smooth" \}\)/.test(editor))
+    check("and a row already in view is left alone", /const delta = rowIntoView\(r, box\)/.test(editor) && /if \(row\.top >= box\.top && row\.bottom <= box\.bottom\) return 0/.test(read("lib/website-builder/steady-focus.ts")))
     /* Counted as attributes on the two scrollers, not as every selector that looks for them. */
     check("both sidebar scrollers are marked", (editor.match(/<div [^>]*\bdata-wb-sidebar-scroll[\s>]/g) ?? []).length === 2)
   }

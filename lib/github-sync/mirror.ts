@@ -28,6 +28,7 @@ import { GitHubError, commitChanges, githubConfig, installationToken, type FileC
 import { explainFailure, failureLine } from "./errors"
 import { fontBytes, gitBlobSha, readsBack, roleOf } from "./layout"
 import { recordEvent } from "./events"
+import { keepKeysOut } from "./secrets"
 import { exportSite, type GitHubLink, type LastSync, type SyncState } from "./sync"
 
 /* Written in ./events.ts, so the sync and this file both write it without importing each other for it. */
@@ -56,16 +57,26 @@ export async function mirrorToGitHub(installId: string, change: BuilderChange): 
   }
   const { data: link, error } = await db
     .from("theme_github_links")
-    .select("installation_id, repo_full_name, branch, root_path, push_on_save")
+    .select("installation_id, repo_full_name, branch, root_path, push_on_save, last_synced_sha")
     .eq("install_id", installId)
     .maybeSingle()
   if (error || !link || !link.repo_full_name || !link.branch || link.push_on_save === false) return
+  /*
+    A repository nothing has reached yet gets the whole theme, not this one
+    file: one file as an empty repository's first commit was a repository
+    holding only that file.
+  */
+  if (!link.last_synced_sha) {
+    await mirrorWholeTheme(installId, `${describeChange(change)} in the builder`)
+    return
+  }
 
   const root = link.root_path ?? ""
   const changes: FileChange[] = changesFor(root, change, travels).map((c) => {
     if ("delete" in c) return c
     const bytes = c.content.startsWith("base64:") ? fontBytes(c.content) : null
-    return bytes ? { path: c.path, bytes } : c
+    /* A key in the file stays in Storelib; GitHub gets a marker in its place (./secrets.ts). */
+    return bytes ? { path: c.path, bytes } : { path: c.path, content: keepKeysOut(c.content).text }
   })
   if (changes.length === 0) return
   const summary = describeChange(change)
@@ -161,7 +172,7 @@ export async function mirrorWholeTheme(installId: string, why: string): Promise<
       db.from("store_theme_installs").select("name").eq("id", installId).maybeSingle(),
     ])
     if (error || !link || !link.repo_full_name || !link.branch || link.push_on_save === false) return
-    await exportSite(db, cfg, link as GitHubLink, String((install as { name?: string } | null)?.name || "Site"), { fetchMedia: null, reason: why })
+    await exportSite(db, cfg, link as GitHubLink, String((install as { name?: string } | null)?.name || "Site"), { fetchMedia: (link as GitHubLink).last_synced_sha ? null : undefined, reason: why })
   } catch {
     /* exportSite wrote why to the link and the activity list */
   }

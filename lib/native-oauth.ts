@@ -34,6 +34,7 @@ import { readCarry, withCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
 import { completeNativeSession } from "@/lib/auth/native-session"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
+import { connectReturnPath, finishConnect } from "@/lib/native-connect"
 
 const TAG = "[NativeOAuth]"
 const DEBUG =
@@ -348,7 +349,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
   console.log(`${TAG}   isOAuthCallback: ${isOAuthCallback(rawUrl)}`)
   showToast(`appUrlOpen fired\n${rawUrl.slice(0, 120)}`, "info")
 
-  if (!isOAuthCallback(rawUrl)) {
+  if (!isOAuthCallback(rawUrl) || connectReturnPath(rawUrl)) {
     console.log(`${TAG}   → Not an OAuth callback — ignoring.`)
     return
   }
@@ -558,6 +559,9 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     console.log(`${TAG} Registering App.addListener("appUrlOpen")…`)
     const appHandle = await App.addListener("appUrlOpen", ({ url }) => {
       console.log(`${TAG} ← appUrlOpen event received`)
+
+      /* Connect GitHub or Supabase handed back from the in-app browser sheet (storelib://auth/callback?connect=, lib/native-connect.ts): not a sign in. */
+      if (finishConnect(url)) return
 
       // Bridge-code reset links (storelib://reset-password?code=XXX)
       if (isBridgeCodeResetLink(url)) {

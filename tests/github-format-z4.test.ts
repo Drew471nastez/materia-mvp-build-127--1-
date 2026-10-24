@@ -150,7 +150,7 @@ console.log("\nWired")
   const page = read("app/website-builder/editor/[installId]/page.tsx")
   check("  and the editor runs both actions", /action: "use-branch", branch: "storelib", then: "push"/.test(page) && /action: "use-branch", branch: syncStatus\.github\.ignored\.branch, then: "pull"/.test(page))
   const panel = read("components/website-builder/github-sync-panel.tsx")
-  check("Connections: Use a storelib branch, Follow the branch, words made plain", /Use a storelib branch/.test(panel) && /Follow \{branch\}/.test(panel) && /plainWords\(ev\.summary\)/.test(panel) && /plainWords\(f\.error, 400\)/.test(panel))
+  check("Connections: Use a storelib branch, Follow the branch, words made plain", /Use a storelib branch/.test(panel) && /Follow \{branch\}/.test(panel) && /plainWords\(ev\.summary\)/.test(panel) && /* Changed on purpose (materia): the path is shown as it is and only the reason is made plain, since plainWords renamed shopify/ folders. */ /<span className="font-mono text-white\/80">\{f\.path\}<\/span>/.test(panel) && /plainWords\(f\.error\.startsWith/.test(panel))
   check("Recent: five, a fade, Show all, an animated height", /export const RECENT_SHOWN = 5/.test(panel) && /maskImage:/.test(panel) && /transition-\[max-height/.test(panel) && /Show all \{n\}/.test(panel) && /Show less/.test(panel) && /aria-expanded=\{open\}/.test(panel))
 }
 

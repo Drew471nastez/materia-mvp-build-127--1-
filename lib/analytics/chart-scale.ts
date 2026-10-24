@@ -22,6 +22,7 @@
  * here from the labels actually drawn, in the font they are drawn in, so
  * "0 1 2" takes 14px and "$1.2k" takes what it needs.
  */
+import { currencyMark } from "@/lib/store/currency"
 
 export interface Scale {
   /** The top of the plot, always above the highest value. */
@@ -85,16 +86,17 @@ export function compactCount(n: number): string {
 
 /**
  * Money on an axis, from cents: $0, $5, $2.50, $1.2k. Cents are shown only
- * when the step between ticks needs them.
+ * when the step between ticks needs them. In the store's currency, with its
+ * own mark where it writes it: "€1.2k", "1.2k lei" (lib/store/currency); a
+ * lei store's revenue axis read "$1.2k".
  */
-export function compactMoney(cents: number, step = 100): string {
+export function compactMoney(cents: number, step = 100, currency = "USD"): string {
   const d = cents / 100
   const a = Math.abs(d)
-  if (a >= 1_000_000) return `$${trim((d / 1_000_000).toFixed(1))}M`
-  if (a >= 10_000) return `$${Math.round(d / 1000)}k`
-  if (a >= 1_000) return `$${trim((d / 1000).toFixed(1))}k`
-  if (step < 100 && d % 1 !== 0) return `$${d.toFixed(2)}`
-  return `$${Math.round(d)}`
+  const n =
+    a >= 1_000_000 ? `${trim((d / 1_000_000).toFixed(1))}M` : a >= 10_000 ? `${Math.round(d / 1000)}k` : a >= 1_000 ? `${trim((d / 1000).toFixed(1))}k` : step < 100 && d % 1 !== 0 ? d.toFixed(2) : `${Math.round(d)}`
+  const mark = currencyMark(currency)
+  return mark.position === "prefix" ? `${mark.symbol}${n}` : `${n} ${mark.symbol}`
 }
 
 /** A fraction as a percentage on an axis: 0%, 2.5%, 40%. */

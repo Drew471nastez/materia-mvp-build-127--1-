@@ -42,6 +42,7 @@ import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { kindLookup } from "@/lib/storelib-theme/section-groups"
 import { siteRead } from "@/lib/website-builder/site-read"
+import { cache } from "react"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
@@ -157,7 +158,11 @@ interface NameMatch {
   displayName: string
   /** The creator's slug, which a site's default title names. Optional: an entry cached before it was added has none. */
   slug?: string | null
+  /** The creator's account (creators.user_id), so a read that needs it does not ask for it again. Optional, as above. */
+  userId?: string | null
 }
+
+const userIdOf = (c: { user_id?: unknown }) => (typeof c.user_id === "string" && c.user_id ? c.user_id : null)
 
 /**
  * A name to a creator: profile username first, then creator slug. Both are
@@ -198,7 +203,7 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
       /* The profile's name first: `creators.display_name` is a copy written
          when the account was made and edited by nothing since, so it held
          the name a renamed creator no longer uses (lib/account/identity). */
-      return { creatorId: c.id, displayName: p.display_name || c.display_name || p.username || name, slug: c.slug ?? null }
+      return { creatorId: c.id, displayName: p.display_name || c.display_name || p.username || name, slug: c.slug ?? null, userId: userIdOf(creator as { user_id?: unknown }) }
     }
   }
 
@@ -211,7 +216,7 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
   if (bySlug) {
     if (isBanned(bySlug as { banned_at?: string | null })) return null
     const c = bySlug as { id: string; slug?: string | null; display_name?: string | null }
-    return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null }
+    return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null, userId: userIdOf(bySlug as { user_id?: unknown }) }
   }
 
   /*
@@ -227,7 +232,7 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
     if (creator) {
       if (isBanned(creator as { banned_at?: string | null })) return null
       const c = creator as { id: string; slug?: string | null; display_name?: string | null }
-      return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null }
+      return { creatorId: c.id, displayName: c.display_name || c.slug || name, slug: c.slug ?? null, userId: userIdOf(creator as { user_id?: unknown }) }
     }
   }
   return null
@@ -238,10 +243,11 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
  * above. The product page on a site needs only this: the address claims an
  * owner and the product either belongs to them or does not.
  */
-export async function creatorByName(name: string): Promise<NameMatch | null> {
+/* Once per request too (React's cache): a page and its metadata are drawn side by side and both ask first thing. */
+export const creatorByName = cache(async function creatorByName(name: string): Promise<NameMatch | null> {
   const lower = name.toLowerCase()
   return unstable_cache(() => lookUpName(lower), ["site-name", lower], { revalidate: NAME_TTL })()
-}
+})
 
 /**
  * Where a name that no longer exists went, if anywhere.
@@ -284,6 +290,15 @@ type BuiltLookup = { kind: "site"; site: PublishedSite } | Exclude<SiteLookup, {
 async function buildSite(creatorId: string, displayName: string, pointer: LivePointer | null = null): Promise<BuiltLookup> {
   const admin = createAdminClient()
 
+  /*
+    WHAT NEEDS ONLY THE CREATOR, OR ONLY THE RELEASE, IS ASKED WITH THE
+    INSTALL: the creator's public facts, and the live release's manifest
+    (the pointer was read from the same published install). Each used to
+    wait for the read before it.
+  */
+  const profilePromise = creatorFacts(admin as never, creatorId)
+  const manifestPromise = pointer ? releaseManifest(pointer.releaseId) : Promise.resolve(null)
+
   /* Thrown, not "unpublished", when the database did not answer: that was cached for an hour as "Coming soon". */
   const install = await siteRead("published install", (signal) => admin
     .from("store_theme_installs")
@@ -298,8 +313,19 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
   if (!install) return { kind: "unpublished", displayName }
 
   const row = install as { id: string; name?: string | null; store_theme_settings?: unknown }
-  /* Only a release of the install that is published now. */
-  const manifest = pointer && pointer.installId === row.id ? await releaseManifest(pointer.releaseId) : null
+  /* Menus and the release do not depend on each other. The page rows only need the install. */
+  const menusPromise = storeMenusOrNull(admin, creatorId)
+  const pagesPromise = siteRead("pages", (signal) => admin
+    .from("store_theme_pages")
+    .select("page_key, sections, draft_sections")
+    .eq("install_id", row.id)
+    .abortSignal(signal))
+  void pagesPromise.catch(() => {})
+  /* Only a release of the install that is published now. Without one, the saved section files are asked for at once. */
+  const rowsSources = pointer && pointer.installId === row.id ? null : sectionSources(admin as never, row.id)
+  /* Awaited below; a failure is thrown there, never left unhandled while the menus are read. */
+  void rowsSources?.catch(() => {})
+  const manifest = pointer && pointer.installId === row.id ? await manifestPromise : null
   const releaseSources = manifest ? await releaseFiles(manifest).then((files) => (files ? sourcesFromFiles(files) : null)) : null
   /* Drawn from the release only when all of it could be read. */
   const release = manifest && releaseSources ? manifest : null
@@ -319,24 +345,19 @@ async function buildSite(creatorId: string, displayName: string, pointer: LivePo
    */
   /* The store's menus over the theme's own, when the store has them (lib/website-builder/store-menus-server.ts). */
   const themeSettings = sanitizeThemeSettings(
-    withStoreMenus((themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues, await storeMenusOrNull(admin, creatorId)),
+    withStoreMenus((themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues, await menusPromise),
   )
 
   /* The saved section files first: a creator's own section is cleaned by
      the schema its file declares, below, not only by the built-in ones. */
   const [sources, profile] = await Promise.all([
-    releaseSources ?? sectionSources(admin as never, row.id),
-    creatorFacts(admin as never, creatorId),
+    releaseSources ?? rowsSources ?? sectionSources(admin as never, row.id),
+    profilePromise,
   ])
   const ownSchemas = schemaLookupFrom(sources)
 
-  const pageRows = release
-    ? pageRowsOf(release)
-    : await siteRead("pages", (signal) => admin
-      .from("store_theme_pages")
-      .select("page_key, sections, draft_sections")
-      .eq("install_id", row.id)
-      .abortSignal(signal))
+  if (release) void pagesPromise.catch(() => {})
+  const pageRows = release ? pageRowsOf(release) : await pagesPromise
 
   /**
    * And again on the way out. The database already holds rich text saved
@@ -505,19 +526,40 @@ export async function dressPage(
   const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
   const missing = missingReferences(productReferences(sections, schemaOf), products)
   const read = () => pickedProducts(createAdminClient() as never, site.creatorId, missing)
-  const pickedRead = missing.ids.length || missing.slugs.length
-    ? opts.cached
-      ? await unstable_cache(
-          read,
-          ["picked-products", site.creatorId, [...missing.ids].sort().join(","), [...missing.slugs].sort().join(",")],
-          { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL },
-        )()
-      : await read()
-    : []
+  const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
+  const communityIds = communityReferences(sections, schemaOf)
+  /* The page's extra reads do not depend on each other. Asking them together is the difference between a slow page and a fast one. */
+  const [pickedRead, siteUrl, communities, collectionsRead, reviews] = await Promise.all([
+    missing.ids.length || missing.slugs.length
+      ? opts.cached
+        ? unstable_cache(
+            read,
+            ["picked-products", site.creatorId, [...missing.ids].sort().join(","), [...missing.slugs].sort().join(",")],
+            { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL },
+          )()
+        : read()
+      : Promise.resolve([] as ProductCard[]),
+    import("@/lib/website-builder/site-seo-data").then(({ siteOrigin }) => siteOrigin(site.creatorId, site.displayName).catch(() => "")),
+    communityIds.length
+      ? import("@/lib/communities/server/blocks").then(({ communityCardsFor }) => {
+          const load = () => communityCardsFor(createAdminClient() as never, site.creatorId, communityIds)
+          return opts.cached ? unstable_cache(load, ["community-cards", site.creatorId, [...communityIds].sort().join(",")], { revalidate: SHOP_TTL })() : load()
+        }).catch(() => ({}))
+      : Promise.resolve(undefined),
+    pageWantsCollections(sections, schemaOf, sourceOf)
+      ? import("@/lib/website-builder/storefront-collections-server").then(({ siteCollections }) => {
+          const load = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
+          return opts.cached ? unstable_cache(load, ["site-collections", site.creatorId], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })() : load()
+        }).catch(() => undefined)
+      : Promise.resolve(undefined),
+    pageWantsReviews(sections, sourceOf)
+      ? import("@/lib/reviews/storefront-server").then(({ storefrontReviews }) =>
+          storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null, localizer ? { locale: localizer.locale, isDefault: localizer.locale === localizer.defaultLanguage } : null) as unknown as Promise<Record<string, unknown>>,
+        ).catch(() => undefined)
+      : Promise.resolve(undefined),
+  ])
   /* In the page's language and the visitor's currency, as the shop's own cards around them are: a picked product used to show untranslated, in the store's currency, beside converted ones. */
   const picked = opts.localizer && pickedRead.length ? opts.localizer.cards(pickedRead) : pickedRead
-  const { siteOrigin } = await import("@/lib/website-builder/site-seo-data")
-  const siteUrl = await siteOrigin(site.creatorId, site.displayName).catch(() => "")
   const dynamic = dynamicContext({
     theme: site.themeSettings,
     creator: site.profile,
@@ -529,46 +571,12 @@ export async function dressPage(
   })
   /* Theme settings › Breadcrumbs: the bar under the header on every page but home (theme-breadcrumbs.ts). */
   const filled = withDynamicSources(withThemeBreadcrumbs(searchListsTheShop(sections), site.themeSettings, template), schemaOf, dynamic)
-  /* The communities a community_picker names: the creator's own, published and public, while communities are on. A minute in the cache, like the shop. */
-  const communityIds = communityReferences(sections, schemaOf)
-  const communities = communityIds.length
-    ? await (async () => {
-        const { communityCardsFor } = await import("@/lib/communities/server/blocks")
-        const read = () => communityCardsFor(createAdminClient() as never, site.creatorId, communityIds)
-        return opts.cached
-          ? unstable_cache(read, ["community-cards", site.creatorId, [...communityIds].sort().join(",")], { revalidate: SHOP_TTL })()
-          : read()
-      })().catch(() => ({}))
-    : undefined
-  /*
-    The creator's published collections, for a collection picker, a
-    collection list and the collections page: read only for a page that
-    uses them, a minute in the cache like the shop. Every shop has them,
-    whatever kind of product it sells.
-  */
-  const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
-  const collectionsRead = pageWantsCollections(sections, schemaOf, sourceOf)
-    ? await (async () => {
-        const { siteCollections } = await import("@/lib/website-builder/storefront-collections-server")
-        const read = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
-        return opts.cached
-          ? unstable_cache(read, ["site-collections", site.creatorId], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })()
-          : read()
-      })().catch(() => undefined)
-    : undefined
   /* In the visitor's language and currency: each collection's title and description (collection:<id>), its products as the page's cards. */
   const collections = localizer && collectionsRead
     ? Object.fromEntries(
         Object.entries(collectionsRead as Record<string, StorefrontCollection>).map(([id, c]) => [id, { ...localizer.collection(c as unknown as Record<string, unknown> & { id: string }), products: localizer.cards(c.products as never) } as unknown as StorefrontCollection]),
       )
     : collectionsRead
-  /* Storelib Reviews, for a page with a review section: the shop's, and the product's on its page (lib/reviews/storefront-server.ts). */
-  const reviews = pageWantsReviews(sections, sourceOf)
-    ? await (async () => {
-        const { storefrontReviews } = await import("@/lib/reviews/storefront-server")
-        return (await storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null, localizer ? { locale: localizer.locale, isDefault: localizer.locale === localizer.defaultLanguage } : null)) as unknown as Record<string, unknown>
-      })().catch(() => undefined)
-    : undefined
   const data = storefrontData({
     dynamic,
     catalog: mergeCatalog(products, picked),
@@ -661,7 +669,7 @@ export async function publishedShopByName(name: string): Promise<ShopLookup> {
 const lastGood = new Map<string, ShopLookup>()
 const LAST_GOOD_MAX = 500
 
-async function resolveSite(name: string): Promise<ShopLookup> {
+const resolveSite = cache(async function resolveSite(name: string): Promise<ShopLookup> {
   const lower = name.toLowerCase()
   try {
     const found = await resolveSiteFresh(lower)
@@ -678,15 +686,12 @@ async function resolveSite(name: string): Promise<ShopLookup> {
     }
     throw e
   }
-}
+})
 
 async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
 
-  const match = await unstable_cache(
-    () => lookUpName(lower),
-    ["site-name", lower],
-    { revalidate: NAME_TTL },
-  )()
+  /* The name lookup above, shared with the metadata's in the same request. */
+  const match = await creatorByName(lower)
 
   if (!match) {
     const to = await unstable_cache(() => renamedTo(lower), ["site-renamed", lower], { revalidate: NAME_TTL })()
@@ -699,6 +704,29 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
     under the release's id: a release never changes, so the key says
     exactly what was drawn. No release: the key of old, and the rows.
   */
+  /*
+    THE SHOP IS ASKED FOR NOW, beside the site rather than after it. It needs
+    only the creator, and its reads (the products, their options, stock and
+    stars) took as long again as the whole site did, one after the other.
+    Read for nothing only when nothing is published, and then held for its
+    minute like any other shop read.
+  */
+  const shop = Promise.all([
+    unstable_cache(
+      () => shopProducts(createAdminClient() as never, match.creatorId),
+      ["shop-products", match.creatorId],
+      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
+    )(),
+    /* How many there are in all, for `shop.product_count`: the list above stops at 24. */
+    unstable_cache(
+      () => publishedProductCount(createAdminClient() as never, match.creatorId),
+      ["shop-count", match.creatorId],
+      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
+    )(),
+  ])
+  /* Never an unhandled rejection when the site is not there to wait for it. */
+  void shop.catch(() => {})
+
   const pointer = await livePointer(match.creatorId, [creatorSiteTag(match.creatorId)])
   const releaseId = pointer?.releaseId ?? null
   const found = await unstable_cache(
@@ -722,20 +750,9 @@ async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
    * from the two. Drawing is arithmetic — no database, and the compiler
    * keeps its own cache of the files — so this costs single-digit
    * milliseconds and buys a shop that is never more than a minute behind.
+   * Asked above, beside the site.
    */
-  const [products, productCount] = await Promise.all([
-    unstable_cache(
-      () => shopProducts(createAdminClient() as never, match.creatorId),
-      ["shop-products", match.creatorId],
-      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
-    )(),
-    /* How many there are in all, for `shop.product_count`: the list above stops at 24. */
-    unstable_cache(
-      () => publishedProductCount(createAdminClient() as never, match.creatorId),
-      ["shop-count", match.creatorId],
-      { tags: [creatorShopTag(match.creatorId)], revalidate: SHOP_TTL },
-    )(),
-  ])
+  const [products, productCount] = await shop
 
   return { kind: "site", site: found.site, products, productCount }
 }
@@ -760,12 +777,23 @@ export async function cachedShopProducts(creatorId: string): Promise<ProductCard
  */
 export async function revalidatePublishedSite(creatorId: string): Promise<void> {
   /**
-   * The second argument is how long the purge itself is remembered, and it
-   * has to outlive the entries it is purging or a stale one could survive
-   * its own invalidation. It is `SITE_TTL` exactly, which is what those
-   * entries are held for.
+   * EXPIRED AT ONCE, NOT MARKED STALE. The second argument is when the
+   * entries under the tag stop being served at all. With `{ expire: 3600 }`
+   * (what this said before) Next 16 marks every entry stale now and keeps
+   * serving it for the hour while it is read again behind the visitor
+   * (next/dist/server/lib/incremental-cache/tags-manifest.external.js:
+   * `stale` now, `expired` an hour on). So the first request after a
+   * Publish, on every page Next draws per request (the cart, search, an
+   * imported theme's pages, the language and market copies the purge below
+   * does not name), read the OLD live release pointer and drew the old
+   * theme, and the refresh after it drew the new one: the owner's "back
+   * from checkout shows my old theme until I refresh".
+   *
+   * `expire: 0` is a miss for every entry written before now, in the data
+   * cache and in every rendered page that carries the tag, on every server.
+   * The next visitor pays one read; nobody is served the previous release.
    */
-  revalidateTag(creatorSiteTag(creatorId), { expire: SITE_TTL })
+  revalidateTag(creatorSiteTag(creatorId), { expire: 0 })
 
   /**
    * AND THE RENDERED PAGE, which is a second cache and was not being told.

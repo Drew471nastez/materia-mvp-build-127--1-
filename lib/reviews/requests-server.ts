@@ -48,7 +48,8 @@ import { sweepReviewUploads } from "./photos-server"
 import { sendReviewDigests } from "./digest-server"
 import { REQUEST_EMAIL_IDS, reviewRequestEmail } from "./request-email"
 import { inEmailLanguage } from "@/lib/emails/words"
-import { emailLanguageFor } from "@/lib/emails/words-server"
+import { buyerEmailLanguage } from "@/lib/emails/words-server"
+import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { loadCustomerEmailCopy, replyAddress } from "@/lib/emails/customer-copy-server"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { orderStoreUrl } from "@/lib/physical/store-link"
@@ -198,7 +199,11 @@ async function storeLook(db: Db, creatorId: string): Promise<StoreLook | null> {
 async function storeAsk(db: Db, row: RequestRow, facts: Awaited<ReturnType<typeof factsFor>>, settings: ReviewsAppSettings, reminder: boolean, page: string, unsubscribe: string | null) {
   const look = await storeLook(db, row.creator_id)
   if (!look) return null
-  const language = await emailLanguageFor(row.creator_id, cleanOrigin(facts.order?.source_detail)?.lang).catch(() => ({ lang: "en", words: {}, own: true }))
+  /* By where it was bought (lib/emails/buyer-channel.ts): the website's language for a website order, English for one on Storelib. */
+  const origin = cleanOrigin(facts.order?.source_detail)
+  const order = facts.order as { source?: unknown; requires_shipping?: unknown } | null | undefined
+  const channel = buyerChannel({ family: order?.requires_shipping ? "physical" : "digital", source: order?.source, surface: origin?.surface, lang: origin?.lang })
+  const language = await buyerEmailLanguage(row.creator_id, channel, origin?.lang).catch(() => ({ lang: "en", words: {}, own: true }))
   const id = reminder ? REQUEST_EMAIL_IDS.reminder : REQUEST_EMAIL_IDS.request
   return inEmailLanguage(language.lang, language.words, () =>
     reviewRequestEmail({

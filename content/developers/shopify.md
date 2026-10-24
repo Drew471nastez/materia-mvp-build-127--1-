@@ -18,7 +18,7 @@ The usual name, then Storelib's. A schema may use either name where both are lis
 | Usual name | Storelib | Notes |
 | --- | --- | --- |
 | `checkbox` | `checkbox`, `toggle` | The same value; `toggle` draws a switch. |
-| `number`, `range`, `radio`, `select` | the same names | A `range` may be `responsive`, with a value per breakpoint. |
+| `number`, `range`, `radio`, `select` | the same names | A `range` may be `responsive`, with a value per breakpoint. A `select` or `radio` with one to three options is a row of buttons, four or more a dropdown. |
 | `text`, `textarea`, `richtext` | the same names | |
 | `inline_richtext` | `inline_richtext` | Bold, italic and links, on one line. |
 | `html` | `html` | Cleaned against an allow list: no scripts, no event attributes, no frames. |

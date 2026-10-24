@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{{ page_title }}</title>
+    {{ content_for_header }}
+    {{ 'materia.css' | asset_url | stylesheet_tag }}
+  </head>
+  <body class="template-{{ template.name }}">
+    {% sections 'header-group' %}
+    <main id="MainContent" role="main">{{ content_for_layout }}</main>
+    {% sections 'footer-group' %}
+    {% sections 'overlay-group' %}
+    <script src="{{ 'materia.js' | asset_url }}" defer></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+<div class="rv-details" {{ block.shopify_attributes }}>
+  {% content_for 'blocks' %}
+</div>
+{% schema %}
+{
+  "name": "Product details",
+  "settings": [],
+  "blocks": [{ "type": "@theme" }, { "type": "@app" }]
+}
+{% endschema %}

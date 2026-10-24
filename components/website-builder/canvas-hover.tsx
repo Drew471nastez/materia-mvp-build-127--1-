@@ -93,16 +93,47 @@ function overlaps(a: DOMRect, panels: DOMRect[]): boolean {
  * markup or stacking can clip them. Pointer only: on a phone there is no
  * hover, and a tap goes straight to the field.
  */
+/*
+  NO REACT RENDER WHILE THE POINTER MOVES (round 36). The marks were state,
+  so every frame the pointer moved over the canvas was a commit of this
+  component (30 moves, 30 commits: scripts/check-editor-select.mjs). They
+  are written straight onto the two spans now, once a frame at most, and
+  not at all while the pointer stays on the same element and nothing
+  scrolled.
+*/
 const HIDDEN = { display: "none" } as const
+type Marks = { el: DOMRect | null; section: DOMRect; area: DOMRect; name: string; panels: DOMRect[] } | null
+
+const px = (n: number) => `${Math.round(n * 100) / 100}px`
+function draw(outlineEl: HTMLElement | null, chipEl: HTMLElement | null, box: Marks) {
+  if (outlineEl) {
+    const outline = box?.el && box.el.width > 0 && box.el.height > 0 ? box.el : null
+    if (!outline) outlineEl.style.cssText = "display:none"
+    else {
+      const holes = holesFor(outline, box!.panels)
+      outlineEl.style.cssText = `left:${px(outline.left)};top:${px(outline.top)};width:${px(outline.width)};height:${px(outline.height)}${holes ? `;clip-path:${holes}` : ""}`
+    }
+  }
+  if (chipEl) {
+    const chip = box && box.section.height > 24 && !overlaps(new DOMRect(box.section.left + 8, box.section.top + 8, 220, 24), box.panels) ? box : null
+    if (!chip) chipEl.style.cssText = "display:none"
+    else {
+      chipEl.style.cssText = `left:${px(chip.section.left + 8)};top:${px(chip.section.top + 8)};max-width:${px(Math.max(0, Math.min(220, chip.area.right - chip.section.left - 16)))}`
+      if (chipEl.textContent !== chip.name) chipEl.textContent = chip.name
+    }
+  }
+}
 
 export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (sectionId: string) => string }) {
-  const [box, setBox] = useState<{ el: DOMRect | null; section: DOMRect; area: DOMRect; name: string; panels: DOMRect[] } | null>(null)
   const nameRef = useRef(nameOf)
   nameRef.current = nameOf
+  const outlineRef = useRef<HTMLSpanElement | null>(null)
+  const chipRef = useRef<HTMLSpanElement | null>(null)
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
   useEffect(() => {
+    const setBox = (box: Marks) => draw(outlineRef.current, chipRef.current, box)
     if (!enabled) {
       setBox(null)
       return
@@ -110,9 +141,15 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
     /* A mouse's own moves only (pointerType below): a finger has no hover, and its tap goes straight to the field. */
     let frame = 0
     let last: Element | null = null
+    /* What the marks were last drawn for: the same element, with nothing scrolled, is drawn already. */
+    let drawnFor: Element | null = null
+    let moved = true
     const measure = () => {
       frame = 0
       const target = last
+      if (target === drawnFor && !moved) return
+      drawnFor = target
+      moved = false
       const root = document.getElementById("wb-preview-root")
       if (!target || !root || !root.contains(target)) {
         setBox(null)
@@ -150,22 +187,28 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
     const onMove = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return
       last = e.target as Element | null
+      if (last === drawnFor && !moved) return
       schedule()
     }
     const onLeave = () => {
       last = null
       schedule()
     }
+    /* A scroll moves the page under a still pointer: measured again where it is. */
+    const onScroll = () => {
+      moved = true
+      schedule()
+    }
     const root = document.getElementById("wb-preview-root")
     document.addEventListener("pointermove", onMove, { passive: true })
     root?.addEventListener("pointerleave", onLeave)
-    /* A scroll moves the page under a still pointer: measured again where it is. */
-    document.addEventListener("scroll", schedule, { capture: true, passive: true })
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     return () => {
       cancelAnimationFrame(frame)
       document.removeEventListener("pointermove", onMove)
       root?.removeEventListener("pointerleave", onLeave)
-      document.removeEventListener("scroll", schedule, { capture: true })
+      document.removeEventListener("scroll", onScroll, { capture: true })
+      setBox(null)
     }
   }, [enabled])
 
@@ -179,24 +222,10 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
     `display: none` they cost a restyle of themselves alone.
   */
   if (!mounted) return null
-  const outline = box?.el && box.el.width > 0 && box.el.height > 0 ? box.el : null
-  const chip = box && box.section.height > 24 && !overlaps(new DOMRect(box.section.left + 8, box.section.top + 8, 220, 24), box.panels) ? box : null
   return createPortal(
     <>
-      <span
-        aria-hidden
-        className="wb-hover-outline"
-        data-wb-hover-outline=""
-        style={outline ? { left: outline.left, top: outline.top, width: outline.width, height: outline.height, clipPath: holesFor(outline, box!.panels) } : HIDDEN}
-      />
-      <span
-        aria-hidden
-        className="wb-hover-chip"
-        data-wb-hover-chip=""
-        style={chip ? { left: chip.section.left + 8, top: chip.section.top + 8, maxWidth: Math.max(0, Math.min(220, chip.area.right - chip.section.left - 16)) } : HIDDEN}
-      >
-        {chip ? chip.name : ""}
-      </span>
+      <span ref={outlineRef} aria-hidden className="wb-hover-outline" data-wb-hover-outline="" style={HIDDEN} />
+      <span ref={chipRef} aria-hidden className="wb-hover-chip" data-wb-hover-chip="" style={HIDDEN} />
     </>,
     document.body,
   )

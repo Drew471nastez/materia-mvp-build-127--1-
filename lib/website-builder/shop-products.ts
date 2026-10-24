@@ -51,7 +51,7 @@
  * (lib/checkout/return-url.ts). A section never builds one by hand.
  */
 import { salesStandings } from "@/lib/products/sales-standings"
-import { salesSoldOut } from "@/lib/products/sales-limit"
+import { salesSoldOut, type SalesStanding } from "@/lib/products/sales-limit"
 import { cleanCustomFields } from "@/lib/products/custom-fields"
 import type { SectionInstanceData } from "@/lib/storelib-theme/types"
 import { mediaUrl } from "@/lib/storage/media-url"
@@ -419,19 +419,37 @@ export async function productVariants(db: Db, productIds: string[]): Promise<Var
  */
 export const PRODUCT_COLUMN_SETS = [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL] as const
 
-/** Rows to cards, with their options (variants) and a shipped product's Size and Colour. Never throws. */
-export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?: string, currency?: string): Promise<ProductCard[]> {
+/**
+ * Rows to cards, with their options (variants) and a shipped product's Size and Colour. Never throws.
+ *
+ * EVERY READ AT ONCE. The variants, the options, the stock, the sales limits,
+ * the custom fields and the stars each depend on the rows alone, and were
+ * asked one after another: seven round trips in a row before the first
+ * visitor of a website saw a product. They are asked together now and laid
+ * over the cards in the same order as before, so a card comes out the same.
+ */
+export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?: string, currency?: string | Promise<string>): Promise<ProductCard[]> {
   if (rows.length === 0) return []
-  /* In the store's own currency (Settings › Country & Currency), the one its prices are in. */
-  const shown = currency ?? (creatorId ? (await readStoreCurrency(db, creatorId)).currency : SHOP_CURRENCY)
   const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
+  const ids = rows.map((r) => r.id)
   /* In batches, so a long shop does not ask for hundreds of ids in one address. */
-  const [variants, options] = await Promise.all([variantsInBatches(db as Db, rows.map((r) => r.id)), optionsInBatches(db as Db, physical)])
+  const [shown, variants, options, stock, standings, fields, ratings] = await Promise.all([
+    /* In the store's own currency (Settings › Country & Currency), the one its prices are in. */
+    currency ?? (creatorId ? readStoreCurrency(db, creatorId).then((c) => c.currency) : SHOP_CURRENCY),
+    variantsInBatches(db as Db, ids),
+    optionsInBatches(db as Db, physical),
+    creatorId ? physicalStockFacts(db as Db, creatorId, rows).catch(() => null) : null,
+    salesStandingsOf(db, rows).catch(() => null),
+    customFieldsOf(db as Db, ids).catch(() => undefined),
+    creatorId ? ratingsOf(db as Db, creatorId, ids).catch(() => null) : null,
+  ])
   const cards = rows.map((r) => toCard(r, variants, options, shown))
-  const stocked = creatorId ? await withPhysicalStock(db as Db, creatorId, rows, cards).catch(() => cards) : cards
-  const capped = await withSalesLimits(db, rows, stocked).catch(() => stocked)
-  const fielded = await withCustomFields(db as Db, capped).catch(() => capped)
-  return creatorId ? await withRatings(db as Db, creatorId, fielded).catch(() => fielded) : fielded
+  /* Laid over in the order they always were: stock, sales limits, custom fields, stars. */
+  const stocked = stock ? withStockFacts(rows, cards, stock) : cards
+  const capped = standings ? withStandings(stocked, standings) : stocked
+  /* A read that threw leaves the cards as they were, as it always did. */
+  const fielded = fields === undefined ? capped : withFieldsRead(capped, fields)
+  return ratings ? withRatingsRead(fielded, ratings) : fielded
 }
 
 /**
@@ -441,11 +459,15 @@ export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?:
  * server's own client); any other client, or a database before part 150,
  * leaves the cards as they were. Never throws.
  */
-async function withSalesLimits(db: unknown, rows: ProductRow[], cards: ProductCard[]): Promise<ProductCard[]> {
+/** The standings of the rows' downloads, or null when none is limited. Read for cardsFromRows above. */
+async function salesStandingsOf(db: unknown, rows: ProductRow[]): Promise<Map<string, SalesStanding> | null> {
   const ids = rows.filter((r) => r.type !== "physical").map((r) => r.id)
-  if (ids.length === 0) return cards
+  if (ids.length === 0) return null
   const standings = await salesStandings(db as Parameters<typeof salesStandings>[0], ids)
-  if (standings.size === 0) return cards
+  return standings.size === 0 ? null : standings
+}
+
+function withStandings(cards: ProductCard[], standings: Map<string, SalesStanding>): ProductCard[] {
   return cards.map((card) => {
     if (!salesSoldOut(standings.get(card.id))) return card
     const variants = (card.settings.variants ?? []).map((v) => ({ ...v, available: false, checkout_url: "" }))
@@ -466,14 +488,23 @@ async function withSalesLimits(db: unknown, rows: ProductRow[], cards: ProductCa
  */
 export async function withRatings(db: Db, creatorId: string, cards: ProductCard[]): Promise<ProductCard[]> {
   if (cards.length === 0) return cards
+  const ratings = await ratingsOf(db, creatorId, cards.map((c) => c.id))
+  return ratings ? withRatingsRead(cards, ratings) : cards
+}
+
+type RatingsRead = { byId: Map<string, { count: number; average: number }>; color: string }
+
+/** The stars of these products, or null when the cards keep none (the app off, a read that failed). */
+async function ratingsOf(db: Db, creatorId: string, productIds: string[]): Promise<RatingsRead | null> {
+  if (productIds.length === 0) return null
   const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
   const { data: app, error: appError } = await any.from("store_settings").select("reviews").eq("creator_id", creatorId).maybeSingle()
-  if (appError) return cards
+  if (appError) return null
   const settings = readReviewsApp((app as { reviews?: unknown } | null)?.reviews)
-  if (!settings.enabled || !settings.display.showCardRating) return cards
+  if (!settings.enabled || !settings.display.showCardRating) return null
   const byId = new Map<string, { count: number; average: number }>()
-  for (let i = 0; i < cards.length; i += 80) {
-    const ids = cards.slice(i, i + 80).map((c) => c.id)
+  for (let i = 0; i < productIds.length; i += 80) {
+    const ids = productIds.slice(i, i + 80)
     const shown = await any.from("reviews").select("product_id, rating").in("product_id", ids).eq("status", "published").eq("site_status", "shown").limit(5000)
     if (!shown.error) {
       const sums = new Map<string, { n: number; total: number }>()
@@ -487,18 +518,22 @@ export async function withRatings(db: Db, creatorId: string, cards: ProductCard[
       continue
     }
     const code = String((shown.error as { code?: string } | null)?.code ?? "")
-    if (code !== "42703" && code !== "PGRST204") return cards
+    if (code !== "42703" && code !== "PGRST204") return null
     const { data, error } = await any.from("products").select("id, reviews_count, reviews_average").eq("status", "published").in("id", ids)
-    if (error) return cards
+    if (error) return null
     for (const r of (data ?? []) as { id: string; reviews_count?: number | null; reviews_average?: number | string | null }[]) {
       const count = Math.max(0, Math.floor(Number(r.reviews_count) || 0))
       const average = Math.round((Number(r.reviews_average) || 0) * 10) / 10
       if (count > 0 && average > 0) byId.set(r.id, { count, average })
     }
   }
+  return { byId, color: settings.display.starColor }
+}
+
+function withRatingsRead(cards: ProductCard[], { byId, color }: RatingsRead): ProductCard[] {
   return cards.map((c) => {
     const r = byId.get(c.id)
-    return r ? { ...c, rating: { value: r.average, count: r.count, percent: Math.round((r.average / 5) * 100), color: settings.display.starColor } } : c
+    return r ? { ...c, rating: { value: r.average, count: r.count, percent: Math.round((r.average / 5) * 100), color } } : c
   })
 }
 
@@ -526,30 +561,48 @@ async function variantsInBatches(db: Db, ids: string[]): Promise<VariantRow[]> {
  */
 type StockRow = { id: string; product_id: string; name: string | null; active?: boolean | null; track_inventory?: boolean | null; inventory_policy?: string | null }
 
-async function withPhysicalStock(db: Db, creatorId: string, rows: ProductRow[], cards: ProductCard[]): Promise<ProductCard[]> {
+type StockFacts = { live: StockRow[]; held: Map<string, number>; keepSelling: Set<string> }
+
+/**
+ * What the shipped products' cards need to say what is in stock, or null
+ * when they keep what they already say. The live variants, the locations that
+ * fulfil orders and which products keep selling are asked together; what the
+ * locations hold, once the first two are in.
+ */
+async function physicalStockFacts(db: Db, creatorId: string, rows: ProductRow[]): Promise<StockFacts | null> {
   const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
-  if (physical.length === 0) return cards
+  if (physical.length === 0) return null
   const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
-  const live: StockRow[] = []
-  for (let i = 0; i < physical.length; i += 80) {
-    const { data, error } = await any.from("product_variants").select("id, product_id, name, active, track_inventory, inventory_policy").in("product_id", physical.slice(i, i + 80))
-    if (error) return cards
-    for (const v of (data ?? []) as StockRow[]) if (v.active !== false && !/^Archived /.test(v.name ?? "")) live.push(v)
+  const readLive = async (): Promise<StockRow[] | null> => {
+    const live: StockRow[] = []
+    for (let i = 0; i < physical.length; i += 80) {
+      const { data, error } = await any.from("product_variants").select("id, product_id, name, active, track_inventory, inventory_policy").in("product_id", physical.slice(i, i + 80))
+      if (error) return null
+      for (const v of (data ?? []) as StockRow[]) if (v.active !== false && !/^Archived /.test(v.name ?? "")) live.push(v)
+    }
+    return live
   }
-  if (live.length === 0) return cards
-  const { data: locations, error: locError } = await any.from("inventory_locations").select("id").eq("creator_id", creatorId).eq("active", true).eq("fulfills_orders", true)
-  if (locError) return cards
+  const [live, { data: locations, error: locError }, { data: keep }] = await Promise.all([
+    readLive(),
+    any.from("inventory_locations").select("id").eq("creator_id", creatorId).eq("active", true).eq("fulfills_orders", true),
+    any.from("products").select("id, continue_selling").eq("status", "published").in("id", physical),
+  ])
+  if (!live || live.length === 0) return null
+  if (locError) return null
   const locIds = ((locations ?? []) as { id: string }[]).map((l) => l.id)
   const held = new Map<string, number>()
   if (locIds.length) {
     for (let i = 0; i < live.length; i += 80) {
       const { data, error } = await any.from("inventory_levels").select("variant_id, available").in("variant_id", live.slice(i, i + 80).map((v) => v.id)).in("location_id", locIds)
-      if (error) return cards
+      if (error) return null
       for (const l of (data ?? []) as { variant_id: string; available: number }[]) held.set(l.variant_id, (held.get(l.variant_id) ?? 0) + Math.max(0, l.available))
     }
   }
-  const { data: keep } = await any.from("products").select("id, continue_selling").eq("status", "published").in("id", physical)
   const keepSelling = new Set(((keep ?? []) as { id: string; continue_selling?: boolean | null }[]).filter((p) => p.continue_selling === true).map((p) => p.id))
+  return { live, held, keepSelling }
+}
+
+function withStockFacts(rows: ProductRow[], cards: ProductCard[], { live, held, keepSelling }: StockFacts): ProductCard[] {
   const rowOf = new Map(rows.map((r) => [r.id, r]))
   const soldOutVariant = new Map<string, boolean>()
   for (const v of live) {
@@ -577,13 +630,24 @@ async function withPhysicalStock(db: Db, creatorId: string, rows: ProductRow[], 
  */
 export async function withCustomFields(db: Db, cards: ProductCard[]): Promise<ProductCard[]> {
   if (cards.length === 0) return cards
+  return withFieldsRead(cards, await customFieldsOf(db, cards.map((c) => c.id)))
+}
+
+/** Each product's custom fields by id; null when the column cannot be read. */
+async function customFieldsOf(db: Db, productIds: string[]): Promise<Map<string, Record<string, string>> | null> {
   const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
   const byId = new Map<string, Record<string, string>>()
-  for (let i = 0; i < cards.length; i += 80) {
-    const { data, error } = await any.from("products").select("id, custom_fields").eq("status", "published").in("id", cards.slice(i, i + 80).map((c) => c.id))
-    if (error) return cards.map((c) => ({ ...c, settings: { ...c.settings, fields: c.settings.fields ?? {} } }))
+  for (let i = 0; i < productIds.length; i += 80) {
+    const { data, error } = await any.from("products").select("id, custom_fields").eq("status", "published").in("id", productIds.slice(i, i + 80))
+    if (error) return null
     for (const r of (data ?? []) as { id: string; custom_fields?: unknown }[]) byId.set(r.id, cleanCustomFields(r.custom_fields))
   }
+  return byId
+}
+
+/** No column to read (null): every card still has `fields`, its own or empty. */
+function withFieldsRead(cards: ProductCard[], byId: Map<string, Record<string, string>> | null): ProductCard[] {
+  if (!byId) return cards.map((c) => ({ ...c, settings: { ...c.settings, fields: c.settings.fields ?? {} } }))
   return cards.map((c) => ({ ...c, settings: { ...c.settings, fields: byId.get(c.id) ?? {} } }))
 }
 
@@ -643,6 +707,9 @@ export async function shopCatalogue(db: Db, creatorId: string): Promise<ProductC
 async function readCards(db: Db, creatorId: string, n: number, listedOnly: boolean): Promise<ProductCard[]> {
   if (!creatorId) return []
   try {
+    /* The rows, the products kept off the Online store and the store's currency do not wait on each other. Neither read throws. */
+    const hidden = offChannel(db, creatorId, "storefront")
+    const currency = readStoreCurrency(db, creatorId).then((c) => c.currency)
     let rows: ProductRow[] | null = null
     for (const cols of PRODUCT_COLUMN_SETS) {
       const { data, error } = await db
@@ -658,8 +725,8 @@ async function readCards(db: Db, creatorId: string, n: number, listedOnly: boole
     }
     if (!rows) return []
     /* Settings › Sales channels: a product taken off the Online store is in none of its lists (lib/store/channels). */
-    rows = listedOn(rows, await offChannel(db, creatorId, "storefront"))
-    return await cardsFromRows(db, rows, creatorId)
+    rows = listedOn(rows, await hidden)
+    return await cardsFromRows(db, rows, creatorId, currency)
   } catch {
     return []
   }

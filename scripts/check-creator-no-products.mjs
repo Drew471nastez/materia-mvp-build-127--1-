@@ -94,8 +94,20 @@ try {
   const measure = (p) =>
     p.evaluate(() => {
       const r = (el) => (el ? el.getBoundingClientRect() : null)
-      const follow = r(document.querySelector("[data-storefront-follow]") || document.querySelector("[data-profile-social]"))
       const cat = document.querySelector("[data-probe-catalogue]")
+      /*
+        Changed on purpose (round 38): no followers on a creator page, so the
+        owner (who has no Follow) has no follow row at all. Then the header's
+        last ink (the meta row, the owner's controls) is what the next thing
+        must sit close under.
+      */
+      const follow = (() => {
+        const row = document.querySelector("[data-storefront-follow]") || document.querySelector("[data-profile-social]")
+        if (row) return r(row)
+        const header = cat?.previousElementSibling
+        const inks = [...(header?.querySelectorAll("h1, h2, p, a, button, img, svg") ?? [])].map(r).filter((b) => b.height > 0)
+        return inks.length ? { bottom: Math.max(...inks.map((b) => b.bottom)) } : null
+      })()
       const prompt = document.querySelector("[data-first-product]")
       const add = document.querySelector("[data-first-product-add]")
       const heading = document.querySelector("#storefront-communities-heading")

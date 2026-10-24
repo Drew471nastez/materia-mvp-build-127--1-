@@ -18,6 +18,11 @@
  * needed. So it is plain text now, quieter than the buttons under it. The
  * followers number is still the server's after every press.
  *
+ * NOT ON A CREATOR PAGE. The owner (round 38): followers and following
+ * only on personal profiles and member profiles inside communities. A
+ * creator page (app/(marketing)/u/[username]) draws this block with
+ * `showCounts` false: where they are from and Follow, no numbers.
+ *
  * Follow is Storelib's button (components/profile/follow-button.tsx): on
  * a creator's page (tone "storefront") painted in the page's scheme
  * (`scheme`), on a plain profile Storelib's own near black and white.
@@ -36,8 +41,8 @@ function compact(n: number): string {
 export function ProfileSocial({
   userId,
   name,
-  followers: initialFollowers,
-  following,
+  followers: initialFollowers = 0,
+  following = 0,
   viewerFollowing,
   signedIn,
   isSelf,
@@ -49,12 +54,13 @@ export function ProfileSocial({
 }: {
   userId: string
   name: string
-  followers: number
-  following: number
+  /** Both counts are for a person's profile; a creator page passes neither and sets showCounts false. */
+  followers?: number
+  following?: number
   viewerFollowing: boolean
   signedIn: boolean
   isSelf: boolean
-  /** A creator can keep their follower count off their page (Show followers); the button stays. */
+  /** False on a creator page: followers and following belong to profiles only (round 38). The button stays. */
   showCounts?: boolean
   tone?: FollowTone
   /** A creator page's scheme button colours (lib/store-builder/storefront-chrome.ts `action`). */

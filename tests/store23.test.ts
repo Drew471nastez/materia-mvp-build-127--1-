@@ -278,7 +278,8 @@ async function channels() {
   check("List new products on: one channel, else all of them", [...startingChannels(all, "c-stall")].join() === "c-stall" && startingChannels(all, null).size === 4 && startingChannels(all, "gone").size === 4)
   check("a product off a channel leaves that list only", listedOn([{ id: "a" }, { id: "b" }], new Set(["b"])).map((p) => p.id).join() === "a")
   const surfaces: [string, RegExp][] = [
-    ["lib/website-builder/shop-products.ts", /listedOn\(rows, await offChannel\(db, creatorId, "storefront"\)\)/],
+    /* Changed on purpose (round 36): asked beside the products read, then applied to the rows. */
+    ["lib/website-builder/shop-products.ts", /const hidden = offChannel\(db, creatorId, "storefront"\)[\s\S]*listedOn\(rows, await hidden\)/],
     ["lib/website-builder/storefront-collections-server.ts", /offChannel\(db, creatorId, "storefront"\)/],
     ["lib/website-builder/storefront-data-server.ts", /offChannel\(db, creatorId, "storefront"\)/],
     ["app/api/website-builder/search/route.ts", /offChannel\(admin, creatorId, "storefront"\)/],

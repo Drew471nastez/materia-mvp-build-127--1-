@@ -138,7 +138,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   select: def({
     type: "select",
     label: "Select",
-    description: "One of a list, drawn as a dropdown.",
+    description: "One of a list. One to three options are a row of buttons, four or more a dropdown; labels too long for a button also get the dropdown.",
     value: "enum",
     schema: z.string(),
     fallback: "",
@@ -156,7 +156,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   radio: def({
     type: "radio",
     label: "Radio",
-    description: "One of a short list, every option visible.",
+    description: "One of a list, drawn by the same rule as `select`: buttons for one to three options, a dropdown past that.",
     value: "enum",
     schema: z.string(),
     fallback: "",

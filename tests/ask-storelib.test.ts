@@ -128,9 +128,11 @@ section("The computer's pill")
   )
   check(
     "the pill's glass fades on its own opacity and is moved by a transform; the conversation moves and fades as one element",
-    /style=\{appear\(!expanded && !pillAway, 280, 200\)\}/.test(chat) &&
+    /* Changed on purpose (round 34): in full screen the pill slides under the canvas's edge with its glass solid (slideAway), never faded. */
+    /style=\{appear\(!expanded && !faceAway, 280, 200\)\}/.test(chat) &&
+      /const faceAway = pillAway && !slideAway/.test(chat) &&
       /\.\.\.cardMotion\(cardOpen\)/.test(chat) &&
-      /data-ask-pill-state=\{pillAway \? "away" : "shown"\} style=\{lift\(!pillAway/.test(chat),
+      /data-ask-pill-state=\{pillAway \? "away" : "shown"\} style=\{slideAway \? lift\(false, [^}]*\}px\)\)`, 320, 320\) : lift\(!pillAway/.test(chat),
   )
   check(
     "opening and closing move on transform and opacity only: the iOS curve in, a quicker ease in out",

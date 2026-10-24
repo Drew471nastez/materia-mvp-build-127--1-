@@ -164,7 +164,8 @@ try {
   const curvePeak = (d) => (d / FOLD_MS) * EASE_PEAK * 1.05
   expect(canvasIn.peakSpeed <= curvePeak(canvasIn.distance), "smoothly: the canvas never moves faster than the fold's own curve", { peakSpeed: canvasIn.peakSpeed, curvePeak: Math.round(curvePeak(canvasIn.distance) * 100) / 100, biggestStep: canvasIn.biggest, longestFrameMs: canvasIn.longestFrameMs })
   /* Round Z1: the film starts before the press and the fold is played from the commit, so up to two frames of press are allowed before its 320ms. */
-  expect(canvasIn.settledAt !== null && canvasIn.settledAt <= FOLD_MS + canvasIn.longestFrameMs + 80, "and settles when the fold ends", { settledAt: canvasIn.settledAt, foldMs: FOLD_MS })
+  /* Changed on purpose (round 34): the fold waits for the press's own frame to be drawn before its clock starts (canvas-switch.ts startOnceDrawn), one frame more. */
+  expect(canvasIn.settledAt !== null && canvasIn.settledAt <= FOLD_MS + 2 * canvasIn.longestFrameMs + 80, "and settles when the fold ends", { settledAt: canvasIn.settledAt, foldMs: FOLD_MS })
   const on = await page.evaluate(STATE)
   expect(on.canvas >= 1440 - 16, "the site fills the editor's width", on.canvas)
   expect(on.pressed === "true" && on.switchVisible && on.deviceVisible, "the switches stay on the bar, the full screen one pressed", on)

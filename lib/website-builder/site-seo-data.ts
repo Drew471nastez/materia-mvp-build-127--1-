@@ -6,6 +6,7 @@ import "server-only"
  * published products, and the address the site is served at.
  */
 import { offChannel } from "@/lib/store/channel-filter"
+import { cache } from "react"
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { primaryHostFor } from "@/lib/custom-domains/store"
@@ -42,6 +43,11 @@ export function activeDomainOf(creatorId: string): Promise<string | null> {
  * two addresses is one page to a search engine only if both name this one.
  */
 export async function siteOrigin(creatorId: string, name: string): Promise<string> {
+  return siteOriginOnce(creatorId, name)
+}
+
+/* Once per request (React's cache): the page, its metadata and its search result data all ask, side by side. */
+const siteOriginOnce = cache(async function siteOriginOnce(creatorId: string, name: string): Promise<string> {
   /* The website's primary domain, at the host it is served at (www.<apex>, or
      a connected subdomain as it is): one that answers, not one that
      redirects. A creator page domain is not the website's. */
@@ -54,21 +60,22 @@ export async function siteOrigin(creatorId: string, name: string): Promise<strin
   const origin = host ?? `${(handle ?? name).toLowerCase()}.${getMainDomain()}`
   const protocol = origin.includes("localhost") ? "http" : "https"
   return `${protocol}://${origin}`
-}
+})
 
 /**
  * The creator's own picture (profiles.avatar_url, which Settings and the
  * page builder both keep), for a share card that has nothing better. Asked
  * only when the site has no share image, logo or hero picture; cached for
- * five minutes, and nothing at all rather than an error.
+ * five minutes, and nothing at all rather than an error. `knownUserId`, the
+ * creator's account when the caller already has it (the site's name lookup
+ * does), saves asking `creators` for it; the entry is the same either way.
  */
-export async function creatorAvatar(creatorId: string): Promise<string | null> {
+export async function creatorAvatar(creatorId: string, knownUserId?: string | null): Promise<string | null> {
   return unstable_cache(
     async () => {
       try {
         const admin = createAdminClient()
-        const { data: creator } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
-        const userId = (creator as { user_id?: string | null } | null)?.user_id
+        const userId = knownUserId || ((await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()).data as { user_id?: string | null } | null)?.user_id
         if (!userId) return null
         const { data: profile } = await admin.from("profiles").select("avatar_url").eq("id", userId).maybeSingle()
         return ((profile as { avatar_url?: string | null } | null)?.avatar_url ?? null) || null

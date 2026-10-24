@@ -48,6 +48,16 @@ const SUITES = [
   /* Round X3: light or dark in Website Settings (the shared choice), the quieter language chip, Copy under the creator's message, a product's translations one language at a time; scripts/check-ui-polish-x.mjs measures them. */
   "tests/ui-polish-x.test.ts",
   "tests/shop-money.test.ts",
+  /* Round ed-1022: every edit on the canvas at once (the ease, the overlay kept after a drag, the currency code, variables-only theme values); scripts/check-editor-live.mjs measures them. */
+  "tests/editor-live-updates.test.ts",
+  /* Round 1023: the sidebar's drag (a trackpad scroll under a held row, Escape, a drag that always ends clean, each move said aloud) and every select setting's one rule, buttons for one to three options, the dropdown past that; scripts/check-sidebar-dnd.mjs and scripts/check-segmented.mjs measure them. */
+  "tests/sidebar-dnd.test.ts",
+  "tests/segmented-select.test.ts",
+  /* Round canvas-1023: the canvas that stopped scrolling (a held page with nothing open, a preloader's wait that never ended, a page that left the frame), the toolbar over a selected block, Add section between an imported theme's sections; scripts/check-canvas-freeze.mjs and check-canvas-toolbar.mjs measure them. */
+  "tests/editor-canvas-freeze.test.ts",
+  "tests/editor-canvas-toolbar.test.ts",
+  /* Round freeze2-1023: the canvas held from its first paint (the first look, the first wheel, a stopped smooth scroll, what holds a page, a preloader that never goes), a block's settings opening at their top, a layout setting changed in place; scripts/check-canvas-landing.mjs, check-sidebar-open.mjs and check-theme-settings-live.mjs measure them. */
+  "tests/editor-freeze2.test.ts",
   "tests/store-currency.test.ts",
   "tests/round-am.test.ts",
   "tests/round-an.test.ts",
@@ -56,6 +66,8 @@ const SUITES = [
   "tests/auto-translate.test.ts",
   "tests/checkout-words.test.ts",
   "tests/checkout-text.test.ts",
+  /* Round chk-1021: "Buying for a business" only where the store turns on Company invoices, in every checkout and route; SQL part 256. */
+  "tests/checkout-company-invoice.test.ts",
   "tests/order-emails-language.test.ts",
   "tests/site-languages-seo.test.ts",
   "tests/playbook24.test.ts",
@@ -73,6 +85,8 @@ const SUITES = [
   "tests/review-widgets.test.ts",
   "tests/reviews-import-v.test.ts",
   "tests/reviews-product-page.test.ts",
+  /* Round reviews-1023: Storelib Reviews in an imported theme as a Shopify reviews app (the review metafields everywhere, Star rating and Reviews app blocks, Shop words, aggregateRating); scripts/check-compat-reviews.mjs measures them. */
+  "tests/compat-reviews-blocks.test.ts",
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
   "tests/canvas20.test.ts",
@@ -144,6 +158,14 @@ const SUITES = [
   "tests/editor-stability.test.ts",
   "tests/community-mobile.test.ts",
   "tests/live-settings.test.ts",
+  /* Round 34: a sidebar control and the canvas that follows it on a 44 section page: a theme value drawn by the sections on screen, one draw in flight, no whole-page restyle on the first press, the page not one layer, switches and selects in their own frame (scripts/check-editor-live-edit.mjs measures them at 1x and 4x). */
+  "tests/editor-live-edit-34.test.ts",
+  /* Round 35: a section's setting and a theme value dragged on an imported theme follow the finger; scripts/check-compat-live-edit.ts measures them. */
+  "tests/compat-live-edit-35.test.ts",
+  /* Round 36: a theme value only the layout's CSS reads, on an imported theme, written as the layout's styles drawn alone; scripts/check-compat-live-edit.ts measures it. */
+  "tests/compat-theme-css-36.test.ts",
+  /* Round 36: the builder's canvas draws a .storelib section's scheme colours as its root's variables, so a scheme colour under a finger draws no section again; scripts/check-scheme-vars.ts compares the computed styles, scripts/check-editor-live-edit.mjs measures the drag. */
+  "tests/scheme-vars-36.test.ts",
   "tests/theme-freedom.test.ts",
   "tests/reference-diff.test.ts",
   "tests/ai-runs-admin.test.ts",
@@ -181,6 +203,9 @@ const SUITES = [
   "tests/analytics-completeness.test.ts",
   /* Round Z6: operating systems, referrers by company (official marks), page titles, the five step funnel, physical and digital sales, and the physical checkout's steps tracked (scripts/check-analytics-reports.mjs measures the cards). */
   "tests/analytics-audience.test.ts",
+  /* Round ana-1021: a visitor's browser to the seller's report through the real tracker, collect, the reports' answer and a database fake (every surface, bots, repeats, orders); every timeframe, the comparison, product and place on every number, the seller's clock, the sections a seller sees and the reports they add (scripts/check-analytics-tabs.mjs measures the tabs, shifts and switching). */
+  "tests/analytics-e2e.test.ts",
+  "tests/analytics-filters.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
   "tests/library-depth.test.ts",
@@ -220,6 +245,8 @@ const SUITES = [
   "tests/basket-checkout.test.ts",
   "tests/site-checkout.test.ts",
   "tests/site-checkout-physical.test.ts",
+  /* Round cart-1023: an imported theme's discount box, Estimate shipping and order note, priced by the website checkout; scripts/check-compat-cart-drawer.ts presses them in a browser. */
+  "tests/compat-cart-discount.test.ts",
   "tests/owned-checkout.test.ts",
   "tests/membership-duplicates.test.ts",
   "tests/checkout-safety.test.ts",
@@ -449,8 +476,14 @@ const SUITES = [
   "tests/github-sync.test.ts",
   "tests/github-theme-sync.test.ts",
   "tests/github-publish-sync.test.ts",
+  /* The whole theme reaches an empty repository (README.md first, every file read back), a branch is protected only when GitHub says so, a file push protection refuses is set apart, a send out of time finishes on the next. */
+  "tests/github-complete-sync.test.ts",
   /* Round Z4: a pushed file in the other format is taken or converted, AGENTS.md shows each folder with real files, one button per branch dead end, Recent five at a time. */
   "tests/github-format-z4.test.ts",
+  /* Round repo-1022: Storelib's own Theme settings (Hover and focus, the built-in groups) in the repository both ways, the theme's placement winning in the builder, the store's menus, push results as a comment, a git note and the status's Details; everything the builder shows is in the export; Add block lists what the schema allows, and MCP adds the same blocks. */
+  "tests/repo-export-platform-settings.test.ts",
+  "tests/repo-export-coverage.test.ts",
+  "tests/repo-export-blocks.test.ts",
   "tests/schema-edits-sidebar.test.ts",
   "tests/theme-config-files-v.test.ts",
   "tests/collection-binding-v.test.ts",
@@ -560,6 +593,11 @@ const SUITES = [
   "tests/physical-setup-t.test.ts",
   "tests/physical-readiness.test.ts",
   "tests/emails-t.test.ts",
+  /* Emails › Customer emails in three families, the language and the signature by where it was bought, previews that are the sent email; scripts/check-emails-families.mjs measures the switch and the lists. */
+  "tests/emails-families.test.ts",
+  "tests/emails-language.test.ts",
+  "tests/emails-identity.test.ts",
+  "tests/emails-preview.test.ts",
   "tests/files-t.test.ts",
   "tests/files-inventory-v.test.ts",
   "tests/activity-t.test.ts",
@@ -614,6 +652,17 @@ const SUITES = [
   "tests/communities-foundation.test.ts",
   "tests/user-notifications.test.ts",
   "tests/push-bridge.test.ts",
+  /* Round 37: community chat (order and duplicates, who may message whom, admin settings, when a phone is told, authorization, part 270). */
+  "tests/community-chat-r37.test.ts",
+  /* Round 38: who may start a conversation (level, days, the team), who can post in a channel, the Chat tab, Message on profiles, automated messages each member once and in batches, part 272. */
+  "tests/community-chat-r38.test.ts",
+  /* Round 38: community chat speed (kept pages and list, asked for early, no spinner) and rich content (signed link cards, YouTube, GIFs, video, emoji). */
+  "tests/community-chat-speed-r38.test.ts",
+  /* Round 39: New message's suggested people (the team, the people the member deals with, never the blocked or refused) and its search, a post sent in a message (only one the sender may see, its card per reader, "Post not available" otherwise). */
+  "tests/community-people-r39.test.ts",
+  "tests/community-post-card-r39.test.ts",
+  /* Round 39: pictures in chat (both picture addresses read by the folder check), the box's one row, sent, delivered and seen, presence, the panel's motion, a conversation found on hover, part 275. */
+  "tests/community-chat-r39.test.ts",
   "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
   "tests/communities-plans-af.test.ts",
@@ -669,6 +718,13 @@ const SUITES = [
   "tests/community-analytics-r32.test.ts",
   /* Round 33: a community's visits counted by the page once it is on a screen (sources, devices, countries, the app), member churn, DAU to MAU, new and returning, an overview over the sections (scripts/check-community-analytics-round33.mjs measures it). */
   "tests/community-analytics-r33.test.ts",
+  /* Round 38: churn of the members at the start, the owner out of active members and engagement, modules and refunds in revenue (SQL part 274), five figures in the row, the grey fills (scripts/check-community-analytics-round38.mjs measures them). */
+  "tests/community-analytics-r38.test.ts",
+  "tests/round39.test.ts",
+  /* Round 39: the community Library: who opens an item, files and links only through routes that ask again, the admin's items and sections, a sold item through Storelib's own checkout (orders, receipts, the buyer's library), refunds, the places and the tab (SQL part 278; scripts/check-community-library-r39.mjs measures the screens). */
+  "tests/community-library-r39.test.ts",
+  /* Round 39: signing in from a receipt (the way back, an existing address moved to sign in, a guest's orders joining the account once the address is verified), the guest purchase cookie (signed per order, a year, refunds close it), the header and pages agreeing (scripts/check-buyer-auth-r39.mjs walks it in a browser). */
+  "tests/buyer-auth-r39.test.ts",
   /* Round 32: questions before joining, a new member's first steps and welcome message, scheduled posts and drafts, inviting a list (SQL parts 186 to 188). */
   "tests/community-features-round32.test.ts",
   /* Round 26: the admin's Posts: one writer that posts, schedules in the creator's zone and keeps team drafts (part 194), the writer's slide, the community's own post popup (scripts/check-posts26.mjs films them). */
@@ -744,10 +800,14 @@ const SUITES = [
   "tests/mobile-perf.test.ts",
   /* Round V1: a published website held and cleared, its round trips counted, its links opened in place, its first picture first, one favicon, no about:blank tab (scripts/check-live-speed.ts measures them) */
   "tests/live-speed-v.test.ts",
+  /* After a Publish no request and no page in the browser shows the old theme: the tag expired at once, the live release and its marker, an imported theme's hold, Back and bfcache, links opened in place, a switch of renderer */
+  "tests/publish-shows-new-release.test.ts",
   /* Round W1: an imported theme's live page stored by the CDN (no Vary: Cookie), its body's CSS gathered in the head in order, its flags lazy, plain HTML with no React, links fetched ahead (scripts/check-live-first-load.mjs measures it) */
   "tests/live-first-load-w.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */
   "tests/live-speed-x.test.ts",
+  /* Oct 21: an imported theme's page held for a returning visitor (only Storelib's own page cookies keep it private), routed after one round trip (SQL part 257 site_route_facts), its draw's reads started together (scripts/check-live-speed.mjs asks a live site the same questions) */
+  "tests/live-speed-imported.test.ts",
   /* Round 26 (W6): community SEO by state, the sitemap and canonicals, the member links inside a community and their presses (SQL part 221) */
   "tests/seo26.test.ts",
   /* The carrier picker's own carriers and live data: search, preselection, stars, defaults, the shop's carriers, connected accounts, no price without a provider, the logo's letters, part 233 (scripts/check-carrier-select.mjs photographs it). */
@@ -770,6 +830,10 @@ const SUITES = [
   "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",
+  /* Round 34: Add block opens a picker with each block drawn in its section before it is added (scripts/check-block-picker.mjs measures it in the real editor) */
+  "tests/block-picker.test.ts",
+  /* Round 34: the builder's draft written one snapshot at a time (save ordering, Saved only for what is on screen, retry on its own), undo by reference and per field, memoised rows and insert strips (scripts/check-editor-sections.mjs measures them on 44 sections) */
+  "tests/editor-sections-r34.test.ts",
 ]
 
 /**
@@ -787,6 +851,8 @@ const STRICT_SUITES = [
   "tests/e2e24.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
   "tests/e2e-store-currency.test.ts",
+  /* A euro store moves to lei: what converts and what stays (plans, offers, smart collections, part 258), More currencies from the new base, caches expired, orders and totals never relabelled or added across currencies (tests/_journey) */
+  "tests/store-currency-change.test.ts",
   /* One lei store with the marketplace in dollars for it alone: website, shared link and Explore purchases, stale and missing rates, a refund, emails, ledger, chart and Payouts (tests/_journey) */
   "tests/e2e-marketplace-usd.test.ts",
   /* Round AO: the price audit and restore scripts, as separate processes over HTTP against the journey database (tests/_journey) */

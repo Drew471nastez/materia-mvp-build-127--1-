@@ -680,7 +680,8 @@ function ThemeChatPanel({
   onWriteFailed,
   variant = "sheet",
   hidden = false,
-  suspended = false,
+  suspended: suspendedProp = false,
+  tucked = false,
   openRequest = 0,
   selectedBlockId,
 }: {
@@ -694,6 +695,12 @@ function ThemeChatPanel({
   hidden?: boolean
   /** Dock only: the canvas is showing something else (the code, settings). */
   suspended?: boolean
+  /**
+   * Dock only: put away by sliding under the canvas's bottom edge, solid the
+   * whole way (the editor's full screen, while the canvas grows). Otherwise
+   * as `suspended`.
+   */
+  tucked?: boolean
   /** Dock only: each new value opens the conversation and puts the cursor in it. */
   openRequest?: number
   /**
@@ -770,6 +777,8 @@ function ThemeChatPanel({
   onOp: (op: ThemeOp) => void
   onClose: () => void
 }) {
+  /* Tucked away is away, for everything but how it goes. */
+  const suspended = suspendedProp || tucked
   const [exchanges, setExchanges] = React.useState<Exchange[]>([])
   /**
    * The newest finished run the open conversation has shown. One that ends
@@ -2685,6 +2694,9 @@ function ThemeChatPanel({
   const showPill = dock && !hidden && !suspended && g !== null
   const cardOpen = expanded && showPill
   const pillAway = !showPill || (yielding && !cardOpen)
+  /* Sliding under the canvas's edge, its glass solid the whole way: nothing about it fades. */
+  const slideAway = dock && tucked && !suspendedProp && !hidden
+  const faceAway = pillAway && !slideAway
   /** True for the length of the close, so the conversation keeps its layer until it is put away. */
   const [cardLeaving, setCardLeaving] = React.useState(false)
   const cardWasOpen = React.useRef(false)
@@ -3294,17 +3306,17 @@ function ThemeChatPanel({
             aria-hidden
             data-ask-glass=""
             className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#1a1a2e]/[0.08] bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.04),0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-8px_rgba(15,23,42,0.16),0_22px_44px_-20px_rgba(15,23,42,0.24)]"
-            style={appear(!expanded && !pillAway, 280, 200)}
+            style={appear(!expanded && !faceAway, 280, 200)}
           />
           <span
             aria-hidden
             data-ask-solid=""
             className="pointer-events-none absolute inset-0 rounded-[inherit] border border-[#e5e7eb] bg-white shadow-[0_8px_24px_-12px_rgba(15,23,42,0.16)]"
-            style={appear(expanded && !pillAway, 280, 200)}
+            style={appear(expanded && !faceAway, 280, 200)}
           />
         </>
       )}
-      <div className="relative min-w-0" style={dock ? appear(!pillAway, 280, 200) : undefined}>
+      <div className="relative min-w-0" style={dock ? appear(!faceAway, 280, 200) : undefined}>
         {thumbnails}
         {attachProblemLine}
         {fileInput}
@@ -3539,7 +3551,7 @@ function ThemeChatPanel({
             style={{ left: (box.w - g.pillW) / 2, bottom: g.pillBottom, width: g.pillW }}
           >
             {/* Moved on transform only: the glass inside fades itself (see the pill's faces). */}
-            <div data-ask-pill-state={pillAway ? "away" : "shown"} style={lift(!pillAway, "translateY(14px) scale(0.98)", 280, 200)}>
+            <div data-ask-pill-state={pillAway ? "away" : "shown"} style={slideAway ? lift(false, `translateY(calc(100% + ${g.pillBottom + 56}px))`, 320, 320) : lift(!pillAway, "translateY(14px) scale(0.98)", 280, 200)}>
               <div ref={pillFlipRef}>
                 <div
                   ref={pillRef}

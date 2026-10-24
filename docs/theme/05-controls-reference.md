@@ -185,7 +185,7 @@ These types have nothing to point at on Storelib and are refused with the reason
 
 ## select
 
-**Select.** One of a list, drawn as a dropdown.
+**Select.** One of a list. One to three options are a row of buttons, four or more a dropdown; labels too long for a button also get the dropdown.
 
 - Value: enum
 - Default when the schema gives none: `""`
@@ -214,7 +214,7 @@ These types have nothing to point at on Storelib and are refused with the reason
 
 ## radio
 
-**Radio.** One of a short list, every option visible.
+**Radio.** One of a list, drawn by the same rule as `select`: buttons for one to three options, a dropdown past that.
 
 - Value: enum
 - Default when the schema gives none: `""`

@@ -54,8 +54,11 @@ const listeners = new Set<() => void>()
 
 /** Bumped on every change, for a reader of the whole store (useLiveSections). */
 let version = 0
+/** `version` as it was when no gesture was under way: what a reader that draws live values itself renders on (useLiveSections, quietWhileLive). */
+let settledVersion = 0
 function notify() {
   version++
+  if (depth === 0) settledVersion = version
   for (const l of listeners) l()
 }
 function subscribe(l: () => void) {
@@ -180,6 +183,44 @@ export function echoSectionSetting(sectionId: string, key: string, value: unknow
   notify()
 }
 
+/**
+ * ===========================================================================
+ *  A THEME SETTING CHOSEN IS ON THE SECTIONS ON SCREEN FIRST
+ * ===========================================================================
+ * Outside a gesture a theme setting (a switch, a choice, a font, a word, a
+ * number typed) is committed at once, and the canvas draws it from its
+ * deferred copy: every section on the page renders again with the new
+ * theme, at low priority, before any of them is shown. On a long page and a
+ * slow phone that is a wait the size of the page for a change on screen
+ * (scripts/check-editor-live.mjs, "currency code": 325ms at 4x on nine
+ * sections). Echoed here, a reader that asks for echoes (the Storelib
+ * canvas) draws the sections on screen with it first, as it draws a value
+ * under a finger, and the rest follow with the commit. Like a section's
+ * echo it is only ever what the editor holds: reconcileThemeEcho drops one
+ * the editor no longer says (an Undo), and the reader lets it go once its
+ * own copy agrees.
+ */
+let themeEcho: Record<string, unknown> | null = null
+
+/** A committed theme setting, drawn on the sections on screen now. */
+export function echoThemeSetting(key: string, value: unknown): void {
+  themeEcho = { ...themeEcho, [key]: value }
+  notify()
+}
+
+/** The theme echo checked against the editor's own settings after each of its renders: one it no longer holds is dropped. */
+export function reconcileThemeEcho(current: Record<string, unknown>): void {
+  const e = themeEcho
+  if (!e || Object.keys(e).every((k) => sameSettingValue(current[k], e[k]))) return
+  themeEcho = null
+  notify()
+}
+
+/** What is echoed for the theme now, if anything: for a test, or a probe. */
+export function themeEchoNow(): Record<string, unknown> | null {
+  return themeEcho
+}
+
 /** A committed block setting, drawn by its section now. `path` as the editor's writers take it. */
 export function echoBlockSetting(sectionId: string, path: string, key: string, value: unknown): void {
   const cur = echoes.get(sectionId) ?? {}
@@ -210,12 +251,33 @@ export function reconcileEchoes(current: (sectionId: string) => SectionInstance 
   if (dropped) notify()
 }
 
+/**
+ * Told of every live value as it is set, before any render: for a canvas
+ * that draws a value itself, in the frame the value arrived in, rather than
+ * after React has rendered it and an effect has run (compat-canvas.tsx: two
+ * frames later, at best). Returns the unsubscribe.
+ */
+export function onLiveChange(listener: () => void): () => void {
+  return subscribe(listener)
+}
+
+/** `section` as it should be drawn now: what was committed and echoed, with what a finger is moving over it. The same object when nothing is. */
+export function liveSectionNow<T extends SectionInstance>(section: T): T {
+  return withLive(withLive(section, echoes.get(section.id)), sections.get(section.id)) as T
+}
+
+/** The theme settings a finger is moving now, or null: for a canvas that writes them itself (compat-canvas.tsx). */
+export function liveThemeNow(): Record<string, unknown> | null {
+  return theme
+}
+
 /** Everything live forgotten without committing: for a test, or an editor that is closing. */
 export function resetLive(): void {
   depth = 0
   sections.clear()
   echoes.clear()
   theme = null
+  themeEcho = null
   commits.clear()
   notify()
 }
@@ -296,8 +358,16 @@ export function useLiveSection(section: SectionInstance): SectionInstance {
  * section (components/website-builder/compat/compat-canvas.tsx). A section
  * no finger is on is the same object, so a reader can tell which changed.
  */
-export function useLiveSections<T extends SectionInstance>(list: readonly T[]): T[] {
-  const at = useSyncExternalStore(subscribe, () => version, () => 0)
+export function useLiveSections<T extends SectionInstance>(list: readonly T[], opts: { quietWhileLive?: boolean } = {}): T[] {
+  /*
+    QUIET WHILE LIVE: for a canvas that draws a live value itself the moment
+    it is set (onLiveChange, liveSectionNow), a render per value is only
+    cost (compat-canvas.tsx, round 35: the canvas and its effects, every
+    value, 10 to 18ms with the CPU slowed 4x). It renders again once the
+    gesture is over, or for anything else that changes meanwhile.
+  */
+  const quiet = opts.quietWhileLive === true
+  const at = useSyncExternalStore(subscribe, () => (quiet ? settledVersion : version), () => 0)
   /* Let go of a value once the editor's own copy says the same, as useLiveSection does: an Undo after a drag is then the Undo that is drawn. */
   useLayoutEffect(() => {
     for (const s of list) {
@@ -318,6 +388,95 @@ export function useLiveSections<T extends SectionInstance>(list: readonly T[]): 
       return e || o ? (withLive(withLive(s, e), o) as T) : s
     })
   }, [list, at])
+}
+
+/** How long a theme value being drawn may hold the next one back before the next is drawn anyway. */
+export const DRAW_WAIT_MS = 400
+
+/**
+ * One draw at a time, and the newest value next (useLiveTheme below). `start`
+ * begins drawing a value and says whether there was anything to draw; the
+ * caller says `drawn` when a value is on screen. A value offered while one
+ * is being drawn waits, replacing any value already waiting: values in
+ * between are skipped, never queued. A draw that has not come back after
+ * `waitMs` holds nothing up (a render React dropped, a component gone).
+ *
+ * AND A SHARE OF THE THREAD, NOT ALL OF IT. The waiting value is drawn after
+ * a pause as long as the last draw took, so the drawing has at most half of
+ * the main thread and the browser keeps the rest for the frames: the theme's
+ * CSS variables (patched on every move) and the layout they cause. Drawn
+ * back to back, a page width dragged on a 44 section page ran more frames
+ * over 33ms than when most draws were thrown away (scripts/check-editor-
+ * live-edit.mjs). The same rule as use-frame-commit.ts, for the same reason.
+ */
+export function oneDrawInFlight<V>(
+  start: (value: V) => boolean,
+  opts: { now?: () => number; later?: (run: () => void, ms: number) => unknown; cancel?: (handle: unknown) => void; waitMs?: number } = {},
+): { offer: (value: V) => void; drawn: (value: V) => void; stop: () => void } {
+  const now = opts.now ?? (() => Date.now())
+  const later = opts.later ?? ((run: () => void, ms: number) => setTimeout(run, ms))
+  const cancel = opts.cancel ?? ((h: unknown) => clearTimeout(h as ReturnType<typeof setTimeout>))
+  const waitMs = opts.waitMs ?? DRAW_WAIT_MS
+  let inFlight: { value: V; at: number } | null = null
+  let waiting: { value: V } | null = null
+  let timer: unknown = null
+  /* Between a draw coming back and the next one starting: a render of the same value meanwhile says nothing. */
+  let pausing = false
+  const begin = (value: V) => {
+    pausing = false
+    if (timer !== null) { cancel(timer); timer = null }
+    if (!start(value)) {
+      inFlight = null
+      return
+    }
+    inFlight = { value, at: now() }
+    /* Whatever is waiting when the draw should have come back is drawn then. */
+    timer = later(() => {
+      timer = null
+      if (!inFlight || now() - inFlight.at < waitMs) return
+      inFlight = null
+      const next = waiting
+      waiting = null
+      if (next) begin(next.value)
+    }, waitMs)
+  }
+  return {
+    offer(value) {
+      if (inFlight && now() - inFlight.at < waitMs) {
+        waiting = { value }
+        return
+      }
+      waiting = null
+      begin(value)
+    },
+    drawn(value) {
+      if (pausing || !inFlight || inFlight.value !== value) return
+      const cost = Math.max(0, now() - inFlight.at)
+      if (timer !== null) { cancel(timer); timer = null }
+      if (!waiting || waiting.value === value) {
+        inFlight = null
+        waiting = null
+        return
+      }
+      /* Still "in flight" through the pause, so a value offered meanwhile waits too and replaces this one. */
+      inFlight = { value, at: now() }
+      pausing = true
+      timer = later(() => {
+        timer = null
+        pausing = false
+        inFlight = null
+        const next = waiting
+        waiting = null
+        if (next) begin(next.value)
+      }, Math.min(cost, waitMs))
+    },
+    stop() {
+      if (timer !== null) { cancel(timer); timer = null }
+      pausing = false
+      inFlight = null
+      waiting = null
+    },
+  }
 }
 
 /**
@@ -341,33 +500,111 @@ export function useLiveSections<T extends SectionInstance>(list: readonly T[]): 
  * `patch` is also called after every render with the theme that was drawn,
  * so what was written by hand never outlives the value it was written for.
  */
-export function useLiveTheme<T extends ThemeSettingsValues>(base: T, patch?: (theme: T) => void): T {
-  const [o, setO] = useState<Record<string, unknown> | null>(() => theme)
+export function useLiveTheme<T extends ThemeSettingsValues>(base: T, patch?: (theme: T) => void, opts: { echoes?: boolean } = {}): T {
+  /* What this reader draws over the theme: a value under a finger, or (for a reader that asks) a committed setting's echo. */
+  const withEchoes = opts.echoes === true
+  const storeNow = () => theme ?? (withEchoes ? themeEcho : null)
+  const [o, setO] = useState<Record<string, unknown> | null>(storeNow)
   const baseRef = useRef(base)
   const patchRef = useRef(patch)
   useLayoutEffect(() => {
     baseRef.current = base
     patchRef.current = patch
   })
-  const seen = useRef(theme)
+  const seen = useRef(storeNow())
+  const storeRef = useRef(storeNow)
+  storeRef.current = storeNow
+  /*
+    ONE DRAW IN FLIGHT, AND THE NEWEST VALUE NEXT. A transition is thrown
+    away and started again when a newer value arrives before it finishes, and
+    a finger on a colour sends one every frame: a render longer than a frame
+    never finished at all, and the canvas drew once, after the finger lifted
+    (scripts/check-editor-live-edit.mjs, a scheme colour: one draw for 61
+    values). So a value that arrives while one is still being drawn waits,
+    the draw finishes, and the newest waiting value is drawn next. Values in
+    between are skipped, never queued. `patch` still runs on every move.
+  */
+  const oRef = useRef(o)
+  const [drawing] = useState(() =>
+    oneDrawInFlight<Record<string, unknown> | null>((value) => {
+      /* Already what is drawn: nothing to wait for. */
+      if (value === oRef.current) return false
+      startTransition(() => setO(value))
+      return true
+    }),
+  )
   useEffect(() => subscribe(() => {
-    const cur = theme
+    const cur = storeRef.current()
     /* A section's value moving says nothing new about the theme. */
     if (cur === seen.current) return
     seen.current = cur
     patchRef.current?.((cur ? { ...baseRef.current, ...cur } : baseRef.current) as T)
-    startTransition(() => setO(cur))
-  }), [])
+    drawing.offer(cur)
+  }), [drawing])
+  useLayoutEffect(() => {
+    oRef.current = o
+    drawing.drawn(o)
+  }, [o, drawing])
+  useEffect(() => () => drawing.stop(), [drawing])
   const out = useMemo(() => {
     if (!o) return base
     const b = base as Record<string, unknown>
     return Object.keys(o).some((k) => !sameSettingValue(b[k], o[k])) ? ({ ...base, ...o } as T) : base
   }, [base, o])
   useLayoutEffect(() => {
-    patchRef.current?.(out)
-    if (!o || depth > 0 || theme !== o) return
-    const b = base as Record<string, unknown>
-    if (Object.keys(o).every((k) => sameSettingValue(b[k], o[k]))) theme = null
-  }, [base, o, out])
+    const store = storeNow()
+    patchRef.current?.(themeToPatch(base, o, out, store))
+    /* An echo the editor's copy has caught up with is nothing to draw. */
+    if (withEchoes && themeEcho && themeEcho !== o && drawnSettled(themeEcho, base, themeEcho, 0)) themeEcho = null
+    if (!drawnSettled(o, base, store, depth)) return
+    /*
+      LET GO OF HERE TOO, NOT ONLY IN THE STORE (round 1022). The store's
+      copy was let go of and this one kept: the last value a finger drew
+      stayed laid over the theme for good, and the next change to that
+      setting made any other way (Undo, a number typed into the box, a
+      switch in an imported theme's settings, which are all one object) was
+      drawn under it, so the canvas kept the dragged value until a refresh
+      (scripts/check-editor-live.mjs, "undo theme radius", "currency code"
+      after a drag). Nothing is drawn differently for letting go: the
+      editor's copy says the same.
+    */
+    if (store === theme) theme = null
+    if (store !== null && store === themeEcho) themeEcho = null
+    drawing.stop()
+    oRef.current = null
+    seen.current = null
+    setO(null)
+    /* An echo still waiting behind the value just let go of is drawn next. */
+    const next = storeNow()
+    if (next) {
+      seen.current = next
+      drawing.offer(next)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, o, out, drawing])
   return out
+}
+
+/**
+ * What the canvas's variables are written from after a render: the theme
+ * drawn, or, when the store already holds a newer value than the one this
+ * render drew, that one (round 1022). A render can finish with a value the
+ * finger has passed (one draw in flight, the newest waiting), and patching
+ * with it wrote the older value back over the newer one the move had
+ * written: on a slow phone the canvas stepped back and forth under the
+ * finger, and after the release showed an older radius, then the last.
+ */
+export function themeToPatch<T extends ThemeSettingsValues>(base: T, drawn: Record<string, unknown> | null, out: T, store: Record<string, unknown> | null): T {
+  return store && store !== drawn ? ({ ...base, ...store } as T) : out
+}
+
+/**
+ * Whether the theme a canvas drew from a finger can be let go of: no
+ * gesture is under way, no newer value is on its way (the store holds this
+ * one, or already let go), and the editor's own copy says the same.
+ */
+export function drawnSettled(drawn: Record<string, unknown> | null, base: ThemeSettingsValues, store: Record<string, unknown> | null, gestures: number): boolean {
+  if (!drawn || gestures > 0 || (store !== drawn && store !== null)) return false
+  const b = base as Record<string, unknown>
+  return Object.keys(drawn).every((k) => sameSettingValue(b[k], drawn[k]))
 }

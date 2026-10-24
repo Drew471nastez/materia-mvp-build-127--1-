@@ -519,16 +519,32 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown): O {
  * whole number. Absent with no published reviews, so a theme's
  * `!= blank` test draws no stars.
  */
-function reviewMetafields(rating: unknown): O {
-  const r = (rating && typeof rating === "object" ? rating : {}) as { value?: unknown; count?: unknown }
+export function reviewMetafields(rating: unknown): O {
+  const r = (rating && typeof rating === "object" ? rating : {}) as { value?: unknown; count?: unknown; color?: unknown }
   const count = typeof r.count === "number" && r.count > 0 ? Math.floor(r.count) : 0
   const average = typeof r.value === "number" && r.value > 0 ? Math.round(r.value * 10) / 10 : 0
   if (!count || !average) return {}
   const value = { [OUTPUT]: average.toFixed(1), rating: average, scale_min: 1, scale_max: 5 }
   return {
-    rating: { [OUTPUT]: average.toFixed(1), value, key: "rating", namespace: "reviews", type: "rating" },
+    /* `__star_color`: the store's star colour, for Storelib Reviews' own stars on a page that has no reviews of its own to read it from (./storelib-reviews.ts). A theme never sees a key that starts with __. */
+    rating: { [OUTPUT]: average.toFixed(1), value, key: "rating", namespace: "reviews", type: "rating", ...(typeof r.color === "string" && r.color ? { __star_color: r.color } : {}) },
     rating_count: { [OUTPUT]: String(count), value: count, key: "rating_count", namespace: "reviews", type: "number_integer" },
   }
+}
+
+/**
+ * The product page's own rating, from the page's Storelib Reviews
+ * (lib/reviews/storefront.ts, handed to the page as `reviews`): its
+ * published reviews of this product while the app is on, as the rating
+ * reviewMetafields above reads. Null for sample reviews, for another
+ * product, or with none.
+ */
+export function productRatingFrom(reviews: unknown, productId: string): { value: number; count: number; color: string } | null {
+  const r = reviews as { enabled?: unknown; sample?: unknown; star_color?: unknown; product?: { id?: unknown; summary?: { count?: unknown; average?: unknown } } | null } | null | undefined
+  if (!r || r.enabled !== true || r.sample === true || !r.product || String(r.product.id ?? "") !== productId) return null
+  const count = Number(r.product.summary?.count)
+  const value = Number(r.product.summary?.average)
+  return count > 0 && value > 0 ? { value, count, color: typeof r.star_color === "string" ? r.star_color : "" } : null
 }
 
 /**
@@ -1142,15 +1158,29 @@ function anyCase(o: O): O {
   return new Proxy(o, { get: (t, k) => (typeof k === "string" && !(k in t) ? t[k.toLowerCase()] : (t as Record<string | symbol, unknown>)[k]) })
 }
 
+/*
+  Read once per currency and kept: every page context lists the store's
+  countries, each with its currency's sign, and a formatter made for each
+  was most of what reading a page's context cost (a header drawn again in
+  the builder for each value of a slider read it every time; round 35,
+  scripts/check-compat-live-edit.ts). The answer for a code never changes.
+*/
+const symbols = new Map<string, string>()
+
 /** A currency's sign, as Shopify's currency.symbol gives it. */
 export function currencySymbol(iso: string): string {
+  const known = symbols.get(iso)
+  if (known !== undefined) return known
+  let sign: string
   try {
     const part = new Intl.NumberFormat("en", { style: "currency", currency: iso, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency")
     /* A sign in letters is the currency's own word, never a lone letter (lib/markets/money currencyWord). */
-    return part && !/^\p{L}+$/u.test(part.value) ? part.value : (currencyWord(iso) ?? iso)
+    sign = part && !/^\p{L}+$/u.test(part.value) ? part.value : (currencyWord(iso) ?? iso)
   } catch {
-    return iso
+    sign = iso
   }
+  if (symbols.size < 1000) symbols.set(iso, sign)
+  return sign
 }
 
 /**
@@ -1159,7 +1189,15 @@ export function currencySymbol(iso: string): string {
  * a browser asked the website for as /DJ, a whole page, once per country:
  * 250 renders at once on every page view, and the database fell over.
  */
+const flags = new Map<string, string>()
 export function flagImage(code: string): string {
+  const known = flags.get(code)
+  if (known !== undefined) return known
+  const drawn = drawFlag(code)
+  if (flags.size < 1000) flags.set(code, drawn)
+  return drawn
+}
+function drawFlag(code: string): string {
   const cc = /^[A-Za-z]{2}$/.test(code) ? code.toUpperCase() : ""
   const emoji = cc ? String.fromCodePoint(...[...cc].map((ch) => 0x1f1e6 + ch.charCodeAt(0) - 65)) : ""
   /* FLAG_SVG_OPEN is how a live page finds its flags to load them when seen (./first-load.ts). */
@@ -1195,7 +1233,53 @@ export interface CartLineLike {
   properties?: Record<string, string>
 }
 
-export function cartObject(lines: CartLineLike[], currency: string, note = "", attributes: Record<string, string> = {}): O {
+/**
+ * THE CART'S DISCOUNT CODE, PRICED BY THE WEBSITE'S OWN CHECKOUT
+ * (./cart-pricing-server.ts): what it takes off each line, in the cart's
+ * money (cents of the currency the page shows), and whether it applies at
+ * all. Shopify keeps a code that does not apply on the cart with
+ * `applicable: false`, which is how a theme knows to say its own "can't be
+ * applied"; so does this.
+ *
+ *   scope "cart"   a code for the whole order: a cart level discount
+ *                  application, the lines' prices left as they are
+ *   scope "lines"  a code for some products: each line it covers costs less
+ */
+export interface CartDiscount {
+  code: string
+  applicable: boolean
+  valueType: "percentage" | "fixed_amount"
+  /** The percentage (10 for 10%), or the amount in cents for a fixed code. */
+  value: number
+  scope: "cart" | "lines"
+  /** Cents off each line, by the line's key. */
+  lines: Record<string, number>
+  total: number
+  freeShipping: boolean
+  /** Why it does not apply, in the checkout's words (never drawn by a theme; the checkout says it again). */
+  error?: string | null
+}
+
+/** Shopify's discount_application for a code: what a theme's cart loops over for its "Discount (CODE) -$5.00" rows. */
+export function discountApplication(d: CartDiscount): O {
+  return {
+    [OUTPUT]: d.code,
+    type: "discount_code",
+    key: d.code,
+    title: d.code,
+    description: null,
+    value: d.value,
+    value_type: d.valueType,
+    target_selection: d.scope === "cart" ? "all" : "entitled",
+    target_type: d.total === 0 && d.freeShipping ? "shipping_line" : "line_item",
+    allocation_method: d.valueType === "percentage" ? "each" : "across",
+    total_allocated_amount: d.total,
+  }
+}
+
+export function cartObject(lines: CartLineLike[], currency: string, note = "", attributes: Record<string, string> = {}, discount: CartDiscount | null = null): O {
+  const applied = discount && discount.applicable ? discount : null
+  const application = applied ? discountApplication(applied) : null
   const items = lines.flatMap((l, i) => {
     const product = l.product
     if (!product) return []
@@ -1203,6 +1287,12 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
     const variant = (l.variantId ? variants.find((v) => v.id === l.variantId) : null) ?? (product.selected_or_first_available_variant as O) ?? variants[0]
     const price = Number(variant?.price ?? product.price ?? 0)
     const line = price * l.quantity
+    /* What the code takes off this line: on the line itself for a code for some products, beside it for a code for the whole order (Shopify's split). */
+    const off = application && applied ? Math.max(0, Math.min(line, Math.round(applied.lines[l.key] ?? 0))) : 0
+    const allocations = off > 0 && application ? [{ amount: off, discount_application: application }] : []
+    const lineLevel = applied?.scope === "lines" ? off : 0
+    const finalLine = line - lineLevel
+    const finalUnit = l.quantity > 0 ? Math.round(finalLine / l.quantity) : price
     return [{
       [OUTPUT]: String(product.title),
       id: String(variant?.id ?? product.id),
@@ -1221,14 +1311,15 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
       featured_image: variant?.featured_image ?? product.featured_image ?? null,
       price,
       original_price: price,
-      final_price: price,
+      final_price: finalUnit,
       line_price: line,
       original_line_price: line,
-      final_line_price: line,
-      discounted_price: price,
-      line_level_discount_allocations: [],
-      line_level_total_discount: 0,
-      discount_allocations: [],
+      final_line_price: finalLine,
+      discounted_price: finalUnit,
+      line_level_discount_allocations: lineLevel > 0 ? allocations : [],
+      line_level_total_discount: lineLevel,
+      discount_allocations: allocations,
+      total_discount: off,
       properties: hashOf(l.properties ?? {}),
       options_with_values: ((product.options as string[]) ?? []).map((name, p) => ({ name, value: (variant?.options as string[] | undefined)?.[p] ?? "" })).filter((o) => variant && variant.title !== "Default Title" && o.value),
       selling_plan_allocation: null,
@@ -1245,17 +1336,23 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
       url_to_remove: `/cart/change?id=${encodeURIComponent(l.key)}&quantity=0`,
     }]
   })
-  const total = items.reduce((s, i) => s + Number(i.final_line_price), 0)
+  const subtotal = items.reduce((s, i) => s + Number(i.final_line_price), 0)
+  const original = items.reduce((s, i) => s + Number(i.original_line_price), 0)
+  /* A code for the whole order comes off after the lines, as Shopify's cart level discounts do. */
+  const cartLevel = applied?.scope === "cart" ? Math.min(subtotal, items.reduce((s, i) => s + Number(i.total_discount), 0)) : 0
+  const total = subtotal - cartLevel
   return {
     items,
     item_count: items.reduce((s, i) => s + Number(i.quantity), 0),
-    items_subtotal_price: total,
+    items_subtotal_price: subtotal,
     total_price: total,
-    original_total_price: total,
-    total_discount: 0,
+    original_total_price: original,
+    total_discount: original - total,
     total_weight: 0,
-    cart_level_discount_applications: [],
-    discount_applications: [],
+    cart_level_discount_applications: application && applied?.scope === "cart" ? [{ ...application, total_allocated_amount: cartLevel }] : application && applied && applied.total === 0 ? [application] : [],
+    discount_applications: application ? [application] : [],
+    /* Every code the cart holds, applying or not (Shopify's cart.discount_codes). */
+    discount_codes: discount ? [{ code: discount.code, applicable: discount.applicable, [OUTPUT]: discount.code }] : [],
     currency: { iso_code: currency, symbol: currencySymbol(currency), name: currency, [OUTPUT]: currency },
     note,
     /* `cart.attributes['Gift message']`, as the theme set them with /cart/update (./site.ts). */

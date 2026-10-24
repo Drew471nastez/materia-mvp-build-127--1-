@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { currencyRefusal } from "@/lib/store/currency-guard"
 import { readCouponInput } from "@/lib/checkout/coupons"
 import { freeShippingCode } from "@/lib/physical/coupon-options"
 import { TAKEN, codeTaken, productsAreTheirs, signedInCreator, writeCoupon } from "./write"
@@ -41,6 +42,8 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Nothing to save." }, { status: 400 })
   }
+  const moved = await currencyRefusal(who.supabase, who.creatorId, (body as { formCurrency?: unknown } | null)?.formCurrency)
+  if (moved) return NextResponse.json({ error: moved, code: "currency_changed" }, { status: 409 })
   const allowZero = await freeShippingCode(body)
   const input = allowZero ? readCouponInput(body, null, { allowZero }) : readCouponInput(body)
   if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 })

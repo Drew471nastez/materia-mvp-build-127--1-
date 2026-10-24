@@ -228,7 +228,8 @@ function main() {
     check("an address in a menu is made safe", !/javascript/i.test(draw(c, { menu: "x" }, { data: { menus: bad } })))
     /* Both surfaces hand the engine the same menus. */
     check("the published site passes siteMenus to the engine", /menus: siteMenus\(site\.themeSettings/.test(read("lib/website-builder/published-site.ts")))
-    check("and so does the builder's canvas", /siteMenus\(activeThemeSettings, sections\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /menus: canvasMenus/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    /* Changed on purpose (round 34): handed the page's header alone (the one section siteMenus reads), so an edit elsewhere keeps the same menus. */
+    check("and so does the builder's canvas", /siteMenus\(activeThemeSettings, menuHeader \? \[menuHeader\] : \[\]\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /menus: canvasMenus/.test(read("app/website-builder/editor/[installId]/page.tsx")))
     check("the sidebar draws link_list as the menu picker", /case "link_list":\s*\n\s*return <MenuPickerControl/.test(read("components/website-builder/editor/controls/index.tsx")))
     check("a url setting is drawn by the link picker", /if \(kind === "url"\) \{\s*\n\s*return <LinkFieldEditor/.test(read("app/website-builder/editor/[installId]/page.tsx")))
   }

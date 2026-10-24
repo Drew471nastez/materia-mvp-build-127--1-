@@ -157,7 +157,7 @@ async function main() {
   check("  the country picked by its name from every country", /\{COUNTRIES\.map\(\(c\) => \(\s*<option key=\{c\.code\} value=\{c\.code\}/.test(readCode("components/profile/location-fields.tsx")))
   /* Changed on purpose: 89c6f3ba moved the settings route's reads into lib/account/load-account-settings.ts, shared with the settings sheet's bundle route. */
   check("  the settings page reads it (unsupported before part 98)", /loadAccountSettingsForUser\(user,/.test(readCode("app/account/settings/page.tsx")) && /location: await locationRead,/.test(readCode("lib/account/load-account-settings.ts")) && /const locationRead = readProfileLocation\(admin, user\.id\)/.test(readCode("lib/account/load-account-settings.ts")))
-  check("shown under the name on a person's page and a creator page", /location=\{extras\.location \?\? null\}/.test(page) && /location=\{locationLine\(place\)\}/.test(creatorPage) && /readProfileLocation\(createAdminClient\(\), profile\.id\)/.test(creatorPage) && /data-profile-location=""/.test(readCode("components/profile/profile-social.tsx")))
+  check("shown under the name on a person's page and a creator page", /location=\{extras\.location \?\? null\}/.test(page) && /* Changed on purpose (round 38): read once into `location`, which also decides whether the owner's block is drawn. */ /const location = locationLine\(place\)/.test(creatorPage) && /location=\{location\}/.test(creatorPage) && /readProfileLocation\(createAdminClient\(\), profile\.id\)/.test(creatorPage) && /data-profile-location=""/.test(readCode("components/profile/profile-social.tsx")))
 
   console.log("\nThe copy")
   for (const f of [

@@ -29,11 +29,13 @@ On GitHub: **Settings › Developer settings › GitHub Apps › New GitHub App*
 
 | Permission | Access | Why |
 | --- | --- | --- |
-| Contents | Read and write | Read pushed theme files; write the whole theme when a repository is linked, on **Push** and on **Publish**; comment on a commit with the files a push could not bring in. |
-| Commit statuses | Read and write | The green or red Storelib check on each push. |
+| Contents | Read and write | Read pushed theme files; write the whole theme when a repository is linked, on **Push** and on **Publish**; comment on a commit with what a push brought in and each file it could not; keep the same words as a git note in `refs/notes/storelib`. |
+| Commit statuses | Read and write | The green or red Storelib check on each push. Its Details link is the commit comment. |
 | Metadata | Read-only | Required by GitHub. |
 
-Nothing else. **Subscribe to events**: Push. (Installation events are sent without subscribing.)
+Nothing else. **Subscribe to events**: Push.
+
+**Who can read what Storelib says about a push.** Everything is posted with the app's own token, on the repository itself, so it has the repository's visibility and nothing more. A commit comment and a git note are read with Contents access, which anyone who can read the code has, a coding agent included. A commit status is read with Commit statuses access, which a fine-grained token or another GitHub App does not always have, so the status's Details link is the comment on GitHub (not the builder, which needs a Storelib login), and AGENTS.md tells an agent all three ways. (Installation events are sent without subscribing.)
 
 **Where can this GitHub App be installed**: Any account.
 
@@ -75,7 +77,8 @@ Until all six are set, the GitHub card in the builder says GitHub is not switche
 | Path | What it is | Read back |
 | --- | --- | --- |
 | `README.md`, `AGENTS.md`, `CLAUDE.md`, `storelib.json` | Written by Storelib on every Push. `storelib.json` lists the files left out (over 20 MB, a path over 240 characters, past 3,000 files). | No |
-| `config/settings.json` | The theme's settings, as the builder has them. An imported theme's `compat` marker cannot be changed from here. | Yes |
+| `config/settings.json` | The theme's settings, as the builder has them, with the store's menus, and every one of Storelib's own settings written out with its default where none was chosen. A default pushed back unchanged stays unset. An imported theme's `compat` marker cannot be changed from here. | Yes |
+| `config/storelib_settings_schema.json` | The settings Storelib adds to Theme settings: an imported theme's Hover and focus, a Storelib theme's built-in groups and colour schemes. Ids, types, labels, options, defaults, the group each shows in, and whether the theme places one itself. A change to it is a note on the commit. | No, the values are |
 | `config/settings_schema.json` | What the settings are (Storelib themes). | No |
 | `templates/<page>.json` | Each page's own sections, Shopify's template shape. A new file is a new page. | Yes |
 | `sections/header-group.json`, `footer-group.json`, `overlay-group.json` | The header, footer and overlay, once, for every page that has them. | Yes |
@@ -97,7 +100,11 @@ A Storelib theme's `config/settings_schema.json` and a built-in's `sections/<typ
 
 ## When a sync fails
 
-`lib/github-sync/errors.ts` turns each failure into a sentence and a fix, shown on the card, in the activity list and on the commit: the app key refused, the installation removed (connect again), no write access (where on GitHub to give it), the repository or branch gone, a protected branch (use a branch of Storelib's own), the branch moved (pressed again, Storelib's changes go on top), GitHub's hourly limit (with the time it comes back), a file too large, GitHub down. 5xx answers, secondary limits and dropped connections are retried with backoff first.
+`lib/github-sync/errors.ts` turns each failure into a sentence and a fix, shown on the card, in the activity list and on the commit: the app key refused, the installation removed (connect again), no write access (where on GitHub to give it, naming the permission GitHub asked for in `X-Accepted-GitHub-Permissions`), the repository or branch gone, a protected branch, the branch moved (pressed again, Storelib's changes go on top), GitHub's hourly limit (with the time it comes back), push protection finding a key in a file, a file too large, GitHub down. 5xx answers, secondary limits and dropped connections are retried with backoff first. GitHub's exact words for every refusal are in the server log, prefixed `[github-sync]`.
+
+**A branch is called protected only when GitHub says so.** After a refused write Storelib asks `GET /repos/{repo}/branches/{branch}` (classic protection) and `GET /repos/{repo}/rules/branches/{branch}` (rulesets), both with the Metadata permission. A branch with `protected: false` and no rules that stop a push is never reported as protected; a refusal there is named for what it is (permissions, push protection, an organisation rule).
+
+**The whole theme, every time.** An empty repository's first commit is `README.md` through the contents API (the Git data API cannot write to an empty repository), then every other file in one commit on top. The commit is read back and every file looked for. A send has about 40 seconds: pictures are fetched a few at a time and only when the repository does not already have them from the same address, blobs go up smallest first, and what is not up in time is committed by the next send (the panel sends again by itself until nothing is left). A file GitHub turns down (a key push protection found, a file too large) is set apart and listed, and the rest still lands. Nothing outside the theme is touched, no branch is made, and every commit carries `[storelib-sync]` so a push of Storelib's own is never read back.
 
 ## Agent keys (Claude Code, Codex over MCP)
 

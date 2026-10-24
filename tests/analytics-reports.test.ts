@@ -38,6 +38,7 @@ import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, refe
 import { isBotAgent, parseUserAgent } from "../lib/analytics/user-agent"
 import { lineMoney, moneyOf, spansToRead } from "../lib/analytics/reports"
 import { questionOf, reportKey, reportNow } from "../lib/analytics/report-cache"
+import { commerceRowCounts } from "../lib/analytics/commerce"
 import { axisWidth, compactCount, compactMoney, compactPercent, niceScale } from "../lib/analytics/chart-scale"
 import {
   ALL,
@@ -419,7 +420,8 @@ console.log("\nThe OnePage, counted once: its old table before its events, never
   check("the switch is the OnePage's first view in the events, read by the whole index key",
     /\.eq\("creator_id", q\.creatorId\)\s*\.eq\("property_type", "onepage"\)\s*\.eq\("property_id", onePageId\)\s*\.eq\("event_type", "view"\)\s*\.order\("created_at", \{ ascending: true \}\)\s*\.limit\(1\)/.test(reads)
       && /end: since === null \? s\.end : Math\.min\(s\.end, since\)/.test(reads))
-  check("the OnePage is found from the signed-in creator, never the request", /\["owner_id", creatorUserId\]/.test(read("lib/analytics/property.ts")) && /creatorProperties\(admin, creator\.id, user\.id\)/.test(read("app/api/analytics/reports/route.ts")))
+  /* Changed on purpose: the route's question is read in lib/analytics/report-answer.ts, so a test can ask it of a fake database (tests/analytics-e2e.test.ts). */
+  check("the OnePage is found from the signed-in creator, never the request", /\["owner_id", creatorUserId\]/.test(read("lib/analytics/property.ts")) && /creatorProperties\(admin, creator\.id, userId\)/.test(read("lib/analytics/report-answer.ts")) && /reportQuestion\(admin, user\.id, url,/.test(read("app/api/analytics/reports/route.ts")))
 }
 
 console.log("\nThe funnel: a step not recorded says so")
@@ -492,17 +494,20 @@ console.log("\nHome is Analytics under All")
 
 console.log("\nAnalytics: the pieces that feed it")
 {
+  /* Changed on purpose: the route's question and counting are in lib/analytics/report-answer.ts (tests/analytics-e2e.test.ts asks them of a fake database). */
   const route = code("app/api/analytics/reports/route.ts")
+  const answer = code("lib/analytics/report-answer.ts")
   const reads = code("lib/analytics/report-read.ts")
   /* Pages by keyset since the speed work: an OFFSET (`.range(a, b)`) made Postgres walk every earlier row again for each page. */
   check("the events are read on the server, a page at a time, each page from where the last ended",
     /\.limit\(PAGE\)/.test(reads) && /const PAGE = 1000/.test(reads) && /created_at\.gt\."\$\{after\.t\}",id\.gt\.\$\{after\.id\}/.test(reads)
       && (reads.match(/\.range\(/g) ?? []).length === 1 && /\.from\("subscribers"\)[\s\S]{0,400}\.range\(from, from \+ PAGE - 1\)/.test(reads))
-  check("  for the signed-in creator only", /\.eq\("user_id", user\.id\)/.test(route) && /\.eq\("creator_id", creator\.id\)/.test(route))
-  check("  and a product filter only for their own product", /productTitles\[wanted\]/.test(route))
+  check("  for the signed-in creator only", /reportQuestion\(admin, user\.id, url,/.test(route) && /\.eq\("user_id", userId\)/.test(answer) && /\.eq\("creator_id", creator\.id\)/.test(answer))
+  check("  and a product filter only for their own product", /productTitles\[wanted\]/.test(answer))
   check("  and a place only if it is theirs, refused before anything is read",
-    /if \(!ownsProperty\(properties, selector\)\) return NextResponse\.json\(\{ error: "No such property" \}, \{ status: 404 \}\)/.test(route)
-      && route.indexOf("ownsProperty(properties, selector)") < route.indexOf("storeAnswer(admin, key, q"))
+    /if \(!ownsProperty\(properties, selector\)\) return \{ status: 404, error: "No such property" \}/.test(answer)
+      && /if \("error" in asked\) return NextResponse\.json\(\{ error: asked\.error \}, \{ status: asked\.status \}\)/.test(route)
+      && route.indexOf("reportQuestion(") < route.indexOf("countReportAnswer("))
   check("  the database is always asked for the creator's own id, the place only narrows it",
     /p_creator_id: q\.creatorId,/.test(reads) && /\.eq\("creator_id", q\.creatorId\)\.eq\("event_type", "view"\)/.test(reads))
   const client = read("app/app/analytics/analytics-client.tsx")
@@ -690,9 +695,10 @@ console.log("\nThe look: Storelib's violet, a grey comparison, real logos")
 
 console.log("\nAnalytics: from the review")
 {
-  const route = read("app/api/analytics/reports/route.ts")
+  /* Changed on purpose: the span is checked in lib/analytics/report-answer.ts. */
+  const route = read("lib/analytics/report-answer.ts")
   const page = read("app/app/analytics/analytics-client.tsx")
-  check("All time is answered, not refused: the span allows years past 2020", /const MAX_SPAN_MS = 30 \* 366 \* 24 \* 3_600_000/.test(route))
+  check("All time is answered, not refused: the span allows years past 2020", /export const MAX_SPAN_MS = 30 \* 366 \* 24 \* 3_600_000/.test(route))
   check("and All time is compared with nothing", /const isAllTime = period\.preset === "all_time"/.test(page) && /isAllTime \? null : compareBounds\(/.test(page) && !/<ComparePicker/.test(page))
   check("OnePage visits: the old table only before the first event, so never twice", /const before = \(at: number\) => legacy\.since === null \|\| at < legacy\.since/.test(read("lib/analytics/reports.ts")))
   /* The funnel steps go through the one pipeline a page view does (lib/analytics/collect). */
@@ -730,7 +736,8 @@ console.log("\nAnalytics: disputes, products and countries, from the accuracy au
   check("lineMoney is the unit moneyOf adds up", lineMoney(orders[1]).net === 4500 && moneyOf(groupOrders([orders[2], orders[3]])[0]).net === 1700)
   const m = Object.fromEntries(readMetrics(groupOrders(orders), W, null, "UTC").map((x) => [x.key, x]))
   check("the Orders page's own figures are the same to the cent", m.orders.value === r.orders.value && m.sales.value === r.sales.value, { orders: m.orders.value, sales: m.sales.value })
-  check("every page asks one question of an order", /\.filter\(isSale\)/.test(read("lib/analytics/reports.ts")) && /\.filter\(isSale\)/.test(read("app/api/analytics/reports/route.ts"))
+  /* Changed on purpose: the all time count moved with the answer to lib/analytics/report-answer.ts. */
+  check("every page asks one question of an order", /\.filter\(isSale\)/.test(read("lib/analytics/reports.ts")) && /\.filter\(isSale\)/.test(read("lib/analytics/report-answer.ts"))
     && /const counted = isSale/.test(read("lib/orders/metrics.ts")) && /isSale\(o\)/.test(read("lib/website-builder/site-performance.ts")))
 
   /* Countries: the card is visits by country, the most first, 25 of them, and nothing that is not a country. */
@@ -741,7 +748,8 @@ console.log("\nAnalytics: disputes, products and countries, from the accuracy au
   check("  and the card is 25 countries, none of them unknown", countries.length === 25 && countries.every((c) => /^[A-Z]{2}$/.test(c.key) && c.key !== "XX"), countries.length)
 
   /* Pages of 1,000 read in an order with no ties, so none is read twice or missed. */
-  const reads = read("lib/analytics/report-read.ts") + read("app/api/analytics/reports/route.ts")
+  /* Changed on purpose: the route's own paged read (all time) is in lib/analytics/report-answer.ts. */
+  const reads = read("lib/analytics/report-read.ts") + read("lib/analytics/report-answer.ts")
   /* Counted by `.limit(PAGE)` since pages start where the last ended (keyset) instead of `.range(a, b)`. */
   const ranges = (reads.match(/\.limit\(PAGE\)/g) ?? []).length
   const tieBroken = (reads.match(/\.order\("created_at", \{ ascending: true \}\)\s*\.order\("id", \{ ascending: true \}\)\s*\.limit\(PAGE\)/g) ?? []).length
@@ -771,17 +779,22 @@ console.log("\nAnalytics: counted by the database, and from the rows while it ca
   const reads = read("lib/analytics/report-read.ts")
   check("the route counts in the database, and from the rows while the function is missing",
     /rpc<ReportWire>\(admin, "analytics_report", \{ \.\.\.args, p_part: part \}\)/.test(reads) && /error\.code === "PGRST202"/.test(reads) && /shared\.rows \?\?= countFromRows\(admin, q\)/.test(reads))
-  const route = read("app/api/analytics/reports/route.ts")
+  /* Changed on purpose: the counting is lib/analytics/report-answer.ts, the route only who asks, its memory and its stream. */
+  const route = read("app/api/analytics/reports/route.ts") + read("lib/analytics/report-answer.ts")
   check("the reads it makes go side by side, not one after another",
     /* Changed on purpose: systems, carts and titles (part 253) and the digital orders' downloads are read beside the rest (round Z6). */
     /const \[v, d, l, o, s, labelsById, a, \[audNow, audBefore\], dl\] = await Promise\.all\(\[quick, rest, legacy, orders, subscribers, labels, allTime, audience, downloads\]\)/.test(route))
   check("an answer is kept a few seconds for the same person and the same whole question, never longer",
-    /const key = `\$\{user\.id\}\|\$\{question\}`/.test(route) && /const CACHE_MS = 15_000/.test(route) && /private, max-age=/.test(route) && /Vary: "Cookie, Authorization"/.test(route))
+    /const key = `\$\{user\.id\}\|\$\{asked\.question\}`/.test(route) && /const CACHE_MS = 15_000/.test(route) && /private, max-age=/.test(route) && /Vary: "Cookie, Authorization"/.test(route))
 
   /* The page and the sidebar's prefetch ask the very same question. */
   const q = { start: T0, end: T0 + DAY, compare: { start: T0 - DAY, end: T0 }, product: "all", property: "all", timeZone: "UTC" }
   check("a question is its key without the moving end", questionOf(reportKey(q)) === questionOf(reportKey({ ...q, end: q.end + 5000, compare: { start: T0 - DAY, end: T0 + 5000 } })))
   check("  and another place is another question", questionOf(reportKey(q)) !== questionOf(reportKey({ ...q, property: "onepage" })))
+  check("  and another currency is another question, while none is the question it was", !reportKey(q).includes("ccy=") && questionOf(reportKey(q)) !== questionOf(reportKey({ ...q, currency: "eur" })) && reportKey({ ...q, currency: "eur" }).includes("ccy=EUR"))
+  check("a sales line follows the product and the place", commerceRowCounts({ id: "1", created_at: "", product_id: "p1", property_type: "website", property_id: "w1" }, { productId: "p1", property: { type: "website", id: "w1" }, defaultWebsite: "w1" })
+    && !commerceRowCounts({ id: "1", created_at: "", product_id: "p2", property_type: "website", property_id: "w1" }, { productId: "p1", property: { type: "website", id: "w1" }, defaultWebsite: "w1" })
+    && !commerceRowCounts({ id: "1", created_at: "", product_id: "p1", property_type: "creator_page", property_id: null }, { productId: null, property: { type: "website", id: "w1" }, defaultWebsite: "w1" }))
   check("now is rounded up to ten seconds, never down", reportNow(T0 + 1) === T0 + 10_000 && reportNow(T0) === T0)
   const cache = read("lib/analytics/report-cache.ts")
   check("a kept answer is shown only to the person it was counted for",

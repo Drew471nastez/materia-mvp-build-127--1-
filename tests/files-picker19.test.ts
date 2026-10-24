@@ -65,7 +65,8 @@ check("the phone sheet's rows are the app's", /export const ActionSheetRows/.tes
 for (const label of ["Preview", "Copy link", "Download", "Delete", "Use this picture"]) check(`menu has ${label}`, lib.includes(`label: "${label}"`))
 check("no Rename: a file's name is its address", !/label: "Rename"/.test(lib))
 check("Delete asks first", /Delete this picture\?/.test(lib) && /setConfirming\(f\)/.test(lib))
-check("Delete is the existing owner only endpoint", /api\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib) && /shopCaller\(\)/.test(route) && /deleteLibraryFile/.test(route))
+/* Changed on purpose (round 39): the route deletes through lib/files/keep.ts removeFromFiles, which keeps a file still in use. */
+check("Delete is the existing owner only endpoint", /api<RemoveAnswer>\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib) && /shopCaller\(\)/.test(route) && /removeFromFiles/.test(route))
 /* "Picture" or "Video" (a video setting's chooser lists videos), named by noun(f). */
 check("Download saves through the shared helper (a blob in a browser, the system browser in the app)", /saveFile\(\{/.test(lib) && /savedMessage\(outcome, noun\(f\)\)/.test(lib) && /isVideo\(f\) \? "Video" : "Picture"/.test(lib))
 check("a dropdown held against moving dots closes on a scroll", /addEventListener\("scroll", close/.test(lib))

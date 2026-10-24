@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { currencyRefusal } from "@/lib/store/currency-guard"
 import { isUuid, physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { readOffer } from "@/lib/offers/offers"
 import { deleteOffer, offersArea, reorderOffers, saveOffer } from "@/lib/offers/offers-server"
@@ -47,6 +48,9 @@ async function write(request: Request, method: "POST" | "PUT" | "DELETE" | "PATC
     await recordActivity(c.db, c, { action: "offer.removed", subjectType: "offer", subjectId: id as string, subjectLabel: typeof body.title === "string" ? body.title : null })
     return physicalJson({ ok: true })
   }
+  /* A fixed amount or minimum typed before the store's currency was converted is never saved over the converted one (lib/store/currency-guard). */
+  const moved = await currencyRefusal(c.db, c.creatorId, body.formCurrency)
+  if (moved) return physicalJson({ error: moved, code: "currency_changed" }, 409)
   const read = readOffer(body)
   if (read.ok === false) return physicalJson({ error: (read as { error: string }).error }, 400)
   const out = await saveOffer(c.db, c.creatorId, (id as string | null) ?? null, read.offer)

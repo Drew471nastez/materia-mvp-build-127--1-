@@ -35,6 +35,20 @@ export function fullyInside(inner: { top: number; bottom: number }, outer: { top
 }
 
 /**
+ * How far the sidebar scrolls to bring a row that was selected into view
+ * (round 1023, part 2): nothing while it is wholly on screen; otherwise to
+ * the row's TOP, whatever its height. It was "the nearest edge", so a row
+ * taller than the sidebar (a block's settings, open) was brought in by its
+ * foot, and the owner saw every block open scrolled to the bottom of its
+ * settings.
+ */
+export function rowIntoView(row: { top: number; bottom: number }, box: { top: number; bottom: number }): number {
+  if (row.top >= box.top && row.bottom <= box.bottom) return 0
+  if (row.top < box.top || row.bottom - row.top > box.bottom - box.top) return row.top - box.top
+  return row.bottom - box.bottom
+}
+
+/**
  * Starts holding the sidebar still. Returns the function that stops it.
  * Listens on the document, in the capture phase, so a control that stops
  * propagation cannot hide a press from it.

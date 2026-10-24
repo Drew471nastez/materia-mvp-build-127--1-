@@ -77,6 +77,12 @@ export interface MoneyReport {
   refunds: { count: number; totalCents: number }
   /** Where the revenue came from: memberships and purchases, programs, event tickets. */
   bySource: { key: "memberships" | "programs" | "tickets"; cents: number }[]
+  /**
+   * Round 39: each tier or product that sells the community, by the name it is sold under ("" when it has none), with
+   * its net from the period's orders, the members paying for it at the period's end, and the period before's net.
+   * Absent on an answer kept from before.
+   */
+  byPlan?: { key: string; label: string; cents: number; paying: number; previous?: number }[]
   reasons: { reason: string; count: number }[]
 }
 
@@ -151,6 +157,12 @@ export interface CommunityReport {
    * DAU over MAU, one decimal, null with nobody here in 30 days.
    */
   live: { members: number; active1: number; active7: number; active30: number; stickiness: number | null }
+  /**
+   * Round 38: the owner is one of the members in Members, and left out of
+   * Active members and Engagement (and of what Engagement divides), so a
+   * share of members is taken of the others. Absent on an older answer.
+   */
+  ownerLeftOut?: boolean
   /**
    * The members active in the period, split by when they joined: inside the
    * period (new) or before it (returning). Null before part 184 (no member

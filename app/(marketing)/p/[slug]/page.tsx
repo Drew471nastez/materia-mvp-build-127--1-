@@ -44,6 +44,10 @@ import { Check, ArrowRight, CheckCircle, ChevronRight, Star, Heart } from "lucid
 import { BuyButton } from "@/components/checkout/buy-button"
 import { PurchaseStatusWrapper } from "@/components/checkout/purchase-status-wrapper"
 import { ViewInLibraryButton } from "@/components/checkout/view-in-library-button"
+import { GuestOwnedActions } from "@/components/checkout/guest-owned-actions"
+import { ViewerSync } from "@/components/auth/viewer-sync"
+import { cookies } from "next/headers"
+import { guestAccessCookieFrom, heldGrants, maskAddress } from "@/lib/receipts/guest-access-server"
 import { membershipForProductPage } from "@/lib/memberships/product-page"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { DiscoverBackBreadcrumb } from "@/components/product/discover-back-breadcrumb"
@@ -611,6 +615,28 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     }
   } catch {
     // ignore auth errors
+  }
+
+  /*
+    BOUGHT IN THIS BROWSER WITHOUT AN ACCOUNT (lib/receipts/guest-access.ts).
+    The receipt left a signed, httpOnly note of the order; it is checked here
+    against the order itself (signed for its token, still paid, not refunded),
+    so the page says Download instead of Buy for somebody who never made an
+    account, and offers to save it to one. Only when the account does not
+    already own it: a library is the stronger answer.
+  */
+  let guestOwned: { orderId: string; maskedEmail: string | null } | null = null
+  if (!hasPurchased && product.type !== "physical" && product.type !== "membership") {
+    try {
+      const held = await heldGrants(createAdminClient(), guestAccessCookieFrom(await cookies()), { productId: product.id })
+      if (held.open.length > 0) {
+        hasPurchased = true
+        purchasedVariantIds = [...new Set(held.open.map((o) => o.variant_id).filter((id): id is string => !!id))]
+        guestOwned = { orderId: String(held.open[0].id), maskedEmail: maskAddress(held.open[0].buyer_email) }
+      }
+    } catch {
+      /* No note, or it could not be read: the page offers Buy, as it always did. */
+    }
   }
 
   /* A membership (lib/memberships): its price is per month or year, and a member is shown theirs instead of Join. */
@@ -1253,11 +1279,23 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 membership={membershipInfo}
                 purchasedExtraContent={
                   <>
-                    <ViewInLibraryButton
-                      backgroundColor={themeColors.viewInLibraryBg}
-                      textColor={themeColors.viewInLibraryText}
-                      borderColor={themeColors.viewInLibraryBorder}
-                    />
+                    {guestOwned ? (
+                      <GuestOwnedActions
+                        orderId={guestOwned.orderId}
+                        maskedEmail={guestOwned.maskedEmail}
+                        signedIn={!!user}
+                        backgroundColor={themeColors.viewInLibraryBg}
+                        textColor={themeColors.viewInLibraryText}
+                        borderColor={themeColors.viewInLibraryBorder}
+                        mutedColor={themeColors.cardPriceColor}
+                      />
+                    ) : (
+                      <ViewInLibraryButton
+                        backgroundColor={themeColors.viewInLibraryBg}
+                        textColor={themeColors.viewInLibraryText}
+                        borderColor={themeColors.viewInLibraryBorder}
+                      />
+                    )}
                     <RefundPolicyDisplay
                       enabled={product.refund_policy_enabled}
                       policyType={product.refund_policy_type}
@@ -1613,11 +1651,23 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             membership={membershipInfo}
             purchasedExtraContent={
               <>
-                <ViewInLibraryButton
-                  backgroundColor={themeColors.viewInLibraryBg}
-                  textColor={themeColors.viewInLibraryText}
-                  borderColor={themeColors.viewInLibraryBorder}
-                />
+                {guestOwned ? (
+                  <GuestOwnedActions
+                    orderId={guestOwned.orderId}
+                    maskedEmail={guestOwned.maskedEmail}
+                    signedIn={!!user}
+                    backgroundColor={themeColors.viewInLibraryBg}
+                    textColor={themeColors.viewInLibraryText}
+                    borderColor={themeColors.viewInLibraryBorder}
+                    mutedColor={themeColors.cardPriceColor}
+                  />
+                ) : (
+                  <ViewInLibraryButton
+                    backgroundColor={themeColors.viewInLibraryBg}
+                    textColor={themeColors.viewInLibraryText}
+                    borderColor={themeColors.viewInLibraryBorder}
+                  />
+                )}
                 <RefundPolicyDisplay
                   enabled={product.refund_policy_enabled}
                   policyType={product.refund_policy_type}
@@ -1885,6 +1935,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
         />
         <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
+        {/* Owned or not is drawn for the session the server saw; a different one in the browser asks again (components/auth/viewer-sync). */}
+        <ViewerSync serverSignedIn={!!user} />
       <StoreTracking creatorId={product.creator_id} productId={product.id} />
         <DynamicFavicon
           avatarUrl={creatorAvatarUrl}
@@ -2074,6 +2126,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
       />
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
+      <ViewerSync serverSignedIn={!!user} />
       <StoreTracking creatorId={product.creator_id} productId={product.id} />
       {creatorAvatarPreload && (
         <link rel="preload" as="image" href={creatorAvatarPreload} fetchPriority="high" />

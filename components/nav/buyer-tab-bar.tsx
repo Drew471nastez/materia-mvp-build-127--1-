@@ -89,7 +89,7 @@ import { useNavigatorOutsideCommunity } from "@/lib/communities/client/navigator
 import { requestCompose } from "@/lib/communities/client/compose-intent"
 import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { COMMUNITY_HOME_BOOT, COMMUNITY_HOME_LIVE_FLAG, communityContext, enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
-import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
+import { useBuyerTabsWhere, useNativeShell, useSignedInKnown } from "@/lib/nav/use-buyer-tabs-where"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { noteTabArrival, swapTabPage } from "@/lib/nav/tab-swap"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } from "@/lib/navigation/tab-scroll"
@@ -102,6 +102,26 @@ import { keepFresh } from "@/components/nav/keep-fresh"
 
 /** While the bar is on screen (below 768px) its room holds the home indicator's inset, so the body does not pad for it as well. */
 export const TAB_BAR_BODY = "@media (max-width: 767px){body{padding-bottom:0}}"
+/** The same, while the bar waits on SIGNED IN BEFORE THE FIRST PAINT (below): only where it is going to be seen. */
+export const TAB_BAR_BODY_PENDING = "@media (max-width: 767px){html[data-sl-signed-in] body,html.capacitor body{padding-bottom:0}}"
+
+/*
+  ── SIGNED IN BEFORE THE FIRST PAINT (round 39) ────────────────────────────
+  The owner: "inside Storelib when logged out it should not have on mobile
+  the mobile bottom navigation bar". Whether somebody is signed in is the
+  header's record in this browser (lib/auth/auth-snapshot.ts), which the
+  server never sees: Storelib's marketing and Explore pages are held at the
+  edge, the same HTML for everybody. So the server draws the bar marked
+  `data-tabs-auth="pending"`, with its room at the foot of the page, and this
+  line, printed just before them, reads the record as the document is parsed
+  and marks <html> for somebody signed in. app/globals.css hides a pending
+  bar and its room on any <html> not so marked (the app's html.capacitor
+  keeps them), so a visitor's first paint has no bar and no strip of empty
+  page where it would have been, and a member's has the bar as before. Once
+  the page is awake the bar decides for itself: gone for a visitor, drawn
+  plainly for a member. Nothing appears and then disappears.
+*/
+export const SIGNED_IN_BOOT = "try{var a=JSON.parse(localStorage.getItem('_sl_auth_v1')||'null');if(a&&a.signedIn===true)document.documentElement.setAttribute('data-sl-signed-in','')}catch(e){}"
 
 /** Ink on the tab you are on, and on the others: the pill's two. */
 /* Round 28: as variables with today's colours as their fallbacks, so the person's dark look (app/theme-dark.css) can set them and the light look is unchanged. */
@@ -437,12 +457,14 @@ export function BuyerTabBar() {
   const exploreMarketplaceEnabled = useExploreMarketplaceEnabled()
   /* Where this is, as the header asks it too (lib/nav/use-buyer-tabs-where). */
   const where = useBuyerTabsWhere(pathname)
-  const signedIn = useSignedIn()
-  const whereWithExplore = { ...where, exploreMarketplaceEnabled, signedIn }
+  /* Null on the server and while the page wakes up: the bar is then drawn pending (SIGNED IN BEFORE THE FIRST PAINT). */
+  const signedIn = useSignedInKnown()
+  const native = useNativeShell()
+  const whereWithExplore = { ...where, exploreMarketplaceEnabled, signedIn: signedIn ?? undefined, native: native ?? false }
   return (
     <>
       {buyerTabsBelongOn(pathname, whereWithExplore) ? (
-        <TabBar pathname={pathname} sellerSurface={where.sellerSurface} exploreMarketplaceEnabled={exploreMarketplaceEnabled} />
+        <TabBar pathname={pathname} sellerSurface={where.sellerSurface} exploreMarketplaceEnabled={exploreMarketplaceEnabled} pending={signedIn === null} />
       ) : null}
       {/* Search, full screen, opened by the Search tab. Mounted beside the
           bar rather than in it, so a result that leads to a page without
@@ -456,10 +478,13 @@ function TabBar({
   pathname,
   sellerSurface,
   exploreMarketplaceEnabled,
+  pending = false,
 }: {
   pathname: string
   sellerSurface: boolean
   exploreMarketplaceEnabled: boolean
+  /** Drawn before the page knows who is signed in (SIGNED IN BEFORE THE FIRST PAINT): shown only where <html> says so. */
+  pending?: boolean
 }) {
   const router = useRouter()
   const signedIn = useSignedIn()
@@ -776,6 +801,8 @@ function TabBar({
     real Next build. The cleanup now waits a microtask and only takes it off when no bar has said anything since.
   */
   useEffect(() => {
+    /* A pending bar says nothing yet: for a visitor it is about to go, and the page must not make room for it (round 39). */
+    if (pending) return
     const root = document.documentElement
     const mine = ++tabsAttrTurn
     if (root.getAttribute("data-buyer-tabs") !== (away ? "away" : "shown")) root.setAttribute("data-buyer-tabs", away ? "away" : "shown")
@@ -784,12 +811,14 @@ function TabBar({
         if (tabsAttrTurn === mine) root.removeAttribute("data-buyer-tabs")
       })
     }
-  }, [away])
+  }, [away, pending])
 
   return (
     <>
+      {/* Signed in or not, read before the room and the bar are parsed (SIGNED IN BEFORE THE FIRST PAINT, above). */}
+      <script dangerouslySetInnerHTML={{ __html: SIGNED_IN_BOOT }} />
       {/* The room at the end of the page, so nothing ends under the bar. */}
-      <div aria-hidden="true" data-buyer-tabs-room="" className="shrink-0 md:hidden" style={{ height: "var(--buyer-tabs-room)" }} />
+      <div aria-hidden="true" data-buyer-tabs-room="" data-tabs-auth={pending ? "pending" : undefined} className="shrink-0 md:hidden" style={{ height: "var(--buyer-tabs-room)" }} />
       {/*
         THE HOME INDICATOR'S ROOM, COUNTED ONCE (round 12: "the library on a phone scrolls when there is nothing to scroll"). The body
         pads itself by env(safe-area-inset-bottom) (app/globals.css), and the room above already holds that inset under the bar. A page
@@ -797,7 +826,7 @@ function TabBar({
         34px on an iPhone, and scrolled by that much. Where the bar is drawn the body gives its padding up; printed with the bar, so it
         is in the first paint and goes with the bar.
       */}
-      <style>{TAB_BAR_BODY}</style>
+      <style>{pending ? TAB_BAR_BODY_PENDING : TAB_BAR_BODY}</style>
       {/* Home leads back to the community from the first byte of the page,
           before anything of React is running: see AND HOME IS THE
           COMMUNITY'S BEFORE THE PAGE IS AWAKE in lib/nav/community-context. */}
@@ -808,6 +837,7 @@ function TabBar({
 
       <div
         data-buyer-tab-bar={away ? "away" : "shown"}
+        data-tabs-auth={pending ? "pending" : undefined}
         /* Under a layer that covers it, out of reach of a screen reader and the keyboard's Tab too. */
         aria-hidden={layers.covered || undefined}
         inert={layers.covered || undefined}

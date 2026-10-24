@@ -27,6 +27,7 @@ import { Section, buttonPrimary, card } from "./parts"
 import { Shimmer, ShimmerBlock, ShimmerRows, ShimmerChart } from "@/components/ui/shimmer"
 import type { AdminSection } from "./logic"
 import { figureColumns } from "./overview"
+import { PageEditorFrame } from "./page-editor/screen"
 
 /**
  * Posts' Scheduled and drafts card before its rows are here (round 33): its own title and words, the room of its button
@@ -62,10 +63,16 @@ export function ScheduledFrame() {
 export interface SectionFrameFacts {
   /** Posts: the writer's card above the list (the section draws it for whoever may post somewhere). */
   composer?: boolean
+  /** Members (round 37): how many the community has, for the frame's rows. */
+  members?: number
+  /** Posts (round 37): the Scheduled and drafts card, drawn for whoever may post even with no writer's card (as composer when not said). */
+  scheduled?: boolean
   /** Settings: the address names no panel, so a phone opens on the list of panels (settings-section.tsx). */
   settingsList?: boolean
   /** Overview (round 26): how many figures it draws, four for a community that sells and three otherwise (four when not said). */
   figures?: number
+  /** Page (round 37): the community's name, for the editor's own bar. */
+  title?: string
 }
 
 /** Settings' list of panels on a phone, in its three groups: a group's name over a card of 60px rows. */
@@ -192,7 +199,7 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
               </Shimmer>
             </section>
           ) : null}
-          {facts.composer ? <ScheduledFrame /> : null}
+          {(facts.scheduled ?? facts.composer) ? <ScheduledFrame /> : null}
           <ListFrame words={[64, 64]} rows={6} rowHeight={92} />
         </>
       )
@@ -201,20 +208,22 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
       body = <ListFrame words={[120]} action={112} rows={4} rowHeight={68} lead />
       break
     case "classroom":
-      body = (
-        <>
-          <Shimmer className="flex min-h-[44px] items-center">
-            <ShimmerBlock className="h-4 w-28 rounded-full" />
-          </Shimmer>
-          <ListFrame words={[]} rows={3} rowHeight={72} />
-        </>
-      )
+      /*
+        Learn's list card (components/community/learn/learn-builder.tsx): the count and New program in its head, a row per
+        program. Round 37: no heading line above it any more, which put the card 60px lower than the list it gives way to.
+      */
+      body = <ListFrame words={[]} action={128} rows={3} rowHeight={76} />
+      break
+    case "library":
+      /* Round 39: the Library's list card (components/community/library/library-admin.tsx): the count and Add in its head, a row per item. */
+      body = <ListFrame words={[]} action={96} rows={4} rowHeight={72} />
       break
     case "events":
       body = <ListFrame words={[72, 44]} action={104} rows={4} rowHeight={76} />
       break
     case "members":
-      body = <ListFrame words={[52, 60, 52, 52]} action={96} toolbar rows={8} rowHeight={64} lead />
+      /* As many rows as there are members, up to 12 (round 37): enough to reach past the foot of any screen, so the list never grows into view under the frame. */
+      body = <ListFrame words={[52, 60, 52, 52]} action={96} toolbar rows={Math.max(1, Math.min(12, facts.members ?? 8))} rowHeight={64} lead />
       break
     case "moderation":
       body = <ListFrame words={[60, 64, 72, 40]} rows={5} rowHeight={84} />
@@ -232,18 +241,8 @@ export function SectionFrame({ id, facts = {} }: { id: AdminSection; facts?: Sec
       )
       break
     case "page":
-      /* The Page editor: the page's preview, and from 1280px the panel beside it (round 26: a drawer below that, page-editor/**). */
-      body = (
-        <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start xl:gap-6" data-frame-page="">
-          <section className={cn(card, "h-[min(72vh,760px)] overflow-hidden p-3")} data-frame-card="">
-            <Shimmer className="h-full">
-              <ShimmerBlock className="h-full w-full rounded-xl" />
-            </Shimmer>
-          </section>
-          <PanelFrame rows={5} className="hidden xl:block" />
-        </div>
-      )
-      break
+      /* Round 37: the Page editor owns the screen, so its frame does too (page-editor/screen.tsx), and returns on its own. */
+      return <PageEditorFrame name={facts.title} />
     case "settings":
       body = (
         <div className="lg:grid lg:grid-cols-[208px_minmax(0,1fr)] lg:items-start lg:gap-8">

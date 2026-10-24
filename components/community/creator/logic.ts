@@ -1127,10 +1127,13 @@ export const SETTINGS_TABS = [
   "address",
   "discovery",
   "features",
+  /* Round 37: the community's chat (components/community/creator/chat-panel.tsx). */
+  "chat",
+  /* Round 38: the community's automated messages (components/community/creator/automations-panel.tsx). */
+  "automations",
   "advanced",
   "roles",
   "policies",
-  "emails",
   "gamification",
   "notifications",
   /* round32: features panels */
@@ -1156,6 +1159,14 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
       return "discovery"
     case "welcome":
       return "features"
+    case "automation":
+    case "broadcast":
+    case "broadcasts":
+      return "automations"
+    case "messages":
+    case "dms":
+    case "groups":
+      return "chat"
     case "rules":
     case "contact":
       return "policies"
@@ -1169,10 +1180,6 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
     case "pricing":
     case "tiers":
       return "access"
-    case "email":
-    case "broadcast":
-    case "templates":
-      return "emails"
     default:
       /* Nothing named, or a page tab (the server sends those on to the Page section first): the first panel. */
       return (SETTINGS_TABS as readonly string[]).includes(raw ?? "") ? (raw as SettingsTab) : "access"
@@ -1206,7 +1213,7 @@ export function systemReportKind(note: string | null | undefined): "join_alarm" 
 */
 
 /** The sections, by the place in the address after the community's slug. */
-export type AdminSection = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "page" | "settings"
+export type AdminSection = "overview" | "feed" | "spaces" | "classroom" | "library" | "events" | "members" | "moderation" | "analytics" | "page" | "settings"
 
 /** The section an address is on: /app/community/<slug or id>/<section>. Old addresses land on the section that holds them now. */
 export function adminSectionOf(pathname: string): AdminSection {
@@ -1219,6 +1226,7 @@ export function adminSectionOf(pathname: string): AdminSection {
       return "classroom"
     case "feed":
     case "spaces":
+    case "library":
     case "events":
     case "members":
     case "moderation":
@@ -1249,6 +1257,25 @@ export function sectionMove(target: AdminSection, facts: { active: AdminSection;
   return "fetch"
 }
 
+/**
+ * ROUND 37, THE OWNER: "switching between pages is not smooth and clean, it has bumps". Filmed
+ * (scripts/check-community-admin-round37.mjs), a section opened for the first time showed its frame for one to four
+ * frames and then the section, in cards of another size: the router answers a section read ahead within a frame or two,
+ * and the section's own first render takes the rest. So the section on screen stays while the one pressed is on its
+ * way, for this long at most; the tab is lit at once. It arrives in one change, from the section before to the section
+ * pressed. Only a section slower than this shows its frame.
+ */
+export const FRAME_GRACE_MS = 160
+
+/**
+ * The section drawn in the pane: the one whose tab is lit, unless it is not here yet and the press was a moment ago
+ * (FRAME_GRACE_MS), when the one before it stays. `here` is the shell holding it, or the router's slot drawing it.
+ */
+export function sectionOnScreen(lit: AdminSection, facts: { here: boolean; grace: { id: AdminSection; from: AdminSection } | null }): AdminSection {
+  if (facts.here || !facts.grace || facts.grace.id !== lit) return lit
+  return facts.grace.from
+}
+
 /** Whether a section shown from what the shell holds is read again behind it: marked stale by a change elsewhere, or simply old. */
 export function sectionStale(held: { at: number; stale: boolean } | null | undefined, now: number, fresh: number = SECTION_FRESH_MS): boolean {
   if (!held) return false
@@ -1266,6 +1293,22 @@ export function sectionRestarts(before: string | null | undefined, after: string
 }
 
 /** Whether the settings address names a panel (?tab=). A phone opens on the list of panels when it does not. */
+/**
+ * MEMBER EMAILS LIVE IN EMAILS NOW (Emails › Customer emails › Communities). An address from before that asked for them
+ * in the community's settings (?tab=emails, email, broadcast, templates: a bookmark, an old email, a notice) opens them
+ * there, on this community.
+ */
+const EMAIL_TABS = new Set(["emails", "email", "broadcast", "templates"])
+
+export function emailsTabAsked(raw: string | undefined | null): boolean {
+  return typeof raw === "string" && EMAIL_TABS.has(raw.trim().toLowerCase())
+}
+
+/** Where a community's emails are managed: Emails, the Communities family, this community chosen. */
+export function communityEmailsHref(communityId: string): string {
+  return `/app/emails?tab=customer&kind=communities&community=${encodeURIComponent(communityId)}`
+}
+
 export function settingsTabAsked(raw: string | undefined | null): boolean {
   return typeof raw === "string" && raw.trim() !== ""
 }

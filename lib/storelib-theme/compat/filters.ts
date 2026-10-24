@@ -795,6 +795,11 @@ function structuredData(v: unknown, ctx: Ctx): string {
         url: abs(variant.url ?? o.url),
       })),
     }
+    /* Storelib Reviews' stars in search results: the product's review metafields (./objects.ts), only from real published reviews, only when it has some. */
+    const reviews = (o.metafields as { reviews?: { rating?: { value?: { rating?: unknown } }; rating_count?: { value?: unknown } } } | undefined)?.reviews
+    const ratingValue = num(reviews?.rating?.value?.rating)
+    const reviewCount = Math.floor(num(reviews?.rating_count?.value))
+    if (ratingValue > 0 && reviewCount > 0) out.aggregateRating = { "@type": "AggregateRating", ratingValue: ratingValue.toFixed(1), reviewCount, bestRating: 5, worstRating: 1 }
   } else if (o && (typeof o.content === "string" || typeof o.excerpt === "string") && typeof o.title === "string") {
     const image = imageSrc(o.image)
     out = {

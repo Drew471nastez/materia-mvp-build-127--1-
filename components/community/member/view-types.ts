@@ -4,12 +4,13 @@
  * component and a server module can both import this file.
  */
 import type { SocialLinkView } from "@/lib/communities/social-links"
+import type { ChatSharedPost } from "@/lib/communities/chat-people"
 import type { AuthorView, CommentView, CommunityAccess, CommunityVisibility, FeedPostView, MemberView, PostMedia, Role, SpaceKind } from "@/lib/communities/types"
 
 export type { AuthorView, CommentView, FeedPostView, MemberView }
 
 /** "home", "classroom", ..., or "space:<slug>". */
-export type ShellSection = "home" | "classroom" | "events" | "members" | "leaderboard" | "saved" | "notifications" | "about" | `space:${string}`
+export type ShellSection = "home" | "classroom" | "library" | "events" | "members" | "leaderboard" | "saved" | "notifications" | "about" | `space:${string}`
 
 /** A space as the shell and the composer list it. Only spaces the viewer may see are ever handed over. */
 export interface SpaceView {
@@ -59,6 +60,10 @@ export interface ShellCommunity {
   links?: SocialLinkView[]
   /** Round 26: published (not a draft), for whether the card's cover offers Share. */
   published?: boolean
+  /** Round 38: the Chat tab, opening this channel (the admins' main one, else the first the member may read); null without the tab. */
+  chatTab?: { slug: string } | null
+  /** Round 39: the Library is on (part 278), so it is one of the places. */
+  libraryEnabled?: boolean
 }
 
 /** A community as the top bar and its switcher draw it. */
@@ -225,17 +230,63 @@ export interface SearchIndex {
   events: SearchEventHit[]
 }
 
-export interface ChatMessageView {
+/** What a reply shows of the message it answers (round 37). */
+export interface ChatReplyPreview {
   id: string
-  spaceId: string
-  body: string
-  status: "published" | "removed" | "deleted"
+  authorName: string
+  /** One line of its words, or what it carried ("Photo"), or "Message deleted". */
+  text: string
+}
+
+/**
+ * ONE MESSAGE, THE SAME SHAPE IN A CHANNEL, A CONVERSATION AND A GROUP
+ * (round 37), so one chat screen (chat-surface.tsx) draws all three.
+ */
+export interface ChatLine {
+  id: string
+  authorId: string | null
   author: AuthorView | null
-  replyToId: string | null
+  mine: boolean
+  body: string
+  attachments: PostMedia[]
+  /** Round 39: a post sent in the message, as this reader may see it ("Post not available" otherwise). */
+  post?: ChatSharedPost
+  replyTo: ChatReplyPreview | null
+  /** The sender's own id for the message, so the copy it sent and the copy realtime brings are one. */
+  clientId: string | null
   createdAt: string
   editedAt: string | null
+  /** "event": a line about the group itself ("Ana added Ben"). */
+  kind?: "message" | "event"
+  reactionCount?: number
+  reacted?: boolean
   canEdit: boolean
+  canDelete: boolean
   canModerate: boolean
+}
+
+/** What a member is told about chat before they write (lib/communities/server/chat-settings.ts chatIntro). */
+export interface ChatIntroView {
+  ready: boolean
+  rules: string
+  rulesVersion: number
+  needsRules: boolean
+  dmPolicy: "everyone" | "level" | "days" | "staff" | "off"
+  groupsPolicy: "members" | "staff" | "off"
+  attachments: boolean
+  myDms: "everyone" | "staff" | "nobody"
+  restriction: { kind: "banned" } | { kind: "muted"; until: string } | null
+  myName?: string | null
+  /** Round 38, a channel only: its pinned message, as one line. */
+  pinned?: { id: string; authorName: string; text: string } | null
+  /** Round 38, a channel only: why this member cannot post here (the team only, or a level they have not reached). */
+  postNote?: string | null
+}
+
+export interface ChatMessageView extends ChatLine {
+  spaceId: string
+  status: "published" | "removed" | "deleted"
+  replyToId: string | null
 }
 
 export interface NotificationView {
@@ -254,6 +305,8 @@ export interface LinkPreview {
   title: string | null
   image: string | null
   site: string | null
+  /** Round 38: the page's own line about itself (og:description), for a chat message's card. */
+  description?: string | null
 }
 
 export interface LeaderboardRow {

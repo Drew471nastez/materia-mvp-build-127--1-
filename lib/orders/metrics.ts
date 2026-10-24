@@ -137,3 +137,14 @@ export function readMetrics(
     }
   })
 }
+
+/**
+ * Counts from every order, money from `money`: the same orders with each one
+ * in the store's currency and any no rate converts left out
+ * (lib/orders/paged metricsInStore). Orders and customers never shrink
+ * because a rate was missing; money never adds two currencies' cents.
+ */
+export function moneyFrom(all: MetricReading[], money: MetricReading[]): MetricReading[] {
+  const isMoney = new Set(METRICS.filter((m) => m.money).map((m) => m.key))
+  return all.map((r) => (isMoney.has(r.key) ? money.find((m) => m.key === r.key) ?? r : r))
+}

@@ -183,7 +183,7 @@ section("Every host answers its own robots.txt and sitemap")
 section("Pages a visitor can reach but no index should hold carry noindex")
 {
   const site = code("app/(site)/w/[username]/render-site.tsx")
-  check("a site page names its absolute canonical at the site's origin", /* Changed on purpose (round AB): the website in another language. */ /alternates: \{ canonical: url, / .test(site) && /const origin = await siteOrigin\(creator\.creatorId, username\)/.test(site) && /: pageUrl\(origin, pageKey\)/.test(site))
+  check("a site page names its absolute canonical at the site's origin", /* Changed on purpose (round AB): the website in another language. */ /alternates: \{ canonical: url, / .test(site) && /* Changed on purpose (round 36): the origin is asked with the localizer, beside the site's own read. */ /const early = Promise\.all\(\[siteLocalizer\(creator\.creatorId, locale\), siteOrigin\(creator\.creatorId, username\)\]\)/.test(site) && /const \[localizer, origin\] = await early/.test(site) &&/: pageUrl\(origin, pageKey\)/.test(site))
   check("a site with nothing published is noindex", /if \(found\.kind !== "site"\) \{\s*return \{ title: \{ absolute: [^\n]*robots: \{ index: false, follow: true \} \}/.test(site))
   /* The name a website was given in Website Settings › Domains is a name the
      page answers to, so it has to be one the metadata answers to as well. */

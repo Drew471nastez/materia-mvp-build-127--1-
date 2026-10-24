@@ -8,9 +8,12 @@ import { SyncNotice, useSyncStatus, type AgentNote, type SyncConflict } from "@/
 import type { ReportFile, SyncAction } from "@/lib/github-sync/editor-status"
 import { isGitHubName } from "@/lib/agent-access/connection-mark"
 import { putJsonWithRetry } from "@/lib/website-builder/save-request"
+import { createSaveQueue, retryDelayMs } from "@/lib/website-builder/save-queue"
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition, type ReactNode } from "react"
+import { flushSync } from "react-dom"
+import { MENU_DRAWER_MAX_WIDTH } from "@/lib/website-builder/header-drawers"
 import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
-import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
+import { installSteadyFocus, rowIntoView } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { openInstallPreview } from "@/lib/website-builder/open-preview"
 import dynamic from "next/dynamic"
@@ -29,12 +32,14 @@ import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mob
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
+import { ChoiceControl } from "@/components/website-builder/editor/controls/choice-control"
 import { SocialLinksEditor } from "@/components/website-builder/editor/social-links-editor"
 import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
 import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-anchors"
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock, TreeInsertBlock } from "@/components/website-builder/editor/block-tree-rows"
+import { BlockPickerProvider } from "@/components/website-builder/editor/block-picker"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
@@ -69,7 +74,12 @@ import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { THEME_ROOT_ATTRIBUTE, themeVars } from "@/lib/website-builder/theme-css"
-import { deferLive, echoBlockSetting, echoSectionSetting, isLive, reconcileEchoes, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
+import { holdStill, STILL_THEME_ATTR } from "@/lib/website-builder/edit-still"
+import { changedThemeKeys, drawnByVariablesAlone } from "@/lib/website-builder/theme-variables-only"
+import { schemeColoursOnly, schemeVarWriter, type SchemeRoot } from "@/lib/website-builder/scheme-var-patch"
+import { deferLive, echoBlockSetting, echoSectionSetting, echoThemeSetting, isLive, reconcileEchoes, reconcileThemeEcho, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
+import { useOnScreenSections } from "@/lib/website-builder/on-screen-sections"
+import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
 import { storeLinkTargets } from "@/lib/website-builder/link-targets"
@@ -111,11 +121,11 @@ import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import { createUndoRun } from "@/lib/website-builder/undo-run"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
-import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
+import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, REVEAL_EVENT, glideWithin, pinScroll, releaseStrayDrawerHold, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
-import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
+import { SITE_DRAWER_OPEN_ATTRIBUTE, lockHolders } from "@/components/website-builder/drawer-frame"
 import { NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { CANVAS_SWITCH_MS, holdOffscreenSections, releaseHeldSections, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
+import { CANVAS_SWITCH_MS, holdOffscreenSections, holdView, releaseHeldSections, playCardMorph, playSidebarFold, readCardLook, readFoldLook, stopCanvasSwitch, type CardLook, type FoldLook } from "@/lib/website-builder/canvas-switch"
 import { EXIT_MIN_MS, exitWatchdogMs } from "@/lib/website-builder/exit-hold"
 import { overlayTypesOf, splitTypesKey } from "@/lib/website-builder/editor-perf"
 import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
@@ -123,9 +133,9 @@ import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementL
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
-import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
+import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, mergeLazy, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
 import { blocksIntoDetails, staysInDetails, PRODUCT_DETAILS_BLOCK } from "@/lib/website-builder/product-details-rule"
-import { blockAt, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, updateAt, withChildren } from "@/lib/website-builder/block-tree"
+import { blockAt, blockSteps, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, stepBlock, updateAt, withChildren } from "@/lib/website-builder/block-tree"
 import { type BlockChoice } from "@/components/website-builder/editor/add-block-button"
 import { isStorelibSection, newSectionSettings } from "@/lib/website-builder/storelib-runtime"
 import { MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
@@ -145,7 +155,7 @@ import { DEFAULT_THEME_SOURCES } from "../../../../themes/default/sources.genera
 import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor/ai-working-overlay"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { headerLogoOf } from "@/lib/website-builder/chrome-logo"
-import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
+import { bodyGapToListIndex, insertPlaceBetween } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
@@ -197,7 +207,7 @@ import { themeCountries } from "@/lib/markets/compat-prices"
 import { DISPLAY_CURRENCY_KEY } from "@/lib/storelib-theme/resolve"
 import type { LanguageSwitchPreview, SiteLanguageChoice } from "@/components/website-builder/theme/language-switch"
 import type { CompatMarkets } from "@/components/website-builder/compat/compat-canvas"
-import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
+import { CanvasStillHost, swapCanvasPage } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
 
@@ -584,6 +594,32 @@ function EchoTextInput({ value, onChange, placeholder }: { value: string; onChan
   )
 }
 
+/**
+ * A select and a switch that move in their own frame, and tell the editor
+ * in a transition (components/website-builder/echo-field.ts). A select of
+ * one to three options is a segmented control, four or more the dropdown
+ * (controls/choice-control.tsx, lib/website-builder/choice-shape.ts).
+ */
+function EchoSelect({ value, onChange, options, className, label }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[]; className?: string; label?: string }) {
+  return <ChoiceControl value={value} onChange={onChange} options={options} label={label} className={className} />
+}
+
+function EchoSwitch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label?: string }) {
+  const [on, set] = useEchoedValue(checked, onChange)
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      className={cn(switchTrack(on), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
+      onClick={e => { e.preventDefault(); set(!on) }}
+    >
+      <span className={switchKnob(on)} />
+    </button>
+  )
+}
+
 // ── Field editor ─────────────────────────────────────────────
 /**
  * Every setting's label and control. The label row is drawn here, not by
@@ -800,35 +836,11 @@ function FieldControl({
   }
 
   if (kind === "select") {
-    return (
-      <div className="relative">
-        <select
-          className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-          value={typeof raw === "string" ? raw : String(field.default ?? "")}
-          onChange={e => onChange(e.target.value)}
-        >
-          {field.options?.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
-    )
+    return <EchoSelect value={typeof raw === "string" ? raw : String(field.default ?? "")} onChange={onChange} options={field.options ?? []} label={field.label} />
   }
 
   if (kind === "toggle" || kind === "checkbox") {
-    const checked = typeof raw === "boolean" ? raw : !!field.default
-    return (
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        className={cn(switchTrack(checked), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
-        onClick={() => onChange(!checked)}
-      >
-        <span className={switchKnob(checked)} />
-      </button>
-    )
+    return <EchoSwitch checked={typeof raw === "boolean" ? raw : !!field.default} onChange={onChange} />
   }
 
   if (kind === "range") {
@@ -921,23 +933,13 @@ function FieldControl({
     return <ColorSchemeControl value={typeof raw === "string" ? raw : ""} onChange={(v) => onChange(v)} />
   }
 
+  /* Left, centre, right: three choices, so the segmented control every short select is (controls/choice-control.tsx). */
   if (kind === "alignment") {
     const current = typeof raw === "string" ? raw : "left"
-    return (
-      <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-muted/60">
-        {(["left", "center", "right"] as const).map(a => (
-          <button
-            key={a}
-            type="button"
-            className={cn("h-7 rounded-md text-xs font-medium capitalize transition-colors", current === a ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground")}
-            onClick={() => onChange(a)}
-          >
-            {a}
-          </button>
-        ))}
-      </div>
-    )
+    const options = field.options?.length ? field.options : [{ label: tt("Left"), value: "left" }, { label: tt("Center"), value: "center" }, { label: tt("Right"), value: "right" }]
+    return <EchoSelect value={current} onChange={onChange} options={options} label={field.label} />
   }
+
 
   if (kind === "image_gallery") {
     const list = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []
@@ -992,49 +994,11 @@ function FieldControl({
     )
   }
 
+  /* A radio setting follows the select's rule: buttons for one to three options, the dropdown past that (controls/choice-control.tsx). */
   if (kind === "radio") {
-    const current = typeof raw === "string" ? raw : String(field.default ?? "")
-    const opts = field.options ?? []
-    // Fallback to a select when there are too many options for a segmented control
-    if (opts.length > 3) {
-      return (
-        <div className="relative">
-          <select
-            className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-            value={current}
-            onChange={e => onChange(e.target.value)}
-          >
-            {opts.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        </div>
-      )
-    }
-    return (
-      <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
-        {opts.map(opt => {
-          const isSelected = current === opt.value
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => onChange(opt.value)}
-              className={cn(
-                "flex-1 py-1 px-2.5 text-[12.5px] font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
-                isSelected
-                  ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
-                  : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
-              )}
-            >
-              {opt.label}
-            </button>
-          )
-        })}
-      </div>
-    )
+    return <EchoSelect value={typeof raw === "string" ? raw : String(field.default ?? "")} onChange={onChange} options={field.options ?? []} label={field.label} />
   }
+
 
   // Fallback
   return (
@@ -1342,15 +1306,7 @@ function WbToggle({
         <p className="text-[13px] font-medium text-foreground transition-colors">{label}</p>
         {info && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{info}</p>}
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        className={cn(switchTrack(checked), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
-        onClick={e => { e.preventDefault(); onChange(!checked) }}
-      >
-        <span className={switchKnob(checked)} />
-      </button>
+      <EchoSwitch checked={checked} onChange={onChange} />
     </label>
   )
 }
@@ -1371,18 +1327,7 @@ function WbSelect({
   return (
     <div className="space-y-1.5">
       <p className="text-[13px] font-medium text-foreground">{label}</p>
-      <div className="relative">
-        <select
-          className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-          value={selected}
-          onChange={e => onChange(e.target.value)}
-        >
-          {options.map(opt => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+      <EchoSelect value={selected} onChange={onChange} options={options} label={label} />
     </div>
   )
 }
@@ -1399,47 +1344,11 @@ function WbRadioSegment({
   onChange: (v: string) => void
   options: { label: string; value: string }[]
 }) {
-  const selected = typeof value === "string" ? value : String(options[0]?.value ?? "")
-  // Fallback to a select when there are too many options for a segmented control
-  if (options.length > 3) {
-    return (
-      <div className="space-y-1.5">
-        <p className="text-[13px] font-medium text-foreground">{label}</p>
-        <div className="relative">
-          <select
-            className="w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
-            value={selected}
-            onChange={e => onChange(e.target.value)}
-          >
-            {options.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-        </div>
-      </div>
-    )
-  }
+  /* The same control as every select: buttons for one to three options, the dropdown past that (controls/choice-control.tsx). */
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <p className="text-[13px] font-medium text-foreground">{label}</p>
-      <div className="flex gap-1 p-1 bg-neutral-100 rounded-lg">
-        {options.map(opt => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            className={cn(
-              "flex-1 py-1 px-2.5 text-[12.5px] font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow,scale] duration-200 ease-out active:scale-[0.97] active:duration-75",
-              selected === opt.value
-                ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
-                : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40"
-            )}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <EchoSelect value={typeof value === "string" ? value : String(options[0]?.value ?? "")} onChange={onChange} options={options} label={label} />
     </div>
   )
 }
@@ -2072,21 +1981,17 @@ function HeaderSectionSettings({
               />
               {showSearchIcon && (
                 <>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium text-foreground">When search is clicked</p>
-                    <div className="relative">
-                      <select
-                        className="w-full h-8 pl-2.5 pr-8 text-[13px] border border-border rounded-md bg-background appearance-none focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
-                        value={typeof s.search_behaviour === "string" ? s.search_behaviour : "header"}
-                        onChange={e => onUpdateSetting("search_behaviour", e.target.value)}
-                      >
-                        <option value="header">Open it in the header</option>
-                        <option value="modal">Open a search window</option>
-                        <option value="page">Go to the search page</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                    </div>
-                  </div>
+                  {/* Three choices: buttons when their words fit, the dropdown when they do not (controls/choice-control.tsx). */}
+                  <WbSelect
+                    label="When search is clicked"
+                    value={typeof s.search_behaviour === "string" ? s.search_behaviour : "header"}
+                    onChange={v => onUpdateSetting("search_behaviour", v)}
+                    options={[
+                      { label: "Open it in the header", value: "header" },
+                      { label: "Open a search window", value: "modal" },
+                      { label: "Go to the search page", value: "page" },
+                    ]}
+                  />
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium text-foreground">Search placeholder</p>
                     <input
@@ -2497,6 +2402,11 @@ function BlockTreeFor({
   const stored = (b: BlockInstance) => siblings.some((x) => x.id === b.id)
   const options = addableBlocks(parent.length === 0 ? owner : { accepts: owner.accepts }, catalog)
   const full = !!owner.max_blocks && dynamic.length >= owner.max_blocks
+  /* The block picker's reason a kind cannot be added here (its own limit reached), by the same rules addBlock keeps. */
+  const roomFor = (choice: BlockChoice): string | null => {
+    const room = blockRoom({ name: parent.length ? (catalog[blockAt(section.blocks, parent)?.block.type ?? ""]?.name ?? schema.name) : schema.name, max_blocks: owner.max_blocks }, siblings, defOf(choice.type), choice.type, section, { depth: parent.length + 1, size: 1 + countAll(choice.preset?.blocks), height: 1 + depthOf(choice.preset?.blocks) })
+    return room.ok ? null : room.reason
+  }
   const holds = (b: BlockInstance) => {
     const def = defOf(b.type)
     return !!(def?.accepts?.length || def?.statics?.length) && stored(b)
@@ -2572,7 +2482,7 @@ function BlockTreeFor({
       }}
       add={
         !full && parent.length < MAX_BLOCK_DEPTH ? (
-          <TreeAddBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey)} />
+          <TreeAddBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey)} target={{ section, parent, reasonFor: roomFor }} />
         ) : null
       }
       insertLine={
@@ -2580,7 +2490,7 @@ function BlockTreeFor({
           ? (i) => {
               /* Before the i-th movable block: its place among all the level's blocks, static ones included. */
               const at = siblings.findIndex((x) => x.id === dynamic[i]?.id)
-              return <TreeInsertBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey, at < 0 ? undefined : at)} />
+              return <TreeInsertBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey, at < 0 ? undefined : at)} target={{ section, parent, index: at < 0 ? undefined : at, reasonFor: roomFor }} />
             }
           : undefined
       }
@@ -2910,7 +2820,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
   /** The theme's blocks (blocks/*.storelib), this install's own files over them: what Add block can offer. */
   const blockCatalog = useMemo(() => themeBlockCatalog(storelibSources, { builtIn: !isCompatSource(storelibSources["layout/theme.storelib"]) }), [storelibSources])
-  const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
+  /* Each built-in schema read the first time something asks for it: spread, every one of them was read as the editor opened (storelib-schemas.ts, READ WHEN ASKED FOR). */
+  const librarySchemas = useMemo(() => mergeLazy(SECTION_SCHEMAS, customSchemas), [customSchemas])
   const ownSectionTypes = useMemo(() => customAddableSections(customSchemas), [customSchemas])
   /* The Community card is offered only while communities are on, and the collection sections only while
      collections are (physical commerce): off, they would draw nothing on the site. */
@@ -2947,6 +2858,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const overlayTypesKey = overlayTypesOf(sections)
   const libraryAddable = useMemo(() => {
+    /*
+      Not before the install's files are read (round 1023): until then it is
+      not known whether this is an imported theme, whose library is its own
+      sections, and listing the built-in ones read every built-in schema as
+      the editor opened (scripts/check-canvas-load.mjs PROFILE=1, 47ms of the
+      first canvas's task on an imported theme). The library is closed then.
+    */
+    if (!storelibSourcesRead) return [] as string[]
     const all = compatInstall ? ownSectionTypes : [
       ...ADDABLE_SECTIONS.filter((t) => (t !== "community_card" || builderCommunities !== null) && (!COLLECTION_SECTIONS.has(t) || builderCollections !== null)),
       ...ownSectionTypes,
@@ -2975,14 +2894,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
     return [...new Set([...(compatInstall ? [] : [own]), ...ownKinds, ...fits])]
-  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall, overlayTypesKey])
+  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall, overlayTypesKey, storelibSourcesRead])
   /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
   const overlayAddable = useMemo(() => {
     /* An imported theme always has the Overlay group: a phone tab bar, a popup or back to top can be added there. */
     if (compatInstall) return ownSectionTypes.length > 0
+    /* Known once the install's files are read (libraryAddable, above). */
+    if (!storelibSourcesRead) return false
     const all = [...ADDABLE_SECTIONS, ...ownSectionTypes]
     return all.some((t) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) }).includes("overlay"))
-  }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType])
+  }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType, storelibSourcesRead])
   /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
   const [pendingReplace, setPendingReplace] = useState<{ type: string; presetIndex: number; kind: SectionKind; current: string; next: string } | null>(null)
   /**
@@ -3093,7 +3014,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     },
     [installId],
   )
-  const [isDirty, setIsDirty] = useState(false)
+  const [isDirty, setIsDirtyState] = useState(false)
+  /**
+   * EVERY EDIT IS COUNTED. A save that lands says Saved only when nothing
+   * was edited after what it wrote was taken: the count it started with is
+   * still the count (saveDraft). Before this, the first of two saves landing
+   * put the button to Saved and switched autosave off over an edit made
+   * while it was on its way, and leaving gave no warning for it.
+   */
+  const editRev = useRef(0)
+  const setIsDirty = useCallback((dirty: boolean) => {
+    if (dirty) editRev.current++
+    setIsDirtyState(dirty)
+  }, [])
 
   /**
    * THE DRAFT IS AHEAD OF WHAT IS LIVE.
@@ -3166,6 +3099,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [pendingInsertIndex, setPendingInsertIndex] = useState<number | null>(null)
   /** A gap in the CANVAS, counted in body sections rather than in the list. */
   const [canvasInsertAt, setCanvasInsertAt] = useState<number | null>(null)
+  /* A place inside the header or footer group an imported theme's canvas pointed at (insertPlaceBetween): counted in that group. */
+  const [groupInsertAt, setGroupInsertAt] = useState<number | null>(null)
   /**
    * ASK STORELIB IS SHOWING. On a phone, its sheet is open; closed until
    * asked for. On a computer, its pill is on the canvas; there by default,
@@ -3471,14 +3406,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const fold = sidebarFoldRef.current
     const panel = sidebarRef.current
     switchFrom.current = { card: card ? readCardLook(card) : null, fold: fold && panel ? readFoldLook(fold, panel) : null }
-    /* Before the change: only what is on screen will flow with the card. */
-    if (card) holdOffscreenSections(card)
+    /* Before the change: what is under the eye stays there, and only what is on screen will flow with the card. */
+    if (card) {
+      holdView(card)
+      holdOffscreenSections(card)
+    }
     switchSeen.current = false
     apply()
     /* A press that changed nothing (no switch played) hands them straight back. */
     requestAnimationFrame(() => { if (!switchSeen.current) releaseHeldSections() })
   }, [])
   const lastView = useRef<{ device: string; full: boolean } | null>(null)
+  /* The device the site's header is drawn for: the canvas's, from the moment the card crosses the header's breakpoint (below). */
+  const [headerDevice, setHeaderDevice] = useState<DeviceMode>(device)
+  const headerRun = useRef(0)
   useLayoutEffect(() => {
     const prev = lastView.current
     lastView.current = { device, full: fullView }
@@ -3491,20 +3432,67 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const card = canvasFrameRef.current
     const folding = prev.full !== fullView && !!fold && !!panel
     const resizing = !!from?.card && !!card && prev.device !== device
+    const run = ++headerRun.current
     if (!folding && !resizing) {
+      setHeaderDevice(device)
       releaseHeldSections()
       return
     }
     stopCanvasSwitch(card, fold, panel)
+    /*
+      Its new look is the stylesheet's, read with nothing moving it: before
+      the fold starts, so going from the phone into full screen the card ends
+      at the width it has once the sidebar is gone, not at the width it has
+      beside it (filmed: it landed 148px short and snapped).
+    */
+    /*
+      THE SCROLL STAYS WHERE IT WAS THROUGH THAT READ. Reading the new look
+      lays the page out once at the new width, a layout nobody sees (the card
+      is put back at its old size before the frame is drawn), and the
+      browser's scroll anchoring moved the scroll for it: filmed scrolled to
+      the middle of a long page, the page jumped 394px at the press before
+      the card had moved. Anchoring is off for the read and the scroll is put
+      back once the card is at its starting size again.
+    */
+    const scroller = card?.querySelector<HTMLElement>("#wb-preview-root") ?? null
+    const keepTop = scroller ? scroller.scrollTop : 0
+    const keepAnchor = scroller ? scroller.style.overflowAnchor : ""
+    if (resizing && scroller) scroller.style.overflowAnchor = "none"
+    const to = resizing && card ? readCardLook(card) : null
     const moving: Animation[] = []
     if (folding && fold && panel) {
       const at = from?.fold ?? { width: fullView ? sidebarWidth : 0, opacity: fullView ? 1 : 0 }
       moving.push(...playSidebarFold(fold, panel, at, fullView ? 0 : sidebarWidth, fullView ? 0 : 1, sidebarWidth))
     }
-    if (resizing && card && from?.card) {
-      /* Its new look is the stylesheet's, read with nothing moving it. */
-      const a = playCardMorph(card, from.card, readCardLook(card))
-      if (a) moving.push(a)
+    let morph: Animation | null = null
+    if (resizing && card && from?.card && to) {
+      morph = playCardMorph(card, from.card, to)
+      if (morph) moving.push(morph)
+    }
+    if (resizing && scroller) {
+      if (Math.abs(scroller.scrollTop - keepTop) >= 1) scroller.scrollTop = keepTop
+      scroller.style.overflowAnchor = keepAnchor
+    }
+    /*
+      THE HEADER CHANGES ITS LAYOUT WHERE A WINDOW WOULD: when the card's
+      width crosses the header's breakpoint on the way, not at the press. At
+      the press it put the phone's menu button across a desktop wide card
+      (and the desktop's links in a phone) for the frames before the card
+      moved. Only the header reads the device; nothing else is drawn again.
+    */
+    if (!morph || !card) setHeaderDevice(device)
+    else {
+      const wide = device !== "mobile"
+      const cross = () => {
+        if (run !== headerRun.current) return
+        const w = card.getBoundingClientRect().width
+        if (morph!.playState === "finished" || morph!.playState === "idle" || (wide ? w > MENU_DRAWER_MAX_WIDTH : w <= MENU_DRAWER_MAX_WIDTH)) {
+          flushSync(() => setHeaderDevice(device))
+          return
+        }
+        requestAnimationFrame(cross)
+      }
+      requestAnimationFrame(cross)
     }
     /* Landed (or turned round by another press, which cancels these): the paused sections come back, a few a frame. */
     let done = false
@@ -3515,7 +3503,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (moving.some((a) => a.playState === "idle")) return
       releaseHeldSections()
     }
-    const t = window.setTimeout(land, CANVAS_SWITCH_MS + 400)
+    /* A fallback for a promise that never settles: past the wait for the first frame (startOnceDrawn) and the move. */
+    const t = window.setTimeout(land, CANVAS_SWITCH_MS * 2 + 600)
     Promise.all(moving.map((a) => a.finished)).then(land, () => {})
   }, [device, fullView]) // eslint-disable-line react-hooks/exhaustive-deps
   /*
@@ -3682,6 +3671,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /* A change drawn ahead of the deferred canvas is only ever what the editor holds now (lib/website-builder/live-settings.ts, echoes). */
   useLayoutEffect(() => {
     reconcileEchoes((id) => sectionsRef.current.find((s) => s.id === id))
+    reconcileThemeEcho(settingsRef.current as Record<string, unknown>)
   })
   const settingsRef = useRef(settingsDraft)
   settingsRef.current = settingsDraft
@@ -3690,19 +3680,41 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const redoRef = useRef(redoStack)
   redoRef.current = redoStack
 
-  /** The page as it is right now, deep copied so a later edit cannot reach it. */
+  /**
+   * The page as it is right now, BY REFERENCE (round 34). Every edit in this
+   * file makes new objects for what it changes and keeps the rest (the
+   * canvas's memo depends on exactly that), so a step can hold the page
+   * itself: nothing later reaches it.
+   *
+   * It was a deep copy (JSON round trip of every section), and an Undo then
+   * put back forty new section objects for one changed: every section on
+   * the page drew again, the canvas's memo missed on all of them, and each
+   * step of the history held a full copy of the page. Measured on 44
+   * sections (scripts/check-editor-sections.mjs), eight Undos drew 100
+   * sections; by reference, only the ones the step changes.
+   */
   const snapshotNow = useCallback(
     () => ({
-      sections: JSON.parse(JSON.stringify(sectionsRef.current)) as SectionInstance[],
-      settings: JSON.parse(JSON.stringify(settingsRef.current)) as ThemeSettingsValues,
+      sections: sectionsRef.current,
+      settings: settingsRef.current,
     }),
     [],
   )
+
+  /** Ends the run of edits now (lib/website-builder/undo-run.ts cut): set once the run exists, below. */
+  const cutUndoRun = useRef<() => void>(() => {})
 
   /** Thirty steps. Anything a person can remember doing, they can undo. */
   const pushUndo = useCallback(() => {
     setUndoStack(prev => [...prev.slice(-30), snapshotNow()])
     setRedoStack([])
+    /*
+      A step of its own (a delete, a move) ends the run of typing before it,
+      so typing again after it is a step of its own too. It used to join the
+      run that was still open: Undo then took back the typing after the
+      delete together with the delete.
+    */
+    cutUndoRun.current()
   }, [snapshotNow])
 
   /**
@@ -3717,6 +3729,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const pushUndoLatest = useRef(pushUndo)
   pushUndoLatest.current = pushUndo
   const [undoRun] = useState(() => createUndoRun(() => pushUndoLatest.current()))
+  cutUndoRun.current = undoRun.cut
   const endUndoRun = undoRun.end
   const debouncedPushUndo = undoRun.step
 
@@ -4299,10 +4312,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * resize, which must not reopen something somebody closed.
      */
     let wasMobile: boolean | null = null
+    /*
+      The size the canvas was showing before a window narrowed past the
+      phone line, given back when it widens again: a window dragged narrow
+      and back (or out of a computer's full screen) came back as a phone
+      card in the desktop editor.
+    */
+    let shownBefore: DeviceMode | null = null
     const checkMobile = () => {
       const mobile = window.innerWidth < 768
       setIsMobileView(mobile)
-      if (mobile) setDevice("mobile")
+      if (mobile) {
+        const crossing = wasMobile !== true
+        setDevice((d) => {
+          if (crossing && shownBefore === null) shownBefore = d
+          return "mobile"
+        })
+      } else if (wasMobile === true && shownBefore !== null) {
+        const back = shownBefore
+        shownBefore = null
+        setDevice(back)
+      }
       if (mobile !== wasMobile) setAiOpen(!mobile && !askDockClosed())
       wasMobile = mobile
     }
@@ -4579,21 +4609,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * the canvas goes from the old page straight to the new one with no
        * frame in between.
        *
-       * And the old one is held over it, copied, until the new one is drawn
-       * with its first pictures in, then faded off it (lib/website-builder/
-       * canvas-still.ts). Not over an imported theme's canvas, whose frames
-       * cross-fade on their own (compat-canvas.tsx).
+       * And the old one stays on screen, whole, until this one is drawn with
+       * its first pictures in, and then this one replaces it in one frame
+       * (lib/website-builder/canvas-still.ts). The same cut the live site
+       * makes. Not over an imported theme's canvas, whose frames hand over
+       * on their own (compat-canvas.tsx).
        */
-      if (!importedTheme.current) holdCanvasStill(() => currentPageRef.current === page)
-      setCurrentPage(page)
-      setSelectedProductPage(null)
-      setSelectedProductId(null)
-      setEditAllProductPages(false)
-      setSections(merged)
-      updatePageUrl(page)
-
-      setSectionsLoading(false)
-      setCanvasLoading(false)
+      const show = () => {
+        setCurrentPage(page)
+        setSelectedProductPage(null)
+        setSelectedProductId(null)
+        setEditAllProductPages(false)
+        setSections(merged)
+        updatePageUrl(page)
+        setSectionsLoading(false)
+        setCanvasLoading(false)
+      }
+      if (!importedTheme.current) swapCanvasPage(show)
+      else show()
     } catch (err) {
       /* The page you were on stays, and says why it is still there; the sidebar's skeleton and the canvas's hold go. */
       pageOpenFailed(err)
@@ -4639,32 +4672,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        being fetched ends now, before the one move it was protecting. */
     openingPage.current = false
     document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
-  }, [currentPage, selectedProductPage])
-  /**
-   * ANOTHER PAGE FADES IN, briefly, rather than replacing the last one in a
-   * single frame. Opacity only, on the page inside the canvas, never below a
-   * third: it is the same canvas, showing a different page. Not on the
-   * editor's first draw, which is not a change of page.
-   */
-  const pageShown = useRef<string | null>(null)
-  useLayoutEffect(() => {
-    const key = `${currentPage}|${selectedProductPage ?? ""}`
-    const before = pageShown.current
-    pageShown.current = key
-    if (before === null || before === key) return
-    /*
-      NOT FOR AN IMPORTED THEME. Its canvas still shows the page being left
-      at this moment (the next one is drawing under it, compat-canvas.tsx)
-      and swaps them itself once the next is drawn, so this dimmed the old
-      page to a third and brought it back, a white flash over About before
-      Home had even appeared (scripts/check-canvas20.ts).
-    */
-    if (importedTheme.current) return
-    const page = document.getElementById("wb-preview-root")?.firstElementChild as HTMLElement | null
-    const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
-    /* The page being left is held over this one and fades off it (canvas-still.ts): fading this one up as well showed the white behind both. */
-    if (document.querySelector(`[${CANVAS_STILL_ATTR}]`)) return
-    if (page && !calm && typeof page.animate === "function") page.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "ease-out" })
   }, [currentPage, selectedProductPage])
   /* Opened by a link to one of its sections (`/about#section-x`): from the
      top down to it, once the canvas has drawn it. The canvas draws a
@@ -4782,16 +4789,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Splice home's header/footer around this product template
     const merged = mergeWithHomeHeaderFooter(pageSections, homeHF)
 
-    /** One commit: the page, the product it is showing, and its sections, under the page being left (see handlePageChange). */
-    if (!importedTheme.current) holdCanvasStill(() => selectedProductIdRef.current === productId)
-    setSelectedProductPage(productTitle)
-    setSelectedProductId(productId)
-    setCurrentPage("product")
-    setSections(merged)
-    updatePageUrl("product", slugForUrl)
-
-    setSectionsLoading(false)
-    setCanvasLoading(false)
+    /** One commit: the page, the product it is showing, and its sections. The page being left stays until this one is drawn, then this one replaces it in one frame (see handlePageChange). */
+    const show = () => {
+      setSelectedProductPage(productTitle)
+      setSelectedProductId(productId)
+      setCurrentPage("product")
+      setSections(merged)
+      updatePageUrl("product", slugForUrl)
+      setSectionsLoading(false)
+      setCanvasLoading(false)
+    }
+    if (!importedTheme.current) swapCanvasPage(show)
+    else show()
   }
 
   // ── Editor-internal navigation ─────────────────────────────
@@ -5153,7 +5162,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* The favicon is one value in Website settings and in an imported theme's own settings (lib/website-builder/favicon-sync.ts): a write of one carries the other. */
     const follows = faviconFollows(settingsRef.current as Record<string, unknown>, key, value)
     if (sameSettingValue(settingsRef.current[key], value) && !follows) return
-    debouncedPushUndo()
+    /* Drawn on the sections on screen now, ahead of the deferred canvas (live-settings.ts, echoThemeSetting). An imported theme's canvas draws its page whole either way. */
+    if (!compatInstall) echoThemeSetting(key, value)
+    debouncedPushUndo(`theme:${key}`)
     setSettingsDraft(prev => ({ ...prev, [key]: value, ...faviconFollows(prev as Record<string, unknown>, key, value) }))
 
     // If updating logo in theme settings, also sync to header section
@@ -5322,7 +5333,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (current && sameSettingValue(current.settings?.[key], value)) return
     /* Drawn by its section now, ahead of the deferred canvas (live-settings.ts, echoes). */
     if (current) echoSectionSetting(sectionId, key, value)
-    debouncedPushUndo()
+    debouncedPushUndo(`section:${sectionId}:${key}`)
     setSections(prev => {
       const section = prev.find(s => s.id === sectionId)
       // If updating header section logo settings, also sync to theme settings
@@ -5383,7 +5394,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!path) {
       if (!staticType) return
       const target = parsePath(blockKey)
-      debouncedPushUndo()
+      debouncedPushUndo(`block:${sectionId}:${blockKey}:${key}`)
       setSections(prev => prev.map(s =>
         s.id === sectionId
           ? { ...s, blocks: insertBlockAt(s.blocks, target.slice(0, -1), { id: target[target.length - 1], type: staticType, settings: { [key]: value }, static: true }) }
@@ -5396,7 +5407,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (block && sameSettingValue(block.settings?.[key], value)) return
     /* Drawn by its section now, ahead of the deferred canvas (live-settings.ts, echoes). */
     if (block) echoBlockSetting(sectionId, blockKey, key, value)
-    debouncedPushUndo()
+    debouncedPushUndo(`block:${sectionId}:${blockKey}:${key}`)
     setSections(prev => prev.map(s =>
       s.id === sectionId
         ? { ...s, blocks: updateAt(s.blocks, path, b => ({ ...b, settings: { ...b.settings, [key]: value } })) }
@@ -5574,6 +5585,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const was = pathKey(path)
     const now = pathKey([...parent, found.block.id])
     setSelectedBlockId(prev => (prev === was || prev === blockKey ? now : prev && prev.startsWith(`${was}/`) ? now + prev.slice(was.length) : prev))
+    setIsDirty(true)
+  }
+
+  /** A block one step up or down among its own siblings (the canvas toolbar over a selected block: lib/website-builder/block-tree.ts, stepBlock). */
+  const moveBlockBy = (sectionId: string, blockKey: string, dir: -1 | 1) => {
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    const path = section ? resolvePath(section.blocks, blockKey) : null
+    const next = section && path ? stepBlock(section.blocks, path, dir) : null
+    if (!section || !path || !next) return
+    pushUndo()
+    setSections(prev => prev.map(s => (s.id === sectionId ? { ...s, blocks: next } : s)))
+    /* Selected where it is now: the same path, the same block. */
+    setSelectedBlockId(pathKey(path))
     setIsDirty(true)
   }
 
@@ -6097,12 +6121,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       groups,
       kind,
       group: requested,
-      at: requested === "template" && insertAt != null ? Math.max(0, Math.min(before.template.length, insertAt - before.header.length)) : null,
+      at: requested === "template" && insertAt != null ? Math.max(0, Math.min(before.template.length, insertAt - before.header.length)) : requested !== "template" && groupInsertAt != null ? groupInsertAt : null,
       kindOfType,
     })
     const next = placed.sections
     setPendingInsertIndex(null)
     setCanvasInsertAt(null)
+    setGroupInsertAt(null)
     if (kind) chromeRemoved.current[kind] = false
     if (placed.replaced.length > 0) {
       showNotification(`Replaced the ${kind}. Old one hidden.`)
@@ -6370,7 +6395,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [isDirty, saving, publishing, loading, sections, settingsDraft, syncConflict])
 
   // Save header/footer to all pages so they stay universal
-  const syncHeaderFooterToAllPages = async (mode: "draft" | "publish" = "draft") => {
+  /* The page's sections and its key are the ones being written (a save's snapshot), not whatever is on screen when the request goes. */
+  const syncHeaderFooterToAllPages = async (mode: "draft" | "publish" = "draft", list: SectionInstance[] = sections, page: PageKey = currentPage) => {
     /**
      * THE HEADER AND FOOTER GROUPS, whole: an announcement bar above the
      * header, a header written as a section file, a header hidden because
@@ -6378,12 +6404,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * deleted the header (or footer) here; otherwise an empty one means
      * "nothing to copy", and the other pages keep theirs.
      */
-    const g = splitGroups(sections)
+    const g = splitGroups(list)
     const headerGroup = g.header.length > 0 ? g.header : chromeRemoved.current.header ? [] : null
     const footerGroup = g.footer.length > 0 ? g.footer : chromeRemoved.current.footer ? [] : null
     /* The Overlay group is the site's too: a popup or a bottom bar is on every page, as Shopify's groups are. */
     const overlayGroup = g.overlay.length > 0 ? g.overlay : chromeRemoved.current.overlay ? [] : null
-    if (!headerGroup && !footerGroup && !overlayGroup) return
+    if (!headerGroup && !footerGroup && !overlayGroup) return true
 
     // Fetch all pages for this install
     const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections/sync-global`, {
@@ -6395,13 +6421,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         header_group: headerGroup,
         footer_group: footerGroup,
         overlay_group: overlayGroup,
-        current_page: currentPage,
+        current_page: page,
         mode,
       }),
     }, 20_000).catch(() => null)
     if (!res?.ok) {
       console.warn("Failed to sync header/footer to other pages")
+      return false
     }
+    return true
   }
 
   // Strip runtime-only `_product_data` that the preview injects into
@@ -6435,6 +6463,136 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     scheduleCoverRefresh(installId)
   }
 
+  /**
+   * ===========================================================================
+   *  THE DRAFT, WRITTEN ONE SNAPSHOT AT A TIME
+   * ===========================================================================
+   * What a save writes is taken when it is asked for (the page, its
+   * sections, the settings, and the edit count then), and written through
+   * one queue (lib/website-builder/save-queue.ts): never two writes of the
+   * draft in flight, so an older one cannot land after a newer one and put
+   * the older page back; of saves waiting for the same page only the newest
+   * is sent. Publish writes its draft through the same queue.
+   */
+  type DraftSnapshot = { page: PageKey; sections: SectionInstance[]; settings: ThemeSettingsValues; rev: number }
+  type DraftResult = { ok: true } | { ok: false; problem: SaveProblem; reason: string }
+  const sendDraft = async (snap: DraftSnapshot): Promise<DraftResult> => {
+    try {
+      /*
+        THE THREE WRITES AT ONCE (round 25), as Publish already sends them:
+        the settings, this page, and the header and footer on every other
+        page are different rows, and each was waited for before the next
+        was sent, three round trips in front of every save and of every page
+        switch with something unsaved. Each is a whole value written again
+        (idempotent), so one that fails leaves the edit unsaved and the next
+        save sends all three again; what is said is the first that failed.
+      */
+      /*
+        ONLY WHAT CHANGED SINCE THE LAST WRITE THAT WENT THROUGH (round 34).
+        Every save sent all three, so typing in a hero wrote the theme
+        settings and copied the header and footer to every page on each
+        autosave: three requests where one changed (measured: 36 keys, 9
+        PUTs, scripts/check-editor-sections.mjs). The settings are sent when
+        they are not the object last written (with the same theme schema
+        under them); the header and footer when a section of theirs is not
+        the one last copied, or one was deleted. The page itself is always
+        sent: it is the row the save is for.
+      */
+      const sent = sectionsForSave(snap.sections)
+      const settingsKey = { settings: snap.settings, groups: themeGroups }
+      const chromeKey = chromeKeyOf(snap.sections)
+      const last = lastWritten.current
+      const settingsSame = !!last.settings && last.settings.settings === settingsKey.settings && last.settings.groups === settingsKey.groups
+      const chromeSame = !!last.chrome && sameChrome(last.chrome, chromeKey)
+      const [settingsRes, sectionsRes, chromeOk] = await Promise.all([
+        settingsSame ? Promise.resolve(new Response(null, { status: 200 })) : putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(snap.settings as Record<string, unknown>, themeGroups) }),
+        putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: snap.page, sections: sent, mode: "draft" }),
+        // Sync header/footer to all other pages
+        chromeSame ? Promise.resolve(true) : syncHeaderFooterToAllPages("draft", snap.sections, snap.page),
+      ])
+      if (settingsRes.ok) last.settings = settingsKey
+      if (chromeOk) last.chrome = chromeKey
+      if (!settingsRes.ok) {
+        const d = await settingsRes.json().catch(() => ({}))
+        return { ok: false, problem: explainSaveProblem(settingsRes.status, d), reason: `http_${settingsRes.status}` }
+      }
+      if (!sectionsRes.ok) {
+        const d = await sectionsRes.json().catch(() => ({}))
+        // A FAILED autosave is not quiet. Silence here is how somebody keeps
+        // working for an hour against a server that stopped accepting writes.
+        return { ok: false, problem: explainSaveProblem(sectionsRes.status, d, sent), reason: `http_${sectionsRes.status}` }
+      }
+      return { ok: true }
+    } catch {
+      const offline = typeof navigator !== "undefined" && navigator.onLine === false
+      return { ok: false, problem: explainSaveProblem(offline ? null : 503, null), reason: offline ? "offline" : "network" }
+    }
+  }
+  /*
+    What the last write that went through sent of the settings and of the
+    header and footer, so the next sends them only when they changed. Kept
+    by object: a draft read again (a load, a push from GitHub, a restore)
+    is new objects, so the next save after it sends them all.
+  */
+  const lastWritten = useRef<{ settings: { settings: ThemeSettingsValues; groups: unknown } | null; chrome: unknown[] | null }>({ settings: null, chrome: null })
+  /** The header, footer and overlay groups' sections, and which of them were deleted here, as one list to compare. */
+  const chromeKeyOf = (list: SectionInstance[]): unknown[] => {
+    const g = splitGroups(list)
+    const gone = chromeRemoved.current
+    return [...g.header, "|", ...g.footer, "|", ...g.overlay, "|", gone.header, gone.footer, gone.overlay]
+  }
+  const sameChrome = (a: unknown[], b: unknown[]) => a.length === b.length && a.every((x, i) => x === b[i])
+  const sendDraftLatest = useRef(sendDraft)
+  sendDraftLatest.current = sendDraft
+  const [draftQueue] = useState(() =>
+    createSaveQueue<DraftSnapshot, DraftResult>((snap) => sendDraftLatest.current(snap), {
+      sameTarget: (a, b) => a.page === b.page,
+      /* The same objects: nothing was edited between the two, so the second would write what the first did. */
+      equal: (a, b) => a.sections === b.sections && a.settings === b.settings,
+      succeeded: (r) => r.ok,
+    }),
+  )
+  /** Nothing edited since `snap` was taken: what it wrote is what is here. */
+  const writtenIsCurrent = (snap: DraftSnapshot) =>
+    editRev.current === snap.rev && sectionsRef.current === snap.sections && settingsRef.current === snap.settings
+
+  /**
+   * A SAVE THAT COULD NOT GO THROUGH FOR A REASON THAT PASSES (offline, the
+   * server not answering, too many at once) IS TRIED AGAIN ON ITS OWN, a
+   * little later each time (retryDelayMs), and at once when the browser is
+   * back online. The banner's words already promised this ("Saving resumes
+   * when you're back", "it saves again on its own"); nothing did it until
+   * the next edit. A refusal that says what is wrong (a 400, a 413, signed
+   * out) is not tried again: the same body would be refused the same way.
+   */
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryAttempt = useRef(0)
+  const saveDraftLatest = useRef<(o?: { quiet?: boolean }) => Promise<boolean>>(async () => false)
+  const retrySaveNow = useCallback(() => {
+    if (retryTimer.current) clearTimeout(retryTimer.current)
+    retryTimer.current = null
+    /* The same holds as autosave's: not over GitHub's version, not across a page switch or a restore. */
+    if (!isDirtyRef.current || syncConflictRef.current || switchingPage.current || restoreHold.current) return
+    void saveDraftLatest.current({ quiet: true })
+  }, [])
+  const scheduleRetry = (problem: SaveProblem) => {
+    if (retryTimer.current) clearTimeout(retryTimer.current)
+    retryTimer.current = null
+    if (problem.action !== "retry") return
+    retryTimer.current = setTimeout(retrySaveNow, retryDelayMs(retryAttempt.current++))
+  }
+  useEffect(() => {
+    const online = () => {
+      if (retryTimer.current) retrySaveNow()
+    }
+    window.addEventListener("online", online)
+    return () => {
+      window.removeEventListener("online", online)
+      if (retryTimer.current) clearTimeout(retryTimer.current)
+      retryTimer.current = null
+    }
+  }, [retrySaveNow])
+
   const saveDraft = async (options: { quiet?: boolean; keepMine?: boolean } = {}): Promise<boolean> => {
     /* Never over GitHub's version while the creator has not picked (syncConflict), unless saving IS their pick. */
     if (syncConflictRef.current) {
@@ -6446,55 +6604,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     /* Timed for /admin/performance (lib/perf/mark): how long a save took, or that it failed. */
     const t0 = performance.now()
-    try {
-      /*
-        THE THREE WRITES AT ONCE (round 25), as Publish already sends them:
-        the settings, this page, and the header and footer on every other
-        page are different rows, and each was waited for before the next
-        was sent, three round trips in front of every save and of every page
-        switch with something unsaved. Each is a whole value written again
-        (idempotent), so one that fails leaves the edit unsaved and the next
-        save sends all three again; what is said is the first that failed.
-      */
-      const [settingsRes, sectionsRes] = await Promise.all([
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(settingsDraft as Record<string, unknown>, themeGroups) }),
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
-        // Sync header/footer to all other pages
-        syncHeaderFooterToAllPages("draft"),
-      ])
-      if (!settingsRes.ok) {
-        perfFail("/step/editor/save", `http_${settingsRes.status}`)
-        const d = await settingsRes.json().catch(() => ({}))
-        setSaveProblem(explainSaveProblem(settingsRes.status, d))
-        return false
-      }
-
-      if (!sectionsRes.ok) {
-        perfFail("/step/editor/save", `http_${sectionsRes.status}`)
-        const d = await sectionsRes.json().catch(() => ({}))
-        // A FAILED autosave is not quiet. Silence here is how somebody keeps
-        // working for an hour against a server that stopped accepting writes.
-        setSaveProblem(explainSaveProblem(sectionsRes.status, d, sectionsForSave(sections)))
-        return false
-      }
-
-      setIsDirty(false)
-      setSaveProblem(null)
-      snapshotAfterSave()
-      /**
-       * Autosave says nothing. A toast every couple of seconds is noise that
-       * trains somebody to ignore the one that matters — the bar already shows
-       * the state.
-       */
-      perfStep("/step/editor/save", performance.now() - t0)
-      if (!options.quiet) showNotification("Saved")
-      return true
-    } catch {
-      perfFail("/step/editor/save", typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "network")
-      setSaveProblem(explainSaveProblem(typeof navigator !== "undefined" && navigator.onLine === false ? null : 503, null))
+    const snap: DraftSnapshot = { page: currentPage, sections, settings: settingsDraft, rev: editRev.current }
+    const result = await draftQueue.save(snap)
+    if (!result.ok) {
+      perfFail("/step/editor/save", result.reason)
+      setSaveProblem(result.problem)
+      scheduleRetry(result.problem)
       return false
     }
+    if (retryTimer.current) clearTimeout(retryTimer.current)
+    retryTimer.current = null
+    retryAttempt.current = 0
+    /*
+      Saved is said only for what is on screen. An edit made while this was
+      on its way is still unsaved: its own autosave writes it, and this asks
+      for one too, for an edit that changed no section (nothing for autosave
+      to notice).
+    */
+    if (writtenIsCurrent(snap)) setIsDirty(false)
+    else retryTimer.current = setTimeout(retrySaveNow, AUTOSAVE_DELAY_MS)
+    setSaveProblem(null)
+    snapshotAfterSave()
+    /**
+     * Autosave says nothing. A toast every couple of seconds is noise that
+     * trains somebody to ignore the one that matters: the bar already shows
+     * the state.
+     */
+    perfStep("/step/editor/save", performance.now() - t0)
+    if (!options.quiet) showNotification("Saved")
+    return true
   }
+  saveDraftLatest.current = saveDraft
 
   const publishChanges = async () => {
     /* Two versions of the same page: which one goes live is the creator's to say first. */
@@ -6513,24 +6653,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         draft, exactly. The writes go to different rows, so at the same time;
         each one ends (lib/website-builder/save-request).
       */
+      /* Through the draft's queue, after any autosave still on its way, so none of them lands after this. */
+      const snap: DraftSnapshot = { page: currentPage, sections, settings: settingsDraft, rev: editRev.current }
       if (isDirty) {
-      const [settingsRes, sectionsRes] = await Promise.all([
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: withThemeDefaults(settingsDraft as Record<string, unknown>, themeGroups) }),
-        putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
-        syncHeaderFooterToAllPages("draft"),
-      ])
-      if (!settingsRes.ok) {
-        const d = await settingsRes.json().catch(() => ({}))
-        setSaveProblem(explainSaveProblem(settingsRes.status, d))
-        setPublishing(false)
-        return
-      }
-      if (!sectionsRes.ok) {
-        const d = await sectionsRes.json().catch(() => ({}))
-        setSaveProblem(explainSaveProblem(sectionsRes.status, d, sectionsForSave(sections)))
-        setPublishing(false)
-        return
-      }
+        const written = await draftQueue.save(snap)
+        if (!written.ok) {
+          setSaveProblem(written.problem)
+          scheduleRetry(written.problem)
+          setPublishing(false)
+          return
+        }
+      } else {
+        await draftQueue.idle()
       }
 
       /*
@@ -6558,8 +6692,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setInstall({ ...install, status: "published", published_at: new Date().toISOString() })
       }
 
-      setIsDirty(false)
-      setUnpublished(false)
+      /* An edit made while it published is not live and not saved: it stays unsaved, and autosave writes it. */
+      if (writtenIsCurrent(snap)) {
+        setIsDirty(false)
+        setUnpublished(false)
+      }
       setHasPublished(true)
       setAgentNote(null)
       snapshotAfterSave()
@@ -6695,6 +6832,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * than from the page. Selecting from a list is the case where scrolling is
    * the whole answer.
    */
+  /*
+    THE RING FIRST, THE PANEL WHEN IT IS READY (round 36). Selecting a section
+    drew the ring, the row and the new settings panel in one render: the
+    panel's mount (a thousand components, its tooltips and fields) held the
+    ring back, 50 to 140ms at 1x and 250 to 620ms at 4x CPU (scripts/
+    check-editor-select.mjs). The pick is now said at once (`picked`, read by
+    the canvas, the list and the toolbar) and the panel follows in a
+    transition, so the ring and the row are in the next frame and the
+    panel's work never holds them. `from` is the panel the pick was made
+    over: once any panel change lands (this one, or another that overtook
+    it), the panel itself is the truth again.
+  */
+  const [picked, setPicked] = useState<{ id: string; from: Panel } | null>(null)
+  const selectedPanelNow = useRef(selectedPanel)
+  selectedPanelNow.current = selectedPanel
+  const pickSection = useCallback((sectionId: string, blockId: string | null) => {
+    setPicked({ id: sectionId, from: selectedPanelNow.current })
+    startTransition(() => {
+      setSelectedPanel({ type: "section", sectionId })
+      setSelectedBlockId(blockId)
+    })
+  }, [])
   const selectSectionFromCanvas = useCallback(
     (sectionId: string, blockId?: string | null, field?: ClickTarget | null) => {
       /* Switched off, and the rings are still fading: a tap now is a preview's tap. */
@@ -6731,8 +6890,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           () => touchingCanvas.current,
         )
       }
-      setSelectedPanel({ type: "section", sectionId })
-      setSelectedBlockId(blockId ?? null)
+      pickSection(sectionId, blockId ?? null)
       /**
        * A CLICK ON ONE THING OPENS ITS FIELD. A heading clicked lands the
        * sidebar on Heading, a picture on Image (the effect below). On a phone
@@ -6824,7 +6982,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   useEffect(() => {
     if (!selectedBlockId) return
-    const row = document.querySelector(`[data-block-row="${window.CSS.escape(selectedBlockId)}"]`)
+    /*
+      NOT THE BLOCK'S OWN PANEL (round 1023, part 2). Its settings carry the
+      same mark as a row of a list, so they were taken for a row: taller
+      than the sidebar, "brought into view" by their foot, and every block
+      opened scrolled to the bottom of its settings. A row in a list is
+      brought into view; the panel opens at its top.
+    */
+    const row = Array.from(document.querySelectorAll(`[data-block-row="${window.CSS.escape(selectedBlockId)}"]`)).find((el) => !el.closest("[data-wb-block-panel]"))
     if (!row) return
     const id = requestAnimationFrame(() => {
       /**
@@ -6838,9 +7003,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (!scroller) return
       const r = row.getBoundingClientRect()
       const box = scroller.getBoundingClientRect()
-      if (r.top >= box.top && r.bottom <= box.bottom) return // already in view
-      const delta = r.top < box.top ? r.top - box.top : r.bottom - box.bottom
-      scroller.scrollBy({ top: delta, behavior: "smooth" })
+      /* Its top in view, whatever its height: a row taller than the sidebar is never brought in by its foot (steady-focus.ts rowIntoView). */
+      const delta = rowIntoView(r, box)
+      if (delta) scroller.scrollBy({ top: delta, behavior: "smooth" })
     })
     return () => cancelAnimationFrame(id)
   }, [selectedBlockId])
@@ -6852,6 +7017,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [librarySchemas])
   const openAddSection = useCallback(() => {
     setAddGroup("template")
+    setGroupInsertAt(null)
     setAddSectionOpen(true)
   }, [])
   /**
@@ -6880,6 +7046,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         if (addSectionOpenRef.current) return
         setPendingInsertIndex(null)
         setCanvasInsertAt(null)
+        setGroupInsertAt(null)
       }))
     }
   }, [])
@@ -7000,14 +7167,33 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const openAddSectionAt = useCallback((at: number) => {
     setAddGroup("template")
+    setGroupInsertAt(null)
     setPendingInsertIndex(null)
     setCanvasInsertAt(at)
     setAddSectionOpen(true)
   }, [])
+  /*
+    AN IMPORTED THEME'S CANVAS POINTS AT A PLACE BY THE SECTIONS EITHER SIDE
+    OF IT (round 1023, canvas-bridge.ts ADD A SECTION HERE): the page's own
+    content is a canvas gap as above; a place inside the header or footer
+    group opens Add section for that group, at that place in it.
+  */
+  const openAddSectionBetween = useCallback((place: { before: string | null; after: string | null }) => {
+    const at = insertPlaceBetween(sectionsRef.current, place)
+    if (!at) return
+    if (at.group === "template") { setGroupInsertAt(null); openAddSectionAt(at.at); return }
+    setAddGroup(at.group)
+    setPendingInsertIndex(null)
+    setCanvasInsertAt(null)
+    setGroupInsertAt(at.at)
+    setAddSectionOpen(true)
+  }, [openAddSectionAt])
 
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
     selectedPanel.type === "section" ? (selectedPanel as { type: "section"; sectionId: string }).sectionId : null
+  /* What is drawn as selected: the pick while its panel is on the way (pickSection), the panel's section otherwise. */
+  const shownSectionId: string | null = picked && picked.from === selectedPanel ? picked.id : selectedSectionId
   /* The section being edited is open in the tree when you go back to it, its blocks showing, as Shopify's tree follows a selection. */
   useEffect(() => {
     if (!selectedSectionId) return
@@ -7567,6 +7753,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   useEffect(() => {
     if (panelSectionGone && !sectionsLoading) setSelectedPanel({ type: "pages" })
   }, [panelSectionGone, sectionsLoading])
+  /*
+    THE LIST IS WHERE IT WAS LEFT (round 36). The list is drawn again each
+    time it comes back (a section's settings, Back; Theme, Sections), and it
+    came back at the top: scrolled to the thirtieth row, into a section and
+    Back, and the row was out of sight. Its scroll is kept for the page it
+    belongs to and put back as it is drawn, before anybody sees it at the top.
+    Which rows are open is the editor's own state (treeOpen), kept already.
+  */
+  const listScroll = useRef<{ page: string; top: number } | null>(null)
+  const listPage = selectedProductPage ? `product:${selectedProductPage}` : String(currentPage)
+  const listPageNow = useRef(listPage)
+  listPageNow.current = listPage
+  const keepListScroll = useCallback((el: HTMLDivElement | null) => {
+    const was = listScroll.current
+    if (el && was && was.page === listPageNow.current && was.top > 0) el.scrollTop = was.top
+  }, [])
+  const noteListScroll = useCallback((e: { currentTarget: HTMLDivElement }) => {
+    listScroll.current = { page: listPageNow.current, top: e.currentTarget.scrollTop }
+  }, [])
   const renderSidebarContent = () => {
     const selectedPanel = shownPanel
     // ── Page browser mode ──
@@ -7865,12 +8070,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               ))}
             </div>
           ) : (
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2" aria-busy={panelHeld || undefined} data-sections-held={panelHeld ? "" : undefined} style={panelHeld ? { pointerEvents: "none" } : undefined}>
-              {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
+            <div ref={keepListScroll} onScroll={noteListScroll} data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2" aria-busy={panelHeld || undefined} data-sections-held={panelHeld ? "" : undefined} style={panelHeld ? { pointerEvents: "none" } : undefined}>
+              {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. Add block's picker: block-picker.tsx. */}
+              <BlockPickerProvider theme={settingsDraft} sources={storelibSources} compatInstallId={compatInstall ? installId : null}>
               <SectionsList
                 sections={panelHeld ? panelSections.current : sections}
                 nameOf={(s) => sectionDisplayName(s, librarySchemas)}
-                selectedId={selectedSectionId}
+                selectedId={shownSectionId}
+                /* A row is the sidebar going into the section: its panel is what was asked for, drawn in this press, not behind the canvas's glide (round 36, measured both ways). */
                 onSelect={(id) => { setSelectedBlockId(null); setSelectedPanel({ type: "section", sectionId: id }); revealSection(id) }}
                 expanded={treeOpen}
                 onToggleExpand={(id) => setTreeOpen((prev) => {
@@ -7925,10 +8132,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   setAddGroup(group)
                   setPendingInsertIndex(at === null || group !== "template" ? null : splitGroups(sections).header.length + at)
                   setCanvasInsertAt(null)
+                  setGroupInsertAt(null)
                   setAddSectionOpen(true)
                 }}
                 dnd={{ onReorder: reorderSection }}
               />
+              </BlockPickerProvider>
             </div>
           )}
         </div>
@@ -7998,7 +8207,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <ChevronRight className="h-3 w-3 shrink-0" />
               </button>
             </div>
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
+            {/*
+              KEYED BY THE BLOCK, SO ITS SETTINGS OPEN AT THEIR TOP (round 1023,
+              part 2). The same scroller was kept from one block to the next and
+              opened where the last block's settings had been left.
+            */}
+            <div key={key} data-sheet-scroll data-wb-block-scroll="" className="flex-1 overflow-y-auto wb-slim-scroll">
               <div className="px-3.5 py-3.5 space-y-3.5" data-block-row={key}>
                 <BlockFields
                   section={section}
@@ -8431,7 +8645,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     () => catalogCardsForCanvas.map((c) => ({ id: c.id, title: c.settings.title, price: c.settings.price, image: c.settings.image, url: c.settings.url })),
     [catalogCardsForCanvas],
   )
-  const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, sections), [activeThemeSettings, sections])
+  /*
+    Keyed on the header (the only section siteMenus reads), not the page
+    (round 34): keyed on `sections`, any edit anywhere made new menus, new
+    storefront data for the canvas and a new render function in its live
+    provider, so every section drawn from a .storelib file drew again
+    (scripts/check-editor-sections.mjs: hiding one section drew 43).
+  */
+  const menuHeader = sections.find((s) => s.type === "header")
+  const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, menuHeader ? [menuHeader] : []), [activeThemeSettings, menuHeader])
   /* An imported Shopify theme (lib/storelib-theme/compat/install.ts): its canvas, its collections. */
   const canvasCompat = useMemo(() => compatOf(canvasThemeSettings), [canvasThemeSettings])
   const compatCollections = useMemo(
@@ -9188,8 +9410,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * from inside a frozen page, and it is enough — whatever left the lock
    * there, and whether or not this file ever learns what did.
    */
-  useEffect(() => watchForStuckLayer(document, () => {
-    window.dispatchEvent(new Event("resize"))
+  useEffect(() => watchForStuckLayer(document, (cleared) => {
+    /*
+      Only when what was cleared moved the layout (round 34). A dialog that
+      closed after another can leave `overscroll-behavior` on html and body
+      (components/ui/dialog.tsx puts back what it found, which was the other
+      one's); clearing that moves nothing, and the resize told every listener
+      to measure the page again: 190ms on the first press into a 44 section
+      page (scripts/check-editor-sections.mjs, select).
+    */
+    if (cleared.some((what) => !/overscroll-behavior|touch-action/.test(what))) window.dispatchEvent(new Event("resize"))
   }), [])
 
   // Coming back from the code pane or from project settings.
@@ -9945,7 +10175,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     onClick={() => switchCanvas(() => go(next.key))}
                     className="hidden sm:flex h-8 w-8 aspect-square shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
                   >
-                    <now.Icon key={now.key} className="h-[15px] w-[15px] animate-in fade-in zoom-in-90 duration-150" strokeWidth={1.75} />
+                    {/* Swapped in place, like the full screen icon beside it: no fade (the owner: "it fades"). */}
+                    <now.Icon className="h-[15px] w-[15px]" strokeWidth={1.75} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">{`${now.label} · click for ${next.label}`}</TooltipContent>
@@ -10867,6 +11098,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onTouchStart={(e) => {
               // A finger down is somebody scrolling on purpose: let go of the pin.
               touchingCanvas.current = true
+              releaseStrayDrawerHold(e.currentTarget, lockHolders(e.currentTarget))
               if (!isMobileView) return
               const el = e.currentTarget
               /* Not under the site's open menu: the canvas is held still for
@@ -10878,7 +11110,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               else if (el.scrollTop >= max) el.scrollTop = max - 1
             }}
             onTouchEnd={() => { touchingCanvas.current = false }}
-            onWheelCapture={() => { touchingCanvas.current = true }}
+            onWheelCapture={(e) => {
+              touchingCanvas.current = true
+              /* A drawer's hold on the canvas that no drawer is counted for is let go (canvas-scroll.ts, releaseStrayDrawerHold). */
+              releaseStrayDrawerHold(e.currentTarget, lockHolders(e.currentTarget))
+            }}
             /**
              * =============================================================
              *  WITH THE INSPECTOR ON, THE CANVAS IS NOT A PAGE YOU BROWSE
@@ -11213,11 +11449,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   menus={compatCanvasMenus}
                   pageKeys={rowPageKeys}
                   shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : creatorFacts?.storeName || creatorFacts?.name || "My store"}
-                  selectedSectionId={selectedSectionId}
+                  selectedSectionId={shownSectionId}
                   selectedBlockId={selectedBlockId}
                   /* The switch itself, not the fade behind it: the frame fades its own marks (canvas-bridge.ts), and a page that has stopped selecting must stop outlining on the same press. */
                   inspectorEnabled={inspectorEnabled && !fullView}
                   onSelect={selectFromCompatCanvas}
+                  onAddSectionAt={openAddSectionBetween}
                   onNavigate={navigateCompatCanvas}
                   onPageShown={setCompatShownPage}
                   onIntent={intentInCompatCanvas}
@@ -11241,8 +11478,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 arrivedId={arrivedId}
                 arrival={arrivalRef}
                 inspectorEnabled={canvasInspecting && !fullSettled}
-                selectedSectionId={selectedSectionId}
+                selectedSectionId={shownSectionId}
                 device={device}
+                headerDevice={headerDevice}
                 /**
                  * What the canvas card's top corners are cut to, so the
                  * selection ring on the top section can be cut to the same
@@ -11281,29 +11519,72 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </div>
           </div>
           {!isMobileView && <CanvasScrollbar targetId="wb-preview-root" />}
+          {/* The page being left, held here until the next one is drawn (canvas-still.ts). */}
+          <CanvasStillHost />
           {/* end of the rounded clipping wrapper */}
           </div>
           {/* The selected section's own toolbar, over the canvas. Only with
               the inspector on: with it off the canvas is a plain preview and
               nothing in it is selectable. */}
           {canvasInspecting && !fullView && !isMobileView && previewMode === "preview" && (() => {
-            const current = sections.find((x) => x.id === selectedSectionId)
+            const current = sections.find((x) => x.id === shownSectionId)
             if (!current) return null
             /* Moved inside its own group; the header and the footer themselves are not moved, copied or deleted from here. */
             const group = groupOf(current)
             const body = splitGroups(sections)[group]
-            const idx = body.findIndex((x) => x.id === selectedSectionId)
+            const idx = body.findIndex((x) => x.id === shownSectionId)
             const chrome = (group === "header" || group === "footer") && isKind(current, group, kindOfType)
+            /*
+              A BLOCK SELECTED IS WHAT THE TOOLBAR ACTS ON (round 1023). With a
+              price selected inside a product's information, Move up moved the
+              whole section. The toolbar over a selected block moves it among
+              its own siblings (static blocks stay where the template put
+              them), and duplicates, hides and deletes it, as the block's own
+              menu in the sidebar does. The built-in header's links are its
+              own panel's, not here.
+            */
+            const blockKey = selectedBlockId && selectedSectionId === shownSectionId && current.type !== "header" ? selectedBlockId : null
+            const blockSchema = blockKey ? schemaFor(current.type, storelibSources, librarySchemas) : null
+            const blockHit = blockKey && blockSchema ? resolveBlock(current, blockSchema, blockCatalog, blockKey) : null
+            if (blockKey && blockHit && shownSectionId) {
+              const sid = shownSectionId
+              const path = resolvePath(current.blocks, blockKey)
+              const steps = path ? blockSteps(current.blocks, path) : { up: false, down: false }
+              const fixed = !!blockHit.block.static
+              return (
+                <SectionToolbar
+                  sectionId={sid}
+                  target="block"
+                  hidden={!!blockHit.block.hidden}
+                  isChrome={false}
+                  canMoveUp={steps.up}
+                  canMoveDown={steps.down}
+                  canDuplicate={!fixed && !!path}
+                  canRemove={!fixed && !!path}
+                  canHide={isStorelibSection(current.type, storelibSources)}
+                  onMoveUp={() => moveBlockBy(sid, blockKey, -1)}
+                  onMoveDown={() => moveBlockBy(sid, blockKey, 1)}
+                  onDuplicate={() => duplicateBlock(sid, blockKey)}
+                  onAskAi={() => {
+                    setAiOpen(true)
+                    rememberAskDockClosed(false)
+                    setAiAsk((n) => n + 1)
+                  }}
+                  onToggleHide={() => toggleBlockHidden(sid, blockKey, blockHit.virtual)}
+                  onRemove={() => removeBlock(sid, blockKey)}
+                />
+              )
+            }
             return (
               <SectionToolbar
-                sectionId={selectedSectionId}
+                sectionId={shownSectionId}
                 hidden={!!current.hidden}
                 isChrome={chrome}
                 canMoveUp={idx > 0}
                 canMoveDown={idx > -1 && idx < body.length - 1}
-                onMoveUp={() => selectedSectionId && moveSectionBy(selectedSectionId, -1)}
-                onMoveDown={() => selectedSectionId && moveSectionBy(selectedSectionId, 1)}
-                onDuplicate={() => selectedSectionId && duplicateSection(selectedSectionId, true)}
+                onMoveUp={() => shownSectionId && moveSectionBy(shownSectionId, -1)}
+                onMoveDown={() => shownSectionId && moveSectionBy(shownSectionId, 1)}
+                onDuplicate={() => shownSectionId && duplicateSection(shownSectionId, true)}
                 onAskAi={() => {
                   setAiOpen(true)
                   if (isMobileView) setMobileSidebarOpen(false)
@@ -11331,7 +11612,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <ThemeChat
               variant="dock"
               hidden={!aiOpen}
-              suspended={previewMode !== "preview" || projectSettingsOpen || fullView}
+              suspended={previewMode !== "preview" || projectSettingsOpen}
+              /* Full screen: it slides under the canvas's edge as the canvas grows, never fades. */
+              tucked={fullView}
               openRequest={aiAsk}
               installId={installId}
               page={currentPage}
@@ -11474,7 +11757,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
  * `transform` — Tailwind v4 compiles those utilities to the standalone
  * properties, and a transition naming `transform` animates neither.
  */
-function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
+/*
+  Memoised on its place and the canvas's (stable) add (round 34): the canvas
+  draws one per gap, 44 on a long page, and each drew again on every canvas
+  render with a new arrow function for its click.
+*/
+const CanvasInsertStrip = memo(function CanvasInsertStrip({ at, onAdd }: { at: number; onAdd: (at: number) => void }) {
+  const onClick = () => onAdd(at)
   /**
    * ===========================================================================
    *  IT COSTS THE PAGE NO HEIGHT
@@ -11523,7 +11812,7 @@ function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
     </div>
     </div>
   )
-}
+})
 
 /**
  * ===========================================================================
@@ -11585,9 +11874,13 @@ const TOOLBAR_FADE_MS = 200
 
 function SectionToolbar({
   sectionId,
+  target = "section",
   hidden,
   canMoveUp,
   canMoveDown,
+  canDuplicate = true,
+  canRemove = true,
+  canHide = true,
   isChrome,
   onMoveUp,
   onMoveDown,
@@ -11597,9 +11890,16 @@ function SectionToolbar({
   onAskAi,
 }: {
   sectionId: string | null
+  /** What the buttons act on: the section, or the block selected in it (the toolbar still stands at the section's corner). */
+  target?: "section" | "block"
   hidden: boolean
   canMoveUp: boolean
   canMoveDown: boolean
+  /** A static block is the template's: it is not copied or deleted. */
+  canDuplicate?: boolean
+  canRemove?: boolean
+  /** Hiding a block is a Storelib section's (the block's own menu offers the same). */
+  canHide?: boolean
   /** The header and the footer cannot be reordered or removed. */
   isChrome: boolean
   onMoveUp: () => void
@@ -11626,7 +11926,12 @@ function SectionToolbar({
    * draw it, whether it is in the tree, and whether it is faded in.
    */
   const lastBox = useRef<{ top: number; right: number } | null>(null)
-  if (box) lastBox.current = box
+  /* A new place from state is taken once; between those, `measure` moves it by hand and keeps it here. */
+  const boxSeen = useRef<{ top: number; right: number } | null>(null)
+  if (box && box !== boxSeen.current) {
+    boxSeen.current = box
+    lastBox.current = box
+  }
   /*
     PLACED IN WHAT IT IS PLACED IN. It is positioned in the canvas area,
     and its place was read against the scrolling page: the same box at
@@ -11637,6 +11942,8 @@ function SectionToolbar({
   const barRef = useRef<HTMLDivElement>(null)
   const measureNow = useRef<() => void>(() => {})
   const present = box !== null
+  const shownNow = useRef(false)
+  shownNow.current = present
   const [mounted, setMounted] = useState(false)
   const [visible, setVisible] = useState(false)
 
@@ -11688,7 +11995,19 @@ function SectionToolbar({
       const top = Math.max(r.top + 10, s.top + 10)
       const host = (barRef.current?.offsetParent as HTMLElement | null) ?? scroller
       const h = host.getBoundingClientRect()
-      setBox({ top: top - h.top, right: h.right - Math.min(r.right, s.right) + 10 })
+      const next = { top: top - h.top, right: h.right - Math.min(r.right, s.right) + 10 }
+      /*
+        Where it already is, nothing renders: a section resized under a slider moves its box every frame, and each one rendered every button and tooltip here (round 35).
+        And once it is on screen it is moved by hand, not by a render (round 36): following a section brought into view from the sidebar was two commits of every button and tooltip here a frame, which held back the section's settings drawn behind it.
+      */
+      const bar = barRef.current
+      if (shownNow.current && bar) {
+        bar.style.top = `${next.top}px`
+        bar.style.right = `${next.right}px`
+        lastBox.current = next
+        return
+      }
+      setBox((was) => (was && was.top === next.top && was.right === next.right ? was : next))
     }
     measureNow.current = measure
     // Coalesced into a frame: a scroll fires far more often than the screen
@@ -11719,7 +12038,7 @@ function SectionToolbar({
    * The last place it was, so a toolbar on its way out has somewhere to
    * fade FROM. While it is visible this is simply where it is now.
    */
-  const draw = box ?? lastBox.current
+  const draw = lastBox.current ?? box
   if (!mounted || !draw) return null
 
   /* The one component for every button here, made once outside this one (ToolbarItem): a component written inside it was a new kind of element on each render, so every press of a key in the sidebar took the toolbar's buttons out of the page and put new ones in. */
@@ -11770,8 +12089,21 @@ function SectionToolbar({
             "pointer-events-none -translate-y-1 scale-[0.97] opacity-0",
       )}
       ref={barRef}
+      data-toolbar-target={target}
       style={{ top: draw.top, right: draw.right }}
       onClick={(e) => e.stopPropagation()}
+      /*
+        THE TOOLBAR NEVER STOPS THE CANVAS SCROLLING (round 1023). It stands
+        over the page, outside the scroller, so a wheel over it scrolled
+        nothing: the canvas read as frozen for as long as the pointer rested
+        on it. The wheel is handed on, to the card or to the imported
+        theme's frame, which scrolls itself (canvas-bridge.ts, scroll-by).
+      */
+      onWheel={(e) => {
+        const root = document.getElementById("wb-preview-root")
+        if (root && root.scrollHeight > root.clientHeight + 1) root.scrollBy({ top: e.deltaY, left: 0 })
+        else document.querySelector<HTMLIFrameElement>("[data-compat-frame='front']")?.contentWindow?.postMessage({ storelib: 1, type: "scroll-by", top: e.deltaY }, "*")
+      }}
     >
       {/**
        * ASK STORELIB ABOUT THIS SECTION, from the section itself.
@@ -11795,16 +12127,18 @@ function SectionToolbar({
             <ArrowDown className="h-4 w-4" strokeWidth={1.75} />
           </Item>
           <span aria-hidden className="mx-0.5 h-5 w-px bg-neutral-200" />
-          <Item label="Duplicate" onClick={onDuplicate}>
+          <Item label="Duplicate" onClick={onDuplicate} disabled={!canDuplicate}>
             <Copy className="h-4 w-4" strokeWidth={1.75} />
           </Item>
         </>
       )}
-      <Item label={hidden ? "Show" : "Hide"} onClick={onToggleHide}>
-        {hidden ? <Eye className="h-4 w-4" strokeWidth={1.75} /> : <EyeOff className="h-4 w-4" strokeWidth={1.75} />}
-      </Item>
+      {canHide && (
+        <Item label={hidden ? "Show" : "Hide"} onClick={onToggleHide}>
+          {hidden ? <Eye className="h-4 w-4" strokeWidth={1.75} /> : <EyeOff className="h-4 w-4" strokeWidth={1.75} />}
+        </Item>
+      )}
       {!isChrome && (
-        <Item label="Delete" onClick={onRemove}>
+        <Item label="Delete" onClick={onRemove} disabled={!canRemove}>
           <Trash2 className="h-4 w-4" strokeWidth={1.75} />
         </Item>
       )}
@@ -11813,17 +12147,106 @@ function SectionToolbar({
 }
 
 /**
- * The theme's CSS variables written straight onto the canvas's theme root,
- * for a theme setting under a finger (lib/website-builder/live-settings.ts
- * useLiveTheme): a page width, a side padding or a corner radius moves on
- * the next frame, before any section has rendered again.
+ * ===========================================================================
+ *  A THEME VALUE UNDER A FINGER, WRITTEN WHERE IT CAN BE SEEN
+ * ===========================================================================
+ * The theme's CSS variables, written straight onto the page for a theme
+ * setting under a finger (lib/website-builder/live-settings.ts useLiveTheme):
+ * a page width, a side padding or a corner radius moves on the next frame,
+ * before any section has rendered again.
+ *
+ * NOT ON THE THEME'S ROOT WHILE THE FINGER IS DOWN. A custom property changed
+ * on the root restyles every element under it, and the canvas inherits some
+ * 465 of them, so on a 44 section page one value on the root cost 85ms of
+ * style at 1x CPU and 550ms at 4x, every move, whichever variable it was.
+ * Written onto the sections on screen (lib/website-builder/on-screen-
+ * sections.ts), the same value cost 6ms and 50ms (measured with
+ * scripts/check-editor-live-edit.mjs's page). Only the variables the value
+ * changes are written, and only there, plus the page's own background, which
+ * shows between sections and is not inherited. When the value is committed
+ * the root takes it from React (ThemePage) once, and everything written by
+ * hand is taken away.
  */
-function patchCanvasThemeVars(theme: ThemeSettingsValues) {
-  const root = document.querySelector<HTMLElement>(`#wb-preview-root [${THEME_ROOT_ATTRIBUTE}]`)
-  if (!root) return
-  for (const [k, v] of Object.entries(themeVars(theme))) {
-    if (root.style.getPropertyValue(k) !== v) root.style.setProperty(k, v)
+function canvasThemePatcher(get: {
+  committed: () => ThemeSettingsValues
+  ids: () => readonly string[]
+  onScreen: (id: string) => boolean
+  settingsOf: (id: string) => Record<string, unknown> | undefined
+}): ((theme: ThemeSettingsValues) => void) & { byVariables: (id: string) => boolean } {
+  const written = new Map<HTMLElement, Set<string>>()
+  let rootBackground: HTMLElement | null = null
+  /*
+    A SCHEME COLOUR, ONLY ITS VARIABLES (round 36). A section drawn with its
+    scheme as variables (lib/storelib-theme/scheme-vars.ts, its root marked
+    data-scheme-vars) is not drawn again while a colour of a scheme moves:
+    the variables of its root that the colour changes are written there
+    (lib/website-builder/scheme-var-patch.ts), and EditorCanvasPage keeps
+    the committed theme for it (byVariables).
+  */
+  const schemes = schemeVarWriter()
+  const committedVars = new WeakMap<object, Record<string, string>>()
+  const letGo = (el: HTMLElement, keys: Set<string>) => {
+    for (const k of keys) el.style.removeProperty(k)
+    written.delete(el)
+    holdStill(el, STILL_THEME_ATTR, false)
   }
+  const patch = (theme: ThemeSettingsValues) => {
+    const root = document.querySelector<HTMLElement>(`#wb-preview-root [${THEME_ROOT_ATTRIBUTE}]`)
+    const base = get.committed()
+    if (theme === base) {
+      schemes.letGo(base as unknown as Record<string, unknown>)
+      for (const [el, keys] of [...written]) letGo(el, keys)
+      if (rootBackground) { rootBackground.style.removeProperty("background-color"); rootBackground = null }
+      if (!root) return
+      for (const [k, v] of Object.entries(themeVars(theme))) {
+        if (root.style.getPropertyValue(k) !== v) root.style.setProperty(k, v)
+      }
+      return
+    }
+    if (schemeColoursOnly(base as unknown as Record<string, unknown>, theme as unknown as Record<string, unknown>)) {
+      const roots: SchemeRoot[] = []
+      for (const id of get.ids()) {
+        if (!get.onScreen(id)) continue
+        const el = document.getElementById(`wb-section-${id}`)?.querySelector<HTMLElement>("[data-scheme-vars]")
+        if (el) roots.push({ id, root: el, settings: get.settingsOf(id) ?? {} })
+      }
+      schemes.write(base as unknown as Record<string, unknown>, theme as unknown as Record<string, unknown>, roots)
+    } else schemes.letGo(base as unknown as Record<string, unknown>)
+    const want = themeVars(theme)
+    /* The committed theme's, once per theme: a drag patches against the same one every move. */
+    let was = committedVars.get(base)
+    if (!was) committedVars.set(base, (was = themeVars(base)))
+    const changed = Object.keys(want).filter((k) => want[k] !== was[k])
+    /* A variable written in terms of a changed one is substituted where it is declared, so it is written again there too. */
+    for (const [k, v] of Object.entries(want)) if (!changed.includes(k) && changed.some((c) => v.includes(`var(${c})`))) changed.push(k)
+    const seen = new Set<HTMLElement>()
+    for (const id of get.ids()) {
+      const el = document.getElementById(`wb-section-${id}`)
+      if (!el) continue
+      const keys = written.get(el)
+      /* Off screen it is drawn with the committed theme (EditorCanvasPage themeFor), and styled with it. */
+      if (!get.onScreen(id)) { if (keys) letGo(el, keys); continue }
+      seen.add(el)
+      const own = keys ?? new Set<string>()
+      for (const k of own) if (!changed.includes(k)) { el.style.removeProperty(k); own.delete(k) }
+      for (const k of changed) {
+        if (el.style.getPropertyValue(k) !== want[k]) el.style.setProperty(k, want[k])
+        own.add(k)
+      }
+      written.set(el, own)
+      /* Its buttons and colours drawn at the value, not eased towards it (lib/website-builder/edit-still.ts). */
+      holdStill(el, STILL_THEME_ATTR, true)
+    }
+    for (const [el, keys] of [...written]) if (!seen.has(el)) letGo(el, keys)
+    if (root && changed.includes("--theme-bg")) {
+      root.style.backgroundColor = want["--theme-bg"]
+      rootBackground = root
+    } else if (rootBackground) {
+      rootBackground.style.removeProperty("background-color")
+      rootBackground = null
+    }
+  }
+  return Object.assign(patch, { byVariables: schemes.has })
 }
 
 /**
@@ -11851,6 +12274,9 @@ function patchCanvasThemeVars(theme: ThemeSettingsValues) {
  * parent. `onSelectSection` and `onAddSection` take no closure over a
  * section; they are given the id.
  */
+/** The canvas's scroller, and the id each section's element is given in it. */
+const CANVAS_ON_SCREEN = { rootId: "wb-preview-root", prefix: "wb-section-" }
+
 const EditorCanvasPage = memo(function EditorCanvasPage({
   theme: committedTheme,
   sections,
@@ -11861,6 +12287,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   inspectorEnabled,
   selectedSectionId,
   device,
+  headerDevice,
   canvasRadiusPx,
   bodyCount,
   onSelectSection,
@@ -11895,6 +12322,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   inspectorEnabled: boolean
   selectedSectionId: string | null
   device: DeviceMode
+  /** What the header is drawn for: the device, once the card has crossed the header's breakpoint on its way there. */
+  headerDevice: DeviceMode
   /** The canvas card's top radius, so a ring inside it is cut to match. */
   canvasRadiusPx: number
   bodyCount: number
@@ -11927,7 +12356,44 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   storeCurrency?: string
 }) {
   /* A theme setting under a finger is drawn here, without the editor rendering again (lib/website-builder/live-settings.ts). */
-  const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
+  const committedRef = useRef(committedTheme)
+  committedRef.current = committedTheme
+  const idsRef = useRef<readonly string[]>([])
+  const onScreenRef = useRef<(id: string) => boolean>(() => true)
+  const sectionsNowRef = useRef(sections)
+  sectionsNowRef.current = sections
+  const [patchCanvasThemeVars] = useState(() =>
+    canvasThemePatcher({
+      committed: () => committedRef.current,
+      ids: () => idsRef.current,
+      onScreen: (id) => onScreenRef.current(id),
+      settingsOf: (id) => sectionsNowRef.current.find((s) => s.id === id)?.settings as Record<string, unknown> | undefined,
+    }),
+  )
+  /* With a committed theme setting's echo too: the sections on screen show a switch or a choice before the page is drawn again whole. */
+  const theme = useLiveTheme(committedTheme, patchCanvasThemeVars, { echoes: true })
+  /*
+    And only by the sections on screen while it is live: the rest keep the
+    committed theme, so their memo holds, until the commit draws the page
+    once (lib/website-builder/on-screen-sections.ts).
+  */
+  const themeLive = theme !== committedTheme
+  const sectionIds = useMemo(() => sections.map((s) => s.id), [sections])
+  const onScreen = useOnScreenSections(sectionIds, themeLive, CANVAS_ON_SCREEN)
+  idsRef.current = sectionIds
+  onScreenRef.current = onScreen
+  /*
+    A value the page only reads as a variable (a corner radius, a page width)
+    is the variables alone: no section is drawn again for it, every section
+    keeps the committed theme until the release draws the page once
+    (lib/website-builder/theme-variables-only.ts).
+  */
+  const variablesAlone = useMemo(
+    () => themeLive && drawnByVariablesAlone(changedThemeKeys(theme as Record<string, unknown>, committedTheme as Record<string, unknown>), sources),
+    [themeLive, theme, committedTheme, sources],
+  )
+  /* A section whose scheme colours are written as its variables keeps the committed theme too (canvasThemePatcher, A SCHEME COLOUR, ONLY ITS VARIABLES). */
+  const themeFor = (id: string) => (!themeLive || (!variablesAlone && onScreen(id) && !patchCanvasThemeVars.byVariables(id)) ? theme : committedTheme)
   /**
    * The same navigate, already marked as coming from the site's navigation.
    * Memoised, because it is handed to every chrome section on every render
@@ -11966,11 +12432,23 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   const currency = storeCurrency || shopCards?.[0]?.settings.currency || undefined
   const storefront = useMemo(() => ({ inEditor: true, installId, words, display, currency, language, preview: languagePreview }), [installId, words, display, currency, language, languagePreview])
   /* The built-in header's logo, for a coded header or footer that reads theme.logo (lib/website-builder/chrome-logo.ts). */
-  const canvasHeaderLogo = useMemo(() => headerLogoOf(sections), [sections])
+  /*
+    Keyed on the HEADER, not the page (round 34). Keyed on `sections`, any
+    edit anywhere made a new logo object, a new render function in the live
+    provider and a new context value: every section drawn from a .storelib
+    file drew again and compiled its markup again, so hiding one section
+    rebuilt the whole page (scripts/check-editor-sections.mjs: 43 sections
+    for one hidden).
+  */
+  const canvasHeader = sections.find((s) => s.type === "header")
+  const canvasHeaderLogo = useMemo(() => headerLogoOf(canvasHeader ? [canvasHeader] : []), [canvasHeader])
   return (
     <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards} data={canvasStorefrontData} headerLogo={canvasHeaderLogo}>
     <ThemePage
-      theme={theme}
+      /* The committed theme: a value under a finger is the sections' on screen, and written by hand where they are (canvasThemePatcher). */
+      theme={committedTheme}
+      /* The bars above the header are no section: drawn with the value under the finger as it moves. */
+      chromeTheme={theme}
       sections={sections}
       // Designing a page is not subscribing to it. See storefront-context.
       storefront={storefront}
@@ -11984,7 +12462,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
           ? (at) => {
               /* Counted without the placeholder, which is not in the page. */
               const gap = gapWithoutPlaceholder(sections, at)
-              return gap === null ? null : <CanvasInsertStrip onClick={() => onAddSectionAt(gap)} />
+              return gap === null ? null : <CanvasInsertStrip at={gap} onAdd={onAddSectionAt} />
             }
           : undefined
       }
@@ -12005,7 +12483,7 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
         }
         const shared = {
           section,
-          theme,
+          theme: themeFor(section.id),
           // TRUE whether or not the Inspector is on — it tells a
           // section "you are inside the canvas card, use the
           // editor-scoped sticky mode". `isEditing` flips with the
@@ -12053,7 +12531,13 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
                 onSelectSection(section.id, field ? field.block : path.length ? pathKey(path) : null, field)
               }
             : undefined,
-          deviceMode: device,
+          /*
+            Only the header reads the device (the other sections answer to
+            the card's width with container queries), so only the header is
+            drawn again when it changes: a size switch no longer redraws
+            every section of the page in the frame of the press.
+          */
+          deviceMode: role === "header" || section.type === "header" ? headerDevice : undefined,
           /**
            * THE HEADER AND THE FOOTER NAVIGATE; EVERYTHING ELSE SELECTS.
            *

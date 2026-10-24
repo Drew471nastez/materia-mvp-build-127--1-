@@ -77,9 +77,11 @@ check("  through the payment's metadata and back", decodeOrigin(encodeOrigin(ori
 check("  never anything that is not a language", cleanOrigin({ surface: "website", lang: "<script>" })?.lang === undefined)
 check("the checkout sends it with the order", /origin: pageLang \? \{ \.\.\.\(checkoutOrigin\(shopId\) \?\? \{\}\), lang: pageLang \}/.test(read("app/checkout/site/site-checkout.tsx")))
 const jobs = read("lib/physical/jobs-server.ts")
-check("every order email is built in it", /emailLanguageFor\(co\.creator_id, co\.origin\?\.lang\)/.test(jobs) && (jobs.match(/mail = say\(\(\) =>/g) ?? []).length === 8)
+/* Changed on purpose: by where it was bought (lib/emails/buyer-channel.ts): the website's language for an order on the website, English for one on Storelib (tests/emails-language.test.ts). */
+check("every order email is built in it", /buyerEmailLanguage\(co\.creator_id, buyerChannel\(\{ family: "physical", surface: co\.origin\?\.surface, lang: co\.origin\?\.lang \}\), co\.origin\?\.lang\)/.test(jobs) && (jobs.match(/mail = say\(\(\) =>/g) ?? []).length === 8)
 check("  and the store's own wording only in its own language", /id && language\.own \? resolveCopy/.test(jobs))
-check("the download receipt too", /lang: s\.buyerLang \?\? null/.test(read("lib/checkout/fulfil-cart-session.ts")) && /emailLanguageFor\(creatorId, params\.lang\)/.test(read("lib/email.tsx")))
+/* Changed on purpose: the receipt follows the same rule, a website order in its language, one on Storelib in English. */
+check("the download receipt too", /lang: s\.buyerLang \?\? null/.test(read("lib/checkout/fulfil-cart-session.ts")) && /buyerEmailLanguage\(creatorId, channel, params\.lang \?\? where\.origin\?\.lang\)/.test(read("lib/email.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

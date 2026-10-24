@@ -64,7 +64,23 @@ const seenKey = (communityId: string, q: string) => `${communityId}:${q.toLowerC
 /** The communities whose GIFs are not connected, as the route said this page. */
 const offFor = new Set<string>()
 
-export function GifButton({ communityId, className, onPick, disabled = false }: { communityId: string; className: string; onPick: (gif: Extract<PostMedia, { type: "gif" }>) => void; disabled?: boolean }) {
+export function GifButton({
+  communityId,
+  className,
+  onPick,
+  disabled = false,
+  hideWhenOff = false,
+  mark,
+}: {
+  communityId: string
+  className: string
+  onPick: (gif: Extract<PostMedia, { type: "gif" }>) => void
+  disabled?: boolean
+  /** Round 38, the chat's box: no button at all until GIFs are known to be connected (a quiet one is clutter there). */
+  hideWhenOff?: boolean
+  /** Round 39, the chat's box: its own mark in place of the letters, an icon drawn like the emoji button's. */
+  mark?: React.ReactNode
+}) {
   const phone = usePhone()
   const [open, setOpen] = useState(false)
   const [connected, setConnected] = useState<boolean | null>(() => (offFor.has(communityId) ? false : (seen.get(seenKey(communityId, ""))?.connected ?? null)))
@@ -105,9 +121,11 @@ export function GifButton({ communityId, className, onPick, disabled = false }: 
       onClick={() => setOpen((o) => !o)}
       className={`${className} ${connected === false ? "opacity-50" : ""}`}
     >
-      <GifMark />
+      {mark ?? <GifMark />}
     </button>
   )
+
+  if (hideWhenOff && connected !== true) return null
 
   const panel = <GifPanel communityId={communityId} active={open} connected={connected} onConnected={setConnected} onPick={pick} phone={phone} />
 

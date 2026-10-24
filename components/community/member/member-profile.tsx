@@ -84,6 +84,7 @@ import { LevelBadge } from "./level-badge"
 import { RoleBadge } from "./role-badge"
 import { toast } from "./toast"
 import { ICON_BTN } from "./ui"
+import { openMessages, warmConversation } from "./messages-signal"
 
 export interface MemberProfilePlaceProps {
   /** The community the place is in (the shell's community: only these are read). */
@@ -255,6 +256,28 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2" data-member-profile-actions="">
           {self ? null : <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} name={person.name} data-member-profile-follow="" />}
+          {/*
+            ROUND 38, MESSAGE. Opens (or starts) the conversation in the messages panel, over this profile. When the admins' rule,
+            a level or days still to wait, their own choice or a block says no, it stays where it is, greyed, with the reason
+            under the row; a press says the reason again rather than doing nothing.
+          */}
+          {!self && data.message ? (
+            <button
+              type="button"
+              aria-disabled={data.message.can ? undefined : true}
+              aria-describedby={data.message.can ? undefined : "member-profile-message-why"}
+              onClick={() => (data.message?.can ? openMessages({ userId: person.userId, person: { id: person.userId, name: person.name, username: person.username ?? null, avatarUrl: person.avatarUrl ?? null, role: person.role ?? null } }) : toast(data.message?.reason || "You can't message this member."))}
+              /* Round 39: the conversation and its messages asked for while the pointer rests here, so the press opens it drawn. */
+              onPointerEnter={data.message.can ? () => warmConversation(community.id, null, person.userId) : undefined}
+              onTouchStart={data.message.can ? () => warmConversation(community.id, null, person.userId) : undefined}
+              onFocus={data.message.can ? () => warmConversation(community.id, null, person.userId) : undefined}
+              className={cn(SECONDARY, data.message.can ? "" : "cursor-default text-[#9ca3af] shadow-none pointer-fine:hover:bg-white active:bg-white")}
+              data-member-profile-message={data.message.can ? "on" : "off"}
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden />
+              Message
+            </button>
+          ) : null}
           {pageHref ? (
             <Link
               href={pageHref}
@@ -274,6 +297,11 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
             </Link>
           ) : null}
         </div>
+        {!self && data.message && !data.message.can && data.message.reason ? (
+          <p id="member-profile-message-why" className="mt-2 text-[12.5px] leading-5 text-[#6b7280]" data-member-profile-message-why="">
+            {data.message.reason}
+          </p>
+        ) : null}
       </div>
     </header>
   )

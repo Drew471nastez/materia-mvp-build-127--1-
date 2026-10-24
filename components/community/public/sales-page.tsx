@@ -157,6 +157,46 @@ function ClassroomPreview({ classroom }: { classroom: NonNullable<AboutExtras["c
 }
 
 /**
+ * THE LIBRARY, AS A VISITOR SEES IT (round 39): a public community's first few published items, each its cover, its name
+ * and how it opens (free for members, a price), so somebody deciding whether to join sees what comes with it. Nothing
+ * here opens: the files and links are for members, on the Library's own pages.
+ */
+function LibraryPreview({ library }: { library: NonNullable<AboutExtras["library"]> }) {
+  const more = library.total - library.items.length
+  return (
+    <section className={SECTION} aria-labelledby="community-library" data-community-library="">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id="community-library" className={H2}>
+          Library
+        </h2>
+        <span className="text-[13.5px] tabular-nums text-[#6b7280]">
+          {library.total} {library.total === 1 ? "item" : "items"}
+        </span>
+      </div>
+      <ul className="mt-3 divide-y divide-[#eef0f2]">
+        {library.items.map((item) => (
+          <li key={item.id} className="flex items-center gap-3.5 py-3 first:pt-1 last:pb-0" data-library-teaser={item.id}>
+            <span className="relative flex h-[46px] w-[62px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#f1f2f4] text-[#8a8f98]">
+              {item.coverUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={optimizedImageUrl(item.coverUrl, 62)} alt="" width={62} height={46} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <PlaceIcon place="library" size={20} />
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-medium text-[#1a1a2e]">{item.title}</span>
+              <span className="block text-[13px] tabular-nums text-[#6b7280]">{item.line}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {more > 0 ? <p className="mt-3 text-[13.5px] text-[#6b7280]">And {more} more for members.</p> : null}
+    </section>
+  )
+}
+
+/**
  * WHO RUNS IT (round 11, ask 24; round 13 for phones): the creator's picture,
  * name and handle in one row with View profile at its right end, centred on
  * the person, at every width; their own line under the row. On a phone the
@@ -405,6 +445,8 @@ export function CommunitySalesPage({ data, editing = false }: { data: SalesPageD
                 ) : null}
 
                 {null /* Learn, programs and post counts stay off the public page. */}
+
+                {extras?.library?.items.length ? <LibraryPreview library={extras.library} /> : null}
 
                 {c.creator ? (
                   <CreatorBlock creator={c.creator} bio={extras?.creatorBio ?? null} admins={admins} links={linkIcons("sheet")} linksTo={editing ? "xl" : "lg"} />

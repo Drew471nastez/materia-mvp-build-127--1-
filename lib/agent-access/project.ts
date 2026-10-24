@@ -49,7 +49,8 @@ import { validateSection } from "@/lib/storelib-ai/validate"
 import { checksFor, selectSkills, type CheckId } from "@/lib/agent-skills"
 import { describeSection, type ThemeOp, type ThemeState } from "@/lib/website-builder/agent/operations"
 import { applySourceEdits } from "@/lib/website-builder/agent/code-edits"
-import { schemaMapFor, type SchemaMap } from "@/lib/website-builder/agent/schemas"
+import { installContextFor, schemaMapFor, type InstallContext, type SchemaMap } from "@/lib/website-builder/agent/schemas"
+import { platformSettingsDoc } from "@/lib/storelib-theme/platform-settings"
 import { editorContent } from "@/lib/website-builder/theme-file-drafts"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { takeBackup } from "@/lib/website-builder/backups"
@@ -74,9 +75,17 @@ export interface Focus {
 
 /* ── reads ─────────────────────────────────────────────────────────── */
 
-/** The creator's own section files, the only sources that change the schema map. */
+/**
+ * The creator's own files that change what a page op may do: sections (the
+ * schema map), theme blocks (what Add block lists, ./page-ops.ts), and the
+ * Theme settings files (what update_theme takes). The same files the builder
+ * reads for the same things.
+ */
+const CONTEXT_FILES = ["layout/theme.storelib", "config/settings_schema.json", "shopify/config/settings_panel.json"]
 async function customSources(db: Db, installId: string): Promise<Record<string, string>> {
-  const { data } = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).like("path", "sections/%")
+  const files = () => db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId)
+  const reads = await Promise.all([files().like("path", "sections/%"), files().like("path", "blocks/%"), files().in("path", CONTEXT_FILES)])
+  const data = reads.flatMap((r: { data?: unknown[] | null }) => r.data ?? [])
   const out: Record<string, string> = {}
   for (const row of (data ?? []) as { path: string; content: string; draft_content?: string | null }[]) {
     const src = editorContent(row)
@@ -87,7 +96,7 @@ async function customSources(db: Db, installId: string): Promise<Record<string, 
 
 async function schemasFor(db: Db, installId: string): Promise<{ schemas: SchemaMap; custom: Set<string> }> {
   const sources = await customSources(db, installId)
-  const custom = new Set(Object.keys(sources).map((p) => p.replace(/^sections\//, "").replace(/\.storelib$/, "")))
+  const custom = new Set(Object.keys(sources).filter((p) => p.startsWith("sections/")).map((p) => p.replace(/^sections\//, "").replace(/\.storelib$/, "")))
   return { schemas: schemaMapFor(sources), custom }
 }
 
@@ -135,8 +144,9 @@ function pageKeyOf(raw: unknown, focus: Focus | null): string | null {
 const bad = (error: string, status = 400) => ({ ok: false as const, status, error })
 
 export async function readProject(db: Db, who: AgentIdentity): Promise<OpResult<string>> {
-  const [brief, focus, keys, { custom }] = await Promise.all([siteBrief(db, who), readFocus(db, who.installId), pageKeys(db, who.installId), schemasFor(db, who.installId)])
+  const [brief, focus, keys, { custom, schemas }] = await Promise.all([siteBrief(db, who), readFocus(db, who.installId), pageKeys(db, who.installId), schemasFor(db, who.installId)])
   if (brief.ok === false) return brief
+  const install = installContextFor(schemas)
   return {
     ok: true,
     value: JSON.stringify(
@@ -144,12 +154,29 @@ export async function readProject(db: Db, who: AgentIdentity): Promise<OpResult<
         site: brief.value,
         pages: keys.map((k) => ({ key: k, title: pageTitleFromKey(k) })),
         your_sections: [...custom].sort(),
+        /* Everything Theme settings shows, and how to change it: the theme's settings, Storelib's own, menus and colour schemes. */
+        theme_settings: themeSettingsBrief(install),
+        theme_blocks: Object.keys(install.blocks).sort(),
         open_in_builder: focus ? { page: focus.page_key, section_id: focus.section_id, block_id: focus.block_id, at: focus.updated_at } : null,
         next: "storelib_read_page for a page's sections and settings; storelib_skills with your task for how to do it.",
       },
       null,
       2,
     ),
+  }
+}
+
+/** Where each part of Theme settings is, for an agent: the same places a repository's README names. */
+function themeSettingsBrief(install: InstallContext) {
+  const panels = (platformSettingsDoc(install.compat ? "shopify" : "storelib", install).panels as { name: string; shown: boolean; settings: { id: string; type: string; shown?: boolean }[] }[]).filter((p) => p.shown)
+  return {
+    change_with: install.compat
+      ? "storelib_update_styles with scope \"theme\" for Storelib's own settings below; the theme's own are its shopify/config/settings_schema.json and its values"
+      : "storelib_update_styles with scope \"theme\", or config/settings_data.json (values) and config/settings_schema.json (what they are) with storelib_write_section",
+    /* An imported theme's few by id; a Storelib theme's are its Theme settings, read in config/settings_schema.json. */
+    storelib_settings: install.compat ? panels.map((p) => ({ panel: p.name, ids: p.settings.filter((f) => f.type !== "header" && f.shown !== false).map((f) => f.id) })) : panels.map((p) => p.name),
+    menus: "the store's menus, shared by every theme: update_theme with \"menus\"",
+    colour_schemes: install.compat ? "the theme's own, under its color_schemes setting" : "update_theme with \"color_schemes\" (a built-in scheme keeps only what differs) and \"default_color_scheme\"",
   }
 }
 

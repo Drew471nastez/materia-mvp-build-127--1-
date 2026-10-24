@@ -26,12 +26,28 @@
  * `release()`, the history moving (`end`), or `holdMs` as a backstop for a
  * run whose end was never heard. A person's own edits (`step`) are never
  * held: what they do by hand during a run is a step of its own.
+ *
+ * ---------------------------------------------------------------------------
+ *  THE SAME THING, OR A STEP OF ITS OWN (round 34)
+ * ---------------------------------------------------------------------------
+ * A run was any edits less than half a second apart, so a heading typed and
+ * then a colour picked straight after were one step, and Undo took back
+ * both. An edit can say what it edits (`step(key)`: the setting, of which
+ * section or block); an edit of another thing starts a step of its own,
+ * while forty keys in one field, or a colour dragged around its square, stay
+ * one. An edit that names nothing joins whatever run is open, as before.
  */
 export interface UndoRun {
-  /** Call before an edit changes anything. Records a step when this edit starts a run. */
-  step: () => void
+  /**
+   * Call before an edit changes anything. Records a step when this edit
+   * starts a run: after `quietMs` without an edit, or when `key` names
+   * another thing than the run's (see THE SAME THING, below).
+   */
+  step: (key?: string) => void
   /** The run is over: the next edit records a step. Also ends a hold. */
   end: () => void
+  /** The run of edits is over (a step of its own was just taken); a hold stays. */
+  cut: () => void
   /** The assistant's run has recorded its step: its edits record nothing until release. */
   hold: () => void
   release: () => void
@@ -52,18 +68,32 @@ export function createUndoRun(record: () => void, quietMs = 500, holdMs = AI_HOL
     if (now() - heldSince > holdMs) heldSince = null
     return heldSince !== null
   }
-  const step = () => {
-    if (timer) clearTimeout(timer)
-    else record()
+  /* What the run is editing: one setting of one section, say. Undefined is any edit. */
+  let runKey: string | undefined
+  const step = (key?: string) => {
+    const sameThing = key === undefined || runKey === undefined || key === runKey
+    if (timer && sameThing) clearTimeout(timer)
+    else {
+      if (timer) clearTimeout(timer)
+      timer = null
+      record()
+    }
+    if (key !== undefined) runKey = key
     timer = setTimeout(() => {
       timer = null
+      runKey = undefined
     }, quietMs)
+  }
+  const cut = () => {
+    if (timer) clearTimeout(timer)
+    timer = null
+    runKey = undefined
   }
   return {
     step,
+    cut,
     end() {
-      if (timer) clearTimeout(timer)
-      timer = null
+      cut()
       heldSince = null
     },
     hold() {

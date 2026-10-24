@@ -22,6 +22,7 @@ import { auditLog, listReports } from "./moderation"
 import { leaveReasonsSummary } from "./leave-reasons"
 import { learnBuilderFor } from "./learn-builder"
 import { scheduledPanelReads } from "./scheduled-posts"
+import { readJoinForm } from "./join-questions"
 import { parseMemberQuery } from "@/components/community/creator/logic"
 import { pageEditorReads } from "./page-editor"
 
@@ -58,6 +59,13 @@ export async function spacesReads(ctx: CreatorPageContext) {
 
 export async function learnReads(ctx: CreatorPageContext) {
   return { initial: await learnBuilderFor(ctx.db, ctx.community).catch(() => null) }
+}
+
+/** Round 39: the Library, its items, sections, the products that can be attached, and whether payments take money, in one round. */
+export async function libraryReads(ctx: CreatorPageContext) {
+  const creatorId = ctx.community.creator_id
+  const { libraryAdmin } = await import("./library")
+  return { initial: await libraryAdmin(ctx.db, ctx.community, { canSell: async () => (creatorId ? (await import("@/lib/payments/service")).checkoutReadyForCreator(creatorId) : false) }).catch(() => null) }
 }
 
 export async function eventsReads(ctx: CreatorPageContext) {
@@ -115,8 +123,9 @@ export async function analyticsReads(ctx: CreatorPageContext) {
 }
 
 export async function settingsReads(ctx: CreatorPageContext) {
-  const [head, data] = await Promise.all([communityHead(ctx), loadSettings(ctx)])
-  return { head, data }
+  /* Round 37: the questions before joining with the rest, so Access is drawn whole (SettingsData.joinForm). */
+  const [head, data, joinForm] = await Promise.all([communityHead(ctx), loadSettings(ctx), readJoinForm(ctx.db, ctx.community.id).catch(() => null)])
+  return { head, data: { ...data, joinForm } }
 }
 
 /** Every section's reads by its id, for the measure. */
@@ -125,6 +134,7 @@ export const ADMIN_SECTION_READS: Record<string, (ctx: CreatorPageContext, query
   feed: feedReads,
   spaces: spacesReads,
   learn: learnReads,
+  library: libraryReads,
   events: eventsReads,
   members: membersReads,
   moderation: moderationReads,

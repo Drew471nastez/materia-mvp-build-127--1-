@@ -261,6 +261,12 @@ async function heldUnless<T>(key: string[], tags: string[], seconds: number, rea
   }
 }
 
+/** A promise started ahead of where it is awaited: a rejection is still thrown there, never reported as unhandled when an earlier step returns first. */
+function quiet<T>(p: Promise<T>): Promise<T> {
+  p.catch(() => {})
+  return p
+}
+
 type InstallRow = { id: string; published_at?: string | null; preview_token?: string | null; store_theme_settings?: unknown }
 
 function readInstall(admin: Admin, creatorId: string): Promise<InstallRow | null> {
@@ -292,11 +298,6 @@ export async function compatSiteByName(name: string, host: string, previewToken:
   const key = name.toLowerCase()
   try {
     const found = await compatSiteFresh(name, host, previewToken)
-    /* Its own address (its primary domain), for the canonical and the languages: a page reached at its storelib.com name still names the domain. */
-    if (found.kind === "site" && previewToken === null) {
-      const origin = await siteOrigin(found.site.creatorId, name).catch(() => null)
-      if (origin) found.site.canonicalHost = new URL(origin).host
-    }
     if (found.kind === "site" && previewToken === null) {
       if (lastGoodSite.size >= 200 && !lastGoodSite.has(key)) lastGoodSite.delete(lastGoodSite.keys().next().value as string)
       lastGoodSite.set(key, found.site)
@@ -317,6 +318,22 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   if (!creator) return { kind: "missing" }
   const admin = createAdminClient()
   const siteTags = [creatorSiteTag(creator.creatorId)]
+  /*
+    EVERYTHING THAT NEEDS ONLY THE CREATOR, ASKED AT ONCE. The live release,
+    whether physical goods are on, the store's currency and the website's
+    own address were each asked after the one before had answered, about
+    ten round trips in a row before a page's first byte on a cold draw.
+    They are started here, beside the install, and awaited where each is
+    needed; the answers and what they decide are the same.
+  */
+  const live = previewToken === null
+  const releaseAsked = live ? quiet(liveRelease(creator.creatorId, null, siteTags)) : null
+  const physicalAsked = quiet(isPhysicalCommerceEnabled().catch(() => false))
+  /* The store's return settings, for the refund policy's closing line, as soon as physical goods are known to be on. */
+  const returnFactsAsked = quiet(physicalAsked.then((on) => (on ? storeReturnFacts(admin, creator.creatorId) : "")))
+  const currencyAsked = quiet(cachedStoreCurrency(creator.creatorId))
+  /* Its own address (its primary domain), for the canonical and the languages: a page reached at its storelib.com name still names the domain. */
+  const originAsked = live ? quiet(siteOrigin(creator.creatorId, name).catch(() => null)) : Promise.resolve(null)
   /* A preview link holds nothing: it is the person checking their unpublished work. */
   const install = previewToken !== null
     ? await readInstall(admin, creator.creatorId)
@@ -330,9 +347,11 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     files as they were published, read through caches that never go stale,
     because a release never changes. Without one (an install published
     before releases, part 180 not run, a live file edited since) the rows,
-    exactly as before. A preview always reads the rows.
+    exactly as before. A preview always reads the rows. Only a release of
+    the install published now.
   */
-  const release = draft ? null : await liveRelease(creator.creatorId, row.id, siteTags)
+  const asked = draft ? null : await (releaseAsked ?? liveRelease(creator.creatorId, row.id, siteTags))
+  const release = asked && asked.installId === row.id ? asked : null
   const settingsRow = release ? settingsRowOf(release.manifest) : Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
   const settings = themeSettingsOf(settingsRow as never, draft) ?? {}
   if (!compatOf(settings)) return { kind: "missing" }
@@ -359,6 +378,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     rows ? Promise.resolve() : (draft ? installFiles(admin, row.id, true) : readFiles()).then((r) => { rows = r }),
     storeOf(creator.creatorId),
   ])
+  const physical = await physicalAsked
   if (!rows) return { kind: "missing" }
   if (!draft) {
     if (rowsHeld.size >= HELD_MAX) rowsHeld.delete(rowsHeld.keys().next().value as string)
@@ -369,25 +389,27 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     const list = pageSections<StoredSection[]>(p as never, draft)
     if (Array.isArray(list) && list.length) pages[p.page_key] = list
   }
+  /* Website settings › Commerce: the free shipping banner and the cart's returns line, put on the theme's own pages (lib/storelib-theme/compat/site-commerce-markup.ts). Read only when one is on. */
+  const onSite = siteCommerce(settings as Record<string, unknown>)
+  const readFacts = () => shopFacts(admin, creator.creatorId)
+  /* The refund policy closes with what the store's return settings say today (Settings › Returns and refunds); both read together. */
+  const [returnFacts, facts] = await Promise.all([
+    returnFactsAsked,
+    physical && (onSite.freeShippingBar || onSite.cartReturnsNote)
+      ? (draft ? readFacts() : heldUnless(["compat-shop-facts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readFacts, () => false))
+      : null,
+  ])
   /* The creator's policies (Website settings), as the theme's shop.policies and /policies/<handle> (lib/storelib-theme/compat/site.ts). */
-  const physical = await isPhysicalCommerceEnabled().catch(() => false)
-  /* The refund policy closes with what the store's return settings say today (Settings › Returns and refunds). */
-  const returnFacts = physical ? await storeReturnFacts(admin, creator.creatorId) : ""
   const policies = POLICY_HANDLES.flatMap((handle) => {
     const body = policyBodyOf((pages[handle] ?? []) as never)
     if (isBlankHtml(body)) return []
     return [{ handle, title: POLICY_TITLES[handle] ?? handle, body: handle === "refund-policy" && returnFacts ? `${body}${returnFacts}` : body }]
   })
   const theme = draft ? compatThemeFor(row.id, version, rows, settings) : holdTheme(row.id, version, rows, settings, release ? `release:${release.id}` : "rows")
-  /* Website settings › Commerce: the free shipping banner and the cart's returns line, put on the theme's own pages (lib/storelib-theme/compat/site-commerce-markup.ts). Read only when one is on. */
-  const onSite = siteCommerce(settings as Record<string, unknown>)
-  const readFacts = () => shopFacts(admin, creator.creatorId)
-  const facts = physical && (onSite.freeShippingBar || onSite.cartReturnsNote)
-    ? await (draft ? readFacts() : heldUnless(["compat-shop-facts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readFacts, () => false))
-    : null
 
   /* The store's own currency (Settings › Country & Currency): the theme writes its prices, cart and money format in it. */
-  const currency = await cachedStoreCurrency(creator.creatorId)
+  const currency = await currencyAsked
+  const origin = await originAsked
   const site: SiteData = {
     creatorId: creator.creatorId,
     theme,
@@ -399,6 +421,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     /* The website's own brand name, else Store details' store name, else the person's (lib/website-builder/storefront-data dynamicContext, the same order). */
     shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency, moneyFormat: moneyFormatFor(currency), policies },
     host,
+    ...(origin ? { canonicalHost: new URL(origin).host } : {}),
     designMode: false,
     /* SEO & Social and each page's own search result (Website settings), read by the theme's own head (lib/website-builder/page-seo.ts). */
     seo: (key) => pageSeoForSite(settings as Record<string, unknown>, key),
@@ -415,7 +438,12 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
         const seoTitle = (data as { seo_title?: unknown } | null)?.seo_title
         return error ? null : { text: (data as { description?: string | null } | null)?.description ?? "", faqs: productFaqs((data as { faqs?: unknown } | null)?.faqs), seoTitle: typeof seoTitle === "string" ? seoTitle.trim().replace(/ \| Storelib$/i, "") : "" }
       }
-      const found = draft ? await readDescription() : await heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null)
+      /* The description and what is true now about each variant (below) are read together: neither needs the other. */
+      const readPageFacts = () => (physical || card.settings.kind !== "physical" ? pageFactsFor(admin, creator.creatorId, card.id, siteCommerce(settings as Record<string, unknown>).showStockLeft) : Promise.resolve(null))
+      const [found, pageFacts] = await Promise.all([
+        draft ? readDescription() : heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null),
+        readPageFacts(),
+      ])
       const raw = found?.text ?? ""
       const descriptionHtml = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw) : raw.split(/\n{2,}/).filter(Boolean).map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`).join("")
       /*
@@ -428,7 +456,6 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
         theme's page reads this one card (lib/storelib-theme/compat/
         product-facts.ts).
       */
-      const pageFacts = physical || card.settings.kind !== "physical" ? await pageFactsFor(admin, creator.creatorId, card.id, siteCommerce(settings as Record<string, unknown>).showStockLeft) : null
       const withStock = withPageFacts(card, pageFacts)
       return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [], ...(found?.seoTitle ? { seo_title: found.seoTitle } : {}) } }
     },

@@ -25,6 +25,7 @@ import type { SectionPreset as EnginePreset, SectionSchema as EngineSchema, Sett
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
 import { contentForStatics } from "./product-details-rule"
+import { REVIEW_APP_BLOCK_SCHEMAS, reviewAppBlockSchema } from "@/lib/storelib-theme/compat/review-app-blocks"
 import type { BlockInstance, BlockSchema, SchemaField, SchemaFieldType, SectionPreset, SectionSchema } from "./types"
 
 function field(s: SettingDefinition): SchemaField {
@@ -150,12 +151,70 @@ export function schemaFromStorelib(source: string, file: string): StorelibSchema
         if (statics.length) schema.statics = statics
         /* From an imported theme: each placed section's own name comes first in the sidebar (section-name.ts). */
         if (isCompatSource(source)) schema.imported = true
-        result = { ok: true, schema }
+        /* And where its own schema takes app blocks, Storelib Reviews' two (review-app-blocks.ts), as a reviews app's are on Shopify. */
+        result = { ok: true, schema: isCompatSource(source) && takesAppBlocks(json.value) ? withAppBlocks(schema) : schema }
       }
     }
   }
   cache.set(source, result)
   return result
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   READ WHEN ASKED FOR, NOT WHEN THE MODULE LOADS (round 1023)
+  ═══════════════════════════════════════════════════════════════════════════
+  Every one of the default theme's forty-odd section schemas was parsed,
+  validated and turned into the editor's shape as this module loaded: 88ms
+  of the editor's first second, measured (scripts/check-canvas-load.mjs
+  PROFILE=1, schemaFromStorelib), in the task that draws the first canvas,
+  and on an imported theme's editor, which shows none of them. Each is now
+  read the first time it is asked for, and kept: the same record, the same
+  keys in the same order, the same objects every time after the first.
+  Spreading it or listing its values reads them all, as before.
+*/
+export function lazyRecord<T>(keys: readonly string[], make: (key: string) => T): Record<string, T> {
+  const out = {} as Record<string, T>
+  for (const key of keys) {
+    Object.defineProperty(out, key, {
+      enumerable: true,
+      configurable: true,
+      get(this: Record<string, T>) {
+        const value = make(key)
+        Object.defineProperty(this, key, { value, enumerable: true, configurable: true, writable: true })
+        return value
+      },
+      set(this: Record<string, T>, value: T) {
+        Object.defineProperty(this, key, { value, enumerable: true, configurable: true, writable: true })
+      },
+    })
+  }
+  return out
+}
+
+/** `{ ...a, ...b }` that keeps a lazy record's entries lazy: the same keys, in the same order, the later record winning (READ WHEN ASKED FOR). */
+export function mergeLazy<T>(...records: Record<string, T>[]): Record<string, T> {
+  const out = {} as Record<string, T>
+  for (const r of records) Object.defineProperties(out, Object.getOwnPropertyDescriptors(r))
+  return out
+}
+
+/** An array whose items are worked out the first time anything reads it (READ WHEN ASKED FOR). */
+export function lazyList<T>(make: () => T[]): T[] {
+  const list: T[] = []
+  let made = false
+  const fill = () => {
+    if (made) return
+    made = true
+    list.push(...make())
+  }
+  return new Proxy(list, {
+    get(t, k, r) { fill(); return Reflect.get(t, k, r) },
+    has(t, k) { fill(); return Reflect.has(t, k) },
+    ownKeys(t) { fill(); return Reflect.ownKeys(t) },
+    getOwnPropertyDescriptor(t, k) { fill(); return Reflect.getOwnPropertyDescriptor(t, k) },
+    set(t, k, v, r) { fill(); return Reflect.set(t, k, v, r) },
+  })
 }
 
 /** Every section type the default theme defines in a `.storelib` file. */
@@ -168,15 +227,13 @@ export const STORELIB_SECTION_TYPES: string[] = Object.keys(DEFAULT_THEME_SOURCE
  * not validate gets a schema with its type and no fields rather than a
  * crash, and tests/storelib-theme.test.ts fails on the file itself.
  */
-export const STORELIB_SCHEMAS: Record<string, SectionSchema> = Object.fromEntries(
-  STORELIB_SECTION_TYPES.map((type) => {
-    const path = `sections/${type}.storelib`
-    const r = schemaFromStorelib(DEFAULT_THEME_SOURCES[path], path)
-    if (r.ok === true) return [type, r.schema]
-    if (typeof console !== "undefined") console.error(`${path} did not validate:\n  ${r.errors.join("\n  ")}`)
-    return [type, { type, name: type, fields: [] }]
-  }),
-)
+export const STORELIB_SCHEMAS: Record<string, SectionSchema> = lazyRecord(STORELIB_SECTION_TYPES, (type) => {
+  const path = `sections/${type}.storelib`
+  const r = schemaFromStorelib(DEFAULT_THEME_SOURCES[path], path)
+  if (r.ok === true) return r.schema
+  if (typeof console !== "undefined") console.error(`${path} did not validate:\n  ${r.errors.join("\n  ")}`)
+  return { type, name: type, fields: [] }
+})
 
 /**
  * WHAT ADD SECTION OFFERS, from the theme's own list and the theme's own
@@ -355,7 +412,29 @@ function compatBlockSchema(source: string, path: string, type: string): BlockSch
   if (s.presets?.length) out.presets = editorPresets(type, s.presets)
   const statics = compatStatics(splitCompatFile(source).markup)
   if (statics.length) out.statics = statics
-  return out
+  return takesAppBlocks(json.value) ? withAppBlocks(out) : out
+}
+
+/**
+ * ===========================================================================
+ *  APP BLOCKS IN AN IMPORTED THEME
+ * ===========================================================================
+ * A Shopify section or block whose schema takes `{ "type": "@app" }` lists
+ * the installed apps' blocks in Add block. The panel made at import has no
+ * place for them (shopify/convert.ts leaves "@app" out), so they are read
+ * from the theme's own schema here: Storelib Reviews' Star rating and
+ * Reviews (lib/storelib-theme/compat/review-app-blocks.ts), after the
+ * section's own blocks, or among the theme blocks it takes ("@app" in
+ * `accepts`, which only app blocks answer: schema/validate.ts acceptsType).
+ */
+function takesAppBlocks(schema: unknown): boolean {
+  const theirs = (schema as { shopify?: { blocks?: unknown } } | null)?.shopify?.blocks
+  return Array.isArray(theirs) && theirs.some((b) => (b as { type?: unknown } | null)?.type === "@app")
+}
+
+function withAppBlocks<T extends { blocks?: BlockSchema[]; accepts?: string[] }>(schema: T): T {
+  if (schema.blocks?.length) return { ...schema, blocks: [...schema.blocks.filter((b) => !reviewAppBlockSchema(b.type)), ...REVIEW_APP_BLOCK_SCHEMAS] }
+  return { ...schema, accepts: [...(schema.accepts ?? []).filter((a) => a !== "@app"), "@app"] }
 }
 
 /** The theme's blocks, then this install's own files over them. */
@@ -369,6 +448,8 @@ export function themeBlockCatalog(sources?: Record<string, string>, opts: { buil
       if (b) out[b.type] = b
     }
   }
+  /* An imported theme: Storelib Reviews' app blocks, for the sections and blocks that take "@app" (withAppBlocks above). */
+  if (opts.builtIn === false && isCompatSource(sources?.["layout/theme.storelib"])) for (const b of REVIEW_APP_BLOCK_SCHEMAS) out[b.type] = b
   return out
 }
 

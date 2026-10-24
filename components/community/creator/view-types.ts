@@ -33,12 +33,13 @@ import type {
 } from "@/lib/communities/types"
 import type { TicketSource, TicketStatus } from "@/lib/communities/event-tickets"
 import type { PageLook } from "@/lib/communities/page-look"
+import type { JoinQuestion } from "@/lib/communities/join-questions"
 import type { LegalLinks } from "@/lib/communities/legal-links"
 import type { MemberLink } from "@/lib/communities/member-links"
 import type { GalleryItem, NextStep } from "./logic"
 
 /** The sections under a community's name, in order. */
-export type SectionId = "overview" | "feed" | "spaces" | "classroom" | "events" | "members" | "moderation" | "analytics" | "gamification" | "page" | "settings"
+export type SectionId = "overview" | "feed" | "spaces" | "classroom" | "library" | "events" | "members" | "moderation" | "analytics" | "gamification" | "page" | "settings"
 
 /** The community as every section's header shows it. */
 export interface CommunityHead {
@@ -60,6 +61,8 @@ export interface CommunityHead {
   gamificationEnabled: boolean
   classroomEnabled: boolean
   eventsEnabled: boolean
+  /** Round 39: the Library is on (part 278), so it has a tab. */
+  libraryEnabled?: boolean
   /** What the signed in person may do here (lib/communities/permissions.ts). */
   role: Role
   can: Partial<Record<CommunityAction, boolean>>
@@ -202,6 +205,12 @@ export interface PickProduct {
 
 export interface SettingsData {
   description: string
+  /**
+   * Round 37: Access › Questions before joining, read with the page, so the card is drawn as it is rather than a spinner
+   * that gives way to a card of another height (lib/communities/server/join-questions.ts readJoinForm). Left out, the
+   * panel reads them itself.
+   */
+  joinForm?: { ready: boolean; questions: JoinQuestion[] } | null
   /** Round 33: the description as stored (sanitized HTML, or the plain text of an older row), for the Page editor. */
   descriptionHtml?: string
   /** Round 33: the cover's focus and the join button (lib/communities/page-look.ts). */

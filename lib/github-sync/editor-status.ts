@@ -167,6 +167,10 @@ function fileCopy(kind: FileProblemKind, line: number | null): { title: string; 
       return { title: tt("Over 20 MB, too big to bring in"), fix: tt("Make it smaller, or keep it out of the theme folders."), showDetail: false }
     case "unreadable":
       return { title: tt("Couldn't be read from GitHub"), fix: tt("Try again in a minute."), showDetail: false }
+    case "refused":
+      return { title: tt("Stayed in Storelib"), fix: tt("Your site still uses it. Change it in the builder, then send again."), showDetail: true }
+    case "not-sent":
+      return { title: tt("Didn't reach GitHub"), fix: tt("Send again. Nothing on your site was lost."), showDetail: false }
     case "not-saved":
     default:
       return { title: tt("Couldn't be saved just now"), fix: tt("Try again. Nothing else was lost."), showDetail: false }
@@ -212,7 +216,7 @@ export function friendlyName(path: string): string {
   return base.replace(/\.(storelib|liquid|json|css|js|scss)$/i, "").replace(/[-_]/g, " ")
 }
 
-function wholeProblem(kind: string, ctx: { repo: string; branch: string; direction: "to_github" | "from_github"; unread: number }): { title: string; body: string; actions: SyncAction[] } {
+function wholeProblem(kind: string, ctx: { repo: string; branch: string; direction: "to_github" | "from_github"; unread: number; pending?: number }): { title: string; body: string; actions: SyncAction[] } {
   const { repo, branch } = ctx
   switch (kind) {
     case "app-key":
@@ -228,6 +232,14 @@ function wholeProblem(kind: string, ctx: { repo: string; branch: string; directi
     case "branch-protected":
       /* One press: the site goes to a branch of its own and is followed there, so the next push is read too. */
       return { title: tt("{branch} is protected on GitHub", { branch }), body: tt("GitHub won't let Storelib write to it. Send your site to a branch called storelib instead, and Storelib follows that one from now on."), actions: ["branch", "repo"] }
+    case "secret-blocked":
+      return { title: tt("A file stayed in Storelib"), body: tt("GitHub's secret scanning would not take it. Everything else is on GitHub, and your site still uses the file. Send again after changing it."), actions: ["push"] }
+    case "workflow-permission":
+      return { title: tt("GitHub needs the Workflows permission"), body: tt("A file in .github/workflows can only be changed by an app with that permission. Accept it for Storelib on GitHub, or leave the file out."), actions: ["reconnect", "retry"] }
+    case "partial":
+      return (ctx.pending ?? 0) > 0
+        ? { title: tt("{pending, plural, one {# file} other {# files}} still to send", { pending: ctx.pending ?? 0 }), body: tt("GitHub has the rest of the theme. Send again to finish."), actions: ["push"] }
+        : { title: tt("Some files didn't reach GitHub"), body: tt("GitHub has the rest of the theme. Send again to finish."), actions: ["push"] }
     case "moved-on":
       return { title: tt("Someone pushed while Storelib was sending"), body: tt("Try again. Their commit stays and your changes go on top."), actions: ["push"] }
     case "rate-limited":
@@ -271,11 +283,12 @@ export function editorReport(link: ReportLink | null): EditorSyncReport | null {
     const kind = kindOf(f)
     const line = typeof f.line === "number" && f.line > 0 ? f.line : (Number(/\bline (\d{1,6})\b/.exec(f.error ?? "")?.[1]) || null)
     const copy = fileCopy(kind, line)
-    const url = f.path ? fileOnGitHub(repo, branch, root, f.path) : null
+    /* A file GitHub turned down is not there to open. */
+    const url = f.path && kind !== "refused" && kind !== "not-sent" ? fileOnGitHub(repo, branch, root, f.path) : null
     const actions: SyncAction[] = []
     if (url) actions.push("open")
     if (kind === "built-in") actions.push("reset")
-    if (kind === "not-saved" || kind === "unreadable") actions.push("retry")
+    if (kind === "not-saved" || kind === "unreadable" || kind === "not-sent") actions.push("retry")
     return {
       path: f.path || "(the push)",
       title: copy.title,
@@ -290,7 +303,8 @@ export function editorReport(link: ReportLink | null): EditorSyncReport | null {
   let problem: EditorSyncReport["problem"] = null
   const unread = typeof last?.unread === "number" ? last.unread : 0
   const kind = last && last.ok === false && last.problem ? last.problem : null
-  if (kind) problem = { kind, ...wholeProblem(kind, { repo: repo ?? tt("the repository"), branch: branch ?? tt("the branch"), direction: direction ?? "from_github", unread }) }
+  const pending = typeof last?.pending === "number" ? last.pending : 0
+  if (kind) problem = { kind, ...wholeProblem(kind, { repo: repo ?? tt("the repository"), branch: branch ?? tt("the branch"), direction: direction ?? "from_github", unread, pending }) }
   else if (unread > 0) problem = { kind: "unread", ...wholeProblem("unread", { repo: repo ?? "", branch: branch ?? "", direction: "from_github", unread }) }
   else if (!last && link.last_error) {
     /* A failure from before failures were kept whole: its own line, cleaned. */

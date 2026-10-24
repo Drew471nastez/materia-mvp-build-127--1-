@@ -49,6 +49,6 @@ export async function POST(request: Request, { params }: Params) {
   const space = await chatSpace(db, gate.community, gate.viewer, spaceId)
   if (!space) return NextResponse.json({ error: "not_found" }, { status: 404, headers: NO_STORE })
   const result = await postMessage({ db, community: gate.community, viewer: gate.viewer }, space, await readJson(request))
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
+  if (!result.ok) return NextResponse.json({ error: result.error, ...("code" in result && result.code ? { code: result.code } : {}) }, { status: result.status ?? 400, headers: NO_STORE })
   return NextResponse.json({ message: result.value }, { status: 201, headers: NO_STORE })
 }

@@ -388,7 +388,9 @@ export function installRpcs(db: MemoryDb) {
     store's selling currency changed once per request key, refused when the
     store's currency moved underneath the caller (40001); "convert" snapshots
     and converts every price the store owns at the rate given, "keep" moves
-    no number.
+    no number. Part 258: membership and community products stay in dollars,
+    and offers' fixed amounts and minimums and smart collections' price
+    conditions are converted too.
   */
   db.rpcs.store_change_currency = (d, a) => {
     const code = (v: unknown) => typeof v === "string" && /^[A-Z]{3}$/.test(v)
@@ -408,7 +410,7 @@ export function installRpcs(db: MemoryDb) {
     if (a.p_mode === "convert") {
       const rate = Number(a.p_rate)
       const conv = (v: unknown) => (typeof v === "number" ? Math.round(v * rate) : v)
-      const own = d.rows("products").filter((p) => p.creator_id === a.p_creator)
+      const own = d.rows("products").filter((p) => p.creator_id === a.p_creator && p.type !== "membership" && p.type !== "community")
       const ids = new Set(own.map((p) => p.id))
       const targets: [string, Row[], string[]][] = [
         ["products", own, ["price_cents", "compare_at_cents", "pwyw_min_price_cents", "pwyw_suggested_price_cents"]],
@@ -416,6 +418,8 @@ export function installRpcs(db: MemoryDb) {
         ["shipping_rates", d.rows("shipping_rates").filter((r) => r.creator_id === a.p_creator), ["price_cents", "free_over_cents"]],
         ["inventory_locations", d.rows("inventory_locations").filter((r) => r.creator_id === a.p_creator), ["local_delivery_price_cents", "local_delivery_min_cents", "local_delivery_free_over_cents"]],
         ["coupons", d.rows("coupons").filter((r) => r.creator_id === a.p_creator), ["min_purchase_cents"]],
+        ["store_offers", d.rows("store_offers").filter((r) => r.creator_id === a.p_creator), ["min_subtotal_cents"]],
+        ["product_collections", d.rows("product_collections").filter((r) => r.creator_id === a.p_creator && r.kind === "smart" && Array.isArray(r.rules) && (r.rules as Row[]).some((x) => x?.field === "price" || x?.field === "compare_at_price")), []],
       ]
       for (const [table, rows, cols] of targets) {
         if (!rows.length) continue
@@ -423,6 +427,13 @@ export function installRpcs(db: MemoryDb) {
           d.rows("store_currency_snapshots").push({ change_id: change.id, table_name: table, row_id: r.id, before: Object.fromEntries(cols.filter((c) => c in r).map((c) => [c, r[c]])) })
           for (const c of cols) if (c in r) r[c] = conv(r[c])
           if (table === "coupons" && r.discount_type === "fixed" && typeof r.discount_value === "number") r.discount_value = Math.max(0.01, Math.round(r.discount_value * rate * 100) / 100)
+          if (table === "store_offers" && r.discount_type === "fixed" && typeof r.discount_value === "number") r.discount_value = Math.max(1, Math.round(r.discount_value * rate))
+          if (table === "product_collections") {
+            const before = r.rules
+            r.rules = (r.rules as Row[]).map((x) => (x && (x.field === "price" || x.field === "compare_at_price") && /^\s*[0-9]+(\.[0-9]+)?\s*$/.test(String(x.value)) ? { ...x, value: String(Math.round(Number(x.value) * rate * 100) / 100) } : x))
+            const snap = d.rows("store_currency_snapshots")
+            snap[snap.length - 1].before = { rules: before }
+          }
         }
         counts[table] = rows.length
       }

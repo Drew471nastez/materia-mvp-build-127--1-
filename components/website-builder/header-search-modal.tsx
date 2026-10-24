@@ -32,6 +32,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { createPortal } from "react-dom"
 
 import { cn } from "@/lib/utils"
+import { ProductImg, isDarkColor } from "@/components/media/missing-image"
 import type { ColorSchemeValues } from "@/lib/website-builder/types"
 import {
   DRAWER_BACKDROP_Z,
@@ -297,10 +298,7 @@ function SearchModalInner({
                           className="theme-tint-hover flex items-center gap-3 px-3 py-2 transition-colors"
                         >
                           <span className="h-12 w-12 shrink-0 overflow-hidden" style={{ background: scheme.inset_border, borderRadius: 8 }}>
-                            {h.image ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={h.image} alt="" className="h-full w-full object-cover" loading="lazy" />
-                            ) : null}
+                            <ProductImg src={h.image} className="h-full w-full object-cover" loading="lazy" dark={isDarkColor(scheme.bg)} />
                           </span>
                           <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{h.title}</span>
                           {h.price && <span className="shrink-0 text-[14px] tabular-nums" style={{ opacity: 0.7 }}>{shownPrice(h.price)}</span>}

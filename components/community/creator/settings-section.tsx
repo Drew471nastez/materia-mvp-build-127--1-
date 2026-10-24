@@ -68,12 +68,13 @@ import { getMainDomain } from "@/lib/url-helpers"
 
 export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
-import { MemberEmailsPanel } from "./member-emails-panel"
 import { RulesEditor } from "./moderation-section"
 import { BlockedWords } from "./blocked-words"
 import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permissions"
 import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CommunityDomainPanel } from "./community-domain-panel"
+import { ChatPanel } from "./chat-panel"
+import { AutomationsPanel } from "./automations-panel"
 import { DeleteCommunity } from "./delete-community"
 import { JoinQuestionsPanel } from "./join-questions-panel"
 import { OnboardingPanel } from "./onboarding-panel"
@@ -117,12 +118,20 @@ const PANELS: SettingsPanel[] = [
   { value: "address", get label() { return tt("Address and domain") }, needs: "manage_settings", group: "community", get line() { return tt("Your link on Storelib, and a domain of your own") }, render: (p) => <AddressSettings head={p.head} /> },
   { value: "discovery", get label() { return tt("Explore and search") }, needs: "manage_settings", group: "community", get line() { return tt("Category, Explore and search results") }, render: (p) => <Discovery head={p.head} data={p.data} /> },
   { value: "features", get label() { return tt("Features") }, needs: "manage_settings", group: "community", get line() { return tt("Learn, Calendar, chat and the welcome") }, render: (p) => <Features head={p.head} data={p.data} /> },
+  /* Round 37: chat on its own panel: channels and slow mode, who may message whom, groups, files, the chat rules, who is kept out. */
+  { value: "chat", get label() { return tt("Chat") }, needs: "mute", group: "community", get line() { return tt("Channels, messages, groups and chat rules") }, render: (p) => <ChatPanel head={p.head} /> },
+  /* Round 38: messages the community sends by itself (welcome, levels, days in, paid memberships, broadcasts). */
+  { value: "automations", get label() { return tt("Automated messages") }, needs: "manage_settings", group: "community", get line() { return tt("Welcome messages, level messages and broadcasts") }, render: (p) => <AutomationsPanel head={p.head} /> },
   { value: "advanced", get label() { return tt("Publish and archive") }, needs: "archive", group: "community", get line() { return tt("Publish, videos, archive or delete") }, render: (p) => <Advanced head={p.head} videoProviders={p.videoProviders} /> },
   /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
   { value: "roles", get label() { return tt("Roles and permissions") }, needs: "transfer_ownership", group: "people", get line() { return tt("What admins and moderators can do") }, shown: (p) => !!p.data.roles, render: (p) => (p.data.roles ? <Roles head={p.head} roles={p.data.roles} /> : null) },
   { value: "policies", get label() { return tt("Rules and policies") }, needs: "manage_settings", group: "people", get line() { return tt("Rules, blocked words, refunds and contact") }, render: (p) => <Policies head={p.head} data={p.data} /> },
-  /* Round AG: email the members, and the community's own words on the emails it sends (./member-emails-panel.tsx). */
-  { value: "emails", get label() { return tt("Member emails") }, needs: "manage_settings", group: "people", get line() { return tt("Email your members and edit your emails") }, render: (p) => <MemberEmailsPanel head={p.head} /> },
+  /*
+    Member emails moved to Emails › Customer emails › Communities, with the store's other emails
+    (components/app/emails/community-emails.tsx): an address that asks for them here (?tab=emails, and its older
+    names) is sent there by the page (app/app/community/[id]/settings/page.tsx), the community's words and its sent
+    emails as they were.
+  */
   { value: "gamification", get label() { return tt("Points and levels") }, needs: "manage_gamification", group: "people", get line() { return tt("Points, levels and badges") }, render: (p) => <GamificationPanel head={p.head} levels={p.data.levels} badges={p.data.badges} /> },
   { value: "notifications", get label() { return tt("Notifications") }, needs: "view", group: "you", get line() { return tt("What you hear about from this community") }, render: (p) => <Notifications head={p.head} data={p.data} /> },
   /* round32: features panels (a new panel: its entry here, its name in ./logic SETTINGS_TABS) */
@@ -402,6 +411,18 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
     setFeatures((f) => ({ ...f, [key]: v }))
     if (!(await instant({ [key]: v }, v ? tt("Turned on") : tt("Turned off")))) setFeatures((f) => ({ ...f, [key]: !v }))
   }
+  /* Round 39: the Library is its own switch (part 278, community_library_settings), not a column of the community. */
+  const [library, setLibrary] = React.useState(head.libraryEnabled === true)
+  const flipLibrary = async (v: boolean) => {
+    setLibrary(v)
+    const res = await send(`/api/app/community/${head.id}/library`, "PATCH", { enabled: v })
+    if (!res.ok) {
+      setLibrary(!v)
+      return toast(res.data.error || errorText(undefined))
+    }
+    toast(v ? tt("Turned on") : tt("Turned off"))
+    router.refresh()
+  }
   const save = async () => {
     setBusy(true)
     const res = await send(`/api/app/community/${head.id}`, "PATCH", { onboarding: w })
@@ -418,6 +439,7 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
       <EditorCard title={tt("Sections")} hint={tt("Turned off, a section is hidden from members. Nothing in it is deleted.")}>
         <div className="-my-1 divide-y divide-[#f1f2f4]">
           <Toggle checked={features.classroomEnabled} onChange={(v) => void flip("classroomEnabled", v)} title={tt("Learn")} hint={tt("Your programs and lessons, inside the community.")} />
+          <Toggle checked={library} onChange={(v) => void flipLibrary(v)} title={tt("Library")} hint={tt("Files, links and products for members: free, for some of them, or for sale.")} />
           <Toggle checked={features.eventsEnabled} onChange={(v) => void flip("eventsEnabled", v)} title={tt("Calendar")} hint={tt("Calls, workshops and meetups with RSVPs.")} />
           <Toggle checked={features.chatEnabled} onChange={(v) => void flip("chatEnabled", v)} title={tt("Chat")} hint={tt("Spaces of the chat kind, and messages between members.")} />
           <Toggle checked={features.directoryEnabled} onChange={(v) => void flip("directoryEnabled", v)} title={tt("Member directory")} hint={tt("Members can see who else is here.")} />
@@ -596,7 +618,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
       </EditorCard>
 
       {/* Round 32: the questions asked before joining (./join-questions-panel). */}
-      <JoinQuestionsPanel head={head} />
+      <JoinQuestionsPanel head={head} initial={data.joinForm} />
 
       <EditorCard
         title={tt("Plans")}

@@ -44,6 +44,8 @@ import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { assetAllowedForVariants, canDeliver } from "@/lib/receipts/rules"
+import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
+import { heldGrants } from "@/lib/receipts/guest-access-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -171,6 +173,18 @@ export async function POST(request: NextRequest) {
         covers.push(order.variant_id ?? null)
         if (order.variant_id) variantIds.add(order.variant_id)
       }
+    }
+
+    /* ------------------------------------------------------------------
+       AND WHAT THIS BROWSER BOUGHT AS A GUEST, from its signed httpOnly
+       cookie (lib/receipts/guest-access.ts): each grant checked against its
+       own order, the order against the delivery rule.
+       ------------------------------------------------------------------ */
+    const guest = await heldGrants(admin, guestAccessFromCookieHeader(request.headers.get("cookie")), { productId })
+    for (const order of guest.open) {
+      hasPurchased = true
+      covers.push(order.variant_id ?? null)
+      if (order.variant_id) variantIds.add(order.variant_id)
     }
 
     if (!hasPurchased) {

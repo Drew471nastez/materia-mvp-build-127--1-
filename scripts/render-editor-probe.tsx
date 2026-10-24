@@ -17,9 +17,18 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 
 const PLACEHOLDER = "https://example.invalid/picture.jpg"
 const IMAGEY = new Set(["image_picker", "image_gallery"])
+/**
+ * PROBE_SECTION_BLOCKS: for a section type, the preset's blocks kept (by
+ * type, in the preset's order), so a probe can leave room for the rest
+ * (scripts/check-block-picker.mjs: a product section with a title, a price
+ * and buy buttons, every other product block still addable).
+ */
+const keepBlocks = (globalThis as unknown as { PROBE_SECTION_BLOCKS?: Record<string, string[]> }).PROBE_SECTION_BLOCKS ?? {}
 function instance(type: string, i: number): SectionInstance {
   const schema = SECTION_SCHEMAS[type]
-  const preset = schema.presets?.[0]
+  const preset0 = schema.presets?.[0]
+  const keep = keepBlocks[type]
+  const preset = preset0 && keep ? { ...preset0, blocks: (preset0.blocks ?? []).filter((b) => keep.includes(b.type)) } : preset0
   const settings: Record<string, unknown> = { ...(preset?.settings ?? {}) }
   for (const f of schema.fields ?? []) {
     if (IMAGEY.has(f.type) && settings[f.id] === undefined) settings[f.id] = PLACEHOLDER
@@ -77,7 +86,8 @@ const probeGlobals = globalThis as unknown as {
    * Every key but home is also a page the install has saved, so it is listed
    * wherever the editor lists pages (scripts/check-page-switcher.mjs).
    */
-  PROBE_PAGES?: Record<string, string[]>
+  /** A section type, or a whole section (a type of the creator's own from PROBE_FILES, with its blocks: check-block-picker.mjs). */
+  PROBE_PAGES?: Record<string, (string | SectionInstance)[]>
   PROBE_PAGE_DELAY_MS?: number
   /* The store's products, for the page switcher probe. */
   PROBE_PRODUCTS?: { id: string; title: string; slug?: string }[]
@@ -162,7 +172,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const own = probeGlobals.PROBE_PAGES?.[key]
     if (own) {
       await new Promise((r) => setTimeout(r, probeGlobals.PROBE_PAGE_DELAY_MS ?? 0))
-      return json({ sections: own.map((t, i) => instance(t, i)), has_draft: false })
+      return json({ sections: own.map((t, i) => (typeof t === "string" ? instance(t, i) : t)), has_draft: false })
     }
     return json({ sections, has_draft: false })
   }

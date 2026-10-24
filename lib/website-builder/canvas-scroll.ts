@@ -337,3 +337,37 @@ export function glideWithin(
   else scroller.scrollTop = top
   return top
 }
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   A STOREFRONT DRAWER'S HOLD ON THE CANVAS, WITH NO DRAWER (round 1023)
+  ═══════════════════════════════════════════════════════════════════════════
+  A site drawer over a Storelib canvas (the menu, the cart, search) holds
+  the canvas still while it is open: overflow hidden and touch-action none
+  on #wb-preview-root, and the attribute that says so
+  (components/website-builder/drawer-frame.ts, useDrawerFrame). Every hold is
+  counted and the last drawer to close lets go, so in the probes it is
+  always let go (scripts/check-canvas-freeze.mjs). This is the guard for
+  the case nobody has named: a hold on the canvas that no drawer is
+  counted for is somebody's leftover, and is taken off on the next wheel
+  or touch that finds the canvas not moving. Only the drawer's own three
+  marks; anything else on the element is not this guard's to judge.
+*/
+export const DRAWER_HOLD_ATTRIBUTE = "data-site-drawer-open"
+
+export interface HeldLike {
+  style: { overflow: string; touchAction: string }
+  hasAttribute(name: string): boolean
+  removeAttribute(name: string): void
+}
+
+/** Lets go of a drawer's hold that no drawer holds. Returns whether there was one. */
+export function releaseStrayDrawerHold(el: HeldLike, holders: number): boolean {
+  if (holders > 0) return false
+  const marked = el.hasAttribute(DRAWER_HOLD_ATTRIBUTE)
+  if (!marked && el.style.overflow !== "hidden") return false
+  el.style.overflow = ""
+  if (el.style.touchAction === "none") el.style.touchAction = ""
+  el.removeAttribute(DRAWER_HOLD_ATTRIBUTE)
+  return true
+}

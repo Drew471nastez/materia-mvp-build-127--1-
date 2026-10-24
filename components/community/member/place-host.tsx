@@ -155,7 +155,7 @@ function readNow(communityId: string, place: Place, chat: ReadonlySet<string>): 
  * profile (round 16): ?profile=me is the account page again (/account, outside the community), so reading it here was one
  * wasted read per visit.
  */
-export function aheadPlaces(entries: { key: string }[]): Place[] {
+export function aheadPlaces(entries: { key: string; href?: string }[]): Place[] {
   const out: Place[] = []
   /* The places a member opens most come first (round 24): the Leaderboard, then Members, then the row in its order. */
   const rank = (k: string) => (k === "leaderboard" ? 0 : k === "members" ? 1 : 2)
@@ -166,6 +166,11 @@ export function aheadPlaces(entries: { key: string }[]): Place[] {
     else if (e.key === "members") out.push({ kind: "members" })
     else if (e.key === "leaderboard") out.push({ kind: "leaderboard" })
     else if (e.key === "about") out.push({ kind: "about" })
+    else if (e.key === "chat" && e.href) {
+      /* Round 38: the Chat tab is the main channel's own place. */
+      const p = placeFromUrl(e.href, "")
+      if (p) out.push(p)
+    }
   }
   /* The member's own Membership page, from the "..." menu, is read ahead with the places (round 13). */
   out.push({ kind: "membership" })
@@ -176,7 +181,7 @@ export function aheadPlaces(entries: { key: string }[]): Place[] {
  * The host as a hook, so the frame around it can lay its columns out for the place actually in the middle (About and a
  * lesson are wider) on the same frame the middle changes.
  */
-export function usePlaceScreens({ communityId, slug, chatSpaces, entries, renderProfile, viewer = null, readOnly = false, children }: { communityId: string; slug: string; chatSpaces: readonly string[]; entries: { key: string }[]; renderProfile?: (ref: string, data: unknown) => React.ReactNode; /** Who is looking: with it, a post no card on screen holds opens over the place (post-opener.tsx). */ viewer?: ViewerView | null; readOnly?: boolean; children: React.ReactNode }): PlaceScreens & { hooks: { beforeGo: (from: Place, to: Place, opts: GoOptions & { history?: boolean }) => void; prefetch: (p: Place) => void; refresh: (p: Place) => Promise<void> } } {
+export function usePlaceScreens({ communityId, slug, chatSpaces, entries, renderProfile, viewer = null, readOnly = false, children }: { communityId: string; slug: string; chatSpaces: readonly string[]; entries: { key: string; href?: string }[]; renderProfile?: (ref: string, data: unknown) => React.ReactNode; /** Who is looking: with it, a post no card on screen holds opens over the place (post-opener.tsx). */ viewer?: ViewerView | null; readOnly?: boolean; children: React.ReactNode }): PlaceScreens & { hooks: { beforeGo: (from: Place, to: Place, opts: GoOptions & { history?: boolean }) => void; prefetch: (p: Place) => void; refresh: (p: Place) => Promise<void> } } {
   const nav = useCommunityNavigator()
   const chat = useMemo(() => new Set(chatSpaces.map((s) => s.toLowerCase())), [chatSpaces])
   const active = nav.place

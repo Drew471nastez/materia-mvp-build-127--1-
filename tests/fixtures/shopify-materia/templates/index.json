@@ -1,0 +1,14 @@
+{ "sections": {
+  "hero": { "type": "slideshow", "blocks": {
+    "s1": { "type": "slide", "settings": { "rating_text": "Scelto da oltre 1.250 clienti", "heading": "Alimenta la tua concentrazione. Domina la tua giornata.", "text": "Prime1 sostiene energia e lucidità per tutta la giornata, senza picchi e senza crolli.", "button_label": "Acquista ora", "button_link": "shopify://collections/all" } },
+    "s2": { "type": "slide", "settings": { "rating_text": "4,9 su 5", "heading": "Idratazione ed energia in un gesto.", "text": "Un cucchiaio in acqua fredda.", "button_label": "Scopri", "button_link": "shopify://collections/all" } }
+  }, "block_order": ["s1", "s2"] },
+  "story": { "type": "rich-text", "settings": {} },
+  "feature": { "type": "image-text", "settings": {} },
+  "products": { "type": "product-grid", "settings": {}, "blocks": {
+    "p1": { "type": "product", "settings": { "title": "Prime1 Clarity" } },
+    "p2": { "type": "product", "settings": { "title": "Prime1 Focus" } },
+    "p3": { "type": "product", "settings": { "title": "Prime1 Hydra" } },
+    "p4": { "type": "product", "settings": { "title": "Prime1 Night" } }
+  }, "block_order": ["p1", "p2", "p3", "p4"] }
+}, "order": ["hero", "story", "feature", "products"] }

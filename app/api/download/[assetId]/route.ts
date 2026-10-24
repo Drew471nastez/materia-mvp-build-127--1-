@@ -5,7 +5,9 @@ import { SIGNED_URL_EXPIRY_SECONDS } from "@/lib/security"
 import { callerAddress } from "@/lib/api/rate-limit"
 import { downloadRateLimit, purchaseRateLimit } from "@/lib/storage/download-limits"
 import { resolveDownloadAccess } from "@/lib/receipts/download-access"
-import { DENY_MESSAGES, isUuid } from "@/lib/receipts/rules"
+import { DENY_MESSAGES, isPlausibleToken, isUuid } from "@/lib/receipts/rules"
+import { guestAccessFromCookieHeader } from "@/lib/receipts/guest-access"
+import { heldGrants } from "@/lib/receipts/guest-access-server"
 import { gateDownload } from "@/lib/storage/scan-gate"
 import { logSecurityEvent } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
@@ -56,10 +58,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     const limited = await downloadRateLimit(request, { userId, assetId })
     if (limited) return limited
 
+    /* No receipt link sent: the purchases this browser made as a guest, from its signed cookie (lib/receipts/guest-access.ts). */
+    const guestOrders = isPlausibleToken(receiptToken) ? [] : (await heldGrants(admin, guestAccessFromCookieHeader(request.headers.get("cookie")))).open
+
     const { asset, decision, orderId, entitlementId } = await resolveDownloadAccess(admin, {
       assetId,
       receiptToken,
       userId,
+      guestOrders,
     })
 
     if (!asset) {

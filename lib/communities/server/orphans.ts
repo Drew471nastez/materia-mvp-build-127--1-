@@ -26,7 +26,9 @@ import "server-only"
  *             ./post-files.ts): one older than ORPHANS.graceDays that no
  *             post, comment or chat message of the community carries
  *             ({type:"file", assetId}), any status, is removed (a comments
- *             table without its media column keeps every file). A seventh of the communities a day,
+ *             table without its media column keeps every file). A Library
+ *             item's file, or a product's file at the same path, is used
+ *             too (round 39). A seventh of the communities a day,
  *             so each is looked at once a week.
  *
  * WHY THE GRACE IS LONG. A draft keeps its pictures' addresses in the
@@ -121,10 +123,20 @@ async function referencesSince(admin: SupabaseClient, communityId: string, autho
     commentRows = again.data as unknown[]
   } else if (comments.error) return null
   if (mine.error || orphaned.error || messages.error) return null
+  /*
+    A conversation's and a group's messages carry pictures too (round 39): read like a channel's, or every picture sent
+    in a direct message went after the grace. Before part 270 they carry none; any other failure keeps everything.
+  */
+  const [direct, grouped] = await Promise.all([
+    admin.from("community_direct_messages").select("body, attachments").eq("community_id", communityId).or(by).gte("created_at", sinceIso).limit(5000),
+    admin.from("community_chat_group_messages").select("body, attachments").eq("community_id", communityId).or(by).gte("created_at", sinceIso).limit(5000),
+  ])
+  if ((direct.error && !missing(direct.error)) || (grouped.error && !missing(grouped.error))) return null
+  const chatRows = [...(direct.error ? [] : (direct.data ?? [])), ...(grouped.error ? [] : (grouped.data ?? []))]
   /* A read that came back full may have left a reference out: keep everything rather than guess. */
   const waitingRows = waiting.error ? [] : (waiting.data ?? [])
-  if ([mine.data, orphaned.data, commentRows, messages.data, waitingRows].some((d) => Array.isArray(d) && d.length >= 5000)) return null
-  return JSON.stringify([mine.data ?? [], orphaned.data ?? [], commentRows ?? [], messages.data ?? [], waitingRows])
+  if ([mine.data, orphaned.data, commentRows, messages.data, waitingRows, direct.data, grouped.data].some((d) => Array.isArray(d) && d.length >= 5000)) return null
+  return JSON.stringify([mine.data ?? [], orphaned.data ?? [], commentRows ?? [], messages.data ?? [], waitingRows, chatRows])
 }
 
 /** Pictures uploaded for a community and never used. */
@@ -235,6 +247,15 @@ async function sweepFiles(admin: SupabaseClient, summary: OrphanSummary, stopAt:
         /* A scheduled post or a draft carrying it (round 27, part 222); before that part there are none. */
         const scheduled = await admin.from("community_scheduled_posts").select("id").eq("community_id", c.id).contains("media", carries).limit(1)
         if (!(scheduled.error && missing(scheduled.error))) reads.push(scheduled)
+        /* A direct or group message carrying it (round 39); before part 270 there are none. */
+        for (const table of ["community_direct_messages", "community_chat_group_messages"]) {
+          const held = await admin.from(table).select("id").eq("community_id", c.id).contains("attachments", carries).limit(1)
+          if (!(held.error && missing(held.error))) reads.push(held)
+        }
+        /* Round 39: a Library item's file (part 278), and any product's file at this path (a sold resource's product, which its buyers keep after the item changes). */
+        const library = await admin.from("community_library_items").select("id").eq("community_id", c.id).contains("files", JSON.stringify([{ fileId }])).limit(1)
+        if (!(library.error && missing(library.error))) reads.push(library)
+        reads.push(await admin.from("digital_assets").select("id").eq("file_path", path).limit(1))
         if (reads.some((r) => r.error || !Array.isArray(r.data) || r.data.length)) {
           summary.files.kept++
           continue

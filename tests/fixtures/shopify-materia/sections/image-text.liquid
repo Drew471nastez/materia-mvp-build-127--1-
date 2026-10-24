@@ -1,0 +1,14 @@
+<div class="it reveal">
+  <div class="it__media">{%- if section.settings.image != blank -%}<img src="{{ section.settings.image | image_url: width: 1200 }}" alt="" width="1200" height="900" loading="lazy">{%- endif -%}</div>
+  <div class="it__body">
+    <h2>{{ section.settings.heading }}</h2>
+    <p>{{ section.settings.text }}</p>
+  </div>
+</div>
+{% schema %}
+{ "name": "Image with text", "settings": [
+  { "type": "image_picker", "id": "image", "label": "Image" },
+  { "type": "text", "id": "heading", "label": "Heading", "default": "Energia pulita, tutto il giorno" },
+  { "type": "text", "id": "text", "label": "Text", "default": "Ingredienti scelti, nessun picco e nessun crollo a metà pomeriggio." }
+], "presets": [ { "name": "Image with text" } ] }
+{% endschema %}

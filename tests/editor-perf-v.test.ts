@@ -171,7 +171,7 @@ console.log("\nKEYS: a memo keyed by what it reads")
 
   const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
   const addable = editor.slice(editor.indexOf("const libraryAddable = useMemo("), editor.indexOf("const overlayAddable = useMemo("))
-  check("the library's list no longer depends on the page's sections", addable.length > 0 && !/\bsections\b/.test(addable) && /compatInstall, overlayTypesKey\]\)/.test(addable))
+  check("the library's list no longer depends on the page's sections", addable.length > 0 && !/\bsections\b/.test(addable) && /* Changed on purpose (round canvas-1023): and on whether the install's files are read, so the built-in schemas are not all read as the editor opens. */ /compatInstall, overlayTypesKey, storelibSourcesRead\]\)/.test(addable))
   check("its key is read from the sections each render, cheaply", /const overlayTypesKey = overlayTypesOf\(sections\)/.test(editor))
 }
 

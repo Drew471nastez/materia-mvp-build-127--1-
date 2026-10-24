@@ -104,7 +104,8 @@ export function TreeAddRow({
   ...rest
 }: {
   label: string
-  onClick?: () => void
+  /* The press itself, so a row that opens a panel can place it by the row (block-picker.tsx). */
+  onClick?: React.MouseEventHandler<HTMLButtonElement>
   /** 0 for a section, 1 for a section's blocks, and so on. */
   depth?: number
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -148,7 +149,7 @@ export function TreeInsertLine({
   depth = 0,
   ...rest
 }: {
-  onClick: () => void
+  onClick: (e: React.MouseEvent<HTMLDivElement>) => void
   onMenu?: (x: number, y: number) => void
   label: string
   /** 0 between sections, 1 between a section's blocks: the line starts at that row's indent. */

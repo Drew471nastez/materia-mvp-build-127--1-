@@ -94,6 +94,12 @@ export function OffersClient({
   physical: boolean
 }) {
   const [list, setList] = React.useState(initialOffers)
+  /* The server's list again (a refresh: a change of the store's currency converts fixed amounts): it is the truth from here, as Coupons does. */
+  const [seen, setSeen] = React.useState(initialOffers)
+  if (seen !== initialOffers) {
+    setSeen(initialOffers)
+    setList(initialOffers)
+  }
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   const [notice, say] = usePill()
   const [ask, confirmSheet] = useConfirm()

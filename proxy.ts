@@ -19,8 +19,9 @@ import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
-import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, markedThemeAddress, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
-import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
+import { PUBLIC_PAGE_CACHE, markedThemeAddress, strangerMarker, strangerPage } from "@/lib/storelib-theme/compat/anonymous-cache"
+import { forgetSharedSiteFacts, rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
+import { SITE_FRESH_PARAM } from "@/lib/website-builder/live-release-script"
 import { SITE_COUNTRY_HEADER, SITE_LOCALE_HEADER, SITE_MARKET_HEADER, siteRouteInLanguage } from "@/lib/markets/site-name"
 import { countryOfCurrency, resolveMarketCountries } from "@/lib/markets/market-countries"
 import { COUNTRY_COOKIE, FORGET_COUNTRY_COOKIE, readCountryCookie, seenCountry, visitorCountryFrom } from "@/lib/markets/visitor-country"
@@ -314,7 +315,11 @@ function startSiteQuestions(
 ): Promise<{ blocked: NextResponse | null; protected: boolean }> | null {
   if (/\.[a-z0-9]{1,8}$/i.test(pathname) || policyAddress(pathname)) return null
   if (PLATFORM_APEX_PATHS.some((r) => pathname === r || pathname.startsWith(`${r}/`))) return null
-  if (compatAnswers(pathname, request)) void compatSiteFor(name).catch(() => false)
+  if (compatAnswers(pathname, request)) {
+    void compatSiteFor(name, asksFresh(request)).catch(() => false)
+    /* An imported theme's page asks for the website's languages and markets next (compatRewrite): asked now, beside the rest. */
+    void siteLocalizationFor(name).catch(() => null)
+  }
   void hasLiveAiSite(name).catch(() => false)
   if (connectedDomain) void hasPublishedWebsite(name).catch(() => false)
   return passwordPageFor(request, name, host, pathname, search)
@@ -403,7 +408,11 @@ async function websiteDomainOf(name: string): Promise<string | null> {
     const { facts, failed } = await siteFactsFor(db, lower)
     if (failed) return hit?.host ?? null
     let host: string | null = null
-    if (facts.creatorId && facts.published) {
+    if (facts.creatorId && facts.published && facts.extras) {
+      /* Read with the facts, in the same round trip (SQL part 257). */
+      const row = facts.extras.websiteDomain
+      if (row?.domain && row.ssl_status !== "failed") host = servedAt(row.domain)
+    } else if (facts.creatorId && facts.published) {
       const { data, error } = await db
         .from("custom_domains")
         .select("domain, ssl_status")
@@ -450,10 +459,19 @@ interface SiteLocalization {
 }
 const NO_LOCALIZATION: SiteLocalization = { languages: [], markets: [], starts: [] }
 const localizationHeld = new Map<string, { at: number; value: SiteLocalization }>()
-async function siteLocalizationFor(username: string): Promise<SiteLocalization> {
+/* A read already under way is shared: the page's questions start it (startSiteQuestions) and the rewrite asks again. */
+const localizationAsked = new Map<string, Promise<SiteLocalization>>()
+function siteLocalizationFor(username: string): Promise<SiteLocalization> {
   const lower = username.toLowerCase()
   const hit = localizationHeld.get(lower)
-  if (hit && Date.now() - hit.at < 30_000) return hit.value
+  if (hit && Date.now() - hit.at < 30_000) return Promise.resolve(hit.value)
+  const asking = localizationAsked.get(lower)
+  if (asking) return asking
+  const read = readSiteLocalization(lower, hit).finally(() => localizationAsked.delete(lower))
+  localizationAsked.set(lower, read)
+  return read
+}
+async function readSiteLocalization(lower: string, hit: { at: number; value: SiteLocalization } | undefined): Promise<SiteLocalization> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !supabaseKey) return NO_LOCALIZATION
@@ -463,11 +481,17 @@ async function siteLocalizationFor(username: string): Promise<SiteLocalization> 
     if (failed) return hit?.value ?? NO_LOCALIZATION
     let value = NO_LOCALIZATION
     if (facts.creatorId) {
-      /* With Show visitors their own language (part 173); a database without its column is read as before, with it off. */
-      let { data, error } = await db.from("store_localization").select("default_language, languages, markets, visitor_language").eq("creator_id", facts.creatorId).maybeSingle()
-      if (error && /visitor_language/.test(error.message ?? "")) ({ data, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", facts.creatorId).maybeSingle())
-      /* Part 136 not run, or no row: one language, the store's prices. Another error keeps what was known. */
-      if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? NO_LOCALIZATION
+      /* Read with the facts, in the same round trip, when SQL part 257 has run (lib/website-builder/route-facts.ts); else on its own, as before. */
+      const extras = facts.extras
+      let data: unknown = extras ? extras.localization : null
+      if (!extras) {
+        /* With Show visitors their own language (part 173); a database without its column is read as before, with it off. */
+        let { data: read, error } = await db.from("store_localization").select("default_language, languages, markets, visitor_language").eq("creator_id", facts.creatorId).maybeSingle()
+        if (error && /visitor_language/.test(error.message ?? "")) ({ data: read, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", facts.creatorId).maybeSingle())
+        /* Part 136 not run, or no row: one language, the store's prices. Another error keeps what was known. */
+        if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? NO_LOCALIZATION
+        data = read
+      }
       const row = data as { default_language?: string; visitor_language?: boolean | null; languages?: { code?: unknown; published?: unknown }[]; markets?: { id?: unknown; countries?: unknown; currency?: unknown; language?: unknown; active?: unknown; primary?: unknown; rest?: unknown }[] } | null
       const def = (row?.default_language ?? "").toLowerCase()
       const languages = (Array.isArray(row?.languages) ? row!.languages : [])
@@ -479,21 +503,21 @@ async function siteLocalizationFor(username: string): Promise<SiteLocalization> 
         as the page this sends the visitor to reads them (lib/markets/live.ts).
       */
       const rawMarkets = (Array.isArray(row?.markets) ? row!.markets : []).filter((m) => m && typeof m === "object")
-      const own = rawMarkets.some((m) => m.primary !== true)
-        ? await db
-            .from("store_settings")
-            .select("default_country, currency")
-            .eq("creator_id", facts.creatorId)
-            .maybeSingle()
-            .then(
-              /* No country set: the one whose currency the store sells in (RON: Romania), so the store's own visitors are never put in another currency. */
-              (r) => {
-                const d = r.data as { default_country?: unknown; currency?: unknown } | null
-                return (typeof d?.default_country === "string" && d.default_country) || countryOfCurrency(d?.currency)
-              },
-              () => null,
-            )
-        : null
+      /* No country set: the one whose currency the store sells in (RON: Romania), so the store's own visitors are never put in another currency. */
+      const ownOf = (d: { default_country?: unknown; currency?: unknown } | null) => (typeof d?.default_country === "string" && d.default_country) || countryOfCurrency(d?.currency)
+      const own = !rawMarkets.some((m) => m.primary !== true)
+        ? null
+        : extras
+          ? ownOf(extras.store)
+          : await db
+              .from("store_settings")
+              .select("default_country, currency")
+              .eq("creator_id", facts.creatorId)
+              .maybeSingle()
+              .then(
+                (r) => ownOf(r.data as { default_country?: unknown; currency?: unknown } | null),
+                () => null,
+              )
       const placed = resolveMarketCountries(
         rawMarkets.map((m) => ({ ...m, countries: (Array.isArray(m.countries) ? m.countries : []).filter((c): c is string => typeof c === "string"), primary: m.primary === true, active: m.active !== false, rest: m.rest === true, currency: typeof m.currency === "string" && m.currency ? m.currency : null })),
         typeof own === "string" ? own : null,
@@ -655,9 +679,28 @@ async function inSiteLanguage(username: string, pathname: string, request?: Next
  */
 const compatHeld = new Map<string, { at: number; value: boolean }>()
 const compatAsked = new Map<string, Promise<boolean>>()
-async function compatSiteFor(username: string): Promise<boolean> {
+/*
+  ASKED AGAIN WHEN A RENDERER SAYS THE ANSWER IS OLD: a Publish that
+  switched between a Storelib theme and an imported one, seen by the
+  renderer this server sent the visitor to by the answer it held
+  (lib/website-builder/live-release-script.ts SITE_FRESH_PARAM). At most
+  once a second a name, so the address cannot be used to make every request
+  a read of the database.
+*/
+const compatForced = new Map<string, number>()
+const FORCED_GAP_MS = 1_000
+/** The request came back from a renderer that found the other kind of theme live. */
+const asksFresh = (request: NextRequest) => request.nextUrl.searchParams.has(SITE_FRESH_PARAM)
+async function compatSiteFor(username: string, fresh = false): Promise<boolean> {
   const lower = username.toLowerCase()
-  const hit = compatHeld.get(lower)
+  let hit = compatHeld.get(lower)
+  if (fresh && hit && Date.now() - (compatForced.get(lower) ?? 0) > FORCED_GAP_MS && !compatAsked.has(lower)) {
+    if (compatForced.size > 5000) compatForced.clear()
+    compatForced.set(lower, Date.now())
+    compatHeld.delete(lower)
+    forgetSharedSiteFacts(lower)
+    hit = undefined
+  }
   if (hit && Date.now() - hit.at < 20_000) return hit.value
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -805,7 +848,7 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
     }
   }
   /*
-    A STRANGER'S PAGE, HELD BY THE CDN FOR A MINUTE (lib/storelib-theme/
+    A STRANGER'S PAGE, DRAWN ONCE A MINUTE FOR EVERY STRANGER (lib/storelib-theme/
     compat/anonymous-cache.ts): a GET for a page, with no cookie that could
     change it, on a website without a password, where no language is being
     offered. It goes to an address of its own, marked with the host, the
@@ -857,15 +900,12 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
     landing page's `public, s-maxage=3600`) matches the path the browser
     asked for, on every host, and a header set on this rewrite is the one
     that wins over it (the built website's front page does the same, above).
-    So `/` says outright what the handler would: a stranger's front page a
-    minute in the CDN, anybody else's private.
+    So `/` says outright what the handler would: private, for a stranger
+    too. A stranger's front page is drawn once a minute by the hold
+    (lib/storelib-theme/compat/stranger-hold.ts), which Publish clears; a
+    CDN copy it could not clear showed the previous theme after a Publish.
   */
-  if (asked === "/" && page === "/") {
-    if (marker) {
-      r.headers.set("Cache-Control", PUBLIC_PAGE_CACHE)
-      r.headers.set("Vary", PUBLIC_PAGE_VARY)
-    } else r.headers.set("Cache-Control", "private, no-cache")
-  }
+  if (asked === "/" && page === "/") r.headers.set("Cache-Control", marker ? PUBLIC_PAGE_CACHE : "private, no-cache")
   /*
     No Cache-Control here: the handler sets its own on every answer (a page
     "private, no-cache", which keeps the browser's back/forward cache on; the
@@ -1671,15 +1711,22 @@ async function routeRequest(request: NextRequest) {
       if (pathname.startsWith("/review/")) return NextResponse.next()
       /* A buyer's conversation with the shop about an order: its own page, on the website's host, where its emails send the buyer (app/order-help, lib/support/cases-server.ts). */
       if (pathname.startsWith("/order-help/")) return NextResponse.next()
+      /*
+        Every question this page asks below, started together
+        (startSiteQuestions), and before the domain question rather than
+        after it: they need nothing it answers, and waiting for it put two
+        more round trips in a row before a subdomain's page. A page sent on
+        to the website's domain leaves them unread, held for its next visit.
+      */
+      const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
+      gateAsked?.catch(() => null)
       /* A website with its own domain connected is at that domain: a page opened at the Storelib address is sent there (lib/custom-domains/subdomain-redirect.ts). */
       if (sendsToDomain({ method: request.method, pathname, search, fetchDest: request.headers.get("sec-fetch-dest") })) {
         const domain = await websiteDomainOf(subdomain)
         if (domain) return NextResponse.redirect(domainAddress(domain, pathname, search), { status: 302 })
       }
-      /* Every question this page asks below, started together (startSiteQuestions). */
-      const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
       /* An imported Shopify theme answers its own addresses, its cart's /cart.js and /checkout included. */
-      if (compatAnswers(pathname, request) && (await compatSiteFor(subdomain)) && !(await hasLiveAiSite(subdomain))) {
+      if (compatAnswers(pathname, request) && (await compatSiteFor(subdomain, asksFresh(request))) && !(await hasLiveAiSite(subdomain))) {
         return compatRewrite(request, subdomain, host, pathname, search)
       }
       /* Shopify's address for a policy, on a site of Storelib's own: the same policy at Storelib's. */
@@ -2185,7 +2232,7 @@ async function routeRequest(request: NextRequest) {
     // Pages only, like the subdomain branch: an asset request must not cost
     // two database lookups, and a site's assets are Next's own anyway.
     /* An imported Shopify theme answers its own addresses on a connected domain too. */
-    if (domainPurpose === "website" && compatAnswers(pathname, request) && (await compatSiteFor(username)) && !(await hasLiveAiSite(username))) {
+    if (domainPurpose === "website" && compatAnswers(pathname, request) && (await compatSiteFor(username, asksFresh(request))) && !(await hasLiveAiSite(username))) {
       return compatRewrite(request, username, host, pathname, search)
     }
     if (domainPurpose === "website" && policyAddress(pathname)) return NextResponse.redirect(new URL(`${policyAddress(pathname)}${search}`, request.url), { status: 308 })
@@ -2578,8 +2625,10 @@ async function routeRequest(request: NextRequest) {
     */
     /* And the page a website's cover is taken of, shown small on the owner's Website page while its photograph is on its way (a pass for one install, two minutes). */
     /* And Settings' Google Analytics check, a blank page that loads the store's tag in a hidden frame of the settings page (app/api/store/ga-check). */
+    /* And the checkout text editor's preview, the website's own checkout in a frame of Settings (app/checkout/preview): it reads nothing and draws only what its parent on this origin posts to it. */
     const framableWhenEmbedded =
       url.pathname === "/onepage-preview" ||
+      url.pathname === "/checkout/preview" ||
       url.pathname === "/api/store/ga-check" ||
       url.pathname.startsWith("/cover-render/") ||
       /* The theme marketplace's live preview (app/(site)/theme-preview), framed by storelib.com/themes/<slug>. */

@@ -61,6 +61,7 @@ import type { SchemaField, SectionInstance, ThemeSettingsValues } from "@/lib/we
 import { ColorChip } from "./color-chip"
 import { GRADIENT_PRESETS, GradientEditor } from "./gradient-editor"
 import { Collapse } from "./collapse"
+import { ChoiceControl } from "./controls/choice-control"
 import { SECTION_ANIMATION_OPTIONS, entranceSetting, isChromeType, themeAlternates, themeAnimation, type SectionAnimation } from "@/lib/website-builder/section-anchors"
 import { tt } from "@/lib/i18n/text"
 
@@ -116,21 +117,11 @@ function Select({
   options: { label: string; value: string }[]
   compact?: boolean
 }) {
+  /* Buttons for one to three options, the dropdown past that (controls/choice-control.tsx). */
   return (
     <div className={cn(label && "space-y-1.5")}>
       {label && <p className="text-[13px] font-medium text-foreground">{label}</p>}
-      <div className="relative">
-        <select
-          className={cn(INPUT, "pr-8 appearance-none cursor-pointer")}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-      </div>
+      <ChoiceControl value={value} onChange={onChange} options={options} label={label} />
     </div>
   )
 }

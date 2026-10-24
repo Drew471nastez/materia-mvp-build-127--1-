@@ -46,9 +46,12 @@
  *           so the first press on each is usually as quick as the second.
  *   FRESH   a section held for over a minute, or held while something else
  *           changed, is read again quietly behind what is shown.
- *   MOTION  the section arriving rises 3px from 55% over 150ms (from 55%, so
- *           its first frame is never empty); Back and Forward put it back
- *           with none, and so does reduced motion.
+ *   STILL   (round 37) a section is shown in one change, with no motion: the
+ *           section before it is there until the one pressed is (FRAME_GRACE_MS
+ *           at most, then its frame), the row of tabs and the bar never move.
+ *           Round 39: nothing glides either. The tab pressed lights where it
+ *           is, on the frame of the press, painted before the section is
+ *           drawn; the section follows on the next frame.
  *
  * NOT <Activity>. The member side hides its places with React's <Activity>,
  * which stops a hidden tree's effects and runs them again when it is shown;
@@ -71,19 +74,23 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import type { CommunityHead, SectionId } from "./view-types"
 import { CommunityStatusBadge, FOOT_ROOM_PX, ToastHost, buttonPrimary, buttonSecondary, communityState, errorText, send, shortDate, useFootsUp, useToast } from "./parts"
 import { nameCoverGradient } from "@/lib/communities/cover-gradient"
-import { SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionRestarts, sectionStale, tabRevealLeft, tabsMore, type AdminSection } from "./logic"
+import { FRAME_GRACE_MS, SECTION_AHEAD_MS, adminSectionOf, sectionMove, sectionOnScreen, sectionRestarts, sectionStale, tabRevealLeft, tabsMore, type AdminSection } from "./logic"
 import { SectionFrame, type SectionFrameFacts } from "./section-frame"
+import { OWN_SCREEN_ATTR } from "./page-editor/screen"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 
-/** The arrival of a section, on the compositor: from 55%, so the first frame after the press already shows it. */
-export const SECTION_ARRIVE_MS = 150
+/*
+  NO ARRIVAL (round 37). A section used to arrive from 55% and 3px lower over 150ms. Filmed, that was a dip in every
+  switch, and worse: a section moved by `translate` is the box its fixed bars are placed in for those 150ms, so the
+  Page editor's drawer on a phone jumped 423px up and back and its stage was measured 155px short, and Settings' save
+  bar was laid out 832px off (scripts/check-community-admin-round37.mjs). A section now appears as it is. Only a section
+  taking its frame's place (a slow answer) fills in from 55%, by opacity alone, which moves nothing.
+*/
 export const SECTION_ARRIVE_FROM = 0.55
-export const SECTION_ARRIVE_RISE_PX = 3
-/** A section taking its frame's place: the same 55%, quicker, and no rise (its cards are already where they will be). */
+/** A section taking its frame's place: from 55% to all of it, opacity only (its cards are already where they will be). */
 export const SECTION_FILL_MS = 120
 const SECTION_ARRIVE_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-const ARRIVE: Keyframe[] = [{ opacity: SECTION_ARRIVE_FROM, translate: `0 ${SECTION_ARRIVE_RISE_PX}px` }, { opacity: 1, translate: "0 0" }]
 
 /**
  * THE WIDTH OF THE PAGE (round 32, the owner: "everything on desktop is too
@@ -107,9 +114,14 @@ const SHELL_GUTTER = "app-gutter"
 export function frameFacts(head: CommunityHead, search: string): SectionFrameFacts {
   return {
     composer: head.can.post === true && !head.archived && !!head.me,
+    /* The Scheduled and drafts card is drawn for whoever may post (scheduled-posts-panel.tsx `allowed`), writer or not. */
+    scheduled: head.can.post === true,
+    members: head.memberCount,
     settingsList: !new URLSearchParams(search).get("tab")?.trim(),
     /* The Overview's money figures are for a community that charges, seen by whoever may price it (overview.tsx). */
     figures: head.access === "paid" && head.can.manage_pricing === true ? 4 : 3,
+    /* The Page editor's own bar names the community while its reads are on their way (round 37). */
+    title: head.name,
   }
 }
 
@@ -131,6 +143,8 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
     can.moderate_content ? { id: "feed", label: tt("Posts"), href: `${base}/feed` } : null,
     can.manage_spaces ? { id: "spaces", label: tt("Spaces"), href: `${base}/spaces` } : null,
     can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: tt("Learn"), href: `${base}/learn` } : null,
+    /* Round 39: the Library, beside Learn, while it is on (Settings, Features). */
+    can.manage_classroom && head.libraryEnabled ? { id: "library", label: tt("Library"), href: `${base}/library` } : null,
     can.manage_events && head.eventsEnabled ? { id: "events", label: tt("Calendar"), href: `${base}/events` } : null,
     can.remove_member ? { id: "members", label: tt("Members"), href: `${base}/members`, count: head.memberCount } : null,
     can.review_reports ? { id: "moderation", label: tt("Moderation"), href: `${base}/moderation`, count: head.openReports || undefined } : null,
@@ -363,6 +377,15 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
     const still = first || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
     s.scrollTo({ left, behavior: still ? "auto" : "smooth" })
   }, [active])
+  /*
+    THE LIT TAB LIGHTS WHERE IT IS (round 39, the owner: "click, clean, no exaggerated animations, no bumps"). Round 37
+    made the lit tab's pill glide from the tab before over 200ms. Filmed (scripts/check-community-admin-round39.mjs), that
+    was 9 or 10 frames of a grey box crossing the row on every press, and under load (4x CPU, a section drawn for the
+    first time) it stalled behind the section's render and then jumped: 0 to 2 frames between, the rest at once. /app's
+    own sidebar and its tabs never carry a box from one item to another: the item pressed lights where it is. So does
+    this row: the pill is the lit tab's own ground, there on the frame of the press, and gone from the tab before on
+    that same frame. The shell paints that frame before it draws the section pressed (CommunityShell `pressed`).
+  */
   const fade = "pointer-events-none absolute inset-y-0 z-[1] w-6 opacity-0 transition-opacity duration-150 motion-reduce:transition-none"
   return (
     <nav ref={nav} aria-label={tt("Community sections")} data-community-tabs="" className="group/tabs relative">
@@ -384,14 +407,21 @@ export function CommunityTabs({ head, active, onGo, onWarm }: { head: CommunityH
               /* A section the shell does not hold yet goes on to the router; the shell shows its frame meanwhile, and no bar (round 32: lib/ui/app-navigation sameStageFrame). */
               onClick={(e) => onGo?.(t, e)}
               className={cn(
-                "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5 text-[14px] font-medium outline-none transition-[background-color,color,box-shadow] duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.35)] max-md:h-10",
+                "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5 text-[14px] font-medium outline-none transition-[background-color,color,box-shadow] duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.35)] max-md:h-10 group/tab relative",
                 on
-                  ? "bg-[#e6e8ec] text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,18,27,0.06),inset_0_0_0_1px_rgba(16,18,27,0.04)]"
+                  ? "text-[#1a1a2e]"
                   : "text-[#4b5563] hover:bg-[#eef0f2] hover:text-[#1a1a2e] active:bg-[#e6e8ec]",
               )}
             >
-              {t.label}
-              {typeof t.count === "number" ? <span className={cn("tabular-nums", t.id === "moderation" ? "text-[#b45309]" : "text-[#9ca3af]")}>{t.count.toLocaleString(appLocale())}</span> : null}
+              {/*
+                The lit tab's ground, in the tab's own corners and under its words (z-[1] over z-0): a box of its own, so the
+                server's markup has it before any script. It carries the focus ring, which it would otherwise cover.
+              */}
+              {on ? <span aria-hidden data-tab-pill="" className="absolute inset-y-0 left-0 z-0 w-full rounded-[10px] bg-[#e6e8ec] shadow-[0_1px_2px_rgba(16,18,27,0.06),inset_0_0_0_1px_rgba(16,18,27,0.04)] group-focus-visible/tab:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.35)]" /> : null}
+              <span className="relative z-[1] inline-flex items-center gap-1.5">
+                {t.label}
+                {typeof t.count === "number" ? <span className={cn("tabular-nums", t.id === "moderation" ? "text-[#b45309]" : "text-[#9ca3af]")}>{t.count.toLocaleString(appLocale())}</span> : null}
+              </span>
             </Link>
           )
         })}
@@ -487,8 +517,14 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     el.addEventListener("scroll", on, { passive: true })
     return () => el.removeEventListener("scroll", on)
   }, [])
+  /* The tab pressed, lit a frame ahead of its section (round 39, THE TAB FIRST below). */
+  const [pressed, setPressed] = React.useState<AdminSection | null>(null)
+  const pressedRef = React.useRef<AdminSection | null>(null)
   const show = React.useCallback(
     (id: AdminSection, how: { traversal?: boolean } = {}) => {
+      /* The tab lit ahead of its section (`pressed`, below) is the section shown now. */
+      pressedRef.current = null
+      setPressed(null)
       traversing.current = !!how.traversal
       activeRef.current = id
       setActive(id)
@@ -531,6 +567,13 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     section is in (usually at once: every section is read ahead as the shell mounts).
   */
   const fetching = React.useRef<{ id: AdminSection; at: number } | null>(null)
+  /*
+    THE TAB FIRST, THEN THE SECTION (round 39). A held section was shown in the render of the press itself, so the tab
+    lit only once the section had been laid out and painted: 7 to 10ms after the press at 1x, 65 to 158ms on a phone at
+    4x CPU, with nothing on screen answering the finger meanwhile (scripts/check-community-admin-round39.mjs LIT). Now the
+    press lights its tab in a render of its own, which costs the row alone, that frame is painted, and the section is
+    shown in the task after it (afterPaint), as a native tab bar answers the touch before the screen it opens.
+  */
   const go = React.useCallback(
     (tab: SectionTab, e: React.MouseEvent<HTMLAnchorElement>) => {
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
@@ -542,12 +585,18 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
         return
       }
       e.preventDefault()
-      if (move === "stay") return
+      if (move === "stay" && pressedRef.current === null) return
       fetching.current = null
-      /* Pressed again before the router's page came: the address never moved, so it is not a new entry in the history. */
-      if (window.location.pathname === tab.href) window.history.replaceState(null, "", tab.href)
-      else window.history.pushState(null, "", tab.href)
-      show(id)
+      pressedRef.current = id
+      setPressed(id)
+      afterPaint(() => {
+        /* Another tab was pressed since (show() let go of this one): that press shows its own section. */
+        if (pressedRef.current !== id) return
+        /* Pressed again before the router's page came: the address never moved, so it is not a new entry in the history. */
+        if (window.location.pathname === tab.href) window.history.replaceState(null, "", tab.href)
+        else window.history.pushState(null, "", tab.href)
+        show(id)
+      })
     },
     [show],
   )
@@ -565,7 +614,26 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
   const going = useShownPath() || pathname
   const shownSearch = useShownSearch()
   const pendingId = sameStageFrame(pathname, going) && going !== pathname ? adminSectionOf(going) : null
-  const shown: AdminSection = pendingId ?? active
+  /* The section whose tab is lit: the one pressed, or the one a link inside a section is opening. */
+  const lit: AdminSection = pendingId ?? active
+  /*
+    THE SECTION BEFORE STAYS A MOMENT (round 37, ./logic FRAME_GRACE_MS). Lit but not here yet, the section that was on
+    screen stays for up to 160ms, so a section read ahead arrives in one change instead of its frame for a few frames
+    and then cards of another size. Decided in the render the tab is lit in, from what was on screen in the one before.
+  */
+  const [grace, setGrace] = React.useState<{ id: AdminSection; from: AdminSection } | null>(null)
+  const [litSeen, setLitSeen] = React.useState(lit)
+  if (litSeen !== lit) {
+    const before = sectionOnScreen(litSeen, { here: kept.includes(litSeen), grace })
+    setLitSeen(lit)
+    setGrace(settled && !kept.includes(lit) && kept.includes(before) ? { id: lit, from: before } : null)
+  }
+  React.useEffect(() => {
+    if (!grace) return
+    const t = window.setTimeout(() => setGrace((g) => (g === grace ? null : g)), FRAME_GRACE_MS)
+    return () => window.clearTimeout(t)
+  }, [grace])
+  const shown: AdminSection = sectionOnScreen(lit, { here: kept.includes(lit), grace })
   screenRef.current = shown
   /* Drawn as its frame: a section asked for that the shell does not hold yet (never before the first commit, which the server drew). */
   const framed = settled && !kept.includes(shown) ? shown : null
@@ -630,10 +698,8 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     return () => window.clearTimeout(t)
   }, [kept, active, router])
 
-  /* ── Scroll and the arrival, before the frame is painted ── */
+  /* ── Scroll, before the frame is painted ── */
   const painted = React.useRef(false)
-  /* When the section on screen began its arrival (0 for none), for the section that takes its frame's place. */
-  const arrivedAt = React.useRef(0)
   React.useLayoutEffect(() => {
     if (!painted.current) {
       painted.current = true
@@ -649,18 +715,12 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     const floor = Math.min(paneTop.current, barHeight(el))
     el.scrollTop = Math.max(scrolls.current.get(shown) ?? 0, floor)
     paneTop.current = el.scrollTop
-    const screen = el.querySelector<HTMLElement>(`[data-section-screen="${shown}"]`)
-    const back = traversing.current
+    /* Nothing else: the section appears as it is (STILL above). */
     traversing.current = false
-    arrivedAt.current = 0
-    if (back || !screen || typeof screen.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    arrivedAt.current = performance.now()
-    screen.animate(ARRIVE, { duration: SECTION_ARRIVE_MS, easing: SECTION_ARRIVE_EASE })
   }, [shown])
   /*
-    THE SECTION TAKING ITS FRAME'S PLACE. Its cards are where the frame's were. While the frame is still arriving the
-    section carries on that same arrival from where it had got to (so nothing jumps by what was left of the rise);
-    after it, the section comes up from 55% over 120ms with no rise.
+    THE SECTION TAKING ITS FRAME'S PLACE (a slow answer). Its cards are where the frame's were; it fills in from 55% over
+    120ms, by opacity alone, so none of its boxes (nor its fixed bars) moves.
   */
   const lastFramed = React.useRef<AdminSection | null>(null)
   React.useLayoutEffect(() => {
@@ -668,13 +728,8 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     lastFramed.current = framed
     if (!was || framed === was || was !== shown) return
     const screen = pane.current?.querySelector<HTMLElement>(`[data-section-screen="${was}"][data-section-kept]`)
-    if (!screen || typeof screen.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    const into = arrivedAt.current ? performance.now() - arrivedAt.current : Infinity
-    if (into < SECTION_ARRIVE_MS) {
-      const a = screen.animate(ARRIVE, { duration: SECTION_ARRIVE_MS, easing: SECTION_ARRIVE_EASE })
-      a.currentTime = into
-      return
-    }
+    /* The fill is opacity alone, but a section that owns the whole screen (the Page editor, page-editor/screen.tsx) is simply there. */
+    if (!screen || ownsScreen(screen) || typeof screen.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     screen.animate([{ opacity: SECTION_ARRIVE_FROM }, { opacity: 1 }], { duration: SECTION_FILL_MS, easing: SECTION_ARRIVE_EASE })
   }, [framed, shown])
 
@@ -687,7 +742,8 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
     <ToastHost>
       <Host.Provider value={hostValue}>
         <div ref={pane} className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]" data-community-shell="" data-section={shown} data-routed={routed ?? ""}>
-          <CommunityHeader head={head} shown={shown} onGo={go} onWarm={warm} />
+          {/* The tab lit is the one pressed, at once, even while the section before stays a moment (FRAME_GRACE_MS). */}
+          <CommunityHeader head={head} shown={pressed ?? lit} onGo={go} onWarm={warm} />
           {/*
             ROOM FOR THE SAVE BARS (round 33): each bar that is up (./parts EditorFoot) adds FOOT_ROOM_PX under the last card,
             so scrolled to the end nothing is under a bar; with none up the foot is as before. At least the pane's height, so
@@ -729,6 +785,29 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
       </Host.Provider>
     </ToastHost>
   )
+}
+
+/**
+ * Runs `fn` once the frame being prepared has been painted: a task queued from the next animation frame. A hidden
+ * window has no animation frames, so a timer stands in for one.
+ */
+function afterPaint(fn: () => void) {
+  let done = false
+  const run = () => {
+    if (done) return
+    done = true
+    fn()
+  }
+  const fallback = window.setTimeout(run, 100)
+  window.requestAnimationFrame(() => {
+    window.clearTimeout(fallback)
+    window.setTimeout(run, 0)
+  })
+}
+
+/** A section drawn over the whole window (page-editor/screen.tsx OWN_SCREEN_ATTR): no arrival plays on it. */
+function ownsScreen(screen: HTMLElement): boolean {
+  return !!screen.querySelector(`[${OWN_SCREEN_ATTR}]`)
 }
 
 /**

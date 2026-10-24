@@ -73,7 +73,7 @@ import { homePaymentsState, rowCanAcceptPayments, type HomePaymentsState } from 
 import { homeTotals } from "@/lib/analytics/home-figures"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { tt } from "@/lib/i18n/text"
-import { appLocale } from "@/lib/i18n/format"
+import { shopAmountIn } from "@/lib/store/shop-money"
 
 /* ─── The facts ─────────────────────────────────────────────────────────── */
 
@@ -314,7 +314,8 @@ export const CHALLENGE_TARGETS: Record<ChallengeId, number> = {
   "page-domain": 1,
 }
 
-export function challenges(f: ProgressFacts): ProgressItem[] {
+/** `currency`: the store's (Settings › Languages & Currency), which the revenue is counted in and its goal is said in. */
+export function challenges(f: ProgressFacts, currency = "USD"): ProgressItem[] {
   const t = CHALLENGE_TARGETS
   const item = (id: ChallengeId, label: string, current: number, extra: Partial<ProgressItem>): ProgressItem => ({
     id,
@@ -332,7 +333,7 @@ export function challenges(f: ProgressFacts): ProgressItem[] {
     automation: item("automation", tt("Turn on an automation"), f.automationsOn, { href: "/app/emails?tab=flows" }),
     subscribers: item("subscribers", tt("Reach {subscribers} subscribers", { subscribers: t.subscribers }), f.subscribers, { href: "/app/emails?tab=subscribers" }),
     coupon: item("coupon", tt("Make a sale with a coupon"), f.couponUses, { href: "/app/coupons" }),
-    revenue: item("revenue", tt("Make ${value} in sales", { value: (t.revenue / 100).toLocaleString(appLocale()) }), f.revenueCents, { href: "/app/analytics", unit: "cents" }),
+    revenue: item("revenue", tt("Make {amount} in sales", { amount: shopAmountIn(t.revenue / 100, currency) }), f.revenueCents, { href: "/app/analytics", unit: "cents" }),
     "page-domain": item("page-domain", tt("Put your creator page on your domain"), f.creatorPageDomain ? 1 : 0, { href: "/app/settings?tab=domains" }),
   }
   return CHALLENGE_ORDER.map((id) => all[id])
@@ -352,11 +353,11 @@ export interface HomeProgress {
   phase: "setup" | "challenges"
 }
 
-export function homeProgress(f: ProgressFacts): HomeProgress {
+export function homeProgress(f: ProgressFacts, currency?: string): HomeProgress {
   const steps = setupSteps(f)
   const completed = steps.filter((s) => s.done).length
   const setupDone = completed === steps.length
-  const list = challenges(f)
+  const list = challenges(f, currency)
   return {
     steps,
     completed,

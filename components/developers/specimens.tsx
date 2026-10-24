@@ -10,6 +10,7 @@
 import type { SchemeSwatch, Specimen } from "@/lib/developers/builder-reference"
 import { Inline } from "./inline"
 import { MONO } from "./type"
+import { choiceShape } from "@/lib/website-builder/choice-shape"
 
 const box = "h-9 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 text-[13px] text-[#1a1a2e] flex items-center"
 
@@ -58,6 +59,8 @@ function Drawn({ s }: { s: Specimen }) {
     }
     case "select":
     case "font": {
+      /* The builder's rule (lib/website-builder/choice-shape.ts): one to three options that fit are a row of buttons. */
+      if (s.control === "select" && s.options && choiceShape(s.options.map((o) => ({ label: o, value: o }))) === "segments") return <Drawn s={{ ...s, control: "radio" }} />
       const shown = typeof v === "string" && v !== "" ? (s.options?.find((o) => o.toLowerCase() === v.toLowerCase()) ?? v) : s.options?.[0] ?? ""
       return (
         <div className={`${box} justify-between`}>
@@ -70,7 +73,7 @@ function Drawn({ s }: { s: Specimen }) {
     case "alignment": {
       const opts = s.control === "alignment" ? ["Left", "Center", "Right"] : s.options ?? []
       const current = typeof v === "string" ? v.toLowerCase() : ""
-      if (opts.length > 3) return <Drawn s={{ ...s, control: "select" }} />
+      if (choiceShape(opts.map((o) => ({ label: o, value: o }))) === "dropdown") return <Drawn s={{ ...s, control: "select" }} />
       return (
         <div className="flex h-9 w-full rounded-lg bg-[#f1f2f4] p-[3px] text-[12px]">
           {opts.map((o, i) => {

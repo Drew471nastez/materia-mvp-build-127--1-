@@ -193,21 +193,24 @@ function main() {
     purpose: there is one set of four now, for every place (the Store and One
     page switch became the property filter).
   */
-  const storeOrder = tabOrderIn(analytics, "setChartMetricFilter")
-  const analyticsTabs = [...analytics.matchAll(/<MetricTab tab="([a-z]+)"/g)].map((m) => m[1])
-  check("the analytics figures tag all four of their tabs, in the order they are drawn",
-    JSON.stringify(analyticsTabs) === JSON.stringify(storeOrder)
-      && JSON.stringify(storeOrder) === JSON.stringify(["views", "revenue", "orders", "conversion"]),
-    `tagged ${analyticsTabs.join(", ")}`)
-  check("and they are one row that scrolls sideways on a phone, four columns wider up, like the home page's",
-    /ref=\{metricStripRef\}\s*role="tablist"\s*aria-label="Metric"\s*data-scroll-x\s*className="relative flex divide-x divide-\[#e5e7eb\]\/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-4"/.test(analytics)
+  check("the analytics figures keep visitors, revenue, orders and conversion, in that order",
+    /const CORE_TABS = \["views", "revenue", "orders", "conversion"\] as const/.test(analytics)
+      && /const tabOrder = CORE_TABS/.test(analytics)
+      && /<MetricTab key=\{tab\} tab=\{tab\} className=\{STRIP_TAB\}/.test(analytics))
+  check("and they are one row that scrolls sideways on a phone, columns wider up, like the home page's",
+    /ref=\{metricStripRef\}/.test(analytics)
+      && /role="tablist"/.test(analytics)
+      && /aria-label="Metric"/.test(analytics)
+      && /data-scroll-x/.test(analytics)
+      && /overflow-x-auto scrollbar-hide md:grid/.test(analytics)
+      && /md:grid-cols-4/.test(analytics)
       && /style=\{TAB_STRIP_STYLE\}/.test(analytics)
-      && (analytics.match(/className=\{STRIP_TAB\}/g) ?? []).length === 4
+      && /className=\{STRIP_TAB\}/.test(analytics)
       && /const STRIP_TAB = "flex-shrink-0 min-w-\[130px\] md:min-w-0"/.test(analytics)
       && /data-tab=\{tab\}/.test(tabSrc))
   check("the strip follows the chosen tab, in the order drawn",
-    /useTabStrip<HTMLDivElement>\(chartMetricFilter, TAB_ORDER\)/.test(analytics)
-      && /const TAB_ORDER = \["views", "revenue", "orders", "conversion"\] as const/.test(analytics))
+    /useTabStrip<HTMLDivElement>\(chartMetricFilter, tabOrder\)/.test(analytics)
+      && /const CORE_TABS = \["views", "revenue", "orders", "conversion"\] as const/.test(analytics))
 
   console.log("\nBoth rows draw one tab, with the home page's grey line")
 

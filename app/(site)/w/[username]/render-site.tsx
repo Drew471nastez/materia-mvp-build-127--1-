@@ -118,6 +118,14 @@ export async function siteMetadata(
    */
   const creator = await creatorByName(username)
   if (!creator) return { title: "Not Found" }
+  /*
+    In the page's language, the default's included: its title and description as translated (lib/markets/live.ts), and the site's address.
+    Both need only the creator, so they are asked beside the site rather than after it.
+    The language list is not asked here: the localizer reads it, so asking beside it would read it twice.
+  */
+  const early = Promise.all([siteLocalizer(creator.creatorId, locale), siteOrigin(creator.creatorId, username)])
+  /* Waited on below; nothing is left unhandled when the site turns out to be unpublished. */
+  void early.catch(() => {})
   const found = await publishedShopByName(username)
 
   const defaultHandle = creator.slug || username || creator.displayName || "Storelib"
@@ -132,8 +140,9 @@ export async function siteMetadata(
   // and favicon on a public page — the same leak the body of this page was
   // fixed for. A favicon shows up when it is published, like everything else.
   // The published site is built from published values alone (buildSite).
-  /* In the page's language, the default's included: its title and description as translated (lib/markets/live.ts). */
-  const localizer = await siteLocalizer(creator.creatorId, locale)
+  /* The creator's picture, for a share card with nothing better (below), is asked now when the page as published has nothing better. */
+  const avatarEarly = shareCardWantsAvatar(found.site.themeSettings ?? {}, pageKey, found.site.pages.home ?? found.site.sections) ? creatorAvatar(creator.creatorId, creator.userId) : null
+  const [localizer, origin] = await early
   const settings: ThemeSettingsValues = localizer ? localizer.theme((found.site.themeSettings ?? {}) as Record<string, unknown>) as ThemeSettingsValues : (found.site.themeSettings ?? {})
   /* The store's name as the site says it: its brand name, else Store details', else the person's (lib/website-builder/tab-title.ts). */
   const brand = siteStoreName({ brandName: settings.brand_name, storeName: found.site.profile?.storeName, displayName: creator.displayName, handle: defaultHandle })
@@ -164,9 +173,8 @@ export async function siteMetadata(
    * ONE ADDRESS PER PAGE. The same page answers at `<name>.storelib.com` and
    * at a connected domain, and a search engine that finds both splits what
    * it knows between them. The canonical names the one the creator gives
-   * out: lib/website-builder/site-seo-data.ts.
+   * out (`origin`, asked above): lib/website-builder/site-seo-data.ts.
    */
-  const origin = await siteOrigin(creator.creatorId, username)
   /*
     EVERY LANGUAGE OF THE PAGE, for search engines: hreflang for each
     published language and x-default for the website's own, and a page in
@@ -174,6 +182,7 @@ export async function siteMetadata(
   */
   /* A page with an address of its own under its key (/collections/summer under "collections") is its own canonical, not the index's. */
   const ownPath = tab?.path ?? new URL(pageUrl(origin, pageKey)).pathname
+  /* Both held by now: the localizer read the language list. */
   const [languages, langs] = await Promise.all([languageAlternates(creator.creatorId, origin, ownPath), siteLanguages(creator.creatorId)])
   const pageLocale = locale && langs.others.find((l) => l.toLowerCase() === locale) ? langs.others.find((l) => l.toLowerCase() === locale)! : null
   const url = pageLocale ? `${origin}${localizedPath(ownPath, pageLocale, langs.defaultLanguage)}` : tab?.path ? `${origin}${tab.path}` : pageUrl(origin, pageKey)
@@ -186,14 +195,11 @@ export async function siteMetadata(
     is not a full address, or is an SVG, is passed over: the networks that
     draw share cards cannot fetch the one or draw the other.
   */
-  const hasShareImage = !!own.image || (typeof settings.seo_og_image === "string" && settings.seo_og_image.trim() !== "")
-  const logo =
-    typeof settings.logo_url === "string" && /^https?:\/\//i.test(settings.logo_url.trim()) && !/\.svg(?:\?|$)/i.test(settings.logo_url.trim())
-      ? settings.logo_url.trim()
-      : ""
+  const hasShareImage = hasOwnShareImage(settings, pageKey)
+  const logo = shareLogo(settings)
   const shareImage = hasShareImage
     ? undefined
-    : logo || heroImage(found.site.pages.home ?? found.site.sections) || (await creatorAvatar(creator.creatorId)) || undefined
+    : logo || heroImage(found.site.pages.home ?? found.site.sections) || (await (avatarEarly ?? creatorAvatar(creator.creatorId, creator.userId))) || undefined
 
   return {
     title: { absolute: rawTitle },
@@ -218,6 +224,23 @@ export async function siteMetadata(
       ? { robots: { index: false, follow: false } }
       : {}),
   }
+}
+
+/** A share picture set for the page or the site in SEO & Social. */
+function hasOwnShareImage(settings: ThemeSettingsValues, pageKey: string): boolean {
+  return !!pageSeoOf(settings as Record<string, unknown>, pageKey).image || (typeof settings.seo_og_image === "string" && settings.seo_og_image.trim() !== "")
+}
+
+/** The site's logo as a share card can use it: a full address, and not an SVG. */
+function shareLogo(settings: ThemeSettingsValues): string {
+  return typeof settings.logo_url === "string" && /^https?:\/\//i.test(settings.logo_url.trim()) && !/\.svg(?:\?|$)/i.test(settings.logo_url.trim())
+    ? settings.logo_url.trim()
+    : ""
+}
+
+/** Whether the share card falls through to the creator's own picture: no share picture, no usable logo, no hero picture. */
+function shareCardWantsAvatar(settings: ThemeSettingsValues, pageKey: string, home: SectionInstance[]): boolean {
+  return !hasOwnShareImage(settings, pageKey) && !shareLogo(settings) && !heroImage(home)
 }
 
 /**
@@ -278,7 +301,7 @@ export async function renderSite(
   const { site } = found
   const template = templateForPage(pageKey)
   /* The website and whose it is, once, on the front page. */
-  const [structured, language, localizer] = await Promise.all([pageKey === "home" ? homeStructuredData(site, username) : null, languageChoice(site.creatorId, locale, market), siteLocalizer(site.creatorId, locale, market).catch(() => null)])
+  const [structured, language, localizer, currency] = await Promise.all([pageKey === "home" ? homeStructuredData(site, username) : null, languageChoice(site.creatorId, locale, market), siteLocalizer(site.creatorId, locale, market).catch(() => null), cachedStoreCurrency(site.creatorId)])
   return (
     <StorelibSourcesProvider prerendered={site.prerendered} page={{ template }}>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
@@ -286,7 +309,7 @@ export async function renderSite(
         theme={site.themeSettings}
         sections={site.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey, language, words: localizer?.words, display: localizer?.display, currency: await cachedStoreCurrency(site.creatorId) }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey, language, words: localizer?.words, display: localizer?.display, currency }}
         emptyDetail="Check back soon!"
       />
       {/* Every page of the published site is one view in Analytics, with its

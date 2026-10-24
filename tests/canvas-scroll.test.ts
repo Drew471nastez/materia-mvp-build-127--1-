@@ -477,9 +477,10 @@ section("Selecting a section cannot move the canvas")
   check(
     "a selection from the canvas arms the hold, and a touch or a wheel releases it",
     /const selectSectionFromCanvas = useCallback\(\s*\n\s*\(sectionId: string, blockId\?: string \| null, field\?: ClickTarget \| null\) => \{[\s\S]*?pinScroll\(/.test(editor) &&
-      /touchingCanvas\.current = true\s*\n\s*if \(!isMobileView\) return/.test(editor) &&
+      /* Changed on purpose (round canvas-1023): the same touch and wheel also let go of a storefront drawer's hold that no drawer is counted for (canvas-scroll.ts, releaseStrayDrawerHold). */
+      /touchingCanvas\.current = true\s*\n\s*releaseStrayDrawerHold\(e\.currentTarget, lockHolders\(e\.currentTarget\)\)\s*\n\s*if \(!isMobileView\) return/.test(editor) &&
       /onTouchEnd=\{\(\) => \{ touchingCanvas\.current = false \}\}/.test(editor) &&
-      /onWheelCapture=\{\(\) => \{ touchingCanvas\.current = true \}\}/.test(editor),
+      /onWheelCapture=\{\(e\) => \{\s*\n\s*touchingCanvas\.current = true/.test(editor),
   )
   check(
     "opening the code editor is going forward, not the Going back screen",

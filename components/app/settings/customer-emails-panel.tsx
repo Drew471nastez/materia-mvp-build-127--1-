@@ -1,20 +1,29 @@
 "use client"
 
 /**
- * SETTINGS › CUSTOMER EMAILS, AND EMAILS › CUSTOMER EMAILS: every email a
- * buyer gets from the store (lib/emails/customer-catalog.ts), grouped like
- * Shopify's Customer notifications, each with when it goes: a download's
- * receipt under Digital products, an order that ships under Orders,
- * Payments, Shipping, Local pickup and Returns, which show while physical
- * commerce is on. The same list, the same editor and the same saved words in
- * both places: Settings draws it in a card, the Emails page inside its own
- * table card (`bare`).
+ * ===========================================================================
+ *  EMAILS › CUSTOMER EMAILS, AND SETTINGS › CUSTOMER EMAILS
+ * ===========================================================================
+ * Every email a buyer or a member gets (lib/emails/customer-catalog.ts), in
+ * three families that never mix, switched by one segmented control (All,
+ * Digital products, Physical products, Communities): what each email is
+ * for and when it goes, how many went out in the last 30 days and when the
+ * last one did, which automations go with it and whether they are on, and a
+ * preview of each drawn by the template that sends it. The same list, the
+ * same editor and the same saved words in both places: Settings draws it in
+ * a card, the Emails page inside its own table card (`bare`). The family is
+ * in the address (?kind=digital|physical|communities), so a link opens it.
  *
- * OPENS AT ONCE. The preview is drawn here, in the browser, by the very
- * template that sends the email, from the store's name, logo and contact
- * that Settings already fetched (/api/store/emails, prefetched with the
- * other tabs). Nothing is asked of the server when a row is pressed, so
- * the editor opens with the email already in it.
+ * OPENS AT ONCE. A store's email is drawn here, in the browser, by its
+ * sending template, from what /api/store/emails already read (prefetched
+ * with Settings' other tabs); a community's is drawn by the server with the
+ * community's own name (./community-emails.tsx). What each has sent comes a
+ * moment later (/api/store/emails/activity) and never holds the list up.
+ *
+ * AS IT IS SENT, WHERE IT WAS BOUGHT (lib/emails/buyer-channel.ts). A digital
+ * email can be previewed as bought on the website (the shop's name and logo,
+ * any published language) or on Storelib (the creator's name and photo, in
+ * English); an order that ships in any of the website's languages.
  *
  * EDITABLE, LIKE SHOPIFY'S NOTIFICATION EDITOR WITHOUT THE CODE: the
  * subject, the heading, the opening text and the button's label, with
@@ -36,19 +45,27 @@
  * stay above it, and fields are 16px there so iOS does not zoom the page.
  */
 import * as React from "react"
-import { ChevronRight, Mail } from "lucide-react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_GHOST, Card, SaveButton, FIELD, Field, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
-import { GROUP_NAMES, GROUP_ORDER, previewCustomerEmail, visibleCustomerEmails, type CustomerEmail } from "@/lib/emails/customer-catalog"
+import { Switch } from "@/components/ui/switch"
+import { SegmentedTabs } from "@/components/app/segmented-tabs"
+import { CommunityEmails, type CommunityRef } from "@/components/app/emails/community-emails"
+import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, languageName, sentLine } from "@/components/app/emails/email-parts"
+import { FAMILY_NAMES, GROUP_NAMES, GROUP_ORDER, emailsOf, previewCustomerEmail, type CustomerEmail, type EmailFamily, type PreviewShop } from "@/lib/emails/customer-catalog"
 import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, PLACEHOLDERS, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
+import { ownWordsApply, type BuyerChannel } from "@/lib/emails/buyer-channel"
+import { TRIGGERS, isTriggerType } from "@/lib/automations/flow-model"
+import type { EmailActivity, FlowActivity } from "@/lib/emails/activity-server"
 import { tt } from "@/lib/i18n/text"
 
 export const CUSTOMER_EMAILS_PATH = "/api/store/emails"
+const ACTIVITY_PATH = "/api/store/emails/activity"
 
-export interface CustomerEmailsShop {
+export interface CustomerEmailsShop extends PreviewShop {
   name: string
   supportEmail: string | null
   storeUrl: string | null
@@ -58,75 +75,194 @@ export interface CustomerEmailsShop {
   /** The store's accent, for the button in each preview (lib/emails/layout.ts uses it when it reads on white). */
   accent?: string | null
 }
+
+/** The words of a buyer's email in one language (lib/emails/words-server.ts). */
+export interface EmailWordsIn {
+  lang: string
+  words: Record<string, string>
+  own: boolean
+}
+
 export interface CustomerEmailsData {
   shop: CustomerEmailsShop
   copy: CustomerEmailsCopy
   ready: boolean
+  /** The creator, who signs a download bought on Storelib. */
+  creator?: { name: string; photoUrl: string | null; logoUrl: string | null }
+  /** The website's own language and its other published ones. */
+  languages?: { defaultLanguage: string; others: string[] }
+  /** The email words in the website's own language. */
+  language?: EmailWordsIn
+  /** Settings › Checkout › Send a checkout reminder; null when it could not be read. */
+  reminder?: boolean | null
+  communities?: CommunityRef[]
 }
 
 const FALLBACK_SHOP: CustomerEmailsShop = { name: "Your store", supportEmail: null, storeUrl: null, logoUrl: null, phone: null, currency: "USD" }
 
-/** The phone sheet's one height, kept whichever pane is showing, so a switch never moves its top edge. */
-const PHONE_SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.9)"
+
+type View = EmailFamily | "all"
+
+/** The family asked for in the address, so a link (and a community's old Member emails link) opens it. */
+function viewFromAddress(): View {
+  if (typeof window === "undefined") return "all"
+  const k = new URLSearchParams(window.location.search).get("kind")
+  return k === "digital" || k === "physical" || k === "communities" ? k : "all"
+}
+
+function writeView(v: View) {
+  try {
+    const url = new URL(window.location.href)
+    if (v === "all") url.searchParams.delete("kind")
+    else url.searchParams.set("kind", v)
+    if (v !== "communities") url.searchParams.delete("community")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+  } catch {
+    /* The address is a convenience; the view still changes. */
+  }
+}
 
 export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
   const physical = usePhysicalCommerceEnabled()
-  const emails = visibleCustomerEmails(physical)
   /* Drawn at once from what Settings (or Emails) fetched while the person was elsewhere (prefetchGet). */
   const [data, setData] = React.useState<CustomerEmailsData | null>(() => peekGet<CustomerEmailsData>(CUSTOMER_EMAILS_PATH))
   const [error, setError] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<CustomerEmail | null>(null)
+  const [view, setViewState] = React.useState<View>("all")
+  const [activity, setActivity] = React.useState<EmailActivity | null>(null)
+  const communities = data?.communities ?? []
+  const [communityId, setCommunityId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     void api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => (r.ok ? setData(r.data) : setError(r.error)))
+    setViewState(viewFromAddress())
+    setCommunityId(new URLSearchParams(window.location.search).get("community"))
   }, [])
 
+  /* What each has sent, once the list knows the communities it covers. */
+  const communityKey = communities.map((c) => c.id).join(",")
+  React.useEffect(() => {
+    if (!data) return
+    let live = true
+    void api<EmailActivity>(`${ACTIVITY_PATH}${communityKey ? `?communities=${communityKey}` : ""}`).then((r) => {
+      if (live && r.ok) setActivity(r.data)
+    })
+    return () => {
+      live = false
+    }
+  }, [data, communityKey])
+
+  const setView = (v: View) => {
+    setViewState(v)
+    writeView(v)
+  }
+  const tabs = [
+    { id: "all" as const, label: tt("All") },
+    { id: "digital" as const, label: FAMILY_NAMES.digital, short: tt("Digital") },
+    ...(physical ? [{ id: "physical" as const, label: FAMILY_NAMES.physical, short: tt("Physical") }] : []),
+    ...(communities.length ? [{ id: "communities" as const, label: FAMILY_NAMES.communities }] : []),
+  ]
+  /* A family that is not offered here (physical off, no community): All. */
+  const shown: View = tabs.some((t) => t.id === view) ? view : "all"
+  const families = (shown === "all" ? (["digital", "physical", "communities"] as EmailFamily[]) : [shown]).filter((f) => (f !== "physical" || physical) && (f !== "communities" || communities.length > 0))
+  const community = communities.find((c) => c.id === communityId || c.slug === communityId) ?? communities[0] ?? null
+
+  const toggleReminder = async (on: boolean) => {
+    setData((d) => (d ? { ...d, reminder: on } : d))
+    const r = await api("/api/store/settings", { method: "PUT", body: { checkout: { abandonedRecovery: on } } })
+    if (!r.ok) {
+      setData((d) => (d ? { ...d, reminder: !on } : d))
+      setError(r.error)
+    }
+  }
+  const toggleFlow = async (f: FlowActivity, on: boolean) => {
+    if (!on && !window.confirm(tt("Turn off {value}?", { value: f.name }) + "\n" + tt("Everyone partway through it gets nothing more."))) return
+    setActivity((a) => (a ? { ...a, flows: a.flows.map((x) => (x.id === f.id ? { ...x, status: on ? "active" : "paused" } : x)) } : a))
+    const r = await api<{ error?: string }>(`/api/automations/flows/${f.id}/status`, { method: "POST", body: { on } })
+    if (!r.ok) {
+      setActivity((a) => (a ? { ...a, flows: a.flows.map((x) => (x.id === f.id ? { ...x, status: f.status } : x)) } : a))
+      setError(r.error)
+    }
+  }
+
   const list = (
-    <div className={cn(bare ? "pb-1" : "space-y-5")}>
-      {GROUP_ORDER.map((g) => {
-        const rows = emails.filter((e) => e.group === g)
-        if (rows.length === 0) return null
-        return (
-          <section key={g} aria-labelledby={`emails-${g}`}>
-            <h3 id={`emails-${g}`} className={cn("text-[13px] font-semibold text-[#6b7280]", bare ? "px-4 pb-2 pt-4 sm:px-5" : "mb-2")}>
-              {GROUP_NAMES[g]}
-            </h3>
-            {/* In Settings the rows are a list of their own in the card; on the Emails page the card is the table's, so the rows are its rows, not a box in a box. */}
-            <ul className={cn("divide-y divide-[#f1f2f4]", bare ? "border-y border-[#f1f2f4]" : "overflow-hidden rounded-xl border border-[#eceef1]")}>
-              {rows.map((e) => {
-                const edited = !!data?.copy[e.id]
+    <div className={cn(bare ? "pb-1" : "")} data-customer-email-list="">
+      <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between", bare ? "border-b border-[#f1f2f4] px-4 py-3 sm:px-5" : "mb-4")}>
+        <SegmentedTabs value={shown} onChange={setView} tabs={tabs} label={tt("Email families")} controls="customer-emails-view" idPrefix="email-family" />
+        {shown === "communities" && communities.length > 1 && community ? (
+          <label className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0 text-[13px] text-[#6b7280]">{tt("Community")}</span>
+            <select
+              value={community.id}
+              onChange={(e) => {
+                setCommunityId(e.target.value)
+                const url = new URL(window.location.href)
+                url.searchParams.set("community", e.target.value)
+                window.history.replaceState(window.history.state, "", url.pathname + url.search)
+              }}
+              className="h-9 min-w-0 flex-1 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-8 sm:flex-none sm:text-[13px]"
+              data-community-picker=""
+            >
+              {communities.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name || tt("Community")}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
+      {/* Keyed by the view, so a switch fades the new list in (opacity only) rather than swapping it under the eye. */}
+      <div key={shown} id="customer-emails-view" role="tabpanel" aria-labelledby={`email-family-${shown}`} className="animate-[fade-in_180ms_ease-out_both] motion-reduce:animate-none" data-email-view={shown}>
+        {shown === "digital" || shown === "physical" ? (
+          <p className={cn("max-w-[70ch] text-[12.5px] leading-[18px] text-[#6b7280]", bare ? "px-4 pt-3 sm:px-5" : "mb-3")} data-language-rule="">
+            {tt("Orders on your website get their emails in the language the buyer used there. Purchases on your creator page, Explore and in communities get them in English.")}
+          </p>
+        ) : null}
+        {families.map((family) =>
+          family === "communities" ? (
+            community ? (
+              <FamilySection key={family} title={shown === "all" ? FAMILY_NAMES.communities : null} bare={bare}>
+                <CommunityEmails community={community} sent={activity?.communities[community.id] ?? null} days={activity?.days ?? 30} bare={bare} />
+              </FamilySection>
+            ) : null
+          ) : (
+            <FamilySection key={family} title={shown === "all" ? FAMILY_NAMES[family] : null} bare={bare}>
+              {GROUP_ORDER.map((g) => {
+                const rows = emailsOf(family, physical).filter((e) => e.group === g)
+                if (rows.length === 0) return null
                 return (
-                  <li key={e.id}>
-                    <button
-                      type="button"
-                      onClick={() => setOpen(e)}
-                      className={cn("flex w-full items-center gap-3 py-3 text-left transition-colors duration-100 hover:bg-[#fafafa] active:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]", bare ? "px-4 sm:px-5" : "px-3.5")}
-                      data-customer-email={e.id}
-                    >
-                      <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f3f4f6] text-[#4b5563]">
-                        <Mail className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
-                          {e.name}
-                          {edited ? (
-                            <span className="text-[12px] font-normal text-[#6b7280]" data-email-edited="">
-                              · {tt("Edited")}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">{e.sentWhen}</span>
-                      </span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
-                    </button>
-                  </li>
+                  <section key={g} aria-labelledby={`emails-${family}-${g}`} data-email-group={g}>
+                    <h4 id={`emails-${family}-${g}`} className={cn("text-[12.5px] font-medium text-[#6b7280]", bare ? "px-4 pb-1.5 pt-3 sm:px-5" : "mb-1.5 mt-3")}>
+                      {GROUP_NAMES[g]}
+                    </h4>
+                    <ul className={cn("divide-y divide-[#f1f2f4]", bare ? "border-y border-[#f1f2f4]" : "overflow-hidden rounded-xl border border-[#eceef1]")}>
+                      {rows.map((e) => (
+                        <EmailRow
+                          key={e.id}
+                          email={e}
+                          bare={bare}
+                          edited={!!data?.copy[e.id]}
+                          sent={e.id === "checkout_reminder" ? null : sentLine(activity?.emails[e.id] ?? (activity ? { sent: 0, lastAt: null } : null), activity?.days ?? 30)}
+                          note={e.id === "checkout_reminder" && activity?.reminderReplacedBy && data?.reminder !== false ? tt("Your automation {name} sends instead while it is on.", { name: `“${activity.reminderReplacedBy.name}”` }) : null}
+                          control={
+                            e.id === "checkout_reminder" && typeof data?.reminder === "boolean" ? (
+                              <Switch checked={data.reminder} onCheckedChange={(v) => void toggleReminder(v)} aria-label={tt("Send a checkout reminder")} data-reminder-switch="" />
+                            ) : null
+                          }
+                          onOpen={() => setOpen(e)}
+                        />
+                      ))}
+                    </ul>
+                  </section>
                 )
               })}
-            </ul>
-          </section>
-        )
-      })}
-      {error && !data ? <Notice className="mt-3">{error}</Notice> : null}
+              <FlowRows flows={(activity?.flows ?? []).filter((f) => f.families.includes(family) && (shown !== "all" || f.families[0] === family))} days={activity?.days ?? 30} bare={bare} onToggle={toggleFlow} />
+            </FamilySection>
+          ),
+        )}
+      </div>
+      {error ? <Notice className={cn("mt-3", bare && "mx-4 mb-3")}>{error}</Notice> : null}
     </div>
   )
 
@@ -135,19 +271,63 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
       {bare ? (
         list
       ) : (
-        <Card title={tt("Customer emails")} description={tt("What your buyers get from you, and when. Open one to see it and change its words. Each goes out with your store's name, and a reply comes to your contact email.")}>
+        <Card title={tt("Customer emails")} description={tt("What your buyers and members get from you, and when: digital products, physical products and communities, each apart. Open one to see it as it is sent and change its words. A reply comes to your contact email.")}>
           {list}
         </Card>
       )}
       <EmailSheet
         email={open}
         shop={data?.shop ?? FALLBACK_SHOP}
+        data={data}
         saved={open ? data?.copy[open.id] : undefined}
         ready={data?.ready !== false}
         onSaved={(copy) => setData((d) => (d ? { ...d, copy } : d))}
         onClose={() => setOpen(null)}
       />
     </div>
+  )
+}
+
+/** One family's part of the list: under its own name in All, alone otherwise. */
+function FamilySection({ title, bare, children }: { title: string | null; bare: boolean; children: React.ReactNode }) {
+  return (
+    <section className={cn(title && (bare ? "pt-2" : "mt-5 first:mt-0"))} data-email-family={title ?? undefined}>
+      {title ? <h3 className={cn("text-[14px] font-semibold text-[#1a1a2e]", bare ? "px-4 pt-3 sm:px-5" : "")}>{title}</h3> : null}
+      {children}
+    </section>
+  )
+}
+
+/** The automations that go out with this family's emails, each with its switch; the name opens it. */
+function FlowRows({ flows, days, bare, onToggle }: { flows: FlowActivity[]; days: number; bare: boolean; onToggle: (f: FlowActivity, on: boolean) => void }) {
+  if (flows.length === 0) return null
+  return (
+    <section aria-label={tt("Automations")} data-email-group="automations">
+      <h4 className={cn("text-[12.5px] font-medium text-[#6b7280]", bare ? "px-4 pb-1.5 pt-3 sm:px-5" : "mb-1.5 mt-3")}>{tt("Automations")}</h4>
+      <ul className={cn("divide-y divide-[#f1f2f4]", bare ? "border-y border-[#f1f2f4]" : "overflow-hidden rounded-xl border border-[#eceef1]")}>
+        {flows.map((f) => {
+          const on = f.status === "active"
+          const starts = isTriggerType(f.trigger_type) ? TRIGGERS[f.trigger_type].sentence : tt("Not set")
+          const scope = f.products ? tt("{count, plural, one {# product} other {# products}}", { count: f.products }) : f.trigger_type === "purchase" || f.trigger_type === "first_purchase" ? tt("Any product") : null
+          const sent = sentLine({ sent: f.sent, lastAt: f.lastAt }, days)
+          return (
+            <li key={f.id} className={cn("flex min-h-[60px] items-center gap-3 py-3", bare ? "px-4 sm:px-5" : "px-3.5")} data-email-flow={f.id}>
+              <span className="min-w-0 flex-1">
+                <Link href={`/app/emails/flow/${f.id}`} className="block truncate text-[14px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline">
+                  {f.name}
+                </Link>
+                <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">{scope ? `${starts} · ${scope}` : starts}</span>
+                {sent ? <span className="mt-0.5 block text-[12px] tabular-nums leading-4 text-[#9ca3af] md:hidden">{sent}</span> : null}
+              </span>
+              {sent ? <span className="hidden shrink-0 text-[12.5px] tabular-nums text-[#6b7280] md:block">{sent}</span> : null}
+              <span className="flex h-11 shrink-0 items-center">
+                <Switch checked={on} onCheckedChange={(v) => onToggle(f, v)} aria-label={tt("Send {name} automatically", { name: f.name })} />
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 
@@ -163,7 +343,49 @@ const sameDraft = (a: Draft, b: Draft) => COPY_FIELDS.every((f) => a[f] === b[f]
 /* A phone field is 16px, so iOS does not zoom the page into it; 14px from 640px, as every field in Settings. */
 const PHONE_SAFE = "text-[16px] sm:text-[14px]"
 
-export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSaved, onClose }: { email: CustomerEmail | null; shop: CustomerEmailsShop; saved: EmailCopy | undefined; ready: boolean; onSaved: (copy: CustomerEmailsCopy) => void; onClose: () => void }) {
+/** Words already read for a language or for Storelib, kept for the page's life: a preview in one opens at once the second time. */
+const wordsKept = new Map<string, EmailWordsIn>()
+
+/**
+ * WHERE THE SAMPLE WAS BOUGHT AND IN WHAT LANGUAGE, for one email's preview:
+ * the place (a digital email only: the website, or Storelib) and the
+ * language (the website's published ones; Storelib's is English). The words
+ * for a language are read once (GET /api/store/emails?lang=, ?channel=storelib).
+ */
+function usePreviewPlace(email: CustomerEmail | null, data: CustomerEmailsData | null | undefined) {
+  const digital = email?.family === "digital" && email.id !== "checkout_reminder"
+  const def = data?.languages?.defaultLanguage ?? data?.language?.lang ?? "en"
+  const langs = [def, ...(data?.languages?.others ?? [])]
+  const [channel, setChannel] = React.useState<BuyerChannel>("website")
+  const [lang, setLang] = React.useState(def)
+  const [, redraw] = React.useState(0)
+  React.useEffect(() => {
+    setChannel("website")
+    setLang(def)
+  }, [email?.id, def])
+  const place: BuyerChannel = digital ? channel : "website"
+  const key = place === "storelib" ? "storelib" : lang
+  if (data?.language && !wordsKept.has(data.language.lang)) wordsKept.set(data.language.lang, data.language)
+  React.useEffect(() => {
+    if (wordsKept.has(key) || (place === "website" && lang === "en" && def === "en")) return
+    let live = true
+    void api<{ language: EmailWordsIn }>(place === "storelib" ? `${CUSTOMER_EMAILS_PATH}?channel=storelib` : `${CUSTOMER_EMAILS_PATH}?lang=${encodeURIComponent(lang)}`).then((r) => {
+      if (!live || !r.ok) return
+      wordsKept.set(key, r.data.language)
+      redraw((n) => n + 1)
+    })
+    return () => {
+      live = false
+    }
+  }, [key, place, lang, def])
+  const kept = wordsKept.get(key)
+  const shownLang = place === "storelib" ? "en" : lang
+  /* Until a language's words arrive, its sentences read in English; the store's own words follow the rule either way. */
+  const language: EmailWordsIn = React.useMemo(() => kept ?? { lang: shownLang, words: {}, own: ownWordsApply(shownLang, def) }, [kept, shownLang, def])
+  return { digital, channel: place, setChannel, lang: place === "storelib" ? "en" : lang, setLang, langs, def, language }
+}
+
+export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready, onSaved, onClose }: { email: CustomerEmail | null; shop: CustomerEmailsShop; data?: CustomerEmailsData | null; saved: EmailCopy | undefined; ready: boolean; onSaved: (copy: CustomerEmailsCopy) => void; onClose: () => void }) {
   const phone = usePhoneWidth()
   /*
     CLOSES THE WAY IT OPENED. The sheet slides away for a moment after it is
@@ -218,7 +440,12 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
   /* The preview follows the typing a beat behind, so a long email never holds a key up. */
   const shown = React.useDeferredValue(draft)
   const checked = React.useMemo(() => (id && editable ? readCopy(id, shown) : null), [id, editable, shown])
-  const mail = React.useMemo(() => (id ? previewCustomerEmail(id, shop, checked?.ok ? checked.copy : saved) : null), [id, shop, checked, saved])
+  const where = usePreviewPlace(email, data)
+  const creator = data?.creator ?? null
+  const mail = React.useMemo(
+    () => (id ? previewCustomerEmail(id, shop, checked?.ok ? checked.copy : saved, { channel: where.channel, language: where.language, creator }) : null),
+    [id, shop, checked, saved, where.channel, where.language, creator],
+  )
   const dirty = !sameDraft(draft, start)
   const isDefault = !saved
 
@@ -242,7 +469,7 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
   const sendTest = async () => {
     if (!id || test?.state === "sending") return
     setTest({ state: "sending" })
-    const r = await api<{ sentTo: string }>("/api/store/emails/test", { method: "POST", body: { id, ...(editable && checked?.ok ? { copy: draft } : {}) } })
+    const r = await api<{ sentTo: string }>("/api/store/emails/test", { method: "POST", body: { id, channel: where.channel, lang: where.lang, ...(editable && checked?.ok ? { copy: draft } : {}) } })
     setTest(r.ok ? { state: "sent", to: r.data.sentTo } : { state: "failed", error: r.error })
   }
 
@@ -335,15 +562,60 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
     </div>
   ) : null
 
+  /* Where the sample was bought, and in what language: the email that place sends (lib/emails/buyer-channel.ts). */
+  const placeControls =
+    where.digital || where.langs.length > 1 ? (
+      <div className="flex flex-wrap items-center gap-2" data-preview-place="">
+        {where.digital ? (
+          <SegmentedTabs
+            value={where.channel}
+            onChange={where.setChannel}
+            label={tt("Bought on")}
+            idPrefix="preview-place"
+            className="sm:w-auto"
+            tabs={[
+              { id: "website", label: tt("Your website") },
+              { id: "storelib", label: tt("Creator page") },
+            ]}
+          />
+        ) : null}
+        {where.channel === "website" && where.langs.length > 1 ? (
+          <select
+            value={where.lang}
+            onChange={(e) => where.setLang(e.target.value)}
+            aria-label={tt("Language")}
+            className="h-9 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-8 sm:text-[13px]"
+            data-preview-language=""
+          >
+            {where.langs.map((l) => (
+              <option key={l} value={l}>
+                {languageName(l)}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
+    ) : null
+  const placeNote =
+    where.channel === "storelib"
+      ? tt("Bought on your creator page, Explore or in a community: in English, from {name}.", { name: creator?.name || shop.name })
+      : where.digital
+        ? tt("Bought on your website: in the language the buyer used there, from {name}.", { name: shop.name })
+        : null
+  const ownNote = editable && !where.language.own ? tt("Your own words go out in {language}, your website's language. Buyers in other languages get the standard words in theirs.", { language: languageName(where.def) }) : null
+
   const preview = (active: boolean) => (
     <div className="space-y-2.5" data-email-preview={id}>
+      {placeControls}
+      {placeNote ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-preview-place-note="">{placeNote}</p> : null}
+      {ownNote ? <p className="text-[12.5px] leading-[18px] text-[#92400e]" data-preview-own-note="">{ownNote}</p> : null}
       {mail ? (
         <p className="text-[13px] text-[#6b7280]" data-email-subject="">
           <span className="font-medium text-[#374151]">{tt("Subject:")}</span> {mail.subject}
         </p>
       ) : null}
       <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail?.html ?? ""} paused={!active} />
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("A sample order with your store's name. The real email has the buyer's own items, address and order.")}</p>
+      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("A sample order, drawn the way the real email is sent. The real email has the buyer's own items, address and order.")}</p>
     </div>
   )
 
@@ -438,102 +710,5 @@ export function EmailSheet({ email: asked, shop, saved: savedAsked, ready, onSav
         {footer}
       </div>
     </SheetDialog>
-  )
-}
-
-/** Preview and Edit, with the chosen one's white thumb sliding under the words rather than jumping. */
-function PaneSwitch({ tab, onTab }: { tab: "preview" | "edit"; onTab: (t: "preview" | "edit") => void }) {
-  return (
-    <div role="tablist" aria-label={tt("Preview or edit")} className="relative mx-4 mt-3 flex shrink-0 rounded-xl bg-[#f1f2f4] p-1" data-email-switch="">
-      <span
-        aria-hidden
-        className="absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_1px_1px_rgba(16,24,40,0.04)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
-        style={{ transform: tab === "edit" ? "translate3d(100%,0,0)" : "translate3d(0,0,0)" }}
-      />
-      {(["preview", "edit"] as const).map((t) => (
-        <button
-          key={t}
-          type="button"
-          role="tab"
-          aria-selected={tab === t}
-          onClick={() => onTab(t)}
-          className={cn("relative z-[1] h-8 flex-1 rounded-lg px-3 text-[13px] font-medium transition-colors duration-200 [-webkit-tap-highlight-color:transparent]", tab === t ? "text-[#1a1a2e]" : "text-[#6b7280]")}
-          data-email-tab={t}
-        >
-          {t === "preview" ? tt("Preview") : tt("Edit")}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-/** Links in the preview go nowhere: it is a picture of the email, not a way out of the editor. */
-const PREVIEW_STYLE = "<style>a{pointer-events:none;cursor:default}html,body{overflow:hidden}</style>"
-
-/** The email's head and body, for the frame's own <html> to take: what is inside <html>, or the whole as a body. */
-function innerOf(html: string): string {
-  const open = html.match(/<html[^>]*>/i)
-  if (!open || open.index === undefined) return `<head>${PREVIEW_STYLE}</head><body>${html}</body>`
-  const inner = html.slice(open.index + open[0].length).replace(/<\/html>[\s\S]*$/i, "")
-  return /<\/head>/i.test(inner) ? inner.replace(/<\/head>/i, `${PREVIEW_STYLE}</head>`) : `<head>${PREVIEW_STYLE}</head>${inner}`
-}
-
-/**
- * The email in a sandboxed frame, no scripts, drawn into the frame's own
- * document in place (its <html> given the email's head and body): a new
- * email or a key typed replaces what is drawn without loading anything, so
- * the frame never flashes blank, never fires a load, and the preview keeps
- * its place. Its height follows the email (and its pictures as they load),
- * so the column scrolls rather than the frame. A frame that is not on
- * screen (the Preview pane while Edit is showing) is brought up to date when
- * it comes back.
- */
-function PreviewFrame({ title, html, paused = false }: { title: string; html: string; paused?: boolean }) {
-  const ref = React.useRef<HTMLIFrameElement>(null)
-  const drawn = React.useRef<string | null>(null)
-  const [height, setHeight] = React.useState(640)
-
-  const measure = React.useCallback(() => {
-    const doc = ref.current?.contentDocument
-    if (!doc?.documentElement) return
-    const h = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0)
-    if (h > 0) setHeight(Math.min(8000, Math.max(320, Math.ceil(h))))
-  }, [])
-
-  const draw = React.useCallback(
-    (force = false) => {
-      const doc = ref.current?.contentDocument
-      if (!doc?.documentElement || (!force && drawn.current === html)) return
-      drawn.current = html
-      doc.documentElement.innerHTML = innerOf(html)
-      measure()
-      doc.querySelectorAll("img").forEach((img) => {
-        if (!img.complete) img.addEventListener("load", measure, { once: true })
-      })
-    },
-    [html, measure],
-  )
-
-  /* Drawn before the frame is painted, typing and opening alike: an editor opens with its email in it, and its fade starts after. */
-  React.useLayoutEffect(() => {
-    if (!paused) draw()
-  }, [draw, paused])
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-[#eceef1] bg-[#f8f9fa]">
-      <iframe
-        ref={ref}
-        title={title}
-        sandbox="allow-same-origin"
-        scrolling="no"
-        className="block w-full"
-        style={{ height }}
-        /* A browser that swaps the frame's first blank page when it loads (Firefox) gets the email again, once. */
-        onLoad={() => {
-          if (!paused && drawn.current !== null) draw(true)
-        }}
-        data-email-frame=""
-      />
-    </div>
   )
 }

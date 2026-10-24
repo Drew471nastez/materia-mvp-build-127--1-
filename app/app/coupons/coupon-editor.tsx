@@ -110,7 +110,9 @@ function FieldError({ id, problem }: { id: string; problem: CouponProblem | null
  * (lib/checkout/coupons.ts readCouponInput); the checks here only answer
  * sooner, under the field they are about.
  */
-export function CouponEditor({ products, initialCoupon, currency = "USD" }: { products: CouponProduct[]; initialCoupon: CouponRecord | null; currency?: string }) {
+export function CouponEditor({ products, initialCoupon, currency: currencyNow = "USD" }: { products: CouponProduct[]; initialCoupon: CouponRecord | null; currency?: string }) {
+  /* The currency this coupon's amounts were typed in, kept while it is open: a save after the store's currency changed is refused (lib/store/currency-guard). */
+  const [currency] = useState(currencyNow)
   /* The store's own currency: the sign in the amount fields, product prices and the summary (./coupon-money). */
   const money = useMemo(() => couponMoney(currency), [currency])
   const sign = useMemo(() => currencySign(currency), [currency])
@@ -170,7 +172,7 @@ export function CouponEditor({ products, initialCoupon, currency = "USD" }: { pr
       const res = await fetch(isEdit ? `/api/coupons/${initialCoupon!.id}` : "/api/coupons", {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formPayload(form), ...(physicalOptions.current?.freeShipping() ? { free_shipping: true } : {}) }),
+        body: JSON.stringify({ ...formPayload(form), formCurrency: currency, ...(physicalOptions.current?.freeShipping() ? { free_shipping: true } : {}) }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

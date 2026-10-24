@@ -937,7 +937,9 @@ check(
    */
   /label=\{hidden \? `Show \$\{displayName\}` : `Hide \$\{displayName\}`\}/.test(sectionsList) &&
     /shown=\{hidden \|\| isSelected\}/.test(sectionsList) &&
-    /onToggleHide=\{\(\) => onToggleHide\(s\.id\)\}[\s\S]{0,400}?chrome=\{chrome\}/.test(sectionsList) &&
+    /* Changed on purpose (round 34): the rows are memoised (ListRow) and reach onToggleHide through the list's handlers, the header and footer rows too. */
+    /toggleHide: \(id\) => latest\.current\.onToggleHide\(id\)/.test(sectionsList) &&
+    /onToggleHide=\{\(\) => h\.toggleHide\(id\)\}[\s\S]{0,400}?chrome=\{chrome\}/.test(sectionsList) &&
     /onToggleHide=\{toggleSectionHidden\}/.test(editor) &&
     /nameOf=\{\(s\) => sectionDisplayName\(s, librarySchemas\)\}/.test(editor),
 )
@@ -2282,7 +2284,8 @@ check(
    * which section took whose place.
    */
   /import \{ useReorder \} from "\.\/controls\/use-reorder"/.test(sectionsList) &&
-    /dragHandleProps=\{gripProps\(i\)\}/.test(sectionsList) &&
+    /* Changed on purpose (round 34): the memoised row (ListRow) is handed the grip's props maker and its place. */
+    /grip=\{gripProps\}/.test(sectionsList) && /dragHandleProps=\{grip \? grip\(index\) : undefined\}/.test(sectionsList) &&
     /data-reorder-row=""/.test(sectionsList) &&
     !/@dnd-kit/.test(sectionsList) &&
     /dnd=\{\{ onReorder: reorderSection \}\}/.test(editor) &&
@@ -2321,7 +2324,8 @@ check(
     (/<EditorCanvasPage\s*\n\s*theme=\{canvasThemeSettings\}/.test(editor) || (/<EditorCanvasPage\s*\n\s*theme=\{canvasThemeShown\}/.test(editor) && /const canvasThemeShown = useMemo\(\(\) => \{\s*const localized = previewMap \? \(localizeTheme\(canvasThemeSettings/.test(editor))) &&
     /const canvasThemeSettings = useDeferredValue\(activeThemeSettings\)/.test(editor) &&
     /const selectSectionFromCanvas = useCallback\(/.test(editor) &&
-    /const openAddSection = useCallback\(\(\) => \{\s*\n\s*setAddGroup\("template"\)\s*\n\s*setAddSectionOpen\(true\)\s*\n\s*\}, \[\]\)/.test(editor) &&
+    /* Changed on purpose (round canvas-1023): it also lets go of a place in the header or footer group an imported theme's canvas pointed at (setGroupInsertAt). */
+    /const openAddSection = useCallback\(\(\) => \{\s*\n\s*setAddGroup\("template"\)\s*\n\s*setGroupInsertAt\(null\)\s*\n\s*setAddSectionOpen\(true\)\s*\n\s*\}, \[\]\)/.test(editor) &&
     // Still one stable callback from the parent, now carrying which block
     // was clicked as well as which section, and which field the click was
     // for (tests/builder-click-edit.test.ts): see selectSectionFromCanvas.
@@ -2986,7 +2990,8 @@ check(
     // interpolate from and the fade is a cut with extra steps
     /const id = requestAnimationFrame\(\(\) => setVisible\(true\)\)/.test(editor) &&
     // and it draws at its last known place while it leaves
-    /const draw = box \?\? lastBox\.current/.test(editor) &&
+    /* Changed on purpose (round 36): its place between renders is written by hand and kept in lastBox, which a new place from state replaces once */
+    /const draw = lastBox\.current \?\? box/.test(editor) &&
     /if \(!mounted \|\| !draw\) return null/.test(editor) &&
     !/if \(!sectionId \|\| !box\) return null/.test(editor) &&
     /"transition-\[opacity,translate,scale\] duration-200 ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\] motion-reduce:transition-none"/.test(

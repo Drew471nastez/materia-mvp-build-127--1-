@@ -1279,10 +1279,13 @@ section("Autosave writes the draft, never the live site")
        */
       const at = editor.indexOf("const saveDraft = async")
       const body = editor.slice(at, editor.indexOf("const publishChanges", at))
+      /* Changed on purpose (round 34): the write is sendDraft's, which says why it failed; saveDraft puts that up, and tries again on its own when the reason passes. */
+      const send = editor.slice(editor.indexOf("const sendDraft = async"), editor.indexOf("const sendDraftLatest"))
       return (
         /if \(!options\.quiet\) showNotification/.test(body) &&
         /* A failed save puts up the save banner, with what happened and what to do (lib/website-builder/save-problem.ts). */
-        /setSaveProblem\(explainSaveProblem\(sectionsRes\.status, d, sectionsForSave\(sections\)\)\)/.test(body)
+        /problem: explainSaveProblem\(sectionsRes\.status, d, sent\)/.test(send) &&
+        /setSaveProblem\(result\.problem\)\s*\n\s*scheduleRetry\(result\.problem\)/.test(body)
       )
     })(),
   )

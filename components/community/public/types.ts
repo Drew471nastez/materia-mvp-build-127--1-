@@ -187,6 +187,11 @@ export interface AboutExtras {
   creatorBio: string | null
   /** Round 33: the members here most recently, a picture and a name each, for the overlapping faces by the member count. */
   faces?: { id: string; name: string; avatarUrl: string | null }[]
+  /**
+   * Round 39: the Library's first published items for a visitor, a public community's only (lib/communities/server/
+   * library.ts aboutLibrary): a title, a cover and how it opens ("Free for members", "$12"). Never a file or a link.
+   */
+  library?: { total: number; items: { id: string; title: string; coverUrl: string | null; line: string }[] } | null
 }
 
 /** What /community/[slug] and /about need to draw the sales page. */

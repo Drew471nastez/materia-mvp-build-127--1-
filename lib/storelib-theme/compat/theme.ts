@@ -46,11 +46,14 @@ import {
   linkTarget,
   localizationObject,
   productObject,
+  productRatingFrom,
+  reviewMetafields,
   requestObject,
   schemesObject,
   typedSettings,
   type CardLike,
   type CartLineLike,
+  type CartDiscount,
   type CollectionLike,
   type MenuLinkLike,
   type DynamicResolver,
@@ -62,7 +65,9 @@ import { shopifyBootstrap, withoutShopifyCdn } from "./shims"
 import { fixInlineStyles, fixThemeCss } from "./css-fixes"
 import { assetNameOf, inlineSpriteFiles } from "./icons"
 import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
-import { REVIEWS_DEFAULTS, REVIEWS_WIDGET_LIQUID, isReviewsAppBlock, storelibReviewWidgetFilter } from "./storelib-reviews"
+import { REVIEWS_WIDGET_LIQUID, isReviewsAppBlock, ratingOfProduct, reviewAppBlockKind, reviewStarsHtml, reviewsBlockSettings, storelibReviewWidgetFilter } from "./storelib-reviews"
+import { REVIEWS_LIST_BLOCK, REVIEW_STARS_BLOCK } from "./review-app-blocks"
+import { shopWords } from "@/lib/markets/ui-words"
 import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq } from "./product-faq"
 
 /** The product objects whose questions a page has drawn already, so they are drawn once (./product-faq.ts). */
@@ -75,6 +80,7 @@ import { nativeThemeFromShopifySchemes } from "./native-schemes"
 import { renderSection as renderNativeSection } from "../render"
 import type { CompiledSection, SectionInstanceData } from "../types"
 import { themeVars } from "@/lib/website-builder/theme-css"
+import { MISSING_IMAGE_HEAD } from "@/lib/media/missing-image"
 
 /** One resolver per page drawn, each address worked out once: a menu is read by the header, its drawer and the footer. */
 const linksOfPage = new WeakMap<object, (url: string) => string>()
@@ -320,6 +326,8 @@ export interface CompatPage {
   /** The cart's note and attributes (`cart.note`, `cart.attributes` in Liquid): a theme's order notes and gift message fields read them back. */
   cartNote?: string
   cartAttributes?: Record<string, string>
+  /** The cart's discount code as the website's checkout prices it (objects.ts CartDiscount): `cart.discount_applications`, each line's allocations and the totals after it. */
+  cartDiscount?: CartDiscount | null
   shop: { name: string; description?: string; url?: string; email?: string; currency?: string; moneyFormat?: string; policies?: ShopPolicy[]; id?: string }
   customer?: O | null
   /** Why a form on this page did not go through, by form type (`customer_login`, `customer`, `contact`): what its `form.errors` says. */
@@ -414,6 +422,9 @@ function defaultLocalePath(files: Record<string, string>, schema: boolean): stri
 /** See renderDocument: a container the page focused itself shows no focus ring. */
 export const FOCUS_RING_FIX = `<style data-sl-focus>[tabindex="-1"]:focus,dialog:focus,[role="dialog"]:focus,[aria-modal="true"]:focus,details-modal:focus,modal-dialog:focus{outline:none!important}</style>`
 
+/* A theme's default locale, its schema's locale and its settings schema, by the files object they were read from (CompatTheme's constructor). */
+const filesRead = new WeakMap<object, { locale: O | null; lang: string; schemaLocale: O | null; settingsSchema: O[] }>()
+
 export class CompatTheme {
   private parsed = new Map<string, Parsed | null>()
   private schemas = new Map<string, O>()
@@ -453,12 +464,23 @@ export class CompatTheme {
   readonly diagnostics = new Set<string>()
 
   constructor(public readonly files: Record<string, string>, public readonly settingsValues: O, private opts: CompatThemeOptions) {
-    const localePath = defaultLocalePath(files, false)
-    this.locale = parseJsonLoose(files[localePath ?? ""]) as O | null
-    this.lang = localePath?.match(/^locales\/([^.]+)\./)?.[1] ?? "en"
-    this.schemaLocale = parseJsonLoose(files[defaultLocalePath(files, true) ?? ""]) as O | null
-    const ss = parseJsonLoose(files["config/settings_schema.json"])
-    this.settingsSchema = Array.isArray(ss) ? (ss as O[]) : []
+    /* Read once per files object: only ever read, never written (the builder makes a theme per value a slider passes). */
+    let read = filesRead.get(files)
+    if (!read) {
+      const localePath = defaultLocalePath(files, false)
+      const ss = parseJsonLoose(files["config/settings_schema.json"])
+      read = {
+        locale: parseJsonLoose(files[localePath ?? ""]) as O | null,
+        lang: localePath?.match(/^locales\/([^.]+)\./)?.[1] ?? "en",
+        schemaLocale: parseJsonLoose(files[defaultLocalePath(files, true) ?? ""]) as O | null,
+        settingsSchema: Array.isArray(ss) ? (ss as O[]) : [],
+      }
+      filesRead.set(files, read)
+    }
+    this.locale = read.locale
+    this.lang = read.lang
+    this.schemaLocale = read.schemaLocale
+    this.settingsSchema = read.settingsSchema
   }
 
   // ── Reading files ──
@@ -681,6 +703,20 @@ export class CompatTheme {
     const moneyFormat = page.shop.moneyFormat ?? "${{amount}}"
 
     const productObj = page.product ? productObject(page.product, { descriptionHtml: page.product.descriptionHtml, selectedVariantId: page.selectedVariantId, selectedValues: page.selectedValues }) : null
+    /*
+      THE PRODUCT PAGE'S OWN STARS. The card a product page is drawn from
+      carries its rating only while "Stars on product cards" is on
+      (lib/website-builder/shop-products.ts withRatings); the page's own
+      reviews (lib/reviews/storefront.ts) are what its Storelib Reviews
+      section shows. The theme's rating block, its review block and
+      structured data read Shopify's review metafields, so on the product's
+      own page those are the page's reviews: the same numbers as the section
+      under them, whatever the cards show. Sample reviews never count.
+    */
+    if (productObj) {
+      const rated = productRatingFrom(page.reviews, String(productObj.id ?? ""))
+      if (rated) (productObj.metafields as O).reviews = reviewMetafields(rated)
+    }
     const collections: O = {}
     for (const c of page.collections) collections[c.handle] = collectionByHandle(res, c.handle)
     const allCard: CollectionLike = { id: "all", title: "Products", handle: "all", url: "/collections/all", products: page.products, products_count: page.products.length }
@@ -696,7 +732,7 @@ export class CompatTheme {
       const handle = String(p.settings.slug ?? "")
       if (handle) Object.defineProperty(all_products, handle, { enumerable: true, get: () => productObject(p) })
     }
-    const cart = cartObject(page.cart ?? [], currency, page.cartNote ?? "", page.cartAttributes ?? {})
+    const cart = cartObject(page.cart ?? [], currency, page.cartNote ?? "", page.cartAttributes ?? {}, page.cartDiscount ?? null)
     const search = page.search
       ? { performed: page.search.performed, terms: page.search.terms, results: page.search.results.map((p) => ({ ...productObject(p), object_type: "product" })), results_count: page.search.results.length, types: ["product"], filters: page.catalog?.filters ?? [], sort_by: page.catalog?.sortBy ?? "", sort_options: [], default_sort_by: "relevance", url: `/search?q=${encodeURIComponent(page.search.terms)}` }
       : { performed: false, terms: "", results: [], results_count: 0, types: ["product"], filters: [], sort_options: [] }
@@ -757,6 +793,8 @@ export class CompatTheme {
       collection,
       search,
       customer: page.customer ?? null,
+      /* Storelib's own words in the page's language (Translate › Shop words): Storelib Reviews' section and blocks (./storelib-reviews.ts). */
+      storelib_words: shopWords(page.i18n?.uiWords),
       /* Storelib Reviews (./storelib-reviews.ts): the page's, or in the builder before any arrive, sample ones. */
       storelib_reviews: page.reviews ?? (page.designMode ? { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), "", page.product ? { id: page.product.id, title: String(page.product.settings?.title ?? "") } : null), enabled: true } : null),
       page: page.pageObject ? { [OUTPUT]: page.pageObject.title, ...page.pageObject, id: page.pageObject.handle, template_suffix: page.suffix ?? null, metafields: {} } : null,
@@ -826,7 +864,12 @@ export class CompatTheme {
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
-      appBlock: (ctx, block) => (isReviewsAppBlock(block.app_type ?? block.type) ? this.reviewsBlock(ctx, String(block.id ?? ""), (block.settings as O | undefined) ?? {}) : null),
+      appBlock: (ctx, block) => {
+        const type = String(block.app_type ?? block.type ?? "")
+        if (!isReviewsAppBlock(type)) return null
+        const own = (block.__instance as CompatBlockInstance | undefined)?.settings
+        return this.reviewsBlock(ctx, { id: String(block.id ?? ""), type, settings: own ?? {} }, ctx.registers.closest as O | undefined)
+      },
       placedBlock: (ctx, name, args, content) => this.placedBlock(ctx, name, args, content),
       form: (ctx, type, obj, args) => formMarkup(ctx, type, obj, args),
       paginate: (ctx, list, by) => paginateList(ctx, list, by, page),
@@ -1041,11 +1084,43 @@ export class CompatTheme {
     }
   }
 
-  /** A reviews app's block from Shopify, drawn as Storelib Reviews in its place (./storelib-reviews.ts). Its own settings are an app's and mean nothing here. */
-  private reviewsBlock(ctx: Ctx, id: string, _settings: unknown): string {
-    void _settings
+  /**
+   * A reviews app's block, drawn as Storelib Reviews in its place
+   * (./storelib-reviews.ts): Storelib Reviews' own Star rating and Reviews
+   * (./review-app-blocks.ts) with their settings, or a block a theme kept
+   * from another app on Shopify, whose settings are that app's and mean
+   * nothing here, drawn as what it was: its stars or its reviews.
+   *
+   * The stars are the product's in scope, as a theme's own rating block
+   * reads them: the block's `closest.product` (Horizon), else the `product`
+   * the section is drawing (Dawn's main and featured product, a card), its
+   * review metafields (./objects.ts), which a product page fills from the
+   * page's own reviews. With no product, the shop's.
+   */
+  private reviewsBlock(ctx: Ctx, b: { id: string; type: string; settings?: unknown }, closest?: O): string {
+    const ours = b.type === REVIEW_STARS_BLOCK || b.type === REVIEWS_LIST_BLOCK
+    const settings = ours && b.settings && typeof b.settings === "object" ? (b.settings as O) : {}
+    const reviews = ctx.lookup("storelib_reviews") as O | null | undefined
+    const page = (ctx.registers.page ?? {}) as CompatPage
     try {
-      return `<div class="shopify-app-block" ${blockAttributes(id)}>${renderString(REVIEWS_WIDGET_LIQUID, ctx.child({ rv: { ...REVIEWS_DEFAULTS } }))}</div>`
+      if (reviewAppBlockKind(b.type) === "stars") {
+        /* A page that read no reviews (a collection, the search) still has its cards' stars, which are there only while the app is on. */
+        if (reviews && reviews.enabled !== true) return ""
+        const product = (closest?.product as O | undefined) ?? (ctx.lookup("product") as O | undefined)
+        const pageProduct = ctx.globals.product as O | null | undefined
+        let rating = product && typeof product === "object" ? ratingOfProduct(product) : null
+        let href: string | null = null
+        if (product && typeof product === "object") {
+          href = pageProduct && product.id === pageProduct.id ? "#reviews" : `${toOutput(product.url) || ""}#reviews`
+        } else if (reviews) {
+          const shop = reviews.sample === true ? null : ((reviews.all as O | undefined)?.summary as O | undefined)
+          rating = shop && Number(shop.count) > 0 ? { average: Number(shop.average), count: Number(shop.count), color: "" } : null
+          href = typeof reviews.page_url === "string" ? reviews.page_url : null
+        }
+        const html = reviewStarsHtml({ average: rating?.average ?? 0, count: rating?.count ?? 0, settings, starColor: String(reviews?.star_color ?? "") || rating?.color || "", words: shopWords(page.i18n?.uiWords), href, inEditor: page.designMode === true })
+        return html ? `<div class="shopify-app-block" ${blockAttributes(b.id)}>${html}</div>` : ""
+      }
+      return `<div class="shopify-app-block" ${blockAttributes(b.id)}>${renderString(REVIEWS_WIDGET_LIQUID, ctx.child({ rv: reviewsBlockSettings(settings) }))}</div>`
     } catch (e) {
       this.warnings.push(`Storelib Reviews: ${(e as Error).message}`)
       return ""
@@ -1070,7 +1145,7 @@ export class CompatTheme {
     const draw = (b: CompatBlockInstance) => {
       const path = this.fileFor("blocks", b.type)
       const tree = path ? this.tree(path) : null
-      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b.id, b.settings) : ""
+      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : ""
       let holder: Ctx | null = null
       const block = this.blockObject(b, [], res, resolverFor(() => holder))
       const c = ctx.child({ block, closest, ...extra })
@@ -1189,7 +1264,7 @@ export class CompatTheme {
     /* `{% layout 'alternate' %}` in a template: that layout when the theme has it, the theme's own otherwise. */
     const path = (head.layout && head.layout !== "theme" ? this.fileFor("layout", head.layout) : null) ?? this.fileFor("layout", "theme")
     const tree = path ? this.tree(path) : null
-    if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
+    if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${MISSING_IMAGE_HEAD}${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
     ctx.globals.content_for_layout = content
     const drawnIds = new Set<string>()
     ctx.registers.drawnIds = drawnIds
@@ -1224,6 +1299,13 @@ export class CompatTheme {
       their own rings untouched.
     */
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${FOCUS_RING_FIX}</head>`) : `${FOCUS_RING_FIX}${html}`
+    /*
+      A PICTURE THAT IS NOT THERE IS A GREY BOX WITH A CAMERA (round 39,
+      lib/media/missing-image.ts): a product photo since deleted, a cart
+      drawer's thumbnail with no address. In the head, so it is listening
+      before the body's first picture can fail; live and on the canvas alike.
+    */
+    html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${MISSING_IMAGE_HEAD}</head>`) : `${MISSING_IMAGE_HEAD}${html}`
     /* A layout without a </head> (or without a </body>) still gets what goes there: at the top of the body, at the end of the page. */
     if (head.extraHead) html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${head.extraHead}</head>`) : /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, (m) => `${m}${head.extraHead}`) : `${head.extraHead}${html}`
     if (head.extraBodyEnd) html = /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${head.extraBodyEnd}</body>`) : `${html}${head.extraBodyEnd}`
@@ -1253,6 +1335,29 @@ export class CompatTheme {
     const bodyAttrs = html.match(/<body\b([^>]*)>/i)?.[1] ?? ""
     const body = html.match(/<body\b[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? ""
     return { headStyles, headLinks, htmlAttrs, bodyAttrs, wrappers: { header: ancestorsOf(body, MARK("header")), content: ancestorsOf(body, MARK("content")), footer: ancestorsOf(body, MARK("footer")) } }
+  }
+
+  /**
+   * The layout drawn without its sections and without the page's content:
+   * what it prints of its own (its <style> blocks of variables and colour
+   * schemes among it), as renderDocument draws it, before finish(). The
+   * builder's canvas writes these styles while a theme setting moves under a
+   * finger (compat-canvas.tsx, A THEME VALUE THAT ONLY CSS READS); null when
+   * the layout cannot be read.
+   */
+  layoutAlone(ctx: Ctx, layout?: string): string | null {
+    const path = (layout && layout !== "theme" ? this.fileFor("layout", layout) : null) ?? this.fileFor("layout", "theme")
+    const tree = path ? this.tree(path) : null
+    if (!tree) return null
+    const c = ctx.child({ content_for_layout: "" })
+    const env = { ...c.env, sections: () => "", section: () => "" }
+    const cc = new Ctx(c.globals, env, { registers: c.registers, steps: c.steps, out: c.out })
+    cc.registers.drawnIds = new Set<string>()
+    try {
+      return this.finish(renderTree(tree, cc))
+    } catch {
+      return null
+    }
   }
 
   /** The font stylesheets the theme's font settings need. */

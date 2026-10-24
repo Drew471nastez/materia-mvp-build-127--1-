@@ -66,11 +66,19 @@ export function memberPictureFolder(userId: string, communityId: string): string
   return `${userId}/community/${communityId}/`
 }
 
-/** The path inside the picture bucket a public picture address points at, or null for any other address. */
+/**
+ * The path inside the picture bucket a public picture address points at, or null for any other address.
+ *
+ * Both of the picture's addresses (round 39): storage's own, and Storelib's (`https://storelib.com/media/<bucket>/...`,
+ * lib/storage/media-url.ts), which is what an upload hands the browser now. Read only from the first, every picture a
+ * member picked for a chat message or a comment was refused as "Upload it again" by the folder check that reads this.
+ */
 export function picturePathOf(value: unknown): string | null {
   const u = httpsUrl(value)
   if (!u || u.search || u.hash) return null
-  const m = new RegExp(`^/storage/v1/object/public/${PICTURE_BUCKET}/(.+)$`).exec(u.pathname)
+  const main = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+  const ours = u.hostname === main || u.hostname === `www.${main}`
+  const m = new RegExp(`^/storage/v1/object/public/${PICTURE_BUCKET}/(.+)$`).exec(u.pathname) ?? (ours ? new RegExp(`^/media/${PICTURE_BUCKET}/(.+)$`).exec(u.pathname) : null)
   if (!m) return null
   let path: string
   try {

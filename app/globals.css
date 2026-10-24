@@ -499,6 +499,17 @@ html.capacitor body {
     from { opacity: 0; }
     to { opacity: 1; }
   }
+  /* A report a seller added on /app/analytics, arriving in its place: rises 6px and fades in, transform and opacity only. */
+  @keyframes analytics-card-in {
+    from { opacity: 0; transform: translate3d(0, 6px, 0) scale(0.99); }
+    to { opacity: 1; transform: none; }
+  }
+  .analytics-card-in {
+    animation: analytics-card-in 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .analytics-card-in { animation: none; }
+  }
   .skeleton-deferred {
     opacity: 0;
     animation: skeleton-reveal 260ms cubic-bezier(0.22, 1, 0.36, 1) 200ms forwards;
@@ -1409,6 +1420,16 @@ html.capacitor body {
   /* Full screen preview (editor page.tsx, fullView): the site alone, from the first frame of the fold. */
   [data-wb-full] #wb-preview-root .wb-ring { opacity: 0 !important; }
   @keyframes wb-ring-in { from { opacity: 0; } }
+  /*
+   * A SECTION BEING EDITED HOLDS STILL (lib/website-builder/edit-still.ts).
+   * Its buttons and colours do not ease towards a value under a finger, so
+   * the canvas shows each value in the frame it arrives in. The selection
+   * ring keeps its own fade.
+   */
+  #wb-preview-root :is([data-wb-still], [data-wb-still-theme]),
+  #wb-preview-root :is([data-wb-still], [data-wb-still-theme]) :not(.wb-ring),
+  #wb-preview-root :is([data-wb-still], [data-wb-still-theme]) :not(.wb-ring)::before,
+  #wb-preview-root :is([data-wb-still], [data-wb-still-theme]) :not(.wb-ring)::after { transition: none !important; }
   /*
    * THE FIELD A CANVAS CLICK LANDED ON (editor page.tsx, fieldFocus). A violet
    * ring round the field, held for a moment and then faded, 1600ms in all
@@ -3804,6 +3825,11 @@ html.capacitor .app-content-scroll {
   html:has([data-page-layer=""]) [data-app-nav-pill] {
     visibility: hidden;
   }
+  /* The same from the class every page layer at every width holds (lib/ui/layers.ts), for one drawn without
+     components/app/page-layer.tsx: the community's Page editor (round 37, page-editor/screen.tsx). */
+  html.has-page-layer [data-app-nav-pill] {
+    visibility: hidden;
+  }
 
   /* The pill's room at the foot of a layer that keeps it, on whichever box
      actually scrolls: the layer's own scroller, or a page that scrolls in a
@@ -5742,9 +5768,20 @@ picture {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }
 }
-/* `backwards` for the same reason as .wb-editor-enter: nothing left holding the canvas once it has arrived. */
+/* FILLED BACKWARDS, NOT BOTH. Filled forwards, the finished entrance stayed
+   an active transform animation on the whole page, for as long as the editor
+   was open: the page (25,000px tall at 44 sections) stayed its own layer of
+   unknown bounds, and every insert strip and selection ring above it was
+   pushed onto a layer of its own to be sure of the overlap, 127 layers where
+   36 do (scripts/check-editor-live-edit.mjs counts them), all of them
+   composited again on every frame of a slider. The end state is no
+   transform, which is what the page has without the animation. `contain:
+   layout` keeps what the filled transform gave by accident and the canvas
+   was built on: the page is the containing block of a fixed element in it
+   (a popup, a phone menu) and its own stacking context. */
 .wb-canvas-in {
   animation: wb-canvas-in 360ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+  contain: layout;
 }
 .wb-canvas-loader {
   transition: opacity 260ms ease-out;
@@ -7508,6 +7545,18 @@ html[data-tab-hidden] .ask-step-mark[data-state="running"] .ask-step-dot { anima
   --sl-vw: 1cqw;
 }
 /*
+  A page change in the editor is the live site's cut (canvas-still.ts).
+  The page being left is a picture until the next one is drawn, and then
+  the next one is shown whole. A fade here is the white frame and the two
+  pages at once. These rules only exist while that swap runs.
+*/
+html[data-canvas-swap]::view-transition-group(root),
+html[data-canvas-swap]::view-transition-old(root),
+html[data-canvas-swap]::view-transition-new(root) {
+  animation: none !important;
+  mix-blend-mode: normal;
+}
+/*
   The page inside is the container its sections answer to (the same size as
   the card, which it fills). While the card changes size, only the sections
   on screen flow with it (holdOffscreenSections, canvas-switch.ts).
@@ -8073,6 +8122,14 @@ html.capacitor .home-card li > :is(a, button):active {
 :root {
   --buyer-tabs-bar: 56px;
   --buyer-tabs-room: calc(var(--buyer-tabs-bar) + env(safe-area-inset-bottom, 0px));
+}
+/* SIGNED IN ONLY, IN A BROWSER (round 39, components/nav/buyer-tab-bar.tsx
+   SIGNED IN BEFORE THE FIRST PAINT). The server draws the bar and its room
+   pending; the line printed before them marks <html> for somebody signed
+   in. Anybody else's first paint has neither the bar nor the room it keeps
+   at the foot of the page. The app keeps both. */
+html:not([data-sl-signed-in]):not(.capacitor) [data-tabs-auth="pending"] {
+  display: none;
 }
 @media (max-width: 767px) {
   html[data-buyer-tabs="shown"] {

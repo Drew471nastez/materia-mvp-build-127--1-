@@ -13,6 +13,7 @@
  * render, which is the point of it.
  */
 import { followScheme, resolveSectionColors, styleAttr } from "./color-schemes"
+import { schemeAsVariables } from "./scheme-vars"
 import { resolveControlType } from "./controls/registry"
 import { collectionBlock, resolveInstance, resolveSettings, themeTokens, type ResolvedBlock } from "./resolve"
 import { sectionTypography } from "./typography"
@@ -58,6 +59,14 @@ export interface RenderInput {
    * means none, and `content_for` draws nothing.
    */
   blocks?: (type: string) => CompiledBlock | null
+  /**
+   * The builder's canvas only: a section whose template and blocks read the
+   * scheme only where a variable can stand in for a colour prints
+   * `var(--scheme-*)` there instead of the colour (scheme-vars.ts), and its
+   * root says so (`data-scheme-vars`), so a scheme colour under a finger is
+   * its root's variables alone. The published page never asks for it.
+   */
+  schemeVariables?: boolean
 }
 
 export interface Rendered {
@@ -77,21 +86,37 @@ export interface Rendered {
  * code is added here, to every price the page was handed, once per list.
  * Off, the lists go through untouched.
  */
-/* The store's currency (lib/store/shop-money.ts): a price written "RON 48.00" names it already, and is left as it is. */
+/*
+  THE CODE OF THE CURRENCY THE PRICE IS WRITTEN IN. Each card says which
+  (`settings.currency`: the store's own, from Settings › Country & Currency,
+  or the market's once lib/markets/pricing.ts pricesInMarket has converted
+  it); the deployment's (lib/store/shop-money.ts) only when a card does not.
+  It was always the deployment's, and only after a price that began with a
+  dollar sign: a store selling in lei, euros or pounds turned Show currency
+  codes on and no card changed, in the builder or on the website, and a
+  dollar store on a lei deployment was labelled RON.
+*/
 const SHOP_CURRENCY_CODE = SHOP_CURRENCY
 const coded = new WeakMap<object, unknown>()
 
-function withCode(price: unknown): unknown {
-  if (typeof price !== "string" || price === "" || price.includes(SHOP_CURRENCY_CODE)) return price
-  return price.replace(/^(\$[\d,]+(?:\.\d+)?)/, `$1 ${SHOP_CURRENCY_CODE}`)
+/** "$48.00" to "$48.00 USD", "48,00 lei" to "48,00 lei RON", as Shopify's money_with_currency: the amount as written, then the code. */
+export function withCurrencyCode(price: unknown, code: unknown): unknown {
+  if (typeof price !== "string" || price.trim() === "") return price
+  const c = typeof code === "string" && /^[A-Z]{3}$/.test(code) ? code : SHOP_CURRENCY_CODE
+  /* A price that names its code already ("RON 48.00") is left as it is. */
+  if (new RegExp(`(^|[^A-Z])${c}([^A-Z]|$)`).test(price)) return price
+  /* Words with no amount in them ("Free") are not a price to label. */
+  if (!/\d/.test(price)) return price
+  return `${price.trim()} ${c}`
 }
 
 function codedCard<T extends { settings: Record<string, unknown> }>(card: T): T {
   const s = card.settings
+  const code = s.currency
   const variants = Array.isArray(s.variants)
-    ? (s.variants as Record<string, unknown>[]).map((v) => ({ ...v, price: withCode(v.price), compare_price: withCode(v.compare_price) }))
+    ? (s.variants as Record<string, unknown>[]).map((v) => ({ ...v, price: withCurrencyCode(v.price, code), compare_price: withCurrencyCode(v.compare_price, code) }))
     : s.variants
-  return { ...card, settings: { ...s, price: withCode(s.price), compare_price: withCode(s.compare_price), ...(variants !== undefined ? { variants } : {}) } }
+  return { ...card, settings: { ...s, price: withCurrencyCode(s.price, code), compare_price: withCurrencyCode(s.compare_price, code), ...(variants !== undefined ? { variants } : {}) } }
 }
 
 function codedList<T extends { settings: Record<string, unknown> }>(list: T[] | undefined): T[] | undefined {
@@ -154,7 +179,11 @@ export function renderSection(input: RenderInput): Rendered {
     : settings
   const colors = resolveSectionColors(input.theme, colorSettings)
   if (schemeSetting && unsaved) settings[schemeSetting.id] = colors.key
-  const scheme = { ...colors.legacy, ...colors.scheme } as Record<string, string>
+  /* The builder's canvas: the scheme as its root's variables, when every template drawn here reads it only where one can stand in (scheme-vars.ts). */
+  /* A block the section's own schema declares is drawn by the section's template, which was read with it; a theme block by its own file. */
+  const local = new Set((compiled.schema.blocks ?? []).map((b) => b.type))
+  const asVariables = input.schemeVariables === true && compiled.schemeVars === true && blockTypesIn(blocks, statics, compiled.statics, blockOf).every((t) => (local.has(t) && !blockOf(t)) || blockOf(t)?.schemeVars === true)
+  const scheme = asVariables ? schemeAsVariables(colors.scheme, colors.legacy) : ({ ...colors.legacy, ...colors.scheme } as Record<string, string>)
   /* A colour setting still on `scheme.<name>` is that colour of THIS section's scheme: color-schemes.ts, followScheme. */
   followSchemeColours(compiled.schema.settings, settings, scheme)
   const blockDefs = new Map((compiled.schema.blocks ?? []).map((b) => [b.type, b.settings]))
@@ -278,6 +307,7 @@ export function renderSection(input: RenderInput): Rendered {
     `data-section-type="${escapeAttr(compiled.type)}"`,
     `data-color-scheme="${escapeAttr(colors.key)}"`,
   ]
+  if (asVariables) attrs.push("data-scheme-vars")
   if (typo.heading) attrs.push(`data-heading-style="${escapeAttr(typo.heading)}"`)
   if (typo.body) attrs.push(`data-body-style="${escapeAttr(typo.body)}"`)
   const rootStyle: Record<string, string> = { ...colors.vars, ...typo.vars }
@@ -297,6 +327,31 @@ export function renderSection(input: RenderInput): Rendered {
 }
 
 const SAFE_ID = /^[A-Za-z0-9_-]{1,128}$/
+
+/** Every theme block type a section can draw: its blocks, its static blocks, those its template places, and theirs, to MAX_BLOCK_DEPTH. */
+function blockTypesIn(blocks: ResolvedBlock[], statics: Record<string, ResolvedBlock>, placed: { type: string }[] | undefined, blockOf: (type: string) => CompiledBlock | null): string[] {
+  const out = new Set<string>()
+  const walk = (list: ResolvedBlock[], depth: number) => {
+    if (depth > MAX_BLOCK_DEPTH) return
+    for (const b of list) {
+      if (!out.has(b.type)) {
+        out.add(b.type)
+        for (const p of blockOf(b.type)?.statics ?? []) walkType(p.type, depth + 1)
+      }
+      walk(b.blocks, depth + 1)
+      walk(Object.values(b.statics), depth + 1)
+    }
+  }
+  const walkType = (type: string, depth: number) => {
+    if (depth > MAX_BLOCK_DEPTH || out.has(type)) return
+    out.add(type)
+    for (const p of blockOf(type)?.statics ?? []) walkType(p.type, depth + 1)
+  }
+  walk(blocks, 0)
+  walk(Object.values(statics), 0)
+  for (const p of placed ?? []) walkType(p.type, 0)
+  return [...out]
+}
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)

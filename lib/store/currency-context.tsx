@@ -6,6 +6,7 @@
  * provider above it shows US dollars, as it always did.
  */
 import * as React from "react"
+import { noteStoreCurrency } from "@/lib/analytics/report-cache"
 import { DEFAULT_STORE_CURRENCY, currencyMark, markInset, type CurrencyMark } from "./currency"
 
 const StoreCurrency = React.createContext<string | null>(null)
@@ -20,6 +21,8 @@ export const STORE_CURRENCY_EVENT = "storelib:store-currency"
 /** StoreCurrencyProvider for the whole of /app (app/app/layout.tsx): from the server's read, then from the setting as it is changed. */
 export function LiveStoreCurrency({ currency, children }: { currency: string | null | undefined; children: React.ReactNode }) {
   const [now, setNow] = React.useState(currency)
+  /* Noted during render, before a child prefetches Analytics: the kept answer is for this currency. */
+  if (typeof now === "string" && /^[A-Za-z]{3}$/.test(now)) noteStoreCurrency(now)
   React.useEffect(() => setNow(currency), [currency])
   /* The server could not say (the app restoring its session, a slow read): asked here, so a lei store's fields never fall back to dollars. */
   React.useEffect(() => {
@@ -38,7 +41,10 @@ export function LiveStoreCurrency({ currency, children }: { currency: string | n
   React.useEffect(() => {
     const on = (e: Event) => {
       const next = (e as CustomEvent<string>).detail
-      if (typeof next === "string" && /^[A-Z]{3}$/.test(next)) setNow(next)
+      if (typeof next === "string" && /^[A-Z]{3}$/.test(next)) {
+        noteStoreCurrency(next)
+        setNow(next)
+      }
     }
     window.addEventListener(STORE_CURRENCY_EVENT, on)
     return () => window.removeEventListener(STORE_CURRENCY_EVENT, on)

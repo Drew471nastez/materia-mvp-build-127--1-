@@ -24,8 +24,12 @@ interface Repo {
   trees: Map<string, Tree>
   blobs: Map<string, Buffer>
   protected: Set<string>
-  statuses: { sha: string; state: string; description: string; context: string }[]
-  comments: { sha: string; body: string }[]
+  /** Ruleset rules by branch, as GET /rules/branches/{branch} lists them. */
+  rules: Map<string, string[]>
+  /** Push protection: text that looks like a secret. A commit holding it does not move a branch. */
+  secrets: RegExp | null
+  statuses: { sha: string; state: string; description: string; context: string; target_url?: string }[]
+  comments: { sha: string; body: string; html_url: string }[]
 }
 
 export interface Planned {
@@ -50,7 +54,7 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
   let serial = 0
 
   function newRepo(name: string, branch = "main", files: Record<string, string> | null = {}) {
-    const r: Repo = { default_branch: branch, refs: new Map(), commits: new Map(), trees: new Map(), blobs: new Map(), protected: new Set(), statuses: [], comments: [] }
+    const r: Repo = { default_branch: branch, refs: new Map(), commits: new Map(), trees: new Map(), blobs: new Map(), protected: new Set(), rules: new Map(), secrets: null, statuses: [], comments: [] }
     repos.set(name, r)
     if (files) commitFiles(name, branch, files, "Initial commit")
     return r
@@ -94,6 +98,8 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
   }
 
   const text = (name: string, ref: string, path: string) => filesAt(name, ref)[path]?.toString("utf8")
+  /** The git note on a commit in refs/notes/storelib, as `git notes --ref=storelib show <sha>` prints it. */
+  const note = (name: string, sha: string) => text(name, "refs/notes/storelib", sha)
 
   function isAncestor(r: Repo, maybe: string, of: string): boolean {
     const seen = new Set<string>()
@@ -143,15 +149,40 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
       const sha = r.refs.get(m[1])
       return sha ? json(200, { object: { sha } }) : json(404, { message: "Not Found" })
     }
+    /* Any other ref (refs/notes/storelib): kept under its full name, beside the branches. */
+    if ((m = /^\/git\/ref\/((?!heads\/).+)$/.exec(rest)) && method === "GET") {
+      const sha = r.refs.get(`refs/${m[1]}`)
+      return sha ? json(200, { object: { sha } }) : json(404, { message: "Not Found" })
+    }
+    if ((m = /^\/git\/refs\/((?!heads\/).+)$/.exec(rest)) && method === "PATCH") {
+      const name = `refs/${m[1]}`
+      const cur = r.refs.get(name)
+      if (!cur) return json(422, { message: "Reference does not exist" })
+      if (!body.force && !isAncestor(r, cur, body.sha)) return json(422, { message: "Update is not a fast forward" })
+      r.refs.set(name, body.sha)
+      return json(200, { object: { sha: body.sha } })
+    }
     if (rest === "/git/refs" && method === "POST") {
       const b = String(body.ref).replace(/^refs\/heads\//, "")
       if (r.refs.has(b)) return json(422, { message: "Reference already exists" })
       r.refs.set(b, body.sha)
       return json(201, { ref: body.ref, object: { sha: body.sha } })
     }
+    if ((m = /^\/branches\/(.+)$/.exec(rest)) && method === "GET") {
+      if (!r.refs.has(m[1])) return json(404, { message: "Branch not found" })
+      return json(200, { name: m[1], protected: r.protected.has(m[1]) })
+    }
+    if ((m = /^\/rules\/branches\/(.+)$/.exec(rest)) && method === "GET") {
+      return json(200, (r.rules.get(m[1]) ?? []).map((type) => ({ type, ruleset_source_type: "Repository", ruleset_id: 1 })))
+    }
     if ((m = /^\/git\/refs\/heads\/(.+)$/.exec(rest)) && method === "PATCH") {
       const b = m[1]
       if (r.protected.has(b)) return json(422, { message: "Protected branch update failed for refs/heads/" + b + "." })
+      if (r.secrets) {
+        const t = r.trees.get(r.commits.get(body.sha)?.tree ?? "")
+        const leak = t && [...t.values()].some((sha) => r.secrets!.test(r.blobs.get(sha)?.toString("utf8") ?? ""))
+        if (leak) return json(422, { message: "Repository rule violations found\n\n- GITHUB PUSH PROTECTION\n  Push cannot contain secrets", metadata: { secret_scanning: { bypass_placeholders: [{ placeholder_id: "x", token_type: "stripe_api_key" }] } } })
+      }
       const cur = r.refs.get(b)
       if (cur && !body.force && !isAncestor(r, cur, body.sha)) return json(422, { message: "Update is not a fast forward" })
       r.refs.set(b, body.sha)
@@ -212,12 +243,13 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
       return json(200, { status, files })
     }
     if ((m = /^\/statuses\/([0-9a-f]+)$/.exec(rest)) && method === "POST") {
-      r.statuses.push({ sha: m[1], state: body.state, description: body.description, context: body.context })
+      r.statuses.push({ sha: m[1], state: body.state, description: body.description, context: body.context, target_url: body.target_url })
       return json(201, {})
     }
     if ((m = /^\/commits\/([0-9a-f]+)\/comments$/.exec(rest)) && method === "POST") {
-      r.comments.push({ sha: m[1], body: body.body })
-      return json(201, {})
+      const html_url = `https://github.com/${name}/commit/${m[1]}#commitcomment-${r.comments.length + 1}`
+      r.comments.push({ sha: m[1], body: body.body, html_url })
+      return json(201, { html_url })
     }
     return json(404, { message: `fake GitHub has no ${method} ${rest}` })
   }
@@ -229,6 +261,7 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
     commitFiles,
     filesAt,
     text,
+    note,
     fail: (p: Planned) => planned.push(p),
     hooks,
     transport: (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => handle(url, init),

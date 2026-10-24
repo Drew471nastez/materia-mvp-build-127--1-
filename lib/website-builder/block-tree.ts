@@ -202,3 +202,55 @@ export function blockTreeProblem(section: { name?: string; type: string; blocks?
   if (depthOf(section.blocks) > MAX_BLOCK_DEPTH) return `Blocks nest ${MAX_BLOCK_DEPTH} deep at most. "${label}" goes deeper.`
   return null
 }
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   ONE STEP UP OR DOWN, FOR THE TOOLBAR OVER A SELECTED BLOCK (round 1023)
+  ═══════════════════════════════════════════════════════════════════════════
+  The canvas's floating toolbar moved the whole section when a block inside
+  it was selected (a price inside a product's information). A step moves the
+  block past its nearest neighbour in its own list, the one it would swap
+  places with in the sidebar's tree:
+
+    a static block never moves, and is never stepped over: its place is the
+    template's, so the step goes to the next block that can move, on the
+    far side of it, and the static stays where it was;
+    a block inside a block moves among its own siblings, never out;
+    a header link whose `parent_id` names another link (a dropdown's item,
+    kept flat beside its parent) moves among the items of the same parent.
+
+  Null when there is nowhere to go.
+*/
+function stepPartner(siblings: readonly BlockInstance[], from: number, dir: -1 | 1): number {
+  const me = siblings[from]
+  if (!me || me.static) return -1
+  const group = (b: BlockInstance) => (typeof b.settings?.parent_id === "string" ? (b.settings.parent_id as string) : "")
+  for (let i = from + dir; i >= 0 && i < siblings.length; i += dir) {
+    const b = siblings[i]
+    if (b.static || group(b) !== group(me)) continue
+    return i
+  }
+  return -1
+}
+
+/** Whether the block at `path` can go up and down a step. */
+export function blockSteps(list: readonly BlockInstance[] | undefined, path: readonly string[]): { up: boolean; down: boolean } {
+  const hit = blockAt(list, path)
+  if (!hit) return { up: false, down: false }
+  const from = hit.siblings.findIndex((b) => b.id === hit.block.id)
+  return { up: stepPartner(hit.siblings, from, -1) >= 0, down: stepPartner(hit.siblings, from, 1) >= 0 }
+}
+
+/** The list with the block at `path` one step up (-1) or down (1), or null when it cannot go. */
+export function stepBlock(list: readonly BlockInstance[] | undefined, path: readonly string[], dir: -1 | 1): BlockInstance[] | null {
+  const hit = blockAt(list, path)
+  if (!hit) return null
+  const from = hit.siblings.findIndex((b) => b.id === hit.block.id)
+  const to = stepPartner(hit.siblings, from, dir)
+  if (to < 0) return null
+  return withChildren(list, path.slice(0, -1), (children) => {
+    const next = [...children]
+    ;[next[from], next[to]] = [next[to], next[from]]
+    return next
+  })
+}

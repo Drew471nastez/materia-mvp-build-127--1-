@@ -502,7 +502,8 @@ async function perType() {
   check("the supplier's order shows each product's picture (a tile without one), sized", /<img class="e-thumb" src="https:\/\/storelib\.com\/api\/email\/img\?u=[^"]+" alt="Ceramic mug \(Sage\)"/.test(sup.html))
 
   /* The senders and previews read the one helper. */
-  check("every physical email sender reads lib/physical/store-link", ["lib/physical/jobs-server.ts", "lib/automations/abandoned-reminder.ts", "lib/reviews/requests-server.ts", "app/api/store/emails/route.ts", "app/api/store/emails/test/route.ts", "app/api/store/emails/preview/route.ts"].every((f) => /orderStoreUrl\(/.test(read(f))))
+  /* Changed on purpose: the preview and the test send build through one shared reader (lib/emails/customer-preview-server.ts), which reads the helper for both. */
+  check("every physical email sender reads lib/physical/store-link", ["lib/physical/jobs-server.ts", "lib/automations/abandoned-reminder.ts", "lib/reviews/requests-server.ts", "app/api/store/emails/route.ts", "lib/emails/customer-preview-server.ts"].every((f) => /orderStoreUrl\(/.test(read(f))) && ["app/api/store/emails/test/route.ts", "app/api/store/emails/preview/route.ts"].every((f) => /customer-preview-server/.test(read(f))))
   check("no physical email takes the store identity's creator page fallback any more", !/storeUrl: store\.websiteUrl|websiteUrl: store\.websiteUrl/.test(read("lib/physical/jobs-server.ts")) && !/store\?\.websiteUrl/.test(read("lib/automations/abandoned-reminder.ts")))
 }
 

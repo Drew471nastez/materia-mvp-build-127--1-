@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { loadProductEditor } from "../load-editor"
-import { ProductEditor } from "../new/product-editor"
+import { ProductEditorAcrossCurrency } from "../new/product-editor"
 import { getServerTt } from "@/lib/i18n/server"
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,5 +39,6 @@ export default async function ProductEditPage({ params }: ProductEditPageProps) 
   if (load.state === "missing") redirect("/app/products")
   /* A membership has its own screen: its price per month or year, its posts and its members (app/app/memberships). */
   if (load.loaded?.product.type === "membership") redirect(`/app/memberships/${encodeURIComponent(id)}`)
-  return <ProductEditor key={id} creator={load.creator} loaded={load.loaded} />
+  /* Drawn again in another currency after Settings converts the prices: mounted again on them, unless there is unsaved work (ProductEditorAcrossCurrency). */
+  return <ProductEditorAcrossCurrency key={id} id={id} creator={load.creator} loaded={load.loaded} />
 }

@@ -53,6 +53,7 @@ import { AxisLabels, fixedScale } from "@/components/app/chart-morph"
 import { MorphLines } from "@/components/app/morph-lines"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 
 /** How tall the chart is, and the band under the plot that holds the dates. */
 const CHART_H = 200
@@ -82,6 +83,7 @@ export interface AnalyticsChartData {
   clicks?: number
   subscribers?: number
   refunds?: number
+  pageViews?: number
   /** Null where the bucket had no visitors: no rate, drawn on the floor and read as "No visitors". */
   conversion?: number | null
   ctr?: number
@@ -89,6 +91,8 @@ export interface AnalyticsChartData {
   prev_sales?: number
   prev_revenue?: number
   prev_refunds?: number
+  prev_pageViews?: number
+  prev_clicks?: number
   prev_conversion?: number | null
 }
 
@@ -104,6 +108,9 @@ function previousKeyFor(filter: string): Key | null {
   if (filter === "orders") return "prev_sales"
   if (filter === "revenue") return "prev_revenue"
   if (filter === "conversion") return "prev_conversion"
+  if (filter === "refunds") return "prev_refunds"
+  if (filter === "pageviews") return "prev_pageViews"
+  if (filter === "clicks") return "prev_clicks"
   return null
 }
 
@@ -114,6 +121,8 @@ const LABELS: Record<string, string> = {
   get revenue() { return tt("Revenue") },
   get subscribers() { return tt("Subscribers") },
   get conversion() { return tt("Conversion") },
+  get refunds() { return tt("Refunds") },
+  get pageViews() { return tt("Page views") },
   ctr: "CTR",
 }
 
@@ -125,6 +134,9 @@ function visibleKeysFor(mode: "store" | "onepage", metric: string, onePage: stri
     if (metric === "all" || metric === "orders") k.push("sales")
     if (metric === "all" || metric === "revenue") k.push("revenue")
     if (metric === "conversion") k.push("conversion")
+    if (metric === "refunds") k.push("refunds")
+    if (metric === "pageviews") k.push("pageViews")
+    if (metric === "clicks") k.push("clicks")
     return k
   }
   const k: Key[] = []
@@ -136,6 +148,70 @@ function visibleKeysFor(mode: "store" | "onepage", metric: string, onePage: stri
 }
 
 /* ─── The frame: recharts lays out the grid and the dates, and nothing else ── */
+
+/** The least room between two dates along the bottom, as recharts' minTickGap had it. */
+const DATE_GAP = 18
+
+/*
+  THE DATES ARE MEASURED ON A CANVAS (round 39). recharts thinned them with
+  interval "preserveStartEnd" and drew each with its <Text>, and both measure
+  a word by writing it into a hidden span and reading its box: one forced
+  layout of the whole page per word. In the community admin, where every
+  section the owner opened is in the page, the first open of Analytics spent
+  540ms in those reads (scripts/check-community-admin-round39.mjs PROFILE).
+  The widest date is read from a canvas, which lays nothing out, and each
+  date is drawn as plain SVG text. Which are drawn: the first, the last, and
+  as many between as leave DATE_GAP, spread evenly (recharts' rule left an
+  uneven gap beside either end on a phone).
+*/
+let measure: CanvasRenderingContext2D | null | undefined
+function labelWidth(text: string): number {
+  if (measure === undefined) {
+    try {
+      measure = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d")
+      if (measure) measure.font = "11px Inter, ui-sans-serif, system-ui, sans-serif"
+    } catch {
+      measure = null
+    }
+  }
+  return measure ? measure.measureText(text).width : text.length * 6.5
+}
+
+interface DateTickProps {
+  widest: number
+  /** Where the plot starts: the first and the last date are kept inside it, as recharts' preserveStartEnd kept them. */
+  plotLeft: number
+  x?: number
+  y?: number
+  index?: number
+  visibleTicksCount?: number
+  /** The plot's width, which recharts hands every tick. */
+  width?: number
+  payload?: { value?: string | number }
+}
+
+/** One date under the plot, or nothing when its neighbours need the room. */
+function DateTick({ widest, plotLeft, x = 0, y = 0, index = 0, visibleTicksCount = 1, width = 0, payload }: DateTickProps) {
+  const last = visibleTicksCount - 1
+  const spacing = last > 0 ? width / last : width
+  /*
+    The fewest points two drawn dates are apart: a date and DATE_GAP, and half a date more, for an end pulled in to
+    fit. Then the dates are spread evenly from the first to the last, never closer than that.
+  */
+  const apart = spacing > 0 ? Math.max(1, Math.ceil((widest * 1.5 + DATE_GAP) / spacing)) : 1
+  const gaps = last > 0 ? Math.max(1, Math.floor(last / apart)) : 0
+  const j = gaps > 0 ? Math.round((index * gaps) / last) : 0
+  const shown = index === 0 || index === last || (gaps > 1 && Math.round((j * last) / gaps) === index)
+  if (!shown) return null
+  const text = String(payload?.value ?? "")
+  const half = labelWidth(text) / 2
+  const at = index === last && last > 0 ? Math.min(x, plotLeft + width - half) : index === 0 ? Math.max(x, plotLeft + half) : x
+  return (
+    <text x={at} y={y} dy="0.71em" textAnchor="middle" fontSize={11} fill="#9ca3af" className="recharts-cartesian-axis-tick-value">
+      {text}
+    </text>
+  )
+}
 
 interface FrameProps {
   /** The dates along the bottom, one per point. */
@@ -154,6 +230,7 @@ interface FrameProps {
  */
 const Frame = memo(function Frame({ dates, top, ticks, plotLeft }: FrameProps) {
   const data = useMemo(() => dates.map((date) => ({ date })), [dates])
+  const widest = useMemo(() => Math.max(0, ...dates.map(labelWidth)), [dates])
   return (
     <ResponsiveContainer width="100%" height={CHART_H}>
       <AreaChart data={data} margin={{ top: PLOT_TOP, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
@@ -168,11 +245,10 @@ const Frame = memo(function Frame({ dates, top, ticks, plotLeft }: FrameProps) {
         <XAxis
           dataKey="date"
           height={XAXIS_H}
-          tick={{ fontSize: 11, fill: "#9ca3af" }}
+          tick={<DateTick widest={widest} plotLeft={plotLeft} />}
           tickLine={false}
           axisLine={false}
-          interval="preserveStartEnd"
-          minTickGap={18}
+          interval={0}
         />
         {/*
           THE SCALE IS GIVEN, NOT GUESSED: a domain with headroom and the
@@ -203,6 +279,9 @@ const METRICS_OF: Record<"store" | "onepage", Array<{ keys: Key[]; kind: AxisKin
     { keys: ["sales", "prev_sales"], kind: "count" },
     { keys: ["revenue", "prev_revenue"], kind: "money" },
     { keys: ["conversion", "prev_conversion"], kind: "percent" },
+    { keys: ["refunds", "prev_refunds"], kind: "money" },
+    { keys: ["pageViews", "prev_pageViews"], kind: "count" },
+    { keys: ["clicks", "prev_clicks"], kind: "count" },
   ],
   onepage: [
     { keys: ["views"], kind: "count" },
@@ -212,8 +291,8 @@ const METRICS_OF: Record<"store" | "onepage", Array<{ keys: Key[]; kind: AxisKin
   ],
 }
 
-const tickFor = (kind: AxisKind, step: number) => (v: number) =>
-  kind === "percent" ? compactPercent(v / 100) : kind === "money" ? compactMoney(v, step) : compactCount(v)
+const tickFor = (kind: AxisKind, step: number, currency?: string) => (v: number) =>
+  kind === "percent" ? compactPercent(v / 100) : kind === "money" ? compactMoney(v, step, currency) : compactCount(v)
 
 function maxOf(data: AnalyticsChartData[], keys: Key[]): number {
   let max = 0
@@ -233,6 +312,7 @@ function AnalyticsChartWithTooltipInner({
   compareLabel = null,
   color = CHART_COLORS.views,
   seriesLabels,
+  axisMax,
 }: {
   chartDisplayData: AnalyticsChartData[]
   analyticsMode: "store" | "onepage"
@@ -256,6 +336,13 @@ function AnalyticsChartWithTooltipInner({
   color?: string
   /** A series under another name in the readout: a form's "clicks" are Submissions. */
   seriesLabels?: Partial<Record<string, string>>
+  /**
+   * The highest number each kind of figure reaches across every tab, for a
+   * page whose tabs hand the chart one figure at a time (a community's
+   * Analytics): the axis is made as wide as the widest of them, so a tab
+   * never moves the plot sideways. Left out, the series' own numbers decide.
+   */
+  axisMax?: Partial<Record<AxisKind, number>>
 }) {
   const visibleKeys = useMemo(
     () => visibleKeysFor(analyticsMode, chartMetricFilter, onePageChartFilter),
@@ -263,7 +350,7 @@ function AnalyticsChartWithTooltipInner({
   )
   const compareKey = analyticsMode === "store" && compareLabel ? previousKeyFor(chartMetricFilter) : null
   const isPercent = chartMetricFilter === "conversion" && analyticsMode === "store" ? true : analyticsMode === "onepage" && onePageChartFilter === "ctr"
-  const isMoney = analyticsMode === "store" && chartMetricFilter === "revenue"
+  const isMoney = analyticsMode === "store" && (chartMetricFilter === "revenue" || chartMetricFilter === "refunds")
 
   /* The scale, from every number the plot will draw. Always three intervals. */
   const scale = useMemo(
@@ -271,10 +358,11 @@ function AnalyticsChartWithTooltipInner({
     [chartDisplayData, visibleKeys, compareKey, isPercent, isMoney],
   )
 
-  /** One formatter, used to write the numbers on the axis and to measure how wide they are. */
+  /** One formatter, used to write the numbers on the axis and to measure how wide they are. Money in the store's currency (/app's LiveStoreCurrency). */
+  const currency = useStoreCurrency()
   const axisTick = useCallback(
-    (v: number) => tickFor(isPercent ? "percent" : isMoney ? "money" : "count", scale.step)(v),
-    [isPercent, isMoney, scale.step],
+    (v: number) => tickFor(isPercent ? "percent" : isMoney ? "money" : "count", scale.step, currency)(v),
+    [isPercent, isMoney, scale.step, currency],
   )
   const axisLabels = useMemo(() => scale.ticks.map(axisTick), [scale.ticks, axisTick])
   /*
@@ -286,10 +374,14 @@ function AnalyticsChartWithTooltipInner({
   const plotLeft = useMemo(() => {
     const widths = METRICS_OF[analyticsMode].map(({ keys, kind }) => {
       const sc = fixedScale(maxOf(chartDisplayData, keys), kind === "count")
-      return axisWidth(sc.ticks.map(tickFor(kind, sc.step)), 11, 8)
+      return axisWidth(sc.ticks.map(tickFor(kind, sc.step, currency)), 11, 8)
     })
-    return Math.max(axisWidth(axisLabels, 11, 8), ...widths)
-  }, [analyticsMode, chartDisplayData, axisLabels])
+    const given = (Object.entries(axisMax ?? {}) as [AxisKind, number][]).map(([kind, max]) => {
+      const sc = fixedScale(Math.max(0, max || 0), kind === "count")
+      return axisWidth(sc.ticks.map(tickFor(kind, sc.step, currency)), 11, 8)
+    })
+    return Math.max(axisWidth(axisLabels, 11, 8), ...widths, ...given)
+  }, [analyticsMode, chartDisplayData, axisLabels, axisMax, currency])
 
   /*
     THE LINES: the chosen metric in the first slot whatever it is, so a tab

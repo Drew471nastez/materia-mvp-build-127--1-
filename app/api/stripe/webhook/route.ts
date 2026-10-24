@@ -321,6 +321,33 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     }
   }
 
+  /*
+    A COMMUNITY LIBRARY ITEM bought in its sheet (lib/communities/server/
+    library-checkout.ts, round 39): its own sessions, marked by
+    metadata.kind "community_library" and never by a product, so the session
+    path below never makes an order from one. Its PaymentIntent is a product
+    checkout's, so the order is made by the same fulfilment as every product
+    sale (here, by the PaymentIntent's own event, or by the sheet's confirm,
+    whichever is first), and the purchase is recorded against the item. A
+    server failure answers 500 so Stripe retries.
+  */
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+    const session = event.data.object as Stripe.Checkout.Session
+    if (session.metadata?.kind === "community_library") {
+      const library = await import("@/lib/communities/server/library-checkout")
+      if (library.isLibrarySession(session)) {
+        if (session.payment_status !== "paid") return NextResponse.json({ received: true, message: "Library item not paid yet" })
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
+        const done = await library.grantLibraryFromSession(supabaseAdmin, session, (pi) => fulfilPaymentIntent(supabaseAdmin, pi, { baseUrl }))
+        if (done.ok === false && done.status >= 500) {
+          console.error("[Webhook] library purchase not recorded:", session.id, done.error)
+          return NextResponse.json({ error: "Library purchase not recorded yet" }, { status: 500 })
+        }
+        return NextResponse.json({ received: true })
+      }
+    }
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
 
@@ -826,6 +853,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         baseUrl,
         variantName: variantName || null,
         sale: { couponCode: metadata.coupon_code || null, discountCents: Math.max(0, Number.parseInt(metadata.discount_cents || "0", 10) || 0) },
+        /* Where it was bought: the receipt's language and who signs it (lib/emails/buyer-channel.ts). */
+        source: orderSourceFrom(metadata),
+        origin: orderOriginFrom(metadata),
       })
 
       try {
@@ -935,6 +965,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         console.error("[Webhook] checkout fulfilment failed:", pi.id, result.error)
         if (result.status >= 500) return NextResponse.json({ error: result.error }, { status: 500 })
       }
+      /* Round 39: a community Library sale, recorded against its item once its order exists (lib/communities/server/library-checkout.ts). */
+      if (result.ok && pi.metadata?.kind === "community_library") await (await import("@/lib/communities/server/library-checkout")).recordFromIntent(supabaseAdmin, pi, result.orderId)
       return NextResponse.json({ received: true })
     }
   }
@@ -1354,6 +1386,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       await revokeRefundedProgram(supabaseAdmin, intentId)
       await revokeRefundedTicket(supabaseAdmin, intentId)
       await (await import("@/lib/communities/server/module-sales")).revokeRefundedModule(supabaseAdmin, intentId)
+      /* Round 39: a Library sale's record marked; the refund itself takes the product out of the buyer's library (lib/stripe/refund-sync.ts), which locks the item. */
+      await (await import("@/lib/communities/server/library-checkout")).revokeRefundedLibrary(supabaseAdmin, intentId)
     }
     try {
       const done = await syncChargeRefund(supabaseAdmin, stripe, charge)

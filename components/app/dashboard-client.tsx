@@ -952,7 +952,7 @@ export function DashboardClient({
     const request = ++chartRequestRef.current
     const fromPull = opts?.pull === true
     setIsChartLoading(true)
-    const { window: span, previous, key } = homeQuestion(period, dashTimeZone, reportNow(Date.now() + (askPastKept.current ? NOW_STEP_MS : 0)))
+    const { window: span, previous, key } = homeQuestion(period, dashTimeZone, reportNow(Date.now() + (askPastKept.current ? NOW_STEP_MS : 0)), storeCurrencyCode)
     askPastKept.current = false
     const question = questionOf(key)
     const answerOf = (answer: Record<string, unknown>): HomeAnswer => ({
@@ -1017,7 +1017,7 @@ export function DashboardClient({
     }, 8000)
     fetchPeriodEvents().finally(() => window.clearTimeout(safetyTimer))
     return () => window.clearTimeout(safetyTimer)
-  }, [periodKey, creatorId, ordersChanged]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [periodKey, creatorId, ordersChanged, storeCurrencyCode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * WHAT THE ACCOUNT HAS DONE (lib/home/progress), from the server, asked for
@@ -1036,7 +1036,8 @@ export function DashboardClient({
         : readFacts,
     [readFacts, homeAnswer?.allTime, totals.totalOrders, totals.totalRevenue],
   )
-  const progress = useMemo(() => homeProgress(facts), [facts])
+  /* The revenue goal is said in the store's currency, which the revenue is counted in. */
+  const progress = useMemo(() => homeProgress(facts, storeCurrencyCode), [facts, storeCurrencyCode])
   const hasProducts = facts.products > 0
   const hasPayouts = facts.paymentsReady
   /**

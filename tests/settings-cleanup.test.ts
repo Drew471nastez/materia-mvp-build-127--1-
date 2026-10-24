@@ -100,7 +100,8 @@ console.log("\nTaken out of the panel")
   check("the old announcement bar shows only to a site that has it on", old?.shownWhen === "announcement_bar_enabled")
   check("and holds only its switch", (old?.fields ?? []).map((f) => f.id).join(",") === "announcement_bar_enabled", old?.fields.map((f) => f.id))
   check("which says where the bar went", /Announcement bar section in the Header group/.test(old?.fields[0]?.info ?? ""))
-  check("the page still draws it while it is on, so no live bar vanishes", /t\.announcement_bar_enabled === true/.test(page) && /<AnnouncementBar theme=\{theme\} \/>/.test(page))
+  /* Changed on purpose (round 35): in the editor the bar is drawn with the live theme (chromeTheme), the theme otherwise. */
+  check("the page still draws it while it is on, so no live bar vanishes", /t\.announcement_bar_enabled === true/.test(page) && /<AnnouncementBar theme=\{chromeTheme \?\? theme\} \/>/.test(page))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("General Settings leaves out a group whose switch is off", /\.filter\(group => !group\.shownWhen \|\| settingsDraft\[group\.shownWhen as keyof ThemeSettingsValues\] === true\)/.test(editor))
 

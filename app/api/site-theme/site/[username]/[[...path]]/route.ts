@@ -19,6 +19,8 @@ import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { isSiteReadError } from "@/lib/website-builder/site-read"
 import { CART_COOKIE, accountFormPost, answer, readCartCookie, writeCartCookie } from "@/lib/storelib-theme/compat/site"
 import { siteAccountOf } from "@/lib/site-accounts/theme-visitor"
+import { compatCartPricing } from "@/lib/storelib-theme/compat/cart-pricing-server"
+import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { hostOf } from "@/lib/site-accounts/session"
 import { sameOriginForm } from "@/lib/site-accounts/respond"
 import { POST as sendSignInCode } from "@/app/api/site-account/code/route"
@@ -34,12 +36,21 @@ import { gaProductFor } from "@/lib/store/ga-server"
 import { compatPageTags, productIdForPath } from "@/lib/store/compat-page-tags"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { PUBLIC_PAGE_CACHE, PUBLIC_PAGE_VARY, publicAnswer, readStrangerMarker } from "@/lib/storelib-theme/compat/anonymous-cache"
+import { PUBLIC_PAGE_CACHE, SHAREABLE_HEADER, publicAnswer, readStrangerMarker } from "@/lib/storelib-theme/compat/anonymous-cache"
 import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stranger-hold"
 import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/first-load"
 import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compat/script-order"
 import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
+import { siteLanguages } from "@/lib/markets/live"
+
+/** A promise started ahead of where it is awaited, never reported as unhandled when the answer leaves first. */
+function quietly<T>(p: Promise<T>): Promise<T> {
+  p.catch(() => {})
+  return p
+}
+import { liveSiteFor } from "@/lib/website-builder/live-release"
+import { freshAddress, liveReleaseScript } from "@/lib/website-builder/live-release-script"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -132,6 +143,19 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     tried again in a moment, never cached, when there is no last good copy
     to serve (lib/website-builder/compat-site.ts).
   */
+  /*
+    ASKED BESIDE THE SITE, NOT AFTER IT: the website's languages (which the
+    draw lays over it) and, for a page, the store's analytics tags. Each
+    needs only the creator, and each was a round trip of its own after the
+    whole site had been read. Not for a preview, which shows neither.
+  */
+  const creatorAsked = token ? null : quietly(creatorByName(username).catch(() => null))
+  const languagesAsked = creatorAsked ? quietly(creatorAsked.then(async (c) => (c ? { creatorId: c.creatorId, value: await siteLanguages(c.creatorId) } : null))) : null
+  const pageAsked = req.method === "GET" && !/\.(js|json)$/.test(segments[segments.length - 1] ?? "") && req.headers.get("x-requested-with") !== "XMLHttpRequest" && !(req.headers.get("accept") ?? "").includes("application/json")
+  const trackingAsked = creatorAsked && pageAsked ? quietly(creatorAsked.then(async (c) => (c ? { creatorId: c.creatorId, value: await publishedTracking(createAdminClient(), c.creatorId).catch(() => null) } : null))) : null
+  /* Each early answer only for the site that was found (the same name's creator; never a last good copy's other one). */
+  const forSite = <T,>(asked: Promise<{ creatorId: string; value: T } | null> | null, creatorId: string): Promise<T | undefined> | undefined =>
+    asked ? asked.then((a) => (a && a.creatorId === creatorId ? a.value : undefined)) : undefined
   let found: Awaited<ReturnType<typeof compatSiteByName>>
   try {
     found = await compatSiteByName(username, host, token)
@@ -140,7 +164,17 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     console.error("[site-theme] site unavailable:", e.message)
     return new NextResponse(UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
   }
-  if (found.kind !== "site") return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
+  if (found.kind !== "site") {
+    /*
+      A STORELIB THEME IS LIVE NOW, published over the imported one a moment
+      ago, and this server's proxy routed by the answer from before
+      (lib/website-builder/live-release-script.ts SITE_FRESH_PARAM): the
+      same address again, once, for the proxy to ask afresh.
+    */
+    const again = token ? null : await switchedAway(req, username, segments)
+    if (again) return new NextResponse(null, { status: 307, headers: { Location: again, "Cache-Control": "no-store" } })
+    return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
+  }
   /*
     IN ANOTHER OF THE WEBSITE'S LANGUAGES: /fr/… on the website, sent here by
     the proxy with the language named in a header only it sets (the seal
@@ -164,10 +198,12 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
         told: token ? null : req.headers.get(SITE_COUNTRY_HEADER),
         seen: seenCountry(req.headers),
       })
-  found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry) }
+  /* The store's own currency, before the page is put in the market's: what the checkout prices the cart in. */
+  const storeCurrency = found.site.shop.currency ?? "USD"
+  found = { ...found, site: await localizeCompatSite(found.site, locale, market, visitorCountry, forSite(languagesAsked, found.site.creatorId)) }
 
   const cookie = stranger ? undefined : req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
-  const { cart, note, attributes } = readCartCookie(cookie)
+  const { cart, note, attributes, discount } = readCartCookie(cookie)
   const sitePath = `/${segments.map(encodeURIComponent).join("/")}`
   const fields = await bodyOf(req)
   const ajax = req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("content-type") ?? "").includes("application/json") || (req.headers.get("accept") ?? "").includes("application/json")
@@ -201,7 +237,19 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const account = token || stranger || !page ? undefined : await siteAccountOf(req, found.site.creatorId, { orders: accountPath, pending: accountPath, order: orderId })
 
   const shopId = found.site.creatorId
-  const out = await answer(found.site, {
+  /*
+    A DISCOUNT CODE TRIED FROM THE THEME'S CART (/cart/update.js `discount`):
+    counted with the checkout's own code checks, so the cart is no faster a
+    way to guess a shop's codes than the checkout is.
+  */
+  const triedCode = req.method === "POST" && typeof fields?.discount === "string" && fields.discount.trim() !== ""
+  if (triedCode && !token) {
+    const limited = await rateLimit({ bucket: "coupon", subjects: [addressSubject(req)], windows: [{ limit: 120, seconds: 600 }], message: "Too many requests. Wait a moment and try again." })
+    if (limited) return NextResponse.json({ status: 429, message: "Too many tries. Wait a moment and try again.", description: "Too many tries. Wait a moment and try again." }, { status: 429, headers: { "Cache-Control": "private, no-store" } })
+  }
+  /* The cart priced by the website's own checkout: its discount code and its delivery rates (lib/storelib-theme/compat/cart-pricing-server.ts). Never on a preview, which has no checkout. */
+  const site = token || stranger ? found.site : { ...found.site, pricing: compatCartPricing({ creatorId: shopId, storeCurrency, market }) }
+  const out = await answer(site, {
     method: req.method,
     path: sitePath,
     query: url.searchParams,
@@ -209,6 +257,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     cart,
     note,
     attributes,
+    discountCode: discount,
     ajax,
     referer: refererPath(req.headers.get("referer")),
     account,
@@ -237,12 +286,21 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */
   if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store")
   if (out.cart) {
-    headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
+    headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes, out.discountCode ?? discount)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
   }
-  /* A stranger's plain page: a minute in the CDN. Anything else drawn for the marker (a redirect, a 404, a cookie set) keeps its private header. */
+  /*
+    A stranger's plain page: the same for every stranger sent to this marked
+    address, so the hold below may hand it on (handleHeld). NOT TO THE CDN
+    ANY MORE: a CDN copy is out of Publish's reach (revalidateTag clears
+    Next's caches, not the CDN's copy of a route's answer), and it showed the
+    previous theme for up to its minute after every Publish. The held copy is
+    under the site's tag, which Publish expires at once. The browser is told
+    what any page of the theme says ("private, no-cache"), which keeps Back
+    and Forward instant. Anything else drawn for the marker keeps its own header.
+  */
   if (stranger && !ajax && publicAnswer({ method: req.method, status: out.status, type: out.type, cacheControl: headers.get("Cache-Control"), setsCookie: headers.has("Set-Cookie"), changesCart: out.cart !== undefined })) {
     headers.set("Cache-Control", PUBLIC_PAGE_CACHE)
-    headers.set("Vary", PUBLIC_PAGE_VARY)
+    headers.set(SHAREABLE_HEADER, "1")
   }
   if (req.method === "HEAD") return new NextResponse(null, { status: out.status, headers })
   /*
@@ -255,11 +313,21 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   if (html && !token && page && out.status === 200 && /text\/html/i.test(out.type) && /<\/body>/i.test(html)) {
     /* The page's product by its id from the lists already held: its full read (description, each variant's stock) ran once to draw the page and is not run again for the tags. */
     const productId = productIdForPath(found.site, sitePath)
-    const stored = await publishedTracking(createAdminClient(), found.site.creatorId).catch(() => null)
+    const markerRead = liveSiteFor(found.site.creatorId).then((l) => l?.marker ?? null, () => null)
+    const early = await forSite(trackingAsked, found.site.creatorId)
+    const stored = early !== undefined ? early : await publishedTracking(createAdminClient(), found.site.creatorId).catch(() => null)
     /* The store's Google Analytics with the page's product named, its pixels, Storelib's tracker and the visitor's language offer (lib/store/compat-page-tags.ts). */
     const t = readTracking(stored)
     const named = productId && (t.ga4 || t.google_ads) ? await gaProductFor(found.site.creatorId, null, productId) : null
-    const tags = compatPageTags({ stored, creatorId: found.site.creatorId, productId, named, i18n: found.site.i18n, mainDomain: getMainDomain() })
+    /*
+      WHICH PUBLISH THIS PAGE WAS DRAWN FROM, so a copy the browser restores
+      after a Publish (Back from checkout, a tab shown again) asks and loads
+      again (lib/website-builder/live-release.ts). Held under the site's tag
+      with the page, so a held stranger's page carries the marker it was
+      drawn with.
+    */
+    const marker = await markerRead
+    const tags = compatPageTags({ stored, creatorId: found.site.creatorId, productId, named, i18n: found.site.i18n, mainDomain: getMainDomain() }) + (marker ? releaseTag(username, marker) : "")
     const at = html.search(/<\/body>(?![\s\S]*<\/body>)/i)
     html = `${html.slice(0, at)}${tags}${html.slice(at)}`
     /*
@@ -291,6 +359,28 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
 }
 
 /**
+ * The address to send a page request on to when the website's live theme is
+ * a Storelib theme (the proxy's answer was from before a switch), or null.
+ * Only for a page asked for as a page, only once (freshAddress), and only
+ * for a website with something published.
+ */
+async function switchedAway(req: Request, username: string, segments: readonly string[]): Promise<string | null> {
+  if (req.method !== "GET" || !openedAsDocument(req.headers)) return null
+  const creator = await creatorByName(username).catch(() => null)
+  const live = creator ? await liveSiteFor(creator.creatorId).catch(() => null) : null
+  if (!live || live.compat) return null
+  const locale = req.headers.get(SITE_LOCALE_HEADER)
+  const path = `/${segments.map(encodeURIComponent).join("/")}`
+  return freshAddress(`${locale ? `/${encodeURIComponent(locale)}` : ""}${path === "/" && locale ? "" : path}${new URL(req.url).search}`)
+}
+
+/** The release watch, as a tag before </body> (lib/website-builder/live-release-script.ts). Nothing for a name or marker it does not accept. */
+function releaseTag(name: string, marker: string): string {
+  const js = liveReleaseScript(name, marker)
+  return js ? `<script data-storelib-release>${js}</script>` : ""
+}
+
+/**
  * A STRANGER'S PAGE, DRAWN ONCE AND HANDED TO EVERY STRANGER SENT TO THE SAME
  * MARKED ADDRESS (lib/storelib-theme/compat/stranger-hold.ts). Only after the
  * same checks the draw makes: the proxy's seal for this name on this host,
@@ -315,9 +405,11 @@ async function handleHeld(req: Request, ctx: Params): Promise<Response> {
     const res = await handle(req, ctx)
     const headers = [...res.headers.entries()]
     const body = await res.text()
-    return { status: res.status, headers, body, share: res.status === 200 && res.headers.get("Cache-Control") === PUBLIC_PAGE_CACHE && !res.headers.has("Set-Cookie") }
+    return { status: res.status, headers, body, share: res.status === 200 && res.headers.get(SHAREABLE_HEADER) === "1" && res.headers.get("Cache-Control") === PUBLIC_PAGE_CACHE && !res.headers.has("Set-Cookie") }
   })
   const headers = new Headers(page.headers)
+  /* Said between the draw and the hold only. */
+  headers.delete(SHAREABLE_HEADER)
   /* Said for /admin/performance and for a person checking: this page came from the hold, not a new draw. */
   headers.set("X-Storelib-Held", page.held ? "hit" : "miss")
   return new NextResponse(page.body, { status: page.status, headers })

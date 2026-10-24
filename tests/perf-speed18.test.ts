@@ -72,7 +72,20 @@ async function routeFacts() {
   useFixture(buildFixture())
   const maya = await visit(() => readSiteFacts(db(), "Maya"))
   check("a username: its creator, a published website, not an imported theme", maya.value?.facts.creatorId === SITE.creatorId && maya.value.facts.published && !maya.value.facts.compat && !maya.value.failed, maya.value)
-  check("in three round trips (profile, creator, install with its settings)", maya.foreground === 3, maya.trips.map((t) => t.table))
+  /* Changed on purpose (live speed, Oct 21): SQL part 257's site_route_facts answers the chain, and what the proxy asks next, in one round trip. */
+  check("in one round trip (site_route_facts, SQL part 257)", maya.foreground === 1 && maya.trips[0]?.table === "rpc:site_route_facts", maya.trips.map((t) => t.table))
+  check("  with the website's domain for the proxy's next question", maya.value?.facts.extras?.websiteDomain?.domain === "mayastudio.com", maya.value?.facts.extras)
+
+  forgetSiteFacts()
+  useFixture(fixtureWith((f) => {
+    delete f.rpc!.site_route_facts
+  }))
+  const before257 = await visit(() => readSiteFacts(db(), "Maya"))
+  check("part 257 not run: the same answer from the rows", before257.value?.facts.creatorId === SITE.creatorId && before257.value.facts.published && !before257.value.facts.extras && !before257.value.failed, before257.value)
+  check("  in three round trips (profile, creator, install with its settings) after the one that found no function", before257.foreground === 4 && before257.trips.slice(1).map((t) => t.table).join() === "profiles,creators,store_theme_installs", before257.trips.map((t) => t.table))
+  const after257Missing = await visit(() => readSiteFacts(db(), "Maya"))
+  check("  and the function is not asked for again for a while", after257Missing.foreground === 3 && !after257Missing.trips.some((t) => t.table.startsWith("rpc:")), after257Missing.trips.map((t) => t.table))
+  forgetSiteFacts()
 
   useFixture(fixtureWith((f) => {
     const s = f.tables.store_theme_settings.find((r) => r.install_id === SITE.installId)!
@@ -109,7 +122,7 @@ async function routeFacts() {
 
   forgetSiteFacts()
   const together = await visit(() => Promise.all([siteFactsFor(db(), "maya"), siteFactsFor(db(), "MAYA")]))
-  check("two questions asked together share one read", together.foreground === 3, together.trips.map((t) => t.table))
+  check("two questions asked together share one read", together.foreground === 1, together.trips.map((t) => t.table))
 
   forgetSiteFacts()
   rememberCreatorOf("maya", SITE.creatorId)
@@ -345,8 +358,9 @@ async function profileByName() {
   check("nobody by that name is still nobody", nobody.value === null)
   const page = code("app/(marketing)/u/[username]/page.tsx")
   const batch = page.indexOf("{ data: catalogue, error: productsError }")
-  const started = ["const followingPromise = Promise.resolve(", "const viewerFollowsPromise = viewerPromise.then(", "const placePromise = readProfileLocation(", "const offPagePromise = offChannel("]
-  check("the creator page starts its follow counts, location and channels with its first batch, not after it", started.every((s) => page.indexOf(s) > 0 && page.indexOf(s) < batch) && /followingPromise,\s*viewerFollowsPromise,\s*headers\(\),[\s\S]{0,200}placePromise,\s*\]\)/.test(page) && /await offPagePromise/.test(page))
+  /* Changed on purpose (round 38): a creator page reads no follower or following count, so there is no followingPromise to start. */
+  const started = ["const viewerFollowsPromise = viewerPromise.then(", "const placePromise = readProfileLocation(", "const offPagePromise = offChannel("]
+  check("the creator page starts the viewer's follow, location and channels with its first batch, not after it", started.every((s) => page.indexOf(s) > 0 && page.indexOf(s) < batch) && /\[viewerFollowsCreator, requestHeaders, place\] = await Promise\.all\(\[\s*viewerFollowsPromise,\s*headers\(\),[\s\S]{0,200}placePromise,\s*\]\)/.test(page) && /await offPagePromise/.test(page) && !/followingPromise|count: "exact", head: true \}\)\.eq\("(following|follower)_id", profile\.id\)/.test(page))
   check("and the viewer's own follow is still asked only for a signed in visitor who is not the owner", /data\.user && data\.user\.id !== profile\.id\s*\?\s*supabase\.from\("follows"\)\.select\("id"\)\.eq\("follower_id", data\.user\.id\)\.eq\("following_id", profile\.id\)/.test(page))
   const sales = code("lib/communities/server/public.ts")
   check("a community's sales page asks for its gallery and live numbers beside its tiers, not after its products", sales.indexOf("const galleryAndStats = opts?.light ? null : Promise.all([communityGallery(db, community), communityStats(db, community)])") > 0 && sales.indexOf("const galleryAndStats") < sales.search(/const \[tiers, links, creators[^\]]*\] = await Promise\.all\(\[/) /* Changed on purpose (round 26): the summary and the staff deletion date join the same batch. */ && /galleryAndStats!\.then\(\(\[gallery\]\) => gallery\)/.test(sales) && sales.indexOf("if (community.status === \"draft\" && !staff) return null") < sales.indexOf("const galleryAndStats"))

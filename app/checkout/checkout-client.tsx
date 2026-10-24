@@ -825,7 +825,7 @@ export default function CheckoutPageClient({
 
   /* ── Checks, before anything is sent ─────────────────────────────── */
   const checkBusinessNow = (): string | null => {
-    if (!businessOn) return null
+    if (!businessOn || !checkoutConfig.businessInvoice) return null
     const r = checkBusiness(business)
     if (r.ok) {
       setBusinessErrors({})
@@ -885,7 +885,7 @@ export default function CheckoutPageClient({
       /* The country the tax line was worked out for; the server checks it. */
       taxCountry: checkoutTax ? taxCountry : null,
       agreedToTerms: agreed,
-      business: businessOn ? business : null,
+      business: businessOn && checkoutConfig.businessInvoice ? business : null,
       /* Which page sent the buyer here and where their visit came from, for
          the order's Source (lib/orders/checkout-origin). Read when Pay is
          pressed, when the page before this one is surely known. */
@@ -1246,7 +1246,8 @@ export default function CheckoutPageClient({
 
   const beforePay = (
     <>
-      {!isFree ? (
+      {/* Only where the store offers company invoices (Settings › Checkout, businessInvoice): off, the box is not drawn and nothing of it is sent. */}
+      {!isFree && checkoutConfig.businessInvoice ? (
         <section aria-label="Invoice">
           <BusinessFields
             on={businessOn}

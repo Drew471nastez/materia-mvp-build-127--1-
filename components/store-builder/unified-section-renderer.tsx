@@ -29,7 +29,7 @@ import { AppAvatar, AvatarMark } from "@/components/app/app-avatar"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Mail, Package, Share2, Star, Users, X } from "lucide-react"
+import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Mail, Package, Share2, Star, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { applyManualOrder, pickFeatured } from "@/lib/store-builder/featured-order"
@@ -2620,20 +2620,6 @@ function UnifiedFeaturedProductsSection({
   )
 }
 
-/**
- * 1.2K rather than 1237. Past a thousand the exact number stops being
- * information and starts being noise on a line meant to be read at a glance.
- */
-function formatCompactCount(value: number): string {
-  if (value < 1000) return String(value)
-  if (value < 1_000_000) {
-    const thousands = value / 1000
-    return `${thousands >= 100 ? Math.round(thousands) : thousands.toFixed(1).replace(/\.0$/, "")}K`
-  }
-  const millions = value / 1_000_000
-  return `${millions >= 100 ? Math.round(millions) : millions.toFixed(1).replace(/\.0$/, "")}M`
-}
-
 // ====== SHOP HEADER - UNIFIED ======
 export interface UnifiedShopHeaderProps {
   settings: ShopHeaderSettings
@@ -2659,18 +2645,21 @@ export interface UnifiedShopHeaderProps {
   ownerActions?: React.ReactNode
   /**
    * Aggregates for the meta row. Passed in rather than derived here because
-   * the page already has them: a rating weighted across every product, and a
-   * follower count that is a query of its own.
+   * the page already has them: a rating weighted across every product.
+   *
+   * NO FOLLOWER COUNT. The meta row printed one when no follow block was
+   * given (the editor's canvas, a creator's own page with the Show followers
+   * switch off). The owner (round 38): followers and following only on
+   * profiles inside communities, never on a creator page. A person's profile
+   * draws its counts in the follow block below, not here.
    */
   reviewCount?: number
   reviewAverage?: number
-  followerCount?: number
   /**
-   * FOLLOWERS, FOLLOWING AND THE FOLLOW BUTTON, under the meta row, on the
-   * LIVE page only (components/profile/profile-social.tsx, filled by the
-   * page). When it is given, the follower count leaves the meta row: the
-   * slot draws it, tappable, beside the following count, and the same
-   * number is not printed twice.
+   * THE FOLLOW BLOCK, under the meta row, on the LIVE page only
+   * (components/profile/profile-social.tsx, filled by the page). On a
+   * person's profile it carries their followers and following; on a creator
+   * page only where they are from and Follow.
    */
   followRow?: React.ReactNode
   /**
@@ -2720,7 +2709,6 @@ export function UnifiedShopHeader({
   ownerActions,
   reviewCount = 0,
   reviewAverage = 0,
-  followerCount = 0,
   followRow,
   surface,
   badges,
@@ -3317,7 +3305,7 @@ export function UnifiedShopHeader({
           )}
 
           {/*
-            ONE META ROW: the rating, the followers (when no follow block is given) and the social
+            ONE META ROW: the rating and the social
             icons, separated by dots.
 
             These were three stacked blocks, each with its own top margin, so a
@@ -3348,7 +3336,7 @@ export function UnifiedShopHeader({
                 line — the products themselves are directly below, and their
                 number is on the About section where somebody reading about the
                 creator might actually want it. What stays is what a visitor
-                cannot see by scrolling: the rating and the following.
+                cannot see by scrolling: the rating.
               */
 
               /**
@@ -3366,15 +3354,6 @@ export function UnifiedShopHeader({
                     <span className="opacity-70">
                       {reviewCount} {reviewCount === 1 ? "review" : "reviews"}
                     </span>
-                  </span>,
-                )
-              }
-
-              if (!followRow && (settings.showFollowers ?? true) && followerCount > 0) {
-                parts.push(
-                  <span key="followers" className="flex items-center gap-1.5">
-                    <Users className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
-                    {formatCompactCount(followerCount)} {followerCount === 1 ? "follower" : "followers"}
                   </span>,
                 )
               }

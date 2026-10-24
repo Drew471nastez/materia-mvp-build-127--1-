@@ -28,18 +28,22 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
+import { cartExtrasKey } from "@/lib/website-builder/cart-extras"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import {
   addLine,
   cartCount,
+  cartNeedsReprice,
   cartStorageKey,
   cartSubtotalCents,
   lineKey,
   parseCart,
+  repricedLines,
   removeLine,
   serializeCart,
   setQuantity,
   type CartLine,
+  type LinePrice,
 } from "@/lib/website-builder/cart"
 
 interface SiteCartValue {
@@ -99,7 +103,8 @@ export function useSiteCart(): SiteCartValue {
   return useContext(SiteCartContext)
 }
 
-export function SiteCartProvider({ shopId, cartType = "drawer", children }: { shopId?: string; cartType?: CartType; children: ReactNode }) {
+export function SiteCartProvider({ shopId, cartType = "drawer", currency, children }: { shopId?: string; cartType?: CartType; /** The store's currency (Settings › Languages & Currency): every line's price is in it. */ currency?: string; children: ReactNode }) {
+  const storeCurrency = typeof currency === "string" && /^[A-Za-z]{3}$/.test(currency) ? currency.toUpperCase() : null
   const [lines, setLines] = useState<CartLine[]>([])
   const [ready, setReady] = useState(false)
   const [open, setOpen] = useState(false)
@@ -121,20 +126,49 @@ export function SiteCartProvider({ shopId, cartType = "drawer", children }: { sh
         url.searchParams.delete(CLEAR_CART_PARAM)
         window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
         window.localStorage.removeItem(key)
+        if (shopId) window.localStorage.removeItem(cartExtrasKey(shopId))
       }
-      setLines(parseCart(window.localStorage.getItem(key)))
+      const kept = parseCart(window.localStorage.getItem(key))
+      setLines(kept)
+      /*
+        PRICED IN ANOTHER CURRENCY. The store converted its currency since
+        these lines were added (or they were saved before lines said which):
+        their numbers are the old currency's. Priced again once from the
+        server rather than shown with the new currency's mark; the lines
+        then say the currency, so it is not asked again.
+      */
+      if (shopId && storeCurrency && cartNeedsReprice(kept, storeCurrency)) {
+        void fetch("/api/cart/prices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shopId, items: kept.map((l) => ({ productId: l.productId, variantId: l.variantId })) }),
+        })
+          .then((r) => (r.ok ? (r.json() as Promise<{ currency?: string; lines?: LinePrice[] }>) : null))
+          .then((d) => {
+            if (d && typeof d.currency === "string" && Array.isArray(d.lines)) {
+              const priced = d.lines
+              const at = d.currency
+              setLines((now) => repricedLines(now, priced, at))
+            }
+          })
+          .catch(() => {
+            /* Shown as kept; checkout prices the order again whatever the cart said. */
+          })
+      }
     } catch {
       /* Private mode, blocked site data, a quota error on read: an empty
          cart is the right answer and a broken shop is not. */
     }
     loaded.current = true
     setReady(true)
-  }, [key])
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!key || !loaded.current) return
     try {
       window.localStorage.setItem(key, serializeCart(lines))
+      /* An empty cart keeps no code or note for the next one (lib/website-builder/cart-extras). */
+      if (lines.length === 0 && shopId) window.localStorage.removeItem(cartExtrasKey(shopId))
     } catch {
       /* Out of quota or storage refused. The cart still works for this
          page; it just will not survive a reload. */
@@ -159,7 +193,8 @@ export function SiteCartProvider({ shopId, cartType = "drawer", children }: { sh
   }, [key])
 
   const add = useCallback((line: CartLine) => {
-    setLines((current) => addLine(current, line))
+    /* Said in the store's currency it was priced in, so a change of currency later prices it again (cartNeedsReprice). */
+    setLines((current) => addLine(current, storeCurrency ? { ...line, currency: storeCurrency } : line))
     /*
       ADDED TO CART, FOR ANALYTICS: every way into the bag (a product
       section, a quick add, a theme's own button) comes through here, so the
@@ -170,7 +205,7 @@ export function SiteCartProvider({ shopId, cartType = "drawer", children }: { sh
     if (cartType === "page" && shopId) goToCart.current = true
     else if (cartType === "notification") setNotice(line)
     else setOpen(true)
-  }, [cartType, shopId])
+  }, [cartType, shopId, storeCurrency])
 
   const dismissNotice = useCallback(() => setNotice(null), [])
 

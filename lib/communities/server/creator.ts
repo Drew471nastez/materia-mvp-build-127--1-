@@ -120,6 +120,7 @@ import type { WizardInput } from "../create-wizard"
 import type { ScheduledDeletionView } from "../community-deletion"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { communityLimitFor, PLAN_LIMIT_ERROR, takesCommunitySlot } from "../plan-limit"
+import { librarySettings } from "./library"
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number; field?: string }
 const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
@@ -275,11 +276,13 @@ export const communityHead = cache(async (ctx: CreatorPageContext): Promise<Comm
   const c = ctx.community
   /* Round 31: who is signed in, for the Feed's writer (its picture and name), read beside the report count. */
   const archived = c.status === "archived" || Boolean(c.archived_at)
-  const [openReports, people, pending] = await Promise.all([
+  const [openReports, people, pending, library] = await Promise.all([
     can(ctx.role, "review_reports", ctx.viewer.perms) ? openReportCount(ctx.db, c.id) : Promise.resolve(0),
     peopleOf(ctx.db, [ctx.userId]).catch(() => new Map<string, { name: string; avatarUrl: string | null }>()),
     /* Round 26: only an archived community can be on its way to being deleted (scheduling archives it). */
     archived ? pendingDeletions(ctx.db, [c.id]) : Promise.resolve(new Map<string, PendingDeletion>()),
+    /* Round 39: whether the Library is on (part 278), for its tab, in the same round as the rest. */
+    librarySettings(ctx.db, c.id).catch(() => ({ ready: false, enabled: false })),
   ])
   const deletion = pending.get(c.id)
   const person = people.get(ctx.userId)
@@ -301,6 +304,7 @@ export const communityHead = cache(async (ctx: CreatorPageContext): Promise<Comm
     gamificationEnabled: c.gamification_enabled,
     classroomEnabled: c.classroom_enabled,
     eventsEnabled: c.events_enabled,
+    libraryEnabled: library.enabled,
     role: ctx.role,
     can: allowedActions(ctx.role, ctx.viewer.perms),
     openReports,

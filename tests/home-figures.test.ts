@@ -157,7 +157,7 @@ console.log("\nHome: the page reads it this way")
       && /displayAnalytics\.conversionRate === null \? "–"/.test(dash))
   check("while a new period comes the chart already drawn stays, blurred 4px and dimmed; a kept period and a tab never blur",
     /setChartStale\(!kept\)/.test(dash) && /chartStale \? "opacity-55 blur-\[4px\]"/.test(dash) && /setIsRefreshing\(!kept\)/.test(dash) && !/setOpenKPIModal\([^)]*\);[^}]*setChartStale/.test(dash))
-  check("a new order asks again, past what was kept", /setOrdersChanged\(\(n\) => n \+ 1\)/.test(dash) && /\[periodKey, creatorId, ordersChanged\]/.test(dash) && /askPastKept\.current \? NOW_STEP_MS : 0/.test(dash))
+  check("a new order asks again, past what was kept", /setOrdersChanged\(\(n\) => n \+ 1\)/.test(dash) && /\[periodKey, creatorId, ordersChanged, storeCurrencyCode\]/.test(dash) && /askPastKept\.current \? NOW_STEP_MS : 0/.test(dash))
   /* "The live pill shows a skeleton block while it loads." It waits as
      itself now: dot, a held "0" and "live", the number fading in. */
   check("the live pill waits as itself, its number fading in on opacity, with no shimmer bar in it",

@@ -35,6 +35,7 @@ import { CommunityFeed } from "./feed"
 import { PlaceLoading, PlaceSpinner } from "./place-spinner"
 import { SpaceChips } from "./space-chips"
 import { adminHref } from "./edit-hint"
+import { chatTabChannels } from "@/lib/communities/chat-rules"
 
 /**
  * A view whose code is its own chunk, drawn synchronously once that code is here. `preload` asks for it (once, with the
@@ -65,6 +66,9 @@ const LearnLibrary = preloadable(() => import("@/components/community/learn/lear
 const ProgramPlayer = preloadable(() => import("@/components/community/learn/program-page").then((m) => m.ProgramPlayer))
 const LockedProgram = preloadable(() => import("@/components/community/learn/program-page").then((m) => m.LockedProgram))
 const EmptyProgram = preloadable(() => import("@/components/community/learn/program-page").then((m) => m.EmptyProgram))
+/* Round 39: the Library and one item in it. */
+const LibraryShelf = preloadable(() => import("@/components/community/library/library-shelf").then((m) => m.LibraryShelf))
+const LibraryItem = preloadable(() => import("@/components/community/library/library-item").then((m) => m.LibraryItem))
 const EventsPage = preloadable(() => import("@/components/community/events/events-page").then((m) => m.EventsPage))
 const EventDetail = preloadable(() => import("@/components/community/events/event-detail").then((m) => m.EventDetail))
 const MembersDirectory = preloadable(() => import("./members").then((m) => m.MembersDirectory))
@@ -80,6 +84,8 @@ const VIEWS: Partial<Record<Place["kind"] | "chat", { preload: () => Promise<unk
   space: [ChatView],
   learn: [LearnLibrary],
   program: [ProgramPlayer, LockedProgram],
+  library: [LibraryShelf],
+  resource: [LibraryItem],
   calendar: [EventsPage],
   event: [EventDetail],
   members: [MembersDirectory],
@@ -108,6 +114,8 @@ export function placeTitle(place: Place): string | null {
   switch (place.kind) {
     case "learn":
       return "Learn"
+    case "library":
+      return "Library"
     case "calendar":
       return "Events"
     case "members":
@@ -139,13 +147,28 @@ function draw(data: PlaceData, slug: string, communityId: string, renderProfile?
     case "feed":
       /* The pull on the feed is the frame's one wrapper (community-pull-refresh.tsx), which tells the feed (feed-live.tsx), on All, a space and Saved alike. */
       return <CommunityFeed communityId={communityId} slug={slug} viewer={data.viewer} spaces={data.spaces} start={data.start} initial={data.initial} servedAt={data.servedAt} readOnly={data.readOnly} onboarding={data.onboarding} compose={data.compose} />
-    case "chat":
+    case "chat": {
+      /*
+        ROUND 38, THE CHAT TAB. With the tab, a channel is drawn as the community's group chat: its chips are the chat
+        channels alone, the main one first, and none at all when there is one channel (one group, as Telegram has it).
+      */
+      const channels = data.chatTab ? chatTabChannels(data.spaces, data.chatTab) : null
+      /* Round 39: the chat has the page's whole column (nothing is drawn to its right any more), not a 760px strip of it. */
       return (
-        <div className="max-w-[760px]">
-          <SpaceChips slug={slug} spaces={data.spaces} active={data.space.slug} editHref={adminHref(slug, data.viewer, "manage_spaces", "spaces")} />
-          <ChatView communityId={communityId} slug={slug} space={data.space} viewer={data.viewer} initial={data.first} readOnly={data.readOnly} />
+        <div data-chat-place="">
+          {channels ? (
+            channels.length > 1 ? (
+              <div className="max-sm:hidden">
+                <SpaceChips slug={slug} spaces={channels} active={data.space.slug} noAll />
+              </div>
+            ) : null
+          ) : (
+            <SpaceChips slug={slug} spaces={data.spaces} active={data.space.slug} editHref={adminHref(slug, data.viewer, "manage_spaces", "spaces")} />
+          )}
+          <ChatView communityId={communityId} slug={slug} space={data.space} viewer={data.viewer} initial={data.first} readOnly={data.readOnly} intro={data.intro} channels={channels} />
         </div>
       )
+    }
     case "learn":
       return <LearnLibrary programs={data.programs} manageHref={data.manageHref} />
     case "program": {
@@ -156,6 +179,10 @@ function draw(data: PlaceData, slug: string, communityId: string, renderProfile?
       if (data.mode === "empty") return <EmptyProgram program={data.program} learnHref={data.learnHref} manageHref={data.manageHref} />
       return <ProgramPlayer data={data.data} learnHref={data.learnHref} />
     }
+    case "library":
+      return <LibraryShelf shelf={data.shelf} />
+    case "resource":
+      return <LibraryItem data={data.page} />
     case "calendar": {
       const { kind: _k, ...props } = data
       return <EventsPage {...props} />

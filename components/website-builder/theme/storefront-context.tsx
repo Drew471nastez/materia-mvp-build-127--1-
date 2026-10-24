@@ -19,7 +19,7 @@
  * thing it offers.
  */
 import type { LanguageSwitchPreview, SiteLanguageChoice } from "./language-switch"
-import { createContext, useContext, useMemo, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react"
 import { pricingFor, type StorefrontDisplay } from "@/lib/markets/pricing"
 import type { SiteCommerce } from "@/lib/website-builder/site-commerce"
 import { uiWord, type UiWord } from "@/lib/markets/ui-words"
@@ -80,7 +80,23 @@ export interface Storefront {
 
 const StorefrontContext = createContext<Storefront>({})
 
+/**
+ * The builder canvas's own storefront (its words, its currency, its market),
+ * kept as it is handed down. The Add block picker draws its previews outside
+ * the canvas (components/website-builder/editor/block-picker.tsx) and reads
+ * this, so a block's preview says "Add to cart" in the page's language and
+ * prices in the page's currency, as the canvas will a moment later. Only an
+ * editor storefront with an install is kept: a live site never sets it.
+ */
+let canvasStorefront: Storefront | null = null
+export function editorCanvasStorefront(): Storefront | null {
+  return canvasStorefront
+}
+
 export function StorefrontProvider({ value, children }: { value: Storefront; children: ReactNode }) {
+  useEffect(() => {
+    if (value.inEditor === true && value.installId) canvasStorefront = value
+  }, [value])
   return <StorefrontContext.Provider value={value}>{children}</StorefrontContext.Provider>
 }
 

@@ -76,6 +76,7 @@ Pick the type by what the value is, because the type decides the control the cre
 | One of the creator's collections | `collection_picker` | Their collections with a picture and a product count, and a search box. |
 | Several collections, in an order | `collection_list` | The same list, with Add collection, Up, Down and Remove. |
 | A size, a count, a time | `number` with `unit`, or `range` | A number box with the unit inside it, or a slider. |
+| One of a few fixed choices | `select` (or `radio`) with `options` | One to three options: a row of buttons, every choice in view. Four or more: a dropdown. |
 | Alignment of text | `alignment` (`text_alignment` is read as this) | Left, centre and right. |
 | A font for one part of the section | `font_picker` | The fonts Theme settings offers, each in its own face. The page loads the one picked. |
 | Markup pasted from another service | `html` (`liquid` is read as this) | A code box. Scripts, forms and unknown frames are removed. |
@@ -84,6 +85,8 @@ Pick the type by what the value is, because the type decides the control the cre
 | Words | `text`, `textarea`, `inline_richtext`, `richtext` | A box to type in. |
 
 **A picture declared as `text` or `url` is read as a picture.** When a setting's id or label names a picture (image, logo, photo, picture, avatar, src) and its default is a picture's address or empty, the engine treats it as an `image_picker`: the panel draws the picker with the address box under it, and the compile says so as a warning. The file is not changed and neither is anything stored under the setting: an address saved while it was a text box is the picture, and a word typed there is still drawn as it was. Declare it as `image_picker` to make the warning go away. An agent's file that does this is refused until it does.
+
+**How a choice is drawn.** A `select` and a `radio` follow one rule: one to three options are a row of buttons ("Vertical | Horizontal", "Top | Center | Bottom"), four or more are a dropdown. Three options whose labels are too long for a third of the sidebar each are a dropdown as well, so keep labels to a word or two where buttons suit the setting. The same rule draws an imported theme's `settings_schema.json` and section schemas.
 
 **A menu typed out as pairs** (`link_1_label`, `link_1_url`, `link_2_label`...) compiles, with a warning that names `link_list`, and an agent's file that does it is refused.
 

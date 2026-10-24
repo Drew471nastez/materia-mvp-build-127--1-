@@ -24,8 +24,11 @@ import type { Viewer } from "@/lib/communities/server/context"
 import { viewerView } from "@/lib/communities/server/context"
 import type { Db } from "@/lib/communities/server/db"
 import { listFeed, listSaved } from "@/lib/communities/server/feed"
-import { listMessages } from "@/lib/communities/server/chat"
+import { canWriteIn, channelFacts, listMessages, pinnedLine } from "@/lib/communities/server/chat"
+import { channelPostNote, channelPostOf } from "@/lib/communities/chat-rules"
+import { chatIntro, dmStartFor } from "@/lib/communities/server/chat-settings"
 import { findProgram, listPrograms, programCard, programOutline, programPlayer } from "@/lib/communities/server/learn"
+import { libraryItemPage, libraryShelf, touchItem } from "@/lib/communities/server/library"
 import { eventDetail, isEventId, listEvents, monthEvents } from "@/lib/communities/server/events"
 import { authorViews, leaderboardRows, levelNames, listMembers, locationsReady } from "@/lib/communities/server/directory"
 import { leaderboard } from "@/lib/communities/server/points"
@@ -68,6 +71,12 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
     case "feed":
     case "saved":
     case "space": {
+      /*
+        Round 39: All's first page needs nothing from the spaces the shell reads (listFeed reads its own), so it is asked
+        beside them, with the composer's facts, rather than after (scripts/measure-community-member-server.mjs).
+      */
+      const allFeed = place.kind === "feed" ? Promise.all([listFeed(db, community, viewer, { sort: "default" }), composeFor(db, community, viewer)]) : null
+      allFeed?.catch(() => undefined)
       const shell = await shellData(community.id, viewer, community)
       const readOnly = shell.community.archived || !!viewer.mutedUntil
       if (place.kind === "space") {
@@ -75,8 +84,13 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
         const row = space ? shell.rows.find((r) => r.id === space.id) : null
         if (!space || !row) return missing
         if (space.kind === "chat") {
-          const first = await listMessages(db, community, viewer, row, {})
-          return ok({ kind: "chat", space, spaces: shell.spaces, viewer: viewerView(viewer), first, readOnly: readOnly || !space.canPost })
+          /* Round 37: the chat rules and the member's standing come with the first page, so the screen never jumps when they arrive. */
+          /* Round 38: the channel's pinned message and, for a member who cannot post, why (the team only, a level). */
+          const [first, intro, facts] = await Promise.all([listMessages(db, community, viewer, row, {}), chatIntro(db, community, viewer), channelFacts(db, row.id)])
+          const postNote = channelPostNote(channelPostOf(row.post_role, facts.minLevel), viewer.role, viewer.member?.level ?? 1)
+          const pinned = await pinnedLine(db, community.id, row.id, facts.pinnedId)
+          const closed = !space.canPost || !canWriteIn(row, viewer, community.chat_enabled) || intro.restriction?.kind === "banned" || !!postNote
+          return ok({ kind: "chat", space, spaces: shell.spaces, viewer: viewerView(viewer), first, readOnly: readOnly || closed, intro: { ...intro, pinned, postNote }, chatTab: shell.community.chatTab?.slug ?? null })
         }
         const [feed, compose] = await Promise.all([listFeed(db, community, viewer, { sort: "default", spaceId: space.id }), composeFor(db, community, viewer)])
         return ok({ kind: "feed", start: { kind: "space", id: space.id }, spaces: shell.spaces, viewer: viewerView(viewer), initial: feed, servedAt: Date.now(), readOnly, onboarding: null, compose })
@@ -85,7 +99,7 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
         const [saved, compose] = await Promise.all([listSaved(db, community, viewer, null), composeFor(db, community, viewer)])
         return ok({ kind: "feed", start: { kind: "saved" }, spaces: shell.spaces, viewer: viewerView(viewer), initial: { pinned: [], posts: saved.posts, nextCursor: saved.nextCursor }, servedAt: Date.now(), readOnly, onboarding: null, compose })
       }
-      const [feed, compose] = await Promise.all([listFeed(db, community, viewer, { sort: "default" }), composeFor(db, community, viewer)])
+      const [feed, compose] = await allFeed!
       return ok({ kind: "feed", start: { kind: "all" }, spaces: shell.spaces, viewer: viewerView(viewer), initial: feed, servedAt: Date.now(), readOnly, onboarding: onboardingFor(community, viewer, shell.spaces), compose })
     }
     case "learn": {
@@ -123,6 +137,19 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
       if (!data) return ok({ kind: "program", mode: "empty", program: card, learnHref: back, manageHref: manageLearn })
       return ok({ kind: "program", mode: "player", data, learnHref: back })
     }
+    case "library": {
+      /* Round 39: the Library (./library.ts), a 404 while an admin has it off. */
+      const shelf = await libraryShelf(db, community, viewer)
+      return shelf ? ok({ kind: "library", shelf }) : off
+    }
+    case "resource": {
+      if (!UUID.test(place.id)) return missing
+      const creatorId = community.creator_id
+      const page = await libraryItemPage(db, community, viewer, place.id, { canBuy: async () => (creatorId ? (await import("@/lib/payments/service")).checkoutReadyForCreator(creatorId) : false) })
+      if (!page) return missing
+      await touchItem(db, page.item.id, viewer.userId, "view")
+      return ok({ kind: "resource", page })
+    }
     case "calendar": {
       if (!community.events_enabled) return off
       const now = new Date()
@@ -142,7 +169,9 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
     case "members": {
       if (!community.directory_enabled && !can(viewer.role, "manage_members")) return off
       const [first, byCountry] = await Promise.all([listMembers(db, community.id, {}), locationsReady(db)])
-      return ok({ kind: "members", communityId: community.id, slug: community.slug, memberCount: community.member_count, initial: first, meId: viewer.userId, canMessage: community.chat_enabled, countryFilter: byCountry })
+      /* Round 38: the viewer's standing for starting a conversation, so the list greys a Message they may not send. */
+      const dmStart = community.chat_enabled ? await dmStartFor(db, community, viewer) : null
+      return ok({ kind: "members", communityId: community.id, slug: community.slug, memberCount: community.member_count, initial: first, meId: viewer.userId, canMessage: community.chat_enabled, dmStart, countryFilter: byCountry })
     }
     case "leaderboard": {
       if (!community.gamification_enabled) return off
@@ -151,7 +180,7 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
       return ok({ kind: "leaderboard", communityId: community.id, slug: community.slug, initial: entries, me: { userId: viewer.userId, points: viewer.points, level: viewer.level }, levels })
     }
     case "about": {
-      const load = await loadSalesPage(community.slug, viewer.userId, db)
+      const load = await loadSalesPage(community.slug, viewer.userId, db, { known: { community, viewer } })
       if (!load) return missing
       const [extras, askWhy] = await Promise.all([aboutExtras(db, load.community), load.data.join.canLeave ? leaveReasonsReady(db) : Promise.resolve(false)])
       return ok({ kind: "about", sales: { ...load.data, extras, askWhy } })
@@ -163,7 +192,7 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
     }
     case "membership": {
       if (!viewer.userId) return missing
-      const [load, askWhy] = await Promise.all([loadSalesPage(community.slug, viewer.userId, db, { light: true }), leaveReasonsReady(db)])
+      const [load, askWhy] = await Promise.all([loadSalesPage(community.slug, viewer.userId, db, { light: true, known: { community, viewer } }), leaveReasonsReady(db)])
       if (!load) return missing
       const m = viewer.member
       const facts: MembershipFacts = {

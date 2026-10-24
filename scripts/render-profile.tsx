@@ -243,10 +243,9 @@ if (which === "other") {
         globalSettings={defaultGlobalStoreSettings as never}
         reviewCount={42}
         reviewAverage={4.8}
-        followerCount={1280}
         surface={surface}
         followRow={
-          <ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Maya Ortiz" followers={1280} following={64} viewerFollowing={false} signedIn isSelf={false} />
+          <ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Maya Ortiz" showCounts={false} viewerFollowing={false} signedIn isSelf={false} />
         }
       />
       <StorefrontTabs

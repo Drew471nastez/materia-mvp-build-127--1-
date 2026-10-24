@@ -86,6 +86,12 @@ export function sameProperty(a: PropertySelector, b: PropertySelector): boolean 
 export interface WebsiteProperty {
   id: string
   name: string
+  /**
+   * False when the site was published and then taken down. It stays in the
+   * list because its visits and orders are real. A draft that was never
+   * published is not a place, and is not listed. Omitted means published.
+   */
+  published?: boolean
 }
 
 /**
@@ -113,8 +119,14 @@ export const DEFAULT_PROPERTY_LABEL = "All pages"
 export function propertyOptions(p: CreatorProperties): PropertyOption[] {
   const rows: PropertyOption[] = [{ value: DEFAULT_PROPERTY, label: DEFAULT_PROPERTY_LABEL }, { value: { type: "creator_page" }, label: "Creator page" }]
   if (p.onePageId) rows.push({ value: { type: "onepage" }, label: "OnePage" })
-  for (const w of p.websites) rows.push({ value: { type: "website", id: w.id }, label: p.websites.length === 1 ? "Website" : w.name || "Website" })
+  for (const w of p.websites) rows.push({ value: { type: "website", id: w.id }, label: websiteLabel(w, p.websites.length === 1) })
   return rows.length > 2 ? rows : [rows[0]]
+}
+
+/** "Website", or "Studio, unpublished" once a live site has been taken down. */
+function websiteLabel(w: WebsiteProperty, only: boolean): string {
+  const base = only ? "Website" : w.name || "Website"
+  return w.published === false ? `${base}, unpublished` : base
 }
 
 /** The name of what is chosen, for a button or a heading. */

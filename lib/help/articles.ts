@@ -543,6 +543,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
         "Theme settings holds what applies to the whole site: colours, fonts and your logo.",
         "Press Publish. Your site is live at yourname.storelib.com.",
       ] },
+      { type: "p", text: "To move a section or a block, drag it by the grip beside its name in the sidebar. The other rows slide aside to show where it will go, and the page shows the new order as soon as you let go. Press Escape while dragging to put it back." },
+      { type: "p", text: "A setting with two or three choices shows them as buttons side by side, such as Vertical or Horizontal. A setting with more choices opens a list." },
       { type: "p", text: "Edits are saved as you work but visitors only see them after you publish again. Use the preview switch in the editor to check the phone layout before publishing." },
       { type: "p", text: "Products, the cart and checkout are built in: products you publish appear on your website without being added by hand." },
     ],

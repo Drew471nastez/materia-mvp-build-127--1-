@@ -156,7 +156,8 @@ console.log("\n2. Drawers open and close smoothly")
 console.log("\n3. Search: in the header, in a window, or the page")
 {
   check("three answers, and the header's field stays the default", searchMode(undefined) === "header" && searchMode("modal") === "modal" && searchMode("page") === "page" && field("search_behaviour")?.default === "header")
-  check("the schema and the editor offer the window", values("search_behaviour").includes("modal") && /<option value="modal">Open a search window<\/option>/.test(editor))
+  /* Changed on purpose (round 1023): the choice is a WbSelect, which draws buttons or the dropdown by the one rule for every select (controls/choice-control.tsx). */
+  check("the schema and the editor offer the window", values("search_behaviour").includes("modal") && /\{ label: "Open a search window", value: "modal" \}/.test(editor))
   check("the window replaces the field over the row, it does not join it", /showSearch && searchOpensInHeader && !searchInWindow && \(/.test(header) && /showSearch && searchInWindow \? \(\s*<SearchModal/.test(header))
   check("its live results come from the store's own search", /\/api\/website-builder\/search\?\$\{askAs\}&q=/.test(modal))
   check("which filters with the rule the search page uses", /productMatchesQuery/.test(read("app/api/website-builder/search/route.ts")))

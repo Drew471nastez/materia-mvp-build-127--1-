@@ -103,7 +103,7 @@ export interface OrdersListProps {
 
 export function OrdersList(props: OrdersListProps) {
   const { summary, stripeConnected } = props
-  /* The metrics add many orders up: written in the currency they were charged in. */
+  /* The metrics add many orders up, in the store's currency when every order could be converted into it. */
   const currency = summary.currency
   return (
     <>

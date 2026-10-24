@@ -139,7 +139,7 @@ async function main() {
     check("the frame's shown script reads", shownReads)
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
     check("the canvas puts the shown script in the page and answers what the theme asks (canvas-cart answerInCanvas)", /\$\{CANVAS_HEAD\}\$\{CANVAS_SHOWN\}/.test(canvas) && /answerInCanvas\(/.test(canvas))
-    check("another page opens at its top", /if \(front\(\) && front\(\)!\.key !== docKey\) scrollY\.current = 0/.test(canvas))
+    check("another page opens at its top", /* Changed on purpose (round ed-1022): another page is another page id (pageIdFor), not a different count of files: the same page drawn from changed files stays where it was scrolled and comes forward as a cut. */ /if \(front\(\) && front\(\)!\.key\.split\("\|"\)\[0\] !== pageIdFor\(pageKey, productId, accountPath\)\) scrollY\.current = 0/.test(canvas))
 
     const theme = new CompatTheme({
       "layout/theme.liquid": "<html><head>{{ content_for_header }}</head><body>{{ content_for_layout }}</body></html>",

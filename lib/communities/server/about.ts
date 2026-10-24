@@ -17,6 +17,9 @@ import "server-only"
  *              published ones, in the creator's order: title, picture and
  *              how many lessons. Titles only: nothing inside a course.
  *   CREATOR    the creator's own bio (profiles.bio), for the card.
+ *   LIBRARY    round 39: for a public community whose Library is on, its
+ *              first published items that are not private: a title, a
+ *              cover and how each opens. Nothing inside one.
  *
  * COST. A fixed handful of bounded reads whatever the size of the
  * community: two head counts on (community_id, created_at) and
@@ -126,21 +129,24 @@ async function creatorBio(db: Db, creatorId: string | null): Promise<string | nu
 }
 
 /** Everything the About page adds to the sales page's data, for this community. */
-export async function aboutExtras(db: Db, community: Pick<CommunityRow, "id" | "creator_id" | "created_at" | "classroom_enabled">, now: number = Date.now()): Promise<AboutExtras> {
+export async function aboutExtras(db: Db, community: Pick<CommunityRow, "id" | "creator_id" | "created_at" | "classroom_enabled"> & Partial<Pick<CommunityRow, "visibility">>, now: number = Date.now()): Promise<AboutExtras> {
   const since = new Date(now - ABOUT_DAYS * DAY_MS).toISOString()
   const week = new Date(now - ACTIVE_DAYS * DAY_MS).toISOString()
-  const [posts, active, classroom, bio, faces] = await Promise.all([
+  const [posts, active, classroom, bio, faces, library] = await Promise.all([
     headCount(() => db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("community_id", community.id).eq("status", "published").gte("created_at", since)),
     headCount(() => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", community.id).eq("status", "active").gte("last_active_at", week)),
     community.classroom_enabled ? aboutClassroom(db, community.id) : Promise.resolve(null),
     creatorBio(db, community.creator_id ?? null),
     /* Round 33: the faces beside the member count, as the community card draws them (./wall.ts recentFaces). */
     recentFaces(db, community.id, ABOUT_FACES).catch(() => []),
+    /* Round 39: a public community's Library, a few items (./library.ts aboutLibrary; a private one shows nothing). */
+    community.visibility === "public" ? import("./library").then((m) => m.aboutLibrary(db, { id: community.id, creator_id: community.creator_id, visibility: "public" })).catch(() => null) : Promise.resolve(null),
   ])
   return {
     activity: { posts30: posts && posts > 0 ? posts : null, active7: active && active > 0 ? active : null, since: community.created_at ?? null },
     classroom,
     creatorBio: bio,
     faces: faces.map((f) => ({ id: f.id, name: f.name, avatarUrl: f.avatarUrl })),
+    library,
   }
 }

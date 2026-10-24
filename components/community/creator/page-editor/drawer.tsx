@@ -37,9 +37,10 @@
  *                         the drawer itself, so a press on another part of
  *                         the page opens that part, the drawer staying up
  *
- * It sits above the phone's navigation pill and the home indicator (and on
- * the keyboard when one is up, --kb-inset), over the content area only on a
- * tablet (clear of the rail). Its whole height is laid out once; the three
+ * It sits above the home indicator (and on the keyboard when one is up,
+ * --kb-inset). Round 37: the editor owns the screen (./screen.tsx), so there
+ * is no navigation pill or rail to keep clear of, and its tallest reaches
+ * the editor's own bar. Its whole height is laid out once; the three
  * places are offsets of one translate, so moving it lays nothing out. The
  * list inside scrolls on its own, with room at its foot for the part of the
  * drawer below the screen, so the last field can always be reached.
@@ -99,7 +100,7 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
     }
   }, [])
 
-  /* ── Its size: the room between the app's bar and the foot, measured, and the three places from it ── */
+  /* ── Its size: the room between the editor's bar and the foot, measured, and the three places from it ── */
   React.useLayoutEffect(() => {
     const el = shell.current
     const g = grip.current
@@ -107,8 +108,10 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
     let raf = 0
     const measure = () => {
       raf = 0
-      const pane = document.querySelector<HTMLElement>(".orders-pane")
-      const top = (pane ? pane.getBoundingClientRect().top : 0) + TOP_GAP
+      /* Hidden (the admin keeps visited sections mounted and hidden): nothing to measure, and a reading now would be the 120px floor; the grip's ResizeObserver measures again when it is shown. */
+      if (!el.getClientRects().length) return
+      const bar = el.closest<HTMLElement>("[data-page-editor]")?.querySelector<HTMLElement>("[data-page-editor-bar]")
+      const top = (bar ? bar.getBoundingClientRect().bottom : 0) + TOP_GAP
       const vv = window.visualViewport
       const bottom = el.getBoundingClientRect().bottom
       const screen = vv ? vv.offsetTop + vv.height : window.innerHeight
@@ -277,6 +280,7 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
       data-detent={detent}
       /* J27's rule (round 27): every bar fixed at the foot of /app says so, and the Setup pill steps aside. The drawer is always up. */
       data-app-foot="up"
+      /* Round 37: over the editor's own screen, so only the home indicator and the keyboard are under it. */
       onKeyDown={(e) => {
         if (e.key === "Escape" && detent !== "peek") {
           e.stopPropagation()
@@ -284,9 +288,8 @@ export function EditorDrawer({ detent, onDetent, head, children, label }: { dete
         }
       }}
       className={cn(
-        "pointer-events-none fixed inset-x-0 z-40 mx-auto max-w-[620px] px-2.5",
-        "bottom-[max(var(--kb-inset,0px),calc(var(--app-nav-top,0px)+8px),calc(env(safe-area-inset-bottom)+8px))]",
-        "md:bottom-[max(var(--kb-inset,0px),12px,env(safe-area-inset-bottom))] md:left-[var(--app-rail-w,240px)] md:px-6",
+        "pointer-events-none fixed inset-x-0 z-40 mx-auto max-w-[620px] px-2",
+        "bottom-[max(var(--kb-inset,0px),calc(env(safe-area-inset-bottom,0px)+8px))]",
         ready ? "" : "invisible",
       )}
     >

@@ -69,24 +69,24 @@ function DialogOverlay({
   )
 }
 
-function DialogContent({
-  className,
-  children,
-  showCloseButton = true,
-  overlayClassName,
-  disableDefaultAnimations = false,
-  disableOverlayDefaultAnimations,
-  ref,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  showCloseButton?: boolean
-  overlayClassName?: string
-  disableDefaultAnimations?: boolean
-  disableOverlayDefaultAnimations?: boolean
-}) {
-  /** The dialog's own content element: what scrolls, and what the guard watches. */
-  const portalRef = React.useRef<HTMLDivElement>(null)
+/*
+  THE PAGE IS HELD ONLY WHILE THE DIALOG IS OPEN.
 
+  This guard used to be an effect of DialogContent itself, and DialogContent
+  is in the tree for as long as its <Dialog> is, open or closed: Radix mounts
+  the panel only when it opens, but the wrapper around it is always there. So
+  every closed dialog on a screen wrote `overscroll-behavior: none` onto html
+  and body when the screen mounted. A style written on the root element makes
+  the browser restyle the whole document, and the stuck layer supervisor
+  (lib/website-builder/stuck-layer.ts) then took it back as a lock nobody
+  open was holding: another whole document restyle, in the website builder on
+  the first press of a section (scripts/check-editor-live-edit.mjs, "open
+  section settings": 300ms at 1x, 1.9s at 4x CPU on a 44 section page).
+
+  Rendered inside the panel, it runs when the panel mounts and lets go when it
+  unmounts, which is exactly while the dialog is open or playing its exit.
+*/
+function OverscrollGuard({ portalRef }: { portalRef: React.RefObject<HTMLDivElement | null> }) {
   // Prevent pull-to-refresh ONLY inside the dialog portal (never blocks normal page interactions)
   React.useEffect(() => {
     const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior
@@ -148,7 +148,28 @@ function DialogContent({
         document.body.style.overscrollBehavior = prevBodyOverscroll
       }, 500)
     }
-  }, [])
+  }, [portalRef])
+  return null
+}
+
+function DialogContent({
+  className,
+  children,
+  showCloseButton = true,
+  overlayClassName,
+  disableDefaultAnimations = false,
+  disableOverlayDefaultAnimations,
+  ref,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showCloseButton?: boolean
+  overlayClassName?: string
+  disableDefaultAnimations?: boolean
+  disableOverlayDefaultAnimations?: boolean
+}) {
+  /** The dialog's own content element: what scrolls, and what the guard watches. */
+  const portalRef = React.useRef<HTMLDivElement>(null)
+
 
   return (
     /*
@@ -197,6 +218,7 @@ function DialogContent({
         )}
         {...props}
       >
+        <OverscrollGuard portalRef={portalRef} />
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close

@@ -1,6 +1,7 @@
 import type React from "react"
 import { redirect } from "next/navigation"
 import { isExploreMarketplaceEnabled } from "@/lib/platform/explore-marketplace"
+import { ExploreMark } from "@/components/analytics/explore-mark"
 
 /*
   EXPLORE STAYS RENDERED PER REQUEST. It was, only because the marketing
@@ -17,5 +18,11 @@ export const dynamic = "force-dynamic"
 export default async function ExploreLayout({ children }: { children: React.ReactNode }) {
   const enabled = await isExploreMarketplaceEnabled()
   if (!enabled) redirect("/")
-  return children
+  /* A creator's page opened from here counts Storelib Explore as its source (components/analytics/explore-mark). */
+  return (
+    <>
+      {children}
+      <ExploreMark />
+    </>
+  )
 }

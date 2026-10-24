@@ -1,0 +1,7 @@
+{ "type": "header", "name": "Header group", "sections": {
+  "top-bar": { "type": "top-bar", "blocks": {
+    "a1": { "type": "text", "settings": { "text": "I membri ottengono il 15% di sconto sul loro primo ordine." } },
+    "a2": { "type": "text", "settings": { "text": "Spedizione gratuita sopra i 49 euro." } }
+  }, "block_order": ["a1", "a2"] },
+  "header": { "type": "header", "settings": { "menu": "main-menu" } }
+}, "order": ["top-bar", "header"] }

@@ -40,27 +40,31 @@
  *   design mode: it is a picture, not a page.
  */
 import { REVEAL_EVENT } from "@/lib/website-builder/canvas-scroll"
+import { HOLD_VIEW_EVENT } from "@/lib/website-builder/canvas-switch"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
-import { REVIEW_WIDGET_SECTION_TYPE } from "@/lib/storelib-theme/compat/storelib-reviews"
+import { REVIEW_WIDGET_SECTION_TYPE, REVIEWS_SECTION_TYPE, isReviewsAppBlock } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } from "@/lib/storelib-theme/compat/site"
-import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
-import { drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
-import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
+import { assetAddresses, compatOf, compatValues, templateOfPage } from "@/lib/storelib-theme/compat/install"
+import { overrideCss } from "@/lib/storelib-theme/compat/overrides"
+import { drawLayoutStyles, drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
+import { isCompatSource, splitCompatFile, type CompatPage, type CompatTheme } from "@/lib/storelib-theme/compat/theme"
+import { layoutPathIn, onlyInCss, probeValues, sameButStyles, settingAt, settingUses, styleEdits, type SettingUses } from "@/lib/storelib-theme/compat/theme-css"
+import { cutBetween, editBetween, fillTemplate, learning, oneChange, placeEdits, placesOf, templateCut, withLeaf, type LeafPath, type LiveTemplate, type Place } from "@/lib/storelib-theme/compat/live-draw"
 import type { CollectionLike, MenuLinkLike, SiteI18n } from "@/lib/storelib-theme/compat/objects"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
-import { isLive, useLiveSections, useLiveTheme } from "@/lib/website-builder/live-settings"
+import { isLive, liveSectionNow, liveThemeNow, onLiveChange, useLiveSections, useLiveTheme } from "@/lib/website-builder/live-settings"
 import { reportLoadProblem } from "@/lib/website-builder/load-guard"
 import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
 import { shopImageName } from "@/lib/website-builder/picture-address"
-import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords } from "@/lib/markets/compat-fields"
+import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords, compatUiWords } from "@/lib/markets/compat-fields"
 import { moneyFormatFor } from "@/lib/markets/pricing"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { localizeMenus, localizeOptions, localizeSections, type TranslationMap } from "@/lib/markets/translate"
@@ -93,6 +97,8 @@ export interface CompatCanvasProps {
   selectedBlockId: string | null
   inspectorEnabled: boolean
   onSelect: (sectionId: string, blockPath: string[]) => void
+  /** The strip between two sections pressed (canvas-bridge.ts, ADD A SECTION HERE): the sections either side of that place, by id. */
+  onAddSectionAt?: (place: { before: string | null; after: string | null }) => void
   /** A link pressed in the page: its address, and whether it is in the header or the footer. True when another page is opening because of it. */
   onNavigate?: (href: string, chrome: boolean) => boolean | void
   /** The pointer rests on a link (or a finger landed on one): the page it goes to can be read ahead. */
@@ -232,8 +238,85 @@ const themeId = (t: object | null) => {
 /* Kept apart (./compat-files) so the editor can ask for the files before this canvas's code has arrived. */
 export { loadCompatFiles }
 
+/* A section as text, once per object: a page's sections are compared at every frame of a drag, and only the one moving is a new object. */
+const jsons = new WeakMap<object, string>()
+const jsonOf = (s: object) => {
+  let j = jsons.get(s)
+  if (j === undefined) jsons.set(s, (j = JSON.stringify(s)))
+  return j
+}
+/* The settings a theme object was made from: what a page drawn with it was drawn with. */
+const settingsOfTheme = new WeakMap<object, Record<string, unknown>>()
+const pageIds = new WeakMap<object, number>()
+let pageCount = 0
+const pageIdOf = (p: object) => {
+  let id = pageIds.get(p)
+  if (!id) pageIds.set(p, (id = ++pageCount))
+  return id
+}
+
+/* Where the theme's pictures are, read once per set of the install's files: a theme is made for every value a theme setting passes. */
+const mediaHeld = new WeakMap<object, Record<string, string>>()
+
+/* The theme's reads of its settings (theme-css.ts settingUses), once per set of the install's files and page template. */
+const usesHeld = new WeakMap<object, Map<string, SettingUses | null>>()
+const usesOf = (rows: object, theme: CompatTheme, page: CompatPage, list: readonly StoredSection[]): SettingUses | null => {
+  let byPage = usesHeld.get(rows)
+  if (!byPage) usesHeld.set(rows, (byPage = new Map()))
+  const name = page.suffix ? `${page.template}.${page.suffix}` : page.template
+  /* The section files the page draws (a type the theme renamed is drawn from its own file). */
+  const sections = new Set<string>()
+  for (const s of list) for (const ext of [".storelib", ".liquid"]) sections.add(`sections/${theme.typeOf(s.type)}${ext}`)
+  const key = `${name}|${[...sections].sort().join(",")}`
+  if (byPage.has(key)) return byPage.get(key) ?? null
+  const layout = layoutPathIn(theme.files, theme.templateLayout(page.template, page.suffix))
+  const template = theme.files[`templates/${name}.liquid`] !== undefined ? `templates/${name}.liquid` : undefined
+  const uses = layout ? settingUses(theme.files, layout, (s) => (isCompatSource(s) ? splitCompatFile(s).markup : s), { template, sections }) : null
+  byPage.set(key, uses)
+  return uses
+}
+
+/**
+ * EVERY <style> (AND META AND LINK) THE HEAD WAS DRAWN WITH, MARKED (round 1022). A change to the
+ * theme's settings is sent to the frame as its head's stylesheets by
+ * position (canvas-bridge.ts, patch), and the frame counted every <style>
+ * in its head: one a theme's own script had added (a slider's, a popup's,
+ * an app widget's) made the counts differ, and the page was loaded again
+ * behind the one on screen and swapped in a few seconds later, back at its
+ * top. The frame now counts only these, and changes the head's meta and
+ * links (planPatch, headNodes) among these alone.
+ */
+export function markDrawnStyles(html: string): string {
+  const end = html.search(/<\/head\s*>/i)
+  if (end < 0) return html
+  /* Never inside a script's text, which may write such a tag as a string. */
+  return html.slice(0, end).split(/(<script\b[\s\S]*?<\/script\s*>)/i).map((part) => (/^<script\b/i.test(part) ? part : part.replace(/<(style|meta|link|title|base)(?=[\s>])/gi, "<$1 data-sl-d"))).join("") + html.slice(end)
+}
+
+/**
+ * The theme's settings that differ between two drawings, said to the page
+ * as `storelib:settings-change` (canvas-bridge.ts), with their new values.
+ */
+export function changedCompatSettings(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
+  const a = compatValues(before)
+  const b = compatValues(after)
+  const out: Record<string, unknown> = {}
+  if (a === b) return out
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) if (a[k] !== b[k] && JSON.stringify(a[k]) !== JSON.stringify(b[k])) out[k] = b[k]
+  return out
+}
+function tellSettings(win: Window, before: Record<string, unknown>, after: Record<string, unknown>, live: boolean) {
+  const settings = changedCompatSettings(before, after)
+  if (Object.keys(settings).length) win.postMessage({ storelib: 1, type: "settings", settings, live }, "*")
+}
+
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
 const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.type}:${s.group ?? ""}:${s.hidden ? 1 : 0}`).join("|")
+
+/** Whether a section's blocks hold a reviews app's block (Storelib Reviews' own, or one a theme kept from Shopify), at any depth. */
+function holdsReviewsBlock(blocks: readonly { type: string; blocks?: unknown }[] | undefined): boolean {
+  return (blocks ?? []).some((b) => isReviewsAppBlock(b.type) || holdsReviewsBlock(b.blocks as { type: string; blocks?: unknown }[] | undefined))
+}
 
 /** A product in the language previewed: its title, description, options and search engine title, by the function lib/markets/compat.ts lays them over with on the website. */
 function inLanguage(card: ProductCard, map: TranslationMap): ProductCard {
@@ -262,12 +345,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const settings = useLiveTheme(props.theme as unknown as ThemeSettingsValues) as unknown as Record<string, unknown>
   /* A slider under a finger: its section is drawn again with each value, before the editor commits it (lib/website-builder/live-settings.ts). */
-  const ownSections = useLiveSections(props.sections as unknown as SectionInstance[]) as unknown as StoredSection[]
+  const ownSections = useLiveSections(props.sections as unknown as SectionInstance[], { quietWhileLive: true }) as unknown as StoredSection[]
   const language = props.language ?? null
   const langCode = language?.locale ?? ""
   const box = useRef<HTMLDivElement | null>(null)
   const [compatFiles, setCompatFiles] = useState<Record<string, string> | null>(null)
-  const [height, setHeight] = useState(800)
+  /*
+    THE FRAME IS AS TALL AS THE CANVAS IT SITS IN, in the same layout: the
+    canvas (#wb-preview-root) is a size container, so 100cqh is its height
+    at every frame. This was a number kept in state from a ResizeObserver,
+    a frame behind the card: while the editor's size switch grew the card,
+    the frame ended short of it and the strip below showed through.
+  */
+  const height = "max(320px, 100cqh)"
   const scrollY = useRef(0)
   /* Whether the inspector is on, for a page drawn from now: it knows before its first paint (canvas-bridge.ts, window.__slInspect). */
   const inspecting = useRef(props.inspectorEnabled)
@@ -295,17 +385,6 @@ export function CompatCanvas(props: CompatCanvasProps) {
     return () => { live = false }
   }, [installId, attempt, filesVersion])
 
-  /* The frame is as tall as the canvas it sits in: the page scrolls inside it, as the website does. */
-  useEffect(() => {
-    const root = document.getElementById("wb-preview-root")
-    if (!root) return
-    const fit = () => setHeight(Math.max(320, root.clientHeight))
-    fit()
-    const ro = new ResizeObserver(fit)
-    ro.observe(root)
-    return () => ro.disconnect()
-  }, [])
-
   /* The theme's own words in the language previewed (its locales/fr.json), for `| t`: read once per language. */
   const [langFiles, setLangFiles] = useState<{ lang: string; files: Record<string, string> } | null>(null)
   useEffect(() => {
@@ -322,23 +401,47 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* Not before the install's own .storelib files are in (sourcesReady): the page is drawn from them. */
   const sourcesReady = props.sourcesReady !== false
   const rows = useMemo(() => (compatFiles && sourcesReady ? { ...sources, ...compatFiles, ...(wordsFiles ?? {}) } : null), [sources, compatFiles, sourcesReady, wordsFiles])
+  /* The theme for a set of settings, from the install's files. */
+  const themeWith = (files: Record<string, string>, values: Record<string, unknown>) => {
+    const media = mediaHeld.get(files) ?? assetAddresses(files)
+    mediaHeld.set(files, media)
+    return themeOfInstall(files, values, {
+      assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
+      assetText: (name) => files[`shopify/assets/${name}`] ?? null,
+      /* "shopify://shop_images/logo.png": the theme's own picture of that name where it brought one, as the live site draws it (lib/website-builder/compat-site.ts). */
+      imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),
+    })
+  }
+  /*
+    A THEME VALUE WRITTEN FROM THE PAGE'S TEMPLATE (round 35, below at
+    applyLiveTheme) holds the page drawn with the settings it was drawn
+    with: the value moving is written into the frame where the page prints
+    it, and the page is not drawn again for it until the finger lifts.
+  */
+  const [held, setHeld] = useState<Record<string, unknown> | null>(null)
+  /* The committed theme when the hold began: the hold ends when the release's commit arrives, so the page is drawn once, with the value it was left on (drawn from the live layer before, it could be a value the finger had already passed). */
+  const heldFor = useRef<unknown>(null)
+  const drawSettings = held ?? settings
+  /* One theme per settings object: going back to the settings a page was drawn with is going back to the same theme, and nothing is drawn again for it. */
+  const themes = useRef<{ rows: object | null; by: WeakMap<object, ReturnType<typeof themeOfInstall> | null> }>({ rows: null, by: new WeakMap() })
   const compatTheme = useMemo(() => {
     if (!rows) return null
-    const media = assetAddresses(rows)
+    if (themes.current.rows !== rows) themes.current = { rows, by: new WeakMap() }
+    const known = themes.current.by.get(drawSettings)
+    if (known !== undefined) return known
     /* A theme that cannot be read is said (failure "draw", below), never a canvas that throws the editor away. */
+    let made: ReturnType<typeof themeOfInstall> | null = null
     try {
-      return themeOfInstall(rows, settings, {
-        assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
-        assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
-        /* "shopify://shop_images/logo.png": the theme's own picture of that name where it brought one, as the live site draws it (lib/website-builder/compat-site.ts). */
-        imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),
-      })
+      made = themeWith(rows, drawSettings)
     } catch (e) {
       console.error("[compat-canvas] the theme could not be read", e)
       reportLoadProblem("compat-canvas", e)
-      return null
     }
-  }, [rows, settings, installId])
+    themes.current.by.set(drawSettings, made)
+    if (made) settingsOfTheme.set(made, drawSettings)
+    return made
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, drawSettings, installId])
   const themeUnreadable = !!rows && !compatTheme
 
   /*
@@ -388,11 +491,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const i18nKey = JSON.stringify([language?.locale, language?.defaultLanguage, language?.languages, markets?.saved, markets?.defaultLanguage, markets?.languages, markets?.country, markets?.countries.length, markets?.countries.map((c) => c.currency).join(""), ownLanguage])
   /* The theme's own words (`| t`) as the store translated them (tw:<key>), as the website hands them over (compat.ts). By what they say, so a theme setting changed under a finger does not draw the page again. */
   const themeWords = useMemo(() => (compatTheme && map ? compatThemeWords(compatTheme.defaultWords(), map) : {}), [compatTheme, map])
-  const themeWordsKey = JSON.stringify(themeWords)
+  const uiWords = useMemo(() => compatUiWords(map), [map])
+  const themeWordsKey = JSON.stringify([themeWords, uiWords])
   const i18n = useMemo((): SiteI18n | undefined => {
     const where = markets ? { countries: markets.countries, ...(markets.country ? { country: markets.country } : {}) } : {}
     if (markets && !markets.saved) return { locale: ownLanguage, defaultLanguage: ownLanguage, languages: [ownLanguage], ...where }
-    const translated = Object.keys(themeWords).length ? { words: themeWords } : {}
+    /* And Storelib's own words (Translate › Shop words), for Storelib Reviews' section, blocks and widgets, as the website hands them (compat-fields.ts compatUiWords). */
+    const translated = { ...(Object.keys(themeWords).length ? { words: themeWords } : {}), ...(Object.keys(uiWords).length ? { uiWords } : {}) }
     if (markets) return { locale: language?.locale ?? markets.defaultLanguage, defaultLanguage: markets.defaultLanguage, languages: markets.languages.length ? markets.languages : [markets.defaultLanguage], ...where, ...translated }
     return language ? { locale: language.locale, defaultLanguage: language.defaultLanguage, languages: language.languages, ...translated } : undefined
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -414,8 +519,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
     A REVIEWS WIDGET ON THE PAGE draws the store's own reviews and the saved
     look it names (lib/reviews/widgets), as the Storelib canvas does
     (use-canvas-reviews.ts); without one the canvas keeps its sample reviews.
+    So does a product page (the theme's own rating block and Storelib
+    Reviews' blocks read the product's real stars, lib/storelib-theme/
+    compat/theme.ts), the Storelib Reviews section, and a page holding a
+    reviews app's block anywhere.
   */
-  const wantsReviews = props.sections.some((s) => s.type === REVIEW_WIDGET_SECTION_TYPE)
+  const wantsReviews = productId !== null || props.sections.some((s) => s.type === REVIEW_WIDGET_SECTION_TYPE || s.type === REVIEWS_SECTION_TYPE || holdsReviewsBlock(s.blocks))
   const canvasReviews = useCanvasReviews(wantsReviews, productId)
   const reviewsRef = useRef(canvasReviews)
   reviewsRef.current = canvasReviews
@@ -541,7 +650,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
   /* Which page is drawn, in which files: a different one is always loaded again. */
-  const docKeyFor = (pageKey: string, productId: string | null, account: string | null) => `${installId}:${langCode}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}:${account ?? ""}`
+  /* Which page it is (the address a visitor would be on), then which files it is drawn from (a file added or taken away is loaded again). */
+  const pageIdFor = (pageKey: string, productId: string | null, account: string | null) => `${installId}:${langCode}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${account ?? ""}`
+  const docKeyFor = (pageKey: string, productId: string | null, account: string | null) => `${pageIdFor(pageKey, productId, account)}|${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
   const docKey = docKeyFor(pageKey, productId, accountPath)
   /* What a page drawn now is drawn with besides its sections (themeId, above). */
   const stamp = `${themeId(compatTheme)}|${dataKey}|${stockKey}|${props.siteUrl ?? ""}`
@@ -567,14 +678,30 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
     const seed = `<script>window.__slPath=${JSON.stringify(account?.path ?? drawnPage.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
     /* No safe-area inset in the canvas: it reaches no edge of the phone (canvas-network.ts, canvasInsets). */
-    return canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
+    return markDrawnStyles(canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`))
   }
 
   /*
     `page`: which page of the builder it draws (`${pageKey}|${productId}`), said to the editor when it comes to the front.
     `stamp`: what it was drawn with besides its sections (above); `account`: an account page (never kept); `ahead`: drawn ahead, never yet shown.
   */
-  type Slot = { n: number; key: string; page: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean; stamp: string; account: boolean; ahead?: boolean }
+  type Slot = {
+    n: number; key: string; page: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean; stamp: string; account: boolean; ahead?: boolean
+    /** A section's markup as Liquid last drew it alone (syncSlot), by id: what a template is checked against. */
+    realHtml?: Map<string, string>
+    /** A section shown from its template while a finger is down, by id: the version shown. */
+    liveShown?: Map<string, string>
+    /** Sections whose drawing the frame holds as shape.sections has it: a change to one is sent as a cut. */
+    sent?: Set<string>
+    /** A section last drawn from a template: which, for what value, and the drawing. */
+    liveFill?: Map<string, { t: LiveTemplate; value: unknown; html: string }>
+    /** The whole page as last sent to the frame (its first drawing when unset; null when not known): what a drawing while a finger is down is compared with. */
+    lastHtml?: string | null
+    /** How many documents the frame has loaded: a second is the page having left the canvas (A PAGE THAT LEFT, onFrameLoad). */
+    loads?: number
+    /** A link the theme's own script took (a page transition): where the page is about to go, said while it could still be heard. */
+    taken?: { href: string; chrome: boolean; at: number }
+  }
   const [slots, setSlots] = useState<Slot[]>([])
   /* The theme's first page has painted (its pictures in, or a moment after it is ready): the placeholder over it fades. */
   const [painted, setPainted] = useState(false)
@@ -744,6 +871,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   useEffect(() => {
     if (!compatTheme || holdForData) return
+    /* A theme value written from the page's template: the page is not drawn for it until the release's commit (applyLiveTheme). */
+    if (held && isLive()) { cancelRedraw(); return }
     const run = () => drawAndPatch()
     if (isLive()) { scheduleRedraw(run); return }
     cancelRedraw()
@@ -760,9 +889,24 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* An account page wears only this page's header, footer and overlay: those are the sections it can take a change to. */
     const list = accountPath ? sectionsRef.current.filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay") : sectionsRef.current
     /* Another page opens at its top, as a page of the website does: not where the page it replaces was scrolled to. */
-    if (front() && front()!.key !== docKey) scrollY.current = 0
+    /*
+      Not when only its files changed (round 1022): a file the theme gained
+      or lost (a push, an agent, a save that adds one) loads the same page
+      again, where it was scrolled to. It was taken for another page, and
+      the canvas came back at the top a few seconds after the change.
+    */
+    if (front() && front()!.key.split("|")[0] !== pageIdFor(pageKey, productId, accountPath)) scrollY.current = 0
     /* Another page, kept loaded as it would be drawn now: brought forward, nothing drawn or loaded (KEPT PAGES). */
     if (front() && front()!.key !== docKey && !accountPath && slotsRef.current[1]?.key !== docKey && bringKept(docKey, list)) return
+    if (!isLive()) {
+      const before = drawnWith.current?.settings
+      if (commitShown(list)) {
+        /* Released: the value the finger left, said once more as committed. */
+        const w = frontWindow()
+        if (w && before && drawnWith.current) tellSettings(w, before, drawnWith.current.settings, false)
+        return
+      }
+    }
     /* A page that cannot be drawn this time leaves the one on screen as it is: never a blank canvas. */
     let html: string
     try {
@@ -776,8 +920,37 @@ export function CompatCanvas(props: CompatCanvasProps) {
       }
       return
     }
+    /* What the page on screen is now drawn with: a theme value under a finger is written from here (applyLiveTheme). */
+    const settingsBefore = drawnWith.current?.settings
+    drawnWith.current = { settings: settingsOfTheme.get(compatTheme) ?? drawSettingsRef.current, theme: compatTheme, page, list }
+    /* Said to the theme's code once the page has it (storelib:settings-change), on the same page only: another page is loaded with its settings. */
+    const shownNow = front()
+    const tell = (win: Window | null, live: boolean) => { if (win && settingsBefore && shownNow?.key === docKey) tellSettings(win, settingsBefore, drawnWith.current!.settings, live) }
+    liveThemeShown.current = null
+    overridesShown.current = null
     const now = front()
     if (!now) { loadBehind(html, docKey, list); return }
+    /*
+      WHILE A FINGER IS DOWN, a drawing that differs from the last one only
+      inside one <style> or one tag is sent as that change (live-draw.ts
+      editBetween), which the frame writes where it is: the whole page parsed
+      and compared for it was as long again as drawing it (95ms on Dawn at
+      full speed). The page's shape is left as it was; the release's drawing
+      is compared with it, and the frame finds the change already made.
+    */
+    const last = now.lastHtml === undefined ? now.html : now.lastHtml
+    const liveWin = frontWindow()
+    if (isLive() && now.key === docKey && now.ready && liveWin && typeof last === "string") {
+      const c = cutBetween(last, html)
+      if (!c) return
+      const e = editBetween(last, html, c)
+      if (e) {
+        liveWin.postMessage({ storelib: 1, type: "edits", edits: [e], key: "" }, "*")
+        now.lastHtml = html
+        tell(liveWin, true)
+        return
+      }
+    }
     const next = docShape(html)
     const plan = now.key === docKey ? planPatch(now.shape, next) : null
     const win = frontWindow()
@@ -798,13 +971,20 @@ export function CompatCanvas(props: CompatCanvasProps) {
       return
     }
     now.stamp = stampRef.current
-    if (plan.empty) { now.shape = next; return }
+    now.lastHtml = html
+    if (plan.empty) { now.shape = next; tell(win, isLive()); return }
     /* With the markup it was drawn from, so the page can change only what differs (canvas-bridge.ts, morph). */
     for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id) }, "*")
     if (Object.keys(plan.message).length) win.postMessage({ storelib: 1, type: "patch", ...plan.message }, "*")
+    tell(win, isLive())
     now.shape = next
-    for (const s of list) now.drawnFrom.set(s.id, JSON.stringify(s))
+    for (const s of list) now.drawnFrom.set(s.id, jsonOf(s))
     for (const id of [...now.drawnFrom.keys()]) if (!list.some((s) => s.id === id)) now.drawnFrom.delete(id)
+    /* Drawn with the page: what Liquid draws for each section alone is known again once it is drawn alone. */
+    now.realHtml?.clear()
+    now.liveShown?.clear()
+    now.sent?.clear()
+    now.liveFill?.clear()
     /* A page that changed behind this one is out of date too: drawn again from now. */
     if (slotsRef.current[1]) loadBehind(html, docKey, list)
   }
@@ -813,11 +993,373 @@ export function CompatCanvas(props: CompatCanvasProps) {
   drawAndPatchRef.current = drawAndPatch
 
   /*
+    ═══════════════════════════════════════════════════════════════════════
+     A THEME VALUE UNDER A FINGER, WRITTEN WHERE THE PAGE PRINTS IT
+    ═══════════════════════════════════════════════════════════════════════
+    The owner, round 35: "adjustments and changes still have a lot of lag
+    in the canvas, in the theme". A theme setting drew the whole page again
+    through Liquid for each value, then parsed it to compare with the page
+    on screen: on Dawn, 95ms and another 95ms at full speed, two values a
+    second (scripts/check-compat-live-edit.ts, "theme spacing"). The page's
+    template for the setting (live-draw.ts, learning and placesOf) is learned
+    in the background from the first value, one drawing a task; from then
+    on every value is the few places that print it, written by the frame
+    (canvas-bridge.ts "edits"), and the page is drawn again once, by Liquid,
+    when the finger lifts. A setting the template cannot follow is drawn as
+    before.
+  */
+  const drawnWith = useRef<{ settings: Record<string, unknown>; theme: unknown; page: CompatPage; list: StoredSection[] } | null>(null)
+  /* The Hover and focus stylesheet as last written while a finger is down (applyLiveTheme); the page drawn again lets go of it. */
+  const overridesShown = useRef<string | null>(null)
+  const drawSettingsRef = useRef(drawSettings)
+  drawSettingsRef.current = drawSettings
+  const themeTemplates = useRef(new Map<string, { at: string; t: LiveTemplate | null; places: Place[] | null }>())
+  const themeLearning = useRef(new Set<string>())
+  const liveThemeShown = useRef<{ key: string; value: unknown } | null>(null)
+  /*
+    CHECKED WHEN THE FINGER PAUSES. A template is checked against the value
+    it was learned at, so a theme that branches on the value between two
+    values a finger passes (Dawn prints its phone spacing raw below 24px and
+    reduced above) can draw one the theme would not. When the values stop
+    for a moment the page is drawn by Liquid for the value shown, out of
+    sight, and a template that disagrees is put aside: the page is drawn by
+    Liquid from then on. The release draws it by Liquid in any case.
+  */
+  const themeCheck = useRef(0)
+  const pagePure = (files: Record<string, string>, values: Record<string, unknown>, drawnPage: CompatPage, list: StoredSection[]) => canvasInsets(drawPage(themeWith(files, values), drawnPage, list, { scripts: true }).html)
+  const propsThemeRef = useRef(props.theme)
+  propsThemeRef.current = props.theme
+  const rowsRef = useRef(rows)
+  rowsRef.current = rows
+  const learnTheme = (key: string, at: string, base: Record<string, unknown>, path: LeafPath, value: unknown, drawnPage: CompatPage, list: StoredSection[]) => {
+    const files = rowsRef.current
+    if (themeLearning.current.has(key) || !files) return
+    themeLearning.current.add(key)
+    /* The page alone, as Liquid draws it with these settings: none of the builder's own scripts, which carry the scroll. */
+    const pageWith = (values: Record<string, unknown>) => pagePure(files, values, drawnPage, list)
+    const done = (t: LiveTemplate | null, places: Place[] | null) => {
+      themeTemplates.current.set(key, { at, t, places })
+      themeLearning.current.delete(key)
+    }
+    let steps: ReturnType<typeof learning> | null = null
+    let step: IteratorResult<unknown, LiveTemplate | null> | null = null
+    const next = () => {
+      try {
+        if (!steps) {
+          steps = learning({ value, html: pageWith(base) })
+          step = steps.next()
+        } else if (step && !step.done) {
+          step = steps.next(pageWith(withLeaf(base, path, step.value)))
+        }
+      } catch {
+        done(null, null)
+        return
+      }
+      if (step && step.done) {
+        const t = step.value
+        done(t, t ? placesOf(t, value) : null)
+        return
+      }
+      window.setTimeout(next, 0)
+    }
+    window.setTimeout(next, 0)
+  }
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A THEME VALUE THAT ONLY CSS READS (round 36)
+    ═══════════════════════════════════════════════════════════════════════
+    A setting printed only in the layout's own <style> blocks (Dawn's
+    section spacing, its button radius, a colour scheme's colours) is drawn
+    for each value as the layout alone, no section and no content
+    (page.ts drawLayoutStyles), and the styles that changed go to the frame,
+    which writes them into the rules on the page (canvas-bridge.ts "edits").
+    Which settings those are is read from the theme's files, or from the
+    page drawn with values the setting could take, once per setting, one
+    drawing a task (lib/storelib-theme/compat/theme-css.ts). The page is held
+    as it was drawn until the release's commit draws it by Liquid, and that
+    drawing's styles are the ones already on screen, so nothing moves then.
+  */
+  /** `files`: the theme's files say only the layout's CSS reads it; otherwise the page drawn with values it could take said so. `drawn`: the layout's styles as the page on screen was drawn (for `base`); `shown`: as the frame shows them now. */
+  type CssPlan = { at: string; ok: boolean; files: boolean; base: object | null; drawn: string[]; shown: string[] }
+  const cssPlans = useRef(new Map<string, CssPlan>())
+  const cssLearning = useRef(new Set<string>())
+  /* The last value written as styles, for the release's commit (drawAndPatch, A COMMIT ALREADY ON SCREEN). */
+  const cssShown = useRef<{ plan: CssPlan; base: NonNullable<typeof drawnWith.current>; path: LeafPath; value: unknown } | null>(null)
+  const layoutStylesWith = (files: Record<string, string>, values: Record<string, unknown>, drawnPage: CompatPage, list: StoredSection[]) => drawLayoutStyles(themeWith(files, values), drawnPage, list)?.map(canvasInsets) ?? null
+  /* Read from the theme's files there and then (once per set of files and page); tried with values in the background, one drawing a task, when the files do not say. */
+  const learnCss = (key: string, at: string, base: NonNullable<typeof drawnWith.current>, path: LeafPath, value: unknown): CssPlan | null => {
+    const files = rowsRef.current
+    const theme = base.theme as CompatTheme | null
+    if (cssLearning.current.has(key) || !files || !theme) return null
+    const plan = (ok: boolean, fromFiles: boolean): CssPlan => ({ at, ok, files: fromFiles, base: null, drawn: [], shown: [] })
+    let uses: SettingUses | null = null
+    try { uses = usesOf(files, theme, base.page, base.list) } catch { uses = null }
+    if (uses && onlyInCss(uses, path)) {
+      const known = plan(true, true)
+      cssPlans.current.set(key, known)
+      return known
+    }
+    const probes = probeValues(settingAt(theme.settingsSchema, path), value)
+    if (!probes?.length) {
+      cssPlans.current.set(key, plan(false, false))
+      return null
+    }
+    cssLearning.current.add(key)
+    const done = (ok: boolean) => {
+      cssPlans.current.set(key, plan(ok, false))
+      cssLearning.current.delete(key)
+    }
+    /* The page drawn whole with the value it has, then with each the setting could take: only the layout's styles may differ. */
+    const ahead: { page: { html: string; styles: string[] } | null } = { page: null }
+    const steps: (() => boolean | null)[] = [() => {
+      const styles = layoutStylesWith(files, base.settings, base.page, base.list)
+      if (!styles) return false
+      ahead.page = { html: pagePure(files, base.settings, base.page, base.list), styles }
+      return null
+    }]
+    for (const probe of probes) {
+      steps.push(() => {
+        const values = withLeaf(base.settings, path, probe)
+        const styles = layoutStylesWith(files, values, base.page, base.list)
+        if (!styles || !ahead.page) return false
+        return sameButStyles(ahead.page, { html: pagePure(files, values, base.page, base.list), styles }) ? null : false
+      })
+    }
+    const next = () => {
+      let r: boolean | null
+      try { r = steps.shift()!() } catch { r = false }
+      if (r === null && steps.length) window.setTimeout(next, 0)
+      else done(r === null)
+    }
+    window.setTimeout(next, 0)
+    return null
+  }
+  /* A value of a setting only CSS reads, written as the layout's styles: false when it cannot be (the page is drawn as before). */
+  const writeCss = (key: string, plan: CssPlan, base: NonNullable<typeof drawnWith.current>, path: LeafPath, value: unknown, win: Window): boolean => {
+    const files = rowsRef.current
+    if (!files) return false
+    if (plan.base !== base) {
+      /* What the frame holds: the layout's styles as the page on screen was drawn, every one of them found in its markup. */
+      const onScreen = front()
+      const html = onScreen ? (onScreen.lastHtml === undefined ? onScreen.html : onScreen.lastHtml) : null
+      const shown = layoutStylesWith(files, base.settings, base.page, base.list)
+      if (!shown || typeof html !== "string" || !shown.every((s) => html.includes(s))) { plan.ok = false; return false }
+      plan.base = base
+      plan.drawn = shown
+      plan.shown = shown
+    }
+    const styles = layoutStylesWith(files, withLeaf(base.settings, path, value), base.page, base.list)
+    const edits = styles ? styleEdits(plan.shown, styles) : null
+    if (!styles || !edits) { plan.ok = false; return false }
+    /* A drawing of an older value waiting for its turn would put that value back over this one. */
+    cancelRedraw()
+    if (edits.length) win.postMessage({ storelib: 1, type: "edits", edits, key }, "*")
+    plan.shown = styles
+    cssShown.current = { plan, base, path, value }
+    liveThemeShown.current = null
+    /* The page is not drawn again for this value, nor the next, until the finger lifts. */
+    if (!held) {
+      heldFor.current = propsThemeRef.current
+      setHeld(base.settings)
+    }
+    return true
+  }
+  /*
+    A COMMIT ALREADY ON SCREEN. The release's commit of a value written as
+    styles drew the whole page by Liquid again (350ms with the CPU slowed 4x
+    on Dawn) to find what the frame already shows. For a setting the theme's
+    files say only the layout's CSS reads, the page drawn with the committed
+    value is the page on screen with those styles in it, and that is what is
+    kept as drawn. One the page's drawings vouched for is drawn by Liquid as
+    before.
+  */
+  const commitShown = (list: StoredSection[]): boolean => {
+    const shown = cssShown.current
+    cssShown.current = null
+    const now = front()
+    const settingsNow = compatTheme ? settingsOfTheme.get(compatTheme) : undefined
+    if (!shown || !shown.plan.ok || !shown.plan.files || !now || !settingsNow || !compatTheme) return false
+    const { base } = shown
+    if (drawnWith.current !== base || base.page !== page || now.key !== docKey || !now.ready || accountPath || slotsRef.current[1]) return false
+    if (list.length !== base.list.length || list.some((s, i) => s !== base.list[i])) return false
+    const change = oneChange(base.settings, settingsNow)
+    if (!change || JSON.stringify(change.path) !== JSON.stringify(shown.path) || JSON.stringify(change.to) !== JSON.stringify(shown.value)) return false
+    const { drawn, shown: styles } = shown.plan
+    let html = now.lastHtml === undefined ? now.html : now.lastHtml
+    if (typeof html !== "string" || drawn.length !== styles.length) return false
+    const swap = new Map<string, string>()
+    for (let i = 0; i < drawn.length; i++) {
+      if (drawn[i] === styles[i]) continue
+      if (!html.includes(drawn[i])) return false
+      html = html.split(drawn[i]).join(styles[i])
+      swap.set(drawn[i], styles[i])
+    }
+    now.lastHtml = html
+    now.shape = { ...now.shape, styles: now.shape.styles.map((x) => swap.get(x) ?? x) }
+    now.stamp = stampRef.current
+    drawnWith.current = { settings: settingsNow, theme: compatTheme, page, list }
+    liveThemeShown.current = null
+    return true
+  }
+  /* A theme value moved: written from the template when there is one, else left to the page's own drawing. */
+  const applyLiveTheme = (overlay: Record<string, unknown>) => {
+    const base = drawnWith.current
+    const win = frontWindow()
+    if (!base || !win || !compatTheme) return
+    const next = { ...(propsThemeRef.current as Record<string, unknown>), ...overlay }
+    const change = oneChange(base.settings, next)
+    if (!change || change.path.length < 2) return
+    /* The value under the finger, said to the theme's code (storelib:settings-change, live) once the page shows it. */
+    const sayLive = () => {
+      const k = change.path[1]
+      if (change.path[0] === "shopify" && typeof k === "string") win.postMessage({ storelib: 1, type: "settings", settings: { [k]: compatValues(next)[k] }, live: true }, "*")
+    }
+    /*
+      STORELIB'S OWN HOVER AND FOCUS (lib/storelib-theme/compat/overrides.ts)
+      is one stylesheet Storelib writes after the theme's: a value of it is
+      that stylesheet written again, in place, never the page drawn by Liquid
+      (a colour picked from empty has no template to learn: the page was
+      drawn whole for each value, 2 of 41 shown, round 1022).
+    */
+    if (change.path[0] === "shopify" && typeof change.path[1] === "string" && change.path[1].startsWith("storelib_")) {
+      const from = overridesShown.current ?? overrideCss(compatValues(base.settings))
+      const to = overrideCss(compatValues(next))
+      cancelRedraw()
+      if (from !== to) win.postMessage({ storelib: 1, type: "edits", edits: [{ style: true, sel: "style[data-storelib-overrides]", from, to }], key: "storelib-overrides" }, "*")
+      sayLive()
+      overridesShown.current = to
+      liveThemeShown.current = null
+      if (!held) {
+        heldFor.current = propsThemeRef.current
+        setHeld(base.settings)
+      }
+      return
+    }
+    /* By the theme's files, not the theme object: a value drawn by Liquid while the template was being learned is a new theme object with the same files. */
+    const key = `${themeId(rowsRef.current ?? {})}|${pageIdOf(base.page)}|${JSON.stringify(change.path)}`
+    const at = JSON.stringify(withLeaf(next, change.path, null))
+    /* Only CSS reads it: the layout's styles, drawn alone. Not known yet: learned meanwhile, the page drawn as before. */
+    const cached = cssPlans.current.get(key)
+    const plan = cached && cached.at === at ? cached : learnCss(key, at, base, change.path, change.from)
+    if (!plan) { if (cssLearning.current.has(key)) return }
+    else if (plan.ok && writeCss(key, plan, base, change.path, change.to, win)) { sayLive(); return }
+    const known = themeTemplates.current.get(key)
+    if (!known || known.at !== at) {
+      learnTheme(key, at, base.settings, change.path, change.from, base.page, base.list)
+      return
+    }
+    if (!known.t || !known.places) return
+    const shown = liveThemeShown.current?.key === key ? liveThemeShown.current.value : change.from
+    const edits = placeEdits(known.t, known.places, shown, change.to)
+    if (!edits) return
+    /* A drawing of an older value waiting for its turn would put that value back over this one. */
+    cancelRedraw()
+    if (edits.length) win.postMessage({ storelib: 1, type: "edits", edits, key }, "*")
+    sayLive()
+    liveThemeShown.current = { key, value: change.to }
+    window.clearTimeout(themeCheck.current)
+    const t = known.t, value = change.to, files = rowsRef.current
+    themeCheck.current = window.setTimeout(() => {
+      if (!isLive() || !files || liveThemeShown.current?.key !== key || liveThemeShown.current.value !== value) return
+      let agrees = false
+      try { agrees = pagePure(files, withLeaf(base.settings, change.path, value), base.page, base.list) === fillTemplate(t, value) } catch { agrees = false }
+      if (!agrees) themeFailedRef.current(key)
+    }, 160)
+    /* The page is not drawn again for this value, nor the next, until the finger lifts. */
+    if (!held) {
+      heldFor.current = propsThemeRef.current
+      setHeld(base.settings)
+    }
+  }
+  /* The frame could not find a place: the template is put aside, and the page drawn as before. */
+  const themeFailed = (key: unknown) => {
+    /* What the frame shows is no longer known for sure: the next drawing is compared with the page whole. */
+    const f = slotsRef.current[0]
+    if (f) f.lastHtml = null
+    if (typeof key === "string" && key) {
+      const known = themeTemplates.current.get(key)
+      if (known) themeTemplates.current.set(key, { ...known, t: null, places: null })
+      const plan = cssPlans.current.get(key)
+      if (plan) plan.ok = false
+    }
+    liveThemeShown.current = null
+    setHeld(null)
+  }
+  const themeFailedRef = useRef(themeFailed)
+  themeFailedRef.current = themeFailed
+  /*
+    Once the finger is up and its commit is in, the page is drawn with the
+    committed settings: held to them, not let go to the live layer's, until
+    the live layer has let go too. The live layer's copy is the last value it
+    finished drawing, which can be one the finger had passed: drawn with it,
+    the page showed that older value for a moment after the release and then
+    the committed one (round 36, a colour scheme dragged in the picker).
+  */
+  useEffect(() => {
+    if (!held || isLive() || props.theme === heldFor.current) return
+    if (held !== props.theme) setHeld(props.theme as Record<string, unknown>)
+    else if (settings === (props.theme as unknown)) setHeld(null)
+  })
+  /*
     A section's settings or blocks changed: that section, drawn again and
     swapped in. Only into a page that is ready: a change made while the page
     is loading is sent when it says it is (the "ready" message below).
+
+    WHILE A FINGER IS DOWN (round 35), a value is drawn from the section's
+    template for the one setting it moves, once that is learned
+    (lib/storelib-theme/compat/live-draw.ts). The change goes to the frame
+    as a cut, and named (editBetween) when it is one the frame can write
+    without parsing the section. When the finger lifts the section is drawn
+    by Liquid as always, and the frame keeps that.
   */
-  const syncSlot = (slot: Slot) => {
+  const templates = useRef(new Map<string, { at: string; t: LiveTemplate | null }>())
+  const learningNow = useRef(new Set<string>())
+  /* A section drawn from its template is drawn by Liquid when the finger pauses, and a template that disagrees is put aside (as the theme's, above). */
+  const sectionChecks = useRef(new Map<string, number>())
+  const checkSection = (slot: Slot, s: StoredSection, key: string, at: string, index: number, group: string | undefined) => {
+    window.clearTimeout(sectionChecks.current.get(s.id))
+    const theme = compatTheme
+    const drawnPage = page
+    sectionChecks.current.set(s.id, window.setTimeout(() => {
+      sectionChecks.current.delete(s.id)
+      const shown = slot.shape.sections.get(s.id)
+      if (!isLive() || !theme || slot.liveShown?.get(s.id) !== jsonOf(s)) return
+      let real: string | null = null
+      try { real = canvasInsets(drawSection(theme, pageContextFor(theme, drawnPage, sectionsRef.current), s, index, group).html) } catch { real = null }
+      if (real === shown) return
+      templates.current.set(key, { at, t: null })
+      slot.liveShown?.delete(s.id)
+      /* With what the finger has set laid over the page: this canvas does not render while it moves (quietWhileLive), so its own copy is the one from before the gesture. */
+      sync.current(sectionsRef.current.map((x) => liveSectionNow(x as unknown as SectionInstance) as unknown as StoredSection))
+    }, 160))
+  }
+  const learn = (key: string, at: string, s: StoredSection, path: LeafPath, base: { value: unknown; html: string }, list: StoredSection[], index: number, group: string | undefined) => {
+    if (learningNow.current.has(key) || !compatTheme) return
+    learningNow.current.add(key)
+    const theme = compatTheme
+    const drawnPage = page
+    const steps = learning(base)
+    let step = steps.next()
+    /* One drawing a task: the values arriving meanwhile are drawn by Liquid, between them. */
+    const next = () => {
+      if (step.done) {
+        templates.current.set(key, { at, t: step.value })
+        learningNow.current.delete(key)
+        return
+      }
+      try {
+        /* A context of its own for each drawing, as each value's drawing below has: one drawing never sees what another kept (a product's questions placed once, the work budget). */
+        step = steps.next(canvasInsets(drawSection(theme, pageContextFor(theme, drawnPage, list), withLeaf(s, path, step.value), index, group).html))
+      } catch {
+        templates.current.set(key, { at, t: null })
+        learningNow.current.delete(key)
+        return
+      }
+      window.setTimeout(next, 0)
+    }
+    window.setTimeout(next, 0)
+  }
+  const syncSlot = (slot: Slot, list: StoredSection[] = sectionsRef.current) => {
     const win = frames.current.get(slot.n)?.contentWindow
     if (!compatTheme || !win || !slot.ready) return
     /*
@@ -829,35 +1371,103 @@ export function CompatCanvas(props: CompatCanvasProps) {
       next page took to load, and kept it (KEPT PAGES).
     */
     if (slot.key !== docKey) return
-    const list = sectionsRef.current
-    const changed = list.filter((s) => slot.drawnFrom.has(s.id) && slot.drawnFrom.get(s.id) !== JSON.stringify(s))
+    const live = isLive()
+    const changed = list.filter((s) => slot.drawnFrom.has(s.id) && slot.drawnFrom.get(s.id) !== jsonOf(s) && !(live && slot.liveShown?.get(s.id) === jsonOf(s)))
     if (!changed.length) return
-    let ctx: ReturnType<typeof pageContextFor>
-    try {
-      ctx = pageContextFor(compatTheme, page, list)
-    } catch (e) {
-      console.error("[compat-canvas] the page could not be read", e)
-      return
-    }
+    /* Read when a section is drawn by Liquid, not for one drawn from its template. */
+    let ctx: ReturnType<typeof pageContextFor> | null = null
     for (const s of changed) {
       /* Its place among its own part's sections, as the page was drawn (section.index). */
       const at = sectionIndexIn(list, s)
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
-      let html: string
-      try {
-        html = canvasInsets(drawSection(compatTheme, ctx, s, at, group).html)
-      } catch (e) {
-        /* This section stays as it was drawn; the others still change. */
-        console.error("[compat-canvas] a section could not be drawn", e)
+      const prev = slot.shape.sections.get(s.id)
+      let html: string | null = null
+      let fromTemplate = false
+      let usedTemplate: LiveTemplate | null = null
+      let change: ReturnType<typeof oneChange> = null
+      let checkLater: (() => void) | null = null
+      const real = slot.realHtml?.get(s.id)
+      if (live && real !== undefined) {
+        const was = JSON.parse(slot.drawnFrom.get(s.id)!) as StoredSection
+        change = oneChange(was, s)
+        /* One setting of the section or of one of its blocks: never its id, type or place. */
+        if (change && change.path.length > 1) {
+          const key = `${themeId(compatTheme)}|${pageIdOf(page)}|${s.id}|${JSON.stringify(change.path)}`
+          const without = JSON.stringify(withLeaf(s, change.path, null))
+          const known = templates.current.get(key)
+          if (known && known.at === without) {
+            html = known.t ? fillTemplate(known.t, change.to) : null
+            fromTemplate = html !== null
+            usedTemplate = known.t
+            if (fromTemplate) checkLater = () => checkSection(slot, s, key, without, at, group)
+          } else learn(key, without, was, change.path, { value: change.from, html: real }, list, at, group)
+        }
+      }
+      if (html === null) {
+        try {
+          ctx ??= pageContextFor(compatTheme, page, list)
+        } catch (e) {
+          console.error("[compat-canvas] the page could not be read", e)
+          return
+        }
+        try {
+          html = canvasInsets(drawSection(compatTheme, ctx, s, at, group).html)
+        } catch (e) {
+          /* This section stays as it was drawn; the others still change. */
+          console.error("[compat-canvas] a section could not be drawn", e)
+          continue
+        }
+      }
+      /* Once the frame holds this section's drawing, only the cut from it goes (live-draw.ts cutBetween), and the change itself when it is one the frame can write in place. A drawing from the template after one from the same template: the cut is where its numbers are, without reading the markup. */
+      const filled = slot.liveFill?.get(s.id)
+      const cut = typeof prev === "string" && slot.sent?.has(s.id)
+        ? (filled && fromTemplate && filled.t === usedTemplate && filled.html === prev ? templateCut(filled.t, filled.value, change!.to) : null) ?? cutBetween(prev, html)
+        : null
+      if (cut) {
+        const edit = editBetween(prev!, html, cut)
+        win.postMessage({ storelib: 1, type: "section", id: s.id, cut, ...(edit ? { edit } : {}) }, "*")
+      } else if (prev !== html) {
+        win.postMessage({ storelib: 1, type: "section", id: s.id, html, prev }, "*")
+        ;(slot.sent ??= new Set()).add(s.id)
+      }
+      slot.shape.sections.set(s.id, html)
+      if (fromTemplate) {
+        /* Shown, not drawn: the release draws it by Liquid (drawnFrom still names what Liquid last drew). */
+        ;(slot.liveShown ??= new Map()).set(s.id, jsonOf(s))
+        ;(slot.liveFill ??= new Map()).set(s.id, { t: usedTemplate!, value: change!.to, html })
+        ;(checkLater as (() => void) | null)?.()
         continue
       }
-      win.postMessage({ storelib: 1, type: "section", id: s.id, html, prev: slot.shape.sections.get(s.id) }, "*")
-      slot.drawnFrom.set(s.id, JSON.stringify(s))
-      slot.shape.sections.set(s.id, html)
+      slot.liveShown?.delete(s.id)
+      slot.liveFill?.delete(s.id)
+      slot.drawnFrom.set(s.id, jsonOf(s))
+      ;(slot.realHtml ??= new Map()).set(s.id, html)
     }
   }
-  const sync = useRef<() => void>(() => {})
-  sync.current = () => { for (const slot of slotsRef.current) syncSlot(slot) }
+  const sync = useRef<(list?: StoredSection[]) => void>(() => {})
+  sync.current = (list) => { for (const slot of slotsRef.current) syncSlot(slot, list) }
+  /*
+    A VALUE UNDER A FINGER IS SENT IN THE FRAME IT ARRIVED IN. Drawn from a
+    render, it went: the value, a render of this canvas, its effect after
+    the next paint, a frame for the sync, and the frame's own task: two or
+    three frames behind the thumb whatever the drawing cost. The live layer
+    says when a value is set (lib/website-builder/live-settings.ts
+    onLiveChange), and the sections with it laid over are drawn there and
+    then; this canvas does not render for them until the finger lifts
+    (useLiveSections, quietWhileLive). With a language previewed its words
+    are already laid over the sections: a value moving is a setting.
+  */
+  const applyLiveThemeRef = useRef(applyLiveTheme)
+  applyLiveThemeRef.current = applyLiveTheme
+  useEffect(() => onLiveChange(() => {
+    if (!isLive()) return
+    const overlay = liveThemeNow()
+    if (overlay) applyLiveThemeRef.current(overlay)
+    const was = sectionsRef.current
+    const list = was.map((s) => liveSectionNow(s as unknown as SectionInstance) as unknown as StoredSection)
+    if (list.every((s, i) => s === was[i])) return
+    sync.current(list)
+  }), [])
   /*
     AT MOST ONCE A FRAME. A slider under a finger renders this with every
     value it passes, several between two frames, and each one drew the
@@ -911,19 +1521,41 @@ export function CompatCanvas(props: CompatCanvasProps) {
   }, [])
 
   /*
+    THE EDITOR'S SIZE SWITCH, INSIDE THE FRAME. The frame is resized with the
+    card, and what the person was looking at in the theme's page is held under
+    their eye by the page itself (canvas-bridge.ts, hold-view): the editor's
+    hand cannot reach into the frame (lib/website-builder/canvas-switch.ts,
+    HOLD_VIEW_EVENT).
+  */
+  useEffect(() => {
+    const onHold = (e: Event) => {
+      const on = !!(e as CustomEvent<{ on?: boolean }>).detail?.on
+      const slot = slotsRef.current[0]
+      if (!slot?.ready) return
+      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "hold-view", on }, "*")
+    }
+    window.addEventListener(HOLD_VIEW_EVENT, onHold)
+    return () => window.removeEventListener(HOLD_VIEW_EVENT, onHold)
+  }, [])
+
+  /*
     THE TOOLBAR OVER THE CANVAS finds a section by its element in the editor's
     page (wb-section-<id>), and an imported theme's sections are inside the
     frame. The frame says where the selected one is; an empty box of that
     size stands there, and the toolbar points at it like any other section.
   */
   const [ghost, setGhost] = useState<{ id: string; top: number; left: number; width: number; height: number } | null>(null)
+  /* The toolbar reads the box's top, left and width; a box only growing under a slider does not move it, and the scroll event told everything listening on the editor to measure again, for every value (round 35). */
+  const ghostPlace = ghost ? `${ghost.id}|${ghost.top}|${ghost.left}|${ghost.width}` : ""
   useEffect(() => {
     document.getElementById("wb-preview-root")?.dispatchEvent(new Event("scroll"))
-  }, [ghost])
+  }, [ghostPlace])
   const onSelect = useRef(props.onSelect)
   onSelect.current = props.onSelect
   const onNavigate = useRef(props.onNavigate)
   onNavigate.current = props.onNavigate
+  const onAddAt = useRef(props.onAddSectionAt)
+  onAddAt.current = props.onAddSectionAt
   /* The language previewed: its links carry /fr, and the builder's pages are named without it. */
   const langRef = useRef(langCode)
   langRef.current = langCode
@@ -1032,10 +1664,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const at = list.findIndex((x) => x.n === n)
     if (at <= 0) return
     /* Another page: the one being left fades off it. The same page drawn again (an edit) is a cut: it looks as the one it replaces does. */
-    if (paintedRef.current && list[0].key !== list[at].key && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) setHandover(list[0])
+    const otherPage = list[0].key.split("|")[0] !== list[at].key.split("|")[0]
+    if (paintedRef.current && otherPage && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) setHandover(list[0])
     setPainted(true)
     /* Another page: the one being left is kept, loaded, for going back to it (KEPT PAGES), as it now stands. */
-    if (list[0].key !== list[at].key && !list[0].account && list[0].ready) {
+    if (otherPage && !list[0].account && list[0].ready) {
       list[0].stamp = stampRef.current
       keep(list[0])
     }
@@ -1067,7 +1700,15 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   useEffect(() => {
     if (!shown || !frontN) return
-    frames.current.get(frontN)?.contentWindow?.postMessage({ storelib: 1, type: "shown" }, "*")
+    const win = frames.current.get(frontN)?.contentWindow
+    win?.postMessage({ storelib: 1, type: "shown" }, "*")
+    /*
+      AND A HOLD IT HAS FROM ITS FIRST PAINT IS LOOKED AT NOW (round 1023,
+      part 2): a cookie banner's consent hold, a drawer that opened itself, a
+      preloader's class. The page is let go here if nothing on screen holds
+      it, before anybody's first wheel (canvas-bridge.ts, "heal").
+    */
+    win?.postMessage({ storelib: 1, type: "heal" }, "*")
   }, [shown, frontN])
   /*
     A LINK PRESSED TO ANOTHER PAGE LEAVES THE PAGE IN FRONT STILL. Until the
@@ -1083,6 +1724,22 @@ export function CompatCanvas(props: CompatCanvasProps) {
     return () => clearTimeout(t)
   }, [leavingFrom])
   useEffect(() => { if (leavingFrom !== null && slots[0]?.n !== leavingFrom) setLeavingFrom(null) }, [slots, leavingFrom])
+  /* A link followed from the page: an account page drawn here, or the editor asked to open the page it goes to. True when another page is opening. */
+  const navigateFrom = (n: number, rawHref: string, chrome: boolean): boolean => {
+    const href = withoutLanguage(rawHref, langRef.current)
+    const to = href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+    if ((CANVAS_ACCOUNT_PATHS as readonly string[]).includes(to)) {
+      /* As any link in the page: from the header and footer always, from the page itself while the inspector is off. */
+      if (chrome || !inspecting.current) { setAccountPath(to); return true }
+      return false
+    }
+    /* Leaving an account page: the page being edited again, then wherever the link goes. */
+    if (accountRef.current) setAccountPath(null)
+    if (onNavigate.current?.(href, chrome) === true) { setLeavingFrom(n); return true }
+    return false
+  }
+  const navigateFromRef = useRef(navigateFrom)
+  navigateFromRef.current = navigateFrom
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       const slot = slotsRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
@@ -1122,7 +1779,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
         if (isFront) setPainted(true)
         /* Where it should stand (the same page drawn again stays where it was; another page opens at its top), and told to say when it is drawn there. */
         if (!isFront) {
-          const same = slot.key === slotsRef.current[0]?.key
+          /* The same page, whatever files it is drawn from (pageIdFor). */
+          const same = slot.key.split("|")[0] === slotsRef.current[0]?.key.split("|")[0]
           /* The same page drawn again (an edit): settled where it ends before it replaces the one in front (canvas-network.ts, instant). */
           if (same) win.postMessage({ storelib: 1, type: "shown", instant: true }, "*")
           win.postMessage({ storelib: 1, type: "scroll", top: same ? scrollY.current : 0, settle: true }, "*")
@@ -1160,28 +1818,33 @@ export function CompatCanvas(props: CompatCanvasProps) {
       } else if (m.type === "navigate" && isFront) {
         const n = m as { href?: string; chrome?: boolean }
         if (typeof n.href !== "string") return
-        n.href = withoutLanguage(n.href, langRef.current)
-        const to = n.href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
-        if ((CANVAS_ACCOUNT_PATHS as readonly string[]).includes(to)) {
-          /* As any link in the page: from the header and footer always, from the page itself while the inspector is off. */
-          if (n.chrome === true || !inspecting.current) setAccountPath(to)
-          return
-        }
-        /* Leaving an account page: the page being edited again, then wherever the link goes. */
-        if (accountRef.current) setAccountPath(null)
-        if (onNavigate.current?.(n.href, n.chrome === true) === true) setLeavingFrom(slot.n)
+        navigateFromRef.current(slot.n, n.href, n.chrome === true)
+      } else if (m.type === "taken" && isFront) {
+        const n = m as { href?: unknown; chrome?: unknown }
+        if (typeof n.href === "string") slot.taken = { href: n.href, chrome: n.chrome === true, at: Date.now() }
       } else if (m.type === "intent" && isFront) {
         const h = (m as { href?: unknown }).href
         if (typeof h === "string") onIntent.current?.(withoutLanguage(h, langRef.current))
+      } else if (m.type === "edits-failed") {
+        themeFailedRef.current((m as { key?: unknown }).key)
+      } else if (m.type === "resend") {
+        /* The frame did not hold the drawing a cut was read against: the section whole, as it is now. */
+        const id = (m as { id?: unknown }).id
+        const html = typeof id === "string" ? slot.shape.sections.get(id) : undefined
+        if (typeof id === "string" && typeof html === "string") win.postMessage({ storelib: 1, type: "section", id, html }, "*")
       } else if (m.type === "box" && isFront) {
         const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number }
-        setGhost(typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null)
+        const next = typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null
+        setGhost((was) => (was && next && was.id === next.id && was.top === next.top && was.left === next.left && was.width === next.width && was.height === next.height ? was : next))
       } else if (m.type === "scrolled" && typeof m.scrollY === "number") {
         if (isFront) scrollY.current = m.scrollY
       } else if (m.type === "clip-key" && isFront) {
         /* Cmd/Ctrl+C or V pressed inside the page: the editor copies or pastes the open section (editor page, clip keys). */
         const key = (m as { key?: unknown }).key
         if (key === "copy" || key === "paste") window.dispatchEvent(new CustomEvent("storelib:clip-key", { detail: key }))
+      } else if (m.type === "add-section" && inspecting.current && isFront) {
+        const a = m as { before?: unknown; after?: unknown }
+        onAddAt.current?.({ before: typeof a.before === "string" ? a.before : null, after: typeof a.after === "string" ? a.after : null })
       } else if (m.type === "pick" && typeof m.sectionId === "string" && inspecting.current && isFront) {
         onSelect.current(m.sectionId, Array.isArray(m.blockPath) ? m.blockPath.filter((x): x is string => typeof x === "string") : [])
       }
@@ -1201,6 +1864,43 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const onFrameLoad = (n: number) => {
     const at = slotsRef.current.findIndex((x) => x.n === n)
+    /*
+      ═════════════════════════════════════════════════════════════════════
+       A PAGE THAT LEFT THE CANVAS IS DRAWN AGAIN (round 1023)
+      ═════════════════════════════════════════════════════════════════════
+      A theme that plays its own page transition opens the next page itself
+      (location.href, once its overlay has played), and the frame goes to an
+      address that is no canvas at all: the builder's own host, a page with
+      no sections, nothing of this one's scripts. The page said so as it went
+      ("leaving" and "navigate" at pagehide), but a message sent while its
+      document is being unloaded comes from a window that is no longer the
+      frame's (e.source matches no frame, measured in Chromium), so neither
+      was ever heard: the canvas was left on that dead page, which neither
+      scrolls nor selects (scripts/check-canvas-freeze.mjs, a page
+      transition link pressed). The frame's own load event is the
+      browser's, and a frame drawn from markup loads once: a second load is
+      the page having left. The link the theme took is opened as the
+      editor would open it ("taken", said as the theme took it), and
+      otherwise the page is drawn again where it was.
+    */
+    if (at >= 0) {
+      const slot = slotsRef.current[at]
+      slot.loads = (slot.loads ?? 0) + 1
+      if (slot.loads > 1) {
+        slot.ready = false
+        const taken = slot.taken && Date.now() - slot.taken.at < 8000 ? slot.taken : null
+        slot.taken = undefined
+        if (at === 0 && taken && navigateFromRef.current(n, taken.href, taken.chrome)) return
+        if (compatTheme) {
+          try {
+            loadBehind(draw(sectionsRef.current), slot.key, sectionsRef.current)
+          } catch (e) {
+            console.error("[compat-canvas] the page could not be drawn", e)
+          }
+        }
+        return
+      }
+    }
     if (at < 0) {
       const away = keptRef.current.find((x) => x.n === n)
       if (away && !away.ready) frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "hello" }, "*")
@@ -1364,17 +2064,50 @@ const PROBLEM_WORDS = {
 /* ── What a drawn page is, to compare one with the next ───────────────────── */
 
 export interface DocShape {
-  /** Everything in <head> but the text of its inline styles and the font links: a change here is a different page. */
+  /** The head's scripts, by address: a change here is a different page. */
   head: string
+  /**
+   * The rest of the head (meta, link, title), each as drawn, by position: a
+   * theme that prints a setting there (`<meta name="theme-color">`, a font's
+   * preload) has it changed in place, never the page loaded again.
+   */
+  headNodes: string[]
   styles: string[]
+  /** The <style>s the layout draws in the body, around the sections, by position. */
+  bodyStyles: string[]
   fonts: string[]
   htmlAttrs: Record<string, string>
   bodyAttrs: Record<string, string>
-  /** <body> with every section and script taken out: what the layout draws around the sections. */
+  /** <body> with every section, script and style taken out: what the layout draws around the sections. */
   skeleton: string
   /** Every section, in the order drawn, by id: its markup. */
   sections: Map<string, string>
   order: { id: string; group: string }[]
+  /**
+   * The head as the page holds what was drawn of it (every node the canvas
+   * marked drawn, and every script as a mark with its address), each as
+   * markup, in order: what the frame changes in place when a stylesheet, a
+   * meta or a script comes or goes (round 1023, part 2, THE MARKS below).
+   */
+  headLayout?: string[]
+  /** <body> with each section, script and noscript as a mark in its place: the layout around the sections, to change in place. */
+  bodyLayout?: string
+}
+
+/*
+  THE MARKS A LAYOUT IS WRITTEN WITH (round 1023, part 2). A section, a
+  script and a noscript stand in a layout as an empty <template> carrying
+  which one it is: the frame finds the section by its id and never moves
+  or re-runs any of them; a script added to the head by a setting is the
+  one thing it starts (canvas-bridge.ts, relayout).
+*/
+const LAYOUT_SECTION = "data-sl-sec"
+const LAYOUT_SCRIPT = "data-sl-js"
+const LAYOUT_NOSCRIPT = "data-sl-ns"
+const markOf = (doc: Document, attr: string, value: string) => {
+  const t = doc.createElement("template")
+  t.setAttribute(attr, value)
+  return t
 }
 
 const attrsOf = (el: Element): Record<string, string> => Object.fromEntries(Array.from(el.attributes).map((a) => [a.name, a.value]))
@@ -1384,11 +2117,14 @@ export function docShape(html: string): DocShape {
   const styles: string[] = []
   const fonts: string[] = []
   const head: string[] = []
+  const headNodes: string[] = []
   for (const el of Array.from(doc.head.children)) {
-    if (el.tagName === "STYLE") { styles.push(el.textContent ?? ""); head.push("<style>"); continue }
+    if (el.tagName === "STYLE") { styles.push(el.textContent ?? ""); continue }
     if (el.tagName === "LINK" && el.hasAttribute("data-storelib-font")) { fonts.push(el.getAttribute("href") ?? ""); continue }
     if (el.tagName === "SCRIPT") { head.push(`<script ${el.getAttribute("src") ?? ""}>`); continue }
-    head.push(el.outerHTML)
+    /* Read as text by a page that runs scripts and as markup here: never compared. */
+    if (el.tagName === "NOSCRIPT" || el.tagName === "TEMPLATE") continue
+    headNodes.push(el.outerHTML)
   }
   const sections = new Map<string, string>()
   const order: { id: string; group: string }[] = []
@@ -1397,27 +2133,71 @@ export function docShape(html: string): DocShape {
     sections.set(id, el.outerHTML)
     order.push({ id, group: /shopify-section-group-([a-z0-9_-]+)/i.exec(el.className)?.[1] ?? "" })
   }
+  const headLayout = Array.from(doc.head.children)
+    .filter((el) => el.tagName === "SCRIPT" || el.hasAttribute("data-sl-d"))
+    .map((el) => (el.tagName === "SCRIPT" ? markOf(doc, LAYOUT_SCRIPT, el.getAttribute("src") ?? "").outerHTML : el.outerHTML))
+  const laid = doc.body.cloneNode(true) as HTMLElement
+  laid.querySelectorAll(".shopify-section[data-section-id]").forEach((el) => el.replaceWith(markOf(doc, LAYOUT_SECTION, el.getAttribute("data-section-id") ?? "")))
+  laid.querySelectorAll("script").forEach((el) => el.replaceWith(markOf(doc, LAYOUT_SCRIPT, el.getAttribute("src") ?? "")))
+  laid.querySelectorAll("noscript").forEach((el) => el.replaceWith(markOf(doc, LAYOUT_NOSCRIPT, "")))
   const body = doc.body.cloneNode(true) as HTMLElement
   body.querySelectorAll(".shopify-section[data-section-id], script").forEach((el) => el.remove())
-  return { head: head.join("\n"), styles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order }
+  const bodyStyles: string[] = []
+  body.querySelectorAll("style").forEach((el) => {
+    bodyStyles.push(el.textContent ?? "")
+    el.remove()
+  })
+  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML }
 }
 
 const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
   const ka = Object.keys(a)
   return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k])
 }
+const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i])
 
 /**
  * What to send a page drawn as `from` so it reads as `to`, or null when the
- * page has to be loaded again (its head or its skeleton changed).
+ * page has to be loaded again. A stylesheet's text, the head's meta and
+ * links and the body's own styles are changed in place (round 1022: a theme
+ * printing its accent in `<meta name="theme-color">` had the page loaded
+ * again for every value of a colour dragged, 36 times).
+ *
+ * THE LAYOUT AROUND THE SECTIONS IS CHANGED IN PLACE TOO (round 1023, part
+ * 2). A theme setting the layout prints outside every section loaded the
+ * whole page again, and the owner saw the canvas refresh and then freeze
+ * (scripts/check-theme-settings-live.mjs, on the Materia store): a cookie
+ * banner's words or its switch, a back to top button, a <style> there only
+ * while Shadow is on, a script in the head only while Search suggestions
+ * is on, a custom tag in the head. Each comes as `layout`, the layout's
+ * marked markup before and after (DocShape headLayout, bodyLayout), which
+ * the frame compares and changes node by node where it stands
+ * (canvas-bridge.ts, relayout), keeping the sections, the scripts that ran
+ * and whatever the theme's scripts added. Only a page drawn without those
+ * marks, or one whose layout the frame cannot match, is loaded again.
+ *
+ * `<html>`'s and `<body>`'s attributes go with what they were drawn as
+ * (htmlFrom, bodyFrom), so a class the theme's script added (js, loaded)
+ * stays where a setting changes another.
  */
 export function planPatch(from: DocShape, to: DocShape): { empty: boolean; message: Record<string, unknown>; swaps: { id: string; html: string }[] } | null {
-  if (from.head !== to.head || from.skeleton !== to.skeleton || from.styles.length !== to.styles.length) return null
+  const headMoved = from.head !== to.head || from.styles.length !== to.styles.length || from.headNodes.length !== to.headNodes.length
+  const bodyMoved = from.skeleton !== to.skeleton || from.bodyStyles.length !== to.bodyStyles.length
+  if (headMoved && !(from.headLayout && to.headLayout)) return null
+  if (bodyMoved && !(from.bodyLayout !== undefined && to.bodyLayout !== undefined)) return null
   const message: Record<string, unknown> = {}
-  if (from.styles.some((x, i) => x !== to.styles[i])) message.styles = to.styles
-  if (from.fonts.join("\n") !== to.fonts.join("\n")) message.fonts = to.fonts
-  if (!sameRecord(from.htmlAttrs, to.htmlAttrs)) message.htmlAttrs = to.htmlAttrs
-  if (!sameRecord(from.bodyAttrs, to.bodyAttrs)) message.bodyAttrs = to.bodyAttrs
+  const layout: { head?: [string[], string[]]; body?: [string, string] } = {}
+  if (headMoved) layout.head = [from.headLayout!, to.headLayout!]
+  else {
+    if (from.styles.some((x, i) => x !== to.styles[i])) message.styles = to.styles
+    if (!sameList(from.headNodes, to.headNodes)) message.headNodes = to.headNodes
+    if (from.fonts.join("\n") !== to.fonts.join("\n")) message.fonts = to.fonts
+  }
+  if (bodyMoved) layout.body = [from.bodyLayout!, to.bodyLayout!]
+  else if (from.bodyStyles.some((x, i) => x !== to.bodyStyles[i])) message.bodyStyles = to.bodyStyles
+  if (layout.head || layout.body) message.layout = layout
+  if (!sameRecord(from.htmlAttrs, to.htmlAttrs)) { message.htmlAttrs = to.htmlAttrs; message.htmlFrom = from.htmlAttrs }
+  if (!sameRecord(from.bodyAttrs, to.bodyAttrs)) { message.bodyAttrs = to.bodyAttrs; message.bodyFrom = from.bodyAttrs }
   const remove = from.order.filter((x) => !to.sections.has(x.id)).map((x) => x.id)
   if (remove.length) message.remove = remove
   /* A section whose markup changed is swapped in its place (canvas-bridge.ts, swap); one added is put where it goes; one only moved is moved. */

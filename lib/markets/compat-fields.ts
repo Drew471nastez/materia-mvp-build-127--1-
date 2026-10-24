@@ -7,6 +7,8 @@
 import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { SchemaField } from "@/lib/website-builder/types"
 import { localizeCards, localizeRecord, themeWordKey, valueFor, type TranslateOpts, type TranslationMap } from "./translate"
+import { UI_WORDS, uiKey, type UiWord } from "./ui-words"
+import { reviewAppBlockSchema } from "@/lib/storelib-theme/compat/review-app-blocks"
 
 type O = Record<string, unknown>
 
@@ -24,7 +26,8 @@ export function compatFields(theme: CompatTheme): { fieldsOf: (t: string) => Sch
     fieldsOf: (t) => named(settingsOf(theme.schemaOf("sections", t))),
     blockFieldsOf: (st, bt) => {
       const own = (Array.isArray(theme.schemaOf("sections", st).blocks) ? (theme.schemaOf("sections", st).blocks as O[]) : []).find((b) => b.type === bt)
-      return named(settingsOf(own) ?? settingsOf(theme.schemaOf("blocks", bt)))
+      /* Storelib Reviews' own app blocks have no file in the theme: their Heading is translated as the panel names it (review-app-blocks.ts). */
+      return named(settingsOf(own) ?? settingsOf(theme.schemaOf("blocks", bt)) ?? reviewAppBlockSchema(bt)?.fields)
     },
   }
 }
@@ -60,6 +63,23 @@ export function compatThemeWords(defaults: { key: string; value: string }[], map
   for (const w of defaults) {
     const v = valueFor(map, themeWordKey(w.key), opts, w.value)
     if (v) out[w.key] = v
+  }
+  return out
+}
+
+/**
+ * Storelib's own words (Translate › Shop words, `ui:<name>`) as the store
+ * translated them: what Storelib draws inside an imported theme (the review
+ * widgets, Storelib Reviews' blocks and section) reads them as the page's
+ * `i18n.uiWords`. The website (compat.ts) and the builder's canvas ask this
+ * one function, so the canvas says what the website says.
+ */
+export function compatUiWords(map: TranslationMap | null | undefined, opts: TranslateOpts = LIVE): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!map || map.size === 0) return out
+  for (const w of Object.keys(UI_WORDS) as UiWord[]) {
+    const v = valueFor(map, uiKey(w), opts)
+    if (v) out[w] = v
   }
   return out
 }

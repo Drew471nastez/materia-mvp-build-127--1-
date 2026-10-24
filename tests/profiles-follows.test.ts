@@ -542,7 +542,7 @@ async function main() {
     const creator = read("app/(marketing)/u/[username]/page.tsx")
     check("the creator page has the same follow block", /<ProfileSocial[\s\S]{0,80}tone="storefront"/.test(creator) && (creator.match(/followRow=\{buildFollowRow\(/g) ?? []).length === 2)
     check("the creator page has the way back on both of its headers: in the newsletter bar, else a slim top bar", (creator.match(/leading=\{!embedded \? <TopBarBack initiallyShown=\{backShown\} \/> : undefined\}/g) ?? []).length === 3 && (creator.match(/<ProfileTopBar\b/g) ?? []).length === 2 && !/ProfileBackBar/.test(creator))
-    check("Follow on the creator page is drawn in the scheme's own button colours", /buildFollowRow\(headerSettings, chrome\.action\)/.test(creator) && /scheme=\{scheme \?\? null\}/.test(creator) && /action: schemeAction\(\{/.test(read("lib/store-builder/storefront-chrome.ts")))
+    check("Follow on the creator page is drawn in the scheme's own button colours", /* Changed on purpose (round 38): the row takes only the scheme now, no Show followers switch. */ /buildFollowRow\(chrome\.action\)/.test(creator) && /scheme=\{scheme \?\? null\}/.test(creator) && /action: schemeAction\(\{/.test(read("lib/store-builder/storefront-chrome.ts")))
     /* Round 5: "Creator pages (creators with a store): NO Activity tab; the Communities tab lists ONLY communities they created (not ones they joined); none -> the No communities yet panel as before." */
     const creatorCode = stripComments(creator)
     check("the creator page has no Activity tab, and reads no activity or joined communities for one", !/id: "activity"/.test(creatorCode) && !/personalActivityPanel|activityFor\(|profileCommunities\(|includeMemberships|<ProfileActivity|<SharedCommunityPosts/.test(creatorCode))
@@ -563,7 +563,10 @@ async function main() {
     check("  /account for a creator opens on their Communities, never their activity", /const creator = await accountIsCreator\(user\.id\)/.test(account) && /\{creator \? creatorBody\(user\) : activityBody\(user\)\}/.test(account) && /return accountCommunitiesBody\(user\.id\)/.test(account) && !/ProfileActivity/.test(account.slice(account.indexOf("async function creatorBody"), account.indexOf("export default"))))
     check("  the layout tells the pills who is a creator, by the creator page's own test", /accountIsCreator\(user\.id\)/.test(read("app/account/layout.tsx")) && /creator,\n/.test(read("app/account/layout.tsx")) && /creator=\{!!identity\.creator\}/.test(read("components/account/account-hub.tsx")) && /hasActiveStorefront\(await loadCreatorForUser\(userId\)\)/.test(read("lib/profile/account-creator.ts")) && /^import "server-only"/.test(read("lib/profile/account-creator.ts")))
     const header = read("components/store-builder/unified-section-renderer.tsx")
-    check("the header does not print the follower count twice", /!followRow && \(settings\.showFollowers/.test(header))
+    /* Changed on purpose (round 38): "followers and following only inside profiles, inside communities, not in creator pages at all". */
+    check("the header prints no follower count of its own", !/followerCount|settings\.showFollowers/.test(header))
+    check("  a creator page draws Follow without followers or following, and reads neither count", /showCounts=\{false\}/.test(creator) && !/followers=\{|following=\{|followerCount|followingCount/.test(creator) && !/count: "exact", head: true \}\)\.eq\("(following|follower)_id", profile\.id\)/.test(creator))
+    check("  a person's profile keeps both counts", /followers=\{profile\.followers\}/.test(read("components/profile/member-profile-page.tsx")) && /following=\{profile\.following\}/.test(read("components/profile/member-profile-page.tsx")) && /data-profile-counts=""/.test(socialSrc))
     /* Round 4: sales only in About, beside Joined and Products, above the payment methods. */
     const headerFn = header.slice(header.indexOf("export function UnifiedShopHeader("), header.indexOf("// ====== PRODUCT PAGE CONTENT"))
     check("no sales count anywhere in the hero", !/sales<|\} sales|ShoppingBag|totalSales/.test(stripComments(headerFn)))

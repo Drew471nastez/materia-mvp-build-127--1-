@@ -40,15 +40,23 @@ export function createSiteGate(o: SiteGateOptions): SiteGate {
   let sites: { at: number; map: Map<string, number> } | null = null
   const names = new Map<string, { at: number; creatorId: string | null }>()
 
+  /* A read under way is shared: a page asks here twice at once (proxy.ts startSiteQuestions, then its rewrite), and both wait on the one read. */
+  let asking: Promise<Map<string, number>> | null = null
   async function protectedNow(): Promise<Map<string, number>> {
     const t = clock()
     if (sites && t - sites.at < SITES_TTL_MS) return sites.map
-    const db = o.db()
-    const read = db ? await protectedSites(db) : null
-    /* A read that failed keeps what was known: a website that asked a moment ago still asks. */
-    const map = read ?? sites?.map ?? new Map<string, number>()
-    sites = { at: t, map }
-    return map
+    if (asking) return asking
+    asking = (async () => {
+      const db = o.db()
+      const read = db ? await protectedSites(db) : null
+      /* A read that failed keeps what was known: a website that asked a moment ago still asks. */
+      const map = read ?? sites?.map ?? new Map<string, number>()
+      sites = { at: t, map }
+      return map
+    })().finally(() => {
+      asking = null
+    })
+    return asking
   }
 
   async function creatorFor(name: string): Promise<string | null> {

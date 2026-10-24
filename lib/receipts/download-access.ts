@@ -39,7 +39,18 @@ const NOT_FOUND: DownloadAccessResult = {
 
 export async function resolveDownloadAccess(
   admin: SupabaseClient,
-  input: { assetId: string; receiptToken?: string | null; userId?: string | null },
+  input: {
+    assetId: string
+    receiptToken?: string | null
+    userId?: string | null
+    /**
+     * Orders this browser holds a guest grant for (lib/receipts/guest-access-server
+     * heldGrants: signed for that order's token, still delivering). One of them
+     * for the file's product stands in for the receipt link when none was sent,
+     * and is judged by exactly the same rule.
+     */
+    guestOrders?: ReadonlyArray<{ id: string; product_id: string; variant_id: string | null; status: string | null; amount_cents?: number | null; refund_amount_cents?: number | null }>
+  },
 ): Promise<DownloadAccessResult> {
   /* "*" on purpose: scan_status and storage_bucket arrived in later
      migrations, and this row never leaves the server. */
@@ -79,6 +90,11 @@ export async function resolveDownloadAccess(
       .eq("receipt_token", input.receiptToken)
       .maybeSingle()
     if (data) receiptOrder = data as any
+  }
+  if (!receiptOrder && input.guestOrders?.length) {
+    /* The paid one first: a variant bought twice, once refunded, still opens. */
+    const mine = input.guestOrders.filter((o) => o.product_id === asset.product_id)
+    receiptOrder = mine.find((o) => canDeliver(o)) ?? mine[0] ?? null
   }
 
   let isCreator = false

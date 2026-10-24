@@ -37,7 +37,8 @@
 
 import { codCountryAllowed } from "@/lib/physical/cash-on-delivery"
 import * as React from "react"
-import { ChevronDown, Globe2, MapPin, Minus, Package, Plus, ShoppingBag, Truck } from "lucide-react"
+import { ChevronDown, Globe2, MapPin, Minus, Plus, ShoppingBag, Truck } from "lucide-react"
+import { ProductImg } from "@/components/media/missing-image"
 import { languageName } from "@/lib/markets/locales"
 import { cn } from "@/lib/utils"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
@@ -586,7 +587,7 @@ export function SiteCheckout({
 
   /* ── Checks, before anything is sent ─────────────────────────────── */
   const checkBusinessNow = (): string | null => {
-    if (!businessOn) return null
+    if (!businessOn || !config.businessInvoice) return null
     const r = checkBusiness(business)
     if (r.ok) {
       setBusinessErrors({})
@@ -659,7 +660,7 @@ export function SiteCheckout({
       lastName: typed ? lastName : walletName.slice(1).join(" "),
       emailOptIn: plan.newsBox ? emailOptIn : false,
       agreedToTerms: agreed,
-      business: businessOn ? business : null,
+      business: businessOn && config.businessInvoice ? business : null,
       address: ships && mode === "ship" ? { ...address, name: `${firstName} ${lastName}`.trim() } : null,
       phone: address.phone,
       deliveryOptionId: ships ? optionId : null,
@@ -1039,7 +1040,8 @@ export function SiteCheckout({
           ))}
         </dl>
       ) : null}
-      {!isFree ? (
+      {/* Only where the store offers company invoices (Settings › Checkout, businessInvoice): off, the box is not drawn and nothing of it is sent. */}
+      {!isFree && config.businessInvoice ? (
         <section aria-label={ct("Invoice")}>
           <BusinessFields
             on={businessOn}
@@ -1456,14 +1458,7 @@ export function SiteProblem({ brand, backTo, shopUrl, title, message }: { brand:
 function LineImage({ url, muted = false }: { url: string | null; muted?: boolean }) {
   return (
     <div className={cn("relative h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]", muted && "opacity-60")}>
-      {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" className="h-full w-full object-cover" />
-      ) : (
-        <span className="flex h-full items-center justify-center">
-          <Package className="h-5 w-5 text-[#c4c7cd]" strokeWidth={1.5} />
-        </span>
-      )}
+      <ProductImg src={url} className="h-full w-full object-cover" />
     </div>
   )
 }

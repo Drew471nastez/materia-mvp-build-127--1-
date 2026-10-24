@@ -12,6 +12,7 @@ import type { ChatView } from "@/components/community/member/chat"
 import type { LearnLibrary } from "@/components/community/learn/learn-library"
 import type { EmptyProgram, LockedProgram, ProgramPlayer } from "@/components/community/learn/program-page"
 import type { EventsPage } from "@/components/community/events/events-page"
+import type { LibraryItemData, LibraryShelfData } from "@/components/community/library/model"
 import type { EventDetail } from "@/components/community/events/event-detail"
 import type { MembersDirectory } from "@/components/community/member/members"
 import type { Leaderboard } from "@/components/community/member/leaderboard"
@@ -27,11 +28,14 @@ type ChatProps = ComponentProps<typeof ChatView>
 
 export type PlaceData =
   | ({ kind: "feed" } & Required<Pick<FeedProps, "start" | "initial" | "servedAt" | "readOnly">> & { spaces: SpaceView[]; viewer: ViewerView; onboarding: FeedProps["onboarding"]; compose: FeedProps["compose"] })
-  | { kind: "chat"; space: SpaceView; spaces: SpaceView[]; viewer: ViewerView; first: ChatProps["initial"]; readOnly: boolean }
+  | { kind: "chat"; space: SpaceView; spaces: SpaceView[]; viewer: ViewerView; first: ChatProps["initial"]; readOnly: boolean; intro?: ChatProps["intro"]; /** Round 38: the Chat tab's main channel when the community shows the tab; its chips are the chat channels only, the main one first. */ chatTab?: string | null }
   | ({ kind: "learn" } & Pick<ComponentProps<typeof LearnLibrary>, "programs" | "manageHref">)
   | ({ kind: "program"; mode: "locked" } & ComponentProps<typeof LockedProgram>)
   | ({ kind: "program"; mode: "player" } & ComponentProps<typeof ProgramPlayer>)
   | ({ kind: "program"; mode: "empty" } & ComponentProps<typeof EmptyProgram>)
+  /* Round 39: the Library and one item in it (components/community/library). */
+  | { kind: "library"; shelf: LibraryShelfData }
+  | { kind: "resource"; page: LibraryItemData }
   | ({ kind: "calendar" } & ComponentProps<typeof EventsPage>)
   | ({ kind: "event" } & ComponentProps<typeof EventDetail>)
   | ({ kind: "members" } & ComponentProps<typeof MembersDirectory>)

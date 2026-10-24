@@ -143,7 +143,8 @@ async function main() {
   /* Round 7: the sort menu's four orders; the old names are New and Top, anything else is Default. */
   check("the old names still read as New and Top, and anything unknown is Default", feedSort("popular") === "top" && feedSort("latest") === "new" && feedSort("weird") === "default" && feedSort(undefined) === "default")
   const feedSrc = code("lib/communities/server/feed.ts")
-  check("pinned posts are read on their own, first page only (in Default), and the pages skip them", /if \(!cursor && order === "default"\) \{[\s\S]{0,200}\.eq\("pinned", true\)/.test(feedSrc) && /\.eq\("pinned", false\)/.test(feedSrc))
+  /* Changed on purpose (round 39): asked beside the page's own read rather than before it (scripts/measure-community-member-server.mjs). */
+  check("pinned posts are read on their own, first page only (in Default), and the pages skip them", /if \(cursor \|\| order !== "default"\) return \[\][\s\S]{0,200}\.eq\("pinned", true\)/.test(feedSrc) && /\.eq\("pinned", false\)/.test(feedSrc) && /pinnedRead,\s*\]\)/.test(feedSrc))
   /* Changed on purpose: Default may rank a wider window of candidates, so the read asks for one more than that window (readLimit = candidateCap + 1), and the window is the page itself when not ranking (ddcbaf919). */
   check("pages ask for one more than they show, to know there is a next", /const candidateCap = rankDefault\s*\?[^:]+:\s*limit\s*const readLimit = candidateCap \+ 1/.test(feedSrc) && /\.limit\(readLimit\)/.test(feedSrc) && /let page: PostRow\[\] = candidates\.slice\(0, limit\)/.test(feedSrc))
   check("no offset paging anywhere in the member modules", !["feed", "comments", "chat", "directory", "mentions"].some((m) => /\.range\(/.test(code(`lib/communities/server/${m}.ts`))))

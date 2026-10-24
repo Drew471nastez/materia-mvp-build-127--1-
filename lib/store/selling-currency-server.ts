@@ -11,6 +11,7 @@ import "server-only"
  *   cachedStoreCurrency    the same, cached until the setting is saved
  *                          again (storeCurrencyTag), for the website's pages.
  */
+import { cache } from "react"
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { SellingCurrency } from "./selling-currency"
@@ -20,10 +21,10 @@ export { readStoreCurrency, type StoreCurrency } from "./selling-currency-read"
 
 export const storeCurrencyTag = (creatorId: string) => `store-currency:${creatorId}`
 
-/** The store's currency for its website's pages, cached until it is saved again. */
-export function cachedStoreCurrency(creatorId: string): Promise<SellingCurrency> {
+/** The store's currency for its website's pages, cached until it is saved again; once per request (React's cache), as a page and its metadata both ask. */
+export const cachedStoreCurrency = cache(function cachedStoreCurrency(creatorId: string): Promise<SellingCurrency> {
   return unstable_cache(async () => (await readStoreCurrency(createAdminClient(), creatorId)).currency, ["store-currency", creatorId], {
     tags: [storeCurrencyTag(creatorId)],
     revalidate: 300,
   })()
-}
+})

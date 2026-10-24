@@ -528,7 +528,7 @@ function AccessCards({ value, onChange, inputs, privateOff }: { value: ProgramMo
  * becomes a row with their picture and a cross. The list is what is saved;
  * the server keeps only people who are members here.
  */
-function MemberPicker({ communityId, value, onChange }: { communityId: string; value: BuilderMember[]; onChange: (m: BuilderMember[]) => void }) {
+export function MemberPicker({ communityId, value, onChange, emptyHint }: { communityId: string; value: BuilderMember[]; onChange: (m: BuilderMember[]) => void; /** What the empty list says (the Library, round 39); the program's words when left out. */ emptyHint?: string }) {
   const [q, setQ] = React.useState("")
   const [rows, setRows] = React.useState<BuilderMember[]>([])
   const [loading, setLoading] = React.useState(false)
@@ -609,7 +609,7 @@ function MemberPicker({ communityId, value, onChange }: { communityId: string; v
           ))}
         </ul>
       ) : (
-        <p className={HINT}>{tt("Nobody yet. Only the members on this list see the program.")}</p>
+        <p className={HINT}>{emptyHint ?? tt("Nobody yet. Only the members on this list see the program.")}</p>
       )}
       {value.length ? <p className={HINT}>{tt("{n, plural, one {# member sees it} other {# members see it}}, and your team.", { n: value.length })}</p> : null}
     </div>
@@ -630,7 +630,7 @@ function FieldError({ text }: { text: string | null }) {
   )
 }
 
-function CoverPick({ url, uploading, onPick, onClear }: { url: string | null; uploading: number | null; onPick: (f: File) => void; onClear: () => void }) {
+export function CoverPick({ url, uploading, onPick, onClear }: { url: string | null; uploading: number | null; onPick: (f: File) => void; onClear: () => void }) {
   const input = React.useRef<HTMLInputElement>(null)
   return (
     <div className="relative aspect-[16/9] w-full max-w-[320px] overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f6f7f9]" data-cover-pick>
