@@ -223,6 +223,8 @@ const SUITES = [
   "tests/creator-page-products.test.ts",
   "tests/deleted-product-gone.test.ts",
   "tests/onepage-preview-parity.test.ts",
+  /* Round 10 audit: the preview and the live page from one saved page (currency, social row, link addresses), the editor opens clean, archive and undo, undo back to saved; scripts/check-onepage-audit.mjs drives the real editor through the same cases. */
+  "tests/onepage-preview-live-r10.test.ts",
   "tests/product-delete.test.ts",
   "tests/product-visibility.test.ts",
   "tests/course-player.test.ts",

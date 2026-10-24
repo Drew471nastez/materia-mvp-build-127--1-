@@ -535,12 +535,13 @@ export function LinksTab() {
           const existingPlatforms = new Set(existingOrder.map(p => p.platform))
           const newPlatforms = activeSocials.filter(s => !existingPlatforms.has(s.platform))
 
+          /* Silent: the row follows the links (lib/onepage/public-shape draws it from them either way), so bringing it in line is no edit and no undo step. It marked the page Unsaved on open. */
           updateBlock(block.id, {
             data: {
               ...block.data,
               platforms: [...existingOrder, ...newPlatforms]
             }
-          })
+          }, { silent: true })
         }
       }
     })

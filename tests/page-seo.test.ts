@@ -129,8 +129,9 @@ console.log("\nA OnePage says where it lives and who it is about")
   check("and a page published before the published columns existed still draws its draft content",
     /publicOnePage\(onepage, \{\s*source: "published"/.test(loader) &&
       /published \? row\.published_blocks \|\| row\.draft_blocks : row\.draft_blocks/.test(shape) && /published \? row\.published_social_links \|\| row\.social_links : row\.social_links/.test(shape))
+  /* Round 10: the filter moved into drawnBlocks (the same step for both sides, which also draws social rows from the links), unchanged. */
   check("and a block outside its schedule is left out before the page is sent",
-    /blocks: blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(shape) && /import \{ isScheduledNow \} from "@\/lib\/onepage\/extra-blocks"/.test(shape))
+    /blocks: drawnBlocks\(blocks, /.test(shape) && /blocks\.filter\(\(b\) => isScheduledNow\(b, now\)\)/.test(shape) && /import \{ isScheduledNow \} from "@\/lib\/onepage\/extra-blocks"/.test(shape))
   check("the handle and the counts are asked once per request, for the metadata and the page",
     /export const onePageOwner = cache\(async/.test(loader) && (page.match(/await onePageOwner\(/g) ?? []).length === 2)
 }

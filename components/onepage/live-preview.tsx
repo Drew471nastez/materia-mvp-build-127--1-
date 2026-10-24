@@ -28,6 +28,7 @@ import { ONEPAGE_PREVIEW_CHANNEL, ONEPAGE_PREVIEW_PATH, type PreviewMessage } fr
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useShellAvatar } from "@/lib/account/avatar-store"
+import { useStoreCurrencyIfSet } from "@/lib/store/currency-context"
 
 /** How long a frame has to say it is ready before it is loaded once more. */
 const FRAME_READY_MS = 6000
@@ -126,6 +127,10 @@ export function LivePreviewFrame({
   const ready = useRef(false)
   const latest = useRef(page)
   latest.current = page
+  /* The store's currency, as /app's provider has it (app/app/layout.tsx LiveStoreCurrency): the live page's prices are in it. */
+  const currency = useStoreCurrencyIfSet()
+  const latestCurrency = useRef(currency)
+  latestCurrency.current = currency
   const [drawn, setDrawn] = useState(false)
   const onDrawnRef = useRef(onDrawn)
   onDrawnRef.current = onDrawn
@@ -133,7 +138,7 @@ export function LivePreviewFrame({
   const send = useCallback(() => {
     const win = frame.current?.contentWindow
     if (!win || !ready.current || !latest.current) return
-    win.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "page", page: latest.current } satisfies PreviewMessage, window.location.origin)
+    win.postMessage({ channel: ONEPAGE_PREVIEW_CHANNEL, kind: "page", page: latest.current, currency: latestCurrency.current } satisfies PreviewMessage, window.location.origin)
   }, [])
 
   useEffect(() => {
@@ -174,7 +179,7 @@ export function LivePreviewFrame({
     if (!ready.current) return
     const id = requestAnimationFrame(send)
     return () => cancelAnimationFrame(id)
-  }, [page, send])
+  }, [page, currency, send])
 
   return (
     <div
