@@ -215,6 +215,20 @@ export function siteThanksHref(receiptToken: string, opts: { whole?: boolean } =
 export interface SiteBuyer {
   email: string
   name: string | null
+  /** The default address of their address book on this website (lib/site-accounts/addresses.ts), filled in at checkout. Null when they have none. */
+  address?: SiteBuyerAddress | null
+}
+
+/** An address as the checkout's form holds it: every field a string, "" when empty. */
+export interface SiteBuyerAddress {
+  line1: string
+  line2: string
+  city: string
+  region: string
+  postalCode: string
+  country: string
+  phone: string
+  company: string
 }
 
 export type SiteGate = { kind: "open"; lockedEmail: string | null } | { kind: "sign-in" }
