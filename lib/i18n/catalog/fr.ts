@@ -10777,7 +10777,8 @@ const words: Record<string, string> = {
  "Where each order was placed: each of your websites by its name, your OnePage, your creator page, Storelib Explore or a checkout link opened on its own.": "Où chaque commande a été passée : chacun de vos sites par son nom, votre OnePage, votre page créateur, Storelib Explore ou un lien de paiement ouvert seul.",
  "This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.": "Cette période compte plus de commandes qu'un rapport n'en lit d'un coup, ces chiffres laissent donc de côté les plus récentes. Choisissez une période plus courte pour des chiffres exacts.",
  "Orders do not record their page on this store yet, so the sales reports count every page.": "Les commandes de cette boutique n'enregistrent pas encore leur page, les rapports de ventes comptent donc toutes les pages.",
- "{count, plural, one {# visit} other {# visits}}": "{count, plural, one {# visite} other {# visites}}"
+ "{count, plural, one {# visit} other {# visits}}": "{count, plural, one {# visite} other {# visites}}",
+ "Analytics file": "Fichier d’analyses"
 }
 
 export default words
