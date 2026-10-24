@@ -61,6 +61,30 @@ async function run() {
   check("a database read comes back with Storelib's addresses", rows[0].thumbnail_url === media, rows)
   const other = await (await mediaFetch("https://abcproject.supabase.co/auth/v1/user")).text()
   check("  auth and storage calls are passed through untouched", other.includes("supabase.co/storage"))
+  /* PostgREST reloading its schema cache (PGRST002, 503): a read is asked again after a short wait, a write never. */
+  let calls = 0
+  const reload = () => new Response(JSON.stringify({ code: "PGRST002", message: "Could not query the database for the schema cache. Retrying." }), { status: 503, headers: { "content-type": "application/json" } })
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    calls++
+    if ((init?.method ?? "GET") !== "GET" || calls < 3) return reload()
+    return new Response(JSON.stringify([{ id: "p1" }]), { status: 200, headers: { "content-type": "application/json" } })
+  }) as typeof fetch
+  const again = await mediaFetch("https://abcproject.supabase.co/rest/v1/products?select=id")
+  check("a read during a schema cache reload is asked again and succeeds", again.status === 200 && calls === 3, { status: again.status, calls })
+  calls = 0
+  const write = await mediaFetch("https://abcproject.supabase.co/rest/v1/orders", { method: "POST", body: "{}" })
+  check("  a write is never repeated", write.status === 503 && calls === 1, { status: write.status, calls })
+  calls = -100
+  const t0 = Date.now()
+  const stuck = await mediaFetch("https://abcproject.supabase.co/rest/v1/products?select=id")
+  check("  bounded: three more tries, then the error is handed back", stuck.status === 503 && calls === -96 && Date.now() - t0 < 3000, { status: stuck.status, calls })
+  calls = 0
+  globalThis.fetch = (async () => {
+    calls++
+    return new Response(JSON.stringify({ message: "upstream" }), { status: 503, headers: { "content-type": "application/json" } })
+  }) as typeof fetch
+  await mediaFetch("https://abcproject.supabase.co/rest/v1/products?select=id")
+  check("  any other 503 is not repeated", calls === 1, calls)
   globalThis.fetch = realFetch
 
   /* Wired where it matters. */
