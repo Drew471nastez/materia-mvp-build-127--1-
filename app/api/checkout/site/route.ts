@@ -621,8 +621,7 @@ function afterPaidHeaders(site: SiteOfCheckout, fingerprint: string | null, whol
  * httpOnly `sl_owned` grant the receipt page writes (lib/receipts/
  * guest-access.ts), written here too, because a guest who reads the thank
  * you page and leaves never opens the receipt. The product page on this
- * website then says it is theirs. Not for a signed in customer, whose
- * account already answers.
+ * website then says it is theirs, signed in to the website or not.
  */
 async function withGuestGrant(headers: Headers, request: Request, admin: Admin, site: SiteOfCheckout, receiptToken: string): Promise<Headers> {
   try {
