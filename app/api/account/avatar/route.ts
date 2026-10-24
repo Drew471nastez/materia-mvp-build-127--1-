@@ -1,11 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { toStorageUrl } from "@/lib/storage/media-url"
-import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { saveProfilePhoto, type PhotoClient } from "@/lib/account/avatar-save"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
-import { creatorTag } from "@/lib/commerce/product-page-cache"
+import { identityChanged } from "@/lib/account/identity-caches"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -85,15 +84,10 @@ export async function POST(request: NextRequest) {
   */
 
   /* The public creator page reads the profile and its header through a
-     cache shared between visitors (lib/commerce/product-page-cache): it
-     shows the new photo on its next view, not a minute later. */
-  try {
-    revalidateTag(creatorTag(user.id), "max")
-    if (saved.creatorId) revalidateTag(creatorTag(saved.creatorId), "max")
-    else if (followed.creatorId) revalidateTag(creatorTag(followed.creatorId), "max")
-  } catch {
-    /* Outside a request that can revalidate: the cache's own minute does it. */
-  }
+     cache shared between visitors (lib/commerce/product-page-cache), and the
+     live website holds it with the site: both are expired, so each shows the
+     new photo on its next view (lib/account/identity-caches). */
+  await identityChanged({ userId: user.id, creatorId: saved.creatorId ?? followed.creatorId })
 
   return NextResponse.json({ ok: true, url }, { headers: NO_STORE })
 }

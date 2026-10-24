@@ -226,7 +226,7 @@ async function main() {
   const saveSrc = readCode("lib/account/avatar-save.ts")
   const route = readCode("app/api/account/avatar/route.ts")
   check("the route saves through saveProfilePhoto on the person's own client and clears the creator page's shared cache",
-    /saveProfilePhoto\(supabase as unknown as PhotoClient, user, url\)/.test(route) && /revalidateTag\(creatorTag\(user\.id\), "max"\)/.test(route) && /revalidateTag\(creatorTag\(saved\.creatorId\), "max"\)/.test(route))
+    /saveProfilePhoto\(supabase as unknown as PhotoClient, user, url\)/.test(route) && /identityChanged\(\{ userId: user\.id, creatorId: saved\.creatorId \?\? followed\.creatorId \}\)/.test(route))
   check("and still takes a photo only from the person's own folder", /\/storage\/v1\/object\/public\/avatars\/\$\{userId\}\//.test(route))
   check("the save marks the choice, then writes the profile and reads it back",
     saveSrc.indexOf("supabase.auth.updateUser({ data: { [AVATAR_CHOSEN]: true } })") > 0 &&
