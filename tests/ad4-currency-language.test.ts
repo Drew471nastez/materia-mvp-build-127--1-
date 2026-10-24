@@ -14,6 +14,10 @@
  *   4. A visitor in a market saw its prices in their language's way on the
  *      website ("39,98 €" in German) and the same amounts at checkout in
  *      English's ("€39.98").
+ *   5. A store that converted its currency kept its website's free shipping
+ *      banner amount as the old number: "free shipping over 50" in euros
+ *      became 50 lei while the rates said 248.50 lei. And the setting was
+ *      labelled in dollars whatever the store sells in.
  *
  *   npx tsx tests/ad4-currency-language.test.ts
  */
@@ -28,6 +32,8 @@ import { pricingFor, storefrontDisplay } from "@/lib/markets/pricing"
 import { cartAmounts } from "@/lib/markets/cart-money"
 import { checkoutMoneyLocale, convertOrder, marketCharge } from "@/lib/markets/checkout-charge"
 import { moneyIn } from "@/app/checkout/parts/ui"
+import { themeSettingsForNewBase } from "@/lib/markets/base-change"
+import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -114,6 +120,22 @@ console.log("\n4. The checkout writes a market's amounts as the website did\n")
   check("  the store's own prices stay as every page writes them", checkoutMoneyLocale(null, "de") === "en-US" && moneyIn(4800, "RON", checkoutMoneyLocale(null, "de")) === "48.00\u00a0lei")
   check("  the website's checkout is told the language when it charges a market", /<CheckoutCurrency currency=\{market\.chargeCurrency\} locale=\{checkoutMoneyLocale\(market\.charge, language\.lang\)\}>/.test(read("app/checkout/site/page.tsx")))
   check("  and a tip's whole amount drops its decimals either way", /money\(cents\)\.replace\(\/\[\.,\]00/.test(read("app/checkout/parts/order-summary.tsx")))
+}
+
+console.log("\n5. The website's free shipping amount moves with the store's currency\n")
+{
+  const settings = { free_shipping_bar: true, free_shipping_threshold: 50, primary_color: "#111111" }
+  const converted = themeSettingsForNewBase(settings, { from: "EUR", to: "RON", mode: "convert", rate: 4.97 })
+  check("converted at the change's rate, the rest untouched", converted !== null && converted.free_shipping_threshold === 248.5 && converted.primary_color === "#111111" && converted.free_shipping_bar === true, converted)
+  check("  kept amounts keep the number", themeSettingsForNewBase(settings, { from: "EUR", to: "RON", mode: "keep", rate: null }) === null)
+  check("  nothing to move without an amount", themeSettingsForNewBase({ free_shipping_threshold: 0 }, { from: "EUR", to: "RON", mode: "convert", rate: 4.97 }) === null && themeSettingsForNewBase(null, { from: "EUR", to: "RON", mode: "convert", rate: 4.97 }) === null)
+  check("  a text amount is read too", themeSettingsForNewBase({ free_shipping_threshold: "20" }, { from: "EUR", to: "RON", mode: "convert", rate: 5 })?.free_shipping_threshold === 100)
+  const undo = themeSettingsForNewBase(converted, { from: "RON", to: "EUR", mode: "convert", rate: 1 / 4.97 })
+  check("  and undo puts the amount back", undo?.free_shipping_threshold === 50, undo)
+  const route = read("app/api/store/currency/route.ts")
+  check("the change and its undo move the website's settings, draft and published", /moveThemeSettings\(c\.db, c\.creatorId, \{ from: store\.currency, to, mode, rate \}\)/.test(route) && /moveThemeSettings\(c\.db, c\.creatorId, \{ from: latest\.to, to: latest\.from/.test(route) && /draft_settings/.test(route))
+  const field = THEME_SETTINGS_GROUPS.flatMap((g) => g.fields ?? []).find((f) => (f as { id?: string }).id === "free_shipping_threshold") as { label?: string; unit?: string } | undefined
+  check("the setting is not labelled in dollars", !!field && !/\$/.test(field.label ?? "") && field.unit !== "$", field)
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
