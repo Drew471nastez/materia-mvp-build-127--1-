@@ -18,6 +18,9 @@ import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { pageNumberOf } from "@/lib/website-builder/tab-title"
+import { breadcrumbJsonLd } from "@/lib/website-builder/breadcrumbs"
+import { jsonLdScript } from "@/lib/website-builder/site-seo"
+import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 
 /** What a collection page is drawn from: the filters, the sort and the page number (lib/products/catalog-filters.ts). */
 export type CollectionAsked = Record<string, string | string[] | undefined>
@@ -100,9 +103,13 @@ export async function CollectionPage({ segment, rawHandle, asked }: { segment: s
   const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }
   const { listed, filters, pagination } = catalogPage(cards, asked, `/collections/${handle}`, { words: localizer?.words })
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "collection", listed, { filters, pagination }, data)
+  /* Where the collection sits on the website, for search results (Home › Collections › Summer). The site's own address, held per request. */
+  const origin = await siteOrigin(site.creatorId, username)
+  const crumbs = jsonLdScript(breadcrumbJsonLd([{ name: site.displayName, url: `${origin}/` }, { name: "Collections", url: `${origin}/collections` }, { name: collection.title, url: `${origin}/collections/${handle}` }]))
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "collection" }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: crumbs }} />
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
