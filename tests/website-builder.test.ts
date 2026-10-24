@@ -1503,7 +1503,8 @@ section("Two at once still make five, and an import that says what went wrong")
   // Read up to a cap now (lib/website-builder/request-body.ts); a body that is not JSON is still no action.
   check("publish reads a bad body as an invalid action, not a crash", /const body = \(read\.invalid \? null : read\.json\) as \{ action\?: unknown \} \| null/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
   check("every route the page calls asks who is signed in and whether the website is theirs",
-    [routes.duplicate, install, read("app/api/website-builder/themes/[installId]/publish/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /\.eq\("creator_id", creator\.id\)/.test(src)) &&
+    /* Changed on purpose (round 12, WBPERF): the install route asks through editorUser (readCurrentUser: 401 for nobody, 503 for a blip). */
+    [routes.duplicate, install, read("app/api/website-builder/themes/[installId]/publish/route.ts")].every((src) => /auth\.getUser\(\)|await editorUser\(supabase\)/.test(src) && /\.eq\("creator_id", creator\.id\)/.test(src)) &&
       [routes.add, routes.import, read("app/api/website-builder/themes/import/upload/route.ts")].every((src) => /auth\.getUser\(\)/.test(src) && /Unauthorized/.test(src)))
 
   /*

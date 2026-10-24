@@ -1,5 +1,5 @@
 import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
-import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
+import { editorUser, readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { translationsChanged } from "@/lib/markets/translate-queue"
@@ -56,8 +56,9 @@ const SyncBodySchema = z.object({
 export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
+  const { user, status: authStatus, error: authError } = await editorUser(supabase)
+  if (!user) return NextResponse.json({ error: authError }, { status: authStatus })
 
   const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
     .from("creators").select("id").eq("user_id", user.id).maybeSingle())

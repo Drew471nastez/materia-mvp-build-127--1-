@@ -890,6 +890,8 @@ const SUITES = [
   "tests/editor-sections-r34.test.ts",
   /* Round 10 (OnePage products): what a tap does, draft/published/archived, prices, tiles, instant checkout through the checkout's own routes, the button's hover; scripts/check-onepage-products.mjs measures them. */
   "tests/onepage-products-r10.test.ts",
+  /* Round 12 (WBPERF): a link typed in a menu draws only what shows a menu, memoised menu rows, a 401 asked about before it is a sign out, a page's sections read again quietly; scripts/check-wb-perf-r12.mjs measures them on 120 sections. */
+  "tests/wb-perf-r12.test.ts",
 ]
 
 /**

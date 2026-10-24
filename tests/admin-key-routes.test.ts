@@ -43,6 +43,8 @@ function check(label: string, ok: boolean, detail?: string) {
 /** How a route may establish who is asking. */
 const PROOFS: [string, RegExp][] = [
   ["a signed-in session", /auth\.getUser\(\)/],
+  /* Round 12 (WBPERF): lib/website-builder/owned-install.ts editorUser is readCurrentUser for the builder's routes: 401 for Auth's nobody, 503 for a blip, and the route acts only on its `user`. */
+  ["a signed-in session, classified for the builder", /await editorUser\(supabase\)[\s\S]*if \(!user\)/],
   /* lib/auth/current-user.ts: getUser(), with "Supabase did not answer" kept
      apart from "nobody is signed in". A route that uses it acts only on
      `current.user`, which is null in both. */

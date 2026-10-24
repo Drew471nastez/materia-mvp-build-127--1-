@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { editorUser } from "@/lib/website-builder/owned-install"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
 import { catalogCards, shopProducts } from "@/lib/website-builder/shop-products"
@@ -13,9 +14,10 @@ export async function GET(request: Request) {
     const productId = searchParams.get("id")
     const limit = parseInt(searchParams.get("limit") ?? "100", 10)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
+    const { user, status: authStatus, error: authError } = await editorUser(supabase)
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: authError }, { status: authStatus })
     }
 
     const { data: creator } = await supabase

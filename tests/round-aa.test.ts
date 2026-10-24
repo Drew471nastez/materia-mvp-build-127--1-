@@ -42,7 +42,7 @@ console.log("\nPublishing ends, and sooner")
   check("the three saves before a publish go at the same time", /await draftQueue\.save\(snap\)/.test(publish) && /await Promise\.all\(\[\s*settingsSame \? [\s\S]{0,120}? : putJsonWithRetry\([^)]*settings`/.test(send) && /syncHeaderFooterToAllPages\("draft", snap\.sections, snap\.page\),\s*\]\)/.test(send))
   check("the publish itself has an end, and says so when it is reached", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/publish`[\s\S]*?PUBLISH_MS\)/.test(publish) && /e instanceof LoadTimeout/.test(publish) && /const PUBLISH_MS = 45_000/.test(editor))
   check("  and a refusal that is not JSON is still a message, not a spinner", /await res\.json\(\)\.catch\(\(\) => \(\{\}\)\)/.test(publish))
-  check("the header and footer copy to every page has an end", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/sections\/sync-global`[\s\S]{0,600}?20_000\)\.catch\(\(\) => null\)/.test(editor))
+  check("the header and footer copy to every page has an end", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/sections\/sync-global`[\s\S]{0,600}?20_000\)\)?\.catch\(\(\) => null\)/.test(editor)) /* Changed on purpose (round 12, WBPERF): inside fetchSignedIn, a 401 asked about first. */
   check("every save try has an end, retried like a dropped connection", /fetchWithin\(url, \{ method: "PUT"[^)]*\}, ATTEMPT_MS\)/.test(read("lib/website-builder/save-request.ts")))
   const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")
   const later = route.slice(route.indexOf("after(async () => {"))
