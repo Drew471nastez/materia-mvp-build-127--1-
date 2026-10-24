@@ -8,6 +8,7 @@ import { join } from "node:path"
 import { DEFAULT_THEME_SOURCES } from "../themes/default/sources.generated"
 import { renderStorelibSection } from "../lib/website-builder/storelib-runtime"
 import type { SectionInstance, ThemeSettingsValues } from "../lib/website-builder/types"
+import { productHref } from "../lib/onepage/product-block"
 
 let passed = 0
 let failed = 0
@@ -38,8 +39,13 @@ console.log("\nEverywhere else\n")
 {
   const page = read("app/checkout/page.tsx")
   check("a buyer who owns it opens it in their library", /const OWNED = `\/account\/library\/products\/\$\{encodeURIComponent\(product\.id\)\}`/.test(page) && (page.match(/redirect\(OWNED\)/g) ?? []).length === 1 && /if \(rowsOwn\(existingEntitlements/.test(page))
-  const onepage = read("components/onepage/public-onepage.tsx")
-  check("the OnePage product button opens checkout", /const buyUrl = data\.product_id && .*`\/checkout\?productId=\$\{encodeURIComponent\(data\.product_id\)\}`/.test(onepage) && (onepage.match(/href=\{buyUrl\}/g) ?? []).length === 3)
+  /*
+    Round 10: the OnePage's product block is its own component (components/onepage/product-block) and where it points
+    is lib/onepage/product-block productHref. A block with no "When someone taps it" setting (every block made before)
+    still opens the checkout; a product that ships still opens its page. The block links there with href={href}.
+  */
+  const block = read("components/onepage/product-block.tsx")
+  check("the OnePage product button opens checkout", productHref({ product_id: "p1", product_slug: "pack", product_type: "digital" }) === "/checkout?productId=p1" && productHref({ product_id: "p1", product_slug: "pack", product_type: null }) === "/checkout?productId=p1" && productHref({ product_id: "p1", product_slug: "mug", product_type: "physical" }) === "/p/mug" && (block.match(/href=\{href\}/g) ?? []).length >= 2 && /<ProductBlockWithQuickCheckout/.test(read("components/onepage/public-onepage.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

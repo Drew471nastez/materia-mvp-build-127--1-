@@ -130,6 +130,8 @@ import { canonicalSocialPlatform, hasSocialHandles, socialHandleUrl } from "@/li
 import { LinkIcon, SocialIcon, hasLinkIcon, markOn, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { LINK_ICONS, LINK_ICON_CATEGORIES, resolveLinkIcon } from "@/components/onepage/link-icons"
 import { tt } from "@/lib/i18n/text"
+import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
+import { editorProductState, pickableProducts, productLayoutOf } from "@/lib/onepage/product-block"
 
 /**
  * WHERE EACH PLATFORM'S LINKS LIVE.
@@ -4255,6 +4257,7 @@ function BlockItem({
           <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <span className="truncate">{preview.subtitle}</span>
             <BlockBadges block={block} />
+            {isProduct && <ProductRowBadge productId={(block.data as ProductBlockData).product_id} />}
           </p>
         </div>
 
@@ -4555,6 +4558,9 @@ interface SellerProduct {
   slug?: string | null
   /** The product kind: a membership or community plan is priced in US dollars. */
   type?: string | null
+  /** Published, draft or archived (lib/onepage/product-block editorProductState). */
+  status?: string | null
+  archived?: boolean | null
 }
 
 function BlockEditor({
@@ -4584,39 +4590,12 @@ function BlockEditor({
 }) {
   /* The store's own currency: a lei store's product reads 49.00 lei here (components/platform/price-currency). */
   const shopMoney = useProductMoney()
-  const { updateBlock: contextUpdateBlock, updateBlockData, updateSocialLinks, setActiveSection, onepage } = useOnePage()
+  const { updateBlock: contextUpdateBlock, updateBlockData, updateSocialLinks, setActiveSection, onepage, removeBlock } = useOnePage()
   const updateBlock = updateBlockOverride || contextUpdateBlock
 
-  // Products for product block selector
-  const [sellerProductsLocal, setSellerProductsLocal] = useState<SellerProduct[]>([])
-
-  // Fetch seller products when product block is selected
-  useEffect(() => {
-    if (block.type === "product") {
-      const fetchProducts = async () => {
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        const { data: creator } = await supabase
-          .from("creators")
-          .select("id")
-          .eq("user_id", user.id)
-          .single()
-
-        if (!creator) return
-
-        const { data } = await supabase
-          .from("products")
-          .select("id, title, price_cents, thumbnail_url, description, slug, type")
-          .eq("creator_id", creator.id)
-          .order("created_at", { ascending: false })
-
-        setSellerProductsLocal(data || [])
-      }
-      fetchProducts()
-    }
-  }, [block.type])
+  /* Products for the product block's picker, with their status: read once for the whole editor (./product-block-editor). */
+  const creatorProducts = useCreatorProducts(block.type === "product")
+  const sellerProductsLocal: SellerProduct[] = creatorProducts ?? []
 
   // Use provided sellerProducts or local fetch
   const effectiveSellerProducts = sellerProducts || sellerProductsLocal
@@ -4866,11 +4845,7 @@ function BlockEditor({
     // Special layout content for product blocks
     if (block.type === "product") {
       const data = block.data as ProductBlockData
-      const productStyles: { id: ProductBlockStyle; label: string }[] = [
-        { id: "button", label: tt("Button") },
-        { id: "callout", label: tt("Callout") },
-        { id: "preview", label: tt("Preview") },
-      ]
+      const layout = productLayoutOf(data)
       const ctaOptions = [tt("Get My Guide"), tt("Get it Now"), tt("Buy Now"), tt("Download"), tt("Get Access"), tt("Enroll Now"), tt("Start Learning"), tt("Custom")]
       const blockBackgroundColorPresets = ['#1a1a2e', '#b2846c', '#3b82f6', '#10b981', '#f59e0b', '#ef4444']
       const textColorPresets = ['#ffffff', '#000000', '#1a1a1a', '#f5f5f5', '#374151', '#6b7280']
@@ -4884,27 +4859,8 @@ function BlockEditor({
 
       return (
         <div className="space-y-4">
-          {/* Style Selector - Carousel style UI */}
-          <div className="space-y-2">
-            <Label className="text-xs">{tt("Style")}</Label>
-            <div className="flex gap-2">
-              {productStyles.map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => handleStyleSelect(id)}
-                  className={cn(
-                    "flex-1 py-2.5 px-3 rounded-lg text-sm font-medium transition-all",
-                    data.style === id
-                      ? "bg-[#1a1a2e] text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Eight layouts, each drawn small (./product-block-editor); the live page draws them in components/onepage/product-block. */}
+          <ProductLayoutPicker data={data} onPick={handleStyleSelect} />
 
           {/* Custom Thumbnail Section */}
           <div className="space-y-2 pt-2 border-t">
@@ -5013,8 +4969,8 @@ function BlockEditor({
             />
           </div>
 
-          {/* Color Customizers - Only show for callout/preview styles */}
-          {(data.style === "callout" || data.style === "preview") && (
+          {/* Colours for the layouts drawn on a card of their own (the button and the minimal line wear the theme). */}
+          {layoutHasCard(layout) && (
             <div className="space-y-4 pt-2 border-t">
               <p className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Colours for this block")}</p>
               <p className="-mt-3 text-[13px] text-[#6b7280]">{tt("Picking a theme sets these back to the theme's.")}</p>
@@ -5032,7 +4988,7 @@ function BlockEditor({
               />
               <ColorRow
                 label={tt("Text")}
-                description={tt("Title, description, price{value}", { value: data.style === "callout" ? tt(" and button") : "" })}
+                description={tt("Title, description, price{value}", { value: "" })}
                 value={data.text_color || null}
                 emptyLabel={tt("Theme")}
                 /* Every picker starts on what the block shows now: the theme's colour, not a guess. */
@@ -5041,7 +4997,7 @@ function BlockEditor({
                 onClear={() => updateData({ text_color: null })}
                 suggestions={textColorPresets}
               />
-              {data.style === "preview" && (
+              {layout !== "overlay" && (
                 <ColorRow
                   label={tt("Button")}
                   value={data.button_color || null}
@@ -5052,7 +5008,7 @@ function BlockEditor({
                   suggestions={buttonColorPresets}
                 />
               )}
-              {data.style === "preview" && (
+              {layout !== "overlay" && (
                 <ColorRow
                   label={tt("Button text")}
                   value={data.button_text_color || null}
@@ -7302,6 +7258,9 @@ function BlockEditor({
       case "product": {
         const data = block.data as ProductBlockData
         const selectedProduct = effectiveSellerProducts?.find(p => p.id === data.product_id)
+        /* Published, a draft (allowed here, never on the page), or gone (archived or deleted): lib/onepage/product-block. */
+        const productState = editorProductState(data.product_id, creatorProducts)
+        const pickable = pickableProducts(effectiveSellerProducts ?? [])
 
         return (
           <div className="space-y-4">
@@ -7315,21 +7274,22 @@ function BlockEditor({
                   className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm text-left flex items-center justify-between hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1a1a2e]/20 focus:border-transparent"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {selectedProduct?.thumbnail_url && (
+                    {(selectedProduct?.thumbnail_url || (!selectedProduct && data.product_id && data.product_thumbnail)) && (
                       <img
-                        src={selectedProduct.thumbnail_url}
+                        src={selectedProduct?.thumbnail_url || data.product_thumbnail || ""}
                         alt=""
-                        className="w-6 h-6 rounded object-cover shrink-0"
+                        className={cn("w-6 h-6 rounded object-cover shrink-0", productState === "unavailable" && "opacity-50 grayscale")}
                       />
                     )}
-                    <span className="truncate">
-                      {selectedProduct ? selectedProduct.title : tt("Select a product...")}
+                    <span className={cn("truncate", productState === "unavailable" && "text-[#6b7280]")}>
+                      {selectedProduct ? selectedProduct.title : data.product_id && data.product_title ? data.product_title : tt("Select a product...")}
                     </span>
                     {selectedProduct && (
                       <span className="text-xs text-muted-foreground shrink-0">
-                        {selectedProduct.price_cents > 0 ? shopMoney(selectedProduct.price_cents, selectedProduct) : 'Free'}
+                        {selectedProduct.price_cents > 0 ? shopMoney(selectedProduct.price_cents, selectedProduct) : tt("Free")}
                       </span>
                     )}
+                    <ProductStateBadge state={productState} />
                   </div>
                   <svg className={cn("w-4 h-4 text-gray-400 shrink-0 transition-transform ml-2", showProductDropdown && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -7337,7 +7297,7 @@ function BlockEditor({
                 </button>
                 {showProductDropdown && (
                   <div className="absolute left-0 top-full mt-1 w-full bg-white rounded-xl shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150 max-h-[240px] overflow-y-auto">
-                    {effectiveSellerProducts?.length === 0 ? (
+                    {pickable.length === 0 ? (
                       <div className="px-3 py-4 text-center">
                         <p className="text-sm text-muted-foreground mb-3">{tt("No products found.")}</p>
                         <a
@@ -7349,7 +7309,7 @@ function BlockEditor({
                         </a>
                       </div>
                     ) : (
-                      effectiveSellerProducts?.map((product) => (
+                      pickable.map((product) => (
                         <button
                           key={product.id}
                           type="button"
@@ -7367,6 +7327,7 @@ function BlockEditor({
                               product_description: shortDesc || null,
                               product_price_cents: product.price_cents || 0,
                               product_slug: product.slug || null,
+                              product_type: product.type || null,
                             })
                             setShowProductDropdown(false)
                           }}
@@ -7377,19 +7338,24 @@ function BlockEditor({
                               : "text-gray-700 hover:bg-gray-50"
                           )}
                         >
-                          {product.thumbnail_url && (
+                          {product.thumbnail_url ? (
                             <img
                               src={product.thumbnail_url}
                               alt=""
                               className="w-8 h-8 rounded-lg object-cover shrink-0"
                             />
+                          ) : (
+                            <span className="grid w-8 h-8 shrink-0 place-items-center rounded-lg bg-[#f4f4f6] text-[#9ca3af]">
+                              <ShoppingBag className="h-4 w-4" strokeWidth={1.7} />
+                            </span>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className={cn("font-medium truncate", data.product_id === product.id && "text-[#1a1a2e]")}>
-                              {product.title}
+                            <p className={cn("flex items-center gap-1.5 font-medium", data.product_id === product.id && "text-[#1a1a2e]")}>
+                              <span className="truncate">{product.title}</span>
+                              <ProductStateBadge state={editorProductState(product.id, effectiveSellerProducts)} />
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {product.price_cents > 0 ? shopMoney(product.price_cents, product) : 'Free'}
+                              {product.price_cents > 0 ? shopMoney(product.price_cents, product) : tt("Free")}
                             </p>
                           </div>
                           {data.product_id === product.id && (
@@ -7403,27 +7369,11 @@ function BlockEditor({
               </div>
             </div>
 
-            {/* Edit Product Links */}
+            {/* The product's own editors, side by side, and what a draft or a product that is gone means for the page. */}
             {data.product_id && (
-              <div className="flex flex-col gap-1.5">
-                <a
-                  href={`/app/products/${data.product_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium transition-colors"
-                >
-                  <Pencil className="w-3 h-3" />
-                  {tt("Edit Product")}
-                </a>
-                <a
-                  href="/creator-page?pageType=product"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-xs text-[#1a1a2e] hover:text-[#4b5563] font-medium transition-colors"
-                >
-                  <Pencil className="w-3 h-3" />
-                  {tt("Edit Product Page")}
-                </a>
+              <div className="space-y-2">
+                <ProductStateNote state={productState} productId={data.product_id} onRemove={() => removeBlock(block.id)} />
+                {productState !== "unavailable" && <ProductEditLinks productId={data.product_id} />}
               </div>
             )}
 
@@ -7445,26 +7395,8 @@ function BlockEditor({
               </div>
             </div>
 
-            {/* Quick Checkout Toggle - Only for free products */}
-            {(data.product_price_cents === 0 || !data.product_price_cents) && data.product_id && (
-              <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-xs">{tt("Quick Checkout")}</Label>
-                    <p className="text-[10px] text-muted-foreground">{tt("Works only for free products")}</p>
-                  </div>
-                  <Toggle label={tt("Quick Checkout")}
-                    checked={data.quick_checkout || false}
-                    onCheckedChange={(checked) => updateData({ quick_checkout: checked })}
-                  />
-                </div>
-                {data.quick_checkout && (
-                  <p className="text-[10px] text-muted-foreground bg-[#f4f4f6] p-2 rounded-lg">
-                    {tt("Users will see a quick checkout form instead of being redirected to the checkout page.")}
-                  </p>
-                )}
-              </div>
-            )}
+            {/* When someone taps it, and instant checkout (./product-block-editor). It replaces the free-only Quick Checkout. */}
+            {data.product_id && <ProductTapSetting data={data} onChange={(patch) => updateData(patch)} />}
           </div>
         )
       }

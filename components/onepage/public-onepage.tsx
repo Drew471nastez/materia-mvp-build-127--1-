@@ -49,6 +49,8 @@ import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-util
 import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { readableOn } from "@/lib/onepage/theme-apply"
+import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
+import { pairProductTiles } from "@/lib/onepage/product-block"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -1735,12 +1737,34 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               : "gap-4 sm:gap-5",
         )}
       >
-        {safeBlocks
+        {pairProductTiles(safeBlocks
           .filter((b) => isBlockVisible(b))
-          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0))
-          .map((block, index) => {
+          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)))
+          .map((item, index) => {
             const animClass = !hasBlocksAnimated ? "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both" : ""
             const animStyle = !hasBlocksAnimated ? { animationDelay: `${index * 50}ms` } : undefined
+            /* Product tiles that follow one another, two to a row (lib/onepage/product-block pairProductTiles). */
+            if ("tiles" in item) {
+              return (
+                <div key={item.key} className={cn("grid w-full gap-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1", animClass)} style={animStyle} data-product-pair="">
+                  {item.tiles.map((block) => (
+                    <div key={block.id} className="min-w-0" data-sensitive-label={sensitiveLabel(block)}>
+                      <PublicBlockRenderer
+                        block={block}
+                        theme={safeTheme}
+                        profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
+                        onepageId={onepage.id}
+                        sellerId={seller_id}
+                        isDesktop={isDesktop}
+                        settings={safeSettings}
+                        inPair={item.tiles.length > 1}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )
+            }
+            const block = item
             return (
               <div
                 key={block.id}
@@ -2616,6 +2640,25 @@ interface PublicBlockRendererProps {
   settings?: any
   isInsideCarousel?: boolean
   isInsideGroup?: boolean
+  /** A product tile drawn beside another (lib/onepage/product-block pairProductTiles). */
+  inPair?: boolean
+}
+
+/* The product block's own component, with the older free quick checkout read here (its window lives on this page). */
+function ProductBlockWithQuickCheckout(props: Omit<React.ComponentProps<typeof OnePageProductBlock>, "quick">) {
+  const quick = useContext(QuickCheckoutModalContext)
+  return <OnePageProductBlock {...props} quick={quick as LegacyQuickCheckout | null} />
+}
+
+function getAnimationClassForProduct(animationType?: string) {
+  switch (animationType) {
+    case "pulse": return "animate-onepage-pulse"
+    case "bounce": return "animate-onepage-bounce"
+    case "shake": return "animate-onepage-shake"
+    case "glow": return "animate-onepage-glow"
+    case "swipe": return "animate-onepage-swipe"
+    default: return ""
+  }
 }
 
 // Verified Badge Component with tooltip
@@ -3370,6 +3413,7 @@ function PublicBlockRenderer({
   settings,
   isInsideCarousel = false,
   isInsideGroup = false,
+  inPair = false,
 }: PublicBlockRendererProps) {
   /* A product's price in its seller's store currency (components/platform/price-currency). */
   const pageMoney = usePageMoney()
@@ -5296,360 +5340,25 @@ function PublicBlockRenderer({
     }
 
     case "product": {
-      const data = block.data as ProductBlockData
-      if (!data.product_id && !data.product_title) {
-        return null
-      }
-
-      // Use context for Quick Checkout modal
-      const quickCheckoutContext = useContext(QuickCheckoutModalContext)
-
-      const productUrl = data.product_slug ? `/p/${data.product_slug}` : '#'
       /*
-        THE BUTTON IS A BUY BUTTON: it opens the product's checkout, not its page (the owner: "buy buttons must open the
-        product's checkout directly, never redirect to the creator's product page"). A shipped product keeps its page, where
-        its options and delivery are chosen. Back from checkout returns here: the OnePage is the page behind it.
+        THE PRODUCT BLOCK IS ITS OWN COMPONENT (components/onepage/product-block, round 10): its eight layouts, the
+        button's own hover, and what a tap does (the checkout, the product page, a sheet over this page, or the
+        checkout window). Where it points stays a buy link for a download or a course, the product page for a product
+        that ships (lib/onepage/product-block productHref, the owner: "buy buttons must open the product's checkout
+        directly").
       */
-      const buyUrl = data.product_id && (data.product_type as string | undefined) !== 'physical' ? `/checkout?productId=${encodeURIComponent(data.product_id)}` : productUrl
-      /* A membership's price is per month or year, "$9.00/month", as on its own page (lib/pricing/list-price), and always in dollars, its plan's currency (lib/money/product-currency): never relabelled as the store's. */
-      const priceDisplay = data.product_price_cents && data.product_price_cents > 0
-        ? perInterval(isPlanPriced({ type: data.product_type }) ? shopMoneyIn(data.product_price_cents, PLAN_CURRENCY) : pageMoney(data.product_price_cents), intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
-        : 'Free'
-      const isFreeProduct = !data.product_price_cents || data.product_price_cents === 0
-      const useQuickCheckout = isFreeProduct && data.quick_checkout === true
-
-      // Get animation class for product blocks
-      const getProductAnimationClass = (animationType?: string) => {
-        switch (animationType) {
-          case 'pulse': return 'animate-onepage-pulse'
-          case 'bounce': return 'animate-onepage-bounce'
-          case 'shake': return 'animate-onepage-shake'
-          case 'glow': return 'animate-onepage-glow'
-          case 'swipe': return 'animate-onepage-swipe'
-          default: return ''
-        }
-      }
-
-      const productBorderRadius = theme.button_border_radius
-      /*
-        THE BLOCK WEARS THE THEME, like every button on the page: solid,
-        outline or glass, with the theme's corners, border and shadow
-        (cardStyle below). Colours chosen for this block win; picking a
-        theme clears them (lib/onepage/theme-apply). Whatever it ends up
-        on, its text is readable: an inherited text colour that would
-        vanish on the block's background is swapped for near black or
-        white (readableOn), a colour the person chose is left alone.
-      */
-      const ownBackground = data.block_background_color || null
-      const themeFill = theme.button_style !== "outline" && theme.button_style !== "glass"
-      /* What the text really sits on: the block's own colour, the theme's button fill, or, with no fill at all (outline, glass), the page behind it. */
-      const surfaceColor = ownBackground || (themeFill ? theme.button_color : theme.background_color)
-      const textColor = readableOn(surfaceColor, theme.button_text_color, data.text_color)
-
-      const isHex6 = (c: string) => /^#[0-9a-f]{6}$/i.test(c)
-      // Helper to darken a hex color
-      const darkenHex = (hex: string, percent: number) => {
-        if (!isHex6(hex)) return hex
-        const num = parseInt(hex.replace('#', ''), 16)
-        const r = Math.max(0, Math.floor((num >> 16) * (1 - percent)))
-        const g = Math.max(0, Math.floor(((num >> 8) & 0x00FF) * (1 - percent)))
-        const b = Math.max(0, Math.floor((num & 0x0000FF) * (1 - percent)))
-        return `#${(r << 16 | g << 8 | b).toString(16).padStart(6, '0')}`
-      }
-      /* A tint of the text colour: the button strip on a card with no fill of its own. */
-      const tintOf = (c: string, alpha: string) => (isHex6(c) ? `${c}${alpha}` : "rgba(127,127,127,0.12)")
-
-      const isPreviewStyle = data.style === 'preview'
-      /* The strip: a shade of the card's own fill, or a tint of its text when the card has no fill to darken. */
-      const hasFill = Boolean(ownBackground) || themeFill
-      const ctaButtonColor = isPreviewStyle
-        ? (data.button_color || tintOf(textColor, "15"))
-        : (hasFill ? darkenHex(surfaceColor, 0.08) : tintOf(textColor, "14"))
-      const ctaButtonTextColor = isPreviewStyle
-        ? readableOn(isHex6(ctaButtonColor) ? ctaButtonColor : surfaceColor, textColor, data.button_text_color)
-        : textColor
-
-      // Button styles for product block (mirrors link_button styles)
-      const buttonShadow = (theme as any).button_shadow || "none"
-      const shadowColor = (theme as any).button_shadow_color || "#000000"
-      const hexToRgba = (hex: string, alpha: number) => {
-        const r = Number.parseInt(hex.slice(1, 3), 16)
-        const g = Number.parseInt(hex.slice(3, 5), 16)
-        const b = Number.parseInt(hex.slice(5, 7), 16)
-        return `rgba(${r},${g},${b},${alpha})`
-      }
-      const shadowStyles: Record<string, string> = {
-        none: "none",
-        subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
-        strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
-        hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
-      }
-      const buttonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
-        color: theme.button_text_color,
-        borderRadius: `${theme.button_border_radius}px`,
-        borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
-        borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
-        boxShadow: shadowStyles[buttonShadow] || "none",
-      }
-      /* The card: its own colour when it has one, else exactly the theme's button. */
-      const cardStyle: React.CSSProperties = ownBackground
-        ? { borderRadius: `${productBorderRadius}px`, backgroundColor: ownBackground, border: "none", boxShadow: shadowStyles[buttonShadow] || "none" }
-        : { ...buttonStyles, color: undefined }
-      const isPurchased = quickCheckoutContext?.purchasedProducts?.[data.product_id] !== undefined
-      const purchaseInfo = isPurchased ? quickCheckoutContext?.purchasedProducts[data.product_id] : null
-
-      // Handle click - download if purchased, open checkout modal, or navigate to product page
-      const handleProductClick = (e: React.MouseEvent) => {
-        // Track click
-        trackClick(block.id, productUrl)
-
-        // If already purchased with quick checkout, download directly
-        if (isPurchased && quickCheckoutContext && useQuickCheckout) {
-          e.preventDefault()
-          quickCheckoutContext.downloadPurchasedAsset(data.product_id)
-          return
-        }
-
-        if (useQuickCheckout && quickCheckoutContext) {
-          e.preventDefault()
-          quickCheckoutContext.openQuickCheckoutModal({
-            productId: data.product_id,
-            productTitle: data.product_title || 'Product',
-            productThumbnail: data.custom_thumbnail || data.product_thumbnail,
-            productSlug: data.product_slug,
-            ctaText: data.cta_text || 'Get it Now',
-            blockBackgroundColor: surfaceColor,
-            textColor,
-            buttonBorderRadius: productBorderRadius,
-          })
-        }
-      }
-
-      // Determine CTA text - show "Download" if already purchased
-      const ctaDisplayText = isPurchased && useQuickCheckout ? 'Download' : (data.cta_text || 'Get My Guide')
-
-      // Button style - simple button
-      if (data.style === 'button') {
-        const buttonContent = (
-          <>
-            {data.product_thumbnail && (
-              <img
-                src={data.product_thumbnail}
-                alt={data.product_title || ""}
-                className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover shrink-0"
-              />
-            )}
-            <span className="truncate">{ctaDisplayText}</span>
-            {data.show_price !== false && !isPurchased && (
-              <span className="text-sm opacity-75 shrink-0">{priceDisplay}</span>
-            )}
-          </>
-        )
-
-        if (useQuickCheckout) {
-          return (
-            <button
-              onClick={handleProductClick}
-              className={cn(
-                "w-full font-medium flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-4 sm:px-5 text-sm sm:text-base transition-all cursor-pointer",
-                hoverEffect,
-                getProductAnimationClass(data.animation_type),
-              )}
-              style={buttonStyles}
-            >
-              {buttonContent}
-            </button>
-          )
-        }
-
-        return (
-          <a
-            href={buyUrl}
-            onClick={() => trackClick(block.id, buyUrl)}
-            className={cn(
-              "w-full font-medium flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-4 sm:px-5 text-sm sm:text-base transition-all cursor-pointer",
-              hoverEffect,
-              getProductAnimationClass(data.animation_type),
-            )}
-            style={buttonStyles}
-          >
-            {buttonContent}
-          </a>
-        )
-      }
-
-      // Preview style - full card with image
-      if (data.style === 'preview') {
-        const previewContent = (
-          <>
-            {(data.custom_thumbnail || data.product_thumbnail) && (
-              <div className="w-full aspect-[2/1] overflow-hidden">
-                <img
-                  src={data.custom_thumbnail || data.product_thumbnail}
-                  alt={data.product_title || ""}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            <div className="p-4 space-y-1.5">
-              <p
-                className="font-medium text-base sm:text-lg"
-                style={{ color: textColor }}
-              >
-                {data.product_title || 'Product'}
-              </p>
-              {data.show_description !== false && stripHtmlToPlainText(data.product_description) && (
-                <p
-                  className="text-sm opacity-75"
-                  style={{ color: textColor }}
-                >
-                  {stripHtmlToPlainText(data.product_description)}
-                </p>
-              )}
-              {data.show_price !== false && (
-                <p
-                  className="font-semibold text-base"
-                  style={{ color: textColor }}
-                >
-                  {priceDisplay}
-                </p>
-              )}
-              {/* CTA Button */}
-              <div
-                className="w-full py-2.5 mt-3 text-center font-medium text-sm sm:text-base transition-all"
-                style={{
-                  borderRadius: `${Math.max(0, productBorderRadius - 4)}px`,
-                  backgroundColor: ctaButtonColor,
-                  color: ctaButtonTextColor,
-                }}
-              >
-                {ctaDisplayText}
-              </div>
-            </div>
-          </>
-        )
-
-        if (useQuickCheckout) {
-          return (
-            <button
-              onClick={handleProductClick}
-              className={cn(
-                "w-full block overflow-hidden transition-all cursor-pointer text-left",
-                hoverEffect,
-                getProductAnimationClass(data.animation_type),
-              )}
-              style={cardStyle}
-            >
-              {previewContent}
-            </button>
-          )
-        }
-
-        return (
-          <a
-            href={buyUrl}
-            onClick={() => trackClick(block.id, buyUrl)}
-            className={cn(
-              "w-full block overflow-hidden transition-all cursor-pointer",
-              hoverEffect,
-              getProductAnimationClass(data.animation_type),
-            )}
-            style={cardStyle}
-          >
-            {previewContent}
-          </a>
-        )
-      }
-
-      // Callout style (default) - compact card with thumbnail
-      const calloutContent = (
-        <>
-          <div className="p-3 sm:p-4 flex gap-3 sm:gap-4">
-            {(data.custom_thumbnail || data.product_thumbnail) && (
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg sm:rounded-xl overflow-hidden shrink-0 bg-gray-100">
-                <img
-                  src={data.custom_thumbnail || data.product_thumbnail}
-                  alt={data.product_title || ""}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
-            <div className="flex-1 min-w-0 space-y-0.5 sm:space-y-1">
-              <p
-                className="font-medium text-base sm:text-lg truncate"
-                style={{ color: textColor }}
-              >
-                {data.product_title || 'Product'}
-              </p>
-              {data.show_description !== false && stripHtmlToPlainText(data.product_description) && (
-                <p
-                  className="text-sm opacity-75 line-clamp-1"
-                  style={{ color: textColor }}
-                >
-                  {stripHtmlToPlainText(data.product_description)}
-                </p>
-              )}
-              {data.show_price !== false && (
-                <p
-                  className="text-sm sm:text-base font-semibold"
-                  style={{ color: textColor }}
-                >
-                  {priceDisplay}
-                </p>
-              )}
-            </div>
-          </div>
-          {/* CTA Button */}
-          <div
-            className="w-full py-3 sm:py-3.5 text-center font-medium text-sm sm:text-base transition-all"
-            style={{
-              borderRadius: `0 0 ${productBorderRadius}px ${productBorderRadius}px`,
-              backgroundColor: ctaButtonColor,
-              color: ctaButtonTextColor,
-            }}
-          >
-            {ctaDisplayText}
-          </div>
-        </>
-      )
-
-      if (useQuickCheckout) {
-        return (
-          <button
-            onClick={handleProductClick}
-            className={cn(
-              "w-full block overflow-hidden transition-all cursor-pointer text-left",
-              hoverEffect,
-              getProductAnimationClass(data.animation_type),
-            )}
-            style={cardStyle}
-          >
-            {calloutContent}
-          </button>
-        )
-      }
-
       return (
-        <a
-          href={buyUrl}
-          onClick={() => trackClick(block.id, buyUrl)}
-          className={cn(
-            "w-full block overflow-hidden transition-all cursor-pointer",
-            hoverEffect,
-            getProductAnimationClass(data.animation_type),
-          )}
-          style={cardStyle}
-        >
-          {calloutContent}
-        </a>
+        <ProductBlockWithQuickCheckout
+          block={block}
+          theme={theme}
+          quiet={isInsideCarousel || isInsideGroup}
+          inPair={inPair}
+          seller={{ name: profile.title, avatarUrl: profile.avatar_url }}
+          pageMoney={pageMoney}
+          plainText={stripHtmlToPlainText}
+          trackClick={trackClick}
+          animationClass={getAnimationClassForProduct((block.data as ProductBlockData).animation_type)}
+        />
       )
     }
 

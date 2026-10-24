@@ -58,7 +58,8 @@ async function membershipPrices() {
     ["components/platform/header-search-results.tsx", /\{hit\.price\}/],
     /* A person without a store has no products to price (components/profile/member-profile-page.tsx passes products={[]}); a creator's are the storefront card's, already checked above. */
     ["components/explore/featured-banner-carousel.tsx", /perInterval\(/],
-    ["components/onepage/public-onepage.tsx", /perInterval\(/],
+    /* Round 10: the OnePage's product block is drawn by components/onepage/product-block.tsx now. */
+    ["components/onepage/product-block.tsx", /perInterval\(/],
     ["lib/onepage/live-products.ts", /product_price_interval/],
     ["app/checkout/membership-checkout.tsx", /data-summary-price/],
     ["lib/receipts/load.ts", /priceInterval: type === "membership"/],
