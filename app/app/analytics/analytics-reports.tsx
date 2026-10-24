@@ -65,6 +65,8 @@ import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { formatMinor } from "@/lib/markets/money"
+import { changeOf, percentText, ratio, roundShares } from "@/lib/analytics/percent"
+import { TrendMiniChart } from "@/components/analytics/trend-mini-chart"
 
 /** Storelib's accent, the one every /app screen uses: the added reports' columns. */
 const ACCENT = "#8b5cf6"
@@ -92,7 +94,8 @@ let reportCurrency = "USD"
 /* Minor units in the currency's own decimals: a yen store's 2500 is ¥2,500, never ¥25 (the tab above reads it the same way). */
 const fmtMoney = (cents: number) => formatMinor(cents || 0, reportCurrency, appLocale())
 const fmtCount = (n: number) => Math.round(n).toLocaleString(appLocale())
-const fmtPct = (f: number) => `${(f * 100).toFixed(f > 0 && f < 0.1 ? 1 : 0).replace(/\.0+$/, "")}%`
+/* "–" for a rate with nothing to divide by, never NaN% (lib/analytics/percent). */
+const fmtPct = (f: number | null) => percentText(f)
 const plural = (n: number, one: string, many: string) => `${fmtCount(n)} ${n === 1 ? one : many}`
 
 const LIST_ROWS = 5
@@ -432,9 +435,16 @@ function AllRows({ open, onOpenChange, title, rows, render }: { open: boolean; o
 }
 
 /** Breakdown rows as list rows, and their comparison by key. */
-function fromBreakdown(rows: BreakdownRow[], note?: (r: BreakdownRow) => string | null): { rows: ListRow[]; previous: Record<string, number> } {
+function fromBreakdown(rows: BreakdownRow[], note?: ((r: BreakdownRow) => string | null) | "share"): { rows: ListRow[]; previous: Record<string, number> } {
+  /*
+    "share": each row's share of the visits. When the rows are the whole (nothing cut off the list) the
+    rounded shares add up to exactly 100% (lib/analytics/percent roundShares): three equal sources read 34%, 33% and
+    33%, where rounding each on its own wrote 33% three times, 99%.
+  */
+  const whole = Math.abs(rows.reduce((a, r) => a + r.share, 0) - 1) < 1e-9
+  const shares = note === "share" ? (whole ? roundShares(rows.map((r) => r.value)) : rows.map((r) => Math.round(r.share * 100))) : null
   return {
-    rows: rows.map((r) => ({ key: r.key, label: r.label, value: r.value, note: note?.(r) ?? null, code: r.extra?.code })),
+    rows: rows.map((r, i) => ({ key: r.key, label: r.label, value: r.value, note: shares ? `${shares[i]}%` : typeof note === "function" ? note(r) : null, code: r.extra?.code })),
     previous: Object.fromEntries(rows.map((r) => [r.key, r.previous])),
   }
 }
@@ -450,6 +460,15 @@ const OF: Record<FunnelStep["key"], string> = {
   get orders() { return tt("of checkouts") },
 }
 
+/** The short name under a step's column, where five have to fit across a phone. */
+const SHORT: Record<FunnelStep["key"], string> = {
+  get visitors() { return tt("Visitors") },
+  get product() { return tt("Product") },
+  get cart() { return tt("Cart") },
+  get checkout() { return tt("Checkout") },
+  get orders() { return tt("Orders") },
+}
+
 /** The step where the largest share of people did not go on, among the steps with a rate. */
 export function biggestDrop(steps: FunnelStep[]): FunnelStep | null {
   let worst: FunnelStep | null = null
@@ -457,48 +476,80 @@ export function biggestDrop(steps: FunnelStep[]): FunnelStep | null {
   return worst
 }
 
+/** A count that fits a fifth of a phone: 1,284, 12.9K. */
+const fmtStep = (n: number) => (n >= 10_000 ? `${(n / 1000).toFixed(n >= 100_000 ? 0 : 1).replace(/\.0$/, "")}K` : fmtCount(n))
+
+/** The bars' room, in pixels: the tallest step fills it. */
+const FUNNEL_PLOT = 84
+
 /**
- * FROM A VISIT TO AN ORDER, IN PEOPLE, AS A LIST: five steps one under the
- * other, each a line with its name, its count and the share of the step
- * before, over a thin bar of its count against the visitors. The step that
- * loses the most people says so in its rate's colour and in the line under
- * the list. A step nothing was recorded for, while a later one has
- * something, says "Not recorded" rather than a 0% that would read as nobody
- * going on.
+ * FROM A VISIT TO AN ORDER, AS FIVE STAGES ACROSS. The owner: "a different
+ * UI, more smooth and clean". Each stage is a column: its count on top, a
+ * thin bar for its size against the busiest stage (24px at most, square on
+ * the baseline, its top rounded), its name under the baseline. Between two
+ * stages, on the line under the names, the share of people who went on;
+ * the stage that loses the most says so in red, and the line under the
+ * strip names it. The figure above is the share of visitors who ordered,
+ * the Conversion tab's own number. A stage nothing was recorded for, while
+ * a later one has something, is a dashed outline and "–", not a 0% that
+ * would read as nobody going on.
+ *
+ * Every number is written on the card, so a hover only lifts the column;
+ * its full sentence is the column's title and accessible name.
  */
 function Funnel({ steps }: { steps: FunnelStep[] }) {
-  const top = Math.max(...steps.map((s) => s.value), 1)
+  const top = Math.max(...steps.map((s) => (s.recorded ? s.value : 0)), 1)
   const drop = biggestDrop(steps)
+  const first = steps[0]
+  const last = steps[steps.length - 1]
+  const converted = first && last && first.recorded && last.recorded ? ratio(last.value, first.value) : null
+  const sentence = (s: FunnelStep) => (s.recorded ? `${s.label}: ${fmtCount(s.value)}${s.rate !== null ? `, ${fmtPct(s.rate)} ${OF[s.key]}` : ""}` : `${s.label}: ${tt("Not recorded")}`)
   return (
-    <div className="mt-1 flex flex-1 flex-col" data-funnel="">
-      <ol className="flex flex-col gap-1.5">
-        {steps.map((s) => {
+    <div className="flex flex-1 flex-col" data-funnel="">
+      <div className="flex h-9 items-baseline gap-2" data-figure="">
+        <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]" data-funnel-converted="">{fmtPct(converted)}</span>
+        <span className="truncate text-[12px] text-[#6b7280]">{tt("of visitors ordered")}</span>
+      </div>
+      <ol className="mt-3 grid grid-cols-5" data-funnel-steps="">
+        {steps.map((s, i) => {
           const worst = drop?.key === s.key
+          const h = s.recorded ? Math.max(3, Math.round((s.value / top) * FUNNEL_PLOT)) : FUNNEL_PLOT
           return (
-            <li
-              key={s.key}
-              data-step={s.key}
-              data-drop={worst ? "" : undefined}
-              title={s.recorded ? `${s.label}: ${fmtCount(s.value)}${s.rate !== null ? `, ${fmtPct(s.rate)} ${OF[s.key]}` : ""}` : `${s.label}: ${tt("Not recorded")}`}
-            >
-              <div className="flex h-5 items-baseline gap-2 text-[13px]">
-                <span className="min-w-0 flex-1 truncate text-[#303036]">{s.label}</span>
-                <span className="shrink-0 font-medium tabular-nums text-[#1a1a2e]">{s.recorded ? fmtCount(s.value) : "–"}</span>
-                <span className={cn("w-12 shrink-0 text-right text-[12px] tabular-nums", worst ? "font-medium text-[#b42318]" : "text-[#9ca3af]")}>
-                  {!s.recorded ? "" : s.rate !== null ? fmtPct(s.rate) : ""}
+            <li key={s.key} data-step={s.key} data-drop={worst ? "" : undefined} title={sentence(s)} aria-label={sentence(s)} className="group relative flex min-w-0 flex-col items-center">
+              <span className="h-5 text-[13px] font-semibold tabular-nums text-[#1a1a2e]">{s.recorded ? fmtStep(s.value) : "–"}</span>
+              <span aria-hidden className="relative mt-1 flex w-full items-end justify-center" style={{ height: FUNNEL_PLOT }}>
+                {s.recorded ? (
+                  <span
+                    data-bar=""
+                    data-fill="grey"
+                    className={cn(GREY_FILL_THIN, "block w-6 max-w-[calc(100%-8px)] rounded-t-[4px] transition-[height,filter] duration-500 group-hover:brightness-[0.93] motion-reduce:transition-none")}
+                    style={{ height: h, transitionTimingFunction: EASE }}
+                  />
+                ) : (
+                  <span data-bar="" data-unrecorded="" className="block h-full w-6 max-w-[calc(100%-8px)] rounded-t-[4px] border border-dashed border-[#d1d5db]" />
+                )}
+              </span>
+              <span aria-hidden className="h-px w-full bg-[#e5e7eb]" />
+              <span className="mt-1.5 w-full truncate px-0.5 text-center text-[11.5px] text-[#6b7280]">{SHORT[s.key]}</span>
+              {i > 0 ? (
+                /* The share who went on from the stage before, on the line between the two names. */
+                <span
+                  data-step-rate={s.key}
+                  className={cn("absolute bottom-[-20px] left-0 -translate-x-1/2 whitespace-nowrap text-[11.5px] tabular-nums", worst ? "font-medium text-[#b42318]" : "text-[#9ca3af]")}
+                >
+                  {s.recorded && s.rate !== null ? fmtPct(s.rate) : ""}
                 </span>
-              </div>
-              <Fill share={s.recorded ? s.value / top : 0} min={s.recorded ? 0.015 : 0} thin className="mt-1 h-[6px] rounded-full" />
+              ) : null}
             </li>
           )
         })}
       </ol>
-      <p className="mt-auto truncate pt-2 text-[12px] text-[#6b7280]" data-funnel-note="">
+      <p className="mt-auto truncate pt-7 text-[12px] text-[#6b7280]" data-funnel-note="">
         {steps.some((s) => !s.recorded)
           ? tt("Not recorded: {steps}", { steps: steps.filter((s) => !s.recorded).map((s) => s.label.toLowerCase()).join(", ") })
           : drop && drop.rate !== null
             ? tt("Biggest drop: {step}, {share} lost", { step: drop.label, share: fmtPct(1 - drop.rate) })
-            : " "}
+            : " "}
       </p>
     </div>
   )
@@ -520,15 +571,18 @@ function Waiting({ kind }: { kind: WaitKind }) {
   if (kind === "funnel") {
     return (
       <Shimmer>
-        <div className="mt-1 flex flex-col gap-1.5">
+        {/* The funnel's own shape: the figure, five columns on one baseline, their names. */}
+        <div className="flex h-9 items-center">
+          <ShimmerBlock className="h-6 w-16 rounded-lg" />
+        </div>
+        <div className="mt-3 grid grid-cols-5">
           {[1, 0.62, 0.3, 0.22, 0.12].map((w, i) => (
-            <div key={i}>
-              <div className="flex h-5 items-center gap-2">
-                <ShimmerBlock className="h-3 w-1/3 rounded-full" />
-                <span className="flex-1" />
-                <ShimmerBlock className="h-3 w-9 rounded-full" />
+            <div key={i} className="flex flex-col items-center">
+              <ShimmerBlock className="h-3 w-8 rounded-full" />
+              <div className="mt-2 flex w-full items-end justify-center" style={{ height: FUNNEL_PLOT }}>
+                <ShimmerBlock className="w-6 rounded-t-[4px]" style={{ height: Math.max(4, Math.round(w * FUNNEL_PLOT)) }} />
               </div>
-              <ShimmerBlock className="mt-1 h-[6px] rounded-[3px]" style={{ width: `${Math.max(8, w * 100)}%` }} />
+              <ShimmerBlock className="mt-2 h-2.5 w-10 rounded-full" />
             </div>
           ))}
         </div>
@@ -582,31 +636,14 @@ function Body({ blank, wait, children }: { blank: boolean; wait: WaitKind; child
 
 /**
  * A FIGURE OVER TIME, AND WHAT MAKES IT UP: the period's number and its
- * change, a thin line of it across the chart's own buckets (the period
- * before as a quiet dashed line), and its three largest parts as compact
- * rows with thin bars. The added Page views, Visits, Link clicks and
- * Refunded orders cards. They were a block of violet columns with two
- * dates under it, which said less and read as a different product.
- *
- * The line keeps no gesture of its own (the one chart on Analytics that is
- * scrubbed is the figures' chart, components/app/chart-scrub): its busiest
- * bucket is marked and named above it, and every bucket's number is the
- * line's accessible name and a row of the export.
+ * change, its line across the chart's own buckets with the period before as
+ * a quiet dashed line (components/analytics/trend-mini-chart: the figures'
+ * chart's own line and hover, so pointing at a day reads it), and its three
+ * largest parts as compact rows with thin bars. The added Page views, Visits,
+ * Link clicks and Refunds cards.
  */
-function Trend({ value, change, series, format, rows, rowsEmpty, rowsTitle }: { value: string; change: React.ReactNode; series: Series; format: (n: number) => string; rows: ListRow[]; rowsEmpty: string; rowsTitle: string }) {
+function Trend({ value, change, note, series, format, rows, rowsEmpty, rowsTitle, label }: { value: string; change: React.ReactNode; note?: React.ReactNode; series: Series; format: (n: number) => string; rows: ListRow[]; rowsEmpty: string; rowsTitle: string; label: string }) {
   const compared = React.useContext(ComparedContext)
-  const now = series.current
-  const before = compared ? series.previous : []
-  const n = now.length
-  const W = 600
-  const H = 72
-  const max = Math.max(1, ...now, ...before)
-  const x = (i: number) => (n <= 1 ? W / 2 : (i / (n - 1)) * W)
-  const y = (v: number) => H - 3 - (v / max) * (H - 8)
-  const path = (vals: number[]) => vals.slice(0, n).map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ")
-  /* The busiest bucket, the latest of equals: the one point worth naming. */
-  const at = now.reduce((best, v, i) => (v >= (now[best] ?? 0) ? i : best), 0)
-  const label = (i: number) => series.labels[i] ?? ""
   const top = rows.slice(0, 3)
   const rowMax = Math.max(1, ...top.map((r) => r.value))
   return (
@@ -614,33 +651,12 @@ function Trend({ value, change, series, format, rows, rowsEmpty, rowsTitle }: { 
       <div className="flex h-9 items-baseline gap-2.5" data-figure="">
         <span className="text-[24px] font-bold tracking-tight text-[#1a1a2e]">{value}</span>
         {change}
+        {note ? <span className="ml-auto truncate text-[12px] tabular-nums text-[#6b7280]" data-trend-note="">{note}</span> : null}
       </div>
-      <div className="mt-1 flex h-5 items-baseline justify-between gap-3 text-[12px]" data-trend-readout="">
-        <span className="min-w-0 truncate text-[#6b7280]">{n && (now[at] ?? 0) > 0 ? tt("Busiest: {when}", { when: label(at) }) : ""}</span>
-        <span className="shrink-0 tabular-nums">
-          {n && (now[at] ?? 0) > 0 ? <span className="font-medium text-[#1a1a2e]">{format(now[at] ?? 0)}</span> : null}
-          {n && before.length ? <span className="text-[#6b7280]"> {tt("vs {value}", { value: format(before[at] ?? 0) })}</span> : null}
-        </span>
+      <div className="mt-3" data-trend-line="">
+        <TrendMiniChart labels={series.labels} current={series.current} previous={compared ? series.previous : EMPTY} format={format} height={92} label={label} />
       </div>
-      <div className="relative mt-1 h-[72px]">
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
-          role="img"
-          aria-label={now.map((v, i) => `${label(i)}: ${format(v)}`).join(", ")}
-          data-trend-line=""
-          className="h-full w-full overflow-visible"
-        >
-          <line x1="0" x2={W} y1={H - 3} y2={H - 3} stroke="#e5e7eb" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          {before.length ? <path d={path(before)} fill="none" stroke="#b8bcc6" strokeWidth="1.5" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" /> : null}
-          {n ? <path d={`${path(now)} L${x(n - 1).toFixed(1)} ${H - 3} L${x(0).toFixed(1)} ${H - 3} Z`} fill={ACCENT} fillOpacity={0.08} /> : null}
-          {n ? <path d={path(now)} fill="none" stroke={ACCENT} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" /> : null}
-        </svg>
-        {n && (now[at] ?? 0) > 0 ? (
-          <span aria-hidden data-trend-dot="" className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white" style={{ left: `${(x(at) / W) * 100}%`, top: y(now[at] ?? 0), background: ACCENT }} />
-        ) : null}
-      </div>
-      <ol className="mt-3 flex flex-col gap-1.5" aria-label={rowsTitle} data-trend-rows="">
+      <ol className="mt-4 flex flex-col gap-1.5" aria-label={rowsTitle} data-trend-rows="">
         {top.length ? (
           top.map((r) => (
             <li key={r.key} className="min-w-0" data-row-key={r.key}>
@@ -658,6 +674,7 @@ function Trend({ value, change, series, format, rows, rowsEmpty, rowsTitle }: { 
     </div>
   )
 }
+const EMPTY: number[] = []
 
 /* ─── The cards ───────────────────────────────────────────────────────── */
 
@@ -665,7 +682,6 @@ type SourceTab = "source" | "social" | "campaign"
 type DeviceTab = "device" | "browser"
 type SignupTab = "property" | "source"
 type CountryTab = "visitors" | "orders"
-type ProductTab = "all" | "physical" | "digital"
 
 const SOURCE_TABS: Array<{ value: SourceTab; label: string }> = [
   { value: "source", get label() { return tt("Source") } },
@@ -679,39 +695,35 @@ const SOURCE_EMPTY: Record<SourceTab, string> = {
 }
 
 /**
- * TOP PRODUCTS, ALL OR ONE KIND. With both kinds on sale, a line of figures
- * over the list: for Physical the units, for Digital the share of orders
- * downloaded at least once.
+ * TOP PRODUCTS, EVERY KIND TOGETHER. A store that sells both kinds sees the
+ * whole above the list with its split ("62% digital · 38% physical", the two
+ * rounded to add up to 100) and each row named by its kind beside its
+ * orders, rather than a switch to flip between them: "on mobile there are so
+ * many things".
  */
-function ProductsBody({ r, tab, figure }: { r: Reports; tab: ProductTab; figure: boolean }) {
-  const kind = (k: string | null | undefined) => (k === "physical" ? "physical" : "digital")
-  const physical = r.kinds.find((k) => k.key === "physical")
-  const digitalKinds = r.kinds.filter((k) => k.key !== "physical")
+function ProductsBody({ r, both }: { r: Reports; both: boolean }) {
+  const kindName = (k: string | null | undefined) => (k === "physical" ? tt("Physical") : k ? tt("Digital") : null)
+  const rows: ListRow[] = r.topProducts.map((p) => ({
+    key: p.key,
+    label: p.label,
+    value: p.salesCents,
+    note: [both ? kindName(p.kind) : null, plural(p.orders, tt("order"), tt("orders")), plural(p.views, tt("view"), tt("views"))].filter(Boolean).join(" · "),
+  }))
+  const physical = r.kinds.filter((k) => k.key === "physical")
+  const digital = r.kinds.filter((k) => k.key !== "physical")
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
-  const rows: ListRow[] =
-    tab === "digital"
-      ? r.digital.top.map((p) => ({ key: p.key, label: p.label, value: p.salesCents, note: [plural(p.orders, tt("order"), tt("orders")), p.downloads !== null ? plural(p.downloads, tt("download"), tt("downloads")) : null].filter(Boolean).join(" · ") }))
-      : r.topProducts
-          .filter((p) => tab === "all" || (p.kind != null && kind(p.kind) === tab))
-          .map((p) => ({ key: p.key, label: p.label, value: p.salesCents, note: `${plural(p.orders, tt("order"), tt("orders"))} · ${plural(p.views, tt("view"), tt("views"))}` }))
-  const head =
-    tab === "physical"
-      ? { value: physical?.salesCents ?? 0, note: `${plural(physical?.orders ?? 0, tt("order"), tt("orders"))} · ${plural(physical?.units ?? 0, tt("unit"), tt("units"))}` }
-      : tab === "digital"
-        ? {
-            value: r.digital.salesCents,
-            note: [plural(r.digital.orders, tt("order"), tt("orders")), r.digital.downloads && r.digital.orders > 0 ? tt("{share} downloaded", { share: fmtPct(r.digital.downloads.orders / r.digital.orders) }) : null].filter(Boolean).join(" · "),
-          }
-        : { value: sum(r.kinds.map((k) => k.salesCents)), note: [physical ? tt("{share} physical", { share: fmtPct(physical.share) }) : null, digitalKinds.length ? tt("{share} digital", { share: fmtPct(sum(digitalKinds.map((k) => k.share))) }) : null].filter(Boolean).join(" · ") }
+  const cents = [sum(digital.map((k) => k.salesCents)), sum(physical.map((k) => k.salesCents))]
+  const [digitalShare, physicalShare] = roundShares(cents)
+  const split = cents[0] + cents[1] > 0 ? tt("{digital}% digital · {physical}% physical", { digital: digitalShare, physical: physicalShare }) : null
   return (
     <>
-      {figure ? (
+      {both ? (
         <div className="flex h-9 items-baseline gap-2.5" data-figure="">
-          <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtMoney(head.value)}</span>
-          <span className="truncate text-[12px] tabular-nums text-[#6b7280]">{head.note}</span>
+          <span className="text-[24px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{fmtMoney(cents[0] + cents[1])}</span>
+          {split ? <span className="truncate text-[12px] tabular-nums text-[#6b7280]" data-kind-split="">{split}</span> : null}
         </div>
       ) : null}
-      <List key={tab} title={tt("Top products")} rows={rows} format={fmtMoney} empty={tab === "physical" ? tt("No physical sales in this period.") : tab === "digital" ? tt("No digital sales in this period.") : tt("No product views or orders in this period.")} />
+      <List title={tt("Top products")} rows={rows} format={fmtMoney} empty={tt("No product views or orders in this period.")} />
     </>
   )
 }
@@ -725,13 +737,11 @@ function Grid({ r, property, sections, extra, added }: { r: Reports | null; prop
   const [deviceTab, setDeviceTab] = React.useState<DeviceTab>("device")
   const [signupTab, setSignupTab] = React.useState<SignupTab>(property.type === "all" ? "property" : "source")
   const [countryTab, setCountryTab] = React.useState<CountryTab>("visitors")
-  const [productTab, setProductTab] = React.useState<ProductTab>("all")
   const lists = !!r && !r.partial
-  const visits = (row: BreakdownRow) => `${Math.round(row.share * 100)}%`
+  const visits = "share" as const
   const b = r?.breakdowns
   const onePage = property.type === "onepage"
   const both = sections.productKinds
-  const tab: ProductTab = both ? productTab : "all"
   const signupsByPage = property.type === "all" && signupTab === "property"
   return (
     <>
@@ -794,11 +804,10 @@ function Grid({ r, property, sections, extra, added }: { r: Reports | null; prop
         <Card
           card="products"
           title={tt("Top products")}
-          help={tt("Revenue from each product, less refunds, with its orders and how often its page was opened. Physical and Digital split them by kind; Digital counts how many orders were downloaded.")}
-          tabs={both ? <Tabs label={tt("Top products")} value={tab} onChange={setProductTab} options={[{ value: "all", label: tt("All") }, { value: "physical", label: tt("Physical") }, { value: "digital", label: tt("Digital") }]} /> : undefined}
+          help={tt("Sales of each product in this period, less the refunds made in it, with its orders and how often its page was opened. With both kinds on sale, each row says which it is.")}
         >
           <Body blank={!lists} wait={both ? "figure" : "list"}>
-            {lists && r ? <ProductsBody r={r} tab={tab} figure={both} /> : null}
+            {lists && r ? <ProductsBody r={r} both={both} /> : null}
           </Body>
         </Card>
       ) : null}
@@ -900,22 +909,24 @@ export const REPORT_COPY: Record<ReportId, { title: string; help: string }> = {
   sessions: { get title() { return tt("Visits") }, get help() { return tt("Visits to your pages. A visit ends after 30 minutes without a page.") } },
   clicks: { get title() { return tt("Link clicks") }, get help() { return tt("Links and buttons tapped, including the ones on your OnePage.") } },
   toplinks: { get title() { return tt("OnePage links") }, get help() { return tt("The links on your OnePage tapped most, and by how many people.") } },
-  refunds: { get title() { return tt("Refunded orders") }, get help() { return tt("Orders from this period that were refunded, in whole or in part.") } },
+  refunds: { get title() { return tt("Refunds") }, get help() { return tt("Refunds made in this period, on the day each was made, whenever the order was placed. Total sales takes them off on that day too.") } },
   downloads: { get title() { return tt("Downloads") }, get help() { return tt("How many of this period's digital orders were downloaded, and which products.") } },
 }
 
 const sumOf = (xs: number[] | undefined) => (xs ?? []).reduce((a, b) => a + b, 0)
-const delta = (value: number, previous: number): Headline => ({ value, previous, change: previous === 0 ? null : (value - previous) / previous })
+const delta = (value: number, previous: number): Headline => ({ value, previous, change: changeOf(value, previous) })
 
 function AddedBody({ id, r }: { id: ReportId; r: Reports }) {
   if (id === "pageviews") {
-    const perVisitor = r.visitors.value > 0 ? r.views.value / r.visitors.value : null
+    const perVisitor = ratio(r.views.value, r.visitors.value)
     return (
       <Trend
         value={fmtCount(r.views.value)}
-        change={<><Change h={r.views} />{perVisitor !== null ? <span className="ml-auto text-[12px] tabular-nums text-[#6b7280]">{tt("{n} per visitor", { n: perVisitor.toFixed(1).replace(/\.0$/, "") })}</span> : null}</>}
+        change={<Change h={r.views} />}
+        note={perVisitor !== null ? tt("{n} per visitor", { n: perVisitor.toFixed(1).replace(/\.0$/, "") }) : null}
         series={r.views.series}
         format={fmtCount}
+        label={tt("Page views")}
         rows={r.topPages.map((p) => ({ key: p.key, label: p.title || p.label, value: p.views }))}
         rowsTitle={tt("Most viewed pages")}
         rowsEmpty={tt("No pages opened in this period.")}
@@ -929,6 +940,7 @@ function AddedBody({ id, r }: { id: ReportId; r: Reports }) {
         change={<Change h={r.sessions} />}
         series={r.sessions.series}
         format={fmtCount}
+        label={tt("Visits")}
         rows={r.breakdowns.source.map((b) => ({ key: b.key, label: b.label, value: b.value }))}
         rowsTitle={tt("Visits by source")}
         rowsEmpty={tt("No visits in this period.")}
@@ -943,6 +955,7 @@ function AddedBody({ id, r }: { id: ReportId; r: Reports }) {
         change={<Change h={h} />}
         series={r.linkClicks.series}
         format={fmtCount}
+        label={tt("Link clicks")}
         rows={r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks }))}
         rowsTitle={tt("Most clicked links")}
         rowsEmpty={tt("No link clicks in this period.")}
@@ -950,9 +963,22 @@ function AddedBody({ id, r }: { id: ReportId; r: Reports }) {
     )
   }
   if (id === "refunds") {
-    const h = delta(sumOf(r.refunds?.series.current), sumOf(r.refunds?.series.previous))
+    /* Refunds made in the period, dated by the refund (lib/analytics/refund-dates), and the money that went back. */
+    const h = delta(r.refunds.value, r.refunds.previous)
     const refunded = r.kinds.filter((k) => k.refunds > 0).map((k) => ({ key: k.key, label: k.label, value: k.refunds }))
-    return <Trend value={fmtCount(h.value)} change={<Change h={h} />} series={r.refunds.series} format={fmtCount} rows={refunded} rowsTitle={tt("Refunds by kind")} rowsEmpty={tt("No refunds in this period.")} />
+    return (
+      <Trend
+        value={fmtCount(h.value)}
+        change={<Change h={h} />}
+        note={r.refunds.cents > 0 ? tt("{amount} back", { amount: fmtMoney(r.refunds.cents) }) : null}
+        series={r.refunds.series}
+        format={fmtCount}
+        label={tt("Refunds")}
+        rows={refunded}
+        rowsTitle={tt("Refunds by kind")}
+        rowsEmpty={tt("No refunds in this period.")}
+      />
+    )
   }
   if (id === "toplinks") {
     return <List title={REPORT_COPY.toplinks.title} rows={r.topLinks.map((l) => ({ key: l.key, label: l.label, value: l.clicks, note: plural(l.visitors, tt("person"), tt("people")) }))} format={fmtCount} empty={tt("No link taps in this period. Add links to your OnePage.")} />

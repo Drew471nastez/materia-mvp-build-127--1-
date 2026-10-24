@@ -59,6 +59,8 @@ import {
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { lineInMode, type SalesMode } from "./sections"
+import { refundsIn } from "./refund-dates"
+import { changeOf } from "./percent"
 
 export { bucketStarts, grainFor, previousWindow, spansToRead, type Grain, type Span }
 
@@ -302,8 +304,12 @@ export interface Reports {
   conversion: RateHeadline & { series: RateSeries }
   sales: Headline & { series: Series }
   orders: Headline & { series: Series }
-  /** Orders placed in each bucket that have since been refunded, in whole or part. */
-  refunds: { series: Series }
+  /**
+   * Refunds made in each bucket, dated by the refund (lib/analytics/
+   * refund-dates), whatever day the order was placed: one order refunded on
+   * one day is one. `cents` is the money that went back.
+   */
+  refunds: { value: number; previous: number; cents: number; previousCents: number; series: Series }
   /** Link clicks in each bucket (the OnePage's links and links out of every page). */
   linkClicks: { value: number; series: Series }
   topPages: PageRow[]
@@ -932,7 +938,8 @@ export function foldLegacyOnePage(
 /* ─── Everything ──────────────────────────────────────────────────────── */
 
 function headline(value: number, previous: number): Headline {
-  return { value, previous, change: previous > 0 ? (value - previous) / previous : null }
+  /* Against a negative period (a week of refunds) the change is measured by its size (lib/analytics/percent). */
+  return { value, previous, change: changeOf(value, previous) }
 }
 
 /** Rows of a breakdown map, its previous period beside it, the largest first. */
@@ -1097,7 +1104,15 @@ export function buildReports(input: {
   }
   const ordersNow = allSales.filter((o) => inWindow(o, cur))
   const ordersBefore = allSales.filter((o) => inWindow(o, prev))
-  const net = (o: Grouped) => moneyOf(o).net
+  /*
+    SALES BY THE ORDER'S DAY, REFUNDS BY THE REFUND'S (lib/analytics/
+    refund-dates, as Shopify dates them). An order counts its whole charge on
+    the day it was placed; a refund takes its money off on the day it was
+    made, of any order the reads found, placed in the period or long before.
+  */
+  const gross = (o: Grouped) => moneyOf(o).gross
+  const refundedNow = refundsIn(allSales, cur, (l) => lineMoney(l).refunded)
+  const refundedBefore = compared ? refundsIn(allSales, prev, (l) => lineMoney(l).refunded) : []
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
 
   const series = (items: (w: Span) => Array<{ at: number; n?: number }>): Series => ({
@@ -1113,10 +1128,25 @@ export function buildReports(input: {
   const head = (value: number, previous: number) => (compared ? headline(value, previous) : { value, previous: 0, change: null })
 
   const orderSeries = series((w) => (w === cur ? ordersNow : ordersBefore).map((o) => ({ at: Date.parse(o.createdAt) })))
-  const salesSeries = series((w) => (w === cur ? ordersNow : ordersBefore).map((o) => ({ at: Date.parse(o.createdAt), n: net(o) })))
-  const refundSeries = series((w) =>
-    (w === cur ? ordersNow : ordersBefore).filter((o) => moneyOf(o).refunded > 0).map((o) => ({ at: Date.parse(o.createdAt) })),
-  )
+  const salesSeries = series((w) => [
+    ...(w === cur ? ordersNow : ordersBefore).map((o) => ({ at: Date.parse(o.createdAt), n: gross(o) })),
+    ...(w === cur ? refundedNow : refundedBefore).map((e) => ({ at: e.at, n: -e.cents })),
+  ])
+  /* One order refunded on one day is one refund: two lines of a basket refunded together are one. */
+  const refundCount = (events: typeof refundedNow, bucketsOf: number[]) => {
+    const seen = new Set<string>()
+    return events.filter((e) => {
+      const k = `${e.order.id}|${bucketIndex(bucketsOf, e.at)}`
+      if (seen.has(k)) return false
+      seen.add(k)
+      return true
+    })
+  }
+  const refundsNowCounted = refundCount(refundedNow, starts)
+  const refundsBeforeCounted = refundCount(refundedBefore, prevStarts)
+  const refundSeries = series((w) => (w === cur ? refundsNowCounted : refundsBeforeCounted).map((e) => ({ at: e.at })))
+  const salesNow = sum(ordersNow.map(gross)) - sum(refundedNow.map((e) => e.cents))
+  const salesBefore = sum(ordersBefore.map(gross)) - sum(refundedBefore.map((e) => e.cents))
   const visitorSeries = wired(now.visitor_buckets, then.visitor_buckets)
   const viewSeries = wired(now.view_buckets, then.view_buckets)
   const sessionSeries = wired(now.session_buckets, then.session_buckets)
@@ -1201,11 +1231,17 @@ export function buildReports(input: {
         const key = keyOf(line.product_id)
         const row = rows.get(key) ?? { views: 0, orders: 0, cents: 0 }
         row.orders += 1
-        row.cents += lineMoney(line).net
+        row.cents += lineMoney(line).gross
         rows.set(key, row)
       }
     }
-    const cents = sum([...rows.values()].map((r) => r.cents))
+    for (const e of refundedNow) {
+      const key = keyOf(e.line.product_id)
+      const row = rows.get(key) ?? { views: 0, orders: 0, cents: 0 }
+      row.cents -= e.cents
+      rows.set(key, row)
+    }
+    const cents = sum([...rows.values()].map((r) => Math.max(0, r.cents)))
     const orders = sum([...rows.values()].map((r) => r.orders))
     const views = sum([...rows.values()].map((r) => r.views))
     return [...rows.entries()]
@@ -1216,7 +1252,7 @@ export function buildReports(input: {
         views: r.views,
         orders: r.orders,
         salesCents: r.cents,
-        share: cents > 0 ? r.cents / cents : orders > 0 ? r.orders / orders : views > 0 ? r.views / views : 0,
+        share: cents > 0 ? Math.max(0, r.cents) / cents : orders > 0 ? r.orders / orders : views > 0 ? r.views / views : 0,
       }))
       .sort((a, b) => b.salesCents - a.salesCents || b.orders - a.orders || b.views - a.views || a.label.localeCompare(b.label))
       .slice(0, 25)
@@ -1264,16 +1300,21 @@ export function buildReports(input: {
         const row = rows.get(k) ?? { orders: new Set<string>(), units: 0, cents: 0, refunds: 0 }
         row.orders.add(o.id)
         row.units += Math.max(1, Number(line.quantity) || 1)
-        const m = lineMoney(line)
-        row.cents += m.net
-        if (m.refunded > 0) row.refunds++
+        row.cents += lineMoney(line).gross
         rows.set(k, row)
       }
     }
-    const total = sum([...rows.values()].map((r) => r.cents))
+    for (const e of refundedNow) {
+      const k = kindOf(types[e.line.product_id])
+      const row = rows.get(k) ?? { orders: new Set<string>(), units: 0, cents: 0, refunds: 0 }
+      row.cents -= e.cents
+      row.refunds++
+      rows.set(k, row)
+    }
+    const total = sum([...rows.values()].map((r) => Math.max(0, r.cents)))
     const orderTotal = sum([...rows.values()].map((r) => r.orders.size))
     return [...rows.entries()]
-      .map(([key, r]) => ({ key, label: kindLabel(key), orders: r.orders.size, units: r.units, salesCents: r.cents, refunds: r.refunds, share: total > 0 ? r.cents / total : orderTotal > 0 ? r.orders.size / orderTotal : 0 }))
+      .map(([key, r]) => ({ key, label: kindLabel(key), orders: r.orders.size, units: r.units, salesCents: r.cents, refunds: r.refunds, share: total > 0 ? Math.max(0, r.cents) / total : orderTotal > 0 ? r.orders.size / orderTotal : 0 }))
       .sort((a, b) => b.salesCents - a.salesCents || b.orders - a.orders || a.key.localeCompare(b.key))
   })()
 
@@ -1285,13 +1326,24 @@ export function buildReports(input: {
     let downloads = 0
     const downloaded = new Set<string>()
     const counted = input.downloadsByLine ?? null
+    let charged = 0
+    const productKey = (id: string | null | undefined) => (id && input.productTitles[id] ? id : REMOVED_PRODUCT)
+    for (const e of refundedNow) {
+      if (kindOf(types[e.line.product_id]) === "physical") continue
+      cents -= e.cents
+      const key = productKey(e.line.product_id)
+      const row = per.get(key) ?? { orders: new Set<string>(), cents: 0, downloads: 0 }
+      row.cents -= e.cents
+      per.set(key, row)
+    }
     for (const o of ordersNow) {
       for (const line of o.lines) {
         if (kindOf(types[line.product_id]) === "physical") continue
         orders.add(o.id)
-        const m = lineMoney(line).net
+        const m = lineMoney(line).gross
         cents += m
-        const key = line.product_id && input.productTitles[line.product_id] ? line.product_id : REMOVED_PRODUCT
+        charged += m
+        const key = productKey(line.product_id)
         const row = per.get(key) ?? { orders: new Set<string>(), cents: 0, downloads: 0 }
         row.orders.add(o.id)
         row.cents += m
@@ -1305,7 +1357,8 @@ export function buildReports(input: {
     return {
       orders: orders.size,
       salesCents: cents,
-      averageCents: orders.size > 0 ? Math.round(cents / orders.size) : null,
+      /* What an order brought in when it was placed: a refund of an older order is not this period's average. */
+      averageCents: orders.size > 0 ? Math.round(charged / orders.size) : null,
       downloads: counted ? { total: downloads, orders: downloaded.size } : null,
       top: [...per.entries()]
         .map(([key, r]) => ({ key, label: key === REMOVED_PRODUCT ? tt("Removed product") : input.productTitles[key], orders: r.orders.size, salesCents: r.cents, downloads: counted ? r.downloads : null }))
@@ -1389,19 +1442,28 @@ export function buildReports(input: {
     })(),
     /* Orders by where the buyer is, from the order itself. */
     orderCountry: (() => {
-      const count = (list: Grouped[]) => {
+      const codeOf = (o: Grouped) => {
+        const code = (o.lines[0]?.buyer_country_code || "").toUpperCase()
+        return /^[A-Z]{2}$/.test(code) && code !== "XX" ? code : null
+      }
+      const count = (list: Grouped[], refunds: typeof refundedNow) => {
         const m: Record<string, number> = {}
         const cents: Record<string, number> = {}
         for (const o of list) {
-          const code = (o.lines[0]?.buyer_country_code || "").toUpperCase()
-          if (!/^[A-Z]{2}$/.test(code) || code === "XX") continue
+          const code = codeOf(o)
+          if (!code) continue
           m[code] = (m[code] ?? 0) + 1
-          cents[code] = (cents[code] ?? 0) + net(o)
+          cents[code] = (cents[code] ?? 0) + gross(o)
+        }
+        /* A refund is taken off a country with an order in the period; one that only refunded an older order has no row of its own. */
+        for (const e of refunds) {
+          const code = codeOf(e.order)
+          if (code && code in cents) cents[code] -= e.cents
         }
         return { m, cents }
       }
-      const a = count(ordersNow)
-      const b = count(ordersBefore)
+      const a = count(ordersNow, refundedNow)
+      const b = count(ordersBefore, refundedBefore)
       return mapRows(a.m, b.m, (k) => ({ key: k, label: countryName(k) })).map((r) => ({ ...r, extra: { code: r.key, salesCents: a.cents[r.key] ?? 0 } }))
     })(),
   }
@@ -1414,9 +1476,15 @@ export function buildReports(input: {
     views: { ...head(now.views ?? 0, then.views ?? 0), series: viewSeries },
     sessions: { ...head(now.sessions ?? 0, then.sessions ?? 0), series: sessionSeries },
     conversion,
-    sales: { ...head(sum(ordersNow.map(net)), sum(ordersBefore.map(net))), series: salesSeries },
+    sales: { ...head(salesNow, salesBefore), series: salesSeries },
     orders: { ...head(ordersNow.length, ordersBefore.length), series: orderSeries },
-    refunds: { series: refundSeries },
+    refunds: {
+      value: refundsNowCounted.length,
+      previous: compared ? refundsBeforeCounted.length : 0,
+      cents: sum(refundedNow.map((e) => e.cents)),
+      previousCents: sum(refundedBefore.map((e) => e.cents)),
+      series: refundSeries,
+    },
     linkClicks: { value: now.clicks ?? 0, series: clickSeries },
     topPages,
     topLinks,

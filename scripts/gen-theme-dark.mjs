@@ -30,6 +30,8 @@ import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs"
 import { join, relative } from "node:path"
 
 const root = process.cwd()
+/* The buyer header's dark bar, from the one place it is set (lib/platform/header-chrome.ts). */
+const BUYER_HEADER_DARK_BG = /BUYER_HEADER_DARK_BG = "(#[0-9a-f]{6})"/.exec(readFileSync(join(root, "lib/platform/header-chrome.ts"), "utf8"))[1]
 const OUT = join(root, "app/theme-dark.css")
 
 /*
@@ -604,6 +606,18 @@ html[data-sl-dark] [data-header-dashboard] {
 }
 html[data-sl-dark] [data-header-dashboard]:active {
   background-color: ${P.selected};
+}
+
+/*
+  THE HEADER'S DARK STYLE IS NEAR BLACK IN BOTH LOOKS (round AC1). The admin's header style (/admin, buyer header
+  theme) set to dark draws the bar in ${BUYER_HEADER_DARK_BG}, and the rule above that turns a near black fill into
+  graphite turned the whole bar ${P.selected}: the owner's "too gray". The bar, its row and the curved edge under it
+  keep the colour they were given. The id and the tone attribute outrank the class rule whatever the order.
+*/
+${SCOPE} #platform-header-root[data-header-tone="dark"],
+${SCOPE} #platform-header-root[data-header-tone="dark"] > header,
+${SCOPE} [data-header-concave="dark"][data-header-concave] {
+  background-color: ${BUYER_HEADER_DARK_BG};
 }
 
 html[data-sl-dark] [data-member-profile] [data-profile-top-bar] {

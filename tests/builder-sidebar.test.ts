@@ -73,7 +73,7 @@ function main() {
   check("and a short one is the grey segmented row, a long one a select",
     /export const SEGMENTED_MAX_OPTIONS = 3/.test(read("lib/website-builder/choice-shape.ts")) && /if \(kind === "radio"\) \{\s*return <EchoSelect /.test(editor) && /bg-\[#f1f2f4\]/.test(read("components/website-builder/editor/controls/choice-control.tsx")))
   check("the slider is the black one, drawn from its own state and sending once a frame",
-    /<Slider\s+value=\{\[shown\]\}/.test(slider) && /onValueCommit=\{\(\) => flush\(\)\}/.test(slider) && /className="wb-black-slider"/.test(slider) && /useFrameCommit\(onChange\)/.test(slider))
+    /<Slider\s+value=\{\[shown\]\}/.test(slider) && /onValueCommit=\{\(\) => flush\(\)\}/.test(slider) && /* Round AC3: and touch-action pan-y, so a vertical swipe scrolls the panel. */ /className="wb-black-slider touch-pan-y"/.test(slider) && /useFrameCommit\(onChange\)/.test(slider))
   /* Round R6: the empty box offers Upload and Your files inside it (the store's Files), and still takes a dropped picture. */
   check("the image box says Add image, offers Upload and Your files in it, with a spinner over the picture while it uploads",
     />Add image</.test(picker) && /or drop a picture here/.test(picker) && /data-wb-image-upload=""/.test(picker) && /data-wb-image-library=""/.test(picker) && /animate-spin/.test(picker) && !/MediaField|progressbar/.test(picker))

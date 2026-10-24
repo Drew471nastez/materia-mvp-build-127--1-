@@ -641,20 +641,37 @@ export function openInBrowser(url: string): void {
   }
   /* Let this window through the link guard (components/platform/native-link-guard.tsx). */
   ;(window as unknown as { __storelibBrowser?: string }).__storelibBrowser = url
+  /*
+    NEVER THIS WINDOW, AND NEVER A NEW ONE THE APP KEEPS (round AC3).
+    iOS: Capacitor hands every new window to the system (UIApplication.open,
+    ios WebViewDelegationHandler createWebViewWith), so window.open is
+    Safari. It answers null, which is how that looks from here and not a
+    failure: the old fallback then sent this window to storelib://external,
+    a second open on top of the first.
+    Android: the browser plugin's Custom Tab is Chrome. Its old fallback was
+    window.open, and a new window to one of our hosts is loaded in the app's
+    own WebView (allowNavigation, android StorelibChromeClient), which
+    rewrote a creator's subdomain to their profile over the builder. If the
+    plugin cannot answer, nothing happens here rather than that.
+  */
   if (isIOS()) {
     try {
-      if (window.open(url, "_system")) return
-    } catch { /* fall through */ }
-    window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+      window.open(url, "_system")
+    } catch {
+      /* nothing opened, and nothing in the app moved */
+    }
     return
   }
   import("@capacitor/browser")
     .then(({ Browser }) => Browser.open({ url, toolbarColor: "#ffffff" }))
     .catch(() => {
+      /* No browser plugin in this build. Somebody else's site still goes to the system browser by a new window (Capacitor sends a host it does not allow there); one of ours is not loaded over the app. */
+      const link = nativeLinkFor(url)
+      if (link.kind === "path" || link.kind === "host") return
       try {
-        if (!window.open(url, "_system")) throw new Error("blocked")
+        window.open(url, "_system")
       } catch {
-        window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+        /* nothing opened */
       }
     })
 }

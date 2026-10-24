@@ -14,6 +14,8 @@ import { PAGE_META, type PageKey } from "@/lib/website-builder/types"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { openOpeningTab } from "@/lib/website-builder/opening-tab"
+import { liveSiteLink } from "@/lib/website-builder/live-site-link"
+import { openInBrowser } from "@/lib/native-bridge"
 
 /**
  * ===========================================================================
@@ -353,7 +355,7 @@ function Body({
 
   const openPreview = async () => {
     if (previewUrl) {
-      window.open(previewUrl, "_blank", "noopener")
+      openInBrowser(previewUrl)
       return
     }
     /**
@@ -380,7 +382,7 @@ function Body({
         return
       }
       setPreviewToken(j.token)
-      if (!tab?.go(j.url)) window.open(j.url, "_blank", "noopener")
+      if (!tab?.go(j.url)) openInBrowser(j.url)
     } catch {
       tab?.fail(tt("Could not make a preview link."))
       setPreviewNote(tt("Could not make a preview link."))
@@ -544,10 +546,10 @@ function Body({
               >
                 {copied === "site" ? <Check className="h-4 w-4" strokeWidth={2} /> : <Copy className="h-4 w-4" strokeWidth={1.75} />}
               </button>
+              {/* In the phone app, the phone's browser and nothing in the app (lib/website-builder/live-site-link.ts). */}
               <a
-                href={ownOpen(websiteUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
+                {...liveSiteLink(ownOpen(websiteUrl))}
+                data-publish-open-live=""
                 className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label={tt("Open the live site")}
               >

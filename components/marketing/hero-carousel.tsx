@@ -15,6 +15,12 @@ import { AUTOPLAY_MS, DRAG_THRESHOLD_PX, GLIDE_MS, MOMENTUM_MS, STEP_NEAR, slide
  * a drag, a snap and the autoplay are the same code and React renders the
  * slider once. Only transform and opacity change; each slide is its own layer.
  *
+ * DIMMER AWAY FROM THE CENTRE. Each slide carries a near black layer whose
+ * opacity is the pose's `dim` for the same position, so a side slide is
+ * darker and brightens smoothly to full as it glides into the centre. An
+ * opacity on its own layer rather than filter: brightness() on the slide,
+ * which would repaint the picture's layer each frame.
+ *
  * The distance across is in units of the slide's width (`--hc-w`, set in CSS
  * per breakpoint), so the server's HTML is already in place at every width
  * and nothing is measured to draw a frame. A drag measures the width once,
@@ -31,6 +37,7 @@ const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
 export function HeroCarousel({ slides = HERO_SLIDES }: { slides?: HeroImage[] }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<(HTMLDivElement | null)[]>([])
+  const dimRefs = useRef<(HTMLSpanElement | null)[]>([])
   const n = slides.length
 
   useEffect(() => {
@@ -47,6 +54,7 @@ export function HeroCarousel({ slides = HERO_SLIDES }: { slides?: HeroImage[] })
     let drag: { id: number; x0: number; pos0: number; stepPx: number; moved: boolean; samples: { x: number; t: number }[] } | null = null
     let suppressClick = false
     const lastZ: number[] = []
+    const lastDim: string[] = []
 
     const paint = () => {
       for (let i = 0; i < n; i++) {
@@ -56,6 +64,8 @@ export function HeroCarousel({ slides = HERO_SLIDES }: { slides?: HeroImage[] })
         el.style.transform = p.transform
         el.style.opacity = String(p.opacity)
         if (lastZ[i] !== p.zIndex) { el.style.zIndex = String(p.zIndex); lastZ[i] = p.zIndex }
+        const dim = String(p.dim)
+        if (lastDim[i] !== dim) { const d = dimRefs.current[i]; if (d) d.style.opacity = dim; lastDim[i] = dim }
       }
     }
     const centre = () => ((Math.round(pos) % n) + n) % n
@@ -253,6 +263,7 @@ export function HeroCarousel({ slides = HERO_SLIDES }: { slides?: HeroImage[] })
             {slide.href ? (
               <a href={slide.href} draggable={false} className="block size-full">{body}</a>
             ) : body}
+            <span aria-hidden ref={(el) => { dimRefs.current[i] = el }} data-hero-dim="" className="hero-dim" style={{ opacity: p.dim }} />
           </div>
         )
       })}

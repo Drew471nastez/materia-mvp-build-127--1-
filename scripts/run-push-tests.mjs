@@ -207,6 +207,8 @@ const SUITES = [
   "tests/analytics-e2e.test.ts",
   /* Round AB2: every /app Analytics figure against a fixture counted by hand and an independent reference (7 ranges, 5 places, All/Digital/Physical), the sales reports counted by the tabs' own rules, the comparison across a DST week, the yen cards, the morph by what a store sells, Add report at the bottom and the CSV export (scripts/check-analytics-ab2.mjs measures the page). */
   "tests/analytics-accuracy.test.ts",
+  /* Round AC2: a lei store selling in five other currencies through the routes' own code with day rates in the database fake, yen and dinar stores, the phantom discount of a converted line, refunds dated by the refund, shares that add up to 100, changes against nothing and below nothing, and the export's report and format choices (scripts/check-analytics-ac2.mjs measures the page). */
+  "tests/analytics-currency.test.ts",
   "tests/analytics-filters.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
@@ -337,7 +339,7 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/header-link-navigates.test.ts",
   "tests/header-buttons.test.ts",
-  /* Round AA1: the front page hero remade (the button by who is looking, the storefront slider, the typed heading, the marketplace search). Round AB1: the typing on one frame clock (lib/marketing/hero-typing), Storelib screens as the pictures (scripts/hero-shots.mjs), the phone layout. scripts/check-home-hero.mjs measures it, scripts/check-home-perf.mjs times a production build. */
+  /* Round AA1: the front page hero remade (the button by who is looking, the storefront slider, the typed heading, the marketplace search). Round AB1: the typing on one frame clock (lib/marketing/hero-typing), Storelib screens as the pictures (scripts/hero-shots.mjs), the phone layout. scripts/check-home-hero.mjs measures it, scripts/check-home-perf.mjs times a production build. Round AC1: demo stores as the pictures, dimmer side slides, the inset panel, full width phone controls, and the header's dark style near black in both looks. */
   "tests/home-hero.test.ts",
   "tests/header-flex.test.ts",
   "tests/search-strip-entrance.test.ts",
@@ -775,6 +777,9 @@ const SUITES = [
   "tests/account-center.test.ts",
   "tests/theme-blocks.test.ts",
   "tests/place-navigator.test.ts",
+  "tests/header-auth-menus.test.ts",
+  "tests/builder-touch-intent.test.ts",
+  "tests/publish-open-live.test.ts",
   "tests/header-round8.test.ts",
   "tests/native-app-links.test.ts",
   "tests/native-shell.test.ts",

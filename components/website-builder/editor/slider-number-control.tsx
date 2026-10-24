@@ -38,7 +38,7 @@
  * moves drawn in their own frame, 1.2 to 1.5 React commits per move).
  *
  * So a drag is the control's own, as the shared sheet's is
- * (components/ui/bottom-sheet.tsx): the pointer is captured on touchdown,
+ * (components/ui/bottom-sheet.tsx): the pointer is captured once the drag begins (a mouse on its press, a finger once it has moved sideways),
  * and each move writes the thumb's and the fill's `translate` directly, in
  * the handler, so the frame that carries the move draws them. Radix still
  * draws the slider at rest, reads the keyboard and names it to a screen
@@ -56,6 +56,7 @@ import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import { useFrameCommit } from "./use-frame-commit"
 import { beginLive, endLive } from "@/lib/website-builder/live-settings"
+import { scrolledRecently, touchIntent, waitsForIntent, watchScrolls } from "@/lib/website-builder/touch-intent"
 
 /** The glide from where the finger let go to the step it lands on. */
 const SETTLE_MS = 140
@@ -179,15 +180,19 @@ export function SliderNumberControl({
       live.current.emit(v)
     }
 
-    const onDown = (e: PointerEvent) => {
-      if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return
+    const parts = () => {
       const root = wrap.querySelector<HTMLElement>('[data-slot="slider"]')
       const thumb = wrap.querySelector<HTMLElement>('[data-slot="slider-thumb"]')
       const thumbWrap = thumb?.parentElement
-      if (!root || !thumb || !thumbWrap || root.hasAttribute("data-disabled")) return
-      /* Radix's own pointer handling never starts: this drag is ours. */
-      e.preventDefault()
-      e.stopPropagation()
+      if (!root || !thumb || !thumbWrap || root.hasAttribute("data-disabled")) return null
+      return { root, thumb, thumbWrap }
+    }
+
+    /** The drag itself, from where the pointer came down (`downX`), not from where intent was read. */
+    const begin = (pointerId: number, downX: number, clientX: number) => {
+      const p = parts()
+      if (!p) return
+      const { root, thumb, thumbWrap } = p
       /* A glide from the last release still running ends where it was going. */
       const range = root.querySelector<HTMLElement>('[data-slot="slider-range"]')
       for (const el of [thumbWrap, range]) for (const a of el?.getAnimations?.() ?? []) a.finish()
@@ -196,30 +201,90 @@ export function SliderNumberControl({
       const startPct = pctOf(live.current.shown)
       const centre = rect.left + thumbW / 2 + startPct * (rect.width - thumbW)
       /* On the thumb, the finger keeps its hold; on the track, the thumb comes to the finger. */
-      const onThumb = Math.abs(e.clientX - centre) <= thumbW / 2 + 6
+      const onThumb = Math.abs(downX - centre) <= thumbW / 2 + 6
       const d: Drag = {
-        pointerId: e.pointerId, wrap, root, thumb, thumbWrap, range,
+        pointerId, wrap, root, thumb, thumbWrap, range,
         left: rect.left, width: rect.width, thumbW, startPct,
-        grab: onThumb ? e.clientX - centre : 0,
+        grab: onThumb ? downX - centre : 0,
         pct: startPct, value: live.current.shown,
       }
       dragRef.current = d
       /* What the drag sends is drawn by the section alone and committed once on release (lib/website-builder/live-settings.ts). */
       beginLive()
-      try { wrap.setPointerCapture(e.pointerId) } catch { /* a pointer already gone */ }
+      try { wrap.setPointerCapture(pointerId) } catch { /* a pointer already gone */ }
       root.setAttribute("data-dragging", "")
       thumbWrap.style.willChange = "translate"
       if (range) range.style.willChange = "translate"
       thumb.focus({ preventScroll: true })
-      move(d, e.clientX)
+      move(d, clientX)
+    }
+
+    /*
+      A FINGER WAITS TO SAY WHAT IT MEANS (lib/website-builder/touch-intent.ts).
+      Down, it is only held here: a swipe up the panel that began on this row
+      is the panel's scroll (the row is touch-action: pan-y, so the browser
+      takes it and cancels this pointer). Eight pixels within thirty degrees
+      of level and it is a drag, from where it came down. Lifted without
+      moving, on the track and not while the panel was still gliding, the
+      thumb goes to it, as a tap always did; on the thumb, nothing changes.
+    */
+    let waiting: { pointerId: number; x: number; y: number } | null = null
+    /* Every pointer that came down in here, until it lifts: none of its events reach Radix. */
+    const ours = new Set<number>()
+
+    const onDown = (e: PointerEvent) => {
+      if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return
+      if (!parts()) return
+      /* Radix's own pointer handling never starts: this drag is ours. */
+      e.stopPropagation()
+      ours.add(e.pointerId)
+      if (waitsForIntent(e.pointerType)) {
+        watchScrolls()
+        waiting = { pointerId: e.pointerId, x: e.clientX, y: e.clientY }
+        return
+      }
+      e.preventDefault()
+      begin(e.pointerId, e.clientX, e.clientX)
     }
 
     const onMove = (e: PointerEvent) => {
+      /*
+        RADIX NEVER SEES THIS POINTER, NOT ONLY ITS PRESS. A finger is held
+        by whatever it landed on (the browser's own capture for touch), and
+        Radix moves its thumb on any move whose target holds the pointer: a
+        swipe up that began on the track slid the value by the first frame's
+        worth of movement before the browser took the scroll.
+      */
+      if (ours.has(e.pointerId)) e.stopPropagation()
+      const w = waiting
+      if (w && e.pointerId === w.pointerId) {
+        const intent = touchIntent(e.clientX - w.x, e.clientY - w.y)
+        if (intent === "pending") return
+        waiting = null
+        if (intent === "horizontal") begin(e.pointerId, w.x, e.clientX)
+        return
+      }
       const d = dragRef.current
       if (d && e.pointerId === d.pointerId) move(d, e.clientX)
     }
 
     const onUp = (e: PointerEvent) => {
+      /* The browser's own hold on the element under the finger, handed to this row as the drag begins: not an end. */
+      if (e.type === "lostpointercapture" && e.target !== wrap) {
+        if (ours.has(e.pointerId)) e.stopPropagation()
+        return
+      }
+      if (ours.has(e.pointerId)) {
+        e.stopPropagation()
+        if (e.type !== "lostpointercapture") ours.delete(e.pointerId)
+      }
+      const w = waiting
+      if (w && e.pointerId === w.pointerId) {
+        waiting = null
+        if (e.type !== "pointerup" || scrolledRecently()) return
+        /* A tap: on the track the thumb comes to it, on the thumb nothing moves. */
+        begin(e.pointerId, w.x, w.x)
+      }
       const d = dragRef.current
       if (!d || e.pointerId !== d.pointerId) return
       dragRef.current = null
@@ -302,7 +367,7 @@ export function SliderNumberControl({
         * this attribute is the sheet's own way of being told: it does not
         * arm at all for a touch that starts in here.
         */}
-      <div data-sheet-no-drag className="flex-1 relative py-2 -my-2 touch-none select-none">
+      <div data-sheet-no-drag data-slider-row="" className="flex-1 relative py-2 -my-2 touch-pan-y select-none">
         <Slider
           value={[shown]}
           onValueChange={([v]) => set(v)}
@@ -310,7 +375,7 @@ export function SliderNumberControl({
           min={min}
           max={max}
           step={step}
-          className="wb-black-slider"
+          className="wb-black-slider touch-pan-y"
         />
       </div>
       <div className="relative shrink-0">

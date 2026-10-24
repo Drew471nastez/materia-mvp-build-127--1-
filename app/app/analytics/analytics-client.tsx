@@ -35,19 +35,22 @@
  * stretch of time.
  *
  * WHAT IS DRAWN FOLLOWS WHAT THE SELLER SELLS AND HAS (lib/analytics/
- * sections): shipping and fulfilment for one who sells something physical,
- * downloads for digital products, the OnePage's links for the OnePage,
- * communities for one who runs one. A seller of both kinds has one switch
- * beside the period, All, Digital or Physical, kept in the address as
- * `?kind=`, and every sales figure and card follows it (the visits are the
- * store's whatever it says: a visit is not of one kind). A seller with
+ * sections): shipping for one who sells something physical, downloads for
+ * digital products, the OnePage's links for the OnePage, communities for one
+ * who runs one. A seller of both kinds sees every figure for both together
+ * and the split where it matters: the sales breakdown's Digital and Physical
+ * columns, each top product named by its kind, and the Shipping card only
+ * once the period has a physical order. There is no All / Digital /
+ * Physical switch: "it doesn't make sense ... on mobile there are so many
+ * things". An old link's `?kind=` is dropped from the address. A seller with
  * nothing to sell yet sees the visits and one line saying where sales will
  * be, not a row of zeros. And the reports they added, read on the server
  * with the page so they are on the first paint (./add-reports), as cards of
- * their own after the rest, with Add report under the last of them.
+ * their own after the rest, with the Add report tile under the last of them.
  *
- * EXPORT, beside the heading: every report on the page for what is chosen,
- * as one CSV file (./export-button, app/api/analytics/export).
+ * EXPORT, the last control in the period's row (no row of its own): a
+ * dialog to choose the reports and the file, one CSV or a zip of CSVs
+ * (./export-button, app/api/analytics/export).
  */
 
 import { CommerceReports } from "./commerce-reports"
@@ -67,13 +70,15 @@ import { ProductPicker } from "@/components/app/product-picker"
 import { PropertyPicker } from "@/components/app/property-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
-import { kindOfProduct, modeFor, parseMode, profileOf, reportOptions, reportShown, sectionsFor, sellsOf, type ReportId, type SalesMode } from "@/lib/analytics/sections"
+import { kindOfProduct, profileOf, reportOptions, reportShown, sectionsFor, sellsOf, type ReportId, type SalesMode } from "@/lib/analytics/sections"
+import { EXPORT_REPORTS, type ExportReport } from "@/lib/analytics/export-csv"
+import { propertyLabel } from "@/lib/analytics/properties"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { DEFAULT_PROPERTY, ownsProperty, parseProperty, propertyOptions, propertyParam, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
-import { AnalyticsReports, ReportTabs, useAnalyticsReports } from "./analytics-reports"
+import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
 import { reportNow } from "@/lib/analytics/report-cache"
 import { AnalyticsChartWithTooltip, CHART_COLORS, type AnalyticsChartData } from "@/components/app/analytics-chart"
-import { MetricTab } from "@/components/app/metric-tab"
+import { MetricTab, MetricTabLine } from "@/components/app/metric-tab"
 import { TAB_STRIP_STYLE, useTabStrip } from "@/components/app/use-tab-strip"
 import { HoverNote } from "@/components/app/help-label"
 import { LoadingLine } from "@/components/app/loading-line"
@@ -145,7 +150,8 @@ export function PercentChangeIndicator({ current, previous, lowerIsBetter = fals
       </HoverNote>
     ) : null
   }
-  const change = ((current - previous) / previous) * 100
+  /* Against a negative period (a week of refunds) the change is measured by its size (lib/analytics/percent). */
+  const change = ((current - previous) / Math.abs(previous)) * 100
   if (Math.round(change) === 0) return null
   const up = change > 0
   /* What it is measured against, in the card every hover note uses (components/app/help-label). */
@@ -284,24 +290,22 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const profile = useMemo(() => profileOf({ products, onePageId: properties.onePageId, websites: properties.websites, communities: communities.length }), [products, properties, communities.length])
   const sells = sellsOf(profile)
   /*
-    THE SWITCH, ALL / DIGITAL / PHYSICAL, for a seller of both, kept in the
-    address beside the place (history.replaceState, as the place is). A
-    product chosen below it is already of one kind, so the switch rests.
+    EVERY KIND TOGETHER. The All / Digital / Physical switch is gone; every
+    figure counts both kinds and the cards split them where it matters. A
+    link from before still carrying `?kind=` loses it from the address, once.
   */
-  const [wantedMode, setWantedMode] = useState<SalesMode>(() => parseMode(new URLSearchParams(searchParams.toString()).get("kind")))
-  const setMode = useCallback((m: SalesMode) => {
-    setWantedMode(m)
+  const mode: SalesMode = "all"
+  useEffect(() => {
     try {
       const url = new URL(window.location.href)
-      if (m === "all") url.searchParams.delete("kind")
-      else url.searchParams.set("kind", m)
+      if (!url.searchParams.has("kind")) return
+      url.searchParams.delete("kind")
       window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
     } catch {
       /* the address is a convenience */
     }
   }, [])
   const chosenProduct = selectedProduct === "all" ? null : products.find((p) => p.id === selectedProduct) ?? null
-  const mode = chosenProduct ? "all" : modeFor(profile, wantedMode)
   const sections = sectionsFor(profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode })
   /* The reports the seller added: cards of their own after the rest, never more tabs on the chart. */
   const [added, saveAdded] = useAddedReports(creatorId, savedReports)
@@ -373,10 +377,15 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
       q.set("cstart", new Date(against.start).toISOString())
       q.set("cend", new Date(against.end).toISOString())
     } else q.set("compare", "none")
-    if (mode !== "all") q.set("kind", mode)
     return q.toString()
-  }, [safeSpan, against, timeZone, selectedProduct, propertyKey, mode])
-  const exportName = `storelib-analytics-${period.start}-to-${period.end}.csv`
+  }, [safeSpan, against, timeZone, selectedProduct, propertyKey])
+  const exportName = `storelib-analytics-${period.start}-to-${period.end}`
+  /* The reports the dialog lists: what this page draws for what is chosen. */
+  const exportOptions = useMemo<ExportReport[]>(
+    () => EXPORT_REPORTS.filter((id) => (id === "sales" ? sections.sales : id === "products" ? sections.topProducts : id === "subscribers" ? sections.subscribers : true)),
+    [sections.sales, sections.topProducts, sections.subscribers],
+  )
+  const exportRange = `${rangeLabel(period)} · ${propertyLabel(properties, property)}${chosenProduct ? ` · ${chosenProduct.title}` : ""}`
   const reportsState = useAnalyticsReports({
     start: safeSpan.start,
     end: safeSpan.end,
@@ -552,43 +561,29 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
       */}
       <PullToRefreshEvent scope="app-analytics">
       <div className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
-        {/* The heading and the file of everything below it, where Shopify's reports keep Export. Add report is under the last card. */}
-        <div className="flex items-center justify-between gap-3" data-analytics-head="">
+        {/* The heading alone. Add report is the tile under the last card; Export is the last control in the row below. */}
+        <div className="flex items-center gap-3" data-analytics-head="">
           <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
-          <ExportButton query={exportQuery} name={exportName} />
         </div>
 
-        {/* The period and the place side by side, the product at the end. No comparison control.
-            On a phone one row that scrolls sideways, as the figures below do: a longer label
-            (a product's name, a custom range) never wraps it onto a second row and pushes
-            the page down. */}
-        <div className="orders-strip app-gutter-bleed flex items-center justify-between gap-2 overflow-x-auto sm:mx-0 sm:flex-wrap sm:gap-3 sm:overflow-visible sm:px-0" data-analytics-controls="">
-          <div className="flex shrink-0 items-center gap-2">
-            <DateRangePicker value={period} onChange={setPeriod} today={today} />
-            <PropertyPicker options={options} value={property} onChange={setProperty} />
-          </div>
+        {/* The period and the place side by side, the product and Export at the end. No comparison control.
+            On a phone the pickers are one row that scrolls sideways, as the figures below do, and Export
+            stays put at its right end: a longer label (a product's name, a custom range) never wraps it
+            onto a second row, and Export never scrolls off the screen. */}
+        <div className="flex items-center gap-2 sm:gap-3" data-analytics-controls="">
+          <div className="orders-strip -ml-[var(--app-gutter)] flex min-w-0 flex-1 items-center justify-between gap-2 overflow-x-auto pl-[var(--app-gutter)] sm:ml-0 sm:flex-wrap sm:gap-3 sm:overflow-visible sm:pl-0" data-analytics-pickers="">
+            <div className="flex shrink-0 items-center gap-2">
+              <DateRangePicker value={period} onChange={setPeriod} today={today} />
+              <PropertyPicker options={options} value={property} onChange={setProperty} />
+            </div>
 
-          {/* Which product: the date picker's button, list and sheet (components/app/product-picker). */}
-          <div className="flex shrink-0 items-center gap-2">
-            {products.length ? <ProductPicker products={products} value={selectedProduct} onChange={setSelectedProduct} align="end" /> : null}
+            {/* Which product: the date picker's button, list and sheet (components/app/product-picker). */}
+            <div className="flex shrink-0 items-center gap-2">
+              {products.length ? <ProductPicker products={products} value={selectedProduct} onChange={setSelectedProduct} align="end" /> : null}
+            </div>
           </div>
+          <ExportButton query={exportQuery} name={exportName} options={exportOptions} range={exportRange} />
         </div>
-
-        {/* A seller of both kinds: every sales figure and card follows this one switch. */}
-        {sells === "both" && !chosenProduct ? (
-          <div className="-mt-2" data-sales-mode="">
-            <ReportTabs
-              label={tt("What to count")}
-              value={mode}
-              onChange={setMode}
-              options={[
-                { value: "all", label: tt("All") },
-                { value: "digital", label: tt("Digital") },
-                { value: "physical", label: tt("Physical") },
-              ]}
-            />
-          </div>
-        ) : null}
 
         {/* The four figures and the chart of the one chosen */}
         <div className="relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden" aria-busy={waitingFigures || waitingLists}>
@@ -603,6 +598,8 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             className={`relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid ${tabOrder.length === 3 ? "md:grid-cols-3" : "md:grid-cols-4"}`}
             style={TAB_STRIP_STYLE}
           >
+            {/* One grey line for the row, sliding to the tab chosen (components/app/metric-tab MetricTabLine). */}
+            <MetricTabLine value={chartMetricFilter} />
             {tabOrder.map((tab) => {
               const spec = {
                 /* With the page views a tab of their own (nothing to sell yet), the visitors' line says their visits instead. */
@@ -613,7 +610,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
                 orders: { label: t("analytics.totalOrders"), value: formatCompactNumber(shown.orders.value ?? 0), change: changeOf(shown.orders), foot: allTime(shown.orders, formatCompactNumber, tt("Paid and free")) },
                 conversion: { label: t("analytics.conversionRate"), value: formatRate(shown.conversion.value), change: changeOf(shown.conversion), foot: t("dashboard.ordersPerVisitor") },
               }[tab]
-              return <MetricTab key={tab} tab={tab} className={STRIP_TAB} label={spec.label} value={spec.value} change={spec.change} selected={chartMetricFilter === tab} soft={soft} loading={figuresLoading} foot={spec.foot} onSelect={() => setChartMetricFilter(tab)} />
+              return <MetricTab key={tab} tab={tab} className={STRIP_TAB} label={spec.label} value={spec.value} change={spec.change} selected={chartMetricFilter === tab} soft={soft} loading={figuresLoading} foot={spec.foot} onSelect={() => setChartMetricFilter(tab)} line={false} />
             })}
           </div>
 
@@ -675,9 +672,9 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             property={propertyKey}
             showShipping={sections.shipping}
             showFulfillment={sections.fulfillment}
+            showKinds={sections.productKinds}
             viewer={userId}
             refresh={tick}
-            kind={mode}
           />
         ) : (
           <p data-no-sales="" className="rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 text-[14px] text-[#6b7280] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -693,9 +690,9 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           extra={sections.communities ? <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} /> : null}
           added={{ ids: shownAdded, ...actions }}
         />
-        <div className="flex justify-center pt-1">
-          <AddReportButton marker="add-more" label={tt("Add report")} onClick={() => setPicking(true)} />
-        </div>
+        {/* The grid's last tile, the full width: where the next report goes. */}
+        <AddReportButton marker="add-more" label={tt("Add report")} onClick={() => setPicking(true)} />
+
         <ReportPicker open={picking} onOpenChange={setPicking} options={reportChoices} added={added} onSave={saveFromPicker} />
       </div>
       </PullToRefreshEvent>

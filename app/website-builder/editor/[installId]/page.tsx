@@ -15,6 +15,7 @@ import { MENU_DRAWER_MAX_WIDTH } from "@/lib/website-builder/header-drawers"
 import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
 import { installSteadyFocus, rowIntoView } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
+import { liveSiteLink, openLiveSite } from "@/lib/website-builder/live-site-link"
 import { openInstallPreview } from "@/lib/website-builder/open-preview"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
@@ -10228,11 +10229,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <Tooltip>
               <TooltipTrigger asChild>
                 <a
-                  href={ownOpen(websiteUrl)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  /* Not published yet: the press opens its preview instead (nothing is live at the address). */
-                  onClick={siteLive ? undefined : (e) => { e.preventDefault(); void openInstallPreview(installId, websiteUrl).then((err) => { if (err) toast.error(err) }) }}
+                  {...liveSiteLink(ownOpen(websiteUrl))}
+                  /* Not published yet: the press opens its preview instead (nothing is live at the address). Live: the phone's browser in the app, a new tab here (lib/website-builder/live-site-link.ts). */
+                  onClick={siteLive ? openLiveSite(ownOpen(websiteUrl)) : (e) => { e.preventDefault(); void openInstallPreview(installId, websiteUrl).then((err) => { if (err) toast.error(err) }) }}
                   className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0"
                   aria-label={siteLive ? "Open the live page" : "Open a preview"}
                 >

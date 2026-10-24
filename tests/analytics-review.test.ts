@@ -124,7 +124,14 @@ async function main() {
     check("  and the period before: the same orders and the same money", pageOrders.previous === reports.orders.previous && pageSales.previous === reports.sales.previous,
       { orders: [pageOrders.previous, reports.orders.previous], sales: [pageSales.previous, reports.sales.previous] })
     const pageSeries = pageSales.series
-    check("  day by day as well", JSON.stringify(pageSeries) === JSON.stringify(reports.sales.series.current), { page: pageSeries, analytics: reports.sales.series.current })
+    /*
+      Changed on purpose (refunds dated by the refund, lib/analytics/refund-dates, as Shopify dates them):
+      day by day Analytics is the Orders page's sales with each refund moved from its order's day to the
+      day it was made. The two refunded on day 11 (2,500 and 700, refunded_at 30 hours after day 10's
+      midnight) leave day 10 and come off day 11; the basket's refund has no date and stays on its order's day.
+    */
+    const moved = pageSeries.map((v, i) => v + (i === 10 ? 3200 : i === 11 ? -3200 : 0))
+    check("  day by day as well, each refund on the day it was made", JSON.stringify(moved) === JSON.stringify(reports.sales.series.current), { page: pageSeries, analytics: reports.sales.series.current })
     /* By hand: the two paid orders, the one refunded in part, the free one, the basket less its refund, the two old ones, and the basket across the end whole. The basket across the start is August's, where its first line is. */
     const want = 2500 + 4000 + (2500 - 700) + 0 + (2500 + 1200 + 800 - 300) + 2500 + 2500 + (1500 + 900)
     check(`  ${want} cents by hand: the basket across the end whole, the one across the start in August`, reports.sales.value === want, reports.sales.value)

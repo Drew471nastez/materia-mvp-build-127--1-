@@ -442,11 +442,19 @@ section("Every chart reads one layer")
  * the same by construction, and scripts/check-chart-feel.mjs measures it.
  */
 {
-  /* Changed on purpose: the report cards are lists and the funnel now; the one chart on Analytics is the figures' chart. */
-  check("the home page's chart and the Analytics chart draw <ChartScrub>, and the report cards draw no chart of their own",
-    /<ChartScrub\b/.test(DASHBOARD) && /<ChartScrub\b/.test(ANALYTICS) && !/<ChartScrub\b|recharts/.test(REPORTS))
+  /*
+    Changed on purpose (round AC2, "tooltips ... rather than separate unhoverable SVGs"): the report cards' lines
+    (Page views, Visits, Link clicks, Refunds, Sales over time) are components/analytics/trend-mini-chart, which
+    draws the figures' chart's own two layers, MorphLines and <ChartScrub>, light on a card. So every chart on
+    Analytics has the one hover, and none of the cards draws a line or reads a pointer of its own.
+  */
+  const MINI = stripComments(readFileSync(join(root, "components/analytics/trend-mini-chart.tsx"), "utf8"))
+  const SALES = stripComments(untt(readFileSync(join(root, "app/app/analytics/commerce-reports.tsx"), "utf8"), "app/app/analytics/commerce-reports.tsx"))
+  check("the home page's chart, the Analytics chart and every report card's line draw <ChartScrub>; the cards through trend-mini-chart, never recharts",
+    /<ChartScrub\b/.test(DASHBOARD) && /<ChartScrub\b/.test(ANALYTICS) && /<ChartScrub\b/.test(MINI) && /<MorphLines\b/.test(MINI) && /tone="light"/.test(MINI)
+      && /<TrendMiniChart\b/.test(REPORTS) && /<TrendMiniChart\b/.test(SALES) && !/<ChartScrub\b|recharts|<svg/.test(REPORTS) && !/recharts|<svg/.test(SALES))
   check("and none of them keeps a gesture of its own",
-    [DASHBOARD, ANALYTICS, REPORTS].every((src) => !/addEventListener\("touch|onPointerMove=|useChartScrub|touchStartHandler|tooltipActiveRef/.test(src)))
+    [DASHBOARD, ANALYTICS, REPORTS, SALES, MINI].every((src) => !/addEventListener\("touch|onPointerMove=|useChartScrub|touchStartHandler|tooltipActiveRef/.test(src)))
   check("the old hook and the old glide are gone, so nothing can read a pointer the old way",
     !existsSync(join(root, "components/app/use-chart-scrub.ts")) && !existsSync(join(root, "components/app/chart-glide.tsx")))
   check("the plot is memoised and blind to the finger",

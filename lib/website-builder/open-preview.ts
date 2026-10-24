@@ -1,6 +1,7 @@
 "use client"
 
 import { openOpeningTab } from "./opening-tab"
+import { openInBrowser } from "@/lib/native-bridge"
 import { tt } from "@/lib/i18n/text"
 
 /**
@@ -30,7 +31,8 @@ export async function openInstallPreview(installId: string, websiteUrl: string):
       tab?.fail(reason)
       return reason
     }
-    if (!tab?.go(j.url)) window.open(j.url, "_blank", "noopener")
+    /* No tab (refused, or the phone app, which has none): the phone's browser there, a new tab here. */
+    if (!tab?.go(j.url)) openInBrowser(j.url)
     return null
   } catch {
     tab?.fail("Could not open the preview. Check your connection and try again.")
