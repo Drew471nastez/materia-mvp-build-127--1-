@@ -34,10 +34,26 @@ type Loaded = { channels: Channel[]; defaultKey: string | null; ready: boolean; 
 const DIGITAL_ONLY = new Set(["creator_page", "marketplace"])
 const forPhysical = (c: Channel) => !DIGITAL_ONLY.has(c.kind)
 
-export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { productId: string | null; cardClass: string; titleClass: string; onChange?: () => void; physical?: boolean }>(function SalesChannelsCard({ productId, cardClass, titleClass, onChange, physical = false }, ref) {
+export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { productId: string | null; cardClass: string; titleClass: string; onValue?: (on: string[] | undefined, saved: boolean) => void; physical?: boolean }>(function SalesChannelsCard({ productId, cardClass, titleClass, onValue, physical = false }, ref) {
   const [loaded, setLoaded] = React.useState<Loaded | null>(null)
   const [on, setOn] = React.useState<Set<string>>(new Set())
   const dirty = React.useRef(false)
+  /*
+    WHAT IT HOLDS, TOLD TO THE EDITOR: the channels ticked, as a set, with
+    whether that is what was loaded. The editor's Save turns on while it
+    differs from what was loaded or last saved, and off again when a tick is
+    put back (product-editor reportCard). Told after the draw, never inside
+    a state update.
+  */
+  const told = React.useRef(onValue)
+  told.current = onValue
+  const asLoaded = React.useRef(false)
+  React.useEffect(() => {
+    if (!loaded?.ready) return
+    told.current?.([...on].sort(), asLoaded.current)
+    asLoaded.current = false
+  }, [on, loaded])
+  React.useEffect(() => () => told.current?.(undefined, true), [])
 
   React.useEffect(() => {
     let live = true
@@ -46,6 +62,7 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
       .then((r) => (r.ok ? r.json() : null))
       .then((d: Loaded | null) => {
         if (!live || !d || !Array.isArray(d.channels)) return
+        asLoaded.current = true
         setLoaded(d)
         const offIds = new Set(d.off ?? [])
         /* A new physical product starts where Settings says when that is a channel it sells on; on all of its channels otherwise, never on none. */
@@ -108,7 +125,6 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
       else next.add(key)
       return next
     })
-    onChange?.()
   }
   const shown = physical ? loaded.channels.filter(forPhysical) : loaded.channels
   const listedCount = shown.filter((c) => on.has(channelKey(c))).length

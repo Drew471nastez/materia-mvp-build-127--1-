@@ -630,6 +630,8 @@ const SUITES = [
   "tests/product-editor-physical.test.ts",
   "tests/product20.test.ts",
   "tests/product-variants-faq-h.test.ts",
+  /* Round 12: every change in the product editor turns Save on, and changing it back turns it off (the sales channel the owner unchecked); scripts/check-product-save-r12.mjs drives the real editor. */
+  "tests/product-save-r12.test.ts",
   "tests/round-x.test.ts",
   "tests/round-y.test.ts",
   "tests/round-z.test.ts",

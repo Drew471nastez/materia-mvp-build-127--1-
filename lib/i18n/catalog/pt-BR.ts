@@ -10986,7 +10986,8 @@ const words: Record<string, string> = {
  "You can add products to it later in Products › Collections.": "Você pode adicionar produtos depois em Produtos › Coleções.",
  "Creating…": "Criando…",
  "The collection could not be made. Try again.": "Não foi possível criar a coleção. Tente de novo.",
- "The collection could not be made. Check your connection and try again.": "Não foi possível criar a coleção. Verifique sua conexão e tente de novo."
+ "The collection could not be made. Check your connection and try again.": "Não foi possível criar a coleção. Verifique sua conexão e tente de novo.",
+ "A file name was not saved. Try again.": "O nome de um arquivo não foi salvo. Tente de novo."
 }
 
 export default words
