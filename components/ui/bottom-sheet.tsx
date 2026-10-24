@@ -632,6 +632,33 @@ export function BottomSheet({
   useLayoutEffect(() => { isOpenRef.current = isOpen }, [isOpen])
   const atRestRef = useRef(atRest)
   useLayoutEffect(() => { atRestRef.current = atRest }, [atRest])
+  /*
+    A RESTING SHEET IS OUT OF THE TAB ORDER, AND OPENS AS FAST. Resting at
+    REST_OPACITY, everything in a kept sheet could be reached with Tab on a
+    phone's width (visibility used to keep it out). `inert` would, but taking
+    it off on the tap restyles everything inside: 26 to 40ms for Add block's
+    385 elements with the CPU slowed four times, the cost REST_OPACITY took
+    away. `content-visibility: hidden` takes the panel's content out of the
+    tab order, the accessibility tree and hit testing, and the browser keeps
+    its styles and layout while it is hidden, so taking it off on the tap is
+    1 to 4ms. It goes on a frame after the sheet comes to rest, so a sheet
+    built while the page is idle is styled and laid out first, and comes off
+    in the open itself, before the sheet is measured.
+  */
+  useEffect(() => {
+    if (!atRest) return
+    let timer = 0
+    const frame = requestAnimationFrame(() => {
+      timer = window.setTimeout(() => {
+        const sheet = sheetRef.current
+        if (sheet && atRestRef.current) sheet.style.contentVisibility = "hidden"
+      }, 0)
+    })
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [atRest])
   /* Where this sheet is, for <html> (see showSheetState): in the same commit as its own attributes. */
   const stateKeyRef = useRef({})
   const pageState = !mounted || !present || atRest ? null : isOpen ? "open" : "closing"
@@ -776,6 +803,8 @@ export function BottomSheet({
     if (atRest) return
     const sheet = sheetRef.current
     if (!sheet) return
+    /* Out of its rest (A RESTING SHEET IS OUT OF THE TAB ORDER) before it is measured. */
+    if (sheet.style.contentVisibility) sheet.style.contentVisibility = ""
     sizeUp(sheet)
     if (isOpen) {
       closingRef.current = false
