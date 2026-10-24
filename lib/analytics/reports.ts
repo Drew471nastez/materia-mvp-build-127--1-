@@ -1219,30 +1219,29 @@ export function buildReports(input: {
   */
   const topProducts: ProductRow[] = (() => {
     const keyOf = (id: string | null | undefined) => (id && input.productTitles[id] ? id : REMOVED_PRODUCT)
-    const rows = new Map<string, { views: number; orders: number; cents: number }>()
-    for (const [id, views] of now.products ?? []) {
-      const key = keyOf(id)
-      const row = rows.get(key) ?? { views: 0, orders: 0, cents: 0 }
-      row.views += Number(views) || 0
+    /*
+      ORDERS ARE PAYMENTS, NOT LINES. A basket holds one line per variant
+      (lib/checkout/fulfil-cart-item), so a red mug and a blue mug in one
+      order are two lines of one product: that is one order of the mug, as
+      the kinds and the Digital card already count it, not two.
+    */
+    const rows = new Map<string, { views: number; orders: Set<string>; cents: number }>()
+    const rowOf = (key: string) => {
+      const row = rows.get(key) ?? { views: 0, orders: new Set<string>(), cents: 0 }
       rows.set(key, row)
+      return row
     }
+    for (const [id, views] of now.products ?? []) rowOf(keyOf(id)).views += Number(views) || 0
     for (const o of ordersNow) {
       for (const line of o.lines) {
-        const key = keyOf(line.product_id)
-        const row = rows.get(key) ?? { views: 0, orders: 0, cents: 0 }
-        row.orders += 1
+        const row = rowOf(keyOf(line.product_id))
+        row.orders.add(o.id)
         row.cents += lineMoney(line).gross
-        rows.set(key, row)
       }
     }
-    for (const e of refundedNow) {
-      const key = keyOf(e.line.product_id)
-      const row = rows.get(key) ?? { views: 0, orders: 0, cents: 0 }
-      row.cents -= e.cents
-      rows.set(key, row)
-    }
+    for (const e of refundedNow) rowOf(keyOf(e.line.product_id)).cents -= e.cents
     const cents = sum([...rows.values()].map((r) => Math.max(0, r.cents)))
-    const orders = sum([...rows.values()].map((r) => r.orders))
+    const orders = sum([...rows.values()].map((r) => r.orders.size))
     const views = sum([...rows.values()].map((r) => r.views))
     return [...rows.entries()]
       .map(([key, r]) => ({
@@ -1250,9 +1249,9 @@ export function buildReports(input: {
         label: key === REMOVED_PRODUCT ? tt("Removed product") : input.productTitles[key],
         kind: key === REMOVED_PRODUCT ? null : kindOf((input.productTypes ?? {})[key]),
         views: r.views,
-        orders: r.orders,
+        orders: r.orders.size,
         salesCents: r.cents,
-        share: cents > 0 ? Math.max(0, r.cents) / cents : orders > 0 ? r.orders / orders : views > 0 ? r.views / views : 0,
+        share: cents > 0 ? Math.max(0, r.cents) / cents : orders > 0 ? r.orders.size / orders : views > 0 ? r.views / views : 0,
       }))
       .sort((a, b) => b.salesCents - a.salesCents || b.orders - a.orders || b.views - a.views || a.label.localeCompare(b.label))
       .slice(0, 25)

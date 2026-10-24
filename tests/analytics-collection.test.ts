@@ -414,7 +414,20 @@ async function main() {
     check("  and another creator's is no mark for this one", domainOther.recorded, domainOther.reason)
     const tokenRoute = read("app/api/analytics/own/token/route.ts")
     check("  set by the token route on storelib.com only, for the whole domain, unreadable by a page", /OWN_MARKER_DOMAIN_COOKIE\}=\$\{encodeURIComponent\(mark!\)\}`, `Domain=\$\{main\}`/.test(tokenRoute) && /"HttpOnly"/.test(tokenRoute) && /host === main \|\| host === `www\.\$\{main\}`/.test(tokenRoute) && /!main\.includes\("localhost"\)/.test(tokenRoute))
-    check("  and the app opens every site at its plain address, never through the marker route's hop", /export function ownOpen\(siteUrl: string \| null \| undefined\): string \{\n  return typeof siteUrl === "string" \? siteUrl : ""\n\}/.test(read("lib/analytics/own-site.ts")))
+    /* Changed on purpose (round AD1): the app still opens every site at once, never through the marker route's hop, and carries the hand-off in the fragment instead (tests/analytics-ad1.test.ts). */
+    const ownSite = read("lib/analytics/own-site.ts")
+    check("  and the app opens every site at once, never through the marker route's hop", !/\/api\/analytics\/own\?/.test(ownSite.replace(/\/\*[\s\S]*?\*\//g, "")) && /url\.hash = `\$\{OWN_HASH_PARAM\}=\$\{encodeURIComponent\(token\)\}`/.test(ownSite))
+
+    /* Round AD1: the hand-off in the fragment, sent by the page with its view. */
+    const handedOff = await ask(db, { body: { creatorId: ANA, href: "https://ana-shop.example/about", sessionId: "own-h1", visitorId: "own-vh1", own: String(signOwnHandoff(ANA, db.clock)) }, ip: "203.0.113.41" })
+    check("a view carrying the app's hand-off is the creator's own, not a visitor", !handedOff.recorded && handedOff.reason === "own", handedOff.reason)
+    check("  and its answer marks this browser on this host for the creator", marksOwner(handedOff.ownMarker, ANA, db.clock), handedOff.ownMarker)
+    const handedOther = await ask(db, { body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-h2", visitorId: "own-vh2", own: String(signOwnHandoff(BEE, db.clock)) }, ip: "203.0.113.42" })
+    check("  another creator's hand-off is no mark for this one", handedOther.recorded && !handedOther.ownMarker, handedOther.reason)
+    const handedStale = await ask(db, { body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-h3", visitorId: "own-vh3", own: String(signOwnHandoff(ANA, db.clock - 31 * 60_000)) }, ip: "203.0.113.43" })
+    check("  a hand-off past its half hour is counted as a visit", handedStale.recorded, handedStale.reason)
+    const handedMarker = await ask(db, { body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-h4", visitorId: "own-vh4", own: String(signOwnMarker(ANA, db.clock)) }, ip: "203.0.113.44" })
+    check("  a marker is not a hand-off", handedMarker.recorded, handedMarker.reason)
 
     const stale = await ask(db, {
       body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-s4", visitorId: "own-v4" }, ip: "203.0.113.24",

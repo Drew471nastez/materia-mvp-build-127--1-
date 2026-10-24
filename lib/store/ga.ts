@@ -38,6 +38,7 @@
  * Pure and free of the DOM: the strings are run in the browser, and the
  * tests run them in a small fake one.
  */
+import { majorValue } from "@/lib/analytics/pixels"
 
 /** A GA4 measurement ID, as lib/store/tracking.ts keeps it. */
 export const GA_ID = /^G-[A-Z0-9]{4,16}$/
@@ -82,13 +83,13 @@ export interface GaItem {
   item_category?: string
 }
 
-/** A product's id, name and price (in cents), tidied for GA4: nothing else about it. */
-export function gaItem(p: { id: string; title?: string | null; priceCents?: number | null; quantity?: number | null; variant?: string | null; kind?: string | null }): GaItem | null {
+/** A product's id, name and price (in minor units of `currency`, USD when none is named), tidied for GA4: nothing else about it. */
+export function gaItem(p: { id: string; title?: string | null; priceCents?: number | null; quantity?: number | null; variant?: string | null; kind?: string | null; currency?: string | null }): GaItem | null {
   if (typeof p.id !== "string" || !/^[A-Za-z0-9-]{1,64}$/.test(p.id)) return null
   const item: GaItem = { item_id: p.id }
   const name = typeof p.title === "string" ? p.title.replace(/\s+/g, " ").trim().slice(0, 100) : ""
   if (name) item.item_name = name
-  if (typeof p.priceCents === "number" && Number.isFinite(p.priceCents) && p.priceCents >= 0) item.price = Math.round(p.priceCents) / 100
+  if (typeof p.priceCents === "number" && Number.isFinite(p.priceCents) && p.priceCents >= 0) item.price = majorValue(p.priceCents, gaCurrency(p.currency) ?? "USD")
   if (typeof p.quantity === "number" && p.quantity > 0) item.quantity = Math.floor(p.quantity)
   const variant = typeof p.variant === "string" ? p.variant.trim().slice(0, 100) : ""
   if (variant) item.item_variant = variant
@@ -170,7 +171,7 @@ export function gaProductJs(item: GaItem | null, currency: string | null): strin
 
 /** A checkout's lines as GA4 items, with the value before shipping and tax (what begin_checkout reports). */
 export function gaCheckoutOf(lines: { productId: string; title?: string | null; variantName?: string | null; unitCents: number; quantity: number; discountCents?: number; type?: string | null }[], currency: string | null): { items: GaItem[]; valueCents: number; currency: string | null } {
-  const items = lines.map((l) => gaItem({ id: l.productId, title: l.title, priceCents: l.unitCents, quantity: l.quantity, variant: l.variantName, kind: l.type === "physical" ? "physical" : "digital" })).filter((i): i is GaItem => !!i)
+  const items = lines.map((l) => gaItem({ id: l.productId, title: l.title, priceCents: l.unitCents, quantity: l.quantity, variant: l.variantName, kind: l.type === "physical" ? "physical" : "digital", currency })).filter((i): i is GaItem => !!i)
   const valueCents = lines.reduce((n, l) => n + Math.max(0, l.unitCents * l.quantity - (l.discountCents ?? 0)), 0)
   return { items: items.slice(0, 50), valueCents, currency: gaCurrency(currency) }
 }

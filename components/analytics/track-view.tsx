@@ -12,7 +12,7 @@ import {
   getLanguage,
   getAttributionForTracking,
 } from "@/lib/analytics-utils"
-import { schedulePageView, skipReason, watchOutboundLinks } from "@/lib/analytics/page-tracker"
+import { schedulePageView, skipReason, takeOwnHandoff, watchOutboundLinks } from "@/lib/analytics/page-tracker"
 import { pixelEvent } from "@/lib/analytics/pixels"
 import { cameFromExplore } from "@/lib/analytics/events"
 
@@ -56,6 +56,8 @@ export function TrackView({ creatorId, productId, links = true }: TrackViewProps
   useEffect(() => {
     if (!creatorId || typeof window === "undefined") return
     try {
+      /* The app's hand-off (#sl_own=), off the address before the view is scheduled with it. */
+      const own = takeOwnHandoff(window)
       return schedulePageView(window, {
         creatorId,
         payload: () => {
@@ -85,6 +87,8 @@ export function TrackView({ creatorId, productId, links = true }: TrackViewProps
             language: getLanguage(),
             /* The page's title beside its path in Top pages. Read when the view is sent, after a route change has set it. */
             pageTitle: (document.title || "").trim().slice(0, 200) || undefined,
+            /* Opened from the app by the creator: the server marks this browser as theirs (lib/analytics/collect). */
+            own: own || undefined,
             /* How WhatsApp and the in-app browsers are told apart when there is no referrer. */
             clientApp: attr.clientApp || null,
             /* Opened from Storelib Explore in this tab (components/analytics/explore-mark). */

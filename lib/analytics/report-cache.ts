@@ -26,7 +26,7 @@
  * only shows one counted for the person signed in: a browser shared by two
  * accounts never shows one the other's numbers, even for a frame.
  */
-import { boundsOf, compareBounds, resolveValue, todayIn, type CompareValue } from "@/lib/date-range/range"
+import { boundsOf, compareBounds, isMidnightIn, resolveValue, todayIn, type CompareValue } from "@/lib/date-range/range"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { askCommerce, commerceKey, keptCommerce } from "./commerce-cache"
 
@@ -89,11 +89,20 @@ export function reportKey(q: ReportQuestion): string {
   return p.toString()
 }
 
-/** What was asked, without the moving end of a period that runs to now. */
+/**
+ * What was asked, without the moving end of a period that runs to now. A
+ * period that has ended keeps its end, the midnight its last day ends at:
+ * "1 to 7 October" and "1 to 14 October" start on the same instant and were
+ * one question here, so the week's kept figures were drawn as the
+ * fortnight's, and for FRESH_MS not even asked again.
+ */
 export function questionOf(key: string | undefined): string {
   const p = new URLSearchParams(key || "")
-  p.delete("end")
-  p.delete("cend")
+  const tz = p.get("tz") || "UTC"
+  for (const name of ["end", "cend"]) {
+    const v = p.get(name)
+    if (v !== null && !isMidnightIn(Date.parse(v), tz)) p.delete(name)
+  }
   return p.toString()
 }
 

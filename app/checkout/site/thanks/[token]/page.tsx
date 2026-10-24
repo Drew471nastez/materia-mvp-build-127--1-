@@ -52,7 +52,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
       receipt: `/checkout/physical/order/${encodeURIComponent(token)}`,
       /* Still to pay: not once the shop has the cash, nor on an order that was cancelled or refused. */
       cashWhen: co.provider === "cod" && !co.cod_collected_at && !co.cancelled_at ? (co.delivery_method === "pickup" ? "picked up" : "delivered") : null,
-      ga: { id: String(co.id), items: lines.map((l) => gaItem({ id: l.product_id ?? "", title: l.title, priceCents: l.unit_cents, quantity: l.quantity, variant: l.variant_name, kind: l.type === "physical" ? "physical" : "digital" })).filter((i): i is GaItem => !!i), currency: typeof co.currency === "string" ? co.currency : null },
+      ga: { id: String(co.id), items: lines.map((l) => gaItem({ id: l.product_id ?? "", title: l.title, priceCents: l.unit_cents, quantity: l.quantity, variant: l.variant_name, kind: l.type === "physical" ? "physical" : "digital", currency: typeof co.currency === "string" ? co.currency : null })).filter((i): i is GaItem => !!i), currency: typeof co.currency === "string" ? co.currency : null },
       shipped: {
         number: orderNumber(String(co.id)),
         placedAt: co.paid_at ?? co.created_at ?? null,
@@ -105,7 +105,7 @@ async function basketOrder(db: Db, creatorId: string, token: string): Promise<Su
     receipt: `/receipt/${encodeURIComponent(token)}`,
     ga: {
       id: String(first.id),
-      items: rows.map((r, i) => gaItem({ id: String(r.product_id ?? ""), title: lines[i]?.title, priceCents: Math.round((Number(r.amount_cents) || 0) / Math.max(1, Number(r.quantity) || 1)), quantity: Number(r.quantity) || 1, variant: lines[i]?.variantName, kind: "digital" })).filter((x): x is GaItem => !!x),
+      items: rows.map((r, i) => gaItem({ id: String(r.product_id ?? ""), title: lines[i]?.title, priceCents: Math.round((Number(r.amount_cents) || 0) / Math.max(1, Number(r.quantity) || 1)), quantity: Number(r.quantity) || 1, variant: lines[i]?.variantName, kind: "digital", currency: typeof first.currency === "string" ? first.currency : null })).filter((x): x is GaItem => !!x),
       /* What the order was charged in, kept on each of its rows. */
       currency: typeof first.currency === "string" && first.currency ? first.currency.toUpperCase() : null,
     },
