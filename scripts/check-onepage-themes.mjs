@@ -18,8 +18,36 @@
  *   with no pattern, its hard shadow on a theme with none;
  *   the page's own background is the theme's.
  *
+ * AND THEN, ROUND 10 ("ensure the current themes apply correctly, are
+ * smooth, clean, good"; "switching between categories, the themes flash or
+ * glitch"):
+ *
+ *   KINDS     the Theme page on a phone (390x844, touch, the CPU slowed four
+ *             times): every pill pressed in turn, slowly and then quickly,
+ *             with every frame sampled (requestAnimationFrame) and the grid
+ *             watched (MutationObserver). Fails on any frame where a card
+ *             that is shown is blank: no size, its photo not decoded, or a
+ *             card that was on screen the frame before drawn faded; and on
+ *             any card made again or thrown away.
+ *   APPLY     the editor at 1440: themes picked one after another while the
+ *             preview frame is sampled every frame. Fails on a frame with no
+ *             page drawn (a white frame) or a title drawn in a face that is
+ *             not in yet (the jump of a font swap).
+ *   GALLERY   every theme drawn by the preview (390) and the live page (390
+ *             and 1440), side by side in gallery-*.png; the new themes also
+ *             with no profile picture. On the live page at 390: the bio, a
+ *             text block and a link's label measured against the pixels
+ *             really behind them (the words hidden, a picture taken): 4.5:1
+ *             or more against nine in ten of those pixels (a star or a speck
+ *             of grain under one letter is not what the words sit on).
+ *
+ * Fonts and photos are fetched for the browser from here (Google Fonts,
+ * Unsplash, storelib.com), so the faces and wallpapers are the real ones;
+ * Next's /_next/image is answered here too, resized with sharp.
+ *
  *   node scripts/check-onepage-themes.mjs
- *   SHOTS=/some/dir node scripts/check-onepage-themes.mjs   (a picture per theme)
+ *   SHOTS=/some/dir node scripts/check-onepage-themes.mjs   (pictures)
+ *   PARTS=kinds,apply node scripts/check-onepage-themes.mjs  (some parts: blocks, kinds, apply, gallery)
  */
 import { existsSync, mkdirSync, mkdtempSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -84,9 +112,57 @@ const { base, server } = await serveEditorProbe({
 })
 void blocksTheme
 
+const PARTS = new Set((process.env.PARTS || "blocks,kinds,apply,gallery").split(","))
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 let broken = 0
+
+/* ── What the browser fetches from elsewhere, fetched here and kept ── */
+const CHROME_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+const fetched = new Map()
+function remote(url) {
+  if (!fetched.has(url)) {
+    fetched.set(url, fetch(url, { headers: { "user-agent": CHROME_UA }, signal: AbortSignal.timeout(15000) })
+      .then(async (r) => (r.ok ? { type: r.headers.get("content-type") || "application/octet-stream", body: Buffer.from(await r.arrayBuffer()) } : null))
+      .catch(() => { fetched.delete(url); return null }))
+  }
+  return fetched.get(url)
+}
+const OUTSIDE = /^(fonts\.googleapis\.com|fonts\.gstatic\.com|images\.unsplash\.com|storelib\.com)$/
+async function wire(p, origin) {
+  await p.setRequestInterception(true)
+  p.on("request", async (req) => {
+    let u
+    try { u = new URL(req.url()) } catch { return req.continue() }
+    if (u.protocol === "data:" || u.protocol === "blob:") return req.continue()
+    if (u.origin === origin) {
+      if (u.pathname !== "/_next/image") return req.continue()
+      const got = await remote(new URL(u.searchParams.get("url") || "", origin).href)
+      if (!got) return req.respond({ status: 404, body: "" })
+      const body = await sharp(got.body).resize({ width: Number(u.searchParams.get("w")) || 384, withoutEnlargement: true }).webp({ quality: Number(u.searchParams.get("q")) || 75 }).toBuffer()
+      return req.respond({ status: 200, contentType: "image/webp", body, headers: { "cache-control": "public, max-age=31536000, immutable" } })
+    }
+    if (!OUTSIDE.test(u.hostname)) return req.abort()
+    const got = await remote(req.url())
+    if (!got) return req.abort()
+    return req.respond({ status: 200, contentType: got.type, body: got.body, headers: { "access-control-allow-origin": "*", "cache-control": "public, max-age=31536000, immutable" } })
+  })
+}
+/* Every theme's faces and photos fetched before anything is timed, as a visitor's cache would have them. */
+{
+  const families = new Set()
+  for (const m of src.matchAll(/(?:font_family|title_font): "'([^']+)'/g)) families.add(m[1])
+  const fontsSrc = readFileSync(join(root, "lib/onepage/fonts.ts"), "utf8")
+  const weights = (f) => (fontsSrc.match(new RegExp(`(?:"${f}"|\\b${f.replace(/ /g, "")}): "([^"]+)"`)) || [])[1]
+  await Promise.all([...families].map(async (f) => {
+    const w = weights(f)
+    const href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, "+")}${w ? `:wght@${w}` : ""}&display=swap`
+    const css = await remote(href)
+    const urls = css ? [...css.body.toString().matchAll(/url\((https:[^)]+)\)/g)].map((m) => m[1]) : []
+    await Promise.all(urls.map(remote))
+  }))
+  await Promise.all([...src.matchAll(/background_image_url: "(https:[^"]+)"/g)].map((m) => remote(m[1])))
+}
 const expect = (ok, what, got) => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${got === undefined ? "" : `   (${typeof got === "string" ? got : JSON.stringify(got)})`}`)
   if (!ok) broken++
@@ -103,9 +179,11 @@ const lum = ({ r, g, b }) => {
 const over = (top, under) => ({ r: top.r * top.a + under.r * (1 - top.a), g: top.g * top.a + under.g * (1 - top.a), b: top.b * top.a + under.b * (1 - top.a), a: 1 })
 const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05) }
 
+const errors = []
+if (PARTS.has("blocks")) {
 const page = await browser.newPage()
 await page.setViewport({ width: 1440, height: 900 })
-const errors = []
+await wire(page, base)
 page.on("pageerror", (e) => errors.push(String(e)))
 await page.goto(`${base}/app/onepage#design`)
 await page.waitForSelector("[data-scroll-container]")
@@ -205,9 +283,259 @@ for (const t of THEMES) {
   expect(t.shadow === "hard" || !/ 4px 4px 0px/.test(m.card.shadow), "no hard shadow left from the theme before", m.card.shadow)
   await page.screenshot({ path: join(shots, `theme-${t.id}.png`) })
 }
+await page.close()
+}
+
+/* ───────────────────────── KINDS: no card blinks ───────────────────────── */
+if (PARTS.has("kinds")) {
+  console.log("\n── Theme kinds on a phone, every frame ──")
+  const p = await browser.newPage()
+  await p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
+  await wire(p, base)
+  p.on("pageerror", (e) => errors.push(String(e)))
+  await p.goto(`${base}/app/onepage#design`)
+  await p.waitForSelector('[data-nav-row="theme"]')
+  await sleep(1000)
+  await p.tap('[data-nav-row="theme"]')
+  await p.waitForSelector("[data-theme-filters]")
+  /* Every photo card's picture in and decoded first: what is measured is the switch, not the first load. */
+  await p.waitForFunction(() => [...document.querySelectorAll("img[data-theme-thumb]")].every((i) => i.complete && i.naturalWidth > 0), { timeout: 15000 }).catch(() => null)
+  await sleep(600)
+  const cdp = await p.createCDPSession()
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+  await p.evaluate(() => {
+    const grid = document.querySelector("[data-theme-grid]")
+    const w = window
+    w.__frames = []
+    w.__made = 0
+    w.__thrown = 0
+    new MutationObserver((ms) => ms.forEach((m) => {
+      m.addedNodes.forEach((n) => { if (n.nodeType === 1) w.__made++ })
+      m.removedNodes.forEach((n) => { if (n.nodeType === 1) w.__thrown++ })
+    })).observe(grid, { childList: true, subtree: true })
+    /* Each shown card's opacity the frame before: a card coming in may fade up, but none may ever dim. */
+    let before = new Map()
+    const tick = () => {
+      const now = new Map()
+      const blank = []
+      for (const c of grid.querySelectorAll("[data-theme-card]")) {
+        if (!c.hasAttribute("data-theme-shown")) continue
+        const id = c.getAttribute("data-theme-card")
+        const pic = c.querySelector("span.relative")
+        const r = pic ? pic.getBoundingClientRect() : { width: 0, height: 0 }
+        const img = c.querySelector("img[data-theme-thumb]")
+        const decoded = !img || (img.complete && img.naturalWidth > 0)
+        /* What it is drawn at: its own opacity and every box's above it in the grid (a whole grid faded counts). */
+        let op = 1
+        for (let n = c; n && n !== grid.parentElement; n = n.parentElement) op *= Number(getComputedStyle(n).opacity)
+        now.set(id, op)
+        if (r.width < 1 || r.height < 1 || !decoded || (before.has(id) && op < before.get(id) - 0.02)) blank.push({ id, w: Math.round(r.width), decoded, op: Math.round(op * 100) / 100 })
+      }
+      w.__frames.push({ t: performance.now(), shown: now.size, blank })
+      before = now
+      w.__raf = requestAnimationFrame(tick)
+    }
+    w.__raf = requestAnimationFrame(tick)
+  })
+  const kinds = ["light", "dark", "gradient", "image", "all", "dark", "image", "light", "all"]
+  for (const k of kinds) {
+    await p.tap(`[data-theme-filter="${k}"]`)
+    await sleep(420)
+    await p.screenshot({ path: join(shots, `kinds-${k}.png`) })
+  }
+  /* And quickly, a press every 90ms, as a thumb flicking along the row would. */
+  for (const k of ["light", "dark", "gradient", "image", "all", "gradient", "light", "all"]) {
+    await p.tap(`[data-theme-filter="${k}"]`)
+    await sleep(90)
+  }
+  await sleep(600)
+  const r = await p.evaluate(() => {
+    cancelAnimationFrame(window.__raf)
+    const f = window.__frames
+    return { frames: f.length, blank: f.filter((x) => x.blank.length).map((x) => x.blank).slice(0, 5), blankFrames: f.filter((x) => x.blank.length).length, made: window.__made, thrown: window.__thrown, shownEnd: f[f.length - 1].shown }
+  })
+  /* The frames timed on their own, with nothing read in them (the sampling above lays the page out every frame and would be timed too). */
+  await p.evaluate(() => {
+    const w = window
+    w.__times = []
+    const tick = (t) => { w.__times.push(t); w.__raf = requestAnimationFrame(tick) }
+    w.__raf = requestAnimationFrame(tick)
+  })
+  for (const k of ["light", "dark", "gradient", "image", "all", "gradient", "light", "all"]) {
+    await p.tap(`[data-theme-filter="${k}"]`)
+    await sleep(350)
+  }
+  const times = await p.evaluate(() => { cancelAnimationFrame(window.__raf); const t = window.__times; return t.slice(1).map((x, i) => x - t[i]) })
+  times.sort((a, b) => a - b)
+  r.longest = Math.round(times[times.length - 1])
+  r.p95 = Math.round(times[Math.floor(times.length * 0.95)])
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  console.log(`  ${r.frames} frames sampled; timed alone, a pick's frames: 95% under ${r.p95}ms, the longest ${r.longest}ms (CPU slowed 4x)`)
+  expect(r.blankFrames === 0, "no frame shows a blank or undecoded card, or dims one that was on screen", r.blank)
+  expect(r.made === 0 && r.thrown === 0, "no card or picture is made again or thrown away by a pick", { made: r.made, thrown: r.thrown })
+  expect(r.shownEnd === THEMES.length, "back on All, every theme is shown", r.shownEnd)
+  await p.close()
+}
+
+/* ───────────────────────── APPLY: no white frame, no font jump ───────────────────────── */
+if (PARTS.has("apply")) {
+  console.log("\n── Picking themes, the preview sampled every frame ──")
+  /* A page with its name and bio (a header block), a link and a product. */
+  const own = await serveEditorProbe({
+    root,
+    fail,
+    blocks: [
+      { id: "header", type: "header", enabled: true, sort_order: 0, data: { show_avatar: true, show_name: true, show_bio: true } },
+      { id: "link", type: "link_button", enabled: true, sort_order: 1, data: { label: "My Link", url: "https://example.com" } },
+      { id: "prod", type: "product", enabled: true, sort_order: 2, data: { product_id: "p1", product_title: "Probe Pack", product_description: "Forty drum loops", product_price_cents: 1900, product_slug: "probe-pack", style: "callout", cta_text: "Get it" } },
+    ],
+  })
+  const p = await browser.newPage()
+  await p.setViewport({ width: 1440, height: 900 })
+  await wire(p, own.base)
+  p.on("pageerror", (e) => errors.push(String(e)))
+  await p.goto(`${own.base}/app/onepage#design`)
+  await p.waitForSelector("[data-scroll-container]")
+  await sleep(1200)
+  await p.click('[data-nav-row="theme"]')
+  await sleep(600)
+  const frame = await (async () => { for (let i = 0; i < 40; i++) { const f = p.frames().find((fr) => fr.url().includes("onepage-preview")); if (f) return f; await sleep(100) } return null })()
+  if (!frame) fail("the preview frame never loaded")
+  await frame.waitForSelector("h1")
+  await sleep(800)
+  await frame.evaluate(() => {
+    const w = window
+    w.__seen = []
+    const tick = () => {
+      const roots = [...document.querySelectorAll(".onepage-live")].filter((e) => e.getBoundingClientRect().height > 0)
+      const h1 = roots[0]?.querySelector("h1")
+      const fam = h1 ? getComputedStyle(h1).fontFamily.split(",")[0].replace(/["']/g, "").trim() : null
+      const weight = h1 ? getComputedStyle(h1).fontWeight : "400"
+      const inFace = fam ? document.fonts.check(`${weight} 16px "${fam}"`) && [...document.fonts].some((f) => f.family.replace(/["']/g, "") === fam && f.status === "loaded") : false
+      w.__seen.push({ t: performance.now(), drawn: roots.length > 0 && !!h1, fam, inFace, bg: roots[0] ? getComputedStyle(roots[0]).backgroundColor : null })
+      w.__raf = requestAnimationFrame(tick)
+    }
+    w.__raf = requestAnimationFrame(tick)
+  })
+  const order = ["paper", "graphite", "cream", "midnight", "sage", "neon", "nature", "studio", "fusion", "riso", "default"].filter((id) => THEMES.some((t) => t.id === id))
+  for (const id of order) {
+    await p.click(`[data-theme-card="${id}"]`)
+    const confirmed = await p.evaluate(() => {
+      const b = [...document.querySelectorAll("button")].find((x) => x.textContent && x.textContent.trim() === "Update to Classic")
+      if (b) { b.click(); return true }
+      return false
+    })
+    await sleep(confirmed ? 1300 : 1100)
+  }
+  const seen = await frame.evaluate(() => { cancelAnimationFrame(window.__raf); return window.__seen })
+  const white = seen.filter((s) => !s.drawn)
+  /* A face not in yet is a swap to come; Inter is the editor's own and always in. */
+  const swaps = seen.filter((s, i) => s.drawn && s.fam && !s.inFace && i > 0)
+  const families = [...new Set(seen.map((s) => s.fam))]
+  console.log(`  ${seen.length} frames, title faces drawn: ${families.join(", ")}`)
+  expect(white.length === 0, "the preview never shows a frame with no page", white.length)
+  expect(swaps.length === 0, "the title is never drawn in a face that has not come in (no font swap jump)", swaps.slice(0, 4).map((s) => s.fam))
+  await p.close()
+  own.server.close()
+}
+
+/* ───────────────────────── GALLERY: preview and live, every theme ───────────────────────── */
+if (PARTS.has("gallery")) {
+  console.log("\n── Every theme, the preview and the live page ──")
+  const parity = await serveEditorProbe({ root, entry: "scripts/render-onepage-parity.tsx", fail })
+  const ONLY = "link_plain,link_thumb,link_icon,product_button,product_callout,product_preview,social_icons,text,heading,email_default"
+  const shot = async (view, id, width, extra = "") => {
+    const p = await browser.newPage()
+    await p.setViewport({ width, height: width >= 1000 ? 900 : 844, deviceScaleFactor: 1, isMobile: width < 1000, hasTouch: width < 1000 })
+    await wire(p, parity.base)
+    p.on("pageerror", (e) => errors.push(`${view} ${id}: ${e}`))
+    await p.goto(`${parity.base}/app/parity?view=${view}&theme=${id}&only=${ONLY}${extra}`, { waitUntil: "load", timeout: 90000 })
+    if (view === "preview") {
+      await p.waitForSelector("[data-onepage-preview-frame][data-drawn]", { timeout: 10000 }).catch(() => null)
+    }
+    await p.evaluate(() => Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 3000))]))
+    await sleep(1200)
+    const png = await p.screenshot()
+    return { p, png }
+  }
+  /* The words hidden, a picture of what is behind them, the worst pixel against their colour. */
+  const measure = async (p, text, png0) => {
+    const box = await p.evaluate((text) => {
+      const els = [...document.querySelectorAll("p,span,a,div,h2,h3")].filter((e) => e.getBoundingClientRect().height > 0 && e.childElementCount === 0 && e.textContent && e.textContent.trim().startsWith(text))
+      const el = els[0]
+      if (!el) return null
+      el.setAttribute("data-probe-words", "")
+      const r = el.getBoundingClientRect()
+      return { x: r.left, y: r.top + window.scrollY, w: r.width, h: r.height, color: getComputedStyle(el).color, opacity: Number(getComputedStyle(el).opacity) }
+    }, text)
+    if (!box || box.w < 2) return null
+    await p.evaluate(() => { const e = document.querySelector("[data-probe-words]"); e.style.setProperty("color", "transparent", "important"); e.style.setProperty("text-shadow", "none", "important") })
+    const png = await p.screenshot({ clip: { x: Math.max(0, box.x), y: box.y, width: Math.max(2, box.w), height: Math.max(2, box.h) } })
+    await p.evaluate(() => { const e = document.querySelector("[data-probe-words]"); e.style.removeProperty("color"); e.style.removeProperty("text-shadow"); e.removeAttribute("data-probe-words") })
+    const { data, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+    const ink = parse(box.color)
+    if (!ink) return null
+    const all = []
+    for (let i = 0; i < info.width * info.height; i += 1) {
+      const bg = { r: data[i * 3], g: data[i * 3 + 1], b: data[i * 3 + 2], a: 1 }
+      all.push(contrast(over({ ...ink, a: ink.a * box.opacity }, bg), bg))
+    }
+    all.sort((a, b) => a - b)
+    void png0
+    /* Against the 10th worst pixel in a hundred: a star, a speck of grain or a pattern's line under one letter is not what the words are read on. */
+    return Math.round(all[Math.floor(all.length * 0.1)] * 100) / 100
+  }
+  const rows = []
+  const NEW = ["paper", "sage", "graphite"]
+  for (const t of THEMES) {
+    const views = []
+    for (const extra of NEW.includes(t.id) ? ["", "&avatar=0"] : [""]) {
+      const a = await shot("preview", t.id, 390, extra)
+      views.push(a.png); await a.p.close()
+      const b = await shot("live", t.id, 390, extra)
+      views.push(b.png)
+      if (!extra) {
+        const bio = await measure(b.p, "Prints, posters and a newsletter")
+        const body = await measure(b.p, "Prints, posters and a letter")
+        const label = await measure(b.p, "Shop the prints")
+        console.log(`\n${t.name}`)
+        expect(bio !== null && bio >= 4.5, "the bio reads on what is behind it (4.5:1, on 90% of what is behind)", bio)
+        expect(body !== null && body >= 4.5, "a text block reads on what is behind it (4.5:1, on 90% of what is behind)", body)
+        expect(label !== null && label >= 4.5, "a link's label reads on its button (4.5:1, on 90% of what is behind)", label)
+      }
+      await b.p.close()
+      const c = await shot("live", t.id, 1440, extra)
+      views.push(c.png); await c.p.close()
+    }
+    rows.push({ id: t.id, views })
+  }
+  parity.server.close()
+  /* gallery-N.png: one row per theme, preview 390 | live 390 | live 1440 (and again without a picture for the new ones). */
+  const H = 422
+  const tile = async (png) => sharp(png).resize({ height: H }).png().toBuffer()
+  const pages = []
+  for (let i = 0; i < rows.length; i += 6) pages.push(rows.slice(i, i + 6))
+  pages.push(rows.filter((r) => NEW.includes(r.id)))
+  for (const [n, pageRows] of pages.entries()) {
+    const comp = []
+    let width = 0
+    for (const [y, row] of pageRows.entries()) {
+      let x = 0
+      for (const v of row.views) {
+        const buf = await tile(v)
+        const m = await sharp(buf).metadata()
+        comp.push({ input: buf, left: x, top: y * (H + 12) })
+        x += m.width + 12
+      }
+      width = Math.max(width, x)
+    }
+    const name = n === pages.length - 1 ? "gallery-new.png" : `gallery-${n + 1}.png`
+    await sharp({ create: { width, height: pageRows.length * (H + 12), channels: 3, background: "#e5e7eb" } }).composite(comp).png().toFile(join(shots, name))
+  }
+}
 
 expect(errors.length === 0, "no page errors", errors.slice(0, 3))
-console.log(`\n${broken === 0 ? "every theme reaches every block" : `${broken} checks failed`}. Pictures: ${shots}`)
+console.log(`\n${broken === 0 ? "every theme checked" : `${broken} checks failed`}. Pictures: ${shots}`)
 await browser.close()
 server.close()
 process.exit(broken === 0 ? 0 : 1)

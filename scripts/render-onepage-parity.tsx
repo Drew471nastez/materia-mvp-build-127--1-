@@ -41,6 +41,8 @@ const templateId = params.get("theme") || "default"
 const only = params.get("only")
 const template = THEME_TEMPLATES.find((t) => t.id === templateId)
 const theme = { ...defaultTheme, ...(template?.theme_config || {}), template_id: template?.id || "default" } as OnePage["theme"]
+/* scripts/check-onepage-themes.mjs: &avatar=0 draws the page with no profile picture. */
+const noAvatar = params.get("avatar") === "0"
 
 let order = 0
 const b = (type: string, data: Record<string, unknown>, id = `${type}_${order}`) => ({ id, type, enabled: true, sort_order: order++, data }) as any
@@ -103,7 +105,7 @@ export const PARITY_PAGE: OnePage = {
   slug: "satori",
   title: "Satori Studio",
   bio: "Prints, posters and a newsletter",
-  avatar_url: px(3),
+  avatar_url: noAvatar ? null : px(3),
   theme,
   settings: { ...defaultSettings, verified_badge_enabled: true },
   /* A page with a seller, as every saved one has (lib/onepage/ensure-onepage): the bell needs one. */
