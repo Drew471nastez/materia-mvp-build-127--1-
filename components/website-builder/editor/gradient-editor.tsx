@@ -33,6 +33,7 @@ import { Minus, Plus, RotateCw } from "lucide-react"
 import { ColorChip } from "./color-chip"
 import { useFrameCommit } from "./use-frame-commit"
 import { liveGesture } from "@/lib/website-builder/live-settings"
+import { touchIntent, waitsForIntent } from "@/lib/website-builder/touch-intent"
 import { tt, msg } from "@/lib/i18n/text"
 
 export interface GradientStop {
@@ -210,6 +211,7 @@ export function GradientEditor({
   // ── The gradient itself, and the colours sitting on it ──────────────────
   const trackRef = useRef<HTMLDivElement>(null)
   const grabbed = useRef<number | null>(null)
+  const waiting = useRef<{ pointerId: number; x: number; y: number; near: number } | null>(null)
 
   const atFrom = (clientX: number): number => {
     const el = trackRef.current
@@ -239,17 +241,33 @@ export function GradientEditor({
      */
     if (best > GRAB_WITHIN) return
     setSelected(near)
+    /* A finger waits until it has gone sideways: a swipe up the panel that starts on a handle is the panel's scroll (lib/website-builder/touch-intent.ts). */
+    if (waitsForIntent(e.pointerType)) {
+      waiting.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY, near }
+      return
+    }
     grabbed.current = near
     e.currentTarget.setPointerCapture(e.pointerId)
     gesture.begin()
   }
 
   const onTrackMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const w = waiting.current
+    if (w && w.pointerId === e.pointerId) {
+      const intent = touchIntent(e.clientX - w.x, e.clientY - w.y)
+      if (intent === "pending") return
+      waiting.current = null
+      if (intent === "vertical") return
+      grabbed.current = w.near
+      e.currentTarget.setPointerCapture(e.pointerId)
+      gesture.begin()
+    }
     if (grabbed.current === null) return
     moveStop(grabbed.current, Math.round(atFrom(e.clientX)))
   }
 
   const endTrack = () => {
+    waiting.current = null
     if (grabbed.current === null) return
     grabbed.current = null
     flush()
@@ -285,7 +303,7 @@ export function GradientEditor({
         onPointerMove={onTrackMove}
         onPointerUp={endTrack}
         onPointerCancel={endTrack}
-        className="relative h-[72px] w-full touch-none select-none overflow-hidden rounded-xl border border-black/10"
+        className="relative h-[72px] w-full touch-pan-y select-none overflow-hidden rounded-xl border border-black/10"
         style={{ background: bar }}
       >
         {stops.map((s, i) => (

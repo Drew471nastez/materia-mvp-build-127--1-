@@ -24,6 +24,7 @@ import { cleanFocalPoint } from "@/lib/storelib-theme/values"
 import { NOTE, TEXT_BUTTON } from "./styles"
 import { useSiblingSettings } from "./context"
 import { tt } from "@/lib/i18n/text"
+import { scrolledRecently, touchIntent, waitsForIntent, watchScrolls } from "@/lib/website-builder/touch-intent"
 
 function parts(v: string): [number, number] {
   const m = cleanFocalPoint(v).match(/^([\d.]+)% ([\d.]+)%$/)
@@ -48,6 +49,8 @@ export function FocalPointControl({
   const image = imageSetting && typeof siblings?.[imageSetting] === "string" ? String(siblings[imageSetting]) : ""
   const [point, setPoint] = React.useState<[number, number]>(() => parts(value))
   const box = React.useRef<HTMLDivElement>(null)
+  const waiting = React.useRef<{ pointerId: number; x: number; y: number } | null>(null)
+  const following = React.useRef<number | null>(null)
   const frame = React.useRef(0)
   const pending = React.useRef<string | null>(null)
 
@@ -106,13 +109,45 @@ export function FocalPointControl({
         aria-valuenow={x}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="relative w-full select-none overflow-hidden rounded-lg border border-border bg-muted touch-none cursor-crosshair focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/20"
+        className="relative w-full select-none overflow-hidden rounded-lg border border-border bg-muted touch-pan-y cursor-crosshair focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/20"
+        /*
+          A FINGER WAITS TO SAY WHAT IT MEANS (lib/website-builder/touch-intent.ts).
+          The picture sits in the scrolling panel, so a swipe up that starts on
+          it is the panel's scroll, not a new focus. Gone sideways, it moves
+          the point anywhere; lifted where it landed, it marks that point,
+          unless the panel was still gliding. A mouse marks on its press.
+        */
         onPointerDown={(e) => {
+          if (waitsForIntent(e.pointerType)) {
+            watchScrolls()
+            waiting.current = { pointerId: e.pointerId, x: e.clientX, y: e.clientY }
+            return
+          }
+          following.current = e.pointerId
           e.currentTarget.setPointerCapture(e.pointerId)
           fromEvent(e)
         }}
         onPointerMove={(e) => {
-          if (e.currentTarget.hasPointerCapture(e.pointerId)) fromEvent(e)
+          const w = waiting.current
+          if (w && w.pointerId === e.pointerId) {
+            const intent = touchIntent(e.clientX - w.x, e.clientY - w.y)
+            if (intent === "pending") return
+            waiting.current = null
+            if (intent === "vertical") return
+            following.current = e.pointerId
+            e.currentTarget.setPointerCapture(e.pointerId)
+          }
+          if (following.current === e.pointerId) fromEvent(e)
+        }}
+        onPointerUp={(e) => {
+          const w = waiting.current
+          waiting.current = null
+          following.current = null
+          if (w && w.pointerId === e.pointerId && !scrolledRecently()) fromEvent(e)
+        }}
+        onPointerCancel={() => {
+          waiting.current = null
+          following.current = null
         }}
         onKeyDown={(e) => {
           const step = e.shiftKey ? 10 : 1

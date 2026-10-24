@@ -29,7 +29,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check, Bookmark, IdCard } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
-import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { headerAuthBack } from "@/lib/auth/return-to"
 import { signedOutForSure } from "@/lib/auth/session-read"
 import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
@@ -1213,6 +1213,14 @@ export function PlatformHeaderClient({
     setProfileBarOpen(false)
   }, [pathname, closeSearchModal])
 
+  /* Signed out while an account sheet was up (in another tab, say): it was that person's, so it goes. */
+  const signedIn = !!user
+  useEffect(() => {
+    if (signedIn) return
+    setMobileProfileOpen(false)
+    setCommunityAccountOpen(false)
+  }, [signedIn])
+
   /*
     ═══════════════════════════════════════════════════════════════════════
      A RESULTS LIST, NOT A CATEGORIES MENU
@@ -1515,11 +1523,38 @@ export function PlatformHeaderClient({
     }
     window.addEventListener("pageshow", onShow)
 
+    /*
+      THE RECORD SAYS SOMEBODY ELSE: ASK. The record of who is signed in
+      (lib/auth/auth-snapshot.ts) is written by any header in any tab, and by
+      a sign out from a community's bar. The tab bar and the navigator follow
+      it at once; this header only followed Supabase's own events, which a
+      tab does not always get (a sign in finished on a page without this
+      header, a cookie set by the server). So its menus could say Log in
+      under a tab bar that knew better, or keep a photo after a sign out
+      elsewhere. Now a record naming anybody other than the last read found
+      reads again, through the same chain, so the menus redraw for whoever it
+      finds. Its own writes name the same person and ask nothing.
+    */
+    const stopSnapshot = subscribeAuthSnapshot(() => {
+      const known = readAuthSnapshot()
+      const recorded = known?.signedIn ? known.userId ?? null : null
+      loadedFor = loadedFor.then((was) => {
+        if (recorded === was) return was
+        fetchWishlistCount()
+        return loadUser(false).then((now) => {
+          const nowId = now ?? null
+          if (nowId !== was) router.refresh()
+          return nowId
+        })
+      })
+    })
+
     return () => {
       mountedRef.current = false
       window.clearTimeout(failSafe)
       data?.subscription?.unsubscribe()
       window.removeEventListener("pageshow", onShow)
+      stopSnapshot()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchWishlistCount])
@@ -2544,11 +2579,25 @@ export function PlatformHeaderClient({
         {isMarketingNavRoute && (
         <div className="px-4 pb-6">
           {/* A guest: the owner's three, Sign up, Discover, Sell on Storelib (image 23). */}
-          {!user && (
+          {/*
+            NOT A GUESS WHILE IT IS BEING ASKED. A first visit has no record of
+            who is signed in, so until the session has been read this showed a
+            visitor's Sign up to somebody signed in. The two buttons' places,
+            grey, for that short wait only (the header stops waiting after
+            2.5 seconds whatever happens).
+          */}
+          {!user && loading ? (
+            <div className="px-1 pt-3 pb-2 border-b border-[#eef0f2]" data-menu-loading="" aria-hidden>
+              <div className="flex flex-col gap-1.5">
+                <span className="h-[46px] rounded-action bg-[#f1f2f4]" />
+                <span className="h-[46px] rounded-action bg-[#f4f5f7]" />
+              </div>
+            </div>
+          ) : !user ? (
             <div className="px-1 pt-3 pb-2 border-b border-[#eef0f2]">
               <GuestSheetActions second={exploreMarketplaceOn ? "discover" : "login"} link={guestLink} onDone={() => setMobileMenuOpen(false)} />
             </div>
-          )}
+          ) : null}
 
           {/* Signed in, on the homepage and the marketing pages */}
           {user && isMarketingNavRoute && (

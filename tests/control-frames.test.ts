@@ -125,7 +125,8 @@ function main() {
     measured 0 of 8 moves drawn in their own frame before, 10 of 10 after.
   */
   console.log("\nA drag is drawn in the frame of the move")
-  check("the slider captures the pointer itself", /wrap\.setPointerCapture\(e\.pointerId\)/.test(slider))
+  /* Round AC3: once the drag begins (a mouse on its press, a finger once it has moved sideways). */
+  check("the slider captures the pointer itself", /wrap\.setPointerCapture\(pointerId\)/.test(slider))
   check("and Radix's own pointer handling never starts", /e\.stopPropagation\(\)/.test(slider) && /addEventListener\("pointerdown", onDown, \{ capture: true \}\)/.test(slider))
   check(
     "each move writes the thumb and the fill by translate, in the handler",

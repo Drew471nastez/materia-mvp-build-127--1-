@@ -112,7 +112,7 @@ function main() {
 
   check(
     "the slider row opts out of the sheet's drag",
-    /<div data-sheet-no-drag className="flex-1 relative py-2 -my-2 touch-none select-none">/.test(
+    /* Round AC3: pan-y, not none, so a vertical swipe that starts on a slider scrolls the panel. */ /<div data-sheet-no-drag data-slider-row="" className="flex-1 relative py-2 -my-2 touch-pan-y select-none">/.test(
       read("components/website-builder/editor/slider-number-control.tsx"),
     ),
     "the slider moved into its own module so a frame probe can drive the real one",
