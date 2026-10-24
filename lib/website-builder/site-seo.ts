@@ -68,10 +68,36 @@ export function siteIsIndexable(settings: Record<string, unknown>): boolean {
   return true
 }
 
+/**
+ * AN IMPORTED THEME'S TEMPLATES ARE PAGES TOO, in storage: its collection,
+ * page, article and blog templates are kept under those keys, and each
+ * answers at /<key> drawn with nothing in it (a collection with no
+ * collection, a blog with no posts, since Storelib keeps none). The owner's
+ * live sitemap listed /collection, /page and /article as pages. The real
+ * addresses those templates draw (each collection's, each policy's) are
+ * listed on their own. Only for an imported theme: on a Storelib theme a
+ * page called "blog" is one its creator made.
+ */
+export const TEMPLATE_PAGE_KEYS = new Set(["collection", "page", "article", "blog"])
+
 /** The pages a sitemap lists, in a stable order: home, then the rest by name. */
-export function listedPageKeys(pageKeys: string[]): string[] {
-  const keys = pageKeys.filter((k) => !UNLISTED_PAGE_KEYS.has(k))
+export function listedPageKeys(pageKeys: string[], opts: { imported?: boolean } = {}): string[] {
+  const keys = pageKeys.filter((k) => !UNLISTED_PAGE_KEYS.has(k) && !(opts.imported && TEMPLATE_PAGE_KEYS.has(k)))
   return [...(keys.includes("home") ? ["home"] : []), ...keys.filter((k) => k !== "home").sort()]
+}
+
+/**
+ * WHEN A PAGE LAST CHANGED, as a sitemap says it. A page row's updated_at
+ * moves with every draft saved to it, which no visitor has seen; the site's
+ * publish is when they did. So the earlier of the two: a page untouched
+ * since an older publish says when it was last edited, and one edited in
+ * the builder since says the publish that is live. Nothing when neither is
+ * known, rather than a date that is not true.
+ */
+export function pageLastmod(updatedAt: string | null | undefined, publishedAt: string | null | undefined): string | undefined {
+  const t = (v: string | null | undefined) => (v ? Date.parse(v) : NaN)
+  const times = [t(updatedAt), t(publishedAt)].filter((n) => Number.isFinite(n))
+  return times.length ? new Date(Math.min(...times)).toISOString() : undefined
 }
 
 const IMAGE_URL = /^https?:\/\/[^\s"'<>]+\.(?:avif|webp|png|jpe?g|gif|svg)(?:\?[^\s"'<>]*)?$/i
