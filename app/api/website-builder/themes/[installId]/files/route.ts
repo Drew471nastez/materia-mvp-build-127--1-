@@ -1,5 +1,5 @@
 import { NextResponse, after } from "next/server"
-import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
+import { editorUser, readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { editorContent, hasUnpublishedEdit, listVersions, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
@@ -65,8 +65,9 @@ async function pagesUsingSection(
 
 async function getCreatorInstall(installId: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "Unauthorized", status: 401, supabase: null, creator: null }
+  /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
+  const { user, status: authStatus, error: authError } = await editorUser(supabase)
+  if (!user) return { error: authError, status: authStatus, supabase: null, creator: null }
 
   const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
     .from("creators").select("id").eq("user_id", user.id).maybeSingle())

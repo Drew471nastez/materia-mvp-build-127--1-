@@ -150,6 +150,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (failWith && init?.method === "PUT" && /\/themes\/probe-install\/sections$/.test(url)) {
     return new Response(JSON.stringify({ error: "Invalid body" }), { status: failWith, headers: { "content-type": "application/json" } })
   }
+  /* PROBE_SECTIONS_FAIL: a page's sections answer 503 this many more times (scripts/check-wb-perf-r12.mjs, a read that fails once). */
+  const sectionsFail = window as unknown as { PROBE_SECTIONS_FAIL?: number }
+  if ((sectionsFail.PROBE_SECTIONS_FAIL ?? 0) > 0 && (!init?.method || init.method === "GET") && /\/themes\/probe-install\/sections\?/.test(url)) {
+    sectionsFail.PROBE_SECTIONS_FAIL = (sectionsFail.PROBE_SECTIONS_FAIL ?? 0) - 1
+    return new Response(JSON.stringify({ error: "Could not load this page. Try again." }), { status: 503, headers: { "content-type": "application/json" } })
+  }
   if (/\/themes\/probe-install\/sections/.test(url) && compat) {
     if (init?.method && init.method !== "GET") return json({ ok: true })
     const key = new URL(url, location.href).searchParams.get("page") ?? "home"

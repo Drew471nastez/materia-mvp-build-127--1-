@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { editorUser } from "@/lib/website-builder/owned-install"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { translationsChanged } from "@/lib/markets/translate-queue"
 import { readEditorBody } from "@/lib/website-builder/request-body"
@@ -29,10 +30,9 @@ const MENUS_BODY = 256 * 1024
 
 async function creatorOf() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return { error: NextResponse.json({ error: "Sign in to edit menus." }, { status: 401, headers: NO_STORE }) }
+  /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
+  const { user, status: authStatus, error: authError } = await editorUser(supabase)
+  if (!user) return { error: NextResponse.json({ error: authStatus === 401 ? "Sign in to edit menus." : authError }, { status: authStatus, headers: NO_STORE }) }
   const admin = createAdminClient()
   const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return { error: NextResponse.json({ error: "Creator not found" }, { status: 404, headers: NO_STORE }) }

@@ -8,7 +8,8 @@
  * imports the engine, which is what keeps it out of every published site's
  * bundle — see storelib-sources.tsx.
  */
-import { useCallback, useEffect, useMemo, type ReactNode } from "react"
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react"
+import { sameExceptMenus } from "@/lib/website-builder/menu-readers"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { themeWithHeaderLogo, type HeaderLogo } from "@/lib/website-builder/chrome-logo"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -199,15 +200,31 @@ export function StorelibLiveProvider({
   /* What a live page adds to `page` for its sections: the shop's filters on
      the shop and search pages, and the trail for Breadcrumbs. Drawn here from
      the canvas's own products, unfiltered, the way the page opens. */
+  /*
+    THE MENUS ARE NOT A NEW RENDER FUNCTION (round 12). A link typed in a
+    menu is new storefront data, and a new render function here drew every
+    section on the page again for it. The function now reads the data as it
+    is when it runs and changes only when something but the menus does; the
+    sections that show a menu are given a theme of their own per menus by
+    the canvas (lib/website-builder/menu-readers.ts), which is what draws
+    them, and only them, again.
+  */
+  const dataNow = useRef(data)
+  dataNow.current = data
+  const steady = useRef(data)
+  if (steady.current !== data && !(steady.current && data && sameExceptMenus(steady.current as Record<string, unknown>, data as Record<string, unknown>))) steady.current = data
+  const dataKey = steady.current
   const extras = useMemo(() => {
-    const out = editorPageExtras(template, products ?? [], data)
+    const out = editorPageExtras(template, products ?? [], dataNow.current)
     if (preview && Array.isArray(out.breadcrumbs) && out.breadcrumbs.length === 0) out.breadcrumbs = breadcrumbTrail({ template: "product", title: "Product" })
     return out
-  }, [template, products, data, preview])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template, products, dataKey, preview])
   const render = useCallback<SectionRenderFn>(
     (section: SectionInstance, theme: ThemeSettingsValues) =>
-      renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sources, products, data, globals, canvas ? CANVAS_RENDER : undefined),
-    [sources, template, inEditor, products, data, globals, extras, headerLogo, canvas],
+      renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sources, products, dataNow.current, globals, canvas ? CANVAS_RENDER : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sources, template, inEditor, products, dataKey, globals, extras, headerLogo, canvas],
   )
   /* The same object while the template is the same. Inline, it was a new
      context value on every render of the canvas, and every section that reads
