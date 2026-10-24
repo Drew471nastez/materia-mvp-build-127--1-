@@ -128,8 +128,7 @@ html.capacitor {
   background-color: var(--native-band);
 }
 
-/* On /app pages the header and layout background are #111111, not #000000.
-   This rule must be OUTSIDE any /*
+/*
   ENTRANCES LET GO WHEN THEY END. tw-animate-css's animate-in fills
   `forwards` by default: a pop-in that finished seconds ago still held its
   element as an animated layer, re-composited on every frame. Its keyframes
@@ -142,7 +141,8 @@ html.capacitor {
   }
 }
 
-@layer so it beats the unlayered
+/* On /app pages the header and layout background are #111111, not #000000.
+   This rule must be OUTSIDE any @layer so it beats the unlayered
    html.capacitor rule above (layered styles lose to unlayered ones at equal
    specificity). Without this, the html canvas that peeks through during
    rotation transitions shows pure black, producing a jarring black bar above

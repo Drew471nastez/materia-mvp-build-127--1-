@@ -22,7 +22,7 @@ import { useLocale } from "@/components/locale-provider"
 import { classifyOAuthError } from "@/lib/auth/oauth-errors"
 import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
-import { signInInsteadHref } from "@/lib/auth/existing-account"
+import { signInInsteadHref, signUpFoundExisting } from "@/lib/auth/existing-account"
 import { inviteEmailFrom } from "@/lib/team/invite-links"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
@@ -311,6 +311,12 @@ function SignUpFormContent() {
         },
       })
       if (error) throw error
+
+      /* An address with an account, answered the way Supabase answers it with email confirmation on (lib/auth/existing-account.ts). */
+      if (signUpFoundExisting(data)) {
+        switchToSignIn(trimmedEmail)
+        return
+      }
 
       if (data.user) {
         // Create profile immediately (session exists because Supabase
