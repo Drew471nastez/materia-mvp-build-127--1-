@@ -2377,7 +2377,8 @@ check(
     /label="Move down"/.test(editor) &&
     /label="Duplicate"/.test(editor) &&
     /label=\{hidden \? "Show" : "Hide"\}/.test(editor) &&
-    /label="Delete"/.test(editor) &&
+    /* Changed on purpose (round BC): the page's own section says why in Delete's tooltip (removeNote). */
+    /label=\{removeNote \?\? "Delete"\}/.test(editor) &&
     /\{!isChrome && \(/.test(editor) &&
     /const moveSectionBy = useCallback\(\(sectionId: string, step: -1 \| 1\)/.test(editor),
 )
@@ -2914,7 +2915,8 @@ check(
   /* Measured in scripts/check-section-actions.mjs: no icons, columns as wide as their words, 40px on a phone and 36px on a computer. */
   /"flex-auto min-w-0 h-10 md:h-9 px-1\.5 flex items-center justify-center rounded-lg text-\[13px\] font-semibold transition-colors duration-150",/.test(editor) &&
     /flex-auto min-w-0 h-10 md:h-9 px-1\.5 flex items-center justify-center rounded-lg bg-\[#f3f4f6\][^"]*"\s*\n\s*onClick=\{\(\) => duplicateSection\(section\.id\)\}/.test(editor) &&
-    /hover:bg-\[#fee2e2\] hover:text-\[#dc2626\] active:bg-\[#fecaca\] active:text-\[#b91c1c\]"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}/.test(editor) &&
+    /* Changed on purpose (round BC): Delete is greyed for the page's own section, so its hover colours are in a cn(). */
+    /"hover:bg-\[#fee2e2\] hover:text-\[#dc2626\] active:bg-\[#fecaca\] active:text-\[#b91c1c\]",\s*\n\s*\)\}\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}/.test(editor) &&
     !/<Copy className="h-4 w-4" strokeWidth=\{2\} \/>\s*\n\s*Duplicate/.test(editor) &&
     !/py-2 text-xs text-red-400 hover:text-red-600 border border-border/.test(editor),
 )
@@ -3027,7 +3029,8 @@ check(
 check(
   "Delete is a button like the other two until the pointer is on it",
   // identical at rest: the same surface and the same near-black label
-  /flex-auto min-w-0 h-10 md:h-9 px-1\.5 flex items-center justify-center rounded-lg bg-\[#f3f4f6\] text-\[13px\] font-semibold text-\[#1a1a2e\][^"]*"\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}/.test(
+  /* Changed on purpose (round BC): the same surface, in a cn() with the greyed state of the page's own section. */
+  /"flex-auto min-w-0 h-10 md:h-9 px-1\.5 flex items-center justify-center rounded-lg bg-\[#f3f4f6\] text-\[13px\] font-semibold text-\[#1a1a2e\] transition-colors duration-150",\s*\n\s*pinnedSection\(section\) \?[^\n]*\n\s*\)\}\s*\n\s*onClick=\{\(\) => removeSection\(section\.id\)\}/.test(
     editor,
   ) &&
     // and red only under the pointer, never as a resting state
