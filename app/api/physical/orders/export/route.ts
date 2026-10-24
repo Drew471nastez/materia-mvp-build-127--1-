@@ -7,6 +7,10 @@ import { orderNumber } from "@/lib/physical/status"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+/** Orders read per request, the database's own cap, and the most one file holds. */
+const EXPORT_PAGE = 1000
+const MAX_EXPORT = 50_000
+
 function cell(value: unknown): string {
   const s = value === null || value === undefined ? "" : String(value)
   /* A spreadsheet runs a cell starting with = + - @ as a formula; a quote first stops that. */
@@ -27,16 +31,30 @@ export async function GET(request: Request) {
     const { data: rows } = await c.db.from("orders").select("id, checkout_id, products!inner(creator_id)").in("id", asked).eq("products.creator_id", c.creatorId)
     only = [...new Set([...asked, ...((rows ?? []) as { checkout_id: string | null }[]).map((r) => r.checkout_id).filter((x): x is string => !!x)])]
   }
-  let q = c.db
-    .from("commerce_checkouts")
-    .select("id, paid_at, buyer_name, buyer_email, buyer_phone, shipping_address, shipping_rate, lines, fulfillment_status, buyer_note")
-    .eq("creator_id", c.creatorId)
-    .in("status", ["paid", "partially_refunded"])
-    .order("paid_at", { ascending: true })
-    .limit(5000)
-  if (!all) q = q.in("fulfillment_status", ["unfulfilled", "processing", "partially_fulfilled"])
-  if (only) q = q.in("id", only)
-  const { data } = await q
+  /*
+    A PAGE AT A TIME. One read answers at most the database's row cap (1,000 on Supabase), so `limit(5000)` returned
+    the oldest thousand orders and the file left out every newer one without a word: a busy shop's "orders to ship"
+    missed the ones it had to ship next. Read in pages of 1,000, oldest first, up to MAX_EXPORT.
+  */
+  const query = () => {
+    let q = c.db
+      .from("commerce_checkouts")
+      .select("id, paid_at, buyer_name, buyer_email, buyer_phone, shipping_address, shipping_rate, lines, fulfillment_status, buyer_note")
+      .eq("creator_id", c.creatorId)
+      .in("status", ["paid", "partially_refunded"])
+      .order("paid_at", { ascending: true })
+      .order("id", { ascending: true })
+    if (!all) q = q.in("fulfillment_status", ["unfulfilled", "processing", "partially_fulfilled"])
+    if (only) q = q.in("id", only)
+    return q
+  }
+  const data: Record<string, any>[] = []
+  for (let from = 0; from < MAX_EXPORT; from += EXPORT_PAGE) {
+    const { data: page, error } = await query().range(from, from + EXPORT_PAGE - 1)
+    if (error) return NextResponse.json({ error: "The orders could not be read. Try again." }, { status: 500 })
+    data.push(...((page ?? []) as Record<string, any>[]))
+    if (!page || page.length < EXPORT_PAGE) break
+  }
   const header = ["Order", "Paid at", "Fulfillment", "Name", "Email", "Phone", "Address 1", "Address 2", "City", "Region", "Postal code", "Country", "Delivery", "Product", "Variant", "SKU", "Quantity", "Note", "Buyer reference"]
   const rows: string[] = [header.join(",")]
   /* Order: the Orders page's number; Buyer reference: what the buyer's emails and packing slip say (lib/orders/order-number-server.ts). */

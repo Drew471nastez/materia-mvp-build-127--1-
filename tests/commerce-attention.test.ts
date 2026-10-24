@@ -39,7 +39,7 @@ function fakeDb(answer: (c: Call) => { data?: unknown; count?: number | null; er
       const call: Call = { table, ops: [] }
       calls.push(call)
       const builder: Record<string, unknown> = {}
-      for (const op of ["select", "eq", "neq", "in", "is", "lt", "gte", "or", "order", "limit", "not", "maybeSingle"]) {
+      for (const op of ["select", "eq", "neq", "in", "is", "lt", "gte", "or", "order", "limit", "range", "not", "maybeSingle"]) {
         builder[op] = (...args: unknown[]) => {
           call.ops.push([op, args])
           return builder

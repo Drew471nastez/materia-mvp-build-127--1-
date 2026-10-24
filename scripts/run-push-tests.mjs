@@ -199,6 +199,8 @@ const SUITES = [
   "tests/analytics-review.test.ts",
   "tests/own-marker.test.ts",
   "tests/dispute-orders.test.ts",
+  /* Round AD2: orders end to end. A chargeback closes the library entry and a won one opens it, ledger money converted for memberships and disputes, a corrected email reaches an order that ships, money in its own unit, refunds of what is left, lists past 1,000 rows. */
+  "tests/orders-ad2.test.ts",
   "tests/anon-visit.test.ts",
   "tests/analytics-completeness.test.ts",
   /* Round Z6: operating systems, referrers by company (official marks), page titles, the five step funnel, physical and digital sales, and the physical checkout's steps tracked (scripts/check-analytics-reports.mjs measures the cards). */

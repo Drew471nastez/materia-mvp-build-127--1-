@@ -1002,7 +1002,7 @@ export async function noteRefund(db: Db, creatorId: string, checkoutId: string, 
     checkoutId,
     creatorId,
     kind: "payment.refunded",
-    message: `${updated.refundedCents >= updated.totalCents ? "Refunded in full" : "Partly refunded"}: ${(updated.refundedCents / 100).toFixed(2)} ${updated.currency}`,
+    message: `${updated.refundedCents >= updated.totalCents ? "Refunded in full" : "Partly refunded"}: ${formatMinor(updated.refundedCents, String(updated.currency || "USD"), "en")}`,
     actor: "creator",
     key: `refund_total:${checkoutId}:${updated.refundedCents}`,
   })
@@ -1042,7 +1042,7 @@ export async function syncCheckoutRefunds(db: Db, paymentIntentId: string): Prom
       checkoutId,
       creatorId,
       kind: "payment.refunded",
-      message: `${updated.refundedCents >= updated.totalCents ? "Refunded in full" : "Partly refunded"}: ${(updated.refundedCents / 100).toFixed(2)} ${updated.currency}`,
+      message: `${updated.refundedCents >= updated.totalCents ? "Refunded in full" : "Partly refunded"}: ${formatMinor(updated.refundedCents, String(updated.currency || "USD"), "en")}`,
       actor: "webhook",
       key: `refund_total:${checkoutId}:${updated.refundedCents}`,
     })

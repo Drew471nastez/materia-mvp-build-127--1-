@@ -1,117 +1,78 @@
 import { NextResponse } from "next/server"
+import type Stripe from "stripe"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 
 export const runtime = "nodejs"
 
-function tryCreateAdminClient() {
-  try {
-    const { createAdminClient } = require("@/lib/supabase/admin")
-    return createAdminClient()
-  } catch {
-    return null
-  }
-}
+/** How many of the newest paid payments one call checks with Stripe. */
+const MAX_PAYMENTS = 60
 
+/**
+ * POST /api/stripe/sync-refunds
+ *
+ * Catches up refunds made in Stripe's dashboard on the signed-in creator's
+ * own orders, for a webhook that never arrived.
+ *
+ * WHAT THIS REPLACED. It read every completed order of the creator, asked
+ * Stripe about each one in turn (no limit), and wrote the PAYMENT's
+ * amount_refunded onto every row of it: a basket of three with $5 refunded
+ * on one line had all three marked refunded with $5 each, and a part refund
+ * read as a refund of every line. Now each payment is checked once, the
+ * newest MAX_PAYMENTS of them, and handed to the same refund sync the webhook
+ * uses (lib/stripe/refund-sync.ts), which splits each refund over the rows it
+ * belongs to, writes the seller's balance and the library once per refund,
+ * and is safe to run again.
+ *
+ * Scoped by the session: only the orders of products this account's store
+ * owns are read.
+ */
 export async function POST() {
   try {
     const supabase = await createClient()
-    const dbClient = tryCreateAdminClient() || supabase
-
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: creator } = await dbClient
-      .from("creators")
-      .select("id, stripe_account_id")
-      .eq("user_id", user.id)
-      .single()
-
+    const admin = createAdminClient()
+    const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
-    // Get all products for this creator
-    const { data: products } = await dbClient
-      .from("products")
-      .select("id")
-      .eq("creator_id", creator.id)
+    const { data: products } = await admin.from("products").select("id").eq("creator_id", creator.id)
+    const productIds = ((products ?? []) as { id: string }[]).map((p) => p.id)
+    if (productIds.length === 0) return NextResponse.json({ synced: 0, message: "No products found" })
 
-    if (!products || products.length === 0) {
-      return NextResponse.json({ synced: 0, message: "No products found" })
-    }
-
-    const productIds = products.map((p: any) => p.id)
-
-    // Get all completed orders that have a stripe_payment_intent_id
-    const { data: orders } = await dbClient
+    const { data: orders } = await admin
       .from("orders")
-      .select("id, stripe_payment_intent_id, status, amount_cents")
+      .select("stripe_payment_intent_id, created_at")
       .in("product_id", productIds)
       .eq("status", "completed")
       .not("stripe_payment_intent_id", "is", null)
-
-    if (!orders || orders.length === 0) {
-      return NextResponse.json({ synced: 0, message: "No orders to sync" })
-    }
+      .order("created_at", { ascending: false })
+      .limit(1000)
+    const intents = [...new Set(((orders ?? []) as { stripe_payment_intent_id: string | null }[]).map((o) => o.stripe_payment_intent_id).filter((x): x is string => !!x))].slice(0, MAX_PAYMENTS)
+    if (intents.length === 0) return NextResponse.json({ synced: 0, message: "No orders to sync" })
 
     let synced = 0
-    const errors: string[] = []
-
-    // Check each order's payment intent against Stripe for refunds
-    for (const order of orders) {
+    let failed = 0
+    for (const intent of intents) {
       try {
-        if (!order.stripe_payment_intent_id) continue
-
-        // Retrieve the payment intent with charge and refund data expanded
-        // NOTE: This app uses destination charges — PIs live on the PLATFORM account, not the connected account.
-        const paymentIntent = await stripe.paymentIntents.retrieve(
-          order.stripe_payment_intent_id,
-          { expand: ["latest_charge"] }
-        )
-
-        // Check if charge was refunded
-        const charge = paymentIntent.latest_charge as any
-        if (charge && (charge.refunded === true || (charge.amount_refunded && charge.amount_refunded > 0))) {
-          // First update just the status (this column definitely exists)
-          const { error: statusError } = await dbClient
-            .from("orders")
-            .update({ status: "refunded" })
-            .eq("id", order.id)
-
-          if (statusError) {
-            errors.push(`Failed to update status for order ${order.id}: ${statusError.message}`)
-            continue
-          }
-
-          // Try to update the extra refund columns (may not exist yet)
-          try {
-            const refundAmountCents = charge.amount_refunded || order.amount_cents
-            await dbClient
-              .from("orders")
-              .update({
-                refund_amount_cents: refundAmountCents,
-                refunded_at: new Date().toISOString(),
-                refund_reason: "synced_from_stripe",
-              })
-              .eq("id", order.id)
-          } catch {
-            // Extra columns may not exist — that's OK, status is already updated
-          }
-
-          synced++
-        }
-      } catch (err: any) {
-        errors.push(`Order ${order.id}: ${err.message}`)
+        const pi = await stripe.paymentIntents.retrieve(intent, { expand: ["latest_charge"] })
+        const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? (pi.latest_charge as Stripe.Charge) : null
+        if (!charge || !(charge.amount_refunded > 0)) continue
+        synced += (await syncChargeRefund(admin, stripe, charge)).applied
+      } catch (err) {
+        failed++
+        console.error("[sync-refunds]", intent, err instanceof Error ? err.message : err)
       }
     }
 
-    return NextResponse.json({
-      synced,
-      total: orders.length,
-      message: `Synced ${synced} refund(s) from Stripe`,
-      errors: errors.length > 0 ? errors : undefined,
-    })
-  } catch (error: any) {
-    console.error("[Sync Refunds Error]", error)
-    return NextResponse.json({ error: error.message || "Failed to sync refunds" }, { status: 500 })
+    return NextResponse.json({ synced, checked: intents.length, failed, message: `Synced ${synced} refund(s) from Stripe` })
+  } catch (error) {
+    console.error("[Sync Refunds Error]", error instanceof Error ? error.message : error)
+    return NextResponse.json({ error: "Failed to sync refunds" }, { status: 500 })
   }
 }
