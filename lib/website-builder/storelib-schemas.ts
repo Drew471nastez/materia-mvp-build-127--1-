@@ -26,6 +26,11 @@ import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
 import { contentForStatics } from "./product-details-rule"
 import { REVIEW_APP_BLOCK_SCHEMAS, reviewAppBlockSchema } from "@/lib/storelib-theme/compat/review-app-blocks"
+import { PRODUCT_APP_BLOCK_SCHEMAS, productAppBlockSchema } from "@/lib/storelib-theme/compat/product-app-blocks"
+
+/* Storelib's own app blocks: Storelib Reviews' two, then Stock status and Estimated delivery (Round BC). */
+const STORELIB_APP_BLOCK_SCHEMAS: readonly BlockSchema[] = [...REVIEW_APP_BLOCK_SCHEMAS, ...PRODUCT_APP_BLOCK_SCHEMAS]
+const storelibAppBlockSchema = (type: string) => reviewAppBlockSchema(type) ?? productAppBlockSchema(type)
 import type { BlockInstance, BlockSchema, SchemaField, SchemaFieldType, SectionPreset, SectionSchema } from "./types"
 
 function field(s: SettingDefinition): SchemaField {
@@ -433,7 +438,7 @@ function takesAppBlocks(schema: unknown): boolean {
 }
 
 function withAppBlocks<T extends { blocks?: BlockSchema[]; accepts?: string[] }>(schema: T): T {
-  if (schema.blocks?.length) return { ...schema, blocks: [...schema.blocks.filter((b) => !reviewAppBlockSchema(b.type)), ...REVIEW_APP_BLOCK_SCHEMAS] }
+  if (schema.blocks?.length) return { ...schema, blocks: [...schema.blocks.filter((b) => !storelibAppBlockSchema(b.type)), ...STORELIB_APP_BLOCK_SCHEMAS] }
   return { ...schema, accepts: [...(schema.accepts ?? []).filter((a) => a !== "@app"), "@app"] }
 }
 
@@ -449,7 +454,7 @@ export function themeBlockCatalog(sources?: Record<string, string>, opts: { buil
     }
   }
   /* An imported theme: Storelib Reviews' app blocks, for the sections and blocks that take "@app" (withAppBlocks above). */
-  if (opts.builtIn === false && isCompatSource(sources?.["layout/theme.storelib"])) for (const b of REVIEW_APP_BLOCK_SCHEMAS) out[b.type] = b
+  if (opts.builtIn === false && isCompatSource(sources?.["layout/theme.storelib"])) for (const b of STORELIB_APP_BLOCK_SCHEMAS) out[b.type] = b
   return out
 }
 

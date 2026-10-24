@@ -39,7 +39,7 @@ export async function pageFactsFor(admin: Db, creatorId: string, productId: stri
     }
     if (!row) return null
     const [data, own] = await Promise.all([
-      productSectionData(admin, row as unknown as ProductSectionRow),
+      productSectionData(admin, row as unknown as ProductSectionRow, { counts: showLeft }),
       Promise.resolve(admin.from("product_variants").select("id, sku, inventory_policy").eq("product_id", productId)).then((r: { data?: unknown; error?: unknown }) => (r.error ? [] : ((r.data ?? []) as { id: string; sku?: string | null; inventory_policy?: string | null }[])), () => [] as { id: string; sku?: string | null; inventory_policy?: string | null }[]),
     ])
     const byId = new Map(own.map((v) => [v.id, v]))
@@ -50,6 +50,8 @@ export async function pageFactsFor(admin: Db, creatorId: string, productId: stri
         options: v.options,
         soldOut: !v.available,
         left: v.left,
+        ...(showLeft && typeof v.count === "number" ? { count: v.count } : {}),
+        tracked: v.tracked === true,
         maxQuantity: v.max_quantity,
         keepsSelling: byId.get(v.id)?.inventory_policy === "continue" || row!.continue_selling === true,
         sku: byId.get(v.id)?.sku ?? null,
@@ -59,6 +61,7 @@ export async function pageFactsFor(admin: Db, creatorId: string, productId: stri
       lowAt: data.low_stock_at ?? null,
       showLeft,
       productLeft: data.inventory_left ?? null,
+      deliveryDays: data.delivery?.ship && (typeof data.delivery.ship.minDays === "number" || typeof data.delivery.ship.maxDays === "number") ? { minDays: data.delivery.ship.minDays ?? null, maxDays: data.delivery.ship.maxDays ?? null } : null,
     }
   } catch {
     return null

@@ -35,6 +35,10 @@ export interface VariantFacts {
   soldOut: boolean
   /** How many are left when that is few (lib/physical/storefront-stock.ts), else null. */
   left: number | null
+  /** How many there are, when stock is counted and Show stock left is on; absent otherwise. */
+  count?: number | null
+  /** Its stock is counted (Track quantity): a Shopify theme reads inventory_management "shopify". */
+  tracked?: boolean
   /** The most one order may take: stock held to Limit sales; 999 for no stop. */
   maxQuantity: number
   /** Sells on at none (Continue selling when out of stock). */
@@ -54,6 +58,8 @@ export interface PageFacts {
   showLeft: boolean
   /** A product without variants: how many are left when that is few (its stock, or a download's sales limit), 0 when none; else null. */
   productLeft?: number | null
+  /** A product that ships: the business days of the cheapest rate home (Settings › Shipping and delivery), for Estimated delivery. Null: no rate says. */
+  deliveryDays?: { minDays: number | null; maxDays: number | null } | null
 }
 
 /**
@@ -81,6 +87,10 @@ export function withPageFacts<T extends { id: string; settings: O }>(card: T, fa
     if (f.options && f.options.some((x) => typeof x === "string" && x.trim() !== "")) out.options = f.options
     if (facts.showLeft) out.left = f.left
     else delete out.left
+    /* Round BC: the real count of a counted option, so the theme's inventory block says In stock or Low stock at its own line and follows the option picked; only while Show stock left is on. */
+    if (facts.showLeft && typeof f.count === "number") out.stock = Math.max(0, Math.floor(f.count))
+    else delete out.stock
+    if (f.tracked) out.tracked = true
     if (typeof f.sku === "string" && f.sku) out.sku = f.sku
     if (f.pickup) out.pickup = f.pickup
     if (f.soldOut) out.checkout_url = ""
@@ -104,12 +114,15 @@ export function withPageFacts<T extends { id: string; settings: O }>(card: T, fa
     settings.max = quantityStop(only, facts.perOrder, facts.showLeft)
     settings.policy = only.keepsSelling ? "continue" : "deny"
     if (facts.showLeft) settings.left = only.left
+    if (facts.showLeft && typeof only.count === "number") settings.stock = Math.max(0, Math.floor(only.count))
+    if (only.tracked) settings.tracked = true
     if (typeof only.sku === "string" && only.sku) settings.sku = only.sku
   }
   if (!facts.variants.length && typeof facts.productLeft === "number") {
     settings.available = facts.productLeft > 0
     if (facts.showLeft && facts.productLeft > 0) settings.left = facts.productLeft
   }
+  if (facts.deliveryDays) settings.delivery_days = facts.deliveryDays
   if (settings.available === false) settings.checkout_url = ""
   /* Facts for a variant the list did not have yet are left out: its price is not known here. */
   return { ...card, settings }

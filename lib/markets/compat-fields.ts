@@ -9,6 +9,7 @@ import type { SchemaField } from "@/lib/website-builder/types"
 import { localizeCards, localizeRecord, themeWordKey, valueFor, type TranslateOpts, type TranslationMap } from "./translate"
 import { UI_WORDS, uiKey, type UiWord } from "./ui-words"
 import { reviewAppBlockSchema } from "@/lib/storelib-theme/compat/review-app-blocks"
+import { productAppBlockSchema } from "@/lib/storelib-theme/compat/product-app-blocks"
 
 type O = Record<string, unknown>
 
@@ -27,7 +28,7 @@ export function compatFields(theme: CompatTheme): { fieldsOf: (t: string) => Sch
     blockFieldsOf: (st, bt) => {
       const own = (Array.isArray(theme.schemaOf("sections", st).blocks) ? (theme.schemaOf("sections", st).blocks as O[]) : []).find((b) => b.type === bt)
       /* Storelib Reviews' own app blocks have no file in the theme: their Heading is translated as the panel names it (review-app-blocks.ts). */
-      return named(settingsOf(own) ?? settingsOf(theme.schemaOf("blocks", bt)) ?? reviewAppBlockSchema(bt)?.fields)
+      return named(settingsOf(own) ?? settingsOf(theme.schemaOf("blocks", bt)) ?? (reviewAppBlockSchema(bt) ?? productAppBlockSchema(bt))?.fields)
     },
   }
 }

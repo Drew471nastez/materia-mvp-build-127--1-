@@ -67,6 +67,7 @@ import { assetNameOf, inlineSpriteFiles } from "./icons"
 import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
 import { REVIEWS_WIDGET_LIQUID, isReviewsAppBlock, ratingOfProduct, reviewAppBlockKind, reviewStarsHtml, reviewsBlockSettings, storelibReviewWidgetFilter } from "./storelib-reviews"
 import { REVIEWS_LIST_BLOCK, REVIEW_STARS_BLOCK } from "./review-app-blocks"
+import { ESTIMATED_DELIVERY_BLOCK, STOCK_STATUS_BLOCK, estimatedDeliveryHtml, isStorelibProductAppBlock, stockStatusHtml } from "./product-app-blocks"
 import { shopWords } from "@/lib/markets/ui-words"
 import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq } from "./product-faq"
 
@@ -867,6 +868,7 @@ export class CompatTheme {
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
       appBlock: (ctx, block) => {
         const type = String(block.app_type ?? block.type ?? "")
+        if (isStorelibProductAppBlock(type)) return this.productAppBlock(ctx, { id: String(block.id ?? ""), type, settings: (block.__instance as CompatBlockInstance | undefined)?.settings ?? {} }, ctx.registers.closest as O | undefined)
         if (!isReviewsAppBlock(type)) return null
         const own = (block.__instance as CompatBlockInstance | undefined)?.settings
         return this.reviewsBlock(ctx, { id: String(block.id ?? ""), type, settings: own ?? {} }, ctx.registers.closest as O | undefined)
@@ -1110,6 +1112,11 @@ export class CompatTheme {
         const product = (closest?.product as O | undefined) ?? (ctx.lookup("product") as O | undefined)
         const pageProduct = ctx.globals.product as O | null | undefined
         let rating = product && typeof product === "object" ? ratingOfProduct(product) : null
+        /* Round BC: a product that is not the page's own (a featured product, a card) carries stars only while "Stars on product cards" is on; the block was placed for its stars, so it reads them from the shop's reviews either way. */
+        if (!rating && product && typeof product === "object" && reviews && reviews.sample !== true) {
+          const own = (reviews.ratings as Record<string, { count?: unknown; average?: unknown }> | undefined)?.[String(product.id ?? "")]
+          if (own && Number(own.count) > 0 && Number(own.average) > 0) rating = { average: Number(own.average), count: Number(own.count), color: "" }
+        }
         let href: string | null = null
         if (product && typeof product === "object") {
           href = pageProduct && product.id === pageProduct.id ? "#reviews" : `${toOutput(product.url) || ""}#reviews`
@@ -1124,6 +1131,45 @@ export class CompatTheme {
       return `<div class="shopify-app-block" ${blockAttributes(b.id)}>${renderString(REVIEWS_WIDGET_LIQUID, ctx.child({ rv: reviewsBlockSettings(settings) }))}</div>`
     } catch (e) {
       this.warnings.push(`Storelib Reviews: ${(e as Error).message}`)
+      return ""
+    }
+  }
+
+  /**
+   * Storelib's Stock status and Estimated delivery (./product-app-blocks.ts),
+   * about the product in scope as Star rating reads it: the block's
+   * `closest.product`, else the `product` the section draws. Its options'
+   * stock is what the theme itself is told (./objects.ts stockOf), so the
+   * block and the theme's own inventory line never disagree.
+   */
+  private productAppBlock(ctx: Ctx, b: { id: string; type: string; settings?: unknown }, closest?: O): string {
+    const settings = b.settings && typeof b.settings === "object" ? (b.settings as O) : {}
+    const page = (ctx.registers.page ?? {}) as CompatPage
+    const product = (closest?.product as O | undefined) ?? (ctx.lookup("product") as O | undefined)
+    const words = shopWords(page.i18n?.uiWords) as unknown as Record<string, string>
+    const inEditor = page.designMode === true
+    try {
+      let html = ""
+      const real = product && typeof product === "object" ? product : null
+      if (b.type === STOCK_STATUS_BLOCK) {
+        const variants = real && Array.isArray(real.variants) ? (real.variants as O[]) : []
+        const selected = real ? (real.selected_or_first_available_variant as O | null | undefined) : null
+        html = stockStatusHtml({
+          variants: variants.map((v) => ({ id: String(v.id ?? ""), available: v.available !== false, management: typeof v.inventory_management === "string" ? v.inventory_management : null, quantity: Number(v.inventory_quantity) || 0, policy: String(v.inventory_policy ?? "deny") })),
+          selectedId: selected ? String(selected.id ?? "") : null,
+          settings,
+          words,
+          inEditor,
+          blockId: b.id,
+        })
+      } else if (b.type === ESTIMATED_DELIVERY_BLOCK) {
+        const days = real ? (real.__delivery as { minDays?: number | null; maxDays?: number | null } | undefined) : undefined
+        const ships = !!real && (String(real.kind ?? "") === "physical" || (Array.isArray(real.variants) && (real.variants as O[]).some((v) => v.requires_shipping === true)))
+        html = estimatedDeliveryHtml({ ships: real ? ships : inEditor, days: days ? { minDays: days.minDays ?? null, maxDays: days.maxDays ?? null } : null, settings, words, locale: page.i18n?.locale ?? "en", inEditor })
+      }
+      return html ? `<div class="shopify-app-block" ${blockAttributes(b.id)}>${html}</div>` : ""
+    } catch (e) {
+      this.warnings.push(`Storelib block: ${(e as Error).message}`)
       return ""
     }
   }
@@ -1146,7 +1192,7 @@ export class CompatTheme {
     const draw = (b: CompatBlockInstance) => {
       const path = this.fileFor("blocks", b.type)
       const tree = path ? this.tree(path) : null
-      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : ""
+      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : isStorelibProductAppBlock(b.type) ? this.productAppBlock(ctx, b, closest) : ""
       let holder: Ctx | null = null
       const block = this.blockObject(b, [], res, resolverFor(() => holder))
       const c = ctx.child({ block, closest, ...extra })

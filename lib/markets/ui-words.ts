@@ -136,6 +136,11 @@ export const UI_WORDS = {
   contact: "Contact",
   email_me_news_from: "Email me news from",
   email_me_news: "Email me news from this store",
+  /* A product page's stock and delivery lines (Stock status and Estimated delivery, lib/storelib-theme/compat/product-app-blocks.ts and the product section's blocks). */
+  only_left: "Only {count} left",
+  out_of_stock: "Out of stock",
+  arrives_between: "Arrives {from} to {to}",
+  arrives_on: "Arrives {date}",
 } as const
 
 export type UiWord = keyof typeof UI_WORDS
