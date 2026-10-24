@@ -295,7 +295,8 @@ function wiring() {
   const tab = code("components/onepage/tabs/settings-tab.tsx")
   check("the address field reads storelib.me/ and nothing after", /\{onePageDomain\}\//.test(tab) && !/>\/links</.test(tab))
   check("it asks the live check while typing", /\/api\/onepage\/address\?name=/.test(tab))
-  check("and cannot save a name that is taken", /\|\| slugTaken\}/.test(tab))
+  /* Changed on purpose (round 10, S2): the address only gates Basic info's own Save now, so the check reads `slugTaken))`. */
+  check("and cannot save a name that is taken", /\|\| slugTaken\)\)\}/.test(tab))
   const put = code("app/api/onepage/route.ts")
   check("the save runs the same availability check", /onePageNameTaken\(nextSlug/.test(put))
   const live = code("app/api/onepage/address/route.ts")

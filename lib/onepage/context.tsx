@@ -78,6 +78,8 @@ interface OnePageContextType {
   setSelectedBlockId: (id: string | null) => void
   /** The page as it is this instant, including edits React has not rendered yet. */
   getLatestOnePage: () => OnePage | null
+  /** What was last saved of the fields Settings edits, so each Settings section can say whether it has unsaved changes of its own. */
+  getSavedSettings: () => { title: string; slug: string; settings: Record<string, unknown>; share_image_mode: unknown } | null
 
   updateProfile: (updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null }) => void
 
@@ -272,6 +274,17 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
   }, [markDirty, syncHistoryFlags])
 
   const getLatestOnePage = useCallback(() => latestOnepageRef.current, [])
+  /* Read back out of savedFields' own list: [title, bio, avatar_video_url, slug, theme, settings, ..., share_image_mode]. */
+  const getSavedSettings = useCallback(() => {
+    const raw = savedFieldsRef.current
+    if (!raw) return null
+    try {
+      const f = JSON.parse(raw) as unknown[]
+      return { title: String(f[0] ?? ""), slug: String(f[3] ?? ""), settings: (f[5] ?? {}) as Record<string, unknown>, share_image_mode: f[9] ?? null }
+    } catch {
+      return null
+    }
+  }, [])
 
   /**
    * Sends the page as it is at the moment this starts, then publishes that
@@ -782,6 +795,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         setActiveSection,
         setSelectedBlockId,
         getLatestOnePage,
+        getSavedSettings,
         updateProfile,
         updateTheme,
         applyTemplate,

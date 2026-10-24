@@ -206,6 +206,24 @@ check("a kept sheet opens without restyling what is inside it, as the builder's 
   && /pointerEvents: "auto",/.test(bottomSheet))
 check("the editor's questions are kept sheets", /<BottomSheet isOpen=\{open\} onClose=\{onClose\} label=\{label\} hideFrom="md" keepMounted>/.test(editor))
 
+/*
+  ROUND 10, AUDIT FOLLOW-UPS (scratchpad AUDIT.md S1, S2, S4; scripts/check-onepage-shell.mjs
+  ONLY=sections and ONLY=resttab measure them).
+*/
+const live = read("components/onepage/public-onepage.tsx")
+const context = read("lib/onepage/context.tsx")
+check("S1: Glass on a light page is ink glass, for the bell and the share button, on the live page and so in the preview",
+  /export function pageIsLight\(/.test(live) && /const GLASS_ON_LIGHT_BELL = \{/.test(live) && /const GLASS_ON_LIGHT_SHARE = \{/.test(live)
+  && (live.match(/onLight=\{pageIsLight\(safeTheme\)\}/g) ?? []).length === 2 && /const s = inkGlass \? GLASS_ON_LIGHT_BELL/.test(live) && /const s = inkGlass \? GLASS_ON_LIGHT_SHARE/.test(live))
+check("S2: each Settings section's Save lights for its own changes only, against the page as last saved",
+  /getSavedSettings: \(\) =>/.test(context) && /const getSavedSettings = useCallback/.test(context)
+  && /const sectionUnsaved: Record</.test(settings) && /const saveRow = \(section: keyof typeof sectionUnsaved\) =>/.test(settings)
+  && /footer=\{saveRow\("seo"\)\}/.test(settings) && /\{saveRow\(kind\)\}/.test(settings) && /\{saveRow\("verified"\)\}/.test(settings) && /\{saveRow\("basic"\)\}/.test(settings))
+check("S3: a section not shown is inert (PillPanels)", /inert=\{p\.id !== state\.live\}/.test(pillTabs))
+check("S4: a resting kept sheet is out of the tab order by content-visibility, set a frame after it rests and cleared in the open",
+  /sheet\.style\.contentVisibility = "hidden"/.test(bottomSheet) && /if \(sheet\.style\.contentVisibility\) sheet\.style\.contentVisibility = ""\s*sizeUp\(sheet\)/.test(bottomSheet)
+  && !/\.inert = (true|false)/.test(bottomSheet))
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
