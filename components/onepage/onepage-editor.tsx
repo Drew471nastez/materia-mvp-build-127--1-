@@ -7,7 +7,7 @@ import { PhonePreview, MobilePreviewContent } from "./live-preview"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
 import { ProductsTab } from "./tabs/products-tab"
-import { SettingsTab, type SettingsTabRef } from "./tabs/settings-tab"
+import { SETTINGS_SECTION_IDS, SettingsTab, type SettingsSectionId, type SettingsTabRef } from "./tabs/settings-tab"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -54,7 +54,7 @@ import {
 import { OnboardingModal } from "./onboarding-modal"
 import { usePillPress, usePillSlide } from "./pill-tabs"
 import { createClient } from "@/lib/supabase/client"
-import { SaveNotification } from "@/components/ui/save-notification"
+import { SaveNotification, ToastSpot } from "@/components/ui/save-notification"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { tt } from "@/lib/i18n/text"
@@ -78,7 +78,10 @@ interface OnePageEditorProps {
 export function OnePageEditor({ initialOnePage }: OnePageEditorProps) {
   return (
     <OnePageProvider initialOnePage={initialOnePage}>
-      <EditorLayout />
+      {/* Every toast in the editor, its tabs' included, sits clear of its bars and its preview (components/ui/save-notification ToastSpot). */}
+      <ToastSpot spot="onepage-editor">
+        <EditorLayout />
+      </ToastSpot>
     </OnePageProvider>
   )
 }
@@ -155,7 +158,8 @@ function EditorQuestion({
   const isPhone = useIsPhone()
   if (isPhone) {
     return (
-      <BottomSheet isOpen={open} onClose={onClose} label={label} hideFrom="md">
+      /* Kept, as Share is: built while the page is idle, so the tap on the back arrow only slides it up. */
+      <BottomSheet isOpen={open} onClose={onClose} label={label} hideFrom="md" keepMounted>
         {children}
       </BottomSheet>
     )
@@ -522,17 +526,34 @@ function EditorLayout() {
   const loaderVisible = useLinger(!arrived, 320)
 
   // --- Hash-based tab navigation ---
-  const HASH_TO_TAB: Record<string, TabType> = {
-    links: "links",
-    design: "design",
-    products: "products",
-    settings: "settings",
+  /*
+    #links, #design, #products and #settings open their tab, as they always
+    have. #settings-seo (any section's id) opens Settings on that section,
+    and choosing a section writes it there, so a reload or a shared link
+    comes back to it.
+  */
+  const fromHash = (raw: string): { tab: TabType; section: SettingsSectionId | null } => {
+    const hash = raw.replace("#", "")
+    if (hash === "links" || hash === "design" || hash === "products" || hash === "settings") return { tab: hash, section: null }
+    const section = hash.startsWith("settings-") ? hash.slice("settings-".length) : ""
+    if ((SETTINGS_SECTION_IDS as readonly string[]).includes(section)) return { tab: "settings", section: section as SettingsSectionId }
+    return { tab: "links", section: null }
   }
   const getInitialTab = (): TabType => {
     if (typeof window === "undefined") return "links"
-    const hash = window.location.hash.replace("#", "")
-    return (HASH_TO_TAB[hash] as TabType) || "links"
+    return fromHash(window.location.hash).tab
   }
+  /* The section Settings opens on: the one asked for in the address, then the last one chosen, kept while Settings is closed. */
+  const settingsSection = useRef<SettingsSectionId>(
+    (typeof window !== "undefined" && fromHash(window.location.hash).section) || "basic",
+  )
+  /* A section asked for by Back or Forward, or a #settings-… typed into the address, while Settings is already open: it switches to it. */
+  const [settingsJump, setSettingsJump] = useState<{ id: SettingsSectionId; n: number } | null>(null)
+  const onSettingsSection = useCallback((id: SettingsSectionId) => {
+    settingsSection.current = id
+    if (typeof window === "undefined" || !window.location.hash.startsWith("#settings")) return
+    window.history.replaceState(window.history.state, "", id === "basic" ? "#settings" : `#settings-${id}`)
+  }, [])
   const [activeTab, setActiveTab] = useState<TabType>(getInitialTab)
   /*
     ONE TAB TO THE NEXT WITHOUT A BLANK FRAME, AND BACK TO WHERE IT WAS.
@@ -624,7 +645,7 @@ function EditorLayout() {
       tab.
     */
     if (typeof window !== "undefined") {
-      window.history.replaceState(window.history.state, "", `#${tab}`)
+      window.history.replaceState(window.history.state, "", tab === "settings" && settingsSection.current !== "basic" ? `#settings-${settingsSection.current}` : `#${tab}`)
       refreshLeaveGuard.current()
     }
   }, [])
@@ -632,8 +653,11 @@ function EditorLayout() {
   // Sync tab when browser back/forward changes the hash
   useEffect(() => {
     const onPopState = () => {
-      const hash = window.location.hash.replace("#", "")
-      const tab = (HASH_TO_TAB[hash] as TabType) || "links"
+      const { tab, section } = fromHash(window.location.hash)
+      if (section) {
+        settingsSection.current = section
+        setSettingsJump((j) => ({ id: section, n: (j?.n ?? 0) + 1 }))
+      }
       showTab(tab)
     }
     window.addEventListener("popstate", onPopState)
@@ -1346,15 +1370,17 @@ function EditorLayout() {
         dead.
 
         Measured in Inter at 12px, the longest of the four words is "Saving…"
-        at 53px, and the room for it is the width of the screen less 319px.
-        So the word is there from 375px (an iPhone SE, 56px of room) up;
-        narrower than that there is no wide gap to fill and it is left out
-        rather than shortened to "Unsa…".
+        at 53px. Since the share square and the save icon joined the bar the
+        room was the width of the screen less 344px, and at 390 (the most
+        common phone) the word read "Unsa…" (round 10, scripts/check-onepage-
+        shell.mjs). The bar's gaps are 6px on a phone now and Preview is a
+        little tighter, which gives the word 56px at 390; from 390px up it is
+        there whole, and narrower than that it is left out rather than cut.
       */}
       <header className="box-content flex items-center border-b bg-white h-11 sm:h-[60px] pt-[env(safe-area-inset-top)] md:pt-0 shrink-0 relative z-30 overflow-hidden">
         {/* Left controls area - flex-1 matches editor panel below */}
         <div className="flex-1 min-w-0 h-full px-3 sm:px-4 md:px-0">
-          <div className="flex items-center gap-2 sm:gap-3 h-full w-full md:max-w-xl md:mx-auto md:px-6">
+          <div className="flex items-center gap-1.5 sm:gap-3 h-full w-full md:max-w-xl md:mx-auto md:px-6">
             {/* The way out on a phone, where the app's header is not drawn. */}
             <button
               type="button"
@@ -1394,7 +1420,7 @@ function EditorLayout() {
             <span
               data-onepage-state=""
               className={cn(
-                "min-w-0 flex-1 truncate text-center text-[12px] font-medium leading-none hidden min-[375px]:block md:hidden",
+                "min-w-0 flex-1 truncate text-center text-[12px] font-medium leading-none hidden min-[390px]:block md:hidden",
                 saveState === "error" && isDirty
                   ? "text-red-600"
                   : isDirty || saveState === "saving"
@@ -1462,7 +1488,7 @@ function EditorLayout() {
         </div>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 pr-3 sm:pr-4 md:w-[410px] md:border-l md:justify-end md:pr-6 md:pl-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 pr-3 sm:pr-4 md:w-[410px] md:border-l md:justify-end md:pr-6 md:pl-3">
           {/* Unsaved — mr-auto pushes it to the far left of the panel, away from the divider */}
           {isDirty && saveState !== "saving" && (
             <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0 mr-auto">
@@ -1487,7 +1513,7 @@ function EditorLayout() {
             onClick={handleSaveWithProCheck}
             disabled={isSaveDisabled}
             className={cn(
-              "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-all duration-200",
+              "h-8 sm:h-9 px-3 sm:px-4 rounded-lg transition-[background-color,color,opacity] duration-200",
               saveState === "saved" && !isDirty
                 ? "bg-[#1a1a2e] hover:bg-[#2a2a40] text-white opacity-60 cursor-default pointer-events-none"
                 : saveState === "error" && isDirty
@@ -1504,7 +1530,7 @@ function EditorLayout() {
           <div className="hidden md:block">
             <button
               onClick={() => setShowLinkModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-all cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-[background-color,box-shadow] cursor-pointer whitespace-nowrap"
             >
               <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
               <span>{tt("Share your OnePage")}</span>
@@ -1516,19 +1542,19 @@ function EditorLayout() {
             variant={showMobilePreview ? "outline" : "default"}
             size="sm"
             className={cn(
-              "md:hidden h-8 px-3 rounded-lg",
+              "md:hidden h-8 px-2.5 rounded-lg",
               !showMobilePreview && "bg-gray-900 hover:bg-gray-800 text-white"
             )}
             onClick={togglePreview}
           >
             {showMobilePreview ? (
               <>
-                <Edit3 className="h-4 w-4 mr-1.5" />
+                <Edit3 className="h-4 w-4 mr-1" />
                 {tt("Edit")}
               </>
             ) : (
               <>
-                <Eye className="h-4 w-4 mr-1.5" />
+                <Eye className="h-4 w-4 mr-1" />
                 {tt("Preview")}
               </>
             )}
@@ -1592,7 +1618,7 @@ function EditorLayout() {
                   )}
                 >
                   {t === "settings" ? (
-                    <SettingsTab ref={settingsTabRef} pageUrl={pageUrl} onSave={handleSaveWithProCheck} userPlan={userPlan} />
+                    <SettingsTab ref={settingsTabRef} pageUrl={pageUrl} onSave={handleSaveWithProCheck} userPlan={userPlan} section={settingsSection.current} jump={settingsJump} onSectionChange={onSettingsSection} />
                   ) : (
                     <Activity mode={shown ? "visible" : "hidden"}>
                       {t === "design" && designPanel}

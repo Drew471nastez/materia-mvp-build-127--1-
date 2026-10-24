@@ -32,9 +32,10 @@ import {
   GraduationCap,
 } from "lucide-react"
 import { useState, useEffect, useCallback } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { tt } from "@/lib/i18n/text"
+import { ProductStateBadge, useCreatorProducts } from "./product-block-editor"
+import { editorProductState, pickableProducts } from "@/lib/onepage/product-block"
 
 interface Product {
   id: string
@@ -42,6 +43,7 @@ interface Product {
   price_cents: number
   thumbnail_url?: string
   status: string
+  archived?: boolean | null
   type?: string // 'digital' | 'course' | 'lead_magnet' etc.
   slug?: string
   description?: string
@@ -138,34 +140,18 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
     }
   }, [onepage?.draft_blocks])
 
-  // Fetch user's products
+  /* The creator's products with their status, read once for the whole editor (./product-block-editor). Archived ones cannot go on a page and are left out. */
+  const creatorProducts = useCreatorProducts()
   useEffect(() => {
-    async function fetchProducts() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: creator } = await supabase
-        .from("creators")
-        .select("id")
-        .eq("user_id", user.id)
-        .single()
-
-      if (!creator) return
-
-      const { data } = await supabase
-        .from("products")
-        .select("id, title, price_cents, thumbnail_url, status, type, slug, description")
-        .eq("creator_id", creator.id)
-        .order("created_at", { ascending: false })
-
-      setProducts(data || [])
-      setLoading(false)
-    }
-
-    fetchProducts()
+    if (creatorProducts === null) return
+    setProducts(pickableProducts(creatorProducts.map((p) => ({ ...p, thumbnail_url: p.thumbnail_url ?? undefined, slug: p.slug ?? undefined, description: p.description ?? undefined, type: p.type ?? undefined, status: p.status ?? "published" }))))
+    setLoading(false)
+  }, [creatorProducts])
+  /* A creator with nothing to read (signed out, a failed read) sees the empty state, not a spinner forever. */
+  useEffect(() => {
+    const t = window.setTimeout(() => setLoading(false), 8000)
+    return () => window.clearTimeout(t)
   }, [])
-
 
   // Get badge info for product type
   const getProductBadge = (type?: string) => {
@@ -222,6 +208,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
             product_description: shortDescription || null,
             product_price_cents: product.price_cents || 0,
             product_slug: product.slug || null,
+            product_type: product.type || null,
           }
         })
       } else {
@@ -240,6 +227,7 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
               product_description: shortDescription || null,
               product_price_cents: product.price_cents || 0,
               product_slug: product.slug || null,
+              product_type: product.type || null,
             }
           })
         }
@@ -247,6 +235,8 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
 
       // Add to added products set
       setAddedProductIds(prev => new Set([...prev, product.id]))
+      /* A draft goes on the page now and shows to visitors once it is published (lib/onepage/live-products). */
+      if (product.status !== "published") showNotification(tt("Added. Publish it to show it."))
     }
 
     // Show confirmation briefly then redirect
@@ -313,184 +303,161 @@ export function ProductsTab({ onGoToLinks }: { onGoToLinks?: () => void } = {}) 
         document.body
       )}
 
-      <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">{tt("Products & Lead Forms")}</h2>
-          <p className="text-sm text-muted-foreground">
-            {tt("Add products to sell or forms to collect leads")}
-          </p>
+      <div className="space-y-5" data-products-tab="">
+      {/*
+        ROUND 10: ONE CALM LIST. The tab was a header, a big button, a bordered
+        box with its own grey title bar and a list capped at 400px, then a
+        second list of quick adds. Now: the title and Add product on one line,
+        a search once there are enough products to need one, and each product
+        a row that says what it is, what it costs, whether it is a draft, and
+        whether it is already on the page.
+      */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">{tt("Products")}</h2>
+          <p className="mt-0.5 text-[13px] text-[#6b7280]">{tt("Sell your products right on your page.")}</p>
         </div>
+        <Button onClick={() => setShowAddModal(true)} className={cn(primaryDepth, "h-10 shrink-0 rounded-xl px-3.5 text-[14px]")} data-products-add="">
+          <Plus className="mr-1.5 h-4 w-4" />
+          {tt("Add product")}
+        </Button>
       </div>
 
-      {/* Add Product Button */}
-      <Button
-        onClick={() => setShowAddModal(true)}
-        className={cn(primaryDepth, "w-full h-12 rounded-xl text-[15px]")}
-        size="lg"
-      >
-        <Plus className="h-5 w-5 mr-2" />
-        {tt("Add Product")}
-      </Button>
+      {products.length > 6 ? (
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+          <span className="sr-only">{tt("Search products")}</span>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={tt("Search products")}
+            className="h-11 w-full rounded-xl border border-[#e3e4e8] bg-white pl-10 pr-3 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.08)] sm:text-[14.5px]"
+            data-products-search=""
+          />
+        </label>
+      ) : null}
 
-      {/* Existing Products Section */}
-      <div className="border rounded-xl overflow-hidden">
+      <section aria-label={tt("Your products")} className="overflow-hidden rounded-2xl border border-[#ececf1] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin h-8 w-8 border-2 border-[#1a1a2e] border-t-transparent rounded-full mx-auto" />
+          <div aria-hidden className="divide-y divide-[#f1f2f4]">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 p-3.5">
+                <div className="h-12 w-12 rounded-xl bg-[#f1f2f4]" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-2/3 rounded-full bg-[#f1f2f4]" />
+                  <div className="h-3 w-1/4 rounded-full bg-[#f4f4f6]" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : products.length > 0 ? (
-          <div>
-            <div className="p-4 border-b bg-gray-50/50">
-              <h3 className="text-sm font-medium text-muted-foreground">{tt("Your Products ({length})", { length: products.length })}</h3>
-            </div>
-            <div className="divide-y max-h-[400px] overflow-y-auto">
-              {products.map((product) => {
-                const badge = getProductBadge(product.type)
-                const isAdding = addingProductId === product.id
-                return (
-                  <div
-                    key={product.id}
-                    className="flex items-center gap-4 p-4 hover:bg-gray-50/50 transition-all"
-                  >
-                    <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden shrink-0">
-                      {product.thumbnail_url ? (
-                        <img
-                          src={product.thumbnail_url}
-                          alt={product.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="h-6 w-6 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium truncate">{product.title}</p>
-                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0", badge.color)}>
-                          {badge.label}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {product.price_cents > 0 ? shopMoney(product.price_cents, product) : 'Free'}
-                      </p>
-                    </div>
-                    {addedProductIds.has(product.id) ? (
-                      <div className="shrink-0 min-w-[70px] h-8 px-3 flex items-center justify-center rounded-md bg-gray-100 text-gray-400 text-sm cursor-not-allowed">
-                        <Check className="h-4 w-4 mr-1" />
-                        {tt("Added")}
-                      </div>
+          <ul className="max-h-[560px] divide-y divide-[#f1f2f4] overflow-y-auto overscroll-contain" data-products-list="">
+            {filteredProducts.length === 0 ? (
+              <li className="px-4 py-8 text-center text-[13.5px] text-[#6b7280]">{tt("No products match your search.")}</li>
+            ) : null}
+            {filteredProducts.map((product) => {
+              const badge = getProductBadge(product.type)
+              const isAdding = addingProductId === product.id
+              const added = addedProductIds.has(product.id)
+              const state = editorProductState(product.id, products)
+              return (
+                <li key={product.id} className="flex items-center gap-3 px-3.5 py-3 transition-colors hover:bg-[#fafafb]" data-products-row={state}>
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-[#f4f4f6] shadow-[inset_0_0_0_1px_rgba(16,24,40,0.05)]">
+                    {product.thumbnail_url ? (
+                      <img src={product.thumbnail_url} alt="" className="h-full w-full object-cover" />
                     ) : (
-                      <Button
-                        variant={isAdding ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleAddProductToPage(product)}
-                        disabled={isAdding}
-                        className={cn(
-                          "shrink-0 min-w-[70px]",
-                          isAdding && "bg-[#1a1a2e] hover:bg-[#2a2a40]"
-                        )}
-                      >
-                        {isAdding ? (
-                          <>
-                            <Check className="h-4 w-4 mr-1" />
-                            {tt("Adding...")}
-                          </>
-                        ) : (
-                          tt("Add")
-                        )}
-                      </Button>
+                      <div className="grid h-full w-full place-items-center">
+                        <Package className="h-5 w-5 text-[#9ca3af]" strokeWidth={1.7} />
+                      </div>
                     )}
                   </div>
-                )
-              })}
-            </div>
-          </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-[14.5px] font-medium text-[#1a1a2e]">{product.title}</span>
+                      <ProductStateBadge state={state} />
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-[#6b7280]">
+                      <span className="tabular-nums">{product.price_cents > 0 ? shopMoney(product.price_cents, product) : tt("Free")}</span>
+                      <span aria-hidden className="text-[#c4c8ce]">·</span>
+                      <span>{badge.label}</span>
+                    </p>
+                  </div>
+                  {added ? (
+                    <button
+                      type="button"
+                      onClick={goToLinks}
+                      className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-medium text-[#4b5563] transition-colors hover:bg-[#f4f4f6]"
+                      data-products-on-page=""
+                    >
+                      <Check className="h-3.5 w-3.5" strokeWidth={2.4} />
+                      <span className="hidden sm:inline">{tt("On your page")}</span>
+                      <span className="sm:hidden">{tt("Added")}</span>
+                    </button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddProductToPage(product)}
+                      disabled={isAdding}
+                      className="h-8 shrink-0 rounded-lg px-3 text-[13px]"
+                      data-products-add-one=""
+                    >
+                      {isAdding ? <Check className="h-4 w-4" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
+                      {isAdding ? tt("Added") : tt("Add")}
+                    </Button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
         ) : (
-          <div className="text-center py-12 px-4">
-            <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-            <h3 className="font-medium text-muted-foreground">{tt("No products yet")}</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              {tt("Create a product to sell on your page")}
-            </p>
-            <Button variant="outline" className="mt-4" asChild>
-              <a href="/app/products/new">{tt("Create Product")}</a>
+          <div className="px-6 py-10 text-center" data-products-empty="">
+            <div className={cn("mx-auto grid h-12 w-12 place-items-center rounded-2xl", QUICK_TILE)}>
+              <ShoppingBag className="h-5 w-5" strokeWidth={1.75} />
+            </div>
+            <h3 className="mt-3 text-[15px] font-semibold text-[#1a1a2e]">{tt("No products yet")}</h3>
+            <p className="mx-auto mt-1 max-w-[260px] text-[13px] text-[#6b7280]">{tt("Make your first product, then put it on your page in one tap.")}</p>
+            <Button className={cn(primaryDepth, "mt-4 h-10 rounded-xl px-4 text-[14px]")} asChild>
+              <a href="/app/products/new">{tt("Create product")}</a>
             </Button>
           </div>
         )}
-      </div>
+      </section>
+      {products.some((p) => editorProductState(p.id, products) === "draft") ? (
+        <p className="-mt-2 px-1 text-[12px] text-[#6b7280]">{tt("Drafts can go on your page now. They show to visitors once you publish them.")}</p>
+      ) : null}
 
-      {/* Quick Add Section */}
-      <div className="border-t pt-6">
-        <h3 className="text-sm font-medium mb-4">{tt("Quick Add")}</h3>
-        <div className="grid gap-3">
-          {/* Email Capture Form */}
-          <button
-            onClick={() => {
-              addBlock("email_capture")
-              showNotification(tt("Email form added"))
-              goToLinks()
-            }}
-            className="flex items-center gap-4 p-4 border rounded-xl hover:border-[#c9cbd1] hover:bg-[#f7f7f8] transition-all text-left"
-          >
-            <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", QUICK_TILE)}>
-              <Mail className="h-5 w-5" strokeWidth={1.75} />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium">{tt("Email Capture Form")}</p>
-              <p className="text-sm text-muted-foreground">
-                {tt("Collect emails from your visitors")}
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </button>
-
-          {/* Digital Product */}
-          <button
-            onClick={() => {
-              addBlock("product")
-              showNotification(tt("Product added"))
-              goToLinks()
-            }}
-            className="flex items-center gap-4 p-4 border rounded-xl hover:border-[#c9cbd1] hover:bg-[#f7f7f8] transition-all text-left"
-          >
-            <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", QUICK_TILE)}>
-              <Package className="h-5 w-5" strokeWidth={1.75} />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium">{tt("Digital Product")}</p>
-              <p className="text-sm text-muted-foreground">
-                {tt("PDFs, Guides, Templates, eBooks")}
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </button>
-
-          {/* PDF Document */}
-          <button
-            onClick={() => {
-              addBlock("pdf_document")
-              showNotification(tt("PDF added"))
-              goToLinks()
-            }}
-            className="flex items-center gap-4 p-4 border rounded-xl hover:border-[#c9cbd1] hover:bg-[#f7f7f8] transition-all text-left"
-          >
-            <div className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-xl", QUICK_TILE)}>
-              <FileText className="h-5 w-5" strokeWidth={1.75} />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium">PDF</p>
-              <p className="text-sm text-muted-foreground">
-                {tt("Upload or link to a PDF document")}
-              </p>
-            </div>
-            <ChevronRight className="h-5 w-5 text-gray-400" />
-          </button>
+      {/* Quick add */}
+      <section className="space-y-2.5">
+        <h3 className="px-1 text-[13px] font-semibold text-[#1a1a2e]">{tt("Quick add")}</h3>
+        <div className="grid gap-2">
+          {[
+            { key: "email", icon: Mail, title: tt("Email Capture Form"), hint: tt("Collect emails from your visitors"), run: () => { addBlock("email_capture"); showNotification(tt("Email form added")); goToLinks() } },
+            { key: "product", icon: Package, title: tt("Product block"), hint: tt("Pick a product for it on the Links tab"), run: () => { addBlock("product"); showNotification(tt("Product added")); goToLinks() } },
+            { key: "pdf", icon: FileText, title: "PDF", hint: tt("Upload or link to a PDF document"), run: () => { addBlock("pdf_document"); showNotification(tt("PDF added")); goToLinks() } },
+          ].map((q) => {
+            const Icon = q.icon
+            return (
+              <button
+                key={q.key}
+                type="button"
+                onClick={q.run}
+                className="flex items-center gap-3 rounded-xl border border-[#ececf1] bg-white p-3 text-left transition-colors hover:border-[#c9cbd1] hover:bg-[#fafafb]"
+                data-products-quick={q.key}
+              >
+                <div className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", QUICK_TILE)}>
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{q.title}</p>
+                  <p className="truncate text-[12.5px] text-[#6b7280]">{q.hint}</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
+              </button>
+            )
+          })}
         </div>
-      </div>
+      </section>
 
       {/*
         Add Product: a dialog on a computer, and under 768px the shared sheet

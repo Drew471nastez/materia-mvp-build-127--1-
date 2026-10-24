@@ -26,64 +26,63 @@ const SETTINGS_SECTIONS = [
 ] as const
 type SectionId = (typeof SETTINGS_SECTIONS)[number]["id"]
 
+/** A section of Settings, as the editor's address names it (#settings-seo). */
+export type SettingsSectionId = SectionId
+export const SETTINGS_SECTION_IDS: readonly SettingsSectionId[] = SETTINGS_SECTIONS.map((section) => section.id)
+
 /*
   THE SECTIONS, AND WHICH ONE IS SHOWN. The choice lives here and not in
-  SettingsTab, so a press re-renders the two rows and the panels' frame and
+  SettingsTab, so a press re-renders the row and the panels' frame and
   nothing else: each section is made by SettingsTab and handed in, the same
-  element from one press to the next, so React leaves it alone. The rows are
-  the editor's one pill-tab row (components/onepage/pill-tabs PillTabs: the
-  pill slides from the press) and the sections are kept, crossfaded and
-  each scrolled where it was left (PillPanels). It was a list on a computer
-  declared inside SettingsTab's render, so every press threw its six buttons
-  away and made them again, and one keyed section rebuilt on each press.
-*/
-function SettingsSections({ panels }: { panels: Record<SectionId, ReactNode> }) {
-  const [active, setActive] = useState<SectionId>("basic")
-  return (
-    <div className="flex flex-col md:flex-row gap-6">
-      {/* A list on a computer, beside the section and staying in view */}
-      <div className="hidden md:block w-48 flex-shrink-0">
-        <div className="sticky top-0">
-          <PillTabs
-            dataRow="settings-list"
-            label={tt("Settings")}
-            items={SETTINGS_SECTIONS}
-            value={active}
-            onChange={setActive}
-            align="start"
-            className="flex flex-col gap-1"
-            itemClassName="w-full rounded-lg px-3 py-2 text-[13.5px] font-medium hover:bg-white/70"
-            pillClassName="rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,0.06),0_0_0_1px_#e5e7eb]"
-            onClass="text-[#1a1a2e]"
-            offClass="text-[#6b7280]"
-          />
-        </div>
-      </div>
+  element from one press to the next, so React leaves it alone.
 
-      {/*
-        Chips on a phone, in a row that scrolls sideways, held at the top of
-        the tab as a section is scrolled (as the list is on a computer), so
-        another section is one press away from anywhere in this one, and
-        each keeps its own place.
-      */}
-      <div className="md:hidden sticky top-0 z-20 -mx-4 -mt-4 px-4 pt-4 pb-2 mb-2 bg-white">
+  ONE ROW OF PILLS, AT EVERY WIDTH. "Make the settings not with the sidebar
+  there, make it with pill shapes, as settings categories, that I can switch
+  between." It was a list down the left on a computer and chips on a phone.
+  Now it is one row across the top, the chips of the Theme page's kinds
+  (design-tab, data-pill-row="theme-kinds"): the editor's one pill-tab row
+  (components/onepage/pill-tabs PillTabs), the dark pill sliding from the
+  press. It stays at the top of the tab as a section is scrolled, so another
+  section is one press away from anywhere. On a phone it scrolls sideways
+  with no bar drawn, and the chosen pill is always brought fully into view
+  (keepInView), from a press or from the address (#settings-billing).
+
+  The sections are kept, crossfaded with a short slide from the side the
+  pill went to, and each scrolled where it was left, and what was typed in
+  one is still there on the way back (PillPanels). They sit in one grid
+  cell, so the box under the row is as tall as the tallest and never jumps.
+*/
+function SettingsSections({ panels, initial, jump, onChange }: { panels: Record<SectionId, ReactNode>; initial: SectionId; jump?: { id: SectionId; n: number } | null; onChange?: (id: SectionId) => void }) {
+  const [active, setActive] = useState<SectionId>(initial)
+  /* A section asked for from outside (the address, Back) while this is open. */
+  const [jumped, setJumped] = useState(jump?.n ?? 0)
+  if (jump && jump.n !== jumped) {
+    setJumped(jump.n)
+    setActive(jump.id)
+  }
+  const choose = (id: SectionId) => {
+    setActive(id)
+    onChange?.(id)
+  }
+  return (
+    <div data-settings-sections="">
+      <div className="sticky top-0 z-20 -mx-4 -mt-4 mb-3 bg-white px-4 pb-2 pt-4 md:-mx-6 md:-mt-6 md:px-6 md:pt-6" data-settings-pills="">
         <PillTabs
-          dataRow="settings-chips"
+          dataRow="settings-pills"
           label={tt("Settings")}
           items={SETTINGS_SECTIONS}
           value={active}
-          onChange={setActive}
-          className="flex gap-2 overflow-x-auto p-px pb-1 no-scrollbar"
-          itemClassName="shrink-0 px-3.5 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap bg-white ring-1 ring-[#e5e7eb]"
-          pillClassName="rounded-full bg-[#1a1a2e]"
+          onChange={choose}
+          keepInView
+          className="-mx-4 flex gap-1.5 overflow-x-auto px-4 py-0.5 no-scrollbar md:mx-0 md:px-0"
+          itemClassName="h-9 shrink-0 whitespace-nowrap rounded-full border border-[#e3e4e8] bg-white px-3.5 text-[13px] font-medium transition-[border-color] duration-150 hover:border-[#c9cbd1]"
+          pillClassName="rounded-full bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.2)]"
           onClass="text-white"
           offClass="text-[#4b5563]"
         />
       </div>
 
-      <div className="flex-1 min-w-0">
-        <PillPanels dataPanels="settings" value={active} panels={SETTINGS_SECTIONS.map((section) => ({ id: section.id, node: panels[section.id] }))} />
-      </div>
+      <PillPanels dataPanels="settings" value={active} slide panels={SETTINGS_SECTIONS.map((section) => ({ id: section.id, node: panels[section.id] }))} />
     </div>
   )
 }
@@ -121,6 +120,12 @@ export interface SettingsTabProps {
   /** The editor's own Save, which asks about paid features first. */
   onSave?: () => Promise<void> | void
   userPlan?: "free" | "growth" | "pro" | null
+  /** The section it opens on (the editor keeps the last one, and reads #settings-seo). */
+  section?: SettingsSectionId
+  /** A section asked for while the tab is open (Back, the address): `n` counts the asks. */
+  jump?: { id: SettingsSectionId; n: number } | null
+  /** A section was chosen: the editor writes it into the address. */
+  onSectionChange?: (id: SettingsSectionId) => void
 }
 
 /*
@@ -138,7 +143,7 @@ export interface SettingsTabProps {
   only goes to the page on Save, checked the way a username is, so a half
   typed address is never the page's address for a moment.
 */
-export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function SettingsTab({ pageUrl: givenUrl, onSave, userPlan: givenPlan }, ref) {
+export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function SettingsTab({ pageUrl: givenUrl, onSave, userPlan: givenPlan, section = "basic", jump, onSectionChange }, ref) {
   const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, isDirty, markDirty } = useOnePage()
   const router = useRouter()
   const [copied, setCopied] = useState(false)
@@ -542,6 +547,9 @@ export const SettingsTab = forwardRef<SettingsTabRef, SettingsTabProps>(function
   return (
     <>
       <SettingsSections
+        initial={section}
+        jump={jump}
+        onChange={onSectionChange}
         panels={{
           basic: card("basic", renderBasicInfo()),
           seo: card("seo", <SeoPanel pageUrl={pageUrl} footer={saveRow} />),

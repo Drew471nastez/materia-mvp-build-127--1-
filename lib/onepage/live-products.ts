@@ -47,6 +47,10 @@ export type LiveProduct = {
   /** A "membership" is priced per month or year: its block says "$9/month". */
   type?: string | null
   price_interval?: "month" | "year" | null
+  /** A sale's old price, and pay what you want with its minimum: the block's price says "From" or strikes the old one. */
+  compare_at_cents?: number | null
+  pay_what_you_want?: boolean | null
+  pwyw_min_price_cents?: number | null
 }
 
 /**
@@ -96,6 +100,9 @@ function refreshed(data: Record<string, unknown>, product: LiveProduct): Record<
     product_thumbnail: product.thumbnail_url ?? null,
     product_type: product.type ?? null,
     product_price_interval: product.price_interval ?? null,
+    product_compare_at_cents: typeof product.compare_at_cents === "number" ? product.compare_at_cents : null,
+    product_pwyw: product.pay_what_you_want === true,
+    product_pwyw_min_cents: typeof product.pwyw_min_price_cents === "number" ? product.pwyw_min_price_cents : null,
   }
 }
 
@@ -191,6 +198,8 @@ export type ProductsDb = {
   }
 }
 
+/* With the sale price and pay what you want (round 10), so "Free" is never said of a product with a minimum. */
+const COLUMNS_WITH_PRICES = "id, title, slug, price_cents, thumbnail_url, type, status, archived, community_id, compare_at_cents, pay_what_you_want, pwyw_min_price_cents"
 /* With the column that marks a product selling a community tier, which a block does not show (lib/communities/listing). */
 const COLUMNS_WITH_COMMUNITY = "id, title, slug, price_cents, thumbnail_url, type, status, archived, community_id"
 const COLUMNS = "id, title, slug, price_cents, thumbnail_url, type, status, archived"
@@ -211,7 +220,7 @@ export async function answersForBlocks(db: ProductsDb, creatorId: string, blocks
   const ids = productIdsInBlocks(blocks)
   if (!creatorId || ids.length === 0) return new Map()
   const asked = ids.slice(0, 200)
-  for (const cols of [COLUMNS_WITH_COMMUNITY, COLUMNS, COLUMNS_WITHOUT_FLAG]) {
+  for (const cols of [COLUMNS_WITH_PRICES, COLUMNS_WITH_COMMUNITY, COLUMNS, COLUMNS_WITHOUT_FLAG]) {
     try {
       const [{ data, error }, offPage] = await Promise.all([db.from("products").select(cols).eq("creator_id", creatorId).in("id", asked), offChannel(db, creatorId, "creator_page")])
       if (error) continue

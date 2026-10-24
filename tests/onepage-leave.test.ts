@@ -51,7 +51,8 @@ const desktop = code("components/app/sidebar-desktop-nav.tsx")
 const phone = code("components/app/sidebar-mobile-nav.tsx")
 
 console.log("\nThe tabs change the address, not the history")
-check("a tab replaces the address with the entry's own state", /window\.history\.replaceState\(window\.history\.state, "", `#\$\{tab\}`\)/.test(editor))
+/* Changed on purpose (round 10): Settings writes its section too (#settings-seo), still by replacing the entry's address with its own state. */
+check("a tab replaces the address with the entry's own state", /window\.history\.replaceState\(window\.history\.state, "", tab === "settings" && settingsSection\.current !== "basic" \? `#settings-\$\{settingsSection\.current\}` : `#\$\{tab\}`\)/.test(editor))
 check("the editor pushes no history entry at all", !/pushState/.test(editor))
 check("no entry pushed on arrival for Back to pop", !/onepageEditor/.test(editor) && !/hasSetupBackInterception/.test(editor))
 check("and nothing goes back by counting entries", !/history\.go\(/.test(editor))
