@@ -52,6 +52,7 @@ import { ExtraBlockPreviewContext } from "@/components/onepage/extra-blocks"
 import { ONEPAGE_PREVIEW_CHANNEL, type PreviewMessage } from "@/lib/onepage/preview-channel"
 import type { PublicOnePageData } from "@/lib/onepage/public-shape"
 import { familyOf, onePageFontHref } from "@/lib/onepage/fonts"
+import { PriceCurrency } from "@/components/platform/price-currency"
 
 /** The writes a visitor's page makes, answered here instead of by the server. */
 const WRITES = /^\/api\/(onepage\/(track|leads|email-capture)|subscribe|checkout\/|download\/|purchases\/)/
@@ -167,6 +168,8 @@ const ANSWER_WAIT_MS = 1000
 export function OnePagePreviewDocument() {
   /* The page as the editor sent it; `page` below is what is drawn. */
   const [sent, setSent] = useState<PublicOnePageData | null>(null)
+  /* The store's currency, sent with the page: the live route wraps the page in it (PriceCurrency), so this does too. */
+  const [currency, setCurrency] = useState<string | null>(null)
   const drawn = useRef(false)
 
   /*
@@ -222,6 +225,7 @@ export function OnePagePreviewDocument() {
       const data = e.data as PreviewMessage | null
       if (!data || data.channel !== ONEPAGE_PREVIEW_CHANNEL || data.kind !== "page") return
       const n = ++latest
+      setCurrency(data.currency ?? null)
       const page = data.page
       /* The first drawing waits for its fonts on its own (below); a later one with new faces waits for them here. */
       const pending = drawn.current ? facesPending(page) : (facesPending(page), null)
@@ -264,7 +268,9 @@ export function OnePagePreviewDocument() {
   return (
     /* The editor's, so a map waits for the typing to stop (components/onepage/extra-blocks). */
     <ExtraBlockPreviewContext.Provider value={true}>
-      <PublicOnePage onepage={page as never} />
+      <PriceCurrency currency={currency}>
+        <PublicOnePage onepage={page as never} />
+      </PriceCurrency>
     </ExtraBlockPreviewContext.Provider>
   )
 }

@@ -26,6 +26,7 @@ import {
   str,
   SectionWrapper,
   type SectionProps, schemeButton, firstPicture } from "../_shared"
+import { siteImageProps } from "@/lib/website-builder/site-image"
 
 const ASPECT: Record<string, string> = {
   "16:9": "aspect-video",
@@ -67,6 +68,7 @@ export function ImageBannerSection({ section, theme, isEditing, isSelected, onCl
           {image ? (
             <img
               src={image}
+              {...siteImageProps(image)}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
               {...firstPicture(pageIndex)}

@@ -264,6 +264,19 @@ console.log("\nThe Social links sheet: a prefix, a messy paste tidied, a hint")
     }, sel, text)
     if (!ok) throw new Error(`no ${sel} reading ${text}`)
   }
+  /* The social row's platforms start empty here: bringing them in line with the links, in the list and in the row's own editor, is no edit. */
+  const unsaved = () => page.evaluate(() => /\bUnsaved\b/.test(document.body.innerText))
+  expect(!(await unsaved()), "a page opened with a social row to bring in line is not Unsaved")
+  const opened = await page.evaluate(() => {
+    const row = [...document.querySelectorAll("p, span, h3, div")].find((e) => e.children.length === 0 && e.textContent.trim() === "Social Icons" && e.getClientRects().length)
+    row?.click()
+    return !!row
+  })
+  await sleep(900)
+  expect(opened && !(await unsaved()), "opening the social row's own editor does not mark the page Unsaved", { opened })
+  await page.keyboard.press("Escape")
+  await sleep(400)
+
   /* Instagram, already saved: the field shows the handle after an @. */
   await page.click("div.w-7.h-7.rounded-full")
   let input = await sheetField()

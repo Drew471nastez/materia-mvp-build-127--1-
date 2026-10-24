@@ -78,6 +78,8 @@ interface OnePageContextType {
   setSelectedBlockId: (id: string | null) => void
   /** The page as it is this instant, including edits React has not rendered yet. */
   getLatestOnePage: () => OnePage | null
+  /** What was last saved of the fields Settings edits, so each Settings section can say whether it has unsaved changes of its own. */
+  getSavedSettings: () => { title: string; slug: string; settings: Record<string, unknown>; share_image_mode: unknown } | null
 
   updateProfile: (updates: { title?: string; bio?: string; avatar_url?: string | null; avatar_video_url?: string | null; avatar_video_crop?: { x: number; y: number; width: number; height: number } | null }) => void
 
@@ -158,6 +160,16 @@ function publishedPart(page: OnePage): Partial<OnePage> {
   }
 }
 
+/**
+ * What a save sends that a visitor or the editor can tell apart: two pages
+ * with the same answer here save to the same row. Undo and redo use it to
+ * know when they have come back to the page as it was last saved.
+ */
+function savedFields(page: OnePage): string {
+  const p = page as OnePage & { archived_blocks?: unknown; share_image_mode?: unknown }
+  return JSON.stringify([p.title, p.bio, p.avatar_video_url, p.slug, p.theme, p.settings, p.social_links, p.draft_blocks, p.archived_blocks ?? [], p.share_image_mode ?? null])
+}
+
 async function serverError(res: Response): Promise<string | null> {
   try {
     const body = await res.json()
@@ -219,6 +231,16 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
   const editRevisionRef = useRef(0)
   const savedRevisionRef = useRef(0)
   const forceSaveRef = useRef(false)
+  /* The page as it was last saved (savedFields), and whether a field that keeps its own text until Save has been typed in since. */
+  const savedFieldsRef = useRef<string | null>(initialOnePage ? savedFields(initialOnePage) : null)
+  const looseEditRef = useRef(false)
+
+  /* A field that keeps its text locally (Settings) says it changed: undo cannot see that text, so the page stays unsaved until Save. */
+  const markLooseDirty = useCallback(() => {
+    looseEditRef.current = true
+    markDirtyRef.current()
+  }, [])
+  const markDirtyRef = useRef<() => void>(() => {})
 
   const markDirty = useCallback(() => {
     editRevisionRef.current += 1
@@ -226,6 +248,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     // A new edit is what the Save button is about now, not the last result
     setSaveState((s) => (s === "saved" || s === "error" ? "idle" : s))
   }, [])
+  markDirtyRef.current = markDirty
 
   /**
    * The one place an edited page is put in place. A silent edit or one that
@@ -246,9 +269,22 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     }
     syncHistoryFlags()
     if (!options.silent) markDirty()
+    /* A fill nobody typed, on a page with nothing unsaved, is part of the page as saved: undo back to it is clean. */
+    else if (editRevisionRef.current === savedRevisionRef.current) savedFieldsRef.current = savedFields(next)
   }, [markDirty, syncHistoryFlags])
 
   const getLatestOnePage = useCallback(() => latestOnepageRef.current, [])
+  /* Read back out of savedFields' own list: [title, bio, avatar_video_url, slug, theme, settings, ..., share_image_mode]. */
+  const getSavedSettings = useCallback(() => {
+    const raw = savedFieldsRef.current
+    if (!raw) return null
+    try {
+      const f = JSON.parse(raw) as unknown[]
+      return { title: String(f[0] ?? ""), slug: String(f[3] ?? ""), settings: (f[5] ?? {}) as Record<string, unknown>, share_image_mode: f[9] ?? null }
+    } catch {
+      return null
+    }
+  }, [])
 
   /**
    * Sends the page as it is at the moment this starts, then publishes that
@@ -326,6 +362,8 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         setOnePageState(published)
       }
       savedRevisionRef.current = sentRevision
+      savedFieldsRef.current = savedFields(snapshot)
+      if (cleanAfterSave(sentRevision, editRevisionRef.current)) looseEditRef.current = false
       if (cleanAfterSave(sentRevision, editRevisionRef.current)) setIsDirty(false)
       setSaveState("saved")
       return { ok: true }
@@ -334,10 +372,19 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     }
   }, [])
 
+  /* A save on its way: undo cannot call the page saved while the row is about to become something else. */
+  const savingRef = useRef(false)
   const requestSave = useMemo(
     () =>
       serializeSaves<SaveResult>(
-        runSave,
+        async () => {
+          savingRef.current = true
+          try {
+            return await runSave()
+          } finally {
+            savingRef.current = false
+          }
+        },
         () => forceSaveRef.current || editRevisionRef.current !== savedRevisionRef.current,
         () => ({ ok: true }),
       ),
@@ -358,6 +405,8 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     historyRef.current = startHistory(clonePage(newOnepage))
     syncHistoryFlags()
     savedRevisionRef.current = editRevisionRef.current
+    savedFieldsRef.current = savedFields(newOnepage)
+    looseEditRef.current = false
     setIsDirty(false)
     setSaveState("idle")
   }, [syncHistoryFlags])
@@ -557,19 +606,31 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     }
   }, [commit, selectedBlockId])
 
+  /*
+    THE ARCHIVE IS PART OF THE PAGE'S HISTORY. It lived only beside the
+    page, so undoing an archive put the block back on the page and left it
+    in the archive too: saved like that, it was on the page and in View
+    archive at once, and restoring it drew it twice. The archive now rides
+    in every history step (the page's own archived_blocks, the column it is
+    saved to), and undo and redo put it back with the blocks.
+  */
+  const putArchive = useCallback((archived: OnePageBlock[]) => {
+    latestArchivedBlocksRef.current = archived
+    setArchivedBlocks(archived)
+  }, [])
+
   const archiveBlock = useCallback((blockId: string) => {
     const prev = latestOnepageRef.current
     if (!prev) return
     const blockToArchive = prev.draft_blocks.find((b) => b.id === blockId)
     if (!blockToArchive) return
     const archived = [...latestArchivedBlocksRef.current, { ...blockToArchive, archived_at: new Date().toISOString() } as OnePageBlock]
-    latestArchivedBlocksRef.current = archived
-    setArchivedBlocks(archived)
-    commit({ ...prev, draft_blocks: renumber(prev.draft_blocks.filter((b) => b.id !== blockId)) }, null)
+    putArchive(archived)
+    commit({ ...prev, draft_blocks: renumber(prev.draft_blocks.filter((b) => b.id !== blockId)), archived_blocks: archived } as OnePage, null)
     if (selectedBlockId === blockId) {
       setSelectedBlockId(null)
     }
-  }, [commit, selectedBlockId])
+  }, [commit, putArchive, selectedBlockId])
 
   const unarchiveBlock = useCallback((blockId: string) => {
     const prev = latestOnepageRef.current
@@ -586,10 +647,9 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
       blocks.unshift({ ...blockToRestore, archived_at: undefined } as OnePageBlock)
     }
     const archived = latestArchivedBlocksRef.current.filter((b) => b.id !== blockId)
-    latestArchivedBlocksRef.current = archived
-    setArchivedBlocks(archived)
-    commit({ ...prev, draft_blocks: renumber(blocks) }, null)
-  }, [commit])
+    putArchive(archived)
+    commit({ ...prev, draft_blocks: renumber(blocks), archived_blocks: archived } as OnePage, null)
+  }, [commit, putArchive])
 
   const reorderBlocks = useCallback((blocks: OnePageBlock[]) => {
     const prev = latestOnepageRef.current
@@ -655,9 +715,25 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
     historyRef.current = stack
     latestOnepageRef.current = restored
     setOnePageState(restored)
+    const archived = (restored as { archived_blocks?: OnePageBlock[] }).archived_blocks
+    putArchive(Array.isArray(archived) ? archived : [])
     syncHistoryFlags()
-    markDirty()
-  }, [markDirty, syncHistoryFlags])
+    /*
+      BACK AT THE SAVED PAGE IS SAVED. Undoing every edit since the last
+      save left the editor saying Unsaved, and asking before leaving, about
+      a page identical to the one that is live. When the step undo or redo
+      lands on is the page as it was saved, and nothing is typed in a field
+      that keeps its own text, the page is clean again.
+    */
+    if (!looseEditRef.current && !savingRef.current && savedFieldsRef.current !== null && savedFields(restored) === savedFieldsRef.current) {
+      editRevisionRef.current += 1
+      savedRevisionRef.current = editRevisionRef.current
+      setIsDirty(false)
+      setSaveState((s) => (s === "error" ? "idle" : s))
+    } else {
+      markDirty()
+    }
+  }, [markDirty, putArchive, syncHistoryFlags])
 
   const undo = useCallback(() => {
     const stack = historyRef.current
@@ -719,6 +795,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         setActiveSection,
         setSelectedBlockId,
         getLatestOnePage,
+        getSavedSettings,
         updateProfile,
         updateTheme,
         applyTemplate,
@@ -737,7 +814,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         updateSettings,
         updateOnePage,
         updateSlug,
-        markDirty,
+        markDirty: markLooseDirty,
         undo,
         redo,
         save,

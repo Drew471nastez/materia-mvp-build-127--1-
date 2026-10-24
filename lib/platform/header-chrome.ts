@@ -94,3 +94,15 @@ export function headerChrome(light: boolean): HeaderChrome {
     concaveBg: "bg-white",
   }
 }
+
+/**
+ * The 20px rounded edge under the header on storelib.com's own pages
+ * (platform-header-client draws it). One answer for both the header and its
+ * stand in (components/marketing/conditional-header), so the stand in leaves
+ * the same room and nothing below moves when the real header replaces it
+ * (round AB1: measured as a 19px shift of the whole page, CLS 0.02).
+ */
+export function hasConcaveEdge(pathname: string): boolean {
+  if (pathname === "/faq") return false
+  return pathname === "/" || pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing") || pathname === "/developers" || pathname.startsWith("/developers/")
+}

@@ -23,6 +23,7 @@
  * against it for every theme and every saved combination.
  */
 import type { CSSProperties } from "react"
+import { readableOn } from "./theme-apply"
 
 export type ButtonFill = "filled" | "soft" | "outline" | "glass"
 export type ButtonShadow = "none" | "subtle" | "strong" | "hard"
@@ -215,4 +216,47 @@ export const BUTTON_ICON_INSET: Record<ButtonSize, Record<ButtonIconSide, string
   compact: { left: "left-[14px]", right: "right-[14px]" },
   regular: { left: "left-[20px]", right: "right-[20px]" },
   large: { left: "left-[22px]", right: "right-[22px]" },
+}
+
+/* ─── The product block's buttons ──────────────────────────────────────── */
+
+/** A card stops at 28px on a Pill page: a pill's 999px would make the card an oval and crop its picture to one. */
+export function cardRadius(theme: ButtonThemeLike): number {
+  const r = Number(theme.button_border_radius ?? 8)
+  return buttonShape(r) === "pill" ? 28 : r
+}
+
+const sameColor = (a?: string | null, b?: string | null) => String(a ?? "").trim().toLowerCase() === String(b ?? "").trim().toLowerCase()
+
+/**
+ * THE BUTTON INSIDE A PRODUCT CARD IS THE PAGE'S BUTTON, made to read on the
+ * card. It takes the page's style, corners, border, shadow and hover, exactly
+ * as a link button does, with three exceptions that are about being seen:
+ *   - a Solid card wears the button colour itself (the card is the page's
+ *     button), so its button turns the page's pair around: the words' colour
+ *     as the fill, the button colour as the words;
+ *   - over a picture (the Overlay layout) it is white with near-black words;
+ *   - a colour chosen for this block's button wins, as it always has.
+ * On Soft, Outline and Glass the words are the page's, unless they would not
+ * read on the card (readableOn), as the card's own words are.
+ * Returns a theme to draw with themeButtonStyle and buttonHoverVars.
+ */
+export function cardButtonTheme(
+  theme: ButtonThemeLike,
+  o: { surface: string; cardText: string; ownBackground?: string | null; ownButtonColor?: string | null; ownButtonText?: string | null; onPhoto?: boolean },
+): ButtonThemeLike {
+  let t: ButtonThemeLike
+  if (o.onPhoto) {
+    t = { ...theme, button_style: "filled", button_color: "#ffffff", button_text_color: "#111113", button_border_color: "#ffffff" }
+  } else if (o.ownButtonColor) {
+    const hex = /^#[0-9a-f]{6}$/i.test(o.ownButtonColor)
+    t = { ...theme, button_style: "filled", button_color: o.ownButtonColor, button_text_color: readableOn(hex ? o.ownButtonColor : o.surface, o.cardText, o.ownButtonText) }
+  } else if (buttonFill(theme) === "filled") {
+    const onButtonColour = !o.ownBackground || sameColor(o.ownBackground, theme.button_color)
+    t = onButtonColour ? { ...theme, button_color: theme.button_text_color, button_text_color: theme.button_color } : { ...theme }
+  } else {
+    t = { ...theme, button_text_color: readableOn(o.surface, (theme.button_text_color as string) || o.cardText) }
+  }
+  if (o.ownButtonText && !o.ownButtonColor && !o.onPhoto) t.button_text_color = o.ownButtonText
+  return t
 }

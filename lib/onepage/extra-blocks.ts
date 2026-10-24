@@ -87,6 +87,17 @@ export function extraBlockHasContent(block: Pick<OnePageBlock, "type" | "data">)
 }
 
 /**
+ * A LINK STILL WAITING FOR ITS ADDRESS: on, in its schedule, and nothing to
+ * open ("https://" or empty). The live page leaves it out (isBlockShown); the
+ * editor's preview draws it as a muted placeholder, and the blocks list and
+ * the link's own settings say what it needs, so a new link is never just
+ * missing.
+ */
+export function isIncompleteLink(block: any, now: number = Date.now()): boolean {
+  return !!block?.enabled && block.type === "link_button" && isScheduledNow(block, now) && !hasRealUrl(block.data?.url)
+}
+
+/**
  * IS A BLOCK ON THE PAGE? One rule, used by the live page and by the editor's
  * preview, so the preview never shows a block a visitor would not see: off,
  * outside its schedule, a text of less than two real characters, an image

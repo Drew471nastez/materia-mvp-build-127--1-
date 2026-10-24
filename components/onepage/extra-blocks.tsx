@@ -402,6 +402,26 @@ export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: 
   }
 }
 
+/**
+ * A NEW LINK IN THE EDITOR'S PREVIEW, before it has an address: the page's own
+ * button, faded, with a dashed edge and "Add an address to show it", where
+ * the link will be. Never on the live page (lib/onepage/extra-blocks
+ * isIncompleteLink).
+ */
+export function IncompleteLinkPlaceholder({ label, theme }: { label?: string | null; theme: OnePageTheme }) {
+  const button = themeButtonStyle(theme)
+  return (
+    <div
+      data-incomplete-link=""
+      className="flex w-full flex-col items-center justify-center gap-0.5 px-4 py-3 text-center opacity-50"
+      style={{ ...button, borderStyle: "dashed", borderWidth: "1.5px", borderColor: theme.button_style === "outline" ? button.borderColor : theme.text_color, boxShadow: "none" }}
+    >
+      <span className="text-[15px] font-medium leading-5">{(label || "").trim() || tt("My Link")}</span>
+      <span className="text-[12px] leading-4 opacity-80">{tt("Add an address to show it")}</span>
+    </div>
+  )
+}
+
 /* ─── A sensitive link asks first ─────────────────────────────────────── */
 
 /**

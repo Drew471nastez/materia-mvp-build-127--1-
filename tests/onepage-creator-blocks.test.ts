@@ -29,10 +29,10 @@ import {
   signupLooksAutomated,
   signupName,
 } from "@/lib/onepage/creator-blocks"
-import { EXTRA_BLOCK_TYPES, isBlockShown } from "@/lib/onepage/extra-blocks"
+import { EXTRA_BLOCK_TYPES, isBlockShown, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { lessonCounts, productIdsInBlocks, resolveProductBlocks, type ProductsDb } from "@/lib/onepage/live-products"
 import { createDefaultBlock, type OnePageBlock, type OnePageTheme } from "@/lib/onepage/types"
-import { ExtraBlock } from "@/components/onepage/extra-blocks"
+import { ExtraBlock, IncompleteLinkPlaceholder } from "@/components/onepage/extra-blocks"
 import { PICKER_CATEGORIES, PICKER_ENTRIES, searchEntries } from "@/components/onepage/add-block-picker"
 import { CONTENT_SECURITY_POLICY } from "@/lib/security/csp"
 
@@ -222,6 +222,32 @@ async function main() {
     const frames = CONTENT_SECURITY_POLICY.match(/frame-src[^;]*/)?.[0] ?? ""
     check("Spotify, SoundCloud, Apple Music, TikTok, Calendly and Cal.com, and vercel.json says the same",
       ["https://open.spotify.com", "https://w.soundcloud.com", "https://embed.music.apple.com", "https://www.tiktok.com", "https://calendly.com", "https://cal.com"].every((h) => frames.includes(h)) && read("vercel.json").includes(CONTENT_SECURITY_POLICY))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A new link with no address: hidden live, a placeholder in the preview, said in the editor (audit K1)")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const fresh = createDefaultBlock("link_button")
+    check("a new link is waiting for its address, and the live page leaves it out", isIncompleteLink(fresh) && !isBlockShown(fresh))
+    check("one with an address, one that is off, or one out of schedule is not 'waiting'", !isIncompleteLink(b("link_button", { url: "https://a.co" })) && !isIncompleteLink({ ...fresh, enabled: false }) && !isIncompleteLink({ ...fresh, schedule: { start_at: "2999-01-01T00:00:00Z" } }))
+    const ph = renderToStaticMarkup(React.createElement(IncompleteLinkPlaceholder, { label: "My Link", theme }))
+    check("the placeholder: its title, what it needs, faded and dashed", /data-incomplete-link=""/.test(ph) && ph.includes("My Link") && ph.includes("Add an address to show it") && /opacity-50/.test(ph) && /border-style:dashed/.test(ph))
+    const live = read("components/onepage/public-onepage.tsx")
+    check("drawn only inside the editor's preview frame", /const inEditorPreview = useContext\(ExtraBlockPreviewContext\)/.test(live) && /\.filter\(\(b\) => isBlockVisible\(b\) \|\| \(inEditorPreview && isIncompleteLink\(b\)\)\)/.test(live) && /if \(inEditorPreview && isIncompleteLink\(block\)\) \{\s*return \(\s*<div[^>]*>\s*<IncompleteLinkPlaceholder/.test(live))
+    const tab = read("components/onepage/tabs/links-tab.tsx")
+    check("the row says it, in amber", /if \(!hasRealUrl\(data\.url\)\) return \{ title: data\.label \|\| tt\("My Link"\), subtitle: tt\("Add an address to show it"\)/.test(tab) && /data-row-incomplete=/.test(tab))
+    check("its settings say it under the address", /data-link-needs-url=""/.test(tab) && /aria-describedby=\{!hasRealUrl\(data\.url\)/.test(tab))
+    check("and the address field is focused when it is added", /if \(newBlock\?\.id && type === "link_button" && !hasRealUrl\(preset\?\.url\)\)/.test(tab) && /\[data-link-url\]/.test(tab) && /field\.focus\(\{ preventScroll: true \}\)/.test(tab))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A product that is gone reads Unavailable on its row, not its price (audit P1)")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const tab = read("components/onepage/tabs/links-tab.tsx")
+    check("the row reads the product's state the way its settings do", /const productGone = block\.type === "product" && [^\n]*editorProductState\(\(block\.data as ProductBlockData\)\.product_id, rowProducts\) === "unavailable"/.test(tab))
+    check("says Not on your page instead of the price, beside the Unavailable badge", /\{productGone \? tt\("Not on your page"\) : preview\.subtitle\}/.test(tab) && /\{isProduct && <ProductRowBadge productId=/.test(tab))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

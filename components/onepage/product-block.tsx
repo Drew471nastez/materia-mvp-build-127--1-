@@ -24,6 +24,12 @@
  *   overlay   the picture edge to edge with the words and button over it
  *   minimal   no card and no picture: the title and a price pill
  *
+ * EVERY BUTTON HERE IS THE PAGE'S BUTTON (lib/onepage/button-style): the
+ * "button" layout is drawn exactly as a link button is, and the button inside
+ * a card takes the page's style, corners, border, shadow and hover, turned
+ * around only where it would not show (cardButtonTheme). A Soft page has soft
+ * product buttons; a Pill page has pill ones, on cards that stop at 28px.
+ *
  * THE BUTTON MOVES, THE CARD DOES NOT. "Make sure the button can have the
  * hover feel, not the whole block." Pointing at a card lifts its button by a
  * pixel, tints it a little (a layer of its own text colour at low opacity,
@@ -43,6 +49,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import type { OnePageBlock, OnePageTheme, ProductBlockData } from "@/lib/onepage/types"
 import { readableOn } from "@/lib/onepage/theme-apply"
+import { buttonFill, buttonHover, buttonHoverVars, buttonShadow as themeShadowKind, cardButtonTheme, cardRadius, themeButtonStyle, type ButtonThemeLike } from "@/lib/onepage/button-style"
 import { luminance } from "@/lib/onepage/color"
 import { PLAN_CURRENCY, isPlanPriced } from "@/lib/money/product-currency"
 import { shopMoneyIn } from "@/lib/store/shop-money"
@@ -77,26 +84,16 @@ export interface OnePageProductBlockProps {
 
 const isHex6 = (c: string) => /^#[0-9a-f]{6}$/i.test(c)
 const tintOf = (c: string, alpha: string) => (isHex6(c) ? `${c}${alpha}` : "rgba(127,127,127,0.12)")
-const rgba = (hex: string, alpha: number) => {
-  if (!isHex6(hex)) return `rgba(0,0,0,${alpha})`
-  const n = parseInt(hex.slice(1), 16)
-  return `rgba(${n >> 16},${(n >> 8) & 0xff},${n & 0xff},${alpha})`
-}
 
 /**
- * The button's own hover, as classes on the button inside a card (`group/pc` is the card). The tint is a layer of the
- * button's text colour (`before`), the shadow a layer under it (`after`); both fade, the button rises a pixel.
+ * The button's own hover: the page's choice (Lift, Bigger, Glow, Fill, Underline, None), drawn by `.op-btn` in
+ * app/globals.css as the link buttons are. Inside a card it plays when the card is pointed at (`.op-host`), and only
+ * the button moves: the card has no hover of its own. Pointer devices only; translate, scale and opacity, named.
  */
-export const PRODUCT_CTA_HOVER =
-  "relative isolate transition-[translate] duration-200 ease-[cubic-bezier(0.2,0,0,1)] group-hover/pc:-translate-y-px group-active/pc:translate-y-0 " +
-  "before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:bg-current before:opacity-0 before:transition-opacity before:duration-200 group-hover/pc:before:opacity-[0.09] group-active/pc:before:opacity-[0.14] " +
-  "after:pointer-events-none after:absolute after:inset-0 after:-z-10 after:rounded-[inherit] after:shadow-[0_1px_2px_rgba(0,0,0,0.12),0_6px_14px_-6px_rgba(0,0,0,0.28)] after:opacity-0 after:transition-opacity after:duration-200 group-hover/pc:after:opacity-100"
+export const PRODUCT_CTA_HOVER = "op-btn"
 
-/** The same, for a block that is itself the button (the "button" layout): its own hover, not a card's. */
-export const PRODUCT_BUTTON_HOVER =
-  "relative isolate transition-[translate] duration-200 ease-[cubic-bezier(0.2,0,0,1)] hover:-translate-y-px active:translate-y-0 " +
-  "before:pointer-events-none before:absolute before:inset-0 before:rounded-[inherit] before:bg-current before:opacity-0 before:transition-opacity before:duration-200 hover:before:opacity-[0.07] active:before:opacity-[0.12] " +
-  "after:pointer-events-none after:absolute after:inset-0 after:-z-10 after:rounded-[inherit] after:shadow-[0_2px_4px_rgba(0,0,0,0.1),0_10px_22px_-10px_rgba(0,0,0,0.35)] after:opacity-0 after:transition-opacity after:duration-200 hover:after:opacity-100"
+/** The card that hands its hover to the button inside it. */
+export const PRODUCT_CARD_HOST = "op-host"
 
 export function OnePageProductBlock({ block, theme, quiet = false, inPair = false, seller, pageMoney, plainText, trackClick, animationClass, quick }: OnePageProductBlockProps) {
   const data = block.data as ProductBlockData
@@ -189,39 +186,25 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
   if (!data.product_id && !data.product_title) return null
 
   /* ── Colours: the theme's button, the block's own choices, always readable ── */
-  const radius = theme.button_border_radius
+  const radius = cardRadius(theme as ButtonThemeLike)
   const ownBackground = data.block_background_color || null
-  const themeFill = theme.button_style !== "outline" && theme.button_style !== "glass"
+  /* Only a Solid card has the button colour behind its words; Soft, Outline and Glass sit on the page. */
+  const themeFill = buttonFill(theme as ButtonThemeLike) === "filled"
   const surfaceColor = ownBackground || (themeFill ? theme.button_color : theme.background_color)
   const textColor = readableOn(surfaceColor, theme.button_text_color, data.text_color)
-  const hasFill = Boolean(ownBackground) || themeFill
-  /* The button inside a card: its own colour where one was chosen, else a shade of the card (or a tint of its text on a card with no fill). */
-  /* A tint of the card's own text over the card: a light grey on a white card, a dark grey on a black one (a shade of black was black, and the button vanished). */
-  const ctaBg = data.button_color || tintOf(textColor, hasFill ? "24" : "1c")
-  const ctaText = data.button_color ? readableOn(isHex6(data.button_color) ? data.button_color : surfaceColor, textColor, data.button_text_color) : data.button_text_color || textColor
 
-  const buttonShadow = (theme as { button_shadow?: string }).button_shadow || "none"
-  const shadowColor = (theme as { button_shadow_color?: string }).button_shadow_color || "#000000"
-  const shadow: Record<string, string> = {
-    none: "none",
-    subtle: `0 2px 4px ${rgba(shadowColor, 0.15)}`,
-    strong: `0 4px 12px ${rgba(shadowColor, 0.3)}`,
-    hard: `4px 4px 0px ${rgba(shadowColor, 0.9)}`,
-  }
-  const themeButton: React.CSSProperties = {
-    backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_style === "glass" ? "rgba(255, 255, 255, 0.15)" : theme.button_color,
-    color: theme.button_text_color,
-    borderRadius: `${radius}px`,
-    borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : theme.button_border_width || 0}px`,
-    borderStyle: "solid",
-    borderColor: theme.button_style === "outline" ? theme.button_border_color || theme.button_color : theme.button_border_color,
-    backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
-    boxShadow: shadow[buttonShadow] || "none",
-  }
+  /* The page's button, as a link button draws it (the "button" layout, and the card itself). */
+  const themeButton: React.CSSProperties = { ...themeButtonStyle(theme as ButtonThemeLike), ...buttonHoverVars(theme as ButtonThemeLike) }
+  const shadowCss = themeButton.boxShadow as string
   const cardStyle: React.CSSProperties = ownBackground
-    ? { borderRadius: `${radius}px`, backgroundColor: ownBackground, border: "none", boxShadow: shadow[buttonShadow] || "none" }
-    : { ...themeButton, color: undefined }
-  const innerRadius = Math.max(6, radius - 6)
+    ? { borderRadius: `${radius}px`, backgroundColor: ownBackground, border: "none", boxShadow: shadowCss }
+    : { ...themeButtonStyle(theme as ButtonThemeLike), borderRadius: `${radius}px`, color: undefined }
+  /* The hover a button here plays: the page's, still inside a group or carousel as every button is there. */
+  const hoverKind = quiet ? "none" : buttonHover(theme as ButtonThemeLike)
+  const hoverAttrs = (t: ButtonThemeLike) => ({ "data-hover": hoverKind, "data-shadow": themeShadowKind(t) })
+  /* The button inside a card: the page's button, made to read on the card (cardButtonTheme). */
+  const ctaTheme = (onPhoto = false) =>
+    cardButtonTheme(theme as ButtonThemeLike, { surface: surfaceColor, cardText: textColor, ownBackground, ownButtonColor: data.button_color || null, ownButtonText: data.button_text_color || null, onPhoto })
 
   /* ── Words ── */
   const title = data.product_title || "Product"
@@ -267,11 +250,14 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         {parts.was ? <s className="text-[0.85em] font-normal opacity-60">{parts.was}</s> : null}
       </p>
     ) : null
-  const ctaButton = (cls: string, style?: React.CSSProperties) => (
-    <span className={cn("inline-flex items-center justify-center font-medium", PRODUCT_CTA_HOVER, cls)} style={{ backgroundColor: ctaBg, color: ctaText, borderRadius: `${innerRadius}px`, ...style }} data-product-cta="">
-      <span className="relative truncate">{cta}</span>
-    </span>
-  )
+  const ctaButton = (cls: string, onPhoto = false) => {
+    const t = ctaTheme(onPhoto)
+    return (
+      <span className={cn("inline-flex items-center justify-center font-medium", PRODUCT_CTA_HOVER, cls)} style={{ ...themeButtonStyle(t), ...buttonHoverVars(t) }} {...hoverAttrs(t)} data-product-cta="">
+        <span className="op-label relative truncate">{cta}</span>
+      </span>
+    )
+  }
   const picture = (cls: string, ratio?: string) =>
     image ? (
       <span className={cn("block shrink-0 overflow-hidden bg-black/5", ratio, cls)}>
@@ -284,7 +270,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
     <a
       href={href}
       onClick={onClick}
-      className={cn("group/pc block w-full cursor-pointer overflow-hidden text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2", cls, animationClass)}
+      className={cn("group/pc block w-full cursor-pointer overflow-hidden text-left outline-none focus-visible:ring-2 focus-visible:ring-offset-2", PRODUCT_CARD_HOST, cls, animationClass)}
       style={style}
       data-product-block={layout}
       data-product-tap={plan}
@@ -301,8 +287,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
         <a
           href={href}
           onClick={onClick}
-          className={cn("flex w-full cursor-pointer items-center justify-center gap-2 px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:gap-3 sm:px-5 sm:py-4 sm:text-base", !quiet && PRODUCT_BUTTON_HOVER, animationClass)}
+          className={cn("op-btn flex w-full cursor-pointer items-center justify-center gap-2 px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:gap-3 sm:px-5 sm:py-4 sm:text-base", animationClass)}
           style={themeButton}
+          {...hoverAttrs(theme as ButtonThemeLike)}
           data-product-block="button"
           data-product-tap={plan}
         >
@@ -310,7 +297,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.product_thumbnail} alt={title} className="relative h-6 w-6 shrink-0 rounded object-cover sm:h-7 sm:w-7" />
           ) : null}
-          <span className="relative truncate">{cta}</span>
+          <span className="op-label relative truncate">{cta}</span>
           {showPrice && !purchased ? (
             <span className="relative shrink-0 text-sm tabular-nums opacity-75">
               {now}
@@ -385,7 +372,7 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
                 <span className="line-clamp-2 text-[17px] font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.3)]">{title}</span>
                 {priceLine("mt-0.5 text-[14.5px] font-semibold", "#ffffff")}
               </span>
-              {ctaButton("h-10 max-w-[48%] shrink-0 px-4 text-sm", { backgroundColor: "#ffffff", color: "#111113" })}
+              {ctaButton("h-10 max-w-[48%] shrink-0 px-4 text-sm", true)}
             </span>
           </span>,
           "",
@@ -418,8 +405,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
       break
     }
     case "minimal": {
-      const pillBg = theme.button_style === "outline" || theme.button_style === "glass" ? theme.text_color : theme.button_color
-      const pillText = readableOn(pillBg, theme.button_style === "outline" || theme.button_style === "glass" ? theme.background_color : theme.button_text_color)
+      /* The price pill sits on the page, as a link button does: the page's button exactly, its words readable on the page. */
+      const pillTheme: ButtonThemeLike = themeFill ? (theme as ButtonThemeLike) : { ...(theme as ButtonThemeLike), button_text_color: readableOn(theme.background_color, theme.button_text_color) }
       body = shell(
         <span className="flex items-center gap-3 px-1 py-3" style={{ borderBottom: `1px solid ${tintOf(theme.text_color, "26")}` }}>
           <span className="min-w-0 flex-1">
@@ -432,8 +419,8 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
               </span>
             ) : null}
           </span>
-          <span className={cn("inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-semibold tabular-nums", PRODUCT_CTA_HOVER)} style={{ backgroundColor: pillBg, color: pillText }} data-product-cta="">
-            <span className="relative">{showPrice && !purchased ? now : cta}</span>
+          <span className={cn("inline-flex h-9 shrink-0 items-center gap-1.5 px-3.5 text-[13.5px] font-semibold tabular-nums", PRODUCT_CTA_HOVER)} style={{ ...themeButtonStyle(pillTheme), ...buttonHoverVars(pillTheme) }} {...hoverAttrs(pillTheme)} data-product-cta="">
+            <span className="op-label relative">{showPrice && !purchased ? now : cta}</span>
             {showPrice && parts.was && !purchased ? <s className="relative text-[12px] font-normal opacity-60">{parts.was}</s> : null}
           </span>
         </span>,

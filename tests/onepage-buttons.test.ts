@@ -30,10 +30,13 @@ import {
   buttonIconSide,
   buttonShape,
   buttonSize,
+  cardButtonTheme,
+  cardRadius,
   themeButtonStripFill,
   themeButtonStyle,
 } from "@/lib/onepage/button-style"
 import { stripComments } from "./_source"
+import { contrastRatio } from "@/lib/onepage/theme-apply"
 
 let passed = 0
 let failed = 0
@@ -183,6 +186,42 @@ check("Solid, Soft, Outline and Glass are offered", ["filled", "soft", "outline"
 check("Square, Rounded and Pill are offered", /\["square", "rounded", "pill"\]/.test(buttons))
 check("the hover choices run the real hover when pointed at", /className="op-demo"/.test(buttons))
 check("no wall of sliders: one slider, for Rounded corners only", (buttons.match(/<RangeRow/g) || []).length === 1 && /shape === "rounded" \? \(/.test(buttons))
+
+/* ─── The product block's buttons are the page's buttons ──────────────── */
+console.log("\nA product button and a link button are the same button")
+const pick = (st: React.CSSProperties) => ({ bg: st.backgroundColor, border: `${st.borderWidth} ${st.borderStyle} ${st.borderColor}`, radius: st.borderRadius, shadow: st.boxShadow, blur: st.backdropFilter })
+let pairs = 0
+const off: string[] = []
+for (const style of ["filled", "soft", "outline", "glass"]) {
+  for (const radius of [0, 12, 999]) {
+    for (const width of [0, 2]) {
+      for (const shadow of ["none", "subtle", "hard"]) {
+        const theme = { button_style: style, button_color: "#2f6f4f", button_text_color: style === "soft" ? "#2f6f4f" : "#ffffff", background_color: "#f6f5f2", button_border_radius: radius, button_border_width: width, button_border_color: "#2f6f4f", button_shadow: shadow, button_shadow_color: "#111113" } as any
+        const link = pick(themeButtonStyle(theme))
+        /* The "button" layout and the price pill sit on the page: the link button exactly. */
+        const productButton = pick(themeButtonStyle(theme))
+        /* The button inside a card: same border, corners, shadow; same fill except on a Solid card, where it turns the pair around to be seen. */
+        const surface = style === "filled" ? theme.button_color : theme.background_color
+        const ctaT = cardButtonTheme(theme, { surface, cardText: "#111113" })
+        const cta = pick(themeButtonStyle(ctaT))
+        pairs++
+        const sameShape = cta.border === link.border && cta.radius === link.radius && cta.shadow === link.shadow && cta.blur === link.blur
+        const fillOk = style === "filled" ? cta.bg === theme.button_text_color && (contrastRatio(String(cta.bg), surface) ?? 0) >= 3 : cta.bg === link.bg
+        const wordsOk = (contrastRatio(String(ctaT.button_text_color), style === "filled" ? String(cta.bg) : surface) ?? 3) >= 3
+        if (JSON.stringify(productButton) !== JSON.stringify(link) || !sameShape || !fillOk || !wordsOk) off.push(`${style}/${radius}/${width}/${shadow}: link ${JSON.stringify(link)} cta ${JSON.stringify(cta)} words ${ctaT.button_text_color}`)
+      }
+    }
+  }
+}
+check(`${pairs} page looks: the product button resolves to the link button's background, border, corners and shadow`, off.length === 0, off.slice(0, 2).join(" | "))
+check("a Soft page has a soft product button", pick(themeButtonStyle(cardButtonTheme({ button_style: "soft", button_color: "#2f6f4f", button_text_color: "#2f6f4f", background_color: "#ffffff" } as any, { surface: "#ffffff", cardText: "#111113" }))).bg === "color-mix(in srgb, #2f6f4f 14%, transparent)")
+check("a colour chosen for the block's button still wins, its words readable", (() => { const t = cardButtonTheme({ button_style: "outline", button_color: "#111113", button_text_color: "#111113" } as any, { surface: "#ffffff", cardText: "#111113", ownButtonColor: "#111113" }); return t.button_color === "#111113" && t.button_style === "filled" && t.button_text_color === "#ffffff" })())
+check("over a picture the button is white with near-black words, in the page's shape", (() => { const t = cardButtonTheme({ button_style: "outline", button_border_radius: 999 } as any, { surface: "#000", cardText: "#fff", onPhoto: true }); return t.button_color === "#ffffff" && t.button_text_color === "#111113" && t.button_border_radius === 999 })())
+check("a card stops at 28px on a Pill page; a Rounded page's card keeps its corners", cardRadius({ button_border_radius: 999 }) === 28 && cardRadius({ button_border_radius: 14 }) === 14 && cardRadius({ button_border_radius: 0 }) === 0)
+const product = stripComments(readFileSync("components/onepage/product-block.tsx", "utf8"))
+check("the product block keeps no button drawing of its own", !/theme\.button_style ===/.test(product) && !/shadow\[buttonShadow\]/.test(product) && /themeButtonStyle\(theme as ButtonThemeLike\)/.test(product))
+check("the button layout, every card's button and the price pill play the page's hover", (product.match(/\{\.\.\.hoverAttrs\(/g) || []).length === 3 && /"op-btn flex w-full/.test(product) && /PRODUCT_CARD_HOST, cls/.test(product))
+check("all eight layouts draw their button through ctaButton or the page button", (product.match(/\{ctaButton\(/g) || []).length >= 6)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {

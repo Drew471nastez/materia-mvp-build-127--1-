@@ -238,6 +238,19 @@ check("the sheet reads input through parseSocialInput", /parseSocialInput\(/.tes
 check("the sheet shows a saved link through socialFieldValue", /socialFieldValue\(/.test(links))
 check("the sheet draws the platform's prefix", /socialFormat\(/.test(links) && /data-social-prefix/.test(links))
 
+console.log("\nThe social row follows the links without becoming an edit")
+{
+  const tab = links
+  const listSync = tab.slice(tab.indexOf("// Sync social_links to all social_row blocks"), tab.indexOf("// Auto-fetch thumbnail for social media links"))
+  const editorSync = tab.slice(tab.indexOf("// Sync block platforms when socialLinks change"), tab.indexOf("const updateData = (updates"))
+  check("the list's sync is silent and carries an edited address", /\{ silent: true \}\)/.test(listSync) && /hasChangedUrls/.test(listSync))
+  check("the social row editor's own sync is silent too (no Unsaved, no Undo step on open)", /contextUpdateBlock\(block\.id, \{[\s\S]*?\}, \{ silent: true \}\)/.test(editorSync) && /hasChangedUrls/.test(editorSync))
+  const comp = tab.slice(tab.indexOf("// Sync social_links to all social_row blocks") - 2000, tab.indexOf("// Handle thumbnail upload for modal"))
+  const early = comp.indexOf("if (!onepage) return null")
+  const lastHook = Math.max(comp.lastIndexOf("useEffect("), comp.lastIndexOf("useCallback("), comp.lastIndexOf("useRef("))
+  check("every hook runs before the early return (rules of hooks)", early > lastHook && lastHook > 0)
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {
   console.log("\nFailures:\n  " + failures.join("\n  "))

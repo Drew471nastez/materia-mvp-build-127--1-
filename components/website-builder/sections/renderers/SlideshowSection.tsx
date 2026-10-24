@@ -31,6 +31,7 @@ import {
   str,
   SectionWrapper,
   type SectionProps, schemeButton, firstPicture } from "../_shared"
+import { siteImageProps } from "@/lib/website-builder/site-image"
 
 export function SlideshowSection({ section, theme, isEditing, isSelected, onClick, pageIndex }: SectionProps) {
   const s = section.settings
@@ -107,6 +108,7 @@ export function SlideshowSection({ section, theme, isEditing, isSelected, onClic
                 {image ? (
                   <img
                     src={image}
+                    {...siteImageProps(image)}
                     alt=""
                     className="absolute inset-0 h-full w-full object-cover"
                     loading={i === 0 ? "eager" : "lazy"}

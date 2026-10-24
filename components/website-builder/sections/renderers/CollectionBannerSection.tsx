@@ -6,6 +6,7 @@
 // section placed below.
 
 import { sectionColors, str, bool, SectionWrapper, hexToRgba, type SectionProps } from "../_shared"
+import { siteImageProps } from "@/lib/website-builder/site-image"
 
 export function CollectionBannerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -28,7 +29,7 @@ export function CollectionBannerSection({ section, theme, isEditing, isSelected,
     <div className="relative w-full overflow-hidden" style={{ minHeight: height }}>
       {heroImage ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={heroImage} alt={heroAlt} className="absolute inset-0 w-full h-full object-cover" />
+        <img src={heroImage} {...siteImageProps(heroImage)} alt={heroAlt} className="absolute inset-0 w-full h-full object-cover" />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-neutral-600 to-neutral-800" />
       )}

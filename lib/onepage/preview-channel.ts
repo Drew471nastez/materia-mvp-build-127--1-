@@ -5,7 +5,11 @@
  *
  *   "ready"  the frame has loaded and is listening: the editor sends the page
  *   "page"   the page as it is being edited, in the shape the published page
- *            is drawn from (lib/onepage/public-shape)
+ *            is drawn from (lib/onepage/public-shape), with the store's
+ *            currency: the live page draws its prices in it
+ *            (app/(marketing)/l/[slug]/page.tsx PriceCurrency), so the
+ *            preview must too, or a euro store's 24 read "24.00 lei" here
+ *            and "€24.00" live
  *   "drawn"  the frame has drawn the page once, fonts included: the
  *            editor's loader can go
  *
@@ -22,4 +26,4 @@ export const ONEPAGE_PREVIEW_PATH = "/onepage-preview?embedded=1"
 export type PreviewMessage =
   | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "ready" }
   | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "drawn" }
-  | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "page"; page: PublicOnePageData }
+  | { channel: typeof ONEPAGE_PREVIEW_CHANNEL; kind: "page"; page: PublicOnePageData; currency?: string | null }

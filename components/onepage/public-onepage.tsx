@@ -38,7 +38,8 @@ import { navigateInApp } from "@/lib/native-bridge"
 import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile } from "@/lib/downloads/download-file"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
-import { ExtraBlock, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
+import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
+import { isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
@@ -290,6 +291,47 @@ function QuickCheckoutFormContent({
   )
 }
 
+/* Glass for a light page: the same frosted button and panel, in ink instead of white (GLASS ON A LIGHT PAGE). */
+const GLASS_ON_LIGHT_BELL = {
+  buttonBg: "rgba(17, 17, 19, 0.06)",
+  buttonBorder: "1px solid rgba(17, 17, 19, 0.12)",
+  panelBg: "rgba(255, 255, 255, 0.72)",
+  panelBorder: "1px solid rgba(17, 17, 19, 0.1)",
+  iconColor: "text-[#111113]/80",
+  textColor: "text-[#111113]/90",
+  inputBg: "bg-black/5",
+  inputBorder: "border-black/10",
+  inputText: "text-[#111113]",
+  inputPlaceholder: "placeholder-black/40",
+  buttonSubmitBg: "bg-[#111113] hover:bg-[#1a1a2e] text-white",
+  dotColor: "bg-[#111113]/60",
+  shadow: "0 0 6px rgba(17, 17, 19, 0.25)",
+}
+const GLASS_ON_LIGHT_SHARE = {
+  buttonBg: "rgba(17, 17, 19, 0.06)",
+  buttonBorder: "1px solid rgba(17, 17, 19, 0.12)",
+  panelBg: "rgba(255, 255, 255, 0.98)",
+  iconColor: "text-[#111113]/80",
+}
+
+/**
+ * Whether the page behind the corner buttons is light: a solid colour, or
+ * the average of a gradient's colours, brighter than the middle. A picture
+ * or a video counts as dark, as glass was made for it.
+ */
+export function pageIsLight(theme: { background_type?: string | null; background_color?: string | null; background_gradient?: string | null }): boolean {
+  if (theme.background_type === "image" || theme.background_type === "video") return false
+  const src = theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#ffffff"
+  const hexes = src.match(/#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g)
+  if (!hexes) return true
+  const lum = hexes.map((h) => {
+    let x = h.slice(1)
+    if (x.length === 3) x = x.split("").map((c) => c + c).join("")
+    return (0.299 * parseInt(x.slice(0, 2), 16) + 0.587 * parseInt(x.slice(2, 4), 16) + 0.114 * parseInt(x.slice(4, 6), 16)) / 255
+  })
+  return lum.reduce((a, b) => a + b, 0) / lum.length > 0.6
+}
+
 // Notification Bell Component with Subscribe Form
 function NotificationBell({
   sellerName,
@@ -297,7 +339,8 @@ function NotificationBell({
   onepageId,
   style = "glass",
   isVisible = true,
-}: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black"; isVisible?: boolean }) {
+  onLight = false,
+}: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black"; isVisible?: boolean; onLight?: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -415,7 +458,15 @@ function NotificationBell({
   }
 
   // Fallback to glass if style is not defined
-  const s = styles[style as keyof typeof styles] || styles.glass
+  /*
+    GLASS ON A LIGHT PAGE IS INK GLASS. Glass is white on a 15% white circle,
+    made for a dark or photo page; on a light one the bell could not be seen
+    and its panel's words were white on near white (round 10 audit, S1). On a
+    light page (pageIsLight) the same glass is drawn in ink.
+  */
+  const inkGlass = onLight && !(style === "white" || style === "black")
+  const lightInk = style === "white" || inkGlass
+  const s = inkGlass ? GLASS_ON_LIGHT_BELL : styles[style as keyof typeof styles] || styles.glass
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -485,6 +536,8 @@ function NotificationBell({
     >
       {/* Bell Button */}
       <button
+        data-onepage-bell=""
+        data-ink={inkGlass ? "" : undefined}
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 hover:scale-105",
@@ -532,10 +585,10 @@ function NotificationBell({
               onClick={() => setIsOpen(false)}
               className={cn(
                 "p-1 rounded-full transition-colors",
-                style === "white" ? "hover:bg-gray-100" : "hover:bg-white/20",
+                lightInk ? "hover:bg-gray-100" : "hover:bg-white/20",
               )}
             >
-              <X className={cn("w-3.5 h-3.5", style === "white" ? "text-gray-500" : "text-white/70")} />
+              <X className={cn("w-3.5 h-3.5", lightInk ? "text-gray-500" : "text-white/70")} />
             </button>
           </div>
 
@@ -544,13 +597,13 @@ function NotificationBell({
               <div
                 className={cn(
                   "w-8 h-8 rounded-full flex items-center justify-center mb-1",
-                  style === "white" ? "bg-green-100" : "bg-green-500/30",
+                  lightInk ? "bg-green-100" : "bg-green-500/30",
                 )}
               >
-                <Check className={cn("w-5 h-5", style === "white" ? "text-green-600" : "text-green-400")} />
+                <Check className={cn("w-5 h-5", lightInk ? "text-green-600" : "text-green-400")} />
               </div>
               <span className={cn("text-sm font-medium", s.textColor)}>Subscribed!</span>
-              <span className={cn("text-xs", style === "white" ? "text-gray-500" : "text-white/60")}>
+              <span className={cn("text-xs", lightInk ? "text-gray-500" : "text-white/60")}>
                 You&apos;ll receive updates
               </span>
             </div>
@@ -567,13 +620,13 @@ function NotificationBell({
                   s.inputBorder,
                   s.inputText,
                   s.inputPlaceholder,
-                  style === "white" ? "focus:border-gray-400" : "focus:border-white/50",
+                  lightInk ? "focus:border-gray-400" : "focus:border-white/50",
                 )}
                 required
                 disabled={isSubmitting}
               />
               {error && (
-                <p className={cn("text-xs text-center", style === "white" ? "text-red-600" : "text-red-300")}>
+                <p className={cn("text-xs text-center", lightInk ? "text-red-600" : "text-red-300")}>
                   {error}
                 </p>
               )}
@@ -616,6 +669,7 @@ function ShareButton({
   themeBackgroundColor,
   themeBackgroundGradient,
   isVisible = true,
+  onLight = false,
 }: {
   pageUrl: string
   pageTitle: string
@@ -628,6 +682,8 @@ function ShareButton({
   themeBackgroundColor?: string
   themeBackgroundGradient?: string
   isVisible?: boolean
+  /** The page behind is light: glass is drawn in ink (see GLASS ON A LIGHT PAGE). */
+  onLight?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -714,7 +770,8 @@ function ShareButton({
   }
 
   // Fallback to glass if style is not defined
-  const s = styles[style as keyof typeof styles] || styles.glass
+  const inkGlass = onLight && !(style === "white" || style === "black")
+  const s = inkGlass ? GLASS_ON_LIGHT_SHARE : styles[style as keyof typeof styles] || styles.glass
 
   const copyLink = async () => {
     try {
@@ -941,6 +998,8 @@ function ShareButton({
         <div>
           {/* Share Button - icons 3px smaller on desktop */}
           <button
+            data-onepage-share-button=""
+            data-ink={inkGlass ? "" : undefined}
             onClick={() => setIsOpen(!isOpen)}
             className={cn(
               "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 hover:scale-105",
@@ -1283,6 +1342,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
   const sellerName = personName({ name: title })
 
   // Modal visibility state - to hide buttons when fullscreen modals are open
+  /* True in the editor's preview frame (components/onepage/preview-document). */
+  const inEditorPreview = useContext(ExtraBlockPreviewContext)
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
   const modalVisibilityContextValue = { isAnyModalOpen, setIsAnyModalOpen }
 
@@ -1741,7 +1802,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         )}
       >
         {pairProductTiles(safeBlocks
-          .filter((b) => isBlockVisible(b))
+          /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
+          .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
           .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)))
           .map((item, index) => {
             const animClass = !hasBlocksAnimated ? "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both" : ""
@@ -1768,6 +1830,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               )
             }
             const block = item
+            if (inEditorPreview && isIncompleteLink(block)) {
+              return (
+                <div key={block.id} className={cn("w-full", animClass)} style={animStyle}>
+                  <IncompleteLinkPlaceholder label={(block.data as LinkButtonBlockData)?.label} theme={safeTheme} />
+                </div>
+              )
+            }
             return (
               <div
                 key={block.id}
@@ -2274,6 +2343,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           onepageId={onepage.id}
           style={safeSettings.subscribe_style || "glass"}
           isVisible={buttonsVisible}
+          onLight={pageIsLight(safeTheme)}
         />
       )}
 
@@ -2291,6 +2361,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           themeBackgroundColor={safeTheme.background_color}
           themeBackgroundGradient={safeTheme.background_gradient}
           isVisible={buttonsVisible}
+          onLight={pageIsLight(safeTheme)}
         />
       )}
 

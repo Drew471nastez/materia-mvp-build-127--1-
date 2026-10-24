@@ -16,8 +16,23 @@
  *
  * A block outside its schedule is left out in both, so it is not in the
  * page at all until it starts.
+ *
+ * AND THE BLOCKS ARE READ THE SAME WAY ON BOTH SIDES (drawnBlocks below):
+ *
+ *   social row   drawn from the page's social links, in the row's own order
+ *                (lib/onepage/editor-state syncedSocialPlatforms), on a page
+ *                that has social links at all. The row
+ *                keeps a copy of every platform and address, and that copy
+ *                was brought in line only by an effect in the Links tab, so
+ *                the preview showed one set of icons on Links and another on
+ *                Design, and an address edited in the social links kept the
+ *                old one on the live page.
+ *   link address an address typed without its scheme ("example.com/shop") is
+ *                opened as https. As it was saved, the page drew it as a
+ *                path on storelib.me, which is a 404.
  */
 import { isScheduledNow } from "@/lib/onepage/extra-blocks"
+import { syncedSocialPlatforms } from "@/lib/onepage/editor-state"
 import { creatorName, creatorPhoto } from "@/lib/account/identity"
 
 /** The row as it is stored, as far as the page reads it. */
@@ -57,6 +72,38 @@ export const FALLBACK_PUBLIC_THEME = {
   font_family: "Inter",
   spacing: "normal",
   card_width: "standard",
+}
+
+/** "example.com/shop" opens https://example.com/shop; anything with a scheme, a path, an anchor or no dot is left as it is. */
+export function linkHref(url: unknown): unknown {
+  if (typeof url !== "string") return url
+  const trimmed = url.trim()
+  if (!trimmed || /^[a-z][a-z0-9+.-]*:/i.test(trimmed) || /^[/#?]/.test(trimmed)) return url
+  if (/^www\.|^[^\s/@]+\.[a-z]{2,}(?:[:/?#]|$)/i.test(trimmed)) return `https://${trimmed.replace(/^\/+/, "")}`
+  return url
+}
+
+function drawnBlock(block: any, social: Record<string, unknown>): any {
+  if (!block || typeof block !== "object" || !block.data || typeof block.data !== "object") return block
+  /* A page with no social links at all keeps its row as saved: it was made before the links were the row's source, and the editor brings it in line the next time it is saved. */
+  if (block.type === "social_row" && Object.values(social || {}).some((v) => typeof v === "string" && v.trim() !== "")) {
+    const platforms = syncedSocialPlatforms(block.data.platforms, social)
+    return platforms ? { ...block, data: { ...block.data, platforms } } : block
+  }
+  if (block.type === "link_button") {
+    const href = linkHref(block.data.url)
+    return href === block.data.url ? block : { ...block, data: { ...block.data, url: href } }
+  }
+  if (block.type === "group" && Array.isArray(block.data.children)) {
+    const children = block.data.children.map((c: any) => drawnBlock(c, social))
+    return children.every((c: any, i: number) => c === block.data.children[i]) ? block : { ...block, data: { ...block.data, children } }
+  }
+  return block
+}
+
+/** The blocks as both sides draw them: in their schedule, social rows from the social links, link addresses that open. */
+export function drawnBlocks(blocks: any[], social: Record<string, unknown>, now: number): any[] {
+  return blocks.filter((b) => isScheduledNow(b, now)).map((b) => drawnBlock(b, social))
 }
 
 export type PublicOnePageData = {
@@ -121,7 +168,7 @@ export function publicOnePage(
     avatar_video_url: profile?.avatar_video_url || row.avatar_video_url || null,
     avatar_video_crop: profile?.avatar_video_crop || (settings as any)?.avatar_video_crop || null,
     theme,
-    blocks: blocks.filter((b) => isScheduledNow(b, now)),
+    blocks: drawnBlocks(blocks, social as Record<string, unknown>, now),
     social_links: social,
     settings: customDomain === undefined ? { ...settings } : { ...settings, custom_domain: customDomain },
     seller_id: sellerId === undefined ? row.seller_id || row.creator_id || null : sellerId,

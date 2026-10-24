@@ -2750,7 +2750,8 @@ html.capacitor .subscribe-bar-spacer {
    and cover the border (--op-bw). The variables come from
    buttonHoverVars() in lib/onepage/button-style.ts. Pointer devices only: a
    phone's tap never leaves a button stuck lifted.
-   .op-demo:hover drives the same rules for the samples in the Design tab. */
+   .op-demo:hover drives the same rules for the samples in the Design tab, and
+   .op-host:hover for the button inside a product card (the card stays still). */
 .op-btn {
   position: relative;
   isolation: isolate;
@@ -2838,23 +2839,23 @@ html.capacitor .subscribe-bar-spacer {
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 @media (hover: hover) and (pointer: fine) {
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="lift"] { translate: 0 -2px; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="lift"][data-shadow="hard"] { translate: -2px -2px; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="lift"]::before { opacity: 1; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="lift"]:not(.animate-onepage-swipe)::after { opacity: 0.05; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="fade"] { opacity: 0.8; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="zoom"] { scale: 1.03; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="glow"]::before { opacity: 1; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="fill"] { color: var(--op-fill-text, inherit) !important; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="fill"]:not(.animate-onepage-swipe)::after { opacity: 1; }
-  :is(.op-btn:hover, .op-demo:hover .op-btn)[data-hover="underline"] .op-label::after { scale: 1 1; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"] { translate: 0 -2px; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"][data-shadow="hard"] { translate: -2px -2px; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]::before { opacity: 1; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="lift"]:not(.animate-onepage-swipe)::after { opacity: 0.05; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fade"] { opacity: 0.8; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="zoom"] { scale: 1.03; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="glow"]::before { opacity: 1; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"] { color: var(--op-fill-text, inherit) !important; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"]:not(.animate-onepage-swipe)::after { opacity: 1; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="underline"] .op-label::after { scale: 1 1; }
   .op-btn[data-hover]:not([data-hover="none"]):active { scale: 0.985; translate: 0 0; }
   .op-card:hover::after { opacity: 1; }
   .op-card:hover .op-media { scale: 1.03; }
 }
 @media (prefers-reduced-motion: reduce) {
   .op-btn, .op-media { transition-duration: 0ms; }
-  .op-btn:hover, .op-demo:hover .op-btn { translate: none !important; scale: none !important; }
+  .op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn { translate: none !important; scale: none !important; }
   .op-card:hover .op-media { scale: none; }
 }
 
