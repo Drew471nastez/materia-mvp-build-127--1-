@@ -90,8 +90,8 @@ export interface StorelibOrderDetail {
 export interface SiteAccount {
   /** Signed in: the customer and their orders. Null for a guest. */
   customer: StorelibCustomer | null
-  /** A guest part way through signing in: the email a code went to. */
-  pending?: { email: string } | null
+  /** A guest part way through signing in: the email a code went to, and where the sign in was going (the note's own path, lib/site-accounts/token PendingClaims.r). */
+  pending?: { email: string; returnTo?: string } | null
   /** On /account/orders/<id>: that order of this customer's, with its files. Null when it is not theirs. */
   order?: StorelibOrderDetail | null
 }
@@ -261,6 +261,12 @@ export interface SignInView {
 /** Sign in, the way every Storelib website does it: an email, then the six digit code sent to it. A new email makes the account. */
 export function signInContent(v: SignInView): string {
   const back = esc(v.returnTo || "/account")
+  /*
+    "Use a different email" goes through a route rather than to
+    /account/login?step=email: only a route can end the code this browser is
+    waiting on, which otherwise came back on the next visit to sign in
+    (app/api/site-account/restart, which keeps where the visitor was going).
+  */
   if (v.step === "code") {
     return page(`<h1>Check your email</h1>
 <p class="sl-acc__lead">We sent a 6 digit code to <strong>${esc(v.email)}</strong>. It works for 10 minutes.</p>
@@ -272,7 +278,7 @@ ${notice(v.notice)}
 </form>
 <div class="sl-acc__row">
 <form method="post" action="/api/site-account/code" data-storelib-form="native"><input type="hidden" name="email" value="${esc(v.email)}"><input type="hidden" name="return" value="${back}"><input type="hidden" name="again" value="1"><button class="sl-acc__link" type="submit">Send a new code</button></form>
-<a class="sl-acc__link" href="/account/login?step=email">Use a different email</a>
+<a class="sl-acc__link" href="/api/site-account/restart">Use a different email</a>
 </div>`)
   }
   return page(`<h1>${v.register ? "Create account" : "Sign in"}</h1>

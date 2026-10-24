@@ -602,7 +602,13 @@ function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
     const notice = signInNotice(!pending && (error === "code" || error === "expired" || error === "tries") ? "restart" : error) ?? (pending && req.query.get("sent") === "1" ? "A new code is on its way." : null)
     const register = signIn[1] === "register"
     const title = register ? "Create account" : "Sign in"
-    if (pending) return shell(site, req, path, title, signInContent({ step: "code", email: pending.email, returnTo: back, notice }), "customers/login")
+    /*
+      The code step lands here from the code route with no `return` in the
+      address, so `back` is /account. Where this sign in was going is in the
+      note itself; Send a new code posts it again, and a new code asked for
+      on the way to checkout still ends at checkout, as the native page does.
+    */
+    if (pending) return shell(site, req, path, title, signInContent({ step: "code", email: pending.email, returnTo: pending.returnTo || back, notice }), "customers/login")
     const own = themeAccountTemplate(site, req, register ? "customers/register" : "customers/login", path, title, notice ? { customer_login: notice } : null)
     if (own) return own
     return shell(site, req, path, title, signInContent({ step: "email", returnTo: back, notice, register }), register ? "customers/register" : "customers/login")

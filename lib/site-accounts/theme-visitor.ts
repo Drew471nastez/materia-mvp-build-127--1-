@@ -43,5 +43,5 @@ export async function siteAccountOf(request: Request, creatorId: string, opts: {
   }
   if (!opts.pending) return { customer: null }
   const note = pendingFrom(cookieFrom(request, pendingCookieName(host)), host, { creatorId })
-  return { customer: null, pending: note ? { email: note.m } : null }
+  return { customer: null, pending: note ? { email: note.m, returnTo: note.r } : null }
 }

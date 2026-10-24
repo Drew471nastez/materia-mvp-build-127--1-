@@ -13,6 +13,12 @@
  * own wishlist page shows that page now, and its cards are shown by id or by
  * handle (the theme's hearts kept handles, its page compared ids).
  *
+ * Signing in on a website: Use a different email ends the code the browser
+ * was waiting on (it came back on the next visit) and keeps where the visitor
+ * was going; an imported theme's Send a new code keeps it too, and keeps the
+ * name a Create account form gave; in the editor, a sign in or account form
+ * says it works on the live site instead of doing nothing.
+ *
  * Run with:  npx tsx tests/round-bb.test.ts
  */
 import { readFileSync } from "node:fs"
@@ -76,6 +82,38 @@ console.log("\nA receipt opened from a website's account stays on the website\n"
   check("  every account page of a website uses it, none storelib.com", callers.every((c) => /siteCustomer\(.*SITE_RECEIPTS/.test(c) && !/siteCustomer\(.*getMainDomain/.test(c)))
   const route = code("lib/checkout/site-checkout.ts")
   check("  and the website's host serves /receipt itself", /if \(path === "\/receipt" \|\| path\.startsWith\("\/receipt\/"\)\) return \{ kind: "pass" \}/.test(route))
+}
+
+console.log("\nSigning in on a website: a different email, a new code, and the editor\n")
+{
+  /* Use a different email: through a route that ends the code this browser waits on, keeping where the visitor was going. */
+  const restart = code("app/api/site-account/restart/route.ts")
+  check("Use a different email ends the code this browser waits on", /export async function GET/.test(restart) && /res\.cookies\.set\(pendingCookieName\(host\), "", \{ \.\.\.pendingCookie\(host\), maxAge: 0 \}\)/.test(restart))
+  check("  lands on the email step, with where the sign in was going", /to\.searchParams\.set\("step", "email"\)/.test(restart) && /returnPathOf\(asked \?\? note\?\.r\)/.test(restart))
+  const login = code("themes/default/sections/main_login.storelib")
+  const routes = code("lib/storelib-theme/globals.ts")
+  check("  the native sign in page links to it", /href="\{\{ routes\.account_change_email_url \}\}"/.test(login) && /account_change_email_url: "\/api\/site-account\/restart"/.test(routes) && !/href="[^"]*step=email/.test(login))
+  check("  and the generated theme sources say the same", /routes\.account_change_email_url/.test(code("themes/default/sources.generated.ts")))
+  const { signInContent } = require("../lib/storelib-theme/compat/account") as typeof import("../lib/storelib-theme/compat/account")
+  const step = signInContent({ step: "code", email: "ana@mail.test", returnTo: "/checkout?items=a", notice: null })
+  check("  an imported theme's code step links to it too", /href="\/api\/site-account\/restart">Use a different email</.test(step) && !/step=email/.test(step))
+
+  /* Send a new code on an imported theme keeps where the sign in was going, from the note. */
+  check("an imported theme's Send a new code keeps where the sign in was going", /name="return" value="\/checkout\?items=a"/.test(step))
+  const site = code("lib/storelib-theme/compat/site.ts")
+  check("  read from the note, not from the address", /returnTo: pending\.returnTo \|\| back/.test(site) && /pending: note \? \{ email: note\.m, returnTo: note\.r \} : null/.test(code("lib/site-accounts/theme-visitor.ts")))
+
+  /* Send a new code keeps the name a Create account form gave, for the same email. */
+  const route = code("app/api/site-account/code/route.ts")
+  check("Send a new code keeps the Create account name, for the same email only", /const held = again \? pendingFrom\(/.test(route) && /held\.m === cleanEmail\(form\?\.get\("email"\)\) \? held\.n/.test(route) && /requestCode\(\{ host, email: form\?\.get\("email"\), returnPath, name \}/.test(route))
+
+  /* The editor: a native sign in or account form says it works on the live site, and sends nothing. */
+  const section = code("components/website-builder/sections/StorelibSection.tsx")
+  const preview = section.slice(section.indexOf('if (signupMode({ inEditor: inCanvas, creatorId }) === "preview")'), section.indexOf('if (intent === "native") return'))
+  check("in the editor, Continue and Sign out say sign in works on the live site", /isAccountAction\(form\.getAttribute\("action"\)\)\) settle\(form, "note", "Signing in works on your live site\. Nothing is sent from the editor\."\)/.test(preview) && /e\.preventDefault\(\)/.test(preview))
+  check("  and the form stays as designed (a note, no fields hidden)", /if \(state === "done"\) \{/.test(section) && /"sending" \| "done" \| "error" \| "note"/.test(section))
+  check("  which forms count: the account routes and sign out, not a search box", /const path = \(action \?\? ""\)\.split\(\/\[\?#\]\/\)\[0\]\s+return path\.startsWith\("\/api\/site-account\/"\) \|\| path === "\/account\/logout"/.test(section))
+  check("  no copy with an em dash", !/\u2014/.test(restart + login + step))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

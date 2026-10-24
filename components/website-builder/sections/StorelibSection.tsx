@@ -46,7 +46,8 @@ const drawn = new WeakMap<Element, string>()
  * The message is plain text in a node this creates. Nothing a server or a
  * visitor sent is ever written as markup.
  */
-function settle(form: HTMLFormElement, state: "sending" | "done" | "error", message?: string) {
+function settle(form: HTMLFormElement, state: "sending" | "done" | "error" | "note", message?: string) {
+  /* "note": a line under the form, which stays as it is (the canvas's sign in pages, still being designed). */
   form.dataset.state = state
   form.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input[type="submit"]').forEach((b) => {
     b.disabled = state === "sending"
@@ -72,6 +73,12 @@ function settle(form: HTMLFormElement, state: "sending" | "done" | "error", mess
   note.textContent = message
   note.style.cssText = "margin:12px 0 0;font-size:14px;line-height:1.5;"
   form.append(note)
+}
+
+/** A form posting to the website's own sign in and account routes (the template routes account_code_url, account_verify_url, account_logout_url and the rest). */
+export function isAccountAction(action: string | null): boolean {
+  const path = (action ?? "").split(/[?#]/)[0]
+  return path.startsWith("/api/site-account/") || path === "/account/logout"
 }
 
 export function StorelibSection({
@@ -342,6 +349,15 @@ export function StorelibSection({
       e.preventDefault()
       if (intent === "subscribe") settle(form, "done", "Sign-ups go to Subscribers on your live site.")
       if (intent === "contact") settle(form, "done", "Messages reach your email on your live site.")
+      /*
+        THE SIGN IN AND ACCOUNT FORMS (main_login, main_account) post to the
+        website's own account routes, which only the live site answers.
+        Stopped here like every form, they said nothing: Continue, Sign out
+        and Save were buttons that did nothing. They say so now, and the
+        fields stay, since the page is being designed. Nothing is sent, so
+        no code is emailed from the editor.
+      */
+      if (intent === "native" && isAccountAction(form.getAttribute("action"))) settle(form, "note", "Signing in works on your live site. Nothing is sent from the editor.")
       return
     }
     if (intent === "native") return

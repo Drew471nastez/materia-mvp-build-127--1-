@@ -98,7 +98,8 @@ function main() {
     check("the code step says where the code went", /<h1 class="s__h">Enter your code<\/h1>/.test(step) && /We sent a code to <span class="login__email">ana@mail\.test<\/span>/.test(step), step)
     check("one field for the code, which a phone can fill from the email", /action="\/api\/site-account\/verify" data-storelib-form="native"/.test(step) && /name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="6 digit code" required autofocus/.test(step))
     check("a new code to the same email, from the page itself", /<form method="post" action="\/api\/site-account\/code" data-storelib-form="native"> <input type="hidden" name="email" value="ana@mail\.test"> <input type="hidden" name="return" value="\/account"> <input type="hidden" name="again" value="1"> <button class="login__link" type="submit">Send a new code<\/button>/.test(step))
-    check("and a way back to the email step", /href="\/account\/login\?step=email">Use a different email<\/a>/.test(step))
+    /* Changed on purpose (round BB): through the restart route, which ends the code this browser waits on (app/api/site-account/restart). */
+    check("and a way back to the email step", /href="\/api\/site-account\/restart">Use a different email<\/a>/.test(step))
     check("an address that tries to be markup is only text", !/<script>/.test(draw("main_login", {}, { template: "page.login", page: { step: "code", email: "<script>x</script>@a.test" } })))
   }
 
