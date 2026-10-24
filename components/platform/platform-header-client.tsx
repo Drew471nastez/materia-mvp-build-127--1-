@@ -502,7 +502,7 @@ export function DesktopAccountMenu({
           style={{ width: avatarSize, height: avatarSize }}
           className={cn(
             "flex shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 transition-shadow duration-150 ease-out hover:ring-2 focus-visible:ring-2 focus-visible:ring-violet-400",
-            dark ? "ring-offset-[#0e0e10] hover:ring-white/30" : "ring-offset-white hover:ring-[#1a1a2e]/15",
+            dark ? "ring-offset-[#16161a] hover:ring-white/30" : "ring-offset-white hover:ring-[#1a1a2e]/15",
             open && (dark ? "ring-2 ring-white/30" : "ring-2 ring-[#1a1a2e]/15"),
           )}
         >
@@ -1726,6 +1726,27 @@ export function PlatformHeaderClient({
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
+  }, [])
+  /*
+    SCROLLED, THE DARK BAR CASTS A SOFT SHADOW (round AD5: "pitch black with
+    no depth"). An attribute written straight onto the bar, not state, so a
+    scroll never re-renders the header; written only when it changes.
+    app/globals.css draws the shadow off it.
+  */
+  useEffect(() => {
+    const el = headerRootRef.current
+    if (!el) return
+    let was: boolean | null = null
+    const read = () => {
+      const now = window.scrollY > 2
+      if (now === was) return
+      was = now
+      if (now) el.setAttribute("data-scrolled", "")
+      else el.removeAttribute("data-scrolled")
+    }
+    read()
+    window.addEventListener("scroll", read, { passive: true })
+    return () => window.removeEventListener("scroll", read)
   }, [])
   /*
     THE DESKTOP FIELD'S LINE IS THE BOTTOM OF THIS BAR. "It needs to appear

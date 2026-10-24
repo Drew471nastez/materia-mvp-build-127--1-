@@ -110,26 +110,24 @@ export function CoursesSkeleton({ empty = false, still = false }: { empty?: bool
       </div>
     )
   }
+  /* The count line, then compact cards: a row on a phone, cover on top from 640px (round AD5). */
   return (
     <div className="space-y-3" aria-hidden>
-      <div className="flex items-center justify-between gap-2">
-        <div className="h-10 w-[300px] max-w-full rounded-[10px] bg-[#eef0f3]" />
-        <div className="hidden h-10 w-[132px] rounded-[10px] bg-white ring-1 ring-inset ring-[#e4e7ec] sm:block" />
+      <div className="flex min-h-10 items-center">
+        <div className={`h-[18px] w-20 ${LINE} ${pulse}`} />
       </div>
-      <div className={`h-[18px] w-20 ${LINE} ${pulse}`} />
-      <div className={`${CARD} overflow-hidden`}>
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="flex gap-3 border-b border-[#eef0f3] p-3 last:border-0 sm:gap-4 sm:p-4">
-            <div className={`aspect-video w-[112px] shrink-0 rounded-lg sm:w-[168px] ${SOFT} ${pulse}`} />
-            <div className="flex min-w-0 flex-1 flex-col">
+          <div key={i} className="flex items-center gap-3 rounded-2xl border border-[#e5e7eb]/70 bg-white p-2 sm:flex-col sm:items-stretch sm:gap-0 sm:p-2.5">
+            <div className={`aspect-video w-[112px] shrink-0 rounded-[10px] sm:w-full ${SOFT} ${pulse}`} />
+            <div className="flex min-w-0 flex-1 flex-col sm:px-1.5 sm:pb-1 sm:pt-3">
               <div className={`h-4 w-2/3 ${LINE} ${pulse}`} />
-              <div className={`mt-2 h-3.5 w-28 ${SOFT} ${pulse}`} />
-              <div className="mt-auto pt-2.5">
-                <div className="h-1.5 w-full rounded-full bg-[#eceef1]" />
+              <div className={`mt-2 h-3 w-24 ${SOFT} ${pulse}`} />
+              <div className="mt-3 h-[3px] w-full rounded-full bg-[#eceef1] sm:mt-4" />
+              <div className="mt-2 flex items-center justify-between">
+                <div className={`h-3 w-20 ${SOFT} ${pulse}`} />
+                <div className="h-7 w-16 rounded-lg bg-[#f3f4f6]" />
               </div>
-            </div>
-            <div className="hidden w-[200px] shrink-0 items-center justify-end sm:flex">
-              <div className="h-10 w-32 rounded-lg bg-[#eceef1]" />
             </div>
           </div>
         ))}

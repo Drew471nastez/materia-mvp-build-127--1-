@@ -54,331 +54,366 @@ function rng(seed) {
 
 const SERIF = "'Cormorant Garamond', 'Playfair Display', Georgia, serif"
 const SANS = "Inter, 'DM Sans', Arial, sans-serif"
+const GARAMOND = "'EB Garamond', 'Cormorant Garamond', Georgia, serif"
+const BEBAS = "'Bebas Neue', Oswald, Impact, sans-serif"
 
-/* ── A watch: Maison Verlaine ───────────────────────────────────────────── */
+/** Gaussian blur as a filter id, for shadows and soft folds. */
+function blur(sd) {
+  const f = id("bl")
+  return { id: f, def: `<filter id="${f}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${sd}"/></filter>` }
+}
 
-/** The watch seen from above, centred at (cx, cy), case radius r. */
-function watch(cx, cy, r, { dial = "#1f4a3a", strap = "#2d4a35", lume = "#d9c48f", straps = true } = {}) {
-  const steel = id("steel"), bez = id("bez"), dg = id("dial"), sh = id("glass"), st = id("strap"), gold = id("gold"), gl = id("guil")
-  const lug = (sx, sy) => `<path d="M${cx + sx * r * 0.52} ${cy + sy * r * 0.78} L${cx + sx * r * 0.5} ${cy + sy * r * 1.22} Q${cx + sx * r * 0.5} ${cy + sy * r * 1.3} ${cx + sx * r * 0.42} ${cy + sy * r * 1.3} L${cx + sx * r * 0.3} ${cy + sy * r * 1.3} L${cx + sx * r * 0.32} ${cy + sy * r * 0.86}Z" fill="url(#${steel})"/>`
-  const strapPiece = (sy) => {
-    const y0 = cy + sy * r * 1.18, y1 = cy + sy * r * 3.4
-    const stitches = Array.from({ length: 9 }, (_, i) => { const y = y0 + (y1 - y0) * (i + 0.5) / 9; return `<line x1="${cx - r * 0.5}" y1="${y}" x2="${cx - r * 0.5}" y2="${y + sy * r * 0.12}" /><line x1="${cx + r * 0.5}" y1="${y}" x2="${cx + r * 0.5}" y2="${y + sy * r * 0.12}" />` }).join("")
-    return `<path d="M${cx - r * 0.6} ${y0} L${cx - r * 0.58} ${y1} L${cx + r * 0.58} ${y1} L${cx + r * 0.6} ${y0}Z" fill="url(#${st})"/>` +
-      `<g stroke="${tint(strap, 0.45)}" stroke-width="${r * 0.012}" stroke-linecap="round" opacity="0.8">${stitches}</g>`
-  }
-  const indices = Array.from({ length: 12 }, (_, i) => {
-    const a = (i * Math.PI) / 6
-    const long = i % 3 === 0
-    const r0 = r * (long ? 0.6 : 0.66), r1 = r * 0.76
-    const x0 = cx + Math.sin(a) * r0, y0 = cy - Math.cos(a) * r0, x1 = cx + Math.sin(a) * r1, y1 = cy - Math.cos(a) * r1
-    return `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="url(#${gold})" stroke-width="${r * (long ? 0.05 : 0.03)}" stroke-linecap="round"/>`
+/** A fine noise laid over a shape (fabric, stone, paper), clipped to it. */
+function texture(clip, w, h, { freq = "0.9 0.7", amount = 0.12, seed = 3, blend = "multiply" } = {}) {
+  const f = id("tx")
+  return `<filter id="${f}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="3" seed="${seed}"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 ${amount}"/></feComponentTransfer></filter>` +
+    `<rect x="${-w}" y="${-h}" width="${w * 3}" height="${h * 3}" filter="url(#${f})" clip-path="url(#${clip})" style="mix-blend-mode:${blend}"/>`
+}
+
+/* ── Streetwear: Pale Hours ─────────────────────────────────────────────── */
+
+/*
+  Clothes folded, the way a shop photographs its basics: a folded garment is
+  a soft rectangle with a collar, two creases where the sides turn under and
+  the cotton's grain, which drawn shapes can do honestly. Garments drawn
+  flat and whole looked like cut paper, so there are none.
+*/
+
+/** One folded garment, its front face w x h with the top left at (x, y). kind: tee, hoodie or sweat. */
+function folded(x, y, w, h, color, { kind = "tee", print = "PALE HOURS", seed = 3, side = false } = {}) {
+  const clip = id("fd"), light = id("fl"), b = blur(Math.max(2, w * 0.02)), bb = blur(Math.max(3, w * 0.05))
+  const pale = hex(color).reduce((a, c) => a + c, 0) > 520
+  const deep = shade(color, pale ? 0.28 : 0.45), lit = tint(color, pale ? 0.5 : 0.12)
+  const r = Math.min(w, h) * 0.06
+  const cx = x + w / 2
+  /* From above, the shoulders slope down from the collar to the folded sides; from the side, a soft box. */
+  const body = side
+    ? `M${x + r} ${y} L${x + w - r} ${y} Q${x + w} ${y} ${x + w} ${y + r} L${x + w + w * 0.006} ${y + h - r} Q${x + w} ${y + h} ${x + w - r} ${y + h + h * 0.01} L${x + r} ${y + h + h * 0.01} Q${x} ${y + h} ${x - w * 0.006} ${y + h - r} L${x} ${y + r} Q${x} ${y} ${x + r} ${y}Z`
+    : `M${x + w * 0.04} ${y + h * 0.07} Q${x + w * 0.2} ${y + h * 0.015} ${cx - w * 0.2} ${y + h * 0.008} L${cx + w * 0.2} ${y + h * 0.008} Q${x + w * 0.8} ${y + h * 0.015} ${x + w * 0.96} ${y + h * 0.07} Q${x + w * 1.005} ${y + h * 0.1} ${x + w * 1.006} ${y + h * 0.2} L${x + w * 1.01} ${y + h * 0.95} Q${x + w} ${y + h * 1.005} ${x + w * 0.94} ${y + h * 1.006} L${x + w * 0.06} ${y + h * 1.008} Q${x} ${y + h * 1.003} ${x - w * 0.008} ${y + h * 0.95} L${x - w * 0.006} ${y + h * 0.2} Q${x - w * 0.004} ${y + h * 0.1} ${x + w * 0.04} ${y + h * 0.07}Z`
+  const rib = shade(color, pale ? 0.07 : 0.12)
+  const collar = kind === "hoodie"
+    ? `<path d="M${cx - w * 0.3} ${y + h * 0.01} Q${cx - w * 0.33} ${y + h * 0.3} ${cx} ${y + h * 0.33} Q${cx + w * 0.33} ${y + h * 0.3} ${cx + w * 0.3} ${y + h * 0.01}Z" fill="${shade(color, 0.05)}"/>
+       <path d="M${cx - w * 0.3} ${y + h * 0.01} Q${cx - w * 0.33} ${y + h * 0.3} ${cx} ${y + h * 0.33} Q${cx + w * 0.33} ${y + h * 0.3} ${cx + w * 0.3} ${y + h * 0.01}" stroke="#000" stroke-opacity="0.3" stroke-width="${w * 0.03}" fill="none" filter="url(#${bb.id})"/>
+       <path d="M${cx} ${y + h * 0.04} L${cx} ${y + h * 0.31}" stroke="${deep}" stroke-opacity="0.6" stroke-width="${w * 0.006}" stroke-dasharray="${w * 0.012} ${w * 0.01}"/>
+       <path d="M${cx - w * 0.07} ${y + h * 0.3} q${-w * 0.012} ${h * 0.14} ${w * 0.004} ${h * 0.26}" stroke="${pale ? shade(color, 0.2) : tint(color, 0.3)}" stroke-width="${w * 0.016}" fill="none" stroke-linecap="round"/><path d="M${cx + w * 0.07} ${y + h * 0.3} q${w * 0.012} ${h * 0.16} ${-w * 0.002} ${h * 0.29}" stroke="${pale ? shade(color, 0.2) : tint(color, 0.3)}" stroke-width="${w * 0.016}" fill="none" stroke-linecap="round"/>`
+    : `<ellipse cx="${cx}" cy="${y + h * 0.06}" rx="${w * 0.19}" ry="${h * 0.075}" fill="${rib}"/>
+       <ellipse cx="${cx}" cy="${y + h * 0.058}" rx="${w * 0.155}" ry="${h * 0.052}" fill="${shade(color, pale ? 0.32 : 0.55)}"/>
+       <path d="M${cx - w * 0.155} ${y + h * 0.058} Q${cx} ${y + h * 0.075} ${cx + w * 0.155} ${y + h * 0.058} Q${cx} ${y + h * 0.13} ${cx - w * 0.155} ${y + h * 0.058}Z" fill="${rib}"/>
+       <path d="M${cx - w * 0.19} ${y + h * 0.065} Q${cx} ${y + h * 0.17} ${cx + w * 0.19} ${y + h * 0.065}" stroke="#000" stroke-opacity="0.18" stroke-width="${w * 0.012}" fill="none" filter="url(#${b.id})"/>
+       <path d="M${cx - w * 0.16} ${y + h * 0.03} Q${cx} ${y + h * 0.0} ${cx + w * 0.16} ${y + h * 0.03}" stroke="#fff" stroke-opacity="0.18" stroke-width="${w * 0.008}" fill="none"/>`
+  const rr = rng(seed)
+  const wrinkles = Array.from({ length: 5 }, () => {
+    const wx = x + w * (0.15 + rr() * 0.7), wy = y + h * (0.25 + rr() * 0.6)
+    return `<path d="M${wx} ${wy} q${w * 0.08} ${(rr() - 0.5) * h * 0.08} ${w * (0.12 + rr() * 0.1)} ${(rr() - 0.5) * h * 0.06}" stroke="${rr() > 0.5 ? deep : lit}" stroke-opacity="0.2" stroke-width="${w * 0.02}" fill="none" stroke-linecap="round" filter="url(#${bb.id})"/>`
   }).join("")
-  const minutes = Array.from({ length: 60 }, (_, i) => {
-    const a = (i * Math.PI) / 30
-    return `<line x1="${cx + Math.sin(a) * r * 0.8}" y1="${cy - Math.cos(a) * r * 0.8}" x2="${cx + Math.sin(a) * r * 0.83}" y2="${cy - Math.cos(a) * r * 0.83}" stroke="${lume}" stroke-width="${r * 0.008}" opacity="0.7"/>`
+  return `<defs>${b.def}${bb.def}<clipPath id="${clip}"><path d="${body}"/></clipPath>
+    <linearGradient id="${light}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${pale ? 0.2 : 0.12}"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="${pale ? 0.12 : 0.26}"/></linearGradient></defs>
+    <path d="${body}" fill="${color}"/>
+    <g clip-path="url(#${clip})">
+      <rect x="${x}" y="${y}" width="${w * 0.07}" height="${h * 1.02}" fill="${deep}" opacity="0.32" filter="url(#${b.id})"/><rect x="${x + w * 0.93}" y="${y}" width="${w * 0.07}" height="${h * 1.02}" fill="${deep}" opacity="0.4" filter="url(#${b.id})"/>
+      <rect x="${x + w * 0.2}" y="${y}" width="${w * 0.012}" height="${h}" fill="${deep}" opacity="0.22" filter="url(#${b.id})"/><rect x="${x + w * 0.79}" y="${y}" width="${w * 0.012}" height="${h}" fill="${deep}" opacity="0.26" filter="url(#${b.id})"/>
+      <rect x="${x + w * 0.214}" y="${y}" width="${w * 0.02}" height="${h}" fill="${lit}" opacity="0.22" filter="url(#${b.id})"/>
+      ${side ? "" : collar}${wrinkles}
+      ${print ? `<text x="${cx}" y="${y + h * (side ? 0.62 : kind === "hoodie" ? 0.74 : 0.5)}" text-anchor="middle" font-family="${BEBAS}" font-size="${w * 0.1}" letter-spacing="${w * 0.012}" fill="${pale ? shade(color, 0.62) : tint(color, 0.62)}" opacity="0.92">${print}</text>` : ""}
+      <rect x="${x - w * 0.1}" y="${y - h * 0.1}" width="${w * 1.2}" height="${h * 1.2}" fill="url(#${light})"/>
+      ${texture(clip, w, h, { freq: "1.6 1.1", amount: pale ? 0.18 : 0.26, seed })}
+      ${side
+        ? `<rect x="${x}" y="${y + h * 0.97}" width="${w}" height="${h * 0.04}" fill="${deep}" opacity="0.35"/>`
+        : `<path d="M${x} ${y + h * 0.22} L${x + w * 0.2} ${y + h * 0.1}" stroke="${deep}" stroke-opacity="0.3" stroke-width="${w * 0.014}" filter="url(#${b.id})"/><path d="M${x + w} ${y + h * 0.22} L${x + w * 0.8} ${y + h * 0.1}" stroke="${deep}" stroke-opacity="0.34" stroke-width="${w * 0.014}" filter="url(#${b.id})"/>
+           <rect x="${x}" y="${y + h * 0.86}" width="${w}" height="${h * 0.012}" fill="${deep}" opacity="0.3" filter="url(#${b.id})"/><rect x="${x}" y="${y + h * 0.872}" width="${w}" height="${h * 0.01}" fill="${lit}" opacity="0.25" filter="url(#${b.id})"/>`}
+    </g>`
+}
+
+/** A stack of folded garments, bottom first, each a little off the one under it. */
+function stack(cx, baseY, w, layers) {
+  let y = baseY
+  return layers.map(([color, kind, h, print, dx], i) => {
+    y -= h * 0.98
+    const x = cx - w / 2 + (dx ?? 0)
+    const sh = blur(Math.max(3, w * 0.03))
+    return `<defs>${sh.def}</defs><rect x="${x + w * 0.02}" y="${y + h * 0.9}" width="${w * 0.96}" height="${h * 0.16}" rx="${h * 0.06}" fill="#1c1611" opacity="${i === 0 ? 0.35 : 0.42}" filter="url(#${sh.id})"/>${folded(x, y, w, h, color, { kind, print: i === layers.length - 1 ? print : "", seed: 7 + i, side: true })}`
   }).join("")
-  const hand = (deg, len, wid) => `<g transform="rotate(${deg} ${cx} ${cy})"><path d="M${cx} ${cy - r * len} L${cx + r * wid} ${cy - r * len * 0.3} L${cx} ${cy + r * 0.12} L${cx - r * wid} ${cy - r * len * 0.3}Z" fill="url(#${gold})"/><path d="M${cx} ${cy - r * len} L${cx + r * wid} ${cy - r * len * 0.3} L${cx} ${cy + r * 0.12}Z" fill="#fff" opacity="0.18"/></g>`
-  return `<defs>
-    <linearGradient id="${steel}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f4f2"/><stop offset="0.35" stop-color="#b9bcbf"/><stop offset="0.55" stop-color="#eef0f1"/><stop offset="0.8" stop-color="#8d9094"/><stop offset="1" stop-color="#d6d8da"/></linearGradient>
-    <linearGradient id="${bez}" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="#9ea1a5"/><stop offset="1" stop-color="#e9eaeb"/></linearGradient>
-    <radialGradient id="${dg}" cx="0.42" cy="0.38" r="0.75"><stop offset="0" stop-color="${tint(dial, 0.18)}"/><stop offset="0.6" stop-color="${dial}"/><stop offset="1" stop-color="${shade(dial, 0.45)}"/></radialGradient>
-    <radialGradient id="${gl}" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0.05"/></radialGradient>
-    <linearGradient id="${gold}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e7b8"/><stop offset="0.5" stop-color="#c9a65a"/><stop offset="1" stop-color="#8f6f2e"/></linearGradient>
-    <linearGradient id="${st}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${shade(strap, 0.35)}"/><stop offset="0.25" stop-color="${strap}"/><stop offset="0.6" stop-color="${tint(strap, 0.12)}"/><stop offset="1" stop-color="${shade(strap, 0.4)}"/></linearGradient>
-    <linearGradient id="${sh}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.38"/><stop offset="0.45" stop-color="#fff" stop-opacity="0.04"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-  </defs>
-  ${straps ? strapPiece(-1) + strapPiece(1) : ""}
-  ${lug(-1, -1)}${lug(1, -1)}${lug(-1, 1)}${lug(1, 1)}
-  <rect x="${cx + r * 0.98}" y="${cy - r * 0.11}" width="${r * 0.16}" height="${r * 0.22}" rx="${r * 0.03}" fill="url(#${steel})"/>
-  <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${steel})"/>
-  <circle cx="${cx}" cy="${cy}" r="${r * 0.93}" fill="url(#${bez})"/>
-  <circle cx="${cx}" cy="${cy}" r="${r * 0.86}" fill="url(#${dg})"/>
-  ${Array.from({ length: 18 }, (_, i) => `<circle cx="${cx}" cy="${cy}" r="${r * (0.12 + i * 0.03)}" fill="none" stroke="#fff" stroke-opacity="0.035" stroke-width="${r * 0.006}"/>`).join("")}
-  ${minutes}${indices}
-  <text x="${cx}" y="${cy - r * 0.32}" text-anchor="middle" font-family="${SERIF}" font-size="${r * 0.13}" letter-spacing="${r * 0.025}" fill="${lume}">VERLAINE</text>
-  <text x="${cx}" y="${cy - r * 0.22}" text-anchor="middle" font-family="${SANS}" font-size="${r * 0.05}" letter-spacing="${r * 0.02}" fill="${lume}" opacity="0.8">GENÈVE</text>
-  <circle cx="${cx}" cy="${cy + r * 0.38}" r="${r * 0.17}" fill="${shade(dial, 0.2)}" stroke="${lume}" stroke-opacity="0.35" stroke-width="${r * 0.008}"/>
-  <line x1="${cx}" y1="${cy + r * 0.38}" x2="${cx + r * 0.1}" y2="${cy + r * 0.3}" stroke="${lume}" stroke-width="${r * 0.012}"/>
-  ${hand(305, 0.5, 0.045)}${hand(62, 0.72, 0.035)}
-  <line x1="${cx}" y1="${cy + r * 0.15}" x2="${cx}" y2="${cy - r * 0.78}" stroke="#c94b3b" stroke-width="${r * 0.01}" transform="rotate(160 ${cx} ${cy})"/>
-  <circle cx="${cx}" cy="${cy}" r="${r * 0.035}" fill="url(#${gold})"/>
-  <circle cx="${cx}" cy="${cy}" r="${r * 0.86}" fill="url(#${gl})"/>
-  <path d="M${cx - r * 0.8} ${cy - r * 0.25} A${r * 0.86} ${r * 0.86} 0 0 1 ${cx + r * 0.3} ${cy - r * 0.8} Q${cx - r * 0.2} ${cy - r * 0.55} ${cx - r * 0.8} ${cy - r * 0.25}Z" fill="url(#${sh})"/>`
 }
 
-export function watchHero() {
-  const w = 1200, h = 1200
-  const linen = id("linen")
-  return { w, h, svg: doc(w, h, `${sweep(w, h, "#f3eee4", "#ddd3c2", 0.5)}
-    <filter id="${linen}"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.9" numOctaves="2" seed="3"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.08"/></feComponentTransfer></filter><rect width="${w}" height="${h}" filter="url(#${linen})"/>
-    ${contact(610, 640, 330, 520, 0.28, 40)}
-    <g transform="rotate(-8 600 600)">${watch(600, 600, 230)}</g>
-    ${grain(w, h, 0.06)}`) }
+/** A ribbed beanie, cuff turned up, a woven label on the cuff. */
+function beanie(cx, baseY, s, color) {
+  const clip = id("bn"), sh = id("bns"), b = blur(6 * s)
+  const dome = `M${cx - 150 * s} ${baseY - 120 * s} Q${cx - 160 * s} ${baseY - 330 * s} ${cx} ${baseY - 342 * s} Q${cx + 160 * s} ${baseY - 330 * s} ${cx + 150 * s} ${baseY - 120 * s}Z`
+  const cuff = `M${cx - 160 * s} ${baseY - 150 * s} Q${cx} ${baseY - 168 * s} ${cx + 160 * s} ${baseY - 150 * s} L${cx + 164 * s} ${baseY - 6 * s} Q${cx} ${baseY + 10 * s} ${cx - 164 * s} ${baseY - 6 * s}Z`
+  return `<defs>${b.def}<clipPath id="${clip}"><path d="${dome}"/><path d="${cuff}"/></clipPath><radialGradient id="${sh}" cx="0.35" cy="0.3" r="0.85"><stop offset="0" stop-color="#fff" stop-opacity="0.14"/><stop offset="0.6" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.32"/></radialGradient></defs>
+    <path d="${dome}" fill="${color}"/>
+    <g clip-path="url(#${clip})">${Array.from({ length: 24 }, (_, i) => { const t = i / 23; const px = cx - 150 * s + t * 300 * s; return `<path d="M${px} ${baseY - 120 * s} Q${cx + (px - cx) * 0.6} ${baseY - 260 * s} ${cx + (px - cx) * 0.1} ${baseY - 340 * s}" stroke="${shade(color, 0.35)}" stroke-opacity="0.35" stroke-width="${3 * s}" fill="none"/>` }).join("")}</g>
+    <path d="${cuff}" fill="${shade(color, 0.05)}"/>
+    <g clip-path="url(#${clip})">${Array.from({ length: 30 }, (_, i) => `<line x1="${cx - 164 * s + i * 11.3 * s}" y1="${baseY - 165 * s}" x2="${cx - 164 * s + i * 11.3 * s}" y2="${baseY + 8 * s}" stroke="${shade(color, 0.35)}" stroke-opacity="0.4" stroke-width="${3.5 * s}"/>`).join("")}
+      <path d="M${cx - 160 * s} ${baseY - 150 * s} Q${cx} ${baseY - 168 * s} ${cx + 160 * s} ${baseY - 150 * s}" stroke="#000" stroke-opacity="0.3" stroke-width="${10 * s}" fill="none" filter="url(#${b.id})"/>
+      <rect x="${cx - 200 * s}" y="${baseY - 360 * s}" width="${400 * s}" height="${380 * s}" fill="url(#${sh})"/>${texture(clip, 400 * s, 400 * s, { freq: "1.4", amount: 0.22, seed: 12 })}</g>
+    <rect x="${cx - 40 * s}" y="${baseY - 100 * s}" width="${80 * s}" height="${44 * s}" rx="${3 * s}" fill="#ebe5d8"/><text x="${cx}" y="${baseY - 70 * s}" text-anchor="middle" font-family="${BEBAS}" font-size="${24 * s}" letter-spacing="${2 * s}" fill="#2b2b2b">PH</text>`
 }
 
-export function watchStone() {
-  const w = 1200, h = 1200
-  const stone = id("stone")
-  return { w, h, svg: doc(w, h, `<rect width="${w}" height="${h}" fill="#2a2b29"/>
-    <filter id="${stone}"><feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="4" seed="11"/><feColorMatrix values="0 0 0 0 0.35  0 0 0 0 0.35  0 0 0 0 0.33  0 0 0 0.9 0"/></filter><rect width="${w}" height="${h}" filter="url(#${stone})" opacity="0.6"/>
-    <radialGradient id="spot" cx="0.45" cy="0.4" r="0.6"><stop offset="0" stop-color="#fff" stop-opacity="0.16"/><stop offset="1" stop-color="#000" stop-opacity="0.4"/></radialGradient><rect width="${w}" height="${h}" fill="url(#spot)"/>
-    ${contact(640, 660, 300, 480, 0.6, 34)}
-    <g transform="rotate(24 600 600)">${watch(600, 600, 250, { dial: "#173b30" })}</g>
-    ${grain(w, h, 0.08)}`) }
+/** A heavy canvas tote, standing. */
+function tote(cx, baseY, s, color = "#e6dfcf") {
+  const clip = id("tt"), light = id("ttl")
+  const bag = `M${cx - 170 * s} ${baseY - 400 * s} L${cx + 170 * s} ${baseY - 400 * s} L${cx + 182 * s} ${baseY - 8 * s} Q${cx + 182 * s} ${baseY} ${cx + 172 * s} ${baseY} L${cx - 172 * s} ${baseY} Q${cx - 182 * s} ${baseY} ${cx - 182 * s} ${baseY - 8 * s}Z`
+  return `<defs><clipPath id="${clip}"><path d="${bag}"/></clipPath><linearGradient id="${light}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.2"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient></defs>
+    <path d="M${cx - 110 * s} ${baseY - 396 * s} Q${cx - 104 * s} ${baseY - 620 * s} ${cx - 20 * s} ${baseY - 620 * s} M${cx + 110 * s} ${baseY - 396 * s} Q${cx + 104 * s} ${baseY - 620 * s} ${cx + 20 * s} ${baseY - 620 * s} M${cx - 20 * s} ${baseY - 620 * s} L${cx + 20 * s} ${baseY - 620 * s}" stroke="${shade(color, 0.12)}" stroke-width="${26 * s}" fill="none" stroke-linecap="round"/>
+    <path d="${bag}" fill="${color}"/>
+    <g clip-path="url(#${clip})"><rect x="${cx - 200 * s}" y="${baseY - 420 * s}" width="${400 * s}" height="${440 * s}" fill="url(#${light})"/>
+      <path d="M${cx - 60 * s} ${baseY - 400 * s} Q${cx - 50 * s} ${baseY - 200 * s} ${cx - 76 * s} ${baseY}" stroke="#000" stroke-opacity="0.08" stroke-width="${18 * s}" fill="none" style="filter:blur(${6 * s}px)"/>
+      <text x="${cx}" y="${baseY - 210 * s}" text-anchor="middle" font-family="${BEBAS}" font-size="${54 * s}" letter-spacing="${6 * s}" fill="#2b2b2b" opacity="0.88">PALE HOURS</text>
+      <text x="${cx}" y="${baseY - 168 * s}" text-anchor="middle" font-family="${SANS}" font-weight="600" font-size="${15 * s}" letter-spacing="${4 * s}" fill="#2b2b2b" opacity="0.7">GOODS FOR LATE DAYS</text>
+      ${texture(clip, 400 * s, 440 * s, { freq: "1.1 1.6", amount: 0.22, seed: 15 })}</g>`
 }
 
-export function watchDial() {
-  const w = 1200, h = 1200
-  return { w, h, svg: doc(w, h, `<rect width="${w}" height="${h}" fill="#0f2a22"/>
-    <g transform="translate(-700 -560) scale(2.3)">${watch(600, 600, 300, { dial: "#1f4a3a" })}</g>
-    <radialGradient id="dv" cx="0.5" cy="0.5" r="0.7"><stop offset="0.6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.45"/></radialGradient><rect width="${w}" height="${h}" fill="url(#dv)"/>
+/** Concrete: a warm grey wall or block with its pores and a mottle. */
+function concrete(clipId, w, h, seed) {
+  return texture(clipId, w, h, { freq: "0.01 0.016", amount: 0.22, seed }) + texture(clipId, w, h, { freq: "0.7", amount: 0.14, seed: seed + 1 })
+}
+
+export function streetHero() {
+  const w = 1800, h = 1050
+  const wall = id("wall"), wc = id("wc"), sun = blur(26)
+  const floorY = h * 0.8
+  return { w, h, svg: doc(w, h, `<defs><linearGradient id="${wall}" x1="0" y1="0" x2="1" y2="0.3"><stop offset="0" stop-color="#b9b2a6"/><stop offset="0.6" stop-color="#cbc4b8"/><stop offset="1" stop-color="#b1aa9d"/></linearGradient><clipPath id="${wc}"><rect width="${w}" height="${h}"/></clipPath>${sun.def}</defs>
+    <rect width="${w}" height="${h}" fill="url(#${wall})"/>${concrete(wc, w, h, 21)}
+    <rect y="${floorY}" width="${w}" height="${h - floorY}" fill="#8e877c"/><rect y="${floorY}" width="${w}" height="3" fill="#6f695f" opacity="0.5"/>
+    <g filter="url(#${sun.id})" opacity="0.45" fill="#fff3da"><path d="M820 0 L1240 0 L1060 ${floorY} L600 ${floorY}Z"/><path d="M1330 0 L1720 0 L1560 ${floorY} L1140 ${floorY}Z"/></g>
+    ${contact(1150, floorY + 4, 330, 18, 0.4, 14)}${contact(1560, floorY + 4, 170, 14, 0.4, 12)}
+    ${concreteBlock(1150, floorY, 560, 200)}
+    ${concreteBlock(1560, floorY, 300, 330)}
+    ${stack(1010, floorY - 200, 250, [["#e7e1d3", "tee", 62], ["#8e8f8b", "sweat", 70], ["#1c1c1e", "hoodie", 92, "PALE HOURS"]])}
+    ${stack(1300, floorY - 200, 250, [["#4b5136", "tee", 60], ["#e7e1d3", "tee", 60, "PALE HOURS", 6]])}
+    ${beanie(1560, floorY - 330, 0.62, "#3a3f2c")}
     ${grain(w, h, 0.07)}`) }
 }
 
-/** The presentation box: walnut, the watch on its cushion. */
-export function watchBox() {
-  const w = 1200, h = 1200
-  const wood = id("wood")
-  return { w, h, svg: doc(w, h, `${sweep(w, h, "#efe8dc", "#d4c8b4", 0.45)}
-    ${contact(600, 900, 470, 70, 0.4, 26)}
-    <filter id="${wood}"><feTurbulence type="fractalNoise" baseFrequency="0.004 0.12" numOctaves="3" seed="5"/><feColorMatrix values="0 0 0 0 0.36  0 0 0 0 0.21  0 0 0 0 0.12  0 0 0 0.55 0"/></filter>
-    <rect x="160" y="260" width="880" height="230" rx="18" fill="#5a3826"/><rect x="160" y="260" width="880" height="230" rx="18" filter="url(#${wood})"/>
-    <rect x="180" y="280" width="840" height="190" rx="10" fill="#e8dcc6"/>
-    <rect x="160" y="480" width="880" height="420" rx="18" fill="#6b4430"/><rect x="160" y="480" width="880" height="420" rx="18" filter="url(#${wood})"/>
-    <rect x="200" y="510" width="800" height="350" rx="12" fill="#efe6d4"/>
-    <rect x="200" y="510" width="800" height="40" rx="12" fill="#000" opacity="0.06"/>
-    <ellipse cx="600" cy="690" rx="190" ry="130" fill="#e3d6bd"/>
-    <g transform="translate(600 690) scale(0.62) translate(-600 -600)">${watch(600, 600, 210, { straps: false })}</g>
-    <text x="600" y="395" text-anchor="middle" font-family="${SERIF}" font-size="46" letter-spacing="14" fill="#7a5c2e">MAISON VERLAINE</text>
-    ${grain(w, h, 0.06)}`) }
+/** A cast concrete block, its top face lit, standing on the floor at baseY. */
+function concreteBlock(cx, baseY, bw, bh) {
+  const c = id("cb"), g = id("cbg")
+  return `<defs><clipPath id="${c}"><rect x="${cx - bw / 2}" y="${baseY - bh}" width="${bw}" height="${bh}"/></clipPath><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9c3b8"/><stop offset="0.6" stop-color="#b9b2a6"/><stop offset="1" stop-color="#9e978b"/></linearGradient></defs>
+    <rect x="${cx - bw / 2}" y="${baseY - bh}" width="${bw}" height="${bh}" fill="url(#${g})"/>${concrete(c, bw, bh, Math.round(cx) % 40)}
+    <rect x="${cx - bw / 2}" y="${baseY - bh}" width="${bw}" height="4" fill="#e3ddd2" opacity="0.8"/>`
 }
 
-/* ── Pet food: Marrow & Oat ─────────────────────────────────────────────── */
-
-/** A stand-up kraft pouch centred at cx, its base at baseY, with a coloured label. */
-function pouch(cx, baseY, pw, ph, { band = "#b5532f", recipe = "Chicken & Pumpkin", note = "Air-dried  ·  1 kg" } = {}) {
-  const k = id("kraft"), cur = id("curve"), tex = id("ktex")
-  const x0 = cx - pw / 2, x1 = cx + pw / 2, y0 = baseY - ph
-  const shape = `M${x0 + pw * 0.04} ${y0} L${x1 - pw * 0.04} ${y0} Q${x1} ${y0 + ph * 0.4} ${x1 + pw * 0.02} ${baseY - ph * 0.04} Q${cx} ${baseY + ph * 0.025} ${x0 - pw * 0.02} ${baseY - ph * 0.04} Q${x0} ${y0 + ph * 0.4} ${x0 + pw * 0.04} ${y0}Z`
-  return `<defs>
-    <linearGradient id="${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfa877"/><stop offset="1" stop-color="#b98d58"/></linearGradient>
-    <linearGradient id="${cur}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="0.32"/><stop offset="0.18" stop-color="#000" stop-opacity="0.04"/><stop offset="0.42" stop-color="#fff" stop-opacity="0.16"/><stop offset="0.7" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.35"/></linearGradient>
-    <filter id="${tex}"><feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="2" seed="9"/><feColorMatrix values="0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0 0.1  0 0 0 0.35 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
-  </defs>
-  <path d="${shape}" fill="url(#${k})"/>
-  <path d="${shape}" fill="#fff" filter="url(#${tex})"/>
-  <rect x="${x0 + pw * 0.06}" y="${y0 + ph * 0.06}" width="${pw * 0.88}" height="${ph * 0.012}" fill="#000" opacity="0.12"/>
-  <rect x="${x0 + pw * 0.06}" y="${y0 + ph * 0.075}" width="${pw * 0.88}" height="${ph * 0.006}" fill="#fff" opacity="0.18"/>
-  <rect x="${x0 + pw * 0.1}" y="${y0 + ph * 0.3}" width="${pw * 0.8}" height="${ph * 0.42}" rx="${pw * 0.03}" fill="#f6efe2"/>
-  <rect x="${x0 + pw * 0.1}" y="${y0 + ph * 0.3}" width="${pw * 0.8}" height="${ph * 0.12}" rx="${pw * 0.03}" fill="${band}"/>
-  <rect x="${x0 + pw * 0.1}" y="${y0 + ph * 0.38}" width="${pw * 0.8}" height="${ph * 0.04}" fill="${band}"/>
-  <text x="${cx}" y="${y0 + ph * 0.385}" text-anchor="middle" font-family="${SANS}" font-weight="800" font-size="${pw * 0.068}" letter-spacing="${pw * 0.01}" fill="#f6efe2">MARROW &amp; OAT</text>
-  <text x="${cx}" y="${y0 + ph * 0.52}" text-anchor="middle" font-family="${SERIF}" font-style="italic" font-weight="600" font-size="${pw * 0.1}" fill="#2a1d16">${recipe}</text>
-  <text x="${cx}" y="${y0 + ph * 0.6}" text-anchor="middle" font-family="${SANS}" font-weight="600" font-size="${pw * 0.05}" letter-spacing="${pw * 0.008}" fill="#6b5a4c">${note.toUpperCase()}</text>
-  <circle cx="${cx}" cy="${y0 + ph * 0.665}" r="${pw * 0.028}" fill="${band}"/>
-  <text x="${cx}" y="${y0 + ph * 0.18}" text-anchor="middle" font-family="${SANS}" font-weight="700" font-size="${pw * 0.04}" letter-spacing="${pw * 0.008}" fill="#5b3f22" opacity="0.75">FOR DOGS · SMALL BATCH</text>
-  <path d="${shape}" fill="url(#${cur})"/>`
+export function streetProduct(kind) {
+  const w = 1000, h = 1250
+  const ground = { hoodie: ["#e9e7e2", "#cfccc5"], tee: ["#dcd8cf", "#bfb9ad"], sweat: ["#e6e4df", "#cac7c0"], olive: ["#e4e2db", "#c8c5bc"], beanie: ["#e7e4dd", "#cbc6bc"], tote: ["#d9d4ca", "#b9b2a5"] }[kind]
+  let art = ""
+  const flat = (color, k, seed) => `${contact(500, 1000, 340, 26, 0.32, 20)}<g transform="rotate(-3 500 620)"><rect x="196" y="282" width="620" height="740" rx="30" fill="#1c1611" opacity="0.28" style="filter:blur(16px)"/>${folded(190, 260, 620, 740, color, { kind: k, seed })}</g>`
+  if (kind === "hoodie") art = flat("#1c1c1e", "hoodie", 4)
+  if (kind === "tee") art = flat("#e7e1d3", "tee", 5)
+  if (kind === "sweat") art = flat("#8e8f8b", "sweat", 6)
+  if (kind === "olive") art = flat("#4b5136", "tee", 7)
+  if (kind === "beanie") art = `${contact(500, 862, 220, 22, 0.4, 16)}${beanie(500, 860, 1.25, "#3a3f2c")}`
+  if (kind === "tote") art = `${contact(500, 1000, 250, 24, 0.4, 16)}${tote(500, 1000, 1.25)}`
+  const shadowed = ""
+  return { w, h, svg: doc(w, h, `${sweep(w, h, ground[0], ground[1], 0.62)}${shadowed}${art}${grain(w, h, 0.06)}`) }
 }
 
-/** A pile of kibble at (cx, cy). */
-function kibble(cx, cy, spread, count, seed, tone = "#8a5a2b") {
-  const r = rng(seed)
-  const g = id("kib")
-  let out = `<defs><radialGradient id="${g}" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="${tint(tone, 0.35)}"/><stop offset="0.7" stop-color="${tone}"/><stop offset="1" stop-color="${shade(tone, 0.45)}"/></radialGradient></defs>`
-  const pieces = Array.from({ length: count }, () => {
-    const a = r() * Math.PI * 2, d = Math.pow(r(), 0.7) * spread
-    return { x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d * 0.45 - (spread - d) * 0.25, s: 9 + r() * 7, rot: r() * 180 }
-  }).sort((p, q) => p.y - q.y)
-  for (const p of pieces) out += `<ellipse cx="${p.x}" cy="${p.y + p.s * 0.45}" rx="${p.s}" ry="${p.s * 0.55}" fill="#000" opacity="0.18"/><ellipse cx="${p.x}" cy="${p.y}" rx="${p.s}" ry="${p.s * 0.78}" transform="rotate(${p.rot} ${p.x} ${p.y})" fill="url(#${g})"/>`
-  return out
+/* ── Skincare: Ferne ────────────────────────────────────────────────────── */
+
+/** A travertine block: pale stone, its pits and a soft light from the left. cx, the top face's centre; bw x bh. */
+function plinth(cx, topY, bw, bh, tone = "#e4d9c6", round = false) {
+  const clip = id("pl"), sh = id("pls")
+  const body = round
+    ? `<path d="M${cx - bw / 2} ${topY} L${cx - bw / 2} ${topY + bh} A${bw / 2} ${bw * 0.12} 0 0 0 ${cx + bw / 2} ${topY + bh} L${cx + bw / 2} ${topY}Z"/>`
+    : `<rect x="${cx - bw / 2}" y="${topY}" width="${bw}" height="${bh}"/>`
+  return `<defs><clipPath id="${clip}">${body}</clipPath><linearGradient id="${sh}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0.22"/><stop offset="0.55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.18"/></linearGradient></defs>
+    <g clip-path="url(#${clip})"><rect x="${cx - bw / 2}" y="${topY - 10}" width="${bw}" height="${bh + bw}" fill="${tone}"/><rect x="${cx - bw / 2}" y="${topY - 10}" width="${bw}" height="${bh + bw}" fill="url(#${sh})"/>
+    ${texture(clip, bw * 2, bh * 2, { freq: "0.02 0.25", amount: 0.3, seed: Math.round(cx) % 50 })}${texture(clip, bw * 2, bh * 2, { freq: "0.9", amount: 0.14, seed: 4 })}</g>
+    ${round ? `<ellipse cx="${cx}" cy="${topY}" rx="${bw / 2}" ry="${bw * 0.12}" fill="${tint(tone, 0.22)}"/>` : `<rect x="${cx - bw / 2}" y="${topY - 2}" width="${bw}" height="4" fill="${tint(tone, 0.35)}"/>`}`
 }
 
-/** A ceramic bowl seen from the front, at (cx, cy) rim centre. */
-function bowl(cx, cy, bw, glaze = "#e9e1d3", { food = "" } = {}) {
-  const g = id("bowl"), rim = id("rim")
-  return `<defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${shade(glaze, 0.3)}"/><stop offset="0.35" stop-color="${tint(glaze, 0.3)}"/><stop offset="1" stop-color="${shade(glaze, 0.35)}"/></linearGradient>
-    <radialGradient id="${rim}" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${shade(glaze, 0.25)}"/><stop offset="1" stop-color="${shade(glaze, 0.08)}"/></radialGradient></defs>
-    <path d="M${cx - bw / 2} ${cy} Q${cx - bw * 0.44} ${cy + bw * 0.42} ${cx - bw * 0.2} ${cy + bw * 0.46} L${cx + bw * 0.2} ${cy + bw * 0.46} Q${cx + bw * 0.44} ${cy + bw * 0.42} ${cx + bw / 2} ${cy}Z" fill="url(#${g})"/>
-    <ellipse cx="${cx}" cy="${cy}" rx="${bw / 2}" ry="${bw * 0.12}" fill="url(#${rim})"/>
-    ${food}
-    <ellipse cx="${cx}" cy="${cy}" rx="${bw / 2}" ry="${bw * 0.12}" fill="none" stroke="${tint(glaze, 0.4)}" stroke-width="3"/>`
+/** Ferne's label: cream paper, the name in Garamond, the product under it. */
+function label(x, y, lw, lh, name, line2, { paper = "#f3ede2", ink = "#2f3a2f", size = 1 } = {}) {
+  return `<rect x="${x}" y="${y}" width="${lw}" height="${lh}" fill="${paper}"/><rect x="${x}" y="${y}" width="${lw}" height="${lh}" fill="#000" opacity="0.03"/>
+    <text x="${x + lw / 2}" y="${y + lh * 0.36}" text-anchor="middle" font-family="${GARAMOND}" font-size="${30 * size}" letter-spacing="${5 * size}" fill="${ink}">FERNE</text>
+    <line x1="${x + lw * 0.35}" y1="${y + lh * 0.48}" x2="${x + lw * 0.65}" y2="${y + lh * 0.48}" stroke="${ink}" stroke-opacity="0.4" stroke-width="${1.2 * size}"/>
+    <text x="${x + lw / 2}" y="${y + lh * 0.66}" text-anchor="middle" font-family="${SANS}" font-weight="500" font-size="${15 * size}" letter-spacing="${1.4 * size}" fill="${ink}">${name}</text>
+    <text x="${x + lw / 2}" y="${y + lh * 0.84}" text-anchor="middle" font-family="${SANS}" font-size="${11.5 * size}" letter-spacing="${0.8 * size}" fill="${ink}" opacity="0.7">${line2}</text>`
 }
 
-const PET_BG = ["#efe3d0", "#d9c3a3"]
-
-export function petHero() {
-  const w = 1400, h = 1100
-  return { w, h, svg: doc(w, h, `${sweep(w, h, "#ead9c0", "#cfb48f", 0.6)}
-    ${contact(520, 905, 230, 34, 0.45, 18)}${contact(880, 905, 230, 34, 0.45, 18)}${contact(1120, 960, 170, 26, 0.4, 14)}
-    ${pouch(520, 910, 400, 620, { band: "#b5532f", recipe: "Chicken &amp; Pumpkin" })}
-    ${pouch(880, 910, 400, 620, { band: "#2f6d6a", recipe: "Salmon &amp; Kelp" })}
-    ${bowl(1130, 830, 260, "#2f3a33", { food: kibble(1130, 828, 104, 60, 4) })}
-    ${kibble(330, 960, 90, 26, 8)}
-    ${grain(w, h, 0.06)}`) }
+/** Glass: a body colour, dark at the edges, a long highlight and a soft reflected edge. */
+function glassGrad(color) {
+  const g = id("gls")
+  return { id: g, def: `<linearGradient id="${g}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${shade(color, 0.55)}"/><stop offset="0.14" stop-color="${shade(color, 0.15)}"/><stop offset="0.3" stop-color="${tint(color, 0.18)}"/><stop offset="0.5" stop-color="${color}"/><stop offset="0.82" stop-color="${shade(color, 0.3)}"/><stop offset="1" stop-color="${shade(color, 0.6)}"/></linearGradient>` }
 }
 
-export function petPouch(variant) {
-  const v = { chicken: ["#b5532f", "Chicken &amp; Pumpkin", "#ecdcc4"], salmon: ["#2f6d6a", "Salmon &amp; Kelp", "#dfe6e1"], lamb: ["#6a6a2f", "Lamb &amp; Barley", "#e7e2cf"], duck: ["#7b3f5a", "Duck &amp; Sweet Potato", "#eadbd9"] }[variant]
-  const w = 1000, h = 1000
-  return { w, h, svg: doc(w, h, `${sweep(w, h, tint(v[2], 0.25), shade(v[2], 0.12), 0.62)}
-    ${contact(500, 880, 280, 40, 0.42, 20)}
-    ${pouch(500, 885, 470, 700, { band: v[0], recipe: v[1] })}
-    ${kibble(220, 900, 70, 18, variant.length * 13)}
-    ${grain(w, h, 0.06)}`) }
+function dropper(cx, base, s, { glass = "#8a5524", name = "Barrier serum", line2 = "Ceramides  ·  30 ml" } = {}) {
+  const gg = glassGrad(glass), bulb = id("bulb"), hl = blur(2.5)
+  const bw = 150 * s, bh = 230 * s, x = cx - bw / 2, top = base - bh
+  return `<defs>${gg.def}${hl.def}<linearGradient id="${bulb}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1b1b1b"/><stop offset="0.35" stop-color="#4a4a48"/><stop offset="1" stop-color="#121212"/></linearGradient></defs>
+    <path d="M${x} ${base - 14 * s} L${x} ${top + 40 * s} Q${x} ${top} ${x + 40 * s} ${top} L${x + bw - 40 * s} ${top} Q${x + bw} ${top} ${x + bw} ${top + 40 * s} L${x + bw} ${base - 14 * s} Q${x + bw} ${base} ${x + bw - 14 * s} ${base} L${x + 14 * s} ${base} Q${x} ${base} ${x} ${base - 14 * s}Z" fill="url(#${gg.id})"/>
+    ${label(x + 14 * s, top + 70 * s, bw - 28 * s, 120 * s, name, line2, { size: s * 0.82 })}
+    <rect x="${x + 20 * s}" y="${top + 12 * s}" width="${9 * s}" height="${bh - 34 * s}" rx="${4 * s}" fill="#fff" opacity="0.35" filter="url(#${hl.id})"/>
+    <rect x="${cx - 34 * s}" y="${top - 26 * s}" width="${68 * s}" height="${30 * s}" rx="${4 * s}" fill="${shade(glass, 0.35)}"/>
+    <rect x="${cx - 40 * s}" y="${top - 72 * s}" width="${80 * s}" height="${50 * s}" rx="${6 * s}" fill="#e9e4da"/><rect x="${cx - 40 * s}" y="${top - 72 * s}" width="${80 * s}" height="${50 * s}" rx="${6 * s}" fill="url(#${bulb})" opacity="0.12"/>
+    <path d="M${cx - 30 * s} ${top - 70 * s} L${cx - 30 * s} ${top - 132 * s} Q${cx - 30 * s} ${top - 168 * s} ${cx} ${top - 170 * s} Q${cx + 30 * s} ${top - 168 * s} ${cx + 30 * s} ${top - 132 * s} L${cx + 30 * s} ${top - 70 * s}Z" fill="url(#${bulb})"/>`
 }
 
-export function petTreats() {
-  const w = 1000, h = 1000
-  const glass = id("jar")
-  return { w, h, svg: doc(w, h, `${sweep(w, h, "#f2e6d4", "#d8c09c", 0.6)}
-    ${contact(500, 860, 250, 40, 0.42, 20)}
-    <defs><linearGradient id="${glass}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0.45"/><stop offset="0.15" stop-color="#fff" stop-opacity="0.08"/><stop offset="0.8" stop-color="#fff" stop-opacity="0.05"/><stop offset="1" stop-color="#fff" stop-opacity="0.35"/></linearGradient></defs>
-    <rect x="300" y="300" width="400" height="560" rx="60" fill="#c9a77a" opacity="0.35"/>
-    ${Array.from({ length: 9 }, (_, row) => kibble(500, 820 - row * 56, 160, 16, 30 + row, "#7c4a24")).join("")}
-    <rect x="300" y="300" width="400" height="560" rx="60" fill="url(#${glass})" stroke="#fff" stroke-opacity="0.5" stroke-width="3"/>
-    <rect x="320" y="230" width="360" height="90" rx="20" fill="#3b2a20"/><rect x="320" y="230" width="360" height="22" rx="10" fill="#fff" opacity="0.12"/>
-    <rect x="350" y="470" width="300" height="190" rx="10" fill="#f6efe2"/>
-    <text x="500" y="530" text-anchor="middle" font-family="${SANS}" font-weight="800" font-size="34" letter-spacing="5" fill="#b5532f">MARROW &amp; OAT</text>
-    <text x="500" y="585" text-anchor="middle" font-family="${SERIF}" font-style="italic" font-weight="600" font-size="40" fill="#2a1d16">Beef liver bites</text>
-    <text x="500" y="628" text-anchor="middle" font-family="${SANS}" font-weight="600" font-size="20" letter-spacing="3" fill="#6b5a4c">ONE INGREDIENT · 200 G</text>
-    ${grain(w, h, 0.06)}`) }
+function jar(cx, base, s, { lid = "#ece7dd", body = "#f6f3ec", name = "Night cream", line2 = "Oat and squalane  ·  50 ml" } = {}) {
+  const jw = 220 * s, jh = 120 * s, x = cx - jw / 2, sh = id("jar"), lg = id("lid")
+  return `<defs><linearGradient id="${sh}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${shade(body, 0.22)}"/><stop offset="0.3" stop-color="${tint(body, 0.4)}"/><stop offset="0.7" stop-color="${body}"/><stop offset="1" stop-color="${shade(body, 0.28)}"/></linearGradient>
+    <linearGradient id="${lg}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${shade(lid, 0.25)}"/><stop offset="0.3" stop-color="${tint(lid, 0.35)}"/><stop offset="1" stop-color="${shade(lid, 0.3)}"/></linearGradient></defs>
+    <path d="M${x} ${base - jh} L${x} ${base - 10 * s} Q${x} ${base} ${x + 12 * s} ${base + 2 * s} Q${cx} ${base + 14 * s} ${x + jw - 12 * s} ${base + 2 * s} Q${x + jw} ${base} ${x + jw} ${base - 10 * s} L${x + jw} ${base - jh}Z" fill="url(#${sh})"/>
+    ${label(x + 30 * s, base - jh + 14 * s, jw - 60 * s, jh - 28 * s, name, line2, { size: s * 0.68 })}
+    <rect x="${x - 4 * s}" y="${base - jh - 62 * s}" width="${jw + 8 * s}" height="${66 * s}" rx="${10 * s}" fill="url(#${lg})"/>
+    ${Array.from({ length: 34 }, (_, i) => `<line x1="${x + 2 * s + i * (jw / 34)}" y1="${base - jh - 52 * s}" x2="${x + 2 * s + i * (jw / 34)}" y2="${base - jh - 6 * s}" stroke="#000" stroke-opacity="0.05" stroke-width="${2 * s}"/>`).join("")}
+    <ellipse cx="${cx}" cy="${base - jh - 62 * s}" rx="${jw / 2 + 4 * s}" ry="${12 * s}" fill="${tint(lid, 0.3)}"/>`
 }
 
-/* ── Meal kits: Fennel & Fig ────────────────────────────────────────────── */
-
-/** A wooden table, seen from above. */
-function table(w, h, tone = "#9b7653") {
-  const f = id("grain")
-  return `<rect width="${w}" height="${h}" fill="${tone}"/><filter id="${f}"><feTurbulence type="fractalNoise" baseFrequency="0.002 0.06" numOctaves="4" seed="21"/><feColorMatrix values="0 0 0 0 0.25  0 0 0 0 0.15  0 0 0 0 0.07  0 0 0 0.7 0"/></filter><rect width="${w}" height="${h}" filter="url(#${f})"/>` +
-    `<radialGradient id="tl${uid}" cx="0.4" cy="0.35" r="0.85"><stop offset="0" stop-color="#fff" stop-opacity="0.18"/><stop offset="1" stop-color="#000" stop-opacity="0.3"/></radialGradient><rect width="${w}" height="${h}" fill="url(#tl${uid})"/>`
+function pump(cx, base, s, { body = "#dfe3d8", name = "Oat cleanser", line2 = "Gentle gel  ·  150 ml" } = {}) {
+  const bw = 140 * s, bh = 330 * s, x = cx - bw / 2, top = base - bh, sh = id("pmp")
+  return `<defs><linearGradient id="${sh}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${shade(body, 0.25)}"/><stop offset="0.28" stop-color="${tint(body, 0.35)}"/><stop offset="0.65" stop-color="${body}"/><stop offset="1" stop-color="${shade(body, 0.32)}"/></linearGradient></defs>
+    <path d="M${x} ${base - 18 * s} L${x} ${top + 30 * s} Q${x} ${top} ${x + 30 * s} ${top} L${x + bw - 30 * s} ${top} Q${x + bw} ${top} ${x + bw} ${top + 30 * s} L${x + bw} ${base - 18 * s} Q${x + bw} ${base} ${x + bw - 18 * s} ${base} L${x + 18 * s} ${base} Q${x} ${base} ${x} ${base - 18 * s}Z" fill="url(#${sh})"/>
+    ${label(x + 12 * s, top + 110 * s, bw - 24 * s, 130 * s, name, line2, { size: s * 0.78, paper: "transparent" })}
+    <rect x="${cx - 30 * s}" y="${top - 30 * s}" width="${60 * s}" height="${32 * s}" rx="${5 * s}" fill="#2b2f2a"/>
+    <rect x="${cx - 9 * s}" y="${top - 78 * s}" width="${18 * s}" height="${50 * s}" fill="#2b2f2a"/>
+    <path d="M${cx - 24 * s} ${top - 100 * s} L${cx + 70 * s} ${top - 100 * s} Q${cx + 80 * s} ${top - 98 * s} ${cx + 80 * s} ${top - 88 * s} L${cx + 80 * s} ${top - 82 * s} L${cx - 24 * s} ${top - 76 * s}Z" fill="#2b2f2a"/>`
 }
 
-/** A wide bowl from above, with whatever `inside` draws in its well. */
-function plateTop(cx, cy, r, glaze, inside) {
-  const g = id("pl"), well = id("well")
-  return `<defs><radialGradient id="${g}" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="${tint(glaze, 0.25)}"/><stop offset="1" stop-color="${shade(glaze, 0.15)}"/></radialGradient>
-    <radialGradient id="${well}" cx="0.5" cy="0.5" r="0.5"><stop offset="0.8" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.25"/></radialGradient>
-    <clipPath id="c${g}"><circle cx="${cx}" cy="${cy}" r="${r * 0.8}"/></clipPath></defs>
-    <circle cx="${cx + r * 0.06}" cy="${cy + r * 0.08}" r="${r * 1.02}" fill="#000" opacity="0.28" style="filter:blur(${r * 0.06}px)"/>
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${g})"/>
-    <g clip-path="url(#c${g})">${inside}</g>
-    <circle cx="${cx}" cy="${cy}" r="${r * 0.8}" fill="url(#${well})"/>
-    <path d="M${cx - r * 0.7} ${cy - r * 0.55} A${r * 0.92} ${r * 0.92} 0 0 1 ${cx + r * 0.2} ${cy - r * 0.88}" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="${r * 0.025}" stroke-linecap="round"/>`
+function tube(cx, base, s, { body = "#efe9dd", cap: capColor = "#b98a5a", name = "Daily SPF 30", line2 = "Mineral  ·  50 ml" } = {}) {
+  const sh = id("tb")
+  const d = `M${cx - 62 * s} ${base - 46 * s} L${cx - 86 * s} ${base - 330 * s} L${cx + 86 * s} ${base - 330 * s} L${cx + 62 * s} ${base - 46 * s}Z`
+  return `<defs><linearGradient id="${sh}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${shade(body, 0.22)}"/><stop offset="0.3" stop-color="${tint(body, 0.4)}"/><stop offset="0.7" stop-color="${body}"/><stop offset="1" stop-color="${shade(body, 0.3)}"/></linearGradient></defs>
+    <path d="${d}" fill="url(#${sh})"/>
+    <rect x="${cx - 88 * s}" y="${base - 344 * s}" width="${176 * s}" height="${18 * s}" fill="${shade(body, 0.08)}"/>
+    ${Array.from({ length: 16 }, (_, i) => `<line x1="${cx - 84 * s + i * 11 * s}" y1="${base - 343 * s}" x2="${cx - 84 * s + i * 11 * s}" y2="${base - 328 * s}" stroke="#000" stroke-opacity="0.08" stroke-width="${1.5 * s}"/>`).join("")}
+    ${label(cx - 62 * s, base - 270 * s, 124 * s, 130 * s, name, line2, { size: s * 0.66, paper: "transparent" })}
+    <rect x="${cx - 64 * s}" y="${base - 50 * s}" width="${128 * s}" height="${50 * s}" rx="${8 * s}" fill="${capColor}"/><rect x="${cx - 64 * s}" y="${base - 50 * s}" width="${128 * s}" height="${50 * s}" rx="${8 * s}" fill="url(#${sh})" opacity="0.35"/>`
 }
 
-function leaves(cx, cy, spread, n, seed, tone = "#3f7a3a") {
-  const r = rng(seed)
-  return Array.from({ length: n }, () => {
-    const x = cx + (r() - 0.5) * spread * 2, y = cy + (r() - 0.5) * spread * 2, s = 14 + r() * 16, a = r() * 360
-    return `<g transform="rotate(${a} ${x} ${y})"><path d="M${x - s} ${y} Q${x} ${y - s * 0.7} ${x + s} ${y} Q${x} ${y + s * 0.7} ${x - s} ${y}Z" fill="${r() > 0.5 ? tone : tint(tone, 0.2)}"/><line x1="${x - s * 0.8}" y1="${y}" x2="${x + s * 0.8}" y2="${y}" stroke="${tint(tone, 0.4)}" stroke-width="1.5" opacity="0.7"/></g>`
+/** Leaf shadows from a window plant, falling across the scene. */
+function leafShadow(w, h, seed, { opacity = 0.16, x0 = 0, y0 = 0, scale = 1 } = {}) {
+  const r = rng(seed), b = blur(7)
+  const fronds = Array.from({ length: 3 }, (_, f) => {
+    const sx = x0 + r() * w * 0.4, sy = y0 + r() * h * 0.2, ang = 20 + r() * 50
+    const leaves = Array.from({ length: 14 }, (_, i) => {
+      const t = i / 14, px = t * 520 * scale, side = i % 2 ? 1 : -1
+      return `<ellipse cx="${px}" cy="${side * 46 * scale}" rx="${70 * scale * (1 - t * 0.5)}" ry="${16 * scale}" transform="rotate(${side * 38} ${px} ${side * 46 * scale})"/>`
+    }).join("")
+    return `<g transform="translate(${sx} ${sy}) rotate(${ang + f * 12})"><rect x="0" y="-3" width="${540 * scale}" height="6"/>${leaves}</g>`
   }).join("")
+  return `<defs>${b.def}</defs><g fill="#1c2418" opacity="${opacity}" filter="url(#${b.id})">${fronds}</g>`
 }
 
-function grainsOf(cx, cy, spread, n, seed, tone = "#f4efe4") {
-  const r = rng(seed)
-  return Array.from({ length: n }, () => {
-    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * spread, x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d
-    return `<ellipse cx="${x}" cy="${y}" rx="7" ry="3.2" transform="rotate(${r() * 180} ${x} ${y})" fill="${r() > 0.3 ? tone : shade(tone, 0.08)}"/>`
-  }).join("")
-}
-
-const MEALS = {
-  dahl(cx, cy, r) {
-    const rr = rng(3)
-    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#d98b2b"/><circle cx="${cx - r * 0.1}" cy="${cy - r * 0.1}" r="${r * 0.7}" fill="#e4a03c" opacity="0.7"/>` +
-      `<path d="M${cx - r * 0.4} ${cy + r * 0.1} q${r * 0.2} ${-r * 0.3} ${r * 0.45} ${-r * 0.05} t${r * 0.4} ${-r * 0.1}" fill="none" stroke="#f7ecd6" stroke-width="${r * 0.06}" stroke-linecap="round" opacity="0.9"/>` +
-      grainsOf(cx + r * 0.35, cy + r * 0.3, r * 0.4, 160, 5) +
-      Array.from({ length: 30 }, () => `<circle cx="${cx + (rr() - 0.5) * r * 1.4}" cy="${cy + (rr() - 0.5) * r * 1.4}" r="${2 + rr() * 2}" fill="#7a3b12" opacity="0.7"/>`).join("") +
-      leaves(cx - r * 0.1, cy - r * 0.2, r * 0.45, 12, 9, "#4f8a3c")
-  },
-  salmon(cx, cy, r) {
-    return grainsOf(cx, cy, r, 420, 11) +
-      `<rect x="${cx - r * 0.55}" y="${cy - r * 0.42}" width="${r * 0.75}" height="${r * 0.5}" rx="${r * 0.08}" fill="#e57a52" transform="rotate(-12 ${cx} ${cy})"/>` +
-      Array.from({ length: 5 }, (_, i) => `<path d="M${cx - r * 0.5 + i * r * 0.15} ${cy - r * 0.42} q${r * 0.05} ${r * 0.25} 0 ${r * 0.5}" stroke="#f7c9b2" stroke-width="${r * 0.025}" fill="none" transform="rotate(-12 ${cx} ${cy})"/>`).join("") +
-      `<rect x="${cx - r * 0.55}" y="${cy - r * 0.42}" width="${r * 0.75}" height="${r * 0.12}" rx="${r * 0.05}" fill="#b0482b" opacity="0.6" transform="rotate(-12 ${cx} ${cy})"/>` +
-      leaves(cx + r * 0.35, cy + r * 0.25, r * 0.28, 9, 13, "#3d7a35") +
-      `<path d="M${cx + r * 0.25} ${cy - r * 0.55} a${r * 0.22} ${r * 0.22} 0 0 1 ${r * 0.4} ${r * 0.1} z" fill="#c9de6a" stroke="#8fb33a" stroke-width="4"/>` +
-      Array.from({ length: 40 }, (_, i) => `<circle cx="${cx - r * 0.3 + ((i * 37) % 50) / 50 * r * 0.6}" cy="${cy - r * 0.05 + ((i * 53) % 40) / 40 * r * 0.25}" r="2.6" fill="${i % 3 ? "#f3ead2" : "#2b2b2b"}"/>`).join("")
-  },
-  curry(cx, cy, r) {
-    const rr = rng(17)
-    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#8aa83a"/><circle cx="${cx + r * 0.1}" cy="${cy - r * 0.05}" r="${r * 0.75}" fill="#a2bd4c" opacity="0.6"/>` +
-      Array.from({ length: 14 }, () => { const x = cx + (rr() - 0.5) * r * 1.3, y = cy + (rr() - 0.5) * r * 1.3, s = 16 + rr() * 14; return `<rect x="${x - s / 2}" y="${y - s / 2}" width="${s}" height="${s}" rx="${s * 0.25}" fill="#f3e5c8" transform="rotate(${rr() * 90} ${x} ${y})"/>` }).join("") +
-      Array.from({ length: 10 }, () => { const x = cx + (rr() - 0.5) * r * 1.2, y = cy + (rr() - 0.5) * r * 1.2; return `<circle cx="${x}" cy="${y}" r="${10 + rr() * 6}" fill="#d64b2f"/>` }).join("") +
-      leaves(cx, cy, r * 0.6, 14, 19, "#2f6b2a")
-  },
-  pasta(cx, cy, r) {
-    const rr = rng(23)
-    let s = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#efcf7a"/>`
-    for (let i = 0; i < 70; i++) { const x = cx + (rr() - 0.5) * r * 1.6, y = cy + (rr() - 0.5) * r * 1.6; s += `<path d="M${x} ${y} q${(rr() - 0.5) * 120} ${(rr() - 0.5) * 120} ${(rr() - 0.5) * 160} ${(rr() - 0.5) * 160}" stroke="${rr() > 0.5 ? "#f2d27c" : "#dcb357"}" stroke-width="6" fill="none" stroke-linecap="round"/>` }
-    for (let i = 0; i < 9; i++) { const x = cx + (rr() - 0.5) * r, y = cy + (rr() - 0.5) * r; s += `<circle cx="${x}" cy="${y}" r="17" fill="#d23a2a"/><circle cx="${x - 5}" cy="${y - 5}" r="5" fill="#fff" opacity="0.35"/>` }
-    s += leaves(cx + r * 0.2, cy - r * 0.2, r * 0.3, 7, 29, "#2f7a35")
-    s += Array.from({ length: 40 }, () => `<rect x="${cx + (rr() - 0.5) * r}" y="${cy + (rr() - 0.5) * r}" width="7" height="2.5" fill="#fffaf0" opacity="0.9"/>`).join("")
-    return s
-  },
-}
-
-export function mealHero() {
-  const w = 1400, h = 1100
-  return { w, h, svg: doc(w, h, `${table(w, h)}
-    <rect x="-40" y="760" width="560" height="420" rx="8" fill="#e9e2d2" transform="rotate(-6 200 900)"/><rect x="-40" y="760" width="560" height="420" fill="#000" opacity="0.06" transform="rotate(-6 200 900)"/>
-    ${plateTop(520, 470, 330, "#f1ece2", MEALS.salmon(520, 470, 280))}
-    ${plateTop(1040, 300, 230, "#2f3a35", MEALS.dahl(1040, 300, 190))}
-    ${plateTop(1080, 820, 210, "#d9cbb4", MEALS.curry(1080, 820, 170))}
-    <g transform="rotate(28 230 180)"><rect x="140" y="80" width="40" height="300" rx="20" fill="#cfc6b5"/><rect x="200" y="80" width="40" height="300" rx="20" fill="#cfc6b5" opacity="0.9"/></g>
-    ${leaves(760, 960, 60, 6, 31, "#4f8a3c")}
-    ${grain(w, h, 0.07)}`) }
-}
-
-export function mealDish(kind) {
-  const w = 1000, h = 1000
-  const glaze = { dahl: "#2f3a35", salmon: "#f1ece2", curry: "#d9cbb4", pasta: "#e8e1d4" }[kind]
-  return { w, h, svg: doc(w, h, `${table(w, h, kind === "salmon" ? "#a98463" : "#8e6b4b")}
-    ${plateTop(500, 500, 360, glaze, MEALS[kind](500, 500, 300))}
-    ${grain(w, h, 0.07)}`) }
-}
-
-export function mealBox() {
-  const w = 1000, h = 1000
-  return { w, h, svg: doc(w, h, `${sweep(w, h, "#f1ede4", "#d8d1c2", 0.6)}
-    ${contact(500, 820, 360, 50, 0.4, 22)}
-    <path d="M150 360 L500 250 L850 360 L500 470Z" fill="#d7b98f"/>
-    <path d="M150 360 L500 470 L500 840 L150 730Z" fill="#c4a072"/>
-    <path d="M850 360 L500 470 L500 840 L850 730Z" fill="#b08a5c"/>
-    <path d="M150 360 L500 470 L500 840 L150 730Z" fill="#fff" opacity="0.06"/>
-    <g transform="matrix(1 0.314 0 1 0 0)"><rect x="200" y="320" width="270" height="150" rx="10" fill="#33452b"/></g>
-    <text font-family="${SANS}" font-weight="800" font-size="27" fill="#f2efe6" letter-spacing="2" transform="matrix(1 0.314 0 1 224 438)">FENNEL &amp; FIG</text>
-    <text font-family="${SANS}" font-weight="600" font-size="20" fill="#f2efe6" opacity="0.8" transform="matrix(1 0.314 0 1 224 474)">3 dinners for 2</text>
-    <path d="M500 250 L500 470" stroke="#9c7a50" stroke-width="3"/>
-    ${leaves(800, 230, 70, 7, 41, "#4f8a3c")}
+export function skinHero() {
+  const w = 1400, h = 1000
+  return { w, h, svg: doc(w, h, `${sweep(w, h, "#dfe3d6", "#c3c8b6", 0.6)}
+    <rect y="${h * 0.7}" width="${w}" height="${h * 0.3}" fill="#b9bea9" opacity="0.5"/>
+    ${leafShadow(w, h, 31, { opacity: 0.14, x0: 700, y0: -60, scale: 1.3 })}
+    ${contact(470, 790, 230, 26, 0.3, 16)}${contact(860, 830, 300, 30, 0.3, 18)}
+    ${plinth(470, 560, 380, 240, "#e2d6c2", true)}
+    ${plinth(860, 690, 520, 150, "#d9ccb6")}
+    ${contact(470, 562, 90, 12, 0.5, 8)}${dropper(470, 562, 1.15)}
+    ${contact(745, 692, 120, 12, 0.45, 8)}${jar(745, 692, 1.05)}
+    ${contact(990, 692, 80, 10, 0.45, 8)}${pump(990, 692, 0.95)}
+    ${leafShadow(w, h, 33, { opacity: 0.1, x0: 300, y0: 200, scale: 1 })}
     ${grain(w, h, 0.06)}`) }
+}
+
+export function skinProduct(kind) {
+  const w = 1000, h = 1250
+  const grounds = { serum: ["#e6dccd", "#cbbda6"], cream: ["#e3e5dc", "#c7cbbb"], cleanser: ["#e9e3da", "#cfc6b8"], spf: ["#efe2d3", "#d6c2aa"], set: ["#e1e4da", "#c6cab9"] }
+  const [top, floor] = grounds[kind]
+  let art = ""
+  if (kind === "serum") art = `${plinth(500, 880, 520, 380, "#e8dfcf", true)}${contact(500, 882, 110, 14, 0.5, 9)}${dropper(500, 882, 1.6)}`
+  if (kind === "cream") art = `${plinth(500, 880, 620, 380, "#e3dccd")}${contact(500, 882, 170, 16, 0.5, 9)}${jar(500, 882, 1.6)}`
+  if (kind === "cleanser") art = `${plinth(500, 900, 560, 360, "#e6ddcc", true)}${contact(500, 902, 120, 14, 0.5, 9)}${pump(500, 902, 1.45)}`
+  if (kind === "spf") art = `${plinth(500, 900, 600, 360, "#eadfcd")}${contact(500, 902, 110, 14, 0.5, 9)}${tube(500, 902, 1.5)}`
+  if (kind === "set") art = `${plinth(500, 860, 760, 400, "#e3d8c5")}${contact(330, 862, 80, 12, 0.5, 8)}${dropper(330, 862, 1.05)}${contact(560, 862, 110, 12, 0.5, 8)}${jar(560, 862, 0.95)}${contact(760, 862, 70, 10, 0.5, 8)}${tube(760, 862, 0.95)}`
+  return { w, h, svg: doc(w, h, `${sweep(w, h, top, floor, 0.55)}${leafShadow(w, h, kind.length * 7, { opacity: 0.12, x0: 380, y0: -40, scale: 1 })}${art}${grain(w, h, 0.06)}`) }
+}
+
+/* ── A community post's pictures: glaze test tiles ───────────────────────── */
+
+export function glazeTiles() {
+  const w = 1200, h = 900
+  const glazes = ["#5e7f86", "#9c5a3c", "#e8e0d0", "#3f4a3c", "#c38d5e", "#7a6a8c", "#8fa38a", "#d9c7a3", "#2f3d4a", "#b5653f", "#a7b8b5", "#6b4a33"]
+  const r = rng(17)
+  const tiles = glazes.map((g, i) => {
+    const col = i % 4, row = Math.floor(i / 4)
+    const x = 170 + col * 225 + (r() - 0.5) * 14, y = 150 + row * 210 + (r() - 0.5) * 12, rot = (r() - 0.5) * 5
+    const gg = id("tile")
+    return `<g transform="rotate(${rot} ${x + 90} ${y + 90})"><rect x="${x + 6}" y="${y + 12}" width="180" height="170" rx="10" fill="#000" opacity="0.2" style="filter:blur(8px)"/>
+      <rect x="${x}" y="${y}" width="180" height="170" rx="10" fill="#d9c3a3"/>
+      <defs><linearGradient id="${gg}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${tint(g, 0.1)}"/><stop offset="0.7" stop-color="${g}"/><stop offset="1" stop-color="${shade(g, 0.35)}"/></linearGradient></defs>
+      <path d="M${x} ${y + 10} Q${x} ${y} ${x + 10} ${y} L${x + 170} ${y} Q${x + 180} ${y} ${x + 180} ${y + 10} L${x + 180} ${y + 104 + r() * 20} Q${x + 140} ${y + 118} ${x + 90} ${y + 110 + r() * 14} Q${x + 40} ${y + 122} ${x} ${y + 108}Z" fill="url(#${gg})"/>
+      <rect x="${x + 14}" y="${y + 14}" width="40" height="70" rx="6" fill="#fff" opacity="0.12"/>
+      <text x="${x + 18}" y="${y + 154}" font-family="${SANS}" font-weight="600" font-size="18" fill="#5b4a37" opacity="0.8">${String.fromCharCode(65 + row)}${col + 1}</text></g>`
+  }).join("")
+  return { w, h, svg: doc(w, h, `<rect width="${w}" height="${h}" fill="#8a7a66"/><rect width="${w}" height="${h}" fill="#000" opacity="0.06"/>
+    <filter id="wd"><feTurbulence type="fractalNoise" baseFrequency="0.004 0.08" numOctaves="3" seed="8"/><feColorMatrix values="0 0 0 0 0.4  0 0 0 0 0.3  0 0 0 0 0.2  0 0 0 0.5 0"/></filter><rect width="${w}" height="${h}" filter="url(#wd)"/>
+    <radialGradient id="lamp" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#fff3dc" stop-opacity="0.25"/><stop offset="1" stop-color="#000" stop-opacity="0.3"/></radialGradient>
+    ${tiles}<rect width="${w}" height="${h}" fill="url(#lamp)"/>${grain(w, h, 0.07)}`) }
+}
+
+/** The page behind three phones: a warm blur of window light, as in a real photograph of a desk. */
+export function warmBackdrop() {
+  const w = 1200, h = 750
+  const b = blur(70)
+  return { w, h, svg: doc(w, h, `<defs>${b.def}</defs><rect width="${w}" height="${h}" fill="#f1dcc4"/>
+    <g filter="url(#${b.id})"><ellipse cx="180" cy="120" rx="320" ry="220" fill="#f6c58f"/><ellipse cx="1050" cy="640" rx="360" ry="240" fill="#f0a868"/><ellipse cx="1100" cy="90" rx="260" ry="180" fill="#f8e3c2"/><ellipse cx="120" cy="680" rx="300" ry="200" fill="#f3cfa5"/><ellipse cx="620" cy="380" rx="420" ry="260" fill="#f7e6d3"/><ellipse cx="860" cy="300" rx="200" ry="160" fill="#f5c79a" opacity="0.7"/></g>
+    ${grain(w, h, 0.09, 0.75)}`) }
 }
 
 /* ── Digital products: Halcyon Presets ──────────────────────────────────── */
 
 /** A landscape photograph, graded: sky, sun, hills, water. */
 function landscape(x, y, w, h, grade, seed) {
+  /*
+    Round AD5: closer to a photograph. Five ridges fading into the haze with
+    distance, mist lying in each valley, a tree line on the nearest, the
+    ridges' own rock and grass texture, and a sea with the sun's track and
+    a sheen that breaks into lines.
+  */
   const r = rng(seed)
-  const sky = id("sky"), sun = id("sun")
-  const hills = Array.from({ length: 3 }, (_, i) => {
-    const base = y + h * (0.58 + i * 0.09)
-    const p1 = r() * 6.28, p2 = r() * 6.28, f1 = 1.2 + r() * 1.4, f2 = 3 + r() * 3, a1 = h * (0.05 + r() * 0.06), a2 = h * (0.015 + r() * 0.02)
+  const sky = id("sky"), sun = id("sun"), mist = id("mist"), sea = id("sea"), clip = `c${sky}`, mb = blur(Math.max(4, h * 0.012))
+  const sunX = x + w * (0.3 + r() * 0.4)
+  const ridge = (base, amp, wob, n = 90) => {
+    const p1 = r() * 6.28, p2 = r() * 6.28, p3 = r() * 6.28, f1 = 1 + r() * 1.3, f2 = 3 + r() * 3, f3 = 11 + r() * 9
     let d = ""
-    for (let k = 0; k <= 60; k++) {
-      const t = k / 60
-      const yy = base - a1 * (1 + Math.cos(t * 6.28 * f1 + p1)) / 2 - a2 * (1 + Math.cos(t * 6.28 * f2 + p2)) / 2
+    const ys = []
+    for (let k = 0; k <= n; k++) {
+      const t = k / n
+      const yy = base - amp * (1 + Math.cos(t * 6.28 * f1 + p1)) / 2 - amp * 0.3 * (1 + Math.cos(t * 6.28 * f2 + p2)) / 2 - wob * (1 + Math.cos(t * 6.28 * f3 + p3)) / 2 - wob * 0.5 * r()
+      ys.push(yy)
       d += `${k === 0 ? "M" : "L"}${(x + w * t).toFixed(1)} ${yy.toFixed(1)} `
     }
-    return `<path d="${d} L${x + w} ${y + h} L${x} ${y + h}Z" fill="${mix(grade.hill, grade.near, i / 2)}"/>` 
+    /* The ridge's height at a point across, so trees stand on it. */
+    const at = (t) => ys[Math.min(n, Math.max(0, Math.round(t * n)))]
+    return { d: `${d} L${x + w} ${y + h} L${x} ${y + h}Z`, at }
+  }
+  const layers = [0.5, 0.56, 0.63, 0.7, 0.77].map((at, i) => {
+    const base = y + h * at
+    const tone = mix(mix(grade.low, grade.hill, 0.35 + i * 0.12), grade.near, Math.max(0, (i - 1) / 3.2))
+    const rg = ridge(base, h * (0.06 - i * 0.006), h * (0.004 + i * 0.003))
+    const d = rg.d
+    const lc = id("lc")
+    const trees = i >= 3 ? Array.from({ length: i === 4 ? 90 : 50 }, () => {
+      const t = r(), tx = x + t * w, th = h * (i === 4 ? 0.014 + r() * 0.026 : 0.008 + r() * 0.012)
+      return `<path d="M${tx} ${rg.at(t) + th * 0.25 - th} l${th * 0.26} ${th} l${-th * 0.52} 0Z"/>`
+    }).join("") : ""
+    return `<defs><clipPath id="${lc}"><path d="${d}"/></clipPath></defs><path d="${d}" fill="${tone}"/>
+      ${i >= 2 ? texture(lc, w, h, { freq: `${0.004 + i * 0.002} ${0.03 + i * 0.01}`, amount: 0.12 + i * 0.04, seed: seed + i }) : ""}
+      ${trees ? `<g fill="${shade(tone, 0.25)}" clip-path="url(#${clip})">${trees}</g>` : ""}
+      <rect x="${x}" y="${base - h * 0.035}" width="${w}" height="${h * 0.06}" fill="url(#${mist})" opacity="${0.5 - i * 0.07}" filter="url(#${mb.id})"/>`
   }).join("")
-  return `<defs><linearGradient id="${sky}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${grade.top}"/><stop offset="0.65" stop-color="${grade.low}"/></linearGradient>
-    <radialGradient id="${sun}" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${grade.sun}"/><stop offset="1" stop-color="${grade.sun}" stop-opacity="0"/></radialGradient>
-    <clipPath id="c${sky}"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath></defs>
-    <g clip-path="url(#c${sky})"><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${sky})"/>
-    <circle cx="${x + w * (0.3 + r() * 0.4)}" cy="${y + h * 0.42}" r="${h * 0.32}" fill="url(#${sun})"/>
-    ${hills}
-    <rect x="${x}" y="${y + h * 0.82}" width="${w}" height="${h * 0.18}" fill="${grade.water}" opacity="0.85"/></g>`
+  const sheen = Array.from({ length: 46 }, () => {
+    const sy = y + h * (0.83 + r() * 0.17), len = w * (0.02 + r() * 0.12), sx = sunX - len / 2 + (r() - 0.5) * w * 0.25 * ((sy - y - h * 0.83) / (h * 0.17) + 0.3)
+    return `<rect x="${sx}" y="${sy}" width="${len}" height="${Math.max(1, h * 0.002)}" fill="${grade.sun}" opacity="${0.25 + r() * 0.4}"/>`
+  }).join("")
+  return `<defs>${mb.def}<linearGradient id="${sky}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${grade.top}"/><stop offset="0.65" stop-color="${grade.low}"/></linearGradient>
+    <radialGradient id="${sun}" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${grade.sun}"/><stop offset="0.35" stop-color="${grade.sun}" stop-opacity="0.55"/><stop offset="1" stop-color="${grade.sun}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="${mist}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${grade.low}" stop-opacity="0"/><stop offset="0.5" stop-color="${grade.low}"/><stop offset="1" stop-color="${grade.low}" stop-opacity="0"/></linearGradient>
+    <linearGradient id="${sea}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${mix(grade.water, grade.low, 0.35)}"/><stop offset="1" stop-color="${shade(grade.water, 0.25)}"/></linearGradient>
+    <clipPath id="${clip}"><rect x="${x}" y="${y}" width="${w}" height="${h}"/></clipPath></defs>
+    <g clip-path="url(#${clip})"><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${sky})"/>
+    <circle cx="${sunX}" cy="${y + h * 0.4}" r="${h * 0.34}" fill="url(#${sun})"/>
+    <circle cx="${sunX}" cy="${y + h * 0.4}" r="${h * 0.035}" fill="${tint(grade.sun, 0.4)}" opacity="0.9"/>
+    ${layers}
+    <rect x="${x}" y="${y + h * 0.83}" width="${w}" height="${h * 0.17}" fill="url(#${sea})"/>
+    <rect x="${sunX - w * 0.08}" y="${y + h * 0.83}" width="${w * 0.16}" height="${h * 0.17}" fill="${grade.sun}" opacity="0.18" filter="url(#${mb.id})"/>
+    ${sheen}</g>`
 }
 
 const GRADES = {
@@ -411,6 +446,12 @@ export function presetCompare() {
     <rect x="40" y="40" width="120" height="44" rx="22" fill="#000" opacity="0.45"/><text x="100" y="69" text-anchor="middle" font-family="${SANS}" font-weight="600" font-size="20" fill="#fff">Before</text>
     <rect x="840" y="40" width="120" height="44" rx="22" fill="#000" opacity="0.45"/><text x="900" y="69" text-anchor="middle" font-family="${SANS}" font-weight="600" font-size="20" fill="#fff">After</text>
     ${grain(w, h, 0.08, 0.95)}`) }
+}
+
+/** A creator page's cover: one of the photographer's own landscapes, wide. */
+export function landscapeCover() {
+  const w = 1800, h = 640
+  return { w, h, svg: doc(w, h, `${landscape(0, -h * 0.25, w, h * 1.3, GRADES.golden, 41)}${grain(w, h, 0.08, 0.9)}`) }
 }
 
 /** A planner template: the product as it looks open, on a soft ground. */
@@ -470,6 +511,30 @@ export function bioAvatar() {
   return { w, h, svg: doc(w, h, `${sweep(w, h, "#e8d8c3", "#c9ae8c", 0.65)}${contact(300, 500, 110, 18, 0.45, 12)}${vase(300, 500, 330, "#5e7f86")}${grain(w, h, 0.06)}`) }
 }
 
+/*
+  THE OTHER TWO LINK IN BIO PICTURES. No faces anywhere in the hero: a drawn
+  face is either a cartoon or uncanny, and a photograph of a real person is
+  not ours to use. A stylist's page shows a vase of dried stems from one of
+  her rooms; a photographer's shows one of his own landscapes.
+*/
+export function stemsAvatar() {
+  const w = 600, h = 600
+  const r = rng(29)
+  const stems = Array.from({ length: 9 }, (_, i) => {
+    const x0 = 300 + (r() - 0.5) * 30, ang = -42 + i * 10 + (r() - 0.5) * 6, len = 250 + r() * 90
+    const x1 = x0 + Math.sin((ang * Math.PI) / 180) * len, y1 = 330 - Math.cos((ang * Math.PI) / 180) * len
+    const head = Array.from({ length: 6 }, (_, k) => `<ellipse cx="${x1 + (r() - 0.5) * 18}" cy="${y1 + k * 9}" rx="${7 - k * 0.6}" ry="${3.4}" fill="#cfae7d" transform="rotate(${ang} ${x1} ${y1 + k * 9})"/>`).join("")
+    return `<path d="M${x0} 330 Q${(x0 + x1) / 2 + (r() - 0.5) * 30} ${(330 + y1) / 2} ${x1} ${y1}" stroke="#a88a5c" stroke-width="3" fill="none"/>${head}`
+  }).join("")
+  return { w, h, svg: doc(w, h, `${sweep(w, h, "#efe4d4", "#cdb69a", 0.6)}<rect x="0" y="0" width="160" height="${h}" fill="#fff" opacity="0.18" style="filter:blur(30px)"/>
+    ${stems}${contact(300, 540, 100, 16, 0.42, 12)}${vase(300, 540, 280, "#d9d0c0")}${grain(w, h, 0.07)}`) }
+}
+
+export function landscapeAvatar() {
+  const w = 600, h = 600
+  return { w, h, svg: doc(w, h, `${landscape(-300, -40, 1200, 700, GRADES.moody, 53)}${grain(w, h, 0.08, 0.9)}`) }
+}
+
 export function mugs() {
   const w = 1000, h = 1000
   const mug = (cx, base, glaze) => `<rect x="${cx - 110}" y="${base - 230}" width="220" height="230" rx="34" fill="${glaze}"/><rect x="${cx - 110}" y="${base - 230}" width="220" height="230" rx="34" fill="url(#mugsh)"/><path d="M${cx + 108} ${base - 180} q90 10 70 90 q-12 50 -70 50" stroke="${glaze}" stroke-width="30" fill="none"/><ellipse cx="${cx}" cy="${base - 228}" rx="108" ry="18" fill="${shade(glaze, 0.5)}"/>`
@@ -482,12 +547,14 @@ export function mugs() {
 
 /** Every picture the demo stores use, by file name. */
 export const DEMO_ART = {
-  "watch-hero": watchHero, "watch-stone": watchStone, "watch-dial": watchDial, "watch-box": watchBox,
-  "pet-hero": petHero, "pet-chicken": () => petPouch("chicken"), "pet-salmon": () => petPouch("salmon"), "pet-lamb": () => petPouch("lamb"), "pet-duck": () => petPouch("duck"), "pet-treats": petTreats,
-  "meal-hero": mealHero, "meal-dahl": () => mealDish("dahl"), "meal-salmon": () => mealDish("salmon"), "meal-curry": () => mealDish("curry"), "meal-pasta": () => mealDish("pasta"), "meal-box": mealBox,
-  "preset-coastal": () => presetCover("coastal", "Coastal", "12 Lightroom presets"), "preset-golden": () => presetCover("golden", "Golden Hour", "10 Lightroom presets"),
-  "preset-nordic": () => presetCover("nordic", "Nordic Light", "8 Lightroom presets"), "preset-moody": () => presetCover("moody", "Moody Film", "12 presets + LUTs"),
-  "preset-compare": presetCompare, "planner": plannerCover,
+  "street-hero": streetHero, "street-hoodie": () => streetProduct("hoodie"), "street-tee": () => streetProduct("tee"), "street-sweat": () => streetProduct("sweat"),
+  "street-olive": () => streetProduct("olive"), "street-beanie": () => streetProduct("beanie"), "street-tote": () => streetProduct("tote"),
+  "skin-hero": skinHero, "skin-serum": () => skinProduct("serum"), "skin-cream": () => skinProduct("cream"), "skin-cleanser": () => skinProduct("cleanser"), "skin-spf": () => skinProduct("spf"), "skin-set": () => skinProduct("set"),
+  "avatar-stems": stemsAvatar, "avatar-landscape": landscapeAvatar,
+  "glaze-tiles": glazeTiles, "warm-backdrop": warmBackdrop,
+  "preset-harbour": () => presetCover("coastal", "Harbour", "12 Lightroom presets"), "preset-late-summer": () => presetCover("golden", "Late Summer", "10 Lightroom presets"),
+  "preset-overcast": () => presetCover("nordic", "Overcast", "8 Lightroom presets"), "preset-tungsten": () => presetCover("moody", "Tungsten Nights", "10 presets and 3 LUTs"),
+  "preset-compare": presetCompare, "landscape-cover": landscapeCover,
   "course-hero": courseHero, "lesson-0": () => courseLesson(0), "lesson-1": () => courseLesson(1), "lesson-2": () => courseLesson(2), "lesson-3": () => courseLesson(3), "lesson-4": () => courseLesson(4), "lesson-5": () => courseLesson(5),
   "bio-avatar": bioAvatar, "mugs": mugs,
 }
