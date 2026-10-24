@@ -214,7 +214,7 @@ export function SocialIcon({ platform, size = 20, color = "currentColor", stroke
   if (drawing && "brand" in drawing) {
     return <BrandSvg Icon={drawing.brand} size={size} color={color} className={className} style={style} data-mark={key} {...a11y} />
   }
-  const Line = drawing?.line ?? LinkGlyph
+  const Line = drawing && "line" in drawing ? drawing.line : LinkGlyph
   return (
     <Line
       size={size}
