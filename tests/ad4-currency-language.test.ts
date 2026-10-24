@@ -18,6 +18,8 @@
  *      banner amount as the old number: "free shipping over 50" in euros
  *      became 50 lei while the rates said 248.50 lei. And the setting was
  *      labelled in dollars whatever the store sells in.
+ *   6. A buyer's email in Arabic or Hebrew was laid out left to right: the
+ *      website turns right to left for those languages, the emails did not.
  *
  *   npx tsx tests/ad4-currency-language.test.ts
  */
@@ -34,6 +36,8 @@ import { checkoutMoneyLocale, convertOrder, marketCharge } from "@/lib/markets/c
 import { moneyIn } from "@/app/checkout/parts/ui"
 import { themeSettingsForNewBase } from "@/lib/markets/base-change"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
+import { inEmailLanguage } from "@/lib/emails/words"
+import { orderConfirmationEmail, type OrderEmailModel } from "@/lib/physical/email-templates"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -136,6 +140,24 @@ console.log("\n5. The website's free shipping amount moves with the store's curr
   check("the change and its undo move the website's settings, draft and published", /moveThemeSettings\(c\.db, c\.creatorId, \{ from: store\.currency, to, mode, rate \}\)/.test(route) && /moveThemeSettings\(c\.db, c\.creatorId, \{ from: latest\.to, to: latest\.from/.test(route) && /draft_settings/.test(route))
   const field = THEME_SETTINGS_GROUPS.flatMap((g) => g.fields ?? []).find((f) => (f as { id?: string }).id === "free_shipping_threshold") as { label?: string; unit?: string } | undefined
   check("the setting is not labelled in dollars", !!field && !/\$/.test(field.label ?? "") && field.unit !== "$", field)
+}
+
+console.log("\n6. A buyer's email reads right to left in a language written that way\n")
+{
+  const model: OrderEmailModel = {
+    shopName: "Bread Studio", orderNumber: "#1042", buyerFirstName: "Ana",
+    lines: [{ title: "Mug", variantName: null, quantity: 2, cents: 4000, imageUrl: null }],
+    totals: { subtotal: 4000, discount: 0, shipping: 500, shippingDiscount: 0, tax: 0, taxIncluded: false, total: 4500, currency: "EUR" },
+    address: { line1: "1 Rue de Rivoli", city: "Paris", postalCode: "75001", country: "FR" }, deliveryName: "Standard", deliveryEstimate: null,
+    statusUrl: "https://bread.studio/orders/x", hasDownloads: false,
+  }
+  const ar = inEmailLanguage("ar", {}, () => orderConfirmationEmail(model)).html
+  const he = inEmailLanguage("he", {}, () => orderConfirmationEmail(model)).html
+  const en = inEmailLanguage("en", {}, () => orderConfirmationEmail(model)).html
+  check("an Arabic email says it is right to left", /<html lang="ar" dir="rtl"/.test(ar) && /lang="ar" dir="rtl" class="e-bg"/.test(ar), ar.slice(0, 200))
+  check("  and so does a Hebrew one", /<html lang="he" dir="rtl"/.test(he))
+  check("  its amounts sit at the line's end, which is the left", !/align="right"/.test(ar) && !/text-align:right/.test(ar) && /align="left"/.test(ar))
+  check("an English email is unchanged: no direction, amounts on the right", !/dir="rtl"/.test(en) && /align="right"/.test(en) && !/<html lang="en" dir=/.test(en))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

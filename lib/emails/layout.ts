@@ -44,6 +44,18 @@
 import { STORELIB_EMAIL_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/brand/logo"
 import { contrast, hexColor, textOn } from "@/lib/email-campaigns/brand"
 import { emailLanguage, et } from "./words"
+import { isRtl } from "@/lib/markets/locales"
+
+/*
+  RIGHT TO LEFT. An email in Arabic, Hebrew, Persian or Urdu is laid out from
+  the right, as its website is (lib/markets/locales isRtl): the document says
+  so, and what sits at a line's end (an amount, a value) goes to its left.
+  Every other language is drawn exactly as before.
+*/
+const rtlEmail = () => isRtl(emailLanguage())
+const END = () => (rtlEmail() ? "left" : "right")
+const START = () => (rtlEmail() ? "right" : "left")
+const dirAttr = () => (rtlEmail() ? ' dir="rtl"' : "")
 
 export const EMAIL_FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
 const MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
@@ -338,7 +350,7 @@ export function emailKit(sender: EmailSender): EmailKit {
           const rule = i > 0 ? `border-top:1px solid ${K.line};` : ""
           return `<tr>
 <td class="e-muted e-line" valign="top" style="padding:10px 12px 10px 0;${rule}width:${lw};${P(14, 20, K.muted)}">${esc(f.label)}</td>
-<td class="e-ink e-line" valign="top" align="right" style="padding:10px 0;${rule}${P(14, 20, K.ink, "font-weight:600;text-align:right;word-break:break-word;")}">${/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(f.value.trim()) ? identity(f.value) : esc(f.value)}</td>
+<td class="e-ink e-line" valign="top" align="${END()}" style="padding:10px 0;${rule}${P(14, 20, K.ink, `font-weight:600;text-align:${END()};word-break:break-word;`)}">${/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(f.value.trim()) ? identity(f.value) : esc(f.value)}</td>
 </tr>`
         })
         .join("\n")
@@ -378,7 +390,7 @@ export function emailKit(sender: EmailSender): EmailKit {
           const detail = l.detail ? `<p class="e-muted" style="${P(13, 19, K.muted, "margin:2px 0 0 0;")}">${esc(l.detail)}</p>` : ""
           const warning = l.warning ? `<p class="e-bad" style="${P(13, 19, "#b91c1c", "margin:2px 0 0 0;")}">${esc(l.warning)}</p>` : ""
           const amount = anyAmount
-            ? `<td class="e-ink e-line" valign="top" align="right" style="padding:14px 0 14px 12px;${rule}${P(15, 21, K.ink, "font-weight:600;text-align:right;white-space:nowrap;")}">${esc(l.amount ?? "")}</td>`
+            ? `<td class="e-ink e-line" valign="top" align="${END()}" style="${rtlEmail() ? "padding:14px 12px 14px 0;" : "padding:14px 0 14px 12px;"}${rule}${P(15, 21, K.ink, `font-weight:600;text-align:${END()};white-space:nowrap;`)}">${esc(l.amount ?? "")}</td>`
             : ""
           return `<tr>
 ${opts.pictures === false ? "" : `<td class="e-line" width="${ITEM_PX + 14}" valign="top" style="width:${ITEM_PX + 14}px;padding:14px 14px 14px 0;${rule}">${pic}</td>`}
@@ -402,7 +414,7 @@ ${amount}
           const size = r.strong ? 16 : 14
           return `<tr>
 <td class="${cls} e-line" style="padding:${pad};${top}${P(size, 22, color, weight)}">${esc(r.label)}</td>
-<td class="${r.tone === "good" ? "e-good" : "e-ink"} e-line" align="right" style="padding:${pad};${top}${P(size, 22, r.tone === "good" ? "#047857" : K.ink, `${weight}text-align:right;white-space:nowrap;`)}">${esc(r.value)}</td>
+<td class="${r.tone === "good" ? "e-good" : "e-ink"} e-line" align="${END()}" style="padding:${pad};${top}${P(size, 22, r.tone === "good" ? "#047857" : K.ink, `${weight}text-align:${END()};white-space:nowrap;`)}">${esc(r.value)}</td>
 </tr>`
         })
         .join("\n")
@@ -476,7 +488,7 @@ ${amount}
     tracking(carrier, number, url) {
       if (!number && !url) return ""
       const num = number ? `<p class="e-ink" style="margin:2px 0 0 0;font-family:${MONO};font-size:15px;line-height:22px;font-weight:600;color:${K.ink};word-break:break-all;">${esc(number)}</p>` : ""
-      const track = url ? `<td align="right" valign="middle" style="padding:14px 16px;white-space:nowrap;"><p style="${P(14, 20, K.ink, "font-weight:600;")}">${linkHtml(et("Track"), url)}</p></td>` : ""
+      const track = url ? `<td align="${END()}" valign="middle" style="padding:14px 16px;white-space:nowrap;"><p style="${P(14, 20, K.ink, "font-weight:600;")}">${linkHtml(et("Track"), url)}</p></td>` : ""
       return row(
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-panel" bgcolor="${K.panel}" style="width:100%;background-color:${K.panel};border-radius:12px;border-collapse:separate;"><tr><td valign="middle" style="padding:14px 16px;"><p class="e-muted" style="${P(13, 18, K.muted)}">${esc(carrier || et("Tracking number"))}</p>${num}</td>${track}</tr></table>`,
         20,
@@ -618,7 +630,7 @@ function header(sender: EmailSender, theme: EmailTheme, aside: EmailDocumentInpu
     const home = esc(homeOf(sender))
     left = `<a href="${home}" target="_blank" style="text-decoration:none;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
 <td style="vertical-align:middle;"><img class="e-logo" src="${esc(EMAIL_LOGO_URL)}" alt="" width="28" height="28" style="display:block;width:28px;height:28px;border:0;outline:none;border-radius:7px;box-shadow:${STORELIB_LOGO_SHADOW};"></td>
-<td class="e-mark" style="vertical-align:middle;padding-left:10px;font-family:${EMAIL_FONT};font-size:17px;line-height:24px;font-weight:700;letter-spacing:-0.2px;color:${K.ink};">Storelib</td>
+<td class="e-mark" style="vertical-align:middle;padding-${START()}:10px;font-family:${EMAIL_FONT};font-size:17px;line-height:24px;font-weight:700;letter-spacing:-0.2px;color:${K.ink};">Storelib</td>
 </tr></table></a>`
   } else {
     const name = sender.name.trim() || "Store"
@@ -633,12 +645,12 @@ function header(sender: EmailSender, theme: EmailTheme, aside: EmailDocumentInpu
               : pic
                 ? `<img class="e-avatar" src="${esc(pic)}" alt="" width="36" height="36" style="display:block;width:36px;height:36px;border-radius:18px;object-fit:cover;border:0;background-color:${K.line};">`
                 : tile(name, 36, 10, theme)
-          }</td><td class="e-mark" style="vertical-align:middle;padding-left:10px;font-family:${EMAIL_FONT};font-size:16px;line-height:22px;font-weight:700;color:${K.ink};">${esc(name)}</td></tr></table>`
+          }</td><td class="e-mark" style="vertical-align:middle;padding-${START()}:10px;font-family:${EMAIL_FONT};font-size:16px;line-height:22px;font-weight:700;color:${K.ink};">${esc(name)}</td></tr></table>`
     left = url ? `<a href="${esc(url)}" target="_blank" style="text-decoration:none;color:${K.ink};">${mark}</a>` : mark
   }
   const right = aside
-    ? `<td align="right" valign="middle" style="vertical-align:middle;padding-left:12px;white-space:nowrap;"><p class="e-ink" style="${P(13, 18, K.ink, "font-weight:600;text-align:right;")}">${esc(aside.title)}</p>${
-        aside.sub ? `<p class="e-muted" style="${P(12, 18, K.muted, "text-align:right;")}">${esc(aside.sub)}</p>` : ""
+    ? `<td align="${END()}" valign="middle" style="vertical-align:middle;padding-${START()}:12px;white-space:nowrap;"><p class="e-ink" style="${P(13, 18, K.ink, `font-weight:600;text-align:${END()};`)}">${esc(aside.title)}</p>${
+        aside.sub ? `<p class="e-muted" style="${P(12, 18, K.muted, `text-align:${END()};`)}">${esc(aside.sub)}</p>` : ""
       }</td>`
     : ""
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;"><tr><td valign="middle" style="vertical-align:middle;">${left}</td>${right}</tr></table>`
@@ -666,7 +678,7 @@ export function emailDocument(input: EmailDocumentInput): string {
   const rows = Array.isArray(input.rows) ? input.rows.filter(Boolean).join("\n") : input.rows
   const foot = footerHtml(input.sender, input.footer)
   return `<!DOCTYPE html>
-<html lang="${esc(emailLanguage())}" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<html lang="${esc(emailLanguage())}"${dirAttr()} xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -682,7 +694,7 @@ export function emailDocument(input: EmailDocumentInput): string {
 </head>
 <body class="e-bg" style="margin:0;padding:0;background-color:${K.page};word-spacing:normal;" bgcolor="${K.page}">
 ${preheader(input.preview)}
-<div role="article" aria-roledescription="email" aria-label="${esc(input.subject)}" lang="${esc(emailLanguage())}" class="e-bg" style="background-color:${K.page};">
+<div role="article" aria-roledescription="email" aria-label="${esc(input.subject)}" lang="${esc(emailLanguage())}"${dirAttr()} class="e-bg" style="background-color:${K.page};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="e-bg" bgcolor="${K.page}" style="width:100%;background-color:${K.page};">
 <tr><td align="center" class="e-outer" style="padding:40px 24px 48px;">
 <!--[if mso]><table role="presentation" width="560" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
