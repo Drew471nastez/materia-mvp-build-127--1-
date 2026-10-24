@@ -12,8 +12,8 @@
  *      /signup). Small shared corner, no pill, no Start selling.
  *   2. Computer, logged out, Explore and the pages that share its header:
  *      the same without Log in, after the wishlist and library icons.
- *   3. The hero's Discover and Sign Up take the Log in button's corner and
- *      stay above the subheading.
+ *   3. The hero's button and search field take the Log in button's corner;
+ *      since the remake (round AA1) they sit under the subheading.
  *   4. Phone menu on the marketing pages: Sign up (purple), Discover
  *      (outlined, compass), Sell on Storelib (purple text).
  *   5. Phone menu on Explore: Sign up, Log in, Sell on Storelib. No Discover.
@@ -58,8 +58,8 @@ console.log("\n1 and 2. the logged out row on a computer")
   check("Log in is outlined, to /login, and only where asked for", /\{withLogin && \(\s*<Link\s+\{\.\.\.link\("\/login"\)\}/.test(row) && /data-guest-login=""[\s\S]{0,40}className=\{cn\("[^"]*rounded-action border [^"]*", chrome\.guestLogin/.test(row) && /guestLogin: "border-white\/30 /.test(chromeSrc))
   check("Sign up is filled Storelib purple, to /signup", /link\("\/signup"\)/.test(row) && /data-guest-signup=""[\s\S]{0,140}rounded-action bg-violet-600/.test(row) && />\s*Sign up\s*</.test(row))
   check("both buttons take the shared corner, and nothing in it is a pill", (row.match(/rounded-action/g) ?? []).length === 2 && !/rounded-full/.test(row))
-  check("the marketing pages carry Log in", (header.match(/<GuestHeaderActions withLogin link=\{headerLink\}/g) ?? []).length === 2)
-  check("Explore's header leaves it out", (header.match(/<GuestHeaderActions withLogin=\{false\} link=\{headerLink\}/g) ?? []).length === 2)
+  check("the marketing pages carry Log in", (header.match(/<GuestHeaderActions withLogin link=\{guestLink\}/g) ?? []).length === 2)
+  check("Explore's header leaves it out", (header.match(/<GuestHeaderActions withLogin=\{false\} link=\{guestLink\}/g) ?? []).length === 2)
   check("no Start selling anywhere in the header", !/start[ _]selling/i.test(header), (header.match(/.{0,40}start[ _]selling.{0,40}/gi) ?? []).join(" | "))
   check("the library icon is still on Explore's bar, the heart is not", !/data-header-wishlist/.test(header) && /aria-label=\{t\("library"\)\}/.test(header))
   check("a single place defines the corner: --radius-action is 8px", /--radius-action: 8px;/.test(readSource("app/globals.css")))
@@ -71,12 +71,13 @@ check("both computer rows wait with an invisible copy of the logged out row", (h
 check("the stand in cannot be reached or read", /aria-hidden=\{placeholder \|\| undefined\}/.test(header) && /inert=\{placeholder \|\| undefined\}/.test(header))
 check("no grey pills: the old skeleton is gone", !/HeaderActionsSkeleton|<Skeleton\b/.test(header))
 
-console.log("\n3. the hero's two buttons")
+console.log("\n3. the hero's button and search")
 {
+  /* Changed on purpose (round AA1, the owner's remake from a reference): one button and the marketplace search, under the subheading. */
   const hero = readCode("components/marketing/hero.tsx")
-  const actions = hero.slice(hero.indexOf("data-hero-actions"), hero.indexOf("The #1 e-commerce platform"))
-  check("they are above the subheading", hero.indexOf("data-hero-actions") > 0 && hero.indexOf("data-hero-actions") < hero.indexOf("The #1 e-commerce platform"))
-  check("Discover and Sign Up take the Log in button's corner", (actions.match(/rounded-action/g) ?? []).length === 2)
+  const actions = hero.slice(hero.indexOf("data-hero-actions"), hero.indexOf("<HeroCarousel"))
+  check("they are under the subheading", hero.indexOf("data-hero-actions") > hero.indexOf("The #1 e-commerce platform"))
+  check("the button and the search field take the Log in button's corner", (actions.match(/rounded-action/g) ?? []).length === 2)
   check("and neither is a pill", !/rounded-full/.test(actions))
 }
 
@@ -169,7 +170,7 @@ console.log("\n6. signed in")
     check(`${f}: Become a seller goes to /sell, not through signup/success, and settings to /account`, /href="\/sell"/.test(src) && !/become-creator/.test(src) && !/Start Selling|Become a Seller/.test(src) && /href="\/account"/.test(src) && !/\/library\/settings|"\/app\/settings"/.test(src))
   }
   check("the old marketing headers say Sign up, not Start selling", ["components/marketing/header.tsx", "components/marketing/header-client.tsx"].every((f) => !/Start selling/i.test(readCode(f))))
-  check("the phone's white Sign in is one link, not a button in a link", /<Button asChild className=\{cn\("ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black[^"]*", loading && "invisible"\)\}>\s*<Link \{\.\.\.headerLink\("\/login"\)\}/.test(header))
+  check("the phone's white Sign in is one link, not a button in a link", /<Button asChild className=\{cn\("ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black[^"]*", loading && "invisible"\)\}>\s*<Link \{\.\.\.guestLink\("\/login"\)\}/.test(header))
 }
 
 console.log("\n7. the logo, a touch smaller in headers only")

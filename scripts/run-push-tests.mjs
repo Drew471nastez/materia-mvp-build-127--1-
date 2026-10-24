@@ -333,6 +333,8 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/header-link-navigates.test.ts",
   "tests/header-buttons.test.ts",
+  /* Round AA1: the front page hero remade (the button by who is looking, the storefront slider, the typed heading, the marketplace search); scripts/check-home-hero.mjs measures it. */
+  "tests/home-hero.test.ts",
   "tests/header-flex.test.ts",
   "tests/search-strip-entrance.test.ts",
   "tests/site-autosave-safety.test.ts",
@@ -725,6 +727,10 @@ const SUITES = [
   "tests/community-library-r39.test.ts",
   /* Round 39: signing in from a receipt (the way back, an existing address moved to sign in, a guest's orders joining the account once the address is verified), the guest purchase cookie (signed per order, a year, refunds close it), the header and pages agreeing (scripts/check-buyer-auth-r39.mjs walks it in a browser). */
   "tests/buyer-auth-r39.test.ts",
+  /* AA3: a guest's purchase kept by the browser that paid on every product page (written by a website's own checkout, carried to its host), no follower counts on a seller's hub, Files never breaking a picture, orders in their own currency (scripts/check-aa3.mjs measures the screens). */
+  "tests/aa3-guest-files-currency.test.ts",
+  /* Round AA2: signed in everywhere at once (a page back from the back/forward cache asks again, the Google callback attaches a guest's orders), "Account created" or "Welcome back" from the account's age, sign up's no identities answer, no tab bar signed out, the header's Log in coming back (scripts/check-buyer-auth-aa2.mjs walks it in a browser). */
+  "tests/buyer-auth-aa2.test.ts",
   /* Round 32: questions before joining, a new member's first steps and welcome message, scheduled posts and drafts, inviting a list (SQL parts 186 to 188). */
   "tests/community-features-round32.test.ts",
   /* Round 26: the admin's Posts: one writer that posts, schedules in the creator's zone and keeps team drafts (part 194), the writer's slide, the community's own post popup (scripts/check-posts26.mjs films them). */

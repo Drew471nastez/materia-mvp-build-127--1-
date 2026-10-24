@@ -128,8 +128,11 @@ export function ProfileHero({
   avatar,
   className,
   usernameEditable = true,
+  showCounts = true,
 }: {
   person: ProfileHeroPerson
+  /** False for somebody who sells: their followers and following belong to their community profile, not to the face of a store (the owner, AA3). */
+  showCounts?: boolean
   viewerFollowing?: boolean
   signedIn: boolean
   isSelf: boolean
@@ -227,6 +230,7 @@ export function ProfileHero({
           viewerFollowing={viewerFollowing}
           signedIn={signedIn}
           isSelf={isSelf}
+          showCounts={showCounts}
         />
       </header>
     </div>

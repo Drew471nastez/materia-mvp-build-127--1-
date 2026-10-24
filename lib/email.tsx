@@ -26,6 +26,7 @@ import { loginEmailFrom, sellerInbox } from "@/lib/seller-inbox"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { buyerRefundMail, leadMagnetEmail, reviewNoticeEmail, sellerRefundEmail } from "@/lib/emails/notices"
+import { formatMinor } from "@/lib/markets/money"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -1803,7 +1804,8 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
     await flagHeldEmail({ email: "Refund", orderId })
     return
   }
-  const formattedAmount = new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(refundAmount / 100)
+  /* In the currency's own decimals and word ("25.00 lei", "¥2,500"), by the app's one money writer. */
+  const formattedAmount = formatMinor(refundAmount, code, "en-US")
 
   const refundDateFormatted = new Date().toLocaleDateString("en-US", {
     month: "short",

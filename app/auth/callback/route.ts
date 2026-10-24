@@ -14,6 +14,11 @@ import { APP_OPEN_USED, destinationWithAppOpen } from "@/lib/account/app-open"
 import { CARRY_COOKIE, CONTINUE_PATH, decodeCarry, destinationAfterAuth } from "@/lib/auth/continue"
 import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
 import { onATeam } from "@/lib/team/server"
+import { attachGuestOrdersByEmail } from "@/lib/orders/attach-guest-orders"
+import { ARRIVAL_COOKIE, arrivalCookieOptions, arrivalOf } from "@/lib/auth/arrival"
+
+/** How long a sign in waits for its guest orders to join the account, as at /auth/continue. */
+const ATTACH_WAIT_MS = 2500
 
 /**
  * GET /auth/callback?code=<code>
@@ -178,5 +183,24 @@ export async function GET(request: Request) {
   if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
   const destination = throughWelcome(opened.destination, { createdAt: data.user.created_at, meta: data.user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent })
 
-  return NextResponse.redirect(new URL(destination, origin))
+  /*
+    WHAT THEY BOUGHT AS A GUEST WITH THIS ADDRESS IS THEIRS NOW, as the
+    email way in does it (app/auth/continue). Google and Apple end here
+    instead, and this step was missing: Create account with Google from a
+    receipt came back to that receipt signed in, and it still said the order
+    was not in their library, nor was it there. Only for an address the
+    provider confirmed (the profile above is marked verified for the same
+    reason), and bounded, so a slow database never holds a sign in.
+  */
+  if (data.user.email_confirmed_at) {
+    await Promise.race([
+      attachGuestOrdersByEmail(admin, { id: data.user.id, email: data.user.email }),
+      new Promise((resolve) => setTimeout(resolve, ATTACH_WAIT_MS)),
+    ]).catch(() => null)
+  }
+
+  const response = NextResponse.redirect(new URL(destination, origin))
+  /* "Account created" or "Welcome back" on the page they land on, from the account's age, not the button (lib/auth/arrival.ts). */
+  response.cookies.set(ARRIVAL_COOKIE, arrivalOf(data.user.created_at), arrivalCookieOptions(origin.startsWith("https://")))
+  return response
 }

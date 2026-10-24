@@ -55,6 +55,7 @@ function main() {
   const manage = read("components/marketing/manage-section.tsx")
   const helper = read("lib/images/optimized-url.ts")
   const hero = read("components/marketing/hero.tsx")
+  const slider = read("components/marketing/hero-carousel.tsx")
   const probe = read("scripts/check-marketing-image-quality.mjs")
 
   console.log("\nThe descriptors come from the same number as the files")
@@ -89,12 +90,14 @@ function main() {
     "it fetched a different width than the <img> rendered: six downloads for three pictures",
   )
 
-  console.log("\nThe hero collage sizes the card it has, not the one beside it")
+  console.log("\nThe hero slider sizes the slide it has, not the one beside it")
 
+  /* Changed on purpose (round AA1): the collage became the storefront slider; its centre slide is the widest, at --hc-w per breakpoint. */
   check(
-    "the widest card, not the average",
-    /sizes="\(max-width: 640px\) 245px, 305px"/.test(hero),
-    "160px/280px are the side cards; the centre one is drawn 242 and 303",
+    "sizes is the centre slide's width at each breakpoint",
+    /sizes="\(max-width: 639px\) 78vw, \(max-width: 1023px\) 56vw, 680px"/.test(slider) &&
+      /--hc-w: min\(78vw, 340px\)/.test(hero) && /--hc-w: min\(56vw, 560px\)/.test(hero) && /--hc-w: min\(50vw, 680px\)/.test(hero),
+    "the side slides are drawn smaller; under-stating costs the centre one its sharpness",
   )
 
   console.log("\nAnd the probe measures the file, not the layout")

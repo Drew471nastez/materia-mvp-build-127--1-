@@ -11,6 +11,7 @@ import { INVITE_COOKIE, inviteFallbackNext } from "@/lib/team/invite-links"
 import { onATeam } from "@/lib/team/server"
 import { keepProfileName, type KeepNameDb } from "@/lib/profile/keep-name"
 import { attachGuestOrdersByEmail } from "@/lib/orders/attach-guest-orders"
+import { ARRIVAL_COOKIE, arrivalCookieOptions, arrivalOf } from "@/lib/auth/arrival"
 import {
   CARRY_COOKIE,
   decodeCarry,
@@ -117,5 +118,8 @@ export async function GET(request: Request) {
   const teamMember = !hasSellerAccess(access) && (await onATeam(createAdminClient(), user.id))
   const opened = destinationWithAppOpen(destinationAfterAuth(carry, access, { teamMember }), user.user_metadata, carry.next)
   if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
-  return go(throughWelcome(opened.destination, { createdAt: user.created_at, meta: user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent }))
+  const response = go(throughWelcome(opened.destination, { createdAt: user.created_at, meta: user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent }))
+  /* "Account created" or "Welcome back" on the page they land on, from the account's age, not the button pressed (lib/auth/arrival.ts). */
+  response.cookies.set(ARRIVAL_COOKIE, arrivalOf(user.created_at), arrivalCookieOptions(url.protocol === "https:"))
+  return response
 }

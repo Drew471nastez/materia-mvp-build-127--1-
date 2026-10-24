@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
-import { canDeliver, isPlausibleToken } from "@/lib/receipts/rules"
-import { GUEST_ACCESS_COOKIE, guestAccessCookieOptions, guestAccessFromCookieHeader, guestAccessKey, mergeGrants, readGrants, requestIsHttps, signGrant, writeGrants, type Grant } from "@/lib/receipts/guest-access"
-import { heldGrants } from "@/lib/receipts/guest-access-server"
+import { isPlausibleToken } from "@/lib/receipts/rules"
+import { guestAccessFromCookieHeader, guestAccessSetCookies, requestIsHttps, samePath } from "@/lib/receipts/guest-access"
+import { rememberReceipt } from "@/lib/receipts/guest-access-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -19,11 +19,29 @@ export const dynamic = "force-dynamic"
  * The token is the proof, exactly as on the receipt page: the order it names
  * and the other lines of the same payment to the same address are written
  * into the httpOnly `sl_owned` cookie of THIS host, each grant signed with
- * the order's own token. Only lines that still deliver are remembered, and
- * grants that no longer hold (a refund since) are dropped while it is here.
- * Nothing about the order is answered back.
+ * the order's own token (lib/receipts/guest-access-server rememberReceipt).
+ * Only lines that still deliver are remembered, and grants that no longer
+ * hold (a refund since) are dropped while it is here. Nothing about the
+ * order is answered back.
+ *
+ * GET /api/receipt/remember?receipt=<token>&next=/path
+ *
+ * The same, on the way back to a creator's website after paying on
+ * storelib.com (app/api/checkout/cart/complete): the cookie is written on
+ * the website's own host, then the browser goes on to `next`, a path on this
+ * same host and nothing else.
  */
 const NO_STORE = { "Cache-Control": "no-store" }
+
+const LIMIT = { bucket: "receipt-remember", windows: [{ limit: 40, seconds: 600 }, { limit: 300, seconds: 86400 }] }
+
+async function remembered(request: Request, receiptToken: string): Promise<string[] | null> {
+  const raw = guestAccessFromCookieHeader(request.headers.get("cookie"))
+  const next = await rememberReceipt(createAdminClient(), receiptToken, raw)
+  if (!next) return null
+  if (!next.value && !raw) return []
+  return guestAccessSetCookies(next.value, requestIsHttps(request))
+}
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)
@@ -31,39 +49,24 @@ export async function POST(request: Request) {
   if (!isPlausibleToken(receiptToken)) return NextResponse.json({ ok: false }, { status: 404, headers: NO_STORE })
 
   /* A receipt is opened a few times; a script walking tokens is not. Generous, and per address only (a token is ~190 bits, guessing is not the threat). */
-  const limited = await rateLimit({ bucket: "receipt-remember", subjects: [addressSubject(request)], windows: [{ limit: 40, seconds: 600 }, { limit: 300, seconds: 86400 }] })
+  const limited = await rateLimit({ ...LIMIT, subjects: [addressSubject(request)] })
   if (limited) return limited
 
-  const key = guestAccessKey()
-  if (!key) return NextResponse.json({ ok: false }, { headers: NO_STORE })
+  const cookies = await remembered(request, receiptToken)
+  if (!cookies) return NextResponse.json({ ok: false }, { headers: NO_STORE })
+  const res = NextResponse.json({ ok: true }, { headers: NO_STORE })
+  for (const c of cookies) res.headers.append("Set-Cookie", c)
+  return res
+}
 
-  const admin = createAdminClient()
-  const { data: order } = await admin.from("orders").select("*").eq("receipt_token", receiptToken).maybeSingle()
-  if (!order) return NextResponse.json({ ok: false }, { status: 404, headers: NO_STORE })
-
-  /* The whole payment: a basket's lines are rows of their own with tokens of their own (the same rule as the receipt loader). */
-  let lines: any[] = [order]
-  if (order.stripe_session_id && order.buyer_email) {
-    const email = String(order.buyer_email).trim().toLowerCase()
-    const { data: siblings } = await admin.from("orders").select("*").eq("stripe_session_id", order.stripe_session_id)
-    lines = [order, ...((siblings ?? []) as any[]).filter((r) => r.id !== order.id && String(r.buyer_email ?? "").trim().toLowerCase() === email)]
-  }
-
-  const added: Grant[] = []
-  for (const line of lines) {
-    if (!canDeliver(line) || !isPlausibleToken(line.receipt_token)) continue
-    const g = signGrant(key, { id: String(line.id), receiptToken: line.receipt_token })
-    if (g) added.push(g)
-  }
-
-  const raw = guestAccessFromCookieHeader(request.headers.get("cookie"))
-  /* What the cookie held before, less whatever no longer holds (a refund, an order gone). */
-  const held = await heldGrants(admin, raw, { key })
-  const kept = readGrants(raw).filter((g) => !held.stale.includes(g.orderId))
-  const next = mergeGrants(kept, added)
-
-  const res = NextResponse.json({ ok: true, remembered: added.length }, { headers: NO_STORE })
-  if (next.length > 0) res.cookies.set(GUEST_ACCESS_COOKIE, writeGrants(next), guestAccessCookieOptions(requestIsHttps(request)))
-  else if (raw) res.cookies.set(GUEST_ACCESS_COOKIE, "", { ...guestAccessCookieOptions(requestIsHttps(request)), maxAge: 0 })
+export async function GET(request: Request) {
+  const url = new URL(request.url)
+  /* A relative Location: the host the browser asked, whatever the request looks like behind the proxy. */
+  const res = new NextResponse(null, { status: 303, headers: { Location: samePath(url.searchParams.get("next")), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } })
+  const receiptToken = url.searchParams.get("receipt")
+  if (!isPlausibleToken(receiptToken)) return res
+  const limited = await rateLimit({ ...LIMIT, subjects: [addressSubject(request)] })
+  if (limited) return res
+  for (const c of (await remembered(request, receiptToken)) ?? []) res.headers.append("Set-Cookie", c)
   return res
 }

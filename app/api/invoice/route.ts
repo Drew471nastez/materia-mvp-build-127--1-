@@ -9,6 +9,7 @@ import { addressLines, businessFromFields, businessFromMetadata, taxIdFor, type 
 import { countryName } from "@/lib/checkout/countries"
 import { stripe } from "@/lib/stripe"
 import { STORELIB_LOGO_PNG, STORELIB_ORIGIN } from "@/lib/brand/logo"
+import { formatMinor } from "@/lib/markets/money"
 
 export const runtime = "nodejs"
 
@@ -212,14 +213,8 @@ async function drawInvoice({
   const first = lines[0]
   /* The order's own currency. One nobody recorded is not guessed: the amounts are written plain. */
   const currency = String((first as { currency?: string | null }).currency || "").toUpperCase()
-  const money = (cents: number) => {
-    if (!/^[A-Z]{3}$/.test(currency)) return (cents / 100).toFixed(2)
-    try {
-      return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100)
-    } catch {
-      return `${(cents / 100).toFixed(2)} ${currency}`
-    }
-  }
+  /* In the currency's own decimals and word ("25.00 lei", "¥2,500"), by the app's one money writer. */
+  const money = (cents: number) => (/^[A-Z]{3}$/.test(currency) ? formatMinor(cents, currency, "en-US") : (cents / 100).toFixed(2))
   const day = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: zone, year: "numeric", month: "long", day: "numeric" }).format(new Date(iso))
   const time = (iso: string) => new Intl.DateTimeFormat("en-US", { timeZone: zone, hour: "numeric", minute: "2-digit" }).format(new Date(iso))
 

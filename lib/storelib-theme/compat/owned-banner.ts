@@ -19,7 +19,12 @@
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export function ownedBanner(owned: { whole: boolean; options: string[] }, initialVariant: string | null = null): string {
+/** Where "Go to your downloads" goes: the website's /account, or a guest's receipt through /api/receipt/open (an order id, nothing else). */
+function downloadsHref(href: string | null | undefined): string {
+  return typeof href === "string" && /^\/api\/receipt\/open\?order=[0-9a-f-]{36}$/i.test(href) ? href : "/account"
+}
+
+export function ownedBanner(owned: { whole: boolean; options: string[] }, initialVariant: string | null = null, href?: string | null): string {
   const options = owned.whole ? [] : owned.options.filter((o) => ID.test(o))
   if (!owned.whole && options.length === 0) return ""
   const css =
@@ -33,7 +38,7 @@ export function ownedBanner(owned: { whole: boolean; options: string[] }, initia
   return (
     `<style>${css}</style>` +
     `<div id="sl-owned" role="status" data-storelib-owned=""${owned.whole || (initialVariant && options.includes(initialVariant)) ? "" : " hidden"}><p><strong>You already own this.</strong> It's in your downloads.</p>` +
-    `<a href="/account">Go to your downloads</a>` +
+    `<a href="${downloadsHref(href)}">Go to your downloads</a>` +
     `<button type="button" aria-label="Close" onclick="var b=this.parentNode;b.hidden=true;b.setAttribute('data-closed','1')">&times;</button></div>` +
     script
   )

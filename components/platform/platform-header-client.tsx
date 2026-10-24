@@ -30,6 +30,7 @@ import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, Li
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { headerAuthBack } from "@/lib/auth/return-to"
 import { signedOutForSure } from "@/lib/auth/session-read"
 import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -1495,10 +1496,30 @@ export function PlatformHeaderClient({
       })
     })
 
+    /*
+      A PAGE BROUGHT BACK FROM THE BACK/FORWARD CACHE asks again. It was
+      frozen as it was drawn, signed out say, while the person signed in on
+      the next page; Supabase's word of that (its broadcast to other tabs) is
+      not delivered to a frozen page, and nothing else would tell it. Back
+      from the sign in, the header said Log in over a page drawn for nobody.
+    */
+    const onShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return
+      loadedFor = loadedFor.then((was) =>
+        loadUser(false).then((now) => {
+          const nowId = now ?? null
+          if (nowId !== was) router.refresh()
+          return nowId
+        }),
+      )
+    }
+    window.addEventListener("pageshow", onShow)
+
     return () => {
       mountedRef.current = false
       window.clearTimeout(failSafe)
       data?.subscription?.unsubscribe()
+      window.removeEventListener("pageshow", onShow)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchWishlistCount])
@@ -1892,6 +1913,18 @@ export function PlatformHeaderClient({
     (path: string) => ({ href: getCanonicalOrRelativePath(path), onClick: (e: React.MouseEvent<HTMLElement>) => onCanonicalNav(e, path) }),
     [getCanonicalOrRelativePath, onCanonicalNav],
   )
+  /*
+    LOG IN AND SIGN UP COME BACK HERE. They went to /login and /signup bare,
+    so signing in from a receipt, a creator's page or Explore ended on
+    Discover. A buyer page rides along as `next` (lib/auth/return-to.ts
+    headerAuthBack); on a creator's subdomain the sign in is on Storelib and
+    the path would name the wrong host, so nothing rides there.
+  */
+  const authBack = shouldForceCanonicalNav ? null : headerAuthBack(pathname || "/", isMarketingNavRoute)
+  const guestLink: HeaderLink = useCallback(
+    (path: string) => headerLink(authBack && (path === "/login" || path === "/signup") ? `${path}?next=${encodeURIComponent(authBack)}` : path),
+    [headerLink, authBack],
+  )
 
   /* ── The search's rows: where each goes, and the keys that move through them ── */
   const searchListId = (phone: boolean) => (phone ? "header-search-phone" : "header-search")
@@ -2082,7 +2115,7 @@ export function PlatformHeaderClient({
                 */}
                 <div className="flex items-center gap-2.5">
                   {loading ? (
-                    <GuestHeaderActions withLogin link={headerLink} placeholder chrome={chrome} />
+                    <GuestHeaderActions withLogin link={guestLink} placeholder chrome={chrome} />
                   ) : user ? (
                     <>
                       {exploreMarketplaceOn ? (
@@ -2122,7 +2155,7 @@ export function PlatformHeaderClient({
                       {desktopAccountMenu}
                     </>
                   ) : (
-                    <GuestHeaderActions withLogin link={headerLink} chrome={chrome} />
+                    <GuestHeaderActions withLogin link={guestLink} chrome={chrome} />
                   )}
                 </div>
               </div>
@@ -2433,7 +2466,7 @@ export function PlatformHeaderClient({
                    its place unseen, as the computer's row does, rather than showing
                    Sign in to somebody whose photo is a moment away. */
                 <Button asChild className={cn("ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black hover:bg-white/90 gap-2", loading && "invisible")}>
-                  <Link {...headerLink("/login")} data-phone-sign-in="" data-placeholder={loading ? "" : undefined} aria-hidden={loading || undefined} tabIndex={loading ? -1 : undefined}>
+                  <Link {...guestLink("/login")} data-phone-sign-in="" data-placeholder={loading ? "" : undefined} aria-hidden={loading || undefined} tabIndex={loading ? -1 : undefined}>
                     <UserIcon className="h-4 w-4" />
                     Sign in
                   </Link>
@@ -2471,7 +2504,7 @@ export function PlatformHeaderClient({
                 </Tooltip>
 
                 {loading ? (
-                  <GuestHeaderActions withLogin={false} link={headerLink} placeholder chrome={chrome} />
+                  <GuestHeaderActions withLogin={false} link={guestLink} placeholder chrome={chrome} />
                 ) : user ? (
                   <>
                     <NotificationBell className={chrome.iconBtn} />
@@ -2479,7 +2512,7 @@ export function PlatformHeaderClient({
                     {desktopAccountMenu}
                   </>
                 ) : (
-                  <GuestHeaderActions withLogin={false} link={headerLink} chrome={chrome} />
+                  <GuestHeaderActions withLogin={false} link={guestLink} chrome={chrome} />
                 )}
           </div>
           </>
@@ -2514,7 +2547,7 @@ export function PlatformHeaderClient({
           {/* A guest: the owner's three, Sign up, Discover, Sell on Storelib (image 23). */}
           {!user && (
             <div className="px-1 pt-3 pb-2 border-b border-[#eef0f2]">
-              <GuestSheetActions second={exploreMarketplaceOn ? "discover" : "login"} link={headerLink} onDone={() => setMobileMenuOpen(false)} />
+              <GuestSheetActions second={exploreMarketplaceOn ? "discover" : "login"} link={guestLink} onDone={() => setMobileMenuOpen(false)} />
             </div>
           )}
 

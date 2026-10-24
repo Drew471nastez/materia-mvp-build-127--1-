@@ -22,8 +22,8 @@
  *   up, Log in, Sell on Storelib and no Discover. Signed in, the account
  *   sheet has Become a seller (/sell) for a buyer, Dashboard (/app) for a
  *   seller, beside My Library, Settings and Language.
- *   THE LOGO in the header is 5% under what it was; the hero's two buttons
- *   take the Log in button's corner and stay above the subheading.
+ *   THE LOGO in the header is 5% under what it was; the hero's button and
+ *   search field take the Log in button's corner, under the subheading.
  *   Nothing is wider than the window, from 360px to 1920px.
  *
  * Screenshots go to SHOTS_DIR (or a temp folder, printed at the end).
@@ -253,12 +253,13 @@ for (const path of ["/", "/explore"]) {
     if (path === "/" && who === "guest") {
       const hero = await p.evaluate(() => {
         const box = document.querySelector("[data-hero-actions]")
-        const links = [...box.querySelectorAll("a")].map((a) => ({ text: a.textContent.trim(), radius: getComputedStyle(a).borderTopLeftRadius, bottom: a.getBoundingClientRect().bottom }))
+        /* The owner's remake (round AA1): one button and the marketplace search, under the subheading. */
+        const links = [...box.querySelectorAll("a, input")].map((a) => ({ text: (a.textContent || a.placeholder).trim(), radius: getComputedStyle(a).borderTopLeftRadius, top: a.getBoundingClientRect().top }))
         const sub = [...document.querySelectorAll("p")].find((x) => /#1 e-commerce platform/.test(x.textContent))
-        return { links, subTop: sub?.getBoundingClientRect().top }
+        return { links, subBottom: sub?.getBoundingClientRect().bottom }
       })
-      expect(hero.links.length === 2 && hero.links.every((l) => l.radius === d.login.radius), "/ hero: Discover and Sign Up take the Log in button's corner, not a pill", hero.links.map((l) => `${l.text} ${l.radius}`))
-      expect(hero.links.every((l) => l.bottom <= hero.subTop), "/ hero: both still above the subheading", { buttons: hero.links.map((l) => Math.round(l.bottom)), sub: Math.round(hero.subTop) })
+      expect(hero.links.length === 2 && hero.links.every((l) => l.radius === d.login.radius), "/ hero: Start Now and the search field take the Log in button's corner, not a pill", hero.links.map((l) => `${l.text} ${l.radius}`))
+      expect(hero.links.every((l) => l.top >= hero.subBottom), "/ hero: both under the subheading", { controls: hero.links.map((l) => Math.round(l.top)), sub: Math.round(hero.subBottom) })
     }
     await p.close()
   }

@@ -17,6 +17,7 @@
  */
 import { emailDocument, emailKit, emailText, identity, platformEmail, type EmailSender } from "./layout"
 import { emailLanguage, et, inEmailLanguage } from "./words"
+import { formatMinor } from "@/lib/markets/money"
 
 type Mail = { subject: string; html: string; text: string }
 
@@ -180,7 +181,8 @@ export function buyerRefundMail(
       if (!at || Number.isNaN(at.getTime())) return et("Not known")
       return new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", year: "numeric" }).format(at)
     }
-    const amount = new Intl.NumberFormat(locale, { style: "currency", currency: p.currency }).format(p.amountCents / 100)
+    /* In the refund's own currency and decimals (¥ has none), and "lei" as the order and the receipt write it. */
+    const amount = formatMinor(p.amountCents, p.currency.toUpperCase(), Array.isArray(locale) ? locale[0] : locale)
     return buyerRefundEmail({
       storeName: p.storeName,
       reason: refundReason(p.reason),
