@@ -1,0 +1,19 @@
+<style>
+  .cfs { padding: 60px 0; }
+  .cfs__track { display: flex; gap: 20px; }
+  .cfs__slide { flex: 0 0 30%; padding: 24px; border: 1px solid #ddd; border-radius: 12px; }
+  .cfs:not(.slick-initialized) .cfs__track.slick-slider { visibility: hidden; }
+</style>
+<div class="cfs page-width">
+  <div class="cfs__track slick-slider" data-slider>
+    {%- for block in section.blocks -%}
+      <div class="cfs__slide" {{ block.shopify_attributes }}><blockquote>{{ block.settings.quote }}</blockquote><cite>{{ block.settings.author }}</cite></div>
+    {%- endfor -%}
+  </div>
+  <noscript>Please turn on JavaScript to see this slider.</noscript>
+</div>
+{% schema %}
+{ "name": "Community Feedback Slider", "settings": [],
+  "blocks": [ { "type": "review", "name": "Review", "settings": [ { "type": "textarea", "id": "quote", "label": "Quote", "default": "Best purchase this year." }, { "type": "text", "id": "author", "label": "Author", "default": "Alex" } ] } ],
+  "presets": [ { "name": "Community Feedback Slider", "category": "Testimonials" } ] }
+{% endschema %}

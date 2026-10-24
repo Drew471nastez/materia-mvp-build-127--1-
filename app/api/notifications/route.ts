@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { COVERS_PAYMENT_SETUP } from "@/lib/notifications/rules"
 import { notExpiredFilter, pageOf, parseListParams } from "@/lib/notifications/center"
 import { timed } from "@/lib/perf/server-timing"
+import { panelMessages, panelMessagesUnread, readPanelMessages } from "@/lib/notifications/dm-panel"
 
 /**
  * ===========================================================================
@@ -80,8 +81,14 @@ async function handleGET(request: NextRequest) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 })
   }
 
-  /* Unread, not dismissed, not expired and (once the column exists) not resolved. */
+  /* Round BC: the unread conversations (lib/notifications/dm-panel.ts) count on the same badge. */
   const countUnread = async (): Promise<number> => {
+    const [rows, messages] = await Promise.all([countSellerUnread(), panelMessagesUnread(user.id)])
+    return rows + messages
+  }
+
+  /* Unread, not dismissed, not expired and (once the column exists) not resolved. */
+  const countSellerUnread = async (): Promise<number> => {
     const live = await supabase
       .from("seller_notifications")
       .select("id", { count: "exact", head: true })
@@ -159,6 +166,8 @@ async function handleGET(request: NextRequest) {
   }
 
   const firstPage = !before && offset === 0
+  /* Round BC: the unread conversations, one row each, on the first page only (there are few, and they are not paged). */
+  const messagesRead = firstPage ? panelMessages(user.id) : Promise.resolve([])
   let [recent, attention] = await Promise.all([recentQuery(EXPIRY_COLUMNS, true, true), firstPage ? attentionQuery(true) : Promise.resolve(null)])
   if (recent.error && missingColumns(recent.error)) {
     /* Before the notification engine's SQL: no expiry yet, the rest as it was. */
@@ -196,7 +205,8 @@ async function handleGET(request: NextRequest) {
     return count || 0
   }
 
-  const [unreadCount, totalCount, covered] = await Promise.all([countUnread(), totalOpen(), schema !== "legacy" ? coveredFor() : Promise.resolve([] as string[])])
+  const [unreadCount, totalCount, covered, messages] = await Promise.all([countUnread(), totalOpen(), schema !== "legacy" ? coveredFor() : Promise.resolve([] as string[]), messagesRead])
+  if (messages.length) notifications = [...(messages as unknown as Record<string, unknown>[]), ...notifications]
 
   return NextResponse.json(
     {
@@ -238,6 +248,8 @@ export async function PATCH(request: NextRequest) {
   const now = new Date().toISOString()
 
   if (action === "read_all") {
+    /* Round BC: the unread conversations in the panel too (lib/notifications/dm-panel.ts), read in the bell with them. */
+    await readPanelMessages(user.id, null)
     // Mark all unread notifications as read for this user: one statement,
     // scoped to the signed in user here and by row level security.
     const { error } = await supabase
@@ -260,6 +272,9 @@ export async function PATCH(request: NextRequest) {
   }
 
   const updateData = action === "read" ? { read_at: now } : { dismissed_at: now }
+
+  /* Round BC: a message row in the panel is the person's own inbox row; read or put away, it is read (it has no dismissed state). Other ids are left alone there. */
+  await readPanelMessages(user.id, ids)
 
   const { error } = await supabase
     .from("seller_notifications")

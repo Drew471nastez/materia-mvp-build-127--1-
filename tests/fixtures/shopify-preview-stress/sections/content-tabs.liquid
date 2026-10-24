@@ -1,0 +1,24 @@
+{%- comment -%} Like a section pack's Content Tabs: the heading, the highlights and the cards are all blocks, and its preset has none. {%- endcomment -%}
+<style>
+  #shopify-section-{{ section.id }} .ctabs { padding: 90px 0 40px; }
+  #shopify-section-{{ section.id }} .ctabs__track { display: flex; gap: 16px; }
+  #shopify-section-{{ section.id }} .ctabs__card { flex: 1; height: 230px; border-radius: 16px; background: #20202c; color: #fff; padding: 20px; }
+</style>
+<div class="ctabs"><div class="page-width">
+  {%- for block in section.blocks -%}
+    {%- if block.type == 'heading' -%}<h2 class="ctabs__heading" {{ block.shopify_attributes }}>{{ block.settings.heading }}</h2>{%- endif -%}
+  {%- endfor -%}
+  <div class="ctabs__track">
+    {%- for block in section.blocks -%}
+      {%- if block.type == 'tab' -%}<article class="ctabs__card" {{ block.shopify_attributes }}><h3>{{ block.settings.title }}</h3><p>{{ block.settings.text }}</p></article>{%- endif -%}
+    {%- endfor -%}
+  </div>
+</div></div>
+{% schema %}
+{ "name": "Content Tabs", "settings": [],
+  "blocks": [
+    { "type": "heading", "name": "Heading", "limit": 1, "settings": [ { "type": "text", "id": "heading", "label": "Heading", "default": "Inside the formula." } ] },
+    { "type": "tab", "name": "Tab", "settings": [ { "type": "text", "id": "title", "label": "Title", "default": "L-Citrulline" }, { "type": "textarea", "id": "text", "label": "Text", "default": "Supports blood flow and endurance." } ] }
+  ],
+  "presets": [ { "name": "Content Tabs", "category": "Text Content" } ] }
+{% endschema %}

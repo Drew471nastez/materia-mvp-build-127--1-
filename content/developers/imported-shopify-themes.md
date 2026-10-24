@@ -51,6 +51,30 @@ The engine reads the theme's template language itself, and it is lenient: a tag 
 
 **Metafields.** A product's custom fields from the product editor are `product.metafields.custom.<key>`, each printing as its value and with `.value`, `.key` and `.type`, so `{{ product.metafields.custom.material }}` and `.material.value` both work. The product's questions are `product.metafields.storelib.faqs.value`, a list of `{ question, answer }`.
 
+**Size charts.** A product given a size chart in the product editor (Products › Size charts) has it as `product.metafields.storelib.size_chart`, which prints as the chart's name. Its `.value` is:
+
+| Key | What it is |
+| --- | --- |
+| `name` | The chart's name, shown as the title when a buyer opens it |
+| `unit` | `cm` or `in`, the unit the seller typed the numbers in |
+| `columns` | A list of `{ name, measure }`: `measure` is true for a measurement (Chest, Waist) and false for a label (Size, EU) |
+| `rows` | A list of rows, each a list of cells as typed, one per column; the first cell is the size |
+| `rows_cm`, `rows_in` | The same rows with the measurement columns in cm and in, so a theme can offer the switch without doing the arithmetic |
+| `notes` | The line under the table, plain text |
+| `image` | The picture of where to measure, or nil |
+
+```liquid
+{%- assign chart = product.metafields.storelib.size_chart.value -%}
+{%- if chart -%}
+  <table>
+    <tr>{% for c in chart.columns %}<th>{{ c.name }}{% if c.measure %} ({{ chart.unit }}){% endif %}</th>{% endfor %}</tr>
+    {% for row in chart.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+  </table>
+{%- endif -%}
+```
+
+A theme whose code reads the metafield draws the chart itself and Storelib adds nothing. To place Storelib's own link and chart (a pop-up with a cm and in switch, no script needed), render `{% render 'storelib-size-chart' %}` or use the filter `{{ product | storelib_size_chart: label: 'Size guide', style: 'button' }}`; both print nothing for a product without a chart. A section that takes `@app` offers **Size chart** under Apps in Add block, and a block a theme kept from a size chart app on Shopify (Kiwi Sizing and the like) is drawn as Storelib's chart. With none of these on the page, the product page gets a Size guide link beside its size option by itself.
+
 **Stock.** A variant Storelib counts, once it is at its low stock line, has `inventory_management` set and `inventory_quantity` as the number left, so a theme's "Only 3 left" shows (Website settings › Commerce › Show how many are left can turn it off). Otherwise `inventory_quantity` only says whether it can be bought.
 
 A value Storelib does not have is present and empty, so a theme's `{% if %}` around it reads false: other metafields, metaobjects, vendors, blogs and articles, gift cards. A blog page draws the theme's blog template with its title and no posts.
@@ -148,7 +172,7 @@ The canvas draws an imported theme's page in a sandboxed frame with no origin of
 
 - A click selects the section and the block under it. Links and forms do not leave the page. A link is only followed after every listener the theme has on the click has run, so a header cart icon that opens the drawer opens only the drawer.
 - A section the builder changed is swapped in place, with `shopify:section:unload` and `shopify:section:load` around it. Only the sections whose markup a change touches are drawn again: turning on Show currency codes redraws the sections that print prices and nothing else.
-- **A theme setting changes the page where it is, never by loading it again.** The theme's settings stylesheets (a `{% style %}` of CSS variables in the layout, a `css-variables` snippet), the `<meta>` and `<link>` tags in the head and the `<style>` tags around the sections are written again in place, and the page keeps its scroll. A stylesheet a theme's script adds to the head is left alone. The page is loaded again only when the markup around the sections or the head's scripts change, and then behind the page on screen, at the same scroll.
+- **A theme setting changes the page where it is, never by loading it again.** The theme's settings stylesheets (a `{% style %}` of CSS variables in the layout, a `css-variables` snippet), the `<meta>` and `<link>` tags in the head and the `<style>` tags around the sections are written again in place, and the page keeps its scroll. A stylesheet a theme's script adds to the head is left alone. The page is loaded again only when the markup around the sections or the head's scripts change, or when a setting is printed in an inline script of the layout (`window.theme = { settings: ... }`, a JSON block), which a theme's JavaScript reads once as it starts; then it is loaded behind the page on screen, at the same scroll, once the control is let go. A section drawn again with a new value in one of its own inline scripts runs that script, as Shopify's editor does.
 - While a slider or a colour is under a finger, the value is written straight into the places the page prints it, every frame. A theme's own transitions do not ease a value from the sidebar: an ease that starts with a builder change is taken to its end in the same frame (a reveal, a fade or a transform as the page is scrolled still plays).
 - Storelib's **Hover and focus** group (buttons on hover, links on hover, fields) is one stylesheet after the theme's own, rewritten in place as its values move.
 
@@ -165,6 +189,17 @@ document.addEventListener("storelib:settings-change", (event) => {
 })
 document.addEventListener("storelib:section-load", (event) => {
   if (event.detail.sectionId === "slideshow") slider.reset()
+})
+```
+
+A listener that writes a section's value itself (a height into a CSS variable on the section) can call `event.preventDefault()`. While the slider moves, the builder then stops drawing that section again for each value and only sends the event; it draws the section once more when the slider is let go.
+
+```js
+document.addEventListener("storelib:settings-change", (event) => {
+  const { settings, section } = event.detail
+  if (!section || !("header_height" in settings)) return
+  document.getElementById(`shopify-section-${section}`)?.style.setProperty("--header-height", `${settings.header_height}px`)
+  event.preventDefault()
 })
 ```
 

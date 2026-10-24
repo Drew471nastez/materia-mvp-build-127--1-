@@ -91,3 +91,70 @@ export function previewCentered(drawn: number | undefined, cardWidth: number, re
   if (!drawn || drawn <= 0 || cardWidth <= 0 || renderWidth <= 0) return false
   return cardHeight <= PREVIEW_MIN_HEIGHT && (drawn * cardWidth) / renderWidth < cardHeight
 }
+
+/*
+  ===========================================================================
+   A SECTION WHOSE PRESET HAS NO BLOCKS, SHOWN WITH SOME
+  ===========================================================================
+  Round BC, the owner: cards for "Content Tabs", "Community Feedback Slider"
+  and "Contact Form Simple" were grey boxes with the section's name. Those
+  sections are all blocks (the heading, the cards, the fields) and their
+  preset adds none, so drawn as the preset gives them they are an empty
+  shell with padding. A card that draws nothing is drawn again with a few of
+  its own blocks, each filled in with its defaults, the way Add block would
+  fill them: what the section looks like once it has content.
+*/
+
+type SampleField = { id?: string; default?: unknown }
+type SampleBlockType = {
+  type?: string
+  fields?: SampleField[]
+  settings?: SampleField[]
+  limit?: number
+  private?: boolean
+  presets?: { settings?: Record<string, unknown> }[]
+}
+
+/** How many of a section's only block type a sample holds: a row, a slider or a list reads as one with three. */
+const SAMPLE_REPEAT = 3
+/** And how many blocks in all, whatever the section takes. */
+const SAMPLE_MAX = 8
+
+/**
+ * A few blocks for a section's preview: one of each type it declares, or
+ * three of its only type, within its `max_blocks` and each type's `limit`.
+ * App blocks ("@app") and theme block wildcards ("@theme") are left out:
+ * neither names a block that can be drawn here.
+ */
+export function sampleBlocks(blockTypes: readonly SampleBlockType[] | undefined, maxBlocks: number | undefined, idPrefix: string): { id: string; type: string; settings: Record<string, unknown> }[] {
+  const kinds = (blockTypes ?? []).filter((b) => typeof b?.type === "string" && b.type && !b.type.startsWith("@") && !b.private)
+  if (!kinds.length) return []
+  const cap = Math.max(0, Math.min(SAMPLE_MAX, typeof maxBlocks === "number" && maxBlocks > 0 ? maxBlocks : SAMPLE_MAX))
+  const out: { id: string; type: string; settings: Record<string, unknown> }[] = []
+  const settingsOf = (b: SampleBlockType) => {
+    const s: Record<string, unknown> = {}
+    for (const f of b.fields ?? b.settings ?? []) if (f && typeof f.id === "string" && f.default !== undefined) s[f.id] = f.default
+    return { ...s, ...(b.presets?.[0]?.settings ?? {}) }
+  }
+  const each = kinds.length === 1 ? SAMPLE_REPEAT : 1
+  for (const b of kinds) {
+    const n = Math.min(each, typeof b.limit === "number" && b.limit > 0 ? b.limit : each)
+    for (let i = 0; i < n && out.length < cap; i++) out.push({ id: `${idPrefix}-sample-${out.length}`, type: b.type as string, settings: settingsOf(b) })
+  }
+  return out
+}
+
+/**
+ * Whether drawn markup has nothing anybody could see: no picture, no field,
+ * no words. Read from the string alone (its styles, scripts, templates and
+ * comments left out), so it costs no layout; a card's own measurement
+ * decides the rest.
+ */
+export function markupLooksEmpty(html: string): boolean {
+  const body = html
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<(style|script|template|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
+  if (/<(img|svg|video|picture|canvas|iframe|input|textarea|select|button)\b/i.test(body)) return false
+  const text = body.replace(/<[^>]*>/g, " ").replace(/&nbsp;|&#160;/gi, " ").replace(/\s+/g, "")
+  return text.length === 0
+}

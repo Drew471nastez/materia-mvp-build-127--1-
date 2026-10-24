@@ -50,7 +50,8 @@ async function main() {
     check("and comes back if the delete did not happen", /if \(!el\.isConnected\) return/.test(parts))
     const list = code("components/website-builder/editor/sections-list.tsx")
     /* Changed on purpose (round 34): the rows are memoised (ListRow), and their bin reaches removeSmooth through the list's handlers. */
-    check("sections fold away from their bin and their menu", /remove: \(id\) => latest\.current\.removeSmooth\(id\)/.test(list) && /onRemove=\{\(\) => h\.remove\(id\)\}/.test(list) && /onRemove: removeSmooth/.test(list))
+    /* Changed on purpose (round BC): the page's own section has no bin (pinned), so the row's onRemove is conditional. */
+    check("sections fold away from their bin and their menu", /remove: \(id\) => latest\.current\.removeSmooth\(id\)/.test(list) && /onRemove=\{pinned \? undefined : \(\) => h\.remove\(id\)\}/.test(list) && /onRemove: removeSmooth/.test(list))
     check("Add section right under the Page heading", /<TreeAddRow data-add-section-top="" label=\{tt\("Add section"\)\} onClick=\{\(\) => onAdd\(0, "template"\)\} \/>/.test(list))
     check("one insert line for sections and blocks, with a raised plus", /<TreeInsertLine data-insert-section/.test(list) && /data-insert-block/.test(src("components/website-builder/editor/block-tree-rows.tsx")))
     const page = code("app/website-builder/editor/[installId]/page.tsx")

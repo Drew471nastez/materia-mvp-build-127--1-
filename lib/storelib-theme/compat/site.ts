@@ -55,12 +55,16 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { fixThemeCss } from "./css-fixes"
 import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
+import { accountNoticeIn, accountWord, wordedCustomer } from "@/lib/site-accounts/words"
+import { inLang } from "@/lib/site-accounts/lang-path"
+import { countryChoices } from "@/lib/site-accounts/countries"
 import { siteTabTitle, withTabTitle, type TabPage } from "@/lib/website-builder/tab-title"
 import { ownedBanner } from "./owned-banner"
 import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-commerce-markup"
 import { withProductPageReviews } from "./storelib-reviews"
 import { countryCookieHeader } from "@/lib/markets/visitor-country"
 import { withSiteIcon } from "@/lib/website-builder/site-icon"
+import { withSearchHead, type SearchHead } from "./search-head"
 
 type O = Record<string, unknown>
 
@@ -94,6 +98,8 @@ export interface SiteData {
   extraHead?: string
   /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
   seo?: (pageKey: string) => { title?: string; description?: string; image?: string; noindex?: boolean } | null
+  /** What a drawn page's head is missing for search engines and share cards (./search-head.ts), from the server (lib/website-builder/compat-search.ts). Absent in the builder. */
+  searchHead?: (page: CompatPage, path: string) => SearchHead | null
   /** Storelib Reviews for a page: the shop's, and the product's on its page (lib/reviews/storefront.ts). Absent: none. */
   reviews?: (product: { id: string; title: string } | null) => Promise<O | null>
   /**
@@ -285,7 +291,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
       lines.push({ k: lineKey(hit.card.id, v), p: hit.card.id, v, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(n)) || 1)) })
     }
     const code = discountCodeOf(req.query.get("discount")) ?? req.discountCode
-    return lines.length ? { ...checkoutHandoff(site, lines, true, req.note ?? "", req.attributes, code), cart: lines, note: req.note ?? "", attributes: req.attributes ?? {} } : redirect("/cart")
+    return lines.length ? { ...checkoutHandoff(site, lines, true, req.note ?? "", req.attributes, code, backOf(req)), cart: lines, note: req.note ?? "", attributes: req.attributes ?? {} } : redirect("/cart")
   }
   const cartRoute = path.match(/^\/cart(?:\/(add|change|update|clear))?(\.js|\.json)?$/)
   if (cartRoute && (method === "POST" || cartRoute[2])) {
@@ -294,7 +300,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     if (method !== "POST") return json({ status: 405, message: "Method not allowed" }, 405)
     return await cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
   }
-  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true, req.note ?? "", req.attributes, discountCodeOf(req.query.get("discount")) ?? req.discountCode)
+  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true, req.note ?? "", req.attributes, discountCodeOf(req.query.get("discount")) ?? req.discountCode, backOf(req))
 
   /* A page draws the cart (its drawer, its count, the cart page): with the code taken off as checkout will take it. */
   if (req.cartDiscount === undefined && req.discountCode && req.cart.length && !/\.(?:js|json)$/.test(path)) req = { ...req, cartDiscount: await priceDiscount(site, req.cart, req.discountCode) }
@@ -423,10 +429,12 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
   /* Website settings › Commerce, said with this visitor's cart (./site-commerce-markup.ts). */
   const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD").total_price) || 0 : 0, site.shop.currency ?? undefined)
-  const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${languageLinks(site, path)}`
+  /* The password page is in front of every page, so it names no language versions of itself: it is not a search result (noindex below). */
+  const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${route.page.template === "password" ? "" : languageLinks(site, path)}`
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
-  const out = route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html
+  /* What the theme's head left out for search engines and share cards: a description, a picture, structured data, noindex (./search-head.ts). */
+  const out = withSearchHead(route.page.template === "password" ? withoutShopifyMark(drawn.html) : drawn.html, site.searchHead?.(route.page, path))
   /* The tab says what SEO & Social shows, whatever the theme's own <title> writes (lib/website-builder/tab-title.ts). */
   return pageHtml(tidyHead(withSiteIcon(withBodyStart(withTabTitle(out, tabTitleOf(site, route.page, route.ownTitle)), shop.bodyStart), site.icon)), path, route.status ?? 200)
 }
@@ -474,20 +482,49 @@ export function withoutShopifyMark(html: string): string {
  *          /account, /account/register, /account/recover): every one is
  *          "email me a code", Storelib's own code route with the email,
  *          where to land, and the name a Create account form asked for
- *   back   an address form (/account/addresses): addresses are saved by
- *          checkout, so there is nothing to keep; back to the list
+ *   address  an address form (/account/addresses, /account/addresses/<id>,
+ *          Shopify's `address[...]` fields, `_method` put or delete): the
+ *          customer's own address book (app/api/site-account/addresses),
+ *          the country named or coded, and back to the list
  *
  * Null for anything else: signing out, and a newsletter form posted to
  * /account (form_type customer), which is answered here like /contact.
  */
-export function accountFormPost(method: string, path: string, body: O | null): { kind: "code"; email: string; returnPath: string; name: string } | { kind: "back"; to: string } | null {
+export type AccountFormPost =
+  | { kind: "code"; email: string; returnPath: string; name: string }
+  | { kind: "address"; action: "save" | "delete"; id: string | null; fields: Record<string, string>; makeDefault: boolean }
+  | null
+
+export function accountFormPost(method: string, path: string, body: O | null): AccountFormPost {
   if (method.toUpperCase() !== "POST") return null
   const p = decodePath(path)
   if ((p !== "/account" && !p.startsWith("/account/")) || p === "/account/logout") return null
   const type = String(body?.form_type ?? "")
   if (type === "customer") return null
-  if (p.startsWith("/account/addresses") || type === "customer_address") return { kind: "back", to: "/account/addresses" }
+  if (p.startsWith("/account/addresses") || type === "customer_address") return themeAddressPost(p, body)
   return { kind: "code", ...themeSignInFields(body) }
+}
+
+/**
+ * A Shopify theme's address form, as the address book's fields. Its
+ * country and province come as names ("United States", "Texas") or codes;
+ * the book keeps the country's code, which checkout's own check needs.
+ */
+export function themeAddressPost(path: string, body: O | null): AccountFormPost {
+  const b = body ?? {}
+  const f = (k: string) => (typeof b[`address[${k}]`] === "string" ? String(b[`address[${k}]`]) : "")
+  const id = path.match(/^\/account\/addresses\/([^/]+)$/)?.[1] ?? null
+  const method = String(b._method ?? "").toLowerCase()
+  if (method === "delete") return id ? { kind: "address", action: "delete", id, fields: {}, makeDefault: false } : null
+  const name = [f("first_name"), f("last_name")].map((x) => x.trim()).filter(Boolean).join(" ")
+  const country = countryCode(f("country")) ?? countryCode(f("country_code")) ?? f("country")
+  return {
+    kind: "address",
+    action: "save",
+    id,
+    makeDefault: ["1", "true", "on"].includes(f("default").toLowerCase()),
+    fields: { name, company: f("company"), line1: f("address1"), line2: f("address2"), city: f("city"), region: f("province_code") || f("province"), postal_code: f("zip"), country, phone: f("phone") },
+  }
 }
 
 function decodePath(p: string): string {
@@ -592,41 +629,70 @@ function shell(site: SiteData, req: SiteRequest, path: string, title: string, co
  */
 function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
   const customer = req.account?.customer ?? null
+  /*
+    IN THE PAGE'S LANGUAGE (/fr/account/login): Storelib's words in it
+    (Translate › Shop words, lib/site-accounts/words.ts), every link and
+    redirect under its prefix, and each form sends it back as `lang`, so the
+    code step and everything after it stay in it (lib/site-accounts/lang.ts).
+  */
+  const words = site.i18n?.uiWords
+  const root = localeRoot(site.i18n)
+  const lang = { words, root }
+  const go = (to: string) => ({ ...shell(site, req, path, "Account", ""), redirect: inLang(root, to) })
+  const shown = customer ? wordedCustomer(customer, words, root ? site.i18n?.locale : null) : null
   const signIn = path.match(/^\/account\/(login|register|recover|reset|activate)(?:\/|$)/)
   if (signIn) {
     const back = safeReturn(req.query.get("return")) ?? safeReturn(req.query.get("return_to")) ?? "/account"
-    if (customer) return { ...shell(site, req, path, "Account", ""), redirect: back }
+    if (customer) return go(back)
     const pending = req.query.get("step") === "email" ? null : (req.account?.pending ?? null)
     const error = req.query.get("error")
     /* A code refused after this browser's note ran out lands on the email step, and says to start again there (as the native sign in page does). */
-    const notice = signInNotice(!pending && (error === "code" || error === "expired" || error === "tries") ? "restart" : error) ?? (pending && req.query.get("sent") === "1" ? "A new code is on its way." : null)
+    const refusal = signInNotice(!pending && (error === "code" || error === "expired" || error === "tries") ? "restart" : error, words)
+    const notice = refusal ?? (pending && req.query.get("sent") === "1" ? accountWord(words, "acct_notice_sent") : null)
     const register = signIn[1] === "register"
-    const title = register ? "Create account" : "Sign in"
+    const title = register ? accountWord(words, "acct_create_account") : accountWord(words, "sign_in")
     /*
       The code step lands here from the code route with no `return` in the
       address, so `back` is /account. Where this sign in was going is in the
       note itself; Send a new code posts it again, and a new code asked for
       on the way to checkout still ends at checkout, as the native page does.
     */
-    if (pending) return shell(site, req, path, title, signInContent({ step: "code", email: pending.email, returnTo: pending.returnTo || back, notice }), "customers/login")
+    if (pending) return shell(site, req, path, title, signInContent({ step: "code", email: pending.email, returnTo: pending.returnTo || back, notice, noticeError: !!refusal, ...lang }), "customers/login")
+    /* A theme's own form posts to /account/login; the site route sends it on to the code route with the page's language (app/api/site-theme/site). */
     const own = themeAccountTemplate(site, req, register ? "customers/register" : "customers/login", path, title, notice ? { customer_login: notice } : null)
     if (own) return own
-    return shell(site, req, path, title, signInContent({ step: "email", returnTo: back, notice, register }), register ? "customers/register" : "customers/login")
+    return shell(site, req, path, title, signInContent({ step: "email", returnTo: back, notice, register, ...lang }), register ? "customers/register" : "customers/login")
   }
-  if (!customer) {
+  if (!customer || !shown) {
     const q = path === "/account" ? "" : `?return=${encodeURIComponent(path)}`
-    return { ...shell(site, req, path, "Sign in", ""), redirect: `/account/login${q}` }
+    return { ...shell(site, req, path, "Sign in", ""), redirect: `${inLang(root, "/account/login")}${q}` }
   }
+  const said = accountNoticeIn(words, req.query)
   if (path === "/account") {
-    const notice = req.query.get("profile") === "saved" ? "Saved." : req.query.get("profile") === "error" ? "That name could not be saved. Try again." : req.query.get("deleted") === "no" ? "Your account could not be deleted. Try again." : null
     const edit = req.query.get("edit")
+    /* The address book's news is said on its own page (/account/addresses). */
+    const notice = req.query.get("address") ? null : said
     if (!edit && !notice) {
-      const own = themeAccountTemplate(site, req, "customers/account", path, "Account", null, accountExtras(customer))
+      const own = themeAccountTemplate(site, req, "customers/account", path, accountWord(words, "account"), null, accountExtras(shown, lang))
       if (own) return own
     }
-    return shell(site, req, path, "Account", accountContent(customer, { notice, edit }), "customers/account")
+    return shell(site, req, path, accountWord(words, "account"), accountContent(shown, { notice: notice?.text ?? null, noticeError: notice?.error, edit, ...lang }), "customers/account")
   }
-  if (path === "/account/addresses") return shell(site, req, path, "Addresses", addressesContent(customer), "customers/addresses")
+  /*
+    THE ADDRESS BOOK, Storelib's page in the theme's header and footer: a
+    theme's own customers/addresses template posts Shopify's fields, which
+    the site route maps onto the same address book (accountFormPost), but
+    its forms are written for Shopify's script, so the page is Storelib's.
+    /account/addresses/<id> is that address's form.
+  */
+  const book = path.match(/^\/account\/addresses(?:\/([^/]+))?\/?$/)
+  if (book) {
+    const asked = book[1] ? decodeURIComponent(book[1]) : req.query.get("edit")
+    const address = asked && asked !== "new" ? (shown.addresses ?? []).find((a) => a.id === asked) ?? null : null
+    const mode = asked === "new" ? "new" : address ? "edit" : null
+    const code = req.query.get("address")
+    return shell(site, req, path, accountWord(words, "acct_addresses"), addressesContent(shown, { mode, address, notice: code ? (said?.text ?? null) : null, noticeError: said?.error, countries: mode ? countryChoices(site.i18n?.locale ?? null) : [], ...lang }), "customers/addresses")
+  }
   /* An order that ships: its order page on this website, with the status and the tracking (app/checkout/physical/order). */
   const shipped = path.match(/^\/account\/orders\/([^/]+)\/?$/)
   if (shipped) {
@@ -636,10 +702,10 @@ function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
   /* An order with files: its own page here, each file downloaded on this website (lib/site-accounts/order-files.ts). */
   if (/^\/account\/orders\/[^/]+\/?$/.test(path) && req.account?.order) {
     const o = req.account.order
-    return shell(site, req, path, `Order #${o.number}`, orderContent(o, { notice: downloadNotice(req.query.get("download")) }), "customers/order")
+    return shell(site, req, path, `${accountWord(words, "acct_order")} #${o.number}`, orderContent(o, { notice: downloadNotice(req.query.get("download")), ...lang }), "customers/order")
   }
   /* An order's own page is its receipt, which each order on the account page links to. */
-  return { ...shell(site, req, path, "Account", ""), redirect: "/account" }
+  return go("/account")
 }
 
 /** The account pages the builder's canvas can open, as a visitor reaches them. */
@@ -666,20 +732,24 @@ export function canvasAccountPage(site: SiteData, path: string, opts: { extraHea
   return { path: clean, html: drawn.html }
 }
 
-/** Below a theme's own account page: the Storelib parts it has no place for, editing the name and deleting the account. */
-function accountExtras(customer: SiteAccount["customer"]): string {
+/** Below a theme's own account page: the Storelib parts it has no place for, editing the name and phone and deleting the account. */
+function accountExtras(customer: SiteAccount["customer"], lang: { words?: Record<string, string>; root: string }): string {
   /*
     A theme's order table says Paid and a total; what was bought to download
     is a step further in. Each order with files is listed here too, each
     opening its page on this website, where the files are.
   */
-  const downloads = (customer?.orders ?? []).filter((o) => o.action_label === "Download" && o.action_url.startsWith("/account/orders/"))
+  const w = (k: Parameters<typeof accountWord>[1]) => escapeText(accountWord(lang.words, k))
+  const at = (p: string) => escapeText(inLang(lang.root, p))
+  /* Orders with files, by their address (the label is in the page's language by now, ./account words). */
+  const downloads = (customer?.orders ?? []).filter((o) => o.action_url.startsWith("/account/orders/"))
   const list = downloads.length
-    ? `<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:24px 20px 0"><h2 style="margin:0 0 8px;font-size:1.15em">Downloads</h2><ul style="list-style:none;margin:0;padding:0">${downloads
-        .map((o) => `<li style="display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)"><span style="min-width:0;overflow-wrap:anywhere">${escapeText(o.items.map((i) => i.title).join(", "))} <span style="opacity:.7;font-size:.9em">${escapeText(o.date)}</span></span><a href="${escapeText(o.action_url)}" style="color:inherit;text-decoration:underline;text-underline-offset:4px;flex:none">Download</a></li>`)
+    ? `<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:24px 20px 0"><h2 style="margin:0 0 8px;font-size:1.15em">${w("acct_downloads")}</h2><ul style="list-style:none;margin:0;padding:0">${downloads
+        .map((o) => `<li style="display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)"><span style="min-width:0;overflow-wrap:anywhere">${escapeText(o.items.map((i) => i.title).join(", "))} <span style="opacity:.7;font-size:.9em">${escapeText(o.date)}</span></span><a href="${at(o.action_url)}" style="color:inherit;text-decoration:underline;text-underline-offset:4px;flex:none">${w("acct_download")}</a></li>`)
         .join("")}</ul></div>`
     : ""
-  return `${list}<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:8px 20px 56px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center"><a href="/account?edit=name#profile" style="color:inherit;text-decoration:underline;text-underline-offset:4px">Edit name</a><a href="/account?edit=delete#delete" style="color:inherit;text-decoration:underline;text-underline-offset:4px;opacity:.75">Delete account</a></div>`
+  const link = (href: string, label: string, quiet = false) => `<a href="${href}" style="color:inherit;text-decoration:underline;text-underline-offset:4px;display:inline-flex;align-items:center;min-height:44px${quiet ? ";opacity:.75" : ""}">${label}</a>`
+  return `${list}<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:8px 20px 56px;display:flex;flex-wrap:wrap;gap:0 24px;align-items:center">${link(`${at("/account")}?edit=name#profile`, w("acct_edit_name"))}${link(`${at("/account")}?edit=phone#profile`, w("acct_edit_phone"))}${link(at("/account/addresses"), w("acct_addresses"))}${link(`${at("/account")}?edit=delete#delete`, w("acct_delete_account"), true)}</div>`
 }
 
 /**
@@ -744,7 +814,8 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     cartNote: req.note ?? "",
     cartAttributes: req.attributes ?? {},
     cartDiscount: req.cartDiscount ?? null,
-    customer: req.account?.customer ? themeCustomer(req.account.customer) : null,
+    /* In the page's language: the orders' statuses and dates as the theme draws them (lib/site-accounts/words.ts). */
+    customer: req.account?.customer ? themeCustomer(wordedCustomer(req.account.customer, site.i18n?.uiWords, localeRoot(site.i18n) ? site.i18n?.locale : null)) : null,
     formErrors: formErrorsOf(req),
     ...(site.i18n ? { i18n: site.i18n } : {}),
     ...extra,
@@ -1208,7 +1279,7 @@ export function cartLines(site: Pick<SiteData, "products">, entries: CartEntry[]
  * the code the cart holds.
  */
 function cartJson(site: SiteData, entries: CartEntry[], note: string, attributes: Record<string, string> = {}, discount: CartDiscount | null = null, codes?: { code: string; applicable: boolean }[]): O {
-  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note, attributes, discount)
+  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note, attributes, discount, site.shop.taxesIncluded === true)
   const items = ((cart.items as O[]) ?? []).map(lineJson)
   return {
     token: "storelib",
@@ -1347,8 +1418,13 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       const k = lineKey(hit.card.id, v, item.properties)
       const existing = cart.find((e) => e.k === k)
       const qty = Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))
-      /* More than the stock, or than Limit sales lets one order take, is refused as Shopify refuses it (422), and nothing is added. */
-      const room = await roomFor(site, hit.card.id, v, buyNow ? asked : cart)
+      /*
+        More than the stock, or than Limit sales lets one order take, is refused as Shopify refuses it (422), and nothing is added.
+        Not for Buy it now: the checkout it goes to counts the stock and the limit again and says it on the line ("Only 2 left",
+        "up to 3 per order"), where a refusal here only landed on the cart. The read held the press up by roughly 0.3 to 0.5s on
+        the live site before the checkout even started.
+      */
+      const room = buyNow ? null : await roomFor(site, hit.card.id, v, cart)
       if (room !== null && qty > room) {
         const title = String(hit.card.settings.title ?? "this product")
         return error(room <= 0 ? `You can't add more ${title} to the cart.` : `You can only add ${room} more of ${title} to the cart.`)
@@ -1362,7 +1438,7 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       added.push(cart.find((e) => e.k === k)!)
     }
     /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
-    if (buyNow) return { ...checkoutHandoff(site, asked, false, req.note ?? "", attributes, code), cart: req.cart, note: req.note ?? "", attributes }
+    if (buyNow) return { ...checkoutHandoff(site, asked, false, req.note ?? "", attributes, code, backOf(req)), cart: req.cart, note: req.note ?? "", attributes }
     if (!ajax) return redirect("/cart", { cart, note, attributes })
     const priced = await priceDiscount(site, cart, code)
     const lines = (cartJson(site, cart, note, attributes, priced).items as O[])
@@ -1411,11 +1487,13 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     cart = cart.filter((e) => e.q > 0)
     if (typeof field(req.body, "note") === "string") note = String(field(req.body, "note")).slice(0, 500)
     attributes = attributesAfter(attributes, req.body)
-    cart = await heldToStock(site, cart)
     const typed = field(req.body, "discount")
     const typedCodes = typeof typed === "string" ? discountCodesOf(typed) : null
+    /* A cart form's Check out goes straight on: the checkout holds each line to what is left and says so there, so the stock is not read twice on the way. */
+    const toCheckout = !ajax && field(req.body, "checkout") !== undefined
+    if (!toCheckout) cart = await heldToStock(site, cart)
     /* A cart form's Check out with its discount box: the code typed goes on as it is, and the checkout says what it does. */
-    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart, true, note, attributes, typedCodes ? (typedCodes[0] ?? "") : code), cart, note, attributes, ...(typedCodes ? { discountCode: typedCodes[0] ?? "" } : {}) }
+    if (toCheckout) return { ...checkoutHandoff(site, cart, true, note, attributes, typedCodes ? (typedCodes[0] ?? "") : code, backOf(req)), cart, note, attributes, ...(typedCodes ? { discountCode: typedCodes[0] ?? "" } : {}) }
     /*
       THE CODES A THEME ASKED FOR (Shopify's /cart/update.js `discount`,
       "A,B"; "" takes them all off), each priced on this cart by the
@@ -1573,12 +1651,27 @@ export function attributesAfter(before: Record<string, string>, body: O | null):
  * from this host; the theme never sees a price it could set. `whole`: the
  * whole cart (emptied once paid), not a Buy it now of one item.
  */
-function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, note = "", attributes?: Record<string, string>, code?: string | null): SiteResponse {
+function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, note = "", attributes?: Record<string, string>, code?: string | null, back = "/cart"): SiteResponse {
   /* Each line's properties (an engraving, a gift message on the line) go with it, and the order keeps them. */
   const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q, ...(e.props && Object.keys(e.props).length ? { properties: e.props } : {}) }))
   if (!items.length) return redirect("/cart")
   /* The cart's note goes on with the lines: the checkout's "Add a note for the shop" opens with it, and the order keeps it. So do its attributes, and its discount code, which the checkout prices again. */
-  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole, note, attributes, couponCode: code || null }))
+  return redirect(siteCheckoutHref({ items, back, wholeCart: whole, note, attributes, couponCode: code || null }))
+}
+
+/** The checkout's own pages, the sign in and the password page: never where Back goes. */
+const NO_BACK_TO = /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?(?:checkout|account|password)(?:[/?#.]|$)/i
+
+/**
+ * WHERE CHECKOUT'S BACK GOES: the page the press was on (the owner: exactly
+ * where the buyer came from). Buy it now on a product page goes back to that
+ * product, a cart drawer's Check out to the page the drawer was open on, the
+ * cart page's to the cart. The route gives this site's own page only
+ * (refererPath); none, or one of the pages above, is the cart, as before.
+ */
+function backOf(req: SiteRequest): string {
+  const from = safeReturn(req.referer)
+  return from && !NO_BACK_TO.test(from) ? from : "/cart"
 }
 
 /**

@@ -60,6 +60,8 @@ import { GROUP_LABELS, isKind, splitGroups, type KindOfType, type SectionGroup }
 import { ActionMenuAt, type ActionMenuItem, type ActionMenuPlace } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { tt } from "@/lib/i18n/text"
+import { PINNED_NOTE } from "@/lib/website-builder/pinned-sections"
+import { previewOrder } from "@/lib/website-builder/live-order"
 
 /**
  * How the page's sections are reordered: the row dragged, and the row whose
@@ -115,6 +117,12 @@ export interface SectionsListProps {
   paste?: { name: string; ok: boolean; reason?: string } | null
   /** Paste the copied section at this place among the page's sections (0 is the top). */
   onPaste?: (at: number) => void
+  /**
+   * The page's own sections (round BC, lib/website-builder/pinned-sections.ts):
+   * its main section, the header, the footer. No bin on the row, and the
+   * menu's Delete says why, with Hide beside it.
+   */
+  pinned?: (section: SectionInstance) => boolean
 }
 
 /** The builder is a phone below 768px: the menu is the action sheet there. */
@@ -445,6 +453,7 @@ interface RowHandlers {
 
 interface ListRowProps {
   h: RowHandlers
+  pinned?: boolean
   section: SectionInstance
   displayName: string
   isSelected: boolean
@@ -458,7 +467,7 @@ interface ListRowProps {
 }
 
 const ListRow = React.memo(
-  function ListRow({ h, section, displayName, isSelected, menuOpen, expandable, expanded, chrome, fixed, index, grip }: ListRowProps) {
+  function ListRow({ h, pinned, section, displayName, isSelected, menuOpen, expandable, expanded, chrome, fixed, index, grip }: ListRowProps) {
     const id = section.id
     return (
       <SectionRow
@@ -467,7 +476,7 @@ const ListRow = React.memo(
         isSelected={isSelected}
         onSelect={() => h.select(id)}
         onToggleHide={() => h.toggleHide(id)}
-        onRemove={() => h.remove(id)}
+        onRemove={pinned ? undefined : () => h.remove(id)}
         chrome={chrome}
         fixed={fixed}
         dragHandleProps={grip ? grip(index) : undefined}
@@ -488,6 +497,7 @@ const ListRow = React.memo(
     a.expanded === b.expanded &&
     a.chrome === b.chrome &&
     a.fixed === b.fixed &&
+    a.pinned === b.pinned &&
     a.index === b.index &&
     !!a.grip === !!b.grip &&
     a.h === b.h,
@@ -507,7 +517,7 @@ const NO_ITEMS: ActionMenuItem[] = []
 export function sectionRowMenu(
   section: SectionInstance,
   sections: SectionInstance[],
-  ctx: Pick<SectionsListProps, "kindOfType" | "codeItem" | "onDuplicate" | "onMove" | "onToggleHide" | "onRemove" | "onCopy" | "paste"> & { onPasteAfter?: () => void },
+  ctx: Pick<SectionsListProps, "kindOfType" | "codeItem" | "onDuplicate" | "onMove" | "onToggleHide" | "onRemove" | "onCopy" | "paste" | "pinned"> & { onPasteAfter?: () => void },
 ): ActionMenuItem[] {
   const groups = splitGroups(sections)
   const role = (["header", "footer", "overlay"] as const).find((r) => groups[r].some((s) => s.id === section.id))
@@ -526,7 +536,9 @@ export function sectionRowMenu(
   items.push({ id: "toggle-hidden", label: section.hidden ? tt("Show") : tt("Hide"), icon: section.hidden ? icon(Eye) : icon(EyeOff), onClick: () => ctx.onToggleHide(section.id) })
   const code = ctx.codeItem?.(section)
   if (code) items.push({ id: "edit-code", label: code.label, hint: code.hint, disabled: !code.run, icon: icon(Code2), onClick: code.run })
-  items.push({ id: "delete", label: tt("Delete"), icon: icon(Trash2), variant: "destructive", separatorBefore: true, onClick: () => ctx.onRemove(section.id) })
+  /* The page's own section is hidden, never deleted: Delete stays in its place, greyed, saying so (pinned-sections.ts). */
+  const pinned = !!ctx.pinned?.(section)
+  items.push({ id: "delete", label: tt("Delete"), icon: icon(Trash2), variant: "destructive", separatorBefore: true, disabled: pinned, hint: pinned ? tt(PINNED_NOTE) : undefined, onClick: () => ctx.onRemove(section.id) })
   return items
 }
 
@@ -552,6 +564,7 @@ export function SectionsList({
   onCopy,
   paste,
   onPaste,
+  pinned,
 }: SectionsListProps) {
   const groups = splitGroups(sections)
   /** Delete, after the row has folded away (tree-parts foldAway), from its bin and from its menu alike. */
@@ -603,14 +616,56 @@ export function SectionsList({
    * finger now, so a press on it is a drag straight away and a swipe
    * anywhere else still scrolls.
    */
+  const dropped = React.useRef(false)
   const { listRef, drag, gripProps, rowStyle } = useReorder<HTMLDivElement>({
     count: body.length,
     onMove: (from, to) => {
       const list = bodyRef.current
+      dropped.current = true
       if (list[from] && list[to]) dnd.onReorder(list[from].id, list[to].id)
     },
     nameOf: (i) => (bodyRef.current[i] ? nameOf(bodyRef.current[i]) : ""),
   })
+  /*
+    THE CANVAS FOLLOWS THE DRAG (round BC, lib/website-builder/live-order.ts).
+    Each time the slot under the finger changes, the canvas is shown the
+    order that slot makes; let go, the saved order takes over from it, and
+    put back (Escape, or let go where it started), it slides home. A layout
+    effect, so on a drop it runs in the same commit as the new order (use-
+    reorder's flushSync), after `onMove` has said it was a drop.
+  */
+  const previewing = React.useRef<string[] | null>(null)
+  const dragFrom = drag?.from ?? -1
+  const dragTo = drag?.to ?? -1
+  React.useLayoutEffect(() => {
+    if (dragFrom < 0) {
+      if (!previewing.current) return
+      previewing.current = null
+      previewOrder({ ids: null, end: dropped.current ? "commit" : "cancel" })
+      dropped.current = false
+      return
+    }
+    dropped.current = false
+    const ids = bodyRef.current.map((s) => s.id)
+    const [lifted] = ids.splice(dragFrom, 1)
+    ids.splice(dragTo, 0, lifted)
+    /* Picked up and not moved yet: nothing to show, but a drop from here is still one to finish. */
+    if (!previewing.current && dragFrom === dragTo) {
+      previewing.current = ids
+      return
+    }
+    previewing.current = ids
+    previewOrder({ ids, lifted })
+  }, [dragFrom, dragTo])
+  /* The list drawn again from nothing while a preview stands (the drop can do that): the canvas is let go all the same. */
+  React.useEffect(
+    () => () => {
+      if (!previewing.current) return
+      previewing.current = null
+      previewOrder({ ids: null, end: dropped.current ? "commit" : "cancel" })
+    },
+    [],
+  )
 
   /**
    * A row of the Header or Footer group. The header (or footer) itself wears
@@ -627,6 +682,7 @@ export function SectionsList({
         <div key={s.id} data-section-row-wrap={s.id}>
           <ListRow
             h={handlers}
+            pinned={!!pinned?.(s)}
             section={s}
             displayName={nameOf(s)}
             isSelected={selectedId === s.id}
@@ -660,6 +716,7 @@ export function SectionsList({
         onRemove: removeSmooth,
         onCopy,
         paste,
+        pinned,
         onPasteAfter: onPaste && openAt >= 0 ? () => onPaste(openAt + 1) : undefined,
       })
     : NO_ITEMS
@@ -715,6 +772,7 @@ export function SectionsList({
                   >
                     <ListRow
                       h={handlers}
+                      pinned={!!pinned?.(s)}
                       section={s}
                       displayName={nameOf(s)}
                       isSelected={selectedId === s.id}

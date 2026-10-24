@@ -40,12 +40,29 @@ export const PLAIN_MESSAGES: Record<FailureKind, string> = {
 export class PlainError extends Error {
   readonly kind: FailureKind
   readonly status?: number
-  constructor(kind: FailureKind, status?: number) {
+  /** The conversation no longer fits the model: a run can shorten it and ask again (lib/website-builder/agent/run-repair.ts). */
+  readonly overflow: boolean
+  constructor(kind: FailureKind, status?: number, overflow = false) {
     super(PLAIN_MESSAGES[kind])
     this.name = "PlainError"
     this.kind = kind
     this.status = status
+    this.overflow = overflow
   }
+}
+
+const OVERFLOW = /prompt is too long|context.?length|context window|maximum context|too many (?:input )?tokens|input is too long|request too large|exceeds? the (?:model'?s? )?(?:maximum|context)/
+
+/**
+ * Whether a failure is the conversation being longer than the model takes,
+ * which is the one "failed" a run can repair itself: by shortening what it
+ * sends. Read before or after plainFailures has made it plain.
+ */
+export function isContextOverflow(thrown: unknown): boolean {
+  if (!thrown || typeof thrown !== "object") return false
+  if (thrown instanceof PlainError) return thrown.overflow
+  const e = thrown as Shaped
+  return e.status === 413 || OVERFLOW.test(wordsOf(e))
 }
 
 /** Names whose message was written for the creator and is shown as it is. */
@@ -146,7 +163,7 @@ export function plainFailures(provider: AgentProvider): AgentProvider {
         if (!kind) throw thrown
         plainRunError(thrown, `provider ${provider.id} ${request.model}`)
         const status = (thrown as Shaped).status
-        throw new PlainError(kind, typeof status === "number" ? status : undefined)
+        throw new PlainError(kind, typeof status === "number" ? status : undefined, isContextOverflow(thrown))
       }
     },
   }

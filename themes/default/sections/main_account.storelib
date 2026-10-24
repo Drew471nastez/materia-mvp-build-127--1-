@@ -9,6 +9,7 @@
       <div class="acct__top">
         <h1 class="s__h">{{ settings.heading }}</h1>
         <form class="acct__out" method="post" action="{{ routes.account_logout_url }}" data-storelib-form="native">
+          <input type="hidden" name="lang" value="{{ page.lang }}">
           <button class="acct__link" type="submit">{{ settings.signout_label }}</button>
         </form>
       </div>
@@ -72,17 +73,19 @@
 
       <div class="acct__block" id="profile">
         <h2 class="acct__h2">{{ settings.profile_heading }}</h2>
-        {% if page.notice %}<p class="acct__notice" role="status">{{ page.notice }}</p>{% endif %}
+        {% if page.notice %}<p class="acct__notice sl-acc-in{% if page.notice_error %} is-error{% endif %}" role="{% if page.notice_error %}alert{% else %}status{% endif %}">{{ page.notice }}</p>{% endif %}
         <div class="rows">
           {# Edit opens the field in place (page.edit, from ?edit=name), so it
              needs no script; Save posts it, Cancel is the page again. #}
           {% if page.edit == "name" %}
-            <form class="row row--edit" method="post" action="{{ routes.account_profile_url }}" data-storelib-form="native">
+            <form class="row row--edit" method="post" action="{{ routes.account_profile_url }}" data-storelib-form="native" data-sl-async data-sl-msg-error="{{ words.acct_name_error }}" data-sl-msg-failed="{{ words.acct_name_error }}" data-sl-msg-network="{{ words.acct_err_network }}">
+              <input type="hidden" name="lang" value="{{ page.lang }}">
               <label class="row__label" for="{{ section.id }}-name">{{ settings.name_label }}</label>
               <div class="edit">
-                <input class="edit__input" id="{{ section.id }}-name" name="name" type="text" value="{{ customer.name }}" maxlength="120" autocomplete="name" placeholder="{{ settings.name_placeholder }}" autofocus>
+                <input class="edit__input" id="{{ section.id }}-name" name="name" type="text" value="{{ customer.name }}" maxlength="120" autocomplete="name" placeholder="{{ settings.name_placeholder }}" data-sl-field="error" autofocus>
                 <button class="s__btn s__btn--primary" type="submit">{{ settings.save_label }}</button>
                 <a class="acct__link" href="{{ routes.account_url }}#profile">{{ settings.cancel_label }}</a>
+                <p class="edit__error" data-sl-error role="alert" hidden></p>
               </div>
             </form>
           {% else %}
@@ -96,24 +99,105 @@
             <p class="row__label">{{ settings.email_label }}</p>
             <p class="row__value{% if customer.sample %} is-sample{% endif %}">{{ customer.email }}</p>
           </div>
+          {# The phone number, changed the same way (?edit=phone). With its
+             country code, as checkout and a courier read it. #}
+          {% if page.edit == "phone" %}
+            <form class="row row--edit" method="post" action="{{ routes.account_profile_url }}" data-storelib-form="native" data-sl-async data-sl-msg-phone="{{ words.acct_phone_error }}" data-sl-msg-unavailable="{{ words.acct_profile_unavailable }}" data-sl-msg-failed="{{ words.acct_err_failed }}" data-sl-msg-network="{{ words.acct_err_network }}">
+              <input type="hidden" name="lang" value="{{ page.lang }}">
+              <label class="row__label" for="{{ section.id }}-phone">{{ words.acct_phone }}</label>
+              <div class="edit">
+                <input class="edit__input" id="{{ section.id }}-phone" name="phone" type="tel" value="{{ customer.phone }}" maxlength="40" autocomplete="tel" inputmode="tel" placeholder="{{ words.acct_phone_placeholder }}" data-sl-field="phone" autofocus>
+                <button class="s__btn s__btn--primary" type="submit">{{ settings.save_label }}</button>
+                <a class="acct__link" href="{{ routes.account_url }}#profile">{{ settings.cancel_label }}</a>
+                <p class="edit__error" data-sl-error role="alert" hidden></p>
+              </div>
+            </form>
+          {% else %}
+            <div class="row">
+              <p class="row__label">{{ words.acct_phone }}</p>
+              <p class="row__value{% if customer.sample %} is-sample{% endif %}">{% if customer.phone %}{{ customer.phone }}{% else %}<span class="is-muted">{{ settings.name_empty }}</span>{% endif %}</p>
+              <a class="acct__link" href="{{ routes.account_url }}?edit=phone#profile">{{ settings.edit_label }}</a>
+            </div>
+          {% endif %}
         </div>
       </div>
 
-      {# The addresses this customer's orders from this shop went to, newest
-         first, as the checkout took them. Shown only when there is one: a
-         shop that sells files has no addresses to list. #}
-      {% if settings.show_addresses and customer.addresses.size > 0 %}
+      {# THE ADDRESS BOOK. The customer's own (app/api/site-account/addresses):
+         add, change, delete and pick the default, which checkout fills in.
+         Until they change it, the addresses their orders went to. Each
+         change is a plain form post; the page's script sends it in place
+         and says a refused field beside it (lib/site-accounts/forms-script). #}
+      {# Shown when there is an address, or when the shop has something to ship (customer.ships): a shop that sells files has none to list. #}
+      {% if settings.show_addresses %}{% if customer.addresses.size > 0 or customer.ships or page.address_mode %}
         <div class="acct__block" id="addresses">
-          <h2 class="acct__h2">{{ settings.addresses_heading }}</h2>
-          <ul class="addrs">
-            {% for address in customer.addresses %}
-            <li class="addr{% if customer.sample %} is-sample{% endif %}">
-              {% for line in address.lines %}<span class="addr__line">{{ line }}</span>{% endfor %}
-            </li>
-            {% endfor %}
-          </ul>
+          <div class="acct__h2row">
+            <h2 class="acct__h2">{{ settings.addresses_heading }}</h2>
+            {% if page.address_mode %}{% else %}{% if customer.addresses.size < 10 %}<a class="acct__link acct__add" href="{{ routes.account_url }}?edit=address#addresses">{{ words.acct_add_address }}</a>{% endif %}{% endif %}
+          </div>
+          {% if page.address_notice %}<p class="acct__notice sl-acc-in{% if page.address_error %} is-error{% endif %}" role="{% if page.address_error %}alert{% else %}status{% endif %}">{{ page.address_notice }}</p>{% endif %}
+          {% if page.address_mode %}
+            <form class="addr-form sl-acc-in" method="post" action="{{ routes.account_addresses_url }}" data-storelib-form="native" data-sl-async data-sl-msg-name="{{ words.acct_err_name }}" data-sl-msg-line1="{{ words.acct_err_street }}" data-sl-msg-city="{{ words.acct_err_city }}" data-sl-msg-country="{{ words.acct_err_country }}" data-sl-msg-postal="{{ words.acct_err_postal }}" data-sl-msg-region="{{ words.acct_err_region }}" data-sl-msg-phone="{{ words.acct_err_phone }}" data-sl-msg-full="{{ words.acct_err_full }}" data-sl-msg-missing="{{ words.acct_err_missing }}" data-sl-msg-unavailable="{{ words.acct_err_unavailable }}" data-sl-msg-failed="{{ words.acct_err_failed }}" data-sl-msg-network="{{ words.acct_err_network }}">
+              <input type="hidden" name="lang" value="{{ page.lang }}">
+              <input type="hidden" name="action" value="save">
+              <input type="hidden" name="return" value="/account">
+              {% if page.address.id %}<input type="hidden" name="id" value="{{ page.address.id }}">{% endif %}
+              <h3 class="addr-form__h">{% if page.address.id %}{{ words.acct_edit_address }}{% else %}{{ words.acct_add_address }}{% endif %}</h3>
+              <p class="edit__error addr-form__error" data-sl-error role="alert" hidden></p>
+              <div class="fields">
+                <label class="field field--full"><span class="field__label">{{ words.acct_full_name }}</span><input class="edit__input" placeholder="{{ words.acct_full_name }}" name="name" type="text" value="{{ page.address.name }}" maxlength="120" autocomplete="name" required data-sl-field="name"></label>
+                <label class="field field--full"><span class="field__label">{{ words.acct_company }}</span><input class="edit__input" placeholder="{{ words.acct_company }}" name="company" type="text" value="{{ page.address.company }}" maxlength="120" autocomplete="organization"></label>
+                <label class="field field--full"><span class="field__label">{{ words.acct_country }}</span>
+                  <select class="edit__input" name="country" autocomplete="country" required data-sl-field="country">
+                    <option value="">{{ words.acct_choose_country }}</option>
+                    {% for c in page.countries %}<option value="{{ c.code }}"{% if c.code == page.address.country_code %} selected{% endif %}>{{ c.name }}</option>{% endfor %}
+                  </select>
+                </label>
+                <label class="field field--full"><span class="field__label">{{ words.acct_street }}</span><input class="edit__input" placeholder="{{ words.acct_street }}" name="line1" type="text" value="{{ page.address.line1 }}" maxlength="200" autocomplete="address-line1" required data-sl-field="line1"></label>
+                <label class="field field--full"><span class="field__label">{{ words.acct_apartment }}</span><input class="edit__input" placeholder="{{ words.acct_apartment }}" name="line2" type="text" value="{{ page.address.line2 }}" maxlength="200" autocomplete="address-line2"></label>
+                <label class="field"><span class="field__label">{{ words.acct_city }}</span><input class="edit__input" placeholder="{{ words.acct_city }}" name="city" type="text" value="{{ page.address.city }}" maxlength="120" autocomplete="address-level2" required data-sl-field="city"></label>
+                <label class="field"><span class="field__label">{{ words.acct_region }}</span><input class="edit__input" placeholder="{{ words.acct_region }}" name="region" type="text" value="{{ page.address.region }}" maxlength="120" autocomplete="address-level1" data-sl-field="region"></label>
+                <label class="field"><span class="field__label">{{ words.acct_postal }}</span><input class="edit__input" placeholder="{{ words.acct_postal }}" name="postal_code" type="text" value="{{ page.address.postal_code }}" maxlength="20" autocomplete="postal-code" autocapitalize="characters" data-sl-field="postal"></label>
+                <label class="field"><span class="field__label">{{ words.acct_phone_optional }}</span><input class="edit__input" placeholder="{{ words.acct_phone_optional }}" name="phone" type="tel" value="{{ page.address.phone }}" maxlength="40" autocomplete="tel" inputmode="tel" data-sl-field="phone"></label>
+              </div>
+              {% if page.address.default %}{% else %}<label class="check"><input type="checkbox" name="default" value="1"{% if customer.addresses.size == 0 %} checked{% endif %}> <span>{{ words.acct_use_as_default }}</span></label>{% endif %}
+              <div class="addr-form__actions">
+                <button class="s__btn s__btn--primary" type="submit">{{ words.acct_save_address }}</button>
+                <a class="acct__link" href="{{ routes.account_url }}#addresses">{{ settings.cancel_label }}</a>
+              </div>
+            </form>
+          {% endif %}
+          {% if customer.addresses.size > 0 %}
+            <ul class="addrs">
+              {% for address in customer.addresses %}
+              <li class="addr{% if customer.sample %} is-sample{% endif %}{% if address.id == page.address.id %} is-editing{% endif %}">
+                {% if address.default %}<span class="addr__badge">{{ words.acct_default }}</span>{% endif %}
+                {% for line in address.lines %}<span class="addr__line">{{ line }}</span>{% endfor %}
+                {% if address.phone %}<span class="addr__line is-muted">{{ address.phone }}</span>{% endif %}
+                {% if address.id %}
+                <div class="addr__actions">
+                  <a class="acct__link" href="{{ routes.account_url }}?edit=address:{{ address.id }}#addresses">{{ settings.edit_label }}</a>
+                  {% if address.default %}{% else %}
+                  <form method="post" action="{{ routes.account_addresses_url }}" data-storelib-form="native" data-sl-async data-sl-msg-missing="{{ words.acct_err_missing }}" data-sl-msg-failed="{{ words.acct_err_failed }}" data-sl-msg-network="{{ words.acct_err_network }}">
+                    <input type="hidden" name="lang" value="{{ page.lang }}"><input type="hidden" name="action" value="default"><input type="hidden" name="id" value="{{ address.id }}"><input type="hidden" name="return" value="/account">
+                    <button class="acct__link" type="submit">{{ words.acct_make_default }}</button>
+                    <span class="edit__error" data-sl-error role="alert" hidden></span>
+                  </form>
+                  {% endif %}
+                  <form method="post" action="{{ routes.account_addresses_url }}" data-storelib-form="native" data-sl-async data-sl-confirm="{{ words.acct_delete_address_q }}" data-sl-msg-missing="{{ words.acct_err_missing }}" data-sl-msg-failed="{{ words.acct_err_failed }}" data-sl-msg-network="{{ words.acct_err_network }}">
+                    <input type="hidden" name="lang" value="{{ page.lang }}"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="{{ address.id }}"><input type="hidden" name="return" value="/account">
+                    <button class="acct__link acct__link--quiet" type="submit">{{ words.acct_delete }}</button>
+                    <span class="edit__error" data-sl-error role="alert" hidden></span>
+                  </form>
+                </div>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            {% if page.address_mode %}{% else %}<p class="acct__empty">{{ words.acct_no_addresses }} {{ words.acct_addresses_lead }}</p>{% endif %}
+          {% endif %}
         </div>
-      {% endif %}
+      {% endif %}{% endif %}
 
       {% if settings.show_wishlist %}
         <div class="acct__block">
@@ -135,6 +219,7 @@
           <p class="acct__empty">{{ settings.delete_text }}</p>
           <form class="del__form" method="post" action="{{ routes.account_delete_url }}" data-storelib-form="native">
             <input type="hidden" name="confirm" value="delete">
+            <input type="hidden" name="lang" value="{{ page.lang }}">
             <button class="s__btn s__btn--secondary" type="submit">{{ settings.delete_confirm }}</button>
           </form>
         </details>
@@ -233,6 +318,29 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
 .edit__input::placeholder { color: var(--s-para); opacity: 0.75; }
 .edit__input:focus { outline: 2px solid var(--s-heading); outline-offset: 1px; border-color: var(--s-heading); }
 
+.acct__h2row { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--s-border); }
+.acct__h2row .acct__h2 { border-bottom: 0; }
+.acct__h2row .acct__add { margin-top: -12px; }
+.acct__link--quiet { color: var(--s-para); }
+.acct__notice.is-error { padding: 10px 12px; border: 1px solid var(--s-border); border-radius: var(--s-radius); }
+.edit__error { flex-basis: 100%; margin: 0; font-size: 14px; line-height: 1.45; color: var(--s-error, #b42318); }
+.edit__error[hidden] { display: none; }
+.addr-form { margin: 20px 0 8px; padding: 20px; border: 1px solid var(--s-border); border-radius: var(--s-radius); }
+.addr-form__h { margin: 0 0 4px; font-size: 16px; font-weight: 600; color: var(--s-heading); }
+.addr-form__error { margin-top: 8px; }
+.fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px 16px; margin-top: 12px; }
+@container (min-width: 520px) { .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .field--full { grid-column: 1 / -1; } }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field__label { font-size: 14px; color: var(--s-para); }
+.field .edit__input { width: 100%; flex: none; }
+select.edit__input { background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 36px; }
+.check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 8px; font-size: 15px; color: var(--s-heading); cursor: pointer; }
+.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--s-btn); }
+.addr-form__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; margin-top: 16px; }
+.addr__badge { align-self: flex-start; margin-bottom: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; color: var(--s-heading); border: 1px solid var(--s-border); border-radius: 999px; }
+.addr.is-editing { opacity: 0.5; }
+.addr__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; margin-top: 4px; }
+.addr__actions form { margin: 0; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 12px; }
 .addrs { list-style: none; margin: 0; padding: 0; display: grid; gap: 0 32px; }
 @container (min-width: 560px) { .addrs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .addr { display: flex; flex-direction: column; padding: 16px 0; border-bottom: 1px solid var(--s-border); font-size: var(--section-text-size, 15px); line-height: 1.5; color: var(--s-heading); overflow-wrap: anywhere; }
@@ -273,7 +381,7 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
   "type": "main_account",
   "name": "Account",
   "category": "account",
-  "description": "A signed-in customer's page: their orders from you, their name and email, their wishlist and a way to sign out.",
+  "description": "A signed-in customer's page: their orders from you, their name, email and phone, their addresses, their wishlist and a way to sign out.",
   "version": "2.0.0",
   "icon": "user",
   "allowed_templates": ["page.account"],
@@ -297,7 +405,7 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
     { "type": "text", "id": "save_label", "label": "Save button", "default": "Save" },
     { "type": "text", "id": "cancel_label", "label": "Cancel link", "default": "Cancel" },
     { "type": "header", "id": "hdr_addresses", "label": "Addresses" },
-    { "type": "toggle", "id": "show_addresses", "label": "Show addresses", "default": true, "info": "The addresses their orders were sent to. Hidden when there are none." },
+    { "type": "toggle", "id": "show_addresses", "label": "Show addresses", "default": true, "info": "Customers add, change and delete their addresses here, and pick the default that checkout fills in." },
     { "type": "text", "id": "addresses_heading", "label": "Heading", "default": "Addresses" },
     { "type": "header", "id": "hdr_saved", "label": "Wishlist" },
     { "type": "toggle", "id": "show_wishlist", "label": "Show the wishlist", "default": true },

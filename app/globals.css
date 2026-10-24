@@ -8935,3 +8935,33 @@ dialog:focus,
   .wb-desk-panel[data-dir="in"],
   .wb-desk-panel[data-dir="back"] { animation: none; }
 }
+
+/*
+  Round BC: the row you came back from. Back from a section's (or a block's)
+  settings, its row in the sidebar holds the selected grey for a moment and
+  then fades, as Shopify's tree does, so you can see which one you were on
+  (lib/website-builder/list-return.ts flashRow, ROW_FLASH_MS). Background
+  only: nothing moves.
+*/
+[data-row-flash] {
+  animation: wb-row-flash 1700ms ease-out both;
+}
+@keyframes wb-row-flash {
+  0%, 40% { background-color: #e4e5ea; }
+  100%    { background-color: rgba(228, 229, 234, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-row-flash] { animation: none; background-color: #e4e5ea; }
+}
+
+/*
+  Round BC: a section dragged in the sidebar, shown in its new place on the
+  canvas while the finger is down (lib/website-builder/live-order.ts). The
+  sections slide by transform only; the one being moved wears a quiet ring.
+*/
+[data-wb-order-lifted] {
+  outline: 2px solid rgba(59, 130, 246, 0.6);
+  outline-offset: -2px;
+  position: relative;
+  z-index: 2;
+}

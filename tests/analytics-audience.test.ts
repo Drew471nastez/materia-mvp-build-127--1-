@@ -130,7 +130,8 @@ console.log("\nThe trackers")
   const cart = read("components/website-builder/site-cart.tsx")
   check("every add to a website's cart is a step towards a sale", /if \(shopId && line\.productId\) void trackFunnelStep\("buy_click", shopId, line\.productId\)/.test(cart))
   const product = read("components/website-builder/sections/renderers/ProductSection.tsx")
-  check("Buy now on something that ships says so before it leaves the page", product.indexOf('trackFunnelStep("buy_click", storefront.creatorId, product.id)') < product.indexOf("window.location.href = physicalCheckoutHref("))
+  /* Changed on purpose (round BC): on the website it goes straight to the site's checkout (siteBuyHref), the platform's address only as the fallback. */
+  check("Buy now on something that ships says so before it leaves the page", product.indexOf('trackFunnelStep("buy_click", storefront.creatorId, product.id)') < product.indexOf("window.location.href = siteBuyHref() ?? physicalCheckoutHref("))
   const box = read("components/physical/buy-box.tsx")
   check("the Storelib product page's Add to cart and Buy now too", (box.match(/trackFunnelStep\("buy_click", data\.product\.creatorId, data\.product\.id\)/g) ?? []).length === 2)
   check("the physical checkout and the website's checkout say a checkout started",

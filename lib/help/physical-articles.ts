@@ -1363,6 +1363,105 @@ const ARTICLES: Article[] = [
   },
   {
     section: "Products",
+    slug: "set-up-size-charts",
+    updated: "2026-10-24",
+    title: "Set up size charts",
+    summary: "Write a table of measurements once, give it to every product it fits, and buyers open it from Size guide on the product page, in cm or inches.",
+    keywords: ["size chart", "size guide", "sizing", "measurements", "fit", "clothing", "apparel", "fashion", "shoes", "cm", "inches", "size table", "how to measure", "kiwi sizing"],
+    related: ["variants-and-options", "create-a-physical-product", "import-a-shopify-theme"],
+    body: [
+      { type: "p", text: "A size chart is a table of measurements: a row for each size, a column for each measurement, like Chest and Length. You write it once and give it to every product it fits. Buyers open it from a Size guide link on the product page and can read it in centimetres or inches." },
+      { type: "figure", figure: "size-chart-shared", caption: "One chart serves many products. Change it once and every product that uses it shows the change." },
+      { type: "note", text: "Make one chart per cut, not one per product. A Tees chart for every tee and a Jeans chart for every pair of jeans is easier to keep right than twenty copies." },
+
+      { type: "h", text: "Make a size chart" },
+      {
+        type: "steps",
+        items: [
+          "In the dashboard menu, open Products, then Size charts.",
+          "Press Create size chart.",
+          "Pick a starting point: Tops, Bottoms, Dresses, Shoes or Blank. It fills in the columns and sizes. Every number is left empty, because only your own garments can say them.",
+          "Give the chart a name, like Tees. Buyers see it as the title when they open the chart.",
+          "Under Measured in, choose the unit you are typing the numbers in: cm or in.",
+          "Fill in the table. Type a range like 86-91 if a size covers one. Press Column to add a column and Add size to add a row. The cross takes a column or a row out.",
+          "Under each column name, the ruler says whether it is a measurement. Leave it on for Chest or Waist. Press it off for a label like EU size, so the number is never converted.",
+          "If you like, add a note under the table (how to measure, or how it fits) and a picture of where to measure.",
+          "Press Create chart.",
+        ],
+      },
+      shot("size-chart-editor", "The size chart editor: a name, Measured in set to cm, and a table with Size, Width, Length and Neck strap columns, each measurement with a ruler and a cross, three sizes, Add size, and a note under the table.", "A chart is typed the way it is printed. The ruler under a column says it is converted between cm and inches."),
+
+      { type: "h", text: "Give a product its size chart" },
+      {
+        type: "steps",
+        items: [
+          `Open a physical product, or ${link("create-a-physical-product", "create one")}.`,
+          "Find the Size chart card, under Variants.",
+          "Choose the chart from the list. A preview of its first rows shows under it.",
+          "No chart yet? Press New chart in the card, make it right there, and the product gets it.",
+          "Save the product.",
+        ],
+      },
+      shot("product-size-chart", "The Size chart card in the product editor with the chart Linen aprons chosen, a preview of its sizes, a line saying it is also on 2 other products, and Edit chart and All size charts.", "The card shows which chart the product uses and how many other products share it."),
+      { type: "p", text: "Edit chart in the card changes the chart for every product that uses it, and the card says how many those are. To stop showing a chart on one product, choose No size chart and save." },
+
+      { type: "h", text: "What buyers see" },
+      shot("size-guide-buyer", "A product page with Size guide beside the Size option, and the chart Linen aprons open over it in inches, with the chosen size L/XL marked.", "Size guide sits beside the size. The chart opens over the page, in cm or inches, with the chosen size marked."),
+      {
+        type: "list",
+        items: [
+          "A Size guide link beside the Size option, by itself, on every product with a chart. Nothing to add to your website.",
+          "Pressed, the chart opens over the page: a pop-up on a computer, a sheet from the bottom on a phone.",
+          "A cm and in switch, when the chart has measurements. Buyers' choice is remembered on their device.",
+          "The size they picked is marked in the table.",
+          "A product without a Size option still gets the link, just under its options.",
+        ],
+      },
+      { type: "sub", text: "Put it somewhere else on the page" },
+      {
+        type: "steps",
+        items: [
+          "Open the website builder and go to the product page.",
+          "In the Product section, press Add block and choose Size chart.",
+          "Move it where you want it. Choose a text link or a button, its words, and whether it opens as a pop-up or a side panel.",
+          "While the section has a Size chart block, the link beside the size option steps aside, so buyers never see two. You can also turn that link off in the Variant picker block, under Size guide link.",
+        ],
+      },
+      { type: "sub", text: "On an imported theme" },
+      {
+        type: "list",
+        items: [
+          "The Size guide link appears beside the size option by itself, as on a Storelib theme.",
+          "To place it yourself, press Add block in the product section and choose Size chart under Apps.",
+          "A block your theme kept from a size chart app at your old store, like Kiwi Sizing, now shows your Storelib chart.",
+          "Theme developers can read the chart as product.metafields.storelib.size_chart or draw it with the storelib-size-chart snippet. The details are in the developer guide to [imported themes](/developers/imported-shopify-themes).",
+        ],
+      },
+
+      { type: "h", text: "Good to know" },
+      {
+        type: "list",
+        items: [
+          "Only measurement columns are converted between cm and in, to one decimal. A range stays a range. A cell with words in it, like One size, stays as you typed it.",
+          "Up to 10 columns and 40 sizes in a chart, and 200 charts in a store.",
+          "Deleting a chart takes it off every product that used it. The products themselves stay as they are.",
+          "A change shows on your live website at the next visit, and in the builder as soon as you come back to it.",
+          "Size charts are for physical products.",
+        ],
+      },
+      { type: "h", text: "Common mistakes" },
+      {
+        type: "list",
+        items: [
+          "Typing inches with Measured in set to cm. Buyers who switch to inches then see numbers divided twice. Set the unit you typed in.",
+          "Leaving the ruler on for a size label like EU or UK. Turn it off, or 38 becomes 15 in.",
+          "Making a copy of the chart for every product. Use one chart and give it to each product.",
+        ],
+      },
+    ],
+  },
+  {
+    section: "Products",
     slug: "upsells-and-bundles",
     title: "Upsells and bundles: sell more to people already buying",
     summary: "Bundle products at a better price on their pages, and suggest one more thing in the checkout.",

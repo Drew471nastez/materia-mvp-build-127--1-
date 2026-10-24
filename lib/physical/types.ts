@@ -45,6 +45,8 @@ export interface ProductOption {
   position: 1 | 2 | 3
   name: string
   values: string[]
+  /** The seller's own swatch per value: "#rrggbb" or "photo" (lib/products/option-swatches.ts). Absent: none set. */
+  swatches?: Record<string, string>
 }
 
 export interface PhysicalVariant {

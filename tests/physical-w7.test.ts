@@ -109,14 +109,14 @@ async function main() {
     const route = read("app/api/checkout/site/track/route.ts")
     check("the store is the host's, the form is this site's own", /siteOfRequest\(admin, request\)/.test(route) && /sameOriginForm\(request, site\.host\)/.test(route))
     check("limited per visitor and per address emailed", /bucket: "order-lookup-visitor", subjects: \[addressSubject\(request\)\]/.test(route) && /bucket: "order-lookup-email", subjects: \[emailSubject\(email\)\]/.test(route))
-    check("looked up and emailed after the answer, which is the same either way", /after\(async \(\) => \{[\s\S]*findOrderFor[\s\S]*\}\)\s*return back\(site\.origin, \{ sent: "1" \}\)/.test(route) && (route.match(/sent: "1"/g) ?? []).length === 1)
+    check("looked up and emailed after the answer, which is the same either way", /after\(async \(\) => \{[\s\S]*findOrderFor[\s\S]*\}\)\s*return back\(site\.origin, \{ sent: "1", lang \}\)/.test(route) /* Changed on purpose (round BC): the page's language rides back too. */ && (route.match(/sent: "1"/g) ?? []).length === 1)
     check("  sent transactional, to the order's own address only", /sendMailgunEmail\(\{ to: email,[\s\S]*transactional: true/.test(route))
     const page = read("app/checkout/site/track/page.tsx")
-    check("the page says the same words whether anything matched, and prints nothing from the address", /If that order number and email match an order, we sent a link to it/.test(page) && /Object\.prototype\.hasOwnProperty\.call\(ERRORS, sp\.error\)/.test(page))
+    check("the page says the same words whether anything matched, and prints nothing from the address", /If that order number and email match an order, we sent a link to it/.test(page) && /* Changed on purpose (round BC): fixed sentences in the page's language, by a switch on the code. */ /function errorOf\(ct: CheckoutT, why: string \| undefined\)/.test(page) && /default:\s*return null/.test(page))
     const mail = orderLinkEmail({ shopName: "Ana's <Shop>", orders: [{ number: "#3F2A9C1B", date: "Sep 20, 2026", url: "https://ana.storelib.com/checkout/physical/order/tok", status: "Shipped" }], brand: { logoUrl: null, email: "hi@ana.test", phone: null, websiteUrl: "https://ana.storelib.com" } })
     check("the email: the order, its link on the store's site, the store escaped", mail.subject === "Your order #3F2A9C1B from Ana's <Shop>" && mail.html.includes('href="https://ana.storelib.com/checkout/physical/order/tok"') && mail.html.includes("Ana's &lt;Shop&gt;") && !mail.html.includes("<Shop>"), mail.subject)
     check("  and as text", mail.text.includes("https://ana.storelib.com/checkout/physical/order/tok") && !/Get help with this order/.test(mail.text))
-    check("both sign in pages link to it", /href="\{\{ routes\.order_lookup_url \}\}"/.test(read("themes/default/sections/main_login.storelib")) && /href="\/checkout\/track"/.test(read("lib/storelib-theme/compat/account.ts")))
+    check("both sign in pages link to it", /href="\{\{ routes\.order_lookup_url \}\}"/.test(read("themes/default/sections/main_login.storelib")) && /* Changed on purpose (round BC): with the page's language when it has one. */ /href="\/checkout\/track\$\{v\.root/.test(read("lib/storelib-theme/compat/account.ts")))
   }
 
   section("Routing on a website's host")

@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation"
 import { after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { readSiteCheckoutParams, sameSitePath, siteGate } from "@/lib/checkout/site-checkout"
+import { readSiteCheckoutParams, siteCheckoutBack, siteGate } from "@/lib/checkout/site-checkout"
 import { siteBuyerFrom, siteOfThisHost, sessionCookieName } from "@/lib/checkout/site-checkout-server"
 import { siteQuote } from "@/lib/checkout/site-quote-server"
 import { checkoutBrandOf } from "@/lib/checkout/brand-server"
@@ -147,7 +147,12 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const initialCountry = countryCode(jar.get(CHECKOUT_COUNTRY_COOKIE)?.value) ?? countryCode(deliveryCountryGuess((await languagesRead).markets, jar.get("sl_country")?.value, seenCountry))
   /* The price waits only for who is signed in (what they own is not charged), not for the header, the settings or the payments check. */
   /* buyerRead: started above, beside the cart. */
-  const quoteRead = buyerRead.then((b) => (items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode, ...(initialCountry ? { country: initialCountry } : {}) }, null, b ? { email: b.email } : null) : null))
+  /* A signed in customer's default address is where it goes (lib/checkout/site-checkout-server siteBuyerFrom): priced for its country from the first frame. */
+  const countryOf = (b: Awaited<typeof buyerRead>) => countryCode(b?.address?.country) ?? initialCountry
+  const quoteRead = buyerRead.then((b) => {
+    const country = countryOf(b)
+    return items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode, ...(country ? { country } : {}) }, null, b ? { email: b.email } : null) : null
+  })
   /*
     THE CURRENCY IT IS CHARGED IN (lib/markets/checkout-market-server): the
     one the website's pages showed this visitor. A market Storelib can
@@ -159,8 +164,10 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const noteRead = marketRead
     .then((m) => (m.pricing && !m.charge && chargeNote(m.pricing.currency, m.chargeCurrency) ? { display: m.pricing.currency, charge: m.chargeCurrency } : null))
     .catch(() => null)
+  /* Back goes exactly where the buyer came from (lib/checkout/site-checkout siteCheckoutBack): the page the link names, else the page of this site the browser came from. */
+  const back = siteCheckoutBack(q, site.host, h.get("referer"))
   /* The checkout in the language of the page the visitor came from, or the one they chose on the website (lib/markets/checkout-language.ts). */
-  const languageRead = checkoutLanguage(site.creatorId, params.back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value, q.get("lang")).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null, available: undefined }))
+  const languageRead = checkoutLanguage(site.creatorId, back ?? q.get("return") ?? q.get("cancel"), jar.get("sl_lang")?.value, q.get("lang")).catch(() => ({ lang: "en", words: {} as Record<string, string>, map: null, available: undefined }))
   const [brand, config, buyer, ready, priced, currencies, language, market] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
     brandRead,
@@ -177,8 +184,6 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const t = checkoutT(language.lang, language.words)
   const currencyNote = currencies ? t(checkoutMsg("Prices in {display} are for reference. You'll pay in {charge}; your bank converts it."), currencies) : null
   const shopUrl = `${site.origin}/`
-  /* A Buy button names its page as a full address (lib/orders/checkout-origin): kept when it is this same site. */
-  const back = params.back ?? sameSitePath(q.get("cancel"), site.host) ?? sameSitePath(q.get("return"), site.host)
   const backTo = `${site.origin}${back ?? (wholeCart ? "/cart" : "/")}`
 
   /* Priced (above, beside the rest) for whoever is signed in to the website: what they already own is theirs, not a line to pay for (lib/checkout/owned). */
@@ -211,12 +216,12 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       initialError={answer && answer.ok === false ? answer.error : null}
       /* Its cash on delivery fee in the currency the quote is in (lib/markets/checkout-charge). */
       config={checkoutConfigInMarket(config, market.charge)}
-      buyer={buyer ? { email: buyer.email, name: buyer.name } : null}
+      buyer={buyer ? { email: buyer.email, name: buyer.name, address: buyer.address ?? null } : null}
       accountUrl={`${site.origin}/account`}
       lockedEmail={gate.kind === "open" ? gate.lockedEmail : null}
       needsSignIn={gate.kind === "sign-in"}
       currencyNote={currencyNote}
-      initialCountry={initialCountry}
+      initialCountry={countryOf(buyer)}
       backIsDefault={!back}
       lang={language.lang}
       languages={language.available && language.available.length > 1 ? language.available : undefined}

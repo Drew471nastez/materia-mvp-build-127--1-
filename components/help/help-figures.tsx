@@ -82,7 +82,54 @@ function Arrow() {
   )
 }
 
+/** A small size table, as the editor and the product page draw one. */
+function SizeTable({ unit, rows, mark }: { unit: string; rows: string[][]; mark?: string }) {
+  return (
+    <table className="w-full border-collapse text-left text-[11.5px] tabular-nums">
+      <thead>
+        <tr className="text-[#6b7280]">
+          {["Size", "Chest", "Length"].map((h, i) => (
+            <th key={h} className="border-b border-[#e5e7eb] py-1.5 pr-3 font-medium">
+              {h}
+              {i > 0 ? <span className="font-normal text-[#9ca3af]"> ({unit})</span> : null}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r[0]} className={r[0] === mark ? "bg-[#f1f2f4]" : ""}>
+            {r.map((c, i) => (
+              <td key={i} className={`border-b border-[#f1f2f4] py-1.5 pr-3 ${i === 0 ? "font-medium text-[#1a1a2e]" : "text-[#4b5563]"}`}>
+                {c}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
 const FIGURES: Record<string, (label: string) => ReactNode> = {
+  "size-chart-shared": (label) => (
+    <Frame label={label}>
+      <div className="grid gap-3 sm:grid-cols-[1.1fr_auto_1fr] sm:items-center">
+        <Card title="Tees" sub="One size chart, in cm">
+          <SizeTable unit="cm" rows={[["S", "86-91", "69"], ["M", "91-97", "71"], ["L", "97-102", "74"]]} />
+        </Card>
+        <Arrow />
+        <div className="space-y-2">
+          {["Classic tee", "Pocket tee", "Long sleeve tee"].map((t) => (
+            <div key={t} className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e7eb]/80 bg-white px-3.5 py-2.5">
+              <span className="text-[13px] font-semibold text-[#1a1a2e]">{t}</span>
+              <Pill>Tees</Pill>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Frame>
+  ),
   "order-journey": (label) => (
     <Frame label={label}>
       <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] sm:items-center">

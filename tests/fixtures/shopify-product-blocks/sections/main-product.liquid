@@ -1,0 +1,75 @@
+{%- assign current = product.selected_or_first_available_variant -%}
+<div class="pb-product page-width" data-url="{{ product.url }}">
+  <div class="pb-product__media">{%- if current.featured_media -%}<img class="pb-media" src="{{ current.featured_media | image_url: width: 600 }}" alt="">{%- elsif product.featured_media -%}<img class="pb-media" src="{{ product.featured_media | image_url: width: 600 }}" alt="">{%- endif -%}</div>
+  <div class="pb-product__info">
+    {%- for block in section.blocks -%}
+      {%- case block.type -%}
+        {%- when '@app' -%}
+          {% render block %}
+        {%- when 'title' -%}
+          <h1 class="product__title" {{ block.shopify_attributes }}>{{ product.title | escape }}</h1>
+        {%- when 'price' -%}
+          <p class="price" id="Price-{{ section.id }}" {{ block.shopify_attributes }}>{{ current.price | money }}</p>
+        {%- when 'inventory' -%}
+          {%- comment -%} Dawn's inventory block, its words in English. {%- endcomment -%}
+          <p class="product__inventory{% if current.inventory_management != 'shopify' %} visibility-hidden{% endif %}" id="Inventory-{{ section.id }}" role="status" {{ block.shopify_attributes }}>
+            {%- if current.inventory_management == 'shopify' -%}
+              {%- if current.inventory_quantity > 0 -%}
+                {%- if current.inventory_quantity <= block.settings.inventory_threshold -%}
+                  {%- if block.settings.show_inventory_quantity -%}Low stock: {{ current.inventory_quantity }} left{%- else -%}Low stock{%- endif -%}
+                {%- else -%}
+                  {%- if block.settings.show_inventory_quantity -%}{{ current.inventory_quantity }} in stock{%- else -%}In stock{%- endif -%}
+                {%- endif -%}
+              {%- else -%}
+                {%- if current.inventory_policy == 'continue' -%}Out of stock, continue selling{%- else -%}Out of stock{%- endif -%}
+              {%- endif -%}
+            {%- endif -%}
+          </p>
+        {%- when 'variant_picker' -%}
+          <variant-selects id="variant-selects-{{ section.id }}" {{ block.shopify_attributes }}>
+            {%- for option in product.options_with_values -%}
+              <fieldset class="pb-option" data-option="{{ option.name | escape }}">
+                <legend>{{ option.name }}: <span class="pb-chosen">{{ option.selected_value }}</span></legend>
+                {%- for value in option.values -%}
+                  <label class="pb-value{% unless value.available %} disabled{% endunless %}" data-value="{{ value | escape }}" data-variant="{{ value.variant.id }}">
+                    <input type="radio" name="{{ option.name }}" value="{{ value | escape }}"{% if value.selected %} checked{% endif %}>
+                    {%- if value.swatch.color -%}<span class="swatch" style="--swatch: {{ value.swatch.color }};"></span>{%- elsif value.swatch.image -%}<span class="swatch swatch--image" style="--swatch-image: url({{ value.swatch.image | image_url: width: 50 }});"></span>{%- endif -%}
+                    {{ value }}
+                  </label>
+                {%- endfor -%}
+              </fieldset>
+            {%- endfor -%}
+            <script type="application/json" data-selected-variant>{{ current | json }}</script>
+          </variant-selects>
+        {%- when 'buy_buttons' -%}
+          <form method="post" action="/cart/add" class="pb-form" {{ block.shopify_attributes }}>
+            <input type="hidden" name="id" value="{{ current.id }}">
+            <button class="button" type="submit" name="add"{% unless current.available %} disabled{% endunless %}>{% if current.available %}Add to cart{% else %}Sold out{% endif %}</button>
+          </form>
+        {%- when 'description' -%}
+          <div class="product__description" {{ block.shopify_attributes }}>{{ product.description }}</div>
+      {%- endcase -%}
+    {%- endfor -%}
+    {%- for variant in product.variants -%}<span class="pb-mf" data-variant="{{ variant.id }}" data-mf="{{ variant.metafields.custom.color_swatch.value }}"></span>{%- endfor -%}
+  </div>
+</div>
+{% schema %}
+{
+  "name": "Product information",
+  "tag": "section",
+  "settings": [],
+  "blocks": [
+    { "type": "@app" },
+    { "type": "title", "name": "Title", "limit": 1 },
+    { "type": "price", "name": "Price", "limit": 1 },
+    { "type": "rating", "name": "Product rating", "limit": 1 },
+    { "type": "inventory", "name": "Inventory status", "limit": 1, "settings": [
+      { "type": "range", "id": "inventory_threshold", "label": "Low inventory threshold", "min": 0, "max": 100, "step": 1, "default": 10 },
+      { "type": "checkbox", "id": "show_inventory_quantity", "label": "Show inventory count", "default": true }
+    ] },
+    { "type": "variant_picker", "name": "Variant picker", "limit": 1 },
+    { "type": "buy_buttons", "name": "Buy buttons", "limit": 1 },
+    { "type": "description", "name": "Description", "limit": 1 }
+  ]
+}
+{% endschema %}

@@ -12,6 +12,8 @@ import { splitSiteName } from "@/lib/markets/site-name"
 import { languageAlternates, siteLanguages, siteLocalizer } from "@/lib/markets/live"
 import { localizedPath } from "@/lib/markets/locales"
 import { siteStoreName } from "@/lib/website-builder/tab-title"
+import { breadcrumbJsonLd } from "@/lib/website-builder/breadcrumbs"
+import { jsonLdScript } from "@/lib/website-builder/site-seo"
 
 /**
  * HELD FOR A MINUTE, like the pages of the site around it.
@@ -89,10 +91,16 @@ export default async function SiteProductPage({ params }: PageProps) {
     renderProduct(slug, { creatorId: creator.creatorId, locale, market }),
     productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName, creatorId: creator.creatorId, inLanguage: localizer ? (p) => localizer.product(p) : undefined }),
   ])
+  /* Where the product sits on the website (Home › Shop › the product), which a search result shows in place of the bare address. */
+  const productName = structured ? String((JSON.parse(structured) as { name?: unknown }).name ?? "") : ""
+  const crumbs = productName
+    ? jsonLdScript(breadcrumbJsonLd([{ name: creator.displayName, url: `${origin}/` }, { name: "Shop", url: `${origin}/products` }, { name: productName, url: productUrl(origin, slug) }]))
+    : null
   return (
     <>
       {/* What puts the price and the picture in a search result. */}
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
+      {crumbs && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: crumbs }} />}
       {page}
       {/* The store's analytics and ad pixels (Settings › Integrations). */}
       <StoreTracking creatorId={creator.creatorId} productSlug={slug} />

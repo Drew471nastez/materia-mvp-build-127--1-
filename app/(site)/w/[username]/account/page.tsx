@@ -8,6 +8,9 @@ import { wishlistObject } from "@/lib/storelib-theme/globals"
 import { siteMetadata } from "../render-site"
 import { renderAccountPage } from "../render-account"
 import { siteVisitor } from "../visitor"
+import { siteLocalizer } from "@/lib/markets/live"
+import { accountNoticeIn, addressNoticeIn, addressNoticeIsError, wordedCustomer } from "@/lib/site-accounts/words"
+import { countryChoices } from "@/lib/site-accounts/countries"
 
 /**
  * ===========================================================================
@@ -25,8 +28,8 @@ export const dynamic = "force-dynamic"
 
 interface PageProps {
   params: Promise<{ username: string }>
-  /** `edit=name` opens the name for changing; `profile=` is how the save went. */
-  searchParams: Promise<{ profile?: string; edit?: string; deleted?: string }>
+  /** `edit=name|phone|address|address:<id>` opens that for changing; `profile=` and `address=` are how the save went. */
+  searchParams: Promise<{ profile?: string; edit?: string; deleted?: string; address?: string }>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -46,14 +49,34 @@ export default async function SiteAccountPage({ params, searchParams }: PageProp
   if (!visitor || !customer) redirect(`${root}/account/login`)
 
   const db = createAdminClient()
-  const [account, list] = await Promise.all([siteCustomer(db, customer, SITE_RECEIPTS), listSiteWishlist(db, visitor)])
+  const [account, list, localizer] = await Promise.all([siteCustomer(db, customer, SITE_RECEIPTS), listSiteWishlist(db, visitor), siteLocalizer(creatorId, locale, market).catch(() => null)])
   const cards = await wishlistCards(db, visitor.creatorId, list.ids)
+  /* What the page says, its orders' statuses and dates, in its language (lib/site-accounts/words.ts). */
+  const words = localizer?.words
+  const lang = localizer?.locale ?? null
+  const shown = wordedCustomer(account, words, locale ? lang : null)
+  const q = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string"))
+  const said = accountNoticeIn(words, q)
+  /* The address form: ?edit=address adds one, ?edit=address:<id> changes that one, when it is in the book. */
+  const editing = typeof sp.edit === "string" && sp.edit.startsWith("address") ? sp.edit.slice("address:".length) : null
+  const address = editing ? (account.addresses ?? []).find((a) => a.id === editing) ?? null : null
+  const mode = sp.edit === "address" ? "new" : address ? "edit" : null
+  const addressCode = sp.address ?? null
 
   return renderAccountPage(username, "account", {
-    customer: account as unknown as Record<string, unknown>,
+    customer: shown as unknown as Record<string, unknown>,
     wishlist: wishlistObject(cards, true),
-    notice: sp.profile === "saved" ? "Saved." : sp.profile === "error" ? "That name could not be saved. Try again." : sp.deleted === "no" ? "Your account could not be deleted. Try again." : null,
-    edit: sp.edit === "name" ? "name" : null,
+    /* The address book's own news is said in its block; the profile's and the account's at the profile. */
+    notice: addressCode ? null : (said?.text ?? null),
+    noticeError: !addressCode && !!said?.error,
+    edit: sp.edit === "name" || sp.edit === "phone" ? sp.edit : null,
+    addressBook: {
+      mode,
+      address: address ? (address as unknown as Record<string, unknown>) : mode === "new" ? { default: (account.addresses ?? []).length === 0 } : null,
+      notice: addressCode ? addressNoticeIn(words, addressCode) : null,
+      error: addressNoticeIsError(addressCode),
+      countries: mode ? countryChoices(lang) : [],
+    },
     lang: { locale, market },
   })
 }

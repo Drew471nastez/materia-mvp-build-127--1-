@@ -16,7 +16,8 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 /* ── The imported theme: Materia, with the scroll locks store themes take ── */
 
 /* `store`: the owner's store laid over the fixture (scripts/materia-store-kit.mjs), with `scenario`, what its scripts do on the first paint. */
-export async function importedTheme({ store = false, scenario = "" } = {}) {
+/* `edit`: a function given the zip of the theme's files, to change them before they are converted (scripts/check-settings-reach-canvas.mjs). */
+export async function importedTheme({ store = false, scenario = "", edit = null } = {}) {
   const dir = join(root, "tests/fixtures/shopify-materia")
   const zip = new JSZip()
   const walk = (d, rel) => {
@@ -91,6 +92,7 @@ body.is-leaving .page-loading-overlay { animation: plo .4s forwards; }
   });
 })();
 `)
+  if (edit) await edit(zip)
   const { convertShopifyTheme } = await import("../lib/storelib-theme/shopify/convert.ts")
   const r = await convertShopifyTheme(zip)
   if (!r.ok) throw new Error(r.error)

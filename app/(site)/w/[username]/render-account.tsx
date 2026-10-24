@@ -18,8 +18,14 @@
  * and, as `page.*`, what one visit to a page knows:
  *
  *   notice     /account/login and /account: why the last step did not
- *              finish, or that it did, as a fixed sentence
- *   edit       /account: "name" while the profile's name is being changed
+ *              finish, or that it did, as a fixed sentence in the page's
+ *              language (lib/site-accounts/words.ts); notice_error when
+ *              it is a refusal
+ *   lang       every page: the page's language ("fr"), or "" for the
+ *              website's own, sent back by each form (lib/site-accounts/lang)
+ *   edit       /account: "name" or "phone" while that field is being changed
+ *   address_*  /account: the address form (address_mode "new" or "edit",
+ *              address, countries) and what the last change said
  *   step       /account/login: "email" or "code"
  *   email      /account/login on the code step: where the code went
  *   return_to  /account/login: the path on this website to land on after
@@ -47,6 +53,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { ACCOUNT_FORMS_SCRIPT, ACCOUNT_FORMS_STYLE } from "@/lib/site-accounts/forms-script"
+import { withAccountWords } from "@/lib/site-accounts/account-sections"
 import { customerInLanguage } from "@/lib/site-accounts/account-language"
 
 export type AccountPageKey = "account" | "login" | "wishlist" | "contact" | "password" | "reviews"
@@ -77,9 +85,13 @@ export async function renderAccountPage(
     customer?: Record<string, unknown> | null
     wishlist?: StorefrontGlobals["wishlist"]
     notice?: string | null
+    /** The notice is a refusal (said as an alert), not good news. */
+    noticeError?: boolean
     signIn?: { step: "email" | "code"; email: string; returnTo: string }
     /** /account: the profile field open for editing. */
-    edit?: "name" | null
+    edit?: "name" | "phone" | null
+    /** /account: the address form, open to add one (`address` empty) or to change one; what the last change said. */
+    addressBook?: { mode: "new" | "edit" | null; address: Record<string, unknown> | null; notice: string | null; error: boolean; countries: { code: string; name: string }[] }
     /** /password: where to land once in, and the owner's way in (lib/site-password). */
     password?: { returnTo: string; ownerUrl: string }
     /** The page in another of the website's languages, or a market's prices (/fr/cart; lib/markets/site-name). */
@@ -118,7 +130,9 @@ export async function renderAccountPage(
   /* Its menus, its own words and its search engine text in this language too, as on the home page (lib/markets/translate localizeTheme). */
   const site = localizer ? { ...published, themeSettings: localizer.theme(published.themeSettings as Record<string, unknown>) as typeof published.themeSettings } : published
   const shown = localizer ? localizer.sections(linked, site.sources) : linked
-  const { sections, data } = await dressPage(site, shown, localizer ? localizer.cards(products ?? []) : products, productCount, template, pageTitleFromKey(key), undefined, { cached: true, localizer })
+  /* A sign in or account section's own words left as they came, in the page's language when the shop's words have them (lib/site-accounts/account-sections.ts). */
+  const worded = localizer ? withAccountWords(shown, localizer.words) : shown
+  const { sections, data } = await dressPage(site, worded, localizer ? localizer.cards(products ?? []) : products, productCount, template, pageTitleFromKey(key), undefined, { cached: true, localizer })
 
   const globals: StorefrontGlobals = {
     shop: { name: site.displayName, email: wantsEmail(sections) ? await supportEmail(site.creatorId) : "" },
@@ -126,9 +140,23 @@ export async function renderAccountPage(
     customer: (localizer ? customerInLanguage(extras.customer, localizer.locale, localizer.words) : extras.customer) ?? null,
     wishlist: extras.wishlist ?? null,
   }
-  const page: Record<string, unknown> = {}
+  /* The page's language, for the hidden field every account form sends, so the route answers in it (lib/site-accounts/lang.ts). */
+  const page: Record<string, unknown> = { lang: localizer && extras.lang?.locale && localizer.locale.toLowerCase() !== localizer.defaultLanguage.toLowerCase() ? localizer.locale.toLowerCase() : "" }
   if (extras.notice) page.notice = extras.notice
+  if (extras.noticeError) page.notice_error = true
+  /* Good news on the sign in page ("A new code is on its way"): said as a status, where a refusal is an alert. */
+  if (extras.notice && extras.noticeError === false) page.notice_ok = true
   if (extras.edit) page.edit = extras.edit
+  if (extras.addressBook) {
+    const b = extras.addressBook
+    if (b.mode) {
+      page.address_mode = b.mode
+      page.address = b.address ?? {}
+      page.countries = b.countries
+    }
+    if (b.notice) page.address_notice = b.notice
+    if (b.error) page.address_error = true
+  }
   if (extras.signIn) {
     page.step = extras.signIn.step
     page.email = extras.signIn.email
@@ -153,6 +181,13 @@ export async function renderAccountPage(
       {(key === "contact" || key === "wishlist" || key === "reviews") && <TrackView type="store" creatorId={site.creatorId} />}
       <StoreTracking creatorId={site.creatorId} />
       <SiteVitals installId={site.installId} />
+      {/* The sign in and account forms show they were pressed, and the address book says a refused field beside it (lib/site-accounts/forms-script.ts). */}
+      {(key === "account" || key === "login") && (
+        <>
+          <style dangerouslySetInnerHTML={{ __html: ACCOUNT_FORMS_STYLE }} />
+          <script dangerouslySetInnerHTML={{ __html: ACCOUNT_FORMS_SCRIPT }} />
+        </>
+      )}
     </StorelibSourcesProvider>
   )
 }

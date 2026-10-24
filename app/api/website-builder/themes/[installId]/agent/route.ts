@@ -46,7 +46,8 @@ import {
 import { customAddableSections, customSectionSchemas } from "@/lib/website-builder/storelib-schemas"
 import { agentRateLimit } from "@/lib/sites/rate-limit"
 import { themeAgent, type ThemeAgentEvent } from "@/lib/website-builder/agent/loop"
-import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
+import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { readSelection, selectedShapeOf } from "@/lib/website-builder/agent/selection-intent"
 import { plainRunError } from "@/lib/sites/agent/plain-errors"
 import { EFFORT } from "@/lib/website-builder/ask-engines"
 import { canAnswer, resolveForCreator, substitutionNotice } from "@/lib/sites/agent/provider"
@@ -56,7 +57,8 @@ import { completeThemeExchange, openThemeConversation, startThemeExchange } from
 import { keepImages } from "@/lib/website-builder/agent/attachment-store"
 import { withPictureNote } from "@/lib/website-builder/ask-attach"
 import { recentMessages } from "@/lib/website-builder/agent/memory"
-import { describeMemory, memoriesForSite, type MemoryDb } from "@/lib/ai-memory/store"
+import { describeMemory, memoriesForSite, sameMemory, type MemoryDb } from "@/lib/ai-memory/store"
+import { durableFacts } from "@/lib/website-builder/agent/durable-facts"
 import { keepRunMemory, type KeptNote } from "@/lib/ai-memory/keep"
 import { getWebsiteShareUrl } from "@/lib/url-helpers"
 import { CodeJournal } from "@/lib/website-builder/agent/code-journal"
@@ -348,8 +350,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * the finished page is judged, and the creator never sees the label.
          */
         const bodySections = body.sections.filter((s) => s.type !== "header" && s.type !== "footer" && !s.group).length
+        /*
+          A section open is not always the subject (lib/website-builder/agent/selection-intent.ts): "add a pricing section
+          below this" asks for a new one, and is not read as the open section to be rethought.
+        */
+        const openShape = body.lockToSelection === true || body.codeFocus === true ? null : selectedShapeOf(body.sections as never, body.selectedSectionId, (type) => (SECTION_SCHEMAS[type]?.blocks ?? []).map((b) => String((b as { type?: unknown }).type ?? "")))
+        const asksForNew = !!openShape && readSelection(body.prompt, openShape).aim === "new"
         const intent = classifyIntent(body.prompt, {
-          selected: !!body.selectedSectionId,
+          selected: !!body.selectedSectionId && !asksForNew,
           locked: body.lockToSelection === true && !!body.selectedSectionId,
           codeFocus: body.codeFocus === true && !!body.selectedSectionId,
           bodySections,
@@ -854,6 +862,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           KEPT IN AI MEMORY, as the creator asked: for this website or every website, and what they asked to forget.
           The chat says each one ("Remembered: ...", with Undo); one that fails to keep is in the log, not in the way.
         */
+        /*
+          AND WHAT THEY SAID IN PASSING THAT STAYS TRUE (lib/website-builder/agent/durable-facts.ts): "I never want
+          gradients", "our brand colour is #1f3a2b". Kept for this website after a run that went through, once, beside
+          what the run asked to keep itself, and never a second copy of a note already in AI Memory.
+        */
+        const known = [...memory.site, ...memory.account].map((m) => m.content).concat(result.remembered ?? [], result.rememberedSite ?? [])
+        const said = memory.ready && result.status === "succeeded" ? durableFacts(body.prompt).filter((note) => !known.some((k) => sameMemory(k, note))) : []
+        if (said.length) result.rememberedSite = [...(result.rememberedSite ?? []), ...said]
         const notes = await keepRunMemory(memoryDb, { creatorId, installId }, result, [...memory.site, ...memory.account])
         if (notes.kept.length || notes.forgot.length) send({ type: "remembered", items: notes.kept, forgot: notes.forgot.map((m) => m.content) })
         console.info(

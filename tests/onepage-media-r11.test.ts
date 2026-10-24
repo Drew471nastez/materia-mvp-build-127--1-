@@ -326,7 +326,7 @@ async function run() {
     const sql = readFileSync("supabase/sql/run-now/282_onepage_media_uploads.sql", "utf8")
     check("SQL part 282 sets the same 2 GiB and the types the editor sends", sql.includes("2147483648") && ["video/quicktime", "video/x-m4v", "video/webm", "video/mp4", "image/avif"].every((t) => sql.includes(`'${t}'`)))
     const after = readFileSync("supabase/sql/run-now/99_check_after.sql", "utf8")
-    check("99_check_after reads part 282", /as p282_onepage_media_uploads;\s*$/.test(after))
+    check("99_check_after reads part 282", /* Changed on purpose (round BC): part 283 is checked after it now, so its column ends with a comma. */ /as p282_onepage_media_uploads[,;]/.test(after))
     const live = readFileSync("components/onepage/public-onepage.tsx", "utf8")
     check("the live page (and so the preview) draws the avatar and wallpaper videos through the saved crop", /videoStyle=\{croppedMediaStyle\(profile\.avatar_video_crop\)/.test(live) && (live.match(/style=\{wallpaperVideoStyle\(safeTheme, /g) ?? []).length === 3)
   }

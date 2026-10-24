@@ -100,8 +100,10 @@ export const WRAP_UP_NOTE =
   "NOTE FROM STORELIB: this run is close to this run's limit. Finish the change you are making now so nothing is left half done, then reply with your one closing sentence: what you changed, and what is still to do. The creator can press Continue and you will carry on from here."
 
 /** The closing words when the ceiling ended a part, said by the chat beside its Continue button. */
-export function stoppedSentence(workDone: boolean, reason: "budget" | "turns" = "budget"): string {
+export function stoppedSentence(workDone: boolean, reason: "budget" | "turns" | "interrupted" = "budget"): string {
   if (reason === "turns") return "Carrying on with the rest."
+  /* The provider dropped out part way: what is done stays, and the chat sends the next part by itself. */
+  if (reason === "interrupted") return "Storelib AI stopped answering for a moment, so I am picking up the rest now."
   return workDone
     ? "I stopped here to keep this run's cost in check. Press Continue and I will carry on from this point."
     : "I read through the page but stopped before changing anything, to keep this run's cost in check. Press Continue and I will pick up from here."

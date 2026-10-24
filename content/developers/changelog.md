@@ -12,6 +12,12 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 24 October 2026
+
+**Added**
+
+- Size charts for physical products. In an imported theme: `product.metafields.storelib.size_chart`, the `storelib-size-chart` snippet and `storelib_size_chart` filter, and a Size chart app block ([template language](/developers/imported-shopify-themes#template-language)). On a Storelib theme: the product section's Size chart block, and a Size guide link in the variant picker.
+
 ## 23 October 2026
 
 **Changed**

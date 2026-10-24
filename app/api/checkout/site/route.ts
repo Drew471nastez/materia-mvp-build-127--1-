@@ -12,12 +12,12 @@ import { allOwned, digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checko
 import { packItems } from "@/lib/checkout/cart-items"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { businessToMetadata, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
-import { METADATA_TOO_LARGE_MESSAGE, fitStripeMetadata } from "@/lib/checkout/stripe-metadata"
+import { METADATA_TOO_LARGE_MESSAGE, STRIPE_METADATA_LIMIT, fitStripeMetadata } from "@/lib/checkout/stripe-metadata"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { fulfilCartPayment, fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
-import { basketTitle, fieldPlan, missingField, siteGate, siteThanksHref } from "@/lib/checkout/site-checkout"
+import { basketTitle, fieldPlan, missingField, noteToMetadata, orderNote, siteGate, siteThanksHref } from "@/lib/checkout/site-checkout"
 import { siteBuyerOfRequest, siteOfRequest, type SiteOfCheckout } from "@/lib/checkout/site-checkout-server"
 import { isPickupOptionId } from "@/lib/physical/pickup"
 import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server"
@@ -451,6 +451,14 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     return json({ error: METADATA_TOO_LARGE_MESSAGE, code: "order_too_large" }, 400)
   }
   for (const key of fitted.dropped) delete metadata[key]
+  /*
+    THE BUYER'S NOTE (the cart's "Add order note" on an imported theme, the
+    checkout's note for the shop), for the order rows the payment becomes.
+    After the record's own keys, so a payment is never refused for it; in
+    the room left, before the visit's touches, which only fill what is left.
+  */
+  const noteKeys = noteToMetadata(body.buyerNote)
+  if (Object.keys(metadata).length + Object.keys(noteKeys).length <= STRIPE_METADATA_LIMIT) Object.assign(metadata, noteKeys)
   Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
 
   const params: Stripe.PaymentIntentCreateParams = {
@@ -846,6 +854,7 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     request,
     consent: contact.optedIn ? "ticked" : "none",
     currency: (await readStoreCurrency(admin, site.creatorId)).currency,
+    buyerNote: orderNote(body.buyerNote),
   })
   if (written.ok === false) {
     await releaseSales(admin, heldCopies, saleHolder)

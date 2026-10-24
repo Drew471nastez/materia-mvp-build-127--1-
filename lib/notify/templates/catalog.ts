@@ -35,6 +35,8 @@ const SALE_KEYS = [
   "customerEmail", "customerCountry", "paymentMethod", "cardBrand", "cardLast4",
   /* An order that ships or is picked up (lib/notify/seller-commerce.ts withPhysicalSale): shipping, and the `fulfil` block. */
   "shippingCents", "taxIncluded", "fulfil",
+  /* The buyer's note on an order that ships nothing (lib/email.tsx saleEmailData). */
+  "buyerNote",
 ] as const
 
 /**
@@ -518,7 +520,7 @@ function fulfilSections(f: Data, pickup: boolean): { title: string; rows: Fact[]
         { label: "Method", value: f.text("method", 120) },
         { label: "Fulfilment", value: f.texts("fulfilment", 60).join(", ") },
       ]
-  const note = f.text("note", 500)
+  const note = f.text("note", 1000)
   /* What the shop's cart asked the buyer (an imported theme's gift message, an engraving): one row each. */
   const details = f.texts("details", 420, 12).map((t) => ({ label: t.split(": ")[0], value: t.slice(t.indexOf(": ") + 2) }))
   return [{ title: pickup ? "Pickup" : "Delivery", rows: [...rows, { label: "Buyer's note", value: note }, ...details].filter((r) => r.value) }]
@@ -629,6 +631,8 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
     { label: "Email", value: email },
     { label: "Country", value: country ? countryName(country) : "" },
     { label: "Payment", value: free ? "" : paymentLabel(d) },
+    /* What the buyer wrote for the shop, on an order with nothing to deliver; one that ships has it under Delivery (fulfilSections). */
+    { label: "Buyer's note", value: fulfil ? "" : d.text("buyerNote", 1000) },
   ].filter((f) => f.value)
 
   const order: OrderSummary | null =

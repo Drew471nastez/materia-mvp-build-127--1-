@@ -34,6 +34,8 @@ import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, 
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import { freezeViewportInMarkup, inlineStylesheets } from "@/lib/storelib-theme/compat/preview-styles"
 import type { SectionSchema } from "@/lib/website-builder/types"
+import { markupLooksEmpty, sampleBlocks } from "@/lib/website-builder/preview-markup"
+import { PreviewFallback } from "@/components/website-builder/editor/preview-fallback"
 
 interface CompatPreviewValue {
   theme: CompatTheme | null
@@ -142,12 +144,26 @@ function blocksOf(list: PresetBlock[] | undefined, path: string): StoredBlock[] 
     })
 }
 
-/** The section a card shows: its preset's settings and blocks, as adding it would give. */
-export function previewSectionFor(type: string, presetIndex: number, schema: SectionSchema): StoredSection {
+/**
+ * The section a card shows: its preset's settings and blocks, as adding it
+ * would give. `sample`: a preset with no blocks is given a few of the
+ * section's own (lib/website-builder/preview-markup.ts, sampleBlocks), for a
+ * section that is all blocks and draws nothing without them.
+ */
+export function previewSectionFor(type: string, presetIndex: number, schema: SectionSchema, sample = false): StoredSection {
   const presets = (schema.presets ?? []) as unknown as { settings?: Record<string, unknown>; blocks?: PresetBlock[] }[]
   const preset = presets[presetIndex] ?? presets[0]
   const id = `preview-${type}-${presetIndex}`
-  return { id, type, settings: preset?.settings ?? {}, blocks: blocksOf(preset?.blocks, id) }
+  const blocks = blocksOf(preset?.blocks, id)
+  if (sample && blocks.length === 0) return { id, type, settings: preset?.settings ?? {}, blocks: sampleBlocks(schema.blocks as never, schema.max_blocks, id).map((b) => ({ ...b, blocks: [] })) }
+  return { id, type, settings: preset?.settings ?? {}, blocks }
+}
+
+/** Whether a section's preset has no blocks of its own and the section declares some it could be shown with. */
+function canSample(type: string, presetIndex: number, schema: SectionSchema): boolean {
+  const presets = (schema.presets ?? []) as unknown as { blocks?: PresetBlock[] }[]
+  const preset = presets[presetIndex] ?? presets[0]
+  return !(preset?.blocks ?? []).length && sampleBlocks(schema.blocks as never, schema.max_blocks, type).length > 0
 }
 
 /*
@@ -198,7 +214,7 @@ function fullPreview(theme: CompatTheme, page: CompatPage, sections: StoredSecti
     ...(content !== undefined ? { content } : {}),
     scripts: false,
     /* No scrollbar, nothing that moves, and the page as tall as the section. */
-    extraHead: "<style data-storelib-preview>html,body{margin:0!important;overflow:hidden!important;min-height:0!important;height:auto!important;background:#fff}*,*::before,*::after{animation:none!important;transition:none!important}.scroll-trigger,[class*='animate--'],[data-aos],[data-animate],[data-reveal],.reveal,.fade-in,.js-animate,.animate-on-scroll,.wow{opacity:1!important;transform:none!important;visibility:visible!important;clip-path:none!important}</style>",
+    extraHead: "<style data-storelib-preview>html,body{margin:0!important;overflow:hidden!important;min-height:0!important;height:auto!important;background:#fff}*,*::before,*::after{animation:none!important;transition:none!important}.scroll-trigger,[class*='animate--'],[data-aos],[data-animate],[data-reveal],.reveal,.fade-in,.js-animate,.animate-on-scroll,.wow,.slick-slider,.swiper,.splide,.glide,.flickity-enabled,[x-cloak]{opacity:1!important;transform:none!important;visibility:visible!important;clip-path:none!important}.owl-carousel{display:block!important;opacity:1!important}[x-cloak]{display:revert!important}</style>",
   })
   return html
 }
@@ -206,6 +222,15 @@ function fullPreview(theme: CompatTheme, page: CompatPage, sections: StoredSecti
 function cleanPreview(html: string): string {
   /* No script tag at all: the frame could not run one anyway, and each one it is handed is a console error. */
   return withoutScripts(html)
+    /*
+      Round BC: "previews ... sometimes display weird text". The frame runs no
+      script, so the browser shows every <noscript> in it ("Please turn on
+      JavaScript", a second copy of a picture), which no visitor ever sees.
+      And a theme that swaps `no-js` for `js` on <html> as its first script
+      (Dawn) is drawn as it is for a visitor, with `js`.
+    */
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, "")
+    .replace(/(<html\b[^>]*\bclass=["'][^"']*?)\bno-js\b/i, "$1js")
     /* A stylesheet loaded "print, then all on load" (Dawn's way) is simply on: the handler that would switch it cannot run here. */
     .replace(/(<link\b[^>]*?)\smedia=["']print["']([^>]*?)\sonload=(?:"[^"]*"|'[^']*')/gi, "$1$2")
     .replace(/(<link\b[^>]*?)\sonload=(?:"[^"]*"|'[^']*')([^>]*?)\smedia=["']print["']/gi, "$1$2")
@@ -259,9 +284,10 @@ export function sheetDocument(theme: CompatTheme, page: CompatPage, rows: Record
  * shown unstyled until a round trip came back), its viewport heights
  * frozen. Exported for its test.
  */
-export function sectionMarkup(theme: CompatTheme, page: CompatPage, section: StoredSection, rows: Record<string, string> | null, width: number, height: number): string {
+export function sectionMarkup(theme: CompatTheme, page: CompatPage, section: StoredSection, rows: Record<string, string> | null, width: number, height: number, errors?: string[]): string {
   const ctx = pageContextFor(theme, page, [section])
-  const { html } = drawSection(theme, ctx, section, 0)
+  const { html, errors: said } = drawSection(theme, ctx, section, 0)
+  errors?.push(...said)
   return freezeViewportInMarkup(inlineStylesheets(cleanPreview(html), rows, width, height), width, height)
 }
 
@@ -398,6 +424,10 @@ class PreviewSheet {
   private readonly heights = new Map<string, number>()
   private readonly blank = new Set<string>()
   private readonly failed = new Set<string>()
+  /** Drawn again with a few of their own blocks, once, after drawing nothing (previewSectionFor, `sample`). */
+  private readonly sampled = new Set<string>()
+  /** Drawn with a Liquid error and nothing to see. */
+  private readonly erred = new Set<string>()
   private doc: Document | null = null
   private proto: Element | null = null
   frame: HTMLIFrameElement | null = null
@@ -437,6 +467,11 @@ class PreviewSheet {
 
   stateOf(key: string): CardState {
     return this.states.get(key) ?? WAITING
+  }
+
+  /** Whether the theme could not draw this card's section at all (rather than drawing nothing to see). */
+  cannotDraw(key: string): boolean {
+    return this.failed.has(key) || this.erred.has(key)
   }
 
   subscribe(key: string, l: () => void): () => void {
@@ -583,15 +618,33 @@ class PreviewSheet {
     this.schedule()
   }
 
+  /** A card's section, drawn: as its preset gives it, or with a few of its own blocks. Null when the theme cannot draw it. */
+  private draw(card: CardEntry, sample: boolean): string | null {
+    const key = `${card.type}:${card.presetIndex}`
+    const errors: string[] = []
+    try {
+      const html = sectionMarkup(this.theme, this.page, previewSectionFor(card.type, card.presetIndex, card.schema, sample), this.rows, this.renderWidth, this.windowHeight, errors)
+      /* Drawn with an error, and nothing in it: the theme cannot draw it here, which its card says rather than "once it has content". */
+      if (errors.length && markupLooksEmpty(html)) this.erred.add(key)
+      else this.erred.delete(key)
+      return html
+    } catch {
+      this.erred.add(key)
+      return null
+    }
+  }
+
   private insert(key: string) {
     const doc = this.doc!
     const card = this.cards.get(key)!
     let html = this.html.get(key)
     if (html === undefined) {
-      try {
-        html = sectionMarkup(this.theme, this.page, previewSectionFor(card.type, card.presetIndex, card.schema), this.rows, this.renderWidth, this.windowHeight)
-      } catch {
-        html = null
+      html = this.draw(card, false)
+      /* Nothing in it to see (a section that is all blocks, with a preset that has none): drawn with some of its blocks instead. */
+      if ((html === null || markupLooksEmpty(html)) && canSample(card.type, card.presetIndex, card.schema)) {
+        const withBlocks = this.draw(card, true)
+        if (withBlocks !== null) html = withBlocks
+        this.sampled.add(key)
       }
       this.html.set(key, html)
     }
@@ -603,28 +656,46 @@ class PreviewSheet {
     const w = (this.proto ? this.proto.cloneNode(false) : doc.createElement("div")) as HTMLElement
     w.setAttribute("data-sl-pv", key)
     w.style.minHeight = "0px"
+    doc.body.appendChild(w)
+    this.wrappers.set(key, w)
+    this.fill(key, w, html)
+  }
+
+  /** Puts a section's markup in its wrapper, keeps its styles to it, and measures it. */
+  private fill(key: string, w: HTMLElement, html: string) {
     w.innerHTML = html
+    keepStylesInside(w, key)
     if (this.open) {
       for (const img of Array.from(w.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
         img.setAttribute("fetchpriority", "low")
         img.loading = "eager"
       }
     }
-    doc.body.appendChild(w)
-    this.wrappers.set(key, w)
     this.measure(key, w)
-    /* A picture that lands later may change the height: measured again then. */
+    /* A picture or a stylesheet that lands later may change the height: measured again then. */
+    const again = () => {
+      this.remeasure.add(key)
+      this.queueRemeasure()
+    }
     for (const img of Array.from(w.querySelectorAll("img"))) {
-      if (!img.complete) img.addEventListener("load", () => {
-        this.remeasure.add(key)
-        this.queueRemeasure()
-      }, { once: true })
+      if (!img.complete) img.addEventListener("load", again, { once: true })
+    }
+    for (const link of Array.from(w.querySelectorAll<HTMLLinkElement>("link[rel=stylesheet]"))) {
+      if (!link.sheet) link.addEventListener("load", again, { once: true })
     }
   }
 
   /** Its natural height, at the width it is pictured at, and whether it has anything to see. */
   private measure(key: string, w: HTMLElement) {
-    /* Laid out for real while it is measured, whatever its distance from the screen, and without what fills its card. */
+    /*
+      Laid out for real while it is measured, whatever its distance from the
+      screen, and without what fills its card. AND SHOWN while it is: a
+      section put away (its card hidden by a category, or named for a moment)
+      and measured again when a font or a picture landed measured 0px tall
+      and was named for good, which was half of "sometimes previews show,
+      sometimes they don't". sync() puts away again what should be.
+    */
+    w.hidden = false
     w.removeAttribute("data-measured")
     /* Inline, so a theme's own floor for its <main> (often a whole window tall) is not measured as the section. */
     w.style.minHeight = "0px"
@@ -641,13 +712,20 @@ class PreviewSheet {
     const own = w.offsetHeight
     const h = Math.ceil(own > 8 ? own : w.scrollHeight)
     const root = w.querySelector<HTMLElement>(".shopify-section") ?? w
-    const shows = h > 8 && Array.from(root.querySelectorAll<HTMLElement>("img, svg, video, picture, canvas, input, button, h1, h2, h3, h4, p, a, span, li")).some((el) => {
-      const r = el.getBoundingClientRect()
-      if (r.width < 2 || r.height < 2) return false
-      return /^(IMG|SVG|VIDEO|PICTURE|CANVAS|INPUT)$/i.test(el.tagName) || (el.textContent ?? "").trim().length > 0
-    })
+    const shows = h > 8 && somethingToSee(root)
     if (shows) this.blank.delete(key)
     else this.blank.add(key)
+    /* Laid out, still nothing to see: once, drawn again with some of its own blocks. */
+    if (!shows && !this.sampled.has(key)) {
+      this.sampled.add(key)
+      const card = this.cards.get(key)
+      const withBlocks = card && canSample(card.type, card.presetIndex, card.schema) ? this.draw(card, true) : null
+      if (withBlocks !== null) {
+        this.html.set(key, withBlocks)
+        this.fill(key, w, withBlocks)
+        return
+      }
+    }
     /* Skipped while away from the screen from now on, at the size it is: its own height, cut at its card's foot. */
     w.style.containIntrinsicSize = `auto ${this.renderWidth}px auto ${Math.max(1, h)}px`
     w.setAttribute("data-measured", "")
@@ -781,6 +859,116 @@ class PreviewSheet {
   }
 }
 
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   A CARD'S STYLES ARE ITS OWN
+  ═══════════════════════════════════════════════════════════════════════
+  Every card's section is in one document, so a section's own <style> with
+  a rule that is not tied to its id (`h2 { display: none }`, `.title {...}`,
+  `body { background }`, common in section packs) reached every other card:
+  "previews can interact with each other". Each of a section's own <style>s
+  is put inside an @scope of its wrapper, so its rules still see the page
+  around it (`body.template-index .x` still matches) but only ever style
+  what is in its card. What it says about the page itself (`:root`, `html`,
+  `body`) is said about its card instead, so its colour variables still
+  reach it. Fonts, keyframes and imports stay outside the scope, as they
+  must. A browser without @scope has each selector put under the wrapper.
+*/
+const ROOT_SELECTOR = /^(?::root|html|body)(?:[.#:[][^\s>+~]*)?(?:\s*[>\s]\s*body(?:[.#:[][^\s>+~]*)?)?$/i
+
+function splitSelectors(list: string): string[] {
+  const out: string[] = []
+  let depth = 0
+  let from = 0
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i]
+    if (c === "(" || c === "[") depth++
+    else if (c === ")" || c === "]") depth--
+    else if (c === "," && depth === 0) {
+      out.push(list.slice(from, i).trim())
+      from = i + 1
+    }
+  }
+  out.push(list.slice(from).trim())
+  return out.filter(Boolean)
+}
+
+/** Its page-wide selectors made the card's own: `:scope` inside @scope, the wrapper itself without it. */
+function retarget(rules: CSSRuleList, scope: string, scoped: boolean) {
+  for (const rule of Array.from(rules)) {
+    const style = rule as CSSStyleRule
+    if (typeof style.selectorText === "string") {
+      const parts = splitSelectors(style.selectorText)
+      const next = parts.map((p) => {
+        if (ROOT_SELECTOR.test(p)) return scoped ? ":scope" : scope
+        if (scoped) return p
+        /* Without @scope: under the wrapper, the page's own `html`/`body` taken off the front. */
+        return `${scope} ${p.replace(/^(?::root|html|body)(?:[.#:[][^\s>+~]*)?\s*[>\s]?\s*(?:body(?:[.#:[][^\s>+~]*)?\s*[>\s]?\s*)?/i, "")}`
+      }).join(", ")
+      if (next !== style.selectorText) style.selectorText = next
+      continue
+    }
+    const group = rule as CSSGroupingRule
+    if (group.cssRules && !/^@(?:keyframes|-webkit-keyframes|font-face|font-feature-values|property|page|counter-style)/i.test(rule.cssText)) retarget(group.cssRules, scope, scoped)
+  }
+}
+
+/** Each of the section's own <style>s, kept to its wrapper. Exported for its test. */
+export function keepStylesInside(w: HTMLElement, key: string) {
+  const win = w.ownerDocument.defaultView as (Window & { CSSScopeRule?: unknown; CSS?: { escape?: (s: string) => string } }) | null
+  const esc = win?.CSS?.escape ? win.CSS.escape(key) : key.replace(/["\\]/g, "\\$&")
+  const scope = `[data-sl-pv="${esc}"]`
+  const scoped = !!win?.CSSScopeRule
+  /*
+    Not the theme's own stylesheets a section links (carried in as <style
+    data-sheet-from>, lib/storelib-theme/compat/preview-styles.ts): they are
+    the theme's, the same in every card and on every page, and parsing tens
+    of kilobytes of them again for each card is what would make the library
+    slow to fill.
+  */
+  for (const el of Array.from(w.querySelectorAll("style:not([data-sheet-from])"))) {
+    const sheet = (el as HTMLStyleElement).sheet
+    if (!sheet) continue
+    try {
+      retarget(sheet.cssRules, scope, scoped)
+      if (!scoped) continue
+      /* At-rules a scope cannot hold stay outside it; everything else goes in. */
+      const outside: string[] = []
+      const inside: string[] = []
+      for (const rule of Array.from(sheet.cssRules)) {
+        if (/^@(?:import|namespace|font-face|keyframes|-webkit-keyframes|property|page|counter-style|font-feature-values|layer\s+[^{]*;)/i.test(rule.cssText)) outside.push(rule.cssText)
+        else inside.push(rule.cssText)
+      }
+      if (!inside.length) continue
+      el.textContent = `${outside.join("\n")}\n@scope (${scope}) {\n${inside.join("\n")}\n}`
+    } catch {
+      /* A sheet that cannot be read stays as it was. */
+    }
+  }
+}
+
+/**
+ * Whether a drawn section has anything to see: a picture or a field with a
+ * size, or words in any element with one. Words were only looked for in a
+ * list of tags (h1 to h4, p, a, span, li), so a slider of <blockquote>s, a
+ * form of <label>s or a heading in an <h5> or a <div> counted as nothing and
+ * its card was named instead of shown.
+ */
+function somethingToSee(root: HTMLElement): boolean {
+  const sized = (el: Element) => {
+    const r = el.getBoundingClientRect()
+    return r.width >= 2 && r.height >= 2
+  }
+  if (Array.from(root.querySelectorAll("img, svg, video, picture, canvas, iframe, input, textarea, select, button")).some(sized)) return true
+  const walk = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    const el = n.parentElement
+    if (!el || !(n.nodeValue ?? "").trim() || /^(STYLE|SCRIPT|TEMPLATE|NOSCRIPT)$/.test(el.tagName)) continue
+    if (sized(el)) return true
+  }
+  return false
+}
+
 /** Where each section was last put, so an unchanged place is not written again. */
 const placedAt = new WeakMap<HTMLElement, string>()
 
@@ -878,7 +1066,7 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
   const shown = snap.state === "shown"
   const scale = width > 0 ? width / renderWidth : 0.3
   const tallest = Math.round(width * TALLEST)
-  const wanted = named ? 96 : drawnHeight ? Math.max(FLOOR, Math.min(tallest, Math.ceil(drawnHeight * scale))) : Math.round(width * PLACEHOLDER_RATIO)
+  const wanted = named ? NAMED_HEIGHT : drawnHeight ? Math.max(FLOOR, Math.min(tallest, Math.ceil(drawnHeight * scale))) : Math.round(width * PLACEHOLDER_RATIO)
   /*
     NEVER SHORTER WHERE IT CAN BE SEEN. A card measured shorter than its
     placeholder while somebody is looking keeps its height, the section on
@@ -921,16 +1109,14 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     >
       {/* Until its section is over it: a quiet light passing over the grey, so a card that is coming reads as coming. */}
       {!shown && !named ? <span aria-hidden data-compat-shimmer="" className="wb-preview-shimmer absolute inset-0" /> : null}
-      {named ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-[#f9fafb] px-4 text-center text-[13px] font-medium text-[#9ca3af]">
-          {schema.name}
-        </div>
-      ) : null}
+      {named ? <PreviewFallback title={schema.name} reason={unavailable || sheet?.cannotDraw(key) ? "unavailable" : "empty"} /> : null}
     </div>
   )
 })
 
 const TALLEST = 1.1
+/** A card with nothing to picture: room for its sketch, its name and why (PreviewFallback). */
+const NAMED_HEIGHT = 132
 
 /* Cards keeping a height they are about to lose, until nobody can see them change. */
 const held = new Set<() => void>()

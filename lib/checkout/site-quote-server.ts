@@ -169,9 +169,44 @@ export async function digitalCartTax(db: Db, creatorId: string, priced: Extract<
   return basketTax(await loadTaxForCheckout(db, creatorId), priced.lines.map((l) => ({ productId: l.item.productId, taxableCents: lineTotalCents(l.item) })), country)
 }
 
+/**
+ * Whether the cart holds one of this shop's published products that ships,
+ * while physical commerce is on (as priceSiteCart hands it over): one small
+ * read, so a cart that ships starts its own pricing at once.
+ */
+async function mayShip(db: Db, creatorId: string, body: Body): Promise<boolean> {
+  const ids = Array.isArray(body.items)
+    ? [...new Set((body.items as { productId?: unknown }[]).map((i) => (i && typeof i.productId === "string" ? i.productId : "")).filter((id) => /^[0-9a-f-]{36}$/i.test(id)))].slice(0, 50)
+    : []
+  if (ids.length === 0) return false
+  const [on, { data, error }] = await Promise.all([
+    isPhysicalCommerceEnabled().catch(() => false),
+    db.from("products").select("id").in("id", ids).eq("creator_id", creatorId).eq("type", "physical").eq("status", "published").limit(1),
+  ])
+  return on && !error && Array.isArray(data) && data.length > 0
+}
+
 export async function siteQuote(db: Db, creatorId: string, body: Body, requestCountry: string | null = null, owner: SiteOwner | null = null): Promise<SiteQuoteAnswer> {
+  /*
+    A CART THAT SHIPS IS PRICED BY THE PHYSICAL CHECKOUT (shippedQuote), and
+    used to start only once the basket's own pricing below had read the whole
+    cart to find that out: every read of one, then every read of the other,
+    before the checkout's first frame. It starts beside it now, as soon as one
+    small read says something in the cart ships; the answer is still the
+    decision's, and a cart the decision does not send there lets it go.
+  */
+  let shipped: Promise<SiteQuoteAnswer> | null = null
+  const shippedNow = (): Promise<SiteQuoteAnswer> => {
+    if (!shipped) {
+      shipped = shippedQuote(db, creatorId, body, owner)
+      /* Heard here only so a quote nobody takes never rejects unheard; the one taken below rejects as it always did. */
+      shipped.catch(() => undefined)
+    }
+    return shipped
+  }
+  void mayShip(db, creatorId, body).then((yes) => (yes ? void shippedNow() : undefined), () => undefined)
   const { priced, couponError, decision } = await priceSiteCart(db, creatorId, body, owner)
-  if (decision.kind === "ships") return shippedQuote(db, creatorId, body, owner)
+  if (decision.kind === "ships") return shippedNow()
   /* Everything in it is already theirs: a quote of nothing to pay, with what they own (the page says so, with the way to it). */
   if (priced.ok === true && allOwned(priced) && priced.creatorIds.length === 1 && priced.creatorIds[0] === creatorId) {
     return { ok: true, quote: { ...emptyQuote(creatorId), owned: ownedOf(priced.owned) } }
@@ -319,11 +354,21 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
   /* The city, once typed: carrier calculated rates in most of Europe need it (lib/integrations/shipping/checkout-rates-server.ts). */
   const city = typeof body.city === "string" && body.city.trim() ? body.city.trim().slice(0, 120) : null
   const codFeeCents = await codFeeFor(db, creatorId, body, country)
-  const [q, profiles, choices] = await Promise.all([
+  /* The short lines' pictures and the checkout's offers need only the priced cart: read beside the delivery, not after it. */
+  const shortImagesRead = async (): Promise<Map<string, string | null>> => {
+    const out = new Map<string, string | null>()
+    if (!pc.stockIssues.length) return out
+    const { data } = await db.from("products").select("id, thumbnail_url").in("id", [...new Set(pc.stockIssues.map((s) => s.productId))]).eq("status", "published")
+    for (const r of (data ?? []) as { id: string; thumbnail_url: string | null }[]) out.set(r.id, r.thumbnail_url)
+    return out
+  }
+  const [q, profiles, choices, shortImages, suggestions] = await Promise.all([
     quoteCheckout(db, priced, country ? { country, region, postalCode, city } : null, body.deliveryOptionId, { codFeeCents }),
     priced.requiresShipping ? loadProfiles(db, creatorId).catch(() => []) : Promise.resolve([]),
     /* Short lines too: a size that sold out is changed to one in stock right there. A line at its own price keeps it. */
     variantChoices(db, items.filter((i) => typeof (i as { customPriceCents?: unknown }).customPriceCents !== "number").map((i) => i.productId)),
+    shortImagesRead(),
+    import("@/lib/offers/offers-server").then((m) => m.suggestionCards(db, creatorId, pc.suggestions)),
   ])
   /* A line still to choose an option for, whose product has none left to choose: dropped and named, as before. */
   const needsOption = (pc.needsOption ?? []).filter((n) => (choices[n.productId]?.variants.length ?? 0) > 1)
@@ -345,12 +390,7 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
         pc.locations.filter((l) => l.active && l.fulfillsOrders && l.localDelivery).map((l) => l.country ?? ""),
       )
     : null
-  /* A short line keeps its place in the order, with its picture, so it is lowered or removed right there. */
-  const shortImages = new Map<string, string | null>()
-  if (pc.stockIssues.length) {
-    const { data } = await db.from("products").select("id, thumbnail_url").in("id", [...new Set(pc.stockIssues.map((s) => s.productId))]).eq("status", "published")
-    for (const r of (data ?? []) as { id: string; thumbnail_url: string | null }[]) shortImages.set(r.id, r.thumbnail_url)
-  }
+  /* A short line keeps its place in the order, with its picture (read above), so it is lowered or removed right there. */
   const titleOf = (productId: string) => pc.lines.find((l) => l.productId === productId)?.title ?? pc.stockIssues.find((s) => s.productId === productId)?.title ?? "This product"
   return {
     ok: true,
@@ -395,7 +435,7 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
       })),
       totals: q.totals,
       offers: priced.offers.filter((o) => o.savedCents > 0).map((o) => ({ title: o.title, savedCents: o.savedCents })),
-      suggestions: await (await import("@/lib/offers/offers-server")).suggestionCards(db, creatorId, priced.suggestions),
+      suggestions,
       physical: priced.lines.some((l) => l.type === "physical") || priced.stockIssues.length > 0,
       shipsTo,
       short: priced.stockIssues.map((s) => ({

@@ -24,6 +24,7 @@ import { rateLimit, addressSubject } from "@/lib/api/rate-limit"
 import { hostOf } from "@/lib/site-accounts/session"
 import { sameOriginForm } from "@/lib/site-accounts/respond"
 import { POST as sendSignInCode } from "@/app/api/site-account/code/route"
+import { POST as saveAddress } from "@/app/api/site-account/addresses/route"
 import { POST as subscribeRoute } from "@/app/api/website-builder/subscribe/route"
 import { POST as contactRoute } from "@/app/api/website-builder/contact/route"
 import { previewTokenFrom } from "@/lib/website-builder/preview-link"
@@ -41,6 +42,7 @@ import { heldStrangerPage, strangerKey } from "@/lib/storelib-theme/compat/stran
 import { openedAsDocument, readierFirstLoad } from "@/lib/storelib-theme/compat/first-load"
 import { calmerScripts, runsThirdPartyScripts } from "@/lib/storelib-theme/compat/script-order"
 import { withDesktopPrerender } from "@/lib/storelib-theme/compat/prerender"
+import { withTouchPrefetch } from "@/lib/storelib-theme/compat/touch-prefetch"
 import { creatorByName, creatorShopTag, creatorSiteTag } from "@/lib/website-builder/published-site"
 import { siteLanguages } from "@/lib/markets/live"
 
@@ -94,11 +96,12 @@ function onward(req: Request, path: string, body: FormData | string): NextReques
   return new NextRequest(new URL(path, req.url), { method: "POST", headers, body })
 }
 
-/** The page a script's request came from, as a path on this site: only which of the site's own pages its sections are drawn about. */
-function refererPath(referer: string | null): string | undefined {
+/** The page a script's request came from, as a path on this site: which of the site's own pages its sections are drawn about, and where checkout's Back goes. Another site's page is not one of them. */
+function refererPath(referer: string | null, host: string): string | undefined {
   if (!referer) return undefined
   try {
     const u = new URL(referer)
+    if (host && u.host.toLowerCase() !== host) return undefined
     return `${u.pathname}${u.search}`
   } catch {
     return undefined
@@ -234,12 +237,24 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     email" all apply. Never on a preview, which signs nobody in.
   */
   const accountPost = token ? null : accountFormPost(req.method, sitePath, fields)
-  if (accountPost?.kind === "back") return new NextResponse(null, { status: 303, headers: { Location: accountPost.to, "Cache-Control": "private, no-store" } })
+  /* A theme's address form: the customer's own address book, through the route Storelib's own forms post to, the same checks and limits. */
+  if (accountPost?.kind === "address") {
+    const form = new FormData()
+    form.set("action", accountPost.action)
+    if (accountPost.id) form.set("id", accountPost.id)
+    for (const [k, v] of Object.entries(accountPost.fields)) form.set(k, v)
+    if (accountPost.makeDefault) form.set("default", "1")
+    form.set("return", "/account/addresses")
+    if (locale) form.set("lang", locale)
+    return saveAddress(onward(req, "/api/site-account/addresses", form))
+  }
   if (accountPost?.kind === "code") {
     const form = new FormData()
     form.set("email", accountPost.email)
     form.set("return", accountPost.returnPath)
     if (accountPost.name) form.set("name", accountPost.name)
+    /* The page's language (/fr/account/login), so the code step comes back in it (lib/site-accounts/lang.ts). */
+    if (locale) form.set("lang", locale)
     return sendSignInCode(onward(req, "/api/site-account/code", form))
   }
   /* A newsletter or contact form, from this website's own page only. */
@@ -276,7 +291,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     attributes,
     discountCode: discount,
     ajax,
-    referer: refererPath(req.headers.get("referer")),
+    referer: refererPath(req.headers.get("referer"), host),
     account,
     /* A signed in customer's product page says "You already own this" for a download they have (lib/site-accounts/owned-products). */
     owned: account?.customer?.email
@@ -379,6 +394,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
       if (scripts.deferred || scripts.queued || scripts.later || scripts.asWritten) headers.set("X-Storelib-Scripts", scripts.asWritten ? `as-written; ${scripts.asWritten}` : `deferred=${scripts.deferred}; queued=${scripts.queued}; later=${scripts.later}`)
       /* On a desktop, a page that runs nobody else's scripts is prerendered when its link is rested on (lib/storelib-theme/compat/prerender.ts). */
       if (!runsThirdPartyScripts(html)) html = withDesktopPrerender(html)
+      /* On a phone, the pages behind the links in view are fetched before the tap (lib/storelib-theme/compat/touch-prefetch.ts). Prefetch runs nothing, so any page may. */
+      html = withTouchPrefetch(html)
     }
   }
   const body = html ?? (typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]))

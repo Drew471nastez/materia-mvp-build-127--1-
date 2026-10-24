@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation"
 import { splitSiteName } from "@/lib/markets/site-name"
 import type { Metadata } from "next"
-import { signInNotice } from "@/lib/website-builder/account-pages"
+import { siteLocalizer } from "@/lib/markets/live"
+import { accountWord, signInNoticeIn } from "@/lib/site-accounts/words"
 import { returnPathOf } from "@/lib/site-accounts/hosts"
 import { siteMetadata } from "../../render-site"
 import { renderAccountPage } from "../../render-account"
@@ -57,9 +58,13 @@ export default async function SiteSignInPage({ params, searchParams }: PageProps
   const pending = sp.step === "email" ? null : await pendingSignIn(creatorId)
   /* A code refused after this browser's note ran out lands on the email step, and says to start again there. */
   const why = !pending && (sp.error === "code" || sp.error === "expired" || sp.error === "tries") ? "restart" : sp.error
-  const notice = signInNotice(why) ?? (pending && sp.sent === "1" ? "A new code is on its way." : null)
+  /* In the page's language (lib/site-accounts/words.ts): /fr/account/login says why in French. */
+  const words = (await siteLocalizer(creatorId, locale, market).catch(() => null))?.words
+  const refusal = signInNoticeIn(words, why)
+  const notice = refusal ?? (pending && sp.sent === "1" ? accountWord(words, "acct_notice_sent") : null)
   return renderAccountPage(username, "login", {
     notice,
+    noticeError: !!refusal,
     signIn: pending
       ? { step: "code", email: pending.m, returnTo: pending.r }
       : { step: "email", email: "", returnTo: back },

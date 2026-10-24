@@ -17,6 +17,7 @@ import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
 import { overrideCss } from "./overrides"
 import { withShopifyModules } from "./shims"
 import { withStorelibReviewsSection } from "./storelib-reviews"
+import { withNewTabAnchors } from "@/lib/website-builder/new-tab"
 
 /** A section as a page row stores it. */
 export interface StoredSection {
@@ -162,7 +163,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
     layout, no head, nothing added: a script reads it as markup or JSON.
   */
   const layout = typeof ctx.registers.layout === "string" ? ctx.registers.layout : opts.content === undefined ? theme.templateLayout(page.template, page.suffix) : undefined
-  if (layout === "none" && opts.content === undefined) return { html: withoutVendorTraces(theme.finish(content)), errors, ctx }
+  if (layout === "none" && opts.content === undefined) return { html: withNewTabAnchors(withoutVendorTraces(theme.finish(content))), errors, ctx }
   const js = opts.scripts ? theme.javascriptBundle() : ""
   const tail = `${js ? `<script data-storelib-bundle>${js.replace(/<\/script/gi, "<\\/script")}</script>` : ""}${opts.extraBodyEnd ?? ""}`
   let html = theme.renderDocument(ctx, content, { extraHead: head, extraBodyEnd: tail, layout })
@@ -170,7 +171,8 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
   html = html.replace(/<link\b[^>]*rel=["']?preload["']?[^>]*as=["']?font["']?[^>]*href=["']https:\/\/fonts\.googleapis\.com[^>]*>|<link\b[^>]*href=["']https:\/\/fonts\.googleapis\.com[^"']*["'][^>]*rel=["']?preload["']?[^>]*>/gi, "")
   if (!opts.scripts) html = withoutScripts(html)
   else html = withShopifyModules(html)
-  return { html: withoutVendorTraces(html), errors, ctx }
+  /* A menu link (or any link) set to open in a new tab prints its address with the mark; here it becomes a real target="_blank" link, live and in the canvas (lib/website-builder/new-tab.ts). */
+  return { html: withNewTabAnchors(withoutVendorTraces(html)), errors, ctx }
 }
 
 /**
@@ -225,7 +227,7 @@ export function drawLayoutStyles(theme: CompatTheme, page: CompatPage, sections:
 export function drawSection(theme: CompatTheme, ctx: Ctx, section: StoredSection, index = 0, group?: string): { html: string; errors: string[] } {
   /* An Overlay group section is drawn as a section of the theme's group it came from. */
   const r = theme.renderSection(ctx, instanceOf(section), index, section.group === "overlay" ? section.slot || "overlay-group" : group)
-  return { ...r, html: withoutVendorTraces(r.html) }
+  return { ...r, html: withNewTabAnchors(withoutVendorTraces(r.html)) }
 }
 
 /**

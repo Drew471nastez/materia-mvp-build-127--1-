@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 import { handleProblem, normalizeHandle } from "@/lib/website-builder/site-address"
 import { tt } from "@/lib/i18n/text"
 
-interface DomainRow {
+export interface DomainRow {
   id: string
   domain: string
   status: string
@@ -31,7 +31,7 @@ interface DomainRow {
  * The records a domain needs: the ones app/api/domains sent, else the defaults in lib/custom-domains/hostname.
  * Drawn by the same three steps as Settings › Domains (components/domains/dns-setup.tsx).
  */
-function recordsFor(d: DomainRow): DnsRecord[] {
+export function recordsFor(d: DomainRow): DnsRecord[] {
   if (d.records && d.records.length > 0) return d.records as DnsRecord[]
   return [
     { type: "A", name: "@", value: DEFAULT_A },
@@ -46,7 +46,7 @@ function recordsFor(d: DomainRow): DnsRecord[] {
  * pending, checked, and active once its DNS answers; the certificate is
  * issued after that.
  */
-function describe(d: DomainRow): { tone: "live" | "attention" | "critical" | "neutral"; label: string; ssl: string } {
+export function describe(d: DomainRow): { tone: "live" | "attention" | "critical" | "neutral"; label: string; ssl: string } {
   if (d.status === "active") {
     return { tone: "live", label: tt("Connected"), ssl: d.ssl_status === "failed" ? tt("Certificate failed") : tt("Secured with HTTPS") }
   }
