@@ -53,6 +53,7 @@ import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onep
 import { pairProductTiles } from "@/lib/onepage/product-block"
 import { tt } from "@/lib/i18n/text"
 import { bookingSource } from "@/lib/onepage/creator-blocks"
+import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -4032,37 +4033,30 @@ function PublicBlockRenderer({
       */
       const linkIcon = resolveLinkIcon(data.icon, data.url)
 
-      const buttonShadow = (theme as any).button_shadow || "none"
-      const shadowColor = (theme as any).button_shadow_color || "#000000"
-      // Convert hex to rgba for shadow
-      const hexToRgba = (hex: string, alpha: number) => {
-        const r = Number.parseInt(hex.slice(1, 3), 16)
-        const g = Number.parseInt(hex.slice(3, 5), 16)
-        const b = Number.parseInt(hex.slice(5, 7), 16)
-        return `rgba(${r},${g},${b},${alpha})`
+      /*
+        THE BUTTON, from lib/onepage/button-style.ts: the same drawing every
+        button block and the Design tab's samples use. Its hover (data-hover)
+        is the page's choice, drawn by `.op-btn` in app/globals.css; a link
+        inside a carousel or a group keeps still, as it always has.
+      */
+      const buttonStyles: React.CSSProperties = { ...themeButtonStyle(theme), ...buttonHoverVars(theme) }
+      const size = buttonSize(theme)
+      const align = buttonAlign(theme)
+      const iconSide = buttonIconSide(theme)
+      const buttonHoverAttrs = {
+        "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme),
+        "data-shadow": themeButtonShadow(theme),
+        "data-align": align,
       }
-      const shadowStyles: Record<string, string> = {
-        none: "none",
-        subtle: `0 2px 4px ${hexToRgba(shadowColor, 0.15)}`,
-        strong: `0 4px 12px ${hexToRgba(shadowColor, 0.3)}`,
-        hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
-      }
-
-      const buttonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
-        color: theme.button_text_color,
-        borderRadius: `${theme.button_border_radius}px`,
-        borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
-        borderStyle: "solid",
-        borderColor: theme.button_style === "outline" ? (theme.button_border_color || theme.button_color) : theme.button_border_color,
-        backdropFilter: theme.button_style === "glass" ? "blur(10px)" : undefined,
-        boxShadow: shadowStyles[buttonShadow] || "none",
-      }
+      const iconPlace = cn(BUTTON_ICON_CLASS[size], "shrink-0 absolute", BUTTON_ICON_INSET[size][iconSide])
+      /* The label column: clear of the icon on both sides when centred, on the icon's side only when to the left. */
+      const labelColumn = (withIcon: boolean) =>
+        cn(
+          "flex flex-col min-w-0 w-full",
+          align === "left" ? "text-left items-start" : "text-center",
+          withIcon ? (align === "left" ? (iconSide === "left" ? "pl-12" : "pr-12") : "px-12") : "",
+        )
+      const labelText = cn(align === "left" ? "text-left" : "text-center", "op-label break-words whitespace-normal leading-tight")
 
       const hasThumbnail = !!data.thumbnail_url || !!linkIcon
 
@@ -4160,7 +4154,7 @@ function PublicBlockRenderer({
                 onClick={() => trackClick(block.id, getTargetUrl())}
                 className={cn("block w-full px-5 py-3.5 sm:py-4 text-center transition-opacity", !isInsideCarousel && "hover:opacity-80")}
                 style={{
-                  backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+                  backgroundColor: themeButtonStripFill(theme),
                   fontSize: '15px',
                   lineHeight: '1.4',
                 }}
@@ -4232,6 +4226,7 @@ function PublicBlockRenderer({
                     alt={data.label || ""}
                     className={cn(
                       "w-full",
+                      !isInsideCarousel && "op-media",
                       displayMode === 'cover' && "h-full object-cover",
                       displayMode === 'contain' && "h-full object-contain",
                       displayMode === 'full' && "h-auto"
@@ -4271,7 +4266,7 @@ function PublicBlockRenderer({
             <div
               className="w-full px-5 py-3.5 sm:py-4 flex flex-col items-center justify-center overflow-hidden text-sm sm:text-base"
               style={{
-                backgroundColor: theme.button_style === "filled" ? theme.button_color : 'transparent',
+                backgroundColor: themeButtonStripFill(theme),
                 fontSize: '15px',
                 lineHeight: '1.4',
               }}
@@ -4340,7 +4335,7 @@ function PublicBlockRenderer({
                 trackClick(block.id, data.url)
                 openSpotifyModal(data)
               }}
-              className={cn("w-full overflow-hidden transition-all cursor-pointer block", hoverEffect, getAnimationClass(data.animation_type))}
+              className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
                 padding: 0,
@@ -4362,7 +4357,7 @@ function PublicBlockRenderer({
                 trackClick(block.id, data.url)
                 openAppleMusicModal(data)
               }}
-              className={cn("w-full overflow-hidden transition-all cursor-pointer block", hoverEffect, getAnimationClass(data.animation_type))}
+              className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
                 padding: 0,
@@ -4381,7 +4376,7 @@ function PublicBlockRenderer({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackClick(block.id, targetUrl)}
-            className={cn("w-full overflow-hidden transition-all block", hoverEffect, getAnimationClass(data.animation_type))}
+            className={cn("op-card w-full overflow-hidden block", getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
               padding: 0,
@@ -4423,9 +4418,10 @@ function PublicBlockRenderer({
               trackClick(block.id, data.url)
               openSpotifyModal(data)
             }}
+            {...buttonHoverAttrs}
             className={cn(
-              "w-full flex items-center py-[19.5px] sm:py-[21.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer",
-              hoverEffect,
+              "op-btn w-full flex items-center font-medium cursor-pointer",
+              BUTTON_SIZE_CLASS[size],
               hasThumbnail ? "relative justify-center" : "justify-center",
               getDefaultAnimationClass(data.animation_type)
             )}
@@ -4435,17 +4431,17 @@ function PublicBlockRenderer({
               <img
                 src={data.thumbnail_url}
                 alt={data.label || ""}
-                className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
+                className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
-              <LinkIcon name={linkIcon} className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] shrink-0 absolute left-[20px]" />
+              <LinkIcon name={linkIcon} className={iconPlace} />
             ) : null}
-            <div className={cn("flex flex-col min-w-0", hasThumbnail ? "w-full text-center px-12" : "")}>
-              <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
+            <div className={labelColumn(hasThumbnail)}>
+              <span className={labelText}>{data.label || "Link"}</span>
               {/* Spotify info display */}
               {data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
                 <span
-                    className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                    className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                     style={{
                       color: theme.button_text_color,
                       opacity: 0.75
@@ -4477,29 +4473,30 @@ function PublicBlockRenderer({
               trackClick(block.id, data.url)
               openAppleMusicModal(data)
             }}
+            {...buttonHoverAttrs}
             className={cn(
-              "w-full relative flex items-center justify-center py-[19.5px] sm:py-[21.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all cursor-pointer",
-              hoverEffect,
+              "op-btn w-full relative flex items-center justify-center font-medium cursor-pointer",
+              BUTTON_SIZE_CLASS[size],
               getDefaultAnimationClass(data.animation_type)
             )}
             style={buttonStyles}
           >
-            {/* Thumbnail positioned absolutely on left */}
+            {/* Thumbnail positioned absolutely at the icon's side */}
             {data.thumbnail_url ? (
               <img
                 src={data.thumbnail_url}
                 alt={data.label || ""}
-                className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
+                className={cn(iconPlace, "rounded object-cover")}
               />
             ) : linkIcon ? (
-              <LinkIcon name={linkIcon} className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] shrink-0 absolute left-[20px]" />
+              <LinkIcon name={linkIcon} className={iconPlace} />
             ) : null}
-            <div className="flex flex-col min-w-0 w-full text-center px-12">
-              <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
+            <div className={labelColumn(true)}>
+              <span className={labelText}>{data.label || "Link"}</span>
               {/* Apple Music info display */}
               {data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
                 <span
-                  className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                  className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                   style={{
                     color: theme.button_text_color,
                     opacity: 0.75
@@ -4539,9 +4536,10 @@ function PublicBlockRenderer({
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => trackClick(block.id, data.url)}
+          {...buttonHoverAttrs}
           className={cn(
-            "w-full flex items-center py-[19.5px] sm:py-[21.5px] px-5 sm:px-6 font-medium text-[13px] sm:text-[15px] transition-all",
-            hoverEffect,
+            "op-btn w-full flex items-center font-medium",
+            BUTTON_SIZE_CLASS[size],
             // Both icons and thumbnails use centered layout with absolute positioning
             (hasIconOnly || hasThumbnail) ? "relative justify-center" : "justify-center",
             getDefaultAnimationClass(data.animation_type)
@@ -4552,17 +4550,17 @@ function PublicBlockRenderer({
             <img
               src={data.thumbnail_url}
               alt={data.label || ""}
-              className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
+              className={cn(iconPlace, "rounded object-cover")}
             />
           ) : linkIcon ? (
-            <LinkIcon name={linkIcon} className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] shrink-0 absolute left-[20px]" />
+            <LinkIcon name={linkIcon} className={iconPlace} />
           ) : null}
-          <div className={cn("flex flex-col min-w-0", (hasIconOnly || hasThumbnail) ? "w-full text-center px-12" : "")}>
-            <span className="text-center break-words whitespace-normal leading-tight">{data.label || "Link"}</span>
+          <div className={labelColumn(!!(hasIconOnly || hasThumbnail))}>
+            <span className={labelText}>{data.label || "Link"}</span>
             {/* Spotify info display */}
             {isSpotifyUrl(data.url) && data.spotify_show_metadata !== false && (data.spotify_title || data.spotify_artist) && (
               <span
-                className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                 style={{
                   color: theme.button_text_color,
                   opacity: 0.75
@@ -4583,7 +4581,7 @@ function PublicBlockRenderer({
             {/* Apple Music info display for default layout */}
             {isAppleMusic && data.apple_music_show_metadata !== false && (data.apple_music_title || data.apple_music_artist) && (
               <span
-                className="text-xs flex items-center justify-center gap-1 mt-0.5 max-w-full"
+                className={cn("text-xs flex items-center gap-1 mt-0.5 max-w-full", align === "left" ? "justify-start" : "justify-center")}
                 style={{
                   color: theme.button_text_color,
                   opacity: 0.75
@@ -4868,12 +4866,7 @@ function PublicBlockRenderer({
         button's radius below.
       */
       const emailButtonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
+        backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
@@ -5460,12 +5453,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const pdfButtonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
+        backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
@@ -5646,12 +5634,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const menuButtonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
+        backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,
@@ -5833,12 +5816,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const calendlyButtonStyles: React.CSSProperties = {
-        backgroundColor:
-          theme.button_style === "outline"
-            ? "transparent"
-            : theme.button_style === "glass"
-              ? "rgba(255, 255, 255, 0.15)"
-              : theme.button_color,
+        backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
         borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : (theme.button_border_width || 0)}px`,

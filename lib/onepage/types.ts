@@ -32,13 +32,23 @@ export interface OnePageTheme {
   background_image_url?: string | null
   text_color: string
   secondary_text_color?: string
-  button_style: "filled" | "outline" | "glass"
+  /* "soft" is a tint of button_color. How each is drawn: lib/onepage/button-style.ts. */
+  button_style: "filled" | "outline" | "glass" | "soft"
   button_color: string
   button_text_color: string
+  /* 0 reads as Square, 100 or more as Pill, anything between as Rounded. */
   button_border_radius: number
   button_border_width: number
   button_border_color: string
   button_hover_color?: string
+  button_shadow?: "none" | "subtle" | "strong" | "hard"
+  button_shadow_color?: string | null
+  /* "default" (or nothing) is Lift. */
+  button_hover_animation?: "default" | "none" | "lift" | "fade" | "zoom" | "glow" | "fill" | "underline" | null
+  /* Missing means what every button had before: regular, centred, icon on the left. */
+  button_size?: "compact" | "regular" | "large"
+  button_text_align?: "center" | "left"
+  button_icon_position?: "left" | "right"
   font_family: string
   // Title customization
   title_font?: string | null

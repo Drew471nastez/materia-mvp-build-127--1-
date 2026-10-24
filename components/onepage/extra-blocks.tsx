@@ -38,6 +38,7 @@
  * like it belongs to the page it is on.
  */
 
+import { buttonBackground } from "@/lib/onepage/button-style"
 import * as React from "react"
 import { useSyncExternalStore } from "react"
 import { CalendarClock, ChevronDown, ChevronRight, Clock, EyeOff, MapPin, Play, Plus, Trash2 } from "lucide-react"
@@ -105,7 +106,7 @@ export function themeButtonStyle(theme: OnePageTheme): React.CSSProperties {
     hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
   }
   return {
-    backgroundColor: theme.button_style === "outline" ? "transparent" : theme.button_style === "glass" ? "rgba(255, 255, 255, 0.15)" : theme.button_color,
+    backgroundColor: buttonBackground(theme),
     color: theme.button_text_color,
     borderRadius: `${theme.button_border_radius}px`,
     borderWidth: `${theme.button_style === "outline" ? Math.max(2, theme.button_border_width || 0) : theme.button_border_width || 0}px`,
