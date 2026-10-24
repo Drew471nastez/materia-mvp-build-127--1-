@@ -26,6 +26,8 @@ export const maxDuration = 60
 
 /** A push's JSON, generously. GitHub caps its own payloads at 25 MB; a push with no diff is small. */
 const MAX_BODY = 5_000_000
+/** A push's work after the answer: under maxDuration, so the function always ends on its own. */
+const PUSH_LIMIT_MS = 56_000
 
 export async function POST(req: Request) {
   const cfg = githubConfig()
@@ -96,7 +98,14 @@ export async function POST(req: Request) {
     const payload = body as PushPayload
     after(async () => {
       try {
-        const outcomes = await applyPush(db, cfg, payload)
+        /* Ends before Vercel's limit (maxDuration) with a line that says so, instead of a platform timeout with none. */
+        let stop: ReturnType<typeof setTimeout> | undefined
+        const outcomes = await Promise.race([
+          applyPush(db, cfg, payload),
+          new Promise<never>((_, reject) => {
+            stop = setTimeout(() => reject(new Error(`still running after ${PUSH_LIMIT_MS / 1000}s, stopped before the platform limit`)), PUSH_LIMIT_MS)
+          }),
+        ]).finally(() => clearTimeout(stop))
         const saved = outcomes.reduce((n, o) => n + o.saved.length, 0)
         const failed = outcomes.reduce((n, o) => n + o.failed.length, 0)
         /* Counts only: no file text, no token, no address. */
