@@ -11,6 +11,9 @@
  *   3. A translated plural ("{count, plural, one {# day} other {# days}}")
  *      was kept with its argument or its cases renamed, and drawn as a bare
  *      number or nothing.
+ *   4. A visitor in a market saw its prices in their language's way on the
+ *      website ("39,98 €" in German) and the same amounts at checkout in
+ *      English's ("€39.98").
  *
  *   npx tsx tests/ad4-currency-language.test.ts
  */
@@ -21,6 +24,14 @@ import { layeredWords, curatedLanguages, curatedWords } from "@/lib/checkout-tex
 import { checkoutSentences, checkoutKey, emailSentences } from "@/lib/markets/checkout-words"
 import { formatMessage } from "@/lib/i18n/text"
 import { sourceHash, type TranslationMap } from "@/lib/markets/translate"
+import { pricingFor, storefrontDisplay } from "@/lib/markets/pricing"
+import { cartAmounts } from "@/lib/markets/cart-money"
+import { checkoutMoneyLocale, convertOrder, marketCharge } from "@/lib/markets/checkout-charge"
+import { moneyIn } from "@/app/checkout/parts/ui"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+
+const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 let passed = 0
 let failed = 0
@@ -86,6 +97,23 @@ console.log("\n3. A translation keeps its plural's argument and cases\n")
   const bad: string[] = []
   for (const lang of curatedLanguages()) for (const [s, v] of Object.entries(curatedWords(lang))) if (all.has(s) && !keepsFixedParts(s, v)) bad.push(`${lang}: ${s} => ${v}`)
   check("every curated checkout and email sentence keeps its placeholders and plurals", bad.length === 0, bad.slice(0, 5))
+}
+
+console.log("\n4. The checkout writes a market's amounts as the website did\n")
+{
+  const now = Date.now()
+  const asOf = new Date(now).toISOString().slice(0, 10)
+  const pricing = pricingFor({ id: "de", name: "Germany", currency: "EUR", rounding: "nine_nine", adjustBps: 0 }, "RON", { asOf, rates: { RON: 5 } }, now)!
+  const display = storefrontDisplay(pricing, "de", "EUR")
+  const lines = [{ priceCents: 9995, quantity: 2 }]
+  const cart = cartAmounts(lines, display, "RON")
+  const charge = marketCharge(pricing)
+  const order = convertOrder(lines.map((l) => ({ unitCents: l.priceCents, quantity: l.quantity, discountCents: 0 })), { itemsSubtotalCents: 19990, discountCents: 0, shippingCents: 0, shippingDiscountCents: 0, taxCents: 0, taxIncluded: true, totalCents: 19990 }, charge)
+  const atCheckout = moneyIn(order.totals.totalCents, "EUR", checkoutMoneyLocale(charge, "de"))
+  check("the cart's total and the checkout's are written the same way", cart.total === atCheckout, { cart: cart.total, checkout: atCheckout })
+  check("  the store's own prices stay as every page writes them", checkoutMoneyLocale(null, "de") === "en-US" && moneyIn(4800, "RON", checkoutMoneyLocale(null, "de")) === "48.00\u00a0lei")
+  check("  the website's checkout is told the language when it charges a market", /<CheckoutCurrency currency=\{market\.chargeCurrency\} locale=\{checkoutMoneyLocale\(market\.charge, language\.lang\)\}>/.test(read("app/checkout/site/page.tsx")))
+  check("  and a tip's whole amount drops its decimals either way", /money\(cents\)\.replace\(\/\[\.,\]00/.test(read("app/checkout/parts/order-summary.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

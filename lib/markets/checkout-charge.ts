@@ -63,6 +63,16 @@ export function marketCharge(pricing: Pricing): MarketCharge {
 }
 
 /**
+ * The way a checkout writes its amounts: in the page's language when it
+ * charges the market's currency, as the website wrote that market's prices
+ * ("39,98 €" in German, lib/markets/cart-money); the store's own currency
+ * the way every page writes it ("48.00 lei", lib/store/shop-money).
+ */
+export function checkoutMoneyLocale(charge: MarketCharge | null | undefined, language: string | null | undefined): string {
+  return charge && language ? language : "en-US"
+}
+
+/**
  * The checkout's settings as its page says them in the market's currency:
  * the cash on delivery fee ("adds a fee of €2.01") converted as the quote
  * converts it, never the store's 10 lei written as €10.00.

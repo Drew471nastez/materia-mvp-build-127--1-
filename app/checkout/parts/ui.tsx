@@ -348,9 +348,9 @@ export const money = (cents: number, currency: string = CHECKOUT_CURRENCY) => fo
 /** The charge currency's own mark for an amount field ("$", "RON"), as money() writes it. */
 export const CURRENCY_MARK = markOf(CHECKOUT_CURRENCY)
 
-/** An amount in a given currency, written as money() writes the platform's. */
-export function moneyIn(cents: number, currency: string): string {
-  return formatCurrency((cents || 0) / 100, currency.toUpperCase(), "en-US")
+/** An amount in a given currency, written as money() writes the platform's, or in `locale`'s way (lib/markets/checkout-charge checkoutMoneyLocale). */
+export function moneyIn(cents: number, currency: string, locale = "en-US"): string {
+  return formatCurrency((cents || 0) / 100, currency.toUpperCase(), locale)
 }
 
 /** A currency's own mark for an amount field ("$", "lei", "€"), as money() writes it. */
@@ -367,9 +367,15 @@ export function markOf(currency: string): string {
   the platform's currency, exactly as before.
 */
 const CurrencyContext = React.createContext<string>(CHECKOUT_CURRENCY.toUpperCase())
+/* How the amounts are written: en-US as every store price is, or the page's language for a market's currency. */
+const MoneyLocaleContext = React.createContext<string>("en-US")
 
-export function CheckoutCurrency({ currency, children }: { currency: string; children: React.ReactNode }) {
-  return <CurrencyContext.Provider value={currency.toUpperCase()}>{children}</CurrencyContext.Provider>
+export function CheckoutCurrency({ currency, locale, children }: { currency: string; locale?: string; children: React.ReactNode }) {
+  return (
+    <CurrencyContext.Provider value={currency.toUpperCase()}>
+      <MoneyLocaleContext.Provider value={locale || "en-US"}>{children}</MoneyLocaleContext.Provider>
+    </CurrencyContext.Provider>
+  )
 }
 
 /** "RON": the currency this checkout charges in. */
@@ -377,10 +383,11 @@ export function useCheckoutCurrency(): string {
   return React.useContext(CurrencyContext)
 }
 
-/** money() in this checkout's currency. */
+/** money() in this checkout's currency, written the way its page writes it. */
 export function useMoney(): (cents: number) => string {
   const currency = useCheckoutCurrency()
-  return React.useCallback((cents: number) => moneyIn(cents, currency), [currency])
+  const locale = React.useContext(MoneyLocaleContext)
+  return React.useCallback((cents: number) => moneyIn(cents, currency, locale), [currency, locale])
 }
 
 /** CURRENCY_MARK in this checkout's currency. */
