@@ -65,6 +65,9 @@ console.log("\nSettings has room, and Billing is /app's")
   const settings = code("components/onepage/tabs/settings-tab.tsx")
   check("each section is /app's card, with its room", /className=\{cn\(APP_CARD, "p-5 sm:p-6"\)\}/.test(settings) && /import \{ StatusBadge, card as APP_CARD \} from "@\/app\/app\/orders\/order-parts"/.test(settings))
   check("the plan reads as Billing's plan card: current plan, price, fee per sale", /data-settings-plan=""/.test(settings) && /tt\("Current plan"\)/.test(settings) && /tt\("Fee per sale"\)/.test(settings) && /text-\[34px\] font-bold/.test(settings))
+  check("the pill row never cuts a pill: it wraps from 768px, and on a phone scrolls with an end piece and no bar (app-no-scrollbar)",
+    /md:flex-wrap md:overflow-visible/.test(settings) && /app-no-scrollbar after:block after:w-px after:shrink-0/.test(settings) && !/\.no-scrollbar\s*\{/.test(read("components/onepage/tabs/settings-tab.tsx")))
+  check("Settings is 768px wide in the editor, so the seven pills are one row where the column holds them", /t === "settings" \? "max-w-3xl"/.test(code("components/onepage/onepage-editor.tsx")))
   check("on Free, the plan cards are the very ones Billing draws", /<PlanCards\s+compact/.test(settings) && /from "@\/components\/billing\/plan-cards"/.test(settings))
 }
 

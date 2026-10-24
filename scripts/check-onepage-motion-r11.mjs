@@ -36,6 +36,11 @@
  *             button, icon and word before, during the press and after, the
  *             layout shift, no scale or transform on a press, no style that
  *             only a hover gives, and a haptic per tap (navigator.vibrate)
+ *   fit       Settings' seven pills: from 1024 (the editor's real column,
+ *             beside the phone preview) none is cut off or scrolled out of
+ *             reach, at Storelib's pill size; at 390 the row scrolls and its
+ *             last pill comes fully into view, 16px in from the edge, and a
+ *             chosen pill is always inside the row
  *   hover     a finger on a pill and on a tab changes no colour, border or
  *             size that a mouse's hover would
  *
@@ -59,7 +64,7 @@ if (!existsSync(CHROMIUM)) fail(`No browser at ${CHROMIUM}.`)
 const SHOTS = process.env.SHOTS || null
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const REPORT = !!process.env.REPORT
-const only = (process.env.ONLY || "contrast,switch,push,tabbar").split(",").filter(Boolean)
+const only = (process.env.ONLY || "contrast,fit,switch,push,tabbar").split(",").filter(Boolean)
 const wants = (k) => only.includes(k)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -172,7 +177,7 @@ async function shot(p, name) {
 /* ── CONTRAST: the chosen pill's words on its fill ───────────────────── */
 if (wants("contrast")) {
   console.log("\nThe chosen Settings pill can be read, light and dark, phone and computer")
-  const SECTIONS = ["basic", "seo", "subscribe", "share", "verified", "billing"]
+  const SECTIONS = ["basic", "seo", "subscribe", "share", "verified", "integrations", "billing"]
   for (const [label, vp, touch] of [["390", PHONE, true], ["1440", DESK, false]]) {
     for (const dark of [false, true]) {
       const { p, errors } = await open(vp, "settings", { dark })
@@ -242,11 +247,58 @@ if (wants("contrast")) {
           const card = document.querySelector('[data-settings-section="seo"]')?.getBoundingClientRect()
           return { rows: tops.size, tabs: tabs.length, rowTop: Math.round(row.top), cardTop: card ? Math.round(card.top) : null, listDownTheSide: !!document.querySelector('[data-pill-row="settings-list"]') }
         })
-        expect(shape.rows === 1 && shape.tabs === 6 && !shape.listDownTheSide && shape.cardTop > shape.rowTop, "1440: Settings is one row of six pills over the section, no list down the side", shape)
+        expect(shape.rows === 1 && shape.tabs === 7 && !shape.listDownTheSide && shape.cardTop > shape.rowTop, "1440: Settings is one row of seven pills over the section, no list down the side", shape)
       }
       expect(errors.length === 0, `${label} ${dark ? "dark" : "light"}: no page errors`, errors.slice(0, 2))
       await p.close()
     }
+  }
+}
+
+/* ── FIT: seven Settings pills, none cut off ───────────────────────── */
+if (wants("fit")) {
+  console.log("\nSettings' pills: none cut off at a computer's widths, the last one reachable on a phone")
+  const rowRead = (p) => p.evaluate(() => {
+    const row = document.querySelector('[data-pill-row="settings-pills"]')
+    const rr = row.getBoundingClientRect()
+    const pills = [...row.querySelectorAll("[data-tab]")].map((t) => {
+      const r = t.getBoundingClientRect()
+      return { id: t.getAttribute("data-tab"), l: r.left, r: r.right, t: r.top, w: r.width, h: r.height, pad: parseFloat(getComputedStyle(t).paddingLeft), font: parseFloat(getComputedStyle(t.querySelector("[data-pill-word]")).fontSize), cut: t.querySelector("[data-pill-word]").scrollWidth > t.querySelector("[data-pill-word]").clientWidth + 0.5 }
+    })
+    return { left: rr.left, right: rr.right, client: row.clientWidth, scroll: row.scrollWidth, vw: innerWidth, pills, lines: new Set(pills.map((x) => Math.round(x.t))).size }
+  })
+  for (const w of [1024, 1280, 1440]) {
+    const { p, errors } = await open({ width: w, height: 900 }, "settings")
+    const r = await rowRead(p)
+    const clipped = r.pills.filter((x) => x.l < r.left - 0.5 || x.r > r.right + 0.5 || x.r > r.vw || x.cut).map((x) => x.id)
+    const small = r.pills.filter((x) => x.h < 36 || x.pad < 16 || x.font < 13).map((x) => x.id)
+    numbers[`fit-${w}`] = { pills: r.pills.length, lines: r.lines, row: Math.round(r.client), content: Math.round(r.scroll) }
+    expect(r.pills.length === 7 && clipped.length === 0 && r.scroll <= r.client + 1, `${w}: all ${r.pills.length} pills whole inside the row (${r.lines} line${r.lines > 1 ? "s" : ""}), nothing scrolled out of reach`, { clipped, row: Math.round(r.client), content: r.scroll })
+    expect(small.length === 0, `${w}: at Storelib's pill size (36px tall, 16px in, 13px words)`, small)
+    if (SHOTS) await shot(p, `r11-fit-${w}`)
+    expect(errors.length === 0, `${w}: no page errors`, errors.slice(0, 2))
+    await p.close()
+  }
+  {
+    const { p, errors } = await open(PHONE, "settings")
+    const r = await rowRead(p)
+    expect(r.scroll > r.client, "390: the row scrolls sideways", { client: r.client, scroll: r.scroll })
+    await p.evaluate(() => { const row = document.querySelector('[data-pill-row="settings-pills"]'); row.scrollLeft = row.scrollWidth })
+    await sleep(200)
+    const end = await rowRead(p)
+    const last = end.pills.at(-1)
+    numbers["fit-390"] = { lastRight: Math.round(last.r), vw: end.vw, firstLeft: Math.round(r.pills[0].l) }
+    expect(last.l >= end.left - 0.5 && last.r <= end.right + 0.5 && end.vw - last.r >= 15.5, "390: scrolled to its end, the last pill is whole, 16px in from the edge like the first", { lastRight: last.r, vw: end.vw, firstLeft: r.pills[0].l })
+    for (const id of ["integrations", "billing", "basic"]) {
+      await tapOrClick(p, `[data-pill-row="settings-pills"] [data-tab="${id}"]`, true)
+      await sleep(700)
+      const k = await rowRead(p)
+      const x = k.pills.find((q) => q.id === id)
+      expect(x.l >= k.left - 0.5 && x.r <= k.right + 0.5, `390: ${id} chosen, its pill whole in view`, { l: x.l, r: x.r, left: k.left, right: k.right })
+    }
+    if (SHOTS) await shot(p, "r11-fit-390")
+    expect(errors.length === 0, "390: no page errors", errors.slice(0, 2))
+    await p.close()
   }
 }
 
@@ -274,7 +326,7 @@ if (wants("switch")) {
       let heights = new Set()
       let shift = 0
       let haptics0 = await p.evaluate(() => window.__vibes)
-      for (const id of ["seo", "subscribe", "share", "verified", "billing", "basic"]) {
+      for (const id of ["seo", "subscribe", "share", "verified", "integrations", "billing", "basic"]) {
         await startFrames(p, panelLook)
         await tapOrClick(p, `[data-pill-row="settings-pills"] [data-tab="${id}"]`, touch)
         await sleep(cpu > 1 ? 700 : 400)
@@ -295,7 +347,7 @@ if (wants("switch")) {
       expect(heights.size === 1, `${label}: the box under the pills never changes height`, [...heights])
       expect(shift < 0.001, `${label}: nothing shifts`, shift)
       expect(s.p95 <= 34, `${label}: p95 frame within two frames`, s)
-      if (touch) expect(haptics === 6, `${label}: a light haptic tick for each finger's choice`, haptics)
+      if (touch) expect(haptics === 7, `${label}: a light haptic tick for each finger's choice`, haptics)
       else expect(haptics === 0, `${label}: no haptics for a mouse`, haptics)
       expect(errors.length === 0, `${label}: no page errors`, errors.slice(0, 2))
       await p.close()
