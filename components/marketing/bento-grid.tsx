@@ -309,7 +309,7 @@ function CountUpRevenue() {
 
 export function BentoGrid() {
   return (
-    <section className="py-20 sm:py-24 bg-white">
+    <section data-home-after-hero="" className="pt-12 pb-20 sm:py-24 bg-white">
       <div className="max-w-[1200px] mx-auto px-6">
         <AnimateOnScroll variant="blur-in">
           <div className="text-center max-w-[640px] mx-auto mb-14">

@@ -6,7 +6,7 @@ import { HERO_SLIDES, HERO_SLIDE_RATIO, type HeroImage } from "@/lib/marketing/h
 import { AUTOPLAY_MS, DRAG_THRESHOLD_PX, GLIDE_MS, MOMENTUM_MS, STEP_NEAR, slidePose, wrap } from "@/lib/marketing/hero-slider"
 
 /**
- * The storefront slider under the hero's heading: the centre screenshot large
+ * The slider of Storelib screens under the hero's heading: the centre one large
  * and flat, its neighbours smaller and turned toward it, cut by the panel.
  *
  * ONE NUMBER DRIVES IT. `pos` is the index of the slide in the centre, as a
@@ -217,7 +217,7 @@ export function HeroCarousel({ slides = HERO_SLIDES }: { slides?: HeroImage[] })
       data-hero-carousel=""
       role="region"
       aria-roledescription="carousel"
-      aria-label="Stores built on Storelib"
+      aria-label="Storelib screens"
       tabIndex={0}
       className="hero-stage relative w-full select-none outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-inset"
       style={{ ["--hc-ratio" as string]: HERO_SLIDE_RATIO }}

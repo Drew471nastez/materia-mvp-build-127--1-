@@ -1,5 +1,3 @@
-"use client"
-
 import { AnimateOnScroll } from "./bento-grid"
 
 const BADGES = [
