@@ -34,7 +34,6 @@
   "components/store-builder/store-builder-context.tsx": 18,
   "components/store-builder/unified-section-renderer.tsx": 9,
   "lib/billing/overview.ts": 3,
-  "lib/native-camera.ts": 1,
   "lib/native-oauth.ts": 2,
   "lib/store-builder/storefront-chrome.ts": 1,
   "lib/theme-skeleton-colors.ts": 6,

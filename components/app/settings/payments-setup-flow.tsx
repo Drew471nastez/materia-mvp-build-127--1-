@@ -44,6 +44,7 @@ import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
 import "@/lib/stripe-nav-guard"
 import { armCameraSounds, IdCamera, sendIdPhoto, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
+import { mediaOffSheet, showAccessSheet } from "@/lib/native-permissions"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { readsLikeStripe, verifyLine } from "@/lib/payments/verify-id"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
@@ -2197,9 +2198,11 @@ function DetailsStep({
           void sendDocumentSide(side, blob)
         }}
         onClose={() => setCameraSide(null)}
-        onDenied={() => {
+        onDenied={(why) => {
           setCameraSide(null)
           setIdProblem(tt("Allow the camera for Storelib, then take the photo here."))
+          /* In the app, the phone's Settings in one tap (lib/native-permissions). A browser keeps the line above. */
+          if (why === "denied") showAccessSheet(mediaOffSheet("camera"))
         }}
         onNoBack={
           cameraSide === "back"

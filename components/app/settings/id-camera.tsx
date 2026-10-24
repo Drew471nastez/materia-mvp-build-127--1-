@@ -59,7 +59,7 @@ interface IdCameraProps {
    */
   bindStart?: (start: () => void) => void
   /** The camera could not start. The page shows its own way to try again. */
-  onDenied?: () => void
+  onDenied?: (why: "denied" | "none") => void
 }
 
 type Phase = "starting" | "live" | "review" | "denied" | "none"
@@ -150,7 +150,7 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindS
   /* No camera, or permission refused: hand it back so the page can ask for a tap. */
   React.useEffect(() => {
     if (!open || (phase !== "denied" && phase !== "none")) return
-    onDenied?.()
+    onDenied?.(phase)
   }, [open, phase, onDenied])
 
   /* Closed: the camera light goes off, and the next open starts fresh. */

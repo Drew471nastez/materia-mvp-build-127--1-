@@ -383,6 +383,7 @@ const SUITES = [
   "tests/onboarding-flow.test.ts",
   "tests/payouts-verification.test.ts",
   "tests/push-ask.test.ts",
+  "tests/native-permissions.test.ts",
   "tests/payments-status.test.ts",
   "tests/payments-readiness.test.ts",
   "tests/payments-reconcile.test.ts",

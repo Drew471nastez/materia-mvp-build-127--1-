@@ -72,6 +72,7 @@ import { goJoinAuth, isJoinAuthHref, prefetchJoinAuth } from "./join-nav"
 import { communityPath, JOINED_KEY } from "./paths"
 import { bothIntervals, buttonLabel, intervalPrice, priceParts } from "./join-words"
 import type { JoinOption, JoinStateView, PublicCommunityView } from "./types"
+import { nudgeNotifications } from "@/lib/notifications/nudge"
 
 type Interval = "month" | "year"
 /** Where a press is: nothing yet, the join on its way, or in (and the community on its way). */
@@ -167,6 +168,8 @@ async function post(url: string, body?: unknown): Promise<{ ok: boolean; data: R
  */
 export function enterCommunity(slug: string, router: { refresh: () => void }) {
   const home = communityPath(slug)
+  /* In the community from here on: in the app, its posts and replies are worth a notification (lib/notifications/nudge). */
+  nudgeNotifications("joined")
   /* The member's frame says welcome once it is drawn (shell-frame.tsx reads this, once). */
   try {
     window.sessionStorage.setItem(JOINED_KEY, slug)
