@@ -232,7 +232,7 @@ async function main() {
   {
     const tables = world()
     const { db } = fakeDb(tables, { refuseKind: true })
-    check("before part 283 (the check refuses the kind): unavailable, so the push goes as before", (await send(db, t0)) === "unavailable")
+    check("before part 284 (the check refuses the kind): unavailable, so the push goes as before", (await send(db, t0)) === "unavailable")
   }
   {
     const tables = world()
@@ -266,14 +266,14 @@ async function main() {
   check("the bell hears a row raised in place (an UPDATE) on its own inbox", /if \(table === "user_notifications"\) channel\.on\("postgres_changes", \{ event: "UPDATE", schema: "public", table, filter: `user_id=eq\.\$\{userId\}` \}, raised\)/.test(bell))
   check("a row being read does not count as raised", /const raised = [^]*?if \(!payload\.new \|\| payload\.new\.read_at\) return/.test(bell))
 
-  console.log("\nPart 283")
-  const sql = read("supabase/sql/run-now/283_direct_message_notifications.sql")
+  console.log("\nPart 284")
+  const sql = read("supabase/sql/run-now/284_direct_message_notifications.sql")
   const kinds = sql.match(/ADD CONSTRAINT user_notifications_kind_check CHECK \(kind IN \(([^)]+)\)\)/)?.[1] ?? ""
   check("keeps every kind it took and adds direct_message", kinds === [...USER_NOTIFICATION_KINDS, DM_NOTIFICATION_KIND].map((k) => `'${k}'`).join(", "), kinds)
   check("drops before it adds, in one statement, and waits for part 85", /DROP CONSTRAINT IF EXISTS user_notifications_kind_check, ADD CONSTRAINT user_notifications_kind_check/.test(sql) && /to_regclass\('public\.user_notifications'\) IS NULL/.test(sql))
   check("summary first, reload last", sql.startsWith("/* ") && sql.trimEnd().endsWith("notify pgrst, 'reload schema';"))
   check("its copy in migrations is byte for byte", read("supabase/migrations/20270215_direct_message_notifications.sql") === sql)
-  check("listed in the README and checked after", /`283_direct_message_notifications\.sql`/.test(read("supabase/sql/run-now/README.md")) && /as p283_direct_message_notifications[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("listed in the README and checked after", /`284_direct_message_notifications\.sql`/.test(read("supabase/sql/run-now/README.md")) && /as p284_direct_message_notifications[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {

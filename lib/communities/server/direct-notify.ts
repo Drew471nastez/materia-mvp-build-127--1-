@@ -9,7 +9,7 @@ import "server-only"
  * (sendDirectMessage's pushSoon), so a send never waits on it, and it never
  * throws.
  *
- * Before part 283 the table refuses the kind (its check) and before part 85
+ * Before part 284 the table refuses the kind (its check) and before part 85
  * there is no table: both answer "unavailable" and the message is told the
  * way it always was, by the push alone.
  */
@@ -44,7 +44,7 @@ export interface DirectNoteInput {
  * news         a row was written or raised: the push may go
  * quiet        the row was only updated (throttled), or the recipient should
  *              not hear it (viewing, muted, Nothing): no push either
- * unavailable  no bell for messages yet (part 283 not run): push as before
+ * unavailable  no bell for messages yet (part 284 not run): push as before
  */
 export type DirectNoteOutcome = "news" | "quiet" | "unavailable"
 
@@ -116,7 +116,7 @@ export async function noteDirectMessage(db: Db, m: DirectNoteInput): Promise<Dir
   }
 }
 
-/** The conversation was opened: its row in this person's bell is read. Never throws; nothing to do before part 283. */
+/** The conversation was opened: its row in this person's bell is read. Never throws; nothing to do before part 284. */
 export async function readDirectNote(db: Db, conversationId: string, userId: string): Promise<void> {
   if (!UUID.test(conversationId) || !UUID.test(userId)) return
   try {

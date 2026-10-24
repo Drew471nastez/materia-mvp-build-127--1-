@@ -16,7 +16,7 @@ import "server-only"
  * Read and marked with the server's client for this person alone: the table
  * lets a signed in person read their rows but not change them. With
  * communities off the rows are left out (their links answer 404 then).
- * Before part 283 there are no such rows and every function here answers
+ * Before part 284 there are no such rows and every function here answers
  * empty.
  */
 import { communitiesEnabled } from "@/lib/communities/flag"

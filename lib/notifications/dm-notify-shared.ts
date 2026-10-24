@@ -6,7 +6,7 @@
  * notification as well, not only in the messages ... not spammy, very
  * regulated." A direct message writes one row in the recipient's
  * `user_notifications` (kind "direct_message", source "communities", part
- * 283), so it is in the bell in communities and on Explore
+ * 284), so it is in the bell in communities and on Explore
  * (components/notifications/notification-bell.tsx) and, while unread, in the
  * /app panel too (app/api/notifications/route.ts).
  *
@@ -30,7 +30,7 @@
  */
 import { chatPushVerdict, type ChatPref } from "@/lib/communities/chat-rules"
 
-/** The row's kind in user_notifications (part 283 adds it to the table's check). */
+/** The row's kind in user_notifications (part 284 adds it to the table's check). */
 export const DM_NOTIFICATION_KIND = "direct_message"
 
 /** A raised row is not raised again, nor pushed again, for this long while it stays unread. */

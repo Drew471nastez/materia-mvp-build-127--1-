@@ -560,7 +560,7 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
     The other person's phone, right away (after the response): lib/notifications/push-bridge.ts.
     Round 37: not while they muted the conversation or have it open (their read mark is fresh), and the words only when the admins show previews.
     Round BC: and their bell, one row per conversation (./direct-notify.ts). While that row is unread and was raised a moment ago the
-    message only updates it and nothing is pushed; before part 283 there is no row and the push goes as it always did.
+    message only updates it and nothing is pushed; before part 284 there is no row and the push goes as it always did.
   */
   const senderId = viewer.userId
   const otherReadAt = conversation.user_a === other ? conversation.a_read_at : conversation.b_read_at
