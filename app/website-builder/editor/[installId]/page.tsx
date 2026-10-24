@@ -8,6 +8,7 @@ import { SyncNotice, useSyncStatus, type AgentNote, type SyncConflict } from "@/
 import type { ReportFile, SyncAction } from "@/lib/github-sync/editor-status"
 import { isGitHubName } from "@/lib/agent-access/connection-mark"
 import { putJsonWithRetry } from "@/lib/website-builder/save-request"
+import { fetchSignedIn } from "@/lib/website-builder/session-keep"
 import { createSaveQueue, retryDelayMs } from "@/lib/website-builder/save-queue"
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition, type ReactNode } from "react"
 import { flushSync } from "react-dom"
@@ -117,6 +118,7 @@ import { AutoTextarea } from "@/components/website-builder/auto-textarea"
 import { RichTextField } from "@/components/website-builder/rich-text-field"
 import { toPageSlug } from "@/lib/sites/slug"
 import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
+import { menuReaders, sameExceptMenus } from "@/lib/website-builder/menu-readers"
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
@@ -155,7 +157,7 @@ import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder
 import { DEFAULT_THEME_SOURCES } from "../../../../themes/default/sources.generated"
 import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor/ai-working-overlay"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
-import { headerLogoOf } from "@/lib/website-builder/chrome-logo"
+import { headerLogoOf, type HeaderLogo } from "@/lib/website-builder/chrome-logo"
 import { bodyGapToListIndex, insertPlaceBetween } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
@@ -220,6 +222,14 @@ type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, St
 type BuilderCollections = { choices: PickerCollection[]; cards: Record<string, StorefrontCollection> }
 /** The theme settings schema's fields, so a setting never set (the cookie banner's sentence) is drawn translated, as on the website (lib/markets/live.ts). */
 const THEME_TEXT_FIELDS = THEME_SETTINGS_GROUPS.flatMap((g) => g.fields ?? [])
+
+/** `next`, or the object kept in `ref` when it says the same (its product the same object, the rest the same values). */
+function keepSame<T extends { product?: unknown }>(ref: { current: T | null }, next: T): T {
+  const was = ref.current
+  if (was && was.product === next.product && JSON.stringify({ ...was, product: null }) === JSON.stringify({ ...next, product: null })) return was
+  ref.current = next
+  return next
+}
 
 /** An imported Shopify theme's pages, by the theme's own names for its templates, in the order a shop reads. */
 const COMPAT_PAGE_NAMES: [string, string, string][] = [
@@ -2611,6 +2621,32 @@ const INSPECT_FADE_MS = 200
 const COMPAT_PAINT_CAP_MS = 8000
 /** The longest one request for the website or a page's sections is waited for before it counts as failed. */
 const SECTIONS_WAIT_MS = 20_000
+
+/**
+ * A read of a page's sections, as the canvas waits for it (round 12). Asked
+ * again after 0.6s and 1.5s on a 5xx or a request that never answered,
+ * before anything is said ("took longer than 20s" and the schema cache's
+ * 503 were the production logs' two), and a 401 is asked about before it is
+ * a sign out (lib/website-builder/session-keep.ts). The page on screen stays
+ * all the while. A 5xx after the last try is handed back for the caller.
+ */
+async function readSections(url: string): Promise<Response> {
+  let last: Response | null = null
+  try {
+    return await retrying(async () => {
+      const r = await fetchSignedIn(() => fetchWithin(url, {}, SECTIONS_WAIT_MS))
+      if (r.status >= 500) {
+        last = r
+        throw new Error(`${url.split("?")[0]} answered ${r.status}`)
+      }
+      return r
+    }, SECTIONS_RETRY_MS)
+  } catch (e) {
+    if (last) return last
+    throw e
+  }
+}
+const SECTIONS_RETRY_MS = [600, 1500]
 /** How long Publish may take before the editor says so instead of spinning: the server writes it all in one step and moves the bookkeeping after its answer. */
 const PUBLISH_MS = 45_000
 /** The longest the canvas is held for a product opened from the address. */
@@ -3891,7 +3927,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // contact/product pages can never drift visually from home.
   const fetchHomeHeaderFooter = useCallback(async (): Promise<Chrome> => {
     /* Every wait here ends (lib/website-builder/load-guard.ts): a request that never answers is an error, not a canvas that never draws. */
-    const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections?page=home`, {}, SECTIONS_WAIT_MS)
+    /*
+      Asked again, quietly, on a 5xx or a request that never answered, and a
+      401 asked about first (lib/website-builder/session-keep.ts). A 5xx was
+      read as "home has no header": the page was drawn without its chrome.
+    */
+    const res = await readSections(`/api/website-builder/themes/${installId}/sections?page=home`)
     if (!res.ok) return {}
     const data = await res.json()
     const loaded: SectionInstance[] = data.sections ?? []
@@ -3910,7 +3951,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Which pages the server answered with sections it built rather than stored (fetchPageSections). */
   const generatedPages = useRef(new Set<string>())
   const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
-    const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections?page=${page}`, {}, SECTIONS_WAIT_MS)
+    /* Asked again quietly first (readSections): a server that blinked is not a page that could not be opened. */
+    const res = await readSections(`/api/website-builder/themes/${installId}/sections?page=${page}`)
     /* A server error is not an empty page: drawn as one, the next autosave would have written it over the real one. */
     if (res.status >= 500) throw new Error(`the ${page} page answered ${res.status}`)
     if (!res.ok) return []
@@ -4150,7 +4192,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     try {
     /* Asked again on a dropped connection or a 5xx, and never waited on forever; one that cannot be had is said over the canvas. */
     const res = await retrying(async () => {
-      const r = await fetchWithin(`/api/website-builder/themes/${installId}`, {}, SECTIONS_WAIT_MS)
+      const r = await fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}`, {}, SECTIONS_WAIT_MS))
       if (r.status >= 500) throw new Error(`the website answered ${r.status}`)
       return r
     }, [700, 2000])
@@ -6441,7 +6483,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!headerGroup && !footerGroup && !overlayGroup) return true
 
     // Fetch all pages for this install
-    const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections/sync-global`, {
+    const res = await fetchSignedIn(() => fetchWithin(`/api/website-builder/themes/${installId}/sections/sync-global`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -6453,7 +6495,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         current_page: page,
         mode,
       }),
-    }, 20_000).catch(() => null)
+    }, 20_000)).catch(() => null)
     if (!res?.ok) {
       console.warn("Failed to sync header/footer to other pages")
       return false
@@ -8704,7 +8746,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     (scripts/check-editor-sections.mjs: hiding one section drew 43).
   */
   const menuHeader = sections.find((s) => s.type === "header")
-  const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, menuHeader ? [menuHeader] : []), [activeThemeSettings, menuHeader])
+  /* Keyed on the menus themselves (round 12): keyed on the whole settings, each step of a theme slider made new menus and new storefront data, and every section drawn from a .storelib file drew again on the release. siteMenus reads nothing else of the theme. */
+  const activeMenus = (activeThemeSettings as Record<string, unknown>).menus
+  const canvasMenus = useMemo(() => siteMenus({ menus: activeMenus }, menuHeader ? [menuHeader] : []), [activeMenus, menuHeader])
   /* An imported Shopify theme (lib/storelib-theme/compat/install.ts): its canvas, its collections. */
   const canvasCompat = useMemo(() => compatOf(canvasThemeSettings), [canvasThemeSettings])
   const compatCollections = useMemo(
@@ -8847,20 +8891,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * as Shopify's Navigation does. Where the store does not keep menus yet,
    * they are saved with the theme as they always were.
    */
-  const menusJson = useMemo(() => JSON.stringify(cleanMenus((settingsDraft as Record<string, unknown>).menus)), [settingsDraft])
+  /* Keyed on the menus (round 12): keyed on the settings, every slider step and colour pick cleaned and wrote out all the menus again. */
+  const draftMenus = (settingsDraft as Record<string, unknown>).menus
+  const menusJson = useMemo(() => JSON.stringify(cleanMenus(draftMenus)), [draftMenus])
   useEffect(() => {
     const st = storeMenusRef.current
     if (loading || !st.available || menusJson === st.synced) return
     const timer = window.setTimeout(async () => {
       try {
-        const res = await fetch("/api/website-builder/menus", {
-          method: "PUT",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ menus: JSON.parse(menusJson) }),
-        })
+        /* Tried again on a 502 to 504, and a 401 asked about before it is a refusal (lib/website-builder/save-request.ts, session-keep.ts). */
+        const res = await putJsonWithRetry("/api/website-builder/menus", { menus: JSON.parse(menusJson) })
         if (res.ok) st.synced = menusJson
         else if (res.status === 409) st.available = false
-        else toast.error("Could not save menus. Try again.")
+        else toast.error(res.status === 401 ? "You're signed out. Sign in again to save menus." : "Could not save menus. Try again.", { id: "wb-menus-save" })
       } catch {
         toast.error("Could not save menus. Try again.")
       }
@@ -8960,8 +9003,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included, faqs: p.faqs })
       : null
   }, [currentPage, products, selectedProductPage, selectedProductId, previewMap, previewOriginals])
+  /* The same object while what it says is the same (round 12): it was made again for every theme change, a link typed in a menu included, which was new storefront data and every section on the canvas drawn again. */
+  const dynamicKept = useRef<ReturnType<typeof dynamicContext> | null>(null)
   const canvasDynamic = useMemo(
-    () => dynamicContext({
+    () => keepSame(dynamicKept, dynamicContext({
       /* The brand headline, description and search engine text a placeholder fills in, in the language previewed, as the live site's theme is (localizeTheme). */
       theme: previewMap ? localizeTheme(activeThemeSettings as Record<string, unknown>, previewMap, { approvedOnly: true, fresh: true }, THEME_TEXT_FIELDS) : activeThemeSettings,
       creator: creatorFacts,
@@ -8970,7 +9015,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       product: previewedProduct,
       pageTitle: pageTitleFromKey(currentPage),
       template: templateForPage(currentPage),
-    }),
+    })),
     [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage, previewMap],
   )
   /* Storelib Reviews: a page with a review section draws the store's reviews, or samples (components/website-builder/use-canvas-reviews.ts). */
@@ -12279,6 +12324,13 @@ function canvasThemePatcher(get: {
       const keys = written.get(el)
       /* Off screen it is drawn with the committed theme (EditorCanvasPage themeFor), and styled with it. */
       if (!get.onScreen(id)) { if (keys) letGo(el, keys); continue }
+      /*
+        No variable changed (round 12): a value no variable reads, a link
+        typed in a menu say, holds nothing still. Marked still anyway, every
+        section on screen was restyled whole as the mark went on and again
+        as it came off, twice a key (scripts/check-wb-perf-r12.mjs).
+      */
+      if (!changed.length) { if (keys) letGo(el, keys); continue }
       seen.add(el)
       const own = keys ?? new Set<string>()
       for (const k of own) if (!changed.includes(k)) { el.style.removeProperty(k); own.delete(k) }
@@ -12445,8 +12497,24 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
     () => themeLive && drawnByVariablesAlone(changedThemeKeys(theme as Record<string, unknown>, committedTheme as Record<string, unknown>), sources),
     [themeLive, theme, committedTheme, sources],
   )
+  /*
+    A LINK TYPED IN A MENU (round 12, lib/website-builder/menu-readers.ts):
+    the sections that show no menu keep the theme they had, which differs
+    from this one in its menus alone, so their memo holds and only the
+    header, the footer and a section with a menu setting draw again.
+  */
+  const menuless = useRef(committedTheme)
+  if (menuless.current !== committedTheme && !sameExceptMenus(menuless.current as Record<string, unknown>, committedTheme as Record<string, unknown>)) menuless.current = committedTheme
+  const themeMenus = (committedTheme as Record<string, unknown>).menus
+  const readers = useMemo(() => menuReaders(sections, sources, themeMenus), [sections, sources, themeMenus])
+  /* And those are drawn again whenever the menus they are drawn with change, wherever from (the header's own links make the Main menu until it is written): a theme of their own per menus. */
+  const drawnMenus = canvasStorefrontData?.menus
+  const readerTheme = useMemo(() => ({ ...committedTheme }), [committedTheme, drawnMenus])
   /* A section whose scheme colours are written as its variables keeps the committed theme too (canvasThemePatcher, A SCHEME COLOUR, ONLY ITS VARIABLES). */
-  const themeFor = (id: string) => (!themeLive || (!variablesAlone && onScreen(id) && !patchCanvasThemeVars.byVariables(id)) ? theme : committedTheme)
+  const themeFor = (id: string) => {
+    const t = !themeLive || (!variablesAlone && onScreen(id) && !patchCanvasThemeVars.byVariables(id)) ? theme : committedTheme
+    return t === committedTheme ? (readers.has(id) ? readerTheme : menuless.current) : t
+  }
   /**
    * The same navigate, already marked as coming from the site's navigation.
    * Memoised, because it is handed to every chrome section on every render
@@ -12494,7 +12562,15 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
     for one hidden).
   */
   const canvasHeader = sections.find((s) => s.type === "header")
-  const canvasHeaderLogo = useMemo(() => headerLogoOf(canvasHeader ? [canvasHeader] : []), [canvasHeader])
+  /* The same object while the logo's values are the same (round 12): any other edit of the header (its menu, a link) made a new one, a new render function in the live provider, and every section drew again (69 on a 120 section page, the first link added to the Main menu). */
+  const logoKept = useRef<HeaderLogo | null>(null)
+  const canvasHeaderLogo = useMemo(() => {
+    const next = headerLogoOf(canvasHeader ? [canvasHeader] : [])
+    const was = logoKept.current
+    if (was && next && (Object.keys(next) as (keyof HeaderLogo)[]).every((k) => was[k] === next[k])) return was
+    logoKept.current = next
+    return next
+  }, [canvasHeader])
   return (
     <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards} data={canvasStorefrontData} headerLogo={canvasHeaderLogo}>
     <ThemePage

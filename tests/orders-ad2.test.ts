@@ -14,8 +14,8 @@
  *   an order that ships wrote its money as if every currency had cents:
  *     "Payment of ¥25.00 received" for ¥2500, and "¥3 off" on Stripe's page
  *   the old Checkout Session path reset a returning customer to 1 order
- *   a part refunded line could never be refunded again from Orders, an
- *     Airwallex sale had no Refund at all, and a team member was offered
+ *   a part refunded line could never be refunded again from Orders, and a
+ *     team member was offered
  *     Refund on an order that ships
  *   the Customers page matched orders by exact case
  *   a second part refund showed only itself as the line's refunded total
@@ -159,8 +159,6 @@ async function main() {
     check("the webhook closes access when a chargeback opens", /if \(!inquiry\) await closeAccessForDispute\(supabaseAdmin, paymentIntentId/.test(created))
     check("and when an inquiry becomes one", /markPaymentDisputed\(supabaseAdmin, paymentIntentId\)\s*await closeAccessForDispute\(/.test(updated))
     check("and opens it again when one is won", /restorePaymentAfterWonDispute\(supabaseAdmin, piId\)\s*await reopenAccessAfterWonDispute\(supabaseAdmin, piId/.test(closedBlock))
-    const awx = strip(read("lib/payments/airwallex/events.ts"))
-    check("Airwallex disputes do the same", /closeAccessForDispute\(db, intentId, "provider_payment_id"/.test(awx) && /reopenAccessAfterWonDispute\(db, intentId, "provider_payment_id"/.test(awx))
   }
 
   console.log("\n2. Money on the seller's balance is in the wallet's currency")
@@ -219,7 +217,8 @@ async function main() {
     const part = line({ status: "refunded", refund_amount_cents: 300 })
     check("a part refunded line can refund the rest (it could not)", refundableCents(part) === 700 && canRefundLine(part))
     check("a line refunded in full cannot", refundableCents(line({ status: "refunded", refund_amount_cents: 1000 })) === 0 && !canRefundLine(line({ status: "refunded", refund_amount_cents: 1000 })))
-    check("an Airwallex sale can be refunded (it had no Refund)", canRefundLine(line({ stripe_payment_intent_id: null, provider: "airwallex", provider_payment_id: "int_abc" })))
+    /* Round AE: Airwallex was removed, so its old sales are refunded in the creator's Airwallex account, never from here. */
+    check("an Airwallex sale from before it was removed offers no Refund", !canRefundLine(line({ stripe_payment_intent_id: null, provider: "airwallex", provider_payment_id: "int_abc" })))
     check("cash not yet collected cannot; collected can", !canRefundLine(line({ stripe_payment_intent_id: null, payment_method: "cash_on_delivery", physical_cash_due: true })) && canRefundLine(line({ stripe_payment_intent_id: null, payment_method: "cash_on_delivery", physical_cash_due: false })))
     check("a disputed, failed or free line cannot", !canRefundLine(line({ status: "disputed" })) && !canRefundLine(line({ status: "failed" })) && !canRefundLine(line({ amount_cents: 0 })))
     const [order] = groupOrders([part])

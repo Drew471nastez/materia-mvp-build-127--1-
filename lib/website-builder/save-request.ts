@@ -1,4 +1,5 @@
 import { fetchWithin } from "./load-guard"
+import { fetchSignedIn } from "./session-keep"
 
 /**
  * An editor save, tried again when the server could not be reached.
@@ -18,7 +19,8 @@ export async function putJsonWithRetry(url: string, body: unknown, tries = 3): P
   for (let attempt = 1; ; attempt++) {
     try {
       /* Each try ends: a request that hangs is a dropped connection, tried again like one (./load-guard). */
-      const res = await fetchWithin(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: text }, ATTEMPT_MS)
+      /* A 401 is asked about first (./session-keep): renewed and sent again, never a sign out for a token that had just run out. */
+      const res = await fetchSignedIn(() => fetchWithin(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: text }, ATTEMPT_MS))
       if (!AGAIN.has(res.status) || attempt >= tries) return res
     } catch (e) {
       if (attempt >= tries) throw e

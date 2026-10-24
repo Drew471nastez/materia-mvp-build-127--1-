@@ -29,7 +29,9 @@ import "server-only"
  *
  * A RETRY FILLS GAPS. Lines that exist are skipped and the missing ones are
  * written, so the webhook answering 500 on a failed line and Stripe retrying
- * it completes a basket rather than duplicating one.
+ * it completes a basket rather than duplicating one. And what a line's
+ * writer did not get to after writing it (it died: a timeout, a deploy) is
+ * finished by the retry, step by step, never twice (./followups.ts).
  */
 
 import type Stripe from "stripe"
@@ -38,7 +40,8 @@ import { sendBuyerDownloadEmail, sendSellerNotificationEmail, resolveSellerEmail
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { randomBytes } from "node:crypto"
 import { unpackItems, packedTotalCents, apportionFee, lineTotalCents, type PackedItem } from "./cart-items"
-import { fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
+import { cartLineFollowups, fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
+import { beginFollowups, resumeFollowups, type FollowupKind, type Followups } from "./followups"
 import { isMissingColumn, recordCouponUse } from "./coupons"
 import { ORIGIN_METADATA_KEY, decodeOrigin, orderOriginFrom } from "@/lib/orders/order-source"
 import { attributionFromMetadata } from "@/lib/attribution/server"
@@ -311,12 +314,22 @@ async function writeBasket(
   const fees = apportionFee(s.feeTotal, items.map(lineTotalCents))
 
   const created: (FulfilledLine & { index: number })[] = []
+  /* Every line this call follows up: the ones it wrote, and ones another caller wrote and never finished. */
+  const followed: FollowedLine[] = []
+  const kind: FollowupKind = ctx.provider === "free" ? "cart_free" : ctx.sessionId.startsWith("cs_") ? "cart_session" : "cart_payment"
   let failed = 0
   for (let i = 0; i < items.length; i++) {
     const outcome = await fulfilCartLine(ctx, items[i], i, fees[i] ?? 0)
-    if (outcome.status === "created") created.push({ ...outcome.line, index: i })
-    else if (outcome.status === "failed") failed++
+    if (outcome.status === "created") {
+      created.push({ ...outcome.line, index: i })
+      const f = await beginFollowups(admin, outcome.line.orderId, { kind, ref: ctx.sessionId, log: "cart" })
+      followed.push({ ...outcome.line, index: i, f })
+    } else if (outcome.status === "exists" && outcome.orderId) {
+      const f = await resumeFollowups(admin, outcome.orderId, { log: "cart" })
+      if (f) followed.push({ orderId: outcome.orderId, productId: items[i].productId, receiptToken: ctx.receiptTokenFor(i), amountCents: outcome.amountCents ?? lineTotalCents(items[i]), soldOut: outcome.soldOut, index: i, f })
+    } else if (outcome.status === "failed") failed++
   }
+  for (const l of followed) await cartLineFollowups(ctx, l.f, { orderId: l.orderId, productId: l.productId, variantId: items[l.index]?.variantId ?? null, soldOut: l.soldOut })
 
   /* The receipt the buyer lands on: the basket's first line, whoever wrote it. */
   const firstToken = ctx.receiptTokenFor(0)
@@ -324,17 +337,18 @@ async function writeBasket(
   const receiptToken = firstOrder?.receipt_token ?? created[0]?.receiptToken ?? null
   if (!receiptToken) return { created: false, receiptToken: null, complete: false }
 
-  const ownsBasket = created.some((l) => l.index === 0)
-  if (created.length > 0) {
+  /* The basket's own steps go with its first line: whoever wrote it, or a retry finishing it. */
+  const ownsBasket = followed.some((l) => l.index === 0)
+  if (followed.length > 0) {
     await sideEffects(admin, {
       ctx,
-      created,
+      created: followed,
       ownsBasket,
       paidTotal: s.paidTotal,
       feeTotal: s.feeTotal,
       destinationPaymentId: s.destinationPaymentId,
       baseUrl: s.baseUrl,
-      firstOrderId: firstOrder?.id ?? created[0].orderId,
+      firstOrderId: firstOrder?.id ?? followed[0].orderId,
       receiptToken,
       couponId: s.couponId,
       couponHolder: s.couponHolder,
@@ -346,6 +360,7 @@ async function writeBasket(
       buyerLang: s.buyerLang ?? null,
       items,
     })
+    for (const l of followed) await l.f.finish()
   }
 
   /*
@@ -469,11 +484,14 @@ export async function fulfilFreeCart(
   return { ok: true, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete }
 }
 
+type FollowedLine = FulfilledLine & { index: number; f: Followups }
+
 async function sideEffects(
   admin: Db,
   s: {
     ctx: FulfilContext
-    created: (FulfilledLine & { index: number })[]
+    /** The lines this call follows up, each with its own record of steps; the first line's carries the basket's. */
+    created: FollowedLine[]
     ownsBasket: boolean
     paidTotal: number
     feeTotal: number
@@ -492,14 +510,11 @@ async function sideEffects(
     items: PackedItem[]
   },
 ) {
-  const step = async (name: string, fn: () => Promise<unknown>) => {
-    try {
-      await fn()
-    } catch (e) {
-      console.error(`[cart] ${name} failed for session ${s.ctx.sessionId}:`, e instanceof Error ? e.message : e)
-    }
-  }
   const { ctx } = s
+  /* The basket's steps are recorded on its first line (./followups.ts); only present when this call follows that line up. */
+  const basket = s.created.find((l) => l.index === 0)?.f ?? null
+  const once = (name: string, fn: () => Promise<unknown>) => (basket ? basket.once(name, fn) : Promise.resolve())
+  const idempotent = (name: string, fn: () => Promise<unknown>) => (basket ? basket.idempotent(name, fn) : Promise.resolve())
   const ids = [...new Set(s.created.map((l) => l.productId))]
   const { data: rows } = await admin.from("products").select("id, title").in("id", ids)
   const titles = new Map<string, string>((rows ?? []).map((r: { id: string; title: string }) => [r.id, r.title]))
@@ -508,8 +523,9 @@ async function sideEffects(
   /* The company on every line this caller wrote (part 35; a database
      without the column refuses this write alone). */
   const business = s.business
-  if (business) {
-    await step("business details", async () => {
+  if (business && s.created.length) {
+    /* One write for every line this call follows up, recorded on the first of them; writing it again changes nothing. */
+    await s.created[0].f.idempotent("business details", async () => {
       const { error } = await admin.from("orders").update({ business_details: business }).in("id", s.created.map((l) => l.orderId))
       if (error) throw new Error(`${error.code ?? ""} ${error.message ?? ""}`.trim())
     })
@@ -521,22 +537,22 @@ async function sideEffects(
     seller's email still carries the note (sale.buyerNote).
   */
   const buyerNote = s.buyerNote
-  if (buyerNote) {
-    await step("buyer note", async () => {
+  if (buyerNote && s.created.length) {
+    await s.created[0].f.idempotent("buyer note", async () => {
       const { error } = await admin.from("orders").update({ buyer_note: buyerNote }).in("id", s.created.map((l) => l.orderId))
       if (error && !isMissingColumn(error, "buyer_note")) throw new Error(`${error.code ?? ""} ${error.message ?? ""}`.trim())
     })
   }
 
   if (s.ownsBasket) {
-    await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.created[0]?.productId ?? null, s.consent ?? "none"))
+    await once("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.created[0]?.productId ?? null, s.consent ?? "none"))
     if (ctx.buyerEmail) {
       const buyerEmail = ctx.buyerEmail
       const source = contactSourceOfOrder(ctx.origin)
       /* One basket is one purchase to the creator's automations: one thank
          you, not one per product. Keyed by the basket's first order. */
       const names = [...new Set(s.created.map((l) => titles.get(l.productId)).filter((t): t is string => Boolean(t)))]
-      await step("email flows", () =>
+      await idempotent("email flows", () =>
         triggerEmailFlows(admin, {
           triggerType: "purchase",
           creatorId: ctx.creatorId,
@@ -552,19 +568,18 @@ async function sideEffects(
     }
     /* The code's use, once for the basket: only the caller that wrote its
        first line gets here, and that line is written once. */
-    if (s.couponId) await step("coupon use", () => recordCouponUse(admin, s.couponId, s.couponHolder))
+    if (s.couponId) await once("coupon use", () => recordCouponUse(admin, s.couponId, s.couponHolder))
     /* The seller's balance, once for the one payment, against the first line. */
-    await step("ledger", () =>
+    await idempotent("ledger", () =>
       recordSale(admin, { creatorId: ctx.creatorId, orderId: s.firstOrderId, total: s.paidTotal, fee: s.feeTotal, destinationPaymentId: s.destinationPaymentId, currency: ctx.currency }),
     )
     /* ONE receipt email for the basket: the sender reads every line of this
        session and lists them with one total. */
     if (ctx.buyerEmail) {
       const first = s.created.find((l) => l.index === 0)!
-      const attachments = s.paidTotal > 0 ? await basketPdf(admin, ctx.sessionId, s) : undefined
-      await step("buyer email", () =>
+      await once("buyer email", async () =>
         sendBuyerDownloadEmail(admin, {
-          attachments,
+          attachments: s.paidTotal > 0 ? await basketPdf(admin, ctx.sessionId, s) : undefined,
           orderId: first.orderId,
           creatorId: ctx.creatorId,
           buyerEmail: ctx.buyerEmail as string,
@@ -579,7 +594,7 @@ async function sideEffects(
         }),
       )
     }
-    await step("push", async () => {
+    await once("push", async () => {
       const { data: creator } = await admin.from("creators").select("user_id").eq("id", ctx.creatorId).maybeSingle()
       if (!creator?.user_id) return
       const { notifySale } = await import("@/lib/push/notifications")
@@ -595,7 +610,8 @@ async function sideEffects(
   /* The notification engine: the purchase once, from the caller that owns
      the basket, and a sale for each line this caller wrote, as the seller's
      emails below are (lib/orders/sale-events.ts). */
-  await step("notify", () =>
+  /* Keyed per order and per purchase (lib/orders/sale-events.ts), so a second raise changes nothing; recorded on each line it names. */
+  const raise = () =>
     raiseSaleEvents(admin, {
       creatorId: ctx.creatorId,
       purchase: s.ownsBasket ? { orderId: s.firstOrderId, amountCents: s.paidTotal, lineCount: s.created.length } : null,
@@ -603,8 +619,15 @@ async function sideEffects(
       buyerEmail: ctx.buyerEmail ?? null,
       buyerCountry: ctx.device?.country ?? null,
       correlationId: ctx.sessionId,
-    }),
-  )
+    })
+  let raised = false
+  for (const l of s.created) {
+    await l.f.idempotent("notify", async () => {
+      if (raised) return
+      await raise()
+      raised = true
+    })
+  }
 
   /* The seller hears about the order once: the first call lists every line
      of the basket and marks them all told, so the calls for the other lines
@@ -616,7 +639,7 @@ async function sideEffects(
     discountCents: s.items[l.index]?.discountCents ?? 0,
   }))
   for (const line of s.created) {
-    await step("seller email", () =>
+    await line.f.once("seller email", () =>
       sendSellerNotificationEmail(admin, {
         orderId: line.orderId,
         creatorId: ctx.creatorId,

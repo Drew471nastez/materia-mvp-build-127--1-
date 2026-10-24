@@ -1648,6 +1648,14 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
     account carries one. While a case is open the creator's share of that
     sale is taken back; if the creator wins it goes back to them. An inquiry
     (Stripe's warning_ statuses) moves no money and is only recorded.
+
+    A STEP THAT FAILS IS ANSWERED 500, so Stripe sends the event again (it
+    used to be caught and answered 200, and a dispute half handled stayed
+    that way). Every step is safe to run again: the money moves once (the
+    ledger keys and the reversal's own idempotency key), the orders' marks
+    and the library are set, not added to, and the notices are keyed. A
+    retry after the closing money was written skips the money and finishes
+    the rest.
   */
   if (
     event.type === "charge.dispute.created" ||
@@ -1800,7 +1808,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
               productName = disputedProductName(productIds.map((id) => titleOf.get(id)))
             }
           } catch (markErr) {
+            /* Half handled: answered 500 below, so Stripe sends it again and this is done then. */
             console.error("[Webhook] Dispute: orders not marked disputed:", markErr)
+            throw markErr
           }
         }
         await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, order_id: orderId, product_title: productName })
@@ -1827,25 +1837,31 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           .eq("event_type", "dispute_closed")
           .maybeSingle()
 
-        if (existingClosed) {
-          console.log("[Webhook] Dispute close already processed:", dispute.id)
-          return NextResponse.json({ received: true })
-        }
+        /* Written by an earlier delivery: the money moved then (it is written after the give back), so only the rest is finished now. */
+        const moneyDone = !!existingClosed
 
         await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, status: dispute.status, inquiry, outcome: outcomeOf(dispute.status), closed_at: new Date().toISOString() })
 
         if (dispute.status === "won") {
           /* What was taken back goes back: Storelib's own record of it, or Stripe's reversals of the transfer. */
           const recorded = await readDispute(supabaseAdmin, dispute.id)
-          const reversed = recorded && recorded.reversed_minor > 0 ? recorded.reversed_minor : (await reversedFor(ctx.transferId, dispute.id)).reversedMinor
-          const given = await giveBackAfterWon(ctx, dispute, reversed)
-          if (given.state !== "not_needed") {
-            await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, restored_minor: given.restoredMinor, restore_transfer_id: given.transferId, recovery: given.state })
+          let totalRestored = 0
+          if (moneyDone) {
+            /* For the notice only: what the earlier delivery gave back. */
+            const { data: kept } = await supabaseAdmin.from("payment_disputes").select("restored_minor").eq("stripe_dispute_id", dispute.id).maybeSingle()
+            totalRestored = Math.max(0, Number((kept as { restored_minor?: number } | null)?.restored_minor) || 0)
           }
-          /* On an older charge Stripe returns the amount and the fee to the creator's own account. */
-          const totalRestored = ctx.onPlatform ? given.restoredMinor : disputeAmountCents + disputeFeeCents
+          if (!moneyDone) {
+            const reversed = recorded && recorded.reversed_minor > 0 ? recorded.reversed_minor : (await reversedFor(ctx.transferId, dispute.id)).reversedMinor
+            const given = await giveBackAfterWon(ctx, dispute, reversed)
+            if (given.state !== "not_needed") {
+              await saveDispute(supabaseAdmin, { stripe_dispute_id: dispute.id, restored_minor: given.restoredMinor, restore_transfer_id: given.transferId, recovery: given.state })
+            }
+            /* On an older charge Stripe returns the amount and the fee to the creator's own account. */
+            totalRestored = ctx.onPlatform ? given.restoredMinor : disputeAmountCents + disputeFeeCents
+          }
 
-          if (totalRestored > 0) {
+          if (!moneyDone && totalRestored > 0) {
             /* Back in the wallet's currency, as it was taken. */
             const restoredWallet = await toLedger([totalRestored], disputeCurrency)
             const [walletRestored] = restoredWallet.amounts
@@ -1906,7 +1922,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
               /* And the product back in the buyer's library, which the dispute took (lib/stripe/dispute-orders). */
               await reopenAccessAfterWonDispute(supabaseAdmin, piId, "stripe_payment_intent_id", communityAccessAfterEntitlement)
             } catch (restoreErr) {
+              /* Half handled: answered 500 below, so Stripe sends it again and the orders are restored then. */
               console.error("[Webhook] Dispute won: orders not restored:", restoreErr)
+              throw restoreErr
             }
           }
 
@@ -1922,8 +1940,8 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           })
         } else {
           /* Lost: what was taken back stays taken. An inquiry that closed moved nothing, so it writes nothing. */
-          if (!inquiry) {
-            await supabaseAdmin.from("ledger_events").insert({
+          if (!inquiry && !moneyDone) {
+            const { error: lostError } = await supabaseAdmin.from("ledger_events").insert({
               creator_id: creator.id,
               event_type: "dispute_closed",
               amount_cents: disputeAmountCents,
@@ -1932,6 +1950,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
               stripe_dispute_id: dispute.id,
               description: `Dispute lost: ${amountText(disputeAmountCents, disputeCurrency)}`,
             })
+            if (lostError) throw new Error(`dispute close not recorded: ${lostError.message}`)
           }
 
           await emit({
@@ -1958,7 +1977,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
               await markPaymentDisputed(supabaseAdmin, paymentIntentId)
               await closeAccessForDispute(supabaseAdmin, paymentIntentId, "stripe_payment_intent_id", communityAccessAfterEntitlement)
             } catch (markErr) {
+              /* Half handled: answered 500 below, so Stripe sends it again. */
               console.error("[Webhook] Dispute: orders not marked disputed:", markErr)
+              throw markErr
             }
           }
         }
@@ -1974,7 +1995,9 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
         })
       }
     } catch (error: any) {
+      /* Not 200: Stripe sends the event again, and every step above is safe to run twice. */
       console.error("[Webhook] Error processing dispute event:", error)
+      return NextResponse.json({ error: "The dispute could not be fully recorded. Stripe will send it again." }, { status: 500 })
     }
 
     return NextResponse.json({ received: true })

@@ -756,7 +756,7 @@ function InfraPanel({ report }: { report: PerfReport }) {
         )}
         {line(
           "Webhooks",
-          "Stripe, Mailgun and Airwallex, answer time at the 75th percentile",
+          "Stripe and Mailgun, answer time at the 75th percentile",
           <span className="block">
             <Figure unit="ms" value={hooks?.p75 ?? null} samples={hooks?.samples ?? 0} min={MIN_SAMPLES} good={METRIC_LINES.api.good} poor={METRIC_LINES.api.poor} />
             {hooks && hooks.bad ? <span className="block text-[11px] tabular-nums text-[#f47067]">{num(hooks.bad)} answered 5xx</span> : null}

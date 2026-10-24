@@ -55,13 +55,23 @@ export const MENU_SUGGESTIONS = [msg("Footer"), msg("Shop"), msg("Help"), msg("L
 /** A link's place in the menu as the list editor names it: "2", or "2/0" for a sub-link. */
 const pathOf = (id: string): number[] => id.split("/").map(Number)
 
+/*
+  The same row object for a link that did not change (round 12), so the list
+  draws again only the row being typed in (link-list-editor.tsx, LinkRow). A
+  change to a link is a new link object (withLink), and so is its parent.
+*/
+const itemOf = new WeakMap<MenuLink, LinkItem>()
+function menuItem(l: MenuLink, id: string, kids: boolean): LinkItem {
+  const hit = itemOf.get(l)
+  if (hit && hit.id === id) return hit
+  const item: LinkItem = kids
+    ? { id, label: l.title, url: l.url, children: (l.links ?? []).map((c, j) => menuItem(c, `${id}/${j}`, false)) }
+    : { id, label: l.title, url: l.url }
+  itemOf.set(l, item)
+  return item
+}
 function menuItems(links: MenuLink[]): LinkItem[] {
-  return links.map((l, i) => ({
-    id: String(i),
-    label: l.title,
-    url: l.url,
-    children: (l.links ?? []).map((c, j) => ({ id: `${i}/${j}`, label: c.title, url: c.url })),
-  }))
+  return links.map((l, i) => menuItem(l, String(i), true))
 }
 
 /** The links with the list at `path` replaced by `fn` of it. */

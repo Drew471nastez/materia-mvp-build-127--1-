@@ -199,7 +199,7 @@ export async function GET(request: Request) {
       const fee = order.fee_cents || 0
       const sellersShare = Math.max(0, money.gross - fee)
       payments.push({ date: dateKey, gross: money.gross, net: sellersShare })
-      /* A refund takes back the seller's share in proportion (the refund route's reverse_transfer); Storelib's fee is kept (lib/payments/refunds). */
+      /* A refund takes back the seller's share in proportion (the refund route's reverse_transfer); Storelib's fee is kept. */
       if (money.refunded > 0) {
         const takenBack = money.gross > 0 ? Math.round((sellersShare * money.refunded) / money.gross) : 0
         refunds.push({ date: dateKey, gross: -money.refunded, net: -takenBack })

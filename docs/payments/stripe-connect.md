@@ -4,7 +4,7 @@
 
 `Storelib Commerce → lib/payments/service → lib/payments/stripe/* → Stripe API`
 
-Creators on Stripe (default) use the `creators` row as the payment account record (`stripe_account_id`, capability flags, requirements). Airwallex creators use `payment_accounts` (part 76).
+Creators on Stripe (default) use the `creators` row as the payment account record (`stripe_account_id`, capability flags, requirements). Airwallex was removed; its old rows in `payment_accounts` (part 76) and old orders with `provider = 'airwallex'` are kept and read only (`lib/payments/past-provider.ts`).
 
 ## Connect configuration
 

@@ -110,15 +110,18 @@ const LABEL_TEXT = "text-[13px] max-sm:text-[15px]"
 
 const HAIRLINE = "border-t border-border dark:border-white/[0.07]"
 
-function LinkRow({
-  item,
-  index,
-  depth,
-  parent,
-  above,
-  first,
-  ctx,
-}: {
+/*
+  ONE ROW DRAWN AGAIN FOR A KEY TYPED IN IT, NOT THE MENU (round 12). Every
+  key in a link's name drew every row of the menu again, each with its
+  action menu and its reveal: on a menu of 266 links that was most of a
+  key's time (scripts/check-wb-perf-r12.mjs, "add menu link"). A row is
+  drawn again when its own link changes, its neighbours' names it shows
+  change, or the list's state does (which row is open, a drag, the menu's
+  shape, the targets), all said by `rev`. What a row calls is the list's
+  latest (`ctx` reads through to it), so a row not drawn again never acts
+  on an older menu.
+*/
+type RowProps = {
   item: LinkItem
   index: number
   depth: number
@@ -126,7 +129,25 @@ function LinkRow({
   above: LinkItem | null
   first: boolean
   ctx: Ctx
-}) {
+  rev: string
+  /** This row or one of its sub-links is the open one. */
+  openHere: boolean
+}
+const sameRow = (a: RowProps, b: RowProps) =>
+  a.item === b.item && a.index === b.index && a.depth === b.depth && a.first === b.first && a.rev === b.rev && a.ctx === b.ctx && a.openHere === b.openHere &&
+  a.parent?.id === b.parent?.id && a.parent?.label === b.parent?.label &&
+  a.above?.id === b.above?.id && a.above?.label === b.above?.label && a.above?.children?.length === b.above?.children?.length
+
+const LinkRow = React.memo(function LinkRow({
+  item,
+  index,
+  depth,
+  parent,
+  above,
+  first,
+  ctx,
+  rev,
+}: RowProps) {
   const expanded = ctx.open === item.id
   const kids = item.children ?? []
   const name = item.label.trim()
@@ -159,7 +180,19 @@ function LinkRow({
   ]
 
   return (
-    <div data-link-row={item.id} data-link-depth={depth} data-link-held={ctx.drag.dragging === item.id ? "" : undefined} className="transition-opacity duration-150">
+    <div
+      data-link-row={item.id}
+      data-link-depth={depth}
+      data-link-held={ctx.drag.dragging === item.id ? "" : undefined}
+      /*
+        A top-level row off screen is not styled or laid out (round 12): a
+        link added to a menu of 266 restyled every row of it, some 5,000
+        elements (scripts/check-wb-perf-r12.mjs, "add menu link"). Its size
+        until it is first drawn is its bar and its sub-links' bars.
+      */
+      className={cn("transition-opacity duration-150", depth === 0 && "[content-visibility:auto]")}
+      style={depth === 0 ? { containIntrinsicSize: `auto ${36 * (1 + kids.length)}px` } : undefined}
+    >
       <div className={cn("relative", !first && HAIRLINE)}>
         <div className={BAR} data-link-bar="" {...hold}>
           <button
@@ -275,12 +308,12 @@ function LinkRow({
         <div className={cn("relative", HAIRLINE)} style={{ paddingLeft: LINK_STEP }} data-link-children={item.id}>
           {/* The guide: a hairline from the parent's grip down its sub-links. */}
           <span aria-hidden className="pointer-events-none absolute bottom-2 top-0 left-[13.5px] z-[1] w-px bg-border max-sm:left-[21.5px] dark:bg-white/[0.09]" />
-          <LinkLevel items={kids} parent={item} depth={1} ctx={ctx} />
+          <LinkLevel items={kids} parent={item} depth={1} ctx={ctx} rev={rev} open={ctx.open} />
         </div>
       )}
     </div>
   )
-}
+}, sameRow)
 
 function AddRow({ label, onClick, ...rest }: { label: string; onClick: () => void } & Record<`data-${string}`, string>) {
   return (
@@ -303,7 +336,7 @@ function AddRow({ label, onClick, ...rest }: { label: string; onClick: () => voi
   )
 }
 
-function LinkLevel({ items, parent, depth, ctx }: { items: LinkItem[]; parent: LinkItem | null; depth: number; ctx: Ctx }) {
+function LinkLevel({ items, parent, depth, ctx, rev, open }: { items: LinkItem[]; parent: LinkItem | null; depth: number; ctx: Ctx; rev: string; open: string | null }) {
   const parentId = parent?.id ?? null
   return (
     <div data-link-level={parentId ?? "top"}>
@@ -317,6 +350,8 @@ function LinkLevel({ items, parent, depth, ctx }: { items: LinkItem[]; parent: L
           above={i > 0 ? items[i - 1] : null}
           first={i === 0}
           ctx={ctx}
+          rev={rev}
+          openHere={open !== null && (open === item.id || (item.children ?? []).some((c) => c.id === open))}
         />
       ))}
     </div>
@@ -389,11 +424,19 @@ export function LinkListEditor(props: LinkListEditorProps) {
   })
 
   const ctx: Ctx = { ...props, open, setOpen, add, targets, onNest, canNest, canOut, drag }
+  /* The rows' context, read through to this render's (see LinkRow), and what they show of it as one string. */
+  const ctxNow = React.useRef(ctx)
+  ctxNow.current = ctx
+  const [rowCtx] = React.useState(() => new Proxy({} as Ctx, { get: (_, k) => ctxNow.current[k as keyof Ctx] }))
+  const targetsRev = React.useRef<{ of: LinkTarget[]; n: number }>({ of: targets, n: 0 })
+  if (targetsRev.current.of !== targets) targetsRev.current = { of: targets, n: targetsRev.current.n + 1 }
+  /* Which row is open is each row's own (openHere); a link added or removed changes only whether there is room for another (canOut), and each row's place is its own props. */
+  const rev = [drag.dragging ?? "", room ? 1 : 0, targetsRev.current.n, props.nested ? 1 : 0, props.maxLinks ?? "", props.maxSubLinks ?? "", props.maxLabel ?? "", props.onNest ? 1 : 0, props.onPlace ? 1 : 0].join("|")
 
   return (
     <div className={cn("relative", props.disabled && "pointer-events-none opacity-50")} data-link-list="" ref={drag.listRef}>
       {drag.line}
-      {props.items.length > 0 && <LinkLevel items={props.items} parent={null} depth={0} ctx={ctx} />}
+      {props.items.length > 0 && <LinkLevel items={props.items} parent={null} depth={0} ctx={rowCtx} rev={rev} open={open} />}
       {room && (
         <div className={cn(props.items.length === 0 && "[&>button]:border-t-0")}>
           <AddRow label={tt("Add link")} onClick={() => add(null)} data-link-add="top" />

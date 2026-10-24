@@ -43,6 +43,8 @@ function check(label: string, ok: boolean, detail?: string) {
 /** How a route may establish who is asking. */
 const PROOFS: [string, RegExp][] = [
   ["a signed-in session", /auth\.getUser\(\)/],
+  /* Round 12 (WBPERF): lib/website-builder/owned-install.ts editorUser is readCurrentUser for the builder's routes: 401 for Auth's nobody, 503 for a blip, and the route acts only on its `user`. */
+  ["a signed-in session, classified for the builder", /await editorUser\(supabase\)[\s\S]*if \(!user\)/],
   /* lib/auth/current-user.ts: getUser(), with "Supabase did not answer" kept
      apart from "nobody is signed in". A route that uses it acts only on
      `current.user`, which is null in both. */
@@ -53,8 +55,6 @@ const PROOFS: [string, RegExp][] = [
   ["the admin password", /isAdminAuthenticated|await requireAdmin\(\)/],
   ["a shared secret, failing closed", /requireBearerSecret\(/],
   ["a signature on the payload", /constructEvent|HOOK_SECRET/],
-  /* app/api/payments/airwallex/webhook: x-timestamp and x-signature, HMAC over the raw body, before anything is parsed. */
-  ["Airwallex's signature on the payload", /verifyAirwallexSignature\(\{\s*rawBody: raw,/],
   /* An agent connected to one site: its token, hashed, looked up, revocable.
      See lib/agent-access/tokens.ts. */
   ["a site connection token", /await authenticateAgent\(request\)/],
@@ -119,7 +119,6 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
 
   // Buyers. A buyer does not have an account on this platform.
   "checkout/confirm-payment/route.ts": "keyed by the Stripe payment intent and its client secret, which only the paying page holds",
-  "payments/airwallex/return/route.ts": "keyed by the Airwallex payment intent and its client secret, which only the paying tab holds (lib/payments/checkout)",
   "checkout/invoice/route.ts": "the receipt token is the credential",
   "checkout/site/route.ts": "a website's own checkout, a buyer paying (who may be a guest): only on a host that is a creator's published website, whose shop it is (siteOfRequest, from the database), every price the server's and another shop's products refused; an account first comes from the website's own signed session cookie when the store asks for one; the payment is confirmed with its client secret, which only the paying page holds; rate limited like the other payment routes",
   "receipt/[token]/assets/route.ts": "the receipt token in the path is the credential",

@@ -135,7 +135,7 @@ console.log("\nA VALUE THE PAGE ONLY READS AS A VARIABLE")
   for (const f of renderers) for (const k of Object.keys(VARIABLE_ONLY_THEME_SETTINGS)) if (new RegExp(`theme(\\?)?\\.${k}\\b|theme\\[["']${k}["']\\]`).test(read(f))) fromTheme.push(`${f}: ${k}`)
   check("nor does the canvas's own React read one off the theme", fromTheme.length === 0, fromTheme)
   const page = read("app/website-builder/editor/[installId]/page.tsx")
-  check("the canvas keeps the committed theme for every section when the variables are enough", /drawnByVariablesAlone\(changedThemeKeys\(theme as Record<string, unknown>, committedTheme as Record<string, unknown>\), sources\)/.test(page) && /\(!themeLive \|\| \(!variablesAlone && onScreen\(id\)/.test(page))
+  check("the canvas keeps the committed theme for every section when the variables are enough", /drawnByVariablesAlone\(changedThemeKeys\(theme as Record<string, unknown>, committedTheme as Record<string, unknown>\), sources\)/.test(page) && /* Changed on purpose (round 12, WBPERF): the choice is `const t = ...` now, then a section that shows no menu keeps the theme it had (lib/website-builder/menu-readers.ts). */ /const t = !themeLive \|\| \(!variablesAlone && onScreen\(id\)/.test(page))
   check("the committed theme's variables are worked out once per theme, not per move", /let was = committedVars\.get\(base\)/.test(page))
 }
 

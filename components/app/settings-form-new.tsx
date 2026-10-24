@@ -240,8 +240,6 @@ interface SettingsFormProps {
    * so the confirmation can name everything it removes.
    */
   otherStores?: number
-  /** Who pays this creator (lib/payments/service providerFor). Airwallex draws Storelib Payments' hub in the Payments tab. */
-  paymentsProvider?: "stripe" | "airwallex"
   /** Working in another store as a team member (lib/team): only the account's own sections, never this account's store dressed as the one they work in. */
   teamActing?: boolean
   initialTab?: TabId
@@ -375,7 +373,7 @@ function DesktopSettingsModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], otherStores = 0, paymentsProvider = "stripe", teamActing = false, initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], otherStores = 0, teamActing = false, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(currentLanguage)
@@ -2262,7 +2260,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {panelTab === "payments" && (
             <PaymentsHub
               statementDescriptorSlot={
-                paymentsProvider === "stripe" ? (
+                (
             <div className="space-y-[10px] sm:space-y-[14px] pt-2">
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-5 shadow-sm border border-[#e5e7eb]">
                 <div className="space-y-1.5 max-w-[420px]">
@@ -2327,7 +2325,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 </div>
               </MobileBottomSheet>
             </div>
-                ) : null
+                )
               }
             />
           )}

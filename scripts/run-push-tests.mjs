@@ -211,6 +211,7 @@ const SUITES = [
   "tests/analytics-e2e.test.ts",
   /* Round AB2: every /app Analytics figure against a fixture counted by hand and an independent reference (7 ranges, 5 places, All/Digital/Physical), the sales reports counted by the tabs' own rules, the comparison across a DST week, the yen cards, the morph by what a store sells, Add report at the bottom and the CSV export (scripts/check-analytics-ab2.mjs measures the page). */
   "tests/analytics-accuracy.test.ts",
+  "tests/order-followups.test.ts",
   /* Round AC2: a lei store selling in five other currencies through the routes' own code with day rates in the database fake, yen and dinar stores, the phantom discount of a converted line, refunds dated by the refund, shares that add up to 100, changes against nothing and below nothing, and the export's report and format choices (scripts/check-analytics-ac2.mjs measures the page). */
   "tests/analytics-currency.test.ts",
   /* Round AD1: bugs found by reading every analytics path, each a failing check first: Home's revenue line and the chart axis in the currency's own decimals, a product's orders as payments, kept answers of one period shown as another's, the jsonb origin, GA's purchase value in yen, the creator's own connected domain opened from the app. */
@@ -377,7 +378,7 @@ const SUITES = [
   "tests/anthropic-provider.test.ts",
   "tests/ai-chatgpt-only.test.ts",
   "tests/own-ai.test.ts",
-  "tests/storelib-payments.test.ts",
+  "tests/payments-stripe-only.test.ts",
   "tests/admin-payments-fees.test.ts",
   "tests/payments-setup-errors.test.ts",
   "tests/stripe-payments-facts.test.ts",
@@ -463,7 +464,7 @@ const SUITES = [
   "tests/money-rows-server-only.test.ts",
   "tests/private-columns.test.ts",
   "tests/ledger-and-deletion.test.ts",
-  /* Background jobs run once and stop (a Stripe or Airwallex event taken before it is handled, a job cut off every time ends), and run-now part 189 */
+  /* Background jobs run once and stop (a Stripe event taken before it is handled, a job cut off every time ends), and run-now part 189 */
   "tests/jobs-and-isolation.test.ts",
   /* A job, a store's translation and an order line, each done once (a lost job lease writes nothing, the hourly translate claim, run-now part 190) */
   "tests/jobs-dupes.test.ts",
@@ -896,6 +897,8 @@ const SUITES = [
   "tests/editor-sections-r34.test.ts",
   /* Round 10 (OnePage products): what a tap does, draft/published/archived, prices, tiles, instant checkout through the checkout's own routes, the button's hover; scripts/check-onepage-products.mjs measures them. */
   "tests/onepage-products-r10.test.ts",
+  /* Round 12 (WBPERF): a link typed in a menu draws only what shows a menu, memoised menu rows, a 401 asked about before it is a sign out, a page's sections read again quietly; scripts/check-wb-perf-r12.mjs measures them on 120 sections. */
+  "tests/wb-perf-r12.test.ts",
 ]
 
 /**

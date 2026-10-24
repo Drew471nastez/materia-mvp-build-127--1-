@@ -26,7 +26,9 @@
  *      database fake (report-answer and commerce-server)
  *
  * And each bug this round fixed, with the number the old code gave on this
- * very fixture beside the number it gives now.
+ * very fixture beside the number it gives now. Section 7 adds one order
+ * refunded in two parts on different days, read through the seller's
+ * ledger, each refund on its own day.
  *
  *   npx tsx --conditions=react-server tests/analytics-accuracy.test.ts
  */
@@ -539,7 +541,66 @@ async function endToEnd() {
   check("a website that is not the store's is refused before anything is read", "error" in refused && (refused as { status: number }).status === 404)
 }
 
+/* ═══ 7. TWO PART REFUNDS OF ONE ORDER, EACH ON ITS OWN DAY ════════════ */
+
+/*
+  Lia's 30.00 lei ebook from 1 October: 5.00 refunded on Friday the 16th
+  (the week before) and 10.00 on Monday the 26th (this week). The order row
+  keeps the total, 15.00, and only the LAST date, the 26th, because every
+  refund writes refunded_at again. The seller's ledger has both refunds,
+  each with its own time. The old reading put all 15.00 on the 26th: this
+  week 15.00 down, the week before untouched. Now: 10.00 this week, 5.00 the
+  week before, and Total sales is still Revenue in both.
+*/
+const LIA = { id: "o-lia", product_id: EBOOK, amount_cents: 3000, status: "refunded", refund_amount_cents: 1500, refunded_at: "2026-10-26T09:00:00Z", created_at: "2026-10-01T10:00:00Z", property_type: "creator_page", buyer_email: "lia@example.com", currency: "RON", quantity: 1, unit_price_cents: 3000, creator_id: CREATOR }
+const LIA_LEDGER = [
+  { id: "le-1", creator_id: CREATOR, event_type: "refund", order_id: "o-lia", amount_cents: 500, currency: "ron", created_at: "2026-10-16T08:00:00Z" },
+  { id: "le-2", creator_id: CREATOR, event_type: "refund", order_id: "o-lia", amount_cents: 1000, currency: "ron", created_at: "2026-10-26T09:00:00Z" },
+]
+
+async function partRefunds() {
+  console.log("\nTwo part refunds of one order, on different days")
+  const { span, previous } = question(WEEK)
+  const url = new URL("https://storelib.com/api/analytics/reports")
+  url.searchParams.set("start", new Date(span.start).toISOString())
+  url.searchParams.set("end", new Date(span.end).toISOString())
+  url.searchParams.set("cstart", new Date(previous!.start).toISOString())
+  url.searchParams.set("cend", new Date(previous!.end).toISOString())
+  url.searchParams.set("tz", TZ)
+  url.searchParams.set("product", "all")
+  const answerOf = async (db: FakeSupabase) => {
+    const q = await reportQuestion(db as never, USER, url, "storelib.com")
+    if ("error" in q) throw new Error(String((q as { error: string }).error))
+    const r = (await countReportAnswer(db as never, q.q, q.productTitles, q.productTypes, USER)).reports as Reports
+    const c = await countCommerce(db as never, { creatorId: CREATOR, properties: q.q.properties, selector: q.q.selector, productId: null, productTypes: q.productTypes, span, previous, timeZone: TZ, mode: "all" })
+    return { r, c }
+  }
+  const base = await answerOf(world())
+  const withLedger = world()
+  withLedger.table("orders", {}, [...withLedger.rows("orders"), LIA as unknown as Row])
+  withLedger.table("ledger_events", {}, LIA_LEDGER as unknown as Row[])
+  const now = await answerOf(withLedger)
+  const noLedger = world()
+  noLedger.table("orders", {}, [...noLedger.rows("orders"), LIA as unknown as Row])
+  const old = await answerOf(noLedger)
+
+  check("this week loses only the 10.00 refunded on the 26th", base.r.sales.value - now.r.sales.value === 1000, base.r.sales.value - now.r.sales.value)
+  check("the week before loses the 5.00 refunded on the 16th, though the row's date is the 26th", base.r.sales.previous - now.r.sales.previous === 500, base.r.sales.previous - now.r.sales.previous)
+  check("one more refund in each week, 10.00 and 5.00 of money", now.r.refunds.value - base.r.refunds.value === 1 && now.r.refunds.cents - base.r.refunds.cents === 1000 && now.r.refunds.previous - base.r.refunds.previous === 1 && now.r.refunds.previousCents - base.r.refunds.previousCents === 500, [now.r.refunds.value - base.r.refunds.value, now.r.refunds.cents - base.r.refunds.cents, now.r.refunds.previousCents - base.r.refunds.previousCents])
+  check("Total sales is Revenue in both weeks", now.c.breakdown.total === now.r.sales.value && now.c.previous.total === now.r.sales.previous, [now.c.breakdown.total, now.r.sales.value, now.c.previous.total, now.r.sales.previous])
+  check("returns in the breakdown: 10.00 more this week, 5.00 more the week before", now.c.breakdown.returns - base.c.breakdown.returns === 1000 && now.c.previous.returns - base.c.previous.returns === 500, [now.c.breakdown.returns - base.c.breakdown.returns, now.c.previous.returns - base.c.previous.returns])
+  const monday = now.r.sales.series.current.length - 2
+  check("sales over time: the 26th is 10.00 lower, the other days as they were", base.r.sales.series.current[monday] - now.r.sales.series.current[monday] === 1000 && now.r.sales.series.current.every((v, i) => i === monday || v === base.r.sales.series.current[i]), [base.r.sales.series.current, now.r.sales.series.current])
+  check("  and in the breakdown's chart the same", base.c.series[monday].total - now.c.series[monday].total === 1000)
+  check("the 16th, in the week before's chart, is 5.00 lower", base.r.sales.series.previous.reduce((a, b) => a + b, 0) - now.r.sales.series.previous.reduce((a, b) => a + b, 0) === 500)
+  /* BUG: the row's one date. Without the ledger rows, both refunds are on the 26th, as before. */
+  check(`BUG partial refunds moved to the newest date: without the ledger this week lost ${(base.r.sales.value - old.r.sales.value) / 100} lei and the week before ${(base.r.sales.previous - old.r.sales.previous) / 100}; with it 10.00 and 5.00`, base.r.sales.value - old.r.sales.value === 1500 && base.r.sales.previous - old.r.sales.previous === 0, [base.r.sales.value - old.r.sales.value, base.r.sales.previous - old.r.sales.previous])
+  const csv = analyticsCsv({ meta: { store: "Mara", from: "a", to: "b", comparedFrom: "c", comparedTo: "d", timeZone: TZ, place: "All pages", sales: "All", currency: "RON", madeAt: "x" }, reports: now.r, commerce: { ...now.c, grain: "day" } as never, sections: sectionsFor(profileOf({ products: [{ type: "digital" }, { type: "physical" }], onePageId: OP, websites: [{ published: true }], communities: 0 }), { property: "all", productKind: null }), timeZone: TZ })
+  check("the export says the same: 160.00 lei this week, 5 refunds of 80.00", csv.includes("Total sales (RON),160.00,15.00") && csv.includes("Refunds,5,1") && csv.includes("Refunded (RON),80.00,5.00"), csv.split("\n").filter((l) => /Total sales|Refund/.test(l)).slice(0, 4))
+}
+
 endToEnd()
+  .then(partRefunds)
   .catch((e) => {
     failed++
     failures.push(`end to end threw: ${(e as Error).stack}`)

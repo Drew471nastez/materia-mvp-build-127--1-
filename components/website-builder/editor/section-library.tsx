@@ -541,6 +541,17 @@ function pump() {
   })
 }
 
+/**
+ * The library closed: what it still wanted drawn waits for a quiet moment
+ * again (round 12). `urgent` stayed on until the whole queue was drawn and
+ * measured, so after a card was picked the previews of the rest went on
+ * being laid out in the editor's document between keys typed next, 60 to
+ * 130ms a batch (scripts/check-wb-perf-r12.mjs, "add menu link").
+ */
+export function calmPreviews() {
+  urgent = false
+}
+
 /** Ask for previews; the first in the list first. Already drawn, being drawn or already asked for: nothing. */
 export function requestPreviews(jobs: Job[], front = false) {
   const fresh = jobs.filter((j) => !MARKUP.has(j.key) && !queued.has(j.key) && !pending.has(j.key))
@@ -1122,7 +1133,10 @@ export const SectionLibrary = memo(function SectionLibrary({
         /* Whatever is still missing, in the order it will be seen. An imported theme draws its own (compat-section-preview.tsx). */
         if (!compatInstallId) requestPreviews(jobs, true)
       }, OPEN_SETTLE_MS)
-      return () => window.clearTimeout(settle)
+      return () => {
+        window.clearTimeout(settle)
+        calmPreviews()
+      }
     }
     const t = window.setTimeout(() => {
       if (!compatInstallId) requestPreviews(jobs)

@@ -546,13 +546,14 @@ async function main() {
       session.indexOf("priceOrder(") < session.indexOf("attributionForCheckout(") && /Object\.assign\(metadata, attributionToMetadata\(attribution, Object\.keys\(metadata\)\.length\)\)/.test(session))
     const code = session.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^import .*$/gm, "")
     const uses = code.match(/(?<![\w/])attribution(?![\w/])/g) ?? []
-    /* Five: declared, on the metadata, onto the start, and onto the contact on each provider's branch (Stripe, and Storelib Payments on Airwallex). */
+    /* Four: declared, on the metadata, onto the start, and onto the contact. */
     check("  and uses it for nothing else: declared, put on the metadata, written onto the start and the contact", /amount: chargeCents,/.test(session) && uses.length === 4, uses.length)
     const cart = read("app/api/checkout/cart/route.ts")
     check("the basket route: the same, after pricing", cart.indexOf("priceCart(") < cart.indexOf("attributionForCheckout(") && /Object\.assign\(params\.metadata!, attributionToMetadata\(attribution/.test(cart) && /attribution: c\.attribution/.test(cart))
     for (const [file, re] of [
-      ["lib/checkout/fulfil-payment.ts", /await tagOrderSource\(admin, order\.id, source, origin\)[\s\S]{0,300}attributionFromMetadata\(m, \{ source, origin \}\)\n\s+await recordOrderAttribution\(admin, order\.id, attribution\)/],
-      ["lib/checkout/fulfil-cart-item.ts", /await tagOrderSource\(ctx\.admin, order\.id, "website", ctx\.origin\)\n\s+await recordOrderAttribution\(ctx\.admin, order\.id, ctx\.attribution\)/],
+      /* Round AE: each a recorded follow-up step (lib/checkout/followups.ts). */
+      ["lib/checkout/fulfil-payment.ts", /await f\.idempotent\("source", \(\) => tagOrderSource\(admin, order\.id, source, origin\)\)[\s\S]{0,300}attributionFromMetadata\(m, \{ source, origin \}\)\n\s+await f\.idempotent\("attribution", \(\) => recordOrderAttribution\(admin, order\.id, attribution\)\)/],
+      ["lib/checkout/fulfil-cart-item.ts", /await f\.idempotent\("source", \(\) => tagOrderSource\(ctx\.admin, line\.orderId, "website", ctx\.origin\)\)\n\s+await f\.idempotent\("attribution", \(\) => recordOrderAttribution\(ctx\.admin, line\.orderId, ctx\.attribution\)\)/],
       ["lib/checkout/fulfil-cart-session.ts", /attribution: attributionFromMetadata\(metadata, \{ source: "website", origin: orderOriginFrom\(metadata\) \}\)/],
       ["app/api/checkout/process/route.ts", /await tagOrderSource\(admin, order\.id, channel, origin\)[\s\S]{0,200}attributionForCheckout\(admin, \{ creatorId: creator\.id, source: channel, origin, sent: body\.origin \}\)\n\s+await recordOrderAttribution\(admin, order\.id, attribution\)/],
       ["app/api/checkout/quick-free/route.ts", /await tagOrderSource\(admin, order\.id, channel, origin\)[\s\S]{0,200}attributionForCheckout\(admin, \{ creatorId: product\.creator\.id, source: channel, origin, sent: body\.origin \}\)\n\s+await recordOrderAttribution\(admin, order\.id, attribution\)/],

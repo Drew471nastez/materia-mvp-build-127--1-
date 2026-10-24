@@ -49,7 +49,6 @@ export async function SettingsForm() {
         website={data.website}
         newsletter={data.newsletter}
         otherStores={data.otherStores}
-        paymentsProvider={data.paymentsProvider}
         teamActing={data.teamActing}
         initialTab="general"
       />

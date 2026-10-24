@@ -112,7 +112,7 @@ function main() {
   check("no card minimum, no card readiness for cash", /!free && !cod && totals\.totalCents < minimumChargeMinor\(storeCurrency\)/.test(server) && /!free && !cod && \(!creator\.stripe_account_id/.test(server))
   check("no Storelib fee on cash", /No fee on cash on delivery[\s\S]{0,80}if \(!free && !cod\)/.test(server))
   check("written at once, like a free order", /if \(free \|\| cod\) \{\s*const done = await completeCheckout/.test(server))
-  check("no seller ledger entry for cash never held", /if \(co\.provider !== COD_PROVIDER\) await step\("ledger"/.test(server))
+  check("no seller ledger entry for cash never held", /* Round AE: the steps are recorded (lib/checkout/followups.ts). */ /if \(co\.provider !== COD_PROVIDER\) await f\.idempotent\("ledger"/.test(server))
   check("a database without part 174 is said plainly", /cod && insertError\?\.code === "23514"/.test(server))
   check("a second press returns the order already placed", /existing && cod && existing\.status === "paid" && existing\.receipt_token/.test(server))
   check("  found before the cart is priced, so taking the last units never reads as a failure", server.indexOf("if (input.cashOnDelivery === true && input.shopId)") > 0 && server.indexOf("if (input.cashOnDelivery === true && input.shopId)") < server.indexOf("const priced = await priceCheckout("))
@@ -160,7 +160,7 @@ function main() {
   check("refund: a cash order only once the cash is in", /row\.payment_method === "cash_on_delivery" && row\.physical_cash_due === false/.test(read("lib/orders/order-view.ts")) && /order\.lines\.filter\(canRefundLine\)/.test(detail))
   const refund = read("app/api/stripe/refund/route.ts")
   check("refund route: refuses cash not yet collected", /hasn't been paid yet: the cash is collected on delivery/.test(refund))
-  check("refund route: nothing sent to Stripe for cash", /if \(byCash\) \{[\s\S]{0,200}refund = \{ id: `cash_/.test(refund) && /!onAirwallex && !byCash\) \{\s*try \{\s*const pi = await stripe/.test(refund))
+  check("refund route: nothing sent to Stripe for cash", /if \(byCash\) \{[\s\S]{0,200}refund = \{ id: `cash_/.test(refund) && /if \(!byCash\) \{\s*try \{\s*const pi = await stripe/.test(refund))
   const list = read("lib/orders/load-rows.ts")
   check("orders list reads whether the cash is in", /r\.physical_cash_due = c\.provider === "cod" && !c\.cod_collected_at/.test(list))
 

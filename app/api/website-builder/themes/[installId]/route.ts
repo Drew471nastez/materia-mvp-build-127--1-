@@ -1,5 +1,5 @@
 import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
-import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
+import { editorUser, readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { ensurePolicyPages, type PagesTable } from "@/lib/website-builder/ensure-policy-pages"
@@ -63,8 +63,9 @@ async function creatorCollectionsForBuilder(creatorId: string) {
 // ── Auth helper ──────────────────────────────────────────────
 async function getCreatorAndInstall(installId: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: "Unauthorized", status: 401, supabase, creator: null, install: null }
+  /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
+  const { user, status: authStatus, error: authError } = await editorUser(supabase)
+  if (!user) return { error: authError, status: authStatus, supabase, creator: null, install: null }
 
   const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
     .from("creators")

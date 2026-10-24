@@ -154,8 +154,6 @@ export async function checkCondition(store: NotifyStore, name: ConditionName, jo
       const p = await store.payments(creatorId)
       if (!p) return null
       const complete = p.status === "connected" || (p.chargesEnabled && p.payoutsEnabled && p.detailsSubmitted)
-      /* The reminder names who handles setup (lib/notify/templates/catalog processor). */
-      if (facts && p.provider === "airwallex") facts.provider = "airwallex"
       return !complete
     }
     case "payment_setup_action_required": {

@@ -1,6 +1,5 @@
 import "server-only"
 
-import { activePaymentProvider } from "@/lib/payments/active-provider"
 import { loadActiveFeeConfig } from "@/lib/payments/fees/active"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { stripeConfigured, stripePublishableKey } from "@/lib/payments/stripe/config"
@@ -28,7 +27,7 @@ function secretPresence(name: string, value: string | undefined, prefix?: string
 }
 
 export async function buildPaymentsHealth(db: Db) {
-  const provider = activePaymentProvider()
+  const provider = "stripe" as const
   const publishable = stripePublishableKey()
   const serverKey = process.env.STRIPE_SECRET_KEY?.trim()
   const platformWh = process.env.STRIPE_WEBHOOK_SECRET?.trim()

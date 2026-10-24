@@ -22,7 +22,6 @@ import { checkoutReturns } from "@/lib/checkout/site-hosts"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import MembershipCheckout from "./membership-checkout"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
-import { providerFor } from "@/lib/payments/service"
 import { detectedCountry, loadCheckoutConfig, loadStoreName } from "@/lib/store/settings-server"
 import { loadTaxForCheckout } from "@/lib/tax/server"
 import { checkoutTaxFor } from "@/lib/tax/rules"
@@ -184,8 +183,6 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   const storeId: string | null = product.creator_id ?? null
   const storeReads = early(
     Promise.all([
-      /* Who takes the payment: Stripe, or Airwallex for a creator on Storelib Payments' rollout (lib/payments). */
-      storeId ? providerFor(storeId) : Promise.resolve("stripe" as const),
       /* The store's Settings › Checkout: the news box, the name rule, an account first (lib/store/checkout-config). */
       loadCheckoutConfig(checkoutAdmin(), storeId ?? undefined),
       /* Settings › Taxes, when the store taxes digital products (lib/tax). */
@@ -263,7 +260,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   }
 
   /* Asked above, beside the creator and the options (storeReads). */
-  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName, store] = await storeReads
+  const [checkoutConfig, taxSetup, requestHeaders, storeName, store] = await storeReads
   /* The currency this product's price is in and Pay charges: the store's, or dollars for a community plan (lib/money/product-currency), as the route that charges reads it. */
   let priceCurrency = productPriceCurrency(product, store.currency)
 
@@ -353,7 +350,6 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       checkoutConfig={checkoutConfig}
       emailConfirmed={!!user?.email_confirmed_at}
       checkoutTax={checkoutTax}
-      paymentProvider={paymentProvider}
       product={{
         id: product.id,
         title: product.title,

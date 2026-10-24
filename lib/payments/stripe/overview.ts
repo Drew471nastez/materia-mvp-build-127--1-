@@ -1,5 +1,6 @@
 import "server-only"
 
+import { forgetPaymentsReadiness } from "./readiness-cache"
 import { payoutStatusOf, type PayoutStatus } from "../model"
 import type { CreatorRef, HubOverview } from "../hub-types"
 import { stripeConfigured, stripeConnectEnv, stripePublishableKey } from "./config"
@@ -61,6 +62,8 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
     try {
       synced = await syncStripeAccountFull(creator.id, "system")
       snapshot = synced.snapshot
+      /* The sync found it ready, or no longer: the store's cached readiness ("Connect payments") goes now. */
+      if ((rowBefore.can_accept_payments === true) !== (snapshot.canAcceptPayments === true)) await forgetPaymentsReadiness(creator.id)
     } catch (e) {
       unreachable = true
       console.error("[payments/stripe] sync failed", e instanceof Error ? e.message.slice(0, 160) : "unknown")

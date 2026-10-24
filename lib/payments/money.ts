@@ -1,27 +1,25 @@
 /**
  * ===========================================================================
- *  CENTS IN STORELIB, DECIMALS AT AIRWALLEX
+ *  CENTS IN STORELIB, DECIMALS ON SCREEN
  * ===========================================================================
  * Storelib keeps every amount as an integer in the currency's smallest unit
  * (`amount_cents`, and the same for yen, where the smallest unit is one yen).
- * Airwallex takes and returns amounts in the currency's MAJOR unit: 12.34
- * dollars is `12.34`, 1,200 yen is `1200`, 1.234 dinars is `1.234`.
+ * A person reads it in the MAJOR unit: 12.34 dollars is `12.34`, 1,200 yen
+ * is `1200`, 1.234 dinars is `1.234`.
  *
- * So every amount crosses here, and here only, with the precision Airwallex
- * publishes for the currency (docs/payments/reference/supported-currencies):
- * most currencies have 2 decimals, these have 0 and these have 3. No float
- * arithmetic on money: the conversion works on the digits.
+ * Most currencies have 2 decimals, these have 0 and these have 3 (ISO 4217).
+ * No float arithmetic on money: the conversion works on the digits.
  */
 
-/** Currencies Airwallex settles with no minor unit. */
+/** Currencies with no minor unit. */
 const ZERO_DECIMAL = new Set([
   "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "PYG", "RWF", "SLE", "UGX", "VND", "VUV", "XAF", "XOF", "XPF",
 ])
 
-/** Currencies Airwallex settles with three decimals. */
+/** Currencies with three decimals. */
 const THREE_DECIMAL = new Set(["BHD", "JOD", "KWD", "LYD", "OMR", "TND"])
 
-/** How many decimals a currency's major unit has at Airwallex. */
+/** How many decimals a currency's major unit has. */
 export function decimalsOf(currency: string): number {
   const c = currency.trim().toUpperCase()
   if (ZERO_DECIMAL.has(c)) return 0
@@ -30,8 +28,7 @@ export function decimalsOf(currency: string): number {
 }
 
 /**
- * An integer amount in the smallest unit, as the decimal string Airwallex
- * reads: 1234 USD is "12.34", 1234 JPY is "1234", 1234 KWD is "1.234".
+ * An integer amount in the smallest unit, as a decimal string: 1234 USD is "12.34", 1234 JPY is "1234", 1234 KWD is "1.234".
  * Refuses anything that is not a whole number of smallest units.
  */
 export function toMajor(minor: number, currency: string): string {
@@ -46,16 +43,15 @@ export function toMajor(minor: number, currency: string): string {
   return `${negative ? "-" : ""}${whole}.${frac}`
 }
 
-/** The same, as a JSON number for the fields Airwallex types as `number`. */
+/** The same, as a JSON number. */
 export function toMajorNumber(minor: number, currency: string): number {
   return Number(toMajor(minor, currency))
 }
 
 /**
- * An amount Airwallex returned (a number or a decimal string) back to an
+ * An amount in the major unit (a number or a decimal string) back to an
  * integer in the smallest unit. Reads the digits, so 0.29 is 29 and never
- * 28.999999. More decimals than the currency has are rounded half up, which
- * only happens if Airwallex ever sends a finer figure than it settles in.
+ * 28.999999. More decimals than the currency has are rounded half up.
  */
 export function toMinor(major: number | string | null | undefined, currency: string): number {
   if (major === null || major === undefined || major === "") return 0

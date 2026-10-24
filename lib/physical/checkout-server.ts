@@ -47,6 +47,7 @@ import { soldOutMessage } from "@/lib/products/sales-limit"
 import { recordCouponUse } from "@/lib/checkout/coupons"
 import { paymentFacts, recordSale } from "@/lib/checkout/fulfil-payment"
 import { recordCartCustomer, type FulfilContext } from "@/lib/checkout/fulfil-cart-item"
+import { beginFollowups, resumeFollowups, type Followups } from "@/lib/checkout/followups"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { minimumChargeMinor } from "@/lib/store/selling-currency"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
@@ -884,6 +885,19 @@ export async function completeStripeSession(db: Db, sessionId: string, baseUrl: 
 }
 
 /**
+ * A paid checkout whose order lines were written and whose follow-ups were
+ * not finished (lib/checkout/followups.ts), for the sweep: the lines are read
+ * again by the session id they were written under, which every line keeps
+ * (a Checkout Session, a PaymentIntent, or a free or cash order's own id).
+ */
+export async function resumePhysicalCheckout(db: Db, checkoutId: string, orderId: string, baseUrl: string): Promise<CompleteResult | null> {
+  const { data } = await db.from("orders").select("stripe_session_id, stripe_payment_intent_id").eq("id", orderId).limit(1)
+  const row = Array.isArray(data) ? (data[0] as { stripe_session_id?: string | null; stripe_payment_intent_id?: string | null } | undefined) : undefined
+  if (!row?.stripe_session_id) return null
+  return completeCheckout(db, { checkoutId, sessionId: row.stripe_session_id, paymentIntentId: row.stripe_payment_intent_id ?? null, facts: null, baseUrl })
+}
+
+/**
  * The paid (or free) checkout becomes orders. Safe to call any number of
  * times from any number of places: each line is written once, and what
  * happens once per order is done by the caller that marked it paid.
@@ -973,6 +987,8 @@ export async function completeCheckout(
   const lastName = name && name.includes(" ") ? name.slice(name.indexOf(" ") + 1) : null
 
   const created: { index: number; orderId: string; productId: string; amountCents: number }[] = []
+  /* Every line this call follows up (lib/checkout/followups.ts): the ones it wrote, and ones another caller wrote and never finished. */
+  const followed: FollowedLine[] = []
   let failed = 0
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i]
@@ -1032,36 +1048,55 @@ export async function completeCheckout(
       .select("id")
       .single()
     if (saleHolder) await releaseSale(db, l.product_id, saleHolder)
-    if (error?.code === "23505") continue
+    if (error?.code === "23505") {
+      /* Another caller wrote this line: what it did not finish after writing it is finished here, never twice. */
+      const { data: theirs } = await db.from("orders").select("id, amount_cents, refund_reason").eq("receipt_token", receiptToken).limit(1)
+      const row = Array.isArray(theirs) ? (theirs[0] as { id?: string; amount_cents?: number | null; refund_reason?: string | null } | undefined) : undefined
+      const f = row?.id ? await resumeFollowups(db, String(row.id), { log: "physical" }) : null
+      if (f && row?.id) followed.push({ index: i, orderId: String(row.id), productId: l.product_id, amountCents: Number(row.amount_cents) || amounts[i], soldOut: row.refund_reason === SOLD_OUT_REASON, f })
+      continue
+    }
     if (error || !order) {
       failed++
       console.error("[physical] order line insert failed:", error?.code)
       continue
     }
     created.push({ index: i, orderId: order.id, productId: l.product_id, amountCents: amounts[i] })
+    /* Over the limit: a record of the money, refunded below once the sale is on the ledger, never a purchase. */
+    if (!withinLimit) await markSoldOut(db, order.id)
+    const f = await beginFollowups(db, order.id, { kind: "physical", ref: c.checkoutId, log: "physical" })
+    followed.push({ index: i, orderId: order.id, productId: l.product_id, amountCents: amounts[i], soldOut: !withinLimit, f })
+  }
+
+  /* Each line's own follow-ups: its tax on its row, where it came from, and for a download its library entry and the sales count. */
+  for (const fl of followed) {
+    const i = fl.index
+    const l = lines[i]
+    const f = fl.f
     /*
       The line's tax on the order's own columns, as the single product and basket checkouts keep theirs, so Settings ›
       Taxes' Tax collected and its CSV count shipped orders too (they read orders.tax_cents). It used to be in the
       snapshot only. Its own writes, so a database without the tax columns (parts 110, 129, 153) loses only these.
     */
     const lineTax = taxIncluded ? (includedShares[i] ?? 0) : (taxShares[i] ?? 0)
-    if (lineTax > 0) await keepLineTax(db, order.id, { cents: Math.min(lineTax, Math.max(0, amounts[i])), country: taxCountryOf(co), included: taxIncluded, label: taxLabel })
-    await tagOrderSource(db, order.id, "website", origin)
-    await recordOrderAttribution(db, order.id, (co.attribution ?? null) as Attribution | null)
-    /* Over the limit: a record of the money, refunded below once the sale is on the ledger, never a purchase. */
-    if (!withinLimit) {
-      await markSoldOut(db, order.id)
-      continue
-    }
+    if (lineTax > 0) await f.idempotent("tax", () => keepLineTax(db, fl.orderId, { cents: Math.min(lineTax, Math.max(0, amounts[i])), country: taxCountryOf(co), included: taxIncluded, label: taxLabel }))
+    await f.idempotent("source", () => tagOrderSource(db, fl.orderId, "website", origin))
+    await f.idempotent("attribution", () => recordOrderAttribution(db, fl.orderId, (co.attribution ?? null) as Attribution | null))
+    if (fl.soldOut) continue
     /* A download in the same cart is the buyer's to keep, as in any basket. */
     if (l.type !== "physical" && co.buyer_id) {
-      let q = db.from("entitlements").select("id").eq("buyer_id", co.buyer_id).eq("product_id", l.product_id)
-      q = l.variant_id ? q.eq("variant_id", l.variant_id) : q.is("variant_id", null)
-      const { data: has } = await q.maybeSingle()
-      if (!has) await db.from("entitlements").insert({ buyer_id: co.buyer_id, creator_id: co.creator_id, product_id: l.product_id, variant_id: l.variant_id, community_access: false })
+      await f.idempotent("entitlement", async () => {
+        let q = db.from("entitlements").select("id").eq("buyer_id", co.buyer_id).eq("product_id", l.product_id)
+        q = l.variant_id ? q.eq("variant_id", l.variant_id) : q.is("variant_id", null)
+        /* Any row is enough: two copies made maybeSingle() error, read as none, and insert a third. */
+        const { data: has } = await q.limit(1)
+        if (!(Array.isArray(has) && has.length > 0)) await db.from("entitlements").insert({ buyer_id: co.buyer_id, creator_id: co.creator_id, product_id: l.product_id, variant_id: l.variant_id, community_access: false })
+      })
     }
-    await db.rpc("increment_product_sales", { p_product_id: l.product_id })
-    await db.from("analytics_events").insert({ creator_id: co.creator_id, product_id: l.product_id, event_type: "purchase" })
+    await f.once("sales count", async () => {
+      await db.rpc("increment_product_sales", { p_product_id: l.product_id })
+      await db.from("analytics_events").insert({ creator_id: co.creator_id, product_id: l.product_id, event_type: "purchase" })
+    })
   }
 
   /*
@@ -1070,18 +1105,23 @@ export async function completeCheckout(
     seller's copy of the invoice read it from the order. A database without the column refuses this write alone.
   */
   const company = businessFromFields(co.business_details)
-  if (company && created.length) {
-    const { error: companyError } = await db.from("orders").update({ business_details: company }).in("id", created.map((x) => x.orderId))
-    if (companyError) console.warn("[physical] company details not kept on the order:", companyError.code)
+  if (company && followed.length) {
+    /* One write for every line this call follows up, recorded on the first of them; writing it again changes nothing. */
+    await followed[0].f.idempotent("business details", async () => {
+      const { error: companyError } = await db.from("orders").update({ business_details: company }).in("id", followed.map((x) => x.orderId))
+      if (companyError) console.warn("[physical] company details not kept on the order:", companyError.code)
+    })
   }
 
   const { data: firstOrder } = await db.from("orders").select("id").eq("receipt_token", cartReceiptToken(sessionId, 0)).maybeSingle()
   const firstOrderId: string | null = firstOrder?.id ?? created[0]?.orderId ?? null
 
-  if (owns && firstOrderId) {
-    await onceForOrder(db, {
+  /* The order's own steps go with its first line: whoever wrote it, or a retry finishing it (lib/checkout/followups.ts). */
+  const basket = followed.find((x) => x.index === 0)?.f ?? null
+  if (basket && firstOrderId) {
+    await onceForOrder(db, basket, {
       co,
-      created,
+      created: followed,
       lines,
       firstOrderId,
       sessionId,
@@ -1095,6 +1135,7 @@ export async function completeCheckout(
       origin,
     })
   }
+  for (const fl of followed) await fl.f.finish()
   /* LIMIT SALES: every line of this checkout written over a download's limit whose refund is still owed, now or from an earlier try (lib/checkout/sold-out-refund). */
   const { data: owed } = await db.from("orders").select("id, product_id, amount_cents").eq("checkout_id", c.checkoutId).eq("refund_reason", SOLD_OUT_REASON).eq("status", "completed")
   for (const o of (owed ?? []) as { id: string; product_id: string; amount_cents: number | null }[]) {
@@ -1137,8 +1178,11 @@ function money(cents: number, currency = "USD"): string {
   return formatMinor(cents, String(currency || "USD"), "en-US")
 }
 
+type FollowedLine = { index: number; orderId: string; productId: string; amountCents: number; soldOut?: boolean; f: Followups }
+
 async function onceForOrder(
   db: Db,
+  f: Followups,
   s: {
     co: Record<string, any>
     created: { index: number; orderId: string; productId: string; amountCents: number }[]
@@ -1155,13 +1199,6 @@ async function onceForOrder(
     origin: OrderOrigin | null
   },
 ): Promise<void> {
-  const step = async (name: string, fn: () => Promise<unknown>) => {
-    try {
-      await fn()
-    } catch (e) {
-      console.error(`[physical] ${name} failed for checkout ${s.co.id}:`, e instanceof Error ? e.message : e)
-    }
-  }
   const co = s.co
   const ctx: FulfilContext = {
     admin: db,
@@ -1183,16 +1220,16 @@ async function onceForOrder(
     origin: s.origin,
     attribution: co.attribution ?? null,
   }
-  await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.lines[0]?.product_id ?? null, co.email_opt_in === true ? "ticked" : "none"))
-  if (co.coupon_id) await step("coupon use", () => recordCouponUse(db, co.coupon_id, co.coupon_holder))
+  await f.once("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.lines[0]?.product_id ?? null, co.email_opt_in === true ? "ticked" : "none"))
+  if (co.coupon_id) await f.once("coupon use", () => recordCouponUse(db, co.coupon_id, co.coupon_holder))
   /* Cash on delivery never passes through Storelib: nothing goes on the seller's payout balance (lib/physical/cash-on-delivery.ts). */
-  if (co.provider !== COD_PROVIDER) await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId, currency: co.currency }))
-  await step("order email", () => queueOrderConfirmation(db, co.id, co.creator_id))
-  await step("forwarding", () => queueForwarding(db, co.id, co.creator_id))
+  if (co.provider !== COD_PROVIDER) await f.idempotent("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId, currency: co.currency }))
+  await f.idempotent("order email", () => queueOrderConfirmation(db, co.id, co.creator_id))
+  await f.idempotent("forwarding", () => queueForwarding(db, co.id, co.creator_id))
   /* ShipStation connected: the items the seller ships go there to be labelled (lib/integrations/shipping/shipstation-server.ts). */
-  await step("shipstation", () => queueShipStation(db, co.id, co.creator_id, "paid", { enqueue: (d, j) => enqueueJob(d, j) }))
-  await step("low stock", () => queueLowStockAlerts(db, co.creator_id, s.lines.map((l) => l.variant_id).filter((v): v is string => !!v)))
-  await step("notify", () =>
+  await f.idempotent("shipstation", () => queueShipStation(db, co.id, co.creator_id, "paid", { enqueue: (d, j) => enqueueJob(d, j) }))
+  await f.idempotent("low stock", () => queueLowStockAlerts(db, co.creator_id, s.lines.map((l) => l.variant_id).filter((v): v is string => !!v)))
+  await f.idempotent("notify", () =>
     raiseSaleEvents(db, {
       creatorId: co.creator_id,
       purchase: { orderId: s.firstOrderId, amountCents: s.paidTotal, lineCount: s.lines.length },
@@ -1202,7 +1239,7 @@ async function onceForOrder(
       correlationId: s.sessionId,
     }),
   )
-  await step("push", async () => {
+  await f.once("push", async () => {
     const { data: creator } = await db.from("creators").select("user_id").eq("id", co.creator_id).maybeSingle()
     if (!creator?.user_id) return
     const { notifySale } = await import("@/lib/push/notifications")
@@ -1215,7 +1252,7 @@ async function onceForOrder(
   })
   const first = s.created.find((l) => l.index === 0) ?? s.created[0]
   if (first) {
-    await step("seller email", async () => {
+    await f.once("seller email", async () => {
       const sellerEmail = await resolveSellerEmail(db, co.creator_id)
       await sendSellerNotificationEmail(db, {
         orderId: first.orderId,

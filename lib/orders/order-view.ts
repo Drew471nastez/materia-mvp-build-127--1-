@@ -18,6 +18,7 @@ import { midnightOf, todayIn } from "../date-range/range"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import { orderCurrency } from "./money"
+import { paidThroughAirwallex } from "@/lib/payments/past-provider"
 
 export interface OrderRow {
   id: string
@@ -42,7 +43,7 @@ export interface OrderRow {
   receipt_token?: string | null
   stripe_session_id?: string | null
   stripe_payment_intent_id?: string | null
-  /** Who took the payment ("stripe", "airwallex", "free", "cod") and, off Stripe, its payment's id (run-now part 76). */
+  /** Who took the payment ("stripe", "free", "cod", or "airwallex" on an order from before it was removed) and, off Stripe, its payment's id (run-now part 76). */
   provider?: string | null
   provider_payment_id?: string | null
   /** What the buyer was charged in, upper case ISO (lib/orders/money orderCurrency); for an order that ships, its checkout's. */
@@ -237,14 +238,15 @@ export function refundableCents(row: Pick<OrderRow, "status" | "amount_cents" | 
 
 /**
  * Whether the Orders page can send money back on this line: something left
- * to refund, and a payment to send it to. A card payment on Stripe, one on
- * Airwallex (its payment is in provider_payment_id, run-now part 76, which
- * the refund route takes), or cash on delivery already collected.
+ * to refund, and a payment to send it to. A card payment on Stripe, or cash
+ * on delivery already collected. A line paid through Airwallex before it was
+ * removed is never refundable here (lib/payments/past-provider): the creator
+ * refunds it in their Airwallex account.
  */
 export function canRefundLine(row: Pick<OrderRow, "status" | "amount_cents" | "refund_amount_cents" | "stripe_payment_intent_id" | "provider" | "provider_payment_id" | "payment_method" | "physical_cash_due">): boolean {
   if (refundableCents(row) <= 0) return false
+  if (paidThroughAirwallex(row)) return false
   if (row.stripe_payment_intent_id) return true
-  if (row.provider === "airwallex" && typeof row.provider_payment_id === "string" && row.provider_payment_id.startsWith("int_")) return true
   return row.payment_method === "cash_on_delivery" && row.physical_cash_due === false
 }
 
