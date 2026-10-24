@@ -23,7 +23,7 @@ import * as React from "react"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_GHOST, BTN_SECONDARY, Card, Notice, SelectInput, api } from "./ui"
+import { BTN_SECONDARY, Card, Notice, SelectInput, api } from "./ui"
 import { SizeChartEditor, type SavedSizeChart } from "./size-chart-editor"
 import { tt } from "@/lib/i18n/text"
 
@@ -152,21 +152,26 @@ export function SizeChartCard({ productId, handle, onDirty, uploadImage }: { pro
           {chart ? (
             <>
               <SizeChartPreview chart={chart} />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
-                  {chart.productCount > (saved.current === chart.id ? 1 : 0)
-                    ? tt("{n, plural, one {Also on # other product. A change shows on it too.} other {Also on # other products. A change shows on all of them.}}", { n: chart.productCount - (saved.current === chart.id ? 1 : 0) })
-                    : tt("Only on this product so far.")}
-                </p>
-                <button type="button" className={cn(BTN_GHOST, "-mr-2")} onClick={() => open(chart)} data-size-chart-edit="">
-                  {tt("Edit chart")}
-                </button>
-              </div>
+              <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
+                {chart.productCount > (saved.current === chart.id ? 1 : 0)
+                  ? tt("{n, plural, one {Also on # other product. A change shows on it too.} other {Also on # other products. A change shows on all of them.}}", { n: chart.productCount - (saved.current === chart.id ? 1 : 0) })
+                  : tt("Only on this product so far.")}
+              </p>
             </>
           ) : null}
-          <Link href={SIZE_CHARTS_HREF} className="inline-block text-[13px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
-            {tt("All size charts")}
-          </Link>
+          {/* The chart's own edit, and the store's list, on one line. */}
+          <div className="flex items-center justify-between gap-3">
+            {chart ? (
+              <button type="button" className={cn(BTN_SECONDARY, "h-9 px-3 text-[13.5px]")} onClick={() => open(chart)} data-size-chart-edit="">
+                {tt("Edit chart")}
+              </button>
+            ) : (
+              <span />
+            )}
+            <Link href={SIZE_CHARTS_HREF} className="text-[13px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline">
+              {tt("All size charts")}
+            </Link>
+          </div>
           {error ? <Notice>{error}</Notice> : null}
         </div>
       )}

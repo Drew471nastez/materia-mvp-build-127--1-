@@ -1389,6 +1389,7 @@ const ARTICLES: Article[] = [
           "Press Create chart.",
         ],
       },
+      shot("size-chart-editor", "The size chart editor: a name, Measured in set to cm, and a table with Size, Width, Length and Neck strap columns, each measurement with a ruler and a cross, three sizes, Add size, and a note under the table.", "A chart is typed the way it is printed. The ruler under a column says it is converted between cm and inches."),
 
       { type: "h", text: "Give a product its size chart" },
       {
@@ -1401,6 +1402,7 @@ const ARTICLES: Article[] = [
           "Save the product.",
         ],
       },
+      shot("product-size-chart", "The Size chart card in the product editor with the chart Linen aprons chosen, a preview of its sizes, a line saying it is also on 2 other products, and Edit chart and All size charts.", "The card shows which chart the product uses and how many other products share it."),
       { type: "p", text: "Edit chart in the card changes the chart for every product that uses it, and the card says how many those are. To stop showing a chart on one product, choose No size chart and save." },
 
       { type: "h", text: "What buyers see" },

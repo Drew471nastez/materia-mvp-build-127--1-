@@ -355,6 +355,22 @@ const frenchTexts = {
   ],
 }
 
+/* The studio's linen aprons, measured flat in cm: the chart the Size chart card and its editor show. */
+const sizeCharts = [
+  {
+    id: "chart-aprons",
+    name: "Linen aprons",
+    unit: "cm",
+    columns: [{ name: "Size", measure: false }, { name: "Width", measure: true }, { name: "Length", measure: true }, { name: "Neck strap", measure: true }],
+    rows: [["S/M", "70", "80", "56-62"], ["L/XL", "76", "86", "60-68"], ["Long", "76", "96", "60-68"]],
+    notes: "Measured flat. The neck strap slides, so it fits either range.",
+    imageUrl: null,
+    productCount: 3,
+    updatedAt: "2026-10-20T10:00:00Z",
+  },
+  { id: "chart-tees", name: "Studio tees", unit: "cm", columns: [{ name: "Size", measure: false }, { name: "Chest", measure: true }, { name: "Length", measure: true }], rows: [["S", "92", "69"], ["M", "98", "71"], ["L", "104", "74"]], notes: "", imageUrl: null, productCount: 2, updatedAt: "2026-10-18T10:00:00Z" },
+]
+
 function route(method: string, path: string, body: Record<string, unknown>, query: URLSearchParams = new URLSearchParams()): unknown {
   if (path === "/api/store/currency") return method === "POST" ? storeCurrencyPreview : storeCurrency
   if (path === "/api/store/markets") return markets
@@ -384,6 +400,9 @@ function route(method: string, path: string, body: Record<string, unknown>, quer
   if (path.startsWith("/api/physical/shipping/profiles")) return { profiles: physicalSettings().profiles }
   if (path.startsWith("/api/physical/catalog-context")) return { locations: params.has("pod") ? [location1, location2, location3] : [location1, location2], profiles: [{ id: "p1", name: "General", isDefault: true, zoneCount: 2 }], settings: physicalSettings().settings }
   if (path.startsWith("/api/physical/products/")) return { product: physicalProduct }
+  /* Size charts (components/physical/size-chart-card.tsx): ?sizes gives the demo store its apron chart, chosen for the product. */
+  if (path === "/api/size-charts") return { ready: true, charts: params.has("sizes") ? sizeCharts : [] }
+  if (path === "/api/size-charts/product") return { ready: true, chartId: params.has("sizes") ? sizeCharts[0].id : null }
   if (path.startsWith("/api/physical/inventory/movements")) return { movements: [] }
   if (path.startsWith("/api/physical/inventory")) return inventory
   if (path.startsWith("/api/physical/transfers")) return { transfers: [] }
