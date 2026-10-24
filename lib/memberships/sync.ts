@@ -378,7 +378,8 @@ export async function recordPaidInvoice(admin: Db, invoice: Stripe.Invoice, opts
     await admin.from("orders").update({ tax_label: tax.label.slice(0, 80) }).eq("id", orderId)
   })
   await step("customer", () => recordCustomer(admin, { creatorId, email: row!.buyer_email, first: first || undefined, last: rest.join(" ") || undefined, total }))
-  await step("ledger", () => recordSale(admin, { creatorId, orderId: orderId!, total, fee: feeCents, destinationPaymentId: facts?.destinationPaymentId ?? null }))
+  /* In the invoice's currency, turned into the wallet's (lib/payments/ledger-currency): without it a 100 lei or ¥1000 renewal was added to the balance as $100 or $10, and its refund (charged currency, converted) came off at a different figure. */
+  await step("ledger", () => recordSale(admin, { creatorId, orderId: orderId!, total, fee: feeCents, destinationPaymentId: facts?.destinationPaymentId ?? null, currency: invoice.currency }))
   if (firstPayment) {
     await step("sales count", async () => {
       await admin.rpc("increment_product_sales", { p_product_id: productId })

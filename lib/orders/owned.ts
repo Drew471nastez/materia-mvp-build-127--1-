@@ -49,6 +49,8 @@ export interface OwnedLine {
   refund_reason?: string | null
   buyer_notified_at?: string | null
   buyer_email_last_error?: string | null
+  /** An order that ships: its checkout (lib/physical), which holds the address its emails go to. */
+  checkout_id?: string | null
   product: { id: string; title: string | null; creator_id: string } | null
 }
 

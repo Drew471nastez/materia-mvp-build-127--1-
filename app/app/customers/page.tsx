@@ -86,8 +86,10 @@ export default async function CustomersPage() {
     })
   }
 
+  /* By address whatever its case: the customer row is kept in lower case, an order keeps the address as it was typed (a corrected one too), so "Ana@x.com" read as no orders. */
+  const sameEmail = (a: unknown, b: unknown) => typeof a === "string" && typeof b === "string" && a.trim().toLowerCase() === b.trim().toLowerCase()
   const getCustomerOrders = (email: string) => {
-    return allOrders?.filter((o) => o.buyer_email === email) || []
+    return allOrders?.filter((o) => sameEmail(o.buyer_email, email)) || []
   }
 
   /*
@@ -104,10 +106,11 @@ export default async function CustomersPage() {
   if (mixed) {
     for (const o of inStore.rows as Array<{ buyer_email?: string | null; status?: string | null; amount_cents?: number | null }>) {
       if (!o.buyer_email || !["completed", "refunded", "partially_refunded"].includes(String(o.status))) continue
-      spentByEmail.set(o.buyer_email, (spentByEmail.get(o.buyer_email) ?? 0) + Math.max(0, Number(o.amount_cents) || 0))
+      const key = o.buyer_email.trim().toLowerCase()
+      spentByEmail.set(key, (spentByEmail.get(key) ?? 0) + Math.max(0, Number(o.amount_cents) || 0))
     }
   }
-  const spentOf = (customer: { email: string; total_spent_cents: number }) => (mixed ? spentByEmail.get(customer.email) ?? 0 : customer.total_spent_cents)
+  const spentOf = (customer: { email: string; total_spent_cents: number }) => (mixed ? spentByEmail.get(String(customer.email || "").trim().toLowerCase()) ?? 0 : customer.total_spent_cents)
 
   return (
     <div className="space-y-6">

@@ -411,7 +411,7 @@ async function main() {
     check("each step has its customer email", emailIdForJob("return", null, "approved") === "return_approved" && emailIdForJob("return", null, "received") === "return_received" && emailIdForJob("return", null, "completed") === "return_completed")
     check("which return a refund is for: the received one, else the only one waiting", returnForRefund([{ id: "a", status: "completed" }, { id: "b", status: "received" }], null) === "b" && returnForRefund([{ id: "a", status: "approved" }, { id: "b", status: "approved" }], null) === null && returnForRefund([{ id: "a", status: "approved" }], "zzz") === null)
     const panel = read("components/physical/order-panel.tsx")
-    check("the seller's return card: Approve asks for instructions, Received offers Refund, then Close", /Instructions for the buyer/.test(panel) && /data-return-refund/.test(panel) && /Close without refund/.test(panel) && /onRefund=\{refundable\.length > 0 \? \(\) => setDialog\("refund"\) : null\}/.test(read("app/app/orders/order-detail.tsx")))
+    check("the seller's return card: Approve asks for instructions, Received offers Refund, then Close", /Instructions for the buyer/.test(panel) && /data-return-refund/.test(panel) && /Close without refund/.test(panel) && /<PhysicalFulfillment[^\n]*onRefund=\{canRefund && refundable\.length > 0 \? \(\) => setDialog\("refund"\) : null\}/.test(read("app/app/orders/order-detail.tsx")))
     check("refund reasons are kept on the refund and shown on the timeline", /refund_reason: reason \|\| "requested_by_customer"/.test(read("app/api/stripe/refund/route.ts")) && /detail: line\.refund_reason \? reasonLabel\(line\.refund_reason, "refund"\)/.test(read("lib/orders/timeline.ts")))
   }
 

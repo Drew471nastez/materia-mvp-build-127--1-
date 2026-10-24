@@ -29,7 +29,8 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { emit } from "@/lib/notify/outbox"
 import { fulfilAirwallexIntent } from "@/lib/checkout/fulfil-payment"
-import { markPaymentDisputed, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
+import { closeAccessForDispute, markPaymentDisputed, reopenAccessAfterWonDispute, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
+import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 import { familyOf, type AirwallexEvent } from "./webhook"
 import { accountByProviderId, audit } from "../store"
 import { factsOf, syncAccount } from "../service"
@@ -110,9 +111,12 @@ async function onDispute(e: AirwallexEvent): Promise<"done" | "ignored"> {
   const db = createAdminClient()
   if (e.name === "payment_dispute.won" || e.name === "payment_dispute.reversed") {
     await restorePaymentAfterWonDispute(db, intentId, "provider_payment_id")
+    await reopenAccessAfterWonDispute(db, intentId, "provider_payment_id", communityAccessAfterEntitlement)
     await markFeeRecord(intentId, { status: "succeeded" })
   } else if (e.name === "payment_dispute.accepted" || e.name === "payment_dispute.lost" || e.name === "payment_dispute.requires_response" || e.name === "payment_dispute.pending_decision" || e.name === "payment_dispute.challenged") {
     await markPaymentDisputed(db, intentId, "provider_payment_id")
+    /* The bank holds the money: the product leaves the buyer's library until the dispute is won, as on Stripe. */
+    await closeAccessForDispute(db, intentId, "provider_payment_id", communityAccessAfterEntitlement)
     await markFeeRecord(intentId, { status: "disputed" })
   } else {
     return "ignored"

@@ -74,7 +74,7 @@ import { cartAttributes } from "@/lib/checkout/site-checkout"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { COD_PAYMENT_METHOD, COD_PROVIDER, codClientKey, codRefusal } from "./cash-on-delivery"
 import { phoneForStorage } from "@/lib/account/phone"
-import { formatCurrency } from "@/lib/markets/money"
+import { formatMinor } from "@/lib/markets/money"
 import { checkoutMarket } from "@/lib/markets/checkout-market-server"
 import { convertOrder } from "@/lib/markets/checkout-charge"
 
@@ -1131,8 +1131,9 @@ function taxSharesOf(taxCents: number, co: Record<string, any>, lines: LineSnaps
   return lines.map((_, i) => (items[i] ?? 0) + (ship[i] ?? 0))
 }
 
+/** In the currency's own minor unit: ¥2500 is "¥2,500", never "¥25". */
 function money(cents: number, currency = "USD"): string {
-  return formatCurrency(cents / 100, String(currency || "USD"), "en-US")
+  return formatMinor(cents, String(currency || "USD"), "en-US")
 }
 
 async function onceForOrder(
