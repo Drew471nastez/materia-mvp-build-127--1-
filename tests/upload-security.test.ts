@@ -400,7 +400,8 @@ async function main() {
   }
   /* The buyer's profile changes its photo on the big one at its top (components/account/account-photo), under the owner's folder too. */
   check("the account page's photo uploads under the owner's folder too", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/.test(read("components/account/account-photo.tsx")) && !/\.from\("avatars"\)/.test(read("components/account/account-settings.tsx")))
-  check("link page thumbnails and images go under the owner's folder", (read("components/onepage/tabs/links-tab.tsx").match(/`\$\{ownerId\}\/(thumbnail|image)_/g) ?? []).length === 3)
+  /* Round 11: the three go through lib/onepage/media-upload.ts now, which builds every path as `${userId}/${prefix}-…` from the session (mediaPath). */
+  check("link page thumbnails and images go under the owner's folder", (read("components/onepage/tabs/links-tab.tsx").match(/uploadOnePageMedia\(file, \{ prefix: `(thumbnail|image)_/g) ?? []).length === 3 && /return `\$\{ownerId\}\/\$\{safePrefix\}-/.test(read("lib/onepage/media-rules.ts")) && /mediaPath\(first\.userId, o\.prefix, ext\)/.test(read("lib/onepage/media-upload.ts")))
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) {

@@ -200,6 +200,28 @@ export const LINK_BRAND_ICONS = [
   "apple-music",
   "notion",
   "vimeo",
+  /* Round 11: the shops, tip jars, newsletters, players and forms a page links to. */
+  "amazon",
+  "etsy",
+  "kofi",
+  "buymeacoffee",
+  "paypal",
+  "cashapp",
+  "venmo",
+  "bluesky",
+  "substack",
+  "patreon",
+  "kick",
+  "soundcloud",
+  "bandcamp",
+  "apple-podcasts",
+  "gumroad",
+  "calendly",
+  "loom",
+  "typeform",
+  "google-forms",
+  "google-calendar",
+  "mixcloud",
 ] as const
 
 export type LinkBrandIcon = (typeof LINK_BRAND_ICONS)[number]
@@ -215,6 +237,10 @@ const LINK_ICON_ALIASES: Record<string, string> = {
   applemusic: "apple-music",
   apple_music: "apple-music",
   x: "twitter",
+  applepodcasts: "apple-podcasts",
+  googleforms: "google-forms",
+  googlecalendar: "google-calendar",
+  "ko-fi": "kofi",
 }
 
 /** The name LinkIcon draws for a saved icon, or null when there is nothing to draw. */
@@ -244,6 +270,27 @@ const BRAND_LABELS: Record<LinkBrandIcon, string> = {
   "apple-music": "Apple Music",
   notion: "Notion",
   vimeo: "Vimeo",
+  amazon: "Amazon",
+  etsy: "Etsy",
+  kofi: "Ko-fi",
+  buymeacoffee: "Buy Me a Coffee",
+  paypal: "PayPal",
+  cashapp: "Cash App",
+  venmo: "Venmo",
+  bluesky: "Bluesky",
+  substack: "Substack",
+  patreon: "Patreon",
+  kick: "Kick",
+  soundcloud: "SoundCloud",
+  bandcamp: "Bandcamp",
+  "apple-podcasts": "Apple Podcasts",
+  gumroad: "Gumroad",
+  calendly: "Calendly",
+  loom: "Loom",
+  typeform: "Typeform",
+  "google-forms": "Google Forms",
+  "google-calendar": "Google Calendar",
+  mixcloud: "Mixcloud",
 }
 
 export function linkIconLabel(key: string): string {

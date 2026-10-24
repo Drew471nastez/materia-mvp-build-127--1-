@@ -126,16 +126,20 @@ import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
 import { BlockBadges, BlockExtras, EXTRA_BLOCK_TYPES, ExtraBlockEditor, extraBlockRow, type ExtraBlockType } from "@/components/onepage/extra-blocks"
-import { AddBlockPicker, AddBlockPlus } from "@/components/onepage/add-block-picker"
+import { AddBlockButton, AddBlockPicker, AddSheetGate, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
+import { IconLibrary, IconLibraryGate, setIconLibraryOpen } from "@/components/onepage/icon-library"
 import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText } from "@/components/onepage/block-icons"
 import { bookingProviderName, bookingSource } from "@/lib/onepage/creator-blocks"
 import { hasRealUrl } from "@/lib/onepage/editor-state"
 import { SignupDestination } from "@/components/onepage/creator-blocks"
 import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
 import { parseSocialInput, socialFieldIsLink, socialFieldValue, socialFormat } from "@/lib/onepage/social-input"
-import { LinkIcon, SocialIcon, hasLinkIcon, markOn, socialPlatformLabel } from "@/components/onepage/brand-icons"
-import { LINK_ICONS, LINK_ICON_CATEGORIES, resolveLinkIcon } from "@/components/onepage/link-icons"
+import { LinkIcon, SocialIcon, hasLinkIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
+import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { tt } from "@/lib/i18n/text"
+import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia, classifyMedia } from "@/lib/onepage/media-rules"
+import { UploadError, openableImage, prepareImage, uploadErrorText, uploadMessage, uploadOnePageMedia } from "@/lib/onepage/media-upload"
+import { CropUpload } from "@/components/onepage/crop-upload"
 import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 
@@ -171,6 +175,12 @@ function validateSocialUrl(platform: string, url: string): { valid: boolean; err
       return { valid: false, error: tt("Enter your username, or paste the link") }
   }
 }
+
+/** Three quarters of what the keyboard and the visible part make together, less the keyboard: with bottom-sheet's aboveKeyboard adding the keyboard back, a box whose top never moves. */
+const SOCIAL_SHEET_HEIGHT = "calc((var(--vv-h, 100dvh) + var(--kb-inset, 0px)) * 0.75 - var(--kb-inset, 0px))"
+
+/** The social sheet clears what was typed this long after it closes: after the sheet's own close (bottom-sheet SHEET_CLOSE_MS), and the dialog's. */
+const SOCIAL_RESET_MS = 420
 
 // Social platforms configuration with SVG icons
 const SOCIAL_PLATFORMS = [
@@ -283,6 +293,7 @@ function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, pro
     case "music":
     case "testimonials":
     case "contact_form":
+    case "embed":
     case "heading":
     case "faq":
     case "countdown":
@@ -344,7 +355,7 @@ export function LinksTab() {
     setActiveSection,
   } = useOnePage()
 
-  const [showAddModal, setShowAddModal] = useState(false)
+  /* Whether Add block is up lives in components/onepage/add-block-picker (setAddSheetOpen), so opening it does not render this tab. */
   const [searchQuery, setSearchQuery] = useState("")
   const [addToGroupId, setAddToGroupId] = useState<string | null>(null)
   const [showSocialModal, setShowSocialModal] = useState(false)
@@ -366,8 +377,6 @@ export function LinksTab() {
   const [thumbnailBlockId, setThumbnailBlockId] = useState<string | null>(null)
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const [showIconLibraryInModal, setShowIconLibraryInModal] = useState(false)
-  const [iconSearchQuery, setIconSearchQuery] = useState("")
-  const [iconCategory, setIconCategory] = useState("all")
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
 
   // Pull-to-refresh prevention is handled by the Dialog/Sheet components themselves
@@ -403,37 +412,55 @@ export function LinksTab() {
   const [showAvatarCropModal, setShowAvatarCropModal] = useState(false)
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [showVideoCropModal, setShowVideoCropModal] = useState(false)
-  const [tempImageUrl, setTempImageUrl] = useState<string | null>(null)
-  const [tempImageFile, setTempImageFile] = useState<File | null>(null)
-  const [tempVideoUrl, setTempVideoUrl] = useState<string | null>(null)
-  const [tempVideoFile, setTempVideoFile] = useState<File | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadingVideo, setUploadingVideo] = useState(false)
-  
+  /* What the profile croppers show and upload (components/onepage/crop-upload.tsx). */
+  const [tempAvatar, setTempAvatar] = useState<{ url: string; blob: Blob } | null>(null)
+  const [tempAvatarVideo, setTempAvatarVideo] = useState<{ url: string; file: File } | null>(null)
+  /* Why a chosen file cannot be used, in the sheet it was chosen from. */
+  const [avatarPickError, setAvatarPickError] = useState<string | null>(null)
+
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoFileInputRef = useRef<HTMLInputElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Crop state for images - square style like design tab
-  const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
-  const [isDraggingCrop, setIsDraggingCrop] = useState(false)
-  const [isResizingCrop, setIsResizingCrop] = useState<string | null>(null)
-  const [dragStartCrop, setDragStartCrop] = useState({ x: 0, y: 0 })
-  const [imageSizeCrop, setImageSizeCrop] = useState({ width: 0, height: 0 })
-  const cropContainerRef = useRef<HTMLDivElement>(null)
-
-  // Video crop state - portrait ratio (percentages)
-  const [videoCropBox, setVideoCropBox] = useState({ x: 10, y: 5, width: 60, height: 80 })
-  const [isDraggingVideoCrop, setIsDraggingVideoCrop] = useState(false)
-  const [isResizingVideoCrop, setIsResizingVideoCrop] = useState<string | null>(null)
-  const [videoDragStart, setVideoDragStart] = useState({ x: 0, y: 0, boxX: 0, boxY: 0, boxW: 0, boxH: 0 })
-  const videoContainerRef = useRef<HTMLDivElement>(null)
-  const [videoNaturalSize, setVideoNaturalSize] = useState({ width: 0, height: 0 })
+  /* A picture for the profile cropper: checked, made drawable (a HEIC becomes a JPEG), or the reason in plain words. */
+  const pickAvatarImage = async (file: File | undefined) => {
+    if (!file) return
+    setAvatarPickError(null)
+    try {
+      const img = await openableImage(file)
+      setTempAvatar(img)
+      setShowAvatarUploadModal(false)
+      setShowAvatarCropModal(true)
+    } catch (err) {
+      setAvatarPickError(uploadMessage(err))
+    }
+  }
+  const closeAvatarCrop = () => {
+    setShowAvatarCropModal(false)
+    setTempAvatar((old) => {
+      if (old) URL.revokeObjectURL(old.url)
+      return null
+    })
+  }
+  const closeVideoCrop = () => {
+    setShowVideoCropModal(false)
+    setTempAvatarVideo((old) => {
+      if (old) URL.revokeObjectURL(old.url)
+      return null
+    })
+  }
 
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null)
-  /* The sheet is up and + Add opened it (not a + between two cards, not a group's): its + is turned into an x. */
-  const addSheetFromButton = showAddModal && insertAfterId === null && addToGroupId === null
+  /* Whether the social and thumbnail sheets are up, for the clean ups that run after their close (closeSocialSheet, closeThumbnailSheet). Above the early return below, as every hook here. */
+  const socialOpenRef = useRef(false)
+  socialOpenRef.current = showSocialModal
+  const thumbOpenRef = useRef(false)
+  thumbOpenRef.current = showThumbnailModal
+  useEffect(() => () => setIconLibraryOpen(false), [])
+  /* The open state outlives this tab (it is a module's): a tab that goes away takes its sheet down with it, so it never comes back up on its own. */
+  useEffect(() => () => setAddSheetOpen(false), [])
+  /* When the sheet is up, + Add opened it (not a + between two cards, not a group's): its + is turned into an x (AddBlockButton). */
+  const addSheetFromButton = insertAfterId === null && addToGroupId === null
 
   /*
     REORDERING THE CARDS: components/onepage/link-reorder.ts moves them
@@ -895,23 +922,8 @@ export function LinksTab() {
 
     setThumbnailUploading(true)
     try {
-      const supabase = createClient()
-      const fileExt = file.name.split('.').pop()
-      /* Under the owner's own folder: storage only lets a person write there. */
-      const ownerId = (await supabase.auth.getSession()).data.session?.user.id
-      if (!ownerId) throw new Error(tt("Not signed in"))
-      const fileName = `${ownerId}/thumbnail_${thumbnailBlockId}_${Date.now()}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('onepage-assets')
-        .upload(fileName, file, { upsert: true })
-
-      if (uploadError) throw uploadError
-      confirmUpload('onepage-assets', fileName)
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('onepage-assets')
-        .getPublicUrl(fileName)
+      /* Straight to storage under the owner's own folder, with a type storage takes (a HEIC becomes a JPEG): lib/onepage/media-upload. */
+      const { url: publicUrl } = await uploadOnePageMedia(file, { prefix: `thumbnail_${thumbnailBlockId}`, want: "image" })
 
       const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
       if (block?.type === 'product') {
@@ -936,6 +948,7 @@ export function LinksTab() {
       setShowIconLibraryInModal(false)
     } catch (error) {
       console.error('Error uploading thumbnail:', error)
+      alert(uploadMessage(error))
     } finally {
       setThumbnailUploading(false)
       if (thumbnailInputRef.current) {
@@ -976,28 +989,60 @@ export function LinksTab() {
 
   /* The sheet holds what it showed until it has slid out, so the fields reset at once on either surface. */
   const closeAddSheet = () => {
-    if (!showAddModal) return
-    setShowAddModal(false)
-    setSearchQuery("")
+    if (!isAddSheetOpen()) return
+    setAddSheetOpen(false)
     setInsertAfterId(null)
     setAddToGroupId(null)
   }
 
+  /*
+    THE SOCIAL SHEET CLOSES AS IT IS, THEN FORGETS (round 11: "when I click
+    Cancel it closes very bad"). It used to empty the platform and the field
+    on the same render that closed it, so the sheet swapped from "Edit social
+    link" to the whole platform list, a different height, in the first frame
+    of its slide. Now the keyboard goes down with it (the field is let go
+    first), the sheet slides out showing what it showed, and what was typed
+    is cleared once it is gone (SOCIAL_RESET_MS, a little after the sheet's
+    own close), unless it was opened again by then.
+  */
   const closeSocialSheet = () => {
     if (!showSocialModal) return
-    setShowSocialModal(false)
-    setSelectedSocial(null)
-    setSocialUrl("")
-    setSearchQuery("")
-    setSocialUrlError(null)
+    const active = document.activeElement as HTMLElement | null
+    if (active && active.closest?.("[data-social-sheet]")) active.blur()
+    /*
+      In a transition: this tab's render (the whole list of blocks, about
+      100ms on a phone slowed four times) is cut into slices between frames
+      instead of one long task while the sheet slides out.
+    */
+    React.startTransition(() => setShowSocialModal(false))
+    window.setTimeout(() => {
+      if (socialOpenRef.current) return
+      React.startTransition(() => {
+        setSelectedSocial(null)
+        setSocialUrl("")
+        setSearchQuery("")
+        setSocialUrlError(null)
+      })
+    }, SOCIAL_RESET_MS)
   }
 
+  /* The library's search and category are its own now (components/onepage/icon-library); a close leaves the view as it is until the dialog has gone. */
   const closeThumbnailSheet = () => {
     if (!showThumbnailModal) return
     setShowThumbnailModal(false)
-    setShowIconLibraryInModal(false)
-    setIconSearchQuery("")
-    setIconCategory("all")
+    setIconLibraryOpen(false)
+    if (!isMobileModalViewport) window.setTimeout(() => { if (!thumbOpenRef.current) setShowIconLibraryInModal(false) }, SOCIAL_RESET_MS)
+  }
+
+  /* An icon chosen in the library: on the link at once (the preview redraws with it), and the sheets go. */
+  const chooseLinkIcon = (iconId: string) => {
+    if (thumbnailBlockId) {
+      const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
+      if (block?.type === 'link_button') {
+        updateBlock(thumbnailBlockId, { data: { ...block.data, icon: iconId, thumbnail_url: null } })
+      }
+    }
+    closeThumbnailSheet()
   }
 
   const focusAndScrollToBlock = (blockId: string) => {
@@ -1161,9 +1206,7 @@ export function LinksTab() {
     const urlToSave = validation.transformedUrl || socialUrl
 
     updateSocialLinks({ [selectedSocial]: urlToSave } as Partial<OnePageSocialLinks>)
-    setSelectedSocial(null)
-    setSocialUrl("")
-    setSocialUrlError(null)
+    /* The field is cleared once the sheet has gone (closeSocialSheet), so it leaves showing what was saved. */
     closeSocialSheet()
   }
 
@@ -1254,22 +1297,21 @@ export function LinksTab() {
           )}
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
             {activeSocials.slice(0, 5).map(([platform]) => {
-              const config = SOCIAL_PLATFORMS.find(p => p.id === platform)
               return (
                 <div
                   key={platform}
                   className="relative group/social"
                 >
                   <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: config?.color || "#1a1a2e" }}
+                    data-social-chip={platform}
+                    className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.1),0_1px_2px_rgba(17,17,19,0.06)] transition-opacity hover:opacity-80"
                     onClick={() => {
                       setSelectedSocial(platform)
                       setSocialUrl(socialFieldValue(platform, social_links?.[platform as keyof typeof social_links]))
                       setShowSocialModal(true)
                     }}
                   >
-                    <SocialIcon platform={platform} size={14} color={markOn(config?.color || "#1a1a2e")} />
+                    <SocialIcon platform={platform} size={14} color="#1a1a2e" tone="brand" />
                   </div>
                   <button
                     onClick={(e) => {
@@ -1307,20 +1349,17 @@ export function LinksTab() {
         app/globals.css takes every transform and transition inside a
         `.group` away on a touch screen, so on a phone it never turned.
       */}
-      <button
-        type="button"
-        data-add-block=""
-        aria-expanded={addSheetFromButton}
-        onClick={() => {
+      <AddBlockButton
+        fromButton={addSheetFromButton}
+        onPress={() => {
           setInsertAfterId(null)
           setAddToGroupId(null)
-          setShowAddModal(true)
+          setAddSheetOpen(true)
         }}
         className={cn(accentDepth, "h-11 w-full gap-2 rounded-xl text-[15px]")}
       >
-        <AddBlockPlus open={addSheetFromButton} />
         {tt("Add")}
-      </button>
+      </AddBlockButton>
 
       {/* Quick Actions */}
       <div className="flex gap-2">
@@ -1494,7 +1533,7 @@ export function LinksTab() {
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
-                  setShowAddModal(true)
+                  setAddSheetOpen(true)
                 }}
               />
             </div>
@@ -1505,7 +1544,7 @@ export function LinksTab() {
                   type="button"
                   onClick={() => {
                     setInsertAfterId(block.id)
-                    setShowAddModal(true)
+                    setAddSheetOpen(true)
                   }}
                   className="absolute inset-x-0 -top-4 -bottom-4 flex items-center justify-center px-1 focus:outline-none"
                   tabIndex={0}
@@ -1532,7 +1571,8 @@ export function LinksTab() {
       </div>
       )}
 
-      {/* Add Block Modal - Linktree style without sidebar */}
+      {/* Add Block Modal - Linktree style without sidebar. AddSheetGate: the open and the close render this, not the tab. */}
+      <AddSheetGate>{(showAddModal) => (
       <SheetDialog
         open={showAddModal}
         onClose={closeAddSheet}
@@ -1564,12 +1604,11 @@ export function LinksTab() {
           <AddBlockPicker
             open={showAddModal}
             inGroup={!!addToGroupId}
-            query={searchQuery}
-            onQuery={setSearchQuery}
             atLimit={isBlockTypeAtLimit}
             onPick={(entry) => handleAddBlock(entry.type, entry.preset, entry.data)}
           />
       </SheetDialog>
+      )}</AddSheetGate>
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
       <SheetDialog
@@ -1578,11 +1617,25 @@ export function LinksTab() {
         phone={isMobileModalViewport}
         label={selectedSocial ? tt("Edit Social Link") : tt("Add Social Link")}
         onOpenAutoFocus={(e) => e.preventDefault()}
-        /* Built ahead and kept, as Add block is; closeSocialSheet resets what was typed. */
-        sheet={{ keepMounted: true }}
+        /*
+          Built ahead and kept, as Add block is; closeSocialSheet resets what was
+          typed once it has gone. One height for the list and for a platform's
+          field (as Add block has), so choosing a platform does not drop the
+          sheet's top edge.
+
+          AND THE KEYBOARD DOES NOT MOVE IT ("when I click the input, make sure
+          it doesn't bump with the keyboard"). The field is at the top of the
+          sheet, well above any keyboard, so the sheet has no reason to move:
+          its box stays three quarters of the screen the keyboard and the
+          visible part make together, and the keyboard's room is taken out of
+          its foot (bottom-sheet aboveKeyboard's padding, on the keyboard's own
+          250ms curve). The top edge, the title and the field stay exactly
+          where they were; only the empty space under Cancel gives way.
+        */
+        sheet={{ keepMounted: true, height: SOCIAL_SHEET_HEIGHT }}
         className="p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
       >
-          <DialogHeader className="p-4 sm:p-5 border-b border-gray-100 shrink-0">
+          <DialogHeader data-social-sheet="" className="p-4 sm:p-5 border-b border-gray-100 shrink-0">
             <SheetDialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? tt("Edit Social Link") : tt("Add Social Link")}
             </SheetDialogTitle>
@@ -1612,7 +1665,7 @@ export function LinksTab() {
               </div>
 
               {/* Scrollable Platform List */}
-              <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
+              <div data-social-sheet="" className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-1">
                 {SOCIAL_PLATFORMS.filter(p =>
                   p.label.toLowerCase().includes(searchQuery.toLowerCase())
                 ).map((platform) => {
@@ -1624,18 +1677,16 @@ export function LinksTab() {
                         setSelectedSocial(platform.id)
                         setSocialUrl(socialFieldValue(platform.id, social_links?.[platform.id as keyof typeof social_links]))
                       }}
+                      data-social-platform={platform.id}
                       className={cn(
-                        "w-full flex items-center gap-3 p-3 rounded-xl transition-all",
+                        "w-full flex items-center gap-3 p-3 rounded-xl transition-[background-color] duration-150 [-webkit-tap-highlight-color:transparent] active:bg-gray-100",
                         isActive
                           ? "bg-gray-100"
                           : "hover:bg-gray-50"
                       )}
                     >
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: platform.color }}
-                      >
-                        <SocialIcon platform={platform.id} size={20} color={markOn(platform.color)} />
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.08),0_1px_2px_rgba(17,17,19,0.05)]">
+                        <SocialIcon platform={platform.id} size={21} color="#1a1a2e" tone="brand" />
                       </div>
                       <div className="flex-1 text-left">
                         <p className="font-medium text-sm">{platform.label}</p>
@@ -1663,17 +1714,15 @@ export function LinksTab() {
             </>
           ) : (
             // URL input for selected platform
-            <div className="p-4 sm:p-5 space-y-4">
+            /* data-keyboard-own: the field is placed by the sheet (it is at its top, above any keyboard); KeyboardGuard must not centre it, which scrolled it a few pixels under the finger. */
+            <div data-social-sheet="" data-keyboard-own="" className="p-4 sm:p-5 space-y-4 min-h-0 overflow-y-auto overscroll-contain">
               {(() => {
                 const platform = SOCIAL_PLATFORMS.find(p => p.id === selectedSocial)
                 return (
                   <>
                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: platform?.color }}
-                      >
-                        <SocialIcon platform={selectedSocial ?? ""} size={20} color={markOn(platform?.color)} />
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.08),0_1px_2px_rgba(17,17,19,0.05)]">
+                        <SocialIcon platform={selectedSocial ?? ""} size={21} color="#1a1a2e" tone="brand" />
                       </div>
                       <div>
                         <p className="font-medium">{platform?.label}</p>
@@ -1757,12 +1806,17 @@ export function LinksTab() {
                       >
                         {social_links?.[selectedSocial as keyof typeof social_links] ? tt("Update") : tt("Add")}
                       </Button>
+                      {/* Cancel closes with the sheet's own close: on a phone the slide starts first (data-sheet-close) and the editor hears of it a frame later. */}
                       <Button
                         variant="outline"
+                        data-social-cancel=""
+                        data-sheet-close={isMobileModalViewport ? "" : undefined}
                         className="rounded-xl h-[44px] w-full text-[15px] font-semibold"
-                        onClick={() => closeSocialSheet()}
+                        onClick={() => {
+                          if (!isMobileModalViewport) closeSocialSheet()
+                        }}
                       >
-                        {tt("Back")}
+                        {tt("Cancel")}
                       </Button>
                       {social_links?.[selectedSocial as keyof typeof social_links] && (
                         <Button
@@ -1772,8 +1826,6 @@ export function LinksTab() {
                             handleRemoveSocial(selectedSocial)
                             setShowDeleteSocialNotification(false)
                             requestAnimationFrame(() => setShowDeleteSocialNotification(true))
-                            setSelectedSocial(null)
-                            setSocialUrlError(null)
                             closeSocialSheet()
                           }}
                         >
@@ -2044,8 +2096,8 @@ export function LinksTab() {
             : "rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
         )}
       >
-          {/* Main Options View */}
-          {!showIconLibraryInModal && (
+          {/* Main Options View (on a phone it stays under the library's own sheet) */}
+          {!(showIconLibraryInModal && !isMobileModalViewport) && (
             <>
               <DialogHeader className="p-4 border-b">
                 <SheetDialogTitle className="text-base font-semibold">
@@ -2105,7 +2157,8 @@ export function LinksTab() {
                 {getThumbnailBlockType() === 'link_button' && (
                   <button
                     type="button"
-                    onClick={() => setShowIconLibraryInModal(true)}
+                    /* On a phone its own sheet over this one (components/onepage/icon-library), opened without rendering this tab; on a computer this dialog's other view. */
+                    onClick={() => (isMobileModalViewport ? setIconLibraryOpen(true) : setShowIconLibraryInModal(true))}
                     className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
                   >
                     <div className="w-10 h-10 rounded-lg bg-[#f4f4f6] flex items-center justify-center">
@@ -2165,193 +2218,53 @@ export function LinksTab() {
             </>
           )}
 
-          {/* Icon Library Full Page View */}
-          {showIconLibraryInModal && (
-            <>
-              <DialogHeader className="p-4 border-b">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowIconLibraryInModal(false)
-                      setIconSearchQuery("")
-                      setIconCategory("all")
-                    }}
-                    className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <SheetDialogTitle className="text-base font-semibold">{tt("Choose Icon")}</SheetDialogTitle>
-                </div>
-              </DialogHeader>
-
-              {/* Search */}
-              <div className="p-3 border-b bg-gray-50">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder={tt("Search icons...")}
-                    value={iconSearchQuery}
-                    onChange={(e) => setIconSearchQuery(e.target.value)}
-                    className="pl-9 h-10 bg-white border-gray-200 rounded-lg text-sm"
-                    readOnly={isMobileModalViewport}
-                    onClick={(e) => {
-                      if (isMobileModalViewport) {
-                        e.currentTarget.readOnly = false
-                        e.currentTarget.focus()
-                      }
-                    }}
-                  />
-                  {iconSearchQuery && (
-                    <button
-                      onClick={() => setIconSearchQuery("")}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Categories - Horizontal scroll on mobile, sidebar on desktop */}
-              {isMobileModalViewport ? (
-                <div className="border-b bg-white overflow-x-auto scrollbar-hide">
-                  <div className="flex gap-2 p-3">
-                    {LINK_ICON_CATEGORIES.map((cat) => (
-                      <button
-                        key={cat.id}
-                        onClick={() => setIconCategory(cat.id)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0",
-                          iconCategory === cat.id
-                            ? "bg-gray-900 text-white"
-                            : "bg-gray-100 text-gray-600"
-                        )}
-                      >
-                        {cat.label} ({cat.icons.length})
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Layout with sidebar and icons */}
-              <div className={cn(
-                "flex overflow-hidden",
-                isMobileModalViewport ? "h-[50vh]" : "h-[60vh] max-h-[500px]"
-              )}>
-                {/* Categories sidebar - Desktop only */}
-                {!isMobileModalViewport && (
-                  <div className="w-40 border-r bg-gray-50 overflow-y-auto flex-shrink-0">
-                    <div className="p-2 space-y-1">
-                      {LINK_ICON_CATEGORIES.map((cat) => (
-                        <button
-                          key={cat.id}
-                          onClick={() => setIconCategory(cat.id)}
-                          className={cn(
-                            "w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                            iconCategory === cat.id
-                              ? "bg-gray-900 text-white"
-                              : "text-gray-600 hover:bg-gray-200"
-                          )}
-                        >
-                          {cat.label}
-                          <span className="ml-1 text-xs opacity-60">({cat.icons.length})</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Icon grid */}
-                <div className={cn(
-                  "flex-1 overflow-y-auto",
-                  /* The sheet keeps clear of the home indicator itself. */
-                  isMobileModalViewport ? "p-3" : "p-4"
-                )}>
-                  <div className={cn(
-                    "grid gap-2",
-                    isMobileModalViewport ? "grid-cols-4" : "grid-cols-5 sm:grid-cols-6 md:grid-cols-8"
-                  )}>
-                    {(() => {
-                      // Get icons for current category
-                      const categoryIcons = LINK_ICON_CATEGORIES.find(c => c.id === iconCategory)?.icons || []
-                      // Filter by search query
-                      const filteredIcons = LINK_ICONS.filter(icon => {
-                        const matchesCategory = categoryIcons.includes(icon.id)
-                        const matchesSearch = !iconSearchQuery ||
-                          icon.name.toLowerCase().includes(iconSearchQuery.toLowerCase()) ||
-                          icon.id.toLowerCase().includes(iconSearchQuery.toLowerCase())
-                        return matchesCategory && matchesSearch
-                      })
-
-                      if (filteredIcons.length === 0) {
-                        return (
-                          <div className="col-span-full text-center py-8 text-gray-500">
-                            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                            <p className="text-sm">{tt("No icons found")}</p>
-                          </div>
-                        )
-                      }
-
-                      return filteredIcons.map((icon) => (
-                        <button
-                          key={icon.id}
-                          type="button"
-                          onClick={() => {
-                            if (thumbnailBlockId) {
-                              const block = onepage.draft_blocks.find(b => b.id === thumbnailBlockId)
-                              if (block?.type === 'link_button') {
-                                updateBlock(thumbnailBlockId, {
-                                  data: {
-                                    ...block.data,
-                                    icon: icon.id,
-                                    thumbnail_url: null
-                                  }
-                                })
-                              }
-                            }
-                            closeThumbnailSheet()
-                            setShowIconLibraryInModal(false)
-                            setIconSearchQuery("")
-                            setIconCategory("all")
-                          }}
-                          className={cn(
-                            "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 transition-all hover:bg-gray-100 hover:shadow-sm",
-                            isMobileModalViewport ? "p-2" : "p-2",
-                            (() => {
-                              const blockData = getThumbnailBlockData()
-                              if (getThumbnailBlockType() === 'link_button' && blockData) {
-                                return (blockData as LinkButtonBlockData).icon === icon.id
-                              }
-                              return false
-                            })() && "bg-gray-100 shadow-sm ring-2 ring-gray-900"
-                          )}
-                          title={icon.name}
-                        >
-                          <LinkIcon name={icon.id} size={isMobileModalViewport ? 20 : 24} className="text-gray-700" />
-                          <span className={cn(
-                            "text-gray-500 truncate w-full text-center",
-                            isMobileModalViewport ? "text-[8px]" : "text-[9px]"
-                          )}>{icon.name}</span>
-                        </button>
-                      ))
-                    })()}
-                  </div>
-                </div>
-              </div>
-            </>
+          {/* The icon library, on a computer in this dialog (on a phone it is its own sheet, below). */}
+          {showIconLibraryInModal && !isMobileModalViewport && (
+            <IconLibrary
+              phone={false}
+              open={showThumbnailModal && showIconLibraryInModal}
+              selected={getThumbnailBlockType() === 'link_button' ? ((getThumbnailBlockData() as LinkButtonBlockData | null)?.icon ?? null) : null}
+              onSelect={chooseLinkIcon}
+              onBack={() => setShowIconLibraryInModal(false)}
+            />
           )}
 
           {/* Hidden file input */}
           <input
             ref={thumbnailInputRef}
             type="file"
-            accept="image/*"
+            accept={ONEPAGE_IMAGE_ACCEPT}
             onChange={handleThumbnailUploadForModal}
             className="hidden"
           />
       </SheetDialog>
+
+      {/*
+        CHOOSE ICON ON A PHONE: a sheet of its own over the thumbnail sheet,
+        built ahead and kept (components/onepage/icon-library), one height so
+        a search with fewer icons does not move its top edge. Back slides it
+        away to the thumbnail's choices; choosing an icon applies it and both
+        go.
+      */}
+      {isMobileModalViewport ? (
+        <IconLibraryGate>{(libraryUp) => (
+          <SheetDialog
+            open={libraryUp}
+            onClose={() => setIconLibraryOpen(false)}
+            phone
+            label={tt("Choose icon")}
+            sheet={{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT, zIndex: 210 }}
+          >
+            <IconLibrary
+              phone
+              open={libraryUp}
+              selected={getThumbnailBlockType() === 'link_button' ? ((getThumbnailBlockData() as LinkButtonBlockData | null)?.icon ?? null) : null}
+              onSelect={chooseLinkIcon}
+              onBack={() => setIconLibraryOpen(false)}
+            />
+          </SheetDialog>
+        )}</IconLibraryGate>
+      ) : null}
 
       {/* Image Library Modal / File Upload Modal */}
       <SheetDialog
@@ -2392,7 +2305,7 @@ export function LinksTab() {
                   }
                   disabled={imageUploading}
                   onChange={async (e) => {
-                    const file = e.target.files?.[0]
+                    let file = e.target.files?.[0]
                     if (!file || !imageBlockId) return
                     if (imageUploading) return // Guard against concurrent uploads
 
@@ -2400,6 +2313,11 @@ export function LinksTab() {
                     setUploadProgress(0)
                     try {
                       const isDigitalFile = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file'
+                      /* An iPhone's HEIC is made a JPEG here first: the picture buckets take what a browser can show (lib/onepage/media-upload). */
+                      if (!isDigitalFile && classifyMedia(file)?.convert) {
+                        const jpeg = await prepareImage(file)
+                        file = new File([jpeg.blob], `${file.name.replace(/\.[^.]+$/, '') || 'photo'}.${jpeg.ext}`, { type: jpeg.mime })
+                      }
                       const folder = isDigitalFile ? 'digital' : 'images'
 
                       /* The same rule the server applies (lib/security/uploads): size,
@@ -2693,7 +2611,7 @@ export function LinksTab() {
                       /* One plain sentence: the server's own when it is one, never a code or a status. */
                       const said = error instanceof Error ? error.message : ''
                       const plain = said && said.length < 160 && !/failed|error|http|\(\d{3}\)|required|not found|denied|unauthori|token|bucket/i.test(said)
-                      alert(plain ? said : tt("Upload failed. Try again."))
+                      alert(error instanceof UploadError ? error.message : plain ? said : tt("Upload failed. Try again."))
                     } finally {
                       setImageUploading(false)
                       setTimeout(() => setUploadProgress(0), 500)
@@ -2928,13 +2846,7 @@ export function LinksTab() {
                 e.preventDefault()
                 e.stopPropagation()
                 setIsDragOver(false)
-                const file = e.dataTransfer.files?.[0]
-                if (!file || !file.type.startsWith('image/')) return
-                const url = URL.createObjectURL(file)
-                setTempImageUrl(url)
-                setTempImageFile(file)
-                setShowAvatarUploadModal(false)
-                setShowAvatarCropModal(true)
+                void pickAvatarImage(e.dataTransfer.files?.[0])
               }}
               className={cn(
                 "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200",
@@ -2950,353 +2862,69 @@ export function LinksTab() {
               {!isDragOver && <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>}
               <p className="text-sm text-gray-400 mt-2">{tt("Please upload an image")}</p>
             </div>
+            {avatarPickError ? <p role="alert" className="mt-3 text-[13px] leading-snug text-[#b42318]">{avatarPickError}</p> : null}
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept={ONEPAGE_IMAGE_ACCEPT}
               onChange={(e) => {
                 const file = e.target.files?.[0]
-                if (!file) return
-                const url = URL.createObjectURL(file)
-                setTempImageUrl(url)
-                setTempImageFile(file)
-                setShowAvatarUploadModal(false)
-                setShowAvatarCropModal(true)
+                e.target.value = ''
+                void pickAvatarImage(file)
               }}
               className="hidden"
             />
           </div>
         </SheetDialog>
 
-      {/* Image Crop Modal - Square style like Design tab */}
+      {/* Image Crop Modal: the shared cropper (components/onepage/crop-upload.tsx), a circle, saved as the one profile photo. */}
       <SheetDialog
         open={showAvatarCropModal}
-        onClose={() => {
-          setShowAvatarCropModal(false)
-          if (tempImageUrl) {
-            URL.revokeObjectURL(tempImageUrl)
-            setTempImageUrl(null)
-            setTempImageFile(null)
-            setCropBox({ x: 50, y: 50, size: 200 })
-          }
-        }}
+        onClose={closeAvatarCrop}
         phone={isMobileModalViewport}
         label={tt("Crop Image")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
+        dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
-            <button onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <button onClick={() => { closeAvatarCrop(); setShowAvatarUploadModal(true) }} aria-label={tt("Back")} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Image")}</SheetDialogTitle>
           </DialogHeader>
-          <div className="p-5 space-y-4">
-            {tempImageUrl && (
-              <>
-                {/* Square crop preview with draggable crop box */}
-                <div
-                  ref={cropContainerRef}
-                  /* In the phone's sheet, the crop keeps its finger: the sheet does not drag from here. */
-                  data-sheet-no-drag=""
-                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden touch-none"
-                  style={{ width: '300px', height: '300px' }}
-                  onMouseMove={(e) => {
-                    if (!isDraggingCrop && !isResizingCrop) return
-                    const rect = cropContainerRef.current?.getBoundingClientRect()
-                    if (!rect) return
-
-                    if (isDraggingCrop) {
-                      const newX = e.clientX - rect.left - dragStartCrop.x
-                      const newY = e.clientY - rect.top - dragStartCrop.y
-                      // Constrain to image bounds
-                      const maxX = imageSizeCrop.width - cropBox.size
-                      const maxY = imageSizeCrop.height - cropBox.size
-                      const offsetX = (300 - imageSizeCrop.width) / 2
-                      const offsetY = (300 - imageSizeCrop.height) / 2
-                      setCropBox(prev => ({
-                        ...prev,
-                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
-                        y: Math.max(0, Math.min(maxY, newY - offsetY))
-                      }))
-                    } else if (isResizingCrop) {
-                      const dx = e.clientX - dragStartCrop.x
-                      const dy = e.clientY - dragStartCrop.y
-                      let delta: number, newSize: number
-                      if (isResizingCrop === 'top-left') {
-                        delta = Math.max(-dx, -dy)
-                        newSize = Math.max(50, cropBox.size + delta)
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange), y: Math.max(0, prev.y - sizeChange) }))
-                      } else if (isResizingCrop === 'top-right') {
-                        delta = Math.max(dx, -dy)
-                        newSize = Math.max(50, Math.min(imageSizeCrop.width - cropBox.x, cropBox.size + delta))
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, y: Math.max(0, prev.y - sizeChange) }))
-                      } else if (isResizingCrop === 'bottom-left') {
-                        delta = Math.max(-dx, dy)
-                        newSize = Math.max(50, Math.min(imageSizeCrop.height - cropBox.y, cropBox.size + delta))
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange) }))
-                      } else {
-                        delta = Math.max(dx, dy)
-                        newSize = Math.max(50, Math.min(300, cropBox.size + delta))
-                        const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
-                        setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
-                      }
-                      setDragStartCrop({ x: e.clientX, y: e.clientY })
-                    }
-                  }}
-                  onMouseUp={() => { setIsDraggingCrop(false); setIsResizingCrop(null) }}
-                  onMouseLeave={() => { setIsDraggingCrop(false); setIsResizingCrop(null) }}
-                  onTouchMove={(e) => {
-                    if (!isDraggingCrop && !isResizingCrop) return
-                    e.preventDefault()
-                    const touch = e.touches[0]
-                    const rect = cropContainerRef.current?.getBoundingClientRect()
-                    if (!rect || !touch) return
-
-                    if (isDraggingCrop) {
-                      const newX = touch.clientX - rect.left - dragStartCrop.x
-                      const newY = touch.clientY - rect.top - dragStartCrop.y
-                      const maxX = imageSizeCrop.width - cropBox.size
-                      const maxY = imageSizeCrop.height - cropBox.size
-                      const offsetX = (300 - imageSizeCrop.width) / 2
-                      const offsetY = (300 - imageSizeCrop.height) / 2
-                      setCropBox(prev => ({
-                        ...prev,
-                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
-                        y: Math.max(0, Math.min(maxY, newY - offsetY))
-                      }))
-                    } else if (isResizingCrop) {
-                      const dx = touch.clientX - dragStartCrop.x
-                      const dy = touch.clientY - dragStartCrop.y
-                      let delta: number, newSize: number
-                      if (isResizingCrop === 'top-left') {
-                        delta = Math.max(-dx, -dy)
-                        newSize = Math.max(50, cropBox.size + delta)
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange), y: Math.max(0, prev.y - sizeChange) }))
-                      } else if (isResizingCrop === 'top-right') {
-                        delta = Math.max(dx, -dy)
-                        newSize = Math.max(50, Math.min(imageSizeCrop.width - cropBox.x, cropBox.size + delta))
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, y: Math.max(0, prev.y - sizeChange) }))
-                      } else if (isResizingCrop === 'bottom-left') {
-                        delta = Math.max(-dx, dy)
-                        newSize = Math.max(50, Math.min(imageSizeCrop.height - cropBox.y, cropBox.size + delta))
-                        const sizeChange = newSize - cropBox.size
-                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange) }))
-                      } else {
-                        delta = Math.max(dx, dy)
-                        newSize = Math.max(50, Math.min(300, cropBox.size + delta))
-                        const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
-                        setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
-                      }
-                      setDragStartCrop({ x: touch.clientX, y: touch.clientY })
-                    }
-                  }}
-                  onTouchEnd={() => { setIsDraggingCrop(false); setIsResizingCrop(null) }}
-                >
-                  {/* Image */}
-                  <img
-                    src={tempImageUrl}
-                    alt={tt("Preview")}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
-                    style={{
-                      width: imageSizeCrop.width,
-                      height: imageSizeCrop.height,
-                      maxWidth: '300px',
-                      maxHeight: '300px',
-                      objectFit: 'contain'
-                    }}
-                    draggable={false}
-                    onLoad={(e) => {
-                      const img = e.target as HTMLImageElement
-                      const nw = img.naturalWidth
-                      const nh = img.naturalHeight
-                      // Scale to fit container
-                      const scale = Math.min(300 / nw, 300 / nh)
-                      const displayW = nw * scale
-                      const displayH = nh * scale
-                      setImageSizeCrop({ width: displayW, height: displayH })
-                      // Center crop box
-                      const size = Math.min(displayW, displayH) * 0.8
-                      setCropBox({
-                        x: (displayW - size) / 2,
-                        y: (displayH - size) / 2,
-                        size
-                      })
-                    }}
-                  />
-
-                  {/* Crop box with shadow overlay */}
-                  <div
-                    className="absolute cursor-move touch-none"
-                    style={{
-                      left: `${150 - imageSizeCrop.width/2 + cropBox.x}px`,
-                      top: `${150 - imageSizeCrop.height/2 + cropBox.y}px`,
-                      width: `${cropBox.size}px`,
-                      height: `${cropBox.size}px`,
-                      border: '2px solid #3b82f6',
-                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)'
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setIsDraggingCrop(true)
-                      const rect = (e.target as HTMLElement).getBoundingClientRect()
-                      setDragStartCrop({ x: e.clientX - rect.left, y: e.clientY - rect.top })
-                    }}
-                    onTouchStart={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      const touch = e.touches[0]
-                      setIsDraggingCrop(true)
-                      const rect = (e.target as HTMLElement).getBoundingClientRect()
-                      setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
-                    }}
-                  >
-                    {/* Grid overlay */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="border border-white/30" />
-                      ))}
-                    </div>
-
-                    {/* Corner handles - all corners resizable */}
-                    {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((corner) => {
-                      const pos = {
-                        'top-left': '-top-2.5 -left-2.5 cursor-nw-resize',
-                        'top-right': '-top-2.5 -right-2.5 cursor-ne-resize',
-                        'bottom-left': '-bottom-2.5 -left-2.5 cursor-sw-resize',
-                        'bottom-right': '-bottom-2.5 -right-2.5 cursor-se-resize',
-                      }[corner]
-                      const isBR = corner === 'bottom-right'
-                      return (
-                        <div key={corner} className={`absolute ${pos}`}>
-                          <div className={`w-5 h-5 ${isBR ? 'bg-blue-500' : 'bg-white'} border-[3px] border-blue-500 rounded-sm`} />
-                          <div
-                            className="absolute -inset-[25px] w-[70px] h-[70px]"
-                            style={{ touchAction: 'none' }}
-                            onMouseDown={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setIsResizingCrop(corner)
-                              setDragStartCrop({ x: e.clientX, y: e.clientY })
-                            }}
-                            onTouchStart={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              const touch = e.touches[0]
-                              setIsResizingCrop(corner)
-                              setDragStartCrop({ x: touch.clientX, y: touch.clientY })
-                            }}
-                          />
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <p className="text-xs text-center text-muted-foreground">
-                  {tt("Drag to move, drag any corner to resize")}
-                </p>
-
-                <canvas ref={canvasRef} className="hidden" />
-
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowAvatarCropModal(false); setShowAvatarUploadModal(true) }} className="flex-1">{tt("Cancel")}</Button>
-                  <Button
-                    onClick={async () => {
-                      if (!tempImageUrl || !canvasRef.current) return
-                      setUploading(true)
-                      try {
-                        const canvas = canvasRef.current
-                        const ctx = canvas.getContext('2d')
-                        if (!ctx) throw new Error(tt("No canvas context"))
-
-                        // Output size (512x512 for crisp profile pictures)
-                        const outputSize = 512
-                        canvas.width = outputSize
-                        canvas.height = outputSize
-
-                        const img = new Image()
-                        img.crossOrigin = 'anonymous'
-
-                        await new Promise<void>((resolve, reject) => {
-                          img.onload = () => resolve()
-                          img.onerror = () => reject(new Error(tt("Failed to load image")))
-                          img.src = tempImageUrl
-                        })
-
-                        // Calculate source rectangle from crop box
-                        const nw = img.naturalWidth
-                        const nh = img.naturalHeight
-                        const scale = Math.min(300 / nw, 300 / nh)
-
-                        // Convert crop box coordinates back to original image coordinates
-                        const srcX = cropBox.x / scale
-                        const srcY = cropBox.y / scale
-                        const srcSize = cropBox.size / scale
-
-                        ctx.clearRect(0, 0, outputSize, outputSize)
-                        ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, outputSize, outputSize)
-
-                        // Convert to blob and upload
-                        const blob = await new Promise<Blob>((resolve, reject) => {
-                          canvas.toBlob(
-                            (b) => b ? resolve(b) : reject(new Error(tt("Failed to create blob"))),
-                            'image/png',
-                            0.95
-                          )
-                        })
-
-                        const supabase = createClient()
-                        const { data: { user } } = await supabase.auth.getUser()
-                        if (!user) throw new Error(tt("Not authenticated"))
-
-                        /*
-                          ONE PROFILE PHOTO. This used to upload into
-                          onepage-assets and write onepages.avatar_url alone,
-                          which is how one creator ended up with three faces:
-                          this one, the one in Settings and the one on the
-                          creator page. It goes into the account's own avatars
-                          folder now and is saved through the same route
-                          Settings uses, so every surface takes it
-                          (lib/account/avatar-save, lib/account/profile-follow).
-                        */
-                        const fileName = `${user.id}/avatar-${Date.now()}.png`
-                        const { error } = await supabase.storage.from("avatars").upload(fileName, blob, { upsert: true, contentType: "image/png" })
-                        if (error) throw error
-                        confirmUpload("avatars", fileName)
-
-                        const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(fileName)
-                        const saved = await fetch("/api/account/avatar", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ url: publicUrl }),
-                        })
-                        if (!saved.ok) throw new Error(tt("profile photo not saved"))
-                        announceAvatar(publicUrl)
-                        updateProfile({ avatar_url: publicUrl, avatar_video_url: null })
-                        setShowAvatarCropModal(false)
-                        URL.revokeObjectURL(tempImageUrl)
-                        setTempImageUrl(null)
-                        setTempImageFile(null)
-                        setCropBox({ x: 50, y: 50, size: 200 })
-                      } catch (error) {
-                        console.error("Upload error:", error)
-                        alert(tt("Upload failed. Try again."))
-                      } finally {
-                        setUploading(false)
-                      }
-                    }}
-                    className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
-                    disabled={uploading}
-                  >
-                    {uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
-                  </Button>
-                </div>
-              </>
-            )}
+          <div className="p-4 sm:p-5">
+            {tempAvatar ? (
+              <CropUpload
+                kind="image"
+                src={tempAvatar.url}
+                file={tempAvatar.blob}
+                aspect={1}
+                shape="circle"
+                prefix="avatar"
+                bucket="avatars"
+                outputSize={800}
+                onCancel={closeAvatarCrop}
+                onSaved={async (result) => {
+                  /*
+                    ONE PROFILE PHOTO. This used to upload into
+                    onepage-assets and write onepages.avatar_url alone,
+                    which is how one creator ended up with three faces:
+                    this one, the one in Settings and the one on the
+                    creator page. It goes into the account's own avatars
+                    folder now and is saved through the same route
+                    Settings uses, so every surface takes it
+                    (lib/account/avatar-save, lib/account/profile-follow).
+                  */
+                  const saved = await fetch("/api/account/avatar", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: result.url }),
+                  })
+                  if (!saved.ok) throw new Error(tt("profile photo not saved"))
+                  announceAvatar(result.url)
+                  updateProfile({ avatar_url: result.url, avatar_video_url: null })
+                  closeAvatarCrop()
+                }}
+              />
+            ) : null}
           </div>
         </SheetDialog>
 
@@ -3313,303 +2941,68 @@ export function LinksTab() {
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Profile Video")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
-            <button onClick={() => videoFileInputRef.current?.click()} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
+            <button onClick={() => { setAvatarPickError(null); videoFileInputRef.current?.click() }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><Upload className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left">
                 <p className="font-medium">{tt("Upload video")}</p>
-                <p className="text-sm text-gray-500">{tt("MP4, WebM up to 100MB")}</p>
+                <p className="text-sm text-gray-500">{tt("MP4, MOV or WebM, up to 2 GB")}</p>
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
-            <input 
-              ref={videoFileInputRef} 
-              type="file" 
-              accept="video/mp4,video/webm,video/quicktime" 
+            {avatarPickError ? <p role="alert" className="text-[13px] leading-snug text-[#b42318]">{avatarPickError}</p> : null}
+            <input
+              ref={videoFileInputRef}
+              type="file"
+              accept={ONEPAGE_VIDEO_ACCEPT}
               onChange={(e) => {
                 const file = e.target.files?.[0]
+                e.target.value = ''
                 if (!file) return
-                
-                if (file.size > 100 * 1024 * 1024) {
-                  alert(tt("This file is too large. The limit is 100 MB."))
+                /* MP4, MOV, WebM or M4V up to 2 GB; it goes straight to storage in parts (lib/onepage/media-upload). */
+                const verdict = checkMedia(file, "video")
+                if (!verdict.ok) {
+                  setAvatarPickError(uploadErrorText(verdict.code ?? "type", "video"))
                   return
                 }
-                
-                const url = URL.createObjectURL(file)
-                setTempVideoUrl(url)
-                setTempVideoFile(file)
+                setAvatarPickError(null)
+                setTempAvatarVideo({ url: URL.createObjectURL(file), file })
                 setShowVideoModal(false)
                 setShowVideoCropModal(true)
-              }} 
-              className="hidden" 
+              }}
+              className="hidden"
             />
           </div>
         </SheetDialog>
 
-      {/* Video Crop Modal - Simple 1:1 crop like image crop */}
+      {/* Video Crop Modal: a square of the video, drawn in the circle exactly as framed (croppedMediaStyle). */}
       <SheetDialog
         open={showVideoCropModal}
-        onClose={() => {
-          setShowVideoCropModal(false)
-          if (tempVideoUrl) {
-            URL.revokeObjectURL(tempVideoUrl)
-            setTempVideoUrl(null)
-            setTempVideoFile(null)
-            setVideoCropBox({ x: 10, y: 10, width: 80, height: 80 })
-          }
-        }}
+        onClose={closeVideoCrop}
         phone={isMobileModalViewport}
         label={tt("Crop Video")}
         className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto"
         dialog={{ onPointerDownOutside: (e) => e.preventDefault(), onInteractOutside: (e) => e.preventDefault() }}
       >
           <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
-            <button onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
+            <button onClick={() => { closeVideoCrop(); setShowVideoModal(true) }} aria-label={tt("Back")} className="hover:bg-gray-100 p-1 rounded-lg transition-colors"><ChevronLeft className="h-5 w-5" /></button>
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Crop Video")}</SheetDialogTitle>
           </DialogHeader>
-          <div className="p-5 space-y-4">
-            {tempVideoUrl && (
-              <>
-                <div
-                  ref={videoContainerRef}
-                  data-sheet-no-drag=""
-                  className="relative mx-auto bg-black rounded-xl select-none overflow-hidden"
-                  style={{ width: '300px', height: '300px', touchAction: 'none' }}
-                >
-                  <video
-                    src={tempVideoUrl}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover pointer-events-none"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    onLoadedMetadata={(e) => {
-                      const video = e.target as HTMLVideoElement
-                      setVideoNaturalSize({ width: video.videoWidth, height: video.videoHeight })
-                    }}
-                  />
-
-                  {/* Crop box - 1:1 square ratio */}
-                  <div
-                    className="absolute cursor-move"
-                    style={{
-                      left: `${videoCropBox.x}%`,
-                      top: `${videoCropBox.y}%`,
-                      width: `${videoCropBox.width}%`,
-                      height: `${videoCropBox.width}%`,
-                      border: '2px solid #3b82f6',
-                      boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
-                      touchAction: 'none'
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setIsDraggingVideoCrop(true)
-                      setVideoDragStart({
-                        x: e.clientX,
-                        y: e.clientY,
-                        boxX: videoCropBox.x,
-                        boxY: videoCropBox.y,
-                        boxW: videoCropBox.width,
-                        boxH: videoCropBox.height
-                      })
-                    }}
-                    onTouchStart={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      const touch = e.touches[0]
-                      setIsDraggingVideoCrop(true)
-                      setVideoDragStart({
-                        x: touch.clientX,
-                        y: touch.clientY,
-                        boxX: videoCropBox.x,
-                        boxY: videoCropBox.y,
-                        boxW: videoCropBox.width,
-                        boxH: videoCropBox.height
-                      })
-                    }}
-                  >
-                    {/* Grid overlay */}
-                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="border border-white/30" />
-                      ))}
-                    </div>
-
-                    {/* Corner handles - all corners resizable with 70px touch targets */}
-                    {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((corner) => {
-                      const pos = {
-                        'top-left': '-top-2.5 -left-2.5 cursor-nw-resize',
-                        'top-right': '-top-2.5 -right-2.5 cursor-ne-resize',
-                        'bottom-left': '-bottom-2.5 -left-2.5 cursor-sw-resize',
-                        'bottom-right': '-bottom-2.5 -right-2.5 cursor-se-resize',
-                      }[corner]
-                      const isBR = corner === 'bottom-right'
-                      return (
-                        <div key={corner} className={`absolute ${pos}`}>
-                          <div className={`w-5 h-5 ${isBR ? 'bg-blue-500' : 'bg-white'} border-[3px] border-blue-500 rounded-sm`} />
-                          <div
-                            className="absolute -inset-[25px] w-[70px] h-[70px]"
-                            style={{ touchAction: 'none' }}
-                            onMouseDown={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setIsResizingVideoCrop(corner)
-                              setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
-                            }}
-                            onTouchStart={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              const touch = e.touches[0]
-                              setIsResizingVideoCrop(corner)
-                              setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
-                            }}
-                          />
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {/* Global mouse and touch handlers */}
-                  {(isDraggingVideoCrop || isResizingVideoCrop) && (
-                    <div
-                      className="fixed inset-0 z-50"
-                      style={{ touchAction: 'none' }}
-                      onMouseMove={(e) => {
-                        const container = videoContainerRef.current
-                        if (!container) return
-                        const rect = container.getBoundingClientRect()
-                        const deltaX = ((e.clientX - videoDragStart.x) / rect.width) * 100
-                        const deltaY = ((e.clientY - videoDragStart.y) / rect.height) * 100
-
-                        if (isDraggingVideoCrop) {
-                          let newX = videoDragStart.boxX + deltaX
-                          let newY = videoDragStart.boxY + deltaY
-                          newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
-                          newY = Math.max(0, Math.min(100 - videoCropBox.width, newY))
-                          setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-                        } else if (isResizingVideoCrop) {
-                          const { boxX, boxY, boxW } = videoDragStart
-                          let newSize: number, newX: number, newY: number
-                          if (isResizingVideoCrop === 'top-left') {
-                            const d = Math.max(-deltaX, -deltaY)
-                            newSize = Math.max(20, boxW + d)
-                            newX = Math.max(0, boxX - (newSize - boxW))
-                            newY = Math.max(0, boxY - (newSize - boxW))
-                            setVideoCropBox({ x: newX, y: newY, width: newSize, height: newSize })
-                          } else if (isResizingVideoCrop === 'top-right') {
-                            const d = Math.max(deltaX, -deltaY)
-                            newSize = Math.max(20, Math.min(100 - boxX, boxW + d))
-                            newY = Math.max(0, boxY - (newSize - boxW))
-                            setVideoCropBox(prev => ({ ...prev, y: newY, width: newSize, height: newSize }))
-                          } else if (isResizingVideoCrop === 'bottom-left') {
-                            const d = Math.max(-deltaX, deltaY)
-                            newSize = Math.max(20, Math.min(100 - boxY, boxW + d))
-                            newX = Math.max(0, boxX - (newSize - boxW))
-                            setVideoCropBox(prev => ({ ...prev, x: newX, width: newSize, height: newSize }))
-                          } else {
-                            newSize = Math.max(20, Math.min(100 - Math.max(boxX, boxY), boxW + Math.max(deltaX, deltaY)))
-                            setVideoCropBox(prev => ({ ...prev, width: newSize, height: newSize }))
-                          }
-                        }
-                      }}
-                      onMouseUp={() => {
-                        setIsDraggingVideoCrop(false)
-                        setIsResizingVideoCrop(null)
-                      }}
-                      onTouchMove={(e) => {
-                        e.preventDefault()
-                        const touch = e.touches[0]
-                        const container = videoContainerRef.current
-                        if (!container || !touch) return
-                        const rect = container.getBoundingClientRect()
-                        const deltaX = ((touch.clientX - videoDragStart.x) / rect.width) * 100
-                        const deltaY = ((touch.clientY - videoDragStart.y) / rect.height) * 100
-
-                        if (isDraggingVideoCrop) {
-                          let newX = videoDragStart.boxX + deltaX
-                          let newY = videoDragStart.boxY + deltaY
-                          newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
-                          newY = Math.max(0, Math.min(100 - videoCropBox.width, newY))
-                          setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-                        } else if (isResizingVideoCrop) {
-                          const { boxX, boxY, boxW } = videoDragStart
-                          let newSize: number, newX: number, newY: number
-                          if (isResizingVideoCrop === 'top-left') {
-                            const d = Math.max(-deltaX, -deltaY)
-                            newSize = Math.max(20, boxW + d)
-                            newX = Math.max(0, boxX - (newSize - boxW))
-                            newY = Math.max(0, boxY - (newSize - boxW))
-                            setVideoCropBox({ x: newX, y: newY, width: newSize, height: newSize })
-                          } else if (isResizingVideoCrop === 'top-right') {
-                            const d = Math.max(deltaX, -deltaY)
-                            newSize = Math.max(20, Math.min(100 - boxX, boxW + d))
-                            newY = Math.max(0, boxY - (newSize - boxW))
-                            setVideoCropBox(prev => ({ ...prev, y: newY, width: newSize, height: newSize }))
-                          } else if (isResizingVideoCrop === 'bottom-left') {
-                            const d = Math.max(-deltaX, deltaY)
-                            newSize = Math.max(20, Math.min(100 - boxY, boxW + d))
-                            newX = Math.max(0, boxX - (newSize - boxW))
-                            setVideoCropBox(prev => ({ ...prev, x: newX, width: newSize, height: newSize }))
-                          } else {
-                            newSize = Math.max(20, Math.min(100 - Math.max(boxX, boxY), boxW + Math.max(deltaX, deltaY)))
-                            setVideoCropBox(prev => ({ ...prev, width: newSize, height: newSize }))
-                          }
-                        }
-                      }}
-                      onTouchEnd={() => {
-                        setIsDraggingVideoCrop(false)
-                        setIsResizingVideoCrop(null)
-                      }}
-                    />
-                  )}
-                </div>
-
-                <p className="text-xs text-center text-muted-foreground">
-                  {tt("Drag to move, drag any corner to resize")}
-                </p>
-
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setShowVideoCropModal(false); setShowVideoModal(true) }} className="flex-1">{tt("Cancel")}</Button>
-                  <Button
-                    onClick={async () => {
-                      if (!tempVideoFile) return
-                      setUploadingVideo(true)
-                      try {
-                        const supabase = createClient()
-                        const { data: { user } } = await supabase.auth.getUser()
-                        if (!user) return
-
-                        const fileName = `${user.id}/avatar-video-${Date.now()}.${tempVideoFile.name.split('.').pop()}`
-                        const { error } = await supabase.storage.from("onepage-assets").upload(fileName, tempVideoFile, { upsert: true })
-                        if (error) throw error
-                        confirmUpload("onepage-assets", fileName)
-
-                        const { data: { publicUrl } } = supabase.storage.from("onepage-assets").getPublicUrl(fileName)
-                        updateProfile({
-                          avatar_video_url: publicUrl,
-                          avatar_url: null,
-                          avatar_video_crop: videoCropBox
-                        })
-                        setShowVideoCropModal(false)
-                        if (tempVideoUrl) URL.revokeObjectURL(tempVideoUrl)
-                        setTempVideoUrl(null)
-                        setTempVideoFile(null)
-                        setVideoCropBox({ x: 10, y: 10, width: 80, height: 80 })
-                      } catch (error) {
-                        console.error("Upload error:", error)
-                        alert(tt("Upload failed. Try again."))
-                      } finally {
-                        setUploadingVideo(false)
-                      }
-                    }}
-                    className="flex-1 bg-[#1a1a2e] hover:bg-[#2a2a40]"
-                    disabled={uploadingVideo}
-                  >
-                    {uploadingVideo ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{tt("Saving...")}</> : tt("Save")}
-                  </Button>
-                </div>
-              </>
-            )}
+          <div className="p-4 sm:p-5">
+            {tempAvatarVideo ? (
+              <CropUpload
+                kind="video"
+                src={tempAvatarVideo.url}
+                file={tempAvatarVideo.file}
+                aspect={1}
+                shape="circle"
+                prefix="avatar-video"
+                onCancel={closeVideoCrop}
+                onSaved={(result, crop) => {
+                  updateProfile({ avatar_video_url: result.url, avatar_url: null, avatar_video_crop: crop })
+                  closeVideoCrop()
+                }}
+              />
+            ) : null}
           </div>
         </SheetDialog>
     </div>
@@ -3838,6 +3231,7 @@ function BlockItem({
       case "music":
       case "testimonials":
       case "contact_form":
+      case "embed":
       case "heading":
       case "faq":
       case "countdown":
@@ -3915,7 +3309,7 @@ function BlockItem({
                 className="w-full h-full object-cover"
               />
             ) : hasLinkIcon((preview as any).iconId) ? (
-              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" />
+              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
               <Icon className="h-5 w-5 text-[#1a1a2e]" />
             )}
@@ -3935,7 +3329,7 @@ function BlockItem({
                 className="w-full h-full object-cover"
               />
             ) : hasLinkIcon((preview as any).iconId) ? (
-              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" />
+              <LinkIcon name={(preview as any).iconId} size={20} className="text-[#1a1a2e]" tone="brand" />
             ) : (
               <Icon className="h-5 w-5 text-[#1a1a2e]" />
             )}
@@ -4389,28 +3783,14 @@ function BlockEditor({
 
     setThumbnailUploading(true)
     try {
-      const supabase = createClient()
-      const fileExt = file.name.split('.').pop()
-      /* Under the owner's own folder: storage only lets a person write there. */
-      const ownerId = (await supabase.auth.getSession()).data.session?.user.id
-      if (!ownerId) throw new Error(tt("Not signed in"))
-      const fileName = `${ownerId}/thumbnail_${block.id}_${Date.now()}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('onepage-assets')
-        .upload(fileName, file, { upsert: true })
-
-      if (uploadError) throw uploadError
-      confirmUpload('onepage-assets', fileName)
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('onepage-assets')
-        .getPublicUrl(fileName)
+      /* Straight to storage under the owner's own folder, with a type storage takes (a HEIC becomes a JPEG): lib/onepage/media-upload. */
+      const { url: publicUrl } = await uploadOnePageMedia(file, { prefix: `thumbnail_${block.id}`, want: "image" })
 
       updateData({ thumbnail_url: publicUrl, icon: null })
       setShowThumbnailPopup(false)
     } catch (error) {
       console.error('Error uploading thumbnail:', error)
+      alert(uploadMessage(error))
     } finally {
       setThumbnailUploading(false)
       if (thumbnailInputRef.current) {
@@ -4426,23 +3806,8 @@ function BlockEditor({
 
     setImageUploading(currentImageItemId)
     try {
-      const supabase = createClient()
-      const fileExt = file.name.split('.').pop()
-      /* Under the owner's own folder: storage only lets a person write there. */
-      const ownerId = (await supabase.auth.getSession()).data.session?.user.id
-      if (!ownerId) throw new Error(tt("Not signed in"))
-      const fileName = `${ownerId}/image_${block.id}_${currentImageItemId}_${Date.now()}.${fileExt}`
-
-      const { error: uploadError } = await supabase.storage
-        .from('onepage-assets')
-        .upload(fileName, file, { upsert: true })
-
-      if (uploadError) throw uploadError
-      confirmUpload('onepage-assets', fileName)
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('onepage-assets')
-        .getPublicUrl(fileName)
+      /* Straight to storage under the owner's own folder, with a type storage takes (a HEIC becomes a JPEG): lib/onepage/media-upload. */
+      const { url: publicUrl } = await uploadOnePageMedia(file, { prefix: `image_${block.id}_${currentImageItemId}`, want: "image" })
 
       // Update the specific image in the images array
       const data = block.data as ImageBlockData
@@ -4458,6 +3823,7 @@ function BlockEditor({
       })
     } catch (error) {
       console.error('Error uploading image:', error)
+      alert(uploadMessage(error))
     } finally {
       setImageUploading(null)
       setCurrentImageItemId(null)
@@ -4853,7 +4219,7 @@ function BlockEditor({
                 {data.thumbnail_url ? (
                   <img src={data.thumbnail_url} alt="" className="h-full w-full object-cover" />
                 ) : hasLinkIcon(data.icon) ? (
-                  <LinkIcon name={data.icon} size={22} className="text-[#1a1a2e]" />
+                  <LinkIcon name={data.icon} size={22} className="text-[#1a1a2e]" tone="brand" />
                 ) : (
                   <ImageIcon className="h-5 w-5" strokeWidth={1.6} />
                 )}
@@ -5813,11 +5179,8 @@ function BlockEditor({
                       )}
                     >
                       <GripVertical className="h-4 w-4 text-gray-300" />
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: config?.color }}
-                      >
-                        <SocialIcon platform={platform} size={14} color={markOn(config?.color)} />
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center bg-white shadow-[inset_0_0_0_1px_rgba(17,17,19,0.1),0_1px_2px_rgba(17,17,19,0.06)]">
+                        <SocialIcon platform={platform} size={15} color="#1a1a2e" tone="brand" />
                       </div>
                       <span className="flex-1 text-sm truncate">{config?.label}</span>
                       <Button
@@ -6275,7 +5638,7 @@ function BlockEditor({
             <input
               ref={imageInputRef}
               type="file"
-              accept="image/*"
+              accept={ONEPAGE_IMAGE_ACCEPT}
               onChange={handleImageBlockUpload}
               className="hidden"
             />
@@ -7162,6 +6525,7 @@ function BlockEditor({
       case "music":
       case "testimonials":
       case "contact_form":
+      case "embed":
       case "heading":
       case "faq":
       case "countdown":
@@ -7440,7 +6804,7 @@ function BlockEditor({
                           {preview.thumbnail_url ? (
                             <img src={preview.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : hasLinkIcon(preview.iconId) ? (
-                            <LinkIcon name={preview.iconId} size={16} className="text-[#1a1a2e]" />
+                            <LinkIcon name={preview.iconId} size={16} className="text-[#1a1a2e]" tone="brand" />
                           ) : (
                             <ChildIcon className="h-4 w-4 text-[#1a1a2e]" />
                           )}

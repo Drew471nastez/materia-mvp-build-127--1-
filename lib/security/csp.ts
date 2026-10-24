@@ -202,6 +202,21 @@ const DIRECTIVES: [string, string[]][] = [
     "https://cal.com",
     "https://app.cal.com",
     "https://cal.eu",
+    /* The OnePage's embed block (lib/onepage/creator-blocks embedSource EMBED_FRAME_HOSTS): each service's own public embed page. */
+    "https://www.instagram.com",
+    "https://platform.twitter.com",
+    "https://*.typeform.com",
+    "https://docs.google.com",
+    "https://tally.so",
+    "https://*.substack.com",
+    "https://embed.podcasts.apple.com",
+    "https://player.twitch.tv",
+    "https://clips.twitch.tv",
+    "https://www.mixcloud.com",
+    "https://player-widget.mixcloud.com",
+    "https://bandcamp.com",
+    "https://widget.deezer.com",
+    "https://calendar.google.com",
   ]],
 
   /* pdf.js runs its parser in a worker made from a blob. */

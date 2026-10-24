@@ -39,6 +39,10 @@ import { createClient } from "@/lib/supabase/client"
 import { sendContactMessage } from "@/lib/website-builder/contact-client"
 import {
   CONTACT_LIMITS,
+  EMBED_PROVIDER_NAME,
+  embedFrameUrl,
+  embedHeightFromMessage,
+  embedSource,
   MUSIC_PROVIDER_NAME,
   TESTIMONIAL_LIMITS,
   cleanTestimonials,
@@ -50,6 +54,7 @@ import {
 import type {
   ContactFormBlockData,
   CourseBlockData,
+  EmbedBlockData,
   MusicBlockData,
   OnePageBlock,
   OnePageBlockData,
@@ -145,6 +150,70 @@ function MusicView({ data, look }: { data: MusicBlockData; look: CreatorBlockLoo
         className="block w-full border-0 bg-transparent"
         style={{ height: source.height, borderRadius: source.kind === "spotify" ? 12 : 10, colorScheme: "normal" }}
       />
+    </div>
+  )
+}
+
+/* ─── Embed ───────────────────────────────────────────────────────────── */
+
+/* The page's own host, read after the first render (the server has no window, and a frame drawn there would differ from the browser's). */
+const noHost = () => () => {}
+const readHost = () => (typeof window === "undefined" ? null : window.location.hostname)
+const serverHost = () => null
+
+/**
+ * A POST, FORM, PLAYER OR CALENDAR, IN ITS SERVICE'S OWN FRAME
+ * (lib/onepage/creator-blocks embedSource). The frame has its height before
+ * it loads (the service's usual height, or 16:9 for a video), so nothing
+ * under it moves while it arrives; an Instagram or X post then grows or
+ * shrinks to the height the post says it is, once, on that service's own
+ * message. Lazy, so a page with five embeds opens as fast as one without.
+ */
+function EmbedView({ data, look }: { data: EmbedBlockData; look: CreatorBlockLook }) {
+  const source = embedSource(data.url)
+  const host = React.useSyncExternalStore(noHost, readHost, serverHost)
+  const frameRef = React.useRef<HTMLIFrameElement>(null)
+  const [measured, setMeasured] = React.useState<number | null>(null)
+  const kind = source?.kind
+  const resizes = !!source?.resizes
+  React.useEffect(() => {
+    if (!kind || !resizes) return
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== frameRef.current?.contentWindow) return
+      const h = embedHeightFromMessage(kind, e.origin, e.data)
+      if (h) setMeasured(h)
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [kind, resizes])
+  if (!source) return null
+  const src = host ? embedFrameUrl(source, host) : source.kind === "twitch" ? null : source.embedUrl
+  const radius = Math.min(Math.max(Number(look.theme.button_border_radius) || 0, 10), 16)
+  const box: React.CSSProperties = source.height === null
+    ? { aspectRatio: "16 / 9", borderRadius: radius }
+    : { height: measured ?? source.height, borderRadius: radius }
+  return (
+    <div data-onepage-embed={source.kind} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
+      {data.title?.trim() ? (
+        <p className="text-center font-semibold" style={{ color: look.theme.text_color, fontSize: px(15, look.scale) }}>
+          {data.title}
+        </p>
+      ) : null}
+      <div className="relative w-full overflow-hidden bg-black/[0.04]" style={box}>
+        {src ? (
+          <iframe
+            ref={frameRef}
+            title={data.title?.trim() || EMBED_PROVIDER_NAME[source.kind]}
+            src={src}
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture; web-share"
+            allowFullScreen
+            className="absolute inset-0 block h-full w-full border-0 bg-transparent"
+            style={{ colorScheme: "normal" }}
+          />
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -309,6 +378,8 @@ export function CreatorBlock({ block, look }: { block: OnePageBlock; look: Creat
       return <TestimonialsView data={block.data as TestimonialsBlockData} look={look} />
     case "contact_form":
       return <ContactFormView data={block.data as ContactFormBlockData} look={look} />
+    case "embed":
+      return <EmbedView data={block.data as EmbedBlockData} look={look} />
     default:
       return null
   }
@@ -540,6 +611,50 @@ function ContactFormEditor({ data, updateData }: { data: ContactFormBlockData; u
 }
 
 /** The settings of one of the four, or null for a type that is not one of them. */
+/* i18n-ignore-start: a link's shape, not words. */
+const EMBED_PLACEHOLDER: Record<string, string> = {
+  instagram: "https://www.instagram.com/p/...",
+  x: "https://x.com/you/status/...",
+  typeform: "https://form.typeform.com/to/...",
+  googleforms: "https://docs.google.com/forms/d/e/.../viewform",
+  tally: "https://tally.so/r/...",
+  substack: "https://you.substack.com",
+  podcasts: "https://podcasts.apple.com/us/podcast/...",
+  twitch: "https://www.twitch.tv/you",
+  loom: "https://www.loom.com/share/...",
+  mixcloud: "https://www.mixcloud.com/you/show/",
+  bandcamp: "<iframe src=\"https://bandcamp.com/EmbeddedPlayer/...",
+  deezer: "https://www.deezer.com/album/...",
+  gcal: "https://calendar.google.com/calendar/appointments/schedules/...",
+}
+/* i18n-ignore-end */
+
+function EmbedEditor({ data, updateData }: { data: EmbedBlockData; updateData: (u: Partial<EmbedBlockData>) => void }) {
+  const source = embedSource(data.url)
+  const ok = !data.url?.trim() || source !== null
+  const hint = (data.provider && EMBED_PLACEHOLDER[data.provider]) || "https://..."
+  return (
+    <div className="space-y-3">
+      <div className={fieldBox}>
+        <Label className={fieldLabel}>{data.provider === "bandcamp" ? tt("Embed code or link") : tt("Link")}</Label>
+        <Input value={data.url || ""} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder={hint} onChange={(e) => updateData({ url: e.target.value.trim() })} aria-invalid={!ok || undefined} />
+        {!ok ? (
+          <p className="text-[12px] text-[#b42318]">{tt("This link cannot show on your page. Try a post, form, show or player link from the list below.")}</p>
+        ) : source ? (
+          <p className="text-[12px] text-[#6b7280]">{tt("Shows in the {value} player on your page.", { value: EMBED_PROVIDER_NAME[source.kind] })}</p>
+        ) : data.provider === "bandcamp" ? (
+          <p className="text-[12px] text-[#6b7280]">{tt("On Bandcamp, press Share, then Embed, and paste the code here.")}</p>
+        ) : null}
+        {!source ? <p className="text-[11.5px] leading-[16px] text-[#9ca3af]">{Object.values(EMBED_PROVIDER_NAME).join(", ")}</p> : null}
+      </div>
+      <div className={fieldBox}>
+        <Label className={fieldLabel}>{tt("Title (optional)")}</Label>
+        <Input value={data.title || ""} maxLength={80} placeholder={tt("Watch this")} onChange={(e) => updateData({ title: e.target.value })} />
+      </div>
+    </div>
+  )
+}
+
 export function CreatorBlockEditor({ block, updateData }: { block: OnePageBlock; updateData: (updates: Partial<OnePageBlockData>) => void }) {
   const update = updateData as (u: object) => void
   switch (block.type) {
@@ -551,6 +666,8 @@ export function CreatorBlockEditor({ block, updateData }: { block: OnePageBlock;
       return <TestimonialsEditor data={block.data as TestimonialsBlockData} updateData={update} />
     case "contact_form":
       return <ContactFormEditor data={block.data as ContactFormBlockData} updateData={update} />
+    case "embed":
+      return <EmbedEditor data={block.data as EmbedBlockData} updateData={update} />
     default:
       return null
   }

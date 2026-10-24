@@ -568,6 +568,8 @@ const SUITES = [
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",
+  /* Round 11 media: what a OnePage picture or video may be (2 GB, MOV, HEIC), straight to storage in TUS parts with real progress and Stop, the cropper's maths, and every upload in the editor through the one helper; scripts/check-onepage-media-r11.mjs drives the real cropper and uploads in a browser. */
+  "tests/onepage-media-r11.test.ts",
   "tests/profile-photo.test.ts",
   "tests/coupon-editor.test.ts",
   "tests/coupon-checkout.test.ts",
@@ -635,6 +637,10 @@ const SUITES = [
   "tests/onepage-social-input.test.ts",
   "tests/onepage-open.test.ts",
   "tests/onepage-arrival.test.ts",
+  /* Round 11: Storelib's pills in the editor, the Design pages as the app's sub-pages, a tab bar that holds still, a clean way out (scripts/check-onepage-motion-r11.mjs measures them). */
+  "tests/onepage-motion-r11.test.ts",
+  /* Round 11: + Add, the Add block sheet's open, Storelib's pills for its chips, brand marks, the embeds and their frame hosts, the social sheet's close and keyboard, Choose icon (scripts/check-onepage-addblock-r11.mjs measures them). */
+  "tests/onepage-addblock-r11.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",
