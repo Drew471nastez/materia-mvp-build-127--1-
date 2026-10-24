@@ -26,9 +26,8 @@
  */
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse, after } from "next/server"
-import { revalidateTag } from "next/cache"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
-import { creatorTag } from "@/lib/commerce/product-page-cache"
+import { identityChanged } from "@/lib/account/identity-caches"
 import { announce, profileAddresses } from "@/lib/seo/announce"
 import type { AboutMediaItem, ShopHeaderSettings, SocialLinksConfig } from "@/lib/store-builder/types"
 import { SOCIAL_PLATFORM_KEYS, resolveSocialInput, type SocialPlatformKey } from "@/lib/social/platforms"
@@ -405,12 +404,8 @@ export async function PATCH(request: NextRequest) {
     /* The public pages read the profile through a cache shared between
        visitors (lib/commerce/product-page-cache): they show the new name on
        their next view, not a minute later. */
-    try {
-      revalidateTag(creatorTag(user.id), "max")
-      if (followed.creatorId) revalidateTag(creatorTag(followed.creatorId), "max")
-    } catch {
-      /* Outside a request that can revalidate: the cache's own minute does it. */
-    }
+    /* The website's own copy of the profile too, expired now rather than marked stale (lib/account/identity-caches). */
+    await identityChanged({ userId: user.id, creatorId: followed.creatorId })
   }
 
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
