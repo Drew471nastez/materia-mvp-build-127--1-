@@ -10,6 +10,8 @@ import {
   BROWSABLE_THEME_IDS,
 } from "@/lib/website-builder/theme-registry"
 import { coverForNewWebsite, renderOrigin } from "@/lib/website-builder/cover-take"
+import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
+import { pointAtStoreMenus } from "@/lib/website-builder/main-menu"
 
 export const runtime = "nodejs"
 /** The theme is added at once, and photographed within QUICK_COVER_MS when a browser is that quick. */
@@ -109,15 +111,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: LIBRARY_FULL_MESSAGE, code: LIBRARY_FULL_CODE }, { status: 400 })
   }
 
+  /*
+    THE STORE'S MENUS, NOT NEW ONES. The menus visitors see are written down
+    as the store's before this website exists (store-menus-server.ts
+    ensureStoreMenus), so it draws them rather than its starter links, and
+    its header and footer name the same menus the live one does. Without the
+    table, it gets its own copy, as menus were kept before.
+  */
+  const carried = await ensureStoreMenus(admin, creator.id, { excludeInstallId: newInstall.id as string })
+  const homeSections = carried ? pointAtStoreMenus(preset.pages.home, carried.menus, carried) : preset.pages.home
+  const settings = carried && !carried.stored ? { ...preset.settings, menus: carried.menus } : preset.settings
+
   // Settings and pages, or nothing: a half-built install is a website that
   // opens to an empty editor, which reads as data loss.
   const [{ error: settingsErr }, { error: pagesErr }] = await Promise.all([
     admin.from("store_theme_settings").insert({
       install_id: newInstall.id,
-      settings: preset.settings,
+      settings,
     }),
     admin.from("store_theme_pages").insert([
-      { install_id: newInstall.id, page_key: "home", sections: preset.pages.home },
+      { install_id: newInstall.id, page_key: "home", sections: homeSections },
       { install_id: newInstall.id, page_key: "product", sections: preset.pages.product },
     ]),
   ])

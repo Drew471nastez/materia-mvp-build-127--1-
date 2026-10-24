@@ -42,7 +42,7 @@ import { ProductImg } from "@/components/media/missing-image"
 import { languageName } from "@/lib/markets/locales"
 import { cn } from "@/lib/utils"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
-import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, siteSignInHref, visibleAttributes } from "@/lib/checkout/site-checkout"
+import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, siteSignInHref, visibleAttributes, type SiteBuyerAddress } from "@/lib/checkout/site-checkout"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import { postalCodeRequired } from "@/lib/physical/address"
 import { postalKey } from "@/lib/physical/local-delivery"
@@ -96,7 +96,8 @@ export interface SiteCheckoutProps {
   initialError: string | null
   config?: CheckoutConfig
   /** Signed in to this website's own customer account. */
-  buyer: { email: string; name: string | null } | null
+  /** Signed in to the website: who, and their default address, filled in below (lib/checkout/site-checkout-server siteBuyerFrom). */
+  buyer: { email: string; name: string | null; address?: SiteBuyerAddress | null } | null
   /** The email cannot be changed: the store asks for an account, and this is its address. */
   lockedEmail: string | null
   needsSignIn: boolean
@@ -342,7 +343,8 @@ export function SiteCheckout({
 
   /* ── Delivery ────────────────────────────────────────────────────── */
   /* The country the server already priced the first frame with (./page.tsx): no guess, no jump. The browser's language only when nothing was known. */
-  const [address, setAddress] = React.useState<Address>(() => ({ ...EMPTY_ADDRESS, country: initialCountry ?? "" }))
+  /* A signed in customer's default address, as their account keeps it: filled in, and theirs to change here. */
+  const [address, setAddress] = React.useState<Address>(() => (buyer?.address?.line1 ? { ...EMPTY_ADDRESS, ...buyer.address, country: buyer.address.country || initialCountry || "" } : { ...EMPTY_ADDRESS, country: initialCountry ?? "" }))
   const [mode, setMode] = React.useState<"ship" | "pickup">("ship")
   /* The delivery the first quote chose, so it is not asked for again. */
   const [optionId, setOptionId] = React.useState<string | null>(initialQuote?.requiresShipping ? (initialQuote.delivery.selectedId ?? null) : null)
@@ -1028,7 +1030,8 @@ export function SiteCheckout({
 
   const beforePay = (
     <>
-      {ships ? (
+      {/* A cart of downloads shows it only when its cart brought a note (a theme's "Add order note"): it is kept on the order then too, never dropped unseen. */}
+      {ships || initialNote ? (
         <details className="group" open={initialNote ? true : undefined} data-shop-note="">
           <summary className="cursor-pointer list-none text-[14px] font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-4">{ct("Add a note for the shop")}</summary>
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className={cn(inputClass, "mt-2 h-auto py-2.5")} placeholder={ct("Gift wrap, delivery instructions...")} />
@@ -1127,6 +1130,7 @@ export function SiteCheckout({
                 editable={editable}
                 onChange={(v) => changeVariant(l, v)}
               />
+              <LineProperties items={items} line={l} />
               {editable ? (
                 <LineControls
                   title={l.variantName ? `${l.title}, ${l.variantName}` : l.title}
@@ -1458,6 +1462,32 @@ export function SiteProblem({ brand, backTo, shopUrl, title, message }: { brand:
         ) : null}
       </main>
     </div>
+  )
+}
+
+/**
+ * What the buyer chose or wrote for a line on the product page (an imported
+ * theme's `properties[Engraving]`, a gift message on the item): said under
+ * the line as the order keeps it, so nothing chosen is out of sight before
+ * Pay. A name starting with "_" is the theme's own and stays hidden, as on
+ * Shopify (lib/checkout/site-checkout visibleAttributes).
+ */
+function LineProperties({ items, line }: { items: LinkItem[] | null; line: { productId: string; variantId: string | null } }) {
+  const shown: [string, string][] = []
+  for (const i of items ?? []) {
+    if (!i.properties || !sameLine(i, line)) continue
+    for (const [k, v] of visibleAttributes(i.properties)) if (!shown.some(([a, b]) => a === k && b === v)) shown.push([k, v])
+  }
+  if (!shown.length) return null
+  return (
+    <dl className="mt-0.5 space-y-0.5 text-[12.5px]" data-line-properties="">
+      {shown.slice(0, 10).map(([k, v]) => (
+        <div key={`${k}:${v}`} className="flex min-w-0 gap-x-1">
+          <dt className="shrink-0 text-[#6b7280]">{k}:</dt>
+          <dd className="min-w-0 truncate text-[#1a1a2e]">{v}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 

@@ -221,7 +221,8 @@ async function main() {
     check("it reads as JavaScript", parses)
     check("the window's load does not say loaded any more", !/type: "loaded"/.test(CANVAS_BRIDGE) && !/addEventListener\("load", loaded\)/.test(CANVAS_BRIDGE))
     check("asked to settle, it scrolls and says settled once drawn there (at once when already there)", /if \(m\.settle\)/.test(CANVAS_BRIDGE) && /Math\.abs\(scrollY - \(m\.top \|\| 0\)\) < 1\) \{ post\(\{ type: "settled"/.test(CANVAS_BRIDGE) && /requestAnimationFrame\(function \(\) \{ requestAnimationFrame\(function \(\) \{ post\(\{ type: "settled"/.test(CANVAS_BRIDGE))
-    check("a link a mouse rests on, or a finger lands on, is said once", /post\(\{ type: "intent", href: h \}\)/.test(CANVAS_BRIDGE) && /addEventListener\("pointerdown", intent, true\)/.test(CANVAS_BRIDGE) && /a === intended\) return/.test(CANVAS_BRIDGE))
+    /* Changed on purpose (round BC): a mouse says so once it has rested on the link a moment, not on its way over it; a finger at once. */
+    check("a link a mouse rests on, or a finger lands on, is said once", /post\(\{ type: "intent", href: h \}\)/.test(CANVAS_BRIDGE) && /addEventListener\("pointerdown", function \(e\) \{ clearTimeout\(restTimer\); intent\(e\); \}, true\)/.test(CANVAS_BRIDGE) && /restTimer = setTimeout\(function \(\) \{ if \(a\.matches\(":hover"\)\) intent\(e\); \}, 180\)/.test(CANVAS_BRIDGE) && /a === intended\) return/.test(CANVAS_BRIDGE))
   }
 
   console.log("\nThe editor (editor/[installId]/page.tsx)\n")

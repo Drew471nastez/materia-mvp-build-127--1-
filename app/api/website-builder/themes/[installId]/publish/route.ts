@@ -12,6 +12,7 @@ import { translationsChanged } from "@/lib/markets/translate-queue"
 import { pruneReleases, recordRelease } from "@/lib/website-builder/site-releases-server"
 import { mirrorWholeTheme } from "@/lib/github-sync/mirror"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
+import { ensureStoreMenus } from "@/lib/website-builder/store-menus-server"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 type Params = { params: Promise<{ installId: string }> }
@@ -126,6 +127,13 @@ export async function POST(req: Request, { params }: Params) {
       them in future, a feed, an export, a cache warmer, a migration, gets
       safe content without having to know to ask for it.
     */
+    /*
+      THE MENUS VISITORS SEE STAY. Written down as the store's while the
+      website that was live still is (store-menus-server.ts ensureStoreMenus),
+      so the one going live draws them, not its own. Once there is a row this
+      reads it and does nothing else.
+    */
+    await ensureStoreMenus(admin, creator.id, { names: false, preferInstallId: installId })
     /*
       ======================================================================
        ALL OF IT OR NONE OF IT

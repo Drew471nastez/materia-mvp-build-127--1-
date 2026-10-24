@@ -59,6 +59,14 @@ export interface VariantStock {
   maxQuantity: number
   /** The low stock line: at or under it, "Only N left" shows. The product's own, else the shop's. */
   lowAt: number
+  /**
+   * How many there are, when stock is counted; null when it is not. Only for
+   * an imported theme's product page while Website settings › Commerce ›
+   * Show stock left is on (lib/storelib-theme/compat/product-facts.ts): a
+   * Shopify theme's inventory block says In stock, Low stock and its own
+   * count from it. Never in the buy box's answer.
+   */
+  count?: number | null
 }
 
 /** The line "Only N left" is said from: the product's own, else the shop's, else 5. Never under 1. */
@@ -79,6 +87,7 @@ export function variantStock(available: number, o: { tracked: boolean; keepSelli
     left: counted && left !== null && left > 0 && left <= sayFrom ? left : null,
     maxQuantity: counted ? Math.max(0, Math.min(999, left ?? 0)) : 999,
     lowAt: o.lowAt,
+    count: left,
   }
 }
 

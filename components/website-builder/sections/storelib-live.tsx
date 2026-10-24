@@ -133,8 +133,15 @@ export function StorelibLiveProvider({
   data,
   headerLogo,
   asCanvas,
+  preview,
   children,
 }: {
+  /**
+   * A card in Add section (components/website-builder/editor/section-library.tsx),
+   * drawn on no page at all: Breadcrumbs is given the trail a product page
+   * has, so its card shows a trail rather than nothing.
+   */
+  preview?: boolean
   /**
    * Whether this provider is the builder canvas's, whose values the picker's
    * previews borrow (editorCanvasLive). By default, an editor provider that
@@ -192,7 +199,11 @@ export function StorelibLiveProvider({
   /* What a live page adds to `page` for its sections: the shop's filters on
      the shop and search pages, and the trail for Breadcrumbs. Drawn here from
      the canvas's own products, unfiltered, the way the page opens. */
-  const extras = useMemo(() => editorPageExtras(template, products ?? [], data), [template, products, data])
+  const extras = useMemo(() => {
+    const out = editorPageExtras(template, products ?? [], data)
+    if (preview && Array.isArray(out.breadcrumbs) && out.breadcrumbs.length === 0) out.breadcrumbs = breadcrumbTrail({ template: "product", title: "Product" })
+    return out
+  }, [template, products, data, preview])
   const render = useCallback<SectionRenderFn>(
     (section: SectionInstance, theme: ThemeSettingsValues) =>
       renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sources, products, data, globals, canvas ? CANVAS_RENDER : undefined),

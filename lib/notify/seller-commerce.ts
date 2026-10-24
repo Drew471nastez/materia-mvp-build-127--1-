@@ -155,7 +155,8 @@ export function physicalSaleFacts(co: Record<string, unknown> | null | undefined
     nextStep: kinds.length === 1 ? NEXT_STEP[kinds[0]] ?? NEXT_STEP.self : "Some items go to your partners on their own; ship the rest yourself. Each item's line in the order says who fulfils it.",
     pickupName: pickup ? str(place?.name, 80) : "",
     pickupAddress: pickup && Array.isArray(place?.address) ? (place!.address as unknown[]).map((x) => str(x, 120)).filter(Boolean) : [],
-    note: str(co.buyer_note, 500),
+    /* The whole note, as the checkout lets a buyer write it (lib/checkout/site-checkout CART_NOTE_MAX). */
+    note: str(co.buyer_note, 1000),
     details: detailsOf(co.cart_attributes, rawLines),
     shippingCents: shipping === null ? null : Math.max(0, shipping - shippingOff),
     taxCents: cents(co.tax_cents),

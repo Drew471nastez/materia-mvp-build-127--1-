@@ -22,6 +22,7 @@
  * Run with:  npx tsx tests/round-bb.test.ts
  */
 import { readFileSync } from "node:fs"
+import { signInContent } from "../lib/storelib-theme/compat/account"
 import { join } from "node:path"
 import { sectionGroupsFor, placeSection } from "../lib/storelib-theme/section-groups"
 import { SECTION_SCHEMAS } from "../lib/website-builder/section-schemas"
@@ -94,7 +95,6 @@ console.log("\nSigning in on a website: a different email, a new code, and the e
   const routes = code("lib/storelib-theme/globals.ts")
   check("  the native sign in page links to it", /href="\{\{ routes\.account_change_email_url \}\}"/.test(login) && /account_change_email_url: "\/api\/site-account\/restart"/.test(routes) && !/href="[^"]*step=email/.test(login))
   check("  and the generated theme sources say the same", /routes\.account_change_email_url/.test(code("themes/default/sources.generated.ts")))
-  const { signInContent } = require("../lib/storelib-theme/compat/account") as typeof import("../lib/storelib-theme/compat/account")
   const step = signInContent({ step: "code", email: "ana@mail.test", returnTo: "/checkout?items=a", notice: null })
   check("  an imported theme's code step links to it too", /href="\/api\/site-account\/restart">Use a different email</.test(step) && !/step=email/.test(step))
 
@@ -105,7 +105,8 @@ console.log("\nSigning in on a website: a different email, a new code, and the e
 
   /* Send a new code keeps the name a Create account form gave, for the same email. */
   const route = code("app/api/site-account/code/route.ts")
-  check("Send a new code keeps the Create account name, for the same email only", /const held = again \? pendingFrom\(/.test(route) && /held\.m === cleanEmail\(form\?\.get\("email"\)\) \? held\.n/.test(route) && /requestCode\(\{ host, email: form\?\.get\("email"\), returnPath, name \}/.test(route))
+  /* Changed on purpose (round BC): the call also carries the page's language and the code email's words. */
+  check("Send a new code keeps the Create account name, for the same email only", /const held = again \? pendingFrom\(/.test(route) && /held\.m === cleanEmail\(form\?\.get\("email"\)\) \? held\.n/.test(route) && /requestCode\(\{ host, email: form\?\.get\("email"\), returnPath, name[,}]/.test(route))
 
   /* The editor: a native sign in or account form says it works on the live site, and sends nothing. */
   const section = code("components/website-builder/sections/StorelibSection.tsx")

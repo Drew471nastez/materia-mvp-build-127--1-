@@ -20,6 +20,8 @@ import { templateForPage } from "@/lib/website-builder/site-pages"
 import { wishlistObject, type StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { countryChoices } from "@/lib/site-accounts/countries"
+import { ACCOUNT_FORMS_SCRIPT, ACCOUNT_FORMS_STYLE } from "@/lib/site-accounts/forms-script"
 
 const OUT = process.env.OUT_DIR!
 mkdirSync(OUT, { recursive: true })
@@ -61,9 +63,16 @@ const customer = {
     },
   ],
   orders_count: 2,
-  addresses: [{ lines: ["Ana Pop", "9 Elm Row, Flat 4", "Cluj-Napoca, CJ 400000", "Romania"] }],
+  phone: "+40712345678",
+  /* The address book (lib/site-accounts/addresses.ts): the default, and a second with a long street to wrap on a phone. */
+  addresses: [
+    { id: "a1", default: true, lines: ["Ana Pop", "9 Elm Row, Flat 4", "Cluj-Napoca, CJ 400000", "Romania"], name: "Ana Pop", company: "", line1: "9 Elm Row, Flat 4", line2: "", city: "Cluj-Napoca", region: "CJ", postal_code: "400000", country_code: "RO", country: "Romania", phone: "" },
+    { id: "a2", default: false, lines: ["Ana Pop", "Bulevardul Eroilor Sanitari nr. 108, Bloc C, Scara 2", "Bucharest 050474", "Romania"], name: "Ana Pop", company: "", line1: "Bulevardul Eroilor Sanitari nr. 108, Bloc C, Scara 2", line2: "", city: "Bucharest", region: "", postal_code: "050474", country_code: "RO", country: "Romania", phone: "+40712345678" },
+  ],
   sample: false,
 }
+
+const COUNTRIES = countryChoices("en")
 
 async function main() {
   for (const slug of ["storelib-default", "studio-noir"]) {
@@ -77,6 +86,10 @@ async function main() {
       { key: "login-code", sections: loginSections(home), template: templateForPage("login"), page: { step: "code", email: customer.email, return_to: "/account" } },
       { key: "account", sections: accountSections(home), template: templateForPage("account"), globals: { customer, wishlist: wishlistObject(PRODUCTS.slice(0, 2), true) } },
       { key: "account-edit", sections: accountSections(home), template: templateForPage("account"), page: { edit: "name" }, globals: { customer, wishlist: wishlistObject([], true) } },
+      /* Round BC: the phone number open for editing, and the address form open to add one and to change the second. */
+      { key: "account-phone", sections: accountSections(home), template: templateForPage("account"), page: { edit: "phone", lang: "" }, globals: { customer, wishlist: wishlistObject([], true) } },
+      { key: "account-address", sections: accountSections(home), template: templateForPage("account"), page: { address_mode: "new", address: {}, countries: COUNTRIES, lang: "" }, globals: { customer, wishlist: wishlistObject([], true) } },
+      { key: "account-address-edit", sections: accountSections(home), template: templateForPage("account"), page: { address_mode: "edit", address: customer.addresses[1], countries: COUNTRIES, address_notice: "Check the postal code.", address_error: true, lang: "" }, globals: { customer, wishlist: wishlistObject([], true) } },
       { key: "contact", sections: contactSections(home), template: templateForPage("contact"), globals: { shop: { ...shop, email: "hello@store.test" } } },
       { key: "wishlist", sections: wishlistSections(home), template: templateForPage("wishlist"), globals: { wishlist: wishlistObject(PRODUCTS, false) } },
       /* The live site's password page: its own section, no header or footer (applyUniversalChrome takes them off). */
@@ -94,7 +107,9 @@ async function main() {
       const ssr = renderToString(
         createElement(StorelibSourcesProvider, { prerendered, page: { template: p.template } } as never, createElement(ThemePage, props as never)),
       )
-      writeFileSync(join(OUT, `${slug}-${p.key}.json`), JSON.stringify({ theme: slug, key: p.key, template: p.template, prerendered, props, ssr }))
+      /* The account forms' script and style, as the page puts them after the sections (app/(site)/w/[username]/render-account.tsx). */
+      const forms = p.key.startsWith("account") || p.key.startsWith("login") ? { formsScript: ACCOUNT_FORMS_SCRIPT, formsStyle: ACCOUNT_FORMS_STYLE } : {}
+      writeFileSync(join(OUT, `${slug}-${p.key}.json`), JSON.stringify({ theme: slug, key: p.key, template: p.template, prerendered, props, ssr, ...forms }))
     }
   }
 }

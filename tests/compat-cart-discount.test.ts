@@ -289,7 +289,8 @@ async function main() {
     const route = code("app/api/checkout/site/route.ts")
     check("  the route hands both to the order", (route.match(/buyerNote: body\.buyerNote/g) ?? []).length >= 2 && (route.match(/cartAttributes: body\.cartAttributes/g) ?? []).length >= 2)
     check("  and the checkout changing the order keeps the cart's attributes and code in the cookie", !/writeCartCookie\(kept, theme\.note\)/.test(route) && (route.match(/writeCartCookie\(kept, theme\.note, theme\.attributes, theme\.discount\)/g) ?? []).length === 2)
-    check("the order keeps the note (buyer_note) and the attributes", /buyer_note: clean\(input\.buyerNote, 1000\)/.test(code("lib/physical/checkout-server.ts")) && /cart_attributes: attributes/.test(code("lib/physical/checkout-server.ts")))
+    /* Changed on purpose (round BC): the note keeps its line breaks (orderNote); clean() ran every space together. */
+    check("the order keeps the note (buyer_note) and the attributes", /buyer_note: orderNote\(input\.buyerNote\)/.test(code("lib/physical/checkout-server.ts")) && /cart_attributes: attributes/.test(code("lib/physical/checkout-server.ts")))
     check("  the seller's order view, the order emails and the seller's notice read them", /buyerNote: co\.buyer_note/.test(code("lib/physical/orders-server.ts")) && /buyer_note/.test(code("lib/email.tsx")) && /note: str\(co\.buyer_note/.test(code("lib/notify/seller-commerce.ts")))
   }
 

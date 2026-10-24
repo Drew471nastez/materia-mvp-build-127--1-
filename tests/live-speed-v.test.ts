@@ -280,7 +280,8 @@ async function favicon() {
   const tags = siteIconTags("https://storelib.com/media/own.png")
   check("as markup too", /<link rel="icon" href="https:\/\/storelib\.com\/media\/own\.png" type="image\/png">/.test(tags) && /<link rel="apple-touch-icon" sizes="180x180"/.test(tags), tags)
   check("an imported theme's page without an icon gets the site's", /rel="icon"/.test(withSiteIcon("<html><head><title>x</title></head><body></body></html>", "/f.png")))
-  check("one that draws its own keeps it", withSiteIcon(`<html><head><link rel="shortcut icon" href="/t.png"></head></html>`, "/f.png") === `<html><head><link rel="shortcut icon" href="/t.png"></head></html>`)
+  /* Changed on purpose (round BC): a theme that draws its own tab icon keeps it, and gains the site's home screen icon, which no theme draws (Shopify adds it itself). */
+  check("one that draws its own keeps it", withSiteIcon(`<html><head><link rel="shortcut icon" href="/t.png"></head></html>`, "/f.png") === `<html><head><link rel="shortcut icon" href="/t.png"><link rel="apple-touch-icon" sizes="180x180" href="/f.png"></head></html>`)
   check("nothing a tab cannot fetch", siteIconTags("javascript:alert(1)") === "" && siteIconTags("//evil.example/x.png") === "")
 
   /* THE SINGLE SOURCE OF TRUTH: every reader of the stored value asks faviconOf, and every writer goes through the editor's one writer. */

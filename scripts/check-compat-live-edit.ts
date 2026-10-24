@@ -81,6 +81,7 @@
  *   JSON=<file>           the numbers as JSON
  *   BUDGET=0              report without failing
  *   SELF_APPLY=1          the header applies its height itself on storelib:settings-change (as Materia's does)
+ *   SELF_APPLY=2          and calls preventDefault(), so the builder skips drawing the header for each value (round BC)
  */
 import { createServer } from "node:http"
 import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
@@ -173,8 +174,9 @@ async function theme(zipPath: string) {
     writes the height in the next frame, round BB). The section's own
     settings reach that listener with the section's id.
   */
-  if (process.env.SELF_APPLY === "1") {
-    header += `\n<script>document.addEventListener("storelib:settings-change", function (e) { var d = e.detail || {}, v = d.settings && d.settings.header_height; if (v === undefined || !d.section) return; requestAnimationFrame(function () { var h = document.querySelector(".header"); if (h) h.style.minHeight = Number(v) + "px" }) })</script>\n`
+  /* SELF_APPLY=2: and says so with preventDefault() (round BC), so the builder does not draw the header for each value while the finger moves. */
+  if (process.env.SELF_APPLY === "1" || process.env.SELF_APPLY === "2") {
+    header += `\n<script>document.addEventListener("storelib:settings-change", function (e) { var d = e.detail || {}, v = d.settings && d.settings.header_height; if (v === undefined || !d.section) return;${process.env.SELF_APPLY === "2" ? " e.preventDefault();" : ""} requestAnimationFrame(function () { var h = document.querySelector(".header"); if (h) h.style.minHeight = Number(v) + "px" }) })</script>\n`
   }
   zip.file(headerPath, header)
   /* The announcement bar's height and colour, in an inline style. */

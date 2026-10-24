@@ -70,7 +70,7 @@ import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { lineProperties, physicalCheckoutHref } from "./cart-link"
-import { cartAttributes } from "@/lib/checkout/site-checkout"
+import { cartAttributes, orderNote } from "@/lib/checkout/site-checkout"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { COD_PAYMENT_METHOD, COD_PROVIDER, codClientKey, codRefusal } from "./cash-on-delivery"
 import { phoneForStorage } from "@/lib/account/phone"
@@ -408,7 +408,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       receipt_token: receiptToken,
       origin: input.origin,
       attribution: input.attribution,
-      buyer_note: clean(input.buyerNote, 1000) || null,
+      /* Its line breaks kept (orderNote): clean() runs every space together, and a two line gift message read as one. */
+      buyer_note: orderNote(input.buyerNote),
       expires_at: expiresAt.toISOString(),
     })
     .select("id")

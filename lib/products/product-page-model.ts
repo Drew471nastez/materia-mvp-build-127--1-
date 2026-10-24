@@ -35,6 +35,7 @@ import type { FxRates } from "@/lib/markets/money"
 import type { ProductDelivery } from "@/lib/physical/delivery-lines"
 import type { CartLine } from "@/lib/website-builder/cart"
 import type { ProductRating } from "@/lib/reviews/storefront"
+import type { SizeChart } from "@/lib/size-charts/model"
 import { imagesOnly, isPosterName } from "@/lib/media/video"
 import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
@@ -55,6 +56,10 @@ export interface ProductVariantData {
   left: number | null
   /** The most one order may take. */
   max_quantity: number
+  /** How many there are when stock is counted: only when the caller asked for counts (lib/storelib-theme/compat/product-facts-server.ts), never on a Storelib theme's page. */
+  count?: number | null
+  /** Its stock is counted (Track quantity). Only beside `count`. */
+  tracked?: boolean
   pay_what_you_want: boolean
   pwyw_min_price_cents: number | null
   pwyw_suggested_price_cents: number | null
@@ -63,6 +68,8 @@ export interface ProductVariantData {
 export interface ProductOptionData {
   name: string
   values: string[]
+  /** The seller's own swatch per value (./option-swatches.ts): "#rrggbb", or "photo" for its variant's photo. */
+  swatches?: Record<string, string>
 }
 
 export interface ProductSectionData {
@@ -111,6 +118,8 @@ export interface ProductSectionData {
   delivery?: ProductDelivery | null
   /** Storelib Reviews: the product's published rating on this website, for the Star rating block (lib/reviews/storefront.ts productRating). Null or absent: no stars. */
   rating?: ProductRating | null
+  /** The size chart the product editor gave it (lib/size-charts/storefront.ts), for the Size chart block and the variant picker's Size guide link. Null or absent: none. */
+  size_chart?: SizeChart | null
 }
 
 /* ── Pictures ─────────────────────────────────────────────────────────────── */
@@ -268,6 +277,24 @@ export function swatchColor(value: string): string | null {
   const words = v.split(/[\s/_-]+/).filter(Boolean)
   for (const w of words) if (COLOR_WORDS[w]) return COLOR_WORDS[w]
   return null
+}
+
+/**
+ * A value's swatch colour: the seller's own (Products › Variants, the dot
+ * beside a colour), else the colour its name says. Null when the seller
+ * chose its photo, or the name is no colour: the picker shows the variant's
+ * photo, or a word on a pill.
+ */
+export function valueSwatchColor(value: string, swatches?: Record<string, string> | null): string | null {
+  const own = swatches?.[value]
+  if (own === "photo") return null
+  if (typeof own === "string" && /^#[0-9a-f]{6}$/i.test(own)) return own.toLowerCase()
+  return swatchColor(value)
+}
+
+/** The seller asked for this value's photo as its swatch, whatever its name says. */
+export function valuePrefersPhoto(value: string, swatches?: Record<string, string> | null): boolean {
+  return swatches?.[value] === "photo"
 }
 
 /* ── Price ────────────────────────────────────────────────────────────────── */

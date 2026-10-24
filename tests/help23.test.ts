@@ -188,7 +188,8 @@ for (const slug of ["store-details", "shipping-zones", "low-stock-alerts", "trac
 }
 check("the order shots are of the order page as it is now (Fulfill items)", "order-fulfill-items" in PHYSICAL_SHOTS && !("order-mark-shipped" in PHYSICAL_SHOTS))
 check("the low stock email and shipping email are the real templates, not drawings", "low-stock-email" in PHYSICAL_SHOTS && "shipping-email" in PHYSICAL_SHOTS && /lowStockEmail\(/.test(read("scripts/render-help-shots.tsx")) && /shipmentEmail\(/.test(read("scripts/render-help-shots.tsx")))
-check("the guide draws no picture of a screen: figures are only diagrams", P.every((a) => a.body.every((b) => b.type !== "figure" || ["order-journey", "profiles", "tiers", "order-steps", "split-order"].includes(b.figure))), P.flatMap((a) => a.body.filter((b) => b.type === "figure").map((b) => (b as { figure: string }).figure)))
+/* Changed on purpose (round BC): "size-chart-shared" joins the diagrams. It draws an idea (one size chart, many products), not a screen. */
+check("the guide draws no picture of a screen: figures are only diagrams", P.every((a) => a.body.every((b) => b.type !== "figure" || ["order-journey", "profiles", "tiers", "order-steps", "split-order", "size-chart-shared"].includes(b.figure))), P.flatMap((a) => a.body.filter((b) => b.type === "figure").map((b) => (b as { figure: string }).figure)))
 check("the demo order has its prices (no $NaN on the order shots)", /unitCents: 3200/.test(read("scripts/render-help-shots.tsx")))
 
 const qs = HELP_TOPICS.flatMap((t) => t.questions)

@@ -18,6 +18,7 @@ import { websiteHandleOf } from "./site-address-data"
 import {
   imagesOnPage,
   listedPageKeys,
+  pageLastmod,
   pageUrl,
   productUrl,
   type SitemapEntry,
@@ -25,6 +26,8 @@ import {
 import type { ThemeSettingsValues } from "./types"
 import { hiddenPages } from "./page-seo"
 import { imagesOnly } from "@/lib/media/video"
+import { compatOf } from "@/lib/storelib-theme/compat/install"
+import { readSiteAccess } from "@/lib/site-password/store"
 
 /**
  * The creator page's domain, at the host it is served at, or null. The
@@ -160,19 +163,46 @@ export type SiteSeo =
     }
   | { kind: "none" }
 
-/** The handles of the shop's published collections, or none when they cannot be read. */
-async function listedCollections(creatorId: string): Promise<string[]> {
+/** The handles of the shop's published collections, with when each last changed, or none when they cannot be read. */
+async function listedCollections(creatorId: string): Promise<{ handle: string; lastmod?: string }[]> {
   try {
-    const { data } = await createAdminClient()
-      .from("product_collections")
-      .select("slug")
-      .eq("creator_id", creatorId)
-      .eq("published", true)
-      .order("created_at", { ascending: true })
-      .limit(200)
-    return ((data ?? []) as { slug: string | null }[]).map((r) => r.slug ?? "").filter((h) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(h))
+    const read = (cols: string) =>
+      createAdminClient().from("product_collections").select(cols).eq("creator_id", creatorId).eq("published", true).order("created_at", { ascending: true }).limit(200)
+    let { data, error } = await read("slug, updated_at")
+    /* A database without the column: the handles alone, as before. */
+    if (error) ({ data, error } = await read("slug"))
+    return ((data ?? []) as unknown as { slug: string | null; updated_at?: string | null }[])
+      .filter((r) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(r.slug ?? ""))
+      .map((r) => ({ handle: r.slug as string, ...(r.updated_at ? { lastmod: new Date(r.updated_at).toISOString() } : {}) }))
   } catch {
     return []
+  }
+}
+
+/**
+ * When each published page last changed and when the site was published
+ * (pageLastmod), for the sitemap's lastmod. Held with the site, cleared by a
+ * publish. Nothing, never an error, when it cannot be read: the sitemap
+ * still lists the pages.
+ */
+async function pageTimes(creatorId: string, installId: string): Promise<{ publishedAt: string | null; pages: Record<string, string> }> {
+  try {
+    return await unstable_cache(
+      async () => {
+        const admin = createAdminClient()
+        const [install, rows] = await Promise.all([
+          admin.from("store_theme_installs").select("published_at").eq("id", installId).maybeSingle(),
+          admin.from("store_theme_pages").select("page_key, updated_at").eq("install_id", installId),
+        ])
+        const pages: Record<string, string> = {}
+        for (const r of (rows.data ?? []) as { page_key: string; updated_at?: string | null }[]) if (r.updated_at) pages[r.page_key] = r.updated_at
+        return { publishedAt: ((install.data as { published_at?: string | null } | null)?.published_at ?? null) || null, pages }
+      },
+      ["site-seo-page-times", installId],
+      { tags: [creatorSiteTag(creatorId)], revalidate: 600 },
+    )()
+  } catch {
+    return { publishedAt: null, pages: {} }
   }
 }
 
@@ -185,17 +215,31 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
   /* The creator's switch, and the same spam rule storelib.com's own
      sitemap applies to a handle: lib/seo/indexing builtSiteIndexable, which
      the site's pages and storelib.com's websites sitemap read too. */
-  const indexable = builtSiteIndexable(site.themeSettings as Record<string, unknown>, name)
+  /*
+    A WEBSITE BEHIND A PASSWORD is not in search either: every address of it
+    answers with the password page (noindex), so a sitemap of its pages
+    listed addresses a crawler could never read. Its robots.txt names no
+    sitemap, as for a site hidden from search (robotsTxt).
+  */
+  const [access, times] = await Promise.all([
+    readSiteAccess(createAdminClient(), site.creatorId).catch(() => null),
+    pageTimes(site.creatorId, site.installId),
+  ])
+  const indexable = builtSiteIndexable(site.themeSettings as Record<string, unknown>, name) && access?.enabled !== true
+  const imported = !!compatOf(site.themeSettings)
 
   const entries: SitemapEntry[] = []
   if (indexable) {
     /* Not a page its creator kept out of search (Pages & Navigation). */
     const hidden = hiddenPages(site.themeSettings as Record<string, unknown>)
-    for (const key of listedPageKeys(Object.keys(site.pages)).filter((k) => !hidden.has(k))) {
-      entries.push({ loc: pageUrl(origin, key), images: imagesOnPage(site.pages[key] ?? []) })
+    for (const key of listedPageKeys(Object.keys(site.pages), { imported }).filter((k) => !hidden.has(k))) {
+      const lastmod = pageLastmod(times.pages[key], times.publishedAt)
+      entries.push({ loc: pageUrl(origin, key), ...(lastmod ? { lastmod } : {}), images: imagesOnPage(site.pages[key] ?? []) })
     }
     const products = await listedProducts(site.creatorId)
-    if (products.length > 0 && !site.pages.products) entries.push({ loc: pageUrl(origin, "products") })
+    /* The shop's own page changes when a product does: the newest product's date. */
+    const newest = products.map((p) => (p.updated_at ? Date.parse(p.updated_at) : NaN)).filter((n) => Number.isFinite(n)).sort((a, b) => b - a)[0]
+    if (products.length > 0 && !site.pages.products) entries.push({ loc: pageUrl(origin, "products"), ...(newest ? { lastmod: new Date(newest).toISOString() } : {}) })
     for (const p of products) {
       const pictures = imagesOnly([p.thumbnail_url, ...(p.gallery_urls ?? [])]).filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
       entries.push({
@@ -205,7 +249,7 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
       })
     }
     /* Each published collection's own page, /collections/<handle>: every shop can have them. */
-    for (const handle of await listedCollections(site.creatorId)) entries.push({ loc: `${origin}/collections/${handle}` })
+    for (const c of await listedCollections(site.creatorId)) entries.push({ loc: `${origin}/collections/${c.handle}`, ...(c.lastmod ? { lastmod: c.lastmod } : {}) })
   }
 
   return {
@@ -250,7 +294,7 @@ export async function formerSiteAddresses(creatorId: string, name: string): Prom
     const { data: pages } = await admin.from("store_theme_pages").select("page_key, sections").eq("install_id", row.id)
     const live = ((pages ?? []) as { page_key: string; sections: unknown }[]).filter((p) => Array.isArray(p.sections) && p.sections.length > 0)
     const hidden = hiddenPages(settingsRow?.settings ?? {})
-    for (const key of listedPageKeys(live.map((p) => p.page_key)).filter((k) => !hidden.has(k))) urls.push(pageUrl(origin, key))
+    for (const key of listedPageKeys(live.map((p) => p.page_key), { imported: !!compatOf(settingsRow?.settings) }).filter((k) => !hidden.has(k))) urls.push(pageUrl(origin, key))
     const products = await listedProducts(creatorId)
     if (products.length > 0) urls.push(pageUrl(origin, "products"))
     for (const p of products) urls.push(productUrl(origin, p.slug))

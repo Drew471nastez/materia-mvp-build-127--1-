@@ -9,6 +9,8 @@ import { privateResponse, sameOriginForm } from "@/lib/site-accounts/respond"
 import { ORDER_LOOKUP_PATH, readOrderNumber } from "@/lib/physical/order-link"
 import { findOrderFor } from "@/lib/physical/order-lookup-server"
 import { orderLinkEmail } from "@/lib/physical/email-templates"
+import { emailLanguageFor } from "@/lib/emails/words-server"
+import { inEmailLanguage } from "@/lib/emails/words"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -46,29 +48,37 @@ export async function POST(request: Request) {
   const form = await request.formData().catch(() => null)
   const email = String(form?.get("email") ?? "").trim().toLowerCase().slice(0, 254)
   const number = readOrderNumber(String(form?.get("number") ?? ""))
-  if (!number) return back(site.origin, { error: "number" })
-  if (!EMAIL.test(email)) return back(site.origin, { error: "email" })
+  /* The page's language, kept on the way back and in the email (only one of the website's own, lib/markets/checkout-language). */
+  const asked = String(form?.get("lang") ?? "").trim().toLowerCase().slice(0, 20)
+  const language = asked ? await emailLanguageFor(site.creatorId, asked).catch(() => null) : null
+  const lang = language && language.lang.toLowerCase() === asked ? asked : ""
+  if (!number) return back(site.origin, { error: "number", lang })
+  if (!EMAIL.test(email)) return back(site.origin, { error: "email", lang })
 
   const limited =
     (await rateLimit({ bucket: "order-lookup-visitor", subjects: [addressSubject(request)], windows: [{ limit: 5, seconds: 300 }, { limit: 20, seconds: 86400 }] })) ||
     (await rateLimit({ bucket: "order-lookup-email", subjects: [emailSubject(email)], windows: [{ limit: 3, seconds: 300 }, { limit: 10, seconds: 86400 }] }))
-  if (limited) return back(site.origin, { error: "limit" })
+  if (limited) return back(site.origin, { error: "limit", lang })
 
   after(async () => {
     try {
       const found = await findOrderFor(admin, { creatorId: site.creatorId, email, number })
       if (!found) return
       const [brand, store] = await Promise.all([siteBrand(admin, site.creatorId), storeIdentity(admin, site.creatorId)])
-      const mail = orderLinkEmail({
-        shopName: brand.name,
-        orders: [{ number: found.number, date: found.date, url: `${site.origin}${found.path}`, status: found.status }],
-        brand: { logoUrl: brand.logoUrl ?? store.logoUrl, email: store.email, phone: store.phone, websiteUrl: site.origin },
-      })
+      /* The order page in the same language as the page they asked from (its ?lang=, app/checkout/physical/order). */
+      const url = `${site.origin}${found.path}${lang ? `?lang=${encodeURIComponent(lang)}` : ""}`
+      const build = () =>
+        orderLinkEmail({
+          shopName: brand.name,
+          orders: [{ number: found.number, date: found.date, url, status: found.status }],
+          brand: { logoUrl: brand.logoUrl ?? store.logoUrl, email: store.email, phone: store.phone, websiteUrl: site.origin },
+        })
+      const mail = language && lang ? inEmailLanguage(language.lang, language.words, build) : build()
       /* Asked for this minute: transactional, so it leaves at once with no tracking rewriting the link. Anybody can type an email here, so its bounce record is kept (keepBounce). */
       await sendMailgunEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, from: buildMailgunFromHeader(brand.name), replyTo: brand.replyTo || undefined, tags: ["order-lookup"], transactional: true, keepBounce: true })
     } catch (e) {
       console.error("[order-lookup] failed:", e instanceof Error ? e.message : "unknown")
     }
   })
-  return back(site.origin, { sent: "1" })
+  return back(site.origin, { sent: "1", lang })
 }

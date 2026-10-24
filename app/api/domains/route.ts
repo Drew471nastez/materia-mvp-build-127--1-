@@ -137,7 +137,10 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to fetch domains" }, { status: 500 })
     }
     const communities = targets ? await ownedCommunities(owner.admin, owner.creatorId) : []
-    return NextResponse.json(views(rows, schema, { targets, communities }))
+    /* Whether POST would let this creator connect one, by the same gate, so the
+       builder's Publish panel can offer Add domain or the upgrade before a press is refused. */
+    const gate = siteGate(await creatorSitePlan(owner.creatorId), "customDomain")
+    return NextResponse.json({ ...views(rows, schema, { targets, communities }), canConnect: gate === null })
   } catch (error) {
     console.error("Domains GET error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
