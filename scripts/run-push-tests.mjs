@@ -589,6 +589,8 @@ const SUITES = [
   "tests/store-settings-t.test.ts",
   "tests/taxes-t.test.ts",
   "tests/markets.test.ts",
+  /* Round AD4: currencies and languages, the bugs found and fixed. */
+  "tests/ad4-currency-language.test.ts",
   "tests/visitors25.test.ts",
   "tests/compat-languages.test.ts",
   "tests/canvas-currency.test.ts",

@@ -9,7 +9,8 @@ import "server-only"
  * (refreshRates) and keeps one row per day (fx_rates, SQL part 136); a
  * website reads the newest (latestRates), cached for an hour. Nothing is
  * ever invented: a currency the ECB does not publish has no rate, and a
- * day's rates older than lib/markets/money FX_FRESH_DAYS are not used.
+ * day's rates that missed more than lib/markets/money FX_MISSED_DAYS
+ * publications are not used.
  *
  * These are reference rates for showing prices, never for charging: the
  * card is charged in the store's currency (lib/markets/money chargeNote).

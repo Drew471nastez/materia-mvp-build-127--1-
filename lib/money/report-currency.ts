@@ -134,7 +134,12 @@ export function inReportingCurrency<T extends ReportMoneyRow>(rows: T[], target:
     }
     const date = dayOf(row.created_at)
     const fx = date ? ratesForDate(days, date) : null
-    const at = date ? Date.parse(`${date}T12:00:00Z`) : NaN
+    /*
+      Converted as of the rate's own day: ratesForDate already decided how far
+      back a day may stand in (RATE_LOOKBACK_DAYS). Asked as of the order's
+      day, the rate's freshness rule refused a stand-in that rule had allowed.
+    */
+    const at = fx ? Date.parse(`${fx.asOf}T12:00:00Z`) : NaN
     const copy = { ...row, currency: to.toLowerCase() } as unknown as Record<string, unknown>
     let ok = !!fx
     for (const key of MONEY_KEYS) {
