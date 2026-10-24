@@ -57,6 +57,7 @@ import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { peekGet, prefetchGet, readFresh, whenGets } from "@/components/physical/ui"
+import { inboxAddress } from "@/lib/seller-inbox"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { MarketsPanel } from "@/components/app/settings/markets-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
@@ -1132,6 +1133,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
     if (isLoading) return false // Prevent double-clicks
 
+    /* The support email is every receipt's Reply-To: one that is not an address is refused here, as Store details refuses it, never saved. */
+    const cleanSupportEmail = supportEmail.trim().toLowerCase()
+    if (cleanSupportEmail && !inboxAddress(cleanSupportEmail)) {
+      setError(tt("That email address does not look right."))
+      setShowSaveToast(true)
+      return false
+    }
+
     setIsLoading(true)
     setError(null)
     setSuccess(false)
@@ -1203,7 +1212,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
       const { error: creatorError } = await supabase.from("creators").update({
         slug: cleanUsername,
-        support_email: supportEmail || null,
+        support_email: cleanSupportEmail || null,
         payout_currency: payoutCurrency,
       }).eq("id", creator.id)
 

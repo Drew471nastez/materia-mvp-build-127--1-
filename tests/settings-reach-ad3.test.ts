@@ -20,6 +20,7 @@ import { creatorTag } from "@/lib/commerce/product-page-cache"
 import { followSaved } from "@/lib/settings/follow-saved"
 import { saveStoreSettings } from "@/lib/store/settings-server"
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
+import { inboxAddress } from "@/lib/seller-inbox"
 
 let passed = 0
 let failed = 0
@@ -85,6 +86,8 @@ async function main() {
   check("the Store details form follows a newer read", /followSaved\(base\.current, next, current\)/.test(panel))
   const form = read("components/app/settings-form-new.tsx")
   check("a Profile save reads Store details again, so its kept copy is not the old address", /readFresh\("\/api\/store\/settings"\)/.test(form))
+  check("Profile refuses a support email that is not an address, as Store details does", inboxAddress("foo") === null && inboxAddress("foo@bar") === null && /if \(cleanSupportEmail && !inboxAddress\(cleanSupportEmail\)\)/.test(form))
+  check("  and writes it trimmed and lower case", /support_email: cleanSupportEmail \|\| null/.test(form) && form.indexOf("!inboxAddress(cleanSupportEmail)") < form.indexOf("support_email: cleanSupportEmail"))
 
   console.log("\n3. A Store details save expires the shop's cache")
   const route = read("app/api/store/settings/route.ts")
