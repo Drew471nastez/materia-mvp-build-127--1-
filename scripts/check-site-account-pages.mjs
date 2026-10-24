@@ -84,7 +84,7 @@ function html(p) {
   const probe = JSON.stringify({ template: p.template, prerendered: p.prerendered, props: p.props }).replace(/</g, "\\u003c")
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>${faces}</style><style>${css}</style><style>body{margin:0}</style></head>
-<body><div id="app">${p.ssr}</div><script>window.__PROBE__=${probe}</script><script src="/probe.js"></script></body></html>`
+<body><div id="app">${p.ssr}</div>${p.formsStyle ? `<style>${p.formsStyle}</style>` : ""}${p.formsScript ? `<script>${p.formsScript}</script>` : ""}<script>window.__PROBE__=${probe}</script><script src="/probe.js"></script></body></html>`
 }
 
 const http = createServer((req, res) => {
@@ -92,6 +92,8 @@ const http = createServer((req, res) => {
   if (url.pathname === "/favicon.ico") { res.writeHead(204); res.end(); return }
   if (url.pathname === "/probe.js") { res.writeHead(200, { "content-type": "text/javascript" }); res.end(js); return }
   if (fontFiles.has(url.pathname)) { res.writeHead(200, { "content-type": "font/woff2" }); res.end(readFileSync(fontFiles.get(url.pathname))); return }
+  /* The address book's answer to the page's script: a postal code refused, said beside its field (lib/site-accounts/forms-script.ts). */
+  if (url.pathname === "/api/site-account/addresses") { setTimeout(() => { res.writeHead(400, { "content-type": "application/json" }); res.end(JSON.stringify({ ok: false, error: "postal" })) }, 400); return }
   if (url.pathname.startsWith("/api/")) { res.writeHead(200, { "content-type": "application/json" }); res.end("{}"); return }
   const key = url.pathname.slice(1).replace("/", "-")
   const p = pages[key]
@@ -114,7 +116,7 @@ const VIEWPORTS = [
   ["1280", { width: 1280, height: 900, deviceScaleFactor: 1 }],
 ]
 const THEMES = ["storelib-default", "studio-noir"]
-const KEYS = ["login", "login-code", "account", "account-edit", "contact", "wishlist", "password", "password-wrong"]
+const KEYS = ["login", "login-code", "account", "account-edit", "account-phone", "account-address", "account-address-edit", "contact", "wishlist", "password", "password-wrong"]
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--font-render-hinting=none"], headless: true })
 const rows = []
@@ -173,6 +175,26 @@ try {
           JSON.stringify({ overflow: m.overflow, noPlaceholder, short, smallText, offscreen, lowButtons, errors }),
         )
         rows.push({ theme, label, key, overflow: m.overflow, fields: m.fields, buttons: m.buttons })
+        /*
+          Round BC: Save address, pressed. The button shows it is busy while
+          the address book answers, and the refusal is said beside the postal
+          code, which is marked and focused, with what was typed still there.
+        */
+        if (key === "account-address-edit") {
+          await page.evaluate(() => { const f = document.querySelector("form.addr-form"); f.querySelector('[name="postal_code"]').value = "ABC" })
+          await page.click("form.addr-form button[type=submit]")
+          await wait(120)
+          const busy = await page.evaluate(() => document.querySelector("form.addr-form button[type=submit]").classList.contains("sl-busy"))
+          await page.waitForFunction(() => { const e = document.querySelector("form.addr-form [data-sl-error]"); return e && !e.hidden }, { timeout: 5000 }).catch(() => {})
+          const after = await page.evaluate(() => {
+            const f = document.querySelector("form.addr-form")
+            const e = f.querySelector("[data-sl-error]")
+            const postal = f.querySelector('[name="postal_code"]')
+            return { said: e && !e.hidden ? e.textContent : "", invalid: postal.getAttribute("aria-invalid"), focused: document.activeElement === postal, kept: postal.value, idle: !f.querySelector(".sl-busy") }
+          })
+          expect(busy && after.said === "Check the postal code." && after.invalid === "true" && after.focused && after.kept === "ABC" && after.idle, "Save address: busy while sent, then the refusal beside the postal code, typed value kept", JSON.stringify({ busy, ...after }))
+          if (SHOTS) await page.screenshot({ path: join(SHOTS, `customer-${theme}-${key}-refused-${label}.png`), fullPage: true })
+        }
         await page.close()
       }
     }

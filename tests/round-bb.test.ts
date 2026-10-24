@@ -105,7 +105,8 @@ console.log("\nSigning in on a website: a different email, a new code, and the e
 
   /* Send a new code keeps the name a Create account form gave, for the same email. */
   const route = code("app/api/site-account/code/route.ts")
-  check("Send a new code keeps the Create account name, for the same email only", /const held = again \? pendingFrom\(/.test(route) && /held\.m === cleanEmail\(form\?\.get\("email"\)\) \? held\.n/.test(route) && /requestCode\(\{ host, email: form\?\.get\("email"\), returnPath, name \}/.test(route))
+  /* Changed on purpose (round BC): the call also carries the page's language and the code email's words. */
+  check("Send a new code keeps the Create account name, for the same email only", /const held = again \? pendingFrom\(/.test(route) && /held\.m === cleanEmail\(form\?\.get\("email"\)\) \? held\.n/.test(route) && /requestCode\(\{ host, email: form\?\.get\("email"\), returnPath, name[,}]/.test(route))
 
   /* The editor: a native sign in or account form says it works on the live site, and sends nothing. */
   const section = code("components/website-builder/sections/StorelibSection.tsx")

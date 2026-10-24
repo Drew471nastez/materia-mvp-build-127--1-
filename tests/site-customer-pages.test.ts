@@ -249,7 +249,10 @@ async function main() {
     check("the account page shows the addresses block", /id="addresses"/.test(html) && /9 Elm Row/.test(html))
     check("  and the parcel: its status, carrier and number, linked to the carrier's page", /class="track__status">In transit</.test(html) && /href="https:\/\/www\.ups\.com\/track\?tracknum=1Z999AA10123456784"[^>]*>UPS 1Z999AA10123456784</.test(html), html.match(/<ul class="track">[\s\S]*?<\/ul>/)?.[0])
     check("  and Track order opens the order page on this site", /class="order__go" href="\/checkout\/physical\/order\/co-token-wash-bag-aaaaaaaa"/.test(html))
-    const noAddr = draw("main_account", {}, { template: "page.account", globals: { customer: { ...account, addresses: [] } as unknown as Record<string, unknown> } })
+    /* Changed on purpose (round BC): the address book is offered, empty, to a customer of a shop that ships (customer.ships), so "nothing shipped" is said by the flag too. */
+    const noAddr = draw("main_account", {}, { template: "page.account", globals: { customer: { ...account, addresses: [], ships: false } as unknown as Record<string, unknown> } })
+    const offered = draw("main_account", {}, { template: "page.account", globals: { customer: { ...account, addresses: [], ships: true } as unknown as Record<string, unknown> } })
+    check("  and an empty book with Add address for a shop that ships", /id="addresses"/.test(offered) && /edit=address#addresses/.test(offered))
     check("and no Addresses heading for a shop with nothing shipped", !/id="addresses"/.test(noAddr))
 
     const sessionA = mintSession({ customerId: CUST_ANA_A, creatorId: A, host: HOST_A })!
