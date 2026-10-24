@@ -516,7 +516,7 @@ async function sideEffects(
   }
   /*
     THE BUYER'S NOTE on every line this caller wrote, for the order page and
-    the seller's email below (SQL part 283). A database
+    the seller's email below (SQL part 285). A database
     without the column refuses this write alone and says nothing: the
     seller's email still carries the note (sale.buyerNote).
   */

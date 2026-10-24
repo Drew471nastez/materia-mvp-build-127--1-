@@ -629,7 +629,7 @@ type SaleRow = {
   status?: string | null
   /** A physical order's checkout (commerce_checkouts), when the row came from one. */
   checkout_id?: string | null
-  /** The buyer's note on an order with nothing to ship (SQL part 283); a physical order's is its checkout's. */
+  /** The buyer's note on an order with nothing to ship (SQL part 285); a physical order's is its checkout's. */
   buyer_note?: string | null
 }
 

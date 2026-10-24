@@ -191,5 +191,8 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "280", file: "280_files_keep_what_is_used.sql", sha256: "55ea5be7ab95f2d3409e42473b4794eb10963f327dbcb8bb30a9f0c87ad4d8ff" },
   { part: "281", file: "281_onepage_leads_country.sql", sha256: "e5c1eabe25ba626ea777af9239f94d41f5287ea6f755f8f2115b57acb51b320e" },
   { part: "282", file: "282_onepage_media_uploads.sql", sha256: "0ae8e813310ea85e24029d446eb82cb5c7e36d3d9bbd922543e756b13347ef15" },
-  { part: "283", file: "283_direct_message_notifications.sql", sha256: "376530ac26edabb63c4a29d49fb8e492173076cbe9e9bb39607483d52bcd346c" },
+  { part: "283", file: "283_size_charts.sql", sha256: "5e662db000bddcebcdfefab26f7534b907fba7939cc7741361a8ee86449e13cf" },
+  { part: "284", file: "284_direct_message_notifications.sql", sha256: "3a81084309c8ce51cd138d1a9d4caa479fffa196a6c60ff5df8faba638816a14" },
+  { part: "285", file: "285_order_buyer_note.sql", sha256: "5c287d3575044586882b1f91528f6a29668f1c87f2061dd5af4b273d5d217825" },
+  { part: "286", file: "286_product_option_swatches.sql", sha256: "bd0e67207ac979b4d41f6ce1bc0742007fb7b36f757a7debb051aa5a43d62563" },
 ]

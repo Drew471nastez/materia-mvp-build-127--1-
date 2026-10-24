@@ -17,7 +17,7 @@ const TYPES = ["receipt_resent", "email_changed_by_creator", "email_updated"] as
  * addresses in its record, and neither is sent.
  *
  * And the buyer's note on an order that ships nothing (`note`, SQL part
- * 283; a physical order's comes with its parcel,
+ * 285; a physical order's comes with its parcel,
  * /api/physical/orders/[id]). Null before that part has run.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
