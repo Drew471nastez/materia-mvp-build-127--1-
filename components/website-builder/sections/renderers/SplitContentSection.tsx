@@ -25,6 +25,7 @@ import {
   SectionWrapper,
   type SectionProps, schemeButton, firstPicture } from "../_shared"
 import { stableHtml } from "../stable-html"
+import { siteImageProps } from "@/lib/website-builder/site-image"
 
 const ASPECT: Record<string, string> = {
   square: "1 / 1",
@@ -74,6 +75,7 @@ export function SplitContentSection({ section, theme, isEditing, isSelected, onC
           {image ? (
             <img
               src={image}
+              {...siteImageProps(image, "(min-width: 768px) 50vw, 100vw")}
               alt=""
               className="w-full rounded-lg object-cover"
               style={{ aspectRatio: ratio }}

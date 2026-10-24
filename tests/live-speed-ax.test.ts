@@ -21,6 +21,7 @@
  */
 import { readFileSync } from "node:fs"
 import { startFrom, deploymentOf, WARM_PATHS } from "@/lib/website-builder/warm-sites"
+import { siteImageProps } from "@/lib/website-builder/site-image"
 import { join } from "node:path"
 import { COUNTRY_LIST_ATTR, COUNTRY_LIST_HEAD, readierFirstLoad } from "../lib/storelib-theme/compat/first-load"
 import { flagImage } from "../lib/storelib-theme/compat/objects"
@@ -111,6 +112,18 @@ console.log("\nEvery published website is drawn before its first visitor after a
   check("it runs every five minutes, and costs nothing once the deploy is warmed", cron.crons.some((c) => c.path === "/api/cron/warm-sites" && c.schedule === "*/5 * * * *") && /already-warmed/.test(code("lib/website-builder/warm-sites.ts")))
   check("the warm asks through the public address, a few at a time, each with a timeout", /const AT_ONCE = 6/.test(code("lib/website-builder/warm-sites.ts")) && /setTimeout\(\(\) => ctl\.abort\(\), EACH_MS\)/.test(code("lib/website-builder/warm-sites.ts")))
   check("functions run next to the database (iad1 only)", JSON.stringify(cron.regions) === JSON.stringify(["iad1"]))
+}
+
+console.log("\nA website's pictures come at the size the screen draws them\n")
+{
+  const own = "https://storelib.com/media/product-images/a/b/photo.png"
+  const p = siteImageProps(own, "(min-width: 768px) 50vw, 100vw")
+  check("Storelib's own picture gets a srcset of re-encoded widths, the original kept as src", !!p.srcSet && /\/_next\/image\?url=https%3A%2F%2Fstorelib\.com%2Fmedia%2Fproduct-images%2Fa%2Fb%2Fphoto\.png&w=384&q=90 384w/.test(p.srcSet) && /&w=2048&q=90 2048w$/.test(p.srcSet) && p.sizes === "(min-width: 768px) 50vw, 100vw")
+  check("  SVG, GIF, blob, data and already optimised addresses are left alone", [own.replace(".png", ".svg"), own.replace(".png", ".gif"), "blob:https://x/1", "data:image/png;base64,AA", "/_next/image?url=x&w=1&q=1"].every((u) => Object.keys(siteImageProps(u)).length === 0))
+  check("  a host the optimiser will not fetch is left alone, and so is nothing", Object.keys(siteImageProps("https://example.org/a.jpg")).length === 0 && Object.keys(siteImageProps(undefined)).length === 0)
+  const media = code("components/website-builder/sections/renderers/product/product-media.tsx")
+  check("the product page's main picture and its thumbnails use it; the zoom view keeps the original", /src=\{src\}\n\s+\{\.\.\.siteImageProps\(src, "\(min-width: 768px\) 50vw, 100vw"\)\}/.test(media) && /siteImageProps\(src, "96px"\)/.test(media) && /src=\{images\[at\]\}\n/.test(media))
+  check("so do the hero, image, image banner, split content, slideshow and collection banner sections", ["HeroSection", "ImageSection", "ImageBannerSection", "SplitContentSection", "SlideshowSection", "CollectionBannerSection"].every((f) => /siteImageProps\(/.test(code(`components/website-builder/sections/renderers/${f}.tsx`))))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

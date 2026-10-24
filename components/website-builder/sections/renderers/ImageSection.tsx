@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { sectionColors, str, SectionWrapper, type SectionProps } from "../_shared"
+import { siteImageProps } from "@/lib/website-builder/site-image"
 
 export function ImageSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -19,7 +20,7 @@ export function ImageSection({ section, theme, isEditing, isSelected, onClick }:
     <SectionWrapper bgColor={bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>
       <div className="px-(--theme-padding-x) max-w-(--theme-page-width) mx-auto" style={{ paddingTop: `${s.padding_top ?? 40}px`, paddingBottom: `${s.padding_bottom ?? 40}px` }}>
         {imgUrl ? (
-          <img src={imgUrl} alt={caption} className={cn("w-full h-auto rounded-lg object-cover", aspectMap[aspectRatio])} loading="lazy" decoding="async" />
+          <img src={imgUrl} {...siteImageProps(imgUrl)} alt={caption} className={cn("w-full h-auto rounded-lg object-cover", aspectMap[aspectRatio])} loading="lazy" decoding="async" />
         ) : (
           <div className={cn("w-full rounded-lg bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center", aspectMap[aspectRatio] || "aspect-video")}>
             <span className="text-white/60 text-sm">Add an image</span>

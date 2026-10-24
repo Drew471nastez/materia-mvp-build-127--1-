@@ -40,6 +40,7 @@ import {
   SectionWrapper,
   type SectionProps,
 } from "../_shared"
+import { siteImageProps } from "@/lib/website-builder/site-image"
 
 export function HeroSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
@@ -204,6 +205,7 @@ export function HeroSection({ section, theme, isEditing, isSelected, onClick }: 
       {!video && !!backdrop && (
         <img
           src={backdrop}
+          {...siteImageProps(backdrop)}
           alt=""
           className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"
@@ -236,6 +238,7 @@ export function HeroSection({ section, theme, isEditing, isSelected, onClick }: 
                 backdrop behind the text keeps an empty alt. */}
             <img
               src={heroImage}
+              {...siteImageProps(heroImage, "(min-width: 768px) 50vw, 100vw")}
               alt={str(s.heading)}
               className="w-full rounded-2xl object-cover"
               loading="lazy"

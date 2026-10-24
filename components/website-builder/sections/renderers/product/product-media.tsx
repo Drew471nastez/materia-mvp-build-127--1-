@@ -34,6 +34,7 @@ import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, Package, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { isVideoUrl, videoPosterUrl } from "@/lib/media/video"
+import { siteImageProps } from "@/lib/website-builder/site-image"
 
 export type MediaLayout = "stacked" | "stacked_2col" | "slideshow" | "carousel"
 
@@ -193,6 +194,7 @@ export function ProductMedia({
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={src}
+              {...siteImageProps(src, "(min-width: 768px) 50vw, 100vw")}
               alt={pos === 0 ? title : `${title}, picture ${pos + 1}`}
               className={cn(
                 "block w-full transition-transform duration-500",
@@ -255,7 +257,7 @@ export function ProductMedia({
                   </span>
                 </span>
               ) : (
-                <img src={src} alt={`${title} thumbnail ${pos + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                <img src={src} {...siteImageProps(src, "96px")} alt={`${title} thumbnail ${pos + 1}`} className="h-full w-full object-cover" loading="lazy" decoding="async" />
               )}
             </button>
           ))}
