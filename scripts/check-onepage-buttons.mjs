@@ -179,6 +179,10 @@ for (const [w, h, tag] of [[1440, 900, "1440"], [390, 844, "390"]]) {
       await page.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2)
       await sleep(650)
       const c = await card.evaluate((el) => ({ translate: getComputedStyle(el).translate, ring: getComputedStyle(el, "::after").opacity, img: getComputedStyle(el.querySelector("img")).scale }))
+      if (theme.button_border_radius === 999) {
+        const r = await card.evaluate((el) => getComputedStyle(el).borderTopLeftRadius)
+        expect(r === "28px", `${tag} ${name}: the featured card stays a rounded card on a Pill page`, r)
+      }
       expect(c.translate === "none" && Number(c.ring) > 0.9 && c.img === "1.03", `${tag} ${name}: the featured link hovers as a card (ring, no movement, picture zoomed)`, c)
       if (v === 2) await card.screenshot({ path: join(shots, `${tag}-card-hover.png`), captureBeyondViewport: false })
     }

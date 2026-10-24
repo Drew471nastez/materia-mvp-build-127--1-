@@ -53,7 +53,7 @@ import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onep
 import { pairProductTiles } from "@/lib/onepage/product-block"
 import { tt } from "@/lib/i18n/text"
 import { bookingSource } from "@/lib/onepage/creator-blocks"
-import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
+import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -4059,6 +4059,8 @@ function PublicBlockRenderer({
       const labelText = cn(align === "left" ? "text-left" : "text-center", "op-label break-words whitespace-normal leading-tight")
 
       const hasThumbnail = !!data.thumbnail_url || !!linkIcon
+      /* A featured card on a Pill page: a pill's 999px would make the card an oval and crop its picture to one, so a card stops at 28px. */
+      const cardRadius = buttonShape(theme.button_border_radius) === "pill" ? 28 : theme.button_border_radius
 
       // Pro Layout - Featured display with larger thumbnail
       if (data.layout_type === 'pro') {
@@ -4126,6 +4128,7 @@ function PublicBlockRenderer({
               className={cn("w-full overflow-hidden", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
+                borderRadius: `${cardRadius}px`,
                 padding: 0,
                 fontSize: 0,
                 lineHeight: 0,
@@ -4135,7 +4138,7 @@ function PublicBlockRenderer({
               <div
                 className="w-full aspect-video relative overflow-hidden"
                 style={{
-                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  borderRadius: `${cardRadius}px ${cardRadius}px 0 0`,
                 }}
               >
                 <iframe
@@ -4191,7 +4194,7 @@ function PublicBlockRenderer({
               <div
                 className="w-full relative overflow-hidden"
                 style={{
-                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  borderRadius: `${cardRadius}px ${cardRadius}px 0 0`,
                   aspectRatio: '9/16',
                   maxHeight: '500px',
                 }}
@@ -4214,7 +4217,7 @@ function PublicBlockRenderer({
                   displayMode !== 'full' && "aspect-[2/1]"
                 )}
                 style={{
-                  borderRadius: `${theme.button_border_radius}px ${theme.button_border_radius}px 0 0`,
+                  borderRadius: `${cardRadius}px ${cardRadius}px 0 0`,
                   backgroundColor: displayMode === 'contain' || !data.thumbnail_url ? (
                     theme.button_style === "outline" ? `${theme.button_color}10` : `${theme.button_text_color}10`
                   ) : undefined,
@@ -4338,6 +4341,7 @@ function PublicBlockRenderer({
               className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
+                borderRadius: `${cardRadius}px`,
                 padding: 0,
                 fontSize: 0,
                 lineHeight: 0,
@@ -4360,6 +4364,7 @@ function PublicBlockRenderer({
               className={cn("op-card w-full overflow-hidden cursor-pointer block", getAnimationClass(data.animation_type))}
               style={{
                 ...buttonStyles,
+                borderRadius: `${cardRadius}px`,
                 padding: 0,
                 fontSize: 0,
                 lineHeight: 0,
@@ -4379,6 +4384,7 @@ function PublicBlockRenderer({
             className={cn("op-card w-full overflow-hidden block", getAnimationClass(data.animation_type))}
             style={{
               ...buttonStyles,
+              borderRadius: `${cardRadius}px`,
               padding: 0,
               fontSize: 0,
               lineHeight: 0,

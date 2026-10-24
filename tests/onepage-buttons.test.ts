@@ -168,6 +168,7 @@ check("the link button carries its hover, shadow and alignment", /"data-hover": 
 check("every default-layout button is an .op-btn with the page's size", (link.match(/"op-btn /g) || []).length === 3 && (link.match(/BUTTON_SIZE_CLASS\[size\]/g) || []).length === 3)
 check("a featured (Pro) link hovers as a card, its picture as media", (link.match(/"op-card /g) || []).length === 3 && /"op-media"/.test(link))
 check("no link button transitions everything", !/transition-all/.test(link))
+check("a featured card on a Pill page is a rounded card (28px), not an oval", /const cardRadius = buttonShape\(theme\.button_border_radius\) === "pill" \? 28 : theme\.button_border_radius/.test(link) && (link.match(/borderRadius: `\$\{cardRadius\}px`/g) || []).length === 4)
 check("the PDF, menu, booking and email buttons take the same fill (Soft included)", (page.match(/backgroundColor: buttonBackground\(theme\)/g) || []).length >= 4)
 // The preview is the same component: components/onepage/preview-document.tsx renders PublicOnePage.
 const preview = readFileSync("components/onepage/preview-document.tsx", "utf8")
