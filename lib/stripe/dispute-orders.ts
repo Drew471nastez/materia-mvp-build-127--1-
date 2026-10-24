@@ -25,7 +25,7 @@
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
-/** The column a payment's rows carry its id in: Stripe's, or Airwallex's (run-now part 76). */
+/** The column a payment's rows carry its id in: Stripe's, or provider_payment_id on rows from before Stripe was the only provider (run-now part 76). */
 export type PaymentColumn = "stripe_payment_intent_id" | "provider_payment_id"
 
 /** The statuses a dispute can be opened on: money that reached the seller. */

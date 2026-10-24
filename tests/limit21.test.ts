@@ -238,7 +238,7 @@ async function main() {
     check("only the caller that made the order refunds (a raced second call reads the winner's)", fulfil.indexOf("const raced = await existingOrder") < fulfil.indexOf("if (!withinLimit) return refundedOverLimit("))
     check("a refund that failed is tried again by the next delivery, once", fulfil.includes("owesSoldOutRefund(admin, found.id)"))
     const refund = read("lib/checkout/sold-out-refund.ts")
-    check("the refund is the Orders page's: whole, transfer reversed, one per order whatever retries", refund.includes("reverse_transfer: true") && refund.includes("idempotencyKey: `storelib-sold-out:${o.orderId}`") && refund.includes("syncChargeRefund(db, stripe, charge)") && refund.includes("refundAirwallexOrder"))
+    check("the refund is the Orders page's: whole, transfer reversed, one per order whatever retries", refund.includes("reverse_transfer: true") && refund.includes("idempotencyKey: `storelib-sold-out:${o.orderId}`") && refund.includes("syncChargeRefund(db, stripe, charge)") && !refund.includes("refundAirwallexOrder"))
     check("its reason reads sold_out, and the sync keeps it", refund.includes('SOLD_OUT_REASON = "sold_out"') && read("lib/stripe/refund-sync.ts").includes('refund.metadata?.refund_reason === "sold_out" ? "sold_out"'))
     const line = read("lib/checkout/fulfil-cart-item.ts")
     check("a basket line over the cap gets no library entry and no sales count", /if \(!withinLimit\) \{[\s\S]{0,300}return \{ status: "created", line: \{[^}]*soldOut: true/.test(line) && line.indexOf("if (!withinLimit) {") < line.indexOf('from("entitlements")'))

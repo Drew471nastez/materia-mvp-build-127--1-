@@ -375,7 +375,7 @@ const SUITES = [
   "tests/anthropic-provider.test.ts",
   "tests/ai-chatgpt-only.test.ts",
   "tests/own-ai.test.ts",
-  "tests/storelib-payments.test.ts",
+  "tests/payments-stripe-only.test.ts",
   "tests/admin-payments-fees.test.ts",
   "tests/payments-setup-errors.test.ts",
   "tests/stripe-payments-facts.test.ts",
@@ -461,7 +461,7 @@ const SUITES = [
   "tests/money-rows-server-only.test.ts",
   "tests/private-columns.test.ts",
   "tests/ledger-and-deletion.test.ts",
-  /* Background jobs run once and stop (a Stripe or Airwallex event taken before it is handled, a job cut off every time ends), and run-now part 189 */
+  /* Background jobs run once and stop (a Stripe event taken before it is handled, a job cut off every time ends), and run-now part 189 */
   "tests/jobs-and-isolation.test.ts",
   /* A job, a store's translation and an order line, each done once (a lost job lease writes nothing, the hourly translate claim, run-now part 190) */
   "tests/jobs-dupes.test.ts",

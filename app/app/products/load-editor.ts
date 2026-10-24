@@ -5,7 +5,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import type { EditorAssetRow, EditorCreator, EditorProductRow, EditorVariantRow, LoadedProduct } from "./new/editor-form"
 import { paymentsReadyFrom } from "@/lib/home/progress"
-import { providerPaymentsReady } from "@/lib/payments/readiness"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { readSalesLimit } from "@/lib/products/sales-limit"
 import { copiesSold } from "@/lib/products/sales-standings"
@@ -119,11 +118,9 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
   }
 
   if (!creatorRow) return { state: "no-creator" }
-  const [paymentsReady, store] = await Promise.all([
-    providerPaymentsReady(creatorRow.id, paymentsReadyFrom(creatorRow)),
-    /* Settings › Store details › Country & Currency: what every price here is typed in (lib/store/selling-currency). */
-    readStoreCurrency(supabase, creatorRow.id),
-  ])
+  const paymentsReady = paymentsReadyFrom(creatorRow)
+  /* Settings › Store details › Country & Currency: what every price here is typed in (lib/store/selling-currency). */
+  const store = await readStoreCurrency(supabase, creatorRow.id)
   /* Only what the editor reads goes to the browser, not the whole shell row. */
   const creator: EditorCreator = {
     id: creatorRow.id,

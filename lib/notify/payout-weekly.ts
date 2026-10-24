@@ -53,9 +53,8 @@ export function paymentsComplete(c: CreatorPaymentRow): boolean {
 }
 
 /** Whether this creator is one the weekly email is for, before asking whether they were told this week. */
-export function wantsPayoutNudge(c: CreatorPaymentRow, airwallexReady: Set<string>): boolean {
+export function wantsPayoutNudge(c: CreatorPaymentRow): boolean {
   if (!c.user_id || c.deleted_at) return false
-  if (airwallexReady.has(c.id)) return false
   return !paymentsComplete(c)
 }
 
@@ -109,24 +108,16 @@ export async function sweepPayoutReminders(db: AdminDb, opts: { now?: number; bu
     summary.checked += rows.length
 
     const ids = rows.map((r) => r.id)
-    const [awx, jobs] = await Promise.all([
-      db.from("payment_accounts").select("creator_id, provider_account_id, lifecycle_status, payout_beneficiary_id").eq("provider", "airwallex").in("creator_id", ids),
-      db.from("notification_jobs").select("creator_id, state").in("type", PAYOUT_NUDGES as unknown as string[]).in("creator_id", ids).gte("created_at", since),
-    ])
+    const jobs = await db.from("notification_jobs").select("creator_id, state").in("type", PAYOUT_NUDGES as unknown as string[]).in("creator_id", ids).gte("created_at", since)
     if (jobs.error) {
       /* No notification engine yet (part 40): nothing can be sent, so nothing is planned. */
       summary.available = false
       break
     }
-    const airwallexReady = new Set(
-      ((awx.data as { creator_id: string; provider_account_id: string | null; lifecycle_status: string | null; payout_beneficiary_id: string | null }[] | null) ?? [])
-        .filter((a) => !!a.provider_account_id && a.lifecycle_status === "ACTIVE" && !!a.payout_beneficiary_id)
-        .map((a) => a.creator_id),
-    )
     const told = new Set(((jobs.data as { creator_id: string; state: string }[] | null) ?? []).filter((j) => !NOT_SENT.has(j.state)).map((j) => j.creator_id))
 
     for (const c of rows) {
-      if (!wantsPayoutNudge(c, airwallexReady)) continue
+      if (!wantsPayoutNudge(c)) continue
       if (told.has(c.id)) {
         summary.toldThisWeek++
         continue

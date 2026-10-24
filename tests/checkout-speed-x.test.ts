@@ -104,7 +104,7 @@ async function main() {
     const creatorAt = page.indexOf("readCreatorRow(product.creator_id),")
     check("the store's reads start before the creator and options are awaited", storeAt > 0 && creatorAt > storeAt)
     check("and are awaited where they were used", /= await storeReads/.test(page))
-    check("they are the same reads as before", ["providerFor(storeId)", "loadCheckoutConfig(checkoutAdmin(), storeId", "loadTaxForCheckout(checkoutAdmin(), storeId", "headers(),", "loadStoreName(checkoutAdmin(), storeId)", "readStoreCurrency(checkoutAdmin(), storeId"].every((s) => page.slice(storeAt, creatorAt).includes(s)))
+    check("they are the same reads as before", ["loadCheckoutConfig(checkoutAdmin(), storeId", "loadTaxForCheckout(checkoutAdmin(), storeId", "headers(),", "loadStoreName(checkoutAdmin(), storeId)", "readStoreCurrency(checkoutAdmin(), storeId"].every((s) => page.slice(storeAt, creatorAt).includes(s)))
     check("Back's address starts with them", page.indexOf("const returnsRead = early(checkoutReturns(") > storeAt && /\breturnsRead,\n\s*\]\)/.test(page))
     check("a membership leaves before any of it is asked", page.indexOf('if (product.type === "membership") return membershipCheckoutContent') < storeAt)
     const productAt = page.indexOf("await readPublishedProduct(productId)")

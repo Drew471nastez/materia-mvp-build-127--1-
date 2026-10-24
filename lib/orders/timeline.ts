@@ -22,6 +22,7 @@ import { dayHeading, itemsLabel, startOfDay, type Order } from "./order-view"
 import { reasonLabel } from "@/lib/store/reasons"
 import { tt } from "@/lib/i18n/text"
 import { formatOrderMoney } from "./money"
+import { PAST_PROVIDER_LABEL, paidThroughAirwallex } from "@/lib/payments/past-provider"
 
 export type TimelineTone = "success" | "attention" | "critical" | "neutral" | "upcoming"
 
@@ -78,17 +79,25 @@ export interface StripeStep {
 }
 
 
-/** "Visa •••• 4242", "PayPal", "No payment needed". Null when nothing says. */
+/** "Visa •••• 4242", "PayPal", "No payment needed". Null when nothing says. Names Airwallex on an order it took (lib/payments/past-provider). */
 export function paymentMethodOf(order: Order): string | null {
   const line = order.lines[0]
   if (order.totalCents === 0) return tt("No payment needed")
+  if (paidThroughAirwallex(line)) {
+    const method = cardOrMethod(line)
+    return method ? `${method}, ${PAST_PROVIDER_LABEL}` : PAST_PROVIDER_LABEL
+  }
+  return cardOrMethod(line) ?? (line.stripe_payment_intent_id ? tt("Card") : null)
+}
+
+function cardOrMethod(line: Order["lines"][number]): string | null {
   if (line.card_brand) {
     const brand = line.card_brand.replace(/^./, (c) => c.toUpperCase())
     return line.card_last4 ? `${brand} •••• ${line.card_last4}` : brand
   }
   if (line.payment_method === "paypal") return line.paypal_email ? tt("PayPal, {paypal_email}", { paypal_email: line.paypal_email }) : "PayPal"
   if (line.payment_method && line.payment_method !== "card") return line.payment_method.replace(/_/g, " ")
-  return line.stripe_payment_intent_id ? tt("Card") : null
+  return null
 }
 
 /** The Stripe steps the timeline shows. The rest it already knows from the order itself. */

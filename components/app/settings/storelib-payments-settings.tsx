@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { AlertCircle, AlertTriangle, ChevronRight, Clock, CreditCard, Landmark, UserRound } from "lucide-react"
+import { AlertCircle, AlertTriangle, ChevronRight, Clock, CreditCard, Landmark, UserRound, X } from "lucide-react"
 import type { OnboardingBeat } from "@/lib/payments/stripe/onboarding-steps"
 import { STATUS_PILL, type StatusAction } from "@/lib/payments/stripe/status"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
@@ -28,6 +28,9 @@ function safeError(message: string): string {
   }
   return message
 }
+
+/* The note to a creator who was on Airwallex is said once: closing it is remembered in this browser. */
+const AIRWALLEX_NOTE_KEY = "storelib:payments:airwallex-note"
 
 async function call<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api/payments/${path}`, {
@@ -68,6 +71,22 @@ export function StorelibPaymentsSettings({
   const [busy, setBusy] = React.useState(false)
   const [confirmDisconnect, setConfirmDisconnect] = React.useState(false)
   const [panel, setPanel] = React.useState<{ open: boolean; mode: SetupMode }>({ open: false, mode: "setup" })
+  const [airwallexNoteClosed, setAirwallexNoteClosed] = React.useState(false)
+  React.useEffect(() => {
+    try {
+      if (window.localStorage.getItem(AIRWALLEX_NOTE_KEY)) setAirwallexNoteClosed(true)
+    } catch {
+      /* storage blocked: the note shows until Stripe is connected */
+    }
+  }, [])
+  const closeAirwallexNote = () => {
+    setAirwallexNoteClosed(true)
+    try {
+      window.localStorage.setItem(AIRWALLEX_NOTE_KEY, "1")
+    } catch {
+      /* closed for this visit only */
+    }
+  }
 
   const setData = React.useCallback((next: Overview) => {
     rememberOverview(next)
@@ -228,6 +247,20 @@ export function StorelibPaymentsSettings({
         <div role="alert" className="flex items-start gap-2 rounded-xl border border-[#fecdd3] bg-[#fff1f2] px-3 py-2.5 text-[13px] text-[#9f1239]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span className="flex-1">{error}</span>
+        </div>
+      ) : null}
+
+      {/* Paid through Airwallex before Storelib moved to Stripe, and Stripe is not set up yet (lib/payments/service overview). */}
+      {data.airwallexBefore && !airwallexNoteClosed ? (
+        <div role="status" data-airwallex-note="" className="flex items-start gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3.5 py-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#d97706]" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("Connect Stripe to keep selling")}</p>
+            <p className="text-[12px] leading-[17px] text-[#6b7280]">{tt("Storelib takes payments through Stripe now, not Airwallex. Your past orders stay as they are.")}</p>
+          </div>
+          <button type="button" onClick={closeAirwallexNote} aria-label={tt("Close")} className="-mr-1 -mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#9ca3af] hover:bg-[#f4f4f6] hover:text-[#6b7280]">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       ) : null}
 

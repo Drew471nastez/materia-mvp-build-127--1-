@@ -57,9 +57,6 @@ const nextConfig = {
     '/api/checkout/confirm-payment': ['./lib/checkout/fonts/**'],
     '/api/checkout/cart/complete': ['./lib/checkout/fonts/**'],
     '/api/stripe/webhook': ['./lib/checkout/fonts/**'],
-    /* The same receipt PDF for a checkout paid on Airwallex (lib/payments). */
-    '/api/payments/airwallex/webhook': ['./lib/checkout/fonts/**'],
-    '/api/payments/airwallex/return': ['./lib/checkout/fonts/**'],
     /* The OnePage share image draws its words in the same Inter, read by path. */
     '/*/links/share.png': ['./lib/checkout/fonts/**'],
     /* A shared community link's picture, the same Inter (app/(marketing)/community/[slug]/share.png). */

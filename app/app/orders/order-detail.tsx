@@ -59,6 +59,7 @@ import { carrierOf } from "@/lib/physical/carriers"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import { SOURCE_LABEL, canRefundLine, dayHeading, fullDate, itemsLabel, refundableCents, shipStageOf, timeOfDay, type Order, type OrderRow } from "@/lib/orders/order-view"
+import { paidThroughAirwallex } from "@/lib/payments/past-provider"
 import { originCampaign, sourceText } from "@/lib/orders/order-source"
 import {
   groupTimeline,
@@ -186,7 +187,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
   }, [parcel?.id, parcel?.fulfillmentStatus, parcel?.returnStatus, parcel?.payment, row?.physical_fulfillment, row?.physical_return, row?.physical_cash_due]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /* A card payment, or cash on delivery once the seller has it (lib/physical/cash-on-delivery.ts): before that there is nothing to give back. */
-  /* Every line with money left to send back, a part refunded one too, on Stripe, Airwallex or collected cash (lib/orders/order-view canRefundLine). */
+  /* Every line with money left to send back, a part refunded one too, on Stripe or collected cash (lib/orders/order-view canRefundLine). */
   const refundable = order.lines.filter(canRefundLine)
   const emailable = order.lines.some(canEmail)
   const firstReceipt = order.lines.find((l) => l.receipt_token)?.receipt_token
@@ -546,6 +547,8 @@ function PaymentCard({
   const received = order.payment === "failed" || order.payment === "pending" || order.payment === "voided" || order.payment === "cash_due" ? 0 : order.totalCents
   /* An order shows what the buyer paid, like Shopify: Storelib's fee and the seller's share live in Payouts (the sale's panel), never here. */
   const method = paymentMethodOf(order)
+  /* Paid through Airwallex before Storelib moved to Stripe: no Refund here, and where to do it instead (lib/payments/past-provider). */
+  const refundElsewhere = order.lines.some((l) => paidThroughAirwallex(l) && refundableCents(l) > 0)
   return (
     <section className={cn(card, "min-w-0", className)}>
       <CardHead>
@@ -562,7 +565,8 @@ function PaymentCard({
         <Row label={order.payment === "pending" || order.payment === "cash_due" ? tt("Due") : tt("Paid")} middle={method || undefined} value={formatMoney(order.payment === "pending" || order.payment === "cash_due" ? order.totalCents : received, order.currency)} />
         {order.refundedCents > 0 ? <Row label={tt("Refunded")} value={`−${formatMoney(order.refundedCents, order.currency)}`} /> : null}
       </div>
-      <div className="flex justify-end gap-2 px-4 py-3">
+      <div className="flex items-center justify-end gap-2 px-4 py-3">
+        {refundElsewhere ? <p className="mr-auto min-w-0 text-[12px] leading-snug text-[#6b7280]">{tt("Refund this order in your Airwallex account.")}</p> : null}
         <button type="button" className={buttonSecondary} onClick={onInvoice} disabled={busy !== null}>
           <Download className="h-3.5 w-3.5" />
           {busy === "invoice" ? tt("Preparing…") : tt("Invoice")}

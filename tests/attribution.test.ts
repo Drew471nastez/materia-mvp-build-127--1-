@@ -546,7 +546,7 @@ async function main() {
       session.indexOf("priceOrder(") < session.indexOf("attributionForCheckout(") && /Object\.assign\(metadata, attributionToMetadata\(attribution, Object\.keys\(metadata\)\.length\)\)/.test(session))
     const code = session.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^import .*$/gm, "")
     const uses = code.match(/(?<![\w/])attribution(?![\w/])/g) ?? []
-    /* Five: declared, on the metadata, onto the start, and onto the contact on each provider's branch (Stripe, and Storelib Payments on Airwallex). */
+    /* Four: declared, on the metadata, onto the start, and onto the contact. */
     check("  and uses it for nothing else: declared, put on the metadata, written onto the start and the contact", /amount: chargeCents,/.test(session) && uses.length === 4, uses.length)
     const cart = read("app/api/checkout/cart/route.ts")
     check("the basket route: the same, after pricing", cart.indexOf("priceCart(") < cart.indexOf("attributionForCheckout(") && /Object\.assign\(params\.metadata!, attributionToMetadata\(attribution/.test(cart) && /attribution: c\.attribution/.test(cart))

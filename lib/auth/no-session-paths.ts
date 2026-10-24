@@ -6,7 +6,7 @@
  * renews) the session on every request it serves. For a page or a signed in
  * API call that is the point. For the calls below it is work nobody reads:
  * a browser's beacon, a CSP report, a scheduled job, a webhook from Stripe,
- * Airwallex, Mailgun, a video host or a carrier. None of their handlers reads
+ * Mailgun, a video host or a carrier. None of their handlers reads
  * the person's session; each checks its own secret or signature, or takes no
  * one's word at all. Checked handler by handler (tests/vercel-runtime-costs).
  *
@@ -39,7 +39,7 @@ const EXACT = new Set([
 /** Prefixes whose every handler reads no session. */
 const PREFIXES = ["/api/public/", "/api/cron/", "/api/webhooks/", "/api/tracking/webhooks/"]
 
-/** A payment provider's webhook: /api/payments/airwallex/webhook. */
+/** A payment provider's webhook, such as the removed /api/payments/airwallex/webhook, which now only answers 410. */
 const PAYMENT_WEBHOOK = /^\/api\/payments\/[a-z0-9-]+\/webhook\/?$/
 
 /**

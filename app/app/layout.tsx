@@ -18,8 +18,7 @@ import { profileAvatar } from "@/lib/account/avatar"
 import { accountTimeZone, timeZoneScript } from "@/lib/account/time-zone"
 import { TimeZoneSync } from "@/components/app/time-zone-sync"
 import { PlanWatch } from "@/components/app/plan-watch"
-import { factsFromRows, homeProgress, paymentsReadyFrom, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
-import { providerPaymentsReady } from "@/lib/payments/readiness"
+import { factsFromRows, homeProgress, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { listBusinesses } from "@/lib/businesses/server"
 import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/businesses/switch-screen"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
@@ -235,7 +234,7 @@ export default async function AppLayout({
 
   const setup = homeProgress({
     ...factsFromRows({
-      creator: { ...creator, provider_payments_ready: await providerPaymentsReady(creator.id, paymentsReadyFrom(creator)) },
+      creator,
       products: products ?? [],
       domains: domains ?? [],
       websiteLive: !!liveSite,

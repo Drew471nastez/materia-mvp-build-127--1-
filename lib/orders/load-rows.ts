@@ -59,7 +59,7 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     receipt_token: order.receipt_token ?? null,
     stripe_session_id: order.stripe_session_id ?? null,
     stripe_payment_intent_id: order.stripe_payment_intent_id ?? null,
-    /* Who took the payment, so a sale paid on Airwallex can be refunded from its page too. */
+    /* Who took the payment: a sale paid through Airwallex before it was removed shows it, and offers no Refund (lib/payments/past-provider). */
     provider: order.provider ?? null,
     provider_payment_id: order.provider_payment_id ?? null,
     currency: orderCurrency(order.currency),

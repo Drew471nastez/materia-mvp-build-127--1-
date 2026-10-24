@@ -160,7 +160,7 @@ function main() {
   check("refund: a cash order only once the cash is in", /row\.payment_method === "cash_on_delivery" && row\.physical_cash_due === false/.test(read("lib/orders/order-view.ts")) && /order\.lines\.filter\(canRefundLine\)/.test(detail))
   const refund = read("app/api/stripe/refund/route.ts")
   check("refund route: refuses cash not yet collected", /hasn't been paid yet: the cash is collected on delivery/.test(refund))
-  check("refund route: nothing sent to Stripe for cash", /if \(byCash\) \{[\s\S]{0,200}refund = \{ id: `cash_/.test(refund) && /!onAirwallex && !byCash\) \{\s*try \{\s*const pi = await stripe/.test(refund))
+  check("refund route: nothing sent to Stripe for cash", /if \(byCash\) \{[\s\S]{0,200}refund = \{ id: `cash_/.test(refund) && /if \(!byCash\) \{\s*try \{\s*const pi = await stripe/.test(refund))
   const list = read("lib/orders/load-rows.ts")
   check("orders list reads whether the cash is in", /r\.physical_cash_due = c\.provider === "cod" && !c\.cod_collected_at/.test(list))
 

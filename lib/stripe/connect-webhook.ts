@@ -46,8 +46,7 @@ async function noteLastEvent(creatorId: string, event: Stripe.Event): Promise<vo
  * (lib/payments/stripe/readiness) going from no to yes is "Your Storelib
  * payments are ready". Keyed by the account and the last time Stripe's list
  * of asks emptied, so becoming ready again after a hold is told again, and
- * the many account.updated events around one change are told once. This was
- * only ever sent for Airwallex; a Stripe seller never heard it.
+ * the many account.updated events around one change are told once.
  */
 async function tellIfNowReady(creatorId: string, userId: string | null, accountId: string, wasReady: boolean, event: Stripe.Event): Promise<void> {
   const synced = await syncStripeAccountFull(creatorId, "webhook")

@@ -7,7 +7,7 @@ export function SettingsFixture() {
   return (
     <div>
       <Mounts name="settings-form" />
-      <SettingsFormNew profile={profile} creator={creator} accountTimeZone="UTC" websitePublished onePageLive={false} sharePlatforms={[]} website={{ installId: null, name: null, handle: "sam" } as never} newsletter={false} otherStores={0} paymentsProvider={"stripe" as never} initialTab="general" />
+      <SettingsFormNew profile={profile} creator={creator} accountTimeZone="UTC" websitePublished onePageLive={false} sharePlatforms={[]} website={{ installId: null, name: null, handle: "sam" } as never} newsletter={false} otherStores={0} initialTab="general" />
     </div>
   )
 }

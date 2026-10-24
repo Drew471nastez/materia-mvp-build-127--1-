@@ -192,7 +192,6 @@ boot((el) => createRoot(document.getElementById("app")).render(el))
     const origin = `http://127.0.0.1:${server.address().port}`
     const CASES = [
       ["digital", "a single product (card)"],
-      ["airwallex", "a single product (card on the next page)"],
       ["free", "a free product"],
       ["membership", "a membership"],
       ["site", "a website's cart (imported or built themes)"],

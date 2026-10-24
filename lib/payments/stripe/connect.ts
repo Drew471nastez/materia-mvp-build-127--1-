@@ -23,7 +23,7 @@ export interface PaymentsCreatorRef {
   userId: string
   email: string | null
 }
-import type { PayoutDestination } from "../store"
+import type { PayoutDestination } from "../hub-types"
 
 export type { StripeAccountSessionPurpose } from "./session-components"
 import type { StripeAccountSessionPurpose } from "./session-components"

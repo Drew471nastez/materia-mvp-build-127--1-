@@ -8,7 +8,6 @@ import { loadTaxForCheckout } from "@/lib/tax/server"
 import { checkoutTaxFor, type CheckoutTax } from "@/lib/tax/rules"
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { productPriceCurrency } from "@/lib/money/product-currency"
-import { providerFor } from "@/lib/payments/service"
 import { rowsOwn } from "@/lib/checkout/owned"
 import { salesStanding } from "@/lib/products/sales-standings"
 import { copiesLeft } from "@/lib/products/sales-limit"
@@ -54,14 +53,13 @@ export async function GET(request: Request) {
   const creatorId = String(p.creator_id ?? "")
 
   const supabase = await createClient()
-  const [userRead, variantsRead, creatorRead, store, config, taxSetup, provider, storeName, standing] = await Promise.all([
+  const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing] = await Promise.all([
     supabase.auth.getUser().catch(() => ({ data: { user: null } })),
     admin.from("product_variants").select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents").eq("product_id", id).order("price_cents", { ascending: true }),
     admin.from("creators").select("id, user_id, slug").eq("id", creatorId).maybeSingle(),
     readStoreCurrency(admin, creatorId),
     loadCheckoutConfig(admin, creatorId),
     loadTaxForCheckout(admin, creatorId),
-    providerFor(creatorId).catch(() => "stripe" as const),
     loadStoreName(admin, creatorId).catch(() => null),
     salesStanding(admin, id),
   ])
@@ -101,13 +99,11 @@ export async function GET(request: Request) {
       ? "This one is bought on its checkout page."
       : pwyw
         ? "You choose what to pay on the checkout page."
-        : provider === "airwallex"
-          ? "This one is bought on its checkout page."
-          : (config.requireAccount || config.requireConfirmedEmail) && !user
-            ? "Sign in or create an account to buy this."
-            : config.requireConfirmedEmail && !user?.email_confirmed_at
-              ? "Confirm your email address to buy this."
-              : null
+        : (config.requireAccount || config.requireConfirmedEmail) && !user
+          ? "Sign in or create an account to buy this."
+          : config.requireConfirmedEmail && !user?.email_confirmed_at
+            ? "Confirm your email address to buy this."
+            : null
 
   const gallery = Array.isArray(p.gallery_urls) ? (p.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u && !/ytimg\.com|youtube\.com|youtu\.be/i.test(u)) : []
   const thumb = typeof p.thumbnail_url === "string" && p.thumbnail_url ? p.thumbnail_url : null
