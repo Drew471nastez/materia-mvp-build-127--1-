@@ -1,0 +1,8 @@
+<div class="cdf page-width" style="padding:48px 0;text-align:center">
+  <h2 class="cdf__title">{{ section.settings.heading }}</h2>
+  <div class="cdf__digits" data-countdown="{{ section.settings.end }}"><span data-days></span><span data-hours></span></div>
+</div>
+{% schema %}
+{ "name": "Countdown Timer Flip", "settings": [ { "type": "text", "id": "heading", "label": "Heading", "default": "Sale ends soon" }, { "type": "text", "id": "end", "label": "End", "default": "2030-01-01" } ],
+  "presets": [ { "name": "Countdown Timer Flip", "category": "Countdown Timers" } ] }
+{% endschema %}

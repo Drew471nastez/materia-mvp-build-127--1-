@@ -1,0 +1,10 @@
+<div class="logos page-width" style="display:flex;gap:24px;padding:32px 0">
+  {%- for block in section.blocks -%}
+    <div class="logos__item" style="width:120px" {{ block.shopify_attributes }}>{%- if block.settings.image != blank -%}{{ block.settings.image | image_url: width: 200 | image_tag }}{%- else -%}{{ 'logo' | placeholder_svg_tag: 'logos__svg' }}{%- endif -%}</div>
+  {%- endfor -%}
+</div>
+{% schema %}
+{ "name": "Brand Logos", "settings": [],
+  "blocks": [ { "type": "logo", "name": "Logo", "settings": [ { "type": "image_picker", "id": "image", "label": "Image" } ] } ],
+  "presets": [ { "name": "Brand Logos", "category": "Social" } ] }
+{% endschema %}

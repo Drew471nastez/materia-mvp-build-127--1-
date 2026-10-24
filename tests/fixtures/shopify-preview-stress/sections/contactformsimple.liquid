@@ -1,0 +1,13 @@
+<div class="cform page-width" style="padding:40px 0">
+  {%- form 'contact' -%}
+    {%- for block in section.blocks -%}
+      <label {{ block.shopify_attributes }}>{{ block.settings.label }}<input type="text" name="contact[{{ block.settings.label | handle }}]"></label>
+    {%- endfor -%}
+  {%- endform -%}
+</div>
+{% schema %}
+{ "name": "Contact Form Simple", "settings": [],
+  "blocks": [ { "type": "field", "name": "Field", "settings": [ { "type": "text", "id": "label", "label": "Label", "default": "Your name" } ] } ],
+  "max_blocks": 6,
+  "presets": [ { "name": "Contact Form Simple", "category": "Contact" } ] }
+{% endschema %}
