@@ -62,6 +62,26 @@ console.log("\nA setting the theme's script reads at start\n")
   check("  a script that already ran is not run again", /var key = old\.src \|\| old\.textContent;\s*if \(ran\.has\(key\)\) return;/.test(bridge))
 }
 
+console.log("\nA theme that applies a section's value itself\n")
+{
+  check("storelib:settings-change can be cancelled, and the frame says so for a section's value", /new CustomEvent\("storelib:settings-change", \{ cancelable: true,/.test(bridge) && /if \(ev\.defaultPrevented && m\.section\) post\(\{ type: "settings-applied", section: String\(m\.section\), keys: Object\.keys\(m\.settings \|\| \{\}\) \}\);/.test(bridge))
+  check("  the builder keeps which section's settings the theme applies", /m\.type === "settings-applied" && isFront/.test(canvas) && /appliedByTheme\.current\.add\(`\$\{a\.section\}\|\$\{k\}`\)/.test(canvas))
+  check("  and while the finger moves only tells it, the release drawing it by Liquid", /if \(live && appliedByTheme\.current\.has\(`\$\{s\.id\}\|\$\{told\.path\[1\]\}`\)\) continue/.test(canvas))
+  const docs = code("content/developers/imported-shopify-themes.md")
+  check("  documented for theme developers", /event\.preventDefault\(\)/.test(docs) && /stops drawing that section again for each value/.test(docs))
+}
+
+console.log("\nThe canvas on a slow device\n")
+{
+  check("while the page scrolls, the outlines follow the boxes without the hit tests", /addEventListener\("scroll", streaming, \{ passive: true, capture: true \}\);/.test(bridge))
+  check("  a block under a sticky header keeps its line on its own edge then too", /if \(inset < 0 && !\(top > r\.top \+ 0\.5\) && st < r\.top && barAt\(el, \(left \+ right\) \/ 2, st \+ 0\.5\)\) st = r\.top;/.test(bridge))
+  check("the page's headers are looked up again only when its elements changed", /if \(!topsCache \|\| !topsHere\(\)\) topsCache = document\.querySelectorAll\(HEADER_TOPS\)/.test(bridge) && !/topsCache = null;\s*if \(!boxes\)/.test(bridge))
+  check("eases that start later are ended by their own transitionrun, not a list of every animation each frame", /document\.addEventListener\("transitionrun", function \(e\) \{/.test(bridge) && !/if \(performance\.now\(\) < stillUntil\) stillFrame = requestAnimationFrame\(finishEased\);/.test(bridge))
+  check("a link is said to the builder once the mouse rests on it, not as it passes", /restTimer = setTimeout\(function \(\) \{ if \(a\.matches\(":hover"\)\) intent\(e\); \}, 180\);/.test(bridge))
+  check("a page drawn ahead waits for an idle moment, and is not drawn on a connection that saves data", /if \(conn\?\.saveData \|\| \/\(\^\|-\)2g\$\/\.test\(conn\?\.effectiveType \?\? ""\)\) return\s*const w = window/.test(canvas) && /w\.requestIdleCallback\(ahead, \{ timeout: 1500 \}\)/.test(canvas))
+  check("a template's checks while a finger pauses are paced by what they cost", /return Math\.max\(160, p\.cost \* 3\)/.test(canvas) && (canvas.match(/const delay = checkDelay\(key\)/g) ?? []).length === 2 && (canvas.match(/paced\(key, \(\) => \{/g) ?? []).length === 2)
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)

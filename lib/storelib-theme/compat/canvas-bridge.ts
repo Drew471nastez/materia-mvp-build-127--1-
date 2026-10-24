@@ -199,10 +199,22 @@ export const CANVAS_BRIDGE = `
     drawn above its foot.
   */
   var HEADER_TOPS = ".shopify-section-group-header-group, .shopify-section-group-header-group > *, .shopify-section-group-header-group sticky-header, header, [data-sl-header]";
-  /* Read once a frame (drawBoxes and report start a frame's readings afresh): a page with a large header has thousands of elements to match. */
+  /*
+    Looked up again only when the page's elements changed (round BC): a page
+    with a large header has thousands of elements to match, and they were
+    matched for every reading, several a frame while a slider moved or the
+    theme's script changed the page (scripts/check-compat-live-edit.ts
+    PROFILE). Any element added or taken away anywhere (the watcher below),
+    or one of these gone from the page (a section swapped), and they are
+    looked up again.
+  */
   var topsCache = null;
+  var topsHere = function () {
+    for (var i = 0; i < topsCache.length; i++) if (!topsCache[i].isConnected) return false;
+    return true;
+  };
   var headerCover = function (el) {
-    if (!topsCache) topsCache = document.querySelectorAll(HEADER_TOPS);
+    if (!topsCache || !topsHere()) topsCache = document.querySelectorAll(HEADER_TOPS);
     var cover = 0, tops = topsCache;
     for (var i = 0; i < tops.length; i++) {
       var h = tops[i];
@@ -243,16 +255,29 @@ export const CANVAS_BRIDGE = `
   */
   var stillUntil = 0, stillFrame = 0, stillFrom = 0;
   var MOTION = /^(opacity|transform|translate|scale|rotate|visibility|filter|clip-path)$/;
+  var finishOne = function (a) {
+    if (typeof a.transitionProperty !== "string" || MOTION.test(a.transitionProperty)) return;
+    if (a.startTime !== null && a.startTime < stillFrom) return;
+    try { a.finish(); } catch (e) {}
+  };
   var finishEased = function () {
     stillFrame = 0;
-    if (document.getAnimations) document.getAnimations().forEach(function (a) {
-      if (typeof a.transitionProperty !== "string" || MOTION.test(a.transitionProperty)) return;
-      if (a.startTime !== null && a.startTime < stillFrom) return;
-      try { a.finish(); } catch (e) {}
-    });
-    if (performance.now() < stillUntil) stillFrame = requestAnimationFrame(finishEased);
-    else stillUntil = 0;
+    if (document.getAnimations) document.getAnimations().forEach(finishOne);
   };
+  /*
+    An ease that starts later in the moment (a section swapped in after the
+    change, the theme's script reacting to it) is ended as it starts, by its
+    own transitionrun, rather than every animation of the page being listed
+    on every frame for 300ms (round BC: that list, and the style pass it
+    forces, ran on each frame of a slider's drag, scripts/check-compat-
+    live-edit.ts PROFILE).
+  */
+  document.addEventListener("transitionrun", function (e) {
+    if (!stillUntil || performance.now() > stillUntil) { stillUntil = 0; return; }
+    var t = e.target;
+    if (!t || !t.getAnimations) return;
+    try { t.getAnimations().forEach(function (a) { if (a.transitionProperty === e.propertyName) finishOne(a); }); } catch (err) {}
+  }, true);
   /* \`now\`: the change was just made, so its eases are ended here, in its own task, and the frame that follows draws the value. */
   var holdStill = function (now) {
     if (!stillUntil) stillFrom = document.timeline && typeof document.timeline.currentTime === "number" ? document.timeline.currentTime : performance.now();
@@ -272,6 +297,9 @@ export const CANVAS_BRIDGE = `
     if (performance.now() < streamingUntil) {
       var sl = Math.max(r.left + inset, 0), sr = Math.min(r.right - inset, vw);
       var st = top > r.top + 0.5 ? top : Math.max(r.top + inset, 0), sb = bottom < r.bottom - 0.5 ? bottom : Math.min(r.bottom - inset, vh);
+      /* A block right under a sticky header (or over a tab bar) keeps its line on its own edge, as below: two hit tests, not sixty. */
+      if (inset < 0 && !(top > r.top + 0.5) && st < r.top && barAt(el, (left + right) / 2, st + 0.5)) st = r.top;
+      if (inset < 0 && !(bottom < r.bottom - 0.5) && sb > r.bottom && barAt(el, (left + right) / 2, sb - 0.5)) sb = r.bottom;
       if (sr - sl < 1 || sb - st < 2) return null;
       return { left: sl, width: sr - sl, top: st, bottom: sb, cutTop: top > r.top + 0.5, cutBottom: bottom < r.bottom - 0.5 };
     }
@@ -347,7 +375,6 @@ export const CANVAS_BRIDGE = `
     drawFrame = 0;
     styleCache = null;
     fadeCache = null;
-    topsCache = null;
     if (!boxes) boxes = { hover: boxOf("hover"), section: boxOf("section"), block: boxOf("block") };
     /* The marked elements from what marked them, not a search of the page for the marks: a large header is thousands of elements, searched three times a frame while a slider moves. */
     var hov = hovered && hovered.isConnected && hovered.hasAttribute("data-sl-hover") ? hovered : null;
@@ -366,6 +393,15 @@ export const CANVAS_BRIDGE = `
     }
   };
   var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); };
+  /*
+    WHILE THE PAGE SCROLLS (round BC), the outlines follow the boxes as they
+    are, as they do while a slider's values stream in: the hit tests that
+    find what covers them (some sixty a box, and the toolbar's box read the
+    same way) ran on every frame of a scroll, a third of the frame's own
+    script at 4x on Dawn (scripts/check-compat-canvas-perf.mjs). A moment
+    after the scroll stops the outlines are read in full again.
+  */
+  addEventListener("scroll", streaming, { passive: true, capture: true });
   addEventListener("scroll", redraw, { passive: true, capture: true });
   addEventListener("resize", redraw);
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(redraw).observe(document.documentElement);
@@ -463,8 +499,23 @@ export const CANVAS_BRIDGE = `
     var h = a.getAttribute("data-sl-href") || a.getAttribute("href") || "";
     if (h.charAt(0) === "/" && h.charAt(1) !== "/") post({ type: "intent", href: h });
   };
-  document.addEventListener("pointerover", function (e) { if (e.pointerType === "mouse") intent(e); }, true);
-  document.addEventListener("pointerdown", intent, true);
+  /*
+    RESTS, NOT PASSES (round BC). Said on the pointer's way over a link, the
+    builder drew that page and loaded it out of sight for every menu link a
+    mouse crossed: a whole page of the theme, its scripts run, in this
+    process (a 790ms task at 4x on Dawn, scripts/check-compat-canvas-perf.mjs
+    hover). A mouse says so once it has stayed on the link a moment; a
+    finger, at once.
+  */
+  var restTimer = 0;
+  document.addEventListener("pointerover", function (e) {
+    if (e.pointerType !== "mouse") return;
+    clearTimeout(restTimer);
+    var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    if (!a || a === intended) return;
+    restTimer = setTimeout(function () { if (a.matches(":hover")) intent(e); }, 180);
+  }, true);
+  document.addEventListener("pointerdown", function (e) { clearTimeout(restTimer); intent(e); }, true);
   /*
     A LINK THE THEME TAKES IS THE THEME'S. The header's cart is a link to
     /cart that the theme's own script turns into "open the drawer" (it calls
@@ -703,7 +754,7 @@ export const CANVAS_BRIDGE = `
     the document when a theme setting changes, with the ids and values that
     changed, while a finger is on a control too (detail.live).
   */
-  var sectionLoaded = function (id) { var el = document.getElementById("shopify-section-" + id); if (el) fire(el, "storelib:section-load", { sectionId: id }); };
+  var sectionLoaded = function (id) { topsCache = null; var el = document.getElementById("shopify-section-" + id); if (el) fire(el, "storelib:section-load", { sectionId: id }); };
   /*
     A SECTION PUT IN BELOW THE SCREEN STILL ARRIVES AS IT DOES LIVE. Told
     shopify:section:load, a Dawn family theme (animations.js) marks every
@@ -877,7 +928,6 @@ export const CANVAS_BRIDGE = `
   var lastBox = "";
   var report = function (read) {
     boxFrame = 0;
-    if (!read) topsCache = null;
     var el = inspect && selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
     var v = el ? (read && read.el === el ? read.v : visibleRect(el, 0)) : null;
     var m = v ? { type: "box", id: selected.section, top: Math.round(v.top), left: Math.round(v.left), width: Math.round(v.width), height: Math.round(v.bottom - v.top) } : { type: "box", id: null };
@@ -912,6 +962,7 @@ export const CANVAS_BRIDGE = `
   var watcher = null;
   if (typeof MutationObserver !== "undefined") {
     watcher = new MutationObserver(function (records) {
+      for (var j = 0; j < records.length; j++) if (records[j].type === "childList") { topsCache = null; break; }
       for (var i = 0; i < records.length; i++) {
         var t = records[i].target;
         if (t && t.nodeType === 1 && (t.hasAttribute("data-sl-box") || t.hasAttribute("data-sl-add") || (t.parentElement && t.parentElement.hasAttribute("data-sl-add")))) continue;

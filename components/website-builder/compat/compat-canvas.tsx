@@ -797,13 +797,32 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* In the language previewed, as the page in front is (`sections`, above). */
     const list = fields && map ? (localizeSections(warm.sections as unknown as SectionInstance[], map, fields.fieldsOf, fields.blockFieldsOf, { approvedOnly: true, fresh: true }) as unknown as StoredSection[]) : warm.sections
     if (keptRef.current.some((x) => x.key === key && x.stamp === stampRef.current && holds(x, list))) return
-    let html: string
-    try {
-      html = draw(list, pageFor(warm.pageKey, null))
-    } catch {
-      return
+    /*
+      ON A SLOW CONNECTION OR WHEN THE BROWSER IS BUSY (round BC). Drawing a
+      page ahead is a whole page of the theme drawn here and loaded out of
+      sight, its scripts run in this process: on a connection that asks to
+      save data, or a slow one, it is not done; otherwise it waits until the
+      browser has a moment, never in the middle of a gesture.
+    */
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+    if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "")) return
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const ahead = () => {
+      if (isLive() || slotsRef.current.some((x) => x.key === key)) return
+      let html: string
+      try {
+        html = draw(list, pageFor(warm.pageKey, null))
+      } catch {
+        return
+      }
+      keep({ n: ++counter.current, key, page: `${warm.pageKey}|`, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: false, ahead: true })
     }
-    keep({ n: ++counter.current, key, page: `${warm.pageKey}|`, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: false, ahead: true })
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(ahead, { timeout: 1500 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(ahead, 300)
+    return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warm, compatTheme])
 
@@ -1043,6 +1062,27 @@ export function CompatCanvas(props: CompatCanvasProps) {
     Liquid from then on. The release draws it by Liquid in any case.
   */
   const themeCheck = useRef(0)
+  /*
+    PACED BY WHAT A CHECK COSTS (round BC). Each check draws the section or
+    the page by Liquid, the very drawing the template saves: on a slow
+    device a slow drag pauses after nearly every value, and every pause drew
+    it (a header on Dawn, 100 to 400ms with the CPU slowed 4x), so the
+    editor stalled as often as without a template. A template's next check
+    waits three times as long as its last one took, and none comes sooner
+    than eight times that (and 800ms) after the last. The release draws by
+    Liquid whatever the checks said.
+  */
+  const checkPace = useRef(new Map<string, { at: number; cost: number }>())
+  const checkDelay = (key: string): number | null => {
+    const p = checkPace.current.get(key)
+    if (!p) return 160
+    if (performance.now() - p.at < Math.max(800, p.cost * 8)) return null
+    return Math.max(160, p.cost * 3)
+  }
+  const paced = (key: string, run: () => void) => {
+    const t0 = performance.now()
+    try { run() } finally { checkPace.current.set(key, { at: performance.now(), cost: performance.now() - t0 }) }
+  }
   const pagePure = (files: Record<string, string>, values: Record<string, unknown>, drawnPage: CompatPage, list: StoredSection[]) => canvasInsets(drawPage(themeWith(files, values), drawnPage, list, { scripts: true }).html)
   const propsThemeRef = useRef(props.theme)
   propsThemeRef.current = props.theme
@@ -1276,12 +1316,15 @@ export function CompatCanvas(props: CompatCanvasProps) {
     liveThemeShown.current = { key, value: change.to }
     window.clearTimeout(themeCheck.current)
     const t = known.t, value = change.to, files = rowsRef.current
-    themeCheck.current = window.setTimeout(() => {
+    const delay = checkDelay(key)
+    if (delay !== null) themeCheck.current = window.setTimeout(() => {
       if (!isLive() || !files || liveThemeShown.current?.key !== key || liveThemeShown.current.value !== value) return
       let agrees = false
-      try { agrees = pagePure(files, withLeaf(base.settings, change.path, value), base.page, base.list) === fillTemplate(t, value) } catch { agrees = false }
+      paced(key, () => {
+        try { agrees = pagePure(files, withLeaf(base.settings, change.path, value), base.page, base.list) === fillTemplate(t, value) } catch { agrees = false }
+      })
       if (!agrees) themeFailedRef.current(key)
-    }, 160)
+    }, delay)
     /* The page is not drawn again for this value, nor the next, until the finger lifts. */
     if (!held) {
       heldFor.current = propsThemeRef.current
@@ -1337,12 +1380,17 @@ export function CompatCanvas(props: CompatCanvasProps) {
     window.clearTimeout(sectionChecks.current.get(s.id))
     const theme = compatTheme
     const drawnPage = page
+    /* Paced by what a check costs (PACED BY WHAT A CHECK COSTS, above). */
+    const delay = checkDelay(key)
+    if (delay === null) return
     sectionChecks.current.set(s.id, window.setTimeout(() => {
       sectionChecks.current.delete(s.id)
       const shown = slot.shape.sections.get(s.id)
       if (!isLive() || !theme || slot.liveShown?.get(s.id) !== jsonOf(s)) return
       let real: string | null = null
-      try { real = canvasInsets(drawSection(theme, pageContextFor(theme, drawnPage, sectionsRef.current), s, index, group).html) } catch { real = null }
+      paced(key, () => {
+        try { real = canvasInsets(drawSection(theme, pageContextFor(theme, drawnPage, sectionsRef.current), s, index, group).html) } catch { real = null }
+      })
       if (real === shown) return
       templates.current.set(key, { at, t: null })
       slot.liveShown?.delete(s.id)

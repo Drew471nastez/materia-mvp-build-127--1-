@@ -82,6 +82,27 @@ async function dawn(zipPath) {
   return { settings: t.settings, pages, sources, files, all: t.files }
 }
 
+/* Another value of a field's type, from the field and the value it shows: { value } or { skip }. Run in the editor's page. */
+const NEXT_VALUE = `
+  const opts = (field.options || []).map((o) => (o && typeof o === "object" ? o.value : o))
+  switch (field.type) {
+    case "color": return { value: String(v).toLowerCase() === "#3a6ea5" ? "#a53a6e" : "#3a6ea5" }
+    case "color_background": return { value: "linear-gradient(90deg, #aa3355, #3355aa)" }
+    case "range": { const min = field.min ?? 0, max = field.max ?? 100, step = field.step ?? 1; let n = min + Math.round(((max - min) * 0.7) / step) * step; if (n === Number(v)) n = min; return { value: n } }
+    case "number": return { value: (Number(v) || 0) + 1 }
+    case "checkbox": return { value: !v }
+    case "select": case "radio": { const o = opts.find((x) => x !== v); return o === undefined ? { skip: "skipped (no other value)" } : { value: o } }
+    case "text_alignment": return { value: v === "center" ? "right" : "center" }
+    case "text": case "textarea": return { value: (v ?? "") + " probe" }
+    case "richtext": return { value: "<p>Probe words</p>" }
+    case "inline_richtext": return { value: "Probe <strong>words</strong>" }
+    case "html": case "liquid": return { value: '<p class="probe-custom">Probe</p>' }
+    case "color_scheme": return { value: v === "scheme-2" ? "scheme-1" : "scheme-2" }
+    case "font_picker": return { value: v === "lora_n4" ? "playfair_display_n7" : "lora_n4" }
+    case "url": return { value: "https://example.invalid/probe" }
+    default: return { skip: "skipped (" + field.type + ")" }
+  }`
+
 /* ── What the page holds, read in the frame ─────────────────────────── */
 
 const READ = () => {
@@ -91,7 +112,7 @@ const READ = () => {
   /* Classes a theme's script puts on and takes off as the page is scrolled or played (a reveal, a slide): when they are there is the script's, not the setting's. */
   const STATE = /^(is-in|is-active|active|is-visible|visible|animated?|loaded|lazyloaded|is-loaded|scroll-trigger--offscreen|is-open|is-sticky|scrolled.*|in-view)$/
   const attrs = (el, keep) => Array.from(el.attributes).filter((a) => keep(a.name)).map((a) => `${a.name}=${a.name === "class" ? a.value.split(/\s+/).filter((w) => w && !STATE.test(w)).sort().join(" ") : a.value}`).sort().join(" ")
-  const scripts = Array.from(document.scripts).filter((s) => !s.src && !ours(s)).map((s) => norm(s.textContent)).filter((t) => t && !/storelib:1|__sl|window\.__storelib/.test(t.slice(0, 400)))
+  const scripts = Array.from(document.scripts).filter((s) => !s.src && !ours(s) && !Array.from(s.attributes).some((a) => a.name.startsWith("data-sl") || a.name.startsWith("data-storelib"))).map((s) => norm(s.textContent)).filter((t) => t && !/storelib:1|__sl|window\.__storelib/.test(t.slice(0, 400)))
   const styles = Array.from(document.querySelectorAll("style")).filter((s) => !ours(s)).map((s) => { try { return Array.from(s.sheet.cssRules).map((r) => r.cssText).join("\n") } catch (e) { return norm(s.textContent) } })
   /* A section's stylesheet the canvas moved into the head as it drew the section (canvas-bridge.ts keep) is where a section's is: not compared. */
   const head = Array.from(document.head.querySelectorAll("link, meta")).filter((l) => !(l.tagName === "LINK" && l.hasAttribute("data-sl"))).map((l) => attrs(l, (n) => n !== "data-sl-d"))
@@ -170,46 +191,31 @@ async function run(name, compat, bundle, css) {
       await sleep(400)
       return ok
     }
-    /* The control's own onChange, with another value of its type, chosen from the field and the value it shows. */
-    const change = (id) => js((id) => {
-      const scroll = document.querySelector("[data-compat-theme-group] [data-sheet-scroll]")
+    /* The control's own onChange, with another value of its type, chosen from the field and the value it shows. `root`: where the field is (a Theme settings group, or the sidebar with a section open). */
+    const change = (id, root = "[data-compat-theme-group] [data-sheet-scroll]") => js((id, root, NEXT) => {
+      const scroll = document.querySelector(root)
       if (!scroll) return { said: "no group" }
       const fiberOf = (el) => el[Object.keys(el).find((k) => k.startsWith("__reactFiber$"))]
-      for (const row of scroll.children) {
-        const f0 = fiberOf(row)
-        if (!f0) continue
-        let found = null
-        const walk = (f, depth) => { for (let c = f; c && !found && depth < 14; c = c.child) { const p = c.memoizedProps; if (p && p.field && p.field.id === id && typeof p.onChange === "function") { found = p; return } if (c.sibling && depth > 0) walk(c.sibling, depth + 1) } }
-        walk(f0, 0)
-        if (!found) continue
-        const field = found.field
-        const v = found.value !== undefined ? found.value : field.default
-        const opts = (field.options || []).map((o) => (o && typeof o === "object" ? o.value : o))
-        let next
-        switch (field.type) {
-          case "color": next = String(v).toLowerCase() === "#3a6ea5" ? "#a53a6e" : "#3a6ea5"; break
-          case "color_background": next = "linear-gradient(90deg, #aa3355, #3355aa)"; break
-          case "range": { const min = field.min ?? 0, max = field.max ?? 100, step = field.step ?? 1; next = min + Math.round(((max - min) * 0.7) / step) * step; if (next === Number(v)) next = min; break }
-          case "number": next = (Number(v) || 0) + 1; break
-          case "checkbox": next = !v; break
-          case "select": case "radio": next = opts.find((o) => o !== v); break
-          case "text_alignment": next = v === "center" ? "right" : "center"; break
-          case "text": case "textarea": next = `${v ?? ""} probe`; break
-          case "richtext": next = "<p>Probe words</p>"; break
-          case "inline_richtext": next = "Probe <strong>words</strong>"; break
-          case "html": case "liquid": next = '<p class="probe-custom">Probe</p>'; break
-          case "color_scheme": next = v === "scheme-2" ? "scheme-1" : "scheme-2"; break
-          case "font_picker": next = v === "lora_n4" ? "playfair_display_n7" : "lora_n4"; break
-          case "url": next = "https://example.invalid/probe"; break
-          default: return { said: `skipped (${field.type})` }
-        }
-        if (next === undefined) return { said: "skipped (no other value)" }
-        row.scrollIntoView({ block: "center" })
-        found.onChange(next)
-        return { said: "ok", from: v, to: next }
-      }
-      return { said: "no field" }
-    }, id)
+      let found = null, row = null
+      const walk = (f, depth) => { for (let c = f; c && !found; c = c.sibling) { const p = c.memoizedProps; if (p && p.field && p.field.id === id && typeof p.onChange === "function") { found = p; return } if (c.child && depth < 80) walk(c.child, depth + 1) } }
+      for (const r of scroll.children) { const f0 = fiberOf(r); if (!f0) continue; walk(f0, 0); if (found) { row = r; break } }
+      if (!found) return { said: "no field" }
+      const next = new Function("field", "v", NEXT)(found.field, found.value !== undefined ? found.value : found.field.default)
+      if (next && next.skip) return { said: next.skip }
+      row.scrollIntoView({ block: "center" })
+      found.onChange(next.value)
+      return { said: "ok", from: found.value !== undefined ? found.value : found.field.default, to: next.value }
+    }, id, root, NEXT_VALUE)
+    /* Every field the sidebar shows for the section open in it: its id and type. */
+    const sectionFields = () => js(() => {
+      const root = document.querySelector("[data-wb-sidebar-scroll]")
+      if (!root) return []
+      const fiberOf = (el) => el[Object.keys(el).find((k) => k.startsWith("__reactFiber$"))]
+      const out = [], seen = new Set()
+      const walk = (f, depth) => { for (let c = f; c; c = c.sibling) { const p = c.memoizedProps; if (p && p.field && p.field.id && typeof p.onChange === "function" && !seen.has(p.field.id)) { seen.add(p.field.id); out.push({ id: p.field.id, type: p.field.type }) } if (c.child && depth < 80) walk(c.child, depth + 1) } }
+      for (const r of root.children) { const f0 = fiberOf(r); if (f0) walk(f0, 0) }
+      return out
+    })
     const frontId = () => js(() => { const f = document.querySelector("iframe[data-compat-frame='front']"); if (!f) return null; f.__probeId = f.__probeId || Math.random(); return f.__probeId })
     /* Drawn again from nothing, as a page that cannot take a change asks to be: a new frame comes to the front. */
     const reloaded = async () => {
@@ -225,6 +231,49 @@ async function run(name, compat, bundle, css) {
       }
       return null
     }
+    /* One change, then the canvas against the page drawn again from nothing. */
+    const compareAfter = async (label, type, c) => {
+      await sleep(1800)
+      const f = await within(front(), 3000)
+      const live = f ? await within(f.evaluate(READ).catch(() => null)) : null
+      const g2 = await reloaded()
+      const fresh = g2 ? await within(g2.evaluate(READ).catch(() => null)) : null
+      const diff = live && fresh ? differences(live, fresh) : [{ part: "read", canvas: String(!!live), reload: String(!!fresh) }]
+      rows.push({ theme: name, id: label, type, from: c.from, to: c.to, diff })
+      console.log(`  ${diff.length ? "STALE" : "ok   "} ${label.padEnd(40)} ${String(type).padEnd(16)} ${JSON.stringify(c.from)?.slice(0, 24)} -> ${JSON.stringify(c.to)?.slice(0, 24)}`)
+      for (const d of diff.slice(0, 3)) console.log(`          ${d.part}: canvas ${JSON.stringify(d.canvas)}\n          ${" ".repeat(d.part.length)}  reload ${JSON.stringify(d.reload)}`)
+    }
+    /*
+      SECTIONS=1: every section on the page selected in the canvas in turn,
+      and every setting the sidebar shows for it changed the same way.
+    */
+    if (process.env.SECTIONS) {
+      const ids = await (await front()).evaluate(() => [...document.querySelectorAll(".shopify-section[id]")].filter((x) => x.getBoundingClientRect().height > 40).map((x) => x.id))
+      for (const secId of ids) {
+        const select = async () => {
+          const f = await front()
+          const at = await within(f.evaluate((id) => { const el = document.getElementById(id); if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: Math.min(r.left + 30, innerWidth - 10), y: Math.max(10, Math.min(r.top + Math.min(r.height / 2, 60), innerHeight - 10)) } }, secId), 3000)
+          if (!at) return false
+          await sleep(300)
+          const box = await (await page.$("iframe[data-compat-frame='front']")).boundingBox()
+          await page.mouse.click(box.x + at.x, box.y + at.y)
+          await sleep(900)
+          return true
+        }
+        if (!(await select())) continue
+        const fields = await sectionFields()
+        console.log(`  [${secId.replace("shopify-section-", "")}] ${fields.length} settings`)
+        for (const fld of fields) {
+          if (ONLY && !ONLY.test(fld.id)) continue
+          const c = await change(fld.id, "[data-wb-sidebar-scroll]")
+          if (c.said === "no field") { if (!(await select())) break; continue }
+          if (c.said !== "ok") { console.log(`  -     ${fld.id.padEnd(40)} ${String(fld.type).padEnd(16)} ${c.said}`); continue }
+          await compareAfter(`${secId.replace("shopify-section-", "").slice(-18)}.${fld.id}`, fld.type, c)
+          await select()
+        }
+      }
+      return rows
+    }
     let group = null
     for (const g of schema) {
       for (const s of g.settings || []) {
@@ -234,15 +283,7 @@ async function run(name, compat, bundle, css) {
         if (group !== g.name) { if (!(await openGroup(say(g.name)))) { console.log(`  (group ${say(g.name)} not found)`); group = null; continue } group = g.name }
         const c = await change(s.id)
         if (c.said !== "ok") { console.log(`  -     ${s.id.padEnd(40)} ${String(s.type).padEnd(16)} ${c.said}`); continue }
-        await sleep(1800)
-        const f = await within(front(), 3000)
-        const live = f ? await within(f.evaluate(READ).catch(() => null)) : null
-        const g2 = await reloaded()
-        const fresh = g2 ? await within(g2.evaluate(READ).catch(() => null)) : null
-        const diff = live && fresh ? differences(live, fresh) : [{ part: "read", canvas: String(!!live), reload: String(!!fresh) }]
-        rows.push({ theme: name, id: s.id, type: s.type, from: c.from, to: c.to, diff })
-        console.log(`  ${diff.length ? "STALE" : "ok   "} ${s.id.padEnd(40)} ${String(s.type).padEnd(16)} ${JSON.stringify(c.from)?.slice(0, 24)} -> ${JSON.stringify(c.to)?.slice(0, 24)}`)
-        for (const d of diff.slice(0, 3)) console.log(`          ${d.part}: canvas ${JSON.stringify(d.canvas)}\n          ${" ".repeat(d.part.length)}  reload ${JSON.stringify(d.reload)}`)
+        await compareAfter(s.id, s.type, c)
       }
     }
   } finally {
