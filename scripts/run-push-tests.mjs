@@ -16,9 +16,9 @@
  * under test import cleanly here.
  */
 import { execFileSync } from "node:child_process"
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync, existsSync, unlinkSync, symlinkSync } from "node:fs"
+import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync, existsSync, unlinkSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, basename } from "node:path"
+import { join, basename, dirname, relative } from "node:path"
 
 // Fresh/temporary checkouts and parallel SQL changes use the current source catalog.
 execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inherit" })
@@ -1058,6 +1058,20 @@ try {
     })
 
   writeFileSync(join(out, "package.json"), '{"type":"module"}\n')
+
+  // Plain .mjs scripts a suite imports (tests/editor-freeze2 reads
+  // scripts/materia-store-kit.mjs): tsc compiles only TypeScript, so each one
+  // is copied next to the compiled tests at the same relative path.
+  for (const file of walk(out).filter((f) => f.endsWith(".js"))) {
+    for (const m of readFileSync(file, "utf8").matchAll(/from\s+["']((?:\.\.?\/)+scripts\/[\w./-]+\.mjs)["']/g)) {
+      const target = join(dirname(file), m[1])
+      const source = join(process.cwd(), relative(out, target))
+      if (!existsSync(target) && existsSync(source)) {
+        mkdirSync(dirname(target), { recursive: true })
+        writeFileSync(target, readFileSync(source))
+      }
+    }
+  }
 
   // Real packages, for suites that use one.
   //
