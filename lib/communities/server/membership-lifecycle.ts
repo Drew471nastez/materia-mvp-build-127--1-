@@ -832,12 +832,16 @@ async function refundEmail(
   const { orderNumberOf } = await import("@/lib/receipts/rules")
   const creatorName = r.product.creator_id ? await creatorNameOf(db, r.product.creator_id).catch(() => null) : null
   /* The community's own name, picture, reply address and domain on its refund, as on every email it sends (./email-templates.ts communityBrand). */
-  const brand = await (async () => {
-    if (!r.communityId) return { brandName: r.communityName, brandKind: "community" }
-    const t = await import("./email-templates")
-    const { data: c } = await db.from("communities").select("id, name, slug, creator_id, logo_url").eq("id", r.communityId).maybeSingle()
-    return c?.id ? t.communityBrand(await t.communityEmailFacts(db, c)) : { brandName: r.communityName, brandKind: "community" }
-  })().catch(() => ({ brandName: r.communityName, brandKind: "community" }))
+  let brand: Record<string, string> = { brandName: r.communityName, brandKind: "community" }
+  try {
+    if (r.communityId) {
+      const t = await import("./email-templates")
+      const { data: c } = await db.from("communities").select("id, name, slug, creator_id, logo_url").eq("id", r.communityId).maybeSingle()
+      if (c?.id) brand = t.communityBrand(await t.communityEmailFacts(db, c))
+    }
+  } catch {
+    /* the community's name alone, as before */
+  }
   const rendered = renderEmail(
     "CUSTOMER_REFUND_PROCESSED",
     {
