@@ -49,16 +49,26 @@ const record = (p, ms) => p.evaluate((ms) => {
   requestAnimationFrame(tick)
 }, ms)
 
+/*
+  STAMPED WHEN THE FINGER WAS THERE (round 12). A phone stamps each touch
+  when the finger made it; a probe's touch was stamped when it reached the
+  page, so on a CPU slowed four times the lift of a quick flick arrived a
+  hundred milliseconds after the last move and read as a finger that had
+  stopped (the sheet rightly sprang back). Each event now carries the time a
+  finger at this pace made it: a step every `pauseMs`, 8ms for a flick.
+*/
 async function drag(s, from, dy, { steps = 8, pauseMs = 40, measure = false } = {}) {
   let lag = 0
-  await s.cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from.x, y: from.y }] })
+  const t0 = Date.now() / 1000
+  const at = (k) => t0 + (k * Math.max(pauseMs, 8)) / 1000
+  await s.cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from.x, y: from.y }], timestamp: at(0) })
   for (let k = 1; k <= steps; k++) {
-    await s.cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: from.x, y: from.y + (dy * k) / steps }] })
+    await s.cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: from.x, y: from.y + (dy * k) / steps }], timestamp: at(k) })
     if (pauseMs) await sleep(pauseMs)
     /* From the second step: Chromium keeps its own 15px touch slop to itself. */
     if (measure && k >= 2) lag = Math.max(lag, Math.abs((await panelY(s.p)) - (dy * k) / steps))
   }
-  await s.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+  await s.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [], timestamp: at(steps) + 0.004 })
   return lag
 }
 const grabber = (p) => p.evaluate(() => {
@@ -108,9 +118,22 @@ export async function readSheet(s, { name, label, opener, list, expect }) {
     "it rises from below the screen, only ever up, and comes to rest", { first: first && Math.round(first.y), h: first?.h, backwards, rest })
 
   const g = await grabber(p)
+  /* Round 12: a page that counts React's commits (window.__commits) shows the drag makes none: the finger moves a transform, not a render. */
+  const commitsBefore = await p.evaluate(() => window.__commits ?? null)
+  const dragStart = Date.now()
   const lag = await drag(s, g, 120, { steps: 8, pauseMs: 60, measure: true })
+  const dragMs = Date.now() - dragStart
+  let commitsDuring = commitsBefore === null ? null : (await p.evaluate(() => window.__commits)) - commitsBefore
+  /* What the page commits on its own over as long, the finger still (a timer, a load): not the drag's. */
+  if (commitsDuring !== null && commitsDuring > 1) {
+    await sleep(700)
+    const idle0 = await p.evaluate(() => window.__commits)
+    await sleep(dragMs)
+    commitsDuring -= (await p.evaluate(() => window.__commits)) - idle0
+  }
   await sleep(700)
   expect(lag <= 2, "a drag from the grabber: the panel is where the finger put it, within 2px", Math.round(lag * 10) / 10)
+  if (commitsDuring !== null) expect(commitsDuring <= 1, "the drag renders nothing in React (at most one commit, on the lift)", commitsDuring)
   expect(Math.abs(await panelY(p)) < 0.5, "a slow short pull let go springs back to rest")
 
   /* The rubber band is read off the frames: the lowest the panel went while the finger pulled it up. */
@@ -141,8 +164,12 @@ export async function readSheet(s, { name, label, opener, list, expect }) {
 
   const g2 = await grabber(p)
   await drag(s, g2, 110, { steps: 4, pauseMs: 0 })
-  await sleep(900)
-  const gone = await p.evaluate(() => !document.querySelector("[data-app-sheet]"))
+  /* Gone within the close and a slowed phone's frames: polled, not one fixed wait. */
+  let gone = false
+  for (let t = 0; t < 1600 && !gone; t += 100) {
+    await sleep(100)
+    gone = await p.evaluate(() => !document.querySelector("[data-app-sheet]"))
+  }
   expect(gone, "a quick flick closes it")
 
   /* A close button in it hands the close to the sheet (data-sheet-close): it slides out, over more than five frames. */

@@ -80,7 +80,7 @@ const css = await appCss(root)
 const bundle = readFileSync(join(dir, "probe.js"), "utf8")
 const pageWith = (blocks) => `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
   `<style>${interFaces(root)}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
-  `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};window.PROBE_THEME={};window.PROBE_BLOCKS=${JSON.stringify(blocks)}</script><script>${bundle}</script></body></html>`
+  `</head><body><div id="app"></div><script>window.__commits=0;window.__REACT_DEVTOOLS_GLOBAL_HOOK__={isDisabled:false,supportsFiber:true,renderers:new Map(),inject(){return 1},onCommitFiberRoot(){window.__commits++},onCommitFiberUnmount(){},onPostCommitFiberRoot(){},onScheduleFiberRoot(){},checkDCE(){}};window.process={env:{NODE_ENV:"production"}};window.PROBE_THEME={};window.PROBE_BLOCKS=${JSON.stringify(blocks)}</script><script>${bundle}</script></body></html>`
 const html = pageWith(undefined)
 /* The published page with a Spotify link that opens its player (the sheet on a phone). */
 /* The editor with a PDF on the page, for the phone preview's PDF sheet (components/onepage/phone-preview.tsx). */
@@ -127,6 +127,9 @@ async function open(vp, hash, path = "/app/onepage", ready = "[data-scroll-conta
   await p.setViewport(vp)
   const errors = []
   p.on("pageerror", (e) => errors.push(String(e)))
+  /* Round 12: every sheet read on a phone four times slower than this machine (CPU=1 to read it at full speed). */
+  const cdp0 = await p.target().createCDPSession()
+  await cdp0.send("Emulation.setCPUThrottlingRate", { rate: Number(process.env.CPU || 4) })
   await p.goto(`${base}${path}#${hash}`)
   await p.waitForSelector(ready, { timeout: 8000 }).catch(() => { throw new Error(`the editor did not draw: ${errors.slice(0, 2).join(" | ")}`) })
   await sleep(900)
@@ -179,6 +182,15 @@ await sheet("design", "Design, the profile image", "Profile Image", `(async () =
   return !!b
 })()`)
 await sheet("links", "Share", "Share your OnePage", clickSel("[data-onepage-share]"))
+/* Round 12: the kept sheets too (keepMounted: built while idle, at rest below the screen), read the same way. */
+await sheet("design", "Design, the page font (a kept sheet)", "Page font", `(async () => {
+  document.querySelector('[data-nav-row="text"]').click()
+  await new Promise((r) => setTimeout(r, 900))
+  const b = [...document.querySelectorAll('[data-font-picker="Page font"]')].find((e) => e.getClientRects().length)
+  if (b) b.click()
+  return !!b
+})()`, "[data-sheet-panel] .overflow-y-auto")
+await sheet("links", "A social link (a kept sheet)", "Add Social Link", clickSel("[data-scroll-container] button.w-7.h-7.rounded-full"))
 
 /*
   The phone preview's PDF: Preview, then the PDF on the page.
