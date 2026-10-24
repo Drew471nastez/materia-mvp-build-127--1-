@@ -120,9 +120,9 @@ export interface OrderDetailProps {
   canRefund?: boolean
 }
 
-/** A row the buyer has paid for and can download, so its access email can be sent. */
+/** A row the buyer has paid for and can download, so its access email can be sent. Never a product that ships: Resend receipt sent a mug's buyer a download email (lib/orders/owned canEmailAccess). */
 function canEmail(line: OrderRow): boolean {
-  return line.status === "completed" && Boolean(line.receipt_token)
+  return line.status === "completed" && Boolean(line.receipt_token) && line.product?.type !== "physical"
 }
 
 /** A phone: the width from which the shared sheets are not drawn (components/ui/bottom-sheet). */

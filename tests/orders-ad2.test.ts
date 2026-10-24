@@ -235,6 +235,38 @@ async function main() {
     check("a refund answers the line's running total, and the list shows it", /refundedCents: refundedTotal/.test(route) && /refund_amount_cents: typeof data\?\.refundedCents === "number" \? data\.refundedCents/.test(client))
   }
 
+  console.log("\n8. No download email for a product that ships")
+  {
+    const { canEmailAccess } = await import("../lib/orders/owned")
+    check("a mug's line is not sent a download email by Resend or an email change", !canEmailAccess({ status: "completed", receipt_token: "t", requires_shipping: true }))
+    check("a download in the same order still is", canEmailAccess({ status: "completed", receipt_token: "t", requires_shipping: false }) && canEmailAccess({ status: "completed", receipt_token: "t" }))
+    check("the order page offers Resend receipt only for what downloads", /line\.product\?\.type !== "physical"/.test(strip(read("app/app/orders/order-detail.tsx"))))
+  }
+
+  console.log("\n9. The manual refund sync splits a basket's refund over its lines")
+  {
+    const sync = strip(read("app/api/stripe/sync-refunds/route.ts"))
+    check("it no longer writes the payment's whole refund on every line", !/refund_amount_cents: refundAmountCents/.test(sync) && !/charge\.amount_refunded \|\| order\.amount_cents/.test(sync))
+    check("it hands each payment to the webhook's own refund sync, once", /syncChargeRefund\(admin, stripe, charge\)/.test(sync) && /new Set\(/.test(sync))
+    check("bounded, and scoped to the caller's own products", /slice\(0, MAX_PAYMENTS\)/.test(sync) && /\.eq\("user_id", user\.id\)/.test(sync) && /\.in\("product_id", productIds\)/.test(sync))
+  }
+
+  console.log("\n10. A website checkout charges the total the buyer saw")
+  {
+    const { differsFromShown, shownTotalOf } = await import("../lib/checkout/shown-total")
+    check("the same total in the same currency is charged", !differsFromShown(shownTotalOf({ cents: 3014, currency: "eur" }), 3014, "EUR"))
+    check("a rate that moved since the quote is refused", differsFromShown(shownTotalOf({ cents: 3014, currency: "EUR" }), 3021, "EUR"))
+    check("a market that changed (lei shown, euros charged) is refused", differsFromShown(shownTotalOf({ cents: 15000, currency: "RON" }), 3014, "EUR"))
+    check("a page from before this sends nothing and is not refused", !differsFromShown(shownTotalOf(undefined), 999, "USD") && shownTotalOf({ cents: -1, currency: "USD" }) === null && shownTotalOf({ cents: 1.5, currency: "USD" }) === null && shownTotalOf({ cents: 100, currency: "dollars" }) === null)
+    const route = strip(read("app/api/checkout/site/route.ts"))
+    const card = route.slice(route.indexOf("async function intent("), route.indexOf("async function shippedIntent("))
+    const shipped = route.slice(route.indexOf("async function shippedIntent("))
+    check("downloads: compared before any PaymentIntent is made, holds let go", /differsFromShown\(shownTotalOf\(body\.shownTotal\), chargeCents, chargeCurrencyUpper\)/.test(card) && card.indexOf("differsFromShown(") < card.indexOf("paymentIntents.create(") && /releaseCouponHold[\s\S]{0,120}releaseSales[\s\S]{0,200}TOTAL_CHANGED/.test(card))
+    check("a cart that ships: a moved total cancels the held checkout before the card form can pay it", /differsFromShown\(shown, charged\.total_cents/.test(shipped) && /abandonCheckout\(admin, \{ shopId: site\.creatorId, clientKey: body\.clientKey \}\)[\s\S]{0,400}TOTAL_CHANGED/.test(shipped))
+    const page = strip(read("app/checkout/site/site-checkout.tsx"))
+    check("the page sends the total it shows, and prices itself again when told it moved", /shownTotal = \{ cents: total, currency:/.test(page) && /action: "intent", \.\.\.body, shownTotal/.test(page) && /res\.data\.code === TOTAL_CHANGED\) setRequote/.test(page) && /byCash, requote\]\)/.test(page))
+  }
+
   console.log("\n7. Lists past the database's 1,000 row cap")
   {
     /* A database that, like Supabase, answers at most 1,000 rows a read, honouring range(). */

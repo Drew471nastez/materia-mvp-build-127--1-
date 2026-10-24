@@ -51,6 +51,8 @@ export interface OwnedLine {
   buyer_email_last_error?: string | null
   /** An order that ships: its checkout (lib/physical), which holds the address its emails go to. */
   checkout_id?: string | null
+  /** A line of that order that is shipped rather than downloaded. */
+  requires_shipping?: boolean | null
   product: { id: string; title: string | null; creator_id: string } | null
 }
 
@@ -74,9 +76,14 @@ export async function ownedOrderLines(admin: any, creatorId: string, orderId: un
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
 }
 
-/** A line the buyer has access to, and so one whose access email can be sent. */
-export function canEmailAccess(line: Pick<OwnedLine, "status" | "receipt_token">): boolean {
-  return line.status === "completed" && Boolean(line.receipt_token)
+/**
+ * A line the buyer has access to, and so one whose access email can be sent.
+ * Not a line that ships: it has a receipt token too, and Resend receipt on an
+ * order of a mug sent the buyer a "your download is ready" email for it. Its
+ * own emails are the order's (lib/physical/jobs-server).
+ */
+export function canEmailAccess(line: Pick<OwnedLine, "status" | "receipt_token"> & { requires_shipping?: boolean | null }): boolean {
+  return line.status === "completed" && Boolean(line.receipt_token) && line.requires_shipping !== true
 }
 
 /* No brackets, quotes or separators: none appear in a real address, and an
