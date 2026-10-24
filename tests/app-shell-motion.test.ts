@@ -548,12 +548,22 @@ section("Sheets")
     /function leaveBehind\(root: HTMLElement, fromY: number, height: number, scrimOpacity: number\)/.test(sheet)
       && /useLayoutEffect\(\(\) => \{\s*const leave = leaveRef\s*return \(\) => leave\.current\(\)\s*\}, \[\]\)/.test(sheet)
       && /ghost\.setAttribute\("inert", ""\)/.test(sheet) && /a\.onfinish = done/.test(sheet))
-  /* ... and a kept sheet at rest is out of sight and takes no tap at all (REST_STYLE). */
+  /* ... and a kept sheet at rest is out of sight and takes no tap at all. */
   /* The layer a panel above the page can ask the sheet for rides in the same
      style attribute; the three states behind it are unchanged. */
+  /*
+    Changed on purpose (round 10, NOTHING INHERITED CHANGES ON THE TAP): a kept sheet no longer rests at
+    `visibility: hidden; pointer-events: none` (both inherited: 40 to 80ms of style for Add block's 528
+    elements on the tap, CPU 4x). It rests below the screen at REST_OPACITY under aria-hidden; the root still
+    gives the tap back the moment it is not open, and the scrim and the panel say their own pointer-events so
+    that switch stops at them.
+  */
   check("a closing sheet gives the tap back at once",
-    /\.\.\.\(isOpen \? null : atRest \? REST_STYLE : \{ pointerEvents: "none" \}\)/.test(sheet)
-      && /const REST_STYLE: React\.CSSProperties = \{ visibility: "hidden", pointerEvents: "none" \}/.test(sheet))
+    /\.\.\.\(isOpen \? null : \{ pointerEvents: "none" \}\)/.test(sheet)
+      && /const REST_OPACITY = 0\.0015/.test(sheet) && /opacity: atRest \? REST_OPACITY : 0\.999/.test(sheet)
+      && /aria-hidden=\{atRest \? true : undefined\}/.test(sheet)
+      && /pointerEvents: isOpen \? "auto" : "none"/.test(sheet) && /pointerEvents: "auto",/.test(sheet)
+      && /onClickCapture=\{onPanelCapture\}/.test(sheet) && !/visibility: "hidden"/.test(sheet))
   /* The open is the website builder's sheet's (SNAP_DURATION_MS, SNAP_EASING in mobile-editor-sheet.tsx); a tap outside keeps its ease in and out. */
   /* Changed on purpose: 08a497fa (calmer post close) lets one sheet ask for its own close time and curve (closeMs, closeEase); every other sheet still closes on CLOSE_EASE. */
   check("it opens over 360ms on the iOS curve and closes over 340ms on an ease in and out, the scrim fades evenly, and a release leaves at the finger's speed",
@@ -566,9 +576,10 @@ section("Sheets")
       && /if \(rootRef\.current\) rootRef\.current\.style\.pointerEvents = "none"/.test(sheet))
   /* Explore's filters: "closing must be smoother". The scrim is a layer while a finger dims it, and a button inside can close the sheet the way a tap outside does, the slide before the parent. */
   check("the scrim is its own layer on every sheet, and a control marked data-sheet-close closes the sheet as a tap outside does",
-    /style=\{\{ opacity: 0, touchAction: "none", willChange: "opacity" \}\}/.test(sheet)
+    /* The scrim also says its own pointer-events now (round 10, NOTHING INHERITED CHANGES ON THE TAP in bottom-sheet). */
+    /style=\{\{ opacity: 0, touchAction: "none", willChange: "opacity", pointerEvents: isOpen \? "auto" : "none" \}\}/.test(sheet)
       && /const closer = \(e\.target as HTMLElement \| null\)\?\.closest\?\.\("\[data-sheet-close\]"\)\s*if \(closer && e\.currentTarget\.contains\(closer\)\) requestClose\(\)/.test(sheet)
-      && /data-sheet-panel=""\s*tabIndex=\{-1\}\s*onClick=\{onPanelClick\}/.test(sheet))
+      && /data-sheet-panel=""\s*tabIndex=\{-1\}\s*onClick=\{onPanelClick\}\s*onClickCapture=\{onPanelCapture\}/.test(sheet))
   check("focus moves after the slide, not on its first frames", /window\.setTimeout\(\(\) => \{\s*const panel = sheetRef\.current/.test(sheet))
   check("what is inside a sheet is laid out and painted on its own, and the big blurred shadow is gone",
     (sheet.match(/contain: "layout paint"/g) || []).length === 2 && !/0_-8px_40px/.test(sheet))

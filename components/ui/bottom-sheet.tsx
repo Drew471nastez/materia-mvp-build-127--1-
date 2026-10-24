@@ -77,12 +77,26 @@
  *   times (scripts/check-app-sheets-frames.mjs): 70 to 260ms on the tap, most
  *   of it style for 100 to 300 new elements at about 0.2ms each. A sheet
  *   that asks for it is now built once, while the page is idle, and kept
- *   after it closes: at rest it is below the screen, invisible (so out of
- *   the accessibility tree), takes no tap, has no `data-app-sheet` and does
- *   not tell the page it is up, and its styles and layout are kept, so the
- *   tap that opens it only makes it visible and starts the slide.
- *   `visibility` is one of the properties the browser hands down without
- *   restyling what is inside.
+ *   after it closes: at rest it is below the screen, all but transparent,
+ *   hidden from a screen reader, takes no tap, has no `data-app-sheet` and
+ *   does not tell the page it is up, and its styles and layout are kept, so
+ *   the tap that opens it only changes two opacities and starts the slide.
+ *
+ *   NOTHING INHERITED CHANGES ON THE TAP (round 10, the OnePage editor). A
+ *   kept sheet rested at `visibility: hidden; pointer-events: none`, and
+ *   both are inherited: taking them off on the tap made the browser work
+ *   out the style of every element inside again. Measured on Add block
+ *   (528 elements) at 390px with the CPU slowed four times
+ *   (scripts/check-onepage-shell.mjs): 40 to 80ms of style on the tap for
+ *   either one, the same for `inert`, and 0.1ms for an opacity or an
+ *   aria-hidden. So it rests the way the website builder's primed sheets
+ *   do (PRIMED_OPACITY in components/website-builder/mobile-editor-sheet):
+ *   at an opacity no eye can see, which keeps it painted, under
+ *   aria-hidden. Taps are kept off it without an inherited switch reaching
+ *   what is inside: the scrim and the panel each say their own
+ *   `pointer-events` (the scrim switches, it has nothing inside; the panel
+ *   is always `auto` and is below the screen at rest), so the root's own
+ *   switch stops at its two children: 0.3ms, measured the same way.
  *
  * `will-change` is set only while something is moving, so a sheet at rest
  * does not hold a layer it does not need; except a kept sheet, which holds
@@ -215,8 +229,12 @@ const KEYBOARD_MOVE = "padding-bottom 250ms cubic-bezier(0.32, 0.72, 0, 1), heig
 const PREWARM_TIMEOUT_MS = 4000
 /** How soon a kept sheet looks again when its idle build found something moving. */
 const MOVING_RETRY_MS = 120
-/** A kept sheet at rest: there, styled and laid out, and neither seen nor touched. */
-const REST_STYLE: React.CSSProperties = { visibility: "hidden", pointerEvents: "none" }
+/**
+ * A kept sheet's panel at rest: there, styled, laid out and painted, below
+ * the screen, and at an opacity under half a level of any colour (0 would
+ * not be painted at all). The builder's PRIMED_OPACITY.
+ */
+const REST_OPACITY = 0.0015
 
 const translate = (y: number) => `translate3d(0, ${y.toFixed(1)}px, 0)`
 
@@ -900,14 +918,16 @@ export function BottomSheet({
     /* A release keeps the finger's speed; a tap outside or Escape eases in and out over what is left. */
     const motion = velocity > 0 ? snapMotion(travel, velocity) : null
     const ms = motion ? motion.ms : Math.max(200, (closeTimingRef.current.ms ?? CLOSE_MS) * Math.min(1, travel / h))
-    /* A leaving sheet takes no taps, from now, not from the parent's answer. */
+    /* A leaving sheet takes no taps, from now, not from the parent's answer: the scrim lets them through, the panel swallows them (onPanelCapture). */
     if (rootRef.current) rootRef.current.style.pointerEvents = "none"
+    if (scrimRef.current) scrimRef.current.style.pointerEvents = "none"
     const settled = () => {
       closingRef.current = false
       /* The parent said no (a refund still in flight, say): come back up
          rather than leave a sheet it still thinks is open. */
       if (isOpenRef.current) {
         if (rootRef.current) rootRef.current.style.pointerEvents = ""
+        if (scrimRef.current) scrimRef.current.style.pointerEvents = "auto"
         glide(gone, restRef.current, OPEN_MS)
         return
       }
@@ -936,6 +956,17 @@ export function BottomSheet({
   }, [currentY, glide, springBack, tellNow, sizeUp])
 
   const requestClose = useCallback(() => { dismiss(0) }, [dismiss])
+
+  /*
+    A LEAVING SHEET'S BUTTONS DO NOTHING. The panel always takes taps (see
+    NOTHING INHERITED CHANGES ON THE TAP), so a tap that lands on it while it
+    slides out is caught here, before anything inside hears it.
+  */
+  const onPanelCapture = useCallback((e: React.SyntheticEvent) => {
+    if (!closingRef.current && isOpenRef.current) return
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
 
   /* A control inside marked `data-sheet-close` closes the sheet as a tap outside does (A BUTTON INSIDE CAN CLOSE IT). */
   const onPanelClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -1203,12 +1234,15 @@ export function BottomSheet({
       /* The rules for other dialogs leave this one out; <html> says it is up. */
       data-sheet-root=""
       className={cn("fixed inset-0", zIndex == null && "z-[200]", hideFrom === "sm" && "sm:hidden", hideFrom === "md" && "md:hidden")}
-      style={{ ...(zIndex == null ? null : { zIndex }), ...(isOpen ? null : atRest ? REST_STYLE : { pointerEvents: "none" }) }}
-      /* The same at rest: a role or an aria-* that changed would be a change
-         under the page's `:has()` rules. Out of sight, it is out of the
-         accessibility tree anyway. */
+      /* Taps only while open. The scrim and the panel say their own, so this switch restyles those two and nothing inside them (NOTHING INHERITED CHANGES ON THE TAP). */
+      style={{ ...(zIndex == null ? null : { zIndex }), ...(isOpen ? null : { pointerEvents: "none" }) }}
+      /* The same role at rest: a role that changed would be a change under
+         the page's `:has()` rules, which leave a sheet's root out. At rest
+         it is hidden from a screen reader by aria-hidden, which costs nothing
+         to switch. */
       role="dialog"
       aria-modal="true"
+      aria-hidden={atRest ? true : undefined}
       aria-label={label ?? title}
     >
       <div
@@ -1220,18 +1254,21 @@ export function BottomSheet({
            script has run: there is no frame in which the sheet is at rest.
            Its own layer, so a drag's dimming is the compositor's (THE DIM IS
            ITS OWN LAYER). */
-        style={{ opacity: 0, touchAction: "none", willChange: "opacity" }}
+        style={{ opacity: 0, touchAction: "none", willChange: "opacity", pointerEvents: isOpen ? "auto" : "none" }}
       />
       <div
         ref={sheetRef}
         data-sheet-panel=""
         tabIndex={-1}
         onClick={onPanelClick}
+        onClickCapture={onPanelCapture}
         className={cn(atRest ? "absolute" : "fixed", "inset-x-0 bottom-0 rounded-t-[20px] bg-white outline-none", className)}
         style={{
           transform: "translate3d(0, 100%, 0)",
-          /* See SAFARI'S FLOATING BAR: a hair under 1, so the layer is drawn on past the bar's edge. Not while it rests below the screen. */
-          ...(atRest ? null : { opacity: 0.999 }),
+          /* See SAFARI'S FLOATING BAR: a hair under 1, so the layer is drawn on past the bar's edge. At rest, below the screen, all but transparent (REST_OPACITY). */
+          opacity: atRest ? REST_OPACITY : 0.999,
+          /* Always, said here: the root's switch then stops at the panel instead of restyling everything inside it on the tap. */
+          pointerEvents: "auto",
           /* Its own layer for the whole time it is on screen, so the first pixel of a drag does not have to build one. */
           willChange: keepMounted || !atRest ? "transform" : undefined,
           /* The sheet owns every touch on it: the browser must not decide

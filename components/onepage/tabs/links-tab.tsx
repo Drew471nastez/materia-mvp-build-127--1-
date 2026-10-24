@@ -3995,7 +3995,8 @@ function BlockItem({
   const [clickCount, setClickCount] = useState<number | null>(null)
   /* The date picker every page in /app shares, opened in place in this dialog. */
   const statsTimeZone = useMemo(() => viewerTimeZone(), [])
-  const statsToday = todayIn(statsTimeZone, Date.now())
+  /* Worked out once per block, not on every render of the list: Intl's formatToParts on each render of each block was most of what opening a sheet over the list cost (scripts/check-onepage-shell.mjs). */
+  const statsToday = useMemo(() => todayIn(statsTimeZone, Date.now()), [statsTimeZone])
   const [statsPeriod, setStatsPeriod] = useState<RangeValue>(() => resolveValue({ preset: 'last_7_days' }, statsToday, 'last_7_days'))
   /* Below 640px the animation and stats dialogs are the shared sheet (see THE PHONE SHEETS at the top). */
   const isMobileStatsViewport = usePhoneWidth()
