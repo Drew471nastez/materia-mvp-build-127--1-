@@ -37,6 +37,7 @@ import { METHODS, shippedByLabel } from "@/lib/physical/fulfillment"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { NOTE_MAX } from "@/lib/physical/notes"
 import { CANCELLED_AT_BUYERS_REQUEST, openCancelRequest } from "@/lib/physical/buyer-cancel"
+import { HOLD_REASONS, holdOf, partnerSendState, type HoldReason, type PartnerSend } from "@/lib/physical/fulfilment-state"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "@/lib/physical/types"
 import type { PhysicalHistory } from "@/lib/orders/timeline"
 import { reasonLabel } from "@/lib/store/reasons"
@@ -219,7 +220,7 @@ export function historyOf(order: PhysicalOrder): PhysicalHistory {
 const lineName = (l: PhysicalLine) => `${l.title}${l.variantName ? `, ${l.variantName}` : ""}`
 const countLabel = (n: number) => tt("{n, plural, one {# item} other {# items}}", { n })
 
-type Dialog = { fulfil: { lines: string[]; locationId: string | null } } | { tracking: PhysicalShipment } | "return" | "cancel" | null
+type Dialog = { fulfil: { lines: string[]; locationId: string | null } } | { tracking: PhysicalShipment } | "return" | "cancel" | "hold" | null
 
 export function PhysicalFulfillment({
   state,
@@ -281,21 +282,27 @@ export function PhysicalFulfillment({
     if (!e && done) onNotice?.(done)
   }
   const live = order.shipments.filter((s) => s.status !== "cancelled")
+  const groupsEmpty = groups.size === 0
+  const firstLive = live[0] ? order.shipments.indexOf(live[0]) : -1
   /*
     PACKING SLIP: a page the server draws (app/api/physical/orders/[id]/packing-slip). On a computer it prints from a
     frame over this order; on a phone the menu's row is a link to it, with Back and Print, because a window opened once
     the sheet has closed is what a phone's pop-up rule blocks (it used to do nothing there).
   */
-  const slip = (q: { f?: string; loc?: string | null }): ActionMenuItem => {
+  const slip = (q: { f?: string; loc?: string | null; summary?: boolean }): ActionMenuItem => {
     const params = new URLSearchParams()
     if (q.f) params.set("f", q.f)
     if (q.loc) params.set("loc", q.loc)
+    /* The order summary: the whole order's slip with each price and the totals, to print or save as a PDF. */
+    if (q.summary) params.set("prices", "1")
     const qs = params.toString()
     const href = `/api/physical/orders/${encodeURIComponent(order.id)}/packing-slip${qs ? `?${qs}` : ""}`
+    const label = q.summary ? tt("Order summary") : tt("Packing slip")
     return phone
-      ? { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, href }
-      : { label: tt("Packing slip"), icon: <Printer className="h-4 w-4" />, onClick: () => void printSlip(href).then((e) => e && setError(e)) }
+      ? { label, icon: <Printer className="h-4 w-4" />, href }
+      : { label, icon: <Printer className="h-4 w-4" />, onClick: () => void printSlip(href).then((e) => e && setError(e)) }
   }
+  const summaryOn = (where: "group" | "shipment", index: number) => (where === "group" ? index === 0 : groupsEmpty && index === firstLive)
   const number = (s: PhysicalShipment) => `${shown ? `#${shown}` : orderNumber(order.id)}-F${order.shipments.indexOf(s) + 1}`
   /* Void a label not used yet: refunded by the provider, and its shipment, if it has one, cancelled. */
   const voidOne = async (label: LabelView) => {
@@ -308,9 +315,27 @@ export function PhysicalFulfillment({
   }
   const loose = labelsWithoutShipment(labels, order.shipments)
   const leftToShip = order.lines.some((l) => l.requiresShipping && l.quantity - l.fulfilled > 0)
+  /* Hold fulfillment (lib/physical/fulfilment-state.ts): nothing ships or goes to a partner until it is released. */
+  const hold = order.cancelledAt ? null : holdOf(order.events)
 
   return (
     <div className={cn("grid min-w-0 gap-4", className)} data-physical-order="">
+      {hold && leftToShip ? (
+        <section className={cn(card, "min-w-0 px-4 py-3.5")} data-order-hold={hold.reason}>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone="attention">{tt("On hold")}</StatusBadge>
+            <span className="text-[12px] text-[#6b7280]">{dateTime(hold.at)}</span>
+          </div>
+          <p className="mt-2 text-[13.5px] leading-5 text-[#1a1a2e]">{tt(hold.label)}</p>
+          {hold.note ? <p className="mt-0.5 text-[13px] leading-5 text-[#6b7280]">{hold.note}</p> : null}
+          <div className="mt-3 flex justify-end">
+            <button type="button" className={cn(buttonPrimary, "h-9 sm:h-8")} disabled={busy} data-release-hold="" onClick={() => void run({ action: "release_hold" }, tt("Hold released"))}>
+              {tt("Release hold")}
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {order.cancelledAt ? (
         <Notice tone="gray">
           {order.payment === "cod_due" ? tt("This order was cancelled and its stock released. It was to be paid in cash on delivery, so there is nothing to refund.") : tt("This order was cancelled and its stock released. Refund the payment with Refund if you haven't.")}
@@ -398,17 +423,20 @@ export function PhysicalFulfillment({
         const from = pickup ? tt("Pickup at {value}", { value: order.pickup?.name ?? tt("your location") }) : g.method === "self" ? (locName(g.locationId) ? tt("Ships from {name}", { name: locName(g.locationId) }) : tt("Shipped by you")) : shippedByLabel(g.method, locName(g.locationId))
         const menu: ActionMenuItem[] = [
           slip({ loc: pickup ? null : g.locationId }),
+          ...(summaryOn("group", gi) ? [slip({ summary: true })] : []),
           ...(gi === 0 && canFulfil && live.length === 0
             ? [order.processingAt
                 ? { label: tt("Back to unfulfilled"), icon: <Undo2 className="h-4 w-4" />, onClick: () => void run({ action: "processing", on: false }) }
                 : { label: tt("Mark as in progress"), icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "processing", on: true }, tt("Marked as in progress")) }]
             : []),
+          ...(gi === 0 && canFulfil && !hold ? [{ label: tt("Hold fulfillment"), icon: <Clock className="h-4 w-4" />, onClick: () => setDialog("hold") }] : []),
           ...(gi === 0 && !order.cancelledAt && live.length === 0 ? [{ label: tt("Cancel order"), icon: <X className="h-4 w-4" />, variant: "destructive" as const, separatorBefore: true, onClick: () => setDialog("cancel") }] : []),
         ]
+        const sendState = g.method !== "self" && !pickup ? partnerSendState(order.events, g.locationId) : null
         return (
           <section key={`${g.method}:${g.locationId}`} className={cn(card, "min-w-0")} data-ship-group={g.method} data-unfulfilled-card="">
             <CardTop
-              badge={<StatusBadge tone="attention">{order.processingAt ? tt("In progress") : tt("Unfulfilled")}</StatusBadge>}
+              badge={<StatusBadge tone="attention">{hold ? tt("On hold") : order.processingAt ? tt("In progress") : tt("Unfulfilled")}</StatusBadge>}
               count={left}
               sub={from}
               menu={<CardMenu title={tt("Unfulfilled")} items={menu} />}
@@ -418,13 +446,19 @@ export function PhysicalFulfillment({
                 <LineRow key={l.orderId} line={l} quantity={l.quantity - l.fulfilled} currency={order.currency} />
               ))}
             </ul>
-            {g.method !== "self" && !pickup ? <p className="mx-4 mt-3 text-[12px] leading-[17px] text-[#6b7280]">{METHODS[g.method].afterSale}</p> : null}
-            <div className="flex justify-end px-4 py-3">
+            {g.method !== "self" && !pickup ? <PartnerSendLine state={sendState} fallback={METHODS[g.method].afterSale} currency={order.currency} place={locName(g.locationId)} /> : null}
+            <div className="flex flex-wrap justify-end gap-2 px-4 py-3">
+              {/* The partner never got it (refused, or every try failed): sent again from here once the reason is fixed. */}
+              {sendState?.state === "failed" && canFulfil && !hold && g.locationId ? (
+                <button type="button" className={cn(buttonSecondary, "h-9 sm:h-8")} disabled={busy} data-partner-resend="" onClick={() => void run({ action: "resend", locationId: g.locationId }, tt("Sending it again"))}>
+                  {tt("Send again")}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={cn(buttonPrimary, "h-9 sm:h-8")}
                 onClick={() => setDialog({ fulfil: { lines: g.lines.map((l) => l.orderId), locationId: g.locationId } })}
-                disabled={busy || !canFulfil}
+                disabled={busy || !canFulfil || !!hold}
                 data-fulfil=""
               >
                 {pickup ? tt("Mark ready for pickup") : tt("Fulfill items")}
@@ -469,6 +503,7 @@ export function PhysicalFulfillment({
               ...(!pickup && !delivered && s.tracking?.mode === "paused" ? [{ label: tt("Resume automatic updates"), icon: <Clock className="h-4 w-4" />, onClick: () => void run({ action: "tracking_auto", fulfillmentId: s.id, on: true }, tt("Automatic updates on again")) }] : []),
               ...(returnable ? [{ label: tt("Start return"), icon: <Undo2 className="h-4 w-4" />, onClick: () => setDialog("return") }] : []),
               slip({ f: s.id }),
+              ...(summaryOn("shipment", order.shipments.indexOf(s)) ? [slip({ summary: true })] : []),
               /* Only while the parcel is still with the shop (lib/physical/status canMoveShipment): one the carrier has comes back as a return. */
               ...(canMoveShipment(s.status, "cancelled")
                 ? [{
@@ -629,6 +664,7 @@ export function PhysicalFulfillment({
         />
       ) : null}
       {dialog === "return" ? <ReturnDialog order={order} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "return", ...body }); if (!e) { setDialog(null); onNotice?.(tt("Return opened")) } return e }} /> : null}
+      {dialog === "hold" ? <HoldDialog onClose={() => setDialog(null)} onSubmit={async (reason, note) => { const e = await act({ action: "hold", reason, note }); if (!e) { setDialog(null); onNotice?.(tt("Fulfillment on hold")) } return e }} /> : null}
       {dialog === "cancel" ? <CancelDialog onClose={() => setDialog(null)} onSubmit={async (reason) => { const e = await act({ action: "cancel", reason }); if (!e) { setDialog(null); onNotice?.(tt("Order cancelled")) } return e }} /> : null}
       {dialog && typeof dialog === "object" && "tracking" in dialog ? <TrackingDialog shipment={dialog.tracking} country={typeof order.address?.country === "string" ? order.address.country : null} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "shipment", fulfillmentId: dialog.tracking.id, ...body }); if (!e) { setDialog(null); onNotice?.(tt("Tracking saved")) } return e }} /> : null}
     </div>
@@ -1857,6 +1893,78 @@ function CancelDialog({ onClose, onSubmit }: { onClose: () => void; onSubmit: (r
       </Field>
       {error ? <Notice className="mt-3">{error}</Notice> : null}
     </Modal>
+  )
+}
+
+/** Hold fulfillment: a reason, as Shopify asks, and a note for the shop's own history. */
+function HoldDialog({ onClose, onSubmit }: { onClose: () => void; onSubmit: (reason: HoldReason, note: string) => Promise<string | null> }) {
+  const [reason, setReason] = React.useState<HoldReason>("out_of_stock")
+  const [note, setNote] = React.useState("")
+  const [error, setError] = React.useState<string | null>(null)
+  const [saving, setSaving] = React.useState(false)
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={tt("Hold fulfillment")}
+      footer={
+        <>
+          <button type="button" className={BTN_SECONDARY} onClick={onClose}>
+            {tt("Cancel")}
+          </button>
+          <button
+            type="button"
+            className={BTN_PRIMARY}
+            disabled={saving}
+            data-hold-submit=""
+            onClick={async () => {
+              setSaving(true)
+              setError(await onSubmit(reason, note.trim()))
+              setSaving(false)
+            }}
+          >
+            {saving ? tt("Saving…") : tt("Hold")}
+          </button>
+        </>
+      }
+    >
+      <p className="text-[14px] leading-[21px] text-[#4b5563]">{tt("Nothing on this order ships, gets a label or goes to a partner until you release it.")}</p>
+      <Field label={tt("Reason")} className="mt-3">
+        <SelectInput value={reason} onChange={(v) => setReason(v as HoldReason)} data-hold-reason="">
+          {HOLD_REASONS.map((r) => (
+            <option key={r.id} value={r.id}>
+              {tt(r.label)}
+            </option>
+          ))}
+        </SelectInput>
+      </Field>
+      <Field label={tt("Note")} hint={tt("Optional, for your history")} className="mt-3">
+        <TextInput value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} data-hold-note="" />
+      </Field>
+      {error ? <Notice className="mt-3">{error}</Notice> : null}
+    </Modal>
+  )
+}
+
+/** Where a partner location's order stands: sent (and what it costs you), held back, being sent again, or not sent and why. */
+function PartnerSendLine({ state, fallback, currency, place }: { state: PartnerSend; fallback: string; currency: string; place: string | null }) {
+  if (!state) return <p className="mx-4 mt-3 text-[12px] leading-[17px] text-[#6b7280]">{fallback}</p>
+  if (state.state === "failed")
+    return (
+      <p className="mx-4 mt-3 rounded-lg bg-[#fef3f2] px-3 py-2 text-[12.5px] leading-[18px] text-[#b42318]" data-partner-send="failed">
+        {state.message}
+      </p>
+    )
+  const text =
+    state.state === "sent"
+      ? [state.message || tt("Sent to {name}", { name: place ?? tt("your partner") }), dateTime(state.at), state.cost ? tt("{cost} your cost", { cost: money(state.cost.cents, state.cost.currency || currency) }) : null].filter(Boolean).join(" · ")
+      : state.state === "held"
+        ? tt("Not sent yet: the order is on hold.")
+        : tt("Sending it again. This updates in a moment.")
+  return (
+    <p className="mx-4 mt-3 text-[12px] leading-[17px] text-[#6b7280]" data-partner-send={state.state}>
+      {text}
+    </p>
   )
 }
 

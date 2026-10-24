@@ -825,6 +825,8 @@ const SUITES = [
   "tests/integrations23.test.ts",
   "tests/marketing24.test.ts",
   "tests/partners24.test.ts",
+  /* Round AE3: each partner's cancel and costs against stubs of its API, holds and the partner card read from the timeline, the packing slip's paper and prices, the buyer's paid rate in Buy a label. */
+  "tests/fulfilment-ae3.test.ts",
   "tests/physical-ships-x1.test.ts",
   /* Round 25 */
   "tests/i18n25.test.ts",
@@ -929,6 +931,8 @@ const STRICT_SUITES = [
   "tests/e2e-more-currencies.test.ts",
   /* The seller ships it themselves: part shipped with tracking, the number fixed, the rest from a second place, a fulfilment undone, a return restocked and refunded, a cancel after an undo, a pickup, refused cash (tests/_journey) */
   "tests/e2e-manual-fulfillment.test.ts",
+  /* Round AE3: Hold fulfillment, Send again to a partner that refused, a send held back and released, a cancel that reaches Printful (tests/_journey) */
+  "tests/e2e-fulfilment-ae3.test.ts",
   /* Quick setup through the real routes: explicit prices, whole or nothing, once */
   "tests/e2e-shipsetup.test.ts",
   /* Shipping quick setup, the summary, one fulfilment question, carrier rates gated (strict: it renders the settings component, which narrows on api() results) */

@@ -87,9 +87,21 @@ export interface FulfilmentConnector {
   /** Reads only: which shop or store the key works on. Refuses a key the provider refuses. */
   connect(key: string): Promise<ConnectResult>
   /** note: what the seller still has to do there (CJ: an order made but not paid), said on the order's timeline. */
-  submit(cred: ConnectorCredential, order: ProviderOrderInput): Promise<{ providerOrderId: string; stage: ProviderOrderStage; note?: string | null }>
+  /** cost: what the provider charges the seller for it, when its answer says (Printful's costs, Gelato's receipt, CJ's order amount). */
+  submit(cred: ConnectorCredential, order: ProviderOrderInput): Promise<{ providerOrderId: string; stage: ProviderOrderStage; note?: string | null; cost?: ProviderCost | null }>
   fetchOrder(cred: ConnectorCredential, providerOrderId: string): Promise<ProviderOrderState>
   /** Ask the provider to tell Storelib when a parcel ships. False (with why) when it can't, and tracking is then checked on a timer. */
   registerWebhooks(cred: ConnectorCredential, url: string, secret: string): Promise<{ ok: boolean; note: string | null; ids?: string[] }>
   removeWebhooks(cred: ConnectorCredential, url: string): Promise<void>
+  /**
+   * The shop cancelled the order in Storelib: cancel it there too. `cancelled` false, with the provider's reason,
+   * when it refuses (being made already, or paid and packed): the order's timeline then says to cancel it there.
+   */
+  cancel(cred: ConnectorCredential, providerOrderId: string): Promise<{ cancelled: boolean; note: string | null }>
+}
+
+/** What the provider charges the seller, in minor units of its currency. */
+export interface ProviderCost {
+  cents: number
+  currency: string
 }

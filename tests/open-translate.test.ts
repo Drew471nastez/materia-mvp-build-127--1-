@@ -62,7 +62,7 @@ async function answer(req: IncomingMessage, res: ServerResponse) {
   }
   if (path === "/gem/chat/completions") {
     const model = b.model as string
-    if (model === "gemini-2.5-flash-lite" && process.env.GEMINI_OLD_ONLY) return send(res, 404, { error: { message: `models/${model} is not found` } })
+    if (model === "gemini-3.5-flash-lite" && process.env.GEMINI_OLD_ONLY) return send(res, 404, { error: { message: `models/${model} is not found` } })
     if (process.env.GEMINI_BUSY) return send(res, 429, { error: { message: "Resource has been exhausted (e.g. check quota)." } })
     const list = JSON.parse((b.messages as { content: string }[])[1].content) as string[]
     /* Drops the placeholder from a whole sentence: the check catches it and the words go again on their own. */
@@ -78,6 +78,7 @@ async function answer(req: IncomingMessage, res: ServerResponse) {
     const list = JSON.parse((b.messages as { content: string }[])[1].content) as string[]
     return send(res, 200, { choices: [{ message: { content: "Here you go:\n```json\n" + JSON.stringify(list.map((t) => `CHAT ${t}`)) + "\n```" } }] })
   }
+  if (path.startsWith("/hfnc/")) return send(res, 402, { error: "You have no remaining credits. Purchase pre-paid credits to continue using Inference Providers." })
   return send(res, 404, { error: "not here" })
 }
 
@@ -187,12 +188,14 @@ async function main() {
   delete process.env.LIBRETRANSLATE_URL
   seen.length = 0
   r = await mod.translateOpen(["Free shipping on orders over 200 lei", "<p>Our <b>linen</b> shirts</p>", "Hi {{ customer.first_name }}, welcome"], "en", "fr", { keep: ["Green Garden"] })
-  check("first when set up, whole sentences with markup kept", r.out.get(0) === "GEM(gemini-2.5-flash-lite) Free shipping on orders over 200 lei" && r.out.get(1) === "GEM(gemini-2.5-flash-lite) <p>Our <b>linen</b> shirts</p>", JSON.stringify([...r.out]))
-  check("one that lost its placeholder goes again as its words, and keeps it", r.out.get(2) === "GEM(gemini-2.5-flash-lite) Hi {{ customer.first_name }}GEM(gemini-2.5-flash-lite) , welcome" || /\{\{ customer\.first_name \}\}/.test(r.out.get(2) ?? ""), r.out.get(2))
+  check("first when set up, whole sentences with markup kept", r.out.get(0) === "GEM(gemini-3.5-flash-lite) Free shipping on orders over 200 lei" && r.out.get(1) === "GEM(gemini-3.5-flash-lite) <p>Our <b>linen</b> shirts</p>", JSON.stringify([...r.out]))
+  check("one that lost its placeholder goes again as its words, and keeps it", r.out.get(2) === "GEM(gemini-3.5-flash-lite) Hi {{ customer.first_name }}GEM(gemini-3.5-flash-lite) , welcome" || /\{\{ customer\.first_name \}\}/.test(r.out.get(2) ?? ""), r.out.get(2))
   check("the store's name is named in the prompt to keep", seen.some((x) => /"Green Garden"/.test(String((x.body.messages as { content: string }[] | undefined)?.[0]?.content))))
   process.env.GEMINI_OLD_ONLY = "1"
   r = await mod.translateOpen(["Another sentence"], "en", "de")
-  check("a model the key cannot use: the next Gemini model", r.out.get(0) === "GEM(gemini-2.0-flash-lite) Another sentence", r.out.get(0))
+  check("a model the key cannot use: the next Gemini model", r.out.get(0) === "GEM(gemini-3.1-flash-lite) Another sentence", r.out.get(0))
+  /* Google shut these down (404 "no longer available"): never asked by default again. */
+  check("no shut down Gemini model is asked", !seen.some((x) => /^gemini-2\.0-/.test(String(x.body.model))), seen.map((x) => x.body.model).join(","))
   delete process.env.GEMINI_OLD_ONLY
   process.env.GEMINI_BUSY = "1"
   r = await mod.translateOpen(["Out of allowance today"], "en", "es")
@@ -245,6 +248,19 @@ async function main() {
   check("a stalled job is picked up by the next progress read, cron or not", /const idle = await idleJobs\(c\.db, c\.creatorId\)/.test(read("app/api/store/translations/jobs/route.ts")))
   check("the press shows Translating at once, before the server answers", /starting\.add\(locale\)/.test(read("components/app/settings/translation-jobs-store.ts")))
   check("memory is kept for good (part 178)", /translation_memory/.test(read("supabase/sql/run-now/178_translation_memory.sql")))
+
+  console.log("\nA translator out of credits")
+  for (const k of ["GEMINI_API_KEY", "GOOGLE_AI_API_KEY", "DEEPL_API_KEY", "LLM_API_KEY", "LLM_URL", "LIBRETRANSLATE_URL", "HF_CHAT_MODEL", "HF_TRANSLATE_MODEL"]) delete process.env[k]
+  process.env.HF_TOKEN = "hf_broke"
+  process.env.HF_ROUTER_URL = `${base}/hfnc`
+  process.env.HF_INFERENCE_URL = `${base}/hfnc`
+  seen.length = 0
+  const fortyFive = Array.from({ length: 45 }, (_, i) => `Sentence number ${i} for the shop`)
+  r = await mod.translateOpen(fortyFive, "en", "fr", { concurrency: 1 })
+  const asked = () => seen.filter((x) => x.path.startsWith("/hfnc/")).length
+  const first = asked()
+  r = await mod.translateOpen(["Another sentence for the shop"], "en", "it")
+  check("asked once, not again for every batch or the next run", first === 1 && asked() === 1, `${first} then ${asked()}`)
 
   server.close()
   console.log(`\n${passed} passed, ${failed} failed`)

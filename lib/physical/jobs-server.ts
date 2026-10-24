@@ -53,6 +53,7 @@ import { lowForAlert, lowStockAt } from "./inventory-rules"
 import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { EMAIL_REPLY_TO } from "@/lib/mail"
 import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/integrations/fulfilment/forward-server"
+import { HELD_BACK, HOLD, HOLD_RELEASED, RESENT, heldBackJob, holdOf, type OrderHold } from "./fulfilment-state"
 import { runStockSyncJob } from "@/lib/integrations/fulfilment/links-server"
 import { realStockDeps } from "@/lib/integrations/fulfilment/stock-deps-server"
 import { realForwardDeps } from "@/lib/integrations/fulfilment/forward-deps-server"
@@ -202,6 +203,104 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
 async function providerTakesOrders(db: Db, creatorId: string, integrationId: string): Promise<boolean> {
   const { data } = await db.from("commerce_integrations").select("provider, status").eq("id", integrationId).eq("creator_id", creatorId).maybeSingle()
   return !!data && data.status === "connected" && !!connectorFor(data.provider)
+}
+
+/* ── holds, Send again, and a cancel passed on (./fulfilment-state.ts) ──── */
+
+/** The order's hold now, read from its timeline, or null. */
+export async function orderHold(db: Db, checkoutId: string): Promise<OrderHold | null> {
+  const { data } = await db.from("commerce_order_events").select("id, kind, created_at, detail").eq("checkout_id", checkoutId).in("kind", [HOLD, HOLD_RELEASED]).order("created_at", { ascending: false }).limit(10)
+  return holdOf(((data ?? []) as { id: number; kind: string; created_at: string; detail: Record<string, unknown> | null }[]).map((r) => ({ id: r.id, kind: r.kind, createdAt: r.created_at, detail: r.detail })))
+}
+
+/** A job that came up while the order was held: written on the order, to run once the hold is released. */
+async function holdBack(db: Db, job: { id: number; kind: JobKind; payload: Record<string, any>; creator_id: string | null }): Promise<void> {
+  const checkoutId = String(job.payload.checkoutId)
+  const where = job.kind === "shipstation_push" ? "ShipStation" : job.kind === "supplier_email" ? "the supplier" : job.kind === "webhook_delivery" ? "your webhook" : "your partner"
+  await addOrderEvent(db, {
+    checkoutId,
+    creatorId: job.creator_id,
+    kind: HELD_BACK,
+    message: `Not sent to ${where} yet: the order is on hold. It goes when you release the hold.`,
+    detail: { job: job.kind, payload: job.payload, ...(job.payload.locationId ? { location_id: String(job.payload.locationId) } : {}) },
+    key: `held_back:${job.id}`,
+  })
+}
+
+/**
+ * The hold is released: each job held back is queued again, once (keyed by the entry that held it). A job held back
+ * on an earlier hold and sent since already has its key, so nothing is sent twice.
+ */
+export async function releaseHeldJobs(db: Db, creatorId: string, checkoutId: string): Promise<number> {
+  const { data } = await db.from("commerce_order_events").select("id, detail").eq("checkout_id", checkoutId).eq("kind", HELD_BACK).limit(50)
+  let queued = 0
+  for (const e of (data ?? []) as { id: number; detail: Record<string, any> | null }[]) {
+    const kind = e.detail?.job as JobKind | undefined
+    const payload = e.detail?.payload
+    if (!kind || !payload || typeof payload !== "object" || String(payload.checkoutId) !== checkoutId) continue
+    if (!heldBackJob(kind, payload)) continue
+    await enqueueJob(db, { creatorId, kind, key: `released:${e.id}`, payload: { ...payload, attempt: `released-${e.id}` } })
+    queued++
+  }
+  return queued
+}
+
+/** How the location's partner gets orders, and whether this order already reached it. */
+async function partnerRoute(db: Db, creatorId: string, checkoutId: string, locationId: string): Promise<{ kind: JobKind; payload: Record<string, unknown>; done: boolean; name: string } | { error: string }> {
+  const { data: loc } = await db.from("inventory_locations").select("id, name, forwarding, email, integration_id").eq("id", locationId).eq("creator_id", creatorId).maybeSingle()
+  if (!loc) return { error: "That location is not one of yours." }
+  const sent = async (key: string) => !!(await db.from("commerce_order_events").select("id").eq("idempotency_key", key).maybeSingle()).data
+  if (loc.forwarding === "provider" && loc.integration_id) {
+    if (!(await providerTakesOrders(db, creatorId, loc.integration_id))) return { error: `${loc.name} is not connected. Connect it in Settings › Integrations first.` }
+    return { kind: "forward_fulfillment", payload: { checkoutId, locationId, integrationId: loc.integration_id, creatorId }, done: await sent(`forwarded_provider:${checkoutId}:${locationId}`), name: loc.name }
+  }
+  if (loc.forwarding === "email" && loc.email) return { kind: "supplier_email", payload: { checkoutId, locationId }, done: await sent(`forwarded_email:${checkoutId}:${locationId}`), name: loc.name }
+  if (loc.forwarding === "webhook") return { kind: "webhook_delivery", payload: { checkoutId, locationId, event: "order.paid" }, done: await sent(`forwarded_webhook:${checkoutId}:${locationId}:order.paid`), name: loc.name }
+  return { error: `${loc.name} doesn't receive orders automatically. Send it to them yourself.` }
+}
+
+/**
+ * SEND AGAIN, from the order panel: the partner at this location did not get the order (it refused it, or every try
+ * failed). Queued again as a fresh job, never when it already has the order, and never while the order is held,
+ * cancelled or has nothing left to send from there.
+ */
+export async function resendToPartner(db: Db, creatorId: string, checkoutId: string, locationId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { data: co } = await db.from("commerce_checkouts").select("id, status, cancelled_at, delivery_method").eq("id", checkoutId).eq("creator_id", creatorId).maybeSingle()
+  if (!co) return { ok: false, error: "Order not found." }
+  if (co.cancelled_at) return { ok: false, error: "This order is cancelled." }
+  if (co.status !== "paid" && co.status !== "partially_refunded") return { ok: false, error: "Only a paid order goes to a partner." }
+  if (await orderHold(db, checkoutId)) return { ok: false, error: "This order is on hold. Release the hold and it is sent." }
+  const route = await partnerRoute(db, creatorId, checkoutId, locationId)
+  if ("error" in route) return { ok: false, error: route.error }
+  if (route.done) return { ok: false, error: `${route.name} already has this order.` }
+  const at = Date.now()
+  await addOrderEvent(db, { checkoutId, creatorId, kind: RESENT, message: `Sending this order to ${route.name} again.`, detail: { location_id: locationId }, actor: "creator", key: `resent:${checkoutId}:${locationId}:${at}` })
+  await enqueueJob(db, { creatorId, kind: route.kind, key: `again:${route.kind}:${checkoutId}:${locationId}:${at}`, payload: { ...route.payload, attempt: `again-${at}` } })
+  return { ok: true }
+}
+
+/**
+ * The shop cancelled the order (./events-server.ts, on order.cancelled): each partner that has it is told. Printful,
+ * Printify, Gelato and CJ cancel their order (forward-server cancelAtProvider); your own system gets order.cancelled,
+ * signed as order.paid was; a supplier who was emailed it is a step for the seller, said on the order.
+ */
+export async function queuePartnerCancels(db: Db, checkoutId: string, creatorId: string): Promise<void> {
+  const { data } = await db.from("commerce_order_events").select("id, message, detail, idempotency_key").eq("checkout_id", checkoutId).eq("kind", "fulfillment.forwarded").limit(50)
+  for (const e of (data ?? []) as { id: number; message: string | null; detail: Record<string, any> | null; idempotency_key: string | null }[]) {
+    const key = e.idempotency_key ?? ""
+    const d = e.detail ?? {}
+    if (key.startsWith("forwarded_provider:") && d.provider_order_id) {
+      const locationId = String(d.location_id ?? key.split(":")[2] ?? "")
+      const { data: loc } = await db.from("inventory_locations").select("integration_id").eq("id", locationId).eq("creator_id", creatorId).maybeSingle()
+      await enqueueJob(db, { creatorId, kind: "forward_fulfillment", key: `provider_cancel:${checkoutId}:${locationId}`, payload: { op: "cancel", checkoutId, locationId, creatorId, integrationId: loc?.integration_id ?? null, provider: d.provider ?? null, providerOrderId: String(d.provider_order_id) } })
+    } else if (key.startsWith("forwarded_webhook:") && key.endsWith(":order.paid")) {
+      const locationId = key.split(":")[2] || null
+      await enqueueJob(db, { creatorId, kind: "webhook_delivery", key: `webhook:cancelled:${checkoutId}:${locationId ?? ""}`, payload: { checkoutId, locationId, event: "order.cancelled" } })
+    } else if (key.startsWith("forwarded_email:")) {
+      const where = (e.message ?? "").replace(/^Order emailed to /, "").trim() || "the supplier"
+      await addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message: `This order was emailed to ${where}. Tell them it is cancelled.`, detail: { location_id: key.split(":")[2] ?? null }, key: `supplier_cancel:${key}`.slice(0, 200) })
+    }
+  }
 }
 
 /**
@@ -397,7 +496,9 @@ export async function runJobs(db: Db, limit = 20): Promise<{ done: number; faile
       continue
     }
     try {
-      await handle(db, job, () => renewJobLease(db, claim))
+      /* The order is on hold (lib/physical/fulfilment-state.ts): nothing goes to a partner yet. Written down, and sent when the hold is released. */
+      if (heldBackJob(job.kind, job.payload) && job.payload?.checkoutId && (await orderHold(db, String(job.payload.checkoutId)))) await holdBack(db, job)
+      else await handle(db, job, () => renewJobLease(db, claim))
       /* Every finishing write is on this claim alone: a run that lost the lease writes nothing (finishClaimedJob). */
       if (await finishClaimedJob(db, claim, { status: "done", finished_at: new Date().toISOString(), last_error: null, locked_until: null, updated_at: new Date().toISOString() })) done++
     } catch (e) {
@@ -420,7 +521,7 @@ export async function runJobs(db: Db, limit = 20): Promise<{ done: number; faile
           creatorId: job.creator_id,
           kind: "job.failed",
           message: job.kind === "send_email" ? "An email to the buyer could not be sent." : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : job.kind === "forward_fulfillment" ? "The order could not be sent to your print partner. Send it to them yourself." : job.kind === "tracking_sync" ? "Tracking could not be read from your print partner. Check the order there." : job.kind === "shipstation_push" ? "ShipStation could not be updated with this order. Check it there, or ship it from Storelib." : job.kind === "shipstation_sync" ? "Shipments could not be read from ShipStation. Check the order there." : "The order could not be sent to your webhook.",
-          detail: { error: message },
+          detail: { error: message, ...(job.payload?.locationId ? { location_id: String(job.payload.locationId), job: job.kind } : {}) },
           key: `job_dead:${job.id}`,
         })
       }
@@ -926,7 +1027,7 @@ async function sendSupplierEmail(db: Db, p: Record<string, any>, lease?: LeaseCh
   await holdLease(lease)
   const sent = await sendEmail({ from: buildFromHeader(shopName), to: loc.email, replyTo: identity.replyTo || identity.sellerEmail || undefined, subject: mail.subject, html: mail.html, text: mail.text })
   if (!sent.success) throw new Error(sent.error || "Email not sent")
-  await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "fulfillment.forwarded", message: `Order emailed to ${loc.name}`, key: `forwarded_email:${co.id}:${loc.id}` })
+  await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "fulfillment.forwarded", message: `Order emailed to ${loc.name}`, detail: { location_id: loc.id }, key: `forwarded_email:${co.id}:${loc.id}` })
 }
 
 /** POST, to a public https address only, with the socket's own lookup refusing private addresses. */
@@ -986,7 +1087,7 @@ async function deliverWebhook(db: Db, p: Record<string, any>): Promise<void> {
     throw new Error(`Your webhook answered ${status}.`)
   }
   await db.from("commerce_integrations").update({ last_sync_at: new Date().toISOString(), last_error: null, status: "connected" }).eq("id", integration.id)
-  await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "fulfillment.forwarded", message: "Order sent to your webhook", key: `forwarded_webhook:${co.id}:${p.locationId ?? ""}:${p.event ?? ""}` })
+  await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: p.event === "order.cancelled" ? "fulfillment.partner_cancelled" : "fulfillment.forwarded", message: p.event === "order.cancelled" ? "Your webhook was told the order is cancelled" : "Order sent to your webhook", detail: p.locationId ? { location_id: String(p.locationId) } : null, key: `forwarded_webhook:${co.id}:${p.locationId ?? ""}:${p.event ?? ""}` })
 }
 
 /**

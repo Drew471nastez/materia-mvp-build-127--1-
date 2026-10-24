@@ -2070,7 +2070,7 @@ const ARTICLES: Article[] = [
   {
     section: "Orders and tracking",
     slug: "shipping-labels-and-fulfillment",
-    updated: "2026-10-18",
+    updated: "2026-10-24",
     title: "Shipping labels and every way to fulfill an order",
     summary: "Buy and print a label from the order, ship by hand with or without tracking, send part of an order, deliver locally, and void a label.",
     keywords: ["label", "labels", "shipping label", "buy label", "print label", "reprint", "void label", "refund label", "shippo", "easypost", "postage", "fulfill", "fulfillment", "manual fulfillment", "mark as shipped", "partial", "no tracking", "local delivery", "pickup", "dropship", "print on demand"],
@@ -2201,6 +2201,15 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "p", text: `More in ${link("tracking-and-order-status", "Tracking and the buyer's order page")}.` },
+
+      { type: "h", text: "Hold an order back" },
+      { type: "p", text: "Something to check first, like an address that looks wrong or an item you are waiting on? Open the Unfulfilled card's menu and press Hold fulfillment. Pick a reason and add a note if you like. While it is on hold, nothing on the order can be fulfilled or get a label, and nothing goes to a print partner, supplier, your webhook or ShipStation. Press Release hold on the On hold card when it's ready: anything that was waiting is sent then." },
+      { type: "h", text: "When a partner didn't get the order" },
+      { type: "p", text: "A print or dropship partner can refuse an order, for example when a SKU doesn't match its product. The partner's card on the order says why. Fix the cause in the partner's account or in Settings > Integrations, then press Send again on that card. It is never sent twice: once the partner has the order, Send again is refused. Once sent, the card shows what the partner charges you, when it says." },
+      { type: "p", text: "Cancel an order a partner already has and Storelib cancels it there too (Printful, Printify, Gelato and CJ Dropshipping). If the partner has started making it, the order says so and you cancel it in the partner's account. Your own system gets an order.cancelled webhook; a supplier who was emailed the order needs to be told by you." },
+      { type: "h", text: "Packing slips and the order summary" },
+      { type: "p", text: "Packing slip prints the list for the box: the items with variant, SKU and quantity, the ship to address, the buyer's note and a gift message, with no prices. Order summary in the same menu prints the whole order with prices and totals. On the page itself you can pick A4 or Letter and show or hide prices. To keep a PDF, choose Save as PDF in the print window. Tick orders on the Orders list to print their slips in one go." },
+      { type: "p", text: "Buying a label for an order whose buyer chose a carrier calculated rate at checkout? Buy a label starts on that app and picks the service they paid for, and shows what they paid." },
 
       { type: "h", text: "Common problems" },
       {

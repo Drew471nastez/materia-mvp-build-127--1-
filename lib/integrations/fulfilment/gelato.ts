@@ -21,6 +21,8 @@
  *   fetchOrder   GET  /v4/orders/{id}: fulfillmentStatus, and each item's
  *                fulfillments (trackingCode, trackingUrl, the shipment
  *                method) plus shipment.packages, as Gelato reports them.
+ *   cancel       POST /v4/orders/{id}:cancel, which Gelato allows until
+ *                the order is in production; after that it refuses.
  *   shipment     GET  shipment.gelatoapis.com/v1/shipment-methods?country=
  *     methods    the methods the seller can choose from (normal, express,
  *                a carrier's own), with whether each has tracking.
@@ -35,7 +37,8 @@
  * its Retry-After.
  */
 
-import { call, ProviderError, splitName } from "./http"
+import { call, cancelling, ProviderError, splitName } from "./http"
+import { cleanCurrency, toMinor } from "@/lib/integrations/shipping/money"
 import type { ConnectorCredential, FulfilmentConnector, ProviderOrderInput, ProviderOrderStage, ProviderOrderState, ProviderShipment } from "./types"
 
 export const GELATO_ORDER_API = "https://order.gelatoapis.com/v4"
@@ -175,6 +178,14 @@ export async function gelatoProductExists(key: string, productUid: string): Prom
   }
 }
 
+/** What Gelato charges for an order: its receipt's total with VAT (receipts[].totalInclVat, currency), or null before it has one. */
+export function gelatoCost(receipts: unknown): { cents: number; currency: string } | null {
+  const list = Array.isArray(receipts) ? (receipts as { totalInclVat?: unknown; currency?: unknown; transactionType?: unknown }[]) : []
+  const r = list.find((x) => String(x?.transactionType ?? "purchase_order").toLowerCase() !== "refund") ?? null
+  const cents = r ? toMinor(r.totalInclVat, r.currency) : null
+  return r && cents != null && cents > 0 ? { cents, currency: cleanCurrency(r.currency) } : null
+}
+
 export const gelato: FulfilmentConnector = {
   id: "gelato",
   name: NAME,
@@ -199,10 +210,15 @@ export const gelato: FulfilmentConnector = {
     })
     const had = (found?.orders ?? []).find((o) => o.orderReferenceId === order.externalId && o.id)
     if (had?.id) return { providerOrderId: String(had.id), stage: STAGE[String(had.fulfillmentStatus ?? "").toLowerCase()] ?? (had.orderType === "draft" ? "draft" : "pending") }
-    const made = await call<{ id?: string; orderType?: string; fulfillmentStatus?: string }>(NAME, `${GELATO_ORDER_API}/orders`, { method: "POST", headers: auth(cred.key), body })
+    const made = await call<{ id?: string; orderType?: string; fulfillmentStatus?: string; receipts?: unknown }>(NAME, `${GELATO_ORDER_API}/orders`, { method: "POST", headers: auth(cred.key), body })
     const id = typeof made?.id === "string" && made.id ? made.id : null
     if (!id) throw new ProviderError("Gelato took the order but did not say its number.", 502, true)
-    return { providerOrderId: id, stage: order.autoConfirm ? (STAGE[String(made?.fulfillmentStatus ?? "").toLowerCase()] ?? "pending") : "draft" }
+    return { providerOrderId: id, stage: order.autoConfirm ? (STAGE[String(made?.fulfillmentStatus ?? "").toLowerCase()] ?? "pending") : "draft", cost: gelatoCost(made?.receipts) }
+  },
+
+  async cancel(cred, providerOrderId) {
+    if (!ORDER_ID.test(providerOrderId)) return { cancelled: false, note: "Gelato: that is not a Gelato order." }
+    return cancelling(() => call(NAME, `${GELATO_ORDER_API}/orders/${providerOrderId}:cancel`, { method: "POST", headers: auth(cred.key) }))
   },
 
   async fetchOrder(cred, providerOrderId) {

@@ -52,6 +52,8 @@ const ORDER: Record<string, string> = {
   "order.note": "Added a note to order {s}",
   "order.cancel_requested": "Asked to cancel order {s}",
   "order.cancel_declined": "Kept order {s} after a cancel request",
+  "order.fulfillment_hold": "Changed the fulfillment hold on order {s}",
+  "order.partner_resent": "Sent order {s} to a fulfillment partner again",
 }
 
 export function groupOf(action: string): ActivityGroup {

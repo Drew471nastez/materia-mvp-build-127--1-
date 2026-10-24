@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils"
 import { dimensionUnitFor, fromGrams, formatSize, toGrams, toMm, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
 import { DecimalInput, Field, Notice, SelectInput, api } from "./ui"
 import { tt } from "@/lib/i18n/text"
+import { rateForPaid, type BuyerPaid } from "@/lib/integrations/shipping/types"
 
 export interface LabelView {
   id: string
@@ -69,6 +70,8 @@ interface Options {
   from: { locationId: string; name: string; line: string; address: unknown | null } | null
   to: { line: string; complete: boolean }
   labels: LabelView[]
+  /** What the buyer chose and paid for at checkout. Absent from an older server. */
+  paid?: BuyerPaid | null
 }
 
 interface Rate {
@@ -76,6 +79,7 @@ interface Rate {
   shipmentId: string
   carrier: string
   service: string
+  serviceCode: string | null
   cents: number
   currency: string
   days: number | null
@@ -168,7 +172,9 @@ export function useLabelFlow({ orderId, locationId, items, notify, enabled, onBo
     void api<Options>(`${labelPath(orderId)}${q}`).then((r) => {
       if (!live || !r.ok) return
       setOptions(r.data)
-      if (r.data.apps[0]) setProvider(r.data.apps[0].id)
+      /* The app the buyer's rate was priced by at checkout, when it is still connected, else the first. */
+      const paidApp = r.data.paid?.provider ? r.data.apps.find((a) => a.id === r.data.paid?.provider) : null
+      if (paidApp ?? r.data.apps[0]) setProvider((paidApp ?? r.data.apps[0]).id)
       const def = r.data.defaultPackageId ?? r.data.packages[0]?.id ?? ""
       setPackageId(def || CUSTOM)
       const pkg = r.data.packages.find((p) => p.id === def)
@@ -226,7 +232,8 @@ export function useLabelFlow({ orderId, locationId, items, notify, enabled, onBo
     setBusy(null)
     if (!r.ok) return setError(r.error)
     setQuote(r.data)
-    setPicked(r.data.rates[0]?.id ?? "")
+    /* The service the buyer paid for at checkout first; else the cheapest. */
+    setPicked(rateForPaid(options?.paid, r.data.provider, r.data.rates) ?? r.data.rates[0]?.id ?? "")
     if (r.data.rates.length === 0) setError(tt("No rates came back for this parcel. Check its size and weight, and the addresses."))
   }
 
@@ -337,6 +344,7 @@ export function LabelFields({ flow }: { flow: LabelFlow }) {
   if (flow.bought) return <Bought label={flow.bought} />
   if (!o.ready) return <Notice tone="amber">{tt("Labels turn on after the database update (SQL part 163).")}</Notice>
   const many = o.apps.length > 1
+  const paidRateId = flow.quote ? rateForPaid(o.paid, flow.quote.provider, flow.quote.rates) : null
   return (
     <div className="space-y-3" data-label-fields="">
       <dl className="grid gap-1.5 rounded-xl border border-[#eceef1] px-3 py-2.5 text-[13px] leading-[18px]">
@@ -348,6 +356,12 @@ export function LabelFields({ flow }: { flow: LabelFlow }) {
           <dt className="w-10 shrink-0 text-[#6b7280]">{tt("To")}</dt>
           <dd className={cn("min-w-0", o.to.complete ? "text-[#1a1a2e]" : "text-[#b54708]")}>{o.to.line}</dd>
         </div>
+        {o.paid ? (
+          <div className="flex gap-2" data-label-paid="">
+            <dt className="w-10 shrink-0 text-[#6b7280]">{tt("Paid")}</dt>
+            <dd className="min-w-0 text-[#1a1a2e]">{tt("{name} · {price}", { name: o.paid.name, price: o.paid.price })}</dd>
+          </div>
+        ) : null}
       </dl>
 
       <div className={cn("grid gap-3", many ? "sm:grid-cols-2" : "")}>
@@ -400,6 +414,7 @@ export function LabelFields({ flow }: { flow: LabelFlow }) {
         <div role="radiogroup" aria-label={tt("Rates")} className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#e5e7eb]" data-label-rates="">
           {flow.quote.rates.map((r) => {
             const on = flow.picked === r.id
+            const theirs = r.id === paidRateId
             return (
               <button
                 key={r.id}
@@ -417,7 +432,10 @@ export function LabelFields({ flow }: { flow: LabelFlow }) {
                   <span className="block truncate text-[13.5px] font-medium text-[#1a1a2e]">
                     {r.carrier} {r.service}
                   </span>
-                  <span className="block text-[12px] text-[#6b7280]">{r.days ? `${r.days} ${r.days === 1 ? tt("business day") : tt("business days")}` : tt("Delivery time not given")}</span>
+                  <span className="block text-[12px] text-[#6b7280]">
+                    {r.days ? `${r.days} ${r.days === 1 ? tt("business day") : tt("business days")}` : tt("Delivery time not given")}
+                    {theirs ? <span data-label-rate-paid="">{tt(" · the buyer's choice")}</span> : null}
+                  </span>
                 </span>
                 <span className="shrink-0 text-[14px] font-medium tabular-nums text-[#1a1a2e]">{r.price}</span>
               </button>

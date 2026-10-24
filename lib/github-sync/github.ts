@@ -140,13 +140,21 @@ function readRefusal(d: unknown, headers: Headers): { message: string; refusal: 
 
 type Transport = (url: string, init: { method: string; headers: Record<string, string>; body?: string }) => Promise<Response>
 
-let transport: Transport = (url, init) => fetch(url, { ...init, cache: "no-store" })
+/*
+ * One attempt never waits on GitHub longer than this. Without it a call that
+ * GitHub never answered held its function until Vercel's 60 s limit
+ * ("Task timed out after 60 seconds" on /api/github/webhook), and none of the
+ * time budgets after it could run.
+ */
+export const ATTEMPT_TIMEOUT_MS = 25_000
+const defaultTransport: Transport = (url, init) => fetch(url, { ...init, cache: "no-store", signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) })
+let transport: Transport = defaultTransport
 /** Waiting between retries; the suite makes it instant. */
 export const timing = { sleep: (ms: number) => new Promise<void>((r) => setTimeout(r, ms)), maxWaitMs: 20_000 }
 
 /** For tests only: answer GitHub's calls with something else. Null puts fetch back. */
 export function setGitHubTransport(t: Transport | null) {
-  transport = t ?? ((url, init) => fetch(url, { ...init, cache: "no-store" }))
+  transport = t ?? defaultTransport
 }
 
 /** Attempts per call. A 5xx, a secondary limit or a dropped connection is tried again; a 4xx is not. */
@@ -174,8 +182,10 @@ async function call<T>(
         },
         body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
       })
-    } catch {
+    } catch (e) {
       last = new GitHubError(0, "GitHub could not be reached", step)
+      /* Timed out: not tried again. A write may have landed, and a read that took this long would not fit twice. */
+      if (e instanceof Error && e.name === "TimeoutError") throw new GitHubError(0, "GitHub did not answer in time", step)
       await timing.sleep(backoff(attempt))
       continue
     }

@@ -361,7 +361,8 @@ const jobs = code("lib/physical/jobs-server.ts")
 check("webhooks only to public https addresses, the socket refusing private ones, signed", /lookup: publicLookup/.test(jobs) && /createHmac\("sha256", secret\)/.test(jobs) && /publicUrlProblem\(url\)/.test(jobs))
 check("jobs are claimed once and retried with backoff until they are dead", /commerce_claim_jobs/.test(jobs) && /backoffSeconds/.test(jobs) && /status: dead \? "dead" : "failed"/.test(jobs))
 const csv = code("app/api/physical/orders/export/route.ts")
-check("the CSV export cannot run formulas in a spreadsheet", /\^\[=\+\\-@\\t\\r\]/.test(csv))
+/* The shared guard (lib/csv/formula-guard.ts) also looks past spaces, breaks and full width signs. */
+check("the CSV export cannot run formulas in a spreadsheet", /import \{ guardFormula \} from "@\/lib\/csv\/formula-guard"/.test(csv) && /const safe = guardFormula\(s\)/.test(csv))
 
 console.log("\nThe SQL part")
 const sql = read("supabase/sql/run-now/78_physical_commerce.sql")

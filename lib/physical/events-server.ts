@@ -73,6 +73,15 @@ export async function addOrderEvent(
       console.error("[physical] ShipStation update not queued:", err instanceof Error ? err.message : err)
     }
   }
+  /* Printful, Printify, Gelato, CJ, your own system or a supplier has this order: each is told it is cancelled (jobs-server queuePartnerCancels). */
+  if (!error && e.creatorId && e.kind === "order.cancelled") {
+    try {
+      const { queuePartnerCancels } = await import("./jobs-server")
+      await queuePartnerCancels(db, e.checkoutId, e.creatorId)
+    } catch (err) {
+      console.error("[physical] partner cancels not queued:", err instanceof Error ? err.message : err)
+    }
+  }
   if (!error && e.creatorId && sellerEmailFor(e.kind, e.actor)) {
     try {
       const { queueSellerEmail } = await import("./jobs-server")

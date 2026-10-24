@@ -11,6 +11,7 @@
  * rather than cleaned up, so what is saved is always what the merchant can
  * see in the preview.
  */
+import { startsLikeFormula } from "@/lib/csv/formula-guard"
 import type { ParcelInput } from "./orders-server"
 
 /** The largest tracking CSV read, and its rows. Far above a day's parcels. */
@@ -37,9 +38,9 @@ export function parcelsOf(raw: unknown): ParcelInput[] {
   })
 }
 
-/** A cell a spreadsheet would run: = + - @ first, or a tab or return first. */
+/** A cell a spreadsheet would run (lib/csv/formula-guard.ts): = + - @ first, after spaces, breaks or their full width forms too. */
 export function looksLikeFormula(cell: string): boolean {
-  return /^[=+\-@\t\r]/.test(cell)
+  return startsLikeFormula(cell)
 }
 
 /** RFC 4180 rows: quoted cells, "" inside quotes, commas, semicolons or tabs between cells (whichever the header uses). */
