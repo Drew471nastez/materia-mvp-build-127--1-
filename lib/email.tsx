@@ -114,6 +114,11 @@ function safeName(name?: string) {
   return safeText(name || "").replace(/[<>]/g, "")
 }
 
+/** A buyer's note for the seller's email: text only, on one line as the email's facts are, at most the checkout's 1000 characters. */
+function safeNote(note: unknown): string {
+  return typeof note === "string" ? safeName(note).slice(0, 1000) : ""
+}
+
 function buildFromHeaderLocal(displayName?: string) {
   const name = safeName(displayName) || PLATFORM_BRAND_NAME
   // Extract just the email address from FROM_EMAIL if it contains angle brackets
@@ -589,6 +594,8 @@ export interface SaleExtras {
   lines?: Array<{ orderId: string; quantity?: number | null; discountCents?: number | null }>
   currency?: string | null
   country?: string | null
+  /** The buyer's note on a basket of downloads (the website's checkout, a theme's cart note), when the order row cannot hold it yet. */
+  buyerNote?: string | null
 }
 
 /** The data renderEmail("NEW_SALE" | "FIRST_SALE") reads, with what the sender needs around it. */
@@ -622,6 +629,8 @@ type SaleRow = {
   status?: string | null
   /** A physical order's checkout (commerce_checkouts), when the row came from one. */
   checkout_id?: string | null
+  /** The buyer's note on an order with nothing to ship (SQL part 285); a physical order's is its checkout's. */
+  buyer_note?: string | null
 }
 
 const whole = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null)
@@ -749,6 +758,8 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
     cardBrand: first?.card_brand ?? "",
     cardLast4: first?.card_last4 ?? "",
     occurredAt,
+    /* What the buyer wrote for the shop on an order that ships nothing; an order that ships says it with its delivery (`fulfil`, below). */
+    buyerNote: safeNote(first?.buyer_note) || safeNote(sale.buyerNote),
   }
   /* An order that ships or is picked up: where, how, who fulfils it, and its shipping (lib/notify/seller-commerce.ts). */
   const checkoutId = typeof first?.checkout_id === "string" && first.checkout_id ? first.checkout_id : null

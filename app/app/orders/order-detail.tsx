@@ -370,7 +370,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
             onInvoice={() => void run("invoice", { kind: "invoice" })}
           />
           <div className="grid min-w-0 content-start gap-4 lg:col-start-2 lg:row-span-4 lg:row-start-1">
-            {physicalOrder ? <BuyerNoteCard order={parcel} /> : null}
+            {physicalOrder ? <BuyerNoteCard order={parcel} /> : <DigitalNoteCard orderId={order.id} />}
             <CustomerCard order={order} phone={parcel?.buyerPhone ?? null} onEdit={() => setDialog("email")} onCopy={copy} />
             {physicalOrder ? <ShippingCard order={parcel} onNotice={onNotice} onEditAddress={(address, notifyBuyer) => physical.act({ action: "address", address, notifyBuyer })} /> : null}
             <DetailsCard order={order} digital={digitalLines.length > 0} timeZone={timeZone} receipt={firstReceipt ?? null} onCopy={copy} />
@@ -592,6 +592,39 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <dt className="text-[12px] font-medium text-[#6b7280]">{label}</dt>
       <dd className="mt-0.5 min-w-0 text-[13px] text-[#303036]">{children}</dd>
     </div>
+  )
+}
+
+/**
+ * What the buyer wrote for the shop on an order that ships nothing (the
+ * website's checkout, an imported theme's cart note), drawn as an order
+ * that ships draws its own (components/physical/order-panel BuyerNoteCard).
+ * It comes with the order's activity (app/api/app/orders/[id]/activity),
+ * which the row already read ahead when the finger rested on it.
+ */
+function DigitalNoteCard({ orderId }: { orderId: string }) {
+  const noteOf = (json: unknown): string | null => {
+    const note = (json as { note?: unknown } | null)?.note
+    return typeof note === "string" && note.trim() ? note : null
+  }
+  const [note, setNote] = React.useState<string | null>(() => noteOf(cachedJson(activityUrl(orderId))))
+  React.useEffect(() => {
+    let live = true
+    /* The note never changes after the sale: the answer kept or already on its way is enough (the timeline asks again after an action). */
+    void readJson(activityUrl(orderId)).then((json) => {
+      if (live && json) setNote(noteOf(json))
+    })
+    return () => {
+      live = false
+    }
+  }, [orderId])
+  if (!note) return null
+  return (
+    <section className={cn(card, "px-4 py-3.5")} data-order-notes="">
+      <h2 className="text-[13px] font-semibold text-[#1a1a2e]">{tt("Notes")}</h2>
+      <p className="mt-2 text-[12px] font-medium text-[#6b7280]">{tt("From the buyer")}</p>
+      <p className="mt-0.5 whitespace-pre-wrap break-words text-[13px] text-[#303036]">{note}</p>
+    </section>
   )
 }
 

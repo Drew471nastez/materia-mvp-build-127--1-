@@ -103,7 +103,8 @@ check("the page catches it before a theme's own submit handler, and posts with c
 /* Changed on purpose (the owner: canvas animations as on the live site): the theme is told designMode false in the canvas too, so Storelib's own scripts go by EDITING, the page drawn for the builder. */
 check("not in the builder's canvas", /if\(!EDITING\)document\.addEventListener\("click"/.test(boot) && /var EDITING=false;/.test(boot) && /var EDITING=true;/.test(shopifyBootstrap({ currency: "USD", designMode: false, inBuilder: true, shopName: "S" } as never)))
 const site = read("lib/storelib-theme/compat/site.ts")
-check("the site sends that item alone to checkout and leaves the cart as it was", /if \(buyNow\) return \{ \.\.\.checkoutHandoff\(site, asked, false[^)]*\), cart: req\.cart/.test(site) && /const buyNow = !ajax && field\(req\.body, "checkout"\) !== undefined/.test(site))
+/* Changed on purpose (round BC): the handoff also names where Back goes (backOf(req), the page Buy it now was pressed on). */
+check("the site sends that item alone to checkout and leaves the cart as it was", /if \(buyNow\) return \{ \.\.\.checkoutHandoff\(site, asked, false[^)]*, backOf\(req\)\), cart: req\.cart/.test(site) && /const buyNow = !ajax && field\(req\.body, "checkout"\) !== undefined/.test(site))
 
 console.log("\nPages between pages")
 const rules = JSON.stringify(SITE_PREFETCH_RULES)

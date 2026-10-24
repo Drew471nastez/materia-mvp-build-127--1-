@@ -94,7 +94,17 @@ export function siteIconTags(icon: string | null | undefined): string {
 export function withSiteIcon(html: string, icon: string | null | undefined): string {
   const head = html.search(/<\/head>/i)
   if (head < 0) return html
-  if (/<link\b[^>]*\brel\s*=\s*["']?[^"'>]*\bicon\b/i.test(html.slice(0, head))) return html
+  const before = html.slice(0, head)
+  if (/<link\b[^>]*\brel\s*=\s*["']?[^"'>]*\bicon\b/i.test(before)) {
+    /*
+      A theme that draws its tab icon and no home screen one (most do: Shopify
+      fills that in itself) gets the site's for a phone's home screen, so
+      "Add to Home Screen" shows the store's icon, not a picture of the page.
+    */
+    const url = fetchable(icon)
+    if (!url || /\brel\s*=\s*["']?apple-touch-icon\b/i.test(before)) return html
+    return `${before}<link rel="apple-touch-icon" sizes="${APPLE_ICON_SIZES}" href="${escapeAttr(url)}">${html.slice(head)}`
+  }
   return `${html.slice(0, head)}${siteIconTags(icon) || NO_ICON}${html.slice(head)}`
 }
 

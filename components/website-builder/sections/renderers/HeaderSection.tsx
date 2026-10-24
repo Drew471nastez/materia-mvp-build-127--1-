@@ -29,7 +29,8 @@ import { useAmountMoney, useCartMoney, useStorefront, useWord } from "../../them
 import { CartReturnsNote } from "../../theme/shop-commerce"
 import { CartOfferSavings, CartOfferSuggestions, useCartOffers } from "@/components/offers/cart-offers"
 import { lineKey } from "@/lib/website-builder/cart"
-import { cartPathFor, drawerCheckout } from "@/lib/website-builder/cart-checkout"
+import { cartPathFor, drawerCheckout, drawerCheckoutHref } from "@/lib/website-builder/cart-checkout"
+import { checkoutIntent } from "@/lib/website-builder/checkout-prefetch"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { useSiteWishlist } from "../../site-wishlist"
@@ -46,6 +47,7 @@ import {
 } from "../_shared"
 import { useStorelibPage } from "../storelib-sources"
 import { cleanMenus } from "@/lib/storelib-theme/values"
+import { newTabLink, opensNewTab, withoutNewTab } from "@/lib/website-builder/new-tab"
 import { desktopDrawerEdge, desktopMenu, drawerClosedTransform, headerBorderHere, headerMenuBlocks, headerMenuHandleOf, isMenuButton, logoFontStack as wordmarkFont, logoParts, mobileMenuStyle, searchMode, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
 import { MENU_DRAWER_MAX_WIDTH, drawerEdgeHere, menuDrawerExists } from "@/lib/website-builder/header-drawers"
 import { ProductImg, isDarkColor } from "@/components/media/missing-image"
@@ -987,9 +989,13 @@ function CartDrawerInner({
               <span className="text-[14px] opacity-70">{w("subtotal")}</span>
               <span className="text-[18px] font-semibold tabular-nums">{offers && offers.offerCents > 0 ? amounts.total : amounts.subtotal}</span>
             </div>
+            {/* Something to post: the subtotal is not what is paid yet, said as a shop's cart says it. */}
+            {lines.some((l) => l.physical) ? <p data-cart-shipping-note="" className="mt-0.5 text-[12.5px] opacity-60">{w("taxes_at_checkout")}</p> : null}
             <a
               href="/cart"
               onClick={checkOut}
+              /* The checkout fetched ahead while the finger is on the button (lib/website-builder/checkout-prefetch). */
+              {...(onEditorNavigate ? {} : checkoutIntent(() => drawerCheckoutHref(lines, shopId, cartPath)))}
               aria-busy={leaving || undefined}
               data-cart-checkout=""
               className="mt-3 flex h-11 items-center justify-center gap-2 rounded-full text-[15px] font-semibold transition-opacity"
@@ -1188,11 +1194,13 @@ function MobileDrawerInner({
    * they must share: the drawer was closing on the live site and vanishing
    * in the editor, and the report was about the editor.
    */
-  const handleLinkClick = (href: string) => (e: React.MouseEvent) => {
+  const handleLinkClick = (href: string, openInNew = false) => (e: React.MouseEvent) => {
     /* A modifier click opens somewhere else and this page stays where it is,
        so there is nothing to navigate and nothing to wait for. Only on a
-       real site: in the canvas the browser is not going anywhere. */
-    if (!onEditorNavigate && (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) {
+       real site: in the canvas the browser is not going anywhere. A link set
+       to open in a new tab is the same: its target="_blank" opens it, and
+       taking the press here to follow it in this tab ignored the setting. */
+    if (!onEditorNavigate && (openInNew || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) {
       onClose()
       return
     }
@@ -1381,7 +1389,7 @@ function MobileDrawerInner({
                         href={item.href}
                         target={item.openInNew ? "_blank" : undefined}
                         rel={item.openInNew ? "noopener noreferrer" : undefined}
-                        onClick={handleLinkClick(item.href)}
+                        onClick={handleLinkClick(item.href, item.openInNew)}
                         className="flex items-center justify-between px-5 py-4 theme-tint-hover transition-colors"
                         style={{ color: scheme.nav_link }}
                       >
@@ -1421,7 +1429,7 @@ function MobileDrawerInner({
                   href={child.href}
                   target={child.openInNew ? "_blank" : undefined}
                   rel={child.openInNew ? "noopener noreferrer" : undefined}
-                  onClick={handleLinkClick(child.href)}
+                  onClick={handleLinkClick(child.href, child.openInNew)}
                   className={cn(
                     "flex items-center justify-between px-5 py-4 theme-tint-hover transition-colors",
                     idx > 0 && "border-t border-black/10",
@@ -1463,8 +1471,8 @@ function MobileDrawerInner({
         {cta && (
           <div className="border-t border-black/10 px-5 py-4 shrink-0" style={{ background: scheme.bg }}>
             <a
-              href={cta.url}
-              onClick={handleLinkClick(cta.url)}
+              {...newTabLink(cta.url)}
+              onClick={handleLinkClick(withoutNewTab(cta.url), opensNewTab(cta.url))}
               className="flex h-12 w-full items-center justify-center px-4 text-[15px] font-semibold"
               data-sl-button="primary"
               data-button=""
@@ -2378,8 +2386,12 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     if (linkType === "page" && targetId) return `/${targetId}`
     if (linkType === "blog" && targetId) return `/blog/${targetId}`
     if (linkType === "blog_post" && targetId) return `/blog/${targetId}`
-    return url || "#"
+    /* The link picker's "Open in a new tab" is a mark on the address (lib/website-builder/new-tab.ts); opensInNew reads it, the href never carries it. */
+    return withoutNewTab(url) || "#"
   }
+  /** The link's own switch, or the picker's mark on its address. */
+  const opensInNew = (block: { settings: Record<string, unknown> }): boolean =>
+    bool(block.settings.open_in_new_tab, false) || opensNewTab(str(block.settings.url, ""))
 
   // Group nav blocks: root items + children keyed by parent id.
   const rootNavBlocks = navBlocks.filter(b => !(b.settings?.parent_id))
@@ -2423,7 +2435,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   const renderNavLinks = () => {
     if (!rootNavBlocks.length) return null
     return rootNavBlocks.map(block => {
-      const openInNew = bool(block.settings.open_in_new_tab, false)
+      const openInNew = opensInNew(block)
       const href = resolveHref(block)
       const label = str(block.settings.label)
       const kids = childrenByParent[block.id] ?? []
@@ -2577,7 +2589,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           >
             {kids.map(child => {
               const childHref = resolveHref(child)
-              const childOpenInNew = bool(child.settings.open_in_new_tab, false)
+              const childOpenInNew = opensInNew(child)
               return (
                 <a
                   key={child.id}
@@ -3419,13 +3431,13 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           id: b.id,
           label: str(b.settings.label),
           href: resolveHref(b),
-          openInNew: bool(b.settings.open_in_new_tab, false),
+          openInNew: opensInNew(b),
           children: kids.length > 0
             ? kids.map(c => ({
                 id: c.id,
                 label: str(c.settings.label),
                 href: resolveHref(c),
-                openInNew: bool(c.settings.open_in_new_tab, false),
+                openInNew: opensInNew(c),
               }))
             : undefined,
         }

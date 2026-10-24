@@ -45,9 +45,10 @@ console.log("\nWhere it lives\n")
   /* October 2026: the empty picker is a small card with the one thing to do (controls/empty-picker.tsx). */
   check("  and the builder's Create a collection", /<EmptyPicker kind="collection" \/>/.test(read("components/website-builder/editor/controls/collection-controls.tsx")) && /"\/app\/products\/collections"/.test(read("components/website-builder/editor/controls/empty-picker.tsx")) && /"Create"/.test(read("components/website-builder/editor/controls/empty-picker.tsx")))
   check("nothing links to /app/collections any more", ![read("components/app/sidebar.tsx"), read("app/app/products/products-client.tsx"), read("components/website-builder/editor/controls/collection-controls.tsx")].some((s) => /["']\/app\/collections["']/.test(s)))
+  /* Changed on purpose (round BC): Size charts is a list under Products too, beside Collections. */
   check("it is a list, not the product editor: the setup widget and the slow-load spinner treat it like one",
-    /\^\\\/app\\\/products\\\/\(\?!collections\(\\\/\|\$\)\)\[\^\/\]\+/.test(read("components/app/sidebar.tsx"))
-      && /if \(path === "\/app\/products\/collections"\) return true\s*\n\s*if \(\/\^\\\/app\\\/products\\\/\[\^\/\]\+\(\\\/\|\$\)\/\.test\(path\)\) return false/.test(read("lib/ui/app-navigation.ts")))
+    /\^\\\/app\\\/products\\\/\(\?!\(collections\|size-charts\)\(\\\/\|\$\)\)\[\^\/\]\+/.test(read("components/app/sidebar.tsx"))
+      && /if \(path === "\/app\/products\/collections" \|\| path === "\/app\/products\/size-charts"\) return true\s*\n\s*if \(\/\^\\\/app\\\/products\\\/\[\^\/\]\+\(\\\/\|\$\)\/\.test\(path\)\) return false/.test(read("lib/ui/app-navigation.ts")))
 }
 
 console.log("\nThe list lands whole\n")

@@ -36,6 +36,7 @@ import { isMissingColumn, UUID, type Db } from "./db"
 import type { CustomerRow } from "./customers"
 import { carrierTrackingUrl } from "@/lib/physical/carriers"
 import { orderPagePath } from "@/lib/physical/order-link"
+import { fromCheckout, inBookOrder, readAddressBook, type SavedAddress } from "./addresses"
 
 export interface CustomerOrderItem {
   title: string
@@ -105,8 +106,14 @@ export interface CustomerObject {
   email: string
   orders: CustomerOrder[]
   orders_count: number
-  /** Where their orders from this shop were sent, newest first, at most three. Empty for a shop with nothing to ship. */
+  /** What they typed on their profile, or "". */
+  phone?: string
+  /** Their address book, default first (./addresses.ts); until they change it, where their orders from this shop were sent. */
   addresses?: CustomerAddress[]
+  /** The one checkout fills in, or null. */
+  default_address?: CustomerAddress | null
+  /** The shop sells something that ships: the address book is offered even while it is empty. */
+  ships?: boolean
   /**
    * True only in the builder, where there is no customer: the name and email
    * are placeholders and the orders are the creator's own products
@@ -425,9 +432,28 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
 
 /* ─── Addresses ─────────────────────────────────────────────────────────── */
 
+/**
+ * One address of the customer's book (./addresses.ts), as a template reads
+ * it: the lines a parcel's label reads, and each field on its own for the
+ * form that changes it. `id` is what the form posts back; `default` is the
+ * one checkout fills in.
+ */
 export interface CustomerAddress {
   /** The address as the label on a parcel reads, one line each: name, street, city line, country. */
   lines: string[]
+  id?: string
+  default?: boolean
+  name?: string
+  company?: string
+  line1?: string
+  line2?: string
+  city?: string
+  region?: string
+  postal_code?: string
+  /** ISO code, e.g. "FR"; `country` is its name. */
+  country_code?: string
+  country?: string
+  phone?: string
 }
 
 const ADDRESSES_SHOWN = 3
@@ -447,17 +473,39 @@ export function addressLines(raw: unknown): string[] | null {
   const a = raw as Record<string, unknown>
   const t = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, 200) : "")
   const city = [t(a.city), [t(a.region), t(a.postalCode)].filter(Boolean).join(" ")].filter(Boolean).join(", ")
-  const lines = [t(a.name), t(a.line1), t(a.line2), city, countryName(a.country)].filter(Boolean)
+  const lines = [t(a.name), t(a.company), t(a.line1), t(a.line2), city, countryName(a.country)].filter(Boolean)
   return lines.length >= 2 ? lines : null
+}
+
+/** An entry of the book as the template reads it. */
+export function addressObject(a: SavedAddress): CustomerAddress {
+  return {
+    lines: addressLines(a) ?? [a.line1],
+    id: a.id,
+    default: a.default,
+    name: a.name,
+    company: a.company ?? "",
+    line1: a.line1,
+    line2: a.line2 ?? "",
+    city: a.city,
+    region: a.region ?? "",
+    postal_code: a.postalCode ?? "",
+    country_code: a.country,
+    country: countryName(a.country),
+    phone: a.phone ?? "",
+  }
 }
 
 /**
  * The addresses this customer's physical orders from THIS creator were sent
- * to, newest first, each once. Read by the same rule as the orders: the
- * creator's own checkouts, with the email this customer proved, compared
- * exactly. Before physical commerce's tables exist there are none.
+ * to, newest first, each once, as entries of a book (ids o1, o2, o3, the
+ * newest the default). Read by the same rule as the orders: the creator's
+ * own checkouts, with the email this customer proved, compared exactly.
+ * Before physical commerce's tables exist there are none. What the account
+ * shows until the customer changes their book (./addresses.ts), and what
+ * that first change starts from.
  */
-export async function customerAddresses(db: Db, scope: { creatorId: string; email: string }): Promise<CustomerAddress[]> {
+export async function orderAddresses(db: Db, scope: { creatorId: string; email: string }): Promise<SavedAddress[]> {
   if (!UUID.test(scope.creatorId) || !scope.email) return []
   try {
     const { data, error } = await db
@@ -470,20 +518,33 @@ export async function customerAddresses(db: Db, scope: { creatorId: string; emai
       .limit(25)
     if (error || !Array.isArray(data)) return []
     const seen = new Set<string>()
-    const out: CustomerAddress[] = []
+    const out: SavedAddress[] = []
     for (const row of data as { shipping_address?: unknown }[]) {
       const lines = addressLines(row.shipping_address)
       if (!lines) continue
       const key = lines.join("|").toLowerCase()
       if (seen.has(key)) continue
+      const entry = fromCheckout(row.shipping_address, out.length)
+      if (!entry) continue
       seen.add(key)
-      out.push({ lines })
+      out.push(entry)
       if (out.length >= ADDRESSES_SHOWN) break
     }
     return out
   } catch {
     return []
   }
+}
+
+/** The same, as the template reads them. */
+export async function customerAddresses(db: Db, scope: { creatorId: string; email: string }): Promise<CustomerAddress[]> {
+  return (await orderAddresses(db, scope)).map(addressObject)
+}
+
+/** The customer's book: their own once they changed it, the addresses of their orders until then. Default first. */
+export async function addressBookOf(db: Db, customer: CustomerRow): Promise<SavedAddress[]> {
+  const own = readAddressBook(customer.addresses)
+  return inBookOrder(own ?? (await orderAddresses(db, { creatorId: customer.creator_id, email: customer.email })))
 }
 
 /** How an order's button links: `orderPages`, to the order's own page on the website, for a download. */
@@ -495,6 +556,18 @@ export interface OrderLinks {
 export async function siteCustomer(db: Db, customer: CustomerRow, platform: string, opts: OrderLinks = {}): Promise<CustomerObject> {
   const name = (customer.name ?? "").trim()
   const scope = { creatorId: customer.creator_id, email: customer.email }
-  const [orders, addresses] = await Promise.all([customerOrders(db, scope, platform, opts), customerAddresses(db, scope)])
-  return { name, first_name: firstName(name), email: customer.email, orders, orders_count: orders.length, addresses, sample: false }
+  const [orders, book, ships] = await Promise.all([customerOrders(db, scope, platform, opts), addressBookOf(db, customer), shopShips(db, customer.creator_id)])
+  const addresses = book.map(addressObject)
+  return { name, first_name: firstName(name), email: customer.email, phone: (customer.phone ?? "").trim(), orders, orders_count: orders.length, addresses, default_address: addresses.find((a) => a.default) ?? null, ships, sample: false }
+}
+
+/** Whether this creator sells anything that ships (a published physical product). False when it cannot be read. */
+async function shopShips(db: Db, creatorId: string): Promise<boolean> {
+  if (!UUID.test(creatorId)) return false
+  try {
+    const { data, error } = await db.from("products").select("id").eq("creator_id", creatorId).eq("type", "physical").eq("status", "published").limit(1)
+    return !error && Array.isArray(data) && data.length > 0
+  } catch {
+    return false
+  }
 }

@@ -175,7 +175,8 @@ export function ProjectSettings({
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose()
+      /* An open list or menu inside (the registrar list in Domains) takes Escape for itself, and Radix marks it handled. */
+      if (e.key === "Escape" && !e.defaultPrevented) onClose()
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)

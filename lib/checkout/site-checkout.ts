@@ -118,6 +118,48 @@ export function cartNote(raw: unknown): string | null {
   return v || null
 }
 
+/**
+ * The buyer's note as the order keeps it: a cart note's rules with its line
+ * breaks kept (a gift message is often two lines, and the order page, the
+ * packing slip and the seller's email show them), spaces run together, and
+ * no angle brackets, as every other text a buyer types onto an order.
+ */
+export function orderNote(raw: unknown): string | null {
+  const v = cartNote(raw)
+  if (!v) return null
+  const out = v.replace(/[<>]/g, "").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim()
+  return out || null
+}
+
+/*
+ * A BASKET OF DOWNLOADS CARRIES ITS NOTE ON THE PAYMENT. Its order rows are
+ * written from the PaymentIntent's metadata (lib/checkout/fulfil-cart-session),
+ * by the page or by the webhook, so the note rides there. Stripe keeps a
+ * value to 500 characters: a note up to CART_NOTE_MAX goes in two parts, cut
+ * where no character is split in half.
+ */
+export const NOTE_METADATA_KEYS = ["buyer_note", "buyer_note_2"] as const
+const STRIPE_VALUE_MAX = 500
+
+function cutAt(s: string, max: number): number {
+  if (s.length <= max) return s.length
+  const code = s.charCodeAt(max - 1)
+  return code >= 0xd800 && code <= 0xdbff ? max - 1 : max
+}
+
+export function noteToMetadata(raw: unknown): Record<string, string> {
+  const note = orderNote(raw)
+  if (!note) return {}
+  const first = cutAt(note, STRIPE_VALUE_MAX)
+  const rest = note.slice(first)
+  return rest ? { buyer_note: note.slice(0, first), buyer_note_2: rest.slice(0, cutAt(rest, STRIPE_VALUE_MAX)) } : { buyer_note: note }
+}
+
+export function noteFromMetadata(metadata: Record<string, string | undefined> | null | undefined): string | null {
+  if (!metadata) return null
+  return orderNote(`${metadata.buyer_note ?? ""}${metadata.buyer_note_2 ?? ""}`)
+}
+
 /*
  * CART ATTRIBUTES AND LINE ITEM PROPERTIES, as an imported Shopify theme
  * sets them (/cart/update.js `attributes[Gift message]`, a product form's
@@ -198,6 +240,24 @@ export function sameSitePath(raw: unknown, siteHost: string): string | null {
   }
 }
 
+/** The checkout's own pages, the sign in and the password page: never a place Back goes to, whatever the browser came from. */
+const NOT_A_PAGE_TO_GO_BACK_TO = /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,4})?\/)?(?:checkout|account|password|receipt|cart\/(?:add|change|update|clear))(?:[/?#.]|$)/i
+
+/**
+ * WHERE BACK GOES (the owner: exactly where the buyer came from). The page
+ * the link names first: a Buy button's own page (`cancel`, the full address
+ * with its language and its options), then the path a cart or a theme names
+ * (`return`, `from`); with none, the page of this site the browser came
+ * from (a theme's plain /checkout link, a cart drawer's form). Null: the
+ * checkout's own default (the cart for a whole cart, else the home page).
+ */
+export function siteCheckoutBack(q: { get(key: string): string | null }, siteHost: string, referer: string | null | undefined): string | null {
+  const named = sameSitePath(q.get("cancel"), siteHost) ?? sitePath(q.get("return")) ?? sitePath(q.get("from")) ?? sameSitePath(q.get("return"), siteHost)
+  if (named) return named
+  const came = sameSitePath(referer, siteHost)
+  return came && !NOT_A_PAGE_TO_GO_BACK_TO.test(came) ? came : null
+}
+
 export function siteThanksHref(receiptToken: string, opts: { whole?: boolean } = {}): string {
   return `${SITE_THANKS_PATH}/${encodeURIComponent(receiptToken)}${opts.whole ? `?${WHOLE_CART_PARAM}=1` : ""}`
 }
@@ -215,6 +275,20 @@ export function siteThanksHref(receiptToken: string, opts: { whole?: boolean } =
 export interface SiteBuyer {
   email: string
   name: string | null
+  /** The default address of their address book on this website (lib/site-accounts/addresses.ts), filled in at checkout. Null when they have none. */
+  address?: SiteBuyerAddress | null
+}
+
+/** An address as the checkout's form holds it: every field a string, "" when empty. */
+export interface SiteBuyerAddress {
+  line1: string
+  line2: string
+  city: string
+  region: string
+  postalCode: string
+  country: string
+  phone: string
+  company: string
 }
 
 export type SiteGate = { kind: "open"; lockedEmail: string | null } | { kind: "sign-in" }

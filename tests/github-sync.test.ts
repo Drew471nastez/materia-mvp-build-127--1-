@@ -80,6 +80,12 @@ function main() {
   check("and logs counts, never file text or tokens", !/console\.\w+\([^)]*source/.test(hook) && !/console\.\w+\([^)]*token/i.test(hook))
   check("an uninstalled app unlinks every site it served", /event === "installation" && body\.action === "deleted"/.test(hook))
   check("a repository taken away unlinks the sites on it", /installation_repositories/.test(hook) && /repositories_removed/.test(hook))
+  /* "Task timed out after 60 seconds" on this route: the work after the answer ends on its own first, and no GitHub call waits forever. */
+  const limit = Number((hook.match(/PUSH_LIMIT_MS = ([\d_]+)/)?.[1] ?? "0").replace(/_/g, ""))
+  const maxDuration = Number(hook.match(/maxDuration = (\d+)/)?.[1] ?? 0)
+  check("the push's work stops before the function's limit", limit > 0 && limit < maxDuration * 1000 && /Promise\.race\(\[\s*applyPush\(/.test(hook), `limit ${limit}, maxDuration ${maxDuration}`)
+  const ghSource = read("lib/github-sync/github.ts")
+  check("  every GitHub call has a time limit, and one that ran out is not sent again", /signal: AbortSignal\.timeout\(ATTEMPT_TIMEOUT_MS\)/.test(ghSource) && /e\.name === "TimeoutError"\) throw/.test(ghSource))
 
   console.log("\nConnecting: the state and the proof")
 

@@ -131,6 +131,9 @@ section("The layout: everything that needs only the user, together")
     /* Round Y2: seller access is decided by lib/team/landing appLanding, after the same verified gate (tests/team-landing.test.ts). */
     /if \(!gateCheck\?\.email_verified\)[\s\S]*const landing = appLanding\([\s\S]*if \(!creator \|\| landing\.kind === "sell"\)/.test(layout))
   check("on the caller's own client only", !/createAdminClient/.test(layout))
+  /* Round 12 (PLATPERF): the setup ring's payments answer was one more trip after the second batch. */
+  const second = batchAfter(layout, /const \[\{ data: products \}/)
+  check("the setup ring's payments answer is in the second batch, not a trip after it", /providerPaymentsReady\(creator\.id/.test(second) && !/await providerPaymentsReady/.test(layout))
 }
 
 section("Home: three trips, and its title shares them")

@@ -110,7 +110,7 @@ export async function productDelivery(db: Db, creatorId: string, productId: stri
         locations,
         shipsItself: (p.fulfillment_method ?? "self") === "self",
       })
-      if (promise.shipping) ship = { country, priceCents: promise.shipping.priceCents, estimate: promise.shipping.estimate ?? "", freeFromCents: promise.freeOverCents }
+      if (promise.shipping) ship = { country, priceCents: promise.shipping.priceCents, estimate: promise.shipping.estimate ?? "", freeFromCents: promise.freeOverCents, minDays: promise.shipping.minDays ?? null, maxDays: promise.shipping.maxDays ?? null }
       local = promise.localDelivery
     }
 

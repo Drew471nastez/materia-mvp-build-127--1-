@@ -42,7 +42,7 @@ import { randomBytes } from "node:crypto"
 import { unpackItems, packedTotalCents, apportionFee, lineTotalCents, type PackedItem } from "./cart-items"
 import { cartLineFollowups, fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledLine } from "./fulfil-cart-item"
 import { beginFollowups, resumeFollowups, type FollowupKind, type Followups } from "./followups"
-import { recordCouponUse } from "./coupons"
+import { isMissingColumn, recordCouponUse } from "./coupons"
 import { ORIGIN_METADATA_KEY, decodeOrigin, orderOriginFrom } from "@/lib/orders/order-source"
 import { attributionFromMetadata } from "@/lib/attribution/server"
 import { paymentFacts, recordSale, sameSecret } from "./fulfil-payment"
@@ -53,6 +53,7 @@ import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { SALE_HOLDER_KEY } from "./sales-limit"
 import { SOLD_OUT_REASON, refundOverLimit } from "./sold-out-refund"
 import { verifiedAccountForEmail } from "@/lib/orders/attach-guest-orders"
+import { noteFromMetadata } from "./site-checkout"
 
 type Db = FulfilContext["admin"]
 
@@ -267,6 +268,8 @@ export async function fulfilCartPayment(
     couponHolder: metadata.coupon_holder || null,
     couponCode: metadata.coupon_code || null,
     business: businessFromMetadata(metadata),
+    /* The buyer's note, as the website's checkout put it on the payment (lib/checkout/site-checkout noteToMetadata). */
+    buyerNote: noteFromMetadata(metadata),
     /* Only when the store showed the box and the buyer ticked it: the route writes "true" for nothing else. */
     consent: metadata.email_opt_in === "true" ? "ticked" : "none",
     /* The website's own address (app/api/checkout/site wrote the request's host, a website of this shop), so the emailed receipt opens there. */
@@ -295,6 +298,8 @@ async function writeBasket(
     couponHolder: string | null
     couponCode?: string | null
     business?: BusinessDetails | null
+    /** What the buyer wrote for the shop (the website's checkout): kept on every line of the order. */
+    buyerNote?: string | null
     /** "ticked": the buyer ticked the news box on a checkout that has one (app/checkout/site). Stripe's own page has none. */
     consent?: "ticked" | "none"
     /** Where the buyer's receipt link points: the website the checkout was on, when it was one. The seller's links stay on Storelib. */
@@ -349,6 +354,7 @@ async function writeBasket(
       couponHolder: s.couponHolder,
       couponCode: s.couponCode ?? null,
       business: s.business ?? null,
+      buyerNote: s.buyerNote ?? null,
       consent: s.consent ?? "none",
       buyerBaseUrl: s.buyerBaseUrl ?? null,
       buyerLang: s.buyerLang ?? null,
@@ -425,6 +431,8 @@ export async function fulfilFreeCart(
     saleHolder?: string | null
     /** The store's own currency (lib/store/selling-currency): a free order is still written in it. */
     currency?: string | null
+    /** What the buyer wrote for the shop at the website's checkout. */
+    buyerNote?: string | null
   },
 ): Promise<{ ok: true; receiptToken: string; sessionFingerprint: string; complete: boolean } | { ok: false }> {
   const sessionId = `free_${randomBytes(18).toString("base64url")}`
@@ -470,6 +478,7 @@ export async function fulfilFreeCart(
     couponId: b.couponId,
     couponHolder: b.couponHolder,
     consent: b.consent ?? "none",
+    buyerNote: b.buyerNote ?? null,
   })
   if (!written.receiptToken) return { ok: false }
   return { ok: true, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete }
@@ -494,6 +503,7 @@ async function sideEffects(
     couponHolder: string | null
     couponCode: string | null
     business: BusinessDetails | null
+    buyerNote?: string | null
     consent?: "ticked" | "none"
     buyerBaseUrl?: string | null
     buyerLang?: string | null
@@ -518,6 +528,21 @@ async function sideEffects(
       await l.f.idempotent("business details", async () => {
         const { error } = await admin.from("orders").update({ business_details: business }).eq("id", l.orderId)
         if (error) throw new Error(`${error.code ?? ""} ${error.message ?? ""}`.trim())
+      })
+    }
+  }
+  /*
+    THE BUYER'S NOTE on every line this caller wrote, for the order page and
+    the seller's email below (SQL part 285). A database
+    without the column refuses this write alone and says nothing: the
+    seller's email still carries the note (sale.buyerNote).
+  */
+  const buyerNote = s.buyerNote
+  if (buyerNote) {
+    for (const l of s.created) {
+      await l.f.idempotent("buyer note", async () => {
+        const { error } = await admin.from("orders").update({ buyer_note: buyerNote }).eq("id", l.orderId)
+        if (error && !isMissingColumn(error, "buyer_note")) throw new Error(`${error.code ?? ""} ${error.message ?? ""}`.trim())
       })
     }
   }
@@ -629,7 +654,7 @@ async function sideEffects(
         amountCents: line.amountCents,
         feeCents: 0,
         baseUrl: s.baseUrl,
-        sale: { couponCode: s.couponCode, lines: saleLines },
+        sale: { couponCode: s.couponCode, lines: saleLines, buyerNote: s.buyerNote ?? null },
       }),
     )
   }

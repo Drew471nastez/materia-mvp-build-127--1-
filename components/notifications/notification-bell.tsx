@@ -393,18 +393,24 @@ export function NotificationBell({ className, sheetMin, tabBadge = false }: {
       if (timer) window.clearTimeout(timer)
       timer = window.setTimeout(() => void loadFirst(filterRef.current), 400)
     }
+    /* Round BC: a message's row is one per conversation and is raised again in place (lib/notifications/dm-notify-shared.ts), an UPDATE, not an INSERT: the count is asked again rather than guessed. */
+    const raised = (payload: { new?: { read_at?: string | null } }) => {
+      if (!payload.new || payload.new.read_at) return
+      if (timer) window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        void refreshCount()
+        if (openRef.current || hasItemsRef.current) void loadFirst(filterRef.current)
+      }, 400)
+    }
     void (async () => {
       try {
         supabase = createClient()
         await realtimeAuth(supabase)
         if (gone) return
         for (const table of ["user_notifications", "community_notifications"]) {
-          channels.push(
-            supabase
-              .channel(`bell:${table}:${userId}`)
-              .on("postgres_changes", { event: "INSERT", schema: "public", table, filter: `user_id=eq.${userId}` }, arrived)
-              .subscribe(),
-          )
+          const channel = supabase.channel(`bell:${table}:${userId}`).on("postgres_changes", { event: "INSERT", schema: "public", table, filter: `user_id=eq.${userId}` }, arrived)
+          if (table === "user_notifications") channel.on("postgres_changes", { event: "UPDATE", schema: "public", table, filter: `user_id=eq.${userId}` }, raised)
+          channels.push(channel.subscribe())
         }
       } catch {
         /* No realtime: the count is read when the tab comes back. */
@@ -415,7 +421,7 @@ export function NotificationBell({ className, sheetMin, tabBadge = false }: {
       if (timer) window.clearTimeout(timer)
       if (supabase) for (const ch of channels) supabase.removeChannel(ch)
     }
-  }, [userId, active, loadFirst])
+  }, [userId, active, loadFirst, refreshCount])
 
   /*
     Built while the page is idle, once somebody is signed in, and only for a

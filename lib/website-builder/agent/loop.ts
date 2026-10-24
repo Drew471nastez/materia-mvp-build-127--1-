@@ -63,6 +63,9 @@ import { describeFindings, reviewSections } from "./review"
 import { blockCatalogFor, nameOf as typeName, schemaMapFor, schemaOf, type SchemaMap } from "./schemas"
 import { ASK_TOOL, questionText, readAsk } from "./ask"
 import { applySourceEdits } from "./code-edits"
+import { lenientSettings, repairArguments } from "./lenient-json"
+import { readSelection, selectedShapeOf, selectionGuidance } from "./selection-intent"
+import { TASK_TOOL, openTasksNote, readTaskDone, splitTasks, taskGuidance, taskStepId, taskStepLabel, tasksForCreator } from "./task-list"
 import { describeRecent, lastQuestion, type RecentMessage } from "./memory"
 import { PROGRESS_LABELS, ProgressTrail, progress, savingLabel, writingLabel, type ProgressEvent } from "./progress"
 import { describeQuality, pageAgentRules } from "@/lib/storelib-ai"
@@ -72,7 +75,8 @@ import { sectionAdvice } from "@/lib/storelib-ai/integration"
 import type { QualityFinding } from "@/lib/storelib-ai/quality"
 import { skillContext } from "@/lib/agent-skills"
 import type { AgentQuestion } from "@/lib/sites/agent/questions"
-import { failureKind, plainRunError } from "@/lib/sites/agent/plain-errors"
+import { failureKind, isContextOverflow, plainRunError } from "@/lib/sites/agent/plain-errors"
+import { THEME_TRANSCRIPT_BUDGET, shortenTurns, transcriptSize } from "./run-repair"
 import { COMPILE_CHECK_LABEL, fileLabel, toolStepLabel, type StepNames } from "./step-labels"
 import { MAX_CODE_ATTEMPTS, checkSectionSource, outOfAttempts } from "./compile-feedback"
 import { importedSourceProblem, isImportedTheme } from "./imported-write"
@@ -209,7 +213,7 @@ export type ThemeAgentEvent =
    * time limit. "budget": the chat offers Continue, because the cost ceiling
    * is the creator's to pass.
    */
-  | { type: "continue"; reason: "budget" | "turns" }
+  | { type: "continue"; reason: "budget" | "turns" | "interrupted" }
   /**
    * WHERE THE RUN IS: reading, products, planning, writing <section>,
    * checking, saving, done. One headline at a time, documented with the
@@ -259,7 +263,7 @@ export interface ThemeAgentResult {
   /** Other pages of the site written as drafts in this run (build_page). */
   pages?: { key: string; title: string; created: boolean }[]
   /** The run ended at a ceiling rather than by finishing (./limits.ts): its work is kept and it can be continued. */
-  stopped?: "budget" | "turns" | null
+  stopped?: "budget" | "turns" | "interrupted" | null
 }
 
 /** A finding from the browser check (./visual-check.ts), as the loop needs it. Kept here so the loop never imports a server-only module. */
@@ -274,6 +278,12 @@ export interface VisualCheckReport {
 
 /** One line of the run's structured log: what happened, never what the model thought. */
 export type TraceEntry = { at: number; kind: string } & Record<string, unknown>
+
+/*
+  HOW A STORELIB SECTION IS MADE, said in the turn of a run that may write one (a build, a redesign, behaviour, Code a
+  section, a new section beside the open one) rather than in the system prompt every edit pays for.
+*/
+export const SECTION_CRAFT = `A SECTION YOU WRITE IS A STORELIB SECTION: <template>, <style> scoped to it, a <script> only where CSS cannot do it, and a <schema> with a preset that arrives finished. Colour through its color_scheme setting and var(--s-*), type through the theme's fonts and type scale, spacing through padding settings on the values the page already uses, repeated content as blocks, and products, collections and menus read live (products, collections, a link_list), never typed. Its settings stay clean: only what a creator would change, grouped under header entries (Content, Layout, Style), each with a plain label and a sensible default; nothing duplicated, nothing the template does not read, and setting ids that never change once used.`
 
 const SYSTEM_PROMPT = `You edit a website in a visual theme editor. The page is a list of SECTIONS, each with settings defined by a schema, and each KIND of section is a file you can read and rewrite: its markup, its CSS, its script and that schema. You change the page by calling tools.
 
@@ -700,7 +710,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
           {
             name: "remember",
             description:
-              "Keep one decision or preference for later messages: something the creator said they want or do not want (\"no gradients\", \"prices in euros\", \"the events part is the main thing\"). Not for what you changed; that is kept anyway." +
+              "Keep one decision or preference for later messages: something the creator said they want or do not want (\"no gradients\", \"prices in euros\", \"the events part is the main thing\"), a fact about their brand you learned (its colours, fonts, tone, audience, what it sells), or a design direction they approved. Call it without being asked whenever you learn one, in the same turn as your work. Not for what you changed; that is kept anyway." +
               (opts.everywhere
                 ? ' scope "everywhere" is for what is true of the creator on every website (their brand, currency, tone, a style they always want or never want), and only when they said so or asked you to remember it; "website" (the default) is for this site.'
                 : ""),
@@ -1085,7 +1095,9 @@ export async function* themeAgent(
   const limits = input.limits ?? AGENT_LIMITS
   const maxTurns = Math.min(input.maxTurns ?? MAX_TURNS, limits.maxTurns)
   /** Which ceiling ended this part of the work, if one did. */
-  let stopped: "budget" | "turns" | null = null
+  let stopped: "budget" | "turns" | "interrupted" | null = null
+  /** The provider failed part way through, for a reason a moment's wait can fix: see the catch at the end of the loop. */
+  let interrupted = false
   /** The model has been told a ceiling is close, once. */
   let warnedCeiling = false
   /** Output room per turn: the ceiling's, raised to the retry size once a turn of this run was cut off. */
@@ -1391,6 +1403,25 @@ export async function* themeAgent(
   if (codeBrief) trace("theme-brief", { version: codeBrief.version, chars: codeBrief.text.length, ...themeBriefStats() })
   if (follow) trace("follow-up", { section: follow.id, scoped: follow.scoped })
 
+  /*
+    WHETHER THE REQUEST IS ABOUT THE OPEN SECTION AT ALL (./selection-intent.ts): "add a pricing section below this"
+    with the hero open is a new section, "turn this into a FAQ" a replacement. Not under the lock, Code a section or a
+    follow up, which each already say what the subject is.
+  */
+  const blockTypesOf = (type: string) => (schemaOf(schemas, type)?.blocks ?? []).map((b) => String((b as { type?: unknown }).type ?? "")).filter(Boolean)
+  const selectionRead = selected && !follow && !locked && !input.codeFocus ? (() => {
+    const shape = selectedShapeOf(state.sections, selected.id, blockTypesOf)
+    return shape ? readSelection(prompt, shape) : null
+  })() : null
+  if (selectionRead) trace("selection", { aim: selectionRead.aim, reason: selectionRead.reason, index: selectionRead.index ?? null })
+
+  /* SEVERAL PARTS, DONE IN ORDER (./task-list.ts). Not for a question, and not beside a creative plan, which has its own order. */
+  const tasks = intent?.kind === "QUESTION" || plan ? [] : splitTasks(prompt)
+  const tasksDone = new Set<number>()
+  let taskNudges = 0
+  const openTasks = () => tasks.map((_, i) => i + 1).filter((n) => !tasksDone.has(n))
+  if (tasks.length) trace("tasks", { n: tasks.length })
+
   const turns: AgentTurn[] = [
     {
       role: "user",
@@ -1426,7 +1457,11 @@ export async function* themeAgent(
           : selected && locked
           ? `THE CREATOR HAS THIS SECTION OPEN AND LOCKED. It is the ONLY thing you may change: its settings, its blocks, its name, its code. You may READ anything else on the page to match it, but every write to another section, and every change to the theme, will be refused. If what they asked for genuinely needs more than this section, do what you can here and say plainly what the rest would take.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
           : selected
-            ? `THE CREATOR HAS THIS SECTION SELECTED AND OPEN. "this section", "this", "it" and "here" all mean THIS one unless they clearly name another. A change they ask for is a change to THIS section, not a new section.\n\n${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`
+            ? selectionGuidance(
+                selectionRead ?? { aim: "edit", reason: "" },
+                selectedShapeOf(state.sections, selected.id, blockTypesOf) ?? { id: selected.id, type: selected.type, name: selected.name ?? selected.type, position: 0, total: 0 },
+                `${describeSection(selected, schemas)}${selectedContext ? `\n\n${describeSelectedCode(selectedContext)}` : ""}`,
+              )
             : "",
         selected && input.codeFocus
           ? attachSource
@@ -1461,6 +1496,8 @@ export async function* themeAgent(
           ? wholeSiteGuidance(plan?.archetype ?? matchArchetypes(`${prompt}\n${store ? describeStore(store) : ""}`, 1)[0]?.id ?? null, page)
           : "",
         plan && applied ? describeApplied(applied, plan, schemas) : "",
+        tasks.length ? taskGuidance(tasks) : "",
+        input.code && (bigIntent || input.ambitious || input.codeFocus || intent?.rebuild || intent?.kind === "SECTION_REDESIGN" || intent?.kind === "FUNCTIONAL_CHANGE" || selectionRead?.aim === "new" || selectionRead?.aim === "replace") ? SECTION_CRAFT : "",
         `REQUEST\n${prompt}`,
       ]
         .filter(Boolean)
@@ -1477,11 +1514,36 @@ export async function* themeAgent(
     under a run that edited the theme's settings schema (update_theme names
     its ids), breaking both. The new ids go back in that edit's result.
   */
+  /** How many times this run has shortened its conversation because the provider said it no longer fit. */
+  let overflowRepairs = 0
+  /**
+   * The conversation's old results taken out (./run-repair.ts). What was read
+   * is forgotten with them, so the next read of a section is answered with
+   * the section rather than with "already read".
+   */
+  const shorten = (why: "size" | "overflow"): number => {
+    const { turns: shorter, saved } = shortenTurns(turns)
+    if (saved <= 0) return 0
+    turns.splice(0, turns.length, ...shorter)
+    reads.clear()
+    trace("shortened", { why, saved })
+    return saved
+  }
+
   const runTools = toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, forget: forgettable, pages: !!input.pages && !locked && !input.codeFocus, settingsSchema: !!input.code?.readSettingsSchema && !locked, themeGroups: themeGroupsNow() })
+  /* Several parts: the tool that ticks one off (./task-list.ts), added once, so the list is still the same every turn. */
+  if (tasks.length) runTools.push(TASK_TOOL)
 
   /** SELF_CHECK has been asked for, once, and the step that says so while the model answers it. */
   let selfChecked = false
   let checkingStep: { id: string; label: string } | null = null
+
+  /* The parts, shown as the plan from the start, and the first one as the step in hand. */
+  if (tasks.length) {
+    plannedYet = true
+    yield { type: "plan", text: tasksForCreator(tasks) }
+    yield { type: "step", id: taskStepId(1), label: taskStepLabel(1, tasks.length, tasks[0]), state: "running" }
+  }
 
   try {
     for (let attempt = 1; ; attempt++) {
@@ -1500,23 +1562,36 @@ export async function* themeAgent(
 
       if (attempt === 1) yield progress("planning", PROGRESS_LABELS.planning)
 
-      const turn = await completeOnce(provider, {
-        model,
-        system: SYSTEM_PROMPT,
-        turns: [...turns],
-        tools: runTools,
-        /*
-          ROOM TO WRITE. A filled section is a lot of copy, a new section file
-          more, and thinking counts against the same cap. Output is billed for
-          what is written, not for the room, so the cap is the model's
-          working size (./limits.ts) and a turn that still reaches it is
-          asked for again with more (`length` below).
-        */
-        maxOutputTokens: outputCap,
-        cacheKey: input.cacheKey,
-        effort: input.effort,
-        signal,
-      })
+      /* Past its size the conversation's old results go before the provider has to refuse it (./run-repair.ts). */
+      if (transcriptSize(turns) > THEME_TRANSCRIPT_BUDGET) shorten("size")
+
+      let turn: ProviderTurn
+      try {
+        turn = await completeOnce(provider, {
+          model,
+          system: SYSTEM_PROMPT,
+          turns: [...turns],
+          tools: runTools,
+          /*
+            ROOM TO WRITE. A filled section is a lot of copy, a new section file
+            more, and thinking counts against the same cap. Output is billed for
+            what is written, not for the room, so the cap is the model's
+            working size (./limits.ts) and a turn that still reaches it is
+            asked for again with more (`length` below).
+          */
+          maxOutputTokens: outputCap,
+          cacheKey: input.cacheKey,
+          effort: input.effort,
+          signal,
+        })
+      } catch (thrown) {
+        /* Too long for the model: shortened and asked again, twice at most, rather than ending a run that was working. */
+        if (isContextOverflow(thrown) && overflowRepairs < 2 && !signal?.aborted && shorten("overflow") > 0) {
+          overflowRepairs++
+          continue
+        }
+        throw thrown
+      }
 
       // Accumulated FIRST: a turn that then throws still cost money.
       usage = addUsage(usage, turn.usage)
@@ -1553,6 +1628,13 @@ export async function* themeAgent(
 
       turns.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls, raw: turn.raw })
 
+      /* A part still open is said, and the run carries on with it, twice at most (./task-list.ts). */
+      if (turn.toolCalls.length === 0 && openTasks().length && taskNudges < 2 && attempt < maxTurns - 1 && !signal?.aborted) {
+        taskNudges++
+        trace("tasks-open", { open: openTasks() })
+        turns.push({ role: "user", content: openTasksNote(tasks, openTasks()) })
+        continue
+      }
       if (turn.toolCalls.length === 0) {
         /**
          * =====================================================================
@@ -1723,6 +1805,28 @@ export async function* themeAgent(
 
       const results: Array<{ id: string; output: string }> = []
       for (const call of turn.toolCalls) {
+        /* Almost JSON is read as JSON (./lenient-json.ts); what cannot be read still reaches the tool, which says so. */
+        const readable = repairArguments(call.argumentsJson)
+        if (readable !== null && readable !== call.argumentsJson) {
+          trace("args-repaired", { tool: call.name })
+          call.argumentsJson = readable
+        }
+        /* A part finished: ticked, and the next one becomes the step in hand. No step of its own. */
+        if (call.name === "task_done" && tasks.length) {
+          const n = readTaskDone(call.argumentsJson, tasks.length)
+          if (n === null) {
+            results.push({ id: call.id, output: `Send the part's number, 1 to ${tasks.length}.` })
+            continue
+          }
+          if (!tasksDone.has(n)) {
+            tasksDone.add(n)
+            yield { type: "step", id: taskStepId(n), label: taskStepLabel(n, tasks.length, tasks[n - 1]), state: "done" }
+          }
+          const next = openTasks()[0]
+          if (next) yield { type: "step", id: taskStepId(next), label: taskStepLabel(next, tasks.length, tasks[next - 1]), state: "running" }
+          results.push({ id: call.id, output: next ? `Part ${n} is done. Now part ${next}: ${tasks[next - 1]}` : "Every part is done. Reply with your closing sentence naming each part you did." })
+          continue
+        }
         /**
          * ANNOUNCED BEFORE IT RUNS, and named against the page as it stands
          * now — after the call, a section it removed no longer has a name to
@@ -2048,7 +2152,8 @@ export async function* themeAgent(
           const kept = applied.ok ? await code.writeSettingsSchema(applied.source) : null
           if (applied.ok === false || !kept || kept.ok === false) {
             const why = applied.ok === false ? applied.error : kept && kept.ok === false ? kept.error : "It could not be kept."
-            results.push({ id: call.id, output: `Nothing was saved. ${why}` })
+            const near = applied.ok === false && applied.near ? `\n\nThe closest lines in the settings schema as it is now:\n${applied.near}` : ""
+            results.push({ id: call.id, output: `Nothing was saved. ${why}${near}` })
             yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
             continue
           }
@@ -2379,6 +2484,14 @@ export async function* themeAgent(
       thrown instanceof Error && thrown.name === "AbortError"
         ? "Cancelled."
         : plainRunError(thrown, "theme agent loop", "The edit failed. Try again.")
+    /*
+      INTERRUPTED, NOT FINISHED. The provider failing on turn twelve of a build used to end the build where it stood,
+      with a summary that read like the work was done. A failure that waiting can fix (busy, the network, a slow turn,
+      a refused request) with work already on the page is a pause: the reply says so and the chat sends the next part
+      by itself (`continue` below, components/website-builder/theme-chat.tsx). Billing and a missing key are not.
+    */
+    const kind = failureKind(thrown)
+    if (kind && kind !== "unavailable" && !signal?.aborted && !stopped) interrupted = true
   }
 
   /**
@@ -2514,6 +2627,7 @@ export async function* themeAgent(
     the turn guard, with a Continue button after the cost ceiling.
   */
   const workDone = ops.length > 0 || wroteCode || pagesWritten.length > 0
+  if (interrupted && workDone && status === "succeeded") stopped = "interrupted"
   if (stopped && status === "succeeded" && !asked && (workDone || stopped === "budget")) {
     message = `${message ? `${message} ` : ""}${stoppedSentence(workDone, stopped)}`
     yield { type: "continue", reason: stopped }
@@ -2578,34 +2692,38 @@ export const OPEN_SOURCE_MAX = 24_000
 const ATTACHED = "\u0000attached"
 
 /**
- * ONE MODEL CALL, WITH ONE SECOND CHANCE WHEN THE PROVIDER WAS ONLY BUSY.
+ * ONE MODEL CALL, WITH A SECOND (AND THIRD) CHANCE WHEN THE PROVIDER WAS ONLY BUSY.
  *
  * The SDK already retries a 429 or a dropped connection on its own, quickly.
  * A run that has done ten steps of real work and then meets a busy provider
- * on its eleventh is worth one more patient try before the creator is told
+ * on its eleventh is worth more patient tries before the creator is told
  * anything: a short wait, then the same request. Anything else (a timeout,
  * billing, a cancel) is not retried, because waiting will not change it.
  */
 export const BUSY_RETRY_MS = 1_500
 
+/* Two more patient tries, the second after a longer wait: a provider busy for three seconds no longer ends a build. */
+export const BUSY_RETRIES = 2
+
 async function completeOnce(provider: AgentProvider, request: ProviderRequest): Promise<ProviderTurn> {
-  try {
-    return await provider.complete(request)
-  } catch (thrown) {
-    const kind = failureKind(thrown)
-    if ((kind !== "busy" && kind !== "network") || request.signal?.aborted) throw thrown
-    await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(resolve, BUSY_RETRY_MS)
-      request.signal?.addEventListener(
-        "abort",
-        () => {
-          clearTimeout(timer)
-          reject(new DOMException("Aborted", "AbortError"))
-        },
-        { once: true },
-      )
-    })
-    return await provider.complete(request)
+  for (let tries = 0; ; tries++) {
+    try {
+      return await provider.complete(request)
+    } catch (thrown) {
+      const kind = failureKind(thrown)
+      if ((kind !== "busy" && kind !== "network") || request.signal?.aborted || tries >= BUSY_RETRIES) throw thrown
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(resolve, BUSY_RETRY_MS * (tries + 1))
+        request.signal?.addEventListener(
+          "abort",
+          () => {
+            clearTimeout(timer)
+            reject(new DOMException("Aborted", "AbortError"))
+          },
+          { once: true },
+        )
+      })
+    }
   }
 }
 
@@ -2856,12 +2974,31 @@ function prepareCodeWrite(
   }
   if (name === "edit_section_code") {
     const applied = applySourceEdits(before, args.edits)
-    if (applied.ok === false) return { ok: false, output: `Nothing was saved. ${applied.error}` }
+    if (applied.ok === false) return { ok: false, output: editRefusal(sectionType, before, applied.error, applied.near) }
     return { ok: true, source: applied.source, before }
   }
   const source = typeof args.source === "string" ? args.source : ""
   if (!source.trim()) return { ok: false, output: "Send the whole file in `source`, or use edit_section_code for a change to part of it." }
   return { ok: true, source, before }
+}
+
+/*
+  A REFUSED EDIT CARRIES WHAT IT NEEDS TO BE SENT AGAIN. It used to say only
+  that the text was not there, so the next turn read the file again, guessed
+  again, and a section that needed one change could spend its three tries and
+  end in "Edit failed". Now the lines nearest to what was looked for come back
+  with the refusal, and a small file comes back whole with the offer to send
+  it entire with write_section_code: the repair is in the same turn's result.
+*/
+export const WHOLE_FILE_ON_MISS = 9_000
+
+export function editRefusal(sectionType: string, current: string, error: string, near?: string): string {
+  const path = `sections/${sectionType}.storelib`
+  if (/already in the file/.test(error)) return error
+  if (current.length <= WHOLE_FILE_ON_MISS) {
+    return `Nothing was saved. ${error}\n\n${path} as it is now, whole (send the edit again against these exact lines, or send the whole file with write_section_code):\n\n${current}`
+  }
+  return `Nothing was saved. ${error}${near ? `\n\nThe closest lines in ${path} as it is now:\n${near}` : ""}\n\nSend the edit again with a find copied from these lines, or read_section_code for the rest of the file.`
 }
 
 /**
@@ -3499,15 +3636,7 @@ function notFound(id: string, state: ThemeState): string {
  * A string is legal, carries JSON's types intact — numbers stay numbers,
  * booleans stay booleans — and costs one parse.
  */
+/* Read leniently (./lenient-json.ts): a fence, a trailing comma or an object for a string is not a refused change. */
 function parseSettings(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== "string") return null
-  const text = value.trim()
-  if (!text) return {}
-  try {
-    const parsed = JSON.parse(text)
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null
-    return parsed as Record<string, unknown>
-  } catch {
-    return null
-  }
+  return lenientSettings(value)
 }

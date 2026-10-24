@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
-import { returnPathOf } from "@/lib/site-accounts/hosts"
+import { returnPathOf, siteOwnerOfHost } from "@/lib/site-accounts/hosts"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { inLang, siteLangRoot } from "@/lib/site-accounts/lang"
 import { cookieFrom, hostOf, pendingCookie, pendingCookieName, pendingFrom } from "@/lib/site-accounts/session"
 import { originOf, privateResponse } from "@/lib/site-accounts/respond"
 
@@ -28,7 +30,10 @@ export async function GET(request: Request) {
   const note = pendingFrom(cookieFrom(request, pendingCookieName(host)), host)
   const asked = new URL(request.url).searchParams.get("return")
   const path = returnPathOf(asked ?? note?.r)
-  const to = new URL("/account/login", originOf(host))
+  /* In the language the sign in began in: the note's, else the one the link names (?lang=fr, checked against the website's languages). */
+  const owner = note ? null : await siteOwnerOfHost(createAdminClient(), host).catch(() => null)
+  const root = note?.l ?? (await siteLangRoot(owner?.creatorId, new URL(request.url).searchParams.get("lang")))
+  const to = new URL(inLang(root, "/account/login"), originOf(host))
   to.searchParams.set("step", "email")
   if (path !== "/account") to.searchParams.set("return", path)
   const res = NextResponse.redirect(to, 303)

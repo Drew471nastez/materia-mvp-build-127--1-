@@ -76,7 +76,8 @@ check("no map: the order as it was", localizeQuote(quote, null) === quote)
 
 console.log("\nWired through the checkout")
 const page = read("app/checkout/site/page.tsx")
-check("the page reads the language from the page the visitor came from, or their choice", /checkoutLanguage\(site\.creatorId, params\.back \?\? q\.get\("return"\)/.test(page) && /jar\.get\("sl_lang"\)/.test(page))
+/* Changed on purpose (round BC): the page it came from is Back as worked out once (siteCheckoutBack, with the Referer). */
+check("the page reads the language from the page the visitor came from, or their choice", /checkoutLanguage\(site\.creatorId, back \?\? q\.get\("return"\)/.test(page) && /const back = siteCheckoutBack\(q, site\.host, h\.get\("referer"\)\)/.test(page) && /jar\.get\("sl_lang"\)/.test(page))
 check("  and hands the words to the checkout and its problems", (page.match(/<CheckoutWords lang=\{language\.lang\} words=\{language\.words\}>/g) ?? []).length === 2)
 check("  the first frame's order translated", /initialQuote=\{answer\?\.ok \? localizeQuote\(answer\.quote, language\.map\) : null\}/.test(page))
 check("the route translates every quote after it", /localizeQuote\(answer\.quote, language\.map\)/.test(read("app/api/checkout/site/route.ts")) && /lang: pageLang \?\? null/.test(read("app/checkout/site/site-checkout.tsx")))

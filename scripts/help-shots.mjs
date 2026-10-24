@@ -133,6 +133,11 @@ const SHOTS = [
   { name: "product-inventory", view: "product", width: 820, clip: cards("Inventory") },
   { name: "product-variants", phone: true, view: "product", width: 820, clip: cards("Variants") },
   { name: "product-shipping", view: "product", width: 820, clip: cards("Shipping") },
+  /* Size charts: the product editor's card with a chart chosen, and the chart open in its editor. */
+  { name: "product-size-chart", phone: true, view: "product", q: "sizes=1", width: 820, clip: cards("Size chart") },
+  /* What a buyer sees: Size guide beside the size on a Storelib theme's product page, and the chart it opens, in inches. */
+  { name: "size-guide-buyer", phone: true, view: "size-guide", width: 1100, height: 760, act: [press("Size guide", 0, 900), press("in", 0, 400)], clip: viewport(760) },
+  { name: "size-chart-editor", phone: true, view: "product", q: "sizes=1", width: 1000, height: 1300, act: [press("Edit chart", 0, 1400)], clip: (p) => p.evaluate(() => window.__dialog()) },
   /* Who ships the product: its own card, or (since the editor follows the store's answer) the Fulfilment part of Advanced with its own answer turned on. */
   {
     name: "product-fulfillment", view: "product", width: 820,

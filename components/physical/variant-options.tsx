@@ -29,7 +29,9 @@
  *   add          Enter, a comma, or leaving the last field adds what is in it
  *
  * Colours get a small swatch beside their name when the word is one the
- * product page also draws as a swatch.
+ * product page also draws as a swatch. Pressing it sets the value's own:
+ * a colour picked, or its variant's photo (lib/products/option-swatches.ts),
+ * which every product page's swatches then draw.
  */
 
 import * as React from "react"
@@ -37,7 +39,7 @@ import { DndContext, closestCenter, type DragEndEvent, type Modifier } from "@dn
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { GripVertical, Plus, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
+import { isColorOption, swatchColor, valueSwatchColor } from "@/lib/products/product-page-model"
 import { MAX_OPTIONS, MAX_VALUES } from "@/lib/physical/variants"
 import { AUTO_SCROLL, GRIP_TOUCH, liftTick, useGripDragSensors } from "@/app/app/products/new/hold-to-drag"
 import { BTN_GHOST, BTN_SECONDARY, FIELD_COMPACT, Reveal } from "./ui"
@@ -49,6 +51,8 @@ export interface OptionDraft {
   name: string
   values: string[]
   open: boolean
+  /** Each value's own swatch: "#rrggbb", or "photo" for its variant's photo. */
+  swatches?: Record<string, string>
 }
 
 /** The names most products use, offered as the name field is typed; any other name is fine. */
@@ -179,10 +183,51 @@ function prefersLessMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
-function Swatch({ value }: { value: string }) {
-  const c = swatchColor(value)
+function Swatch({ value, own }: { value: string; own?: string }) {
+  const c = valueSwatchColor(value, own ? { [value]: own } : null)
+  if (own === "photo") return <span aria-hidden className="h-3 w-3 shrink-0 rounded-full bg-[conic-gradient(#d1d5db_0_25%,#f3f4f6_0_50%,#d1d5db_0_75%,#f3f4f6_0)] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.15)]" />
   if (!c) return null
   return <span aria-hidden className="h-3 w-3 shrink-0 rounded-full shadow-[inset_0_0_0_1px_rgba(17,24,39,0.15)]" style={{ background: c }} />
+}
+
+/**
+ * The dot beside a colour value, pressed to set its own swatch: a colour
+ * from the picker, its variant's photo, or back to what its name says.
+ */
+function SwatchPicker({ value, own, onChange }: { value: string; own?: string; onChange: (next: string | null) => void }) {
+  const colour = React.useRef<HTMLInputElement>(null)
+  const menu = React.useRef<HTMLDetailsElement>(null)
+  const shown = valueSwatchColor(value, own ? { [value]: own } : null)
+  const close = () => menu.current?.removeAttribute("open")
+  return (
+    <details ref={menu} className="absolute left-1.5 top-1/2 z-[2] -translate-y-1/2" data-swatch-picker={value}>
+      <summary aria-label={tt("Swatch for {value}", { value })} className="grid h-6 w-6 cursor-pointer list-none place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#9ca3af]/50 [&::-webkit-details-marker]:hidden">
+        {shown || own === "photo" ? <Swatch value={value} own={own} /> : <span aria-hidden className="h-3 w-3 rounded-full border border-dashed border-[#9ca3af]" />}
+      </summary>
+      <div className="absolute left-0 top-7 w-48 rounded-lg border border-[#eceef1] bg-white p-1 text-[13px] shadow-[0_10px_24px_-10px_rgba(17,24,39,0.3)]">
+        <button type="button" className="block w-full rounded-md px-2.5 py-1.5 text-left hover:bg-[#f4f4f6]" onClick={() => colour.current?.click()}>
+          {tt("Pick a colour")}
+        </button>
+        <button type="button" className="block w-full rounded-md px-2.5 py-1.5 text-left hover:bg-[#f4f4f6]" onClick={() => { onChange("photo"); close() }}>
+          {tt("Use its photo")}
+        </button>
+        {own ? (
+          <button type="button" className="block w-full rounded-md px-2.5 py-1.5 text-left text-[#6b7280] hover:bg-[#f4f4f6]" onClick={() => { onChange(null); close() }}>
+            {swatchColor(value) ? tt("Use the colour its name says") : tt("No swatch")}
+          </button>
+        ) : null}
+        <input
+          ref={colour}
+          type="color"
+          aria-label={tt("Colour for {value}", { value })}
+          className="sr-only"
+          value={shown && /^#[0-9a-f]{6}$/i.test(shown) ? shown : "#888888"}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={close}
+        />
+      </div>
+    </details>
+  )
 }
 
 /** The grip at the start of a row: 28px wide, the full height of the line, and the only part a finger drags by. */
@@ -270,7 +315,7 @@ function OptionRow({
           {option.values.length ? (
             option.values.map((v) => (
               <span key={v} className="inline-flex h-6 items-center gap-1.5 rounded-md bg-[#f1f2f4] px-2 text-[12.5px] text-[#374151]">
-                {color ? <Swatch value={v} /> : null}
+                {color ? <Swatch value={v} own={option.swatches?.[v]} /> : null}
                 {v}
               </span>
             ))
@@ -387,6 +432,13 @@ function ValueList({ option, color, update, renameValue }: { option: OptionDraft
               key={v}
               value={v}
               color={color}
+              swatch={option.swatches?.[v]}
+              onSwatch={(next) => {
+                const rest = { ...(option.swatches ?? {}) }
+                if (next) rest[v] = next
+                else delete rest[v]
+                update({ swatches: rest })
+              }}
               canMove={option.values.length > 1}
               entering={entered === v}
               leaving={leaving === v}
@@ -435,6 +487,8 @@ function ValueList({ option, color, update, renameValue }: { option: OptionDraft
 function ValueField({
   value,
   color,
+  swatch,
+  onSwatch,
   canMove,
   entering,
   leaving,
@@ -444,6 +498,8 @@ function ValueField({
 }: {
   value: string
   color: boolean
+  swatch?: string
+  onSwatch: (next: string | null) => void
   canMove: boolean
   entering: boolean
   leaving: boolean
@@ -485,11 +541,7 @@ function ValueField({
         <span className="w-7 shrink-0" />
       )}
       <div className="relative min-w-0 flex-1">
-        {color ? (
-          <span className="pointer-events-none absolute left-2.5 top-1/2 z-[1] -translate-y-1/2">
-            <Swatch value={text} />
-          </span>
-        ) : null}
+        {color ? <SwatchPicker value={value} own={swatch} onChange={onSwatch} /> : null}
         <input
           aria-label={tt("Value {value}", { value })}
           value={text}
@@ -504,7 +556,7 @@ function ValueField({
               commit()
             } else if (e.key === "Escape") setText(value)
           }}
-          className={cn(FIELD_COMPACT, isDragging && "shadow-[0_10px_24px_-10px_rgba(17,24,39,0.3)]", color && swatchColor(text) && "pl-7", clash && "border-[#f59e0b]")}
+          className={cn(FIELD_COMPACT, isDragging && "shadow-[0_10px_24px_-10px_rgba(17,24,39,0.3)]", color && "pl-8", clash && "border-[#f59e0b]")}
         />
       </div>
       {/* Always there on a touch screen; with a mouse, on the row the pointer is on. */}

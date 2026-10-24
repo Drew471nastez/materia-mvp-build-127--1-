@@ -8,8 +8,9 @@
     {% if page.step == "code" %}
       <h1 class="s__h">{{ settings.code_heading }}</h1>
       <p class="s__sub">{{ settings.code_text }} <span class="login__email">{{ page.email }}</span></p>
-      {% if page.notice %}<p class="login__notice" role="alert">{{ page.notice }}</p>{% endif %}
+      {% if page.notice %}<p class="login__notice sl-acc-in" role="{% if page.notice_ok %}status{% else %}alert{% endif %}">{{ page.notice }}</p>{% endif %}
       <form class="login__form" method="post" action="{{ routes.account_verify_url }}" data-storelib-form="native">
+        <input type="hidden" name="lang" value="{{ page.lang }}">
         <label class="login__label" for="{{ section.id }}-code">{{ settings.code_label }}</label>
         <input class="login__input login__input--code" id="{{ section.id }}-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="{{ settings.code_placeholder }}" required autofocus>
         <button class="s__btn s__btn--primary" type="submit">{{ settings.signin_label }}</button>
@@ -19,6 +20,7 @@
           <input type="hidden" name="email" value="{{ page.email }}">
           <input type="hidden" name="return" value="{{ page.return_to }}">
           <input type="hidden" name="again" value="1">
+          <input type="hidden" name="lang" value="{{ page.lang }}">
           <button class="login__link" type="submit">{{ settings.resend_label }}</button>
         </form>
         {# Through a route, not to ?step=email: a page cannot end the code
@@ -29,11 +31,13 @@
     {% else %}
       <h1 class="s__h">{{ settings.heading }}</h1>
       {% if settings.text %}<p class="s__sub">{{ settings.text }}</p>{% endif %}
-      {% if page.notice %}<p class="login__notice" role="alert">{{ page.notice }}</p>{% endif %}
+      {% if page.notice %}<p class="login__notice sl-acc-in" role="{% if page.notice_ok %}status{% else %}alert{% endif %}">{{ page.notice }}</p>{% endif %}
       <form class="login__form" method="post" action="{{ routes.account_code_url }}" data-storelib-form="native">
         <label class="login__label" for="{{ section.id }}-email">{{ settings.email_label }}</label>
         <input class="login__input" id="{{ section.id }}-email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="{{ settings.email_placeholder }}" required>
         <input type="hidden" name="return" value="{{ page.return_to }}">
+        {# The page's language, so the code step and everything after it come back in it (lib/site-accounts/lang.ts). #}
+        <input type="hidden" name="lang" value="{{ page.lang }}">
         <button class="s__btn s__btn--primary" type="submit">{{ settings.continue_label }}</button>
       </form>
       {% if settings.note %}<p class="login__note">{{ settings.note }}</p>{% endif %}

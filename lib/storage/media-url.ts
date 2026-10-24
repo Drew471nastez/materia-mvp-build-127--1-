@@ -174,9 +174,10 @@ export function withMediaAddresses<T>(client: T): T {
  * and the server checks read either form (`toStorageUrl`).
  */
 export function mediaFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const run = globalThis.fetch(input, init)
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
-  if (!url.includes("/rest/v1/")) return run
+  if (!url.includes("/rest/v1/")) return globalThis.fetch(input, init)
+  const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase()
+  const run = method === "GET" || method === "HEAD" ? readWithSchemaRetry(input, init) : globalThis.fetch(input, init)
   return run.then(async (res) => {
     if (res.status === 204 || res.status === 304 || (init?.method ?? "GET").toUpperCase() === "HEAD") return res
     if (!(res.headers.get("content-type") || "").includes("json")) return res
@@ -187,4 +188,41 @@ export function mediaFetch(input: RequestInfo | URL, init?: RequestInit): Promis
     const body = text.includes("/storage/v1/object/public/") ? mediaUrlsIn(text) : text
     return new Response(body, { status: res.status, statusText: res.statusText, headers })
   })
+}
+
+/**
+ * PostgREST's "Could not query the database for the schema cache. Retrying."
+ * (PGRST002, HTTP 503): it is reloading its schema cache, usually for a second
+ * or two after a migration or a database restart, and answers every request
+ * with this until it is done. A READ (GET or HEAD, which change nothing) is
+ * asked again after a short wait, at most SCHEMA_RETRY_WAITS.length more
+ * times (about two seconds in all), so a cart, a website or a cron does not
+ * fail on a blip. Writes are never repeated here.
+ */
+export const SCHEMA_RETRY_WAITS = [150, 450, 1200]
+
+async function isSchemaCacheReload(res: Response, method: string): Promise<boolean> {
+  if (res.status !== 503) return false
+  /* A HEAD (a count) has no body to read: PostgREST's 503 on a read is this. */
+  if (method === "HEAD") return true
+  try {
+    return /PGRST002|schema cache/i.test(await res.clone().text())
+  } catch {
+    return false
+  }
+}
+
+async function readWithSchemaRetry(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase()
+  const signal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
+  let res = await globalThis.fetch(input, init)
+  for (const wait of SCHEMA_RETRY_WAITS) {
+    if (!(await isSchemaCacheReload(res, method))) return res
+    if (signal?.aborted) return res
+    await res.body?.cancel().catch(() => {})
+    await new Promise((resolve) => setTimeout(resolve, wait))
+    if (signal?.aborted) return res
+    res = await globalThis.fetch(input instanceof Request ? input.clone() : input, init)
+  }
+  return res
 }

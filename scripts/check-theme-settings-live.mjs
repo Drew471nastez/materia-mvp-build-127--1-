@@ -115,6 +115,8 @@ const ORDER = (() => {
   all.push(...all.splice(off, 1))
   return all
 })()
+/* Printed in the store's start-up script (window.theme = { settings: ... }), which its JavaScript reads once. */
+const READ_AT_START = new Set(["cart_type", "animations_reveal_on_scroll"])
 /* Driven by real input as well as by onChange: one per kind of control. */
 const REAL = { page_width: "slider", buttons_shadow: "switch", cookie_button: "type" }
 
@@ -361,7 +363,14 @@ async function main() {
     /* A type Storelib's panel draws no control for (a blog: Storelib has no blogs) cannot be changed, so it cannot reload anything: said, not counted. */
     if (r.said === "no field") { console.log(`  note  ${r.id}: no control in Theme settings (${r.type})`); continue }
     expect(r.said === "ok", `${r.id}: changed (${r.how})`, r.said)
-    expect(!r.reloaded, `${r.id}: the canvas did not reload`, { loads: r.loads, remounts: r.remounts })
+    /*
+      Round BC: a setting the store prints in the script its JavaScript reads
+      once at start (window.theme, materia-store-kit.mjs) is drawn again
+      behind the page on screen, where it was scrolled to: written in place
+      it changed nothing the theme's script had already read.
+    */
+    if (READ_AT_START.has(r.id)) expect(r.loads <= 1, `${r.id}: drawn again once, behind the page, for the theme's script`, { loads: r.loads })
+    else expect(!r.reloaded, `${r.id}: the canvas did not reload`, { loads: r.loads, remounts: r.remounts })
     /* A Storelib canvas keeps what is on screen where it is (the browser's scroll anchoring): a setting that grows what is above moves scrollTop with it, and the page does not move. */
     if (!r.id.startsWith("storelib ")) expect(r.kept, `${r.id}: the scroll stayed`, r.scroll)
     if (r.shown !== null) expect(r.shown, `${r.id}: the page shows the new value`)

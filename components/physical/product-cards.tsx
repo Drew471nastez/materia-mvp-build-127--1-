@@ -19,6 +19,8 @@
  *                and every combination as a row (./variant-table.tsx): photo,
  *                price, quantity, and behind it compare at, SKU, barcode,
  *                weight, cost and whether it is sold; Edit all for many
+ *   Size chart   which of the store's size charts the product page shows
+ *                (./size-chart-card.tsx), made or edited right here
  *   Shipping     shipped or not, weight in the shop's units, the rates it
  *                uses, and who ships it: the store's answer from Settings
  *   Advanced     codes and cost, package size (customs behind one more tap),
@@ -49,6 +51,7 @@ import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, FIELD, Field
 import { barcodeTyped, repeatedSkus, skuTyped } from "@/lib/physical/typed-values"
 import { OptionsEditor, optionId, type OptionDraft } from "./variant-options"
 import { VariantTable } from "./variant-table"
+import { SizeChartCard, type SizeChartHandle } from "./size-chart-card"
 /* Redrawn only when the options or their callbacks change, not on every keystroke in a variant row. */
 const MemoOptionsEditor = React.memo(OptionsEditor)
 import { FilesLibraryChooser } from "@/components/files/files-library"
@@ -253,6 +256,8 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   /* Rows whose value was removed, kept for the visit so typing it back restores them (./variant-rows.ts). */
   const stash = React.useRef(new Map<string, Row>())
   const [stockAt, setStockAt] = React.useState("")
+  /* The Size chart card (./size-chart-card.tsx): which of the store's charts this product shows, saved after the product's own save. */
+  const sizeChart = React.useRef<SizeChartHandle | null>(null)
   const [imageFor, setImageFor] = React.useState<{ keys: string[]; name: string } | null>(null)
   /* "Choose from your files", for the variants the picker was opened for (and the scope chosen in it). */
   const [filesFor, setFilesFor] = React.useState<{ keys: string[]; current: string | null } | null>(null)
@@ -288,7 +293,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
     setOptions((prev) =>
       p.options.map((o) => {
         const same = prev.find((x) => clean(x.name) === clean(o.name))
-        return { id: same?.id ?? optionId(), name: o.name, values: o.values, open: openBefore.includes(clean(o.name)) }
+        return { id: same?.id ?? optionId(), name: o.name, values: o.values, open: openBefore.includes(clean(o.name)), ...(o.swatches ? { swatches: o.swatches } : {}) }
       }),
     )
     const loaded = rowsFrom(p, p.weightUnit)
@@ -422,7 +427,14 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const renameValue = React.useCallback((i: number, from: string, to: string) => {
     const { options, normalised } = optionsNow.current
     const position = normalised.findIndex((n) => clean(n.name) === clean(options[i]?.name ?? ""))
-    setOptions((prev) => prev.map((o, j) => (j === i ? { ...o, values: o.values.map((v) => (v === from ? to : v)) } : o)))
+    setOptions((prev) =>
+      prev.map((o, j) => {
+        if (j !== i) return o
+        /* A swatch set for the value follows it to its new name. */
+        const swatches = o.swatches && from in o.swatches ? Object.fromEntries(Object.entries(o.swatches).map(([k, v]) => [k === from ? to : k, v])) : o.swatches
+        return { ...o, values: o.values.map((v) => (v === from ? to : v)), ...(swatches ? { swatches } : {}) }
+      }),
+    )
     if (position >= 0) setRows((prev) => renameValueInRows(prev, position, from, to))
     onDirty()
   }, [onDirty])
@@ -511,7 +523,8 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       return orderLimitProblem(orderLimit)
     },
     save: async (id: string) => {
-      const opts = normalised.map((o) => ({ name: o.name, values: o.values }))
+      /* With each colour's own swatch, by the option's name (./variant-options.tsx); the server keeps only the values the option has. */
+      const opts = normalised.map((o) => ({ name: o.name, values: o.values, swatches: options.find((x) => clean(x.name) === clean(o.name))?.swatches ?? {} }))
       const variants = rows.map((r) => {
         const stock: Record<string, number> = {}
         if (counted) {
@@ -569,7 +582,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       if (!res.ok) return res.error
       stash.current.clear()
       apply(res.data.product, store, options.filter((o) => o.open).map((o) => clean(o.name)))
-      return null
+      return (await sizeChart.current?.save(id)) ?? null
     },
   }
 
@@ -689,6 +702,9 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
         ) : null}
         {multi && photoError ? <Notice className="mt-3">{photoError}</Notice> : null}
       </Card>
+
+      {/* ── Size chart ───────────────────────────────────────────────── */}
+      <SizeChartCard productId={productId} handle={sizeChart} onDirty={onDirty} uploadImage={uploadImage} />
 
       {/* ── Shipping ─────────────────────────────────────────────────── */}
       {/* No "not shipped" switch: a physical product is always shipped or picked up, so checkout always asks where it goes (lib/physical/checkout-pricing-server). Handing it over in person is local pickup. */}

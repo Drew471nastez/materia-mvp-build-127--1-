@@ -94,7 +94,11 @@ import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builde
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
 import { appSectionCategories, classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS, isAppSectionCategory } from "@/lib/website-builder/section-categories"
 import { hasBuiltInArt, StorelibTile } from "@/components/app/settings/integration-mark"
-import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
+import { lazyImages, markupLooksEmpty, previewCardHeight, previewCentered, previewKey, sampleBlocks, splitStyles } from "@/lib/website-builder/preview-markup"
+import { PreviewFallback } from "@/components/website-builder/editor/preview-fallback"
+import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
+import { readReviewsApp } from "@/lib/reviews/app-settings"
+import type { StorefrontData } from "@/lib/storelib-theme/types"
 import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { tt } from "@/lib/i18n/text"
@@ -250,7 +254,59 @@ function Capture({ onCapture, children }: { onCapture: (html: string) => void; c
   return <div ref={ref}>{children}</div>
 }
 
+/*
+  WHAT A CARD IS DRAWN WITH, PAST ITS SECTION. Round BC: the reviews
+  sections (a widget, a carousel, the badge) draw nothing while Storelib
+  Reviews has nothing to give them, so their cards were the section's name
+  on grey. A card is given the same sample reviews the canvas shows a store
+  that has none yet (lib/reviews/storefront.ts, marked `sample`, never on a
+  live page).
+*/
+let previewData: StorefrontData | null = null
+function previewStorefront(): StorefrontData {
+  if (!previewData) {
+    let reviews: Record<string, unknown> | null = null
+    try {
+      reviews = { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), ""), enabled: true } as unknown as Record<string, unknown>
+    } catch {
+      reviews = null
+    }
+    /* A reply is signed with the shop's name ("Reply from My store"), as an imported theme's cards are (compat-section-preview.tsx). */
+    previewData = { reviews, shop: { name: "My store" } }
+  }
+  return previewData
+}
+
 function drawOne(job: Job): string {
+  const first = drawWith(job, false, false)
+  if (first && !markupLooksEmpty(first)) return first
+  /*
+    Nothing to see as its preset gives it. A section that is all blocks, with
+    none in its preset, is drawn with a few of its own; a gallery whose
+    pictures are all still to be chosen, with the placeholder picture in
+    each. Whatever draws something first is the card.
+  */
+  const preset = job.schema.presets?.[job.presetIndex] ?? job.schema.presets?.[0]
+  const sample = !(preset?.blocks ?? []).length && sampleBlocks(job.schema.blocks, job.schema.max_blocks, job.type).length > 0
+  if (sample) {
+    const again = drawWith(job, true, false)
+    if (again && !markupLooksEmpty(again)) return again
+  }
+  const pictured = drawWith(job, sample, true)
+  return pictured && !markupLooksEmpty(pictured) ? pictured : first
+}
+
+/** The picture a preview shows where a section's picture is still to be chosen. */
+const PLACEHOLDER_PICTURE = "/placeholder.svg"
+
+/** Each empty picture setting given the placeholder picture: the fields are the section's or a block type's. */
+function withPictures(settings: Record<string, unknown>, fields: readonly { id: string; type: string }[] | undefined): Record<string, unknown> {
+  const out = { ...settings }
+  for (const f of fields ?? []) if (f.type === "image_picker" && !out[f.id]) out[f.id] = PLACEHOLDER_PICTURE
+  return out
+}
+
+function drawWith(job: Job, sample: boolean, pictures: boolean): string {
   if (typeof document === "undefined") return ""
   if (!host) {
     /*
@@ -264,11 +320,16 @@ function drawOne(job: Job): string {
   }
   let html = ""
   const section = buildPreviewSection(job.type, job.presetIndex, job.schema)
+  if (sample) section.blocks = sampleBlocks(job.schema.blocks, job.schema.max_blocks, section.id)
+  if (pictures) {
+    section.settings = withPictures(section.settings, job.schema.fields)
+    section.blocks = (section.blocks ?? []).map((b) => ({ ...b, settings: withPictures(b.settings ?? {}, job.schema.blocks?.find((t) => t.type === b.type)?.fields) }))
+  }
   /* A floating section (a popup, a phone tab bar, back to top) is hidden on a live page until it is scrolled to or its moment comes, so its card would be empty: it is drawn as the canvas draws it, in place and open. */
   const floats = job.schema.enabled_on?.groups?.includes("overlay") === true
   flushSync(() => {
     root!.render(
-      <StorelibLiveProvider sources={job.sources} inEditor={floats}>
+      <StorelibLiveProvider sources={job.sources} inEditor={floats} preview data={previewStorefront()}>
         <Capture onCapture={(h) => { html = h }}>
           <SectionRenderer
             section={section}
@@ -739,14 +800,9 @@ const PreviewBox = memo(function PreviewBox({
   )
 })
 
-/** A section that draws nothing until it has content or a product: its name, quietly, never a blank white box. */
+/** A section that draws nothing until it has content or a product: its name, quietly, never a blank white box (preview-fallback.tsx). */
 function EmptyPreview({ title }: { title: string }) {
-  return (
-    <div data-preview-empty="" className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-[#f6f7f9] px-4 text-center">
-      <span className="text-[13px] font-medium text-[#6b7280]">{title}</span>
-      <span className="text-[11px] text-[#9ca3af]">{tt("Shows once it has content")}</span>
-    </div>
-  )
+  return <PreviewFallback title={title} />
 }
 
 const LibraryCard = memo(function LibraryCard({

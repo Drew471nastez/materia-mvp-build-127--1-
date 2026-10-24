@@ -30,6 +30,7 @@ import { useStorefront } from "../../theme/storefront-context"
 import { SocialIconRow } from "../../theme/ThemeSocials"
 import { socialLinks } from "@/lib/website-builder/social-links"
 import { cleanMenus } from "@/lib/storelib-theme/values"
+import { newTabLink } from "@/lib/website-builder/new-tab"
 import {
   DEFAULT_FOOTER_COLUMNS,
   PAYMENT_METHODS,
@@ -390,7 +391,8 @@ export function FooterSection({
             {column.links.map((link) => (
               <li key={link.id} className="min-w-0">
                 <a
-                  href={link.url}
+                  /* A menu link set to open in a new tab: the mark off its address, target="_blank" on (lib/website-builder/new-tab.ts). */
+                  {...newTabLink(link.url)}
                   className="break-words text-[14px] leading-5 transition-opacity hover:opacity-70"
                   style={{ color: linkColor }}
                 >
@@ -480,7 +482,7 @@ export function FooterSection({
             {loose.map((link) => (
               <a
                 key={link.id}
-                href={link.url}
+                {...newTabLink(link.url)}
                 className="text-[14px] transition-opacity hover:opacity-70"
                 style={{ color: linkColor }}
               >

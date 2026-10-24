@@ -173,7 +173,9 @@ async function main() {
     check("Create account too, with the name and where to land", reg?.kind === "code" && reg.name === "Bea Lin" && reg.returnPath === "/cart")
     const rec = accountFormPost("POST", "/account/recover", { form_type: "recover_customer_password", email: "c@mail.test" })
     check("and Forgot password", rec?.kind === "code" && rec.email === "c@mail.test")
-    check("an address form goes back to the addresses", JSON.stringify(accountFormPost("POST", "/account/addresses", { form_type: "customer_address" })) === JSON.stringify({ kind: "back", to: "/account/addresses" }))
+    /* Changed on purpose (round BC): addresses are the customer's own address book now, so a theme's address form saves to it instead of only going back. */
+    const posted = accountFormPost("POST", "/account/addresses", { form_type: "customer_address", "address[first_name]": "Ana", "address[last_name]": "Pop", "address[address1]": "1 Main St", "address[city]": "Austin", "address[country]": "United States", "address[province]": "Texas", "address[zip]": "78701" })
+    check("an address form saves to the address book, the country as its code", posted?.kind === "address" && posted.action === "save" && posted.id === null && posted.fields.name === "Ana Pop" && posted.fields.country === "US" && posted.fields.region === "Texas")
     check("signing out, a newsletter form posted to /account, and a GET are not account posts", accountFormPost("POST", "/account/logout", {}) === null && accountFormPost("POST", "/account", { form_type: "customer" }) === null && accountFormPost("GET", "/account/login", null) === null)
     check("a return_to off this site lands on the account", themeSignInFields({ return_to: "//evil.test" }).returnPath === "/account" && themeSignInFields({ return_to: "/\\evil" }).returnPath === "/account")
     const stray = await call(plain, "POST", "/account/login", { body: { form_type: "customer_login" } })

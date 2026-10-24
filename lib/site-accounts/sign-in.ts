@@ -41,6 +41,7 @@ import { cleanEmail, CODE_TTL_MS, mintPending, mintSession, readPending } from "
 import { checkCode, issueCode } from "./codes"
 import { cleanName, findOrCreateCustomer, renameCustomer } from "./customers"
 import { codeEmail } from "./code-email"
+import { inEmailLanguage } from "@/lib/emails/words"
 import type { Db } from "./db"
 
 export interface VerifyDeps {
@@ -69,7 +70,7 @@ export type RequestResult = { ok: true; pending: string; email: string } | { ok:
  * proves the email; then it becomes the new account's name. An account that
  * already has a name keeps it: nobody renames an account by asking for a code.
  */
-export async function requestCode(input: { host: string; email: unknown; returnPath: string; name?: unknown }, deps: SignInDeps): Promise<RequestResult> {
+export async function requestCode(input: { host: string; email: unknown; returnPath: string; name?: unknown; lang?: string | null; mail?: { lang: string; words: Record<string, string> } | null }, deps: SignInDeps): Promise<RequestResult> {
   const now = deps.now ?? Date.now()
   const email = cleanEmail(input.email)
   if (!email) return { ok: false, why: "email" }
@@ -82,19 +83,21 @@ export async function requestCode(input: { host: string; email: unknown; returnP
 
   const brand = await deps.brand(owner.creatorId).catch(() => "this store")
   const store = typeof brand === "string" ? { name: brand, logoUrl: null, replyTo: null } : brand
-  const mail = codeEmail({ store: store.name, logoUrl: store.logoUrl ?? null, code: issued.code, host: input.host, minutes: Math.round(CODE_TTL_MS / 60_000) })
+  /* In the language the sign in page was in (lib/emails/words.ts et), English when it has no approved words. */
+  const build = () => codeEmail({ store: store.name, logoUrl: store.logoUrl ?? null, code: issued.code, host: input.host, minutes: Math.round(CODE_TTL_MS / 60_000) })
+  const mail = input.mail ? inEmailLanguage(input.mail.lang, input.mail.words, build) : build()
   const sent = await deps.send({ to: email, ...mail, replyTo: store.replyTo ?? null }).catch(() => ({ success: false }))
   if (!sent.success) return { ok: false, why: "send" }
 
   const name = cleanName(input.name) || null
-  const pending = mintPending({ codeId: issued.codeId, email, creatorId: owner.creatorId, host: input.host, returnPath: input.returnPath, name }, now)
+  const pending = mintPending({ codeId: issued.codeId, email, creatorId: owner.creatorId, host: input.host, returnPath: input.returnPath, name, lang: input.lang ?? null }, now)
   if (!pending) return { ok: false, why: "unavailable" }
   return { ok: true, pending, email }
 }
 
 export type VerifyResult =
-  | { ok: true; session: string; returnPath: string; customerId: string; creatorId: string; created: boolean }
-  | { ok: false; why: SignInRefusal }
+  | { ok: true; session: string; returnPath: string; customerId: string; creatorId: string; created: boolean; lang: string }
+  | { ok: false; why: SignInRefusal; lang?: string }
 
 export async function verifyCode(input: { host: string; pending: string | null; code: unknown }, deps: VerifyDeps): Promise<VerifyResult> {
   const now = deps.now ?? Date.now()
@@ -103,18 +106,20 @@ export async function verifyCode(input: { host: string; pending: string | null; 
   /* The host's creator now, looked up again: a website whose address moved to somebody else signs nobody in. */
   const owner = await deps.owner(input.host)
   if (!owner || owner.creatorId !== note.c) return { ok: false, why: "expired" }
+  /* The language the sign in started in (/fr/account/login): a wrong code is said there too. */
+  const lang = note.l ?? ""
 
   const checked = await checkCode(deps.db, { codeId: note.k, creatorId: owner.creatorId, host: input.host, code: input.code }, now)
-  if (checked.ok === false) return { ok: false, why: checked.why }
+  if (checked.ok === false) return { ok: false, why: checked.why, lang }
 
   const found = await findOrCreateCustomer(deps.db, { creatorId: owner.creatorId, email: checked.email }, now)
-  if (found.ok === false) return { ok: false, why: found.why }
+  if (found.ok === false) return { ok: false, why: found.why, lang }
 
   /* The name from a Create account form, for an account that has none yet. */
   const named = note.n ? cleanName(note.n) : null
   if (named && !(found.customer.name ?? "").trim()) await renameCustomer(deps.db, { customerId: found.customer.id, creatorId: owner.creatorId }, named).catch(() => false)
 
   const session = mintSession({ customerId: found.customer.id, creatorId: owner.creatorId, host: input.host }, now)
-  if (!session) return { ok: false, why: "unavailable" }
-  return { ok: true, session, returnPath: note.r, customerId: found.customer.id, creatorId: owner.creatorId, created: found.created }
+  if (!session) return { ok: false, why: "unavailable", lang }
+  return { ok: true, session, returnPath: note.r, customerId: found.customer.id, creatorId: owner.creatorId, created: found.created, lang }
 }

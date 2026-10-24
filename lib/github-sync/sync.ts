@@ -1086,7 +1086,8 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
         : statusLine(saved === 0 ? "Already up to date" : `${saved} file${saved === 1 ? "" : "s"} saved as a draft`)
     const notes = outcomes.flatMap((o) => o.notes)
     let details: string | null = null
-    if (saved || failed.length || notes.length || skipped) {
+    /* Past the time budget only the status is set: the comment and the note are two more GitHub calls the function may not have time for. */
+    if ((saved || failed.length || notes.length || skipped) && Date.now() < deadline) {
       const body = commitComment({ saved: [...new Set(outcomes.flatMap((o) => o.saved))], failed, notes, skipped }, editorUrl(links[0].install_id))
       try {
         details = (await commentOnCommit(token, repo, after, body)).html_url

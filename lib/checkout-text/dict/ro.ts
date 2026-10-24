@@ -901,6 +901,29 @@ const ro: Record<string, string> = {
   "Payment not made by the card's owner": "Plată făcută fără acordul titularului cardului",
   "Payment not completed": "Plată nefinalizată",
   "Not known": "Necunoscută",
+  /* ── Track your order (app/checkout/site/track) ─────────────────────── */
+  "Check the order number. It's the 8 letters and numbers after # in your order email.": "Verifică numărul comenzii. Sunt cele 8 litere și cifre de după # din e-mailul comenzii.",
+  "Enter the email you ordered with.": "Scrie e-mailul cu care ai comandat.",
+  "That's a lot of tries. Wait a few minutes, then try again.": "Prea multe încercări. Așteaptă câteva minute, apoi încearcă din nou.",
+  "Track your order": "Urmărește comanda",
+  "Check your email": "Verifică-ți e-mailul",
+  "If that order number and email match an order, we sent a link to it. It can take a minute to arrive.": "Dacă numărul și e-mailul se potrivesc cu o comandă, ți-am trimis un link către ea. Poate dura un minut să ajungă.",
+  "Look up another order": "Caută altă comandă",
+  "Enter your order number and the email you ordered with. We'll email you a link to your order and its tracking.": "Scrie numărul comenzii și e-mailul cu care ai comandat. Îți trimitem pe e-mail un link către comandă și urmărirea ei.",
+  "Order number": "Numărul comenzii",
+  "It's in your order confirmation email.": "Îl găsești în e-mailul de confirmare a comenzii.",
+  "Email me the link": "Trimite-mi linkul",
+  "Have an account?": "Ai cont?",
+  "Sign in to see all your orders": "Conectează-te ca să vezi toate comenzile",
+  /* ── The sign in code email (lib/site-accounts/code-email.ts) ───────── */
+  "{code} is your code for {store}": "{code} este codul tău pentru {store}",
+  "It works once, for {minutes} minutes, on {site}.": "Merge o singură dată, timp de {minutes} minute, pe {site}.",
+  "If you did not ask for it, you can ignore this email.": "Dacă nu l-ai cerut tu, poți ignora acest e-mail.",
+  "Your code to sign in to {store}:": "Codul tău de conectare la {store}:",
+  "Your code to sign in to {store}. It works once, for {minutes} minutes.": "Codul tău de conectare la {store}. Merge o singură dată, timp de {minutes} minute.",
+  "Your sign in code": "Codul tău de conectare",
+  "Use this code to sign in to {store}.": "Folosește acest cod ca să te conectezi la {store}.",
+  "You asked for this on {site}.": "L-ai cerut pe {site}.",
 }
 
 export default ro

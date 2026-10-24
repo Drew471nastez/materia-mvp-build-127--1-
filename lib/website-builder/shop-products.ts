@@ -50,6 +50,7 @@
  * and checkout checks that address against the creator's own sites
  * (lib/checkout/return-url.ts). A section never builds one by hand.
  */
+import { cleanSwatches } from "@/lib/products/option-swatches"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { salesSoldOut, type SalesStanding } from "@/lib/products/sales-limit"
 import { cleanCustomFields } from "@/lib/products/custom-fields"
@@ -320,7 +321,11 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
       options: optionRows
         .filter((o) => o.product_id === row.id && typeof o.name === "string" && Array.isArray(o.values))
         .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-        .map((o) => ({ name: o.name.trim(), values: o.values.filter((v): v is string => typeof v === "string" && v.trim() !== "").map((v) => v.trim()) }))
+        .map((o) => {
+          const values = o.values.filter((v): v is string => typeof v === "string" && v.trim() !== "").map((v) => v.trim())
+          const swatches = cleanSwatches(o.swatches, values)
+          return { name: o.name.trim(), values, ...(Object.keys(swatches).length ? { swatches } : {}) }
+        })
         .filter((o) => o.name && o.values.length > 0),
     },
   }
@@ -332,6 +337,8 @@ export interface OptionRow {
   name: string
   values: unknown[]
   position?: number | null
+  /** Each value's own swatch (part 286, lib/products/option-swatches.ts); absent before it. */
+  swatches?: unknown
 }
 
 /**
@@ -342,10 +349,16 @@ export interface OptionRow {
 export async function productOptions(db: Db, productIds: string[]): Promise<OptionRow[]> {
   if (productIds.length === 0) return []
   try {
-    const q = db.from("product_options").select("product_id, name, values, position")
-    if (typeof q.in !== "function") return []
-    const { data, error } = await q.in("product_id", productIds).order("position", { ascending: true })
-    return error ? [] : ((data ?? []) as OptionRow[])
+    /* With each value's own swatch (part 286); a database before it is asked again without. */
+    for (const cols of ["product_id, name, values, position, swatches", "product_id, name, values, position"]) {
+      const q = db.from("product_options").select(cols)
+      if (typeof q.in !== "function") return []
+      const { data, error } = await q.in("product_id", productIds).order("position", { ascending: true })
+      if (!error) return (data ?? []) as OptionRow[]
+      const code = String((error as { code?: string }).code ?? "")
+      if (code !== "42703" && code !== "PGRST204") return []
+    }
+    return []
   } catch {
     return []
   }

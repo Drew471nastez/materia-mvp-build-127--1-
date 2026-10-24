@@ -20,6 +20,7 @@
  */
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { chromeOf, withUniversalChrome } from "@/lib/website-builder/universal-chrome"
+import { signInNoticeIn } from "@/lib/site-accounts/words"
 
 /** The page keys, and the address each is served at. */
 export const ACCOUNT_PAGE_PATHS: Readonly<Record<string, string>> = Object.freeze({
@@ -120,28 +121,7 @@ export function accountPageSections(key: string, homeSections: SectionInstance[]
  * the address is ever printed, and none of them says whether an email has an
  * account here.
  */
-export function signInNotice(error: unknown): string | null {
-  switch (error) {
-    case "email":
-      return "Enter a valid email address."
-    case "code":
-      return "That code is not right. Check it and try again."
-    case "expired":
-      return "That code has expired. Send a new one."
-    case "tries":
-      return "Too many tries with that code. Send a new one."
-    case "restart":
-      return "That sign in has expired. Enter your email to get a new code."
-    case "limit":
-      return "Too many codes asked for at once. Try again in a few minutes."
-    case "send":
-      return "The email with your code could not be sent. Try again in a minute."
-    case "site":
-    case "unavailable":
-      return "Signing in on this website is not available yet."
-    case "failed":
-      return "Something went wrong. Try again."
-    default:
-      return null
-  }
+export function signInNotice(error: unknown, words?: Partial<Record<string, string>>): string | null {
+  /* The sentences are the shop's own words now (lib/markets/ui-words.ts acct_notice_*), in the page's language when `words` has them. */
+  return signInNoticeIn(words, error)
 }
