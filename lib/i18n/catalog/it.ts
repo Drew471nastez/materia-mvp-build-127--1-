@@ -4800,6 +4800,7 @@ const words: Record<string, string> = {
  "No posts yet. Start the conversation.": "Ancora nessun post. Avvia la conversazione.",
  "No preview": "Nessuna anteprima",
  "No preview for this block": "Nessuna anteprima per questo blocco",
+ "No preview for this section": "Nessuna anteprima per questa sezione",
  "No price": "Nessun prezzo",
  "No price yet": "Ancora senza prezzo",
  "No product called “{value}”": "Nessun prodotto chiamato “{value}”",
