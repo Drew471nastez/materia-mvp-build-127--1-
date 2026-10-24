@@ -444,6 +444,8 @@ const words: Record<string, string> = {
  "Access stops today and they are not charged again. Otherwise it renews as usual.": "Der Zugang endet heute und es wird nicht mehr abgebucht. Sonst verlängert er sich wie üblich.",
  "Account": "Konto",
  "Account created {date}": "Konto erstellt am {date}",
+ "Account created": "Konto erstellt",
+ "Welcome back": "Willkommen zurück",
  "Account details": "Kontodaten",
  "Account holder name": "Name des Kontoinhabers",
  "Account number": "Kontonummer",

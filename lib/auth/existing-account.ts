@@ -34,6 +34,19 @@ export function signInInsteadHref(rawEmail: string, carry: Partial<AuthCarry>, s
   return withCarry(`/login?${EXISTS_PARAM}=1`, carry)
 }
 
+/**
+ * Supabase's answer to sign up for an address that already has an account,
+ * when email confirmation is on: a user with an empty `identities` list and
+ * no session, never an error, so nobody learns from it alone which addresses
+ * exist. Sign up asks /api/auth/account-origin first; this catches the case
+ * where that look up could not answer (rate limited, or down), which used to
+ * carry on to the code screen for an account that was never made.
+ */
+export function signUpFoundExisting(data: unknown): boolean {
+  const identities = (data as { user?: { identities?: unknown } | null } | null | undefined)?.user?.identities
+  return Array.isArray(identities) && identities.length === 0
+}
+
 /** The address sign up handed over, read once. */
 export function takeExistingEmail(storage: Pick<Storage, "getItem" | "removeItem"> | null = safeSession()): string | null {
   try {
