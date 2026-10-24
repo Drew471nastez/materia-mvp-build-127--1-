@@ -10926,7 +10926,7 @@ const words: Record<string, string> = {
  "Type a domain you own and press Connect. You get the records to add where you bought it.": "Gib eine Domain ein, die dir gehört, und tippe auf Verbinden. Du bekommst die Einträge, die du dort hinzufügst, wo du sie gekauft hast.",
  "Remove it in Settings": "In den Einstellungen entfernen",
  "Connect a domain": "Domain verbinden",
- "Visitors reach your website at your own address.": "Besucher erreichen deine Website unter deiner eigenen Adresse."
+ "Visitors reach your website at your own address.": "Besucher erreichen deine Website unter deiner eigenen Adresse.",
  "Swatch for {value}": "Farbfeld für {value}",
  "Use its photo": "Sein Foto verwenden",
  "Use the colour its name says": "Die Farbe aus dem Namen verwenden",

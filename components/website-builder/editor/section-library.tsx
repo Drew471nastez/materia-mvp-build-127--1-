@@ -323,7 +323,7 @@ function drawWith(job: Job, sample: boolean, pictures: boolean): string {
   if (sample) section.blocks = sampleBlocks(job.schema.blocks, job.schema.max_blocks, section.id)
   if (pictures) {
     section.settings = withPictures(section.settings, job.schema.fields)
-    section.blocks = section.blocks.map((b) => ({ ...b, settings: withPictures(b.settings ?? {}, job.schema.blocks?.find((t) => t.type === b.type)?.fields) }))
+    section.blocks = (section.blocks ?? []).map((b) => ({ ...b, settings: withPictures(b.settings ?? {}, job.schema.blocks?.find((t) => t.type === b.type)?.fields) }))
   }
   /* A floating section (a popup, a phone tab bar, back to top) is hidden on a live page until it is scrolled to or its moment comes, so its card would be empty: it is drawn as the canvas draws it, in place and open. */
   const floats = job.schema.enabled_on?.groups?.includes("overlay") === true

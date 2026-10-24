@@ -99,7 +99,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
     check("  and none of its <noscript> words", !/noscript|turn on JavaScript/i.test(slider))
     const form = draw("contactformsimple", true)
     check("Contact Form Simple with sample blocks: its fields", (form.match(/<input\b/g) ?? []).length >= 3)
-    check("a preset that has blocks keeps its own", previewSectionFor("content-tabs", 0, { ...schemas["content-tabs"], presets: [{ name: "x", settings: {}, blocks: [{ id: "h", type: "heading", settings: { heading: "Mine" } }] }] }, true).blocks.length === 1)
+    check("a preset that has blocks keeps its own", previewSectionFor("content-tabs", 0, { ...schemas["content-tabs"], presets: [{ name: "x", settings: {}, blocks: [{ id: "h", type: "heading", settings: { heading: "Mine" } }] }] }, true).blocks?.length === 1)
   }
 
   console.log("\nThe library's code")
