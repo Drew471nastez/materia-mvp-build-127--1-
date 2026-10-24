@@ -23,6 +23,10 @@
  * other way. Pure, so the field, the renderer and the tests share it.
  */
 
+/* Node's Buffer read through globalThis: a bare `Buffer` makes the bundler ship a 19 KB polyfill to every website's browser, which has atob/btoa anyway. */
+type NodeBuffer = { from(input: string, encoding: string): { toString(encoding: string): string } }
+const nodeBuffer = (): NodeBuffer => (globalThis as unknown as { Buffer: NodeBuffer }).Buffer
+
 export const OWN_DB_URL = "own_db_url"
 export const OWN_DB_KEY = "own_db_key"
 
@@ -50,7 +54,7 @@ function jwtRole(token: string): string | null {
   try {
     const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/")
     const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4)
-    const json = typeof atob === "function" ? atob(padded) : Buffer.from(padded, "base64").toString("utf8")
+    const json = typeof atob === "function" ? atob(padded) : nodeBuffer().from(padded, "base64").toString("utf8")
     const role = (JSON.parse(json) as { role?: unknown }).role
     return typeof role === "string" ? role : null
   } catch {

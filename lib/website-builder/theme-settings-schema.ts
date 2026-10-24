@@ -27,6 +27,7 @@
 import { COOKIE_ACCEPT_TEXT, COOKIE_DECLINE_TEXT, SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { SOCIAL_PLATFORMS } from "./social-links"
 import type { SelectOption, ThemeSettingsGroup } from "./types"
+import { ACCENT_FONT_OPTIONS, BODY_FONT_OPTIONS, HEADING_FONT_OPTIONS } from "./font-options"
 
 /** The four shadows the theme has, as every Shadow control offers them. */
 const SHADOWS_OPTIONS: SelectOption[] = [
@@ -130,58 +131,21 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
         label: "Heading font",
         type: "font",
         default: "Inter",
-        options: [
-          { label: "Inter", value: "Inter" },
-          { label: "Plus Jakarta Sans", value: "Plus Jakarta Sans" },
-          { label: "Space Grotesk", value: "Space Grotesk" },
-          { label: "DM Sans", value: "DM Sans" },
-          { label: "Poppins", value: "Poppins" },
-          { label: "Montserrat", value: "Montserrat" },
-          { label: "Raleway", value: "Raleway" },
-          { label: "Oswald", value: "Oswald" },
-          { label: "Bebas Neue", value: "Bebas Neue" },
-          { label: "Playfair Display", value: "Playfair Display" },
-          { label: "Cormorant Garamond", value: "Cormorant Garamond" },
-          { label: "Lora", value: "Lora" },
-          { label: "Merriweather", value: "Merriweather" },
-          { label: "Libre Baskerville", value: "Libre Baskerville" },
-          { label: "EB Garamond", value: "EB Garamond" },
-        ],
+        options: HEADING_FONT_OPTIONS,
       },
       {
         id: "font_body",
         label: "Body font",
         type: "font",
         default: "Inter",
-        options: [
-          { label: "Inter", value: "Inter" },
-          { label: "DM Sans", value: "DM Sans" },
-          { label: "Plus Jakarta Sans", value: "Plus Jakarta Sans" },
-          { label: "Space Grotesk", value: "Space Grotesk" },
-          { label: "Poppins", value: "Poppins" },
-          { label: "Nunito", value: "Nunito" },
-          { label: "Source Sans 3", value: "Source Sans 3" },
-          { label: "Lato", value: "Lato" },
-          { label: "Open Sans", value: "Open Sans" },
-        ],
+        options: BODY_FONT_OPTIONS,
       },
       {
         id: "font_accent",
         label: "Accent font",
         type: "font",
         default: "",
-        options: [
-          { label: "Same as heading font", value: "" },
-          { label: "Inter", value: "Inter" },
-          { label: "DM Sans", value: "DM Sans" },
-          { label: "Plus Jakarta Sans", value: "Plus Jakarta Sans" },
-          { label: "Space Grotesk", value: "Space Grotesk" },
-          { label: "Poppins", value: "Poppins" },
-          { label: "Nunito", value: "Nunito" },
-          { label: "Source Sans 3", value: "Source Sans 3" },
-          { label: "Lato", value: "Lato" },
-          { label: "Open Sans", value: "Open Sans" },
-        ],
+        options: ACCENT_FONT_OPTIONS,
       },
       // Sizes, weights, line heights, spacing and case are the text styles
       // (Heading 1 to Caption) in theme.typography_styles, rendered by

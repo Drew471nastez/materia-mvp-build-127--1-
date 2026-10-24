@@ -5,9 +5,10 @@
  *  STORELIB'S OWN PIECES ARE NOT PART OF A CREATOR'S WEBSITE
  * ===========================================================================
  * The root layout mounts the app shell for every route, published websites
- * included. Four of its pieces draw nothing until the app needs them and
+ * included. Five of its pieces draw nothing until the app needs them and
  * never do anything on a website: the community bar over /account, the
- * phone app's sign-in bridge, its push set-up and its notifications ask.
+ * settings layer over the profile, the phone app's sign-in bridge, its push
+ * set-up and its notifications ask.
  * Imported plainly, they pulled the community top bar, the platform header
  * and the Supabase client into every website's first load.
  *
@@ -15,7 +16,7 @@
  *  - Whether this is a website comes from the router's segments, which the
  *    server and the browser agree on (a seller's domain is rewritten to
  *    /w/[username]), so the tree hydrates the same on both sides.
- *  - All four draw nothing on the server and on the hydrating render
+ *  - All five draw nothing on the server and on the hydrating render
  *    already, so ssr: false changes nothing that was drawn.
  *  - On Storelib's own pages the code is asked for as soon as this file
  *    runs, before hydration, so they mount when they did before.
@@ -25,6 +26,7 @@ import { useSelectedLayoutSegments } from "next/navigation"
 import { getMainDomain } from "@/lib/url-helpers"
 
 const community = () => import("@/components/account/account-community-chrome").then((m) => m.AccountCommunityChrome)
+const settings = () => import("@/components/account/settings-subpage").then((m) => m.SettingsSubpageHost)
 const oauth = () => import("@/app/NativeOAuthBridge")
 const push = () => import("@/components/native-push-init").then((m) => m.NativePushInit)
 const ask = () => import("@/components/platform/notifications-ask").then((m) => m.NotificationsAsk)
@@ -43,10 +45,11 @@ function looksLikeWebsite(): boolean {
 }
 
 if (typeof window !== "undefined" && !looksLikeWebsite()) {
-  for (const load of [community, oauth, push, ask]) void load().catch(() => {})
+  for (const load of [community, settings, oauth, push, ask]) void load().catch(() => {})
 }
 
 const LazyCommunity = dynamic(() => community(), { ssr: false })
+const LazySettings = dynamic(() => settings(), { ssr: false })
 const LazyOAuth = dynamic(() => oauth(), { ssr: false })
 const LazyPush = dynamic(() => push(), { ssr: false })
 const LazyAsk = dynamic(() => ask(), { ssr: false })
@@ -59,6 +62,10 @@ export function usePublishedWebsite(): boolean {
 
 export function AccountCommunityChrome() {
   return usePublishedWebsite() ? null : <LazyCommunity />
+}
+
+export function SettingsSubpageHost() {
+  return usePublishedWebsite() ? null : <LazySettings />
 }
 
 export function NativeOAuthBridge() {
