@@ -133,8 +133,9 @@ function main() {
     const live = read("components/onepage/public-onepage.tsx")
     const email = live.slice(live.indexOf('case "email_capture":'), live.indexOf('case "group":'))
     check("nothing in the newsletter block is 43px tall on a phone any more", !/py-2\.5 sm:py-3/.test(email) && (email.match(/py-3 text-sm bg-white\/90/g) ?? []).length === 4)
+    /* Five now, on purpose: the first-name field the block can ask for (round 10) wears the same corners, above the four email boxes. */
     check("and the field wears the button's corners, whatever the theme sets",
-      !/rounded-lg text-sm bg-white\/90/.test(email) && (email.match(/borderRadius: emailButtonStyles\.borderRadius/g) ?? []).length === 4)
+      !/rounded-lg text-sm bg-white\/90/.test(email) && (email.match(/borderRadius: emailButtonStyles\.borderRadius/g) ?? []).length === 5)
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -157,7 +158,9 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     const tab = read("components/onepage/tabs/links-tab.tsx")
-    check("the Add sheet lists all five", ["heading", "faq", "countdown", "map", "video"].every((t) => tab.includes(`EXTRA_BLOCK_CATALOG.${t},`)))
+    /* Moved on purpose: the Add sheet's catalogue is components/onepage/add-block-picker.tsx now (round 10), which links-tab draws. */
+    const picker = read("components/onepage/add-block-picker.tsx")
+    check("the Add sheet lists all five", ["heading", "faq", "countdown", "map", "video"].every((t) => new RegExp(`extra\\("${t}", "\\w+"\\)`).test(picker)) && /<AddBlockPicker\b/.test(tab))
     check("each has its own form", /return <ExtraBlockEditor block=\{block\} updateData=\{updateData\} \/>/.test(tab))
     check("the schedule and the sensitive switch sit under every block's settings but the header's",
       /const settingsWithExtras = \(\) => \(/.test(tab) && /block\.type !== "header" \? \(\s*<BlockExtras/.test(tab) && (tab.match(/\{settingsWithExtras\(\)\}|return settingsWithExtras\(\)/g) ?? []).length === 2)
