@@ -46,6 +46,12 @@ export const ROUTES = [
   { route: "/explore", label: "Explore" },
   { route: "/p/[slug]", label: "Product page" },
   { route: "/app", label: "Dashboard" },
+  /* Round 12 (PLATPERF): the dashboard pages people move between most, each its own first load. */
+  { route: "/app/products", label: "Dashboard: Products" },
+  { route: "/app/orders", label: "Dashboard: Orders" },
+  { route: "/app/analytics", label: "Dashboard: Analytics" },
+  { route: "/app/emails", label: "Dashboard: Emails" },
+  { route: "/app/settings", label: "Dashboard: Settings" },
   { route: "/website-builder/editor/[installId]", label: "Website editor" },
   { route: "/w/[username]", label: "Website on storelib.com" },
   { route: "/checkout/site", label: "Website checkout" },

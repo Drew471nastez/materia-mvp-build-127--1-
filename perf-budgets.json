@@ -33,10 +33,118 @@
     "/checkout/site": {
       "firstLoadGzipKb": 543,
       "measuredGzipKb": 493.2
+    },
+    "/app/products": {
+      "firstLoadGzipKb": 566,
+      "measuredGzipKb": 513.8
+    },
+    "/app/orders": {
+      "firstLoadGzipKb": 665,
+      "measuredGzipKb": 604.3
+    },
+    "/app/analytics": {
+      "firstLoadGzipKb": 726,
+      "measuredGzipKb": 659.6
+    },
+    "/app/emails": {
+      "firstLoadGzipKb": 705,
+      "measuredGzipKb": 640.4
+    },
+    "/app/settings": {
+      "firstLoadGzipKb": 752,
+      "measuredGzipKb": 683.4
     }
   },
   "serverOutputMb": {
     "budget": 240,
     "measured": 217.9
+  },
+  "dashboard": {
+    "$comment": "Per move through the dashboard's sidebar, signed in as the stub's one creator (scripts/check-dashboard-roundtrips.mjs --budget, on a build pointed at scripts/supabase-stub-server.mjs): the browser's /api calls exactly, the server's Supabase requests at the measured value plus 10%, the browser's own Supabase requests plus 3 (its realtime socket retries against the stub). No call may be made twice in one move, and the JS heap may grow at most heapGrowthMb over the loops (a page that keeps what it left shows here: Home kept ~500 DOM nodes a visit until round 12).",
+    "measuredAt": "2026-10-25T01:00:06.984Z",
+    "heapGrowthMb": 4,
+    "domGrowthNodes": 100,
+    "pages": {
+      "/app/products": {
+        "api": 0,
+        "dbServer": 102,
+        "dbBrowser": 3,
+        "measured": {
+          "api": 0,
+          "dbServer": 92,
+          "dbBrowser": 0
+        }
+      },
+      "/app/orders": {
+        "api": 0,
+        "dbServer": 2,
+        "dbBrowser": 3,
+        "measured": {
+          "api": 0,
+          "dbServer": 1,
+          "dbBrowser": 0
+        }
+      },
+      "/app/analytics": {
+        "api": 1,
+        "dbServer": 35,
+        "dbBrowser": 3,
+        "measured": {
+          "api": 1,
+          "dbServer": 31,
+          "dbBrowser": 0
+        }
+      },
+      "/app/emails": {
+        "api": 4,
+        "dbServer": 71,
+        "dbBrowser": 11,
+        "measured": {
+          "api": 4,
+          "dbServer": 64,
+          "dbBrowser": 8
+        }
+      },
+      "/app/coupons": {
+        "api": 0,
+        "dbServer": 29,
+        "dbBrowser": 4,
+        "measured": {
+          "api": 0,
+          "dbServer": 26,
+          "dbBrowser": 1
+        }
+      },
+      "/app/payouts": {
+        "api": 1,
+        "dbServer": 21,
+        "dbBrowser": 3,
+        "measured": {
+          "api": 1,
+          "dbServer": 19,
+          "dbBrowser": 0
+        }
+      },
+      "/app/settings": {
+        "api": 18,
+        "dbServer": 150,
+        "dbBrowser": 3,
+        "measured": {
+          "api": 18,
+          "dbServer": 136,
+          "dbBrowser": 0
+        }
+      },
+      "/app": {
+        "api": 3,
+        "dbServer": 46,
+        "dbBrowser": 5,
+        "measured": {
+          "api": 3,
+          "dbServer": 41,
+          "dbBrowser": 2
+        }
+      }
+    }
   }
 }

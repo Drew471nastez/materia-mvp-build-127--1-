@@ -89,6 +89,11 @@ async function main() {
       check("the eight key routes are measured", wanted.every((r) => ROUTES.some((x: { route: string }) => x.route === r)))
       check("  and every one has a budget", wanted.every((r) => typeof budgets.routes[r]?.firstLoadGzipKb === "number"))
       check("  each about 10% over what was measured", wanted.every((r) => { const b = budgets.routes[r]; return b.firstLoadGzipKb >= b.measuredGzipKb * 1.09 && b.firstLoadGzipKb <= b.measuredGzipKb * 1.11 + 1 }))
+      /* Round 12 (PLATPERF): the dashboard's round trips per move and its memory over a long session, held by scripts/check-dashboard-roundtrips.mjs --budget. */
+      const dash = (budgets as { dashboard?: { pages?: Record<string, { api: number; dbServer: number; dbBrowser: number }>; heapGrowthMb?: number; domGrowthNodes?: number } }).dashboard
+      check("the dashboard has round trip budgets per page, and a ceiling on memory kept over a session", !!dash && ["/app/products", "/app/orders", "/app/analytics", "/app/emails", "/app/settings", "/app"].every((pg) => typeof dash.pages?.[pg]?.dbServer === "number" && typeof dash.pages?.[pg]?.api === "number") && typeof dash.heapGrowthMb === "number" && typeof dash.domGrowthNodes === "number")
+      const roundTrips = readFileSync(join(process.cwd(), "scripts/check-dashboard-roundtrips.mjs"), "utf8")
+      check("  and the probe holds a build to them: calls per move, nothing asked twice, no DOM kept", /budgets\.pages\?\.\[r\.href\]/.test(roundTrips) && /asked twice/.test(roundTrips) && /budgets\.domGrowthNodes/.test(roundTrips))
       check("the server output has a budget too", budgets.serverOutputMb.budget >= budgets.serverOutputMb.measured * 1.09 && budgets.serverOutputMb.budget <= budgets.serverOutputMb.measured * 1.11 + 1)
 
       /* A build folder of our own: two chunks for the runtime, one page with a layout chunk and a page chunk. */
@@ -103,7 +108,9 @@ async function main() {
       chunk("runtime.js", 20); chunk("react.js", 40); chunk("layout.js", 30); chunk("page.js", 10); chunk("polyfill.js", 50)
       writeFileSync(join(next, "build-manifest.json"), JSON.stringify({ polyfillFiles: ["static/chunks/polyfill.js"], rootMainFiles: ["static/chunks/runtime.js", "static/chunks/react.js"] }))
       const pages: Record<string, string> = {}
-      for (const r of wanted) pages[`/fixture${r === "/" ? "" : r}/page`] = r
+      /* Changed on purpose (round 12, PLATPERF): ROUTES also measures five dashboard pages, so the fixture build has a page for every route it measures. */
+      const measured = ROUTES.map((x: { route: string }) => x.route)
+      for (const r of measured) pages[`/fixture${r === "/" ? "" : r}/page`] = r
       writeFileSync(join(next, "app-path-routes-manifest.json"), JSON.stringify(pages))
       for (const page of Object.keys(pages)) {
         const file = join(next, "server/app", `${page}_client-reference-manifest.js`)
@@ -122,8 +129,8 @@ async function main() {
 
       const roomy = join(scratch, "roomy.json")
       const tight = join(scratch, "tight.json")
-      writeFileSync(roomy, JSON.stringify({ routes: Object.fromEntries(wanted.map((r) => [r, { firstLoadGzipKb: 1000 }])), serverOutputMb: { budget: 10 } }))
-      writeFileSync(tight, JSON.stringify({ routes: Object.fromEntries(wanted.map((r) => [r, { firstLoadGzipKb: r === "/app" ? 1 : 1000 }])), serverOutputMb: { budget: 10 } }))
+      writeFileSync(roomy, JSON.stringify({ routes: Object.fromEntries(measured.map((r: string) => [r, { firstLoadGzipKb: 1000 }])), serverOutputMb: { budget: 10 } }))
+      writeFileSync(tight, JSON.stringify({ routes: Object.fromEntries(measured.map((r: string) => [r, { firstLoadGzipKb: r === "/app" ? 1 : 1000 }])), serverOutputMb: { budget: 10 } }))
       const ok = await run(["scripts/perf-budget.mjs", "--dir", next, "--budgets", roomy], { GITHUB_STEP_SUMMARY: "" })
       check("every route within budget passes", ok.code === 0, ok.out.slice(-300))
       const over = await run(["scripts/perf-budget.mjs", "--dir", next, "--budgets", tight], { GITHUB_STEP_SUMMARY: "" })

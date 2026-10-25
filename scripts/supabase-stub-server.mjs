@@ -55,13 +55,15 @@ function matches(row, key, raw) {
   }
 }
 
-export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [] } = {}) {
+export async function serveSupabaseStub({ port = 54321, tables = {}, user = null, users = [], delayMs = 0 } = {}) {
   const log = []
   const tokenOf = (u) => fakeJwt({ sub: u.id, role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 86400, email: u.email })
   const token = user ? tokenOf(user) : null
   /* Everybody who can be signed in, by their token and by their refresh token. */
   const people = [...(user ? [user] : []), ...users].map((u) => ({ user: u, token: tokenOf(u), refresh: `probe-refresh-${u.id}` }))
-  const server = createServer((req, res) => {
+  /* `delayMs`: every answer that long late, the way a real database across a network is, so serial round trips show in a measured time. */
+  const server = createServer((req, res) => (delayMs > 0 ? setTimeout(() => answer(req, res), delayMs) : answer(req, res)))
+  const answer = (req, res) => {
     const url = new URL(req.url, `http://127.0.0.1:${port}`)
     const send = (status, body, headers = {}) => {
       res.writeHead(status, { "content-type": "application/json", "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*", "access-control-expose-headers": "content-range", ...headers })
@@ -120,7 +122,7 @@ export async function serveSupabaseStub({ port = 54321, tables = {}, user = null
       return send(200, rows[0], range)
     }
     return send(200, rows, range)
-  })
+  }
   await new Promise((r) => server.listen(port, "127.0.0.1", r))
   return {
     server,

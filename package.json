@@ -12,6 +12,7 @@
     "typecheck:ratchet": "node scripts/ci/typecheck-ratchet.mjs",
     "start": "next start",
     "test:push": "node scripts/run-push-tests.mjs",
+    "perf:dashboard": "node scripts/check-dashboard-roundtrips.mjs --budget",
     "check:client-errors": "node scripts/check-client-errors.mjs"
   },
   "dependencies": {
