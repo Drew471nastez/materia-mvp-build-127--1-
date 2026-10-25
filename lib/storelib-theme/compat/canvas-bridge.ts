@@ -1603,6 +1603,17 @@ export const CANVAS_BRIDGE = `
     out of what is swapped in.
   */
   var queue = Promise.resolve();
+  /*
+    EACH SWAP IN A TASK OF ITS OWN (round 14). The queue is a chain of
+    promises, and a chain runs to its end in one task: a burst of changes
+    from Storelib AI, an agent or a push swapped five or six sections back
+    to back, each one laid out against the whole page and started again by
+    the theme's scripts, in one task of 500 to 850ms on the owner's Materia
+    (scripts/check-wb-incoming-r14.mjs). A swap now waits for the next
+    turn of the event loop, so a key pressed or a wheel turned in between
+    is answered between two swaps, never after all of them.
+  */
+  var nextTurn = function () { return new Promise(function (done) { setTimeout(done, 0); }); };
   var kept = {}, keptLink = {};
   /* The same file at another version (?v=, its text changed: a push) takes the old one's place once it has loaded, never both (round 13). */
   var fileOf = function (href) { return String(href).replace(/[?&]v=[^&#]*/, ""); };
@@ -1695,7 +1706,7 @@ export const CANVAS_BRIDGE = `
     var next = tpl.content.firstElementChild;
     if (!next) return;
     var links = Array.prototype.slice.call(next.querySelectorAll('link[rel="stylesheet"][href]'));
-    return Promise.all(links.map(function (l) { return keep(l.href); })).then(function () {
+    return Promise.all(links.map(function (l) { return keep(l.href); })).then(nextTurn).then(function () {
       links.forEach(function (l) { l.remove(); });
       var el = document.getElementById("shopify-section-" + id);
       if (!el) { post({ type: "missing", id: id }); return; }
@@ -2613,6 +2624,12 @@ export const CANVAS_BRIDGE = `
     var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     letGo = setTimeout(function () { if (!inspect) { unmark(); redraw(); reportSoon(); } }, still ? 0 : 200);
   };
+  /* When the person last moved the page themselves (a wheel, a finger, a key): Date.now(), as the builder's clock reads it. */
+  var personScrolledAt = 0;
+  var personScrolls = function () { personScrolledAt = Date.now(); };
+  addEventListener("wheel", personScrolls, { passive: true, capture: true });
+  addEventListener("touchmove", personScrolls, { passive: true, capture: true });
+  addEventListener("keydown", function (e) { if (/^(Arrow(Up|Down)|Page(Up|Down)|Home|End| )$/.test(e.key)) personScrolls(); }, true);
   var revealSection = function (id) {
     if (!id) return;
     var tries = 0;
@@ -2886,6 +2903,8 @@ export const CANVAS_BRIDGE = `
       if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false, (m.sectionId || null) === selected.section && (m.blockId || null) === selected.block);
     } else if (m.type === "reveal") {
       /* Round AH: a section just added, pasted or written by the AI, brought smoothly to the top, below a sticky header, once it is drawn. */
+      /* Not when it comes at the end of a run the person scrolled away during (round 14): the page is where they took it. */
+      if (typeof m.since === "number" && personScrolledAt >= m.since) return;
       queue = queue.then(function () { revealSection(String(m.id || "")); }).catch(function () {});
     } else if (m.type === "inspect") {
       setInspect(m.on);

@@ -75,7 +75,7 @@ async function main() {
     check("a new section is glided to even when part of it shows (top less a margin)", to === 334 && scroller.scrollTop === 334)
     check("already there, nothing moves", scroll.glideWithin(scroller, { getBoundingClientRect: () => ({ top: 66 }) }) === null)
     const editor = code("app/website-builder/editor/[installId]/page.tsx")
-    check("added, pasted, duplicated and AI sections glide", /revealSection\(copy\.id, true\)/.test(editor) && /revealSection\(pasted\.id, true\)/.test(editor) && /revealSection\(onPage\[0\], true\)/.test(editor) && /revealSection\(id, true\)/.test(editor))
+    check("added, pasted, duplicated and AI sections glide", /revealSection\(copy\.id, true\)/.test(editor) && /revealSection\(pasted\.id, true\)/.test(editor) && /* round 14: with the run's start, so a canvas scrolled during the run stays */ /revealSection\(onPage\[0\], true(, undefined, aiRunStartedAt\.current)?\)/.test(editor) && /revealSection\(id, true\)/.test(editor))
     check("an imported theme's frame is told too", /type: "reveal", id/.test(code("components/website-builder/compat/compat-canvas.tsx")) && /m\.type === "reveal"/.test(read("lib/storelib-theme/compat/canvas-bridge.ts")))
   }
 

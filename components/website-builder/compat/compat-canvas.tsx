@@ -1998,11 +1998,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* Round AH: a section added, pasted or written by the AI is glided to inside the frame, where the editor's own scroll cannot reach (lib/website-builder/canvas-scroll.ts REVEAL_EVENT). */
   useEffect(() => {
     const onReveal = (e: Event) => {
-      const id = (e as CustomEvent<{ id?: string }>).detail?.id
+      const detail = (e as CustomEvent<{ id?: string; since?: number }>).detail
+      const id = detail?.id
       if (!id) return
       const slot = slotsRef.current[0]
       if (!slot?.ready) return
-      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "reveal", id }, "*")
+      /* `since`: not if the person has moved the page themselves since then (the end of a run they scrolled away during). */
+      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "reveal", id, ...(typeof detail?.since === "number" ? { since: detail.since } : {}) }, "*")
     }
     window.addEventListener(REVEAL_EVENT, onReveal)
     return () => window.removeEventListener(REVEAL_EVENT, onReveal)

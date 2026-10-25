@@ -65,6 +65,7 @@ import { settingsSectionFrom, type ConnectVia, type SettingsSection } from "@/co
 import { ConnectionButton, LiveChangeNotice, addToBatch, useSiteActivity, type LiveBatch, type LiveChange } from "@/components/website-builder/site-connections"
 import { ConnectionMarkIcon } from "@/components/website-builder/connection-marks"
 import { PanelBack } from "@/components/website-builder/panel-back"
+import { createBurstQueue } from "@/lib/website-builder/incoming"
 import { describeChange, pageEventPlan, pickConnection, sectionTypeOf, type ActivityEvent } from "@/lib/agent-access/connection-mark"
 import { createClient } from "@/lib/supabase/client"
 import { setWebsiteUploadOwner } from "@/lib/website-builder/team-upload-owner"
@@ -3468,6 +3469,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      */
     setSections(previous => applyOp({ sections: previous, settings: {} }, op, librarySchemas).sections)
   }, [librarySchemas])
+  /*
+    A RUN'S OPERATIONS, TAKEN IN A FEW AT A TIME (round 14,
+    lib/website-builder/incoming.ts createBurstQueue). Each one applied as
+    it streamed in was a render of this editor and, on an imported theme, a
+    section swapped in the canvas with the theme's scripts started again for
+    it: forty in three seconds held the editor for most of them, and keys
+    typed in the sidebar meanwhile waited. They are queued and taken in
+    together, the first at once and then every 250ms or more, behind
+    anything the person does (a transition), each by the same applier, in
+    order; only for the page the run is on. The run's end takes in what is
+    left at once (aiRunFinished), and so does Undo.
+  */
+  const applyAiOpRef = useRef(applyAiOp)
+  applyAiOpRef.current = applyAiOp
+  const aiOps = useMemo(
+    () =>
+      createBurstQueue<{ op: ThemeOp; page: string }>({
+        apply: (batch, flushed) => {
+          const run = () => {
+            for (const { op, page } of batch) if (page === currentPageRef.current) applyAiOpRef.current(op)
+          }
+          if (flushed) run()
+          else startTransition(run)
+        },
+      }),
+    [],
+  )
+  useEffect(() => () => aiOps.drop(), [aiOps])
+  const queueAiOp = useCallback((op: ThemeOp) => aiOps.push({ op, page: currentPageRef.current }), [aiOps])
 
   /**
    * =========================================================================
@@ -3962,6 +3992,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [endUndoRun])
 
   const handleUndo = useCallback(() => {
+    /* What a run streamed and is still waiting to be taken in is in first: Undo takes back the run as the person saw it. */
+    aiOps.flush()
     const stack = undoRef.current
     if (stack.length === 0) return
     /* An edit after an Undo is a step of its own, not the end of the run before it. */
@@ -3972,7 +4004,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSettingsDraft(last.settings)
     setUndoStack(prev => prev.slice(0, -1))
     setIsDirty(true)
-  }, [snapshotNow, endUndoRun])
+  }, [snapshotNow, endUndoRun, aiOps])
 
   const handleRedo = useCallback(() => {
     const stack = redoRef.current
@@ -4002,16 +4034,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   /* Round AH: `glide` for a section just made (added, pasted, duplicated, written by the AI): brought smoothly near the top, in an imported theme's frame too. */
   /* `afterMs`: how long to wait first, for something still moving over the canvas (the Ask sheet going down). */
-  const revealSection = useCallback((sectionId: string, glide = false, afterMs?: number) => {
+  /* `since` (Date.now()): only if the person has not moved the canvas themselves since then (the end of an AI run they scrolled away during). */
+  const canvasScrolledAt = useRef(0)
+  const revealSection = useCallback((sectionId: string, glide = false, afterMs?: number, since?: number) => {
     setTimeout(() => {
       const el = document.getElementById(`wb-section-${sectionId}`)
       const scroller = document.getElementById("wb-preview-root")
-      if (el && scroller) {
+      if (el && scroller && !(since !== undefined && canvasScrolledAt.current >= since)) {
         if (glide) glideWithin(scroller, el)
         else revealWithin(scroller, el)
       }
-      if (glide && typeof window !== "undefined") window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: sectionId } }))
+      if (glide && typeof window !== "undefined") window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: sectionId, ...(since !== undefined ? { since } : {}) } }))
     }, afterMs ?? (glide ? 120 : 80))
+  }, [])
+  /* The person's own wheel or finger over a Storelib theme's canvas (an imported theme's frame keeps its own: canvas-bridge.ts). */
+  useEffect(() => {
+    const mark = (e: Event) => { if ((e.target as Element | null)?.closest?.("#wb-preview-root")) canvasScrolledAt.current = Date.now() }
+    window.addEventListener("wheel", mark, { passive: true, capture: true })
+    window.addEventListener("touchmove", mark, { passive: true, capture: true })
+    return () => {
+      window.removeEventListener("wheel", mark, { capture: true })
+      window.removeEventListener("touchmove", mark, { capture: true })
+    }
   }, [])
 
   /**
@@ -5092,8 +5136,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * was made on; anywhere else it answers false and the chat stops offering.
    */
   const aiRuns = useRef(new Map<string, { page: string; before: { sections: SectionInstance[]; settings: ThemeSettingsValues } }>())
+  /* When the latest run started (Date.now()): its end brings what it changed into view only if the canvas was left where it was. */
+  const aiRunStartedAt = useRef(0)
   const startAiRun = useCallback(
     (runId?: string) => {
+      aiRunStartedAt.current = Date.now()
       const before = snapshotNow()
       setUndoStack(prev => [...prev.slice(-30), before])
       setRedoStack([])
@@ -10607,6 +10654,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
   const aiRunFinished = useCallback(
     (ids: string[]) => {
+      /* Whatever it streamed that is still waiting is taken in now, before its one undo step closes. */
+      aiOps.flush()
       /* The run is over: its one undo step is complete, and the next change is a step of its own (lib/website-builder/undo-run.ts). */
       undoRun.release()
       /* A section placed this moment is on the page from the next render: looked for again a frame later. */
@@ -10618,11 +10667,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           return
         }
         setAiSettledIds(onPage)
-        revealSection(onPage[0], true)
+        /* Not if the person scrolled the canvas while it worked: the page stays where they took it. */
+        revealSection(onPage[0], true, undefined, aiRunStartedAt.current)
       }
       settle(true)
     },
-    [revealSection, undoRun],
+    [revealSection, undoRun, aiOps],
   )
   useEffect(() => {
     if (aiSettledIds.length === 0) return
@@ -11577,7 +11627,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onRunEnd={backupAfterTask}
               onUndoRun={undoAiRun}
               onBusyChange={setAiBusy}
-              onOp={applyAiOp}
+              onOp={queueAiOp}
               onClose={closeAiSheet}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
@@ -12344,7 +12394,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onRunEnd={backupAfterTask}
               onUndoRun={undoAiRun}
               onBusyChange={setAiBusy}
-              onOp={applyAiOp}
+              onOp={queueAiOp}
               onClose={closeAiDock}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}

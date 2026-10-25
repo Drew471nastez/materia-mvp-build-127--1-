@@ -42,7 +42,7 @@ const css = readFileSync("app/globals.css", "utf8")
 console.log("\nThe sheet goes down, then the canvas glides to the spot")
 check("on a phone the sheet closes and the glide waits for it", /setAiOpen\(false\)\s*revealSection\(WRITING_SECTION_ID, true, sheetMoveMs\(\) \+ 60\)/.test(editor))
 check("on a computer the canvas glides to the spot whenever it starts", /\} else \{\s*revealSection\(WRITING_SECTION_ID, true\)\s*\}/.test(editor))
-check("revealSection can wait for something still moving over the canvas", /const revealSection = useCallback\(\(sectionId: string, glide = false, afterMs\?: number\) =>/.test(editor) && /\}, afterMs \?\? \(glide \? 120 : 80\)\)/.test(editor))
+check("revealSection can wait for something still moving over the canvas", /* Changed on purpose (round 14 INCOMING: `since`, so a run's end does not scroll a canvas the person moved) */ /const revealSection = useCallback\(\(sectionId: string, glide = false, afterMs\?: number(, since\?: number)?\) =>/.test(editor) && /\}, afterMs \?\? \(glide \? 120 : 80\)\)/.test(editor))
 
 console.log("\nThe spot types its code without laying out the page")
 check("only the line being typed is written each frame", /if \(current\) current\.innerHTML = `\$\{tint\(line\)\}<span class="wb-writing-caret"><\/span>`/.test(writing) && /if \(key !== laneKey \|\| !current\)/.test(writing))
