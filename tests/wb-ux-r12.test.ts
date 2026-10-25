@@ -70,6 +70,8 @@ console.log("\nThe canvas and the imported theme's frame offer it")
   check("a real button, with a name", /type="button"\s+aria-label=\{tt\("Add a block here"\)\}/.test(strip))
   check("the frame finds the places between blocks", /var blockGapAt = function \(x, y\)/.test(bridge) && /type: "add-block"/.test(bridge))
   check("and is told which levels take a block", /if \("levels" in m\)/.test(bridge) && /levels: props\.blockLevels \?\? null/.test(compat))
+  check("the frame keeps the levels to itself (no debug global)", !/__slBlockLevels/.test(bridge))
+  check("the empty collection picker: its button on a row of its own, full width, no cut words", /data-collection-add=""[\s\S]{0,120}className="mt-2\.5 inline-flex h-8 w-full/.test(read("components/website-builder/editor/controls/collection-controls.tsx")) && !/truncate text-\[11\.5px\]/.test(read("components/website-builder/editor/controls/collection-controls.tsx")))
   check("the editor hears the frame's press", /m\.type === "add-block" && inspecting\.current && isFront/.test(compat) && /onAddBlockAt=\{addBlockFromFrame\}/.test(page))
 }
 

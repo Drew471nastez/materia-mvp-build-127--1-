@@ -287,19 +287,20 @@ function Unavailable({ list, onCreated }: { list: PickerCollection[] | null | un
     )
   }
   return (
-    <div data-empty-picker="collection" className="flex items-center gap-3 rounded-lg border border-[#eceef1] bg-[#fafafb] px-3 py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-[#6b7280] shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
-        <FolderOpen className="h-4 w-4" strokeWidth={1.75} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[12.5px] font-medium text-[#1a1a2e]">{tt("No collections yet")}</span>
-        <span className="block truncate text-[11.5px] text-[#6b7280]">{tt("Group products, then pick one here.")}</span>
-      </span>
+    <div data-empty-picker="collection" className="rounded-lg border border-[#eceef1] bg-[#fafafb] p-3">
+      {/* Laid out for a 280px sidebar: the words on their own lines, never cut, and the button on its own row. */}
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white text-[#6b7280] shadow-[0_0_0_1px_rgba(0,0,0,0.05)]">
+          <FolderOpen className="h-4 w-4" strokeWidth={1.75} />
+        </span>
+        <span className="min-w-0 flex-1 text-[12.5px] max-sm:text-[14px] font-medium leading-snug text-[#1a1a2e]">{tt("No collections yet")}</span>
+      </div>
+      <p className="mt-1.5 text-[11.5px] max-sm:text-[13px] leading-relaxed text-[#6b7280]">{tt("Group products, then pick one here.")}</p>
       <button
         type="button"
         data-collection-add=""
         onClick={() => setMaking(true)}
-        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-[#1a1a2e] px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-black max-sm:h-10"
+        className="mt-2.5 inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 text-[12.5px] font-medium text-white transition-colors hover:bg-black max-sm:h-11 max-sm:text-[14px]"
       >
         <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
         {tt("Add collection")}

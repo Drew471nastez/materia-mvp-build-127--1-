@@ -2433,7 +2433,7 @@ export const CANVAS_BRIDGE = `
       leaving = false;
       if ("inspect" in m) setInspect(m.inspect);
       /* Which levels of which sections take a block, for Add block between two blocks (round 12). */
-      if ("levels" in m) window.__slBlockLevels = blockLevels = m.levels && typeof m.levels === "object" ? m.levels : null;
+      if ("levels" in m) blockLevels = m.levels && typeof m.levels === "object" ? m.levels : null;
       /* Off, nothing is outlined whatever was asked (setInspect takes the marks off after their fade); on, the same selection again is only outlined. */
       if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false, (m.sectionId || null) === selected.section && (m.blockId || null) === selected.block);
     } else if (m.type === "reveal") {

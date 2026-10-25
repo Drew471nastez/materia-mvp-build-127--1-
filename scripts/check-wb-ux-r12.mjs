@@ -282,7 +282,7 @@ async function insertImported({ bundle, css, compat }) {
       if (s && s.on && s.label === "Add a block here") { tried = { p, at, s }; break }
       console.log("  note  tried", JSON.stringify({ p, at, box, s, under: await f.evaluate((x, y) => document.elementFromPoint(x, y)?.outerHTML.slice(0, 100), at.x, at.y) }))
     }
-    expect(!!tried, "between two blocks of an imported section: the + shows, as between two sections", tried ?? await f.evaluate(() => ({ adder: document.querySelector("[data-sl-add]")?.outerHTML.slice(0, 160) ?? "none", levels: window.__slBlockLevels, inspect: window.__slInspect, ready: document.readyState })))
+    expect(!!tried, "between two blocks of an imported section: the + shows, as between two sections", tried ?? await f.evaluate(() => ({ adder: document.querySelector("[data-sl-add]")?.outerHTML.slice(0, 160) ?? "none" })))
     if (tried) {
       await page.screenshot({ path: join(SHOTS, "insert-imported-1440.png"), captureBeyondViewport: false })
       const count = () => f.evaluate((id) => document.getElementById(id).querySelectorAll("[data-block-id]").length, tried.p.section)
@@ -344,6 +344,18 @@ async function collectEmpty({ bundle, css, width = 1440, height = 900, tag = "14
     await js(() => document.querySelector("[data-collection-picker] [data-collection-add]").scrollIntoView({ block: "center" }))
     await sleep(300)
     await page.screenshot({ path: join(SHOTS, `collect-empty-${tag}.png`), captureBeyondViewport: false })
+    /* Laid out for the narrow sidebar: the title on one line, nothing cut, the button on a row of its own. */
+    const fit = await js(() => {
+      const card = document.querySelector("[data-collection-picker] [data-empty-picker]")
+      const title = [...card.querySelectorAll("span")].find((x) => x.textContent === "No collections yet")
+      const lineH = parseFloat(getComputedStyle(title).lineHeight) || 18
+      const cut = [...card.querySelectorAll("span, p")].filter((x) => x.scrollWidth > x.clientWidth + 1 || getComputedStyle(x).textOverflow === "ellipsis").map((x) => x.textContent)
+      const btn = card.querySelector("[data-collection-add]").getBoundingClientRect()
+      const r = card.getBoundingClientRect()
+      return { titleLines: Math.round(title.getBoundingClientRect().height / lineH), cut, buttonFull: btn.width >= r.width - 30, buttonBelow: btn.top >= title.getBoundingClientRect().bottom, width: Math.round(r.width) }
+    })
+    expect(fit.titleLines === 1 && fit.cut.length === 0 && fit.buttonFull && fit.buttonBelow, "the empty state fits the sidebar: one line of title, nothing cut, the button full width below", fit)
+    await (await page.$("[data-collection-picker] [data-empty-picker]")).screenshot({ path: join(SHOTS, `collect-empty-card-${tag}.png`) })
     await js(() => document.querySelector("[data-collection-picker] [data-collection-add]").click())
     await sleep(400)
     const form = await js(() => ({ name: !!document.querySelector("[data-collection-create-name]"), products: document.querySelectorAll("[data-collection-create-product]").length }))
