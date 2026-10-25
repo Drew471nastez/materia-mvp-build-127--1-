@@ -17,7 +17,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
-import { chargeUnits, lineTotalCents, packItems } from "@/lib/checkout/cart-items"
+import { chargeUnits, lineTotalCents, packExtras, packItems } from "@/lib/checkout/cart-items"
 import { HELD_SESSION_SECONDS, HOLD_COOKIE, holdCouponUse, holderForEmail, isHolder, needsHold, newHolder, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
 import { ORIGIN_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin } from "@/lib/orders/order-source"
@@ -496,6 +496,8 @@ async function handlePOST(request: Request) {
         ...(saleHolder ? { [SALE_HOLDER_KEY]: saleHolder } : {}),
       },
     }
+    /* Which offer saved what on each line, and each line's properties, in the room left (lib/checkout/cart-items packExtras): the order lines keep them. */
+    Object.assign(params.metadata!, packExtras(lines.map((l) => l.item), 50 - Object.keys(params.metadata!).length))
     /* Last, and only while Stripe's 50 keys allow. */
     Object.assign(params.metadata!, attributionToMetadata(attribution, Object.keys(params.metadata!).length))
     let session: Stripe.Checkout.Session | null = null

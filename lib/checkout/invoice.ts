@@ -42,6 +42,8 @@ import { stripe } from "@/lib/stripe"
 import { businessFromFields, businessFromMetadata, businessFromStripe, addressLines, taxIdFor, type BusinessDetails } from "./business"
 import { countryName } from "./countries"
 import { unpackItems, type PackedItem } from "./cart-items"
+import { splitSavings } from "@/lib/receipts/discount"
+import { offersOfSnapshot } from "@/lib/offers/snapshot"
 import { fullyRefunded } from "@/lib/orders/refund-state"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { includedTaxLabel, percentText } from "@/lib/tax/rules"
@@ -79,6 +81,8 @@ export interface InvoiceData {
   subtotalCents: number
   discountCents: number
   discountCode: string | null
+  /** The store's offers inside `discountCents`, each by the name the checkout showed it with; the rest is the code's. */
+  savings?: { label: string; cents: number }[]
   tipCents: number
   /** Settings › Taxes: the tax in the total, added on top or included in the price. */
   taxCents?: number
@@ -149,6 +153,8 @@ export interface OrderRow {
   refund_amount_cents?: number | null
   /** The company the buyer bought for, when the database has the column (part 35). */
   business_details?: unknown
+  /** The line's snapshot: its offers by name (lib/offers/snapshot.ts), written when the order was. */
+  product_snapshot?: { offers?: unknown } | null
   product: { title: string | null; creator_id: string | null } | null
 }
 
@@ -249,6 +255,7 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const tip = rows.reduce((n, r) => n + Math.max(0, Number(r.tip_cents) || 0), 0)
   let lines: InvoiceLine[]
   let discount: number
+  let savings: { label: string; cents: number }[] = []
   /* The tax in the amount: a single product's as stripe-session put it on the payment; a basket's on each of its rows (orders.tax_cents, tax_included). */
   const rowTax = (r: OrderRow) => Math.max(0, Number(r.tax_cents) || 0)
   const rowTaxIncluded = (r: OrderRow) => r.tax_included === true
@@ -288,6 +295,8 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
       /* Only a line whose pricing adds up to what it was charged is shown with it. */
       const fits = item !== null && gross - off === charged
       return {
+        /* The offers the line kept (lib/checkout/cart-items packExtras), only on a line that adds up. */
+        offers: fits && item ? ((offersOfSnapshot(r.product_snapshot?.offers) ?? (item.offers ?? []).map((o) => ({ title: o.title, savedCents: o.savedCents }))) as { title: string; savedCents: number }[]) : [],
         line: {
           description: r.product?.title || "Digital product",
           detail: r.variant_name || null,
@@ -300,7 +309,10 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     })
     lines = priced.map((p) => p.line)
     discount = priced.reduce((n, p) => n + p.off, 0)
+    savings = splitSavings(discount, priced.flatMap((p) => p.offers.map((o) => ({ label: o.title || "Offer", cents: o.savedCents })))).rows
     if (discount === 0) discountCode = null
+    /* Only offers, no code's part left: no code named. */
+    if (savings.reduce((n, s) => n + s.cents, 0) >= discount) discountCode = null
   }
   const subtotal = lines.reduce((n, l) => n + l.amountCents, 0)
 
@@ -374,6 +386,7 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     subtotalCents: subtotal,
     discountCents: discount,
     discountCode,
+    ...(savings.length ? { savings } : {}),
     tipCents: tip,
     taxCents,
     taxIncluded,
@@ -593,7 +606,10 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
     y += strong ? 20 : 17
   }
   row("Subtotal", money(inv.subtotalCents))
-  if (inv.discountCents > 0) row(inv.discountCode ? `Discount (${inv.discountCode})` : "Discount", `−${money(inv.discountCents)}`)
+  /* Each offer by its own name, then the code's part: an offer is never named by the code. */
+  const split = splitSavings(inv.discountCents, inv.savings)
+  for (const s of split.rows) row(s.label, `−${money(s.cents)}`)
+  if (split.rest > 0) row(inv.discountCode ? `Discount (${inv.discountCode})` : "Discount", `−${money(split.rest)}`)
   if (inv.tipCents > 0) row("Tip", money(inv.tipCents))
   /* Named as the checkout named it: "VAT 19%". */
   const taxName = inv.taxLabel || (inv.taxRateBps ? `Tax ${percentText(inv.taxRateBps)}` : "Tax")

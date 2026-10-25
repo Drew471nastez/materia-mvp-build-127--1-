@@ -6,6 +6,8 @@ import { imagesOnly } from "@/lib/media/video"
 import { currencyCode } from "@/lib/markets/money"
 import { orderCurrency } from "./money"
 import { withOrderCurrency } from "@/lib/store/currency-at-read"
+import { offersOfSnapshot } from "@/lib/offers/snapshot"
+import { lineProperties } from "@/lib/physical/cart-link"
 
 /**
  * AN ORDER ROW AS THE ORDERS PAGE READS IT, AND EVERY ONE AT ONCE
@@ -70,6 +72,9 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     buyer_notified_at: order.buyer_notified_at ?? null,
     buyer_email_last_error: order.buyer_email_last_error ?? null,
     variant_name: order.variant_name ?? null,
+    /* What the line kept of the checkout: the offers that saved on it and its properties (a download basket's as a shipped cart's). */
+    offers: offersOfSnapshot(order.product_snapshot?.offers),
+    properties: lineProperties(order.product_snapshot?.properties) ?? null,
     /* Opened yet (SQL part 224): kept absent where the column is not there, so an older database reads every order as seen. */
     ...("seller_seen_at" in order ? { seller_seen_at: order.seller_seen_at ?? null } : {}),
     source: order.source ?? null,

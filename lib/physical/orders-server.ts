@@ -1,4 +1,5 @@
 import "server-only"
+import { offersOfSnapshot } from "@/lib/offers/snapshot"
 
 /**
  * ===========================================================================
@@ -164,15 +165,8 @@ function paymentStatusOf(total: number, refunded: number, stored: PaymentStatus)
   return refunded >= total ? "refunded" : "partially_refunded"
 }
 
-/** A line snapshot's `offers` (lib/physical/checkout-server snapshotLine), read leniently: each with a name and what it saved, or null for none. */
-export function offersOfSnapshot(raw: unknown): { title: string; savedCents: number }[] | null {
-  if (!Array.isArray(raw)) return null
-  const out = raw
-    .map((o) => ({ title: typeof o?.title === "string" ? o.title.slice(0, 120) : "", savedCents: Math.max(0, Math.round(Number(o?.saved_cents ?? o?.savedCents) || 0)) }))
-    .filter((o) => o.title && o.savedCents > 0)
-    .slice(0, 10)
-  return out.length ? out : null
-}
+/* A line snapshot's `offers`, read leniently (lib/offers/snapshot.ts, shared with a download basket's order lines). */
+export { offersOfSnapshot }
 
 export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: string } | { receiptToken: string }): Promise<PhysicalOrder | null> {
   let q = db.from("commerce_checkouts").select("*")

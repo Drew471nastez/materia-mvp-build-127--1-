@@ -1324,6 +1324,41 @@ export interface CartDiscount {
   error?: string | null
 }
 
+/**
+ * THE STORE'S OFFERS ON THE CART, priced by the website's own checkout
+ * (./cart-pricing-server.ts, lib/offers applyOffers): what each offer takes
+ * off each line, in the cart's money (cents of the currency the page shows),
+ * by the line's key. Shopify's automatic discounts: each is a line level
+ * discount allocation of an application of type "automatic" named by the
+ * offer (a quantity break by its tier's label), so a theme's cart drawer and
+ * cart page draw "Buy 2 get 1 free -$36.00" under the line and the totals
+ * after it, as checkout will charge them, without a script of its own.
+ */
+export interface CartOffers {
+  lines: Record<string, { offerId: string; title: string; kind: string; tier?: number; amount: number }[]>
+}
+
+/** Shopify's discount_application for an automatic discount (one of the store's offers). */
+export function offerApplication(o: { offerId: string; title: string; kind: string; tier?: number }, total: number): O {
+  return {
+    [OUTPUT]: o.title,
+    type: "automatic",
+    key: `${o.offerId}${o.tier !== undefined ? `:${o.tier}` : ""}`,
+    title: o.title,
+    description: null,
+    value: total,
+    value_type: "fixed_amount",
+    target_selection: "entitled",
+    target_type: "line_item",
+    allocation_method: "across",
+    total_allocated_amount: total,
+    /* Which of the store's offers it is (Storelib's own, beside Shopify's fields). */
+    offer_id: o.offerId,
+    offer_kind: o.kind,
+    ...(o.tier !== undefined ? { tier: o.tier } : {}),
+  }
+}
+
 /** Shopify's discount_application for a code: what a theme's cart loops over for its "Discount (CODE) -$5.00" rows. */
 export function discountApplication(d: CartDiscount): O {
   return {
@@ -1341,23 +1376,46 @@ export function discountApplication(d: CartDiscount): O {
   }
 }
 
-export function cartObject(lines: CartLineLike[], currency: string, note = "", attributes: Record<string, string> = {}, discount: CartDiscount | null = null, taxesIncluded = false): O {
+export function cartObject(lines: CartLineLike[], currency: string, note = "", attributes: Record<string, string> = {}, discount: CartDiscount | null = null, taxesIncluded = false, offers: CartOffers | null = null): O {
   const applied = discount && discount.applicable ? discount : null
   const application = applied ? discountApplication(applied) : null
-  const items = lines.flatMap((l, i) => {
+  /* Each offer's application once for the cart, its total over every line it is on (Shopify's cart.discount_applications). */
+  const offerTotals = new Map<string, { o: { offerId: string; title: string; kind: string; tier?: number }; total: number }>()
+  const offerKey = (o: { offerId: string; tier?: number }) => `${o.offerId}:${o.tier ?? ""}`
+  const lineOffers = (key: string, line: number) => {
+    let left = line
+    return (offers?.lines[key] ?? []).flatMap((o) => {
+      const amount = Math.max(0, Math.min(left, Math.round(o.amount)))
+      if (amount <= 0) return []
+      left -= amount
+      const k = offerKey(o)
+      const had = offerTotals.get(k)
+      if (had) had.total += amount
+      else offerTotals.set(k, { o, total: amount })
+      return [{ ...o, amount }]
+    })
+  }
+  const drafts = lines.flatMap((l) => {
     const product = l.product
     if (!product) return []
     const variants = (product.variants as O[]) ?? []
     const variant = (l.variantId ? variants.find((v) => v.id === l.variantId) : null) ?? (product.selected_or_first_available_variant as O) ?? variants[0]
     const price = Number(variant?.price ?? product.price ?? 0)
     const line = price * l.quantity
-    /* What the code takes off this line: on the line itself for a code for some products, beside it for a code for the whole order (Shopify's split). */
-    const off = application && applied ? Math.max(0, Math.min(line, Math.round(applied.lines[l.key] ?? 0))) : 0
-    const allocations = off > 0 && application ? [{ amount: off, discount_application: application }] : []
-    const lineLevel = applied?.scope === "lines" ? off : 0
+    return [{ l, product, variant, price, line, mine: lineOffers(l.key, line) }]
+  })
+  const items = drafts.map(({ l, product, variant, price, line, mine }, i) => {
+    /* The store's offers first, on the line itself (Shopify's automatic discounts), as the checkout takes them before any code. */
+    const offerOff = mine.reduce((n, o) => n + o.amount, 0)
+    const offerAllocations = mine.map((o) => ({ amount: o.amount, discount_application: offerApplication(o, offerTotals.get(offerKey(o))?.total ?? o.amount) }))
+    /* What the code takes off this line, after the offers: on the line itself for a code for some products, beside it for a code for the whole order (Shopify's split). */
+    const off = application && applied ? Math.max(0, Math.min(line - offerOff, Math.round(applied.lines[l.key] ?? 0))) : 0
+    const codeAllocations = off > 0 && application ? [{ amount: off, discount_application: application }] : []
+    const allocations = [...offerAllocations, ...codeAllocations]
+    const lineLevel = offerOff + (applied?.scope === "lines" ? off : 0)
     const finalLine = line - lineLevel
     const finalUnit = l.quantity > 0 ? Math.round(finalLine / l.quantity) : price
-    return [{
+    return {
       [OUTPUT]: String(product.title),
       id: String(variant?.id ?? product.id),
       key: l.key,
@@ -1380,10 +1438,12 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
       original_line_price: line,
       final_line_price: finalLine,
       discounted_price: finalUnit,
-      line_level_discount_allocations: lineLevel > 0 ? allocations : [],
+      line_level_discount_allocations: [...offerAllocations, ...(applied?.scope === "lines" ? codeAllocations : [])],
       line_level_total_discount: lineLevel,
       discount_allocations: allocations,
-      total_discount: off,
+      total_discount: offerOff + off,
+      /* The code's part alone, for the cart level discount below. */
+      code_discount: off,
       properties: hashOf(l.properties ?? {}),
       options_with_values: ((product.options as string[]) ?? []).map((name, p) => ({ name, value: (variant?.options as string[] | undefined)?.[p] ?? "" })).filter((o) => variant && variant.title !== "Default Title" && o.value),
       selling_plan_allocation: null,
@@ -1398,12 +1458,13 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
       error_message: null,
       /* A theme's Remove link and its quantity link without a script (./site.ts answers GET /cart/change). */
       url_to_remove: `/cart/change?id=${encodeURIComponent(l.key)}&quantity=0`,
-    }]
+    }
   })
   const subtotal = items.reduce((s, i) => s + Number(i.final_line_price), 0)
   const original = items.reduce((s, i) => s + Number(i.original_line_price), 0)
   /* A code for the whole order comes off after the lines, as Shopify's cart level discounts do. */
-  const cartLevel = applied?.scope === "cart" ? Math.min(subtotal, items.reduce((s, i) => s + Number(i.total_discount), 0)) : 0
+  const cartLevel = applied?.scope === "cart" ? Math.min(subtotal, items.reduce((s, i) => s + Number(i.code_discount), 0)) : 0
+  const automatic = [...offerTotals.values()].map((x) => offerApplication(x.o, x.total))
   const total = subtotal - cartLevel
   return {
     items,
@@ -1414,7 +1475,7 @@ export function cartObject(lines: CartLineLike[], currency: string, note = "", a
     total_discount: original - total,
     total_weight: 0,
     cart_level_discount_applications: application && applied?.scope === "cart" ? [{ ...application, total_allocated_amount: cartLevel }] : application && applied && applied.total === 0 ? [application] : [],
-    discount_applications: application ? [application] : [],
+    discount_applications: [...automatic, ...(application ? [application] : [])],
     /* Every code the cart holds, applying or not (Shopify's cart.discount_codes). */
     discount_codes: discount ? [{ code: discount.code, applicable: discount.applicable, [OUTPUT]: discount.code }] : [],
     currency: { iso_code: currency, symbol: currencySymbol(currency), name: currency, [OUTPUT]: currency },

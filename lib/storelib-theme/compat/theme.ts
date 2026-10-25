@@ -54,6 +54,7 @@ import {
   type CardLike,
   type CartLineLike,
   type CartDiscount,
+  type CartOffers,
   type CollectionLike,
   type MenuLinkLike,
   type DynamicResolver,
@@ -333,6 +334,8 @@ export interface CompatPage {
   cartAttributes?: Record<string, string>
   /** The cart's discount code as the website's checkout prices it (objects.ts CartDiscount): `cart.discount_applications`, each line's allocations and the totals after it. */
   cartDiscount?: CartDiscount | null
+  /** The store's offers on the cart as the checkout prices them (objects.ts CartOffers): each line's automatic discounts and the totals after them. */
+  cartOffers?: CartOffers | null
   /** `taxesIncluded`: the store's prices include tax (Settings › Taxes), Shopify's `cart.taxes_included`: a theme's cart then says "Taxes included" rather than "Taxes calculated at checkout". */
   shop: { name: string; description?: string; url?: string; email?: string; currency?: string; moneyFormat?: string; policies?: ShopPolicy[]; id?: string; taxesIncluded?: boolean }
   customer?: O | null
@@ -738,7 +741,7 @@ export class CompatTheme {
       const handle = String(p.settings.slug ?? "")
       if (handle) Object.defineProperty(all_products, handle, { enumerable: true, get: () => productObject(p) })
     }
-    const cart = cartObject(page.cart ?? [], currency, page.cartNote ?? "", page.cartAttributes ?? {}, page.cartDiscount ?? null, page.shop.taxesIncluded === true)
+    const cart = cartObject(page.cart ?? [], currency, page.cartNote ?? "", page.cartAttributes ?? {}, page.cartDiscount ?? null, page.shop.taxesIncluded === true, page.cartOffers ?? null)
     const search = page.search
       ? { performed: page.search.performed, terms: page.search.terms, results: page.search.results.map((p) => ({ ...productObject(p), object_type: "product" })), results_count: page.search.results.length, types: ["product"], filters: page.catalog?.filters ?? [], sort_by: page.catalog?.sortBy ?? "", sort_options: [], default_sort_by: "relevance", url: `/search?q=${encodeURIComponent(page.search.terms)}` }
       : { performed: false, terms: "", results: [], results_count: 0, types: ["product"], filters: [], sort_options: [] }

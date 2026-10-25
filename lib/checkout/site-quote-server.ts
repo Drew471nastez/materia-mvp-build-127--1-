@@ -61,6 +61,8 @@ export interface SiteQuoteLine {
   properties?: Record<string, string>
   /** Those properties as one key ("" for none), on a cart that ships: the page matches its items to lines by it. */
   propertiesKey?: string
+  /** The store's offers inside `discountCents`, each with its part (lib/offers applyOffers lineOffers): what an imported theme's cart shows under the line (/cart.js line_level_discount_allocations). */
+  offers?: { offerId: string; title: string; kind: string; savedCents: number; tier?: number }[]
 }
 
 /** A line the stock can't meet as asked: shown in the order with how many are left, to lower or remove there. */
@@ -244,6 +246,7 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
         discountCents: l.item.discountCents,
         requiresShipping: false,
         maxQuantity: l.product.type === "digital" ? 1 : l.item.quantity,
+        ...(l.item.offers?.length ? { offers: l.item.offers } : {}),
       })),
       dropped: droppedBesidesOwned(priced.dropped, priced.owned).filter((d) => !/^[0-9a-f-]{36}$/i.test(d)),
       owned: ownedOf(priced.owned),
@@ -417,6 +420,7 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
         ...(l.properties ? { properties: l.properties } : {}),
         /* Which of the cart's lines this is when one option is on two (lib/checkout/site-checkout sameLine). */
         propertiesKey: propertiesKey(l.properties),
+        ...(l.offers?.length ? { offers: l.offers } : {}),
       })),
       dropped: droppedBesidesOwned(priced.dropped, priced.owned),
       needsOption,

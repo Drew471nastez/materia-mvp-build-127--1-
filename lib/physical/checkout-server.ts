@@ -77,7 +77,7 @@ import { COD_PAYMENT_METHOD, COD_PROVIDER, codClientKey, codRefusal } from "./ca
 import { phoneForStorage } from "@/lib/account/phone"
 import { formatMinor } from "@/lib/markets/money"
 import { checkoutMarket } from "@/lib/markets/checkout-market-server"
-import { convertOrder } from "@/lib/markets/checkout-charge"
+import { convertOrder, offersInMarket } from "@/lib/markets/checkout-charge"
 
 export const HOLD_MINUTES = 35
 const STRIPE_PAGE_MINUTES = 31
@@ -272,7 +272,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     const charge = market.charge
     const converted = convertOrder(q.lines, q.totals, charge)
     /* Each offer's part of a line in the market's money too, as the quote converted the saving lines it showed. */
-    const lines = converted.lines.map((l) => (l.offers?.length ? { ...l, offers: l.offers.map((o) => ({ ...o, savedCents: Math.min(l.discountCents, charge.amount(o.savedCents)) })) } : l))
+    const lines = converted.lines.map((l, i) => (l.offers?.length ? { ...l, offers: offersInMarket(l.offers, q.lines[i].discountCents, l.discountCents) } : l))
     q = { ...q, lines, totals: converted.totals, option: q.option ? { ...q.option, priceCents: charge.amount(q.option.priceCents) } : q.option }
   }
   const totals = q.totals

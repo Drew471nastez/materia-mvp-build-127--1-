@@ -19,6 +19,30 @@ export interface DiscountSource {
   discountCents: number
   discountCode: string | null
   lines: Array<{ amountCents: number }>
+  /** The store's offers inside the discount, by name (lib/checkout/invoice.ts InvoiceData.savings). */
+  savings?: { label: string; cents: number }[]
+}
+
+/**
+ * A discount as rows: each offer by its own name, then what is left as the
+ * code's ("Discount (CODE)"). The offers never come to more than the whole:
+ * the last takes any rounding. The same split the order emails make
+ * (lib/physical/email-templates savingRows).
+ */
+export function splitSavings(discountCents: number, savings: { label: string; cents: number }[] | null | undefined): { rows: { label: string; cents: number }[]; rest: number } {
+  let left = Math.max(0, Math.round(Number(discountCents) || 0))
+  const rows: { label: string; cents: number }[] = []
+  for (const s of savings ?? []) {
+    const cents = Math.min(left, Math.max(0, Math.round(Number(s.cents) || 0)))
+    // eslint-disable-next-line no-control-regex
+    const label = String(s.label ?? "").replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 80)
+    if (cents <= 0 || !label) continue
+    const same = rows.find((r) => r.label === label)
+    if (same) same.cents += cents
+    else rows.push({ label, cents })
+    left -= cents
+  }
+  return { rows, rest: left }
 }
 
 export function withDiscount(view: ReceiptView, source: DiscountSource | null | undefined): ReceiptView {
@@ -34,6 +58,7 @@ export function withDiscount(view: ReceiptView, source: DiscountSource | null | 
     ...view,
     discountCents: discount,
     discountCode: code,
+    ...(source.savings?.length ? { savings: splitSavings(discount, source.savings).rows } : {}),
     items: view.items.map((item, i) => ({ ...item, listCents: list[i] })),
   }
 }

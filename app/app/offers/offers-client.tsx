@@ -389,6 +389,7 @@ export function OffersClient({
           kind={editing.kind}
           products={products}
           collections={collections}
+          others={list}
           currency={currency}
           physical={physical}
           settingsReady={settingsReady}

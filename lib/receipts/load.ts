@@ -36,6 +36,8 @@ import {
   sumMoney,
 } from "./rules"
 import type { ReceiptFile, ReceiptItem, ReceiptView } from "./view"
+import { buyerProperties, lineProperties } from "@/lib/physical/cart-link"
+import { offersOfSnapshot } from "@/lib/offers/snapshot"
 
 const ORDER_COLUMNS = [
   "id",
@@ -109,6 +111,29 @@ async function readTax(admin: SupabaseClient, ids: string[]): Promise<Map<string
   return out
 }
 
+/**
+ * What each line's snapshot keeps of the checkout (orders.product_snapshot):
+ * the store's offers that saved on it, by the name the checkout showed, and
+ * the properties the buyer is shown (a name starting with "_" is the
+ * theme's own). Its own read, so a receipt is never stopped by it.
+ */
+async function readSnapshots(admin: SupabaseClient, ids: string[]): Promise<Map<string, { offers?: { title: string; cents: number }[]; properties?: [string, string][] }>> {
+  const out = new Map<string, { offers?: { title: string; cents: number }[]; properties?: [string, string][] }>()
+  if (ids.length === 0) return out
+  try {
+    const { data, error } = await admin.from("orders").select("id, product_snapshot").in("id", ids)
+    if (error) return out
+    for (const r of (data ?? []) as { id: string; product_snapshot?: { offers?: unknown; properties?: unknown } | null }[]) {
+      const offers = (offersOfSnapshot(r.product_snapshot?.offers) ?? []).map((o) => ({ title: o.title, cents: o.savedCents }))
+      const properties = buyerProperties(lineProperties(r.product_snapshot?.properties))
+      if (offers.length || properties.length) out.set(r.id, { ...(offers.length ? { offers } : {}), ...(properties.length ? { properties } : {}) })
+    }
+  } catch {
+    /* The lines as charged, without their offers' names. */
+  }
+  return out
+}
+
 export interface LoadedReceipt {
   view: ReceiptView
   /** Kept on the server: whose account each line is on. */
@@ -160,6 +185,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       .in("id", productIds),
     readTax(admin, rows.map((r) => r.id)),
   ])
+  const snapshots = await readSnapshots(admin, rows.map((r) => r.id))
 
   const products = new Map<string, any>(((productsRes as any).data ?? []).map((p: any) => [p.id, p]))
   const filesByProduct = new Map<string, Array<ReceiptFile & { productId: string }>>()
@@ -242,6 +268,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       courseHref: state === "open" && type === "course" ? `/account/library/courses/${r.product_id}` : null,
       priceInterval: type === "membership" ? intervals.get(r.id) ?? "month" : null,
       refundPolicy: refundPolicyOf(policies.get(r.product_id)),
+      ...(snapshots.get(r.id) ?? {}),
     }
   })
 

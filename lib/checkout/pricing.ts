@@ -29,6 +29,15 @@ import { MARKETPLACE_CURRENCY, RATES_PAUSED_MESSAGE, couponValueInUsd, gateOpenF
 import type { FxRates } from "@/lib/markets/money"
 import { applyOffers, stackWithCode, type AppliedOffer, type Offer, type OfferLine } from "@/lib/offers/offers"
 import { loadOffers, offerLinesFor } from "@/lib/offers/offers-read"
+import { lineProperties } from "@/lib/physical/cart-link"
+import type { LineOffer } from "@/lib/offers/offers"
+
+/** A line's offers as its order keeps them, or none. */
+function setOffers(item: PackedItem, offers: LineOffer[] | undefined) {
+  const kept = (offers ?? []).filter((o) => o.savedCents > 0).map((o) => ({ offerId: o.offerId, title: o.title, kind: o.kind, savedCents: o.savedCents, ...(o.tier !== undefined ? { tier: o.tier } : {}) }))
+  if (kept.length) item.offers = kept
+  else delete item.offers
+}
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -424,7 +433,7 @@ export interface CartRequest {
 
 export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const incoming = Array.isArray(req.items) ? (req.items as any[]).slice(0, MAX_LINES) : []
-  const wanted = new Map<string, { variantId: string | null; quantity: number; customPriceCents: unknown }>()
+  const wanted = new Map<string, { variantId: string | null; quantity: number; customPriceCents: unknown; properties?: Record<string, string> }>()
   for (const raw of incoming) {
     if (typeof raw?.productId !== "string" || raw.productId === "") continue
     const variantId = typeof raw.variantId === "string" && raw.variantId !== "" ? raw.variantId : null
@@ -432,7 +441,10 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     /* The amount a buyer named for a pay what you want product, as sent. It
        is checked against that product's own minimum below (baseFor), and
        means nothing for a product with a price of its own. */
-    wanted.set(`${raw.productId}::${variantId ?? ""}`, { variantId, quantity, customPriceCents: raw.customPriceCents })
+    /* The line's properties (an engraving, a theme's `_sl_offer_id`): kept for its order line, never a price. One option is one line here (a download is one copy), so the first line's are kept. */
+    const key = `${raw.productId}::${variantId ?? ""}`
+    const properties = lineProperties(raw.properties) ?? wanted.get(key)?.properties
+    wanted.set(key, { variantId, quantity, customPriceCents: raw.customPriceCents, ...(properties ? { properties } : {}) })
   }
   const productIds = [...new Set([...wanted.keys()].map((k) => k.split("::")[0]))]
   if (productIds.length === 0) return { ok: false, status: 400, error: "Your cart is empty" }
@@ -531,7 +543,7 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     if (priceCents <= 0 && !req.keepFree) { dropped.push(product.title); continue }
 
     const quantity = product.type === "digital" ? 1 : want.quantity
-    lines.push({ item: { productId, variantId: want.variantId, quantity, priceCents, discountCents: 0 }, product })
+    lines.push({ item: { productId, variantId: want.variantId, quantity, priceCents, discountCents: 0, ...(want.properties ? { properties: want.properties } : {}) }, product })
     namedPrice.push(!!(variant ?? product).pay_what_you_want)
   }
 
@@ -555,6 +567,8 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
       const offerLines = await offerLinesFor(db, creatorId, offers, idx.map((i) => ({ productId: lines[i].item.productId, unitCents: lines[i].item.priceCents, quantity: lines[i].item.quantity, payWhatYouWant: namedPrice[i] })))
       const r = applyOffers(offerLines, offers, { now })
       r.discounts.forEach((d, k) => (lines[idx[k]].item.discountCents = d))
+      /* Which offers saved what on each line, kept on its order line (product_snapshot.offers) as a shipped cart's are. */
+      r.lineOffers.forEach((o, k) => setOffers(lines[idx[k]].item, o))
       appliedOffers.push(...r.applied)
       offerGroups.push({ creatorId, idx, offers, lines: offerLines })
     }
@@ -610,6 +624,7 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   }, { now })
   if (stacked.error) return { ok: false, status: 400, error: stacked.error }
   group.idx.forEach((i, k) => (lines[i].item.discountCents = Math.min(lines[i].item.priceCents * lines[i].item.quantity, stacked.discounts[k] + stacked.codeDiscounts[k])))
+  group.idx.forEach((i, k) => setOffers(lines[i].item, stacked.lineOffers[k]))
   const groupOffers = new Set(group.offers.map((o) => o.id))
   appliedOffers = [...appliedOffers.filter((a) => !groupOffers.has(a.offerId)), ...stacked.applied]
   /* The offers' part: the other stores' as they were, this store's as stacked. */

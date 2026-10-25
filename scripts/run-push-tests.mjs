@@ -635,6 +635,8 @@ const SUITES = [
   "tests/offers-v.test.ts",
   /* Round AF: quantity breaks and Buy X get Y free charged at checkout exactly as the theme showed them (one formula, every tier and variant, yen and lei), one offer per unit, properties to the order line, cart discount codes to checkout, GET /api/offers and the Liquid metafield; SQL part 304. */
   "tests/offers-af.test.ts",
+  /* Round AG: offers end to end: a download basket's offers and properties on its order lines (receipt, invoice, emails, admin, export, each offer by name), a currency change converting quantity break amounts (SQL part 306, on Postgres when OFFERS_PG_HOST is set), /cart.js and the Liquid cart with Shopify's automatic discounts to the cent of checkout, the builder's canvas, the native tiers, the creator's try-a-cart and warnings. */
+  "tests/offers-ag.test.ts",
   "tests/round-v.test.ts",
   "tests/round-w.test.ts",
   "tests/product-editor-physical.test.ts",

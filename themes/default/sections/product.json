@@ -1278,6 +1278,13 @@
       "limit": 1,
       "fields": [
         {
+          "id": "show_breaks",
+          "label": "Quantity breaks",
+          "type": "toggle",
+          "default": true,
+          "info": "Tiers like Buy 2 get 1 free. Picking one sets the quantity."
+        },
+        {
           "id": "show_bundles",
           "label": "Bundles",
           "type": "toggle",

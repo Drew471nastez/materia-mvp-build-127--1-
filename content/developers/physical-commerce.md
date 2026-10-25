@@ -163,6 +163,8 @@ saving  = compare - total
 
 `round` is half up, as JavaScript's `Math.round`. In a currency without cents, such as yen, `price` is in yen and the same formula applies.
 
+In a visitor's market currency the checkout charges each line converted as its product card was and keeps the line's discount the same share of it: a free unit is worth one shown price exactly, a percent tier can differ from the formula on the shown price by a cent, and an `amount` is in the store's currency. The cart (`/cart.js`) shows what the checkout charges in every currency.
+
 At checkout, every unit of the product counts, whatever its variant, line or properties. The units are split into tier blocks by repeating the largest tier that fits (paid plus free no more than the units left), then the next one down for the rest, and so on; units no tier fits pay full price. With tiers 2+1 and 3+2, five units are one 3+2 block, eight are 3+2 and 2+1, and seven are 3+2 with two at full price. The free units are the product's cheapest units in the cart; a percent or an amount comes off the units paid for in each block, an amount per block shared by price. A unit a bundle or a checkout offer also wants gets whichever saves more on it.
 
 ### Bundles

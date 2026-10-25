@@ -54,6 +54,9 @@ export interface OrderRow {
   buyer_notified_at?: string | null
   buyer_email_last_error?: string | null
   variant_name?: string | null
+  /** The store's offers that saved on this line, by the name the checkout showed, and the line's properties (its snapshot, lib/offers/snapshot.ts). */
+  offers?: { title: string; savedCents: number }[] | null
+  properties?: Record<string, string> | null
   source?: string | null
   /** Where the checkout began (lib/orders/order-source), as the row holds it. */
   source_detail?: unknown

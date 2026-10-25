@@ -25,6 +25,7 @@ import { useSellerMoney } from "@/components/platform/price-currency"
 import { Package, Plus } from "lucide-react"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { bundlePrice, type DiscountType } from "@/lib/offers/offers"
+import type { BreakCard } from "./quantity-breaks"
 
 interface Item {
   id: string
@@ -57,6 +58,8 @@ export interface UpsellCard {
 export interface ProductOffersData {
   bundles: BundleCard[]
   upsells: UpsellCard[]
+  /** The product's quantity breaks (components/offers/quantity-breaks.tsx), from GET /api/offers. */
+  quantityBreaks?: BreakCard[]
 }
 
 /** Each element's colour. Unset ones follow `ink`, `muted` and `accent`. */
@@ -79,10 +82,11 @@ export function useProductOffers(productId: string | null | undefined, enabled =
     setData(null)
     if (!productId || !enabled) return
     let gone = false
-    fetch(`/api/offers/bundles?product=${encodeURIComponent(productId)}`)
+    /* One read for the three (lib/offers/offers-public.ts): its checkout offers are the upsells this page shows. */
+    fetch(`/api/offers?product=${encodeURIComponent(productId)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: Partial<ProductOffersData> | null) => {
-        if (!gone) setData({ bundles: Array.isArray(d?.bundles) ? d!.bundles : [], upsells: Array.isArray(d?.upsells) ? d!.upsells : [] })
+      .then((d: { bundles?: BundleCard[]; checkoutOffers?: UpsellCard[]; quantityBreaks?: BreakCard[] } | null) => {
+        if (!gone) setData({ bundles: Array.isArray(d?.bundles) ? d!.bundles : [], upsells: Array.isArray(d?.checkoutOffers) ? d!.checkoutOffers : [], quantityBreaks: Array.isArray(d?.quantityBreaks) ? d!.quantityBreaks : [] })
       })
       .catch(() => undefined)
     return () => {

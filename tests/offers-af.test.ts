@@ -456,7 +456,8 @@ async function main() {
     check("  kept on the cart: a later /cart.js says both again", JSON.stringify(js.discount_codes) === JSON.stringify([{ code: "SAVE10", applicable: true }, { code: "NOPE", applicable: false }]) && state.discount === "SAVE10", { codes: js.discount_codes, state })
     const unknown = { ...state }
     const only = JSON.parse(String((await answer(site, { method: "POST", path: "/cart/update.js", query: new URLSearchParams(), body: { discount: "NOPE" }, cart: unknown.cart, note: "", attributes: {}, discountCode: "", discountCodes: [], ajax: true, referer: "/" })).body))
-    check("  only an unknown code: applicable false, nothing taken off", JSON.stringify(only.discount_codes) === '[{"code":"NOPE","applicable":false}]' && only.total_discount === 0, only)
+    /* Changed on purpose (round AG): /cart.js takes the store's offers off as checkout will (here the 2 + 1 break, $36.00), so "nothing taken off" is the code's part: no code allocation at all. */
+    check("  only an unknown code: applicable false, the code takes nothing off (the break's $36.00 is the offer's)", JSON.stringify(only.discount_codes) === '[{"code":"NOPE","applicable":false}]' && only.total_discount === 3600 && only.cart_level_discount_applications.length === 0 && only.items[0].line_level_discount_allocations.every((a: { discount_application: { type: string } }) => a.discount_application.type === "automatic"), only)
     check("  heldCodes says the cart's own code applies and the rest do not", JSON.stringify(heldCodes(["A", "b"], { code: "B", applicable: true } as never)) === '[{"code":"A","applicable":false},{"code":"B","applicable":true}]')
     const go = await ask("GET", "/checkout", null, false)
     const params = readSiteCheckoutParams(new URL(go.headers?.Location ?? "", "https://shop.test").searchParams)

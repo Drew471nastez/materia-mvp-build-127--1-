@@ -13,6 +13,7 @@ import { OffersClient } from "@/app/app/offers/offers-client"
 import { BundleOffers } from "@/components/offers/bundle-offers"
 import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
 import { CartOfferSavings, CartOfferSuggestions, type CartOffersData } from "@/components/offers/cart-offers"
+import { QuantityBreaks } from "@/components/offers/quantity-breaks"
 import type { Offer } from "@/lib/offers/offers"
 import type { OfferCollection, OfferProduct } from "@/app/app/offers/offer-parts"
 
@@ -38,7 +39,29 @@ const SUGGESTIONS: Suggestion[] = [
   { offerId: "o3", title: "Complete the look", label: null, offerPriceCents: 2400, product: { id: "d", title: "Linen apron with a rather long name for a small screen", slug: "apron", imageUrl: null, type: "physical", priceCents: 2400, variants: [{ id: "d1", name: "Sage", priceCents: 2400 }, { id: "d2", name: "Rust", priceCents: 2400 }] } },
 ]
 
+/* Storelib's own product section's tiers (round AG), the buy box's quantity in its state. */
+function Breaks() {
+  const [quantity, setQuantity] = React.useState(1)
+  return (
+    <div style={{ maxWidth: 440, margin: "0 auto", padding: 16, background: "#fff" }} data-quantity={quantity}>
+      <QuantityBreaks
+        breaks={[{ offerId: "qb", productId: "a", title: "Buy more, save more", tiers: [
+          { quantity: 1, freeQuantity: 0, discountType: "none", discountValue: 0, label: "Buy 1", badge: "" },
+          { quantity: 2, freeQuantity: 1, discountType: "none", discountValue: 0, label: "Buy 2 get 1 free", badge: "Most popular" },
+          { quantity: 3, freeQuantity: 2, discountType: "none", discountValue: 0, label: "Buy 3 get 2 free", badge: "" },
+        ] }]}
+        priceCents={3600}
+        quantity={quantity}
+        onPick={setQuantity}
+        money={(c) => `$${(c / 100).toFixed(2)}`}
+        palette={{ heading: "#123456", price: "#aa0000", badgeBg: "#ffeeaa", badgeText: "#553300" }}
+      />
+    </div>
+  )
+}
+
 function Root() {
+  if (w.__panel === "breaks") return <Breaks />
   if (w.__panel === "bundle")
     return (
       <div style={{ maxWidth: 440, margin: "0 auto", padding: 16, background: "#fff" }}>
