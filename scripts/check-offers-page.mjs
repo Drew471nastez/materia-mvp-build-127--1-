@@ -59,9 +59,10 @@ const STORE = {
   "PATCH /api/store/offers": { ok: true },
 }
 const ITEM = (id, title, priceCents, variants) => ({ id, title, slug: id, imageUrl: null, type: "physical", priceCents, variants })
-const BUNDLE = { "GET /api/offers/bundles": {
+/* Round AG: the block reads the three kinds in one call, GET /api/offers, whose checkout offers are its upsells. */
+const BUNDLE = { "GET /api/offers": {
   bundles: [{ offerId: "o1", title: "Breakfast set", label: "15% off", discountType: "percent", discountValue: 15, fullCents: 4000, priceCents: 3400, items: [ITEM("a", "Wildflower honey", 3200, [{ id: "av", name: "Default", priceCents: 3200 }]), ITEM("b", "Honey dipper", 800, [{ id: "b1", name: "Oak", priceCents: 800 }, { id: "b2", name: "Walnut", priceCents: 900 }])] }],
-  upsells: [{ offerId: "u1", title: "Add a candle", label: "$3 off", discountType: "fixed", discountValue: 300, offerPriceCents: 600, product: ITEM("c", "Beeswax candle", 900, [{ id: "cv", name: "Default", priceCents: 900 }]) }],
+  checkoutOffers: [{ offerId: "u1", title: "Add a candle", label: "$3 off", discountType: "fixed", discountValue: 300, offerPriceCents: 600, product: ITEM("c", "Beeswax candle", 900, [{ id: "cv", name: "Default", priceCents: 900 }]) }],
 } }
 const CART = {
   offers: [{ offerId: "o1", title: "Breakfast set", savedCents: 600, freeShipping: false }], offerCents: 600, lines: [],

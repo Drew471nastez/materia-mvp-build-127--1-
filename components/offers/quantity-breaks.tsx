@@ -71,7 +71,7 @@ export function QuantityBreaks({
               aria-checked={picked}
               disabled={disabled}
               onClick={() => onPick(units)}
-              className="flex w-full items-center justify-between gap-3 border px-3 py-2.5 text-left transition-colors disabled:cursor-default"
+              className="flex min-h-[44px] w-full items-center justify-between gap-3 border px-3 py-2.5 text-left transition-colors disabled:cursor-default"
               style={{ borderColor: picked ? c.heading : c.border, borderWidth: picked ? 2 : 1, borderRadius: radius, padding: picked ? "9px 11px" : undefined }}
               data-tier={i}
               data-tier-total={shown.totalCents}
