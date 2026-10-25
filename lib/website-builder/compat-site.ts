@@ -21,6 +21,7 @@ import { pageSeoForSite } from "@/lib/website-builder/page-seo"
 import { unstable_cache } from "next/cache"
 import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { cardsWithDescriptions } from "@/lib/website-builder/product-descriptions"
 import { creatorByName, creatorShopTag, creatorSiteTag, siteCatalogue } from "@/lib/website-builder/published-site"
 import { catalogCards } from "@/lib/website-builder/shop-products"
 import { siteCollections } from "@/lib/website-builder/storefront-collections-server"
@@ -369,7 +370,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const readPages = release
     ? async () => pageRowsOf(release.manifest)
     : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
-  const readCatalog = () => catalogCards(admin as never, creator.creatorId).catch(() => [])
+  /* With each product's own description (round 12): a theme's Featured product prints `product.description`, which a card did not carry. */
+  const readCatalog = () => catalogCards(admin as never, creator.creatorId).then((cards) => cardsWithDescriptions(admin as never, creator.creatorId, cards)).catch(() => [])
   const [pageRows, products, catalog, collections, menus, , store] = await Promise.all([
     (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)).then((data) => ({ data })),
     siteCatalogue(creator.creatorId, { cached: !draft }),

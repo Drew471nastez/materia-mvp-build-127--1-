@@ -354,7 +354,7 @@ async function main() {
     await sleep(2500)
     const saves = await page.evaluate(() => (window as unknown as { probeSaves?: { url: string; body: { sections?: unknown[]; page_key?: string } }[] }).probeSaves ?? [])
     const { z } = await import("zod")
-    const { BlockInstanceSchema } = await import("../lib/website-builder/block-tree")
+    const { BlockInstanceSchema } = await import("../lib/website-builder/block-tree-schema")
     /* The routes' own rules (app/api/website-builder/themes/[installId]/sections/route.ts): a name may be missing, a group is one of the four. */
     const SectionSaveSchema = z.object({ id: z.string().min(1).max(128), type: z.string().min(1).max(64), name: z.string().max(256).optional(), settings: z.record(z.unknown()), blocks: z.array(BlockInstanceSchema).max(500).optional(), hidden: z.boolean().optional(), group: z.enum(["header", "footer", "overlay"]).optional(), slot: z.string().regex(/^[a-z0-9_-]{1,64}$/i).optional() })
     const pageSaves = saves.filter((x) => /\/sections$/.test(x.url))

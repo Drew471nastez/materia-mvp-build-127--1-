@@ -38,6 +38,9 @@ import type { CreatorMembershipScreen, FeedPost, MemberView, PostRow } from "@/l
 import { PostView, fileSize } from "./post-view"
 import { StatusLabel } from "./status-line"
 import { tt } from "@/lib/i18n/text"
+import { asSet, num, stableKey } from "@/lib/forms/dirty"
+import { askBeforeLeaving } from "@/lib/ui/leave-guard"
+import { useConfirm } from "@/app/app/products/new/confirm-sheet"
 
 type Tab = "updates" | "members" | "settings"
 const WIDTH = "max-w-[980px]"
@@ -474,7 +477,7 @@ function Members({ screen }: { screen: CreatorMembershipScreen }) {
 
 /* ── Settings ───────────────────────────────────────────────────────────── */
 
-interface SettingsState {
+export interface SettingsState {
   title: string
   description: string
   cover: string | null
@@ -500,6 +503,15 @@ function initialSettings(s: CreatorMembershipScreen): SettingsState {
   }
 }
 
+/**
+ * The settings as a save writes them, for "has it changed?" (lib/forms/dirty):
+ * prices and the trial as numbers, empty benefits left out, the included
+ * products as a set, so a product ticked off and on again is no change.
+ */
+export function settingsKey(x: SettingsState): string {
+  return stableKey({ ...x, monthly: num(x.monthly), yearly: num(x.yearly), trialDays: num(x.trialDays), benefits: x.benefits.filter((b) => b.trim()), included: asSet(x.included) })
+}
+
 function SettingsSection({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <section className={cn(card, "px-4 py-4 sm:px-5 sm:py-5")}>
@@ -512,13 +524,28 @@ function SettingsSection({ title, hint, children }: { title: string; hint?: stri
 
 function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSaved: (status: string, slug: string | null, title: string) => void }) {
   const [s, setS] = React.useState<SettingsState>(() => initialSettings(screen))
-  const [saved, setSaved] = React.useState(() => JSON.stringify(initialSettings(screen)))
+  const [saved, setSaved] = React.useState(() => settingsKey(initialSettings(screen)))
   const [busy, setBusy] = React.useState<null | "save" | "publish" | "unpublish" | "cover">(null)
   const [error, setError] = React.useState<{ text: string; field?: string } | null>(null)
   const [note, setNote] = React.useState<string | null>(null)
   const coverInput = React.useRef<HTMLInputElement>(null)
   const status = screen.product.status
-  const dirty = JSON.stringify(s) !== saved
+  const dirty = settingsKey(s) !== saved
+  /* Leaving with unsaved changes asks first, as the product editor does: the nav pill and Back (lib/ui/leave-guard), and a reload or a closed tab. */
+  const [ask, confirmSheet] = useConfirm()
+  React.useEffect(() => {
+    if (!dirty) return
+    const before = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", before)
+    const off = askBeforeLeaving(() => ask({ title: tt("Discard changes?"), body: tt("Your edits since the last save will be lost."), confirm: tt("Discard"), cancel: tt("Keep editing") }))
+    return () => {
+      window.removeEventListener("beforeunload", before)
+      off()
+    }
+  }, [dirty, ask])
   const monthlyCents = centsFromInput(s.monthly)
   const yearlyCents = centsFromInput(s.yearly)
   const saving = yearlySaving(Number.isFinite(monthlyCents as number) ? monthlyCents : null, Number.isFinite(yearlyCents as number) ? yearlyCents : null)
@@ -566,7 +593,7 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
     })
     setBusy(null)
     if (!res.ok) return setError({ text: res.data.error || tt("The membership could not be saved."), field: res.data.field })
-    setSaved(JSON.stringify(s))
+    setSaved(settingsKey(s))
     setNote(publish === true ? tt("On sale") : publish === false ? tt("Taken off sale") : tt("Saved"))
     onSaved(res.data.status || status, res.data.slug ?? null, s.title)
     void fetch("/api/revalidate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: res.data.slug, type: "product", handle: screen.handle || undefined, productId: screen.product.id }) }).catch(() => {})
@@ -576,6 +603,7 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
 
   return (
     <div className="space-y-4 pb-24">
+      {confirmSheet}
       {!screen.paymentsReady ? (
         <div role="status" className="rounded-2xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-[13.5px] text-[#92400e]">
           {tt("Connect payouts before members can join: people pay you through Stripe.")}{" "}

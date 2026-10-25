@@ -46,8 +46,8 @@ export function fontCache(dir) {
       return null
     },
     /** @font-face rules for these families with their files inlined, for a page that is not a theme page (the product pictures). */
-    inline(families) {
-      const q = families.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:ital,wght@0,400;0,600;0,700;0,800;1,600`).join("&")
+    inline(families, axes = "ital,wght@0,400;0,600;0,700;0,800;1,600") {
+      const q = families.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:${axes}`).join("&")
       const css = get(`https://fonts.googleapis.com/css2?${q}&display=block`)
       if (!css) return ""
       return css.toString().replace(/url\((https:\/\/fonts\.gstatic\.com[^)]+)\)/g, (_, u) => {

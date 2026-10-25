@@ -74,6 +74,7 @@ import {
 } from "@/lib/website-builder/storefront-data"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { creatorFacts, pickedProducts, publishedProductCount } from "@/lib/website-builder/storefront-data-server"
+import { withDescriptions } from "@/lib/website-builder/product-descriptions"
 import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -524,12 +525,15 @@ export async function dressPage(
 ): Promise<{ sections: SectionInstance[]; data: StorefrontData }> {
   const localizer = opts.localizer ?? null
   const schemaOf = (type: string) => schemaFor(type, site.sources, SECTION_SCHEMAS)
-  const missing = missingReferences(productReferences(sections, schemaOf), products)
+  const refs = productReferences(sections, schemaOf)
+  const missing = missingReferences(refs, products)
   const read = () => pickedProducts(createAdminClient() as never, site.creatorId, missing)
   const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
   const communityIds = communityReferences(sections, schemaOf)
   /* The page's extra reads do not depend on each other. Asking them together is the difference between a slow page and a fast one. */
-  const [pickedRead, siteUrl, communities, collectionsRead, reviews] = await Promise.all([
+  /* The picked products' own descriptions (round 12: a Product hero shows its product's words from Products), held with the shop, which a product's save clears. */
+  const readDescriptions = () => import("@/lib/website-builder/product-descriptions").then(({ productDescriptions }) => productDescriptions(createAdminClient() as never, site.creatorId, refs))
+  const [pickedRead, siteUrl, communities, collectionsRead, reviews, descriptions] = await Promise.all([
     missing.ids.length || missing.slugs.length
       ? opts.cached
         ? unstable_cache(
@@ -557,6 +561,12 @@ export async function dressPage(
           storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null, localizer ? { locale: localizer.locale, isDefault: localizer.locale === localizer.defaultLanguage } : null) as unknown as Promise<Record<string, unknown>>,
         ).catch(() => undefined)
       : Promise.resolve(undefined),
+    refs.ids.length || refs.slugs.length
+      ? (opts.cached
+          ? unstable_cache(readDescriptions, ["picked-descriptions", site.creatorId, [...refs.ids].sort().join(","), [...refs.slugs].sort().join(",")], { tags: [creatorShopTag(site.creatorId)], revalidate: SHOP_TTL })()
+          : readDescriptions()
+        ).catch(() => ({}) as Record<string, string>)
+      : Promise.resolve({} as Record<string, string>),
   ])
   /* In the page's language and the visitor's currency, as the shop's own cards around them are: a picked product used to show untranslated, in the store's currency, beside converted ones. */
   const picked = opts.localizer && pickedRead.length ? opts.localizer.cards(pickedRead) : pickedRead
@@ -579,7 +589,7 @@ export async function dressPage(
     : collectionsRead
   const data = storefrontData({
     dynamic,
-    catalog: mergeCatalog(products, picked),
+    catalog: withDescriptions(mergeCatalog(products, picked), descriptions),
     menus: siteMenus(site.themeSettings, filled),
     communities,
     /* In the page's language: each collection's approved name and description (lib/markets/live.ts collection). */

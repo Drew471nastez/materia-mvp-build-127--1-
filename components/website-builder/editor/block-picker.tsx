@@ -107,6 +107,22 @@ export function useBlockPicker(): ((request: BlockPickerRequest) => void) | null
   return useContext(PickerContext)
 }
 
+/**
+ * The picker's opener, handed to code outside the tree under the provider
+ * (round 12: the canvas's Add block between two blocks, and an imported
+ * theme's frame, which says so by message to the editor page).
+ */
+export function BlockPickerHandle({ handle }: { handle: { current: ((request: BlockPickerRequest) => void) | null } }) {
+  const open = useContext(PickerContext)
+  useEffect(() => {
+    handle.current = open
+    return () => {
+      if (handle.current === open) handle.current = null
+    }
+  }, [handle, open])
+  return null
+}
+
 /* ── Drawing a preview ─────────────────────────────────────────────────── */
 
 let host: HTMLDivElement | null = null

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { DIGITAL_BUCKETS, updateCreatorStorageUsed } from "@/lib/storage"
 import { UPLOAD_HEADERS } from "@/lib/storage/upload-guard"
+import { sanitizeDisplayName } from "@/lib/security/uploads"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -86,5 +87,49 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error("Delete digital file error:", error)
     return NextResponse.json({ error: "The file could not be removed. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
+  }
+}
+
+/**
+ * PATCH /api/storage/upload-file?assetId=<id>  { name }
+ *
+ * Renames one of the caller's own digital files: the name a buyer's download
+ * has. The product editor renames a file in its list and sends the new name
+ * with Save (app/app/products/new/product-editor.tsx); before this the name
+ * was only ever changed on the screen. Ownership is checked as DELETE checks
+ * it; only the row's file_name changes, never the stored object or its path.
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const adminSupabase = createAdminClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
+
+    const assetId = new URL(request.url).searchParams.get("assetId")
+    if (!assetId || !UUID.test(assetId)) return NextResponse.json({ error: "Asset ID is required" }, { status: 400, headers: UPLOAD_HEADERS })
+    const body = (await request.json().catch(() => null)) as { name?: unknown } | null
+    const name = typeof body?.name === "string" ? sanitizeDisplayName(body.name) : ""
+    if (!name) return NextResponse.json({ error: "Give the file a name." }, { status: 400, headers: UPLOAD_HEADERS })
+
+    const { data: creator } = await adminSupabase.from("creators").select("id").eq("user_id", user.id).single()
+    if (!creator) return NextResponse.json({ error: "Access denied" }, { status: 403, headers: UPLOAD_HEADERS })
+    const { data: asset } = await adminSupabase.from("digital_assets").select("id, product:products!inner(creator_id)").eq("id", assetId).maybeSingle()
+    if (!asset) return NextResponse.json({ error: "Asset not found" }, { status: 404, headers: UPLOAD_HEADERS })
+    const owner = (asset as { product?: { creator_id?: string } | { creator_id?: string }[] }).product
+    const ownerId = Array.isArray(owner) ? owner[0]?.creator_id : owner?.creator_id
+    if (ownerId !== creator.id) return NextResponse.json({ error: "Access denied" }, { status: 403, headers: UPLOAD_HEADERS })
+
+    const { error } = await adminSupabase.from("digital_assets").update({ file_name: name }).eq("id", assetId)
+    if (error) {
+      console.error("[upload-file] rename failed:", error.message)
+      return NextResponse.json({ error: "The file name could not be saved. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
+    }
+    return NextResponse.json({ success: true, name }, { headers: UPLOAD_HEADERS })
+  } catch (error) {
+    console.error("Rename digital file error:", error)
+    return NextResponse.json({ error: "The file name could not be saved. Try again." }, { status: 500, headers: UPLOAD_HEADERS })
   }
 }

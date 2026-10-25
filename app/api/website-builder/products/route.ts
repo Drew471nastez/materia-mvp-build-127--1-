@@ -73,7 +73,12 @@ export async function GET(request: Request) {
     */
     if (searchParams.get("cards") === "1") {
       const admin = createAdminClient() as never
-      const [shop, catalog] = await Promise.all([shopProducts(admin, creator.id), catalogCards(admin, creator.id)])
+      const [shopRead, catalogRead] = await Promise.all([shopProducts(admin, creator.id), catalogCards(admin, creator.id)])
+      /* Each with its own description (round 12), so a section featuring a product shows that product's words from Products, in the canvas as on the website. */
+      const { productDescriptions, withDescriptions } = await import("@/lib/website-builder/product-descriptions")
+      const described = await productDescriptions(admin, creator.id, { ids: [...shopRead, ...catalogRead].map((c) => c.id) })
+      const shop = withDescriptions(shopRead, described)
+      const catalog = withDescriptions(catalogRead, described)
       return NextResponse.json({ shop, catalog }, { headers: { "Cache-Control": "private, no-store" } })
     }
 

@@ -41,7 +41,9 @@ import { isChromeType, withTabSwitchKey } from "@/lib/website-builder/section-an
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock, TreeInsertBlock } from "@/components/website-builder/editor/block-tree-rows"
-import { BlockPickerProvider } from "@/components/website-builder/editor/block-picker"
+import { BlockPickerHandle, BlockPickerProvider, type BlockPickerRequest } from "@/components/website-builder/editor/block-picker"
+import { CanvasBlockInserter, canvasAnchorAt, type CanvasBlockPlace } from "@/components/website-builder/editor/canvas-block-insert"
+import { insertIndexFor } from "@/lib/website-builder/block-gaps"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
@@ -139,7 +141,7 @@ import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-build
 import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, mergeLazy, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
 import { blocksIntoDetails, staysInDetails, PRODUCT_DETAILS_BLOCK } from "@/lib/website-builder/product-details-rule"
 import { blockAt, blockSteps, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, stepBlock, updateAt, withChildren } from "@/lib/website-builder/block-tree"
-import { type BlockChoice } from "@/components/website-builder/editor/add-block-button"
+import { blockChoices, type BlockChoice } from "@/components/website-builder/editor/add-block-button"
 import { isStorelibSection, newSectionSettings } from "@/lib/website-builder/storelib-runtime"
 import { MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import {
@@ -5543,6 +5545,87 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   /**
+   * ===========================================================================
+   *  ADD A BLOCK BETWEEN TWO BLOCKS, FROM THE CANVAS (round 12)
+   * ===========================================================================
+   * Which levels of which sections take another block, by the same rules as
+   * the sidebar's Add block (BlockTreeFor): the schema's own blocks or the
+   * theme blocks it accepts, its `max_blocks`, the depth. The canvas (and an
+   * imported theme's frame) offers its + between two blocks of these levels
+   * only (components/website-builder/editor/canvas-block-insert.tsx). The
+   * header's links are its menu, edited in its own panel; a product's own
+   * level, where the picture and the Details column sit side by side, sends
+   * a new block into Details (addBlock), so it is not a place.
+   */
+  const canvasBlockLevel = (section: SectionInstance, parent: readonly string[]) => {
+    if (section.type === "header" || parent.length >= MAX_BLOCK_DEPTH) return null
+    const schema = schemaFor(section.type, storelibSources, librarySchemas)
+    if (!schema) return null
+    let owner: { name: string; blocks?: BlockSchema[]; accepts?: string[]; max_blocks?: number }
+    let siblings: BlockInstance[]
+    if (parent.length === 0) {
+      if ((section.blocks ?? []).some((b) => b.static && PRODUCT_DETAILS_BLOCK.test(b.type))) return null
+      owner = { name: schema.name, blocks: schema.blocks, accepts: schema.accepts, max_blocks: schema.max_blocks }
+      siblings = section.blocks ?? []
+    } else {
+      const hit = blockAt(section.blocks, [...parent])
+      const def = hit ? blockDefAt(schema, parent, hit.block.type) : undefined
+      if (!hit || !def) return null
+      owner = { name: def.name, accepts: def.accepts, max_blocks: def.max_blocks }
+      siblings = hit.block.blocks ?? []
+    }
+    const options = addableBlocks(parent.length === 0 ? owner : { accepts: owner.accepts }, blockCatalog)
+    if (options.length === 0) return null
+    if (owner.max_blocks && siblings.filter((b) => !b.static).length >= owner.max_blocks) return null
+    return { schema, owner, siblings, options }
+  }
+  const canvasBlockLevelRef = useRef(canvasBlockLevel)
+  canvasBlockLevelRef.current = canvasBlockLevel
+  const canvasBlockLevels = useMemo(() => {
+    const out: Record<string, string[]> = {}
+    const walk = (section: SectionInstance, blocks: BlockInstance[] | undefined, parent: string[]) => {
+      if (canvasBlockLevelRef.current(section, parent)) (out[section.id] ??= []).push(parent.join("/"))
+      if (parent.length + 1 >= MAX_BLOCK_DEPTH) return
+      for (const b of blocks ?? []) walk(section, b.blocks, [...parent, b.id])
+    }
+    for (const section of sections) walk(section, section.blocks, [])
+    return out
+    // The schemas and the catalogue are read through the ref, as they are when the sections change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sections, storelibSources, librarySchemas, blockCatalog])
+  /* The block library's opener, from the provider beside the canvas (BlockPickerHandle). */
+  const blockPickerRef = useRef<((request: BlockPickerRequest) => void) | null>(null)
+  const addBlockAtLatest = useRef<(place: CanvasBlockPlace, anchor: HTMLElement) => void>(() => {})
+  addBlockAtLatest.current = (place, anchor) => {
+    const section = sectionsRef.current.find((s) => s.id === place.sectionId)
+    const level = section ? canvasBlockLevel(section, place.parent) : null
+    if (!section || !level) return
+    const index = insertIndexFor(level.siblings, place) ?? undefined
+    const parentKey = place.parent.length ? pathKey(place.parent) : null
+    const choices = blockChoices(level.options)
+    const onAdd = (choice: BlockChoice) => {
+      /* The section's panel, with the new block open in it: where Add block in the sidebar leaves you. */
+      setSelectedPanel({ type: "section", sectionId: section.id })
+      addBlock(section.id, choice.type, {}, { parent: parentKey, preset: choice.preset, index })
+    }
+    if (choices.length === 1 || !blockPickerRef.current) {
+      if (choices[0]) onAdd(choices[0])
+      return
+    }
+    const depth = place.parent.length + 1
+    const reasonFor = (choice: BlockChoice): string | null => {
+      const room = blockRoom(level.owner, level.siblings, blockDefAt(level.schema, [...place.parent, choice.type], choice.type), choice.type, section, { depth, size: 1 + countAll(choice.preset?.blocks), height: 1 + depthOf(choice.preset?.blocks) })
+      return room.ok ? null : room.reason
+    }
+    blockPickerRef.current({ anchor, options: level.options, choices, section, parent: place.parent, index, reasonFor, onAdd })
+  }
+  const addBlockFromCanvas = useCallback((place: CanvasBlockPlace, anchor: HTMLElement) => addBlockAtLatest.current(place, anchor), [])
+  const addBlockFromFrame = useCallback(
+    (place: CanvasBlockPlace, box: { top: number; left: number; width: number; height: number }) => addBlockAtLatest.current(place, canvasAnchorAt(box)),
+    [],
+  )
+
+  /**
    * A PRODUCT'S BLOCKS STAY IN ITS DETAILS COLUMN (lib/website-builder/
    * product-details-rule.ts). A page saved with blocks at a product section's
    * own level (they were drawn under the product), and anything a drag, an
@@ -8945,6 +9028,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     loadCompatFiles(installId).then((files) => { if (live) setCompatMedia(assetAddresses(files)) }, () => {})
     return () => { live = false }
   }, [compatInstall, installId, compatFilesVersion])
+  /**
+   * A COLLECTION MADE FROM A PICKER (round 12). Saved as Products ›
+   * Collections saves one, and the builder's list read again with it, so the
+   * picker can pick it and the canvas draws it at once.
+   */
+  const createCollection = useCallback(async (input: { title: string; productIds: string[] }): Promise<{ ok: true; id: string } | { ok: false; error: string }> => {
+    try {
+      const res = await fetch("/api/website-builder/collections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) })
+      const data = (await res.json().catch(() => null)) as { id?: string; error?: string; choices?: unknown; cards?: unknown } | null
+      if (!res.ok || !data || typeof data.id !== "string") return { ok: false, error: data?.error || tt("The collection could not be made. Try again.") }
+      if (Array.isArray(data.choices) && data.cards && typeof data.cards === "object") setBuilderCollections({ choices: data.choices as PickerCollection[], cards: data.cards as BuilderCollections["cards"] })
+      return { ok: true, id: data.id }
+    } catch {
+      return { ok: false, error: tt("The collection could not be made. Check your connection and try again.") }
+    }
+  }, [])
   const fieldEnv = useMemo<EditorFieldEnv>(
     () => ({
       products: pickerProducts,
@@ -8957,6 +9056,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       communities: builderCommunities?.choices ?? null,
       /* With each one's words and address, for a setting bound to the picked collection (lib/storelib-theme/collection-binding.ts). */
       collections: builderCollections ? builderCollections.choices.map((c) => ({ ...c, description: builderCollections.cards[c.id]?.description ?? "", url: builderCollections.cards[c.id]?.url ?? "" })) : null,
+      /* Round 12: New collection / Add collection in a picker makes one and picks it (app/api/website-builder/collections). */
+      createCollection,
       /* An imported theme's sections pick from its own schemes, not Storelib's (lib/storelib-theme/compat/scheme-list.ts). */
       colorSchemes: compatSchemes,
       themeSettings: compatInstall ? null : (settingsDraft as Record<string, unknown>),
@@ -8981,7 +9082,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       },
       pictureMedia: compatInstall ? compatMedia : null,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes, compatInstall, compatMedia, isMobileView, settingsDraft],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, createCollection, compatSchemes, compatInstall, compatMedia, isMobileView, settingsDraft],
   )
   /*
     THE CANVAS IN ANOTHER LANGUAGE OF THE WEBSITE (the language button beside
@@ -11549,6 +11650,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   inspectorEnabled={inspectorEnabled && !fullView}
                   onSelect={selectFromCompatCanvas}
                   onAddSectionAt={openAddSectionBetween}
+                  blockLevels={canvasBlockLevels}
+                  onAddBlockAt={addBlockFromFrame}
                   onNavigate={navigateCompatCanvas}
                   onPageShown={setCompatShownPage}
                   onIntent={intentInCompatCanvas}
@@ -11617,6 +11720,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <CanvasStillHost />
           {/* end of the rounded clipping wrapper */}
           </div>
+          {/* Round 12: Add block between two blocks of a section, over the canvas (canvas-block-insert.tsx), and the block library it opens. */}
+          <BlockPickerProvider theme={settingsDraft} sources={storelibSources} compatInstallId={compatInstall ? installId : null}>
+            <BlockPickerHandle handle={blockPickerRef} />
+          </BlockPickerProvider>
+          {!canvasCompat && (
+            <CanvasBlockInserter rootId="wb-preview-root" enabled={canvasInspecting && !fullView && previewMode === "preview"} levels={canvasBlockLevels} onInsert={addBlockFromCanvas} />
+          )}
           {/* The selected section's own toolbar, over the canvas. Only with
               the inspector on: with it off the canvas is a plain preview and
               nothing in it is selectable. */}

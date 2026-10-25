@@ -22,7 +22,8 @@
           {% if settings.button_url.title %}{% if settings.button_url.compare_price %}<s class="hero3__was">{{ settings.button_url.compare_price }}</s>{% endif %}{% elsif settings.compare_price %}<s class="hero3__was">{{ settings.compare_price }}</s>{% endif %}
         </p>
       {% endif %}
-      {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
+      {# The product's own description from Products, unless words were typed here (the old example sentence is not words typed). Round 12. #}
+      {% if settings.subheading and settings.subheading != "Waxed canvas, leather handles, and room for a laptop and a lunch." %}<p class="s__sub">{{ settings.subheading }}</p>{% elsif settings.button_url.description_html %}<div class="s__sub s__desc" data-product-description>{{ settings.button_url.description_html | raw }}</div>{% elsif settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
       {% if settings.button_text and settings.button_url %}
         <div class="s__btns">
           <a class="s__btn s__btn--primary hero3__buy" href="{{ settings.button_url.checkout_url | default: settings.button_url | default: '#' | url }}">{{ settings.button_text }}</a>
@@ -67,6 +68,12 @@
   font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
 }
 .s__sub { margin: 14px 0 0; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
+.s__desc > :first-child { margin-top: 0; }
+.s__desc > :last-child { margin-bottom: 0; }
+.s__desc p, .s__desc ul, .s__desc ol { margin: 0 0 10px; }
+.s__desc ul, .s__desc ol { padding-left: 1.25em; }
+.s__desc a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.s__desc img { max-width: 100%; height: auto; }
 .s__head { max-width: 44rem; }
 .s__head--center { margin-inline: auto; text-align: center; }
 .s__btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
@@ -172,7 +179,8 @@
       "type": "textarea",
       "id": "subheading",
       "label": "Description",
-      "default": "Waxed canvas, leather handles, and room for a laptop and a lunch."
+      "info": "Leave empty to show the product's description from Products. Typed words show instead.",
+      "default": ""
     },
     {
       "type": "text",

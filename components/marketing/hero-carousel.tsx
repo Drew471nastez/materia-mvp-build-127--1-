@@ -198,6 +198,17 @@ export function HeroCarousel({ slides = HERO_SLIDES }: { slides?: HeroImage[] })
       ? new IntersectionObserver(([entry]) => { onScreen = entry.isIntersecting; sync() })
       : null
     io?.observe(root)
+    /*
+      Round 12 (the owner: no blank slide as they change). The slides off to the side are lazy so they never compete
+      with the first paint, but once the page has loaded and gone idle every one is asked for, so a slide gliding in
+      from the edge already has its picture rather than an empty card.
+    */
+    let warm: number | null = null
+    const warmAll = () => { warm = null; for (const img of root.querySelectorAll<HTMLImageElement>('img[loading="lazy"]')) img.loading = "eager" }
+    const idle = typeof requestIdleCallback === "function"
+    const scheduleWarm = () => { warm = idle ? requestIdleCallback(warmAll, { timeout: 2000 }) : window.setTimeout(warmAll, 1200) }
+    if (document.readyState === "complete") scheduleWarm()
+    else window.addEventListener("load", scheduleWarm, { once: true })
     document.addEventListener("visibilitychange", sync)
     reduced?.addEventListener?.("change", sync)
     markCentre()
@@ -206,6 +217,8 @@ export function HeroCarousel({ slides = HERO_SLIDES }: { slides?: HeroImage[] })
     return () => {
       clearAutoplay()
       if (raf !== null) cancelAnimationFrame(raf)
+      window.removeEventListener("load", scheduleWarm)
+      if (warm !== null) { if (idle) cancelIdleCallback(warm); else clearTimeout(warm) }
       io?.disconnect()
       document.removeEventListener("visibilitychange", sync)
       reduced?.removeEventListener?.("change", sync)

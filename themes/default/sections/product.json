@@ -1395,6 +1395,11 @@
       "limit": 1,
       "fields": [
         {
+          "id": "from_products",
+          "type": "paragraph",
+          "info": "Shows this product's description from Products, always up to date. Change the words there."
+        },
+        {
           "id": "size",
           "label": "Text size",
           "type": "range",

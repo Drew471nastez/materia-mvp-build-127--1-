@@ -2744,7 +2744,8 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           instead of nothing. */}
       {(s.show_cta_button !== false) && (
         <a
-          href={str(s.cta_url, "#")}
+          /* Its "Open in a new tab" too, drawn as a real target like the menu's links (round 12). */
+          {...newTabLink(str(s.cta_url, "#"))}
           className={cn(
             /**
              * IT MAY SHRINK, AND IT MAY NOT PUSH THE PAGE.

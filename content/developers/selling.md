@@ -26,6 +26,8 @@ A Storelib website sells the creator's products, and the part that takes the mon
 | `block.settings.variants` | Its options, such as sizes or licences. Empty when it has none. See below. |
 | `block.settings.category` | Its category as the creator filed it, or empty. |
 | `block.settings.options` | A product that ships: its options by name with their values, such as `{ name: "Size", values: ["S", "M"] }`. Empty for the rest. |
+| `block.settings.tags` | A product that ships: its tags as written in Products, such as `["linen", "summer"]`. Absent when it has none. |
+| `block.settings.vendor` | A product that ships: its brand as written in Products. Absent when it has none. |
 
 Templates do not do money: never compute, round or convert a price. Show the text you are given.
 

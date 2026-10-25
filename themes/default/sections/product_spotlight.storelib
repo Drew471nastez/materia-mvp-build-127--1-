@@ -9,7 +9,8 @@
       {% if settings.eyebrow %}<p class="s__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
       {# The product chosen fills the name and the price. A typed name overrides the name; a typed price shows only with no product chosen, because checkout charges the product's own. #}
       {% if settings.heading or settings.button_url.title %}<h2 class="s__h">{{ settings.heading | default: settings.button_url.title }}</h2>{% elsif page.in_editor %}<p class="empty">Choose the product in the sidebar</p>{% endif %}
-      {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
+      {# The product's own description from Products, unless words were typed here. Round 12. #}
+      {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% elsif settings.button_url.description_html %}<div class="s__sub s__desc" data-product-description>{{ settings.button_url.description_html | raw }}</div>{% endif %}
       {% if settings.price or settings.button_url.price %}
         <p class="spot__price">{{ settings.button_url.price | default: settings.price }}{% if settings.button_url.title %}{% if settings.button_url.compare_price %}<s class="card__was">{{ settings.button_url.compare_price }}</s>{% endif %}{% elsif settings.compare_price %}<s class="card__was">{{ settings.compare_price }}</s>{% endif %}</p>
       {% endif %}
@@ -52,6 +53,12 @@
   font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
 }
 .s__sub { margin: 14px 0 0; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
+.s__desc > :first-child { margin-top: 0; }
+.s__desc > :last-child { margin-bottom: 0; }
+.s__desc p, .s__desc ul, .s__desc ol { margin: 0 0 10px; }
+.s__desc ul, .s__desc ol { padding-left: 1.25em; }
+.s__desc a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.s__desc img { max-width: 100%; height: auto; }
 .s__head { max-width: 44rem; }
 .s__head--center { margin-inline: auto; text-align: center; }
 .s__btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
@@ -144,6 +151,7 @@
       "type": "textarea",
       "id": "subheading",
       "label": "Description",
+      "info": "Leave empty to show the product's description from Products. Typed words show instead.",
       "default": ""
     },
     {

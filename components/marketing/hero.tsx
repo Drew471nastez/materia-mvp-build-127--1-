@@ -23,11 +23,17 @@ import { HERO_PHRASES } from "@/lib/marketing/hero-typing"
  * starts right under them. The panel itself does not clip: the collage has
  * its own rounded clip, so the slider can cross the panel's edge.
  *
- * ONE EDGE WITH THE HEADER (round AD5). The panel's sides are the header's
- * content edges (its logo on the left, its last control on the right) at
- * every width, and the text inside is inset from the panel by the header's
- * padding again; scripts/check-home-hero.mjs measures both at 390, 1280 and
- * 1600.
+ * ONE GAP ALL ROUND (round 12, the owner). The panel's left and right inset
+ * is the same as the gap between the header and the panel's top, at every
+ * width: one value, --hero-gap, for all three. From 640px it is a share of
+ * the window (0.9vw, 8px at the least), and never a centred max width:
+ * browser zoom changes how many CSS px the window holds but not its width on
+ * the screen, so the gaps stay the same size on screen from 50% to 125% zoom
+ * (only the 8px floor grows with zoom past that), where the old 1400px row
+ * made the sides swell as the page zoomed out. 10px on a phone. The text
+ * inside is still inset from the panel by the header's padding;
+ * scripts/check-home-hero.mjs measures the gaps at 390, 1024, 1280, 1440
+ * and 1600 and over the zoom levels.
  *
  * ONE LOOK IN BOTH OF THE SITE'S LOOKS. data-own-look keeps the dark look
  * (app/theme-dark.css) off the panel: it turns a near black fill into its
@@ -44,20 +50,20 @@ const HERO_CSS = `
 [data-home-hero] {
   /* The header's own side padding (platform-header-client: px-4 sm:px-6 lg:px-8 in a 1400px row). */
   --hero-pad: 16px;
+  /* Round 12: the panel's gap to the header and to the window's sides, one value (see ONE GAP ALL ROUND). */
+  --hero-gap: 10px;
   --hc-w: min(78vw, 340px);
   --hc-h: calc(var(--hc-w) / 1.6);
   --hc-overlap: calc(var(--hc-h) * 0.46);
 }
-@media (min-width: 640px) { [data-home-hero] { --hero-pad: 24px; --hc-w: min(56vw, 560px); --hc-overlap: calc(var(--hc-h) * 0.5); } }
+@media (min-width: 640px) { [data-home-hero] { --hero-gap: max(8px, 0.9vw); --hero-pad: 24px; --hc-w: min(56vw, 560px); --hc-overlap: calc(var(--hc-h) * 0.5); } }
 @media (min-width: 1024px) { [data-home-hero] { --hero-pad: 32px; --hc-w: min(50vw, 680px); } }
 /*
-  ONE EDGE WITH THE HEADER (round AD5). The panel's sides are where the
-  header's logo and its last button are: the header's padding, and past
-  1400px the same centred 1400px row. Percent here is of the page's width,
-  as the header's row is, so a scrollbar moves both alike. The text inside
-  the panel is inset from the panel by that same padding again.
+  ONE GAP ALL ROUND (round 12, the owner: the sides match the space between
+  the header and the panel, and zooming the page does not change them). The
+  text inside the panel is inset from the panel by the header's padding.
 */
-[data-home-hero] { padding-inline: max(var(--hero-pad), calc((100% - 1400px) / 2 + var(--hero-pad))); }
+[data-home-hero] { padding-top: var(--hero-gap); padding-inline: var(--hero-gap); }
 [data-hero-copy] { padding-inline: var(--hero-pad); }
 /* The slider still runs to the page's edges, whatever the panel's inset: the window's width, centred on the panel (the page clips the rest). */
 [data-hero-slider] { width: 100vw; margin-inline: calc(50% - 50vw); }
@@ -78,7 +84,8 @@ const HERO_CSS = `
   aspect-ratio: var(--hc-ratio);
   border-radius: 12px;
   overflow: hidden;
-  background: #eceef1;
+  /* Round 12: the panel's own near black under a picture still on its way, never a light card flashing on the dark panel. */
+  background: #1a1a1f;
   box-shadow: 0 0 0 1px rgba(15, 15, 25, 0.08), 0 22px 44px -18px rgba(10, 10, 22, 0.5);
   will-change: transform, opacity;
   backface-visibility: hidden;
@@ -140,7 +147,7 @@ const CONTROL = "h-[52px] w-full rounded-action text-[16px] sm:h-12 sm:text-[15p
 
 export function Hero() {
   return (
-    <section data-home-hero="" data-own-look="" className="pt-2.5 sm:pt-3" style={{ paddingBottom: "var(--hc-overlap)" }}>
+    <section data-home-hero="" data-own-look="" style={{ paddingBottom: "var(--hc-overlap)" }}>
       <style dangerouslySetInnerHTML={{ __html: HERO_CSS }} />
       <div
         data-hero-panel=""

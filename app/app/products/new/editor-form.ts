@@ -17,6 +17,7 @@
 import { fieldRows, type CustomField } from "@/lib/products/custom-fields"
 import { isPosterName, isVideoUrl } from "@/lib/media/video"
 import { tt, msg } from "@/lib/i18n/text"
+import { asSet, num, richText, stableKey } from "@/lib/forms/dirty"
 
 export interface UploadedFile {
   id?: string
@@ -359,52 +360,151 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
   }
 }
 
-/**
- * What "unsaved" is measured against: the fields a creator edits, in one
- * fixed order, so the same values always make the same string. Compare at
- * price is in it now; changing only that used to leave Save greyed out.
- */
-export interface SnapshotFields {
-  title: string
-  description: string
-  price: string
-  compareAtPrice: string
-  mediaItems: MediaItem[]
-  digitalFiles: UploadedFile[]
-  variants: ProductVariant[]
-  whatsIncluded: string[]
-  faqs: FAQItem[]
-  selectedCategory: string | null
-  limitSalesEnabled: boolean
-  salesLimit: string
-  callToAction: string
-  showSalesBadge: boolean
-  refundPolicyEnabled: boolean
-  refundPolicyType: string
-  payWhatYouWant: boolean
-  pwywMinPrice: string
-  pwywSuggestedPrice: string
+/*
+  WHAT "UNSAVED" IS MEASURED AGAINST (lib/forms/dirty.ts). Every field of the
+  form, compared with the value it had when it was last saved, as the save
+  would write it: so a switch turned off and on again, or a price typed as 10
+  and then 10.00, is no change, and every field that a save writes is one.
+
+  Left out, each for its reason (tests/product-save-r12.test.ts holds this
+  list to the form, so a new field must be added to one side or the other):
+    productId     which product, not a value of it
+    seoEdited     whether the SEO description follows the description; its
+                  text is compared, which is what is saved
+    isPublished   Publish and Unpublish (the more menu) save at once
+  And digitalFiles counts its names only: a file is uploaded, and deleted,
+  the moment it is added or removed, so only a rename waits for Save.
+*/
+export const NOT_SAVED_WITH_FORM = ["productId", "seoEdited", "isPublished"] as const
+export type DirtyFields = Omit<EditorForm, (typeof NOT_SAVED_WITH_FORM)[number]>
+export type DirtyField = keyof DirtyFields
+
+/** The fields as the save writes them, for comparison: one comparable value per field. */
+export function comparable(v: Partial<DirtyFields>): Partial<Record<DirtyField, unknown>> {
+  const physical = v.productType === "physical"
+  const out: Partial<Record<DirtyField, unknown>> = {
+    title: v.title,
+    description: v.description === undefined ? undefined : richText(v.description),
+    price: v.price === undefined ? undefined : num(v.price),
+    compareAtPrice: v.compareAtPrice === undefined ? undefined : num(v.compareAtPrice),
+    slug: v.slug,
+    productType: v.productType,
+    /* A thing that ships saves none of these three (its button says Buy now, its returns are the store's). */
+    showSalesBadge: physical ? undefined : v.showSalesBadge,
+    refundPolicyEnabled: physical ? undefined : v.refundPolicyEnabled,
+    /* The kind of refund is only saved while the refund policy is on. */
+    refundPolicyType: physical || v.refundPolicyEnabled === false ? undefined : v.refundPolicyType,
+    seoTitle: v.seoTitle,
+    seoDescription: v.seoDescription,
+    callToAction: physical ? undefined : v.callToAction,
+    selectedCategory: v.selectedCategory,
+    payWhatYouWant: v.payWhatYouWant,
+    pwywMinPrice: v.payWhatYouWant === false || v.pwywMinPrice === undefined ? undefined : num(v.pwywMinPrice),
+    pwywSuggestedPrice: v.payWhatYouWant === false || v.pwywSuggestedPrice === undefined ? undefined : num(v.pwywSuggestedPrice),
+    /* The photos and videos in their order: the first is the cover. */
+    mediaItems: v.mediaItems?.map((m) => ({ type: m.type, url: m.url })),
+    digitalFiles: v.digitalFiles?.map((f) => ({ path: f.file_path, name: f.file_name })),
+    variants: v.variants?.map(variantContent),
+    /* Empty lines are not saved. */
+    whatsIncluded: physical ? undefined : v.whatsIncluded?.filter((x) => x.trim()),
+    faqs: v.faqs?.filter((f) => f.question.trim() || f.answer.trim()).map((f) => ({ question: f.question, answer: f.answer })),
+    customFields: v.customFields?.filter((f) => f.key.trim() || f.value.trim()).map((f) => ({ key: f.key, value: f.value, type: f.type ?? "text", show: f.show === true })),
+    limitSalesEnabled: physical ? undefined : v.limitSalesEnabled,
+    /* The number is only saved while the limit is on. */
+    salesLimit: physical || v.limitSalesEnabled === false || v.salesLimit === undefined ? undefined : num(v.salesLimit),
+  }
+  return out
 }
+
+/**
+ * The fields that differ from the saved form: none means nothing to save.
+ * Files are compared by name only, for the files that are in both (an upload
+ * or a delete is saved when it happens).
+ */
+export function changedFields(now: DirtyFields, saved: DirtyFields): DirtyField[] {
+  const a = comparable(now)
+  const b = comparable(saved)
+  const out: DirtyField[] = []
+  for (const key of Object.keys(a) as DirtyField[]) {
+    if (key === "digitalFiles") {
+      const names = new Map(saved.digitalFiles.map((f) => [f.file_path, f.file_name.trim()]))
+      if (now.digitalFiles.some((f) => names.has(f.file_path) && names.get(f.file_path) !== f.file_name.trim())) out.push(key)
+      continue
+    }
+    if (stableKey(a[key]) !== stableKey(b[key])) out.push(key)
+  }
+  return out
+}
+
+/** The form's fields, without what is not saved with it. */
+export function dirtyFieldsOf(form: EditorForm): DirtyFields {
+  const { productId: _id, seoEdited: _seo, isPublished: _live, ...rest } = form
+  return rest
+}
+
+/**
+ * The fields the older tests and callers name. The rest of DirtyFields may be
+ * given too, and each one given is compared.
+ */
+export type SnapshotFields = Pick<DirtyFields, "title" | "description" | "price" | "compareAtPrice" | "mediaItems" | "digitalFiles" | "variants" | "whatsIncluded" | "faqs" | "selectedCategory" | "limitSalesEnabled" | "salesLimit" | "callToAction" | "showSalesBadge" | "refundPolicyEnabled" | "refundPolicyType" | "payWhatYouWant" | "pwywMinPrice" | "pwywSuggestedPrice"> & Partial<DirtyFields>
 
 /**
  * A variant as far as "unsaved" goes: what it says, not whether its card is
  * open or which id it has. Opening a variant used to count as a change, and
  * so did a new variant taking its saved id, so a product with a new variant
- * read "Unsaved changes" the moment it was saved.
+ * read "Unsaved changes" the moment it was saved. Its files are a set.
  */
 function variantContent({ id: _id, isExpanded: _open, ...rest }: ProductVariant) {
-  return rest
+  return {
+    ...rest,
+    price: num(rest.price),
+    compareAtPrice: num(rest.compareAtPrice),
+    maxPurchases: num(rest.maxPurchases),
+    assignedFiles: asSet(rest.assignedFiles),
+    pwywMinPrice: rest.payWhatYouWant ? num(rest.pwywMinPrice) : null,
+    pwywSuggestedPrice: rest.payWhatYouWant ? num(rest.pwywSuggestedPrice) : null,
+  }
 }
 
+/** One string for the fields given (lib/forms/dirty.ts): equal strings, nothing to save. */
 export function snapshotOf(v: SnapshotFields): string {
-  return JSON.stringify([
-    v.title, v.description, v.price, v.compareAtPrice, v.mediaItems, v.digitalFiles, v.variants.map(variantContent),
-    v.whatsIncluded, v.faqs, v.selectedCategory, v.limitSalesEnabled, v.salesLimit, v.callToAction,
-    v.showSalesBadge, v.refundPolicyEnabled, v.refundPolicyType, v.payWhatYouWant, v.pwywMinPrice, v.pwywSuggestedPrice,
-  ])
+  return stableKey(comparable(v))
 }
 
 /** The snapshot of a form as it opens: the saved product, its sales limit included, so it opens clean. */
 export function snapshotOfForm(form: EditorForm): string {
-  return snapshotOf(form)
+  return snapshotOf(dirtyFieldsOf(form))
+}
+
+/*
+  THE CARDS THAT HOLD THEIR OWN DRAFT (sales channels, a physical product's
+  stock, shipping and variants, its limit per order): each says what it holds
+  now and whether that is what it loaded (or read back after a save). The
+  first word from a card is what it loaded. Undefined: the card is gone.
+*/
+export type CardDrafts = Record<string, { now: string; saved: string }>
+
+export function reportCardDraft(cards: CardDrafts, key: string, value: unknown, saved: boolean): CardDrafts {
+  if (value === undefined) {
+    if (!(key in cards)) return cards
+    const { [key]: _gone, ...rest } = cards
+    return rest
+  }
+  const now = stableKey(value)
+  const prev = cards[key]
+  const nextSaved = saved || !prev ? now : prev.saved
+  if (prev && prev.now === now && prev.saved === nextSaved) return cards
+  return { ...cards, [key]: { now, saved: nextSaved } }
+}
+
+/** After a save: what each card held when the save was sent is what it has saved. */
+export function cardsSaved(cards: CardDrafts, sent: CardDrafts): CardDrafts {
+  const next: CardDrafts = {}
+  for (const [k, v] of Object.entries(cards)) next[k] = { now: v.now, saved: sent[k]?.now ?? v.saved }
+  return next
+}
+
+/** The cards whose draft is not what they saved. */
+export function changedCards(cards: CardDrafts): string[] {
+  return Object.keys(cards).filter((k) => cards[k].now !== cards[k].saved)
 }

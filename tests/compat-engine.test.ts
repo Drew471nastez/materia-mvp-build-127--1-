@@ -164,7 +164,15 @@ console.log("\nFilters, from the products themselves\n")
   const size = all.filters.find((f) => f.label === "Size") as { values: { value: string; count: number; url_to_add: string }[] }
   check("each value says how many it would leave, and the address that adds it", size.values.map((v) => `${v.value}:${v.count}`).join() === "Small:3,Large:3" && size.values[1].url_to_add === "/collections/all?filter.v.option.size=Large")
   check("in stock only", facet(shirts, new URLSearchParams("filter.v.availability=1"), "/c").products.length === 2)
-  check("a price range, in the shop's units", facet(shirts, new URLSearchParams("filter.v.price.gte=50"), "/c").products.map((p) => p.id).join() === "p3")
+  /*
+    Round 12 (owner: "filters pull data from Storelib very accurately"): a price
+    range is matched by each option's own price, as Shopify's variant price
+    filter is. Every shirt's Large is $55, so from $50 keeps all three; from
+    $60 only the $70 shirt. This pinned "from $50 is p3 alone", the card's
+    lowest price only, which dropped a shirt whose Large is in range.
+  */
+  check("a price range, in the shop's units", facet(shirts, new URLSearchParams("filter.v.price.gte=60"), "/c").products.map((p) => p.id).join() === "p3")
+  check("matched by each option's own price", facet(shirts, new URLSearchParams("filter.v.price.gte=50"), "/c").products.map((p) => p.id).join() === "p1,p2,p3")
   check("two filters together leave what both allow", facet(shirts, new URLSearchParams("filter.v.availability=1&filter.p.product_type=Coats"), "/c").products.length === 0)
   const on = facet(shirts, new URLSearchParams("filter.p.product_type=Coats&page=2"), "/c").filters.find((f) => f.label === "Product type") as { active_values: { value: string; url_to_remove: string }[] }
   check("an active value, with the address that takes it away, back to the first page", on.active_values[0]?.value === "Coats" && on.active_values[0].url_to_remove === "/c")

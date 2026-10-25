@@ -6,7 +6,7 @@
  * provider above it shows US dollars, as it always did.
  */
 import * as React from "react"
-import { noteStoreCurrency } from "@/lib/analytics/report-cache"
+import { noteStoreCurrency } from "@/lib/analytics/noted-currency"
 import { DEFAULT_STORE_CURRENCY, currencyMark, markInset, type CurrencyMark } from "./currency"
 
 const StoreCurrency = React.createContext<string | null>(null)

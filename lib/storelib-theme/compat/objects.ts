@@ -357,7 +357,8 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
 
   const prices = variants.map((v) => v.price as number)
   const compares = variants.map((v) => v.compare_at_price).filter((c): c is number => typeof c === "number" && c > 0)
-  const description = extra.descriptionHtml ?? (typeof s.description === "string" ? descriptionHtmlOf(s.description) : "")
+  /* The product's own description from Products (round 12): the page's product's full read, else what its card carries (lib/website-builder/product-descriptions.ts), already cleaned. */
+  const description = extra.descriptionHtml ?? (typeof s.description_html === "string" ? s.description_html : typeof s.description === "string" ? descriptionHtmlOf(s.description) : "")
   const product: O = {
     [OUTPUT]: title,
     id: card.id,
@@ -884,8 +885,14 @@ function productById(r: Resources, raw: string): O | null {
   if (hit) return hit
   const urlOf = (p: CardLike) => productKey(String(p.settings.url ?? ""))
   const matches = (p: CardLike) => p.id === idOrHandle || String(p.settings.slug ?? "") === idOrHandle || handleize(String(p.settings.title ?? "")) === idOrHandle || (!!p.settings.url && urlOf(p) === idOrHandle)
-  const card = r.products.find(matches) ?? r.catalog?.find(matches)
+  let card = r.products.find(matches) ?? r.catalog?.find(matches)
   if (!card) return null
+  /* The shop's card with the catalogue's description (round 12: lib/website-builder/product-descriptions.ts reads it for the catalogue). */
+  if (typeof card.settings.description_html !== "string") {
+    const id = card.id
+    const full = r.catalog?.find((p) => p.id === id)
+    if (full && typeof full.settings.description_html === "string") card = { ...card, settings: { ...card.settings, description_html: full.settings.description_html } }
+  }
   const obj = productObject(card)
   r.productCache.set(idOrHandle, obj)
   return obj

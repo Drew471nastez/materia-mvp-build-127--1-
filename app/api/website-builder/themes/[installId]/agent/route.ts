@@ -21,7 +21,7 @@
  * section (lib/agent-access/protected.ts).
  */
 
-import { BlockInstanceSchema } from "@/lib/website-builder/block-tree"
+import { BlockInstanceSchema } from "@/lib/website-builder/block-tree-schema"
 import { cleanAgentBody, unreadablePart } from "@/lib/website-builder/agent/request-shape"
 import { THEME_SCHEMA_FILE, builtInSettingsSchemaText, readThemeSettingsSchema } from "@/lib/storelib-theme/theme-config"
 import { readThemeSchemaText } from "@/lib/website-builder/theme-config-store"

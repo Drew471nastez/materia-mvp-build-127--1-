@@ -146,7 +146,10 @@ async function main() {
     const cards = code("components/physical/product-cards.tsx")
     check("the editor takes $0, asks for a price only when there is none, and refuses only between nothing and $0.50", /if \(p === null\) return multi \? tt\("Set a price for \{name\}"/.test(cards) && /if \(p > 0 && p < 50\)/.test(cards) && !/p === null \|\| p < 50/.test(cards))
     const editor = code("app/app/products/new/product-editor.tsx")
-    check("every card's change turns Save on, a saved product too (justSaved cleared with it)", /const markDirty = useCallback\(\(\) => \{\s*setHasUnsavedChanges\(true\)\s*setJustSaved\(false\)\s*\}, \[\]\)/.test(editor) && /const markPhysicalDirty = markDirty/.test(editor) && /onChange=\{markDirty\}/.test(editor) && !/setHasUnsavedChanges\(true\), \[\]\)/.test(editor))
+    /* Round 12 changed this on purpose: markDirty set a flag the snapshot effect put back on its next draw (the
+       owner's unchecked sales channel left Save grey). Each card now says what it holds and Save compares it with
+       what it loaded or saved (tests/product-save-r12.test.ts). */
+    check("every card's change turns Save on, a saved product too (each card's draft against what it saved)", /onValue=\{reportPhysical\}/.test(editor) && /onValue=\{reportChannels\}/.test(editor) && /const canSave = !isLoading && !!title\.trim\(\) && isDirty/.test(editor) && !/justSaved/.test(editor))
   }
 
   section("SERVER: priced again from the database, with how far each line may go")

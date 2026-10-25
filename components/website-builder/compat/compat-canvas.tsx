@@ -100,6 +100,10 @@ export interface CompatCanvasProps {
   onSelect: (sectionId: string, blockPath: string[]) => void
   /** The strip between two sections pressed (canvas-bridge.ts, ADD A SECTION HERE): the sections either side of that place, by id. */
   onAddSectionAt?: (place: { before: string | null; after: string | null }) => void
+  /** Round 12: the levels of each section that take another block, by section id ("" for the section's own, a block path inside it); the frame offers Add block between two blocks of these. */
+  blockLevels?: Record<string, string[]> | null
+  /** The strip between two blocks pressed: where, and the strip's box in the editor's own page (to open the block library beside it). */
+  onAddBlockAt?: (place: { sectionId: string; parent: string[]; before: string; after: string }, box: { top: number; left: number; width: number; height: number }) => void
   /** A link pressed in the page: its address, and whether it is in the header or the footer. True when another page is opening because of it. */
   onNavigate?: (href: string, chrome: boolean) => boolean | void
   /** The pointer rests on a link (or a finger landed on one): the page it goes to can be read ahead. */
@@ -1605,8 +1609,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   /* The selection, outlined in the page and announced to the theme. */
   const selectedBlock = props.selectedBlockId ? props.selectedBlockId.split(/[/>]/).pop() ?? null : null
-  const select = useRef({ sectionId: props.selectedSectionId, blockId: selectedBlock, inspect: props.inspectorEnabled })
-  select.current = { sectionId: props.inspectorEnabled ? props.selectedSectionId : null, blockId: props.inspectorEnabled ? selectedBlock : null, inspect: props.inspectorEnabled }
+  const select = useRef<{ sectionId: string | null; blockId: string | null; inspect: boolean; levels?: Record<string, string[]> | null }>({ sectionId: props.selectedSectionId, blockId: selectedBlock, inspect: props.inspectorEnabled })
+  select.current = { sectionId: props.inspectorEnabled ? props.selectedSectionId : null, blockId: props.inspectorEnabled ? selectedBlock : null, inspect: props.inspectorEnabled, levels: props.blockLevels ?? null }
+  /* The levels change with the page's blocks: told to every page with the selection (round 12, Add block between two blocks). */
+  const levelsKey = JSON.stringify(props.blockLevels ?? null)
   /*
     EVERY PAGE HEARS IT, NOT ONLY THE ONE IN FRONT. A page loading behind the
     one on screen that had already said it was ready kept the inspector as it
@@ -1624,7 +1630,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "select", ...select.current, scroll: i === 0 && scroll }, "*")
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.selectedSectionId, selectedBlock, props.inspectorEnabled])
+  }, [props.selectedSectionId, selectedBlock, props.inspectorEnabled, levelsKey])
 
   /* Round AH: a section added, pasted or written by the AI is glided to inside the frame, where the editor's own scroll cannot reach (lib/website-builder/canvas-scroll.ts REVEAL_EVENT). */
   useEffect(() => {
@@ -1700,6 +1706,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   onNavigate.current = props.onNavigate
   const onAddAt = useRef(props.onAddSectionAt)
   onAddAt.current = props.onAddSectionAt
+  const onAddBlockAt = useRef(props.onAddBlockAt)
+  onAddBlockAt.current = props.onAddBlockAt
   /* The language previewed: its links carry /fr, and the builder's pages are named without it. */
   const langRef = useRef(langCode)
   langRef.current = langCode
@@ -1996,6 +2004,17 @@ export function CompatCanvas(props: CompatCanvasProps) {
       } else if (m.type === "add-section" && inspecting.current && isFront) {
         const a = m as { before?: unknown; after?: unknown }
         onAddAt.current?.({ before: typeof a.before === "string" ? a.before : null, after: typeof a.after === "string" ? a.after : null })
+      } else if (m.type === "add-block" && inspecting.current && isFront) {
+        /* Round 12: Add block between two blocks, pressed in the page. Its box is the frame's, moved into the editor's page. */
+        const a = m as { sectionId?: unknown; parent?: unknown; before?: unknown; after?: unknown; top?: unknown; left?: unknown; width?: unknown; height?: unknown }
+        const frame = frames.current.get(slot.n)?.getBoundingClientRect()
+        const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0)
+        if (typeof a.sectionId === "string" && typeof a.before === "string" && typeof a.after === "string" && frame) {
+          onAddBlockAt.current?.(
+            { sectionId: a.sectionId, parent: Array.isArray(a.parent) ? a.parent.filter((x): x is string => typeof x === "string") : [], before: a.before, after: a.after },
+            { top: frame.top + n(a.top), left: frame.left + n(a.left), width: n(a.width), height: n(a.height) },
+          )
+        }
       } else if (m.type === "pick" && typeof m.sectionId === "string" && inspecting.current && isFront) {
         onSelect.current(m.sectionId, Array.isArray(m.blockPath) ? m.blockPath.filter((x): x is string => typeof x === "string") : [])
       }

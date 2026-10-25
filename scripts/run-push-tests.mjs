@@ -635,6 +635,8 @@ const SUITES = [
   "tests/product-editor-physical.test.ts",
   "tests/product20.test.ts",
   "tests/product-variants-faq-h.test.ts",
+  /* Round 12: every change in the product editor turns Save on, and changing it back turns it off (the sales channel the owner unchecked); scripts/check-product-save-r12.mjs drives the real editor. */
+  "tests/product-save-r12.test.ts",
   "tests/round-x.test.ts",
   "tests/round-y.test.ts",
   "tests/round-z.test.ts",
@@ -899,6 +901,10 @@ const SUITES = [
   "tests/onepage-products-r10.test.ts",
   /* Round 12 (WBPERF): a link typed in a menu draws only what shows a menu, memoised menu rows, a 401 asked about before it is a sign out, a page's sections read again quietly; scripts/check-wb-perf-r12.mjs measures them on 120 sections. */
   "tests/wb-perf-r12.test.ts",
+  /* Round 12 (website builder): Add block between two blocks in the canvas, the collection pickers' Add collection, a menu link's new tab on the live site, product descriptions bound to Storelib, the shop's filters from real products; scripts/check-wb-ux-r12.mjs measures them. */
+  "tests/wb-ux-r12.test.ts",
+  /* Round 12 (live websites): a made up server action refused by the proxy, a Publish followed by its own pages drawn; scripts/check-site-perf-r12.mjs measures load and navigation. */
+  "tests/site-perf-r12.test.ts",
 ]
 
 /**

@@ -58,6 +58,7 @@ import { FilesLibraryChooser } from "@/components/files/files-library"
 import { fileThumb } from "@/lib/files/thumb"
 import { emptyRow, photoScopes, remapRows, renameValueInRows, rowsForCombinations, variantThumbSrc, type VariantRow } from "./variant-rows"
 import { tt } from "@/lib/i18n/text"
+import { asSet, num } from "@/lib/forms/dirty"
 
 export interface PhysicalEditorHandle {
   /** A sentence for what must be fixed before saving, or null. */
@@ -145,7 +146,14 @@ export interface PhysicalCardsProps {
   productId: string | null
   basePrice: string
   handle: React.MutableRefObject<PhysicalEditorHandle | null>
-  onDirty: () => void
+  /** Something was changed by hand. */
+  onDirty?: () => void
+  /**
+   * What the cards hold now, as a save would write it (physicalDraft), and
+   * whether that is what was just loaded or read back after a save. The
+   * editor compares the two for its Save; undefined when the cards go.
+   */
+  onValue?: (value: PhysicalDraft | undefined, saved: boolean) => void
   /** The product's own photos, offered as variant images. */
   images?: string[]
   /** Uploads a new picture for a variant; resolves to its https address. */
@@ -218,7 +226,74 @@ function Cards(props: PhysicalCardsProps) {
 
 const LOCATIONS_HREF = "/app/settings?tab=shipping&section=locations"
 
-function CardsInner({ productId, basePrice, handle, onDirty, images = [], uploadImage, orderLimit, onOrderLimitLoaded }: PhysicalCardsProps) {
+/** Everything the cards hold that a save writes (tests/product-save-r12.test.ts holds this list to CardsInner's state). */
+export interface PhysicalDraftInput {
+  requiresShipping: boolean
+  weight: string
+  weightUnit: WeightUnit
+  dims: { l: string; w: string; h: string }
+  dimUnit: DimensionUnit
+  origin: string
+  hsCode: string
+  profileId: string
+  ownFulfilment: boolean
+  shipsFrom: string
+  method: FulfillmentMethod
+  trackInventory: boolean
+  continueSelling: boolean
+  lowStock: string
+  taxable: boolean
+  taxCategory: string
+  vendor: string
+  tags: string[]
+  options: OptionDraft[]
+  rows: Row[]
+}
+export type PhysicalDraft = ReturnType<typeof physicalDraft>
+
+/**
+ * The cards' draft as the save sends it, for "has it changed?" (lib/forms/dirty):
+ * numbers as numbers, tags as a set, who ships it only when it is the
+ * product's own, an option's open fold and a row's loaded counts left out.
+ */
+export function physicalDraft(d: PhysicalDraftInput) {
+  return {
+    requiresShipping: d.requiresShipping,
+    weight: num(d.weight),
+    weightUnit: d.weightUnit,
+    dims: { l: num(d.dims.l), w: num(d.dims.w), h: num(d.dims.h) },
+    dimUnit: d.dimUnit,
+    origin: d.origin,
+    hsCode: d.hsCode,
+    profileId: d.profileId,
+    ownFulfilment: d.ownFulfilment,
+    method: d.ownFulfilment ? d.method : null,
+    shipsFrom: d.ownFulfilment ? d.shipsFrom : null,
+    trackInventory: d.trackInventory,
+    continueSelling: d.continueSelling,
+    lowStock: num(d.lowStock),
+    taxable: d.taxable,
+    taxCategory: d.taxCategory,
+    vendor: d.vendor,
+    tags: asSet(d.tags),
+    options: d.options.map((o) => ({ name: o.name, values: o.values })),
+    rows: d.rows.map((r) => ({
+      options: r.options,
+      price: num(r.price),
+      compareAt: num(r.compareAt),
+      cost: num(r.cost),
+      sku: r.sku,
+      barcode: r.barcode,
+      weight: num(r.weight),
+      imageUrl: r.imageUrl,
+      method: r.method,
+      active: r.active,
+      stock: Object.fromEntries(Object.entries(r.stock).map(([k, v]) => [k, num(v)])),
+    })),
+  }
+}
+
+function CardsInner({ productId, basePrice, handle, onDirty, onValue, images = [], uploadImage, orderLimit, onOrderLimitLoaded }: PhysicalCardsProps) {
   /* Read from apply, which is made once: the editor's latest callback. */
   const limitLoaded = React.useRef(onOrderLimitLoaded)
   limitLoaded.current = onOrderLimitLoaded
@@ -265,10 +340,27 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const [pending, setPending] = React.useState<Record<string, string>>({})
   const [photoError, setPhotoError] = React.useState<string | null>(null)
 
+  /*
+    WHAT IS LOADED IS WHAT IS SAVED. While a load or a save's read-back
+    settles (its own draw and the rows that follow the options, a frame or
+    two), what the cards hold is told to the editor as the saved value; after
+    that, as a change (onValue).
+  */
+  const settling = React.useRef(0)
+  const settle = React.useCallback(() => {
+    const t = ++settling.current
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (settling.current === t) settling.current = 0
+    }))
+  }, [])
+  const tell = React.useRef(onValue)
+  tell.current = onValue
+
   const store = React.useMemo(() => storeFulfilment(ctx.settings.fulfillmentModel, ctx.settings.defaultLocationId, ctx.locations), [ctx])
 
   /* After a save, the option that was open stays open: the save reads everything back, and a list folding shut under the finger read as a jump. */
   const apply = React.useCallback((p: ProductData, storeNow: ReturnType<typeof storeFulfilment>, openBefore: string[] = []) => {
+    settle()
     setRequiresShipping(p.requiresShipping)
     setWeightUnit(p.weightUnit)
     setWeight(p.weightGrams === null ? "" : String(fromGrams(p.weightGrams, p.weightUnit) ?? ""))
@@ -327,6 +419,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
         setMethod(storeNow.method)
         setShipsFrom(storeNow.locationId ?? "")
       }
+      settle()
       setLoading(false)
     })()
     return () => {
@@ -335,11 +428,21 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const draft = React.useMemo(
+    () => physicalDraft({ requiresShipping, weight, weightUnit, dims, dimUnit, origin, hsCode, profileId, ownFulfilment, shipsFrom, method, trackInventory, continueSelling, lowStock, taxable, taxCategory, vendor, tags, options, rows }),
+    [requiresShipping, weight, weightUnit, dims, dimUnit, origin, hsCode, profileId, ownFulfilment, shipsFrom, method, trackInventory, continueSelling, lowStock, taxable, taxCategory, vendor, tags, options, rows],
+  )
+  React.useEffect(() => {
+    if (loading || loadError) return
+    tell.current?.(draft, settling.current > 0)
+  }, [draft, loading, loadError])
+  React.useEffect(() => () => tell.current?.(undefined, true), [])
+
   const changed = React.useCallback(
     <T,>(set: React.Dispatch<React.SetStateAction<T>>) =>
       (v: React.SetStateAction<T>) => {
         set(v)
-        onDirty()
+        onDirty?.()
       },
     [onDirty],
   )
@@ -369,12 +472,12 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   /* Made once (onDirty is the editor's own useCallback), so the memoised variant rows (./variant-table.tsx) redraw only for their own changes. */
   const setRow = React.useCallback((key: string, patch: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (combinationKey(r.options) === key ? { ...r, ...patch } : r)))
-    onDirty()
+    onDirty?.()
   }, [onDirty])
   const patchRows = React.useCallback((keys: string[], patch: (r: Row) => Partial<Row>) => {
     const want = new Set(keys)
     setRows((prev) => prev.map((r) => (want.has(combinationKey(r.options)) ? { ...r, ...patch(r) } : r)))
-    onDirty()
+    onDirty?.()
   }, [onDirty])
   const pickImage = React.useCallback((keys: string[], name: string) => {
     setPhotoError(null)
@@ -422,7 +525,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   optionsNow.current = { options, normalised }
   const setOptionsDirty = React.useCallback((update: (prev: OptionDraft[]) => OptionDraft[]) => {
     setOptions(update)
-    onDirty()
+    onDirty?.()
   }, [onDirty])
   const renameValue = React.useCallback((i: number, from: string, to: string) => {
     const { options, normalised } = optionsNow.current
@@ -436,14 +539,14 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       }),
     )
     if (position >= 0) setRows((prev) => renameValueInRows(prev, position, from, to))
-    onDirty()
+    onDirty?.()
   }, [onDirty])
   const reshape = React.useCallback((next: OptionDraft[]) => {
     const before = optionsNow.current.normalised.map((o) => o.name)
     const after = normaliseOptions(next.map((o) => ({ name: o.name, values: o.values }))).map((o) => o.name)
     setOptions(next)
     setRows((prev) => remapRows(prev, before, after))
-    onDirty()
+    onDirty?.()
   }, [onDirty])
   const moveOption = React.useCallback((from: number, to: number) => {
     const next = [...optionsNow.current.options]

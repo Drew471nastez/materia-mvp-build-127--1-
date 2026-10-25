@@ -46,6 +46,7 @@ import sharp from "sharp"
 import { appCss, interFaces } from "./probe-css.mjs"
 import { DEMO_ART } from "./hero-demo-art.mjs"
 import { fontCache } from "./hero-fonts.mjs"
+import { writeFaces } from "./hero-faces.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
@@ -135,7 +136,8 @@ const editor = await import("./editor-probe-harness.mjs")
 
 const css = await appCss(root)
 /* Inter from a production build, served over http here (a page on http may not read file://). */
-const rawFaces = interFaces(root)
+/* Round 12: with no production build in this checkout, Inter from Google instead (the same face), never the system fallback. */
+const rawFaces = interFaces(root) || fonts.inline(["Inter"], "wght@400;500;600;700;800")
 const mediaDir = rawFaces.match(/url\(file:\/\/(.*?\/static\/media)\//)?.[1] ?? null
 const faces = rawFaces.replace(/url\(file:\/\/.*?\/static\/media\//g, "url(/__media/")
 const page = (script, globals = "") => `<!doctype html><html class="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
@@ -191,6 +193,8 @@ const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-
   await p.close()
   console.log(`  drew ${Object.keys(DEMO_ART).length} product pictures`)
 }
+/* Round 12: the demo people's photos (scripts/hero-faces.mjs, Unsplash License). */
+console.log(`  wrote ${await writeFaces(demo, join(root, "node_modules/.cache/storelib-hero-faces"))} people's photos`)
 
 /* ── The photographs ───────────────────────────────────────────────────── */
 
@@ -267,7 +271,7 @@ const TALL = { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, ha
 
 /* A soft ground for the mockups: light, warm and a little darker at the foot, as a desk under a window. */
 const ground = (top, foot) => Buffer.from(svg(1200, 750, `<defs><linearGradient id="g" x1="0" y1="0" x2="0.3" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${foot}"/></linearGradient></defs><rect width="1200" height="750" fill="url(#g)"/>`))
-const softShadow = (w, h, r, { dy = 18, sd = 20, a = 0.28 } = {}) => sharp(Buffer.from(svg(w + 120, h + 120, `<defs><filter id="f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${sd}"/></filter></defs><rect x="60" y="${60 + dy}" width="${w}" height="${h}" rx="${r}" fill="rgba(30,24,18,${a})" filter="url(#f)"/>`))).png().toBuffer()
+const softShadow = (w, h, r, { dy = 18, sd = 20, a = 0.28, ink = "30,24,18" } = {}) => sharp(Buffer.from(svg(w + 120, h + 120, `<defs><filter id="f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${sd}"/></filter></defs><rect x="60" y="${60 + dy}" width="${w}" height="${h}" rx="${r}" fill="rgba(${ink},${a})" filter="url(#f)"/>`))).png().toBuffer()
 /* Layers composited onto a 1200 x 750 ground, any of them free to run past its edges (a shadow does): drawn on a ground 100px wider each way, then cut back. */
 async function onCanvas(base, layers) {
   const M = 100
@@ -281,14 +285,14 @@ async function onCanvas(base, layers) {
  * The computer screenshot sits in a browser window, the phone screenshot in
  * a phone's frame overlapping its lower left, both on a soft ground.
  */
-async function devices(name, desk, phone, { address, ground: g = ["#efede8", "#dcd8d0"] }) {
+async function devices(name, desk, phone, { address, ground: g = ["#1d1d22", "#0e0e10"] }) {
   const ww = 1010, bar = 30, wh = Math.round((ww * 800) / 1280), wx = 150, wy = 46
   const winR = 12
   const screen = await sharp(desk).resize(ww, wh).png().toBuffer()
-  const chrome = Buffer.from(svg(ww, wh + bar, `<defs><clipPath id="c"><rect width="${ww}" height="${wh + bar}" rx="${winR}"/></clipPath></defs><g clip-path="url(#c)"><rect width="${ww}" height="${wh + bar}" fill="#fbfbfa"/><rect width="${ww}" height="${bar}" fill="#ecebe8"/>` +
-    `<circle cx="18" cy="15" r="5" fill="#d9d6d0"/><circle cx="34" cy="15" r="5" fill="#d9d6d0"/><circle cx="50" cy="15" r="5" fill="#d9d6d0"/>` +
-    `<rect x="${ww / 2 - 150}" y="7" width="300" height="17" rx="8.5" fill="#fff"/><text x="${ww / 2}" y="19.5" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="10.5" fill="#6b6b6b">${address}</text>` +
-    `<rect y="${bar - 1}" width="${ww}" height="1" fill="#dedcd7"/></g>`))
+  const chrome = Buffer.from(svg(ww, wh + bar, `<defs><clipPath id="c"><rect width="${ww}" height="${wh + bar}" rx="${winR}"/></clipPath></defs><g clip-path="url(#c)"><rect width="${ww}" height="${wh + bar}" fill="#1c1c21"/><rect width="${ww}" height="${bar}" fill="#232328"/>` +
+    `<circle cx="18" cy="15" r="5" fill="#45454c"/><circle cx="34" cy="15" r="5" fill="#45454c"/><circle cx="50" cy="15" r="5" fill="#45454c"/>` +
+    `<rect x="${ww / 2 - 150}" y="7" width="300" height="17" rx="8.5" fill="#303036"/><text x="${ww / 2}" y="19.5" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="10.5" fill="#b4b4bc">${address}</text>` +
+    `<rect y="${bar - 1}" width="${ww}" height="1" fill="#0f0f12"/></g><rect x="0.5" y="0.5" width="${ww - 1}" height="${wh + bar - 1}" rx="${winR}" fill="none" stroke="rgba(255,255,255,0.10)"/>`))
   const screenMasked = await sharp(screen).composite([{ input: Buffer.from(svg(ww, wh, `<rect width="${ww}" height="${wh + winR}" y="${-winR}" rx="${winR}" fill="#fff"/>`)), blend: "dest-in" }]).png().toBuffer()
   /* The phone: 236 wide, its screen inset 9px in a near black frame with an island. */
   const pw = 236, ph = Math.round((pw * 844) / 390), bez = 9, pr = 34
@@ -297,10 +301,10 @@ async function devices(name, desk, phone, { address, ground: g = ["#efede8", "#d
   const island = Buffer.from(svg(70, 20, `<rect width="70" height="20" rx="10" fill="#0b0b0d"/>`))
   const px = 52, py = 750 - (ph + bez * 2) - 26
   const layers = [
-    { input: await softShadow(ww, wh + bar, winR, { dy: 22, sd: 26, a: 0.26 }), left: wx - 60, top: wy - 60 },
+    { input: await softShadow(ww, wh + bar, winR, { dy: 22, sd: 26, a: 0.7, ink: "0,0,0" }), left: wx - 60, top: wy - 60 },
     { input: chrome, left: wx, top: wy },
     { input: screenMasked, left: wx, top: wy + bar },
-    { input: await softShadow(pw + bez * 2, ph + bez * 2, pr, { dy: 16, sd: 18, a: 0.38 }), left: px - 60, top: py - 60 },
+    { input: await softShadow(pw + bez * 2, ph + bez * 2, pr, { dy: 16, sd: 18, a: 0.8, ink: "0,0,0" }), left: px - 60, top: py - 60 },
     { input: frame, left: px, top: py },
     { input: phoneScreen, left: px + bez, top: py + bez },
     { input: island, left: px + bez + pw / 2 - 35, top: py + bez + 8 },
@@ -317,8 +321,9 @@ for (const name of ["street", "skin"]) {
   shots[name] = await take(name, `/shot?shot=${name}`, DESK, { settle: 2200 })
   phones[name] = await take(`${name}-tall`, `/shot?shot=${name}`, TALL, { settle: 2000 })
 }
-await devices("street", shots.street, phones.street, { address: "palehours.storelib.com", ground: ["#ecebe7", "#d6d3cc"] })
-await devices("skin", shots.skin, phones.skin, { address: "ferne.storelib.com", ground: ["#eef0ea", "#d7dbcf"] })
+/* Round 12, the owner: no white around them. The hero is near black, so the ground and the window are too (a light ground read as a white, washed out card on the dark panel). */
+await devices("street", shots.street, phones.street, { address: "palehours.storelib.com", ground: ["#202026", "#0e0e10"] })
+await devices("skin", shots.skin, phones.skin, { address: "ferne.storelib.com", ground: ["#1e2120", "#0e0e10"] })
 for (const name of ["presets", "course", "creator", "community"]) {
   shots[name] = await take(name, `/shot?shot=${name}`, DESK, { settle: name === "community" ? 3200 : 2200 })
   await slide(name, shots[name])

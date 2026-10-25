@@ -21,7 +21,7 @@
  * in another page (components/website-builder/site-links.tsx), and the tests
  * call it before rendering every section.
  */
-import { Suspense, lazy, useState, type ComponentType } from "react"
+import { Suspense, lazy, use, useState, type ComponentType } from "react"
 import type { SectionProps } from "./_shared"
 
 type Renderer = ComponentType<SectionProps>
@@ -41,7 +41,27 @@ export function lazySection(load: () => Promise<Renderer>): Renderer & { preload
       },
     ))
   const Lazy = lazy(() => preload().then((c) => ({ default: c })))
+  /* Settles either way, so a file that failed only leaves the section to React.lazy, as before. */
+  let arrived: Promise<void> | null = null
+  const settled = () => (arrived ??= preload().then(() => undefined, () => undefined))
   function LazySection(props: SectionProps) {
+    /*
+      ON THE SERVER THE FILE IS WAITED FOR BEFORE THE SECTION, NOT INSIDE IT.
+      React.lazy suspends inside the section's own <Suspense>, so the first
+      page a server drew after it started (every cold start, and the held
+      copy of a published page is often drawn on one) sent the page without
+      the section and the section after it, at the end of the document, with
+      a script to move it in (`<div hidden id="S:0">` and $RC). The browser
+      painted the page without it as soon as the CSS arrived, with the
+      footer straight under the hero, then moved the section in: a layout
+      shift of 0.49 to 0.56 on a phone, measured on six of seven live front
+      pages (scripts/check-site-perf-r12.mjs). Waiting here, outside the
+      boundary, holds the page's first bytes for the few milliseconds the
+      file takes to load on the server, so it is written in place. The tree
+      is the same on both sides; the browser still fetches the file only
+      when a page draws the section.
+    */
+    if (typeof window === "undefined" && !loaded) use(settled())
     /* Chosen once per section on the page: switching from the lazy one to the
        loaded one later would remount it and lose what a visitor had open. */
     const [Ready] = useState(() => loaded)

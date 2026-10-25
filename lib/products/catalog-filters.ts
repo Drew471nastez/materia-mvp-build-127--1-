@@ -13,6 +13,7 @@
  *
  *   ?q=preset&price_min=10&price_max=50&available=1&type=digital
  *     &opt.size=M&opt.size=L&sort=price-asc
+ *     &category=Shirts&vendor=Acme&tag=linen   (round 12)
  *
  * The page reads it with parseCatalogQuery, lists the products that pass
  * applyCatalogQuery, and hands the section `page.filters` from
@@ -22,8 +23,18 @@
  * left out, so a shop of three downloads is not shown a wall of checkboxes.
  *
  * Products arrive as the cards every section reads (lib/website-builder/
- * shop-products.ts). Their price is already formatted; it is read back here
- * as cents for the range and the sort, never printed from here.
+ * shop-products.ts). Their price is formatted for people; the range and the
+ * sort read `price_cents`, the asking price in the store's currency (round
+ * 12: "$" was the only price this could read back, so a shop in euros had
+ * every product at 0 and a price range that kept or dropped everything).
+ *
+ * ROUND 12, "make sure filters pull data from Storelib very accurately":
+ * a product with options is filtered BY ITS OPTIONS, as Shopify filters
+ * variants. "In stock" with "Size M" keeps a shirt only when its M is in
+ * stock, not when any size is; a price range keeps it when one of its
+ * options it would sell costs that much. Category, brand (vendor) and tags
+ * are filters too, from Products, each value counted the way the others are:
+ * what ticking it would leave, every other filter as it is.
  */
 
 import { isColorOption, swatchColor } from "./product-page-model"
@@ -36,6 +47,8 @@ type Words = Partial<Record<string, string>> | undefined
 /** The fields of a product card this reads. */
 export interface FilterableCard {
   id: string
+  /** The asking price in the store's minor units, beside the settings (lib/website-builder/shop-products.ts toCard). */
+  price_cents?: unknown
   settings: {
     title?: unknown
     price?: unknown
@@ -46,6 +59,9 @@ export interface FilterableCard {
     variants?: unknown
     pay_what_you_want?: unknown
     free?: unknown
+    price_cents?: unknown
+    tags?: unknown
+    vendor?: unknown
   }
 }
 
@@ -70,9 +86,13 @@ export interface CatalogQuery {
   /** Option name (lower case) to the values ticked. */
   options: Record<string, string[]>
   sort: CatalogSort
+  /** Round 12: categories, brands (vendor) and tags ticked, as written in Products. */
+  categories: string[]
+  vendors: string[]
+  tags: string[]
 }
 
-export const EMPTY_QUERY: CatalogQuery = { q: "", priceMin: null, priceMax: null, available: false, types: [], options: {}, sort: "featured" }
+export const EMPTY_QUERY: CatalogQuery = { q: "", priceMin: null, priceMax: null, available: false, types: [], options: {}, sort: "featured", categories: [], vendors: [], tags: [] }
 
 /** At most this many values in one group, and this many ticked, so an address cannot be made to do unbounded work. */
 const MAX_VALUES = 40
@@ -120,7 +140,8 @@ export function parseCatalogQuery(params: Params): CatalogQuery {
   }
   const sortRaw = all(params, "sort")[0] ?? ""
   const sort = (SORT_OPTIONS.some((o) => o.value === sortRaw) ? sortRaw : "featured") as CatalogSort
-  return { q, priceMin, priceMax, available, types, options, sort }
+  const listOf = (key: string) => [...new Set(all(params, key).map((v) => word(v, 80)).filter(Boolean))].slice(0, MAX_VALUES)
+  return { q, priceMin, priceMax, available, types, options, sort, categories: listOf("category"), vendors: listOf("vendor"), tags: listOf("tag") }
 }
 
 /** Filters back to a query string, in a fixed order, without empty parts. No leading "?". */
@@ -132,24 +153,86 @@ export function serializeCatalogQuery(query: CatalogQuery): string {
   if (query.available) out.set("available", "1")
   for (const t of query.types) out.append("type", t)
   for (const name of Object.keys(query.options).sort()) for (const v of query.options[name]) out.append(`opt.${name}`, v)
+  for (const v of query.categories ?? []) out.append("category", v)
+  for (const v of query.vendors ?? []) out.append("vendor", v)
+  for (const v of query.tags ?? []) out.append("tag", v)
   if (query.sort !== "featured") out.set("sort", query.sort)
   return out.toString()
 }
 
 /** Whether anything narrows the list. The sort and the words searched for do not count. */
 export function hasFilters(query: CatalogQuery): boolean {
-  return query.priceMin !== null || query.priceMax !== null || query.available || query.types.length > 0 || Object.keys(query.options).length > 0
+  return query.priceMin !== null || query.priceMax !== null || query.available || query.types.length > 0 || Object.keys(query.options).length > 0 || (query.categories ?? []).length > 0 || (query.vendors ?? []).length > 0 || (query.tags ?? []).length > 0
 }
 
 /* ── Reading a card ───────────────────────────────────────────────────────── */
 
-/** A card's price in cents, read back from the formatted price ("$48.00", "$9.00/month"). Free is 0. */
-export function cardPriceCents(card: FilterableCard): number {
-  const price = typeof card.settings.price === "string" ? card.settings.price : ""
-  const m = price.match(/\$\s?([\d,]+(?:\.\d{1,2})?)/)
+/**
+ * An amount read back from a price as people read it, in minor units: "$48.00",
+ * "€0.89", "48,00 €", "1.234,56 kr", "¥1,200", "$9.00/month". The last "."
+ * or "," with one or two digits after it is the decimal point; every other
+ * one groups thousands. Nothing to read is 0.
+ */
+export function moneyCents(price: unknown): number {
+  const text = typeof price === "string" ? price : ""
+  const m = text.match(/\d[\d.,\s\u00a0\u202f']*/)
   if (!m) return 0
-  return Math.round(Number(m[1].replace(/,/g, "")) * 100)
+  const raw = m[0].replace(/[\s\u00a0\u202f']/g, "").replace(/[.,]+$/, "")
+  const last = Math.max(raw.lastIndexOf("."), raw.lastIndexOf(","))
+  const decimals = last >= 0 && /^\d{1,2}$/.test(raw.slice(last + 1))
+  const whole = (decimals ? raw.slice(0, last) : raw).replace(/[.,]/g, "")
+  const frac = decimals ? raw.slice(last + 1).padEnd(2, "0") : "00"
+  const n = Number(`${whole || "0"}.${frac}`)
+  return Number.isFinite(n) ? Math.round(n * 100) : 0
 }
+
+/** A card's asking price in minor units: what the card carries (round 12), else read back from its formatted price. Free is 0. */
+export function cardPriceCents(card: FilterableCard): number {
+  const cents = card.price_cents ?? card.settings.price_cents
+  if (typeof cents === "number" && Number.isFinite(cents)) return Math.max(0, Math.round(cents))
+  return moneyCents(card.settings.price)
+}
+
+interface VariantFacts {
+  available: boolean
+  cents: number
+  options: (string | null)[] | null
+}
+
+/** A card's options it sells, each with its price, stock and option values; empty for a product with none. */
+function cardVariants(card: FilterableCard): VariantFacts[] {
+  const list = Array.isArray(card.settings.variants) ? (card.settings.variants as unknown[]) : []
+  const out: VariantFacts[] = []
+  for (const v of list) {
+    const r = v as { available?: unknown; price_cents?: unknown; price?: unknown; options?: unknown }
+    if (!r || typeof r !== "object") continue
+    out.push({
+      available: r.available !== false,
+      /* Its own price, or the product's when it has none written ("" on an older card means the product's price). */
+      cents: typeof r.price_cents === "number" && Number.isFinite(r.price_cents) ? Math.max(0, Math.round(r.price_cents)) : typeof r.price === "string" && r.price.trim() ? moneyCents(r.price) : cardPriceCents(card),
+      options: Array.isArray(r.options) ? (r.options as unknown[]).map((x) => (typeof x === "string" && x.trim() ? x.trim() : null)) : null,
+    })
+  }
+  return out
+}
+
+/** Every price a card could sell at: its options' own, or its own. */
+export function cardPrices(card: FilterableCard): number[] {
+  const vs = cardVariants(card)
+  return vs.length ? vs.map((v) => v.cents) : [cardPriceCents(card)]
+}
+
+/** A card's category, brand and tags, as Products holds them. */
+function cardCategory(card: FilterableCard): string {
+  return typeof card.settings.category === "string" ? card.settings.category.trim() : ""
+}
+function cardVendor(card: FilterableCard): string {
+  return typeof card.settings.vendor === "string" ? card.settings.vendor.trim() : ""
+}
+function cardTags(card: FilterableCard): string[] {
+  return Array.isArray(card.settings.tags) ? (card.settings.tags as unknown[]).filter((t): t is string => typeof t === "string" && t.trim() !== "").map((t) => t.trim()) : []
+}
+const lower = (list: readonly string[]) => list.map((v) => v.toLowerCase())
 
 function cardKind(card: FilterableCard): string {
   return typeof card.settings.kind === "string" ? card.settings.kind.toLowerCase() : ""
@@ -211,18 +294,45 @@ function matchesWords(card: FilterableCard, q: string): boolean {
 
 /** Whether a card passes every filter, leaving out the one named by `skip` (for that group's own counts). */
 function passes(card: FilterableCard, query: CatalogQuery, skip?: string): boolean {
-  if (skip !== "price") {
-    const cents = cardPriceCents(card)
-    if (query.priceMin !== null && cents < Math.round(query.priceMin * 100)) return false
-    if (query.priceMax !== null && cents > Math.round(query.priceMax * 100)) return false
-  }
-  if (skip !== "available" && query.available && !available(card)) return false
   if (skip !== "type" && query.types.length && !query.types.includes(cardKind(card))) return false
-  for (const [name, wanted] of Object.entries(query.options)) {
-    if (skip === `opt.${name}`) continue
-    const option = cardOptions(card).find((o) => o.name.toLowerCase() === name)
+  if (skip !== "category" && (query.categories ?? []).length && !lower(query.categories).includes(cardCategory(card).toLowerCase())) return false
+  if (skip !== "vendor" && (query.vendors ?? []).length && !lower(query.vendors).includes(cardVendor(card).toLowerCase())) return false
+  if (skip !== "tag" && (query.tags ?? []).length) {
+    const have = lower(cardTags(card))
+    if (!lower(query.tags).some((t) => have.includes(t))) return false
+  }
+  const minCents = skip !== "price" && query.priceMin !== null ? Math.round(query.priceMin * 100) : null
+  const maxCents = skip !== "price" && query.priceMax !== null ? Math.round(query.priceMax * 100) : null
+  const inStock = skip !== "available" && query.available
+  const wanted = Object.entries(query.options).filter(([name]) => skip !== `opt.${name}`)
+  const declared = cardOptions(card)
+  const variants = cardVariants(card)
+  const priceOk = (cents: number) => (minCents === null || cents >= minCents) && (maxCents === null || cents <= maxCents)
+  /*
+    BY ITS OPTIONS, when it has options that say their values: one of them
+    must pass the price, the stock and every option ticked at once, so "In
+    stock" and "M" keep a shirt only when its M is in stock.
+  */
+  if (variants.length && variants.some((v) => v.options !== null)) {
+    if (inStock && !available(card)) return false
+    return variants.some((v) => {
+      if (!priceOk(v.cents)) return false
+      if (inStock && !v.available) return false
+      for (const [name, values] of wanted) {
+        const at = declared.findIndex((o) => o.name.toLowerCase() === name)
+        const value = at >= 0 ? v.options?.[at] ?? null : null
+        if (!value || !lower(values).includes(value.toLowerCase())) return false
+      }
+      return true
+    })
+  }
+  /* A product without options to read: by the product itself. Its price is any one it sells at. */
+  if ((minCents !== null || maxCents !== null) && !cardPrices(card).some(priceOk)) return false
+  if (inStock && !available(card)) return false
+  for (const [name, values] of wanted) {
+    const option = declared.find((o) => o.name.toLowerCase() === name)
     const have = new Set((option?.values ?? []).map((v) => v.toLowerCase()))
-    if (!wanted.some((v) => have.has(v.toLowerCase()))) return false
+    if (!values.some((v) => have.has(v.toLowerCase()))) return false
   }
   return true
 }
@@ -315,7 +425,8 @@ export function catalogFilters(
 
   /* Availability, only when something is out of stock: otherwise ticking it changes nothing. */
   if (pool.some((c) => !available(c)) && pool.some(available)) {
-    const n = pool.filter((c) => available(c) && passes(c, query, "available")).length
+    /* What ticking it leaves: an option ticked too must be the one in stock (round 12). */
+    const n = pool.filter((c) => passes(c, { ...query, available: true })).length
     groups.push({ label: w("availability"), param: "available", active: query.available ? 1 : 0, values: [{ label: w("in_stock"), value: "1", count: n, checked: query.available, swatch: "" }] })
   }
 
@@ -336,6 +447,33 @@ export function catalogFilters(
     })
   }
 
+  /*
+    Round 12: the category, the brand (vendor) and the tags, as Products
+    holds them, when they would narrow the list (two values or more). Each
+    value spelled as most products spell it, matched without regard to case.
+  */
+  const listGroup = (label: string, param: "category" | "vendor" | "tag", valuesOf: (c: FilterableCard) => string[], ticked: string[]) => {
+    const values = new Map<string, string>()
+    for (const c of pool) for (const v of valuesOf(c)) if (!values.has(v.toLowerCase())) values.set(v.toLowerCase(), v)
+    if (values.size < 2) return
+    const on = lower(ticked)
+    groups.push({
+      label,
+      param,
+      active: ticked.length,
+      values: [...values.values()].sort((a, b) => a.localeCompare(b)).slice(0, MAX_VALUES).map((v) => ({
+        label: v,
+        value: v,
+        count: pool.filter((c) => lower(valuesOf(c)).includes(v.toLowerCase()) && passes(c, query, param)).length,
+        checked: on.includes(v.toLowerCase()),
+        swatch: "",
+      })),
+    })
+  }
+  listGroup(w("category"), "category", (c) => (cardCategory(c) ? [cardCategory(c)] : []), query.categories ?? [])
+  listGroup(w("brand"), "vendor", (c) => (cardVendor(c) ? [cardVendor(c)] : []), query.vendors ?? [])
+  listGroup(w("tags"), "tag", cardTags, query.tags ?? [])
+
   /* Each named option (Size, Colour), with every value some product has. */
   const names = new Map<string, string>()
   for (const c of pool) for (const o of cardOptions(c)) if (!names.has(o.name.toLowerCase())) names.set(o.name.toLowerCase(), o.name)
@@ -352,7 +490,8 @@ export function catalogFilters(
       values: [...values.values()].slice(0, MAX_VALUES).map((v) => ({
         label: v,
         value: v,
-        count: pool.filter((c) => (cardOptions(c).find((o) => o.name.toLowerCase() === key)?.values ?? []).some((x) => x.toLowerCase() === v.toLowerCase()) && passes(c, query, param)).length,
+        /* What ticking this value alone in its group leaves, every other filter as it is: with "In stock", the products whose own v is in stock (round 12). */
+        count: pool.filter((c) => passes(c, { ...query, options: { ...query.options, [key]: [v] } })).length,
         checked: ticked.includes(v.toLowerCase()),
         swatch: isColor(label) ? swatchOf(v) ?? "" : "",
       })),
@@ -361,7 +500,8 @@ export function catalogFilters(
 
   for (const g of groups) for (const v of g.values) v.disabled = v.count === 0 && !v.checked
 
-  const prices = pool.map(cardPriceCents)
+  /* From the cheapest thing the shop sells to the dearest, its options' own prices included. */
+  const prices = pool.flatMap(cardPrices)
   const lo = prices.length ? Math.floor(Math.min(...prices) / 100) : 0
   const hi = prices.length ? Math.ceil(Math.max(...prices) / 100) : 0
   const base = { ...EMPTY_QUERY, q: query.q, sort: query.sort }
@@ -380,6 +520,9 @@ export function catalogFilters(
   }
   if (query.available) chips.push({ label: w("in_stock"), url: href({ ...query, available: false }) })
   for (const t of query.types) chips.push({ label: kindLabel(t, opts.words), url: href({ ...query, types: query.types.filter((x) => x !== t) }) })
+  for (const v of query.categories ?? []) chips.push({ label: v, url: href({ ...query, categories: query.categories.filter((x) => x !== v) }) })
+  for (const v of query.vendors ?? []) chips.push({ label: v, url: href({ ...query, vendors: query.vendors.filter((x) => x !== v) }) })
+  for (const v of query.tags ?? []) chips.push({ label: v, url: href({ ...query, tags: query.tags.filter((x) => x !== v) }) })
   for (const [name, vals] of Object.entries(query.options)) {
     for (const v of vals) {
       const rest = vals.filter((x) => x !== v)
@@ -390,7 +533,7 @@ export function catalogFilters(
     }
   }
 
-  const activeCount = (query.priceMin !== null || query.priceMax !== null ? 1 : 0) + (query.available ? 1 : 0) + query.types.length + Object.values(query.options).reduce((n, v) => n + v.length, 0)
+  const activeCount = (query.priceMin !== null || query.priceMax !== null ? 1 : 0) + (query.available ? 1 : 0) + query.types.length + Object.values(query.options).reduce((n, v) => n + v.length, 0) + (query.categories ?? []).length + (query.vendors ?? []).length + (query.tags ?? []).length
   return {
     active: hasFilters(query),
     active_count: activeCount,
