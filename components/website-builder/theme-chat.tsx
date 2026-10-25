@@ -1068,24 +1068,42 @@ function ThemeChatPanel({
     ro.observe(room)
     return () => ro.disconnect()
   }, [])
+  /*
+    ONCE A FRAME, NOT ONCE A LINE (round 15). A run patches its exchange for
+    every line it streams, and this read the thread's height straight after
+    each of those commits: a layout of the whole editor's document, the
+    canvas of a Storelib theme included, forced in the middle of the run, as
+    many times as the run had lines (scripts/check-wb-live-r15.mjs). The read
+    waits for the next frame now and is made once for however many lines
+    arrived before it; a new exchange among them still glides.
+  */
+  const stickFrame = React.useRef(0)
+  const stickAdded = React.useRef(false)
+  React.useEffect(() => () => cancelAnimationFrame(stickFrame.current), [])
   React.useEffect(() => {
-    const thread = threadRef.current
-    if (!thread) return
+    if (!threadRef.current) return
     const restored = seenExchanges.current === 0
     const added = exchanges.length > seenExchanges.current
     seenExchanges.current = exchanges.length
     if (added) pinned.current = true
     if (!pinned.current) return
-    const end = Math.max(0, thread.scrollHeight - thread.clientHeight)
-    const gliding = performance.now() < autoScrollUntil.current
-    if ((added && !restored) || gliding) {
-      if (!prefersReducedMotion()) {
-        if (added) autoScrollUntil.current = performance.now() + AUTO_SCROLL_MS
+    if (added && !restored) stickAdded.current = true
+    if (stickFrame.current) return
+    stickFrame.current = requestAnimationFrame(() => {
+      stickFrame.current = 0
+      const glideIn = stickAdded.current
+      stickAdded.current = false
+      const thread = threadRef.current
+      if (!thread || !pinned.current) return
+      const end = Math.max(0, thread.scrollHeight - thread.clientHeight)
+      const gliding = performance.now() < autoScrollUntil.current
+      if ((glideIn || gliding) && !prefersReducedMotion()) {
+        if (glideIn) autoScrollUntil.current = performance.now() + AUTO_SCROLL_MS
         thread.scrollTo({ top: end, behavior: "smooth" })
         return
       }
-    }
-    thread.scrollTop = end
+      thread.scrollTop = end
+    })
   }, [exchanges, queued])
 
   /**
@@ -2450,17 +2468,27 @@ function ThemeChatPanel({
     neither is half covered. Measured against the pill's slot, which does not
     move, so stepping away cannot itself end the overlap and start a flicker.
   */
+  /*
+    ONLY WHILE THERE IS A TOOLBAR (round 15). This listened to every scroll
+    in the document whatever was selected, and each frame of a canvas scroll
+    looked the toolbar up across the whole page, canvas and all, and read
+    its style and two boxes: 75 to 135ms of a slow laptop's scroll spent on
+    a toolbar that was not there (scripts/check-wb-live-r15.mjs). With no
+    section selected there is none to give way to; with one, the toolbar is
+    found once and found again only if it was replaced.
+  */
   const [yielding, setYielding] = React.useState(false)
   React.useEffect(() => {
-    if (!dock || expanded || hidden || suspended) {
+    if (!dock || expanded || hidden || suspended || !selectedSectionId) {
       setYielding(false)
       return
     }
     let frame = 0
+    let bar: HTMLElement | null = null
     const check = () => {
       frame = 0
       const slot = pillSlotRef.current
-      const bar = document.querySelector<HTMLElement>(".wb-section-toolbar")
+      if (!bar?.isConnected) bar = document.querySelector<HTMLElement>(".wb-section-toolbar")
       if (!slot || !bar || getComputedStyle(bar).pointerEvents === "none") {
         setYielding(false)
         return

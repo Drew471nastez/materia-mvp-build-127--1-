@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { useFrameCommit } from "./use-frame-commit"
 import { liveGesture } from "@/lib/website-builder/live-settings"
 import { tt } from "@/lib/i18n/text"
+import { scrollMoves } from "@/lib/website-builder/scroll-moves"
 
 // ── HSV ↔ HEX helpers ────────────────────────────────────────
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -389,10 +390,16 @@ export function ColorChip({
       setPos({ top, left })
     }
     update()
-    const onScroll = () => update()
+    /* Only a scroll that moves the chip, once a frame: never the canvas scrolling past (lib/website-builder/scroll-moves.ts). */
+    let frame = 0
+    const onScroll = (e: Event) => {
+      if (!scrollMoves(e, triggerRef.current)) return
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; update() })
+    }
     window.addEventListener("scroll", onScroll, true)
     window.addEventListener("resize", update)
     return () => {
+      if (frame) cancelAnimationFrame(frame)
       window.removeEventListener("scroll", onScroll, true)
       window.removeEventListener("resize", update)
     }

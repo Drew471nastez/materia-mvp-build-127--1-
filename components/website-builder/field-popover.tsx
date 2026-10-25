@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { useSheetExpand } from "@/components/website-builder/mobile-editor-sheet"
 import { tt } from "@/lib/i18n/text"
+import { scrollMoves } from "@/lib/website-builder/scroll-moves"
 
 /**
  * ===========================================================================
@@ -442,7 +443,11 @@ function FloatingFieldPanel({ open, onOpenChange, trigger, children, className, 
   /* Follows the field: every scroll of anything, the window resizing, the field or the list changing size. */
   React.useEffect(() => {
     if (!present) return
-    const onScroll = () => place(false)
+    /* Only a scroll that moves the field: never the canvas scrolling past (lib/website-builder/scroll-moves.ts). */
+    const onScroll = (e: Event) => {
+      if (e.type === "scroll" && !scrollMoves(e, root.current)) return
+      place(false)
+    }
     window.addEventListener("scroll", onScroll, { capture: true, passive: true })
     window.addEventListener("resize", onScroll)
     window.visualViewport?.addEventListener("resize", onScroll)

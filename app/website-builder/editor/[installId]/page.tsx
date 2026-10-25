@@ -3287,7 +3287,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * surfaces later as the logo reverting on another page.
      */
     if (op.kind === "update_section") {
-      const target = sections.find(s => s.id === op.id)
+      /* The page as it stands after the run's earlier lines, not as it stood when this function was made. */
+      const target = sectionsRef.current.find(s => s.id === op.id)
       if (target?.type === "header") {
         const mirrored: Record<string, unknown> = {}
         for (const [key, value] of Object.entries(op.settings)) {
@@ -3323,7 +3324,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * added: the assistant could see their sections and not place one.
      */
     setSections(previous => applyOp({ sections: previous, settings: {} }, op, librarySchemas).sections)
-  }, [sections, librarySchemas])
+  }, [librarySchemas])
 
   /**
    * =========================================================================

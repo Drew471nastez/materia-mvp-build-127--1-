@@ -903,6 +903,8 @@ const FILL_PER_FRAME = 4
 const EAGER_CARDS = 3
 /** How long after the editor has settled the previews start being drawn. */
 const WARM_AFTER_MS = 1800
+/** And again after the look changed (an Ask Storelib run, a colour slider), once it has stood this long. */
+const REWARM_AFTER_MS = 10_000
 /** How long the library's entrance takes before anything heavy is asked of the page (the panel's 280ms, less a frame). */
 const OPEN_SETTLE_MS = 260
 
@@ -1117,6 +1119,7 @@ export const SectionLibrary = memo(function SectionLibrary({
    * the closed library costs the editor nothing at all.
    */
   const [built, setBuilt] = useState(false)
+  const warmed = useRef(false)
   useEffect(() => {
     if (open) {
       /*
@@ -1138,10 +1141,20 @@ export const SectionLibrary = memo(function SectionLibrary({
         calmPreviews()
       }
     }
+    /*
+      A NEW LOOK WAITS UNTIL IT HAS SETTLED (round 15). The previews are drawn
+      in the theme's look, so every colour an Ask Storelib run or a slider
+      changed asked for the whole library again, and each pause of the
+      person's hands while the run went on laid out another batch of them in
+      the editor's document (scripts/check-wb-live-r15.mjs). The first look
+      is drawn ahead as before; a changed one once it has stood for
+      REWARM_AFTER_MS, and an open library draws what it shows at once.
+    */
     const t = window.setTimeout(() => {
+      warmed.current = true
       if (!compatInstallId) requestPreviews(jobs)
       idle(() => setBuilt(true))
-    }, WARM_AFTER_MS)
+    }, warmed.current ? REWARM_AFTER_MS : WARM_AFTER_MS)
     return () => window.clearTimeout(t)
   }, [open, jobs, compatInstallId])
 

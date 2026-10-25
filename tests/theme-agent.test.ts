@@ -1099,7 +1099,7 @@ section("An AI edit behaves exactly like an edit made by hand")
     "utf8",
   ), "app/website-builder/editor/[installId]/page.tsx")
   const at = editor.indexOf("const applyAiOp = useCallback")
-  const body = editor.slice(at, editor.indexOf("}, [sections])", at))
+  const body = editor.slice(at, editor.indexOf("}, [librarySchemas])", at))
 
   check(
     "an AI edit marks the editor dirty",

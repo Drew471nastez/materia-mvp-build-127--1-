@@ -52,27 +52,35 @@ export function AiWorkingOverlay({ working, settled, label }: { working: readonl
   const ids = React.useMemo(() => [...new Set([...working, ...settled])], [working, settled])
   const key = ids.join("|")
 
-  React.useLayoutEffect(() => {
+  React.useEffect(() => {
     const anchor = layer.current
     if (!anchor || ids.length === 0) {
       setBoxes((was) => (Object.keys(was).length ? {} : was))
       return
     }
     let frame = 0
+    /*
+      READ IN A FRAME, THEN SET (round 15). The first measure ran in this
+      layout effect, straight after the commit that changed the page, and
+      the boxes were read inside the state updater: a layout of the whole
+      canvas forced in the middle of the commit, each time a run's step moved
+      to another section (scripts/check-wb-live-r15.mjs). The boxes are read
+      on the next frame now, all of them, before the state is touched.
+    */
     const measure = () => {
       frame = 0
       const origin = anchor.getBoundingClientRect()
+      const read: Record<string, Box> = {}
+      for (const id of ids) {
+        const el = document.getElementById(`wb-section-${id}`)
+        if (!el) continue
+        const r = el.getBoundingClientRect()
+        read[id] = { x: Math.round(r.left - origin.left), y: Math.round(r.top - origin.top), w: Math.round(r.width), h: Math.round(r.height) }
+      }
       setBoxes((was) => {
         const next: Record<string, Box> = {}
-        let changed = Object.keys(was).length !== ids.length
-        for (const id of ids) {
-          const el = document.getElementById(`wb-section-${id}`)
-          if (!el) {
-            changed = changed || id in was
-            continue
-          }
-          const r = el.getBoundingClientRect()
-          const box = { x: Math.round(r.left - origin.left), y: Math.round(r.top - origin.top), w: Math.round(r.width), h: Math.round(r.height) }
+        let changed = Object.keys(was).length !== Object.keys(read).length
+        for (const [id, box] of Object.entries(read)) {
           next[id] = same(was[id], box) ? was[id] : box
           changed = changed || next[id] !== was[id]
         }
@@ -82,7 +90,6 @@ export function AiWorkingOverlay({ working, settled, label }: { working: readonl
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(measure)
     }
-    measure()
 
     /* Anything that changes size moves what is below it: the page itself, and every marked section. */
     const sized = new ResizeObserver(schedule)
@@ -96,13 +103,17 @@ export function AiWorkingOverlay({ working, settled, label }: { working: readonl
     const changed = content ? new MutationObserver(schedule) : null
     if (content && changed) changed.observe(content, { childList: true, subtree: false })
 
-    /* Only a sticky section moves against the page while it scrolls. */
+    /* Only a sticky section moves against the page while it scrolls: asked once, in the first frame's read, not in the commit. */
     const scroller = document.getElementById("wb-preview-root")
-    const sticky = ids.some((id) => {
-      const el = document.getElementById(`wb-section-${id}`)
-      return !!el && getComputedStyle(el).position === "sticky"
+    let sticky = false
+    frame = requestAnimationFrame(() => {
+      sticky = ids.some((id) => {
+        const el = document.getElementById(`wb-section-${id}`)
+        return !!el && getComputedStyle(el).position === "sticky"
+      })
+      if (sticky) scroller?.addEventListener("scroll", schedule, { passive: true })
+      measure()
     })
-    if (sticky) scroller?.addEventListener("scroll", schedule, { passive: true })
 
     return () => {
       if (frame) cancelAnimationFrame(frame)

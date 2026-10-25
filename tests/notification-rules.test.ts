@@ -821,7 +821,8 @@ function wiringSuite() {
     && /\.notePayout\(payoutCreatorId\)/.test(hook) && /\.noteDispute\(disputeCreatorId\)/.test(hook))
   check("a review tells it too (the first is a milestone)", /\.noteReview\(reviewCreatorId\)/.test(read("app/api/reviews/route.ts")))
   const sale = read("lib/push/notifications.ts")
-  check("a sale that is a milestone is one push, titled as the milestone", /const milestone = await milestoneTitle\(userId\)/.test(sale) && /title: milestone \?\? "🎉 You made a sale!"/.test(sale))
+  /* The words are lib/push/sale-text.ts now; a free claim is never a sales milestone. */
+  check("a sale that is a milestone is one push, titled as the milestone", /const milestone = opts\.amountCents > 0 \? await milestoneTitle\(userId\) : null/.test(sale) && /title: milestone \?\? "🎉 You made a sale!"/.test(read("lib/push/sale-text.ts")))
   const events = read("lib/notifications/events.ts")
   check("account.updated also asks whether a live product can now be paid for, so Connect Stripe resolves at once", /\[stripeRestricted, stripeRequirementsDue, payoutsNotConnected\]/.test(events))
   check("events never wait long and never throw", /export const EVENT_BUDGET_MS = 2_500/.test(events) && /within\(/.test(events) && (events.match(/catch \{/g) ?? []).length >= 2)

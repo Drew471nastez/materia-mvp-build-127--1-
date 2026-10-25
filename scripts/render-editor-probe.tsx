@@ -145,6 +145,24 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const top = activity.events.length ? activity.events[activity.events.length - 1].id : 0
     return json({ ready: true, cursor: top, connections: probeGlobals.PROBE_CONNECTIONS, events: after === null ? [] : activity.events.filter((e) => e.id > Number(after)), sync_at: activity.syncAt ?? null })
   }
+  /*
+    PROBE_AGENT_STREAM: Ask Storelib's answer as the agent route streams it, one JSON line every gapMs
+    ({ lines, gapMs }), so a probe can play an assistant run under an open editor (scripts/check-wb-live-r15.mjs).
+  */
+  const agentStream = (window as unknown as { PROBE_AGENT_STREAM?: { lines: unknown[]; gapMs: number } }).PROBE_AGENT_STREAM
+  if (agentStream && init?.method === "POST" && /\/themes\/probe-install\/agent$/.test(url)) {
+    const encoder = new TextEncoder()
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        for (const line of agentStream.lines) {
+          await new Promise((r) => setTimeout(r, agentStream.gapMs))
+          controller.enqueue(encoder.encode(`${JSON.stringify(line)}\n`))
+        }
+        controller.close()
+      },
+    })
+    return new Response(body, { status: 200, headers: { "content-type": "application/x-ndjson" } })
+  }
   if (/\/themes\/probe-install\/agent-activity/.test(url) && probeGlobals.PROBE_CONNECTIONS) {
     return json({ ready: true, cursor: 0, connections: probeGlobals.PROBE_CONNECTIONS, events: [] })
   }

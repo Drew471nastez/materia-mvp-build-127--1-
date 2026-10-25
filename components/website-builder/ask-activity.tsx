@@ -33,6 +33,7 @@ import { Check, ChevronRight, Copy, Flag } from "lucide-react"
 import type { ActivityCode, TimelineRow } from "@/lib/website-builder/ask-activity"
 import { cn } from "@/lib/utils"
 import { tt, msg } from "@/lib/i18n/text"
+import { scrollMoves } from "@/lib/website-builder/scroll-moves"
 
 /* ── the line ──────────────────────────────────────────────────────────── */
 
@@ -512,12 +513,16 @@ export function ReportForm({
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(measure)
     }
+    /* Only a scroll that moves the flag: never the canvas scrolling past (lib/website-builder/scroll-moves.ts). */
+    const onScroll = (e: Event) => {
+      if (scrollMoves(e, anchor?.current)) schedule()
+    }
     measure()
-    document.addEventListener("scroll", schedule, { capture: true, passive: true })
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     window.addEventListener("resize", schedule)
     return () => {
       if (frame) cancelAnimationFrame(frame)
-      document.removeEventListener("scroll", schedule, { capture: true })
+      document.removeEventListener("scroll", onScroll, { capture: true })
       window.removeEventListener("resize", schedule)
     }
   }, [shown, floating, anchor, report.stage])

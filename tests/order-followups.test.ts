@@ -158,7 +158,9 @@ async function main() {
   {
     const payment = read("lib/checkout/fulfil-payment.ts")
     check("single product: the first writer begins, a retry that finds the order resumes", /beginFollowups\(admin, order\.id, \{ kind: "payment", ref: paid\.paymentId/.test(payment) && /if \(found\) \{\s*const resumed = await resumeFollowups\(admin, found\.id/.test(payment))
-    check("  emails, customer, contact, sales count, code and push are claimed once", ["customer", "contact", "sales count", "coupon use", "emails", "push"].every((s) => payment.includes(`f.once("${s}"`)))
+    check("  emails, customer, contact, sales count and code are claimed once", ["customer", "contact", "sales count", "coupon use", "emails"].every((s) => payment.includes(`f.once("${s}"`)))
+    /* The seller's push is raiseSaleEvents' own now, once per purchase (tests/sale-push.test.ts). */
+    check("  the sale, and with it the seller's push, is raised by a step of its own", /f\.(once|idempotent)\("notify", \(\) =>\s*raiseSaleEvents\(admin/.test(payment) && !/notifySale/.test(payment))
     check("  the ledger is idempotent (keyed per order in the database)", /f\.idempotent\("ledger", \(\) => recordSale/.test(payment))
     const cart = read("lib/checkout/fulfil-cart-session.ts")
     check("baskets: each written line begins, each line another caller wrote resumes", /beginFollowups\(admin, outcome\.line\.orderId, \{ kind, ref: ctx\.sessionId/.test(cart) && /resumeFollowups\(admin, outcome\.orderId/.test(cart))

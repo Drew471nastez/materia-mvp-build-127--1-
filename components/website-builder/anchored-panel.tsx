@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
+import { scrollMoves } from "@/lib/website-builder/scroll-moves"
 
 /**
  * ===========================================================================
@@ -88,14 +89,16 @@ export function AnchoredPanel({
      * without having to measure the panel first and without the frame of
      * wrong position that measuring would cost.
      */
-    setPlace({
+    const next: Placement = {
       top,
       ...(align === "right"
         ? { right: Math.max(EDGE, window.innerWidth - r.right) }
         : { left: Math.min(Math.max(r.left + r.width / 2, EDGE), window.innerWidth - EDGE), transform: "translateX(-50%)" }),
       // Never taller than what is left below the button.
       maxHeight: Math.max(160, window.innerHeight - top - EDGE),
-    })
+    }
+    /* Where it already is: no render. */
+    setPlace((was) => (was && was.top === next.top && was.left === next.left && was.right === next.right && was.maxHeight === next.maxHeight ? was : next))
   }, [anchorRef, align, gap])
 
   // Before paint, so the panel never appears at 0,0 and then jumps.
@@ -104,18 +107,33 @@ export function AnchoredPanel({
     measure()
   }, [mounted, measure])
 
+  /*
+    ONLY A SCROLL THAT MOVES THE BUTTON, ONCE A FRAME (round 15). Every
+    scroll in the document reached this, the canvas's above all, and each
+    event read the button's box and set the panel's place: a layout and a
+    render per wheel notch while a notice from an agent or a push was open,
+    170 to 180ms of a slow laptop's scroll (scripts/check-wb-live-r15.mjs).
+    The button is in the chrome; the canvas scrolling past does not move it.
+  */
   useEffect(() => {
     if (!mounted) return
-    const onChange = () => measure()
+    let frame = 0
+    const onChange = () => {
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure() })
+    }
+    // The editor's own panes scroll; a button inside one moves with it (lib/website-builder/scroll-moves.ts).
+    const onScroll = (e: Event) => {
+      if (scrollMoves(e, anchorRef.current)) onChange()
+    }
     window.addEventListener("resize", onChange)
-    // The editor's own panes scroll; a button inside one moves with it.
-    window.addEventListener("scroll", onChange, true)
+    window.addEventListener("scroll", onScroll, true)
     const a = anchorRef.current
     const ro = a && typeof ResizeObserver !== "undefined" ? new ResizeObserver(onChange) : null
     if (a && ro) ro.observe(a)
     return () => {
+      if (frame) cancelAnimationFrame(frame)
       window.removeEventListener("resize", onChange)
-      window.removeEventListener("scroll", onChange, true)
+      window.removeEventListener("scroll", onScroll, true)
       ro?.disconnect()
     }
   }, [mounted, measure, anchorRef])
