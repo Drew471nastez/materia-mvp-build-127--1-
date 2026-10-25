@@ -1099,7 +1099,7 @@ export function BuyerNoteCard({ order, className }: { order: PhysicalOrder | nul
                           <span className="block text-[12px] text-[#6b7280]">
                             {f.width && f.height ? `${f.width} × ${f.height} · ` : ""}
                             {f.url ? (
-                              <a href={f.downloadUrl ?? f.url} target="_blank" rel="noopener noreferrer" className="font-medium text-[#8b5cf6] hover:underline">
+                              <a href={f.downloadUrl ?? f.url} target="_blank" rel="noopener noreferrer" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
                                 {tt("Download")}
                               </a>
                             ) : null}
