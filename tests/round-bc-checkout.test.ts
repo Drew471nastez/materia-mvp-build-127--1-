@@ -204,7 +204,8 @@ async function main() {
     const server = code("lib/physical/checkout-server.ts")
     check("a cart that ships keeps the note with its line breaks on its checkout (orderNote, not clean)", /buyer_note: orderNote\(input\.buyerNote\)/.test(server) && !/buyer_note: clean\(/.test(server))
     const route = code("app/api/checkout/site/route.ts")
-    check("a basket of downloads puts the note on its payment, after the record's own keys, before the visit's touches", /const noteKeys = noteToMetadata\(body\.buyerNote\)[\s\S]{0,200}<= STRIPE_METADATA_LIMIT\) Object\.assign\(metadata, noteKeys\)\s*\n\s*Object\.assign\(metadata, attributionToMetadata/.test(route))
+    /* Changed on purpose (round AG): the lines' offers and properties (packExtras) take the room after the note and before the visit's touches. */
+    check("a basket of downloads puts the note on its payment, after the record's own keys, before the visit's touches", /const noteKeys = noteToMetadata\(body\.buyerNote\)[\s\S]{0,200}<= STRIPE_METADATA_LIMIT\) Object\.assign\(metadata, noteKeys\)\s*\n[\s\S]{0,300}Object\.assign\(metadata, packExtras\([^\n]+\n\s*Object\.assign\(metadata, attributionToMetadata/.test(route))
     check("  a free basket of downloads takes it too", /fulfilFreeCart\(admin, \{[\s\S]*?buyerNote: orderNote\(body\.buyerNote\)/.test(route))
     const fulfil = code("lib/checkout/fulfil-cart-session.ts")
     check("the payment's note is read back when its order is written (page or webhook)", /buyerNote: noteFromMetadata\(metadata\)/.test(fulfil))
