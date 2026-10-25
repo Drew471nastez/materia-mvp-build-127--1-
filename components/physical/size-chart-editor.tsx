@@ -35,6 +35,16 @@ export interface SavedSizeChart extends SizeChart {
   id: string
   productCount: number
   updatedAt?: string | null
+  /** Round 13: the store's collections it also shows on, by id. */
+  collectionIds?: string[]
+  /** And the categories it also shows on. */
+  categories?: string[]
+}
+
+/** What a chart can also be set for (GET /api/size-charts `targets`). */
+export interface SizeChartTargets {
+  collections: { id: string; title: string }[]
+  categories: string[]
 }
 
 interface Column {
@@ -53,13 +63,17 @@ interface Draft {
   rows: Row[]
   notes: string
   imageUrl: string | null
+  collectionIds: string[]
+  categories: string[]
 }
 
 let seq = 0
 const key = () => `k${++seq}`
 
-function draftOf(chart: Omit<SizeChart, "id">): Draft {
+function draftOf(chart: Omit<SizeChart, "id"> & { collectionIds?: string[]; categories?: string[] }): Draft {
   return {
+    collectionIds: [...(chart.collectionIds ?? [])],
+    categories: [...(chart.categories ?? [])],
     name: chart.name,
     unit: chart.unit,
     columns: chart.columns.map((c) => ({ key: key(), name: c.name, measure: c.measure })),
@@ -89,8 +103,10 @@ export function draftProblem(d: Pick<Draft, "name" | "columns" | "rows">): strin
 }
 
 /** The draft as the server takes it: rows as long as the columns, empty rows left out. */
-function bodyOf(d: Draft) {
+function bodyOf(d: Draft, rules: boolean) {
   return {
+    /* Only once part 309 has run: before it the server would refuse a list it cannot keep. */
+    ...(rules ? { collectionIds: d.collectionIds, categories: d.categories } : {}),
     name: d.name.trim(),
     unit: d.unit,
     columns: d.columns.map((c, i) => ({ name: c.name.trim(), measure: i === 0 ? false : c.measure })),
@@ -107,6 +123,8 @@ export function SizeChartEditor({
   onSaved,
   onDelete,
   uploadImage,
+  targets,
+  rules = false,
 }: {
   open: boolean
   /** The chart to edit, or null for a new one. */
@@ -116,6 +134,10 @@ export function SizeChartEditor({
   /** Deleting is offered where the store's charts are managed (Products › Size charts); the product editor only edits. */
   onDelete?: (chart: SavedSizeChart) => Promise<string | null>
   uploadImage?: (file: File) => Promise<string>
+  /** The store's collections and categories, for "Also show it on"; absent where the store's list was not read. */
+  targets?: SizeChartTargets
+  /** Whether SQL part 309 has run, so a chart can be set for collections and categories. */
+  rules?: boolean
 }) {
   const [draft, setDraft] = React.useState<Draft>(() => draftOf(chart ?? sizeChartTemplate("tops", tt)))
   const [template, setTemplate] = React.useState<SizeChartTemplate | null>(chart ? null : "tops")
@@ -166,7 +188,7 @@ export function SizeChartEditor({
     const problem = draftProblem(draft)
     if (problem) return setError(problem)
     setBusy(true)
-    const res = await api<{ id: string; charts: SavedSizeChart[]; ready?: boolean }>(chart ? `/api/size-charts/${chart.id}` : "/api/size-charts", { method: chart ? "PUT" : "POST", body: bodyOf(draft) })
+    const res = await api<{ id: string; charts: SavedSizeChart[]; ready?: boolean }>(chart ? `/api/size-charts/${chart.id}` : "/api/size-charts", { method: chart ? "PUT" : "POST", body: bodyOf(draft, rules) })
     setBusy(false)
     if (!res.ok) return setError(res.error)
     onSaved({ id: res.data.id, charts: res.data.charts ?? [] })
@@ -356,6 +378,8 @@ export function SizeChartEditor({
           </button>
         </div>
 
+        {targets ? <AlsoShowOn draft={draft} targets={targets} rules={rules} onChange={(patch) => edit((d) => ({ ...d, ...patch }))} /> : null}
+
         <Field label={tt("Note under the table")} hint={tt("Optional. How to measure, or how it fits.")}>
           <textarea
             value={draft.notes}
@@ -392,5 +416,67 @@ export function SizeChartEditor({
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
+  )
+}
+
+/**
+ * ROUND 13: ALSO SHOW IT ON. A chart can be set for whole collections and
+ * categories, so a shop with fifty tees sets "Tees" once. A product's own
+ * chart still comes first (lib/size-charts/storefront.ts). Chips, one tap
+ * each, the way the store's tags are picked.
+ */
+function AlsoShowOn({ draft, targets, rules, onChange }: { draft: Draft; targets: SizeChartTargets; rules: boolean; onChange: (patch: Partial<Pick<Draft, "collectionIds" | "categories">>) => void }) {
+  const toggle = (list: string[], v: string) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
+  const chip = (on: boolean) =>
+    cn(
+      "inline-flex h-9 max-w-full items-center truncate rounded-full border px-3.5 text-[13.5px] font-medium transition-colors [-webkit-tap-highlight-color:transparent]",
+      on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#1a1a2e] [@media(hover:hover)]:hover:bg-[#f7f7f8]",
+    )
+  /* A category saved on the chart that no product has now is still listed, so it can be taken off. */
+  const categories = [...targets.categories, ...draft.categories.filter((c) => !targets.categories.some((t) => t.toLowerCase() === c.toLowerCase()))]
+  const none = !targets.collections.length && !categories.length
+  return (
+    <div data-size-chart-also="">
+      <p className="text-[13px] font-medium text-[#374151] sm:text-[13.5px]">{tt("Also show it on")}</p>
+      <p className="mb-2 text-[12.5px] leading-[18px] text-[#6b7280]">{tt("Every product in these collections or categories gets this chart. A chart picked on the product comes first.")}</p>
+      {!rules ? (
+        <Notice tone="gray">{tt("This needs a database update (SQL part 309). Until then, pick the chart on each product.")}</Notice>
+      ) : none ? (
+        <p className="text-[13px] leading-5 text-[#6b7280]">{tt("No collections or categories yet. Add one in Products, then come back.")}</p>
+      ) : (
+        <div className="space-y-3">
+          {targets.collections.length ? (
+            <div role="group" aria-label={tt("Collections")}>
+              <p className="mb-1.5 text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Collections")}</p>
+              <div className="flex flex-wrap gap-2">
+                {targets.collections.map((c) => {
+                  const on = draft.collectionIds.includes(c.id)
+                  return (
+                    <button key={c.id} type="button" aria-pressed={on} className={chip(on)} onClick={() => onChange({ collectionIds: toggle(draft.collectionIds, c.id) })} data-chart-collection={c.id}>
+                      {c.title}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
+          {categories.length ? (
+            <div role="group" aria-label={tt("Categories")}>
+              <p className="mb-1.5 text-[12px] font-medium uppercase tracking-[0.04em] text-[#9ca3af]">{tt("Categories")}</p>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((c) => {
+                  const on = draft.categories.some((x) => x.toLowerCase() === c.toLowerCase())
+                  return (
+                    <button key={c} type="button" aria-pressed={on} className={chip(on)} onClick={() => onChange({ categories: on ? draft.categories.filter((x) => x.toLowerCase() !== c.toLowerCase()) : [...draft.categories, c] })} data-chart-category={c}>
+                      {c}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
   )
 }

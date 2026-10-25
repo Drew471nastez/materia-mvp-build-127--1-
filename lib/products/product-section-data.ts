@@ -166,8 +166,8 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
     type !== "physical" ? salesStanding(db as Parameters<typeof salesStanding>[0], row.id).catch(() => null) : Promise.resolve(null),
     /* Delivery and pickup (lib/physical/storefront-facts.ts): the cheapest delivery home and how long, the pickup points that hold each option. */
     type === "physical" && row.creator_id ? productDelivery(db, row.creator_id, row.id) : Promise.resolve(null),
-    /* Its size chart (lib/size-charts/storefront.ts): the Size chart block and the variant picker's Size guide link. None before SQL part 283 has run. */
-    type === "physical" ? sizeChartForProduct(db, row.id, row.creator_id ?? null) : Promise.resolve(null),
+    /* Its size chart (lib/size-charts/storefront.ts): its own, else one set for its collection or category (round 13). The Size chart block, the variant picker's Size guide link and the Size guide section. None before SQL part 283 has run. */
+    type === "physical" ? sizeChartForProduct(db, row.id, row.creator_id ?? null, row.category !== undefined ? { category: row.category } : {}) : Promise.resolve(null),
   ])
 
   const variantsLive = rawVariants.filter((v) => liveVariant({ id: v.id, name: v.name ?? "", active: v.active }))

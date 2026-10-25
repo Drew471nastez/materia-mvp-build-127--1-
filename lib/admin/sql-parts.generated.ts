@@ -203,4 +203,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "306", file: "306_store_currency_quantity_breaks.sql", sha256: "129ee1c7070dcad6ea2e4106b9926112dc15783d8e7527e258ce4b321cb96514" },
   { part: "307", file: "307_product_personalization.sql", sha256: "c1641d127b9f2553927e5f511ea3f4c68e522e092593639d598c7fc9a2634b64" },
   { part: "308", file: "308_cart_uploads.sql", sha256: "9169f708b6a985282676b02e1ed8102b9c7df1a827badc9d65cb99a28034bc14" },
+  { part: "309", file: "309_size_chart_rules.sql", sha256: "c25b897e8cca72e7052a3f246d68c035aa713b6aa92ff0ed4d72356c780d91b7" },
 ]

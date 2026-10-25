@@ -30,6 +30,6 @@ export default async function SizeChartsPage() {
   if (!user) return null
   const creator = await creatorForRequest(user.id)
   if (!creator) return noStorePage("/app/products/size-charts")
-  const { ready, charts } = await listSizeCharts(createAdminClient(), creator.id)
-  return <SizeChartsClient creatorId={creator.id} ready={ready} initialCharts={charts} />
+  const { ready, rules, charts, targets } = await listSizeCharts(createAdminClient(), creator.id)
+  return <SizeChartsClient creatorId={creator.id} ready={ready} rules={rules} targets={targets} initialCharts={charts} />
 }

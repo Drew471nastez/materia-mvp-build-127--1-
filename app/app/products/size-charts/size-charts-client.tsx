@@ -21,7 +21,7 @@ import { accentDepth } from "@/components/ui/depth-button"
 import { GUTTER, LIST_BAR, PaneBar } from "../../orders/order-parts"
 import { Pill, usePill } from "../../coupons/coupon-parts"
 import { pressMark } from "@/lib/press-mark"
-import { SizeChartEditor, type SavedSizeChart } from "@/components/physical/size-chart-editor"
+import { SizeChartEditor, type SavedSizeChart, type SizeChartTargets } from "@/components/physical/size-chart-editor"
 import { api } from "@/components/physical/ui"
 import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
 import { tt } from "@/lib/i18n/text"
@@ -41,10 +41,16 @@ function measures(c: SavedSizeChart): string {
   return names.length ? `${names.slice(0, 4).join(", ")}${names.length > 4 ? "…" : ""} · ${c.unit}` : c.unit
 }
 
+/** What else a chart is set for (round 13), in a few words: "Tees, Shirts". */
+function alsoOn(c: SavedSizeChart, targets?: SizeChartTargets): string {
+  const names = [...(c.collectionIds ?? []).map((id) => targets?.collections.find((x) => x.id === id)?.title).filter((x): x is string => !!x), ...(c.categories ?? [])]
+  return names.length ? tt("Also on {names}", { names: `${names.slice(0, 3).join(", ")}${names.length > 3 ? "…" : ""}` }) : ""
+}
+
 const sizesWord = (n: number) => tt("{n, plural, one {# size} other {# sizes}}", { n })
 const productsWord = (n: number) => tt("{n, plural, =0 {No products} one {# product} other {# products}}", { n })
 
-export function SizeChartsClient({ creatorId, ready, initialCharts }: { creatorId: string; ready: boolean; initialCharts: SavedSizeChart[] }) {
+export function SizeChartsClient({ creatorId, ready, rules = false, targets, initialCharts }: { creatorId: string; ready: boolean; rules?: boolean; targets?: SizeChartTargets; initialCharts: SavedSizeChart[] }) {
   const [list, setList] = React.useState(initialCharts)
   const [notice, say] = usePill()
   const [editing, setEditing] = React.useState<{ key: number; chart: SavedSizeChart | null } | null>(null)
@@ -101,6 +107,12 @@ export function SizeChartsClient({ creatorId, ready, initialCharts }: { creatorI
                         {measures(c)}
                         <Sep />
                         <span className="tabular-nums">{productsWord(c.productCount)}</span>
+                        {alsoOn(c, targets) ? (
+                          <>
+                            <Sep />
+                            {alsoOn(c, targets)}
+                          </>
+                        ) : null}
                       </span>
                     </span>
                   </li>
@@ -132,7 +144,10 @@ export function SizeChartsClient({ creatorId, ready, initialCharts }: { creatorI
                           {c.name}
                         </button>
                       </td>
-                      <td className="hidden truncate bg-white px-3 text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">{measures(c)}</td>
+                      <td className="hidden truncate bg-white px-3 text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell lg:px-[13px]">
+                        {measures(c)}
+                        {alsoOn(c, targets) ? <span className="block truncate text-[12px] text-[#6b7280] lg:text-[13px]">{alsoOn(c, targets)}</span> : null}
+                      </td>
                       <td className="whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] group-hover:bg-[#fafafb] lg:px-[13px]">{c.rows.length.toLocaleString(appLocale())}</td>
                       <td className="whitespace-nowrap bg-white pl-3 pr-4 text-right tabular-nums text-[#1a1a2e] group-hover:bg-[#fafafb] lg:pl-[13px] lg:pr-[18px] xl:pr-[22px]">{c.productCount.toLocaleString(appLocale())}</td>
                     </tr>
@@ -147,7 +162,7 @@ export function SizeChartsClient({ creatorId, ready, initialCharts }: { creatorI
           )}
         </section>
         <p className="mt-3 px-1 text-[13px] leading-5 text-[#6b7280]">
-          {tt("Give a product its chart in the product editor, under Size chart.")}{" "}
+          {tt("Give a product its chart in the product editor, under Size chart, or set a chart for whole collections and categories here.")}{" "}
           <a href="/help/physical-products/set-up-size-charts" target="_blank" rel="noreferrer" className="font-medium text-[#4b5563] underline underline-offset-2 hover:text-[#1a1a2e]">
             {tt("How size charts work")}
           </a>
@@ -160,6 +175,8 @@ export function SizeChartsClient({ creatorId, ready, initialCharts }: { creatorI
           open
           chart={editing.chart}
           uploadImage={upload}
+          targets={targets}
+          rules={rules}
           onClose={() => setEditing(null)}
           onDelete={remove}
           onSaved={({ charts }) => {

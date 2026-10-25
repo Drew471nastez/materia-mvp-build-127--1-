@@ -277,6 +277,8 @@ export function sizeChartJson(chart: SizeChart): Record<string, unknown> {
     rows_in: rowsIn(chart, "in"),
     tables,
     notes: chart.notes,
+    /* Round 13: the note as safe markup, escaped with a <br> per line, so a theme prints it as it is with no filter. */
+    notes_html: chart.notes.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/\n/g, "<br>"),
     image: chart.imageUrl,
     measuring_guide: { text: chart.notes, image: chart.imageUrl },
   }

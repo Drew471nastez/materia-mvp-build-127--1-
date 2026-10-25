@@ -24,7 +24,7 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BTN_SECONDARY, Card, Notice, SelectInput, api } from "./ui"
-import { SizeChartEditor, type SavedSizeChart } from "./size-chart-editor"
+import { SizeChartEditor, type SavedSizeChart, type SizeChartTargets } from "./size-chart-editor"
 import { tt } from "@/lib/i18n/text"
 
 export interface SizeChartHandle {
@@ -76,22 +76,29 @@ export function SizeChartCard({ productId, handle, onDirty, uploadImage }: { pro
   const saved = React.useRef<string | null>(null)
   const [editing, setEditing] = React.useState<{ key: number; chart: SavedSizeChart | null } | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  /* Round 13: what a chart can be set for, and the chart this product shows anyway from a collection or its category. */
+  const [targets, setTargets] = React.useState<SizeChartTargets | undefined>(undefined)
+  const [rules, setRules] = React.useState(false)
+  const [inherited, setInherited] = React.useState<{ name: string; source: "collection" | "category" } | null>(null)
 
   React.useEffect(() => {
     let gone = false
     ;(async () => {
       const [list, mine] = await Promise.all([
-        api<{ ready: boolean; charts: SavedSizeChart[] }>("/api/size-charts"),
-        productId ? api<{ ready: boolean; chartId: string | null }>(`/api/size-charts/product?productId=${encodeURIComponent(productId)}`) : Promise.resolve(null),
+        api<{ ready: boolean; rules?: boolean; targets?: SizeChartTargets; charts: SavedSizeChart[] }>("/api/size-charts"),
+        productId ? api<{ ready: boolean; chartId: string | null; inherited?: { name: string; source: "collection" | "category" } | null }>(`/api/size-charts/product?productId=${encodeURIComponent(productId)}`) : Promise.resolve(null),
       ])
       if (gone) return
       if (list.ok) {
         setReady(list.data.ready !== false)
         setCharts(list.data.charts ?? [])
+        setTargets(list.data.targets)
+        setRules(list.data.rules === true)
       } else setError(list.error)
       if (mine?.ok) {
         saved.current = mine.data.chartId
         setChosen(mine.data.chartId)
+        setInherited(mine.data.inherited ?? null)
       }
       setLoading(false)
     })()
@@ -139,7 +146,7 @@ export function SizeChartCard({ productId, handle, onDirty, uploadImage }: { pro
         <div className="space-y-3" data-size-chart-card="">
           {charts.length ? (
             <SelectInput value={chosen ?? ""} onChange={(v) => choose(v || null)} aria-label={tt("Size chart")} className="sm:max-w-[360px]" data-size-chart-pick="">
-              <option value="">{tt("No size chart")}</option>
+              <option value="">{inherited ? tt("From its collection or category") : tt("No size chart")}</option>
               {charts.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -149,6 +156,11 @@ export function SizeChartCard({ productId, handle, onDirty, uploadImage }: { pro
           ) : (
             <p className="text-[13.5px] leading-5 text-[#4b5563]">{tt("No size charts yet. Make one for each cut you sell, like Tees or Jeans, and use it on every product it fits.")}</p>
           )}
+          {!chart && inherited ? (
+            <p className="text-[13px] leading-5 text-[#4b5563]" data-size-chart-inherited={inherited.source}>
+              {inherited.source === "collection" ? tt("Shows {name} for now, set for one of its collections.", { name: inherited.name }) : tt("Shows {name} for now, set for its category.", { name: inherited.name })}
+            </p>
+          ) : null}
           {chart ? (
             <>
               <SizeChartPreview chart={chart} />
@@ -181,6 +193,8 @@ export function SizeChartCard({ productId, handle, onDirty, uploadImage }: { pro
           open
           chart={editing.chart}
           uploadImage={uploadImage}
+          targets={targets}
+          rules={rules}
           onClose={() => setEditing(null)}
           onSaved={({ id, charts: next }) => {
             setCharts(next)

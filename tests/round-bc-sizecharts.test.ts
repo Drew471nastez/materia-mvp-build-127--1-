@@ -87,7 +87,8 @@ function fakeDb(tables: Record<string, O[]>, missing: string[] = []) {
       let op = "select"
       let values: unknown
       let head = false
-      const rows = () => (tables[table] ??= []).filter((r) => filters.every(([k, v]) => r[k] === v))
+      /* `.in()` as PostgREST applies it (round 13: one read for a whole list of products). */
+      const rows = () => (tables[table] ??= []).filter((r) => filters.every(([k, v]) => (v && typeof v === "object" && "in" in (v as O) ? ((v as O).in as unknown[]).includes(r[k]) : r[k] === v)))
       const result = (single: "one" | "maybe" | "many") => {
         calls.push({ table, op, filters: [...filters], values })
         if (missing.includes(table)) return { data: null, error: { code: "PGRST205", message: "missing" } }
@@ -112,6 +113,7 @@ function fakeDb(tables: Record<string, O[]>, missing: string[] = []) {
       const b: O = {
         select: (_cols?: string, opts?: { head?: boolean }) => ((head = !!opts?.head), b),
         eq: (k: string, v: unknown) => (filters.push([k, v]), b),
+        in: (k: string, v: unknown[]) => (filters.push([k, { in: v }]), b),
         order: () => b,
         limit: () => b,
         update: (v: unknown) => ((op = "update"), (values = v), b),
@@ -194,7 +196,7 @@ function allowServerOnly() {
     check("before SQL part 283: no chart, no error", (await sizeChartForProduct(fakeDb({}, ["product_size_charts", "size_charts"]), PRODUCT, CREATOR)) === null)
     check("a product without a chart: null", (await sizeChartForProduct(fakeDb({ product_size_charts: [], size_charts: [] }), OTHER_PRODUCT, CREATOR)) === null)
     const section = code("lib/products/product-section-data.ts")
-    check("the product section's data carries it, for physical products only", /type === "physical" \? sizeChartForProduct\(db, row\.id, row\.creator_id \?\? null\)/.test(section) && /size_chart: sizeChart,/.test(section))
+    check("the product section's data carries it, for physical products only", /* round 13: the category goes along, for a chart set for it */ /type === "physical" \? sizeChartForProduct\(db, row\.id, row\.creator_id \?\? null, /.test(section) && /size_chart: sizeChart,/.test(section))
     check("  and so do an imported theme's page facts (live and the canvas's ?facts=1)", /sizeChart: data\.size_chart \?\? null/.test(code("lib/storelib-theme/compat/product-facts-server.ts")))
   }
 
