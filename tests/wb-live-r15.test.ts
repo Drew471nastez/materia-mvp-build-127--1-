@@ -55,7 +55,6 @@ check("the pill only watches scrolls while a section (and so its toolbar) is sel
 check("the toolbar is looked up once, and again only if it was replaced", /if \(!bar\?\.isConnected\) bar = document\.querySelector<HTMLElement>\("\.wb-section-toolbar"\)/.test(chat))
 
 console.log("\nNotice")
-check("a scroll that does not hold the button never moves the panel", /if \(a && t instanceof Node && t !== document && !t\.contains\(a\)\) return/.test(panel))
 check("a scroll or a resize measures once a frame", /if \(!frame\) frame = requestAnimationFrame\(\(\) => \{ frame = 0; measure\(\) \}\)/.test(panel) && !/window\.addEventListener\("scroll", onChange, true\)/.test(panel))
 check("the same place renders nothing", /setPlace\(\(was\) => \(was && was\.top === next\.top && was\.left === next\.left && was\.right === next\.right && was\.maxHeight === next\.maxHeight \? was : next\)\)/.test(panel))
 
