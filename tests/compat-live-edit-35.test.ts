@@ -101,7 +101,8 @@ console.log("\nTHE FRAME WRITES IT WHERE IT IS")
   check("a style rule holding nested rules is still a style rule", /if \(ra\.style && rb\.style && rl\.style\) \{/.test(CANVAS_BRIDGE))
   check("what morph writes as text forgets the rules' text", /live\.__slText = undefined; live\.textContent = b\.textContent;/.test(CANVAS_BRIDGE))
   check("a change written in place reads no scroll back (a layout per value)", !/var written = function[\s\S]{0,300}scrollY/.test(CANVAS_BRIDGE))
-  check("while values stream in, the outline follows the box without hit tests", /if \(performance\.now\(\) < streamingUntil\) \{/.test(CANVAS_BRIDGE) && /streaming\(\);\n    drawn\[id\] = html;/.test(CANVAS_BRIDGE))
+  /* Changed on purpose (round 14): streaming ends two quiet frames after the last value or scroll (streamingOn), not 250ms after it, which a slow frame outlasted. */
+  check("while values stream in, the outline follows the box without hit tests", /if \(streamingOn\) \{/.test(CANVAS_BRIDGE) && /streaming\(\);\n    drawn\[id\] = html;/.test(CANVAS_BRIDGE))
   check("the marked elements are found from what marked them, not by searching the page", /var hov = hovered && hovered\.isConnected/.test(CANVAS_BRIDGE) && !/document\.querySelector\("\[data-sl-hover\]"\)/.test(CANVAS_BRIDGE))
   /* Changed on purpose (round BC): looked up again only when the page's elements changed, not once a frame. */
   check("the header's sticky bars are read once a frame", /if \(!topsCache \|\| !topsHere\(\)\) topsCache = document\.querySelectorAll\(HEADER_TOPS\)/.test(CANVAS_BRIDGE) && /records\[j\]\.type === "childList"\) \{ topsCache = null; break; \}/.test(CANVAS_BRIDGE))

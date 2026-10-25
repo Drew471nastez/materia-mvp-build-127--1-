@@ -1849,6 +1849,21 @@ export function CompatCanvas(props: CompatCanvasProps) {
   useEffect(() => {
     document.getElementById("wb-preview-root")?.dispatchEvent(new Event("scroll"))
   }, [ghostPlace])
+  /*
+    MOVED BY HAND WHILE THE PAGE SCROLLS (round 14). The frame tells the box
+    of the selected section every frame it moves (a scroll), and each one was
+    state here: this whole component rendered again a frame, on the thread
+    the scroll runs on. The same section moving is now written straight onto
+    its box; only a section coming, going or changing is a render.
+  */
+  const ghostNow = useRef<typeof ghost>(null)
+  const ghostEl = useRef<HTMLDivElement | null>(null)
+  const ghostTold = useRef(0)
+  const placeGhost = (el: HTMLDivElement | null) => {
+    ghostEl.current = el
+    const g = ghostNow.current
+    if (el && g) { el.style.top = `${g.top}px`; el.style.left = `${g.left}px`; el.style.width = `${g.width}px`; el.style.height = `${g.height}px` }
+  }
   const onSelect = useRef(props.onSelect)
   onSelect.current = props.onSelect
   const onNavigate = useRef(props.onNavigate)
@@ -2141,12 +2156,26 @@ export function CompatCanvas(props: CompatCanvasProps) {
       } else if (m.type === "box" && isFront) {
         const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number }
         const next = typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null
-        setGhost((was) => (was && next && was.id === next.id && was.top === next.top && was.left === next.left && was.width === next.width && was.height === next.height ? was : next))
+        const was = ghostNow.current
+        if (was && next && was.id === next.id && was.top === next.top && was.left === next.left && was.width === next.width && was.height === next.height) return
+        ghostNow.current = next
+        if (was && next && was.id === next.id && ghostEl.current) {
+          placeGhost(ghostEl.current)
+          /* The toolbar and the rest measure on the canvas's scroll event, once a frame however many boxes came in it. */
+          if ((was.top !== next.top || was.left !== next.left || was.width !== next.width) && !ghostTold.current) {
+            ghostTold.current = requestAnimationFrame(() => { ghostTold.current = 0; document.getElementById("wb-preview-root")?.dispatchEvent(new Event("scroll")) })
+          }
+        } else setGhost(next)
+      } else if (m.type === "scrolling" && isFront) {
+        /* CANVAS_INPUT_EVENT: somebody is scrolling the canvas, and the editor's work done ahead waits (compat-section-preview.tsx watchInput). */
+        window.dispatchEvent(new Event("storelib:canvas-input"))
       } else if (m.type === "scrolled" && typeof m.scrollY === "number") {
         if (isFront) scrollY.current = m.scrollY
+        if (isFront) window.dispatchEvent(new Event("storelib:canvas-input"))
       } else if ((m.type === "press" || m.type === "escape") && isFront) {
         /* Round BC: a press or Escape inside the page, for what the builder has open over it (publish-panel.tsx CANVAS_PRESS_EVENT). */
         window.dispatchEvent(new CustomEvent(CANVAS_PRESS_EVENT, { detail: m.type }))
+        window.dispatchEvent(new Event("storelib:canvas-input"))
       } else if (m.type === "clip-key" && isFront) {
         /* Cmd/Ctrl+C or V pressed inside the page: the editor copies or pastes the open section (editor page, clip keys). */
         const key = (m as { key?: unknown }).key
@@ -2343,7 +2372,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
             )
           })}
           {ghost && props.inspectorEnabled && props.selectedSectionId === ghost.id && (
-            <div aria-hidden id={`wb-section-${ghost.id}`} className="pointer-events-none absolute" style={{ top: ghost.top, left: ghost.left, width: ghost.width, height: ghost.height }} />
+            <div ref={placeGhost} aria-hidden id={`wb-section-${ghost.id}`} className="pointer-events-none absolute" style={{ top: ghost.top, left: ghost.left, width: ghost.width, height: ghost.height }} />
           )}
         </div>
       )}

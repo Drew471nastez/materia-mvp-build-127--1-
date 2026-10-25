@@ -42,7 +42,7 @@ async function bridgeInBrowser() {
       ${CANVAS_BRIDGE}
     </script></body></html>`)
     const state = () => page.evaluate(() => {
-      const shown = (k: string) => { const b = document.querySelector<HTMLElement>(`[data-sl-box=${k}]`); return !!b && getComputedStyle(b).display !== "none" && Number(getComputedStyle(b).opacity) > 0.05 }
+      const shown = (k: string) => { const b = (document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelector<HTMLElement>(`[data-sl-box=${k}]`); return !!b && getComputedStyle(b).display !== "none" && Number(getComputedStyle(b).opacity) > 0.05 }
       const w = window as unknown as { __picks: number; __events: string[] }
       return { hover: [...document.querySelectorAll("[data-sl-hover]")].map((e) => e.id.slice(16)), selected: [...document.querySelectorAll("[data-sl-selected]")].map((e) => e.id.slice(16)), hoverBox: shown("hover"), sectionBox: shown("section"), picks: w.__picks, events: w.__events.join(",") }
     })

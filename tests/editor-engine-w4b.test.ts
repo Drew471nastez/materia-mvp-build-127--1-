@@ -113,7 +113,8 @@ console.log("\nC2  AN IMPORTED THEME'S CANVAS FOLLOWS A THEME SETTING UNDER A FI
 console.log("\nC3  THE PAGE'S OWN CHANGES DO NOT KEEP THE OUTLINES BUSY")
 {
   check("a morph takes its own changes off the watcher's list", /ops\.forEach\(function \(op\) \{ op\(\); \}\);[\s\S]{0,900}if \(watcher\) watcher\.takeRecords\(\);/.test(CANVAS_BRIDGE))
-  check("the outlines and the toolbar's box are read once a frame, together", /var drawBoxes = function \(withReport\)/.test(CANVAS_BRIDGE) && /report\(b \? null : \{ el: sec, v: seen \}\)/.test(CANVAS_BRIDGE) && /read && read\.el === el \? read\.v : visibleRect\(el, 0\)/.test(CANVAS_BRIDGE))
+  /* Changed on purpose (round 14): the toolbar's box is read with the outlines, before any of them is written, also with a block selected. */
+  check("the outlines and the toolbar's box are read once a frame, together", /var drawBoxes = function \(withReport\)/.test(CANVAS_BRIDGE) && /var repV = repEl \? \(repEl === sec && !b \? seen : visibleRect\(repEl, 0\)\) : null;[\s\S]{0,400}report\(\{ el: repEl, v: repV \}\)/.test(CANVAS_BRIDGE) && /read && read\.el === el \? read\.v : visibleRect\(el, 0\)/.test(CANVAS_BRIDGE))
   let parses = true
   try { new Function(CANVAS_BRIDGE) } catch { parses = false }
   check("the bridge still reads as a script", parses)

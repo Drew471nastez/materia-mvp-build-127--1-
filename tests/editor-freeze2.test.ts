@@ -54,13 +54,15 @@ console.log("\nTHE FIRST LOOK: A HOLD FROM THE FIRST PAINT IS LET GO WITHOUT A C
   check("the builder says heal when it shows the page in front, and the page looks then", /m\.type === "heal"\) \{[\s\S]{0,300}checkLock\(\);\s*stalledLoaders\(\);/.test(CANVAS_BRIDGE))
   const canvas = read("components/website-builder/compat/compat-canvas.tsx")
   check("  said with \"shown\", for the first page and every page that comes forward", /type: "shown" \}, "\*"\)[\s\S]{0,600}type: "heal" \}, "\*"\)/.test(canvas))
-  check("the first wheel over a held page lets it go in its own task, before the browser scrolls", /addEventListener\("wheel", function \(e\) \{[\s\S]{0,500}if \(!unlocked && lockedNow\(\)\) \{ clearTimeout\(lockTimer\); checkLock\(\); \}/.test(CANVAS_BRIDGE))
+  /* Changed on purpose (round 14): the first wheel always looks (lockSeen starts null); later ones when <html> or <body> changed (lockDirty) or a second has gone. */
+  check("the first wheel over a held page lets it go in its own task, before the browser scrolls", /addEventListener\("wheel", function \(e\) \{[\s\S]{0,800}if \(!unlocked && \(lockSeen === null \|\| lockDirty \|\| t0 - lockSeen > 1000\)\) \{[\s\S]{0,80}if \(lockedNow\(\)\) \{ clearTimeout\(lockTimer\); checkLock\(\); \}/.test(CANVAS_BRIDGE) && /lockSeen = null, lockDirty = true;/.test(CANVAS_BRIDGE) && /lockWatch = new MutationObserver\(function \(\) \{\s*lockDirty = true;/.test(CANVAS_BRIDGE))
   check("  in the capture phase, passive: nothing of the theme's can stop it hearing the wheel", /\}, \{ passive: true, capture: true \}\);\s*\/\*\s*ALREADY HELD WHEN THE PAGE OPENS/.test(CANVAS_BRIDGE))
 }
 
 console.log("\nTHE WHEEL TAKEN: A STOPPED SMOOTH SCROLL")
 {
-  check("only a wheel the theme's script prevented", /if \(!e\.defaultPrevented \|\| inner\) return;/.test(CANVAS_BRIDGE))
+  /* Changed on purpose (round 14): its own scroller under the pointer is looked for only for a wheel that was prevented, not for every wheel. */
+  check("only a wheel the theme's script prevented", /if \(!e\.defaultPrevented \|\| takesWheel\(e\.target, dy\)\) return;/.test(CANVAS_BRIDGE))
   check("  and that moved nothing (no scroll event since it)", /if \(scrollY !== y \|\| lastScrollAt >= at\) return;/.test(CANVAS_BRIDGE))
   check("  never over a scroller of its own that could take it (a drawer's list, a row of cards)", /var takesWheel = function \(t, dy\)/.test(CANVAS_BRIDGE) && /cs\.overflowX === "auto" \|\| cs\.overflowX === "scroll"/.test(CANVAS_BRIDGE))
   check("  never with something open on screen", /if \(openOnScreen\(\)\) return;\s*scrollTo\(\{ top: Math\.max\(0, Math\.min\(room, y \+ dy\)\)/.test(CANVAS_BRIDGE))

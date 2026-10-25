@@ -83,7 +83,7 @@ async function bridgeInBrowser() {
       const send = (m: Record<string, unknown>) => page.evaluate((m) => window.postMessage({ storelib: 1, ...m }, "*"), m)
       type Box = { left: number; top: number; right: number; bottom: number; sides: number[] } | null
       const box = (kind: string): Promise<Box> => page.evaluate((k) => {
-        const b = document.querySelector<HTMLElement>(`[data-sl-box=${k}]`)
+        const b = (document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelector<HTMLElement>(`[data-sl-box=${k}]`)
         if (!b) return null
         const cs = getComputedStyle(b)
         if (cs.display === "none") return null

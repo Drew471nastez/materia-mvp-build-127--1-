@@ -113,7 +113,8 @@ export const STORELIB_GLOBALS = `window.PROBE_PAGES={home:["header","hero_center
 
 /** The editor open on `kind`, drawn and quiet. */
 /* `init`: a script run in the editor's document before anything else (a devtools hook, an observer). `width`/`height`: the window. `settle`: ms left alone after the first draw. */
-export async function openEditor({ kind, bundle, css, compat, globals = kind === "imported" ? "" : STORELIB_GLOBALS, init = "", width = 1440, height = 900, cpu = 1, beforeOpen = null, settle = 2500 }) {
+/* `serve`: a function given a request's address, answering it ({ status, contentType, body }) or null (scripts/materia-live-kit.mjs: the real theme's pictures). `touch`: a phone's touch screen. */
+export async function openEditor({ kind, bundle, css, compat, globals = kind === "imported" ? "" : STORELIB_GLOBALS, init = "", width = 1440, height = 900, cpu = 1, beforeOpen = null, settle = 2500, serve = null, touch = false }) {
   const all = kind === "imported" ? `window.PROBE_COMPAT=${JSON.stringify(compat).replace(/</g, "\\u003c")};${globals}` : globals
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
@@ -150,12 +151,14 @@ export async function openEditor({ kind, bundle, css, compat, globals = kind ===
     const page = await browser.newPage()
     page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)))
     if (process.env.DEBUG) page.on("console", (m) => { if (m.type() === "error" || /compat-canvas/.test(m.text())) console.log("           console:", m.text().slice(0, 300)) })
-    await page.setViewport({ width, height, deviceScaleFactor: 1 })
+    await page.setViewport({ width, height, deviceScaleFactor: 1, ...(touch ? { isMobile: true, hasTouch: true } : {}) })
     if (init) await page.evaluateOnNewDocument(init)
     if (cpu > 1) await (await page.createCDPSession()).send("Emulation.setCPUThrottlingRate", { rate: cpu })
     await page.setRequestInterception(true)
     page.on("request", (r) => {
       const u = r.url()
+      const served = serve && !u.startsWith(`${base}/api/site-theme/assets/`) && !u.startsWith(`${base}/editor-probe`) && u !== `${base}/` ? serve(u) : null
+      if (served) return r.respond(served)
       if (/example\.invalid/.test(u) || /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(u)) return r.respond({ status: 200, contentType: "image/png", body: PNG })
       if (u.startsWith(base) || u.startsWith("data:") || u.startsWith("blob:") || u.startsWith("about:")) return r.continue()
       return r.respond({ status: 200, contentType: "text/plain", body: "" })

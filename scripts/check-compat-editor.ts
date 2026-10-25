@@ -165,12 +165,12 @@ async function main() {
     check("the section and the block are outlined in the frame", outlined)
     await sleep(200)
     const ring = await frame.evaluate((t) => {
-      const box = document.querySelector<HTMLElement>("[data-sl-box=section]")
+      const box = (document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelector<HTMLElement>("[data-sl-box=section]")
       const el = document.getElementById(`shopify-section-${t.section}`)
       if (!box || !el) return null
       const a = box.getBoundingClientRect(), b = el.getBoundingClientRect()
       const top = Math.max(b.top, 0), bottom = Math.min(b.bottom, innerHeight)
-      return { off: Math.max(Math.abs(a.left - b.left), Math.abs(a.width - b.width), Math.abs(a.top - top), Math.abs(a.bottom - bottom)), last: document.body.lastElementChild === box || [...document.querySelectorAll("[data-sl-box]")].includes(document.body.lastElementChild as HTMLElement), z: getComputedStyle(box).zIndex }
+      return { off: Math.max(Math.abs(a.left - b.left), Math.abs(a.width - b.width), Math.abs(a.top - top), Math.abs(a.bottom - bottom)), last: document.body.lastElementChild === box || [...document.querySelectorAll("[data-sl-box]")].includes(document.body.lastElementChild as HTMLElement) || document.body.lastElementChild === document.querySelector("[data-sl-box=layer]"), z: getComputedStyle(box).zIndex }
     }, target)
     check("the selection is one unbroken ring over the section, above everything in it", !!ring && ring.off <= 2 && ring.z === "2147483646", JSON.stringify(ring))
     /* A mark on the page's own window: still there afterwards means the page was changed in place, not drawn again. */

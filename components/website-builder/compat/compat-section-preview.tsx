@@ -362,6 +362,9 @@ function rememberHeight(installId: string, renderWidth: number, key: string, h: 
 */
 const INPUT_QUIET_MS = 1000
 let lastInput = 0
+/* The canvas in use (a frame, whose input never reaches this window): quiet for longer, since a heavy theme's frames come slowly and a scroll's messages with them. */
+const CANVAS_QUIET_MS = 2500
+let lastCanvasInput = -Infinity
 let watchingInput = false
 function watchInput() {
   if (watchingInput || typeof window === "undefined") return
@@ -372,6 +375,10 @@ function watchInput() {
   const o = { capture: true, passive: true } as const
   for (const t of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) window.addEventListener(t, seen, o)
   document.addEventListener("scroll", seen, o)
+  /* The canvas of an imported theme is a frame: its wheel and scroll never reach this window, so the canvas says it is in use (compat-canvas.tsx, CANVAS_INPUT_EVENT). */
+  window.addEventListener("storelib:canvas-input", () => {
+    lastCanvasInput = performance.now()
+  })
 }
 
 type IdleDeadline = { timeRemaining: () => number }
@@ -606,7 +613,7 @@ class PreviewSheet {
       requestAnimationFrame(() => window.setTimeout(() => this.run(FRAME_BUDGET_MS), 0))
       return
     }
-    const wait = INPUT_QUIET_MS - (performance.now() - lastInput)
+    const wait = Math.max(INPUT_QUIET_MS - (performance.now() - lastInput), CANVAS_QUIET_MS - (performance.now() - lastCanvasInput))
     if (wait > 0) {
       window.setTimeout(() => {
         this.scheduled = false

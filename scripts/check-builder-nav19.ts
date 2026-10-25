@@ -356,7 +356,7 @@ async function canvas(browser: Browser) {
 
 type Boxes = { kind: string; left: number; top: number; width: number; height: number }[]
 const boxesIn = (frame: Frame): Promise<Boxes> =>
-  frame.evaluate(() => [...document.querySelectorAll<HTMLElement>("[data-sl-box]")].filter((b) => getComputedStyle(b).display !== "none" && getComputedStyle(b).opacity !== "0").map((b) => { const r = b.getBoundingClientRect(); return { kind: b.getAttribute("data-sl-box") ?? "", left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) } }))
+  frame.evaluate(() => [...(document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelectorAll<HTMLElement>("[data-sl-box]")].filter((b) => getComputedStyle(b).display !== "none" && getComputedStyle(b).opacity !== "0").map((b) => { const r = b.getBoundingClientRect(); return { kind: b.getAttribute("data-sl-box") ?? "", left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) } }))
 
 async function select(browser: Browser) {
   for (const [width, height, touch, label] of [[390, 844, true, "phone"], [1440, 900, false, "desktop"]] as const) {

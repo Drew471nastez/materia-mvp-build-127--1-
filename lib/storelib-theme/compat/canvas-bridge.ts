@@ -80,11 +80,43 @@ export const CANVAS_BRIDGE = `
     /* Round BC: the section being dragged in the sidebar (preview-order, below). */
     "[data-sl-order-lifted]{outline:2px solid rgba(59,130,246,.6);outline-offset:-2px;position:relative;z-index:2}";
   document.head.appendChild(css);
+  /*
+    THE BUILDER'S OWN LAYER, OUT OF THE THEME'S SIGHT (round 14). The boxes,
+    the Add section strip and the layout mark (afterLayout) are written to
+    every frame the page moves, and the theme's stylesheets can see anything
+    in its document: the owner's Materia theme has :has() rules that read
+    [style] (".review_sold:has(.jdgm-widget[style=...])"), so every write to
+    a box's style restyled the page from <body> down, 400 elements, 18ms a
+    write at 1x (measured in the canvas: 0.02ms the same write in a shadow
+    root). They live in a shadow root now, whose inside no rule of the page
+    can match, behind one host that never changes after it is put in. The
+    host is a [data-sl-box] (every hit test and watcher here already passes
+    over those), drawn as its contents, its rule's display:none and pointer
+    rule overridden on itself.
+  */
+  var layerHost = null, layerRoot = null;
+  var layer = function () {
+    if (layerRoot && layerHost.isConnected) return layerRoot;
+    layerHost = document.createElement("div");
+    layerHost.setAttribute("data-sl-box", "layer");
+    layerHost.style.cssText = "display:contents;pointer-events:auto";
+    layerRoot = layerHost;
+    try {
+      if (layerHost.attachShadow) {
+        layerRoot = layerHost.attachShadow({ mode: "open" });
+        var own = document.createElement("style");
+        own.textContent = css.textContent + (addCss ? addCss.textContent : "");
+        layerRoot.appendChild(own);
+      }
+    } catch (e) { layerRoot = layerHost; }
+    (document.body || document.documentElement).appendChild(layerHost);
+    return layerRoot;
+  };
   var boxOf = function (kind) {
     var b = document.createElement("div");
     b.setAttribute("data-sl-box", kind);
     b.setAttribute("aria-hidden", "true");
-    (document.body || document.documentElement).appendChild(b);
+    layer().appendChild(b);
     return b;
   };
   var boxes = null;
@@ -237,11 +269,26 @@ export const CANVAS_BRIDGE = `
     ran for every value and were the larger part of a value's cost in the
     frame. A moment after the last value the outline is read in full again.
   */
-  var streamingUntil = 0, streamTimer = 0;
+  /*
+    STILL ONLY ONCE TWO FRAMES HAVE GONE BY WITH NOTHING NEW (round 14). On a
+    heavy theme at a slow machine's pace a frame takes longer than 250ms, so
+    the page counted as still between two frames of one scroll and every
+    frame read the outlines in full (scripts/check-wb-scroll-r14.mjs, 4x: a
+    second of hit tests in a scroll). The full reading waits for 260ms and
+    then two frames with no scroll and no value in them.
+  */
+  var streamingUntil = 0, streamTimer = 0, afterScroll = null, streamingOn = false;
   var streaming = function () {
+    streamingOn = true;
     streamingUntil = performance.now() + 250;
     clearTimeout(streamTimer);
-    streamTimer = setTimeout(function () { streamingUntil = 0; reportSoon(); }, 260);
+    streamTimer = setTimeout(function () {
+      var at = streamingUntil;
+      requestAnimationFrame(function () { requestAnimationFrame(function () {
+        if (streamingUntil !== at) return;
+        streamingOn = false; streamingUntil = 0; reportSoon(); if (afterScroll) afterScroll();
+      }); });
+    }, 260);
   };
   /*
     A VALUE FROM THE BUILDER IS SHOWN, NOT EASED TOWARDS (round 1022). A
@@ -298,7 +345,7 @@ export const CANVAS_BRIDGE = `
     var left = Math.max(r.left, 0), right = Math.min(r.right, vw);
     var top = Math.max(r.top, 0, headerCover(el)), bottom = Math.min(r.bottom, vh);
     if (right - left < 1 || bottom - top < 1) return null;
-    if (performance.now() < streamingUntil) {
+    if (streamingOn) {
       var sl = Math.max(r.left + inset, 0), sr = Math.min(r.right - inset, vw);
       var st = top > r.top + 0.5 ? top : Math.max(r.top + inset, 0), sb = bottom < r.bottom - 0.5 ? bottom : Math.min(r.bottom - inset, vh);
       /* A block right under a sticky header (or over a tab bar) keeps its line on its own edge, as below: two hit tests, not sixty. */
@@ -340,33 +387,78 @@ export const CANVAS_BRIDGE = `
     if (R - L < 1 || B - T < 2) return null;
     return { left: L, width: R - L, top: T, bottom: B, cutTop: cutTop, cutBottom: cutBottom };
   };
-  var place = function (box, el, inset) {
-    var v = visibleRect(el, inset);
-    if (!v) { box.style.display = "none"; return null; }
+  /*
+    READ EVERYTHING, THEN WRITE (round 14). Each box was measured, written and
+    read back in turn, so the second box's measure and every read-back laid
+    the whole page out again inside the frame: with the owner's Materia theme
+    (its scroll effects dirty the page every frame) that was 1.5s of forced
+    layouts in a 12s scroll at 1x, the largest single cost of scrolling the
+    canvas (scripts/check-wb-scroll-r14.mjs ATTR=1). Now drawBoxes measures
+    the three elements first and writes the three boxes after.
+  */
+  var place = function (box, v) {
+    if (!v) { if (box.style.display !== "none") box.style.display = "none"; return null; }
     box.style.display = "block";
     box.style.width = v.width + "px";
     box.style.height = (v.bottom - v.top) + "px";
     /* Cut by the edge of the screen or by something over it: no line there. */
     box.style.borderTopWidth = v.cutTop ? "0" : "";
     box.style.borderBottomWidth = v.cutBottom ? "0" : "";
-    /*
-      FIXED IS NOT ALWAYS THE SCREEN. A theme that moves <html> or <body> (a translate), a filter
-      or \`contain\` on them (a page fade, a drawer that slides the
-      page) makes that element the box's frame, and every outline sat off by
-      its offset. Where the box lands is read back and the difference taken
-      out, so it is always on the element.
-    */
-    var dx = box.__dx || 0, dy = box.__dy || 0;
-    box.style.left = (v.left - dx) + "px";
-    box.style.top = (v.top - dy) + "px";
-    var got = box.getBoundingClientRect();
-    var ex = got.left - v.left, ey = got.top - v.top;
-    if (Math.abs(ex) > 0.5 || Math.abs(ey) > 0.5) {
-      box.__dx = dx + ex; box.__dy = dy + ey;
-      box.style.left = (v.left - box.__dx) + "px";
-      box.style.top = (v.top - box.__dy) + "px";
-    }
+    box.style.left = (v.left - boxDx) + "px";
+    box.style.top = (v.top - boxDy) + "px";
     return v;
+  };
+  /*
+    FIXED IS NOT ALWAYS THE SCREEN. A theme that moves <html> or <body> (a translate), a filter
+    or \`contain\` on them (a page fade, a drawer that slides the
+    page) makes that element the boxes' frame, and every outline sat off by
+    its offset. Where a box lands is read back and the difference taken
+    out, so it is always on the element. The boxes share one frame (all are
+    the body's), so one is read back, and only once the page is still: while
+    it scrolls the offset found last stands (a frame does not move in a scroll).
+  */
+  var boxDx = 0, boxDy = 0;
+  var landed = function (pairs) {
+    for (var i = 0; i < pairs.length; i++) {
+      var box = pairs[i][0], v = pairs[i][1];
+      if (!v) continue;
+      var got = box.getBoundingClientRect();
+      var ex = got.left - v.left, ey = got.top - v.top;
+      if (Math.abs(ex) > 0.5 || Math.abs(ey) > 0.5) {
+        boxDx += ex; boxDy += ey;
+        for (var j = 0; j < pairs.length; j++) if (pairs[j][1]) { pairs[j][0].style.left = (pairs[j][1].left - boxDx) + "px"; pairs[j][0].style.top = (pairs[j][1].top - boxDy) + "px"; }
+      }
+      return;
+    }
+  };
+  /*
+    READ ONCE THE FRAME IS LAID OUT (round 14). The outlines were read in an
+    animation frame, before the browser lays the frame out, so reading them
+    laid out a page the theme's own frame callbacks then changed again, and
+    the frame was laid out twice: on the owner's Materia theme (its scroll
+    effects restyle the page every frame) 1.4s of a 12s scroll at 1x, a
+    quarter of the dropped frames (scripts/check-wb-scroll-r14.mjs ATTR=1).
+    A ResizeObserver's callback comes after the frame's layout, before it is
+    painted: read there, the boxes cost what reading a laid out page costs,
+    and what is written there (three fixed boxes) is laid out alone. A mark
+    of our own, a pixel off the screen, is resized to ask for one.
+  */
+  var lateFns = [], lateEl = null, lateWide = false;
+  var afterLayout = function (fn) {
+    if (typeof ResizeObserver === "undefined") { requestAnimationFrame(function () { fn(); }); return; }
+    if (!lateEl || !lateEl.isConnected) {
+      lateEl = document.createElement("div");
+      lateEl.setAttribute("data-sl-late", "");
+      lateEl.setAttribute("aria-hidden", "true");
+      lateEl.style.cssText = "position:fixed;left:-10px;top:0;width:1px;height:1px;visibility:hidden;pointer-events:none;contain:strict";
+      layer().appendChild(lateEl);
+      new ResizeObserver(function () { var list = lateFns; lateFns = []; for (var i = 0; i < list.length; i++) { try { list[i](); } catch (e) {} } }).observe(lateEl);
+      lateFns.push(fn);
+      return;
+    }
+    /* One resize a frame, however many readings are asked for in it: resized twice it is back where it was, and nothing is said. */
+    if (!lateFns.length) { lateWide = !lateWide; lateEl.style.width = lateWide ? "2px" : "1px"; }
+    lateFns.push(fn);
   };
   var drawFrame = 0;
   /*
@@ -379,24 +471,31 @@ export const CANVAS_BRIDGE = `
     drawFrame = 0;
     styleCache = null;
     fadeCache = null;
-    if (!boxes) boxes = { hover: boxOf("hover"), section: boxOf("section"), block: boxOf("block") };
+    if (!boxes || !boxes.section.isConnected) boxes = { hover: boxOf("hover"), section: boxOf("section"), block: boxOf("block") };
     /* The marked elements from what marked them, not a search of the page for the marks: a large header is thousands of elements, searched three times a frame while a slider moves. */
     var hov = hovered && hovered.isConnected && hovered.hasAttribute("data-sl-hover") ? hovered : null;
     var secEl = selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
     var sec = secEl && secEl.hasAttribute("data-sl-selected") ? secEl : null;
     var blkEl = secEl && selected.block ? secEl.querySelector('[data-block-id="' + CSS.escape(selected.block) + '"]') : null;
     var blk = blkEl && blkEl.hasAttribute("data-sl-selected-block") ? blkEl : null;
-    place(boxes.hover, hov && hov !== blk && !(hov === sec && !blk) ? hov : null, 0);
+    var hv = hov && hov !== blk && !(hov === sec && !blk) ? visibleRect(hov, 0) : null;
     /* ONE SELECTION AT A TIME: a block that is selected is the outline; its section's own ring round it was a second box, wider than the block and off to one side of it while either moved. */
-    var b = place(boxes.block, blk, -2);
-    var seen = place(boxes.section, b ? null : sec, 0);
-    if (withReport === true || boxFrame) {
-      if (boxFrame) cancelAnimationFrame(boxFrame);
-      /* The section's reading, when it was read: with a block selected it was not, and the report reads it itself. */
-      report(b ? null : { el: sec, v: seen });
+    var b = visibleRect(blk, -2);
+    var seen = b ? null : visibleRect(sec, 0);
+    /* The toolbar's box from the same readings, before anything is written: read after the boxes moved, the page was laid out again for it. */
+    var told = withReport === true || boxFrame;
+    var repEl = told && inspect && selected.section ? secEl : null;
+    var repV = repEl ? (repEl === sec && !b ? seen : visibleRect(repEl, 0)) : null;
+    place(boxes.hover, hv);
+    place(boxes.block, b);
+    place(boxes.section, seen);
+    if (!streamingOn) landed([[boxes.hover, hv], [boxes.block, b], [boxes.section, seen]]);
+    if (told) {
+      boxFrame = 0;
+      report({ el: repEl, v: repV });
     }
   };
-  var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); };
+  var redraw = function () { if (!drawFrame) { drawFrame = 1; afterLayout(drawBoxes); } };
   /*
     WHILE THE PAGE SCROLLS (round BC), the outlines follow the boxes as they
     are, as they do while a slider's values stream in: the hit tests that
@@ -654,7 +753,7 @@ export const CANVAS_BRIDGE = `
   document.head.appendChild(addCss);
   var adder = null, gapShown = null, addFade = 0;
   var adderEl = function () {
-    if (adder) return adder;
+    if (adder && adder.isConnected) return adder;
     adder = document.createElement("div");
     adder.setAttribute("data-sl-add", "");
     adder.setAttribute("role", "button");
@@ -670,7 +769,7 @@ export const CANVAS_BRIDGE = `
       } else post({ type: "add-section", before: gapShown.before, after: gapShown.after });
       showGap(null);
     });
-    (document.body || document.documentElement).appendChild(adder);
+    layer().appendChild(adder);
     return adder;
   };
   /* The page's sections, top level only, as laid out now, by group: the places between them. */
@@ -739,7 +838,7 @@ export const CANVAS_BRIDGE = `
   var blockGapAt = function (x, y) {
     if (!blockLevels) return null;
     var hit = document.elementFromPoint(x, y), sec = null;
-    if (hit && adder && adder.contains(hit)) sec = gapShown && gapShown.kind === "block" ? document.getElementById("shopify-section-" + gapShown.sectionId) : null;
+    if (hit && adder && (adder.contains(hit) || hit === layerHost)) sec = gapShown && gapShown.kind === "block" ? document.getElementById("shopify-section-" + gapShown.sectionId) : null;
     else sec = hit ? sectionOf(hit) : null;
     var id = idOf(sec);
     var levels = id ? blockLevels[id] : null;
@@ -807,7 +906,17 @@ export const CANVAS_BRIDGE = `
     addAt = { x: e.clientX, y: e.clientY };
     if (!addFrame) addFrame = requestAnimationFrame(placeAdder);
   }, { passive: true, capture: true });
-  addEventListener("scroll", function () { if ((gapShown || addAt) && !addFrame) addFrame = requestAnimationFrame(placeAdder); }, { passive: true });
+  /*
+    NOT WHILE THE PAGE SCROLLS (round 14). Every frame of a scroll with the
+    pointer resting on the canvas measured every section of the page (gapsNow)
+    and the header to find a place under the pointer: a layout of the page a
+    frame, on the owner's Materia theme a fifth of the bridge's scroll cost.
+    The strip goes while the page moves, and the place under the pointer is
+    found again once it has stopped (streaming's timer, above), or when the
+    pointer moves.
+  */
+  addEventListener("scroll", function () { if (addFrame) { cancelAnimationFrame(addFrame); addFrame = 0; } if (gapShown) showGap(null); }, { passive: true });
+  afterScroll = function () { if (addAt && !addFrame) addFrame = requestAnimationFrame(placeAdder); };
   document.addEventListener("mouseleave", function () { addAt = null; showGap(null); });
   var fire = function (el, name, detail) { try { el.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail })); } catch (e) {} };
   /*
@@ -818,7 +927,73 @@ export const CANVAS_BRIDGE = `
     the document when a theme setting changes, with the ids and values that
     changed, while a finger is on a control too (detail.live).
   */
-  var sectionLoaded = function (id) { topsCache = null; var el = document.getElementById("shopify-section-" + id); if (el) fire(el, "storelib:section-load", { sectionId: id }); };
+  var sectionLoaded = function (id) { topsCache = null; var el = document.getElementById("shopify-section-" + id); if (el) { fire(el, "storelib:section-load", { sectionId: id }); farWatch(el); } };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A SECTION FAR FROM THE SCREEN RESTS (round 14)
+    ═══════════════════════════════════════════════════════════════════════
+    The owner's Materia theme restyles the whole page for almost any change
+    in it (132 :has() rules: one class changed by a scroll effect restyled
+    some 2,000 elements, 4.5s of a 13s scroll at 1x, live and in the canvas
+    alike: scripts/check-wb-scroll-r14.mjs ATTR=1). A section more than a
+    screen and a half away is not drawn in the canvas (content-visibility:
+    hidden, at the size it had, so nothing moves and the scrollbar is the
+    same): the browser leaves its insides out of that work until it comes
+    near, and then it is drawn as before, before it reaches the screen.
+    Measured on the live page: a third fewer dropped frames.
+    Never a section of a group (header, footer, overlays), nor one with
+    anything fixed or sticky in it (a bar pinned to the screen, a drawer):
+    those are seen from far away. Marked by attribute, not by style: an
+    inline style changed restyles this theme's page (THE BUILDER'S OWN LAYER).
+  */
+  var farIO = null, farSeen = typeof WeakSet === "function" ? new WeakSet() : null, farOn = {};
+  var farOk = function (s) {
+    if (!s.isConnected || !s.parentElement || s.parentElement.closest(".shopify-section")) return false;
+    if (/(^|\s)shopify-section-group-/.test(s.className)) return false;
+    var all = s.getElementsByTagName("*");
+    if (all.length > 8000) return false;
+    for (var i = 0; i < all.length; i++) { var p = getComputedStyle(all[i]).position; if (p === "fixed" || p === "sticky") return false; }
+    return true;
+  };
+  var farWatch = function (s) {
+    if (!farIO || !s || !farSeen || farSeen.has(s)) return;
+    farSeen.add(s);
+    var id = idOf(s);
+    if (id && farOn[id] && farOn[id] !== s) { farIO.unobserve(farOn[id]); delete farOn[id]; }
+    if (!farOk(s)) return;
+    s.setAttribute("data-sl-rest", "");
+    if (id) farOn[id] = s;
+    farIO.observe(s);
+  };
+  var farStart = function () {
+    if (farIO || window.__slNoRest || !(window.CSS && CSS.supports && CSS.supports("content-visibility", "hidden"))) return;
+    var IO = window.__slIO || window.IntersectionObserver;
+    if (typeof IO !== "function") return;
+    var st = document.createElement("style");
+    st.setAttribute("data-sl", "");
+    /* The size it had is remembered while it is drawn (auto), and held while it rests. */
+    st.textContent = "[data-sl-rest]{contain-intrinsic-size:auto none}[data-sl-rest][data-sl-far]{content-visibility:hidden}";
+    document.head.appendChild(st);
+    farIO = new IO(function (es) {
+      for (var i = 0; i < es.length; i++) {
+        var t = es[i].target;
+        if (es[i].isIntersecting || !t.isConnected) { if (t.hasAttribute("data-sl-far")) t.removeAttribute("data-sl-far"); }
+        else if (!t.hasAttribute("data-sl-far")) t.setAttribute("data-sl-far", "");
+      }
+    }, { rootMargin: "150% 0px 150% 0px" });
+    /* A section at a time, when the page has a moment: each is read for anything fixed or sticky in it. */
+    var list = Array.prototype.slice.call(document.querySelectorAll(".shopify-section"));
+    var next = function () {
+      var s = list.shift();
+      if (!s) return;
+      farWatch(s);
+      if (typeof requestIdleCallback === "function") requestIdleCallback(next, { timeout: 1000 }); else setTimeout(next, 16);
+    };
+    next();
+  };
+  /* Once the theme's scripts have set the page up (sliders measured, reveals placed), and the first look at a held page is done. */
+  var farLater = function () { setTimeout(function () { if (typeof requestIdleCallback === "function") requestIdleCallback(farStart, { timeout: 2000 }); else farStart(); }, 1500); };
+  if (document.readyState === "complete") farLater(); else addEventListener("load", farLater, { once: true });
   /*
     A SECTION PUT IN BELOW THE SCREEN STILL ARRIVES AS IT DOES LIVE. Told
     shopify:section:load, a Dawn family theme (animations.js) marks every
@@ -1000,7 +1175,7 @@ export const CANVAS_BRIDGE = `
     lastBox = key;
     post(m);
   };
-  var reportSoon = function () { if (!boxFrame) boxFrame = requestAnimationFrame(report); if (typeof redraw === "function") redraw(); };
+  var reportSoon = function () { if (!boxFrame) { boxFrame = 1; afterLayout(function () { if (boxFrame) report(); }); } if (typeof redraw === "function") redraw(); };
   addEventListener("scroll", reportSoon, { passive: true });
   addEventListener("resize", reportSoon);
   /*
@@ -1017,19 +1192,26 @@ export const CANVAS_BRIDGE = `
     burstEnd = Date.now() + 700;
     if (bursting) return;
     bursting = true;
+    /* Read once the frame is laid out (afterLayout): a carousel turning under a selected section was a layout of the page every 80ms. */
     var tick = function () {
       drawBoxes(true);
-      if (Date.now() < burstEnd) setTimeout(function () { requestAnimationFrame(tick); }, 80); else bursting = false;
+      if (Date.now() < burstEnd) setTimeout(function () { afterLayout(tick); }, 80); else bursting = false;
     };
-    requestAnimationFrame(tick);
+    afterLayout(tick);
   };
   var watcher = null;
   if (typeof MutationObserver !== "undefined") {
+    /* Nodes of our own coming and going (a picture preloaded in the head, CANVAS_SWITCH warm; the boxes; the strip) are not the page changing. */
+    var mine = function (list) {
+      for (var k = 0; k < list.length; k++) { var n = list[k]; if (!(n.nodeType === 1 && (n.hasAttribute("data-sl-warm") || n.hasAttribute("data-sl-box") || n.hasAttribute("data-sl-add") || n.hasAttribute("data-sl-late")))) return false; }
+      return true;
+    };
     watcher = new MutationObserver(function (records) {
+      records = Array.prototype.filter.call(records, function (r) { return !(r.type === "childList" && mine(r.addedNodes) && mine(r.removedNodes)); });
       for (var j = 0; j < records.length; j++) if (records[j].type === "childList") { topsCache = null; break; }
       for (var i = 0; i < records.length; i++) {
         var t = records[i].target;
-        if (t && t.nodeType === 1 && (t.hasAttribute("data-sl-box") || t.hasAttribute("data-sl-add") || (t.parentElement && t.parentElement.hasAttribute("data-sl-add")))) continue;
+        if (t && t.nodeType === 1 && (t.hasAttribute("data-sl-box") || t.hasAttribute("data-sl-add") || t.hasAttribute("data-sl-late") || (t.parentElement && t.parentElement.hasAttribute("data-sl-add")))) continue;
         burst();
         return;
       }
@@ -1160,7 +1342,7 @@ export const CANVAS_BRIDGE = `
     });
     if (hit) checkLock();
   };
-  var unlocked = false, lockTimer = 0, lockWatch = null;
+  var unlocked = false, lockTimer = 0, lockWatch = null, lockSeen = null, lockDirty = true;
   var setUnlock = function (v) {
     if (v) document.documentElement.setAttribute("data-sl-unlock", v);
     else document.documentElement.removeAttribute("data-sl-unlock");
@@ -1181,6 +1363,7 @@ export const CANVAS_BRIDGE = `
   var lockSoon = function (ms) { clearTimeout(lockTimer); lockTimer = setTimeout(checkLock, typeof ms === "number" ? ms : 700); };
   if (typeof MutationObserver !== "undefined") {
     lockWatch = new MutationObserver(function () {
+      lockDirty = true;
       /* The theme changed <html> or <body>: a lock with something open is the theme's at once; the rest is looked at again once things settle. */
       if (unlocked && openOnScreen()) setUnlock(null);
       lockSoon();
@@ -1215,12 +1398,19 @@ export const CANVAS_BRIDGE = `
     if (Math.abs(e.deltaY) < 1 || e.ctrlKey) return;
     var y = scrollY, at = Date.now();
     var dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
-    /* Held: let go in this task, so the browser's own scroll for this wheel finds the page free. */
-    if (!unlocked && lockedNow()) { clearTimeout(lockTimer); checkLock(); }
-    var inner = takesWheel(e.target, dy);
-    /* Only a wheel the theme's script took (preventDefault) and that then moved nothing: a wheel the browser scrolls is the browser's. */
+    /*
+      Held: let go in this task, so the browser's own scroll for this wheel finds the page free.
+      Looked at again only when <html> or <body> changed since (lockWatch) or a second has gone
+      (round 14): the computed styles it reads restyled the page for every notch of a wheel.
+    */
+    var t0 = performance.now();
+    if (!unlocked && (lockSeen === null || lockDirty || t0 - lockSeen > 1000)) {
+      lockDirty = false; lockSeen = t0;
+      if (lockedNow()) { clearTimeout(lockTimer); checkLock(); }
+    }
+    /* Only a wheel the theme's script took (preventDefault) and that then moved nothing: a wheel the browser scrolls is the browser's. Its own scroller under the pointer is looked for only then (each step up the page read its computed style and sizes). */
     setTimeout(function () {
-      if (!e.defaultPrevented || inner) return;
+      if (!e.defaultPrevented || takesWheel(e.target, dy)) return;
       setTimeout(function () {
         if (scrollY !== y || lastScrollAt >= at) return;
         if (!unlocked && lockedNow()) { checkLock(); if (!unlocked) return; }
@@ -2482,7 +2672,21 @@ export const CANVAS_BRIDGE = `
     page arrived (an app's script, a picture far down): the page behind came
     forward at whichever was first, drawn or not.
   */
-  addEventListener("scroll", function () { post({ type: "scrolled", scrollY: scrollY }); }, { passive: true });
+  /*
+    WHERE THE PAGE STANDS, ONCE IT STANDS (round 14): said 100ms after the
+    last scroll event, not on every one. Each was a message the editor took
+    on its own thread in the middle of the scroll (51 in a wheel down the
+    owner's home page), for a number only read when a page is drawn again
+    behind this one (compat-canvas.tsx scrollY).
+  */
+  /* And that it is being scrolled, at most twice a second: the editor puts off work of its own while somebody uses the canvas (compat-section-preview.tsx watchInput). */
+  var scrolledTimer = 0, scrollingSaid = 0;
+  addEventListener("scroll", function () {
+    var t = Date.now();
+    if (t - scrollingSaid > 500) { scrollingSaid = t; post({ type: "scrolling" }); }
+    clearTimeout(scrolledTimer);
+    scrolledTimer = setTimeout(function () { post({ type: "scrolled", scrollY: scrollY }); }, 100);
+  }, { passive: true });
 })();
 `.trim()
 
@@ -2900,7 +3104,7 @@ export const CANVAS_SWITCH = `
     if (began === null || !document.getAnimations) return;
     document.getAnimations().forEach(function (a) {
       var t = a.effect && a.effect.target;
-      if (!t || !t.getBoundingClientRect || (t.closest && t.closest("[data-sl-box]"))) return;
+      if (!t || !t.getBoundingClientRect || (t.closest && t.closest("[data-sl-box]")) || (t.getRootNode && t.getRootNode() !== document)) return;
       if (a.startTime !== null && a.startTime < began) return;
       var tm = a.effect.getComputedTiming ? a.effect.getComputedTiming() : null;
       if (!tm || !isFinite(tm.endTime) || !inView(t)) return;
@@ -3089,9 +3293,20 @@ export const CANVAS_SWITCH = `
       });
     } catch (e) {}
   };
+  /*
+    NOT WHILE THE PAGE IS SCROLLED (round 14). Every 2.5s the warm measured
+    every section and put up to 40 preloads in the head, and a page busy
+    scrolling a heavy theme has no idle time, so the 800ms timeout ran it in
+    the middle of the scroll (scripts/check-wb-scroll-r14.mjs, 4x: 0.3s of
+    forced layouts). A page scrolled in the last second and a half waits for
+    the next round.
+  */
+  var scrolledAt = 0;
+  add.call(W, "scroll", function () { scrolledAt = now(); }, { passive: true, capture: true });
+  var stillPage = function () { return now() - scrolledAt > 1500; };
   var idle = function () {
-    if (typeof W.requestIdleCallback === "function") W.requestIdleCallback(function () { warm(false, true); }, { timeout: 800 });
-    else st.call(W, function () { warm(false, true); }, 300);
+    if (typeof W.requestIdleCallback === "function") W.requestIdleCallback(function () { if (stillPage()) warm(false, true); }, { timeout: 800 });
+    else st.call(W, function () { if (stillPage()) warm(false, true); }, 300);
   };
   add.call(W, "load", function () {
     idle();

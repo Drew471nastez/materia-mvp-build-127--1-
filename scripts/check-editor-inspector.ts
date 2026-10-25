@@ -158,7 +158,7 @@ async function main() {
     }
     const at = async (i: number) => { const b = await frameBox(); return { x: b.x + spots[i].x, y: b.y + spots[i].y } }
     const marks = async () => (await front())!.evaluate(() => {
-      const shown = (k: string) => { const b = document.querySelector<HTMLElement>(`[data-sl-box=${k}]`); if (!b) return false; const cs = getComputedStyle(b); return cs.display !== "none" && Number(cs.opacity) > 0.05 }
+      const shown = (k: string) => { const b = (document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelector<HTMLElement>(`[data-sl-box=${k}]`); if (!b) return false; const cs = getComputedStyle(b); return cs.display !== "none" && Number(cs.opacity) > 0.05 }
       return { hoverAttr: document.querySelectorAll("[data-sl-hover]").length, selectedAttr: document.querySelectorAll("[data-sl-selected], [data-sl-selected-block]").length, hover: shown("hover"), section: shown("section"), block: shown("block"), flag: (window as unknown as { __slInspect?: boolean }).__slInspect }
     })
     const editorMarks = () => page.evaluate(() => {

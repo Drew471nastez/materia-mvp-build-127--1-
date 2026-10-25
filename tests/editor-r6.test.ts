@@ -54,7 +54,7 @@ async function bridgeInBrowser() {
         ${CANVAS_BRIDGE}
       </script></body></html>`)
     const send = (m: Record<string, unknown>) => page.evaluate((m) => window.postMessage({ storelib: 1, ...m }, "*"), m)
-    const sectionBox = () => page.evaluate(() => { const b = document.querySelector<HTMLElement>("[data-sl-box=section]"); return b ? { display: getComputedStyle(b).display, top: b.style.top, height: b.style.height } : null })
+    const sectionBox = () => page.evaluate(() => { const b = (document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelector<HTMLElement>("[data-sl-box=section]"); return b ? { display: getComputedStyle(b).display, top: b.style.top, height: b.style.height } : null })
 
     await send({ type: "select", sectionId: "header", blockId: null, inspect: true, scroll: false })
     await wait(150)

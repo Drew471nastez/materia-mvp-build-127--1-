@@ -348,7 +348,7 @@ async function run(cpu: number, files: { bundle: string; css: string }, compat: 
       const bar = document.querySelector<HTMLElement>(".utility-bar")!
       const read = () => getComputedStyle(bar).minHeight
       const time = (f: (i: number) => void) => { const out: number[] = []; for (let i = 0; i < 15; i++) { read(); f(i); const t0 = performance.now(); read(); out.push(performance.now() - t0) } out.sort((a, b) => a - b); return +out[7].toFixed(2) }
-      const box = document.querySelector<HTMLElement>("[data-sl-box]")
+      const box = (document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelector<HTMLElement>("[data-sl-box]")
       const style = [...document.querySelectorAll<HTMLStyleElement>(".shopify-section style")].find((x) => /min-height/.test(x.textContent ?? ""))
       const rule = style?.sheet ? [...style.sheet.cssRules].find((r) => /min-height/.test(r.cssText)) as CSSStyleRule | undefined : undefined
       const all = document.querySelectorAll("*").length

@@ -61,7 +61,7 @@ const TARGETS = [
 type Box = { left: number; top: number; right: number; bottom: number; bt: number; br: number; bb: number; bl: number }
 const boxOf = (frame: Frame, kind: string): Promise<Box | null> =>
   within(frame.evaluate((k) => {
-    const b = document.querySelector<HTMLElement>(`[data-sl-box=${k}]`)
+    const b = (document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelector<HTMLElement>(`[data-sl-box=${k}]`)
     if (!b) return null
     const cs = getComputedStyle(b)
     if (cs.display === "none" || cs.opacity === "0") return null

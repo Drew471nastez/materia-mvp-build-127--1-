@@ -156,10 +156,12 @@ async function main() {
     let reads = true
     try { new Function(CANVAS_BRIDGE) } catch { reads = false }
     check("the bridge reads as JavaScript", reads)
-    check("one outline: a selected block hides its section's ring", /place\(boxes\.section, b \? null : sec, 0\)/.test(CANVAS_BRIDGE))
+    /* Changed on purpose (round 14): the three boxes are measured first and written after (drawBoxes), so the section's reading is skipped when a block is outlined. */
+    check("one outline: a selected block hides its section's ring", /var seen = b \? null : visibleRect\(sec, 0\);/.test(CANVAS_BRIDGE) && /place\(boxes\.section, seen\)/.test(CANVAS_BRIDGE))
     check("hover is a mouse's only", /pointerover[\s\S]{0,80}pointerType !== "mouse"/.test(CANVAS_BRIDGE) && !/addEventListener\("mouseover"/.test(CANVAS_BRIDGE))
     check("a second tap on the selected block goes up a level, a finger only", /touching && !link && selected\.section === id/.test(CANVAS_BRIDGE) && /path = path\.slice\(0, where\)/.test(CANVAS_BRIDGE))
-    check("a box is read back and moved by what a moved <html> or <body> did to it", /box\.__dx/.test(CANVAS_BRIDGE))
+    /* Changed on purpose (round 14): the boxes share one offset (boxDx/boxDy), read back from one box once the page is still (landed), not each box every frame. */
+    check("a box is read back and moved by what a moved <html> or <body> did to it", /boxDx \+= ex; boxDy \+= ey;/.test(CANVAS_BRIDGE) && /var landed = function \(pairs\)/.test(CANVAS_BRIDGE))
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

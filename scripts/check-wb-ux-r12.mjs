@@ -278,11 +278,11 @@ async function insertImported({ bundle, css, compat }) {
       await sleep(100)
       await page.mouse.move(box.x + at.x, box.y + at.y, { steps: 3 })
       await sleep(320)
-      const s = await f.evaluate(() => { const a = document.querySelector("[data-sl-add]"); return a ? { shown: a.style.display, on: a.hasAttribute("data-on"), label: a.getAttribute("aria-label") } : null })
+      const s = await f.evaluate(() => { const a = (document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelector("[data-sl-add]"); return a ? { shown: a.style.display, on: a.hasAttribute("data-on"), label: a.getAttribute("aria-label") } : null })
       if (s && s.on && s.label === "Add a block here") { tried = { p, at, s }; break }
       console.log("  note  tried", JSON.stringify({ p, at, box, s, under: await f.evaluate((x, y) => document.elementFromPoint(x, y)?.outerHTML.slice(0, 100), at.x, at.y) }))
     }
-    expect(!!tried, "between two blocks of an imported section: the + shows, as between two sections", tried ?? await f.evaluate(() => ({ adder: document.querySelector("[data-sl-add]")?.outerHTML.slice(0, 160) ?? "none" })))
+    expect(!!tried, "between two blocks of an imported section: the + shows, as between two sections", tried ?? await f.evaluate(() => ({ adder: (document.querySelector("[data-sl-box=layer]")?.shadowRoot ?? document).querySelector("[data-sl-add]")?.outerHTML.slice(0, 160) ?? "none" })))
     if (tried) {
       await page.screenshot({ path: join(SHOTS, "insert-imported-1440.png"), captureBeyondViewport: false })
       const count = () => f.evaluate((id) => document.getElementById(id).querySelectorAll("[data-block-id]").length, tried.p.section)
