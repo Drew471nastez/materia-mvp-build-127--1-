@@ -249,6 +249,79 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
   },
   {
+    slug: "custom-fields",
+    category: "products",
+    updated: "2026-10-25",
+    title: "Add custom fields to a product",
+    summary: "Named details like Material, Care or ISBN: shown under Details on the product page, and read by your theme by name.",
+    keywords: ["custom fields", "metafields", "product details", "specifications", "specs", "material", "care instructions", "dimensions", "isbn", "attributes", "product properties", "details block", "theme fields"],
+    related: ["create-a-product", "variants", "website-builder/build-your-website"],
+    body: [
+      { type: "p", text: "A custom field is one named detail of a product: Material, Care, Dimensions, an ISBN, a link to a manual. You add them in the product editor. Each one can show under Details on the product page, and your website's theme can print any of them by name, wherever it likes." },
+      { type: "note", text: "Custom fields are details you write for every buyer to read. To ask the buyer for something when they buy (a name to engrave, a photo to print), use Personalization fields on a physical product instead." },
+
+      { type: "h", text: "Add a custom field" },
+      { type: "steps", items: [
+        "In the dashboard menu, open Products. Press Add product, or open the product you want to change.",
+        "Find the Custom fields card, under the product's questions. Courses do not have it.",
+        "Press Add field.",
+        "Type the field's name, like Material. This is the label buyers see.",
+        "Choose its type: Text, Long text, Number or Link.",
+        "Type the value, like Waxed cotton canvas.",
+        "Leave Show on the product page on to list it under Details. Turn it off to keep it only for your theme.",
+        "Press Save. Add up to 20 fields to a product.",
+      ] },
+
+      { type: "h", text: "The four types" },
+      { type: "table", head: ["Type", "What it holds", "What it checks"], rows: [
+        ["Text", "One line, like a material or a colour name.", "Nothing but the length: up to 500 characters."],
+        ["Long text", "A few lines, like care steps. Line breaks are kept on the page.", "Up to 500 characters."],
+        ["Number", "A number, like 42 or 1.5. A comma is read as a decimal point and saved as one.", "Save says so if the value is not a number."],
+        ["Link", "A web address, like a link to a manual or a size video. It shows as a link people can press.", "It must start with https:// or http://."],
+      ] },
+      { type: "p", text: "Two fields cannot share a name, and a field needs both a name and a value. If something is not right, the field says so in red and Save takes you to it. An empty row (no name, no value) is simply left out." },
+
+      { type: "h", text: "Where buyers see them" },
+      { type: "list", items: [
+        "Your website's product page, in the Product details block. It is in every new product page. Its heading is Details, and you can change it, move the block or take it out in the website builder.",
+        "Your product page on Storelib, the one your creator page and OnePage open, under Details.",
+        "Only fields with Show on the product page turned on are listed, in the order you put them in.",
+        "A Link field shows its address without https://, and opens in a new tab.",
+      ] },
+
+      { type: "h", text: "How themes use them" },
+      { type: "p", text: "Each field also has a name your theme reads. It is made from the field's name: lower case, with an underscore for each space. Care instructions becomes care_instructions. The editor shows that name in small grey type under each field." },
+      { type: "table", head: ["Where", "What the theme writes"], rows: [
+        ["A Storelib theme, on a product card in a product list", "{{ block.settings.fields.material }}"],
+        ["A Storelib theme, a product chosen in a section's settings", "{{ settings.product.fields.material }}"],
+        ["A Storelib theme, the product page", "{{ page.product.fields.material }}"],
+        ["An imported theme", "{{ product.metafields.custom.material }} or {{ product.metafields.custom.material.value }}"],
+      ] },
+      { type: "list", items: [
+        "A theme reads every field, shown or not. Show on the product page only decides the Details list.",
+        "Values are always plain words. A theme never gets markup from a custom field.",
+        "An imported theme also gets .type: single_line_text_field, or multi_line_text_field for a value with line breaks, so a theme that checks the type keeps working.",
+        "A field your theme names that the product does not have is empty, so an if around it in the theme reads false.",
+        "Theme developers: the details are in the developer guide, under Imported themes.",
+      ] },
+
+      { type: "h", text: "Change or remove a field" },
+      { type: "list", items: [
+        "Change the value and press Save. The product page shows it at the next visit.",
+        "Renaming a field changes the name your theme reads too. If your theme prints the old name, change it there as well.",
+        "Press the cross beside a field and Save to remove it.",
+      ] },
+
+      { type: "h", text: "Common mistakes" },
+      { type: "list", items: [
+        "Putting a whole description in a field. A field is one detail. Long words belong in the description.",
+        "Writing the same field twice with different spellings, like Material and Materials. Your theme reads them as two names.",
+        "Turning Show on the product page off and wondering why it is not under Details. Turn it on, or print it from your theme.",
+        "Taking the Product details block off the product page in the website builder. Add it back with Add block, Product details.",
+      ] },
+    ],
+  },
+  {
     slug: "coupons",
     category: "products",
     title: "Coupons",

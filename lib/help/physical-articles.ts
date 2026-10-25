@@ -1462,6 +1462,97 @@ const ARTICLES: Article[] = [
   },
   {
     section: "Products",
+    slug: "personalization-fields",
+    updated: "2026-10-25",
+    title: "Ask buyers to personalize a product",
+    summary: "Ask the buyer for a name to engrave, a message or a photo when they buy. Their answers go on the order, the emails and the packing slip.",
+    keywords: ["personalization", "personalisation", "personalize", "custom text", "engraving", "monogram", "initials", "gift message", "photo upload", "upload image", "custom order", "line item properties", "product options", "customily", "infinite options"],
+    related: ["create-a-physical-product", "set-up-size-charts", "ship-your-orders", "import-a-shopify-theme", "products/custom-fields"],
+    body: [
+      { type: "p", text: "A personalization field asks the buyer for something when they buy: a name to engrave, a message for a card, a photo to print on a mug. The buyer fills it in on the product page, above the buy buttons. Their answer stays with that item in the cart, at checkout and on the order you ship." },
+      { type: "note", text: "Personalization is for physical products. To show the same detail to every buyer (like Material or Care), use custom fields instead." },
+
+      { type: "h", text: "Add a personalization field" },
+      { type: "steps", items: [
+        `Open a physical product in Products, or ${link("create-a-physical-product", "create one")}.`,
+        "Find the Personalization card, under Custom fields.",
+        "Press Add field.",
+        "Type what you are asking, like Name to engrave. Buyers see these words exactly as you type them, and your order shows the answer under them.",
+        "Choose its type: Text, Long text or Photo upload.",
+        "Turn on Required if the item cannot be made without it.",
+        "For text, you can add a hint that shows inside the empty box, like Up to 12 letters, and a character limit.",
+        "You can add one short line under the box for the buyer, like We engrave exactly what you type.",
+        "Press Save. A product can ask for up to 5 fields.",
+      ] },
+
+      { type: "h", text: "The three types" },
+      { type: "table", head: ["Type", "What the buyer gives", "Rules"], rows: [
+        ["Text", "One line: a name, initials, a date.", "Up to 250 characters, or the limit you set. A counter shows how many are left."],
+        ["Long text", "A few lines, like a message for a card. Line breaks are kept all the way to your order.", "Up to 250 characters, or the limit you set."],
+        ["Photo upload", "A photo from their phone or computer.", "JPG, PNG or WebP, up to 10 MB. Storelib checks it is a real picture, and removes its hidden details, like where it was taken."],
+      ] },
+      { type: "list", items: [
+        "Two fields cannot have the same name, and a name cannot start with an underscore.",
+        "A field that is not required shows Optional beside its name.",
+        "There is no extra price for an answer. If personalizing costs more, put it in the product's price, or make a variant for it.",
+      ] },
+
+      { type: "h", text: "What buyers see" },
+      { type: "list", items: [
+        "The fields, above Add to cart and Buy now, on every product page: your website's Storelib theme, an imported theme, and your product page on Storelib.",
+        "A photo field is a button that says Upload a photo. The photo uploads straight away and shows small, with Change photo and Remove photo. iPhone photos in HEIC need to be saved as JPEG first.",
+        "If they press Add to cart or Buy now with a required field empty, nothing is added. The field turns red, says Fill in and its name, and the page moves to it. Pressing while a photo is still uploading says to wait for it.",
+        "In the cart and at checkout, each item lists its answers under its name. A photo shows as a small picture with its file name.",
+        "Two of the same item with different answers are two separate lines, so each keeps its own name or photo.",
+      ] },
+
+      { type: "h", text: "Where you see the answers" },
+      { type: "list", items: [
+        "In Orders, open the order. The Notes card lists each item's answers under On the items, with any photo shown small and a Download link.",
+        "The new order email you get lists each item's answers. A photo is named by its file name; download it from the order.",
+        "The packing slip prints the answers under each item, a photo by its file name.",
+        "The pick list (Orders, Export, Pick list) has a Properties column with every answer.",
+        "ShipStation gets the answers with each item. Printful gets the words with the item, and Gelato gets the buyer's photo as the print file when the product has no file of its own. An order with answers goes to them as a draft, so you can check it first.",
+        "The buyer sees their answers in their order confirmation email and on their order page, with their photo.",
+      ] },
+      { type: "sub", text: "Who can open an uploaded photo" },
+      { type: "p", text: "Photos are kept private. Before the order is paid, a photo opens only in the browser that uploaded it, on your shop. Once paid, it belongs to the order: you open and download it from the order, and the buyer sees it on their order page. A photo nobody ordered with is deleted after 14 days." },
+
+      { type: "h", text: "Place the fields on your website" },
+      { type: "p", text: "You do not need to do anything: every product page draws the fields above its buy buttons by itself. To put them somewhere else:" },
+      { type: "steps", items: [
+        "Open the website builder and go to the product page.",
+        "In the Product section, press Add block and choose Personalization.",
+        "In Asks for, choose The product's fields. Move the block where you want it. You can give it a heading, like Make it yours.",
+        "While the section has that block, the fields show only there.",
+      ] },
+      { type: "p", text: "The Personalization block can also ask its own question, set in the block (Text, Picture, or Text and picture). That question is asked on every product the section shows, so use it for something every product needs, and use the product's own fields for anything that is about one product." },
+      { type: "sub", text: "On an imported theme" },
+      { type: "list", items: [
+        "The fields appear inside the product form, above the buy buttons, by themselves.",
+        "To place them yourself, press Add block in the product section and choose Personalization under Apps.",
+        "A block your theme kept from a product options app at your old store now shows your Storelib fields.",
+        "Theme developers can read the fields as product.metafields.storelib.personalization and post each answer as properties[name], the way imported themes already send them. The details are in the developer guide to [imported themes](/developers/imported-shopify-themes).",
+      ] },
+
+      { type: "h", text: "Good to know" },
+      { type: "list", items: [
+        "Required really means required. A buyer cannot get past it by skipping the page: the cart and the checkout check every answer again, and say which item needs what.",
+        "A Buy button on a product card or a banner goes to the product page first when the product has a required field, so the buyer can fill it in.",
+        "Changing a field's name later does not change orders already placed. They keep the name the buyer answered.",
+        "A change shows on your live website at the next visit.",
+      ] },
+      { type: "h", text: "Common mistakes" },
+      { type: "list", items: [
+        "Asking for too much. Every field is a step before the buyer can pay. Ask only what you need to make the item.",
+        "A vague name like Text. Say what you want: Name to engrave, or Photo of your pet.",
+        "Leaving a field optional when you cannot make the item without it. Turn on Required.",
+        "Using a bundle for a personalized product. A bundle adds products without their answers, so checkout asks the buyer to add the item from its own page.",
+      ] },
+    ],
+  },
+  {
+    section: "Products",
     slug: "upsells-and-bundles",
     title: "Upsells and bundles: sell more to people already buying",
     summary: "Bundle products at a better price on their pages, and suggest one more thing in the checkout.",

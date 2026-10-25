@@ -16,6 +16,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Added**
 
+- Personalization fields for physical products. In an imported theme: `product.metafields.storelib.personalization` (each field's `label`, `type`, `required`, `max_length` and the input `name`, `properties[<label>]`), the `storelib-personalization` snippet and `storelib_personalization` filter, a Personalization app block, and photos sent through `/cart/upload` ([template language](/developers/imported-shopify-themes#template-language)). The cart answers 422 for a required answer that is missing, and the checkout checks again. On a Storelib theme: the product section's Personalization block set to The product's fields, and the fields above the buy buttons when the section has no such block.
 - Quantity breaks and Buy X get Y free as a third kind of offer, with `GET /api/offers/quantity-breaks?product=` and `GET /api/offers?product=` (bundles, quantity breaks and checkout offers in one answer), the formula a theme shows them by and the checkout charges by ([Physical commerce](/developers/physical-commerce#quantity-breaks)).
 - `product.metafields.storelib.offers` in an imported theme, the same JSON as `GET /api/offers`, and `line_item.properties` on the account's orders.
 - Line item properties reach the order: the checkout's `items` takes `[productId, variantId, quantity, properties?]`, and links without them read as before. The codes `/cart/update.js` `discount` asks for are kept on the cart and listed by `/cart.js` with whether each applies.
