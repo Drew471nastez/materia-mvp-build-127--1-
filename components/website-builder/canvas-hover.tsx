@@ -184,9 +184,11 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(measure)
     }
+    let lastAt: { x: number; y: number } | null = null
     const onMove = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return
       last = e.target as Element | null
+      lastAt = { x: e.clientX, y: e.clientY }
       if (last === drawnFor && !moved) return
       schedule()
     }
@@ -194,10 +196,23 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
       last = null
       schedule()
     }
-    /* A scroll moves the page under a still pointer: measured again where it is. */
+    /*
+      A scroll moves the page under a still pointer: measured again where it
+      is, once it has stopped (round 14). Measured every frame of the scroll,
+      it was this panel drawn again a frame (state) and the page's layout
+      read a frame: the marks go while it moves, and come back 150ms after.
+    */
+    let settle = 0
     const onScroll = () => {
       moved = true
-      schedule()
+      if (frame) { cancelAnimationFrame(frame); frame = 0 }
+      if (drawnFor) { drawnFor = null; setBox(null) }
+      window.clearTimeout(settle)
+      settle = window.setTimeout(() => {
+        /* The element now under the pointer: what was under it has moved away. */
+        if (last && lastAt) last = document.elementFromPoint(lastAt.x, lastAt.y)
+        schedule()
+      }, 150)
     }
     const root = document.getElementById("wb-preview-root")
     document.addEventListener("pointermove", onMove, { passive: true })
@@ -205,6 +220,7 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
     document.addEventListener("scroll", onScroll, { capture: true, passive: true })
     return () => {
       cancelAnimationFrame(frame)
+      window.clearTimeout(settle)
       document.removeEventListener("pointermove", onMove)
       root?.removeEventListener("pointerleave", onLeave)
       document.removeEventListener("scroll", onScroll, { capture: true })

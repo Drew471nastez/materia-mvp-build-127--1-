@@ -73,6 +73,14 @@ console.log("\nNOTHING MEASURED OR SAID FOR EVERY FRAME OF A SCROLL")
   check("the section library waits while the canvas is in use (its input never reaches the editor's window)", /window\.addEventListener\("storelib:canvas-input"/.test(preview) && /CANVAS_QUIET_MS - \(performance\.now\(\) - lastCanvasInput\)/.test(preview) && /m\.type === "scrolling" && isFront/.test(canvas))
 }
 
+console.log("\nA STORELIB THEME'S CANVAS: NOTHING MEASURED PER SCROLL FRAME")
+{
+  const insert = read("components/website-builder/editor/canvas-block-insert.tsx")
+  const hover = read("components/website-builder/canvas-hover.tsx")
+  check("the Add a block strip goes while the canvas scrolls and is placed 150ms after it stops", /show\(null\)\s*window\.clearTimeout\(settle\)\s*settle = window\.setTimeout\(\(\) => \{[\s\S]{0,200}document\.elementFromPoint\(at\.x, at\.y\)[\s\S]{0,40}\}, 150\)/.test(insert))
+  check("the hover marks are taken off once while it scrolls (no render a frame), and measured 150ms after", /if \(drawnFor\) \{ drawnFor = null; setBox\(null\) \}/.test(hover) && /settle = window\.setTimeout\(\(\) => \{[\s\S]{0,200}schedule\(\)\s*\}, 150\)/.test(hover))
+}
+
 console.log("\nA SECTION FAR FROM THE SCREEN RESTS")
 {
   check("content-visibility: hidden a screen and a half away, at the size it had", /\[data-sl-rest\]\{contain-intrinsic-size:auto none\}\[data-sl-rest\]\[data-sl-far\]\{content-visibility:hidden\}/.test(bridge) && /rootMargin: "150% 0px 150% 0px"/.test(bridge))
@@ -83,7 +91,7 @@ console.log("\nA SECTION FAR FROM THE SCREEN RESTS")
 
 console.log("\nTHE PROBE AND ITS THEME")
 {
-  check("the probe scrolls the real theme, in the editor and live, desktop wheel and phone fling, 1x and 4x", existsSync("scripts/check-wb-scroll-r14.mjs") && /materiaLive/.test(read("scripts/check-wb-scroll-r14.mjs")) && /gestureSourceType: "touch"/.test(read("scripts/check-wb-scroll-r14.mjs")))
+  check("the probe scrolls the real theme, in the editor and live, desktop wheel and phone fling, 1x and 4x", existsSync("scripts/check-wb-scroll-r14.mjs") && /materiaLive/.test(read("scripts/check-wb-scroll-r14.mjs")) && /dispatchTouchEvent/.test(read("scripts/check-wb-scroll-r14.mjs")))
   check("  budgets: dropped frames under 5% and the longest frame under 50ms at 1x, messages never one a frame, the canvas laid out as live", /droppedPct < 5/.test(read("scripts/check-wb-scroll-r14.mjs")) && /r\.longest < 50/.test(read("scripts/check-wb-scroll-r14.mjs")) && /lays the page out as the live page does/.test(read("scripts/check-wb-scroll-r14.mjs")))
   check("the theme is made from the public pages only (nothing logged in to)", /https:\/\/andrewrullz\.storelib\.com/.test(read("scripts/materia-live-kit.mjs")) && !/cookie|authorization/i.test(read("scripts/materia-live-kit.mjs").replace(/\/\*[\s\S]*?\*\//g, "")))
   check("the theme's own costs are written up for its author", existsSync("docs/theme-contracts/materia-scroll-performance.md"))

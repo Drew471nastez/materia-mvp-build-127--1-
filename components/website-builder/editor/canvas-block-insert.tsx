@@ -178,11 +178,24 @@ export function CanvasBlockInserter({
         ask()
       }
     }
+    /*
+      NOT WHILE THE CANVAS SCROLLS (round 14). Every scroll event read the
+      element under the pointer (a layout of the page) and every frame
+      measured each block of the section: the strip goes while the canvas
+      moves and is found again 150ms after it stops, where the pointer is.
+    */
+    let settle = 0
     const onScroll = () => {
       if (!at) return
-      /* After a scroll the element under the pointer is a different one: asked again where the pointer is. */
-      at = { ...at, target: document.elementFromPoint(at.x, at.y) }
-      ask()
+      if (frame) { cancelAnimationFrame(frame); frame = 0 }
+      show(null)
+      window.clearTimeout(settle)
+      settle = window.setTimeout(() => {
+        if (!at) return
+        /* After a scroll the element under the pointer is a different one: asked again where the pointer is. */
+        at = { ...at, target: document.elementFromPoint(at.x, at.y) }
+        ask()
+      }, 150)
     }
     document.addEventListener("pointermove", onMove, { passive: true, capture: true })
     document.addEventListener("pointerout", onLeave, { passive: true, capture: true })
@@ -192,6 +205,7 @@ export function CanvasBlockInserter({
       document.removeEventListener("pointerout", onLeave, { capture: true })
       document.removeEventListener("scroll", onScroll, { capture: true })
       if (frame) cancelAnimationFrame(frame)
+      window.clearTimeout(settle)
     }
   }, [enabled, rootId, show])
 

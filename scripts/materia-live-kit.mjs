@@ -120,7 +120,10 @@ export async function materiaLive() {
     const m = /\/api\/site-theme\/assets\/[^/]+\/[^/]+\/([^?#]+)$/.exec(u)
     if (m && manifest[u].status === 200) assets[decodeURIComponent(m[1])] = read(u).toString("utf8")
   }
+  /* `key`: the page drawn as the home page; "all": the home page with the product and the catalog as pages of their own (going between pages). */
   async function theme(key = "home") {
+    const all = key === "all"
+    if (all) key = "home"
     const parts = await split(liveHtml(key))
     const zip = new JSZip()
     const raw = (s) => `{% raw %}${s}{% endraw %}`
@@ -155,6 +158,14 @@ export async function materiaLive() {
     }
     /* The home template is the one the canvas opens: a product or the catalog is drawn as the home page, so each is measured the same way. */
     if (key !== "home") zip.file("templates/index.json", await zip.file(`templates/${key}.json`).async("string"))
+    if (all) {
+      for (const other of ["product", "collection"]) {
+        const main = (await split(liveHtml(other))).body.find((x) => x.kind === "main")
+        const order = [], sections = {}
+        for (const sct of main?.sections ?? []) { sections[sct.id] = { type: sectionFile(sct), settings: {} }; order.push(sct.id) }
+        zip.file(`templates/${other}.json`, JSON.stringify({ sections, order }))
+      }
+    }
     zip.file("layout/theme.liquid", `<!doctype html>\n<html${parts.htmlAttrs}>\n<head>\n<title>{{ page_title }}</title>\n{{ content_for_header }}\n${raw(parts.head)}\n</head>\n<body${parts.bodyAttrs}>\n${layoutBody}\n</body>\n</html>\n`)
     zip.file("config/settings_schema.json", JSON.stringify([{ name: "theme_info", theme_name: "Materia", theme_version: "live" }]))
     zip.file("config/settings_data.json", JSON.stringify({ current: {} }))

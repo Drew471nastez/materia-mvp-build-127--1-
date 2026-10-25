@@ -19,7 +19,7 @@
  *              all); and NATIVE, a Storelib theme's home page, in the editor
  *   DEVICES    desktop 1440x900, a mouse wheel: notches of 100px every 33ms
  *              to the foot of the page and back up half of it
- *              phone 390x844, a touch screen: flings (a fast swipe, let go,
+ *              phone 390x844, a touch screen: swipes (touch events, let go,
  *              the page coasting) to the foot of the page
  *   CPU        1x and 4x
  *
@@ -34,6 +34,8 @@
  *   npx tsx scripts/check-wb-scroll-r14.mjs
  *   ONLY=<regexp over "surface page device cpu">   ATTR=1   RUNS=1
  *   STATE=plain (editor: nothing selected, the pointer off the canvas)
+ *   STALLS=1 (instead: opening, selecting, theme settings, the section
+ *   library, duplicate, Undo, Redo and another page, timed for long tasks)
  *   EDITOR_BUNDLE=<file>  (the bundle to measure; the before/after tables are two bundles, same machine)
  *   MATERIA_LIVE_DIR=<dir> (the mirror of the public site; fetched once if missing)
  *   JSON=<file>  SHOTS=<dir>  BUDGET=0 (report without failing)
@@ -85,7 +87,9 @@ const STOP = () => {
   const F = 1000 / 60
   let dropped = 0
   for (const x of d) dropped += Math.max(0, Math.round(x / F) - 1)
-  return { frames: d.length, dropped, droppedPct: d.length ? Math.round((dropped / (d.length + dropped)) * 1000) / 10 : 0, longest: Math.round(Math.max(0, ...d)), sent: R.sent, got: R.got, y: Math.round(scrollY), h: document.documentElement.scrollHeight }
+  /* The scroller: the page, or a Storelib theme's canvas (#wb-preview-root, in the editor's own page). */
+  const sc = document.getElementById("wb-preview-root") && !document.querySelector("[data-compat-frame]") ? document.getElementById("wb-preview-root") : document.documentElement
+  return { frames: d.length, dropped, droppedPct: d.length ? Math.round((dropped / (d.length + dropped)) * 1000) / 10 : 0, longest: Math.round(Math.max(0, ...d)), sent: R.sent, got: R.got, y: Math.round(sc.scrollTop), h: sc.scrollHeight }
 }
 /* In the editor's own page: long tasks, and changes to its page outside the canvas (React drawing). */
 const EDITOR_WATCH = () => {
@@ -125,17 +129,22 @@ async function openLive({ kit, key, width, height, touch, cpu }) {
 /* ── The scroll ── */
 async function scrollAll(page, doc, device, at) {
   const cdp = await page.createCDPSession()
-  const room = await doc.evaluate(() => document.documentElement.scrollHeight - innerHeight)
+  /* The scroller: the page, or a Storelib theme's canvas (#wb-preview-root, in the editor's own page). */
+  const room = await doc.evaluate(() => { const n = document.getElementById("wb-preview-root"); return n && !document.querySelector("[data-compat-frame]") ? n.scrollHeight - n.clientHeight : document.documentElement.scrollHeight - innerHeight })
   if (device === "desktop") {
     await page.mouse.move(at.x, at.y)
     const notches = Math.ceil(room / 100)
     for (let i = 0; i < notches; i++) { await page.mouse.wheel({ deltaY: 100 }); await sleep(33) }
     for (let i = 0; i < notches / 2; i++) { await page.mouse.wheel({ deltaY: -100 }); await sleep(33) }
   } else {
-    for (let i = 0; i < 40; i++) {
-      await cdp.send("Input.synthesizeScrollGesture", { x: Math.round(at.x), y: Math.round(at.y + 150), yDistance: -500, speed: 3000, gestureSourceType: "touch", preventFling: false })
-      await sleep(250)
-      if ((await doc.evaluate(() => scrollY + innerHeight >= document.documentElement.scrollHeight - 4))) break
+    /* A swipe as a thumb makes it (touch events 16ms apart, let go at speed, the page coasting): Input.synthesizeScrollGesture's touch moves nothing in headless Chromium. */
+    const x = Math.round(at.x), y0 = Math.round(at.y + 250)
+    for (let i = 0; i < 80; i++) {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y: y0 }] })
+      for (let k = 1; k <= 8; k++) { await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y0 - k * 60 }] }); await sleep(16) }
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+      await sleep(300)
+      if ((await doc.evaluate(() => { const n = document.getElementById("wb-preview-root"); const sc = n && !document.querySelector("[data-compat-frame]") ? n : document.documentElement; return sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 4 }))) break
     }
   }
   await sleep(600)
@@ -316,6 +325,76 @@ async function run({ surface, key, device, cpu, kit, compat }) {
   }
 }
 
+/*
+  ── STALLS=1: what the owner calls a freeze, with the real theme ──
+  The editor open on the theme with its three pages (home, a product, the
+  catalog), and in turn: opening it, selecting a section from the sidebar and
+  in the canvas, the theme's settings, the section library, a section
+  duplicated then Undo and Redo, and going to another page. For each, the
+  long tasks on the main thread (the canvas's and the editor's: they share
+  it), the longest, and how long the thread was blocked (each task's time
+  over 50ms). Budget at 1x: no task of a second or more.
+*/
+const LONGS = String.raw`(function(){window.__lt=[];try{new PerformanceObserver(function(l){l.getEntries().forEach(function(e){window.__lt.push([Math.round(e.startTime),Math.round(e.duration)])})}).observe({type:"longtask",buffered:true})}catch(e){}})()`
+async function stalls(kit, cpu) {
+  const compat = await kit.theme("all")
+  const t0 = Date.now()
+  const ed = await openEditor({ kind: "imported", bundle, css, compat, serve: kit.serve, cpu, init: LONGS, settle: 0 })
+  const opened = Date.now() - t0
+  const page = ed.page
+  const out = {}
+  /* The canvas page's own resizes (the editor resizing its frame wakes every resize listener of the theme). */
+  const resizes = async () => { const f = await ed.front(); return f ? f.evaluate(() => { if (!window.__rs) { window.__rs = { n: 0 }; addEventListener("resize", () => window.__rs.n++) } return window.__rs.n }).catch(() => 0) : 0 }
+  const window_ = async (name, act, ms = 2500) => {
+    const from = await page.evaluate(() => performance.now())
+    const r0 = await resizes()
+    let note = ""
+    try { note = (await act()) ?? "" } catch (e) { note = `threw: ${String(e).slice(0, 120)}` }
+    await sleep(ms)
+    const lt = await page.evaluate((f) => window.__lt.filter((x) => x[0] + x[1] >= f).map((x) => x[1]), from)
+    out[name] = { longTasks: lt.length, longest: Math.max(0, ...lt), blocked: lt.reduce((a, d) => a + Math.max(0, d - 50), 0), frameResizes: Math.max(0, (await resizes()) - r0), ...(note ? { note } : {}) }
+    if (SHOTS) await page.screenshot({ path: join(SHOTS, `stall-${cpu}x-${name.replace(/\W+/g, "-")}.png`) })
+    console.log(`  ${`${cpu}x ${name}`.padEnd(28)} long tasks ${String(out[name].longTasks).padStart(3)}  longest ${String(out[name].longest).padStart(5)}ms  blocked ${String(out[name].blocked).padStart(6)}ms  frame resizes ${out[name].frameResizes}${note ? `  [${note}]` : ""}`)
+  }
+  /* `last`: the last match (a page menu has its group and its page under one name). */
+  const clickText = (re, scope = "body", last = false) => page.evaluate((src, sc, lastOne) => {
+    const all = [...document.querySelector(sc).querySelectorAll("button, [role=button], a, [role=option], [role=menuitem], li, span")].filter((x) => new RegExp(src, "i").test((x.getAttribute("aria-label") || x.textContent || "").trim()) && x.getClientRects().length)
+    const el = lastOne ? all[all.length - 1] : all[0]
+    if (!el) return `no ${src}`
+    el.scrollIntoView({ block: "center" }); el.click(); return ""
+  }, re.source, scope, last)
+  /* Opening: from the address to the canvas drawn, and the moments after it. */
+  await window_("open", async () => `canvas drawn after ${opened}ms`, 4000)
+  out.open.blocked += await page.evaluate(() => window.__lt.reduce((a, x) => a + Math.max(0, x[1] - 50), 0)) - out.open.blocked
+  out.open.longest = await page.evaluate(() => Math.max(0, ...window.__lt.map((x) => x[1])))
+  console.log(`  ${`${cpu}x open (all of it)`.padEnd(28)} longest ${out.open.longest}ms  blocked ${out.open.blocked}ms`)
+  await window_("select in sidebar", () => clickText(/^featured_product_8PyfA3$/))
+  await window_("select in canvas", async () => { const r = await page.evaluate(() => { const b = document.querySelector("[data-compat-frame='front']").getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 3 } }); await page.mouse.click(r.x, r.y) })
+  await window_("theme settings", () => clickText(/^Theme$/))
+  await window_("sections again", () => clickText(/^Sections$/))
+  await window_("section library", () => clickText(/^Add section$/), 4000)
+  await page.keyboard.press("Escape"); await sleep(800)
+  await window_("duplicate", async () => { await clickText(/^featured_product_8PyfA3$/); await sleep(800); return clickText(/^Duplicate$/) })
+  await window_("undo", async () => { await page.keyboard.down("Control"); await page.keyboard.press("z"); await page.keyboard.up("Control") })
+  await window_("redo", async () => { await page.keyboard.down("Control"); await page.keyboard.down("Shift"); await page.keyboard.press("z"); await page.keyboard.up("Shift"); await page.keyboard.up("Control") })
+  /* The page menu (its current page's name), the Products group opened if it is shut, the page. */
+  const toPage = async (from, group, to) => { const n = await clickText(from); if (n) return n; await sleep(500); if (await clickText(to, "body", true)) { await clickText(group, "body", true); await sleep(400); return clickText(to, "body", true) } return "" }
+  await window_("another page", () => toPage(/^Home$/, /^Products$/, /^Product$/), 5000)
+  await window_("back home", () => toPage(/^Product$/, /^Home$/, /^Home$/), 5000)
+  await ed.close()
+  return out
+}
+if (process.env.STALLS === "1") {
+  const kit = await materiaLive()
+  const all = {}
+  for (const cpu of [1, 4]) { if (ONLY && !ONLY.test(`${cpu}x`)) continue; all[cpu] = await stalls(kit, cpu) }
+  console.log("\nBudgets")
+  for (const [name, r] of Object.entries(all[1] ?? {})) expect(r.longest < 1000, `1x ${name}: no task of a second or more`, r)
+  if (process.env.JSON) writeFileSync(process.env.JSON, JSON.stringify(all, null, 1))
+  console.log(broken ? `\n${broken} over budget` : "\nall within budget")
+  process.exit(broken ? 1 : 0)
+}
+
 /* ── The matrix ── */
 const kit = await materiaLive()
 const themes = {}
@@ -344,8 +423,18 @@ for (const [name, list] of groups) {
   const r = { droppedPct: med(list.map((x) => x.droppedPct)), longest: med(list.map((x) => x.longest)), sent: med(list.map((x) => x.sent)), frames: med(list.map((x) => x.frames)), muts: med(list.map((x) => x.editorMutations)) }
   if (list[0].surface !== "editor") continue
   if (list[0].cpu === 1) {
-    expect(r.droppedPct < 5, `${name}: dropped frames < 5%`, r.droppedPct)
-    expect(r.longest < 50, `${name}: longest frame < 50ms`, r.longest)
+    /*
+      THE THEME'S OWN COST IS NOT THE EDITOR'S. Where the same page live misses
+      the budget itself (the owner's Materia theme does: its own scripts and
+      :has() rules, docs/theme-contracts/materia-scroll-performance.md), the
+      canvas is held to the live page: at most 3 points more frames dropped,
+      a longest frame at most a frame longer. Said as such in the line.
+    */
+    const live = groups.get(name.replace(/^editor/, "live"))
+    const L = live ? { droppedPct: med(live.map((x) => x.droppedPct)), longest: med(live.map((x) => x.longest)) } : null
+    const themeBound = !!L && (L.droppedPct >= 5 || L.longest >= 50)
+    expect(r.droppedPct < 5 || (themeBound && r.droppedPct <= L.droppedPct + 3), `${name}: dropped frames < 5%${themeBound ? ` (theme-bound: live drops ${L.droppedPct}%, the canvas may drop up to 3 points more)` : ""}`, r.droppedPct)
+    expect(r.longest < 50 || (themeBound && r.longest <= Math.max(50, L.longest + 17)), `${name}: longest frame < 50ms${themeBound ? ` (theme-bound: live's longest ${L.longest}ms, the canvas's at most a frame more)` : ""}`, r.longest)
   }
   /* Messages to the editor while scrolling: a handful (the toolbar's box when it changes, where the page stands once it stops), never one a frame. */
   expect(r.sent <= Math.max(12, r.frames * 0.1), `${name}: messages to the editor while scrolling, not one a frame`, { sent: r.sent, frames: r.frames })
