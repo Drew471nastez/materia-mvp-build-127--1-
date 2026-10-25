@@ -49,13 +49,13 @@
  *
  * AN IMPORTED THEME's sections are drawn by the compat engine, not by
  * Storelib's renderer: its preview is one frame holding the theme's head,
- * with the section put into its <main> for each block, the way Add section
- * draws that theme's cards (compat/compat-section-preview.tsx).
+ * with the block alone put into its <main>, drawn from its own markup
+ * (compat/compat-section-preview.tsx blockMarkup).
  */
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { createPortal, flushSync } from "react-dom"
 import { createRoot, type Root } from "react-dom/client"
-import { Search, X } from "lucide-react"
+import { Blocks, Search, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
@@ -63,8 +63,9 @@ import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sh
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { StorelibLiveProvider, editorCanvasLive } from "@/components/website-builder/sections/storelib-live"
 import { StorefrontProvider, editorCanvasStorefront } from "@/components/website-builder/theme/storefront-context"
-import { CompatPreviewProvider, sectionMarkup, sheetDocument, useCompatPreview } from "@/components/website-builder/compat/compat-section-preview"
-import type { StoredSection } from "@/lib/storelib-theme/compat/page"
+import { CompatPreviewProvider, blockMarkup, sheetDocument, useCompatPreview } from "@/components/website-builder/compat/compat-section-preview"
+import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
+import type { StoredBlock } from "@/lib/storelib-theme/compat/page"
 import { splitStyles } from "@/lib/website-builder/preview-markup"
 import { REVEAL_EVENT } from "@/lib/website-builder/canvas-scroll"
 import { THEME_ROOT_ATTRIBUTE } from "@/lib/website-builder/theme-css"
@@ -263,8 +264,13 @@ class PreviewSession {
   ) {}
 
   sectionFor(choice: BlockChoice): SectionInstance {
+    return sectionWith(this.request.section, this.request.parent, this.request.index, this.blockFor(choice))
+  }
+
+  /** The block itself, with its sample settings: what an imported theme's preview draws alone. */
+  blockFor(choice: BlockChoice) {
     const def = this.request.options.find((o) => o.type === choice.type)
-    return sectionWith(this.request.section, this.request.parent, this.request.index, previewBlock(choice, def))
+    return previewBlock(choice, def)
   }
 
   /** Storelib's own: drawn now if it is not yet. Returns the markup. */
@@ -483,7 +489,8 @@ interface ShellRefs {
  * block on it, in the middle. Under the strip, once, why the block cannot be
  * added here, or a note about the preview itself.
  */
-function PaneShell({ paneRef, clipRef, outlineRef, className, style, children, choice, note, reason, empty, pad, loading }: ShellRefs & { className?: string; style?: React.CSSProperties; children: ReactNode; choice: BlockChoice | undefined; note?: string | null; reason?: string | null; empty?: boolean; pad: number; loading?: boolean }) {
+function PaneShell({ paneRef, clipRef, outlineRef, className, style, children, choice, note, reason, empty, pad, loading, icon }: ShellRefs & { className?: string; style?: React.CSSProperties; children: ReactNode; choice: BlockChoice | undefined; note?: string | null; reason?: string | null; empty?: boolean; pad: number; loading?: boolean; icon?: boolean }) {
+  const Icon = (choice && ICON_MAP[choice.type]) || Blocks
   const caption = reason ?? note
   return (
     <div data-block-picker-canvas="" className={cn("relative flex min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden bg-[#f5f6f8]", className)} style={{ padding: pad, ...style }}>
@@ -500,7 +507,11 @@ function PaneShell({ paneRef, clipRef, outlineRef, className, style, children, c
         </div>
         <div ref={outlineRef} hidden className="pointer-events-none absolute rounded-[3px] border border-dashed border-[#9ca3af]" />
         {loading ? <span aria-hidden className="wb-preview-shimmer pointer-events-none absolute inset-0" /> : null}
-        {empty ? <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-[13px] text-[#6b7280]" data-preview-note="" data-preview-empty="">{tt("Nothing to show yet")}</p> : null}
+        {icon ? (
+          <span className="absolute inset-0 flex items-center justify-center text-[#9ca3af]" data-preview-icon="">
+            <Icon className="h-7 w-7" strokeWidth={1.6} />
+          </span>
+        ) : empty ? <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-[13px] text-[#6b7280]" data-preview-note="" data-preview-empty="">{tt("Nothing to show yet")}</p> : null}
       </div>
       {caption ? (
         <p
@@ -595,11 +606,11 @@ function StorelibPane({ session, choice, pad, reason, className, style }: PanePr
 }
 
 /**
- * AN IMPORTED THEME'S PREVIEW: one frame with the theme's head, kept for the
- * opening; each block's section is put into its <main> and the frame is
- * fitted like Storelib's stage. A theme whose template prints no
- * `block.shopify_attributes` has no block to find: the section is shown
- * whole, and says so.
+ * AN IMPORTED THEME'S PREVIEW: one frame with the theme's head (its CSS),
+ * kept for the opening; each block is drawn from its own markup with its
+ * sample settings and the page's product (blockMarkup, never the whole
+ * product section it goes in), put into the frame's <main> and fitted like
+ * Storelib's stage. A block with nothing of its own to draw shows its icon.
  */
 function CompatPane({ session, choice, pad, reason, className, style }: PaneProps) {
   const ctx = useCompatPreview()
@@ -610,6 +621,8 @@ function CompatPane({ session, choice, pad, reason, className, style }: PaneProp
   const [loadedDoc, setLoadedDoc] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [empty, setEmpty] = useState(false)
+  /* The block has no markup of its own to draw: its icon stands in. */
+  const [alone, setAlone] = useState(true)
   const width = session.look.width
   const inset = pad >= 20 ? PICKER_SIZE.inset : 12
   const doc = useMemo(() => {
@@ -630,13 +643,15 @@ function CompatPane({ session, choice, pad, reason, className, style }: PaneProp
     const key = choiceKey(choice)
     let html = session.markup.get(key)
     if (html === undefined) {
+      /* The block from its own markup (blockMarkup), never the whole section it goes in. */
       try {
-        html = sectionMarkup(ctx.theme, ctx.page, session.sectionFor(choice) as unknown as StoredSection, ctx.rows, width, 800)
+        html = blockMarkup(ctx.theme, ctx.page, session.request.section.type, session.blockFor(choice) as unknown as StoredBlock, ctx.rows, width, 800) ?? ""
       } catch {
         html = ""
       }
       session.markup.set(key, html)
     }
+    setAlone(html !== "")
     const showing = `${sessionKey(session)}:${key}`
     if (frame.getAttribute("data-bp-drawn") !== showing) {
       const main = fd.querySelector("main") ?? fd.body
@@ -652,14 +667,15 @@ function CompatPane({ session, choice, pad, reason, className, style }: PaneProp
     const { found, empty: none } = fitStage(pane, clip, frame, outline, fd, width, "#ffffff", stripBox(pane, pad, inset))
     setEmpty(none)
     frame.setAttribute("data-bp-showing", key.replace("\u0000", ":"))
-    setNote(!html ? tt("No preview for this block") : found ? null : tt("Shown in its section"))
+    setNote(null)
+    void found
   }, [ctx?.theme, ctx?.page, ctx?.rows, loaded, choice, session, width, pad, inset, reason]) // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     apply()
   }, [apply])
   useAreaRefit(paneRef, apply)
   return (
-    <PaneShell paneRef={paneRef} clipRef={clipRef} outlineRef={outlineRef} className={className} style={style} choice={choice} pad={pad} reason={reason} empty={empty} loading={!loaded} note={ctx?.failed ? tt("No preview for this block") : note}>
+    <PaneShell paneRef={paneRef} clipRef={clipRef} outlineRef={outlineRef} className={className} style={style} choice={choice} pad={pad} reason={reason} empty={empty} icon={!!ctx?.failed || (loaded && !alone)} loading={!loaded && !ctx?.failed} note={note}>
       {doc ? (
         <iframe
           ref={frameRef}

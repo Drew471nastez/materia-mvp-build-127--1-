@@ -87,6 +87,8 @@ export interface EditorFieldEnv {
    * themes, whose schemes are Storelib's.
    */
   colorSchemes?: { id: string; name: string; background: string; text: string; accent: string }[] | null
+  /** An imported Shopify theme: Shop data offers the sources its Liquid objects fill (lib/storelib-theme/dynamic.ts sourcesFor). */
+  compat?: boolean
   /** Storelib's own themes: the theme's settings, whose schemes a `color_scheme` setting lists by their own names. */
   themeSettings?: Record<string, unknown> | null
   /** Opens Theme settings where the schemes themselves are edited, at the one named (the Edit beside a section's scheme). */

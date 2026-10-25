@@ -111,7 +111,7 @@ export interface StorefrontReviews {
    * not the page's (a featured product, a card), whether or not "Stars on
    * product cards" is on. Absent on sample reviews.
    */
-  ratings?: Record<string, { count: number; average: number }>
+  ratings?: Record<string, { count: number; average: number; stars?: Record<string, number> }>
   /** The store's saved widget looks, by id: what a Reviews widget section names (lib/reviews/widgets). Type and settings only. */
   widgets?: Record<string, { type: string; settings: Record<string, unknown> }>
   /** The page's language, for a widget's own words (lib/reviews/widgets/config.ts widgetWords); absent, the website's own. */
@@ -323,10 +323,11 @@ export function buildStorefrontReviews(input: {
     base.product = { id: input.product.id, title: (input.product.title ?? "").trim(), summary: summaryOf(input.product.ratings), items }
   }
   if (input.ratingsByProduct) {
-    const ratings: Record<string, { count: number; average: number }> = {}
+    const ratings: Record<string, { count: number; average: number; stars: Record<string, number> }> = {}
     for (const [id, list] of Object.entries(input.ratingsByProduct)) {
       const s = summaryOf(list)
-      if (s.count > 0) ratings[id] = { count: s.count, average: s.average }
+      /* With how many gave each star, for product.metafields.storelib.reviews (lib/storelib-theme/compat/objects.ts). */
+      if (s.count > 0) ratings[id] = { count: s.count, average: s.average, stars: Object.fromEntries(s.bars.map((b) => [String(b.stars), b.count])) }
     }
     base.ratings = ratings
   }

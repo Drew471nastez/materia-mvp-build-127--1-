@@ -44,3 +44,43 @@ export async function sizeChartForProduct(db: Db, productId: string, creatorId?:
     return null
   }
 }
+
+/** The most product links one store's read takes: more than any shop has products with a chart. */
+const STORE_LINKS = 5000
+
+/**
+ * Every chart this store's products use, by product id: what a featured
+ * product, a card or a quick view of an imported theme reads as
+ * product.metafields.storelib.size_chart (lib/storelib-theme/compat/
+ * objects.ts), the same chart its own page reads above. Both reads are
+ * filtered by the store's own creator id, and a link is used only when its
+ * chart is the same store's. Empty before SQL part 283, or on a read that
+ * failed: never an error.
+ */
+export async function sizeChartsForStore(db: Db, creatorId: string): Promise<Record<string, SizeChart>> {
+  if (!creatorId) return {}
+  try {
+    const { data: links, error } = await db.from("product_size_charts").select("product_id, size_chart_id").eq("creator_id", creatorId).limit(STORE_LINKS)
+    if (error || !Array.isArray(links) || links.length === 0) return {}
+    const chartIds = [...new Set((links as { size_chart_id?: unknown }[]).map((l) => String(l.size_chart_id ?? "")).filter(Boolean))]
+    const charts = new Map<string, SizeChart>()
+    for (let i = 0; i < chartIds.length; i += 100) {
+      const { data, error: chartError } = await db.from("size_charts").select("id, name, unit, columns, rows, notes, image_url").eq("creator_id", creatorId).in("id", chartIds.slice(i, i + 100))
+      if (chartError) return {}
+      for (const row of (data ?? []) as Record<string, unknown>[]) {
+        const read = readSizeChart(row)
+        if (!read || typeof row.id !== "string") continue
+        const { id: _id, ...shown } = read
+        charts.set(row.id, shown)
+      }
+    }
+    const out: Record<string, SizeChart> = {}
+    for (const l of links as { product_id?: unknown; size_chart_id?: unknown }[]) {
+      const chart = charts.get(String(l.size_chart_id ?? ""))
+      if (chart && typeof l.product_id === "string") out[l.product_id] = chart
+    }
+    return out
+  } catch {
+    return {}
+  }
+}

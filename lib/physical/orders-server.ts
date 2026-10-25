@@ -29,6 +29,7 @@ import { normaliseTrackingNumber } from "./carriers"
 import { trackingAvailable, trackingNumberChanged } from "./tracking/accounts-server"
 import { cleanNote } from "./notes"
 import { lineProperties } from "./cart-link"
+import { CREATOR_LINK_SECONDS, hasUploads } from "@/lib/cart-uploads/rules"
 import { cartAttributes } from "@/lib/checkout/site-checkout"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
@@ -61,6 +62,11 @@ export interface OrderLine {
   properties?: Record<string, string> | null
   /** The store's offers in this line's discount, each by the name the checkout showed (the snapshot's `offers`), or null. */
   offers?: { title: string; savedCents: number }[] | null
+  /**
+   * The buyer's pictures this line's properties name (lib/cart-uploads), this store's own only, each with a link
+   * that lasts an hour (to show and to download). Absent: none.
+   */
+  files?: { property: string; id: string; name: string; type: string; bytes: number; width: number | null; height: number | null; url: string | null; downloadUrl: string | null }[]
 }
 
 export interface Shipment {
@@ -222,6 +228,15 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       offers: offersOfSnapshot(s.offers),
     }
   })
+  /* The buyer's pictures on the lines, this order's store's own (an id of another store's upload is not found), each with an hour's link. */
+  if (lines.some((l) => hasUploads(l.properties))) {
+    const { filesOfLine, idsOfLines, orderFiles } = await import("@/lib/cart-uploads/store")
+    const files = await orderFiles(db as never, { creatorId: co.creator_id, ids: idsOfLines(lines), seconds: CREATOR_LINK_SECONDS })
+    for (const l of lines) {
+      const mine = filesOfLine(l.properties, files)
+      if (mine.length) l.files = mine
+    }
+  }
   const refunded = lines.reduce((n, l) => n + l.refundedCents, 0)
   const eventsByF = new Map<string, Shipment["events"]>()
   const checkpointsByF = new Map<string, NonNullable<Shipment["checkpoints"]>>()

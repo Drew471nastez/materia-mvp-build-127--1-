@@ -64,22 +64,33 @@ interface Params {
   params: Promise<{ username: string; path?: string[] }>
 }
 
-/** A form or JSON body as fields. `items[0][id]` and `updates[]` are read the way Shopify reads them. */
-async function bodyOf(req: Request): Promise<Record<string, unknown> | null> {
-  if (req.method === "GET" || req.method === "HEAD") return null
+/**
+ * A form or JSON body as fields. `items[0][id]` and `updates[]` are read the
+ * way Shopify reads them. A multipart form's files are handed back beside
+ * them (`files`), for /cart/add to keep as the buyer's pictures.
+ */
+async function bodyOf(req: Request): Promise<{ fields: Record<string, unknown> | null; files: [string, unknown][] }> {
+  if (req.method === "GET" || req.method === "HEAD") return { fields: null, files: [] }
   const type = req.headers.get("content-type") ?? ""
   try {
     if (type.includes("application/json")) {
       const v = await req.json()
-      return v && typeof v === "object" ? (v as Record<string, unknown>) : null
+      return { fields: v && typeof v === "object" ? (v as Record<string, unknown>) : null, files: [] }
     }
     if (type.includes("form")) {
-      return formFields((await req.formData()).entries())
+      const entries = [...(await req.formData()).entries()] as [string, unknown][]
+      return { fields: formFields(entries), files: entries.filter(([, v]) => typeof v !== "string") }
     }
   } catch {
-    return null
+    return { fields: null, files: [] }
   }
-  return null
+  return { fields: null, files: [] }
+}
+
+/** A refused picture on a product form that is not a script's: a page that says why, and goes back. */
+function uploadRefusedPage(message: string): string {
+  const esc = message.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c)
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Picture not added</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 Inter,system-ui,sans-serif;color:#1a1a2e;background:#f8f9fa;padding:0 16px}p{margin:0 0 12px;color:#6b7280}a{color:#1a1a2e}</style></head><body><main><h1 style="font-size:20px;margin:0 0 6px">Picture not added</h1><p>${esc}</p><a href="javascript:history.back()">Go back</a></main></body></html>`
 }
 
 /**
@@ -225,7 +236,48 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const cookie = stranger ? undefined : req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
   const { cart, note, attributes, discount, codes } = readCartCookie(cookie)
   const sitePath = `/${segments.map(encodeURIComponent).join("/")}`
-  const fields = await bodyOf(req)
+  /*
+    A BUYER'S PICTURE, SENT ON ITS OWN (POST /cart/upload, for a theme's
+    script): checked, drawn again and kept for this store and this browser
+    (lib/cart-uploads/http.ts), answered with the value its line property
+    holds. Never on a preview or a stranger's marked page, and only from
+    this website's own page.
+  */
+  if (req.method === "POST" && /^\/cart\/upload(?:\.js|\.json)?$/.test(sitePath)) {
+    if (token || stranger || !sameOriginForm(req, hostOf(req))) return NextResponse.json({ status: 403, message: "Upload the picture from the shop's website.", description: "Upload the picture from the shop's website." }, { status: 403, headers: { "Cache-Control": "private, no-store" } })
+    const { uploadResponse } = await import("@/lib/cart-uploads/http")
+    return uploadResponse(req, { db: createAdminClient() }, { creatorId: found.site.creatorId })
+  }
+  const posted = await bodyOf(req)
+  let fields = posted.fields
+  /* Cookies this request sets beside the cart's own: the browser's cart id for its pictures. */
+  const extraCookies: string[] = []
+  /*
+    A PRODUCT FORM WITH A PICTURE IN IT (`<input type="file"
+    name="properties[Photo]">`, posted to /cart/add as Shopify themes do):
+    each file kept as /cart/upload keeps it, and its value put where the
+    file was, so the cart reads it as one more line property. A file
+    refused refuses the add, with the reason, as Shopify's 422 does.
+  */
+  if (req.method === "POST" && posted.files.length && /^\/cart\/add(?:\.js|\.json)?$/.test(sitePath) && !token && !stranger) {
+    const ajaxAdd = /\.(js|json)$/.test(sitePath) || req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("accept") ?? "").includes("application/json")
+    const refuse = (status: number, message: string, cookie: string | null) => {
+      const headers = new Headers({ "Cache-Control": "private, no-store" })
+      if (cookie) headers.append("Set-Cookie", cookie)
+      if (ajaxAdd) return NextResponse.json({ status, message, description: message }, { status, headers })
+      headers.set("Content-Type", "text/html; charset=utf-8")
+      return new NextResponse(uploadRefusedPage(message), { status, headers })
+    }
+    if (!sameOriginForm(req, hostOf(req))) return refuse(403, "Upload the picture from the shop's website.", null)
+    const { keepFormFiles } = await import("@/lib/cart-uploads/http")
+    const kept = await keepFormFiles(req, { db: createAdminClient() }, { creatorId: found.site.creatorId, entries: posted.files })
+    if (kept.ok === false) {
+      const bad = kept as { status: number; error: string; cookie: string | null }
+      return refuse(bad.status === 429 ? 429 : bad.status >= 500 ? bad.status : 422, bad.error, bad.cookie)
+    }
+    if (kept.cookie) extraCookies.push(kept.cookie)
+    fields = { ...(fields ?? {}), ...kept.fields }
+  }
   const ajax = req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("content-type") ?? "").includes("application/json") || (req.headers.get("accept") ?? "").includes("application/json")
 
   /*
@@ -320,6 +372,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   mark("draw")
   const headers = new Headers(out.headers ?? {})
   for (const c of out.cookies ?? []) headers.append("Set-Cookie", c)
+  for (const c of extraCookies) headers.append("Set-Cookie", c)
   /* A redirect the theme's page makes (Add to cart, a sign in) stays in the page's language; the language selector's own answer (/localization) is the language chosen, already. */
   const where = headers.get("Location")
   const root = localeRoot(found.site.i18n)

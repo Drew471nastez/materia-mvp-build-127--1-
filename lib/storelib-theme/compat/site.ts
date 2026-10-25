@@ -34,6 +34,7 @@
  * Pure apart from what `SiteData` hands it, so the route, the preview and
  * the tests all drive the same function.
  */
+import type { SizeChart } from "@/lib/size-charts/model"
 import { escapeHtml, handleize } from "./filters"
 import type { CardLike, CollectionLike, MenuLinkLike, CartLineLike, SiteI18n } from "./objects"
 import { localeRoot } from "./objects"
@@ -79,6 +80,8 @@ export interface SiteData {
   products: (CardLike & { descriptionHtml?: string })[]
   /** Every published product a picker may name (memberships and tiers included). */
   pickable?: CardLike[]
+  /** The store's size charts by product id, for a featured product and a card (lib/size-charts/storefront.ts sizeChartsForStore). */
+  sizeCharts?: Record<string, SizeChart>
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   shop: CompatPage["shop"]
@@ -826,6 +829,7 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     query: Object.fromEntries(req.query.entries()),
     products: site.products,
     pickable: site.pickable,
+    ...(site.sizeCharts ? { sizeCharts: site.sizeCharts } : {}),
     collections: site.collections,
     menus: site.menus,
     /* The creator's id: the key the website's own wishlist is kept under, which a theme's hearts are copied into (shims.ts). */

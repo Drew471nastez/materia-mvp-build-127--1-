@@ -5,6 +5,7 @@ import { countryName } from "@/lib/checkout/countries"
 import { orderNumber } from "@/lib/physical/status"
 import { guardFormula } from "@/lib/csv/formula-guard"
 import { lineProperties } from "@/lib/physical/cart-link"
+import { propertyText } from "@/lib/cart-uploads/rules"
 import { offersOfSnapshot } from "@/lib/physical/orders-server"
 
 export const runtime = "nodejs"
@@ -21,9 +22,9 @@ function cell(value: unknown): string {
   return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 
-/** A line's properties in one cell, every one (the store's own `_` notes too): "Engraving: Ana; _sl_offer_id: …". */
+/** A line's properties in one cell, every one (the store's own `_` notes too): "Engraving: Ana; _sl_offer_id: …". A buyer's picture by its file name; the picture is on the order page. */
 function propertiesText(raw: unknown): string {
-  return Object.entries(lineProperties(raw) ?? {}).map(([k, v]) => `${k}: ${v}`).join("; ")
+  return Object.entries(lineProperties(raw) ?? {}).map(([k, v]) => `${k}: ${propertyText(v)}`).join("; ")
 }
 
 /** The offers that saved on a line, by the name the checkout showed: "Buy 2 get 1 free". */

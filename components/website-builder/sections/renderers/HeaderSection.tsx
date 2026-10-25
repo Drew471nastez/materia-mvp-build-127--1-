@@ -29,6 +29,7 @@ import { useAmountMoney, useCartMoney, useStorefront, useWord } from "../../them
 import { CartReturnsNote } from "../../theme/shop-commerce"
 import { CartOfferSavings, CartOfferSuggestions, useCartOffers } from "@/components/offers/cart-offers"
 import { lineKey } from "@/lib/website-builder/cart"
+import { CartLineProperties } from "@/components/website-builder/cart-line-properties"
 import { cartPathFor, drawerCheckout, drawerCheckoutHref } from "@/lib/website-builder/cart-checkout"
 import { checkoutIntent } from "@/lib/website-builder/checkout-prefetch"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
@@ -933,6 +934,7 @@ function CartDrawerInner({
                         {l.title}
                       </a>
                       {l.variantName && <p className="mt-0.5 text-[12px] opacity-60">{l.variantName}</p>}
+                      <CartLineProperties properties={l.properties} />
                       <div className="mt-2 flex items-center gap-3">
                         {l.digital ? (
                           <button

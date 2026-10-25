@@ -372,7 +372,9 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
   /* With each product's own description (round 12): a theme's Featured product prints `product.description`, which a card did not carry. */
   const readCatalog = () => catalogCards(admin as never, creator.creatorId).then((cards) => cardsWithDescriptions(admin as never, creator.creatorId, cards)).catch(() => [])
-  const [pageRows, products, catalog, collections, menus, , store] = await Promise.all([
+  /* Every product's size chart, for a featured product and a card: read for this creator only, held under the shop's tag like the catalogue. */
+  const readSizeCharts = () => import("@/lib/size-charts/storefront").then((m) => m.sizeChartsForStore(admin as never, creator.creatorId)).catch(() => ({}))
+  const [pageRows, products, catalog, collections, menus, , store, sizeCharts] = await Promise.all([
     (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)).then((data) => ({ data })),
     siteCatalogue(creator.creatorId, { cached: !draft }),
     /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
@@ -383,6 +385,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       : heldUnless(["compat-menus", creator.creatorId], siteTags, SITE_HOLD_S, () => readStoreMenus(admin, creator.creatorId).catch(() => ({ kind: "unavailable" as const })), (v) => v.kind === "unavailable").then((r) => (r.kind === "stored" ? r.menus : null)),
     rows ? Promise.resolve() : (draft ? installFiles(admin, row.id, true) : readFiles()).then((r) => { rows = r }),
     storeOf(creator.creatorId),
+    (draft ? readSizeCharts() : heldUnless(["compat-size-charts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readSizeCharts, () => false)).catch(() => ({})),
   ])
   const physical = await physicalAsked
   if (!rows) return { kind: "missing" }
@@ -433,6 +436,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     pages,
     products,
     pickable: catalog,
+    ...(sizeCharts && Object.keys(sizeCharts).length ? { sizeCharts } : {}),
     collections,
     menus: compatMenus(menus as never, Object.keys(pages)),
     /* The website's own brand name, else Store details' store name, else the person's (lib/website-builder/storefront-data dynamicContext, the same order). */

@@ -541,11 +541,13 @@ async function ratingsOf(db: Db, creatorId: string, productIds: string[]): Promi
   const byId = new Map<string, { count: number; average: number }>()
   for (let i = 0; i < productIds.length; i += 80) {
     const ids = productIds.slice(i, i + 80)
-    const shown = await any.from("reviews").select("product_id, rating").in("product_id", ids).eq("status", "published").eq("site_status", "shown").limit(5000)
+    /* This store's reviews only: a product id from another store reads nothing. */
+    const shown = await any.from("reviews").select("product_id, rating").eq("creator_id", creatorId).in("product_id", ids).eq("status", "published").eq("site_status", "shown").limit(5000)
     if (!shown.error) {
       const sums = new Map<string, { n: number; total: number }>()
       for (const r of (shown.data ?? []) as { product_id: string; rating: number | string }[]) {
-        const rating = Number(r.rating)
+        /* Each rating read as the product page's summary reads it (lib/reviews/rules.ts summarize), so a card and its page say the same average. */
+        const rating = Math.round(Number(r.rating))
         if (!(rating >= 1 && rating <= 5)) continue
         const t = sums.get(r.product_id) ?? { n: 0, total: 0 }
         sums.set(r.product_id, { n: t.n + 1, total: t.total + rating })
@@ -555,7 +557,7 @@ async function ratingsOf(db: Db, creatorId: string, productIds: string[]): Promi
     }
     const code = String((shown.error as { code?: string } | null)?.code ?? "")
     if (code !== "42703" && code !== "PGRST204") return null
-    const { data, error } = await any.from("products").select("id, reviews_count, reviews_average").eq("status", "published").in("id", ids)
+    const { data, error } = await any.from("products").select("id, reviews_count, reviews_average").eq("creator_id", creatorId).eq("status", "published").in("id", ids)
     if (error) return null
     for (const r of (data ?? []) as { id: string; reviews_count?: number | null; reviews_average?: number | string | null }[]) {
       const count = Math.max(0, Math.floor(Number(r.reviews_count) || 0))
