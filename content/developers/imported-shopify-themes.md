@@ -49,7 +49,7 @@ The engine reads the theme's template language itself, and it is lenient: a tag 
 
 `shop.name` is the website's brand name from Theme settings, else the store's name from Settings › Store details. `shop.policies` and `shop.refund_policy` (and the other three) are the creator's own policy pages. `shop.enabled_payment_types` lists what Storelib's checkout takes: Visa, Mastercard, American Express, Apple Pay and Google Pay.
 
-**Metafields.** A product's custom fields from the product editor are `product.metafields.custom.<key>`, each printing as its value and with `.value`, `.key` and `.type`, so `{{ product.metafields.custom.material }}` and `.material.value` both work. The product's questions are `product.metafields.storelib.faqs.value`, a list of `{ question, answer }`.
+**Metafields.** A product's custom fields from the product editor are `product.metafields.custom.<key>`, each printing as its value and with `.value`, `.key` and `.type`, so `{{ product.metafields.custom.material }}` and `.material.value` both work. The product's questions are `product.metafields.storelib.faqs.value`, a list of `{ question, answer }`. On the product page, what the store offers with the product is `product.metafields.storelib.offers.value`: `{ bundles, quantityBreaks, checkoutOffers }`, the same JSON as `GET /api/offers?product=` ([Physical commerce](/developers/physical-commerce#upsells-and-bundles)), so a theme can draw its quantity breaks and bundles in Liquid.
 
 **Size charts.** A product given a size chart in the product editor (Products › Size charts) has it as `product.metafields.storelib.size_chart`, which prints as the chart's name. Its `.value` is:
 
@@ -100,9 +100,9 @@ The cart lives in a cookie on the website's own host, up to 50 lines and 99 of e
 | Address | What it does |
 | --- | --- |
 | `GET /cart.js`, `/cart.json` | The cart, in the shape themes expect |
-| `POST /cart/add`, `/cart/add.js` | Adds `id` and `quantity`, or an `items` list, with `properties` |
+| `POST /cart/add`, `/cart/add.js` | Adds `id` and `quantity`, or an `items` list, with `properties`; the same option with other properties is its own line |
 | `POST /cart/change`, `/cart/change.js` | Changes one line, by `line` or by key |
-| `POST /cart/update`, `/cart/update.js` | Sets quantities with `updates`, and the `note` |
+| `POST /cart/update`, `/cart/update.js` | Sets quantities with `updates`, the `note`, and the discount codes with `discount` ("A,B"), which `/cart.js` lists as `discount_codes` with whether each applies |
 | `POST /cart/clear`, `/cart/clear.js` | Empties it |
 | `GET /cart/add?id=…&quantity=…` | A link that adds and opens the cart |
 | `GET /cart/<variant>:<qty>,…` | A cart permalink: those lines, straight to checkout |

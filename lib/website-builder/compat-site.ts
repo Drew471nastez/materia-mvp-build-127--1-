@@ -480,9 +480,12 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       }
       /* The description and what is true now about each variant (below) are read together: neither needs the other. */
       const readPageFacts = () => (physical || card.settings.kind !== "physical" ? pageFactsFor(admin, creator.creatorId, card.id, siteCommerce(settings as Record<string, unknown>).showStockLeft) : Promise.resolve(null))
-      const [found, pageFacts] = await Promise.all([
+      /* What the page offers with it (product.metafields.storelib.offers): the same read as GET /api/offers, never failing the page. */
+      const readOffers = () => import("@/lib/offers/offers-public").then((m) => m.productOffers(admin, card.id)).catch(() => null)
+      const [found, pageFacts, offers] = await Promise.all([
         draft ? readDescription() : heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null),
         readPageFacts(),
+        readOffers(),
       ])
       const raw = found?.text ?? ""
       const descriptionHtml = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw) : raw.split(/\n{2,}/).filter(Boolean).map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`).join("")
@@ -497,7 +500,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
         product-facts.ts).
       */
       const withStock = withPageFacts(card, pageFacts)
-      return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [], ...(found?.seoTitle ? { seo_title: found.seoTitle } : {}) } }
+      return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [], ...(found?.seoTitle ? { seo_title: found.seoTitle } : {}), ...(offers ? { storelib_offers: offers } : {}) } }
     },
     /* Storelib Reviews: the shop's reviews and the product's, held a minute (lib/reviews/storefront-server.ts). */
     reviews: async (p) => (await import("@/lib/reviews/storefront-server")).storefrontReviews(creator.creatorId, p) as unknown as Promise<Record<string, unknown>>,

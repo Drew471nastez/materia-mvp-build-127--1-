@@ -207,6 +207,60 @@ for (const [name, vp] of [["a phone (390)", { width: 390, height: 844, isMobile:
   console.log(`        Cancel with nothing changed: gone in ${plainClose.ms}ms`)
   say(plainClose.gone && plainClose.ms <= 500, `Cancel with nothing changed closes at once, no question: ${plainClose.ms}ms`)
 
+  /*
+    A QUANTITY BREAK (round AF): its tiers typed in place, each row measured
+    (nothing sideways, 44px boxes on a phone), the preview priced by the
+    checkout's formula, a tier added, and the tiers in the body Save sends.
+  */
+  console.log(`\nA quantity break's tiers on ${name}`)
+  const QDATA = { ...DATA, offers: [...DATA.offers, offer({ id: "o5", kind: "quantity_break", title: "Buy more, save more", productIds: [A], discountType: "none", discountValue: 0, placements: ["product", "cart"], tiers: [{ quantity: 2, freeQuantity: 1, discountType: "none", discountValue: 0, label: "Buy 2 get 1 free", badge: "Most popular" }] })], sold: { o5: 12 } }
+  await open("admin", vp, { api: { ...STORE, "POST /api/store/offers": { offer: offer({ id: "o6", kind: "quantity_break", title: "Buy more, save more", productIds: [A], discountType: "none", discountValue: 0, tiers: [] }) } }, data: QDATA })
+  const qRow = await page.evaluate(() => [...document.querySelectorAll("[data-row]")].filter((el) => el.getClientRects().length > 0).map((r) => r.innerText.replace(/\s+/g, " ").trim()).find((t) => /Buy more, save more/.test(t)) ?? "")
+  const soldCell = await page.evaluate(() => [...document.querySelectorAll("[data-offer-sold]")].filter((el) => el.getClientRects().length > 0).map((el) => el.textContent.trim()))
+  say(/Quantity break/.test(qRow) && /Buy 2 get 1 free/.test(qRow) && (phone ? /12 sold/.test(qRow) : soldCell.includes("12")), `the list says its kind, its tiers and what it sold: "${qRow.slice(0, 110)}"${phone ? "" : `, Sold ${soldCell.join("/")}`}`)
+  f = await fits()
+  say(f.over <= 0 && f.cut.length === 0, `the list with a quantity break: ${fitLine(f)}`)
+  await page.click("[data-offer-new]")
+  await wait(400)
+  await page.evaluate(() => [...document.querySelectorAll('[role="radio"]')].find((b) => b.textContent.trim() === "Quantity break")?.click())
+  await wait(120)
+  await page.click(`[data-product-picker="offer-products"] [data-pick="${A}"]`)
+  await wait(80)
+  const T = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll("[data-tier]")]
+    const inputs = rows.flatMap((r) => [...r.querySelectorAll("input, select")])
+    const prices = [...document.querySelectorAll("[data-preview-tier] [data-preview-price]")].map((el) => el.textContent)
+    const editor = document.querySelector("[data-offer-editor]").getBoundingClientRect()
+    const outside = inputs.filter((el) => { const r = el.getBoundingClientRect(); return r.left < editor.left - 1 || r.right > editor.right + 1 }).length
+    const placeholder = rows[0]?.querySelector('input[maxlength="60"]')?.getAttribute("placeholder")
+    return { rows: rows.length, heights: [...new Set(inputs.map((el) => Math.round(el.getBoundingClientRect().height)))], fonts: [...new Set(inputs.map((el) => getComputedStyle(el).fontSize))], rowHeights: rows.map((r) => Math.round(r.getBoundingClientRect().height)), prices, outside, placeholder, places: [...document.querySelectorAll("[data-place]")].map((b) => b.getAttribute("data-place")).join() }
+  })
+  console.log(`        ${T.rows} tiers, rows ${T.rowHeights.join("/")}px, fields ${T.fonts.join("/")} in ${T.heights.join("/")}px boxes, preview ${T.prices.join(" / ")}`)
+  say(T.rows === 2 && T.outside === 0 && (phone ? T.heights.every((h) => h >= 44) && T.fonts.every((s) => s === "16px") : T.heights.every((h) => h >= 36)), `two starting tiers, every field inside the editor, ${phone ? "16px text in 44px boxes" : "36px boxes or more"}: ${T.heights.join("/")}px, ${T.fonts.join("/")}`)
+  say(T.prices.join() === "$64,$96", `the preview is the checkout's formula at $32.00: 2 + 1 free $64, 3 + 2 free $96 (${T.prices.join(", ")})`)
+  say(T.placeholder === "Buy 2 get 1 free" && T.places === "product,cart", `a blank label shows the tier's own words ("${T.placeholder}"); it shows on ${T.places}`)
+  f = await fits()
+  say(f.over <= 0 && f.cut.length === 0, `the tier editor: ${fitLine(f)}`)
+  await page.click("[data-tier-add]")
+  await wait(80)
+  const third = await page.evaluate(() => ({ rows: document.querySelectorAll("[data-tier]").length, prices: [...document.querySelectorAll("[data-preview-tier] [data-preview-price]")].map((el) => el.textContent) }))
+  /* 6 at 15% off $32.00: round(3200 * 85 / 100) * 6 = $163.20, one unit past the 3 + 2 block. */
+  say(third.rows === 3 && third.prices.join() === "$64,$96,$163.20", `Add tier adds a bigger one, priced in the preview: ${third.prices.join(", ")}`)
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/offer-tiers-editor-${vp.width}.png` })
+  if (process.env.SHOTS) await page.evaluate(() => document.querySelector("[data-tiers]")?.scrollIntoView({ block: "start" }))
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/offer-tiers-rows-${vp.width}.png` })
+  await page.evaluate(() => { const i = document.querySelectorAll('[data-tier="1"] input')[0]; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(i, "1"); i.dispatchEvent(new Event("input", { bubbles: true })) })
+  await page.click("[data-offer-save]")
+  await wait(120)
+  const tierMsg = await page.evaluate(() => [...document.querySelectorAll("[data-tier] p")].map((p) => p.textContent).filter(Boolean))
+  say(tierMsg.some((m) => /bigger than the tier above/.test(m)) && !(await page.evaluate(() => window.__sent)).some((x) => x.method === "POST"), `a tier smaller than the one above is said under it, and nothing is sent: ${tierMsg.join(" | ")}`)
+  await page.evaluate(() => { const i = document.querySelectorAll('[data-tier="1"] input')[0]; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(i, "3"); i.dispatchEvent(new Event("input", { bubbles: true })) })
+  await page.click("[data-offer-save]")
+  await wait(300)
+  const qs = (await page.evaluate(() => window.__sent)).find((x) => x.method === "POST")
+  say(!!qs && qs.body.kind === "quantity_break" && qs.body.productIds.join() === A && qs.body.tiers.length === 3 && qs.body.tiers[0].quantity === 2 && qs.body.tiers[0].freeQuantity === 1 && qs.body.tiers[1].freeQuantity === 2 && qs.body.tiers[2].quantity === 6 && qs.body.tiers[2].discountType === "percent" && qs.body.tiers[2].discountValue === 15 && qs.body.discountType === "none", `Save sends the tiers as the server reads them: ${JSON.stringify(qs?.body?.tiers)?.slice(0, 220)}`)
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/offer-tiers-${vp.width}.png`, fullPage: true })
+
   console.log(`\nA product page's bundles and upsells on ${name}`)
   await open("bundle", vp, { api: BUNDLE })
   f = await fits()

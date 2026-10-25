@@ -631,6 +631,8 @@ const SUITES = [
   "tests/support-t.test.ts",
   "tests/offers-t.test.ts",
   "tests/offers-v.test.ts",
+  /* Round AF: quantity breaks and Buy X get Y free charged at checkout exactly as the theme showed them (one formula, every tier and variant, yen and lei), one offer per unit, properties to the order line, cart discount codes to checkout, GET /api/offers and the Liquid metafield; SQL part 304. */
+  "tests/offers-af.test.ts",
   "tests/round-v.test.ts",
   "tests/round-w.test.ts",
   "tests/product-editor-physical.test.ts",

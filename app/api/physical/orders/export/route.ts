@@ -4,6 +4,8 @@ import { isUuid, physicalCaller } from "@/lib/physical/auth"
 import { countryName } from "@/lib/checkout/countries"
 import { orderNumber } from "@/lib/physical/status"
 import { guardFormula } from "@/lib/csv/formula-guard"
+import { lineProperties } from "@/lib/physical/cart-link"
+import { offersOfSnapshot } from "@/lib/physical/orders-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,6 +19,16 @@ function cell(value: unknown): string {
   /* A spreadsheet runs a cell starting with = + - @ as a formula, even after spaces or breaks (lib/csv/formula-guard.ts); a quote first stops that. */
   const safe = guardFormula(s)
   return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
+}
+
+/** A line's properties in one cell, every one (the store's own `_` notes too): "Engraving: Ana; _sl_offer_id: …". */
+function propertiesText(raw: unknown): string {
+  return Object.entries(lineProperties(raw) ?? {}).map(([k, v]) => `${k}: ${v}`).join("; ")
+}
+
+/** The offers that saved on a line, by the name the checkout showed: "Buy 2 get 1 free". */
+function offersText(raw: unknown): string {
+  return (offersOfSnapshot(raw) ?? []).map((o) => o.title).join("; ")
 }
 
 /** Orders still to ship (or all, with ?all=1; only some, with ?ids=), one row per item, for a warehouse or a spreadsheet. */
@@ -56,7 +68,8 @@ export async function GET(request: Request) {
     data.push(...((page ?? []) as Record<string, any>[]))
     if (!page || page.length < EXPORT_PAGE) break
   }
-  const header = ["Order", "Paid at", "Fulfillment", "Name", "Email", "Phone", "Address 1", "Address 2", "City", "Region", "Postal code", "Country", "Delivery", "Product", "Variant", "SKU", "Quantity", "Note", "Buyer reference"]
+  /* Properties and Offers last, so a sheet reading columns by place still reads the ones before. */
+  const header = ["Order", "Paid at", "Fulfillment", "Name", "Email", "Phone", "Address 1", "Address 2", "City", "Region", "Postal code", "Country", "Delivery", "Product", "Variant", "SKU", "Quantity", "Note", "Buyer reference", "Properties", "Offers"]
   const rows: string[] = [header.join(",")]
   /* Order: the Orders page's number; Buyer reference: what the buyer's emails and packing slip say (lib/orders/order-number-server.ts). */
   const numbers = await sellerOrderNumbers(c.db, c.creatorId)
@@ -65,7 +78,7 @@ export async function GET(request: Request) {
     for (const l of (o.lines ?? []) as Record<string, any>[]) {
       if (!l.requires_shipping) continue
       rows.push(
-        [numbers?.byCheckout.get(o.id) ? `#${numbers.byCheckout.get(o.id)}` : orderNumber(o.id), o.paid_at, o.fulfillment_status, a.name ?? o.buyer_name, o.buyer_email, a.phone ?? o.buyer_phone, a.line1, a.line2, a.city, a.region, a.postalCode, a.country ? countryName(a.country) : "", o.shipping_rate?.name, l.title, l.variant_name, l.sku, l.quantity, o.buyer_note, orderNumber(o.id).replace(/^#/, "")]
+        [numbers?.byCheckout.get(o.id) ? `#${numbers.byCheckout.get(o.id)}` : orderNumber(o.id), o.paid_at, o.fulfillment_status, a.name ?? o.buyer_name, o.buyer_email, a.phone ?? o.buyer_phone, a.line1, a.line2, a.city, a.region, a.postalCode, a.country ? countryName(a.country) : "", o.shipping_rate?.name, l.title, l.variant_name, l.sku, l.quantity, o.buyer_note, orderNumber(o.id).replace(/^#/, ""), propertiesText(l.properties), offersText(l.offers)]
           .map(cell)
           .join(","),
       )

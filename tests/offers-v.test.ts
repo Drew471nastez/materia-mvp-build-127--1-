@@ -371,8 +371,9 @@ async function main() {
     check("the basket of downloads applies them too, each store's on its own lines", /loadOffers\(db, creatorId, \{ activeOnly: true \}\)/.test(basket) && /applyOffers\(offerLines, offers, \{ now \}\)/.test(basket) && /stackWithCode\(group\.lines, group\.offers/.test(basket))
     const cartRoute = read("app/api/checkout/cart/route.ts")
     check("  the Stripe page's coupon figure is the code's part only", /discount_cents: String\(priced\.discountCents - priced\.offerCents\)/.test(cartRoute))
-    const bundles = read("app/api/offers/bundles/route.ts")
-    check("the product page's offers: not behind the physical switch, only the store's own published products", !/physicalApiGate/.test(bundles) && /bundlesWith\(productId, offers, \{ now \}\)/.test(bundles) && /upsellsFor\(productId, mine, offers, \{ now \}\)/.test(bundles))
+    /* Changed on purpose (round AF): the route reads lib/offers/offers-public.ts, which GET /api/offers and the Liquid metafield read too. */
+    const bundles = read("app/api/offers/bundles/route.ts") + read("lib/offers/offers-public.ts")
+    check("the product page's offers: not behind the physical switch, only the store's own published products", !/physicalApiGate/.test(bundles) && /bundlesWith\(p\.id, offers, \{ now \}\)/.test(bundles) && /upsellsFor\(p\.id, mine, offers, \{ now \}\)/.test(bundles))
     const cartApi = read("app/api/offers/cart/route.ts")
     check("the cart's offers: the shop's own published products only, prices from the database", /\.eq\("creator_id", shopId\)\.eq\("status", "published"\)/.test(cartApi) && /baseFor\(v \?\? p, i\.customPriceCents\)/.test(cartApi) && /suggestionsFor\(lines, offers, \{ placement: "cart", now \}\)/.test(cartApi) && /rateLimit\(/.test(cartApi))
     const store = read("app/api/store/offers/route.ts")

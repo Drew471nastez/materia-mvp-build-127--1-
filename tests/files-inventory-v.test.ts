@@ -427,7 +427,7 @@ async function main() {
     check("keep selling: the variant's or the product's", sellsWhenOut("continue", false) && sellsWhenOut("deny", true) && !sellsWhenOut("deny", false) && !sellsWhenOut(null, null))
     check("the cart: untracked and keep selling always sell; otherwise only what is available", canSell({ tracked: false, keepSelling: false, available: 0, quantity: 3 }) && canSell({ tracked: true, keepSelling: true, available: 0, quantity: 3 }) && canSell({ tracked: true, keepSelling: false, available: 3, quantity: 3 }) && !canSell({ tracked: true, keepSelling: false, available: 2, quantity: 3 }))
     const pricing = raw("lib/physical/checkout-pricing-server.ts")
-    check("  checkout reads the same rule", /sellsWhenOut\(v\.inventory_policy, p\.continue_selling\) \? "continue" : "deny"/.test(pricing) && /if \(!canSell\(\{ tracked, keepSelling: policy === "continue", available, quantity: item\.quantity \}\)\) \{/.test(pricing))
+    check("  checkout reads the same rule", /sellsWhenOut\(v\.inventory_policy, p\.continue_selling\) \? "continue" : "deny"/.test(pricing) && /* Changed on purpose (round AF): lines of one option counted together. */ /if \(!canSell\(\{ tracked, keepSelling: policy === "continue", available, quantity: before \+ item\.quantity \}\)\) \{/.test(pricing))
     check("  and the product editor reads it the same way", /inventoryPolicy: sellsWhenOut\(r\.inventory_policy, product\.continue_selling\) \? "continue" : "deny"/.test(raw("lib/physical/catalog-server.ts")))
   }
 

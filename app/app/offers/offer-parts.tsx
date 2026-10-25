@@ -14,6 +14,7 @@ import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 import { moneyIn } from "./offer-money"
 import { bundlePrice, discountLabel, offerUnitPrice, placementsOf, type Offer, type OfferState, type Placement } from "@/lib/offers/offers"
+import { tierTotals, type Tier } from "@/lib/offers/pricing"
 import { ProductThumb } from "../products/collections/collection-parts"
 
 export interface OfferProduct {
@@ -33,7 +34,15 @@ export interface OfferCollection {
 
 export { currencySign, minorDigits, moneyIn } from "./offer-money"
 
-export const KIND_WORD = { bundle: () => tt("Bundle"), checkout: () => tt("Upsell") } as const
+export const KIND_WORD = { bundle: () => tt("Bundle"), checkout: () => tt("Upsell"), quantity_break: () => tt("Quantity break") } as const
+
+/** A tier in the store's language when it has no label of its own: "Buy 2 get 1 free", "Buy 3, save 15%". */
+export function tierWords(t: Pick<Tier, "quantity" | "freeQuantity" | "discountType" | "discountValue">, money: (minor: number) => string): string {
+  if (t.freeQuantity > 0) return tt("Buy {quantity} get {free} free", { quantity: t.quantity, free: t.freeQuantity })
+  if (t.discountType === "percent" && t.discountValue > 0) return tt("Buy {quantity}, save {percent}%", { quantity: t.quantity, percent: t.discountValue })
+  if (t.discountType === "amount" && t.discountValue > 0) return tt("Buy {quantity}, save {amount}", { quantity: t.quantity, amount: money(t.discountValue) })
+  return tt("Buy {quantity}", { quantity: t.quantity })
+}
 
 export const PLACEMENT_WORD: Record<Placement, () => string> = {
   product: () => tt("Product page"),
@@ -66,16 +75,21 @@ export function datesText(o: Pick<Offer, "startsAt" | "endsAt">, state: OfferSta
   return null
 }
 
-/** What an offer holds, in a few words: its products for a bundle, the product it offers for an upsell. */
-export function contentsText(o: Pick<Offer, "kind" | "productIds">, byId: Map<string, OfferProduct>): string {
+/** What an offer holds, in a few words: its products for a bundle, the product it offers for an upsell, the product or collection of a quantity break. */
+export function contentsText(o: Pick<Offer, "kind" | "productIds" | "triggerCollectionIds">, byId: Map<string, OfferProduct>, collections: OfferCollection[] = []): string {
   const names = o.productIds.map((id) => byId.get(id)?.title).filter(Boolean) as string[]
-  if (o.kind === "checkout") return names[0] ?? tt("A product that was deleted")
+  if (o.kind === "quantity_break" && o.productIds.length === 0) {
+    const c = collections.find((x) => x.id === o.triggerCollectionIds?.[0])
+    return c ? tt("Every product in {collection}", { collection: c.title }) : tt("A collection that was deleted")
+  }
+  if (o.kind === "checkout" || o.kind === "quantity_break") return names[0] ?? tt("A product that was deleted")
   if (names.length <= 2) return names.join(" + ")
   return tt("{first} + {n} more", { first: names[0], n: names.length - 1 })
 }
 
-/** The discount as a list says it, in the store's currency. */
-export const discountText = (o: Pick<Offer, "discountType" | "discountValue">, currency: string) => discountLabel(o, moneyIn(currency))
+/** The discount as a list says it, in the store's currency; a quantity break by its tiers: "Buy 2 get 1 free · Buy 3, save 15%". */
+export const discountText = (o: Pick<Offer, "kind" | "discountType" | "discountValue" | "tiers">, currency: string) =>
+  o.kind === "quantity_break" ? (o.tiers ?? []).map((t) => t.label || tierWords(t, moneyIn(currency))).join(" · ") : discountLabel(o, moneyIn(currency))
 
 /** Up to three of an offer's product pictures, overlapping. */
 export function OfferThumbs({ offer, byId }: { offer: Pick<Offer, "productIds">; byId: Map<string, OfferProduct> }) {
@@ -156,6 +170,41 @@ export function OfferPreview({ draft, byId, currency }: { draft: Pick<Offer, "ki
         </span>
       </div>
     </div>
+  )
+}
+
+/**
+ * A QUANTITY BREAK AS A PRODUCT PAGE SHOWS IT: one row per tier, its label
+ * and badge, what the block costs and what it would cost without the offer,
+ * at the product's own price, from the formula the checkout charges by
+ * (lib/offers/pricing.ts tierTotals). A collection's tiers are shown at its
+ * first product's price.
+ */
+export function BreakPreview({ tiers, product, currency }: { tiers: Tier[]; product: OfferProduct | null; currency: string }) {
+  const money = moneyIn(currency)
+  if (!product) return <PreviewEmpty>{tt("Pick the product to see its tiers.")}</PreviewEmpty>
+  if (tiers.length === 0) return <PreviewEmpty>{tt("Add a tier to see it.")}</PreviewEmpty>
+  return (
+    <ul data-offer-preview="quantity-break" className="divide-y divide-[#f1f2f4] rounded-xl border border-[#e5e7eb] bg-white">
+      {tiers.map((t, i) => {
+        const { totalCents, compareCents } = tierTotals(product.priceCents, t)
+        return (
+          <li key={i} data-preview-tier={i} className="flex items-center gap-3 px-3.5 py-2.5">
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="truncate text-[14px] font-medium text-[#1a1a2e]">{t.label || tierWords(t, money)}</span>
+                {t.badge ? <span className="shrink-0 rounded-md bg-[#e3f5e9] px-1.5 py-0.5 text-[11.5px] font-medium text-[#14532d]">{t.badge}</span> : null}
+              </span>
+              <span className="block text-[12.5px] text-[#6b7280]">{tt("{n, plural, one {# item} other {# items}}", { n: t.quantity + t.freeQuantity })}</span>
+            </span>
+            <span className="shrink-0 text-right tabular-nums">
+              <span data-preview-price="" className="block text-[14px] font-semibold text-[#1a1a2e]">{money(totalCents)}</span>
+              {compareCents > totalCents ? <span className="block text-[12.5px] text-[#9ca3af] line-through">{money(compareCents)}</span> : null}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

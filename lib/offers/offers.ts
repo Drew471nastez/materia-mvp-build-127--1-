@@ -1,4 +1,5 @@
 import { tt } from "@/lib/i18n/text"
+import { breakSavings, readTiers, tierDiscounts, type Tier } from "./pricing"
 /**
  * ===========================================================================
  *  UPSELLS AND BUNDLES: WHAT AN OFFER TAKES OFF A CART
@@ -19,6 +20,19 @@ import { tt } from "@/lib/i18n/text"
  *              trigger product, the cart, the checkout. Once it's in the
  *              cart, up to its limit per order (one by default) gets the
  *              discount, as long as the cart still qualifies.
+ *   quantity_break
+ *              one product, or every product of one collection, with up
+ *              to six tiers: buy more, pay less per unit, or get some free
+ *              (Buy X get Y free). Every unit of the product in the cart
+ *              counts, whatever its variant or line, and the arithmetic is
+ *              ./pricing.ts, the one the theme shows its numbers by.
+ *
+ * A UNIT GETS ONE OFFER AT MOST. Each offer works out what it would save on
+ * each unit; a unit two offers want goes to the one that saves more on it
+ * (a tie to the quantity break), and the other offer loses that unit's
+ * saving only. A bundle or a checkout offer takes, of a product, the units
+ * its quantity break saves least on first, so the two meet only when they
+ * have to.
  *
  * Every offer may have a start and an end, a limit per order, and a rule for
  * codes: whether a discount code can be used on top of it. When it can't,
@@ -36,7 +50,7 @@ import { tt } from "@/lib/i18n/text"
  * applies after, to what's left.
  */
 
-export const OFFER_KINDS = ["bundle", "checkout"] as const
+export const OFFER_KINDS = ["bundle", "checkout", "quantity_break"] as const
 export type OfferKind = (typeof OFFER_KINDS)[number]
 export const DISCOUNT_TYPES = ["percent", "fixed", "free_shipping", "none"] as const
 export type DiscountType = (typeof DISCOUNT_TYPES)[number]
@@ -44,7 +58,7 @@ export type DiscountType = (typeof DISCOUNT_TYPES)[number]
 export const PLACEMENTS = ["product", "cart", "checkout"] as const
 export type Placement = (typeof PLACEMENTS)[number]
 /** The places each kind can be shown. A bundle is completed on a product page or in the cart, never added in one press at the checkout. */
-export const PLACEMENTS_FOR: Record<OfferKind, readonly Placement[]> = { bundle: ["product", "cart"], checkout: ["product", "cart", "checkout"] }
+export const PLACEMENTS_FOR: Record<OfferKind, readonly Placement[]> = { bundle: ["product", "cart"], checkout: ["product", "cart", "checkout"], quantity_break: ["product", "cart"] }
 
 export const MAX_BUNDLE = 5
 export const MAX_TRIGGERS = 20
@@ -76,6 +90,12 @@ export interface Offer {
   maxPerOrder?: number | null
   /** A checkout offer's minimum: the rest of the cart is worth at least this, in cents. */
   minSubtotalCents?: number | null
+  /**
+   * A quantity break's tiers (./pricing.ts, SQL part 304). It covers
+   * productIds[0], or with no product every product of the collection in
+   * triggerCollectionIds[0].
+   */
+  tiers?: Tier[]
 }
 
 export interface OfferLine {
@@ -90,17 +110,31 @@ export interface OfferLine {
 
 export interface AppliedOffer {
   offerId: string
+  /** The saving's own line at checkout: the offer's name, or a quantity break tier's label. */
   title: string
   kind: OfferKind
   savedCents: number
   /** It gives the order free shipping. */
   freeShipping?: boolean
+  /** A quantity break: which of its tiers, from 0. */
+  tier?: number
+}
+
+/** One offer's part of one line, as the order keeps it with the line (its snapshot's `offers`). */
+export interface LineOffer {
+  offerId: string
+  title: string
+  kind: OfferKind
+  savedCents: number
+  tier?: number
 }
 
 export interface OfferResult {
   discounts: number[]
   applied: AppliedOffer[]
   freeShipping: boolean
+  /** `lineOffers[i]`: the offers that make up `discounts[i]`, each with its part. */
+  lineOffers: LineOffer[][]
 }
 
 export type OfferState = "active" | "scheduled" | "ended" | "off"
@@ -133,7 +167,15 @@ export function offerState(o: Pick<Offer, "active" | "startsAt" | "endsAt">, now
 export const offerLive = (o: Pick<Offer, "active" | "startsAt" | "endsAt">, now: Date = new Date()) => offerState(o, now) === "active"
 
 /** Whether it takes anything off or ships for free; "none" only suggests. */
-const discounting = (o: Offer) => o.discountType === "free_shipping" || ((o.discountType === "percent" || o.discountType === "fixed") && o.discountValue > 0)
+const discounting = (o: Offer) => (o.kind === "quantity_break" ? (o.tiers ?? []).some(tierDiscounts) : o.discountType === "free_shipping" || ((o.discountType === "percent" || o.discountType === "fixed") && o.discountValue > 0))
+
+/** Whether a quantity break covers a product: its own product, or a product of its collection. */
+export function breakCovers(o: Pick<Offer, "kind" | "productIds" | "triggerCollectionIds">, productId: string, collectionIds: string[] = []): boolean {
+  if (o.kind !== "quantity_break") return false
+  if (o.productIds.length) return o.productIds[0] === productId
+  const c = o.triggerCollectionIds?.[0]
+  return !!c && collectionIds.includes(c)
+}
 
 /** How a store's offer reads in a list: "15% off", "$5.00 off", "Free shipping", "No discount". */
 export function discountLabel(o: Pick<Offer, "discountType" | "discountValue">, money: (cents: number) => string = (c) => `$${(c / 100).toFixed(2)}`): string {
@@ -176,22 +218,28 @@ export function triggered(o: Offer, cart: { productId: string; quantity: number;
  */
 export function applyOffers(lines: OfferLine[], offers: Offer[], opts: { now?: Date; withCode?: boolean } = {}): OfferResult {
   const now = opts.now ?? new Date()
-  const discounts = lines.map(() => 0)
-  const free = lines.map((l) => Math.max(0, Math.floor(l.quantity)))
-  const applied: AppliedOffer[] = []
+  const qty = lines.map((l) => Math.max(0, Math.floor(l.quantity)))
+  /* Each unit of each line, by line and place in it: what its quantity break would save, what a bundle or checkout offer would, and whether one of those has taken it. */
+  type Claim = { offer: Offer; title: string; saving: number; tier?: number }
+  const fromBreak: (Claim | null)[][] = qty.map((q) => new Array<Claim | null>(q).fill(null))
+  const fromOther: (Claim | null)[][] = qty.map((q) => new Array<Claim | null>(q).fill(null))
+  const taken: boolean[][] = qty.map((q) => new Array<boolean>(q).fill(false))
+  const shipping: AppliedOffer[] = []
   let freeShipping = false
   const linesOf = (productId: string) => lines.map((l, i) => (l.productId === productId ? i : -1)).filter((i) => i >= 0)
-  const unitsOf = (productId: string) => linesOf(productId).reduce((n, i) => n + free[i], 0)
-  /** Takes `count` undiscounted units of a product, dearest first, and says which line each came from. */
-  const take = (productId: string, count: number): number[] => {
-    const out: number[] = []
-    const order = linesOf(productId).sort((a, b) => lines[b].unitCents - lines[a].unitCents)
-    for (const i of order) {
-      while (out.length < count && free[i] > 0) {
-        free[i]--
-        out.push(i)
-      }
-    }
+  const unitsOf = (productId: string) => linesOf(productId).reduce((n, i) => n + taken[i].filter((t) => !t).length, 0)
+  const breakSave = (i: number, k: number) => fromBreak[i][k]?.saving ?? 0
+  /**
+   * Takes `count` units of a product no bundle or checkout offer has yet:
+   * those its quantity break saves least on first, then the dearest, so a
+   * bundle on a unit the break leaves alone never costs the break anything.
+   */
+  const take = (productId: string, count: number): { i: number; k: number }[] => {
+    const free: { i: number; k: number }[] = []
+    for (const i of linesOf(productId)) for (let k = 0; k < qty[i]; k++) if (!taken[i][k]) free.push({ i, k })
+    free.sort((a, b) => breakSave(a.i, a.k) - breakSave(b.i, b.k) || lines[b.i].unitCents - lines[a.i].unitCents || a.i - b.i || a.k - b.k)
+    const out = free.slice(0, Math.max(0, count))
+    for (const u of out) taken[u.i][u.k] = true
     return out
   }
   const limit = (o: Offer, fallback: number) => {
@@ -200,10 +248,44 @@ export function applyOffers(lines: OfferLine[], offers: Offer[], opts: { now?: D
   }
 
   const on = offers.filter((o) => offerLive(o, now) && discounting(o) && !(opts.withCode && o.combinesWithCodes === false))
+  const breaks = on.filter((o) => o.kind === "quantity_break")
   const ordered = [...on.filter((o) => o.kind === "bundle"), ...on.filter((o) => o.kind === "checkout")]
 
+  /*
+    QUANTITY BREAKS FIRST, as what each unit would save (./pricing.ts
+    breakSavings): every unit of a product counts, over its variants and
+    lines. A pay what you want amount is neither counted nor discounted.
+    Two breaks on one product (its own and its collection's): the one that
+    saves more on the whole, the earlier on a tie.
+  */
+  if (breaks.length) {
+    for (const productId of uniq(lines.map((l) => l.productId))) {
+      const own = linesOf(productId)
+      const collections = uniq(own.flatMap((i) => lines[i].collectionIds ?? []))
+      const covering = breaks.filter((o) => breakCovers(o, productId, collections))
+      if (covering.length === 0) continue
+      const units = own.filter((i) => !lines[i].payWhatYouWant).flatMap((i) => Array.from({ length: qty[i] }, (_, k) => ({ i, k, line: i, cents: Math.max(0, Math.round(lines[i].unitCents)) })))
+      let best: { o: Offer; savings: ReturnType<typeof breakSavings>; total: number } | null = null
+      for (const o of covering) {
+        const savings = breakSavings(units, o.tiers ?? [])
+        const total = savings.reduce((n, s) => n + s.saving, 0)
+        if (total > 0 && (!best || total > best.total)) best = { o, savings, total }
+      }
+      if (!best) continue
+      const tiers = best.o.tiers ?? []
+      best.savings.forEach((s, n) => {
+        if (s.tier < 0) return
+        const u = units[n]
+        fromBreak[u.i][u.k] = { offer: best!.o, title: tiers[s.tier]?.label || best!.o.title, saving: s.saving, tier: s.tier }
+      })
+    }
+  }
+
+  /* Then bundles and checkout offers, in the store's order, each on units no earlier one took. */
   for (const o of ordered) {
-    let saved = 0
+    const claim = (u: { i: number; k: number }, saving: number) => {
+      if (saving > 0) fromOther[u.i][u.k] = { offer: o, title: o.title, saving }
+    }
     let ships = false
     if (o.kind === "bundle") {
       const ids = uniq(o.productIds)
@@ -217,24 +299,19 @@ export function applyOffers(lines: OfferLine[], offers: Offer[], opts: { now?: D
         for (let s = 0; s < sets; s++) {
           const units = ids.map((id) => take(id, 1)[0])
           /* A pay what you want amount is in the set but never discounted: the rest of the set takes the discount. */
-          const priced = units.filter((i) => !lines[i].payWhatYouWant)
+          const priced = units.filter((u) => !lines[u.i].payWhatYouWant)
           if (o.discountType === "percent") {
-            for (const i of priced) {
-              const d = unitOff(o, lines[i].unitCents)
-              discounts[i] += d
-              saved += d
-            }
+            for (const u of priced) claim(u, unitOff(o, lines[u.i].unitCents))
           } else {
             /* A fixed amount off the set, shared by price; the last item takes the rounding. */
-            const setCents = priced.reduce((n, i) => n + lines[i].unitCents, 0)
+            const setCents = priced.reduce((n, u) => n + lines[u.i].unitCents, 0)
             const off = Math.min(setCents, Math.max(0, Math.round(o.discountValue)))
             let left = off
-            priced.forEach((i, k) => {
-              const share = k === priced.length - 1 ? left : Math.floor((off * lines[i].unitCents) / Math.max(1, setCents))
-              const d = Math.min(share, lines[i].unitCents)
-              discounts[i] += d
+            priced.forEach((u, k) => {
+              const share = k === priced.length - 1 ? left : Math.floor((off * lines[u.i].unitCents) / Math.max(1, setCents))
+              const d = Math.min(share, lines[u.i].unitCents)
+              claim(u, d)
               left -= d
-              saved += d
             })
           }
         }
@@ -245,21 +322,52 @@ export function applyOffers(lines: OfferLine[], offers: Offer[], opts: { now?: D
       if (o.discountType === "free_shipping") {
         ships = true
       } else {
-        for (const i of take(target, limit(o, 1))) {
-          if (lines[i].payWhatYouWant) continue
-          const d = unitOff(o, lines[i].unitCents)
-          discounts[i] += d
-          saved += d
+        for (const u of take(target, limit(o, 1))) {
+          if (lines[u.i].payWhatYouWant) continue
+          claim(u, unitOff(o, lines[u.i].unitCents))
         }
       }
     }
-    if (ships) freeShipping = true
-    if (saved > 0 || ships) applied.push({ offerId: o.id, title: o.title, kind: o.kind, savedCents: saved, ...(ships ? { freeShipping: true } : {}) })
+    if (ships) {
+      freeShipping = true
+      shipping.push({ offerId: o.id, title: o.title, kind: o.kind, savedCents: 0, freeShipping: true })
+    }
+  }
+
+  /* ONE OFFER PER UNIT: the one that saves more on it; a tie goes to the quantity break. */
+  const discounts = lines.map(() => 0)
+  const lineOffers: LineOffer[][] = lines.map(() => [])
+  const totals = new Map<string, AppliedOffer>()
+  const kindRank: Record<OfferKind, number> = { bundle: 0, checkout: 1, quantity_break: 2 }
+  qty.forEach((q, i) => {
+    for (let k = 0; k < q; k++) {
+      const a = fromBreak[i][k]
+      const b = fromOther[i][k]
+      const win = b && b.saving > (a?.saving ?? 0) ? b : a && a.saving > 0 ? a : null
+      if (!win) continue
+      discounts[i] += win.saving
+      const key = `${win.offer.id}:${win.tier ?? ""}`
+      const mine = lineOffers[i].find((x) => `${x.offerId}:${x.tier ?? ""}` === key)
+      if (mine) mine.savedCents += win.saving
+      else lineOffers[i].push({ offerId: win.offer.id, title: win.title, kind: win.offer.kind, savedCents: win.saving, ...(win.tier !== undefined ? { tier: win.tier } : {}) })
+      const all = totals.get(key)
+      if (all) all.savedCents += win.saving
+      else totals.set(key, { offerId: win.offer.id, title: win.title, kind: win.offer.kind, savedCents: win.saving, ...(win.tier !== undefined ? { tier: win.tier } : {}) })
+    }
+  })
+  const position = new Map(on.map((o, n) => [o.id, n]))
+  const saved = [...totals.values()].sort((x, y) => kindRank[x.kind] - kindRank[y.kind] || (position.get(x.offerId) ?? 0) - (position.get(y.offerId) ?? 0) || (x.tier ?? 0) - (y.tier ?? 0))
+  /* A bundle that ships free and saves on its units too is one entry. */
+  const applied: AppliedOffer[] = [...saved]
+  for (const s of shipping) {
+    const same = applied.find((a) => a.offerId === s.offerId)
+    if (same) same.freeShipping = true
+    else applied.push(s)
   }
 
   /* Never below zero: a line's discounts together stop at what the line costs. */
-  lines.forEach((l, i) => (discounts[i] = Math.min(discounts[i], l.unitCents * Math.max(0, Math.floor(l.quantity)))))
-  return { discounts, applied, freeShipping }
+  lines.forEach((l, i) => (discounts[i] = Math.min(discounts[i], l.unitCents * qty[i])))
+  return { discounts, applied, freeShipping, lineOffers }
 }
 
 /** A code's discounts on what each line costs after the offers, or why it can't be used. */
@@ -366,6 +474,47 @@ function readTime(v: unknown): string | null | "bad" {
   return Number.isFinite(t) ? new Date(t).toISOString() : "bad"
 }
 
+/**
+ * A quantity break as the editor sent it: one product, or one collection
+ * (no product), its tiers checked by ./pricing.ts readTiers, where it shows
+ * (product page, cart), its dates, its rule for codes. No discount of its
+ * own: each tier has one.
+ */
+function readBreak(body: Record<string, unknown>, title: string, ids: (v: unknown) => string[]): { ok: true; offer: Omit<Offer, "id"> } | { ok: false; error: string } {
+  const productIds = ids(body.productIds).slice(0, 1)
+  const collections = productIds.length ? [] : ids(body.triggerCollectionIds).slice(0, 1)
+  if (productIds.length === 0 && collections.length === 0) return { ok: false, error: tt("Choose the product or the collection it's for.") }
+  const tiers = readTiers(body.tiers)
+  if (tiers.ok === false) return { ok: false, error: (tiers as { error: string }).error }
+  const allowed = PLACEMENTS_FOR.quantity_break
+  const placements = Array.isArray(body.placements) ? (uniq(body.placements.filter((p): p is Placement => typeof p === "string" && allowed.includes(p as Placement))) as Placement[]) : [...allowed]
+  if (placements.length === 0) return { ok: false, error: tt("Choose at least one place to show it.") }
+  const startsAt = readTime(body.startsAt)
+  const endsAt = readTime(body.endsAt)
+  if (startsAt === "bad" || endsAt === "bad") return { ok: false, error: tt("Enter a date and time.") }
+  if (startsAt && endsAt && Date.parse(endsAt) <= Date.parse(startsAt)) return { ok: false, error: tt("The end has to be after the start.") }
+  return {
+    ok: true,
+    offer: {
+      kind: "quantity_break",
+      title,
+      productIds,
+      triggerIds: [],
+      triggerCollectionIds: collections,
+      discountType: "none",
+      discountValue: 0,
+      active: body.active !== false,
+      placements,
+      startsAt,
+      endsAt,
+      combinesWithCodes: body.combinesWithCodes !== false,
+      maxPerOrder: null,
+      minSubtotalCents: null,
+      tiers: (tiers as { tiers: Tier[] }).tiers,
+    },
+  }
+}
+
 /** An offer as the store's editor sent it, checked, or what is wrong with it. */
 export function readOffer(body: Record<string, unknown> | null): { ok: true; offer: Omit<Offer, "id"> } | { ok: false; error: string } {
   if (!body) return { ok: false, error: tt("Bad request.") }
@@ -374,6 +523,7 @@ export function readOffer(body: Record<string, unknown> | null): { ok: true; off
   const title = typeof body.title === "string" ? body.title.replace(/\s+/g, " ").trim().slice(0, 80) : ""
   if (!title) return { ok: false, error: tt("Give it a name buyers will see, like “Complete the set”.") }
   const ids = (v: unknown) => (Array.isArray(v) ? uniq(v.filter((x): x is string => typeof x === "string" && UUID.test(x))) : [])
+  if (kind === "quantity_break") return readBreak(body, title, ids)
   const productIds = ids(body.productIds)
   const triggerIds = kind === "checkout" ? ids(body.triggerIds).filter((id) => id !== productIds[0]).slice(0, MAX_TRIGGERS) : []
   const triggerCollectionIds = kind === "checkout" ? ids(body.triggerCollectionIds).slice(0, MAX_TRIGGERS) : []

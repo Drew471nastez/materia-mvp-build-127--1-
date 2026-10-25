@@ -599,7 +599,7 @@ export const COMMERCE_DOCS: DocSection[] = [
       {
         id: "selling-more",
         name: "Discount codes, bundles and checkout offers",
-        does: "Codes a buyer types at checkout; bundles shown on each product's page with Add all to cart; one product suggested in the checkout.",
+        does: "Codes a buyer types at checkout (or a theme's cart sets with /cart/update.js `discount`); bundles shown on each product's page with Add all to cart; one product suggested in the checkout; quantity breaks and Buy X get Y free on a product or a collection (part 304), priced by one formula on the page and at checkout.",
         stored: "coupons, store_offers",
         creators: [{ label: "Coupons", href: "/app/coupons" }, { label: "Offers", href: "/app/offers" }],
       },

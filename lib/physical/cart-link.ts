@@ -19,20 +19,42 @@ export interface LinkItem {
   properties?: Record<string, string>
 }
 
-/** Line item properties as a link and the order may carry them: up to ten, a name up to 60 characters, a value up to 250, plain text. */
+/** How many properties one line keeps, and how long a name and a value may be. */
+export const LINE_PROPERTIES_MAX = 20
+export const LINE_PROPERTY_NAME_MAX = 64
+export const LINE_PROPERTY_VALUE_MAX = 500
+
+/**
+ * Line item properties as a link and the order may carry them: up to 20, a
+ * name up to 64 characters, a value up to 500, plain text (a number is
+ * written as text; anything else is left out). They are the buyer's words
+ * and a theme's notes (`_sl_offer_id`, `_sl_group`): kept and shown, never
+ * read for a price.
+ */
 export function lineProperties(raw: unknown): Record<string, string> | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (Object.keys(out).length >= 10) break
+    if (Object.keys(out).length >= LINE_PROPERTIES_MAX) break
     // eslint-disable-next-line no-control-regex
     const clean = (x: unknown, max: number) => (typeof x === "string" || typeof x === "number" ? String(x).replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, max) : "")
-    const name = clean(k, 60)
-    const value = clean(v, 250)
+    const name = clean(k, LINE_PROPERTY_NAME_MAX)
+    const value = clean(v, LINE_PROPERTY_VALUE_MAX)
     if (!name || !value || name === "__proto__" || name === "constructor" || name === "prototype") continue
     out[name] = value
   }
   return Object.keys(out).length ? out : undefined
+}
+
+/** The same properties always read the same, whatever order they came in: "" for none. Two lines of one option with different keys are two lines. */
+export function propertiesKey(props: Record<string, string> | null | undefined): string {
+  const entries = Object.entries(props ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  return entries.length ? JSON.stringify(entries) : ""
+}
+
+/** The properties a buyer is shown: a name starting with "_" is the theme's own (Shopify hides those), kept for the store only. */
+export function buyerProperties(props: Record<string, string> | null | undefined): [string, string][] {
+  return Object.entries(props ?? {}).filter(([k]) => !k.startsWith("_"))
 }
 
 /** The ceiling on a named amount, lib/checkout/pricing MAX_PWYW_CENTS. */
@@ -55,6 +77,19 @@ function fromBase64Url(value: string): string {
   return typeof atob === "function" ? decodeURIComponent(escape(atob(b64))) : nodeBuffer().from(b64, "base64").toString("utf8")
 }
 
+/** The longest `items` a link may carry: past it the link is refused whole, never read in part. */
+export const ITEMS_PARAM_MAX = 16_000
+
+/**
+ * The cart as a link's `items`: a JSON list, base64url, of
+ *
+ *   [productId, variantId, quantity]                    a plain line
+ *   [productId, variantId, quantity, properties]        with its properties
+ *   [productId, variantId, quantity, amount, props?]    a pay what you want amount
+ *
+ * The three element form is what every link written before carries, and is
+ * read the same as ever; so is the old [.., "", properties] form.
+ */
 export function encodeItems(items: LinkItem[]): string {
   return toBase64Url(
     JSON.stringify(
@@ -62,7 +97,7 @@ export function encodeItems(items: LinkItem[]): string {
         const row: unknown[] = [i.productId, i.variantId ?? "", Math.max(1, Math.min(999, Math.floor(i.quantity) || 1))]
         const custom = customOf(i.customPriceCents)
         const props = lineProperties(i.properties)
-        if (custom !== null || props) row.push(custom ?? "")
+        if (custom !== null) row.push(custom)
         if (props) row.push(props)
         return row
       }),
@@ -71,16 +106,18 @@ export function encodeItems(items: LinkItem[]): string {
 }
 
 export function decodeItems(value: string | null | undefined): LinkItem[] {
-  if (!value || value.length > 8000) return []
+  if (!value || value.length > ITEMS_PARAM_MAX) return []
   try {
     const raw = JSON.parse(fromBase64Url(value))
     if (!Array.isArray(raw)) return []
     return raw
       .slice(0, 50)
-      .filter((r): r is [string, string, number, (number | string)?, unknown?] => Array.isArray(r) && typeof r[0] === "string" && ID.test(r[0]))
+      .filter((r): r is [string, string, number, unknown?, unknown?] => Array.isArray(r) && typeof r[0] === "string" && ID.test(r[0]))
       .map((r) => {
-        const custom = customOf(r[3])
-        const props = lineProperties(r[4])
+        /* A fourth element that is an object is the line's properties; otherwise it is an amount (or "" for none) and the properties come fifth. */
+        const fourthIsProps = !!r[3] && typeof r[3] === "object" && !Array.isArray(r[3])
+        const custom = fourthIsProps ? null : customOf(r[3])
+        const props = lineProperties(fourthIsProps ? r[3] : r[4])
         return {
           productId: r[0],
           variantId: typeof r[1] === "string" && ID.test(r[1]) ? r[1] : null,

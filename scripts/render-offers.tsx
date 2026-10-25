@@ -16,7 +16,7 @@ import { CartOfferSavings, CartOfferSuggestions, type CartOffersData } from "@/c
 import type { Offer } from "@/lib/offers/offers"
 import type { OfferCollection, OfferProduct } from "@/app/app/offers/offer-parts"
 
-type Data = { offers: Offer[]; products: OfferProduct[]; collections: OfferCollection[]; currency: string; ready: boolean; settingsReady: boolean; physical: boolean }
+type Data = { offers: Offer[]; products: OfferProduct[]; collections: OfferCollection[]; currency: string; ready: boolean; settingsReady: boolean; breaksReady?: boolean; sold?: Record<string, number>; physical: boolean }
 type W = Window & { __panel?: string; __api?: Record<string, unknown>; __data?: Data; __cart?: CartOffersData; __sent?: { method: string; path: string; body: unknown }[]; __added?: unknown[] }
 const w = window as W
 w.__sent = []
@@ -67,7 +67,7 @@ function Root() {
   const d = w.__data!
   return (
     <div style={{ height: "100vh" }}>
-      <OffersClient initialOffers={d.offers} products={d.products} collections={d.collections} currency={d.currency} ready={d.ready} settingsReady={d.settingsReady} physical={d.physical} />
+      <OffersClient initialOffers={d.offers} products={d.products} collections={d.collections} currency={d.currency} ready={d.ready} settingsReady={d.settingsReady} breaksReady={d.breaksReady !== false} sold={d.sold ?? {}} physical={d.physical} />
     </div>
   )
 }

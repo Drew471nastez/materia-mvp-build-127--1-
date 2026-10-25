@@ -51,6 +51,7 @@ import { facet } from "./facets"
 import { linkFactsOf, siteLink } from "./links"
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
 import { CART_ATTRIBUTES_MAX, cartAttributes, siteCheckoutHref } from "@/lib/checkout/site-checkout"
+import { ITEMS_PARAM_MAX, lineProperties, propertiesKey } from "@/lib/physical/cart-link"
 import { getMainDomain } from "@/lib/url-helpers"
 import { fixThemeCss } from "./css-fixes"
 import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
@@ -170,6 +171,8 @@ export interface SiteRequest {
   attributes?: Record<string, string>
   /** The discount code the cart holds (Shopify's cart.discount_codes), priced again on every draw of the cart. */
   discountCode?: string
+  /** Every code the last /cart/update `discount` asked for, in its order: /cart.js says each with whether it applies. The checkout takes `discountCode`. */
+  discountCodes?: string[]
   /** That code priced on this cart: set by `answer` itself before a page is drawn. */
   cartDiscount?: CartDiscount | null
   /** A script's request (JSON body, X-Requested-With, Accept: application/json): answered with JSON, as Shopify does, whatever the address ends in. */
@@ -201,6 +204,8 @@ export interface SiteResponse {
   attributes?: Record<string, string>
   /** The cart's discount code after this request, when it changed ("" for none). */
   discountCode?: string
+  /** The codes asked for, when this request changed them ([] for none). */
+  discountCodes?: string[]
 }
 
 const MAX_LINES = 50
@@ -243,7 +248,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const rest = new URLSearchParams(req.query)
     rest.delete(CLEAR_CART_PARAM)
     const search = rest.toString()
-    return redirect(`${path}${search ? `?${search}` : ""}`, { cart: [], note: "", attributes: {}, discountCode: "" })
+    return redirect(`${path}${search ? `?${search}` : ""}`, { cart: [], note: "", attributes: {}, discountCode: "", discountCodes: [] })
   }
 
   /*
@@ -256,7 +261,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (discountLink) {
     const code = discountCodeOf(discountLink[1])
     const to = safeReturn(req.query.get("redirect")) ?? "/"
-    return redirect(to, { cart: req.cart, note: req.note ?? "", attributes: req.attributes ?? {}, discountCode: code ?? req.discountCode ?? "" })
+    return redirect(to, { cart: req.cart, note: req.note ?? "", attributes: req.attributes ?? {}, discountCode: code ?? req.discountCode ?? "", ...(code ? { discountCodes: [code] } : {}) })
   }
 
   /* ── estimate shipping ── */
@@ -296,7 +301,10 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const cartRoute = path.match(/^\/cart(?:\/(add|change|update|clear))?(\.js|\.json)?$/)
   if (cartRoute && (method === "POST" || cartRoute[2])) {
     const [, action, ext] = cartRoute
-    if (method === "GET" && !action) return json(cartJson(site, req.cart, req.note ?? "", req.attributes, await priceDiscount(site, req.cart, req.discountCode)))
+    if (method === "GET" && !action) {
+      const priced = await priceDiscount(site, req.cart, req.discountCode)
+      return json(cartJson(site, req.cart, req.note ?? "", req.attributes, priced, heldCodes(req.discountCodes, priced)))
+    }
     if (method !== "POST") return json({ status: 405, message: "Method not allowed" }, 405)
     return await cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
   }
@@ -1329,9 +1337,18 @@ function lineJson(i: O): O {
 
 const field = (body: O | null, k: string): unknown => (body ? body[k] : undefined)
 
+/**
+ * A line's key, Shopify's "<variant>:<hash of its properties>": the same
+ * option with other properties is another line. A short hash rather than
+ * the properties themselves, which are in the cookie beside it already and
+ * would fill its 4 KB twice over (a theme's offer notes are nine of them).
+ */
 function lineKey(p: string, v: string | null, props?: Record<string, string>): string {
-  const extra = props && Object.keys(props).length ? `:${Object.entries(props).map(([a, b]) => `${a}=${b}`).sort().join("&")}` : ""
-  return `${v ?? p}${extra}`
+  const key = propertiesKey(props)
+  if (!key) return v ?? p
+  let h = 0x811c9dc5
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 0x01000193) >>> 0
+  return `${v ?? p}:${h.toString(36)}`
 }
 
 /** Items a cart/add posts: `id` and `quantity`, or `items: [{ id, quantity, properties }]`. */
@@ -1344,14 +1361,15 @@ function itemsOf(body: O | null): { id: string; quantity: number; properties?: R
   */
   const flat: O[] = Array.isArray(items) ? (items as O[]).map((x) => (x && typeof x === "object" ? { ...(x as O) } : {})) : []
   for (const [k, v] of Object.entries(body ?? {})) {
-    const m = k.match(/^items\[(\d{1,2})\]\[(\w+)\](?:\[([^\]]{1,60})\])?$/)
+    const m = k.match(/^items\[(\d{1,2})\]\[(\w+)\](?:\[([^\]]{1,64})\])?$/)
     if (!m || typeof v !== "string") continue
     const at = (flat[Number(m[1])] ??= {})
     if (m[3] && m[2] === "properties") at.properties = { ...((at.properties as O) ?? {}), [m[3]]: v }
     else if (!m[3]) at[m[2]] = v
   }
   if (flat.some((x) => x && x.id !== undefined)) items = flat.filter((x) => x && x.id !== undefined)
-  const props = (v: unknown) => (v && typeof v === "object" ? Object.fromEntries(Object.entries(v as O).filter(([, x]) => typeof x === "string").slice(0, 10)) as Record<string, string> : undefined)
+  /* Strings only, at most 20, a name to 64 characters and a value to 500 (lib/physical/cart-link lineProperties, the checkout's and the order's own rule). */
+  const props = (v: unknown) => (v && typeof v === "object" && !Array.isArray(v) ? lineProperties(Object.fromEntries(Object.entries(v as O).filter(([, x]) => typeof x === "string"))) : undefined)
   if (Array.isArray(items)) return items.filter((x) => x && typeof x === "object").map((x) => ({ id: String((x as O).id ?? ""), quantity: Number((x as O).quantity ?? 1) || 1, properties: props((x as O).properties) }))
   const id = field(body, "id")
   if (id === undefined || id === null || id === "") return []
@@ -1360,7 +1378,7 @@ function itemsOf(body: O | null): { id: string; quantity: number; properties?: R
     const m = k.match(/^properties\[(.+)\]$/)
     if (m && typeof v === "string") properties[m[1]] = v
   }
-  return [{ id: String(id), quantity: Number(field(body, "quantity") ?? 1) || 1, properties: Object.keys(properties).length ? properties : props(field(body, "properties")) }]
+  return [{ id: String(id), quantity: Number(field(body, "quantity") ?? 1) || 1, properties: Object.keys(properties).length ? props(properties) : props(field(body, "properties")) }]
 }
 
 /**
@@ -1493,7 +1511,7 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     const toCheckout = !ajax && field(req.body, "checkout") !== undefined
     if (!toCheckout) cart = await heldToStock(site, cart)
     /* A cart form's Check out with its discount box: the code typed goes on as it is, and the checkout says what it does. */
-    if (toCheckout) return { ...checkoutHandoff(site, cart, true, note, attributes, typedCodes ? (typedCodes[0] ?? "") : code, backOf(req)), cart, note, attributes, ...(typedCodes ? { discountCode: typedCodes[0] ?? "" } : {}) }
+    if (toCheckout) return { ...checkoutHandoff(site, cart, true, note, attributes, typedCodes ? (typedCodes[0] ?? "") : code, backOf(req)), cart, note, attributes, ...(typedCodes ? { discountCode: typedCodes[0] ?? "", discountCodes: typedCodes } : {}) }
     /*
       THE CODES A THEME ASKED FOR (Shopify's /cart/update.js `discount`,
       "A,B"; "" takes them all off), each priced on this cart by the
@@ -1524,12 +1542,31 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
   }
   /* A quantity typed over what is left, or over Limit sales, comes down to it, as Shopify's cart does. */
   if (action === "change") cart = await heldToStock(site, cart)
-  if (!ajax) return redirect(safeReturn(field(req.body, "return_to")) ?? "/cart", { cart, note, attributes, discountCode: code })
+  /* The codes asked for stay on the cart, each said again by /cart.js with whether it applies (heldCodes). */
+  const codes = asked ? { discountCodes: asked.map((a) => a.code) } : {}
+  if (!ajax) return redirect(safeReturn(field(req.body, "return_to")) ?? "/cart", { cart, note, attributes, discountCode: code, ...codes })
   if (priced === undefined) priced = await priceDiscount(site, cart, code)
-  const body = cartJson(site, cart, note, attributes, priced, asked)
+  const body = cartJson(site, cart, note, attributes, priced, asked ?? heldCodes(req.discountCodes, priced))
   const sections = await sectionsFor(site, req, cart, note, attributes, { code, priced })
   if (sections) body.sections = sections
-  return json(body, 200, { cart, note, attributes, discountCode: code })
+  return json(body, 200, { cart, note, attributes, discountCode: code, ...codes })
+}
+
+/**
+ * THE CODES THE CART HOLDS, as /cart.js says them (Shopify's
+ * discount_codes): each code the last `discount` asked for, in its order,
+ * and whether it applies now. The one the checkout takes is the cart's code,
+ * priced again on this cart by the checkout's own rules; every other one
+ * does not apply (unknown, expired, or not combining with it). Undefined
+ * when the cart holds no list: the cart's code alone, as before.
+ */
+export function heldCodes(list: string[] | undefined, priced: CartDiscount | null): { code: string; applicable: boolean }[] | undefined {
+  if (!list || list.length === 0) return undefined
+  const isCart = (c: string) => !!priced && priced.code.toLowerCase() === c.toLowerCase()
+  const out = list.map((c) => ({ code: isCart(c) ? priced!.code : c, applicable: isCart(c) && priced!.applicable === true }))
+  /* A code set since by a /discount/<code> link that the list does not have yet. */
+  if (priced && !list.some(isCart)) out.unshift({ code: priced.code, applicable: priced.applicable === true })
+  return out
 }
 
 /** A discount code as typed: trimmed, printable, at most 64 characters (lib/checkout/coupons normaliseCode), or null. */
@@ -1656,7 +1693,16 @@ function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, not
   const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q, ...(e.props && Object.keys(e.props).length ? { properties: e.props } : {}) }))
   if (!items.length) return redirect("/cart")
   /* The cart's note goes on with the lines: the checkout's "Add a note for the shop" opens with it, and the order keeps it. So do its attributes, and its discount code, which the checkout prices again. */
-  return redirect(siteCheckoutHref({ items, back, wholeCart: whole, note, attributes, couponCode: code || null }))
+  const href = siteCheckoutHref({ items, back, wholeCart: whole, note, attributes, couponCode: code || null })
+  /*
+    A whole cart whose lines and properties make an address too long to
+    carry (each line's `_sl_` notes add up): the checkout reads the same
+    cart from its cookie on this host instead (app/checkout/site/page.tsx),
+    properties, note and code included. Buy it now is one line, always short.
+  */
+  const items64 = new URL(href, "https://x").searchParams.get("items") ?? ""
+  if (whole && (items64.length > ITEMS_PARAM_MAX || href.length > 12_000)) return redirect(siteCheckoutHref({ items: [], back, wholeCart: true, couponCode: code || null }))
+  return redirect(href)
 }
 
 /** The checkout's own pages, the sign in and the password page: never where Back goes. */
@@ -1769,34 +1815,42 @@ async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteRespons
 export const CART_COOKIE = "sl_theme_cart"
 
 /** The cart from its cookie. Anything that does not read as one is an empty cart. */
-export function readCartCookie(raw: string | undefined): { cart: CartEntry[]; note: string; attributes: Record<string, string>; discount: string } {
-  if (!raw) return { cart: [], note: "", attributes: {}, discount: "" }
+export function readCartCookie(raw: string | undefined): { cart: CartEntry[]; note: string; attributes: Record<string, string>; discount: string; codes: string[] } {
+  if (!raw) return { cart: [], note: "", attributes: {}, discount: "", codes: [] }
   try {
-    const v = JSON.parse(decodeURIComponent(raw)) as { l?: unknown; n?: unknown; a?: unknown; d?: unknown }
+    const v = JSON.parse(decodeURIComponent(raw)) as { l?: unknown; n?: unknown; a?: unknown; d?: unknown; c?: unknown }
     const lines = Array.isArray(v.l) ? v.l : []
     const cart = lines
       .filter((e): e is O => !!e && typeof e === "object")
-      .map((e) => ({ k: String(e.k ?? ""), p: String(e.p ?? ""), v: typeof e.v === "string" ? e.v : null, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(e.q) || 1))), ...(e.props && typeof e.props === "object" ? { props: e.props as Record<string, string> } : {}) }))
+      .map((e) => {
+        /* A cookie is the visitor's to change: its properties are held to the same rule as when they were added. */
+        const props = lineProperties(e.props)
+        return { k: String(e.k ?? ""), p: String(e.p ?? ""), v: typeof e.v === "string" ? e.v : null, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(e.q) || 1))), ...(props ? { props } : {}) }
+      })
       .filter((e) => e.k && e.p)
       .slice(0, MAX_LINES)
-    return { cart, note: typeof v.n === "string" ? v.n.slice(0, 500) : "", attributes: cartAttributes(v.a) ?? {}, discount: discountCodeOf(v.d) ?? "" }
+    const codes = Array.isArray(v.c) ? v.c.map(discountCodeOf).filter((c): c is string => !!c).slice(0, 5) : []
+    return { cart, note: typeof v.n === "string" ? v.n.slice(0, 500) : "", attributes: cartAttributes(v.a) ?? {}, discount: discountCodeOf(v.d) ?? "", codes }
   } catch {
-    return { cart: [], note: "", attributes: {}, discount: "" }
+    return { cart: [], note: "", attributes: {}, discount: "", codes: [] }
   }
 }
 
 /* A browser drops a cookie over 4 KB whole, cart and all: attributes are left out, last first, before that can happen. */
 const COOKIE_ROOM = 3800
 
-export function writeCartCookie(cart: CartEntry[], note: string, attributes?: Record<string, string>, discount?: string | null): string {
+/** `codes`: every code the last /cart/update `discount` asked for (heldCodes); left out when it is only the cart's own code, or none. */
+export function writeCartCookie(cart: CartEntry[], note: string, attributes?: Record<string, string>, discount?: string | null, codes?: string[] | null): string {
   const pairs = Object.entries(attributes ?? {})
   const d = discountCodeOf(discount) ?? undefined
+  const list = (codes ?? []).map(discountCodeOf).filter((x): x is string => !!x).slice(0, 5)
+  const c = list.length && !(list.length === 1 && d && list[0].toLowerCase() === d.toLowerCase()) ? list : undefined
   for (let n = pairs.length; n >= 0; n--) {
     const a = n > 0 ? Object.fromEntries(pairs.slice(0, n)) : undefined
-    const out = encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined, a, d }))
+    const out = encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined, a, d, c }))
     if (out.length <= COOKIE_ROOM || n === 0) return out
   }
-  return encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined, d }))
+  return encodeURIComponent(JSON.stringify({ l: cart, n: note || undefined, d, c }))
 }
 
 // ── Assets ──────────────────────────────────────────────────────────────────

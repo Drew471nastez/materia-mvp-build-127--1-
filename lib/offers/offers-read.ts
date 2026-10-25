@@ -8,12 +8,15 @@
  *
  * A database that has part 116 and not yet 230 still reads and applies the
  * offers it has, with the defaults for the settings 230 adds (shown
- * everywhere, no dates, combines with codes, no limits).
+ * everywhere, no dates, combines with codes, no limits). One without part
+ * 304 has no quantity breaks (its kind check refuses them), and the rest
+ * read as before.
  */
 import { loggable } from "@/lib/admin/plain-reason"
 import { selectTolerant } from "@/lib/supabase/tolerant-select"
 import { inSmartCollection, readRules, type RuleProduct } from "@/lib/physical/collections"
 import { MAX_OFFERS, OFFER_KINDS, PLACEMENTS_FOR, placementsOf, type Offer, type OfferLine, type Placement } from "@/lib/offers/offers"
+import { storedTiers } from "@/lib/offers/pricing"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -35,17 +38,23 @@ export type Row = {
   combines_with_codes?: boolean | null
   max_per_order?: number | null
   min_subtotal_cents?: number | null
+  tiers?: unknown
 }
 export const BASE_COLUMNS = "id, kind, title, product_ids, trigger_product_ids, discount_type, discount_value, active, position"
 /** Added by SQL part 230. */
 export const PART_230_COLUMNS = ["trigger_collection_ids", "placements", "starts_at", "ends_at", "combines_with_codes", "max_per_order", "min_subtotal_cents"] as const
-export const COLUMNS = `${BASE_COLUMNS}, ${PART_230_COLUMNS.join(", ")}`
+/** Added by SQL part 304: a quantity break's tiers. */
+export const PART_304_COLUMNS = ["tiers"] as const
+export const OPTIONAL_COLUMNS = [...PART_230_COLUMNS, ...PART_304_COLUMNS] as const
+export const COLUMNS = `${BASE_COLUMNS}, ${OPTIONAL_COLUMNS.join(", ")}`
 export const MISSING = new Set(["42P01", "PGRST205", "42703", "PGRST204"])
 export const PART_230 = "supabase/sql/run-now/230_store_offers_settings.sql"
+export const PART_304 = "supabase/sql/run-now/304_store_offers_quantity_breaks.sql"
 
 export const offerOf = (r: Row): Offer => {
   const kind = r.kind
   return {
+    ...(kind === "quantity_break" ? { tiers: storedTiers(r.tiers) } : {}),
     id: r.id,
     kind,
     title: r.title,
@@ -70,21 +79,23 @@ export const offerOf = (r: Row): Offer => {
  * failed read has none too, so a checkout never stops on it. `settings`
  * says whether part 230's columns are there.
  */
-export async function loadOffers(db: Db, creatorId: string, opts: { activeOnly?: boolean } = {}): Promise<{ offers: Offer[]; ready: boolean; settings: boolean }> {
+export async function loadOffers(db: Db, creatorId: string, opts: { activeOnly?: boolean } = {}): Promise<{ offers: Offer[]; ready: boolean; settings: boolean; breaks: boolean }> {
   try {
-    const { data, error, dropped } = await selectTolerant("offers", COLUMNS, PART_230_COLUMNS, (columns) => {
+    const { data, error, dropped } = await selectTolerant("offers", COLUMNS, OPTIONAL_COLUMNS, (columns) => {
       let q = db.from("store_offers").select(columns).eq("creator_id", creatorId)
       if (opts.activeOnly) q = q.eq("active", true)
       return q.order("position", { ascending: true }).order("created_at", { ascending: true }).limit(MAX_OFFERS)
     })
     if (error) {
       if (!MISSING.has(error.code ?? "")) console.error(`[offers] read failed: ${loggable(error)}`)
-      return { offers: [], ready: !MISSING.has(error.code ?? ""), settings: false }
+      return { offers: [], ready: !MISSING.has(error.code ?? ""), settings: false, breaks: false }
     }
-    return { offers: ((data ?? []) as Row[]).filter((r) => OFFER_KINDS.includes(r?.kind)).map(offerOf), ready: true, settings: dropped.length === 0 }
+    /* `breaks`: part 304's tiers are there, so a quantity break can be saved (and one read without them applies nothing). */
+    const settings = !dropped.some((c) => (PART_230_COLUMNS as readonly string[]).includes(c))
+    return { offers: ((data ?? []) as Row[]).filter((r) => OFFER_KINDS.includes(r?.kind)).map(offerOf), ready: true, settings, breaks: settings && !dropped.includes("tiers") }
   } catch (e) {
     console.error(`[offers] read failed: ${loggable(e)}`)
-    return { offers: [], ready: true, settings: false }
+    return { offers: [], ready: true, settings: false, breaks: false }
   }
 }
 

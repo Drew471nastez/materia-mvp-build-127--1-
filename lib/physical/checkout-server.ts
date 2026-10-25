@@ -156,6 +156,8 @@ function clean(value: unknown, max: number): string {
 function snapshotLine(l: PricedLine, properties?: Record<string, string>) {
   return {
     ...(properties ? { properties } : {}),
+    /* The offers in discount_cents, each with its part and the name the checkout showed it by: the receipt and the admin say the same. */
+    ...(l.offers?.length ? { offers: l.offers.map((o) => ({ offer_id: o.offerId, title: o.title.slice(0, 120), kind: o.kind, saved_cents: o.savedCents, ...(o.tier !== undefined ? { tier: o.tier } : {}) })) } : {}),
     product_id: l.productId,
     variant_id: l.variantId,
     title: l.title.slice(0, 200),
@@ -269,7 +271,9 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (market?.charge) {
     const charge = market.charge
     const converted = convertOrder(q.lines, q.totals, charge)
-    q = { ...q, lines: converted.lines, totals: converted.totals, option: q.option ? { ...q.option, priceCents: charge.amount(q.option.priceCents) } : q.option }
+    /* Each offer's part of a line in the market's money too, as the quote converted the saving lines it showed. */
+    const lines = converted.lines.map((l) => (l.offers?.length ? { ...l, offers: l.offers.map((o) => ({ ...o, savedCents: Math.min(l.discountCents, charge.amount(o.savedCents)) })) } : l))
+    q = { ...q, lines, totals: converted.totals, option: q.option ? { ...q.option, priceCents: charge.amount(q.option.priceCents) } : q.option }
   }
   const totals = q.totals
   const pickup = q.option?.kind === "pickup" ? (q.option.pickup ?? null) : null
@@ -401,7 +405,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       shipping_rate: option
         ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, ...taxFacts, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}), ...(totals.codFeeCents > 0 ? { cod_fee_cents: totals.codFeeCents } : {}) }
         : { ...taxFacts, ...(totals.codFeeCents > 0 ? { cod_fee_cents: totals.codFeeCents } : {}) },
-      lines: q.lines.map((l) => snapshotLine(l, propertiesFor(input.items, l))),
+      /* Each line with its own properties (a line of its own per set, lib/physical/checkout-pricing-server readItems); a line priced without them takes the cart's first for its option. */
+      lines: q.lines.map((l) => snapshotLine(l, l.properties ?? propertiesFor(input.items, l))),
       coupon_id: priced.coupon?.id ?? null,
       coupon_code: priced.coupon?.code ?? null,
       provider: free ? "free" : cod ? COD_PROVIDER : "stripe",
@@ -1043,6 +1048,8 @@ export async function completeCheckout(
           weight_grams: l.weight_grams,
           /* The buyer's words for this line from an imported theme's product form (an engraving): kept with it. */
           ...(l.properties && typeof l.properties === "object" ? { properties: l.properties } : {}),
+          /* Which offers saved what on this line, as the checkout named each saving. */
+          ...(Array.isArray(l.offers) && l.offers.length ? { offers: l.offers } : {}),
         },
       })
       .select("id")

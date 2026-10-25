@@ -45,7 +45,7 @@ import { openSecret } from "./secrets"
 import { orderPageUrl, storeOriginFor } from "./order-link-server"
 import { orderStoreUrl } from "./store-link"
 import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
-import { physicalCheckoutHref } from "./cart-link"
+import { buyerProperties, lineProperties, physicalCheckoutHref } from "./cart-link"
 import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
 import { lowStockEmail, sellerCommerceEmail, sellerKindForEvent } from "@/lib/notify/seller-commerce"
 import { variantLowStockLines } from "./inventory-server"
@@ -622,14 +622,35 @@ function paymentLabelOf(row: { payment_method?: string | null; card_brand?: stri
 
 
 function emailLines(lines: Record<string, any>[]): EmailLine[] {
-  return lines.map((l) => ({
-    title: l.title,
-    variantName: l.variant_name ?? null,
-    quantity: l.quantity,
-    cents: Math.max(0, l.unit_cents * l.quantity - (l.discount_cents ?? 0)),
-    imageUrl: l.image_url ?? null,
-    sku: l.sku ?? null,
-  }))
+  return lines.map((l) => {
+    /* The buyer's own words on the line (an engraving); a theme's own notes (a name starting with "_") stay with the store. */
+    const shown = buyerProperties(lineProperties(l.properties))
+    return {
+      title: l.title,
+      variantName: l.variant_name ?? null,
+      quantity: l.quantity,
+      cents: Math.max(0, l.unit_cents * l.quantity - (l.discount_cents ?? 0)),
+      imageUrl: l.image_url ?? null,
+      sku: l.sku ?? null,
+      ...(shown.length ? { properties: shown } : {}),
+    }
+  })
+}
+
+/** Each offer the order's lines kept (lib/physical/checkout-server snapshotLine `offers`), by the name the checkout showed, added up over the lines. */
+export function savingsOf(lines: Record<string, any>[]): { label: string; cents: number }[] {
+  const out: { label: string; cents: number }[] = []
+  for (const l of lines ?? []) {
+    for (const o of Array.isArray(l?.offers) ? l.offers : []) {
+      const label = typeof o?.title === "string" ? o.title : ""
+      const cents = Math.max(0, Math.round(Number(o?.saved_cents ?? o?.savedCents) || 0))
+      if (!label || cents <= 0) continue
+      const same = out.find((x) => x.label === label)
+      if (same) same.cents += cents
+      else out.push({ label, cents })
+    }
+  }
+  return out
 }
 
 function addressOf(a: Record<string, any> | null) {
@@ -764,6 +785,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
         currency: co.currency,
         /* Cash on delivery's fee, kept inside shipping (lib/physical/checkout-server): its own row. */
         codFee: Number(co.shipping_rate?.cod_fee_cents) || 0,
+        /* Each offer's saving its own row, as the checkout's summary showed them. */
+        savings: savingsOf(co.lines),
       },
       address: addressOf(co.shipping_address),
       deliveryName: co.shipping_rate?.name ?? null,

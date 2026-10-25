@@ -1,0 +1,154 @@
+import "server-only"
+
+/**
+ * ===========================================================================
+ *  WHAT A PRODUCT'S PAGE OFFERS WITH IT, AS ONE PUBLIC ANSWER
+ * ===========================================================================
+ * Read by GET /api/offers/bundles, GET /api/offers/quantity-breaks and
+ * GET /api/offers (app/api/offers/**), and by an imported theme's product
+ * page as product.metafields.storelib.offers (lib/website-builder/
+ * compat-site.ts), so a theme drawing offers in the browser and one drawing
+ * them in Liquid read the same thing:
+ *
+ *   bundles          the store's bundles on now with this product in, shown
+ *                    on product pages, whose every product is still on sale
+ *   quantityBreaks   its quantity breaks on now, shown on product pages,
+ *                    for this product or a collection it is in, each tier
+ *                    priced at the product's default variant by the formula
+ *                    the checkout charges (lib/offers/pricing.ts tierTotals)
+ *   checkoutOffers   its checkout offers on now, shown on product pages,
+ *                    that this product triggers, each with the price it adds
+ *                    at (the bundles endpoint calls these `upsells`)
+ *
+ * Public and safe to cache: only offers that are on now, only for a
+ * published product, and only what a buyer is shown (names, tiers, prices,
+ * the products' public cards). Never an offer's limits per order, minimums,
+ * trigger lists, the store's id or anything else of the creator's own. The
+ * checkout prices the cart again on the server from the database, so
+ * nothing here decides what anyone pays.
+ */
+import { selectTolerant } from "@/lib/supabase/tolerant-select"
+import { breakCovers, bundlePrice, bundlesWith, offerLive, offerUnitPrice, placementsOf, upsellsFor, type Offer } from "./offers"
+import { tierTotals, type Tier } from "./pricing"
+import { collectionsOf, loadOffers, offerLabeler, offerProducts, type OfferProduct } from "./offers-server"
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const isUuid = (v: unknown): v is string => typeof v === "string" && UUID.test(v)
+
+export interface PublicTier extends Tier {
+  unitPriceCents: number
+  totalCents: number
+  compareCents: number
+}
+
+export interface PublicBreak {
+  offerId: string
+  productId: string
+  title: string
+  tiers: PublicTier[]
+}
+
+export interface PublicBundle {
+  offerId: string
+  title: string
+  label: string | null
+  discountType: Offer["discountType"]
+  discountValue: number
+  items: OfferProduct[]
+  fullCents: number
+  priceCents: number
+}
+
+export interface PublicCheckoutOffer {
+  offerId: string
+  title: string
+  label: string | null
+  discountType: Offer["discountType"]
+  discountValue: number
+  product: OfferProduct
+  offerPriceCents: number
+}
+
+export interface ProductOffers {
+  bundles: PublicBundle[]
+  quantityBreaks: PublicBreak[]
+  checkoutOffers: PublicCheckoutOffer[]
+}
+
+export const NO_OFFERS: ProductOffers = { bundles: [], quantityBreaks: [], checkoutOffers: [] }
+
+/** A minute: a schedule's start or end, or a change in the admin, shows within it. */
+export const OFFERS_CACHE = { "Cache-Control": "public, max-age=60, s-maxage=60" }
+
+/**
+ * The price a product's tiers are shown at: its default variant's (the
+ * first on sale, in the editor's order), else the product's own; with the
+ * compare at price beside it. Null for a product that has no price to show.
+ */
+export async function defaultPrice(db: Db, product: { id: string; price_cents?: number | null; compare_at_cents?: number | null }): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
+  const { data } = await selectTolerant("offer default variant", "id, price_cents, active, position, compare_at_price_cents", ["position", "compare_at_price_cents"], (columns) =>
+    db.from("product_variants").select(columns).eq("product_id", product.id),
+  )
+  const variants = ((data ?? []) as { price_cents: number | null; active: boolean | null; position?: number | null; compare_at_price_cents?: number | null }[]).filter((v) => v.active !== false)
+  variants.sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0))
+  const first = variants[0]
+  const price = Math.round(Number(first ? first.price_cents : product.price_cents))
+  if (!Number.isFinite(price) || price < 0) return null
+  const compare = Math.round(Number(first?.compare_at_price_cents ?? product.compare_at_cents))
+  return { priceCents: price, compareAtCents: Number.isFinite(compare) && compare > price ? compare : null }
+}
+
+/** A quantity break's tiers at one price, as the theme shows them. */
+export function publicTiers(tiers: Tier[], priceCents: number, compareAtCents: number | null): PublicTier[] {
+  return tiers.map((t) => {
+    const { unitPriceCents, totalCents, compareCents } = tierTotals(priceCents, t, compareAtCents)
+    return { quantity: t.quantity, freeQuantity: t.freeQuantity, discountType: t.discountType, discountValue: t.discountValue, label: t.label, badge: t.badge, unitPriceCents, totalCents, compareCents }
+  })
+}
+
+/**
+ * Everything a published product's page offers with it, or nothing. `only`
+ * narrows what is read (the bundles endpoint reads no quantity breaks).
+ */
+export async function productOffers(db: Db, productId: unknown, opts: { only?: (keyof ProductOffers)[]; now?: Date } = {}): Promise<ProductOffers> {
+  if (!isUuid(productId)) return NO_OFFERS
+  const want = new Set(opts.only ?? ["bundles", "quantityBreaks", "checkoutOffers"])
+  const { data: product } = await selectTolerant("offer product", "id, creator_id, status, price_cents, compare_at_cents", ["compare_at_cents"], (columns) => db.from("products").select(columns).eq("id", productId).maybeSingle())
+  const p = product as { id: string; creator_id: string; status: string; price_cents: number | null; compare_at_cents?: number | null } | null
+  if (!p || p.status !== "published") return NO_OFFERS
+  const creatorId = p.creator_id
+  const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
+  if (offers.length === 0) return NO_OFFERS
+  const now = opts.now ?? new Date()
+  const wantedCollections = [...new Set(offers.flatMap((o) => o.triggerCollectionIds ?? []))]
+  const mine = wantedCollections.length ? ((await collectionsOf(db, creatorId, wantedCollections, [p.id])).get(p.id) ?? []) : []
+  const bundles = want.has("bundles") ? bundlesWith(p.id, offers, { now }) : []
+  const upsells = want.has("checkoutOffers") ? upsellsFor(p.id, mine, offers, { now }) : []
+  const breaks = want.has("quantityBreaks") ? offers.filter((o) => o.kind === "quantity_break" && offerLive(o, now) && placementsOf(o).includes("product") && (o.tiers?.length ?? 0) > 0 && breakCovers(o, p.id, mine)) : []
+  if (bundles.length === 0 && upsells.length === 0 && breaks.length === 0) return NO_OFFERS
+
+  const [label, products, price] = await Promise.all([
+    bundles.length || upsells.length ? offerLabeler(db, creatorId) : Promise.resolve(() => null),
+    bundles.length || upsells.length ? offerProducts(db, creatorId, [...new Set([...bundles.flatMap((b) => b.productIds), ...upsells.map((u) => u.productIds[0])])]) : Promise.resolve(new Map<string, OfferProduct>()),
+    breaks.length ? defaultPrice(db, p) : Promise.resolve(null),
+  ])
+  const bundleCards: PublicBundle[] = bundles.flatMap((b) => {
+    const items = b.productIds.map((id) => products.get(id))
+    if (items.some((i) => !i)) return []
+    const list = items as OfferProduct[]
+    /* This product first, as Shopify's "Frequently bought together" does. */
+    list.sort((a, c) => (a.id === p.id ? -1 : c.id === p.id ? 1 : 0))
+    const { fullCents, priceCents } = bundlePrice(b, list.map((i) => i.priceCents))
+    return [{ offerId: b.id, title: b.title, label: label(b), discountType: b.discountType, discountValue: b.discountValue, items: list, fullCents, priceCents }]
+  })
+  const checkoutOffers: PublicCheckoutOffer[] = upsells.flatMap((u) => {
+    const item = products.get(u.productIds[0])
+    if (!item) return []
+    return [{ offerId: u.id, title: u.title, label: label(u), discountType: u.discountType, discountValue: u.discountValue, product: item, offerPriceCents: offerUnitPrice(u, item.priceCents) }]
+  })
+  const quantityBreaks: PublicBreak[] = price ? breaks.map((o) => ({ offerId: o.id, productId: p.id, title: o.title, tiers: publicTiers(o.tiers ?? [], price.priceCents, price.compareAtCents) })) : []
+  return { bundles: bundleCards, quantityBreaks, checkoutOffers }
+}

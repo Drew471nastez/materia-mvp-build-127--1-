@@ -33,6 +33,7 @@ import { priceCart, type PricedCart } from "./pricing"
 import { basketDecision } from "./basket-decision"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { lineTotalCents } from "./cart-items"
+import { propertiesKey } from "@/lib/physical/cart-link"
 import { countryCode } from "./countries"
 import { loadTaxForCheckout } from "@/lib/tax/server"
 import { basketTax, type BasketTax } from "@/lib/tax/rules"
@@ -56,6 +57,10 @@ export interface SiteQuoteLine {
   requiresShipping: boolean
   /** The most this line may be changed to on the checkout: its stock where it ships from, held to the product's per order limit. 1 for a download. */
   maxQuantity: number
+  /** The cart line's properties, when it has any: the same option with other properties is a line of its own (lib/physical/checkout-pricing-server readItems). */
+  properties?: Record<string, string>
+  /** Those properties as one key ("" for none), on a cart that ships: the page matches its items to lines by it. */
+  propertiesKey?: string
 }
 
 /** A line the stock can't meet as asked: shown in the order with how many are left, to lower or remove there. */
@@ -409,6 +414,9 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
         discountCents: l.discountCents,
         requiresShipping: l.requiresShipping,
         maxQuantity: maxOf(l),
+        ...(l.properties ? { properties: l.properties } : {}),
+        /* Which of the cart's lines this is when one option is on two (lib/checkout/site-checkout sameLine). */
+        propertiesKey: propertiesKey(l.properties),
       })),
       dropped: droppedBesidesOwned(priced.dropped, priced.owned),
       needsOption,

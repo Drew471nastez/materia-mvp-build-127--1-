@@ -139,7 +139,9 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "physical/storefront/product/route.ts": "a published physical product's options, prices and whether each can be bought, for its public page; never costs, SKUs, locations or exact stock",
   "order-help/route.ts": "a buyer opens a case about their order with the order's own receipt token, the key they already hold; the buyer's email comes from the order, never the request, and it is rate limited by address and by email",
   "order-help/[id]/route.ts": "a buyer reads and writes their own case with its private link's secret, checked against the stored hash; nothing is read or written without it",
-  "offers/bundles/route.ts": "the bundles a published product is in, with each item's public title, picture and price, for its public page; only a store's active offers and published products, and the checkout prices the cart again on the server",
+  "offers/route.ts": "everything a published product's page offers with it (bundles, quantity breaks, checkout offers), only offers on now and only what a buyer is shown, read through lib/offers/offers-public.ts; the checkout prices the cart again on the server",
+  "offers/quantity-breaks/route.ts": "a published product's quantity breaks on now, each tier priced at its default variant for its public page, through lib/offers/offers-public.ts; nothing of the store's own settings, and the checkout prices the cart again on the server",
+  "offers/bundles/route.ts":"the bundles a published product is in, with each item's public title, picture and price, for its public page; only a store's active offers and published products, and the checkout prices the cart again on the server",
   "offers/cart/route.ts": "what a shopper's cart gets from a store's active offers and what it could add, for the cart drawer and page: only that store's published products are priced, from the database, rate limited, and the checkout prices the cart again on the server",
   "memberships/confirm/route.ts": "after joining: the subscription's own current client secret, which only the paying page holds, is the credential; it only brings the row up to date from Stripe, rate limited",
 

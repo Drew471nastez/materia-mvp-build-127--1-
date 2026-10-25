@@ -24,7 +24,7 @@
  * Pure: the proxy, the site's cart code, the page, the route and the tests
  * all read and write the same addresses with it.
  */
-import { decodeItems, encodeItems, type LinkItem } from "@/lib/physical/cart-link"
+import { decodeItems, encodeItems, propertiesKey, type LinkItem } from "@/lib/physical/cart-link"
 import type { CheckoutConfig, FieldRule } from "@/lib/store/checkout-config"
 import type { ShippingProfile } from "@/lib/physical/types"
 import { phoneForStorage } from "@/lib/account/phone"
@@ -170,7 +170,8 @@ export function noteFromMetadata(metadata: Record<string, string | undefined> | 
  * it is kept for the seller and left out of what the buyer is shown.
  */
 export const CART_ATTRIBUTES_MAX = 20
-export const LINE_PROPERTIES_MAX = 10
+/** A line's properties: lib/physical/cart-link lineProperties, the one rule for them (20 names). */
+export { LINE_PROPERTIES_MAX } from "@/lib/physical/cart-link"
 
 function plainText(v: unknown, max: number): string {
   // eslint-disable-next-line no-control-regex
@@ -472,8 +473,15 @@ export function onWebsiteHost(hostname: string, mainDomain: string, pathname = "
 /** The most one line of a checkout may hold (lib/physical/checkout-pricing-server MAX_LINE_QUANTITY). */
 export const LINE_QUANTITY_MAX = 999
 
-/** Is this cart item the line the server priced? A line with no option sent is the product's only option, which the server names. */
-export function sameLine(item: Pick<LinkItem, "productId" | "variantId">, line: { productId: string; variantId: string | null }): boolean {
+/**
+ * Is this cart item the line the server priced? A line with no option sent
+ * is the product's only option, which the server names. A priced line that
+ * says which properties it is (`propertiesKey`, lib/physical/cart-link) is
+ * only the item with those properties: two lines of one option with
+ * different properties stay two lines.
+ */
+export function sameLine(item: Pick<LinkItem, "productId" | "variantId"> & { properties?: Record<string, string> }, line: { productId: string; variantId: string | null; propertiesKey?: string }): boolean {
+  if (typeof line.propertiesKey === "string" && propertiesKey(item.properties) !== line.propertiesKey) return false
   return item.productId === line.productId && ((item.variantId ?? null) === (line.variantId ?? null) || item.variantId === null)
 }
 
@@ -515,13 +523,16 @@ export function applyAdjusted(items: LinkItem[], adjusted: { productId: string; 
 }
 
 /** An imported theme's cart cookie lines, changed to match the checkout: removed lines leave it, a changed quantity is its first entry's. Nothing is ever added. */
-export function themeCartAfter<E extends { p: string; v: string | null; q: number }>(entries: E[], items: Pick<LinkItem, "productId" | "variantId" | "quantity">[]): E[] {
+export function themeCartAfter<E extends { p: string; v: string | null; q: number; props?: Record<string, string> }>(entries: E[], items: (Pick<LinkItem, "productId" | "variantId" | "quantity"> & { properties?: Record<string, string> })[]): E[] {
   const seen = new Set<string>()
   const out: E[] = []
   for (const e of entries) {
-    const item = items.find((i) => i.productId === e.p && ((i.variantId ?? null) === (e.v ?? null) || i.variantId === null || e.v === null))
+    const same = (i: (typeof items)[number]) => i.productId === e.p && ((i.variantId ?? null) === (e.v ?? null) || i.variantId === null || e.v === null)
+    /* The item with this entry's own properties: one option on two lines (an engraving each) keeps both, and loses only the one removed. Items sent without properties (an older page) match by option, as before. */
+    const exact = items.find((i) => same(i) && propertiesKey(i.properties) === propertiesKey(e.props))
+    const item = exact ?? (items.some((i) => same(i) && i.properties) ? undefined : items.find(same))
     if (!item) continue
-    const key = `${e.p}::${e.v ?? ""}`
+    const key = `${e.p}::${e.v ?? ""}::${propertiesKey(e.props)}`
     if (seen.has(key)) continue
     seen.add(key)
     out.push({ ...e, q: Math.max(1, Math.min(LINE_QUANTITY_MAX, Math.floor(item.quantity) || 1)) })

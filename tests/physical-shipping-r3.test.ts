@@ -182,7 +182,7 @@ async function main() {
     const orders = read("lib/physical/orders-server.ts")
     check("both refund paths release it: the Refund button and a refund made in Stripe", (orders.match(/await releaseRefundedStock\(db, creatorId, updated, "(creator|webhook)"\)/g) ?? []).length === 2 && /physical_cancel_unfulfilled", \{ p_checkout: order\.id \}/.test(orders) && /key: `refund_release:\$\{order\.id\}`/.test(orders))
     const pricing = read("lib/physical/checkout-pricing-server.ts")
-    check("out of stock at checkout: refused with how many are left, never oversold (one rule, lib/physical/inventory-rules canSell, since round V)", /if \(!canSell\(\{ tracked, keepSelling: policy === "continue", available, quantity: item\.quantity \}\)\) \{/.test(pricing) && /stockIssues\.push/.test(pricing))
+    check("out of stock at checkout: refused with how many are left, never oversold (one rule, lib/physical/inventory-rules canSell, since round V)", /* Changed on purpose (round AF): two lines of one option (different properties) are counted together. */ /if \(!canSell\(\{ tracked, keepSelling: policy === "continue", available, quantity: before \+ item\.quantity \}\)\) \{/.test(pricing) && /stockIssues\.push/.test(pricing))
     const stockFile = read("lib/physical/storefront-stock.ts")
     check("the storefront reads the shop's low stock line", /from\("commerce_settings"\)\.select\("low_stock_default"\)/.test(stockFile) && /lowStockLine\(own\.get\(v\.id\) \?\? product\.low_stock_threshold, shopLine\)/.test(stockFile))
     check("  and the product page hands the product's own line to it", /low_stock_threshold: row\.low_stock_threshold \?\? null/.test(read("lib/products/product-section-data.ts")))
