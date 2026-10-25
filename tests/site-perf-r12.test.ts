@@ -75,7 +75,8 @@ function filesUnder(dir: string, out: string[] = []): string[] {
   const longShell = createElement("main", null, createElement("style", null, "x".repeat(14000)), createElement(Suspense, { fallback: null }, createElement("section", null, "y".repeat(800))), createElement("footer", null, "F"))
   const outlined = await new Response(await renderToReadableStream(longShell)).text()
   check("React does write it out of place after a long shell (why the rule exists)", /hidden id="S:/.test(outlined) && /<template id="B:0">/.test(outlined))
-  check("while its place is an empty template, what follows it is not shown", STREAMED_SECTIONS_CSS === '@media (scripting: enabled){[id^="section-"]:has(> template[id^="B:"]) ~ *{visibility:hidden}}')
+  /* With a 3 second safety net (added after review): a section that never arrives cannot keep the rest of the page hidden. */
+  check("while its place is an empty template, what follows it is not shown, for at most 3 seconds", STREAMED_SECTIONS_CSS === '@keyframes sl-streamed-reveal{to{visibility:visible}}@media (scripting: enabled){[id^="section-"]:has(> template[id^="B:"]) ~ *{visibility:hidden;animation:sl-streamed-reveal 0s 3s forwards}}')
   const siteLayout = read("app/(site)/layout.tsx")
   check("  on every page of a website, before its sections", /<style data-storelib-streamed dangerouslySetInnerHTML=\{\{ __html: STREAMED_SECTIONS_CSS \}\} \/>/.test(siteLayout) && siteLayout.indexOf("data-storelib-streamed") < siteLayout.indexOf("{children}"))
   check("  each section's place has the id the rule reads", /wrapperId=\{`section-\$\{section\.id\}`\}/.test(read("components/website-builder/theme/ThemePage.tsx")))

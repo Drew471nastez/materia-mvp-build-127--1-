@@ -19,5 +19,11 @@
  * the script that moves the section in never runs, and the rest of the page
  * stays visible as before.
  */
+/*
+ * A safety net: if a section never arrives (a stream cut off, a timeout),
+ * what follows it is shown anyway after 3 seconds, so a page can never stay
+ * half hidden. The animation only runs while the rule matches; once the
+ * section is moved in, the rule no longer applies and nothing animates.
+ */
 export const STREAMED_SECTIONS_CSS =
-  '@media (scripting: enabled){[id^="section-"]:has(> template[id^="B:"]) ~ *{visibility:hidden}}'
+  '@keyframes sl-streamed-reveal{to{visibility:visible}}@media (scripting: enabled){[id^="section-"]:has(> template[id^="B:"]) ~ *{visibility:hidden;animation:sl-streamed-reveal 0s 3s forwards}}'
