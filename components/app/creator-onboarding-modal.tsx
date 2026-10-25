@@ -68,8 +68,6 @@ const STEP_OUT_MS = 160
 const STEP_SHIFT = 16
 /** Each piece of the setup screen rising into place (see SETUP ARRIVES). */
 const SETUP_RISE_MS = 520
-/** The blur of each 16px band at the foot of the panel, top to bottom (see THE FOOT OF THE PANEL). */
-const VEIL_BLURS = [0.5, 1, 1.5, 2]
 const MOTION_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 /** A button or group that comes and goes with the step: it fades, and is gone for a press or a tab once it has. */
 const fadeWith = (on: boolean, extra = ""): CSSProperties => ({
@@ -94,8 +92,9 @@ const HEADING = "text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-[#
 const SUBHEADING = "mt-2 text-[15px] leading-[21px] text-[#6b7280] sm:text-[16px] sm:leading-6"
 const HEADING_BLOCK = "text-center mb-6 sm:mb-7"
 
-/** The step panel's edges: faded only where there is more to scroll to (see updateScrollEdges). */
+/** The step panel's edges: faded only where there is more to scroll to (see updateScrollEdges), over SCROLL_EDGE_FADE. */
 const SCROLL_EDGE_MASK = "linear-gradient(to bottom, transparent 0, #000 var(--fade-top, 0px), #000 calc(100% - var(--fade-bottom, 0px)), transparent 100%)"
+const SCROLL_EDGE_FADE = "12px"
 
 /*
   A LITTLE DEPTH, AND NO MORE. A field is a well: the same grey, with a
@@ -591,8 +590,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [leavingStep, setLeavingStep] = useState<{ step: number; offset: number } | null>(null)
   /** The panel the steps are drawn in, so the next one starts at its top. */
   const stepScrollRef = useRef<HTMLDivElement | null>(null)
-  /** The soft white over the foot of the panel, shown while there is more below (see THE FOOT OF THE PANEL). */
-  const veilRef = useRef<HTMLDivElement | null>(null)
   const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stepEnterRef = useRef<HTMLDivElement | null>(null)
   const stepLeaveRef = useRef<HTMLDivElement | null>(null)
@@ -607,9 +604,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     if (!el) return
     const above = el.scrollTop > 1
     const below = el.scrollTop + el.clientHeight < el.scrollHeight - 1
-    el.style.setProperty("--fade-top", above ? "20px" : "0px")
-    el.style.setProperty("--fade-bottom", below ? "20px" : "0px")
-    veilRef.current?.style.setProperty("--veil", below ? "1" : "0")
+    el.style.setProperty("--fade-top", above ? SCROLL_EDGE_FADE : "0px")
+    el.style.setProperty("--fade-bottom", below ? SCROLL_EDGE_FADE : "0px")
   }, [])
   useEffect(() => {
     const el = stepScrollRef.current
@@ -2900,13 +2896,21 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               movement at all.
             */}
             {/*
-              THE EDGES OF WHAT SCROLLS FADE, THEY ARE NOT CUT. On the plan
-              step a phone scrolls the plans, and they were sliced off in a
-              hard line against the progress bar above and the Back button
-              below. Now whatever runs past an edge fades out over 20px, and
-              only at an edge that has more behind it: the top is sharp
-              until something has scrolled under it. The two values are set
-              on the element from the scroll itself (no render per scroll).
+              THE EDGES OF WHAT SCROLLS FADE, THEY ARE NOT CUT. Whatever runs
+              past an edge fades out over 12px, and only at an edge that has
+              more behind it: the top is sharp until something has scrolled
+              under it. The two values are set on the element from the scroll
+              itself (no render per scroll). There was also a 64px white veil
+              with blurred bands over the foot; it washed out the plans and
+              their buttons, and is gone.
+
+              THE PLANS SCROLL AT EVERY WIDTH. Two plan cards with their lines
+              and buttons are about 380px taller than the 540px card, and the
+              panel was overflow hidden from 640px up, so on a laptop the
+              Start free and Get Pro buttons sat under the card's edge where
+              no wheel, trackpad or key could reach them. The probe set
+              scrollTop from script, which works on a hidden box, so it never
+              saw it. The other steps fit and stay still on a computer.
             */}
             <div
               ref={stepScrollRef}
@@ -2915,9 +2919,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               style={{ maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK }}
               className={cn(
                 "min-h-0 overscroll-contain px-4 pt-5 sm:px-10 sm:pt-4",
-                "flex-1 sm:overflow-hidden",
-                /* A profile step fits. Anything taller may scroll on a phone only, never inside the card on a large screen. */
-                isJoinStep(currentStep) ? "overflow-hidden" : "max-sm:overflow-y-auto",
+                "flex-1",
+                isJoinStep(currentStep) ? "overflow-hidden" : currentStep === 4 ? "overflow-y-auto" : "max-sm:overflow-y-auto sm:overflow-hidden",
                 (currentStep === 1 || currentStep === 3 || isJoinStep(currentStep)) && "max-sm:pb-4",
                 currentStep === 2 && "max-sm:pb-2",
                 currentStep === 4 && "pb-4 sm:pb-6",
@@ -2942,40 +2945,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 {renderStep(currentStep)}
               </div>
             </div>
-            </div>
-
-            {/*
-              THE FOOT OF THE PANEL: A SOFT WHITE, LIGHTLY BLURRED. The plans
-              ran into a flat white bar over the Back button, cut 20px above
-              it. Over the last 64px of the panel the page now goes softly to
-              white, and what is under it is blurred a little more the lower
-              it is: four 16px bands at 0.5, 1, 1.5 and 2px, so no band is
-              more than half a pixel of blur from the next and there is no
-              line where the blur starts. (One blurred box faded with a mask
-              would be simpler, but Chrome draws the blur under a mask
-              whole, with a hard top edge.) The white is on top of the
-              bands. It takes no room (its negative margin gives back its
-              height), it never takes a tap, and it is only there while there
-              is more to scroll to.
-            */}
-            <div
-              ref={veilRef}
-              aria-hidden="true"
-              data-onboarding-veil=""
-              className="pointer-events-none relative z-10 -mt-16 h-16 shrink-0"
-            >
-              {VEIL_BLURS.map((blur, i) => (
-                <div
-                  key={blur}
-                  data-onboarding-veil-band=""
-                  className="absolute inset-x-0 h-4 motion-reduce:!transition-none"
-                  style={{ top: i * 16, opacity: "var(--veil, 0)", transition: `opacity 220ms ${MOTION_EASE}`, backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)` }}
-                />
-              ))}
-              <div
-                className="absolute inset-0 motion-reduce:!transition-none"
-                style={{ opacity: "var(--veil, 0)", transition: `opacity 220ms ${MOTION_EASE}`, background: "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0.88) 82%, #fff 100%)" }}
-              />
             </div>
 
             {/*

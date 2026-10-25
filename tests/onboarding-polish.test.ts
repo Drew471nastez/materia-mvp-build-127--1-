@@ -142,7 +142,7 @@ function main() {
       && /const SUBHEADING = "mt-2 text-\[15px\]/.test(creator) && !/text-gray-500 text-xs sm:text-base/.test(creator))
   /* "cutted there, up": the plans ran into the top row and the Back button in a hard line. */
   check("the step panel's edges fade where more is behind them, set from the scroll and not from state",
-    /onScroll=\{updateScrollEdges\}/.test(creator) && /el\.style\.setProperty\("--fade-top", above \? "20px" : "0px"\)/.test(creator) && /maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK/.test(creator))
+    /onScroll=\{updateScrollEdges\}/.test(creator) && /el\.style\.setProperty\("--fade-top", above \? SCROLL_EDGE_FADE : "0px"\)/.test(creator) && /maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK/.test(creator))
   /* "the last step, it's the old Storelib logo, and it's cut badly in the corners." */
   check("the setup screen draws the one Storelib mark, whole, with no copy of it in this file",
     /import \{ StorelibLogo \} from "@\/components\/brand\/storelib-logo"/.test(creator) && /<StorelibLogo size=\{62\} fluid className="block h-\[54px\] w-\[54px\] sm:h-\[62px\] sm:w-\[62px\]" \/>/.test(creator)
@@ -156,10 +156,10 @@ function main() {
       && /delay: 80 \+ i \* 70/.test(creator) && (creator.match(/data-setup-rise=""/g) ?? []).length === 3
       && /\[\{ opacity: 1, scale: "1" \}, \{ opacity: 0, scale: "0\.97" \}\]/.test(creator))
   check("the setup line rolls half a line as it changes, so the two lines pass rather than overlap", /value=\{state\}\s*\/\*[^*]*\*\/\s*lift="0\.55em"/.test(creator))
-  /* "the bottom white bar: a softer, more subtle white fade with a light blur". */
-  check("the foot of the panel is a soft white over four lightly blurred bands, taking no room and no taps, shown only with more below",
-    /const VEIL_BLURS = \[0\.5, 1, 1\.5, 2\]/.test(creator) && /data-onboarding-veil=""\s*className="pointer-events-none relative z-10 -mt-16 h-16 shrink-0"/.test(creator)
-      && /backdropFilter: `blur\(\$\{blur\}px\)`/.test(creator) && /veilRef\.current\?\.style\.setProperty\("--veil", below \? "1" : "0"\)/.test(creator))
+  /* "can't select a plan ... that fade there is too aggressive": the plans scroll on a computer too, under a 12px edge fade and no white veil. */
+  check("the plan step scrolls at every width, its edges fade over 12px, and no white veil covers the plans",
+    /isJoinStep\(currentStep\) \? "overflow-hidden" : currentStep === 4 \? "overflow-y-auto" : "max-sm:overflow-y-auto sm:overflow-hidden"/.test(creator)
+      && /const SCROLL_EDGE_FADE = "12px"/.test(creator) && !/data-onboarding-veil|VEIL_BLURS|veilRef/.test(creator))
   const cards = read("components/billing/plan-cards.tsx")
   check("in the onboarding the plans are a hair narrower (668px for the pair, 6px more air on a phone) with 20 to 24px under the pill",
     /compact \? "mx-auto max-w-\[668px\] max-md:px-1\.5"/.test(cards) && /data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6"/.test(cards))

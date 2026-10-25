@@ -220,11 +220,20 @@ function PlanCard({
   const monthlyAction = heldAction("monthly")
   const yearlyAction = heldAction("yearly")
   const pad = compact ? "px-5" : "px-6"
+  /*
+    IN THE ONBOARDING THE WHOLE CARD PICKS THE PLAN. A click on the picture
+    or the lines did nothing; only the button at the foot did, and that was
+    the part most often out of view. The button stays the one control for a
+    keyboard and a screen reader, so the card adds no second tab stop.
+  */
+  const shown = interval === "yearly" ? yearlyAction : monthlyAction
+  const pick = compact && shown.onClick && !shown.href && !shown.disabled && !shown.settled && !shown.loading ? shown.onClick : undefined
 
   return (
     <article
       data-plan-card={plan.id}
-      className="flex w-full flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_36px_72px_-30px_rgba(16,24,40,0.34),0_10px_24px_-12px_rgba(16,24,40,0.12),0_1px_3px_rgba(16,24,40,0.06)] ring-1 ring-[#0f172a]/[0.07]"
+      onClick={pick ? (e) => { if (!(e.target as Element).closest("[data-plan-action]")) pick() } : undefined}
+      className={`flex w-full flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_36px_72px_-30px_rgba(16,24,40,0.34),0_10px_24px_-12px_rgba(16,24,40,0.12),0_1px_3px_rgba(16,24,40,0.06)] ring-1 ring-[#0f172a]/[0.07] ${pick ? "cursor-pointer transition-[box-shadow] duration-200 hover:ring-[#0f172a]/[0.16]" : ""}`}
     >
       <div
         data-plan-header=""

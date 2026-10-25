@@ -368,17 +368,37 @@ for (const [label, viewport] of [
     const cards = [...document.querySelectorAll("[data-onboarding-step] [data-plan-card]")].map((c) => { const r = c.getBoundingClientRect(); return { x: Math.round(r.left), w: Math.round(r.width), top: Math.round(r.top) } })
     const pill = document.querySelector("[data-onboarding-step] [data-plan-interval-row]")
     const grid = document.querySelector("[data-onboarding-step] [data-plan-cards]")
-    const veil = document.querySelector("[data-onboarding-veil]")
-    const bands = [...document.querySelectorAll("[data-onboarding-veil-band]")].map((b) => getComputedStyle(b))
-    const vs = veil && getComputedStyle(veil)
     const sc = document.querySelector("[data-onboarding-scroller]").getBoundingClientRect()
-    const vr = veil && veil.getBoundingClientRect()
     return {
       cards, pillGap: pill && grid ? Math.round(grid.getBoundingClientRect().top - pill.getBoundingClientRect().bottom) : null,
       sideRoom: cards.length ? Math.round(cards[0].x - sc.left) : null,
-      veil: veil && { h: Math.round(vr.height), overScrollerBottom: Math.round(sc.bottom - vr.bottom), opacity: bands.length ? Math.min(...bands.map((b) => Number(b.opacity))) : 0, blur: bands.map((b) => b.backdropFilter || b.webkitBackdropFilter).join(" "), events: vs.pointerEvents },
+      veil: !!document.querySelector("[data-onboarding-veil]"),
+      overflowY: getComputedStyle(document.querySelector("[data-onboarding-scroller]")).overflowY,
     }
   })
+  /*
+    THE PLANS ARE REACHED THE WAY A PERSON REACHES THEM. Setting scrollTop
+    from script moves an overflow hidden box too, which is how a laptop's
+    plan step passed here while its wheel did nothing. Now a real wheel over
+    the cards has to reach the end of the panel with the last plan button
+    wholly inside it (on a phone the cards stack, one under the other).
+  */
+  const reach = await (async () => {
+    await page.evaluate(() => { document.querySelector("[data-onboarding-scroller]").scrollTop = 0 })
+    const box = await page.evaluate(() => { const r = document.querySelector("[data-onboarding-step] [data-plan-cards]").getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 40 } })
+    await page.mouse.move(box.x, box.y)
+    for (let i = 0; i < 24; i++) { await page.mouse.wheel({ deltaY: 120 }); await wait(40) }
+    await wait(250)
+    return page.evaluate(() => {
+      const sc = document.querySelector("[data-onboarding-scroller]")
+      const p = sc.getBoundingClientRect()
+      const buttons = [...sc.querySelectorAll("[data-onboarding-step] [data-plan-action]")].map((b) => b.getBoundingClientRect())
+      const last = buttons[buttons.length - 1]
+      return { scrolled: Math.round(sc.scrollTop), inside: !!last && last.top >= p.top && last.bottom <= p.bottom, count: buttons.length }
+    })
+  })()
+  if (reach.count < 2) problems.push(`${at} the plan step drew ${reach.count} plan buttons`)
+  else if (!reach.inside) problems.push(`${at} a mouse wheel over the plans scrolled ${reach.scrolled}px and the last plan button is still outside the panel (overflow-y ${plans.overflowY})`)
   if (process.env.SHOTS) {
     const vp = page.viewport()
     const foot = await page.evaluate(() => { const r = document.querySelector("[data-onboarding-footer]").getBoundingClientRect(); return { y: Math.max(0, Math.round(r.top - 150)), h: Math.round(r.bottom) } })
@@ -389,17 +409,11 @@ for (const [label, viewport] of [
     if (plans.cards[0].w > viewport.width - 44) problems.push(`${at} a plan card is ${plans.cards[0].w}px on a ${viewport.width}px phone: not narrower than before (${viewport.width - 32})`)
   } else if (viewport.width >= 768 && plans.cards[0].w + plans.cards[1].w + 12 > 668) problems.push(`${at} the two plan cards take ${plans.cards[0].w + plans.cards[1].w + 12}px, more than 668`)
   if (plans.pillGap === null || plans.pillGap < 20) problems.push(`${at} ${plans.pillGap}px between the Monthly and Yearly pill and the cards, under 20`)
-  if (!plans.veil) problems.push(`${at} no soft white at the foot of the panel`)
-  else {
-    if (!/blur\(/.test(plans.veil.blur || "")) problems.push(`${at} the foot of the panel is not blurred (${plans.veil.blur})`)
-    if (plans.veil.events !== "none") problems.push(`${at} the soft white at the foot takes taps`)
-    if (plans.veil.overScrollerBottom !== 0) problems.push(`${at} the soft white is ${plans.veil.overScrollerBottom}px off the panel's foot`)
-    if (edges.room > 40 && Number(plans.veil.opacity) < 0.99) problems.push(`${at} with more plans below, the soft white is at ${plans.veil.opacity}`)
-  }
+  if (plans.veil) problems.push(`${at} the white veil over the foot of the panel is back`)
   if (!/gradient/.test(edges.mask || "")) problems.push(`${at} the step panel has no edge fade`)
   if (edges.atTop.top !== "0px") problems.push(`${at} the top edge fades before anything has scrolled under it`)
   if (edges.room > 40) {
-    if (edges.middle.top !== "20px" || edges.middle.bottom !== "20px") problems.push(`${at} scrolled part way, the plans are cut rather than faded at the edges (${JSON.stringify(edges.middle)})`)
+    if (edges.middle.top !== "12px" || edges.middle.bottom !== "12px") problems.push(`${at} scrolled part way, the plans are cut rather than faded at the edges (${JSON.stringify(edges.middle)})`)
   }
 
   /*
@@ -446,7 +460,10 @@ for (const [label, viewport] of [
     window.__nextPhase = () => { const f = held.shift(); if (f) f() }
     window.setTimeout = (f, ms, ...a) => (ms >= 1500 ? (held.push(() => f(...a)), 0) : st(f, ms, ...a))
   })
-  await clickText("Start free")
+  /* A real click on the Free card's price, not its button: in the onboarding the whole card picks the plan. */
+  const freePrice = await page.evaluate(() => { const el = document.querySelector("[data-onboarding-step] [data-plan-card='free'] [data-plan-price]"); el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } })
+  await wait(100)
+  await page.mouse.click(freePrice.x, freePrice.y)
   if (filmstrip) {
     await page.waitForFunction(() => !!document.querySelector("[data-onboarding-setup]"))
     for (const ms of [0, 60, 140, 220, 320, 460, 700]) {
@@ -495,7 +512,7 @@ for (const [label, viewport] of [
     return { state: wrap.getAttribute("data-onboarding-setup"), mark: mark ? box(mark) : null, depth: mark ? getComputedStyle(mark.parentElement).boxShadow : null, clipped, heading: (shown || {}).textContent, foot: Math.round(r.top) + "/" + Math.round(r.height) + "/" + Math.round(sc.height) }
   })()`)
   if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, `onboarding-setup-${label}.png`) })
-  if (!setup) problems.push(`${at} Start free did not reach the setup screen`)
+  if (!setup) problems.push(`${at} a click on the Free card did not reach the setup screen`)
   else {
     if (!setup.mark) problems.push(`${at} the setup screen has no Storelib mark`)
     /* Round 12: "the Storelib icon on that step a little smaller with a little depth (phones especially)": 54 and 62px, from 61 and 68. */
