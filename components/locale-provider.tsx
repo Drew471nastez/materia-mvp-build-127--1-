@@ -1,7 +1,10 @@
 "use client"
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { coreDictionaries, LAZY_LOCALE_SIZES, LAZY_LOCALES, loadLazyDictionary, type LazyLocale, type LocaleCode } from "@/lib/i18n/dictionaries-core"
+/* No dictionary here (round 12): this is in every page, and the words are imported by what translates with t() (lib/i18n/words-registry.ts). */
+import type { LocaleCode } from "@/lib/i18n/dictionaries-core"
+import { LOCALE_SIZES } from "@/lib/i18n/locale-sizes"
+import { localeWords, onWordsChange } from "@/lib/i18n/words-registry"
 import { formatPlatformMoney, type CurrencyCode } from "@/lib/i18n/currency"
 import { usePageCurrency } from "@/components/platform/price-currency"
 import { humanizeKey } from "@/lib/i18n/text"
@@ -85,22 +88,17 @@ const LANGUAGES: Array<{ code: SupportedLanguage; label: string; short: string; 
 export const LOCALE_READY_THRESHOLD = 0.7
 
 /*
-  SPANISH, FRENCH AND GERMAN ARE NOT IN EVERY PAGE (round 27, the app speed review: about 94KB gzipped parsed on every
-  start, the app's /native-start included, for the few people who read one of them). They are fetched the first time one
-  is chosen (loadLazyDictionary) and kept; until then a key reads English. Their sizes are known without loading them.
+  NO DICTIONARY IS IN EVERY PAGE. Spanish, French and German were made lazy in round 27 (about 94KB gzipped on every
+  start); in round 12 English and Romanian (37KB gzipped) left this file too, since the provider is in the root layout
+  and published websites and the dashboard never call t(). The words live in lib/i18n/locale-words.ts, imported by the
+  components that translate with t(); a language other than English is fetched the first time it is read, and until then
+  a key reads English. The picker's coverage is counted from the sizes (lib/i18n/locale-sizes.ts) without loading any.
 */
-const isLazy = (code: string): code is LazyLocale => (LAZY_LOCALES as readonly string[]).includes(code)
-const loaded: Partial<Record<LazyLocale, Record<string, string>>> = {}
-function dictionaryFor(code: SupportedLanguage): Record<string, string> | undefined {
-  return isLazy(code) ? loaded[code] : coreDictionaries[code]
-}
-
 function translatedLocales(): Set<SupportedLanguage> {
-  const baseline = Object.keys(coreDictionaries.en ?? {}).length || 1
+  const baseline = LOCALE_SIZES.en || 1
   const ready = new Set<SupportedLanguage>(["en"])
   for (const l of LANGUAGES) {
-    const size = isLazy(l.code) ? LAZY_LOCALE_SIZES[l.code] : Object.keys(coreDictionaries[l.code] ?? {}).length
-    if (size / baseline >= LOCALE_READY_THRESHOLD) ready.add(l.code)
+    if (LOCALE_SIZES[l.code] / baseline >= LOCALE_READY_THRESHOLD) ready.add(l.code)
   }
   return ready
 }
@@ -246,28 +244,18 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     writeCookie(STORAGE_KEYS.currency, cur)
   }, [])
 
-  /* A lazy locale arrives once; the render after it reads it. */
-  const [, arrived] = useState(0)
+  /* A language's words arrive once (or the words module itself, with a page that translates); the render after reads them. */
+  const [arrivals, arrived] = useState(0)
+  useEffect(() => onWordsChange(() => arrived((n) => n + 1)), [])
   useEffect(() => {
-    if (!isLazy(language) || loaded[language]) return
-    let live = true
-    loadLazyDictionary(language)
-      .then((d) => {
-        loaded[language] = d
-        if (live) arrived((n) => n + 1)
-      })
-      .catch(() => {})
-    return () => {
-      live = false
-    }
-  }, [language])
-  const ready = isLazy(language) ? !!loaded[language] : true
+    localeWords()?.prepare(language)
+  }, [language, arrivals])
   const t = useCallback(
     (key: string) => {
-      return dictionaryFor(language)?.[key] ?? coreDictionaries.en[key] ?? humanizeKey(key)
+      return localeWords()?.word(language, key) ?? humanizeKey(key)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [language, ready],
+    [language, arrivals],
   )
 
   /**

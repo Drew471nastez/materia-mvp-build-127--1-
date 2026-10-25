@@ -97,6 +97,8 @@ const copy = [
   "lib/help/articles.ts", "lib/home/announcements.ts", "components/marketing/pricing-section.tsx", "components/marketing/faq-page-client.tsx",
   "app/(marketing)/blog/[slug]/page.tsx", "app/terms/page.tsx", "lib/billing/plans.ts",
   "lib/i18n/dict/settings.ts", "lib/i18n/dict/dashboard.ts", "lib/i18n/dict/de.ts", "lib/i18n/dict/es.ts", "lib/i18n/dict/fr.ts",
+  /* Round 12: the Romanian halves moved to their own files. */
+  "lib/i18n/dict/ro/settings.ts", "lib/i18n/dict/ro/dashboard.ts",
 ]
 for (const f of copy) {
   const s = read(f)

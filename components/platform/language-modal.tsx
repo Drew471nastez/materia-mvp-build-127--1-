@@ -4,6 +4,8 @@ import * as React from "react"
 
 import { ChoiceDialog } from "@/components/ui/choice-list"
 import { useLocale } from "@/components/locale-provider"
+/* The words t() reads (lib/i18n/locale-words.ts): imported where they are used, not by the provider every page has. */
+import "@/lib/i18n/locale-words"
 
 /**
  * ===========================================================================

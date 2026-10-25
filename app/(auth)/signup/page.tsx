@@ -19,6 +19,8 @@ import { readSessionBounded } from "@/lib/auth/session-read"
 import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { useLocale } from "@/components/locale-provider"
+/* The words t() reads (lib/i18n/locale-words.ts): imported where they are used, not by the provider every page has. */
+import "@/lib/i18n/locale-words"
 import { classifyOAuthError } from "@/lib/auth/oauth-errors"
 import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"

@@ -1,168 +1,44 @@
 /**
- * Marketplace UI dictionaries, the part every page carries: English and
- * Romanian (and the header keys of the partly translated locales). Spanish,
- * French and German are complete and large, so they are loaded only for a
- * person who chose one (loadLazyDictionary); the server reads all of them from
- * lib/i18n/dictionaries.ts.
+ * Marketplace UI dictionaries, the part a page that translates carries:
+ * English (and the header keys of the partly translated locales). Romanian,
+ * Spanish, French and German are complete and large, so they are loaded only
+ * for a person who chose one (loadLazyDictionary); the server reads all of
+ * them from lib/i18n/dictionaries.ts. Only the pages that call useLocale().t
+ * load this file at all (lib/i18n/locale-words.ts, round 12).
  */
 // Per-surface translations authored by the RO/EN sweep. Merged below; the
 // curated base keys in this file win on any key collision.
-import { authDict } from "./dict/auth"
-import { checkoutDict } from "./dict/checkout"
-import { dashboardDict } from "./dict/dashboard"
-import { settingsDict } from "./dict/settings"
-import { builderDict } from "./dict/builder"
+import { authEn } from "./dict/auth"
+import { checkoutEn } from "./dict/checkout"
+import { dashboardEn } from "./dict/dashboard"
+import { settingsEn } from "./dict/settings"
+import { builderEn } from "./dict/builder"
+import { LAZY_LOCALES, LOCALE_SIZES, type LazyLocale } from "./locale-sizes"
 
 export type LocaleCode = "ro" | "en" | "es" | "de" | "pt-BR" | "fr" | "it" | "nl" | "pl"
 
-/** The three fully translated locales that are not in every page's bundle (each about 75KB): loaded when chosen. */
-export type LazyLocale = "es" | "fr" | "de"
+export { LAZY_LOCALES, type LazyLocale }
 export type CoreLocale = Exclude<LocaleCode, LazyLocale>
-export const LAZY_LOCALES: readonly LazyLocale[] = ["es", "fr", "de"]
 
-/**
- * How many keys each lazy locale has, for the language picker's coverage rule
- * (components/locale-provider.tsx) without loading it. tests/i18n-lazy.test.ts
- * checks these against the files, so a new translation cannot leave them stale.
- */
-export const LAZY_LOCALE_SIZES: Record<LazyLocale, number> = { es: 1234, fr: 1234, de: 1234 }
+/** How many keys each lazy locale has (lib/i18n/locale-sizes.ts). */
+export const LAZY_LOCALE_SIZES: Record<LazyLocale, number> = { es: LOCALE_SIZES.es, fr: LOCALE_SIZES.fr, de: LOCALE_SIZES.de, ro: LOCALE_SIZES.ro }
 
 /** The lazy locale's dictionary, fetched once. */
 export function loadLazyDictionary(code: LazyLocale): Promise<Record<string, string>> {
+  if (code === "ro") return import("./dict/ro").then((m) => m.roDict)
   if (code === "es") return import("./dict/es").then((m) => m.esDict)
   if (code === "fr") return import("./dict/fr").then((m) => m.frDict)
   return import("./dict/de").then((m) => m.deDict)
 }
 
 export const coreDictionaries: Record<CoreLocale, Record<string, string>> = {
-  ro: {
-    // Merged per-surface keys (base keys below override on collision)
-    ...authDict.ro,
-    ...checkoutDict.ro,
-    ...dashboardDict.ro,
-    ...settingsDict.ro,
-    ...builderDict.ro,
-    // Header / nav
-    "nav.library": "Biblioteca",
-    "nav.dashboard": "Panou",
-    "nav.sign_in": "Log in",
-    "nav.sign_up": "Sign up",
-    "nav.start_selling": "Începe să vinzi",
-    "nav.wishlist": "Favorite",
-    "nav.categories": "Categorii",
-    "nav.all_categories": "Toate categoriile",
-    // Search
-    "search.placeholder": "Caută orice",
-    "search.recent": "Căutări recente",
-    "search.recently_viewed": "Vizualizate recent",
-    "search.people": "Persoane",
-    "search.clear": "Șterge",
-    // Categories
-    // The six digital categories. lib/marketplace/categories.ts owns the ids and
-    // the English labels; these are what the UI shows in each locale.
-    "category.all": "Toate",
-    "category.design": "Design",
-    "category.development": "Dezvoltare",
-    "category.marketing": "Marketing",
-    "category.business": "Afaceri",
-    "category.ai": "AI",
-    "category.social-media": "Social media",
-    "category.productivity": "Productivitate",
-    "category.photography": "Fotografie",
-    "category.video": "Video",
-    "category.audio-music": "Audio și muzică",
-    "category.education": "Educație",
-    "category.ecommerce": "E-commerce",
-    "category.freebies": "Gratuite",
-    "category.other": "Altele",
-    // Feed sections
-    "feed.recommended": "Recomandate",
-    "feed.most_popular": "Cele mai populare",
-    "feed.trending": "În tendințe",
-    "feed.new": "Noutăți",
-    "feed.featured_categories": "Categorii recomandate",
-    // Mobile browse
-    "mfeed.search_placeholder": "Caută șabloane, cursuri, fonturi...",
-    "mfeed.search_for": "Caută",
-    "mfeed.filters": "Filtre",
-    "mfeed.for_you": "Pentru tine",
-    "mfeed.following": "Urmărești",
-    "mfeed.saved": "Salvate",
-    "mfeed.view_grid": "Vizualizare grilă",
-    "mfeed.view_reels": "Vizualizare pe ecran complet",
-    "mfeed.share": "Trimite",
-    "mfeed.save": "Salvează",
-    "mfeed.picked_for_you": "Alese pentru tine",
-    "mfeed.based_on_searches": "Pe baza căutărilor tale",
-    "mfeed.home": "Acasă",
-    "mfeed.search": "Caută",
-    "mfeed.sell": "Vinde",
-    "mfeed.inbox": "Mesaje",
-    "mfeed.profile": "Profil",
-    "mfeed.empty_title": "Niciun anunț încă",
-    "mfeed.empty_sub": "Revino curând. Apar produse noi în fiecare zi.",
-    "mfeed.following_empty_title": "Nu urmărești pe nimeni încă",
-    "mfeed.following_empty_sub": "Urmărește vânzători ca să le vezi anunțurile aici.",
-    "mfeed.saved_empty_title": "Niciun articol salvat",
-    "mfeed.saved_empty_sub": "Apasă pe inimă la un anunț ca să îl salvezi aici.",
-    // Full-screen search overlay
-    "mfeed.search_items_members": "Caută articole sau membri",
-    "mfeed.close": "Închide",
-    "mfeed.tab_items": "Articole",
-    "mfeed.back": "Înapoi",
-    "mfeed.tab_people": "Persoane",
-    "mfeed.recent_searches": "Căutări recente",
-    "mfeed.clear_all": "Șterge tot",
-    "mfeed.suggestions": "Sugestii",
-    "mfeed.browse_categories": "Explorează categoriile",
-    "mfeed.no_people": "Niciun membru găsit",
-    "mfeed.search_people_hint": "Caută membri după nume sau utilizator",
-    "mfeed.items_count": "articole",
-    "mfeed.searching": "Se caută…",
-    "mfeed.swipe_photos": "Glisează",
-    "mfeed.saved_toast": "Salvat în favorite",
-    "mfeed.follow_action": "Urmărește",
-    "mfeed.unfollow_action": "Nu mai urmări",
-    "mfeed.follow_tip": "Urmărește din nou",
-    "mfeed.unfollow_tip": "Nu mai urmări",
-    "mfeed.member_since": "Membru din",
-    "mfeed.listings_short": "anunțuri",
-    "mfeed.online": "Online",
-    "mfeed.offline": "Offline",
-    "mfeed.following_action": "Urmărit",
-    "mfeed.follow_toast": "Îl urmărești pe {name}",
-    "mfeed.following_loading": "Se încarcă anunțurile...",
-    "mfeed.removed_toast": "Eliminat din favorite",
-    // Product / listing
-    "product.free": "Gratis",
-    "product.size": "Mărime",
-    "product.condition": "Stare",
-    "product.brand": "Marcă",
-    "product.add_to_wishlist": "Adaugă la favorite",
-    // Settings modal
-    "settings.language": "Limbă",
-    "settings.currency": "Monedă",
-    // Back-compat keys (used by existing components)
-    search_placeholder: "Caută orice",
-    wishlist: "Favorite",
-    library: "Biblioteca",
-    start_selling: "Începe să vinzi",
-    dashboard: "Panou",
-    sell_now: "Vinde",
-    bag: "Coș",
-    messages: "Mesaje",
-    sign_up: "Sign up",
-    log_in: "Log in",
-    language: "Limbă",
-    currency: "Monedă",
-  },
   en: {
     // Merged per-surface keys (base keys below override on collision)
-    ...authDict.en,
-    ...checkoutDict.en,
-    ...dashboardDict.en,
-    ...settingsDict.en,
-    ...builderDict.en,
+    ...authEn,
+    ...checkoutEn,
+    ...dashboardEn,
+    ...settingsEn,
+    ...builderEn,
     "nav.library": "Library",
     "nav.dashboard": "Dashboard",
     "nav.sign_in": "Sign in",

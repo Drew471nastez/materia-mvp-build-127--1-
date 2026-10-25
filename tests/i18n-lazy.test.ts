@@ -24,9 +24,17 @@ async function main() {
     check(`${code}: loading it gives the same dictionary the server reads`, lazy === full.dictionaries[code])
     check(`${code}: not in the part every page carries`, !(code in core.coreDictionaries))
   }
-  check("every other locale is the same object in both", (["en", "ro", "pt-BR", "it", "nl", "pl"] as const).every((c) => full.dictionaries[c] === core.coreDictionaries[c]))
+  /* Changed on purpose (round 12, PLATPERF): Romanian is lazy too, so it is no longer in the core. */
+  check("every other locale is the same object in both", (["en", "pt-BR", "it", "nl", "pl"] as const).every((c) => full.dictionaries[c] === core.coreDictionaries[c]))
+  const sizes = await import("../lib/i18n/locale-sizes")
+  check("the picker's counts are the files', every locale", (Object.keys(full.dictionaries) as (keyof typeof sizes.LOCALE_SIZES)[]).every((c) => sizes.LOCALE_SIZES[c] === Object.keys(full.dictionaries[c]).length), sizes.LOCALE_SIZES)
   const provider = readFileSync(join(process.cwd(), "components/locale-provider.tsx"), "utf8")
-  check("the client provider imports the core only", /from "@\/lib\/i18n\/dictionaries-core"/.test(provider) && !/from "@\/lib\/i18n\/dictionaries"/.test(provider))
+  const words = readFileSync(join(process.cwd(), "lib/i18n/locale-words.ts"), "utf8")
+  /* Changed on purpose (round 12, PLATPERF): the provider is in the root layout, on every page (published websites and the dashboard too), so it imports no dictionary at all; the words module does, imported by what calls t(). */
+  check("the client provider imports no dictionary, only types and sizes", !/from "@\/lib\/i18n\/dictionaries(-core)?"/.test(provider.replace(/import type [^\n]*\n/g, "")) && /from "@\/lib\/i18n\/words-registry"/.test(provider))
+  check("  the words module imports the core only", /from "\.\/dictionaries-core"/.test(words) && !/from "\.\/dictionaries"/.test(words))
+  const users = ["app/(auth)/signup/page.tsx", "components/platform/platform-header-client.tsx", "components/platform/language-currency-modal.tsx", "components/platform/language-modal.tsx"]
+  check("  and every component that translates with t() imports the words", users.every((f) => /import "@\/lib\/i18n\/locale-words"/.test(readFileSync(join(process.cwd(), f), "utf8"))))
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed) process.exit(1)
 }

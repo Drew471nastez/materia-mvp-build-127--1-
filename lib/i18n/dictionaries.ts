@@ -9,6 +9,7 @@ import { coreDictionaries, type LocaleCode } from "./dictionaries-core"
 import { esDict } from "./dict/es"
 import { frDict } from "./dict/fr"
 import { deDict } from "./dict/de"
+import { roDict } from "./dict/ro"
 
 export type { LocaleCode } from "./dictionaries-core"
 
@@ -17,4 +18,5 @@ export const dictionaries: Record<LocaleCode, Record<string, string>> = {
   es: esDict,
   de: deDict,
   fr: frDict,
+  ro: roDict,
 }

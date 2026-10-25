@@ -28,6 +28,8 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 
 import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check, Bookmark, IdCard } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
+/* The words t() reads (lib/i18n/locale-words.ts): imported where they are used, not by the provider every page has. */
+import "@/lib/i18n/locale-words"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { headerAuthBack } from "@/lib/auth/return-to"

@@ -5,6 +5,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { useLocale } from "@/components/locale-provider"
+/* The words t() reads (lib/i18n/locale-words.ts): imported where they are used, not by the provider every page has. */
+import "@/lib/i18n/locale-words"
 
 type Props = {
   trigger: React.ReactNode
