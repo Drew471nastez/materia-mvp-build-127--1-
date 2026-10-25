@@ -269,6 +269,19 @@ async function main() {
       check("the Liquid cart (a cart page or drawer with no script of its own) draws the same numbers", /\$180\.00\|\$108\.00<i>Buy 3 get 2 free -\$72\.00<\/i>/.test(page) && /<p id=t>\$97\.20<\/p>/.test(page) && /<b>SAVE10 -\$10\.80<\/b>/.test(page), page.slice(0, 800))
     }
 
+    /* Lines split by their properties (an engraving, an uploaded picture's reference): the break still counts every unit of the product. */
+    {
+      const db = shopDb({ offers })
+      const s = session(siteFor(db))
+      await s.ask("POST", "/cart/add.js", { items: [{ id: TEE_S, quantity: 2, properties: { Engraving: "Ana" } }, { id: TEE_S, quantity: 1, properties: { Engraving: "Bo" } }] })
+      const js = await s.cartJs()
+      const q = await quote(db, items(s.state))
+      check("one option on two lines by their properties: 2 + 1 counted across them, $72.00 as checkout, each line its own part", js.items.length === 2 && js.total_price === 7200 && goods(q) === 7200 && js.items.map((i: { final_line_price: number }) => i.final_line_price).join() === q.lines.map((l) => l.unitCents * l.quantity - l.discountCents).join(), { lines: js.items.map((i: { final_line_price: number; properties: unknown }) => [i.final_line_price, i.properties]), q: q.lines.map((l) => [l.quantity, l.discountCents]) })
+      const coded = JSON.parse(String((await s.ask("POST", "/cart/update.js", { discount: "SAVE10" })).body))
+      const qc = await quote(db, items(s.state), { couponCode: "SAVE10" })
+      check("  a code on those lines too: $64.80, as checkout", coded.total_price === goods(qc) && coded.total_price === 6480, { total: coded.total_price, qc: qc.totals })
+    }
+
     /* Variants at different prices: the cheapest units are the free ones. */
     {
       const db = shopDb({ offers, teeLCents: 4000 })
@@ -449,7 +462,8 @@ async function main() {
     const body = (s: string) => s.split("\n").find((l) => l.startsWith("CREATE OR REPLACE FUNCTION public.store_change_currency(")) ?? ""
     check("  everything else part 258 did, kept word for word", body(part).replace(/, CASE WHEN 'tiers' = ANY \(v_cols\) THEN [\s\S]*?ELSE tiers END' END\)/, ")") === body(p258), { d: body(part).length - body(p258).length })
     check("  part 258's Undo already restores a snapshot's tiers as they were", /WHEN 'tiers' THEN 'tiers = s\.before->''tiers'''/.test(p258))
-    check("listed in the README and checked after, last", /306_store_currency_quantity_breaks\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p306_store_currency_quantity_breaks;\s*$/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    /* After part 305, in number order (part 308 came before it on the coordinator branch and is checked last). */
+    check("listed in the README and checked after part 305", /306_store_currency_quantity_breaks\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p305_translation_providers, exists \(select 1 from pg_proc where proname = 'store_change_currency' and prosrc like '%discountValue%'\) as p306_store_currency_quantity_breaks[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 
     const PSQL = ["/usr/bin/psql", "/usr/lib/postgresql/16/bin/psql"].find((p) => existsSync(p))
     const HOST = process.env.OFFERS_PG_HOST
