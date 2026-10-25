@@ -945,6 +945,90 @@
       ]
     },
     {
+      "type": "personalization",
+      "name": "Personalization",
+      "limit": 5,
+      "fields": [
+        {
+          "id": "kind",
+          "label": "Asks for",
+          "type": "select",
+          "default": "text",
+          "options": [
+            {
+              "label": "Text",
+              "value": "text"
+            },
+            {
+              "label": "Picture",
+              "value": "image"
+            },
+            {
+              "label": "Text and picture",
+              "value": "text_and_image"
+            }
+          ]
+        },
+        {
+          "id": "label",
+          "label": "Text label",
+          "type": "text",
+          "default": "Personalization",
+          "visible_if": "{{ block.settings.kind != 'image' }}"
+        },
+        {
+          "id": "placeholder",
+          "label": "Placeholder",
+          "type": "text",
+          "default": "",
+          "visible_if": "{{ block.settings.kind != 'image' }}"
+        },
+        {
+          "id": "max_length",
+          "label": "Longest text",
+          "type": "range",
+          "min": 5,
+          "max": 500,
+          "step": 5,
+          "default": 40,
+          "visible_if": "{{ block.settings.kind != 'image' }}"
+        },
+        {
+          "id": "upload_label",
+          "label": "Picture label",
+          "type": "text",
+          "default": "Photo",
+          "visible_if": "{{ block.settings.kind != 'text' }}"
+        },
+        {
+          "id": "required",
+          "label": "Required",
+          "type": "toggle",
+          "default": false
+        },
+        {
+          "id": "margin_top",
+          "label": "Space above",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "id": "margin_bottom",
+          "label": "Space below",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 20
+        }
+      ]
+    },
+    {
       "type": "quantity",
       "name": "Quantity",
       "limit": 1,

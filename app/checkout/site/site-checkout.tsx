@@ -50,6 +50,7 @@ import { regionsOf } from "@/lib/physical/regions"
 import { addressFormat } from "@/lib/address/format"
 import { cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/website-builder/cart"
 import { encodeItems, type LinkItem } from "@/lib/physical/cart-link"
+import { readUploadValue } from "@/lib/cart-uploads/rules"
 import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { adoptCarriedTouches } from "@/lib/attribution/browser"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
@@ -1481,12 +1482,22 @@ function LineProperties({ items, line }: { items: LinkItem[] | null; line: { pro
   if (!shown.length) return null
   return (
     <dl className="mt-0.5 space-y-0.5 text-[12.5px]" data-line-properties="">
-      {shown.slice(0, 10).map(([k, v]) => (
-        <div key={`${k}:${v}`} className="flex min-w-0 gap-x-1">
-          <dt className="shrink-0 text-[#6b7280]">{k}:</dt>
-          <dd className="min-w-0 truncate text-[#1a1a2e]">{v}</dd>
-        </div>
-      ))}
+      {shown.slice(0, 10).map(([k, v]) => {
+        /* A picture the buyer sent (lib/cart-uploads): its file name, and the picture itself, which only this browser can open. */
+        const upload = readUploadValue(v)
+        return (
+          <div key={`${k}:${v}`} className="flex min-w-0 items-center gap-x-1">
+            <dt className="shrink-0 text-[#6b7280]">{k}:</dt>
+            <dd className="flex min-w-0 items-center gap-1.5 text-[#1a1a2e]">
+              {upload ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={v} alt="" width={20} height={20} className="h-5 w-5 shrink-0 rounded-[4px] border border-black/[0.06] object-cover" referrerPolicy="no-referrer" />
+              ) : null}
+              <span className="min-w-0 truncate">{upload ? upload.name : v}</span>
+            </dd>
+          </div>
+        )
+      })}
     </dl>
   )
 }

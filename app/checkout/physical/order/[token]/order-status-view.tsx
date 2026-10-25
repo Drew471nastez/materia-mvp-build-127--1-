@@ -56,7 +56,7 @@ interface Props {
     /** Paid in cash when it arrives (lib/physical/cash-on-delivery.ts): "due" until the shop has the cash, "paid" after. */
     cash?: "due" | "paid" | null
     /** `shipped`, `returned`: how many of the line went out and came back; `refunded`: money went back on it. */
-    lines: { orderId: string; title: string; variantName: string | null; properties?: [string, string][]; imageUrl: string | null; quantity: number; unitCents?: number; cents: number; type: string; receiptToken: string | null; returnable: number; shipped?: number; returned?: number; refunded?: boolean }[]
+    lines: { orderId: string; title: string; variantName: string | null; properties?: [string, string][]; files?: { id: string; name: string; url: string }[]; imageUrl: string | null; quantity: number; unitCents?: number; cents: number; type: string; receiptToken: string | null; returnable: number; shipped?: number; returned?: number; refunded?: boolean }[]
     /** Each shipment's updates (`updates`, oldest first): shipped, in transit, out for delivery, delivered, a delivery problem. */
     shipments: {
       id: string
@@ -405,6 +405,16 @@ export function OrderStatusView({ token, justPaid, shop, orderUrl, order, canRet
                     <div className="min-w-0 flex-1">
                       <p className="line-clamp-2 text-[14px] font-medium leading-5 text-[#1a1a2e]">{l.title}</p>
                       <p className="mt-0.5 text-[13px] leading-[18px] text-[#6b7280]">{[l.variantName, ...(l.properties ?? []).map(([k, v]) => `${k}: ${v}`), ct("Qty {quantity}", { quantity: l.quantity })].filter(Boolean).join(" · ")}</p>
+                      {l.files?.length ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5" data-line-files="">
+                          {l.files.map((f) => (
+                            <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" title={f.name}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={f.url} alt={f.name} width={44} height={44} className="h-11 w-11 rounded-md border border-[#e5e7eb] object-cover" referrerPolicy="no-referrer" />
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
                       {notes.length ? <p className="mt-0.5 text-[12.5px] leading-[18px] text-[#92400e]" data-line-progress="">{notes.join(" · ")}</p> : null}
                       {l.receiptToken ? (
                         <a href={`/receipt/${encodeURIComponent(l.receiptToken)}`} className="mt-1 inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#1a1a2e] underline underline-offset-4">

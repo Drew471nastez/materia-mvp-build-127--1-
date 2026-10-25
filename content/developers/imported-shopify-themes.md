@@ -100,7 +100,8 @@ The cart lives in a cookie on the website's own host, up to 50 lines and 99 of e
 | Address | What it does |
 | --- | --- |
 | `GET /cart.js`, `/cart.json` | The cart, in the shape themes expect |
-| `POST /cart/add`, `/cart/add.js` | Adds `id` and `quantity`, or an `items` list, with `properties`; the same option with other properties is its own line |
+| `POST /cart/add`, `/cart/add.js` | Adds `id` and `quantity`, or an `items` list, with `properties`; the same option with other properties is its own line. A multipart form's file inputs (`properties[Photo]`) are kept as the buyer's pictures (see Personalization in Physical commerce) |
+| `POST /cart/upload` | One or more pictures (`file`), answered with `upload.value` for the line's properties |
 | `POST /cart/change`, `/cart/change.js` | Changes one line, by `line` or by key |
 | `POST /cart/update`, `/cart/update.js` | Sets quantities with `updates`, the `note`, and the discount codes with `discount` ("A,B"), which `/cart.js` lists as `discount_codes` with whether each applies |
 | `POST /cart/clear`, `/cart/clear.js` | Empties it |
