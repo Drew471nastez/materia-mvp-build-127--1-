@@ -1393,6 +1393,8 @@ export const CANVAS_BRIDGE = `
   */
   var drawn = {};
   var settleTimers = {};
+  /* How long a section whose script reads a changed value waits to start again: 700ms for a run of values, none for one choice (the builder's "now", compat-canvas ONE CHOICE, SHOWN AT ONCE). */
+  var restartIn = 700;
   var skipNode = function (n) {
     if (n.nodeType === 8) return true;
     if (n.nodeType !== 1) return false;
@@ -1497,7 +1499,7 @@ export const CANVAS_BRIDGE = `
     if (ops.restart) {
       settleTimers[id] = setTimeout(function () {
         queue = queue.then(function () { if (drawn[id] === html) return swap(id, html); }).catch(function () {});
-      }, 700);
+      }, restartIn);
     }
     if (selected.section === id) mark(selected.section, selected.block, false, true);
     reportSoon();
@@ -1663,7 +1665,7 @@ export const CANVAS_BRIDGE = `
     if (restart) {
       settleTimers[id] = setTimeout(function () {
         queue = queue.then(function () { if (drawn[id] === html) return swap(id, html); }).catch(function () {});
-      }, 700);
+      }, restartIn);
     }
     /* The same elements, changed: the selection's marks are still on them, so only where they are is read again (mark took them all off and put them back, a style pass of its own for every value). */
     var sel = selected.section === id ? document.getElementById("shopify-section-" + id) : null;
@@ -2422,8 +2424,10 @@ export const CANVAS_BRIDGE = `
       queue = queue.then(function () {
         if (asked[m.id] !== n) return;
         var done = false;
+        restartIn = m.now ? 0 : 700;
         try { done = restyle(m.id, m.html, m.prev); } catch (err) { done = false; }
         if (!done) try { done = morph(m.id, m.html, m.prev); } catch (err) { done = false; }
+        restartIn = 700;
         if (!done) return Promise.resolve(swap(m.id, m.html, m.prev)).then(function () { sectionLoaded(m.id); });
         sectionLoaded(m.id);
       }).then(stillNow).catch(function () {});

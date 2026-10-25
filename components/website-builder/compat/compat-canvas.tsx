@@ -1046,8 +1046,23 @@ export function CompatCanvas(props: CompatCanvasProps) {
       for a moment (words typed into such a setting draw it once, not once a
       key) and the finger is up.
     */
-    if (plan.scripts && !isLive() && scriptsDue.current) {
+    /*
+      ONE CHOICE, SHOWN AT ONCE (round 13). The owner: Variant swatches ›
+      Swatch fill switched between colour and variant image, and the canvas
+      did not follow in real time. A choice (a select, a radio, a checkbox)
+      is one value, with no next key on its way: the 400ms wait for the
+      changes to stop, and the bridge's 700ms before a section whose script
+      reads a data- attribute is drawn again, were time the canvas stood
+      showing the old fill. Such a change is drawn behind now, and its
+      sections are started again on the next frame.
+    */
+    const told = settingsBefore && !isLive() ? oneChange(settingsBefore, drawnWith.current!.settings) : null
+    const choice = !!told && DISCRETE_SETTINGS.has(String(settingAt(compatTheme.settingsSchema, told.path)?.type ?? ""))
+    if (plan.scripts && !isLive() && (scriptsDue.current || choice)) {
       scriptsDue.current = false
+      window.clearTimeout(scriptsTimer.current)
+      /* Said to the page on screen too: a theme that applies the value itself (storelib:settings-change) shows it in this frame, before the page behind comes forward. */
+      tell(win, false)
       loadBehind(html, docKey, list)
       return
     }
@@ -1067,7 +1082,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     now.lastHtml = html
     if (plan.empty) { now.shape = next; tell(win, isLive()); return }
     /* With the markup it was drawn from, so the page can change only what differs (canvas-bridge.ts, morph). */
-    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id) }, "*")
+    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id), ...(choice ? { now: true } : {}) }, "*")
     if (Object.keys(plan.message).length) win.postMessage({ storelib: 1, type: "patch", ...plan.message }, "*")
     tell(win, isLive())
     now.shape = next
@@ -2255,6 +2270,8 @@ function CanvasPlaceholder({ hidden, label }: { hidden: boolean; label: string }
 
 /* How long the changes to a theme's start-up scripts must stop before the page is drawn again for them. */
 const SCRIPTS_SETTLE_MS = 400
+/* A theme setting whose change is one value, never a run of them (ONE CHOICE, SHOWN AT ONCE). */
+const DISCRETE_SETTINGS = new Set(["select", "radio", "checkbox", "color_scheme", "font_picker", "text_alignment"])
 
 /* "slow" is not a failure yet: the page is still being asked for, and comes in under this if it arrives. */
 const PROBLEM_WORDS = {
