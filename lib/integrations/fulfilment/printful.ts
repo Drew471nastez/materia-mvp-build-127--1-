@@ -100,6 +100,12 @@ export async function findSyncVariants(cred: ConnectorCredential, skus: string[]
 }
 
 /** Printful's costs block ({ currency, total: "13.25" }) as what the seller pays, or null when it has none yet. */
+/** An item's name with the buyer's words after it ("Mug · Name: Ana"), at most 120 characters as Printful keeps it. */
+export function printfulItemName(title: string, personalization?: { name: string; value: string }[]): string {
+  const words = (personalization ?? []).map((p) => `${p.name}: ${p.value}`).join(", ")
+  return (words ? `${title} · ${words}` : title).replace(/\s+/g, " ").trim().slice(0, 120)
+}
+
 export function printfulCost(costs: { currency?: string; total?: string | number } | null | undefined): { cents: number; currency: string } | null {
   const cents = toMinor(costs?.total, costs?.currency)
   return cents != null && cents > 0 ? { cents, currency: cleanCurrency(costs?.currency) } : null
@@ -140,7 +146,8 @@ export const printful: FulfilmentConnector = {
           phone: a.phone ?? undefined,
           email: a.email ?? undefined,
         },
-        items: order.lines.map((l) => ({ sync_variant_id: map.get(l.sku.trim()), quantity: l.quantity, external_id: l.lineId.slice(0, 32), name: l.title.slice(0, 120) })),
+        /* The buyer's words for the line in its name, which Printful's dashboard and packing slip show (./forward-server.ts personalizationOf). */
+        items: order.lines.map((l) => ({ sync_variant_id: map.get(l.sku.trim()), quantity: l.quantity, external_id: l.lineId.slice(0, 32), name: printfulItemName(l.title, l.personalization) })),
         packing_slip: { custom_order_id: order.label.slice(0, 32) },
       },
     })

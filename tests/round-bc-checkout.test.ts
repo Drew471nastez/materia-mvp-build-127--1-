@@ -204,7 +204,8 @@ async function main() {
     const server = code("lib/physical/checkout-server.ts")
     check("a cart that ships keeps the note with its line breaks on its checkout (orderNote, not clean)", /buyer_note: orderNote\(input\.buyerNote\)/.test(server) && !/buyer_note: clean\(/.test(server))
     const route = code("app/api/checkout/site/route.ts")
-    check("a basket of downloads puts the note on its payment, after the record's own keys, before the visit's touches", /const noteKeys = noteToMetadata\(body\.buyerNote\)[\s\S]{0,200}<= STRIPE_METADATA_LIMIT\) Object\.assign\(metadata, noteKeys\)\s*\n\s*Object\.assign\(metadata, attributionToMetadata/.test(route))
+    /* Changed on purpose (round AG): the lines' offers and properties (packExtras) take the room after the note and before the visit's touches. */
+    check("a basket of downloads puts the note on its payment, after the record's own keys, before the visit's touches", /const noteKeys = noteToMetadata\(body\.buyerNote\)[\s\S]{0,200}<= STRIPE_METADATA_LIMIT\) Object\.assign\(metadata, noteKeys\)\s*\n[\s\S]{0,300}Object\.assign\(metadata, packExtras\([^\n]+\n\s*Object\.assign\(metadata, attributionToMetadata/.test(route))
     check("  a free basket of downloads takes it too", /fulfilFreeCart\(admin, \{[\s\S]*?buyerNote: orderNote\(body\.buyerNote\)/.test(route))
     const fulfil = code("lib/checkout/fulfil-cart-session.ts")
     check("the payment's note is read back when its order is written (page or webhook)", /buyerNote: noteFromMetadata\(metadata\)/.test(fulfil))
@@ -386,7 +387,7 @@ async function main() {
     const drawerSrc = code("lib/website-builder/cart-checkout.ts")
     check("the native cart drawer's Check out comes back to the page the drawer was open on", /back: drawerBackPath\(cartPath\)/.test(drawerSrc) && /returnPath: drawerBackPath\(cartPath\)/.test(drawerSrc) && /sitePath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\) \?\? cartPath/.test(drawerSrc))
     const product = code("components/website-builder/sections/renderers/ProductSection.tsx")
-    check("a native Buy now on something that ships goes straight to the website's checkout, Back to this very page", /window\.location\.href = siteBuyHref\(\) \?\? physicalCheckoutHref\(/.test(product) && /siteCheckoutHref\(\{ items: \[\{ productId: product\.id, variantId: variant\?\.id \?\? null, quantity: qty \}\], back: sitePath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\) \}\)/.test(product))
+    check("a native Buy now on something that ships goes straight to the website's checkout, Back to this very page", /window\.location\.href = siteBuyHref\(\) \?\? physicalCheckoutHref\(/.test(product) && /siteCheckoutHref\(\{ items: \[\{ productId: product\.id, variantId: variant\?\.id \?\? null, quantity: qty, \.\.\.\(personalized\.properties \? \{ properties: personalized\.properties \} : \{\}\) \}\], back: sitePath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\) \}\)/.test(product))
   }
 
   /* ── SPEED ───────────────────────────────────────────────────────── */

@@ -15,6 +15,7 @@ import { checkoutT } from "@/lib/markets/checkout-words"
 import { optionKey, valueFor, type TranslationMap } from "@/lib/markets/translate"
 import { estimateText } from "@/lib/checkout/estimate-text"
 import type { GaItem } from "@/lib/store/ga"
+import { splitSavings } from "@/lib/receipts/discount"
 
 export interface Line {
   /** For its title in the page's language (`product:<id>:title`). */
@@ -26,6 +27,10 @@ export interface Line {
   cents: number
   /** Each, before the line's discount: "2 × 45.00", and the price struck through when a discount took some off. */
   unitCents?: number
+  /** The buyer's own words on the line (an engraving): never a theme's own note (a name starting with "_"). */
+  properties?: [string, string][]
+  /** The store's offers that saved on this line, by the name the checkout showed (a cart of downloads). */
+  offers?: { title: string; cents: number }[]
 }
 
 export interface Summary {
@@ -49,6 +54,8 @@ export interface Summary {
     placedAt: string | null
     subtotalCents: number
     discountCents: number
+    /** The store's offers inside `discountCents`, each by its own name: the rest is the code's. */
+    savings?: { label: string; cents: number }[]
     coupon: string | null
     address: Record<string, unknown> | null
     method: { name: string; minDays: number | null; maxDays: number | null; local: boolean; note: string | null } | null
@@ -66,6 +73,7 @@ export function ThanksView({ order, shopUrl, lang, words, map }: { order: Summar
   const shown = (cents: number) => formatMinor(cents, orderCurrency ?? PLATFORM_CURRENCY.toUpperCase(), locale)
   const placed = order.shipped?.placedAt ? new Date(order.shipped.placedAt).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" }) : null
   const method = order.shipped?.method ?? null
+  const saved = order.shipped ? splitSavings(order.shipped.discountCents, order.shipped.savings) : null
   const estimate = method && !method.local ? deliveryEstimate(method) : ""
   /* A line's title and its option's name in the page's language, as the checkout showed them (lib/markets/checkout-quote.ts). */
   const titleOf = (l: Line) => (l.productId && map ? (valueFor(map, `product:${l.productId}:title`, { approvedOnly: true, fresh: true }, l.title) ?? ct(l.title)) : ct(l.title))
@@ -98,6 +106,8 @@ export function ThanksView({ order, shopUrl, lang, words, map }: { order: Summar
                 <div className="min-w-0 flex-1">
                   <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{titleOf(l)}</p>
                   <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{[l.variantName ? nameOf(l.variantName) : null, ct("Qty {quantity}", { quantity: l.quantity })].filter(Boolean).join(" · ")}</p>
+                  {l.properties?.length ? <p data-line-properties="" className="mt-0.5 text-[13px] text-[#6b7280] [overflow-wrap:anywhere]">{l.properties.map(([k, v]) => `${k}: ${v}`).join(" · ")}</p> : null}
+                  {l.offers?.length ? <p data-line-offers="" className="mt-0.5 text-[13px] text-[#6b7280]">{l.offers.map((o) => `${o.title} −${shown(o.cents)}`).join(" · ")}</p> : null}
                 </div>
                 <div className="shrink-0 text-right">
                   {/* Before the line's discount, struck through; each one's price when there are several. */}
@@ -115,10 +125,17 @@ export function ThanksView({ order, shopUrl, lang, words, map }: { order: Summar
                 <dd className="tabular-nums text-[#6b7280]">{shown(order.shipped.subtotalCents)}</dd>
               </div>
             ) : null}
-            {order.shipped && order.shipped.discountCents > 0 ? (
+            {/* Each offer by its own name, then what is left as the code's: an offer is never named by the code. */}
+            {saved?.rows.map((s) => (
+              <div key={s.label} className="flex justify-between gap-4" data-saving="">
+                <dt className="text-[#6b7280]">{ct(s.label)}</dt>
+                <dd className="tabular-nums text-[#6b7280]">-{shown(s.cents)}</dd>
+              </div>
+            ))}
+            {order.shipped && saved && saved.rest > 0 ? (
               <div className="flex justify-between gap-4" data-discount="">
                 <dt className="text-[#6b7280]">{order.shipped.coupon ? ct("Discount ({code})", { code: order.shipped.coupon }) : ct("Discount")}</dt>
-                <dd className="tabular-nums text-[#6b7280]">-{shown(order.shipped.discountCents)}</dd>
+                <dd className="tabular-nums text-[#6b7280]">-{shown(saved.rest)}</dd>
               </div>
             ) : null}
             {ships ? (

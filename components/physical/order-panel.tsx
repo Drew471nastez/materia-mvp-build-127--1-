@@ -53,6 +53,7 @@ import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet, useModalPhone } from "./ui"
 import { LabelFields, ShipModeSwitch, labelsWithoutShipment, shipLabelRequest, useLabelFlow, useOrderLabels, voidLabelRequest, type LabelView } from "./buy-label"
 import { tt } from "@/lib/i18n/text"
+import { propertyText } from "@/lib/cart-uploads/rules"
 import type { PaymentState } from "@/lib/physical/cash-on-delivery"
 
 export interface PhysicalLine {
@@ -76,6 +77,8 @@ export interface PhysicalLine {
   properties?: Record<string, string> | null
   /** The store's offers in this line's discount, as the checkout named each saving (lib/physical/checkout-server snapshotLine). */
   offers?: { title: string; savedCents: number }[] | null
+  /** The buyer's pictures on this line (lib/cart-uploads), each with an hour's link to show and download it. */
+  files?: { property: string; id: string; name: string; width: number | null; height: number | null; url: string | null; downloadUrl?: string | null }[]
 }
 export interface PhysicalShipment {
   id: string
@@ -1079,8 +1082,33 @@ export function BuyerNoteCard({ order, className }: { order: PhysicalOrder | nul
                 <span className="font-medium">{l.title}</span>
                 {l.variantName ? `, ${l.variantName}` : ""}:{" "}
                 {Object.entries(l.properties ?? {})
-                  .map(([k, v]) => `${k}: ${v}`)
+                  .map(([k, v]) => `${k}: ${propertyText(v)}`)
                   .join(" · ")}
+                {l.files?.length ? (
+                  <span className="mt-1.5 flex flex-wrap gap-2" data-order-line-files="">
+                    {l.files.map((f) => (
+                      <span key={f.id} className="flex items-center gap-2 rounded-lg border border-[#e5e7eb] bg-[#f8f9fa] py-1 pl-1 pr-2.5">
+                        {f.url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={f.url} alt={f.name} width={40} height={40} className="h-10 w-10 shrink-0 rounded-md bg-white object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                          <span className="h-10 w-10 shrink-0 rounded-md bg-white" />
+                        )}
+                        <span className="min-w-0">
+                          <span className="block max-w-[160px] truncate text-[12.5px] text-[#303036]">{f.name}</span>
+                          <span className="block text-[12px] text-[#6b7280]">
+                            {f.width && f.height ? `${f.width} × ${f.height} · ` : ""}
+                            {f.url ? (
+                              <a href={f.downloadUrl ?? f.url} target="_blank" rel="noopener noreferrer" className="font-medium text-[#8b5cf6] hover:underline">
+                                {tt("Download")}
+                              </a>
+                            ) : null}
+                          </span>
+                        </span>
+                      </span>
+                    ))}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>

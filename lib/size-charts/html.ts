@@ -79,6 +79,11 @@ function table(chart: SizeChart, unit: SizeUnit, unitClass: string): string {
   return `<div class="slsc__scroll${unitClass}"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`
 }
 
+/** The table alone, in one unit, each measurement column headed with it: what product.metafields.custom.size_chart.value.content holds. */
+export function sizeChartTableHtml(chart: SizeChart, unit: SizeUnit): string {
+  return table(chart, unit, "")
+}
+
 /** The id of the popover a chart is drawn in, for a theme's own button (`popovertarget`). */
 export function sizeChartPopoverId(uid: string): string {
   return `storelib-size-chart-${uidOf(uid)}`

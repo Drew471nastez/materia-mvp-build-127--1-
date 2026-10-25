@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { getMainDomain } from "@/lib/url-helpers"
 import { allOwned, digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checkout/site-quote-server"
-import { packItems } from "@/lib/checkout/cart-items"
+import { packExtras, packItems } from "@/lib/checkout/cart-items"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { businessToMetadata, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
 import { METADATA_TOO_LARGE_MESSAGE, STRIPE_METADATA_LIMIT, fitStripeMetadata } from "@/lib/checkout/stripe-metadata"
@@ -37,9 +37,16 @@ import { collectOrderDeviceInfo } from "@/lib/device-info"
 import { timed } from "@/lib/perf/server-timing"
 import { checkoutMarket, countryOfRequest } from "@/lib/markets/checkout-market-server"
 import { quoteInMarket } from "@/lib/checkout/site-quote-market"
-import { convertOrder, lineTaxShares } from "@/lib/markets/checkout-charge"
+import { convertOrder, lineTaxShares, offersInMarket } from "@/lib/markets/checkout-charge"
 import { differsFromShown, shownTotalOf, TOTAL_CHANGED } from "@/lib/checkout/shown-total"
 import { formatMinor } from "@/lib/markets/money"
+import { cartVisitorOf, visitorHash } from "@/lib/cart-uploads/sign"
+
+/** The SHA-256 of this browser's `sl_cart_uid` on this host, or null when it never uploaded a picture here. */
+function cartVisitorHashOf(request: Request): string | null {
+  const v = cartVisitorOf(request.headers.get("cookie"))
+  return v ? visitorHash(v) : null
+}
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -386,6 +393,8 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     const shares = lineTaxShares(converted.lines, converted.totals.taxCents)
     converted.lines.forEach((l, i) => {
       priced.lines[i].item.priceCents = l.unitCents
+      /* Each offer's part of the line in the market's money too, the same share of its discount (the order's record of which offer saved what). */
+      priced.lines[i].item.offers = offersInMarket(priced.lines[i].item.offers, priced.lines[i].item.discountCents, l.discountCents)
       priced.lines[i].item.discountCents = l.discountCents
       if (tax.taxCents > 0) priced.lines[i].item.taxCents = shares[i]
     })
@@ -437,7 +446,8 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     fee_rule_version: fee.feeRuleVersion ?? "",
     email_opt_in: contact.optedIn ? "true" : "false",
     agreed_to_terms: "true",
-    ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, discount_cents: String(discountCharged), ...(holder ? { coupon_holder: holder } : {}) } : {}),
+    /* The code's part alone, as the Stripe basket keeps it (app/api/checkout/cart): the offers' parts are on each line (packExtras), so the receipt never names them by the code. */
+    ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, discount_cents: String(Math.max(0, discountCharged - priced.lines.reduce((n, l) => n + (l.item.offers ?? []).reduce((m, o) => m + o.savedCents, 0), 0))), ...(holder ? { coupon_holder: holder } : {}) } : {}),
     ...(tax.taxCents > 0 ? { tax_cents: String(taxCharged), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "", tax_label: tax.label } : {}),
     ...packItems(priced.lines.map((l) => l.item)),
     ...(business?.ok ? businessToMetadata(business.value) : {}),
@@ -459,6 +469,8 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   */
   const noteKeys = noteToMetadata(body.buyerNote)
   if (Object.keys(metadata).length + Object.keys(noteKeys).length <= STRIPE_METADATA_LIMIT) Object.assign(metadata, noteKeys)
+  /* Which offer saved what on each line, and each line's properties, in the room left (lib/checkout/cart-items packExtras): the order lines keep them as a shipped cart's do. */
+  Object.assign(metadata, packExtras(priced.lines.map((l) => l.item), STRIPE_METADATA_LIMIT - Object.keys(metadata).length))
   Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
 
   const params: Stripe.PaymentIntentCreateParams = {
@@ -528,6 +540,8 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
     /* The visitor's market, as the website's pages were drawn in it: its currency is what the order is charged in. */
     marketCountry: countryOfRequest(request),
     shopId: site.creatorId,
+    /* The browser's own cart id for its pictures (lib/cart-uploads): a line naming a picture is taken only when it is this browser's, for this store. */
+    cartVisitor: cartVisitorHashOf(request),
     items: body.items,
     couponCode: body.couponCode,
     email: contact.email,
@@ -734,6 +748,8 @@ async function cashOnDelivery(request: Request, admin: Admin, site: SiteOfChecko
     /* The visitor's market, as the website's pages were drawn in it: its currency is what the order is charged in. */
     marketCountry: countryOfRequest(request),
     shopId: site.creatorId,
+    /* The browser's own cart id for its pictures (lib/cart-uploads): a line naming a picture is taken only when it is this browser's, for this store. */
+    cartVisitor: cartVisitorHashOf(request),
     items: body.items,
     couponCode: body.couponCode,
     email: contact.email,
@@ -794,6 +810,8 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
       /* The visitor's market, as the website's pages were drawn in it: its currency is what the order is charged in. */
       marketCountry: countryOfRequest(request),
       shopId: site.creatorId,
+      /* The browser's own cart id for its pictures (lib/cart-uploads): a line naming a picture is taken only when it is this browser's, for this store. */
+      cartVisitor: cartVisitorHashOf(request),
       items: body.items,
       couponCode: body.couponCode,
       email: contact.email,

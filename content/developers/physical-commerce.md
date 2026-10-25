@@ -87,6 +87,39 @@ A name that starts with `_` is the theme's own note: it is kept on the order and
 
 They are informational. The checkout prices every line from the database and the store's own offers, so a line that says `_sl_discount: percent:90` pays what it would without it. Products › Upsells and bundles counts, for each offer, the units sold through it in the last 90 days: the order lines it saved on, and the ones whose `_sl_offer_id` names it.
 
+## Personalization: words and pictures
+
+A buyer can write something for a line (a name to engrave) or send a picture (a photo for a mug). Both are line properties and reach the order the same way. In the Storelib theme, add the product section's **Personalization** block: it asks for text, a picture or both, with its own labels, a Required switch and a longest text. In an imported Shopify theme, the product form's own fields do it:
+
+```html
+<input type="text" name="properties[Name]" maxlength="40">
+<input type="file" name="properties[Photo]" accept="image/jpeg,image/png,image/webp">
+```
+
+A form with a file must be `enctype="multipart/form-data"`, posted to `/cart/add` or `/cart/add.js`. A theme script can also send the picture first, `POST /cart/upload` (or `/api/cart/uploads` on any website) with a `file` field, and put the answer's `upload.value` in the line's properties itself.
+
+| | |
+| --- | --- |
+| Formats | JPEG, PNG and WebP, decided by the file's bytes, not its name. HEIC, GIF, SVG and anything else are refused |
+| Size | Up to 10 MB, at least 16 and at most 12000 pixels a side, at most 50 megapixels |
+| At once | Up to 5 pictures a request; 30 requests an hour per browser, 600 per store |
+| What is kept | The picture drawn again in its own format, upright, with its EXIF, GPS, XMP and comments gone |
+| Where | A private bucket, under the store and a random id. Nothing lists or opens it but Storelib |
+
+The line holds a value like `/api/cart/uploads/<id>.<signature>/photo.jpg`, never a public address. It opens only in the browser that uploaded it, on the store it was uploaded to, as a link that lasts ten minutes: copied to another browser or another store it is `Not found`, and a checkout given one refuses it with "A picture on this order can't be used any more. Add it to the cart again." When the order is paid the picture is copied to the order, so it stays after the cart is gone; the store opens and downloads it from the order page, the buyer sees it on the order status page. An upload no paid order took is removed after 14 days.
+
+The buyer sees a picture by its file name in the cart, the checkout, the emails and the packing slip, and as a small picture where the page can show one. The orders export says the file name.
+
+Print partners get what each of them takes:
+
+| Partner | Words | Picture |
+| --- | --- | --- |
+| Printful | After the item's name, which its dashboard and packing slip show | Not sent: download it from the order page |
+| Printify | Not sent: its order items take a SKU and a quantity only | Not sent |
+| Gelato | In the order's metadata | The item's print file when the product is matched without a file of its own; otherwise on the order page |
+
+An order with anything personalised is sent as a draft, whatever the integration's Send straight to production says, so the store checks it there first.
+
 ## Discount codes from the cart
 
 `POST /cart/update.js` with `{"discount": "CODE,CODE2"}` (Shopify's) keeps the codes on the cart. Each is checked against the store's own codes by the checkout's rules, and `/cart.js` answers `discount_codes: [{ "code": "CODE", "applicable": true }, { "code": "CODE2", "applicable": false }]`: an unknown or expired code is `applicable: false`, never an error. The checkout takes one code, the first that applies, and opens with it already entered, so the buyer does not type it again. `{"discount": ""}` takes them off.
@@ -162,6 +195,8 @@ saving  = compare - total
 ```
 
 `round` is half up, as JavaScript's `Math.round`. In a currency without cents, such as yen, `price` is in yen and the same formula applies.
+
+In a visitor's market currency the checkout charges each line converted as its product card was and keeps the line's discount the same share of it: a free unit is worth one shown price exactly, a percent tier can differ from the formula on the shown price by a cent, and an `amount` is in the store's currency. The cart (`/cart.js`) shows what the checkout charges in every currency.
 
 At checkout, every unit of the product counts, whatever its variant, line or properties. The units are split into tier blocks by repeating the largest tier that fits (paid plus free no more than the units left), then the next one down for the rest, and so on; units no tier fits pay full price. With tiers 2+1 and 3+2, five units are one 3+2 block, eight are 3+2 and 2+1, and seven are 3+2 with two at full price. The free units are the product's cheapest units in the cart; a percent or an amount comes off the units paid for in each block, an amount per block shared by price. A unit a bundle or a checkout offer also wants gets whichever saves more on it.
 

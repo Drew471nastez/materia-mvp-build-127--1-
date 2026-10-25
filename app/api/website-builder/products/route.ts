@@ -47,8 +47,13 @@ export async function GET(request: Request) {
 
       /* `facts=1`: what an imported theme's product page is drawn with, read as the live site reads it (lib/storelib-theme/compat/product-facts-server.ts), for the builder's canvas. */
       if (searchParams.get("facts") === "1") {
-        const facts = await pageFactsFor(createAdminClient(), creator.id, productId, true, { published: false })
-        return NextResponse.json({ facts }, { headers: { "Cache-Control": "private, no-store" } })
+        const admin = createAdminClient()
+        /* And what the page offers with it (product.metafields.storelib.offers), the same read as the live product page's (lib/offers/offers-public.ts), never failing the facts. */
+        const [facts, offers] = await Promise.all([
+          pageFactsFor(admin, creator.id, productId, true, { published: false }),
+          import("@/lib/offers/offers-public").then((m) => m.productOffers(admin, productId)).catch(() => null),
+        ])
+        return NextResponse.json({ facts, offers }, { headers: { "Cache-Control": "private, no-store" } })
       }
 
       /* What the product section draws, read the way the live product page
@@ -77,8 +82,17 @@ export async function GET(request: Request) {
       /* Each with its own description (round 12), so a section featuring a product shows that product's words from Products, in the canvas as on the website. */
       const { productDescriptions, withDescriptions } = await import("@/lib/website-builder/product-descriptions")
       const described = await productDescriptions(admin, creator.id, { ids: [...shopRead, ...catalogRead].map((c) => c.id) })
-      const shop = withDescriptions(shopRead, described)
-      const catalog = withDescriptions(catalogRead, described)
+      /*
+        Each with its size chart, read for this creator only
+        (lib/size-charts/storefront.ts sizeChartsForStore): an imported
+        theme's featured product and cards in the canvas carry the same
+        product.metafields.storelib.size_chart as the live site's.
+      */
+      const { sizeChartsForStore } = await import("@/lib/size-charts/storefront")
+      const charts = await sizeChartsForStore(admin, creator.id)
+      const charted = <T extends { id: string; settings: Record<string, unknown> }>(cards: T[]): T[] => cards.map((c) => (charts[c.id] && c.settings.size_chart === undefined ? { ...c, settings: { ...c.settings, size_chart: charts[c.id] } } : c))
+      const shop = charted(withDescriptions(shopRead, described))
+      const catalog = charted(withDescriptions(catalogRead, described))
       return NextResponse.json({ shop, catalog }, { headers: { "Cache-Control": "private, no-store" } })
     }
 

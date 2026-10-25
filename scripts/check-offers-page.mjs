@@ -59,9 +59,10 @@ const STORE = {
   "PATCH /api/store/offers": { ok: true },
 }
 const ITEM = (id, title, priceCents, variants) => ({ id, title, slug: id, imageUrl: null, type: "physical", priceCents, variants })
-const BUNDLE = { "GET /api/offers/bundles": {
+/* Round AG: the block reads the three kinds in one call, GET /api/offers, whose checkout offers are its upsells. */
+const BUNDLE = { "GET /api/offers": {
   bundles: [{ offerId: "o1", title: "Breakfast set", label: "15% off", discountType: "percent", discountValue: 15, fullCents: 4000, priceCents: 3400, items: [ITEM("a", "Wildflower honey", 3200, [{ id: "av", name: "Default", priceCents: 3200 }]), ITEM("b", "Honey dipper", 800, [{ id: "b1", name: "Oak", priceCents: 800 }, { id: "b2", name: "Walnut", priceCents: 900 }])] }],
-  upsells: [{ offerId: "u1", title: "Add a candle", label: "$3 off", discountType: "fixed", discountValue: 300, offerPriceCents: 600, product: ITEM("c", "Beeswax candle", 900, [{ id: "cv", name: "Default", priceCents: 900 }]) }],
+  checkoutOffers: [{ offerId: "u1", title: "Add a candle", label: "$3 off", discountType: "fixed", discountValue: 300, offerPriceCents: 600, product: ITEM("c", "Beeswax candle", 900, [{ id: "cv", name: "Default", priceCents: 900 }]) }],
 } }
 const CART = {
   offers: [{ offerId: "o1", title: "Breakfast set", savedCents: 600, freeShipping: false }], offerCents: 600, lines: [],
@@ -260,6 +261,56 @@ for (const [name, vp] of [["a phone (390)", { width: 390, height: 844, isMobile:
   const qs = (await page.evaluate(() => window.__sent)).find((x) => x.method === "POST")
   say(!!qs && qs.body.kind === "quantity_break" && qs.body.productIds.join() === A && qs.body.tiers.length === 3 && qs.body.tiers[0].quantity === 2 && qs.body.tiers[0].freeQuantity === 1 && qs.body.tiers[1].freeQuantity === 2 && qs.body.tiers[2].quantity === 6 && qs.body.tiers[2].discountType === "percent" && qs.body.tiers[2].discountValue === 15 && qs.body.discountType === "none", `Save sends the tiers as the server reads them: ${JSON.stringify(qs?.body?.tiers)?.slice(0, 220)}`)
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/offer-tiers-${vp.width}.png`, fullPage: true })
+
+  /*
+    THE EDITOR'S HELP (round AG): a line under the kind picker, what to
+    watch for before saving (a draft product, another offer on the same
+    product and which one a buyer gets), and Try it in a cart, priced by the
+    server (stubbed here with the answer applyOffers gives).
+  */
+  console.log(`\nTry it in a cart, and the warnings, on ${name}`)
+  const TRIED = { lines: [{ productId: A, title: "Wildflower honey", quantity: 5, unitCents: 3200, savedCents: 6400, offers: [{ offerId: "x", title: "Buy 3 get 2 free", kind: "quantity_break", savedCents: 6400, tier: 1 }] }], applied: [], subtotalCents: 16000, savedCents: 6400, totalCents: 9600, freeShipping: false }
+  const WDATA = { ...DATA, offers: [...DATA.offers, offer({ id: "o7", kind: "quantity_break", title: "Honey by the jar", productIds: [A], discountType: "none", discountValue: 0, placements: ["product", "cart"], tiers: [{ quantity: 2, freeQuantity: 1, discountType: "none", discountValue: 0, label: "Buy 2 get 1 free", badge: "" }] })] }
+  await open("admin", vp, { api: { ...STORE, "POST /api/store/offers/try": TRIED }, data: WDATA })
+  await page.click("[data-offer-new]")
+  await wait(400)
+  await page.evaluate(() => [...document.querySelectorAll('[role="radio"]')].find((b) => b.textContent.trim() === "Quantity break")?.click())
+  await wait(120)
+  const hint = await page.evaluate(() => document.querySelector("[data-kind-hint]")?.textContent ?? "")
+  say(hint === "Buy more of one product, pay less each, or get some free.", `a line under the kind picker says what it does: "${hint}"`)
+  await page.click(`[data-product-picker="offer-products"] [data-pick="${C}"]`)
+  await wait(120)
+  const draftWarn = await page.evaluate(() => [...document.querySelectorAll("[data-offer-warnings] li")].map((li) => li.textContent))
+  say(draftWarn.some((w) => /is a draft\. Buyers see this offer once it's published\./.test(w)), `a draft product is said before saving: ${draftWarn.join(" | ").slice(0, 120)}`)
+  await page.click(`[data-product-picker="offer-products"] [data-pick="${A}"]`)
+  await wait(120)
+  const W = await page.evaluate(() => ({ warn: [...document.querySelectorAll("[data-offer-warnings] li")].map((li) => li.textContent), qty: document.querySelector("[data-try-cart] input")?.value }))
+  say(W.warn.some((w) => /also has the quantity break “Honey by the jar”\. Only one applies to it: the one that saves more on the whole cart\./.test(w)), `another quantity break on the same product, and which one wins: ${W.warn.join(" | ").slice(0, 160)}`)
+  say(W.qty === "5", `the sample cart starts at the biggest tier's units (2 + 1, 3 + 2: ${W.qty})`)
+  await page.evaluate(() => document.querySelector("[data-try-cart]")?.scrollIntoView({ block: "center" }))
+  await page.click("[data-try-price]")
+  await wait(250)
+  const tried = await page.evaluate(() => ({ total: document.querySelector("[data-try-total]")?.getAttribute("data-try-total"), text: document.querySelector("[data-try-cart]")?.innerText.replace(/\s+/g, " ").trim(), sent: window.__sent.filter((x) => x.path === "/api/store/offers/try").map((x) => x.body)[0], box: (() => { const r = document.querySelector("[data-try-cart]").getBoundingClientRect(); const e = document.querySelector("[data-offer-editor]").getBoundingClientRect(); return { left: Math.round(r.left - e.left), right: Math.round(e.right - r.right), height: Math.round(r.height) } })() }))
+  console.log(`        try box ${tried.box.height}px tall, ${tried.box.left}px and ${tried.box.right}px in from the editor's sides`)
+  say(tried.total === "9600" && /Buy 3 get 2 free −\$64/.test(tried.text ?? "") && /Total, \$64 off \$96/.test(tried.text ?? ""), `Price this cart: each line with its offer, then the total: "${(tried.text ?? "").slice(0, 140)}"`)
+  say(!!tried.sent && tried.sent.items?.[0]?.productId === A && tried.sent.items?.[0]?.quantity === 5 && tried.sent.offer?.kind === "quantity_break" && tried.sent.offer?.tiers?.length === 2, `it sends the offer as typed and the cart: ${JSON.stringify(tried.sent)?.slice(0, 160)}`)
+  f = await fits()
+  say(f.over <= 0 && f.cut.length === 0, `the editor with its help: ${fitLine(f)}`)
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/offer-try-${vp.width}.png` })
+
+  console.log(`\nStorelib's own product section's tiers on ${name}`)
+  await open("breaks", vp, {})
+  f = await fits()
+  say(f.over <= 0 && f.cut.length === 0, fitLine(f))
+  const Q = await page.evaluate(() => ({ rows: [...document.querySelectorAll("[data-tier]")].map((r) => ({ h: Math.round(r.getBoundingClientRect().height), total: r.getAttribute("data-tier-total"), on: r.getAttribute("aria-checked") })), heading: getComputedStyle(document.querySelector("[data-quantity-breaks] h3")).color, badge: getComputedStyle([...document.querySelectorAll("[data-tier] span")].find((s) => s.textContent === "Most popular")).backgroundColor }))
+  console.log(`        rows ${Q.rows.map((r) => r.h).join("/")}px, totals ${Q.rows.map((r) => r.total).join("/")}`)
+  say(Q.rows.map((r) => r.total).join() === "3600,7200,10800" && Q.rows.every((r) => r.h >= 44), `1, 2 + 1 and 3 + 2 at $36.00 are $36.00, $72.00, $108.00, each row at least 44px to press`)
+  say(Q.heading === "rgb(18, 52, 86)" && Q.badge === "rgb(255, 238, 170)", `in the block's colours: heading ${Q.heading}, badge ${Q.badge}`)
+  await page.evaluate(() => document.querySelectorAll("[data-tier]")[2].click())
+  await wait(60)
+  const picked = await page.evaluate(() => ({ q: document.querySelector("[data-quantity]")?.getAttribute("data-quantity"), on: [...document.querySelectorAll("[data-tier]")].map((r) => r.getAttribute("aria-checked")).join() }))
+  say(picked.q === "5" && picked.on === "false,false,true", `pressing Buy 3 get 2 free sets the buy box's quantity to 5 (${picked.q}) and marks it`)
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/offer-breaks-${vp.width}.png` })
 
   console.log(`\nA product page's bundles and upsells on ${name}`)
   await open("bundle", vp, { api: BUNDLE })

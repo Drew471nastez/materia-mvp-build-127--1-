@@ -48,7 +48,8 @@ import { useCanvasReviews } from "@/components/website-builder/use-canvas-review
 import { REVIEW_WIDGET_SECTION_TYPE, REVIEWS_SECTION_TYPE, isReviewsAppBlock } from "@/lib/storelib-theme/compat/storelib-reviews"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
-import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } from "@/lib/storelib-theme/compat/site"
+import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type CartPricing, type SiteData } from "@/lib/storelib-theme/compat/site"
+import type { CartOffers } from "@/lib/storelib-theme/compat/objects"
 import { assetAddresses, compatOf, compatValues, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { overrideCss } from "@/lib/storelib-theme/compat/overrides"
 import { drawLayoutStyles, drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
@@ -178,6 +179,29 @@ export interface CompatMarkets {
 */
 const canvasCarts = new Map<string, CanvasCart>()
 const canvasStorage = new Map<string, Record<string, Record<string, string>>>()
+/* The store's offers on the canvas cart, as last priced: the page drawn next shows them (cart.items[].line_level_discount_allocations, the totals after them). */
+const canvasOffers = new Map<string, CartOffers | null>()
+
+/*
+  THE CANVAS CART, PRICED AS THE LIVE SITE'S IS. The store's quantity
+  breaks, bundles and checkout offers come off each line by the website
+  checkout's own quote (app/api/website-builder/cart-offers, the same
+  pricing as the live site's /cart.js), so the drawer and the cart page in
+  the builder show the numbers a buyer will see. A discount code and
+  shipping rates are the live site's only: held, nothing taken off here.
+*/
+function canvasPricing(installId: string): CartPricing {
+  return {
+    discount: async (_cart, code) => ({ code, applicable: false, valueType: "percentage", value: 0, scope: "cart", lines: {}, total: 0, freeShipping: false }),
+    shipping: async () => ({ ok: true, rates: [] }),
+    offers: async (cart, shown) => {
+      const res = await fetch("/api/website-builder/cart-offers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cart, shown }), cache: "no-store" })
+      const offers = res.ok ? (((await res.json()) as { offers?: CartOffers | null }).offers ?? null) : null
+      canvasOffers.set(installId, offers)
+      return offers
+    },
+  }
+}
 
 /*
   ═══════════════════════════════════════════════════════════════════════
@@ -557,7 +581,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     live site.
   */
   const showLeft = siteCommerce(settings).showStockLeft
-  const [stock, setStock] = useState<{ id: string; facts: PageFacts } | null>(null)
+  const [stock, setStock] = useState<{ id: string; facts: PageFacts; offers?: unknown } | null>(null)
   useEffect(() => {
     if (pageKey !== "product") return
     const { products, catalog } = dataRef.current
@@ -566,10 +590,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
     let alive = true
     const read = () =>
       fetch(`/api/website-builder/products?id=${encodeURIComponent(card.id)}&facts=1`, { cache: "no-store" })
-        .then((r) => (r.ok ? (r.json() as Promise<{ facts?: PageFacts | null }>) : null))
+        .then((r) => (r.ok ? (r.json() as Promise<{ facts?: PageFacts | null; offers?: unknown }>) : null))
         .then((d) => {
           if (!alive || !d?.facts) return
-          const next = { id: card.id, facts: d.facts }
+          /* With what the page offers with the product, as the live page has it (product.metafields.storelib.offers). */
+          const next = { id: card.id, facts: d.facts, ...(d.offers && typeof d.offers === "object" ? { offers: d.offers } : {}) }
           setStock((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
         })
         .catch(() => {})
@@ -593,7 +618,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const { template, suffix } = templateOfPage(pageKey)
     const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
     const found = picked ?? products[0] ?? null
-    const facted = found && stock && stock.id === found.id ? (withPageFacts(found as unknown as { id: string; settings: Record<string, unknown> }, { ...stock.facts, showLeft }) as unknown as ProductCard) : found
+    const factsOnly = found && stock && stock.id === found.id ? (withPageFacts(found as unknown as { id: string; settings: Record<string, unknown> }, { ...stock.facts, showLeft }) as unknown as ProductCard) : found
+    /* product.metafields.storelib.offers, the same JSON as the live product page's (lib/offers/offers-public.ts). */
+    const facted = factsOnly && stock?.offers && stock.id === factsOnly.id ? ({ ...factsOnly, settings: { ...factsOnly.settings, storelib_offers: stock.offers } } as ProductCard) : factsOnly
     /* The facts carry each variant's option values as saved: put in the language previewed again, as the live page's product is after its facts (compat.ts card). */
     const sample = facted && facted !== found && map ? ({ ...facted, settings: localizeOptions(facted.settings, map, { approvedOnly: true, fresh: true }) } as ProductCard) : facted
     const firstCollection = collections[0] ?? null
@@ -615,6 +642,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       i18n,
       /* The builder's own cart (canvasCarts), so the cart page and a drawer drawn again show what was added. */
       cart: cartLines({ products }, canvasCarts.get(installId)?.cart ?? []),
+      cartOffers: (canvasCarts.get(installId)?.cart.length ?? 0) > 0 ? (canvasOffers.get(installId) ?? null) : null,
       /* A product page is drawn about the product opened, a collection page about the first collection, as Shopify's editor does. */
       product: template === "product" ? sample : null,
       collection: template === "collection" ? firstCollection ?? { id: "all", title: "Products", handle: "all", url: "/collections/all", products, products_count: products.length } : null,
@@ -1754,6 +1782,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       host: "",
       designMode: true,
       themeDesignMode: false,
+      pricing: canvasPricing(installId),
       i18n,
       /* The product the page shows, with what is true now about its variants: a section drawn again on a choice (`?option_values=`, `?variant=`) says the same stock as the page did. */
       product: async (handle) => {

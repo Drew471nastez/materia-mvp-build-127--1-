@@ -234,17 +234,50 @@ export const SAMPLE_SIZE_CHART: SizeChart = {
   imageUrl: null,
 }
 
-/** The chart in the shape a theme's Liquid reads (product.metafields.storelib.size_chart.value). */
+/** What a unit is called beside a number. */
+export const SIZE_UNIT_LABELS: Readonly<Record<SizeUnit, string>> = { cm: "cm", in: "in" }
+
+/**
+ * The chart in the shape a theme's Liquid reads
+ * (product.metafields.storelib.size_chart.value), the same JSON wherever a
+ * product is drawn: its own page, a featured product, a card.
+ *
+ *   name, title      the chart's name (`title` for a theme that says so)
+ *   unit             the unit the numbers were typed in, "cm" or "in"
+ *   unit_label       that unit as it is printed
+ *   units            the units the chart can be read in: both when it has a
+ *                    measurement with a number, else only its own
+ *   columns          { name, measure, unit }: `unit` the column's unit when
+ *                    it is a measurement, null for a size label
+ *   rows             the cells as typed
+ *   rows_cm, rows_in the same table in each unit, measurements converted
+ *   tables           { cm: { unit, unit_label, rows }, in: { ... } }, only
+ *                    the units in `units`
+ *   notes, image     the line under the table and the picture of where to
+ *                    measure
+ *   measuring_guide  { text, image }: the same two, for a theme that draws a
+ *                    How to measure part
+ */
 export function sizeChartJson(chart: SizeChart): Record<string, unknown> {
+  const both = hasMeasurements(chart)
+  const units: SizeUnit[] = both ? ["cm", "in"] : [chart.unit]
+  const tables: Record<string, unknown> = {}
+  for (const u of units) tables[u] = { unit: u, unit_label: SIZE_UNIT_LABELS[u], rows: rowsIn(chart, u) }
   return {
     name: chart.name,
+    title: chart.name,
     unit: chart.unit,
-    columns: chart.columns.map((c) => ({ name: c.name, measure: c.measure })),
+    unit_label: SIZE_UNIT_LABELS[chart.unit],
+    units,
+    has_measurements: both,
+    columns: chart.columns.map((c) => ({ name: c.name, measure: c.measure, unit: c.measure ? chart.unit : null })),
     rows: chart.rows,
     /* The same table in the other unit, so a theme can offer the switch without doing the arithmetic in Liquid. */
     rows_cm: rowsIn(chart, "cm"),
     rows_in: rowsIn(chart, "in"),
+    tables,
     notes: chart.notes,
     image: chart.imageUrl,
+    measuring_guide: { text: chart.notes, image: chart.imageUrl },
   }
 }

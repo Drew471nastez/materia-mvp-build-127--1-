@@ -291,6 +291,20 @@ export function sectionMarkup(theme: CompatTheme, page: CompatPage, section: Sto
   return freezeViewportInMarkup(inlineStylesheets(cleanPreview(html), rows, width, height), width, height)
 }
 
+/**
+ * One block's markup for Add block's preview, drawn from the block itself
+ * (lib/storelib-theme/compat/theme.ts renderBlockAlone): its own markup with
+ * its sample settings and the page's product, in a minimal section wrapper,
+ * never the whole section it goes in. Null when the block cannot be drawn
+ * alone: the library then shows its icon. Exported for its test.
+ */
+export function blockMarkup(theme: CompatTheme, page: CompatPage, sectionType: string, block: StoredBlock, rows: Record<string, string> | null, width: number, height: number): string | null {
+  const ctx = pageContextFor(theme, page, [])
+  const html = theme.renderBlockAlone(ctx, sectionType, { id: block.id, type: block.type, settings: block.settings ?? {}, blocks: (block.blocks ?? []) as never })
+  if (html === null) return null
+  return freezeViewportInMarkup(inlineStylesheets(cleanPreview(html), rows, width, height), width, height)
+}
+
 /*
   ═══════════════════════════════════════════════════════════════════════
    A CARD IS ITS OWN HEIGHT FROM ITS FIRST FRAME, THE SECOND TIME

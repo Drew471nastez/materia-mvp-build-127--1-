@@ -525,7 +525,8 @@ async function receiptEmailModel(
       dateIso: v.createdAt,
       items: v.items.map((i) => ({
         title: i.title,
-        variantName: i.variantName,
+        /* The option, the buyer's own words on the line (an engraving) and the offers that saved on it, by the name the checkout showed: under the title, as the receipt page writes them. */
+        variantName: [i.variantName, ...(i.properties ?? []).map(([k, val]) => `${k}: ${val}`), ...(i.offers ?? []).map((o) => `${o.title} −${formatMoney(o.cents, v.currency, "en-US")}`)].filter(Boolean).join(" · ") || null,
         /* A membership's line is one period of it, "$9.00/month", as the receipt page writes it. */
         amountText: i.priceInterval && i.subtotalCents > 0 ? `${money(i.subtotalCents)}/${i.priceInterval}` : money(i.subtotalCents),
         note: notes[i.state] ?? null,

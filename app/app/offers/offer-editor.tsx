@@ -45,6 +45,107 @@ import { SWITCH_GROUP, Segmented, SwitchRow } from "../products/new/editor-contr
 import { Tick } from "../coupons/coupon-parts"
 import { ProductThumb, usePhone } from "../products/collections/collection-parts"
 import { BreakPreview, OfferPreview, PLACEMENT_WORD, currencySign, moneyIn, tierWords, type OfferCollection, type OfferProduct } from "./offer-parts"
+import { DRAFT_ID, offerWarnings, type Tried } from "@/lib/offers/try-cart"
+
+/* What each kind does, in one line, under the kind picker. */
+const KIND_HINT: Record<OfferKind, () => string> = {
+  bundle: () => tt("Two to five products bought together, for less."),
+  checkout: () => tt("One product suggested when the cart has others, at a lower price."),
+  quantity_break: () => tt("Buy more of one product, pay less each, or get some free."),
+}
+
+/** The products a sample cart starts with: the offer's own, at the quantities that set it off. */
+function sampleCart(o: Offer, products: OfferProduct[]): { productId: string; quantity: number }[] {
+  if (o.kind === "quantity_break") {
+    const last = o.tiers?.[o.tiers.length - 1]
+    return o.productIds[0] ? [{ productId: o.productIds[0], quantity: last ? last.quantity + last.freeQuantity : 2 }] : []
+  }
+  if (o.kind === "bundle") return o.productIds.map((productId) => ({ productId, quantity: 1 }))
+  const trigger = o.triggerIds[0] ?? products.find((p) => p.id !== o.productIds[0] && p.published)?.id
+  return [...(trigger ? [{ productId: trigger, quantity: 1 }] : []), ...(o.productIds[0] ? [{ productId: o.productIds[0], quantity: 1 }] : [])]
+}
+
+/**
+ * TRY IT IN A CART: a sample cart of the offer's products, its quantities
+ * changeable, priced on the server by the checkout's own offers (this one in
+ * its place among the store's, as if on now; app/api/store/offers/try).
+ * Each line with what it saves and by which offer, then the total.
+ */
+function TryCart({ offer, id, body, products, money }: { offer: Offer; id: string | null; body: ReturnType<typeof bodyOf>; products: OfferProduct[]; money: (minor: number) => string }) {
+  const start = React.useMemo(() => sampleCart(offer, products), [offer, products])
+  const startKey = JSON.stringify(start)
+  const [items, setItems] = React.useState(start)
+  const [tried, setTried] = React.useState<Tried | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  /* A new product or tier starts the cart again. */
+  React.useEffect(() => {
+    setItems(JSON.parse(startKey))
+    setTried(null)
+  }, [startKey])
+  const title = (pid: string) => products.find((p) => p.id === pid)?.title ?? tt("Product")
+  const price = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/store/offers/try", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ offer: body, id, items }) })
+      const data = (await res.json().catch(() => null)) as (Tried & { error?: string }) | null
+      if (!res.ok || !data || data.error) setError(data?.error ?? tt("That cart could not be priced. Try again."))
+      else setTried(data)
+    } catch {
+      setError(tt("That cart could not be priced. Try again."))
+    }
+    setBusy(false)
+  }
+  if (items.length === 0) return null
+  return (
+    <div data-try-cart="" className="rounded-xl border border-[#e5e7eb] px-3.5 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[13px] font-medium text-[#4b5563]">{tt("Try it in a cart")}</p>
+        <button type="button" data-try-price="" onClick={() => void price()} disabled={busy} className={cn(secondaryDepth, "h-9 rounded-lg px-3 text-[14px] sm:h-8 sm:text-[13px]")}>
+          {busy ? tt("Pricing…") : tt("Price this cart")}
+        </button>
+      </div>
+      <ul className="mt-2 divide-y divide-[#eef0f2]">
+        {items.map((it, i) => {
+          const line = tried?.lines.find((l) => l.productId === it.productId)
+          return (
+            <li key={it.productId} className="flex items-center gap-3 py-2 text-[14px] sm:text-[13px]">
+              <input
+                inputMode="numeric"
+                aria-label={tt("Quantity of {title}", { title: title(it.productId) })}
+                value={String(it.quantity)}
+                onChange={(e) => {
+                  const q = Math.max(0, Math.min(99, Math.floor(Number(e.target.value.replace(/[^0-9]/g, ""))) || 0))
+                  setItems(items.map((x, n) => (n === i ? { ...x, quantity: q } : x)))
+                  setTried(null)
+                }}
+                className={cn(FIELD, "h-9 w-[56px] px-2 text-center tabular-nums sm:h-8")}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[#1a1a2e]">{title(it.productId)}</span>
+                {line?.offers.length ? <span className="block truncate text-[12.5px] text-[#6b7280]">{line.offers.map((o) => `${o.title} −${money(o.savedCents)}`).join(" · ")}</span> : null}
+              </span>
+              {line ? (
+                <span className="shrink-0 text-right tabular-nums">
+                  {line.savedCents > 0 ? <s className="block text-[12.5px] text-[#9ca3af]">{money(line.unitCents * line.quantity)}</s> : null}
+                  <span className="block text-[#1a1a2e]">{money(line.unitCents * line.quantity - line.savedCents)}</span>
+                </span>
+              ) : null}
+            </li>
+          )
+        })}
+      </ul>
+      {tried ? (
+        <p data-try-total={tried.totalCents} className="mt-1 flex justify-between border-t border-[#eef0f2] pt-2 text-[14px] font-medium tabular-nums text-[#1a1a2e] sm:text-[13px]">
+          <span>{tried.savedCents > 0 ? tt("Total, {saved} off", { saved: money(tried.savedCents) }) : tt("Total, no offer applies")}</span>
+          <span>{money(tried.totalCents)}</span>
+        </p>
+      ) : null}
+      {error ? <p className={ERR}>{error}</p> : null}
+    </div>
+  )
+}
 
 const SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.92)"
 /* The coupon and collection editors' fields: 16px on a phone so iOS does not zoom, 44px to press. */
@@ -63,6 +164,7 @@ export function OfferEditor({
   kind,
   products,
   collections,
+  others = [],
   currency: currencyNow,
   physical,
   settingsReady,
@@ -80,6 +182,8 @@ export function OfferEditor({
   kind: OfferKind
   products: OfferProduct[]
   collections: OfferCollection[]
+  /** The store's offers, for what competes with this one on the same products. */
+  others?: Offer[]
   currency: string
   /** Physical commerce is on: free shipping can be offered. */
   physical: boolean
@@ -110,6 +214,9 @@ export function OfferEditor({
   const shown: Problems = tried ? problems : {}
   const sign = currencySign(currency)
   const money = moneyIn(currency)
+  /* What to watch for before saving (lib/offers/try-cart.ts offerWarnings): a draft product, a tier that costs more per item, another offer on the same products. */
+  const asOffer = React.useMemo((): Offer => ({ ...(bodyOf(d, currency) as Omit<Offer, "id">), id: offer?.id ?? DRAFT_ID }), [d, currency, offer?.id])
+  const warnings = React.useMemo(() => (Object.keys(problems).length ? [] : offerWarnings(asOffer, others, products)), [asOffer, others, products, problems])
 
   /* The computer's dialog has no "gone" of its own to report: its fade is a fixed length. The phone's sheet says when it has gone (onClosed below). */
   React.useEffect(() => {
@@ -207,6 +314,7 @@ export function OfferEditor({
                 ]}
               />
             ) : null}
+            {!offer ? <p data-kind-hint={d.kind} className={cn(HINT, "-mt-2")}>{KIND_HINT[d.kind]()}</p> : null}
 
             <div {...(shown.title ? { "data-problem": "" } : {})}>
               <label htmlFor="offer-title" className={LABEL}>
@@ -373,6 +481,14 @@ export function OfferEditor({
               ) : (
                 <OfferPreview draft={{ kind: d.kind, title: d.title, productIds: d.productIds, discountType: d.discountType, discountValue: bodyOf(d, currency).discountValue || 0 }} byId={byId} currency={currency} />
               )}
+              {warnings.length ? (
+                <ul data-offer-warnings="" className="space-y-1 rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] leading-5 text-[#5c4300]">
+                  {warnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {Object.keys(problems).length === 0 ? <TryCart offer={asOffer} id={offer?.id ?? null} body={bodyOf(d, currency)} products={products} money={money} /> : null}
             </section>
 
             <section aria-labelledby="offer-rules" className="space-y-3">

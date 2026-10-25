@@ -621,10 +621,12 @@ async function routes() {
       store_settings: [{ creator_id: CREATOR, reviews: { enabled: true, display: { showCardRating: true } } }],
       products: [{ id: PRODUCT, status: "published", reviews_count: 3, reviews_average: 3 }],
       reviews: [
-        { id: "r1", product_id: PRODUCT, rating: 5, status: "published", site_status: "shown" },
-        { id: "r2", product_id: PRODUCT, rating: 1, status: "published", site_status: "hidden" },
-        { id: "r3", product_id: PRODUCT, rating: 3, status: "published", site_status: "pending" },
-        { id: "r4", product_id: PRODUCT, rating: 4, status: "hidden", site_status: "shown" },
+        { id: "r1", creator_id: CREATOR, product_id: PRODUCT, rating: 5, status: "published", site_status: "shown" },
+        { id: "r2", creator_id: CREATOR, product_id: PRODUCT, rating: 1, status: "published", site_status: "hidden" },
+        { id: "r3", creator_id: CREATOR, product_id: PRODUCT, rating: 3, status: "published", site_status: "pending" },
+        { id: "r4", creator_id: CREATOR, product_id: PRODUCT, rating: 4, status: "hidden", site_status: "shown" },
+        /* Another store's review of the same product id never counts (AG2: card ratings read for this store only). */
+        { id: "r5", creator_id: "someone-else", product_id: PRODUCT, rating: 1, status: "published", site_status: "shown" },
       ],
     })
     const [card] = await withRatings(d as any, CREATOR, [{ id: PRODUCT } as any])

@@ -41,6 +41,10 @@ export interface ReceiptItem {
    * line shows what it was charged.
    */
   listCents?: number | null
+  /** The store's offers that saved on this line, by the name the checkout showed ("Buy 2 get 1 free"), inside what it was charged. */
+  offers?: { title: string; cents: number }[]
+  /** The line's properties the buyer is shown (an engraving). */
+  properties?: [string, string][]
   /** The product's refund policy, as the product page states it. Null when it has none. */
   refundPolicy?: { label: string; finePrint: string | null } | null
 }
@@ -67,6 +71,8 @@ export interface ReceiptView {
   /** A code's saving and the code, when the payment recorded one. Zero and null otherwise. */
   discountCents?: number
   discountCode?: string | null
+  /** The store's offers inside `discountCents`, each by its own name; the rest of it is the code's (lib/receipts/discount splitSavings). */
+  savings?: { label: string; cents: number }[]
   /** supportEmail is the address the seller chose to be written to, never their login. */
   seller: {
     name: string

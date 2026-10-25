@@ -90,6 +90,7 @@ export async function fulfilCartSession(
     console.error("[cart] paid session with no readable basket:", sessionId)
     return { ok: false, status: 422, reason: "unreadable" }
   }
+  await nameOffers(admin, creatorId, items)
 
   const pi = session.payment_intent && typeof session.payment_intent === "object" ? (session.payment_intent as Stripe.PaymentIntent) : null
   const paymentIntentId = pi?.id ?? (typeof session.payment_intent === "string" ? session.payment_intent : null)
@@ -184,6 +185,32 @@ export function isCartIntent(pi: Pick<Stripe.PaymentIntent, "metadata">): boolea
   return pi.metadata?.cart === "1" && pi.metadata?.site_basket === "1"
 }
 
+/**
+ * The names of the offers a payment kept without them (a basket whose
+ * record had no room for the names, lib/checkout/cart-items packExtras):
+ * read from the store's own offers, a quantity break by its tier's label, as
+ * the checkout named each saving. One read, the store's rows only; a read
+ * that fails leaves "Offer".
+ */
+export async function nameOffers(admin: Db, creatorId: string, items: PackedItem[]): Promise<void> {
+  const ids = [...new Set(items.flatMap((i) => (i.offers ?? []).filter((o) => !o.title).map((o) => o.offerId)))]
+  if (ids.length === 0) return
+  try {
+    const { data } = await admin.from("store_offers").select("id, title, tiers").eq("creator_id", creatorId).in("id", ids)
+    const byId = new Map(((data ?? []) as { id: string; title: string; tiers?: { label?: string }[] | null }[]).map((r) => [r.id, r]))
+    for (const i of items) {
+      for (const o of i.offers ?? []) {
+        if (o.title) continue
+        const row = byId.get(o.offerId)
+        const label = o.tier !== undefined && Array.isArray(row?.tiers) ? row!.tiers[o.tier]?.label : undefined
+        o.title = (typeof label === "string" && label) || row?.title || "Offer"
+      }
+    }
+  } catch {
+    for (const i of items) for (const o of i.offers ?? []) if (!o.title) o.title = "Offer"
+  }
+}
+
 export async function fulfilCartPayment(
   admin: Db,
   paymentIntentId: string,
@@ -210,6 +237,7 @@ export async function fulfilCartPayment(
     console.error("[cart] paid basket with no readable lines:", paymentIntentId)
     return { ok: false, status: 422, reason: "unreadable" }
   }
+  await nameOffers(admin, creatorId, items)
   const facts = paymentFacts(pi)
   const recordedFee = Number.parseInt(metadata.platform_fee_cents || "0", 10) || 0
   const feeTotal = pi.application_fee_amount ?? facts?.applicationFeeCents ?? recordedFee

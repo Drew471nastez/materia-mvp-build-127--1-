@@ -496,8 +496,19 @@ function FulfillmentCard({
                   {[line.variant_name, kind].filter(Boolean).join(" · ") || tt("Digital")}
                   {line.status === "refunded" ? <span className="text-[#b42318]"> · {tt("Refunded")}</span> : null}
                 </p>
+                {/* Every property the line kept (the store's own notes too), and the offers that saved on it by the name the checkout showed. */}
+                {line.properties && Object.keys(line.properties).length ? (
+                  <p data-order-line-properties="" className="text-[12px] text-[#6b7280] [overflow-wrap:anywhere]">
+                    {Object.entries(line.properties).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                  </p>
+                ) : null}
+                {line.offers?.length ? (
+                  <p data-line-offers="" className="text-[12px] text-[#6b7280]">
+                    {line.offers.map((o) => `${o.title} −${formatMoney(o.savedCents, order.currency)}`).join(" · ")}
+                  </p>
+                ) : null}
               </div>
-              <span className="hidden text-[13px] tabular-nums text-[#6b7280] sm:inline">{formatMoney(cents, order.currency)} &times; 1</span>
+              <span className="hidden text-[13px] tabular-nums text-[#6b7280] sm:inline">{formatMoney(Math.round(cents / Math.max(1, line.quantity ?? 1)), order.currency)} &times; {Math.max(1, line.quantity ?? 1)}</span>
               <span className="w-[76px] text-right text-[13px] font-medium tabular-nums text-[#1a1a2e]">{formatMoney(cents, order.currency)}</span>
             </li>
           )

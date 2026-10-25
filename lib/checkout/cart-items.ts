@@ -23,6 +23,8 @@
  * rows it has just read, and read back by the server.
  */
 
+import { lineProperties } from "@/lib/physical/cart-link"
+
 export interface PackedItem {
   productId: string
   variantId: string | null
@@ -41,6 +43,25 @@ export interface PackedItem {
    * line's price; otherwise it was charged on top, as the basket's Tax line.
    */
   taxCents?: number
+  /**
+   * The store's offers inside `discountCents` (lib/offers applyOffers
+   * lineOffers), each with its part, and the cart line's properties (an
+   * engraving, a theme's `_sl_offer_id`). Carried in their own keys,
+   * `cart_x0`, `cart_x1` (packExtras), so the order line keeps them as a
+   * shipped cart's does (product_snapshot.offers and .properties). Never a
+   * price: the discount is `discountCents`.
+   */
+  offers?: PackedOffer[]
+  properties?: Record<string, string>
+}
+
+/** One offer's part of one line, as the order keeps it. */
+export interface PackedOffer {
+  offerId: string
+  title: string
+  kind: string
+  savedCents: number
+  tier?: number
 }
 
 /** Stripe's cap on one metadata value. */
@@ -122,6 +143,7 @@ export function unpackItems(metadata: Record<string, string> | null | undefined)
   if (!metadata) return []
   const discounts = (metadata[CART_DISCOUNTS_KEY] ?? "").split(",").map((d) => Number.parseInt(d, 10))
   const taxes = (metadata[CART_TAX_KEY] ?? "").split(",").map((t) => Number.parseInt(t, 10))
+  const extras = readExtras(metadata)
   const out: PackedItem[] = []
   /* A line's discount is found by the place it was written in, counted over
      every line written, so a line that does not decode cannot shift the
@@ -139,8 +161,110 @@ export function unpackItems(metadata: Record<string, string> | null | undefined)
       if (Number.isFinite(d) && d > 0) item.discountCents = Math.min(d, item.priceCents * item.quantity)
       const t = taxes[at]
       if (Number.isFinite(t) && t > 0) item.taxCents = t
+      const x = extras.get(at)
+      if (x?.properties) item.properties = x.properties
+      /* An offer's part never more than what the line's discount holds: the record follows the money, never the other way. */
+      if (x?.offers?.length && (item.discountCents ?? 0) > 0) {
+        let left = item.discountCents ?? 0
+        const kept: PackedOffer[] = []
+        for (const o of x.offers) {
+          const saved = Math.min(left, o.savedCents)
+          if (saved <= 0) continue
+          kept.push({ ...o, savedCents: saved })
+          left -= saved
+        }
+        if (kept.length) item.offers = kept
+      }
       out.push(item)
     }
+  }
+  return out
+}
+
+/*
+  THE LINES' OFFERS AND PROPERTIES, beside the lines. Written as one JSON
+  value, `{ o: [[line, offerId, savedCents, tier, kind, title]], p: [[line,
+  { name: value }]] }`, every character outside ASCII escaped so a cut at 500
+  never splits one, then cut into `cart_x0`, `cart_x1`... values. The keys
+  are the order's record after its money, so they take only the room the
+  payment has left (`room` keys): when everything does not fit, the offers'
+  names go first (the fulfilment reads them from the store's offers), then
+  the theme's own notes (a property name starting with "_") except
+  `_sl_offer_id`, then the properties; the offers' parts and the money are
+  never cut.
+*/
+export const CART_EXTRAS_PREFIX = "cart_x"
+const MAX_EXTRA_KEYS = 20
+
+type Extras = { o: [number, string, number, number, string, string?][]; p: [number, Record<string, string>][] }
+
+const ascii = (s: string) => s.replace(/[\u007f-￿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`)
+
+function extrasOf(items: PackedItem[], level: number): Extras {
+  const o: Extras["o"] = []
+  const p: Extras["p"] = []
+  items.forEach((it, i) => {
+    for (const x of it.offers ?? []) if (x.savedCents > 0) o.push(level === 0 ? [i, x.offerId, x.savedCents, x.tier ?? -1, x.kind, x.title.slice(0, 120)] : [i, x.offerId, x.savedCents, x.tier ?? -1, x.kind])
+    if (level >= 3 || !it.properties) return
+    const props = level >= 2 ? Object.fromEntries(Object.entries(it.properties).filter(([k]) => !k.startsWith("_") || k === "_sl_offer_id")) : it.properties
+    if (Object.keys(props).length) p.push([i, props])
+  })
+  return { o, p }
+}
+
+/** The keys to add for the lines' offers and properties, in at most `room` keys; none when nothing would fit or there is nothing to keep. */
+export function packExtras(items: PackedItem[], room: number): Record<string, string> {
+  const space = Math.max(0, Math.min(MAX_EXTRA_KEYS, Math.floor(room)))
+  for (let level = 0; level <= 3; level++) {
+    const x = extrasOf(items, level)
+    if (x.o.length === 0 && x.p.length === 0) return {}
+    const text = ascii(JSON.stringify(x))
+    const parts = Math.ceil(text.length / METADATA_VALUE_LIMIT)
+    if (parts > space) continue
+    const out: Record<string, string> = {}
+    for (let n = 0; n < parts; n++) out[`${CART_EXTRAS_PREFIX}${n}`] = text.slice(n * METADATA_VALUE_LIMIT, (n + 1) * METADATA_VALUE_LIMIT)
+    return out
+  }
+  return {}
+}
+
+const OFFER_KINDS_KEPT = new Set(["bundle", "checkout", "quantity_break"])
+
+/** The extras back, by the line's written place; anything that does not read is nothing, never an error. */
+function readExtras(metadata: Record<string, string>): Map<number, { offers?: PackedOffer[]; properties?: Record<string, string> }> {
+  const out = new Map<number, { offers?: PackedOffer[]; properties?: Record<string, string> }>()
+  let text = ""
+  for (let n = 0; n < MAX_EXTRA_KEYS; n++) {
+    const part = metadata[`${CART_EXTRAS_PREFIX}${n}`]
+    if (typeof part !== "string") break
+    text += part
+  }
+  if (!text) return out
+  let x: Partial<Extras>
+  try {
+    x = JSON.parse(text) as Partial<Extras>
+  } catch {
+    return out
+  }
+  const at = (i: number) => {
+    let v = out.get(i)
+    if (!v) out.set(i, (v = {}))
+    return v
+  }
+  for (const r of Array.isArray(x.o) ? x.o : []) {
+    if (!Array.isArray(r)) continue
+    const [i, offerId, saved, tier, kind, title] = r
+    const cents = Math.round(Number(saved))
+    if (!Number.isInteger(i) || i < 0 || typeof offerId !== "string" || !/^[0-9a-f-]{36}$/i.test(offerId) || !Number.isFinite(cents) || cents <= 0 || !OFFER_KINDS_KEPT.has(String(kind))) continue
+    // eslint-disable-next-line no-control-regex
+    const name = typeof title === "string" ? title.replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, 120) : ""
+    const v = at(i)
+    ;(v.offers ??= []).push({ offerId, title: name, kind: String(kind), savedCents: cents, ...(Number.isInteger(tier) && tier >= 0 ? { tier } : {}) })
+  }
+  for (const r of Array.isArray(x.p) ? x.p : []) {
+    if (!Array.isArray(r) || !Number.isInteger(r[0]) || r[0] < 0) continue
+    const props = lineProperties(r[1])
+    if (props) at(r[0]).properties = props
   }
   return out
 }

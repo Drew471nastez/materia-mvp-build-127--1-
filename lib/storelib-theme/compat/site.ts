@@ -34,10 +34,11 @@
  * Pure apart from what `SiteData` hands it, so the route, the preview and
  * the tests all drive the same function.
  */
+import type { SizeChart } from "@/lib/size-charts/model"
 import { escapeHtml, handleize } from "./filters"
 import type { CardLike, CollectionLike, MenuLinkLike, CartLineLike, SiteI18n } from "./objects"
 import { localeRoot } from "./objects"
-import { cartObject, productObject, shopifyJson, type CartDiscount } from "./objects"
+import { cartObject, productObject, shopifyJson, type CartDiscount, type CartOffers } from "./objects"
 import { countryCode } from "@/lib/checkout/countries"
 import { regionCode } from "@/lib/physical/regions"
 import { OUTPUT, LFloat } from "./runtime"
@@ -79,6 +80,8 @@ export interface SiteData {
   products: (CardLike & { descriptionHtml?: string })[]
   /** Every published product a picker may name (memberships and tiers included). */
   pickable?: CardLike[]
+  /** The store's size charts by product id, for a featured product and a card (lib/size-charts/storefront.ts sizeChartsForStore). */
+  sizeCharts?: Record<string, SizeChart>
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   shop: CompatPage["shop"]
@@ -138,6 +141,13 @@ export interface CartPricing {
   /** `shown`: each line's price as the page shows it, by its key, so what comes off is in the same money. */
   discount(cart: CartEntry[], code: string, shown: Record<string, number>): Promise<CartDiscount>
   shipping(cart: CartEntry[], code: string | null, address: ShippingAsk, shown: Record<string, number>): Promise<ShippingEstimate>
+  /**
+   * The store's offers on these lines, as the checkout will take them
+   * (lib/offers applyOffers through the checkout's own quote, no code): each
+   * offer's part of each line in the page's money, by the line's key. Null:
+   * the store has no offer on now that takes anything off.
+   */
+  offers?(cart: CartEntry[], shown: Record<string, number>): Promise<CartOffers | null>
 }
 
 /** What a cart may hold of one product: by variant id (a product with one option: also by its own id), and in all. */
@@ -175,6 +185,8 @@ export interface SiteRequest {
   discountCodes?: string[]
   /** That code priced on this cart: set by `answer` itself before a page is drawn. */
   cartDiscount?: CartDiscount | null
+  /** The store's offers priced on this cart (CartPricing.offers): set by `answer` itself before a page is drawn. */
+  cartOffers?: CartOffers | null
   /** A script's request (JSON body, X-Requested-With, Accept: application/json): answered with JSON, as Shopify does, whatever the address ends in. */
   ajax?: boolean
   /** The page the request came from (path and query, this site's own): what `sections` are drawn about when the request names no `sections_url`. */
@@ -302,8 +314,8 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (cartRoute && (method === "POST" || cartRoute[2])) {
     const [, action, ext] = cartRoute
     if (method === "GET" && !action) {
-      const priced = await priceDiscount(site, req.cart, req.discountCode)
-      return json(cartJson(site, req.cart, req.note ?? "", req.attributes, priced, heldCodes(req.discountCodes, priced)))
+      const [priced, offers] = await Promise.all([priceDiscount(site, req.cart, req.discountCode), priceOffers(site, req.cart)])
+      return json(cartJson(site, req.cart, req.note ?? "", req.attributes, priced, heldCodes(req.discountCodes, priced), offers))
     }
     if (method !== "POST") return json({ status: 405, message: "Method not allowed" }, 405)
     return await cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
@@ -312,6 +324,8 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
 
   /* A page draws the cart (its drawer, its count, the cart page): with the code taken off as checkout will take it. */
   if (req.cartDiscount === undefined && req.discountCode && req.cart.length && !/\.(?:js|json)$/.test(path)) req = { ...req, cartDiscount: await priceDiscount(site, req.cart, req.discountCode) }
+  /* And with the store's offers taken off each line (its quantity breaks, bundles, checkout offers), as checkout will take them. */
+  if (req.cartOffers === undefined && req.cart.length && !/\.(?:js|json)$/.test(path)) req = { ...req, cartOffers: await priceOffers(site, req.cart) }
 
   /* ── forms ── */
   if (method === "POST" && (path === "/contact" || path === "/contact/" || (path === "/account" && String(req.body?.form_type ?? "") === "customer"))) return await formSubmit(site, req)
@@ -436,7 +450,8 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
   /* Website settings › Commerce, said with this visitor's cart (./site-commerce-markup.ts). */
-  const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD").total_price) || 0 : 0, site.shop.currency ?? undefined)
+  /* Free shipping over an amount counts the cart after its offers and its code, as the checkout does (Shopify's rule). */
+  const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD", "", {}, req.cartDiscount ?? null, false, req.cartOffers ?? null).total_price) || 0 : 0, site.shop.currency ?? undefined)
   /* The password page is in front of every page, so it names no language versions of itself: it is not a search result (noindex below). */
   const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}${route.page.template === "password" ? "" : languageLinks(site, path)}`
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
@@ -814,6 +829,7 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     query: Object.fromEntries(req.query.entries()),
     products: site.products,
     pickable: site.pickable,
+    ...(site.sizeCharts ? { sizeCharts: site.sizeCharts } : {}),
     collections: site.collections,
     menus: site.menus,
     /* The creator's id: the key the website's own wishlist is kept under, which a theme's hearts are copied into (shims.ts). */
@@ -822,6 +838,7 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     cartNote: req.note ?? "",
     cartAttributes: req.attributes ?? {},
     cartDiscount: req.cartDiscount ?? null,
+    cartOffers: req.cartOffers ?? null,
     /* In the page's language: the orders' statuses and dates as the theme draws them (lib/site-accounts/words.ts). */
     customer: req.account?.customer ? themeCustomer(wordedCustomer(req.account.customer, site.i18n?.uiWords, localeRoot(site.i18n) ? site.i18n?.locale : null)) : null,
     formErrors: formErrorsOf(req),
@@ -1286,8 +1303,8 @@ export function cartLines(site: Pick<SiteData, "products">, entries: CartEntry[]
  * reads `applicable: false` and shows its own "can't be applied"); otherwise
  * the code the cart holds.
  */
-function cartJson(site: SiteData, entries: CartEntry[], note: string, attributes: Record<string, string> = {}, discount: CartDiscount | null = null, codes?: { code: string; applicable: boolean }[]): O {
-  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note, attributes, discount, site.shop.taxesIncluded === true)
+function cartJson(site: SiteData, entries: CartEntry[], note: string, attributes: Record<string, string> = {}, discount: CartDiscount | null = null, codes?: { code: string; applicable: boolean }[], offers: CartOffers | null = null): O {
+  const cart = cartObject(cartLines(site, entries), site.shop.currency ?? "USD", note, attributes, discount, site.shop.taxesIncluded === true, offers)
   const items = ((cart.items as O[]) ?? []).map(lineJson)
   return {
     token: "storelib",
@@ -1303,6 +1320,8 @@ function cartJson(site: SiteData, entries: CartEntry[], note: string, attributes
     currency: site.shop.currency ?? "USD",
     items_subtotal_price: cart.items_subtotal_price,
     cart_level_discount_applications: ((cart.cart_level_discount_applications as O[]) ?? []).map(applicationJson),
+    /* Every discount on the cart, the store's offers (type "automatic") and the code (Shopify's cart.discount_applications). */
+    discount_applications: ((cart.discount_applications as O[]) ?? []).map(applicationJson),
     discount_codes: codes ?? (discount ? [{ code: discount.code, applicable: discount.applicable }] : []),
   }
 }
@@ -1315,6 +1334,7 @@ function applicationJson(a: O): O {
     value: percent ? Number(a.value).toFixed(1) : (Number(a.value) / 100).toFixed(2),
     created_at: null, value_type: a.value_type, allocation_method: a.allocation_method, target_selection: a.target_selection, target_type: a.target_type,
     total_allocated_amount: a.total_allocated_amount,
+    ...(a.offer_id ? { offer_id: a.offer_id, offer_kind: a.offer_kind, ...(a.tier !== undefined ? { tier: a.tier } : {}) } : {}),
   }
 }
 
@@ -1389,13 +1409,13 @@ function itemsOf(body: O | null): { id: string; quantity: number; properties?: R
  * the cart page (`template.name != 'cart'`), so drawn about /cart it came
  * back empty and the drawer said "Your cart is empty" after every add.
  */
-async function sectionsFor(site: SiteData, req: SiteRequest, cart: CartEntry[], note: string, attributes: Record<string, string> = req.attributes ?? {}, discount: { code: string; priced: CartDiscount | null } = { code: req.discountCode ?? "", priced: req.cartDiscount ?? null }): Promise<Record<string, string | null> | undefined> {
+async function sectionsFor(site: SiteData, req: SiteRequest, cart: CartEntry[], note: string, attributes: Record<string, string> = req.attributes ?? {}, discount: { code: string; priced: CartDiscount | null } = { code: req.discountCode ?? "", priced: req.cartDiscount ?? null }, offers: CartOffers | null | undefined = undefined): Promise<Record<string, string | null> | undefined> {
   const raw = field(req.body, "sections")
   const ids = (Array.isArray(raw) ? raw.map(String).flatMap((x) => x.split(",")) : typeof raw === "string" ? raw.split(",") : []).map((s) => s.trim()).filter(Boolean).filter((x, i, all) => all.indexOf(x) === i).slice(0, 5)
   if (!ids.length) return undefined
   const from = safeReturn(field(req.body, "sections_url")) ?? safeReturn(req.referer) ?? "/cart"
   const [path, search] = [from.split("?")[0] || "/", from.split("?")[1] ?? ""]
-  const after: SiteRequest = { ...req, method: "GET", body: null, cart, note, attributes, discountCode: discount.code, cartDiscount: discount.priced, query: new URLSearchParams(search) }
+  const after: SiteRequest = { ...req, method: "GET", body: null, cart, note, attributes, discountCode: discount.code, cartDiscount: discount.priced, cartOffers: offers === undefined ? await priceOffers(site, cart) : offers, query: new URLSearchParams(search) }
   const route = await pageFor(site, decodePath(path), after).catch(() => null)
   if (route && route.content === undefined && !route.redirect) {
     const r = sectionsAnswer(site, route.page, route.sections, ids, true)
@@ -1458,10 +1478,10 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
     if (buyNow) return { ...checkoutHandoff(site, asked, false, req.note ?? "", attributes, code, backOf(req)), cart: req.cart, note: req.note ?? "", attributes }
     if (!ajax) return redirect("/cart", { cart, note, attributes })
-    const priced = await priceDiscount(site, cart, code)
-    const lines = (cartJson(site, cart, note, attributes, priced).items as O[])
+    const [priced, offers] = await Promise.all([priceDiscount(site, cart, code), priceOffers(site, cart)])
+    const lines = (cartJson(site, cart, note, attributes, priced, undefined, offers).items as O[])
     const out = added.map((a) => lines.find((l) => l.key === a.k)).filter(Boolean) as O[]
-    const sections = await sectionsFor(site, req, cart, note, attributes, { code, priced })
+    const sections = await sectionsFor(site, req, cart, note, attributes, { code, priced }, offers)
     const body: O = items.length > 1 || Array.isArray(field(req.body, "items")) ? { items: out } : { ...(out[0] ?? {}) }
     if (sections) body.sections = sections
     return json(body, 200, { cart, note, attributes })
@@ -1545,9 +1565,10 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
   /* The codes asked for stay on the cart, each said again by /cart.js with whether it applies (heldCodes). */
   const codes = asked ? { discountCodes: asked.map((a) => a.code) } : {}
   if (!ajax) return redirect(safeReturn(field(req.body, "return_to")) ?? "/cart", { cart, note, attributes, discountCode: code, ...codes })
-  if (priced === undefined) priced = await priceDiscount(site, cart, code)
-  const body = cartJson(site, cart, note, attributes, priced, asked ?? heldCodes(req.discountCodes, priced))
-  const sections = await sectionsFor(site, req, cart, note, attributes, { code, priced })
+  const [pricedNow, offers] = await Promise.all([priced === undefined ? priceDiscount(site, cart, code) : Promise.resolve(priced), priceOffers(site, cart)])
+  priced = pricedNow
+  const body = cartJson(site, cart, note, attributes, priced, asked ?? heldCodes(req.discountCodes, priced), offers)
+  const sections = await sectionsFor(site, req, cart, note, attributes, { code, priced }, offers)
   if (sections) body.sections = sections
   return json(body, 200, { cart, note, attributes, discountCode: code, ...codes })
 }
@@ -1608,6 +1629,23 @@ async function priceDiscount(site: SiteData, cart: CartEntry[], code: string | n
     return await site.pricing.discount(cart, code, shownLines(site, cart))
   } catch {
     return none
+  }
+}
+
+/**
+ * THE STORE'S OFFERS ON THESE LINES, priced by the website's checkout (its
+ * quantity breaks, bundles and checkout offers, lib/offers applyOffers),
+ * each in the page's money by the line's key. Null with nothing to price it
+ * (a test of the pages alone), an empty cart, no offer on now, or a check
+ * that failed: the cart then shows its lines at full price, and checkout
+ * still takes the offers off.
+ */
+async function priceOffers(site: SiteData, cart: CartEntry[]): Promise<CartOffers | null> {
+  if (!cart.length || !site.pricing?.offers) return null
+  try {
+    return await site.pricing.offers(cart, shownLines(site, cart))
+  } catch {
+    return null
   }
 }
 

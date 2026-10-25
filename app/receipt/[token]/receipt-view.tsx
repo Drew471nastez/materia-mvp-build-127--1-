@@ -16,6 +16,7 @@ import { getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { fileKindOf, formatFileSize, formatMoney, splitFileName, type AccessState } from "@/lib/receipts/rules"
 import type { ReceiptItem, ReceiptView as Receipt, ReceiptViewer } from "@/lib/receipts/view"
+import { splitSavings } from "@/lib/receipts/discount"
 import { cn } from "@/lib/utils"
 import { useCt } from "@/app/checkout/parts/words"
 import { ViewerSync } from "@/components/auth/viewer-sync"
@@ -268,6 +269,9 @@ function ItemBlock({
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="text-[15px] font-semibold leading-snug text-[#1a1a2e] [overflow-wrap:anywhere]">{item.title}</p>
           {meta ? <p className="mt-0.5 text-[13px] text-[#6b7280]">{meta}</p> : null}
+          {/* The buyer's own words on the line (an engraving), and the offers that saved on it, by the name the checkout showed. */}
+          {item.properties?.length ? <p data-receipt-properties="" className="mt-0.5 text-[13px] text-[#6b7280] [overflow-wrap:anywhere]">{item.properties.map(([k, v]) => `${k}: ${v}`).join(" · ")}</p> : null}
+          {item.offers?.length ? <p data-receipt-offers="" className="mt-0.5 text-[13px] text-[#6b7280]">{item.offers.map((o) => `${o.title} −${formatMoney(o.cents, currency, locale)}`).join(" · ")}</p> : null}
           {nothing ? <p className="mt-0.5 text-[13px] text-[#6b7280]">{ct("No files come with this item.")}</p> : null}
           {status ? <p className={`mt-0.5 text-[13px] font-medium ${status.tone}`}>{status.text(ct)}</p> : null}
         </div>
@@ -568,6 +572,7 @@ export function ReceiptView({
           : null
   const paid = receipt.state !== "pending" && receipt.state !== "failed"
   const discount = receipt.discountCents ?? 0
+  const saved = splitSavings(discount, receipt.savings)
   /* Before the code, when there was one: the lines at their list price. */
   const beforeDiscount = discount > 0 ? receipt.subtotalCents + discount : receipt.subtotalCents
   const policies = receipt.items.filter((i) => i.refundPolicy)
@@ -660,10 +665,14 @@ export function ReceiptView({
             {receipt.tipCents > 0 || discount > 0 || receipt.items.length > 1 || (receipt.taxCents ?? 0) > 0 ? (
               <Row label={ct("Subtotal")} value={money(beforeDiscount)} />
             ) : null}
-            {discount > 0 ? (
+            {/* Each offer by its own name, then what is left of the discount as the code's: an offer is never named by the code. */}
+            {saved.rows.map((s) => (
+              <Row key={s.label} label={s.label} value={`−${money(s.cents)}`} />
+            ))}
+            {saved.rest > 0 ? (
               <Row
                 label={receipt.discountCode ? ct("Discount ({code})", { code: receipt.discountCode }) : ct("Discount")}
-                value={`−${money(discount)}`}
+                value={`−${money(saved.rest)}`}
               />
             ) : null}
             {receipt.tipCents > 0 ? <Row label={ct("Tip")} value={money(receipt.tipCents)} /> : null}

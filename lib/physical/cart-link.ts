@@ -4,6 +4,7 @@
  * physical checkout on storelib.com. The server prices it again; nothing
  * here is trusted beyond being well formed.
  */
+import { propertyText } from "@/lib/cart-uploads/rules"
 
 /* Node's Buffer read through globalThis: a bare `Buffer` makes the bundler ship a 19 KB polyfill to every website's browser, which has atob/btoa anyway. */
 type NodeBuffer = { from(input: string, encoding: string): { toString(encoding: string): string } }
@@ -52,9 +53,13 @@ export function propertiesKey(props: Record<string, string> | null | undefined):
   return entries.length ? JSON.stringify(entries) : ""
 }
 
-/** The properties a buyer is shown: a name starting with "_" is the theme's own (Shopify hides those), kept for the store only. */
+/**
+ * The properties a buyer is shown: a name starting with "_" is the theme's
+ * own (Shopify hides those), kept for the store only. An uploaded picture
+ * (lib/cart-uploads/rules) is said by its file name, never its address.
+ */
 export function buyerProperties(props: Record<string, string> | null | undefined): [string, string][] {
-  return Object.entries(props ?? {}).filter(([k]) => !k.startsWith("_"))
+  return Object.entries(props ?? {}).filter(([k]) => !k.startsWith("_")).map(([k, v]) => [k, propertyText(v)])
 }
 
 /** The ceiling on a named amount, lib/checkout/pricing MAX_PWYW_CENTS. */

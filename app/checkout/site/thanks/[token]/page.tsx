@@ -15,6 +15,8 @@ import { checkoutLanguage } from "@/lib/markets/checkout-language"
 import { checkoutMsg } from "@/lib/markets/checkout-words"
 import { CheckoutWords } from "../../../parts/words"
 import { ThanksView, type Line, type Summary } from "./thanks-view"
+import { buyerProperties, lineProperties } from "@/lib/physical/cart-link"
+import { offersOfSnapshot, savingsOfLines } from "@/lib/offers/snapshot"
 
 export const dynamic = "force-dynamic"
 
@@ -35,7 +37,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
       .eq("receipt_token", token)
       .maybeSingle()
     if (error || !co || co.creator_id !== creatorId || co.status !== "paid") return null
-    const lines = (Array.isArray(co.lines) ? co.lines : []) as { product_id?: string; type?: string; title: string; variant_name: string | null; image_url: string | null; quantity: number; unit_cents: number; discount_cents: number }[]
+    const lines = (Array.isArray(co.lines) ? co.lines : []) as { product_id?: string; type?: string; title: string; variant_name: string | null; image_url: string | null; quantity: number; unit_cents: number; discount_cents: number; offers?: unknown; properties?: unknown }[]
     const address = co.shipping_address as { line1?: string; city?: string; country?: string } | null
     const pickup = co.pickup as { name?: string } | null
     const rate = (co.shipping_rate ?? null) as { name?: unknown; min_days?: unknown; max_days?: unknown; kind?: unknown; local_note?: unknown } | null
@@ -43,7 +45,7 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
     return {
       email: co.buyer_email ?? null,
       firstName: typeof co.buyer_name === "string" ? co.buyer_name.trim().split(/\s+/)[0] || null : null,
-      lines: lines.map((l) => ({ productId: l.product_id, title: l.title, variantName: l.variant_name, imageUrl: l.image_url, quantity: l.quantity, unitCents: l.unit_cents, cents: Math.max(0, l.unit_cents * l.quantity - l.discount_cents) })),
+      lines: lines.map((l) => ({ productId: l.product_id, title: l.title, variantName: l.variant_name, imageUrl: l.image_url, quantity: l.quantity, unitCents: l.unit_cents, cents: Math.max(0, l.unit_cents * l.quantity - l.discount_cents), properties: buyerProperties(lineProperties(l.properties)) })),
       totalCents: co.total_cents ?? 0,
       shippingCents: co.delivery_method === "none" ? null : Math.max(0, (co.shipping_cents ?? 0) - (co.shipping_discount_cents ?? 0)),
       taxCents: co.shipping_rate?.tax_included ? 0 : co.tax_cents ?? 0,
@@ -58,6 +60,8 @@ async function shippedOrder(db: Db, creatorId: string, token: string): Promise<S
         placedAt: co.paid_at ?? co.created_at ?? null,
         subtotalCents: Number(co.items_subtotal_cents ?? 0) || lines.reduce((n, l) => n + l.unit_cents * l.quantity, 0),
         discountCents: Math.max(0, Number(co.discount_cents ?? 0) || 0),
+        /* Each offer by its own name (the lines' snapshot), so the code's row is the code's part only. */
+        savings: savingsOfLines(lines),
         coupon: typeof co.coupon_code === "string" && co.coupon_code.trim() ? co.coupon_code.trim() : null,
         address: co.delivery_method === "pickup" || co.delivery_method === "none" ? null : (co.shipping_address as Record<string, unknown> | null),
         method: co.delivery_method !== "pickup" && co.delivery_method !== "none" && typeof rate?.name === "string" && rate.name.trim() ? { name: rate.name.trim(), minDays: days(rate.min_days), maxDays: days(rate.max_days), local: rate.kind === "local", note: typeof rate.local_note === "string" ? rate.local_note : null } : null,
@@ -92,7 +96,13 @@ async function basketOrder(db: Db, creatorId: string, token: string): Promise<Su
   const lines: Line[] = rows.map((r) => {
     const p = one(r.product as { title?: string; thumbnail_url?: string | null } | null)
     const v = one(r.variant as { name?: string | null } | null)
-    return { productId: typeof r.product_id === "string" ? r.product_id : undefined, title: p?.title ?? checkoutMsg("Your purchase"), variantName: v?.name ?? null, imageUrl: p?.thumbnail_url ?? null, quantity: Number(r.quantity) || 1, cents: Number(r.amount_cents) || 0 }
+    /* What the line kept of the checkout (lib/checkout/fulfil-cart-item lineSnapshot): the offers that saved on it and the buyer's own words. */
+    const snap = (r.product_snapshot ?? null) as { offers?: unknown; properties?: unknown } | null
+    const offers = (offersOfSnapshot(snap?.offers) ?? []).map((o) => ({ title: o.title, cents: o.savedCents }))
+    const cents = Number(r.amount_cents) || 0
+    const quantity = Number(r.quantity) || 1
+    const saved = offers.reduce((n, o) => n + o.cents, 0)
+    return { productId: typeof r.product_id === "string" ? r.product_id : undefined, title: p?.title ?? checkoutMsg("Your purchase"), variantName: v?.name ?? null, imageUrl: p?.thumbnail_url ?? null, quantity, cents, properties: buyerProperties(lineProperties(snap?.properties)), offers, ...(saved > 0 && (cents + saved) % quantity === 0 ? { unitCents: (cents + saved) / quantity } : {}) }
   })
   return {
     email: first.buyer_email ?? null,

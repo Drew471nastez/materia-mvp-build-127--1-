@@ -187,8 +187,8 @@ export function problemsOf(d: Draft, currency: string): Problems {
   }
   if (d.kind === "bundle" && (d.productIds.length < 2 || d.productIds.length > MAX_BUNDLE)) out.products = tt("A bundle has 2 to {maxBundle} products.", { maxBundle: MAX_BUNDLE })
   if (d.kind === "checkout" && d.productIds.length !== 1) out.products = tt("Choose the product to offer.")
-  if (d.kind === "checkout" && d.condition === "products" && d.triggerIds.length === 0) out.triggers = tt("Pick the products that show it, or choose Any order.")
-  if (d.kind === "checkout" && d.condition === "collections" && d.triggerCollectionIds.length === 0) out.triggers = tt("Pick a collection, or choose Any order.")
+  if (d.kind === "checkout" && d.condition === "products" && d.triggerIds.length === 0) out.triggers = tt("Pick the products that show it, or choose Anything.")
+  if (d.kind === "checkout" && d.condition === "collections" && d.triggerCollectionIds.length === 0) out.triggers = tt("Pick a collection, or choose Anything.")
   const body = bodyOf(d, currency)
   if (d.discountType === "percent" && (!Number.isFinite(body.discountValue) || body.discountValue < 1 || body.discountValue > MAX_PERCENT)) out.amount = tt("A percent off is 1 to {maxPercent}.", { maxPercent: MAX_PERCENT })
   if (d.discountType === "fixed" && (!Number.isFinite(body.discountValue) || body.discountValue < 1)) out.amount = tt("Enter the amount off.")

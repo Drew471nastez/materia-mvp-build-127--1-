@@ -13,6 +13,7 @@ import { loadOrder } from "@/lib/physical/orders-server"
 import { partnerShipped } from "@/lib/physical/partner-server"
 import type { ForwardDeps } from "./forward-server"
 import { realStockDeps } from "./stock-deps-server"
+import { uuidOf } from "@/lib/cart-uploads/sign"
 
 export const realForwardDeps: ForwardDeps = {
   loadOrder: (db, where) => loadOrder(db, where),
@@ -20,4 +21,13 @@ export const realForwardDeps: ForwardDeps = {
   addOrderEvent: (db, e) => addOrderEvent(db, e),
   now: () => Date.now(),
   stock: realStockDeps,
+  /* The buyer's pictures by a seven day link, this store's own (lib/cart-uploads/store orderFiles). */
+  printFiles: async (db, input) => {
+    const { orderFiles } = await import("@/lib/cart-uploads/store")
+    const { PARTNER_LINK_SECONDS } = await import("@/lib/cart-uploads/rules")
+    const files = await orderFiles(db, { creatorId: input.creatorId, ids: input.ids.map(uuidOf), seconds: PARTNER_LINK_SECONDS })
+    const out = new Map<string, { name: string; url: string }>()
+    for (const [id, f] of files) if (f.url) out.set(id, { name: f.name, url: f.url })
+    return out
+  },
 }

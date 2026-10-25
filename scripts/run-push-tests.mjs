@@ -635,6 +635,10 @@ const SUITES = [
   "tests/offers-v.test.ts",
   /* Round AF: quantity breaks and Buy X get Y free charged at checkout exactly as the theme showed them (one formula, every tier and variant, yen and lei), one offer per unit, properties to the order line, cart discount codes to checkout, GET /api/offers and the Liquid metafield; SQL part 304. */
   "tests/offers-af.test.ts",
+  /* Round AG: offers end to end: a download basket's offers and properties on its order lines (receipt, invoice, emails, admin, export, each offer by name), a currency change converting quantity break amounts (SQL part 306, on Postgres when OFFERS_PG_HOST is set), /cart.js and the Liquid cart with Shopify's automatic discounts to the cent of checkout, the builder's canvas, the native tiers, the creator's try-a-cart and warnings. */
+  "tests/offers-ag.test.ts",
+  /* Round AG3: a buyer's words and pictures on a cart line: uploads checked by their bytes, drawn again without EXIF, kept privately per store and browser, refused on another store or cart, copied to the order when paid, shown in emails, slips, exports and the order page, sent to print partners, swept after 14 days; the Storelib theme's Personalization block; SQL part 308. */
+  "tests/cart-uploads.test.ts",
   "tests/round-v.test.ts",
   "tests/round-w.test.ts",
   "tests/product-editor-physical.test.ts",
@@ -867,6 +871,7 @@ const SUITES = [
   "tests/round-bc-domains.test.ts",
   "tests/round-bc-dmnotify.test.ts",
   "tests/round-bc-sizecharts.test.ts",
+  "tests/ag2-imported-theme.test.ts",
   "tests/round-bc-productblocks.test.ts",
   "tests/round-bc-checkout.test.ts",
   "tests/round-bc-accounts.test.ts",

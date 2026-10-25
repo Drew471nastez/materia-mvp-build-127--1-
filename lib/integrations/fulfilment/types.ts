@@ -44,7 +44,18 @@ export interface ProviderOrderInput {
   /** The order's number as the buyer knows it, "#1042". */
   label: string
   address: ProviderAddress
-  lines: { sku: string; quantity: number; title: string; lineId: string; variantId?: string | null; link?: VariantLink | null }[]
+  lines: {
+    sku: string
+    quantity: number
+    title: string
+    lineId: string
+    variantId?: string | null
+    link?: VariantLink | null
+    /** The buyer's words for the line (an engraving), each property they were shown (./forward-server.ts personalizationOf). */
+    personalization?: { name: string; value: string }[]
+    /** The buyer's pictures for the line, each by a link that lasts seven days. */
+    printFiles?: { name: string; url: string }[]
+  }[]
   /** Send it to be made straight away (true), or leave it as a draft for the seller to approve there (false). */
   autoConfirm: boolean
 }

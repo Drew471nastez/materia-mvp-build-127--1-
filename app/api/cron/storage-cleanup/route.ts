@@ -12,7 +12,8 @@ import { sweepCommunityOrphans } from "@/lib/communities/server/orphans"
  * Removes files nothing refers to any more (lib/storage/cleanup.ts): abandoned
  * theme packages, unfinished uploads, description pictures and product photos
  * that were taken out, stale download ZIPs, and community pictures and files
- * taken out of drafts two weeks ago (lib/communities/server/orphans.ts). Then gives older product files
+ * taken out of drafts two weeks ago (lib/communities/server/orphans.ts), and buyers' cart pictures no
+ * paid order took after 14 days (lib/cart-uploads/store.ts). Then gives older product files
  * their first check and a SHA-256, a few a run, and trims the security log.
  *
  * Query, for a person running it by hand with the secret:
@@ -56,7 +57,11 @@ async function runJob(request: Request) {
     /* Community pictures and files taken out of drafts and never posted (lib/communities/server/orphans.ts). */
     const communityOrphans = await sweepCommunityOrphans(createAdminClient(), { dryRun: url.searchParams.get("dry") === "1" })
     if (communityOrphans.errors.length > 0) console.error("[storage-cleanup] community uploads:", communityOrphans.errors.join("; "))
-    return NextResponse.json({ ...summary, deletedRowsForgotten, communityOrphans }, { headers: { "Cache-Control": "no-store" } })
+    /* Buyers' cart pictures no paid order took, after 14 days; a paid order's picture never copied is copied now (lib/cart-uploads/store.ts). */
+    const { sweepCartUploads } = await import("@/lib/cart-uploads/store")
+    const cartUploads = await sweepCartUploads(createAdminClient(), { dryRun: url.searchParams.get("dry") === "1" })
+    if (cartUploads.errors.length > 0) console.error("[storage-cleanup] cart uploads:", cartUploads.errors.join("; "))
+    return NextResponse.json({ ...summary, deletedRowsForgotten, communityOrphans, cartUploads }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("[storage-cleanup]", error)
     return NextResponse.json({ error: "Cleanup failed" }, { status: 500 })

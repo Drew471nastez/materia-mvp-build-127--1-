@@ -19,6 +19,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - Quantity breaks and Buy X get Y free as a third kind of offer, with `GET /api/offers/quantity-breaks?product=` and `GET /api/offers?product=` (bundles, quantity breaks and checkout offers in one answer), the formula a theme shows them by and the checkout charges by ([Physical commerce](/developers/physical-commerce#quantity-breaks)).
 - `product.metafields.storelib.offers` in an imported theme, the same JSON as `GET /api/offers`, and `line_item.properties` on the account's orders.
 - Line item properties reach the order: the checkout's `items` takes `[productId, variantId, quantity, properties?]`, and links without them read as before. The codes `/cart/update.js` `discount` asks for are kept on the cart and listed by `/cart.js` with whether each applies.
+- Pictures on a cart line: a product form's `<input type="file" name="properties[Photo]">` on a multipart `/cart/add`, `POST /cart/upload` and `POST /api/cart/uploads`, kept privately and copied to the order when paid. The product section's Personalization block in the Storelib theme ([Physical commerce](/developers/physical-commerce#personalization-words-and-pictures)).
 
 ## 24 October 2026
 

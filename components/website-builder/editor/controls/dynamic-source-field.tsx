@@ -137,7 +137,8 @@ export function DynamicSourceField({
   }
   const kind = resolveControlType(field.type) ?? field.type
   const target = SOURCE_TARGETS[kind]
-  const offered = React.useMemo(() => (env && target ? sourcesFor(kind, env.template) : []), [env, target, kind])
+  /* An imported theme offers what its own Liquid objects fill (lib/storelib-theme/dynamic.ts COMPAT_SOURCE_EXPR). */
+  const offered = React.useMemo(() => (env && target ? sourcesFor(kind, env.template, { compat: env.compat === true }) : []), [env, target, kind])
 
   /* The first choice takes focus when the list opens, so the keyboard is in it. */
   React.useEffect(() => {

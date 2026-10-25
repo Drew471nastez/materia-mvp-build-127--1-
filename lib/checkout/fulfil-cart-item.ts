@@ -26,7 +26,7 @@ import { recordCheckoutContact } from "@/lib/contacts/checkout-contact"
 import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
 import { recordContactAttribution, recordOrderAttribution, type Attribution } from "@/lib/attribution/server"
 import { recordCustomer } from "./fulfil-payment"
-import { lineTotalCents } from "./cart-items"
+import { lineTotalCents, type PackedOffer } from "./cart-items"
 import { claimSale, releaseSale } from "./sales-limit"
 import { SOLD_OUT_REASON, markSoldOut } from "./sold-out-refund"
 import type { Followups } from "./followups"
@@ -41,6 +41,9 @@ export interface FulfilLineInput {
   discountCents?: number
   /** The line's tax (Settings › Taxes): inside its price when prices include tax, else charged on top. */
   taxCents?: number
+  /** The store's offers inside `discountCents` and the line's properties (lib/checkout/cart-items PackedItem), kept on the order line. */
+  offers?: PackedOffer[]
+  properties?: Record<string, string>
 }
 
 export interface FulfilContext {
@@ -92,6 +95,20 @@ export interface FulfilledLine {
 
 /** "exists": another caller wrote this line; its order id, when it could be read, lets a retry finish its follow-ups (./followups.ts). */
 export type LineOutcome = { status: "created"; line: FulfilledLine } | { status: "exists"; orderId: string | null; amountCents?: number; soldOut?: boolean } | { status: "failed" }
+
+/** A download line's snapshot: its properties and its offers, in the shape a shipped line's snapshot has them; null when it has neither. */
+export function lineSnapshot(line: Pick<FulfilLineInput, "offers" | "properties" | "discountCents">): Record<string, unknown> | null {
+  const properties = line.properties && Object.keys(line.properties).length ? line.properties : null
+  let left = Math.max(0, Math.round(line.discountCents ?? 0))
+  const offers = (line.offers ?? []).flatMap((o) => {
+    const saved = Math.min(left, Math.max(0, Math.round(o.savedCents)))
+    if (saved <= 0) return []
+    left -= saved
+    return [{ offer_id: o.offerId, title: (o.title || "Offer").slice(0, 120), kind: o.kind, saved_cents: saved, ...(o.tier !== undefined ? { tier: o.tier } : {}) }]
+  })
+  if (!properties && offers.length === 0) return null
+  return { ...(properties ? { properties } : {}), ...(offers.length ? { offers } : {}) }
+}
 
 export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, index: number, feeCents: number): Promise<LineOutcome> {
   /* What this line was charged: its price, less what a code took off it,
@@ -150,6 +167,18 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
   if (error || !order) {
     console.error("[checkout/cart] order insert failed for product", line.productId, error?.code, error?.message)
     return { status: "failed" }
+  }
+  /*
+    WHICH OFFERS SAVED WHAT ON THIS LINE, AND ITS PROPERTIES, as a shipped
+    cart's order line keeps them (lib/physical/checkout-server: the
+    snapshot's `offers` and `properties`), so the receipt, the emails, the
+    admin's order, the export and the offers page's Sold count read a
+    download basket the same way. Its own write: an order is never lost to it.
+  */
+  const snapshot = lineSnapshot(line)
+  if (snapshot) {
+    const { error: snapError } = await ctx.admin.from("orders").update({ product_snapshot: snapshot }).eq("id", order.id)
+    if (snapError) console.warn("[checkout/cart] offers and properties not kept on the order:", snapError.code)
   }
   /* Several copies on one line are several of a limited run (product_copies_sold): kept on the order on its own, so a database without the column (part 78) loses only this. */
   if (line.quantity > 1) {

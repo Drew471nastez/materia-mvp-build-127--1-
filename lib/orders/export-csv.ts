@@ -26,6 +26,12 @@ function units(minor: number, currency: string | null | undefined): string {
 
 export type ExportFormat = "spreadsheet" | "plain"
 
+function offersText(o: Order, currency: string | null | undefined): string {
+  const sums = new Map<string, number>()
+  for (const l of o.lines as { offers?: { title: string; savedCents: number }[] | null }[]) for (const x of l.offers ?? []) sums.set(x.title, (sums.get(x.title) ?? 0) + x.savedCents)
+  return [...sums].map(([t, c]) => `${t} ${units(c, currency)}`).join("; ")
+}
+
 export function isExportFormat(value: unknown): value is ExportFormat {
   return value === "spreadsheet" || value === "plain"
 }
@@ -52,6 +58,7 @@ export const CSV_HEADER = [
   "Payment status",
   "Fulfillment status",
   "Delivery status",
+  "Offers",
 ]
 
 /** The file's text. Pure, so tests/date-range.test.ts can read it. */
@@ -82,6 +89,8 @@ export function ordersCsv(orders: Order[], timeZone: string, format: ExportForma
       PAYMENT_LABEL[o.payment],
       FULFILLMENT_LABEL[o.fulfillment],
       o.delivery === "delivered" ? "Delivered" : o.delivery === "failed" ? "Not delivered" : "",
+      /* Each offer that saved on the order, by name, with what it saved over its lines: "Buy 2 get 1 free 36.00". */
+      offersText(o, o.currency),
     ]
       .map(csvCell)
       .join(","),

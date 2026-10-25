@@ -25,6 +25,7 @@
  * database when the payment is created. Nothing a browser puts in local
  * storage can change what a visitor is charged.
  */
+import { lineProperties, propertiesKey } from "@/lib/physical/cart-link"
 
 export interface CartLine {
   productId: string
@@ -58,6 +59,13 @@ export interface CartLine {
    * server when the cart is read (cartNeedsReprice, repricedLines).
    */
   currency?: string
+  /**
+   * What the buyer wrote or sent on the product page's Personalization block
+   * (a name to engrave, a photo's value, lib/cart-uploads/rules): the line's
+   * properties, as an imported theme's `properties[...]` are. The same
+   * product with other words is another line. Never read for a price.
+   */
+  properties?: Record<string, string>
 }
 
 /** More than this in one basket is a script, not a shopper. */
@@ -69,9 +77,18 @@ export function cartStorageKey(shopId: string): string {
   return `storelib.cart.${shopId}`
 }
 
-/** What makes two lines the same line. */
-export function lineKey(line: Pick<CartLine, "productId" | "variantId">): string {
+/** The product and option alone, whatever the line's properties: what a price is asked by. */
+function optionKey(line: Pick<CartLine, "productId" | "variantId">): string {
   return `${line.productId}::${line.variantId ?? ""}`
+}
+
+/** What makes two lines the same line: the product, the option and, when it has any, its properties (lib/physical/cart-link propertiesKey, short hashed). */
+export function lineKey(line: Pick<CartLine, "productId" | "variantId"> & { properties?: Record<string, string> }): string {
+  const props = propertiesKey(line.properties)
+  if (!props) return optionKey(line)
+  let h = 0x811c9dc5
+  for (let i = 0; i < props.length; i++) h = Math.imul(h ^ props.charCodeAt(i), 0x01000193) >>> 0
+  return `${optionKey(line)}::${h.toString(36)}`
 }
 
 function clampQuantity(line: CartLine, quantity: number): number {
@@ -143,7 +160,9 @@ export function parseCart(raw: string | null | undefined): CartLine[] {
     const row = item as Record<string, unknown>
     if (typeof row.productId !== "string" || row.productId === "") continue
     const variantId = typeof row.variantId === "string" && row.variantId !== "" ? row.variantId : null
-    const key = `${row.productId}::${variantId ?? ""}`
+    /* Properties held to the order's own rule (lib/physical/cart-link lineProperties): storage is anybody's to write. */
+    const properties = lineProperties(row.properties)
+    const key = lineKey({ productId: row.productId, variantId, properties })
     if (seen.has(key)) continue
     const price = typeof row.priceCents === "number" && Number.isFinite(row.priceCents) ? Math.max(0, Math.round(row.priceCents)) : 0
     const digital = row.digital === true
@@ -164,6 +183,7 @@ export function parseCart(raw: string | null | undefined): CartLine[] {
         : {}),
       quantity: digital ? 1 : Math.max(1, Math.min(MAX_QUANTITY, quantity)),
       ...(typeof row.currency === "string" && /^[A-Za-z]{3}$/.test(row.currency) ? { currency: row.currency.toUpperCase() } : {}),
+      ...(properties ? { properties } : {}),
     })
     if (out.length >= MAX_LINES) break
   }
@@ -179,13 +199,17 @@ export function serializeCart(lines: CartLine[]): string {
  * line's named amount; the server prices it and holds that amount to the
  * product's own limits.
  */
-export function checkoutItems(lines: CartLine[]): Array<{ productId: string; variantId: string | null; quantity: number; customPriceCents?: number }> {
-  return lines.map((l) => ({
-    productId: l.productId,
-    variantId: l.variantId,
-    quantity: l.quantity,
-    ...(typeof l.customPriceCents === "number" ? { customPriceCents: l.customPriceCents } : {}),
-  }))
+export function checkoutItems(lines: CartLine[]): Array<{ productId: string; variantId: string | null; quantity: number; customPriceCents?: number; properties?: Record<string, string> }> {
+  return lines.map((l) => {
+    const properties = lineProperties(l.properties)
+    return {
+      productId: l.productId,
+      variantId: l.variantId,
+      quantity: l.quantity,
+      ...(typeof l.customPriceCents === "number" ? { customPriceCents: l.customPriceCents } : {}),
+      ...(properties ? { properties } : {}),
+    }
+  })
 }
 
 /* ─── After the store's currency changed ───────────────────────────────── */
@@ -212,10 +236,10 @@ export interface LinePrice {
  */
 export function repricedLines(lines: CartLine[], prices: LinePrice[], currency: string): CartLine[] {
   const now = currency.toUpperCase()
-  const byKey = new Map(prices.map((p) => [lineKey(p), p]))
+  const byKey = new Map(prices.map((p) => [optionKey(p), p]))
   const out: CartLine[] = []
   for (const l of lines) {
-    const p = byKey.get(lineKey(l))
+    const p = byKey.get(optionKey(l))
     if (!p) {
       out.push(l)
       continue

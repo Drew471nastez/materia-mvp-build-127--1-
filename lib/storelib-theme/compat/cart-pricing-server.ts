@@ -26,8 +26,8 @@ import "server-only"
  * for the cart and its sections in one press prices the cart once.
  */
 import type { CartPricing, CartEntry, ShippingAsk, ShippingEstimate } from "./site"
-import type { CartDiscount } from "./objects"
-import { siteQuote, type SiteQuote, type SiteQuoteAnswer } from "@/lib/checkout/site-quote-server"
+import type { CartDiscount, CartOffers } from "./objects"
+import { siteQuote, type SiteQuote, type SiteQuoteAnswer, type SiteQuoteLine } from "@/lib/checkout/site-quote-server"
 import { findCoupon, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
 import { sameLine } from "@/lib/checkout/site-checkout"
 import { marketPricing } from "@/lib/markets/live"
@@ -40,19 +40,45 @@ type Db = any
 
 type Quote = (db: Db, creatorId: string, body: Record<string, unknown>) => Promise<SiteQuoteAnswer>
 
-const itemsOf = (cart: CartEntry[]) => cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q }))
+/* With each line's properties, so a cart that ships is quoted line for line as the cookie holds it (one option with other properties is its own line). */
+const itemsOf = (cart: CartEntry[]) => cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q, ...(e.props ? { properties: e.props } : {}) }))
 
 /** Cents of the store's money as the page writes amounts (Shopify's: always hundredths of the currency). */
 function toPageCents(minor: number, currency: string): number {
   return Math.round(minor * 10 ** (2 - minorUnits(currency)))
 }
 
+/** The same quoted line in another quote of the same cart: the same option and, on a cart that ships, the same properties. */
+const sameQuoted = (a: SiteQuoteLine, b: SiteQuoteLine) => a.productId === b.productId && (a.variantId ?? null) === (b.variantId ?? null) && (a.propertiesKey ?? "") === (b.propertiesKey ?? "")
+
+/** The offers' part of each quoted line (the quote without a code): what the line's discount is before any code. */
+function offerParts(withCode: SiteQuote, without: SiteQuote | null): number[] {
+  return withCode.lines.map((l) => without?.lines.find((b) => sameQuoted(b, l))?.discountCents ?? 0)
+}
+
 /** The code's part of each quoted line: with the code, less without it. */
 function codeParts(withCode: SiteQuote, without: SiteQuote | null): number[] {
-  return withCode.lines.map((l) => {
-    const before = without?.lines.find((b) => b.productId === l.productId && (b.variantId ?? null) === (l.variantId ?? null))?.discountCents ?? 0
-    return Math.max(0, l.discountCents - before)
-  })
+  const before = offerParts(withCode, without)
+  return withCode.lines.map((l, i) => Math.max(0, l.discountCents - before[i]))
+}
+
+/*
+  WHETHER THE STORE HAS AN OFFER ON NOW THAT TAKES ANYTHING OFF, held half a
+  minute per store, so a cart drawn on every page of a store with no offers
+  asks the checkout nothing more than before. An offer switched on shows in
+  the cart within that.
+*/
+const liveHeld = new Map<string, { until: number; live: boolean }>()
+async function storeHasOffers(db: Db, creatorId: string): Promise<boolean> {
+  const held = liveHeld.get(creatorId)
+  if (held && held.until > Date.now()) return held.live
+  const { loadOffers } = await import("@/lib/offers/offers-read")
+  const { offerLive } = await import("@/lib/offers/offers")
+  const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
+  const live = offers.some((o) => offerLive(o) && (o.kind === "quantity_break" ? (o.tiers?.length ?? 0) > 0 : o.discountType === "percent" || o.discountType === "fixed"))
+  liveHeld.set(creatorId, { until: Date.now() + 30_000, live })
+  if (liveHeld.size > 2000) liveHeld.delete(liveHeld.keys().next().value as string)
+  return live
 }
 
 /** Which way a code is drawn: for the whole order, or for some products only (Shopify's cart level and line level). */
@@ -112,6 +138,7 @@ export function compatCartPricing(input: CompatPricingInput): CartPricing {
         return { ...none, code: coupon?.code ?? code, error: money ? amountsInMarket(error, money) : error }
       }
       const parts = codeParts(q, without.ok ? without.quote : null)
+      const beforeCode = offerParts(q, without.ok ? without.quote : null)
       /* The page's line prices are the store's when there is no market to convert to: the code's cents as they are. */
       const exact = !money && minorUnits(base) === 2
       const lines: Record<string, number> = {}
@@ -119,7 +146,7 @@ export function compatCartPricing(input: CompatPricingInput): CartPricing {
         const part = parts[i]
         if (part <= 0) return
         /* The cookie's lines this quoted line is: the same option (a line with properties is its own entry), or the product's only one. */
-        const mine = cart.filter((e) => sameLine({ productId: e.p, variantId: e.v }, l))
+        const mine = cart.filter((e) => sameLine({ productId: e.p, variantId: e.v, properties: e.props }, l))
         const qty = mine.reduce((n, e) => n + e.q, 0)
         if (!qty) return
         const lineStore = l.unitCents * l.quantity
@@ -128,7 +155,8 @@ export function compatCartPricing(input: CompatPricingInput): CartPricing {
           const page = shown[e.k] ?? 0
           let off: number
           if (exact) off = n === mine.length - 1 ? left : Math.round((part * e.q) / qty)
-          else off = lineStore > 0 ? Math.round((page * part) / lineStore) : 0
+          /* In another money, the share the checkout's conversion gives the whole discount less the share it gives the offers' part (lib/markets/checkout-charge convertOrder), so the two parts add up to what the card pays. */
+          else off = lineStore > 0 ? Math.round((page * l.discountCents) / lineStore) - Math.round((page * beforeCode[i]) / lineStore) : 0
           off = Math.max(0, Math.min(page, off))
           left -= off
           if (off > 0) lines[e.k] = (lines[e.k] ?? 0) + off
@@ -147,6 +175,50 @@ export function compatCartPricing(input: CompatPricingInput): CartPricing {
         freeShipping: q.coupon.freeShipping === true,
         error: null,
       }
+    },
+
+    /*
+      THE STORE'S OFFERS ON THE CART, from the checkout's own quote without a
+      code (the very quote the code's part is taken against): each quoted
+      line's offers, each its part of the line, put on the cookie's lines it
+      is. In the store's money (two decimals) the parts are the checkout's
+      cents exactly. In another money each part is the share of the line the
+      checkout's conversion gives it (convertOrder: a line's discount keeps
+      its share of the line as the line's price is converted), the line's
+      offers together exactly that share of the line's whole discount, the
+      last taking the rounding.
+    */
+    async offers(cart, shown): Promise<CartOffers | null> {
+      if (!cart.length || !(await storeHasOffers(db(), input.creatorId).catch(() => false))) return null
+      const [answer, money] = await Promise.all([quoteOf({ items: itemsOf(cart) }), charge()])
+      if (answer.ok === false) return null
+      const exact = !money && minorUnits(base) === 2
+      const lines: CartOffers["lines"] = {}
+      for (const l of answer.quote.lines) {
+        const offers = (l.offers ?? []).filter((o) => o.savedCents > 0)
+        if (!offers.length || l.discountCents <= 0) continue
+        const mine = cart.filter((e) => sameLine({ productId: e.p, variantId: e.v, properties: e.props }, l))
+        const qty = mine.reduce((n, e) => n + e.q, 0)
+        if (!qty) continue
+        const whole = offers.reduce((s, o) => s + o.savedCents, 0)
+        let given = 0
+        mine.forEach((e, n) => {
+          const page = shown[e.k] ?? 0
+          /* This cookie line's part of the quoted line's offers (by its units, the last taking the rest), in the store's money, then in the page's. */
+          const mineStore = n === mine.length - 1 ? whole - given : Math.round((whole * e.q) / qty)
+          given += mineStore
+          const total = exact ? mineStore : l.unitCents > 0 ? Math.min(page, Math.round((page * mineStore) / (l.unitCents * e.q))) : 0
+          let left = total
+          const out: CartOffers["lines"][string] = []
+          offers.forEach((o, k) => {
+            const amount = k === offers.length - 1 ? left : Math.min(left, Math.round((total * o.savedCents) / Math.max(1, whole)))
+            left -= amount
+            if (amount > 0) out.push({ offerId: o.offerId, title: o.title, kind: o.kind, ...(o.tier !== undefined ? { tier: o.tier } : {}), amount })
+          })
+          if (out.length) lines[e.k] = out
+        })
+      }
+      return Object.keys(lines).length ? { lines } : null
     },
 
     async shipping(cart, code, address: ShippingAsk): Promise<ShippingEstimate> {

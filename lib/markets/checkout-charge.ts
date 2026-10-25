@@ -168,3 +168,19 @@ export function lineTaxShares(lines: ChargeLine[], taxCents: number): number[] {
     return t
   })
 }
+
+/**
+ * A line's offers (each its part of the line's discount, lib/offers
+ * lineOffers) once the discount is converted: each keeps the same share of
+ * the line's discount it had, the parts never more than the discount after.
+ * The order's record of which offer saved what, in the money charged.
+ */
+export function offersInMarket<O extends { savedCents: number }>(offers: O[] | undefined, discountBefore: number, discountAfter: number): O[] | undefined {
+  if (!offers?.length) return offers
+  let left = Math.max(0, discountAfter)
+  return offers.map((o) => {
+    const saved = Math.min(left, share(o.savedCents, discountBefore, discountAfter))
+    left -= saved
+    return { ...o, savedCents: saved }
+  })
+}

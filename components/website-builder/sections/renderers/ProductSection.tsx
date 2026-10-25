@@ -45,6 +45,7 @@ import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { onWebsiteHost, siteCheckoutHref, sitePath } from "@/lib/checkout/site-checkout"
 import { getMainDomain } from "@/lib/url-helpers"
 import { withDeliveryBlock, withOffersBlock, withProductBlocks } from "@/lib/website-builder/product-page"
+import { personalizationFields, personalizationProperties } from "@/lib/website-builder/personalization"
 import { pricingFor } from "@/lib/markets/pricing"
 import {
   amountToCents,
@@ -127,6 +128,12 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
   const [quantity, setQuantityRaw] = useState(1)
   const [pwywInput, setPwywInput] = useState("")
   const [pwywTouched, setPwywTouched] = useState(false)
+  /* ── The Personalization blocks: what the buyer wrote and sent, the line's properties (lib/website-builder/personalization) ── */
+  const [personal, setPersonal] = useState<Record<string, string>>({})
+  const [personalTouched, setPersonalTouched] = useState(false)
+  /* Only a product that ships carries its words and pictures to the order: a download's checkout has no lines to keep them on. */
+  const personalFields = useMemo(() => (product.type === "physical" ? personalizationFields(section.blocks) : []), [section.blocks, product.type])
+  const personalized = useMemo(() => personalizationProperties(personalFields, personal), [personalFields, personal])
   /* A different product (the builder's preview changed): start again from its first variant that sells. */
   const productKey = `${product.id}:${(product.variants ?? []).map((v) => v.id).join(",")}`
   const lastKey = useRef(productKey)
@@ -136,6 +143,8 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     setChosen(initialChoice(product))
     setQuantityRaw(1)
     setPwywInput("")
+    setPersonal({})
+    setPersonalTouched(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productKey])
 
@@ -208,7 +217,8 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
   const add = useCallback(() => {
     if (isEditing || sample || !canBuy || unavailable) return
     if (pwyw.error) { setPwywTouched(true); return }
-    const line = cartLineFor(product, variant, qty, pwyw.cents)
+    if (personalized.missing) { setPersonalTouched(true); return }
+    const line: CartLine = { ...cartLineFor(product, variant, qty, pwyw.cents), ...(personalized.properties ? { properties: personalized.properties } : {}) }
     if (physical && !cart.live && storefront.creatorId) {
       /* No website cart here: this browser's cart for the shop, which the physical checkout reads. */
       try {
@@ -223,7 +233,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     }
     setAdded(true)
     window.setTimeout(() => setAdded(false), 2400)
-  }, [isEditing, sample, canBuy, unavailable, pwyw, product, variant, qty, physical, cart, storefront.creatorId])
+  }, [isEditing, sample, canBuy, unavailable, pwyw, personalized, product, variant, qty, physical, cart, storefront.creatorId])
 
   /*
     THE WEBSITE'S OWN CHECKOUT FOR THIS ONE THING THAT SHIPS (app/checkout/site),
@@ -232,21 +242,22 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     Null in the builder, on a preview on storelib.com, or for a download.
   */
   const siteBuyHref = useCallback((): string | null => {
-    if (inEditor || sample || !canBuy || unavailable || !physical || !storefront.creatorId || pwyw.error) return null
+    if (inEditor || sample || !canBuy || unavailable || !physical || !storefront.creatorId || pwyw.error || personalized.missing) return null
     if (!onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)) return null
-    return siteCheckoutHref({ items: [{ productId: product.id, variantId: variant?.id ?? null, quantity: qty }], back: sitePath(`${window.location.pathname}${window.location.search}`) })
-  }, [inEditor, sample, canBuy, unavailable, physical, storefront.creatorId, pwyw.error, product.id, variant, qty])
+    return siteCheckoutHref({ items: [{ productId: product.id, variantId: variant?.id ?? null, quantity: qty, ...(personalized.properties ? { properties: personalized.properties } : {}) }], back: sitePath(`${window.location.pathname}${window.location.search}`) })
+  }, [inEditor, sample, canBuy, unavailable, physical, storefront.creatorId, pwyw.error, personalized, product.id, variant, qty])
 
   const now = useCallback(() => {
     /* NOT IN THE BUILDER. With the inspector off the canvas is a preview you
        can click through, and this would leave the editor for checkout. */
     if (inEditor || sample || !canBuy || unavailable) return
     if (pwyw.error) { setPwywTouched(true); return }
+    if (personalized.missing) { setPersonalTouched(true); return }
     if (physical) {
       if (!storefront.creatorId) return
       /* Buy now on something that ships is a step towards a sale too: it was the one Buy press Analytics never heard. */
       void trackFunnelStep("buy_click", storefront.creatorId, product.id)
-      window.location.href = siteBuyHref() ?? physicalCheckoutHref(storefront.creatorId, [{ productId: product.id, variantId: variant?.id ?? null, quantity: qty }], window.location.href)
+      window.location.href = siteBuyHref() ?? physicalCheckoutHref(storefront.creatorId, [{ productId: product.id, variantId: variant?.id ?? null, quantity: qty, ...(personalized.properties ? { properties: personalized.properties } : {}) }], window.location.href)
       return
     }
     /* `src=website` is how the order ends up in the Orders table as a Website
@@ -256,7 +267,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
        reads every price again. */
     if (storefront.creatorId) void trackFunnelStep("buy_click", storefront.creatorId, product.id)
     window.location.href = checkoutHrefWithOrigin(buyNowHref(product, variant, pwyw.cents), pageOrigin(), window.location.href)
-  }, [inEditor, sample, canBuy, unavailable, pwyw, physical, storefront.creatorId, product, variant, qty, siteBuyHref])
+  }, [inEditor, sample, canBuy, unavailable, pwyw, personalized, physical, storefront.creatorId, product, variant, qty, siteBuyHref])
 
   /* ── Already theirs ──
      Signed in to this website (its sl_signed_in hint) and owning this
@@ -328,6 +339,12 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     buy: { add, now, href: siteBuyHref, added, unavailable, owned: ownedNow ? owned.href : null },
     wishlist: { saved, toggle: () => { if (product.id) wishlistStore.toggle(product.id) } },
     hasSizeChartBlock: (section.blocks ?? []).some((b) => b.type === "size_chart" && !b.hidden),
+    personalization: {
+      values: personal,
+      set: (key: string, value: string) => setPersonal((v) => ({ ...v, [key]: value })),
+      missing: personalTouched ? personalized.missing : null,
+      uploadsOn: physical && !sample && !inEditor,
+    },
     offers: { chosen: chosenLine ? { variantId: chosenLine.variantId ?? "", variantName: chosenLine.variantName ?? null, priceCents: chosenLine.priceCents, imageUrl: chosenLine.thumbnailUrl ?? null, line: chosenLine } : null, addLines },
     radius,
     buttonRadius,

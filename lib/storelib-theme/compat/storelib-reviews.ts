@@ -45,7 +45,10 @@ import { renderReviewWidgetSection, type WidgetReviews } from "@/lib/reviews/wid
 import { reviewWidgetScript } from "@/lib/reviews/widgets/enhance"
 import { WIDGET_INFO, WIDGET_TYPES } from "@/lib/reviews/widgets/config"
 
-export const REVIEWS_SECTION_TYPE = "storelib-reviews"
+import { REVIEWS_SECTION_TYPE, REVIEW_WIDGET_SECTION_TYPE, STORELIB_APP_SECTION_TYPES } from "./native-sections"
+
+/* Registered in ./native-sections.ts, so the import and a GitHub push accept them without a theme file. */
+export { REVIEWS_SECTION_TYPE, REVIEW_WIDGET_SECTION_TYPE, STORELIB_APP_SECTION_TYPES }
 export const REVIEWS_SECTION_PATH = `sections/${REVIEWS_SECTION_TYPE}.storelib`
 
 /** An app block that was a reviews app's on Shopify. */
@@ -285,11 +288,8 @@ ${JSON.stringify(
  * Storelib's in the page's language (page.i18n.uiWords) under the store's
  * own per language. A carousel brings its few lines of script along.
  */
-export const REVIEW_WIDGET_SECTION_TYPE = "storelib-review-widget"
 export const REVIEW_WIDGET_SECTION_PATH = `sections/${REVIEW_WIDGET_SECTION_TYPE}.storelib`
 
-/** The section types Storelib adds to every imported theme: Add section files them under Apps › Reviews. */
-export const STORELIB_APP_SECTION_TYPES: readonly string[] = [REVIEWS_SECTION_TYPE, REVIEW_WIDGET_SECTION_TYPE]
 
 /** A value of the section's settings as plain words: a colour setting is an object to the theme. */
 function plainSettings(v: unknown): Record<string, unknown> {
