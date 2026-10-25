@@ -14,6 +14,8 @@ import { copiesLeft } from "@/lib/products/sales-limit"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { personName } from "@/lib/profile/display-name"
 import { productCheckoutUrl, productPageUrl, sellsInstantly, shipsProduct } from "@/lib/onepage/product-block"
+import { productFaqs } from "@/lib/products/product-faqs"
+import { sizeChartForProduct } from "@/lib/size-charts/storefront"
 
 /**
  * GET /api/onepage/product?id=<productId>
@@ -53,7 +55,7 @@ export async function GET(request: Request) {
   const creatorId = String(p.creator_id ?? "")
 
   const supabase = await createClient()
-  const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing] = await Promise.all([
+  const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart] = await Promise.all([
     supabase.auth.getUser().catch(() => ({ data: { user: null } })),
     admin.from("product_variants").select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents").eq("product_id", id).order("price_cents", { ascending: true }),
     admin.from("creators").select("id, user_id, slug").eq("id", creatorId).maybeSingle(),
@@ -62,6 +64,8 @@ export async function GET(request: Request) {
     loadTaxForCheckout(admin, creatorId),
     loadStoreName(admin, creatorId).catch(() => null),
     salesStanding(admin, id),
+    /* Its size chart (round 13): its own, else its collection's or category's (lib/size-charts/storefront.ts). Only a thing that ships has one. */
+    p.type === "physical" ? sizeChartForProduct(admin, id, creatorId, { category: typeof p.category === "string" ? p.category : null }) : Promise.resolve(null),
   ])
   const user = userRead.data.user
   const creator = creatorRead.data as { id: string; user_id: string; slug: string | null } | null
@@ -129,6 +133,9 @@ export async function GET(request: Request) {
         left: left !== null && left > 0 && left < 10 ? left : null,
         pageUrl: productPageUrl(typeof p.slug === "string" ? p.slug : null),
         ships: shipsProduct(type),
+        /* Round 13: the product editor's questions, plain text in their order, and its size chart, so the sheet shows what the product page shows. */
+        faqs: productFaqs(p.faqs),
+        sizeChart,
       },
       seller: {
         name: storeName || personName({ name: prof?.display_name, username: prof?.username, slug: creator?.slug }),

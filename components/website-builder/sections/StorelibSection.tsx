@@ -23,6 +23,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, 
 import { SectionWrapper, type SectionProps } from "./_shared"
 import { useStorelibContext, useStorelibPage } from "./storelib-sources"
 import { useStorefront } from "../theme/storefront-context"
+import { withProductFaqs } from "@/lib/products/page-product"
 import { formIntent } from "@/lib/website-builder/form-intent"
 import { signupMode, subscribeToCreator } from "@/lib/website-builder/subscribe-client"
 import { pageKeyOfTemplate, sendContactMessage } from "@/lib/website-builder/contact-client"
@@ -82,7 +83,7 @@ export function isAccountAction(action: string | null): boolean {
 }
 
 export function StorelibSection({
-  section,
+  section: own,
   theme,
   isEditing,
   isSelected,
@@ -98,7 +99,9 @@ export function StorelibSection({
    * storelib-sources.tsx for why that matters to a visitor's browser.
    */
   const { prerendered, render } = useStorelibContext()
-  const { creatorId, inEditor } = useStorefront()
+  const { creatorId, inEditor, pageProduct } = useStorefront()
+  /* An FAQ section about the page's product draws its questions (round 13: lib/products/page-product.ts); every other section is as it is. */
+  const section = useMemo(() => withProductFaqs(own, pageProduct, { inEditor }), [own, pageProduct, inEditor])
   /**
    * The element the section's own markup is drawn into, so its script can be
    * given a sandbox of the same shape. State rather than a ref, because the

@@ -198,6 +198,89 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
   },
   {
+    slug: "product-questions",
+    category: "products",
+    updated: "2026-10-25",
+    title: "Add questions (FAQ) to a product",
+    summary: "Write a product's own questions and answers once in the product editor, and they show on every page that shows that product.",
+    keywords: ["faq", "faqs", "questions", "answers", "q&a", "frequently asked questions", "product questions", "accordion", "collapsible", "metafield"],
+    related: ["create-a-product", "website-builder/build-your-website", "physical-products/set-up-size-charts"],
+    body: [
+      { type: "p", text: "A product's questions are short questions and answers about that one product, like Does it shrink? or How long is the course? You write them once in the product editor, and every page that shows the product shows them, in the order you put them in. They work for every kind of product: downloads, courses, memberships, services and things you ship." },
+
+      { type: "h", text: "Add questions" },
+      {
+        type: "steps",
+        items: [
+          "Open Products and press the product, or press New product.",
+          "Find the FAQ card and press Add FAQ.",
+          "Type the question, then the answer. Press Enter in the answer for a new line.",
+          "Add as many as you need. To change the order, hold the handle at the top of a question and move it.",
+          "To take one out, press the bin on it.",
+          "Save the product.",
+        ],
+      },
+      { type: "p", text: "A question with no answer, or an answer with no question, is not saved. Up to 30 questions show." },
+
+      { type: "h", text: "Where they show" },
+      {
+        type: "table",
+        head: ["Place", "What buyers see"],
+        rows: [
+          ["Your product page on Storelib", "Under the description, after Details, as questions that open."],
+          ["Your website, on a Storelib theme", "The Product questions block in the product section. An FAQ section on the product page shows them too."],
+          ["Your OnePage", "In the product sheet that opens when someone taps the product, under the description."],
+          ["Your website, on an imported theme", "In the theme's own folding rows, or under the description. A Featured product section shows its product's questions too."],
+        ],
+      },
+
+      { type: "h", text: "On a Storelib theme" },
+      { type: "p", text: "The product section has a Product questions block. It is there by itself on a new product page. Move it, change its heading, or open the first question from the block's settings in the website builder." },
+      { type: "sub", text: "An FAQ section on the product page" },
+      { type: "p", text: "Every FAQ section (Accordion FAQ, FAQ columns, FAQ with a button, and FAQ) has a Questions from setting. It decides what the section shows on a product page:" },
+      {
+        type: "table",
+        head: ["Questions from", "On a product page"],
+        rows: [
+          ["The product, else these", "The product's own questions. On a product with none, or when the product section already shows them, the section's own questions."],
+          ["The product only", "The product's own questions. On a product with none, the section is hidden from buyers."],
+          ["These questions only", "The section's own questions, always."],
+        ],
+      },
+      { type: "p", text: "On any other page, like your home page, an FAQ section always shows its own questions. The questions you type into the section are kept as they are, whichever you choose." },
+
+      { type: "h", text: "On an imported theme" },
+      {
+        type: "list",
+        items: [
+          "If your theme has folding rows in its product section (often called Collapsible row or Collapsible tab), the questions go into an empty row headed FAQ, or into a new row like the theme's last one.",
+          "If it has none, they show under the description, in the theme's own font and colours.",
+          "A Featured product section shows its product's questions the same way, on any page.",
+          "Theme developers can read them as product.metafields.storelib.faqs: a list where each item has question, answer and answer_html. Then Storelib adds nothing, and the theme draws them its own way. The details are in the [developer docs](/developers), under Imported Shopify themes.",
+        ],
+      },
+
+      { type: "h", text: "Good to know" },
+      {
+        type: "list",
+        items: [
+          "Questions and answers are plain text. A web address is shown as text, not a link, and anything that looks like code is shown as typed.",
+          "A change shows on your live pages at the next visit, and in the website builder as soon as you come back to it.",
+          "On your Storelib product page, a product with no questions of its own shows the questions set on the product page design, if any.",
+          "Search engines read the questions as part of the page.",
+        ],
+      },
+      { type: "h", text: "Common mistakes" },
+      {
+        type: "list",
+        items: [
+          "Adding the same questions to an FAQ section and to the product. On a product page the section shows the product's, so keep store wide questions, like shipping times, in the section and product questions on the product.",
+          "Setting Questions from to The product only on a home page section. Off a product page it always shows its own questions.",
+        ],
+      },
+    ],
+  },
+  {
     slug: "pricing",
     category: "products",
     title: "Price a product",

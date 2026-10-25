@@ -33,6 +33,7 @@
  * community's window does for a plan it cannot sell.
  */
 import * as React from "react"
+import type { SizeChart } from "@/lib/size-charts/model"
 import { Check, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { shopMoneyIn } from "@/lib/store/shop-money"
@@ -63,6 +64,10 @@ export interface ProductFacts {
     left: number | null
     pageUrl: string
     ships: boolean
+    /** Round 13: the product's own questions, plain text (lib/products/product-faqs.ts). */
+    faqs?: { question: string; answer: string }[]
+    /** Round 13: the size chart it shows (lib/size-charts/storefront.ts), or null. */
+    sizeChart?: SizeChart | null
   }
   seller: { name: string; avatarUrl: string | null }
   checkout: { instant: boolean; reason: string | null; url: string; tax: CheckoutTax | null; marketingOptIn: boolean; lastNameRequired: boolean }

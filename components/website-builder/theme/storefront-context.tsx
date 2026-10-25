@@ -19,6 +19,7 @@
  * thing it offers.
  */
 import type { LanguageSwitchPreview, SiteLanguageChoice } from "./language-switch"
+import type { PageProduct } from "@/lib/products/page-product"
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react"
 import { pricingFor, type StorefrontDisplay } from "@/lib/markets/pricing"
 import type { SiteCommerce } from "@/lib/website-builder/site-commerce"
@@ -76,6 +77,13 @@ export interface Storefront {
    * and use-preview-market), never open another address.
    */
   preview?: LanguageSwitchPreview
+  /**
+   * Round 13: the product the page is about, read off its product section
+   * by ThemePage (lib/products/page-product.ts), for the page's other
+   * sections: an FAQ section's "Questions from", the Size guide section's
+   * chart. Absent on a page about no product.
+   */
+  pageProduct?: PageProduct | null
 }
 
 const StorefrontContext = createContext<Storefront>({})

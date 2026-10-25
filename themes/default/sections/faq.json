@@ -21,6 +21,27 @@
       "placeholder": "Supporting text"
     },
     {
+      "id": "faq_source",
+      "label": "Questions from",
+      "type": "select",
+      "default": "auto",
+      "info": "On a product page: that product's own questions, from its FAQ in Products.",
+      "options": [
+        {
+          "label": "The product, else these",
+          "value": "auto"
+        },
+        {
+          "label": "The product only",
+          "value": "product"
+        },
+        {
+          "label": "These questions only",
+          "value": "section"
+        }
+      ]
+    },
+    {
       "id": "style",
       "label": "Style",
       "type": "select",

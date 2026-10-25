@@ -1522,7 +1522,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     {faq.question}
                   </AccordionTrigger>
                   <AccordionContent style={{ color: themeColors.faqTextColor ? tint(paint(themeColors.faqTextColor, "ink"), "cc") : "var(--muted-foreground)" }}>
-                    {faq.answer}
+                    {/* Plain text with its lines kept, as the product editor wrote it (round 13). */}
+                    <p className="whitespace-pre-line">{faq.answer}</p>
                   </AccordionContent>
                 </AccordionItem>
               ))}

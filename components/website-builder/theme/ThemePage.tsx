@@ -51,6 +51,8 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import SectionRenderer from "../sections/SectionRenderer"
 import { useSiteMotion } from "./use-site-motion"
 import { splitGroups } from "@/lib/storelib-theme/section-groups"
+import { pageProductOf } from "@/lib/products/page-product"
+import { withProductBlocks } from "@/lib/website-builder/product-page"
 
 export type SectionRole = "header" | "body" | "footer" | "overlay"
 
@@ -555,8 +557,11 @@ export function ThemePage({
     move, whatever it had to do with them (scripts/check-editor-live-edit.mjs).
   */
   const commerceKey = JSON.stringify(siteCommerce(theme as Record<string, unknown>))
+  /* The product the page is about, for its other sections (round 13: lib/products/page-product.ts), by what it says, so a colour dragged does not hand every section a new one. */
+  const pageProduct = pageProductOf(sections, withProductBlocks)
+  const pageProductKey = pageProduct ? JSON.stringify(pageProduct) : ""
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const storefrontValue = useMemo(() => ({ ...(storefront ?? {}), commerce: siteCommerce(theme as Record<string, unknown>) }), [storefront, commerceKey])
+  const storefrontValue = useMemo(() => ({ ...(storefront ?? {}), commerce: siteCommerce(theme as Record<string, unknown>), ...(pageProduct ? { pageProduct } : {}) }), [storefront, commerceKey, pageProductKey])
 
   return (
     <StorefrontProvider value={storefrontValue}>

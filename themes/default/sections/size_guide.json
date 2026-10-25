@@ -1,7 +1,7 @@
 {
   "type": "size_guide",
   "name": "Size Guide",
-  "description": "Clothing size chart with unit toggle, fit guide image, and model measurements.",
+  "description": "The product's size chart from Storelib, or a table of your own, with a cm and inch switch, a fit guide and model measurements.",
   "supports_typography_overrides": false,
   "icon": "ruler",
   "category": "niche",
@@ -24,6 +24,52 @@
       "type": "textarea",
       "default": "Use our size guide to find your ideal fit. Sizes are based on body measurements. If you are between sizes we recommend sizing up for a relaxed fit.",
       "placeholder": "Introductory description"
+    },
+    {
+      "id": "hdr_chart",
+      "label": "Chart",
+      "type": "header"
+    },
+    {
+      "id": "chart_source",
+      "label": "Chart from",
+      "type": "select",
+      "default": "product",
+      "info": "On a product page, its size chart from Products, Size charts: its own, or one set for its collection or category.",
+      "options": [
+        {
+          "label": "The product, else this table",
+          "value": "product"
+        },
+        {
+          "label": "This table only",
+          "value": "table"
+        }
+      ]
+    },
+    {
+      "id": "table_data",
+      "label": "Table",
+      "type": "textarea",
+      "default": "Size | Chest | Waist | Hips\nXS | 81-86 | 61-66 | 86-91\nS | 86-91 | 66-71 | 91-96\nM | 91-97 | 71-76 | 96-102\nL | 97-104 | 76-84 | 102-109\nXL | 104-112 | 84-94 | 109-119",
+      "placeholder": "Size | Chest | Waist\nS | 86-91 | 71-76",
+      "info": "One size per line, cells split by |. The first line names the columns. Shows when the product has no size chart, or always with This table only."
+    },
+    {
+      "id": "table_unit",
+      "label": "Table measured in",
+      "type": "radio",
+      "default": "cm",
+      "options": [
+        {
+          "label": "cm",
+          "value": "cm"
+        },
+        {
+          "label": "in",
+          "value": "in"
+        }
+      ]
     },
     {
       "id": "note_text",

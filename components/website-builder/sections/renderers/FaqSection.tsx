@@ -14,7 +14,9 @@
  * markup to visitors.
  */
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import { useStorefront } from "../../theme/storefront-context"
+import { withProductFaqs } from "@/lib/products/page-product"
 import { ChevronDown, ChevronUp, Plus, Minus, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -27,7 +29,10 @@ import {
 } from "../_shared"
 import { stableHtml } from "../stable-html"
 
-export function FaqSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+export function FaqSection({ section: own, theme, isEditing, isSelected, onClick }: SectionProps) {
+  /* On a product page, the product's own questions when "Questions from" says so (round 13: lib/products/page-product.ts). */
+  const { pageProduct, inEditor } = useStorefront()
+  const section = useMemo(() => withProductFaqs(own, pageProduct, { inEditor: inEditor || isEditing }), [own, pageProduct, inEditor, isEditing])
   const s = section.settings
   const c = sectionColors(section, theme)
 

@@ -874,6 +874,8 @@ const SUITES = [
   "tests/ag2-imported-theme.test.ts",
   /* Round 13: personalization fields (text, long text, photo upload) and custom fields, from the editor through every theme, the cart, the checkout's server check, the order, emails, slip and exports */
   "tests/personalization-r13.test.ts",
+  /* Round 13 (SIZEFAQ): product questions and size charts wherever a product is shown (its own chart, else its collection's or category's, SQL part 309), Storelib and imported themes, the OnePage sheet; scripts/check-sizefaq-r13.ts takes the screenshots. */
+  "tests/r13-sizefaq.test.ts",
   "tests/round-bc-productblocks.test.ts",
   "tests/round-bc-checkout.test.ts",
   "tests/round-bc-accounts.test.ts",

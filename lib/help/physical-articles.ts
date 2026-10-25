@@ -1364,7 +1364,7 @@ const ARTICLES: Article[] = [
   {
     section: "Products",
     slug: "set-up-size-charts",
-    updated: "2026-10-24",
+    updated: "2026-10-25",
     title: "Set up size charts",
     summary: "Write a table of measurements once, give it to every product it fits, and buyers open it from Size guide on the product page, in cm or inches.",
     keywords: ["size chart", "size guide", "sizing", "measurements", "fit", "clothing", "apparel", "fashion", "shoes", "cm", "inches", "size table", "how to measure", "kiwi sizing"],
@@ -1405,6 +1405,30 @@ const ARTICLES: Article[] = [
       shot("product-size-chart", "The Size chart card in the product editor with the chart Linen aprons chosen, a preview of its sizes, a line saying it is also on 2 other products, and Edit chart and All size charts.", "The card shows which chart the product uses and how many other products share it."),
       { type: "p", text: "Edit chart in the card changes the chart for every product that uses it, and the card says how many those are. To stop showing a chart on one product, choose No size chart and save." },
 
+      { type: "h", text: "Use one chart for a whole collection or category" },
+      { type: "p", text: "Selling fifty tees? Set the Tees chart once for the collection or the category they are in, and every one of them gets it, including tees you add later." },
+      {
+        type: "steps",
+        items: [
+          "Open Products, then Size charts, and press the chart.",
+          "Under Also show it on, tap the collections and categories it fits. Tap again to take one off.",
+          "Press Save chart.",
+        ],
+      },
+      { type: "p", text: "Which chart a product shows, first that applies:" },
+      {
+        type: "table",
+        head: ["Order", "Chart"],
+        rows: [
+          ["1", "The chart picked on the product, in its Size chart card."],
+          ["2", "A chart set for a collection the product is in."],
+          ["3", "A chart set for the product's category."],
+          ["4", "The Size guide section's own table, on a Storelib theme. Otherwise no chart."],
+        ],
+      },
+      { type: "p", text: "In the product editor, a product with no chart of its own says which chart it shows for now, and why. Picking a chart on the product always wins. Two charts set for the same collection or category: the first by name shows." },
+      { type: "note", text: "Collections and categories need SQL part 307. Until it has run, the chart editor says so, and you pick the chart on each product." },
+
       { type: "h", text: "What buyers see" },
       shot("size-guide-buyer", "A product page with Size guide beside the Size option, and the chart Linen aprons open over it in inches, with the chosen size L/XL marked.", "Size guide sits beside the size. The chart opens over the page, in cm or inches, with the chosen size marked."),
       {
@@ -1427,11 +1451,25 @@ const ARTICLES: Article[] = [
           "While the section has a Size chart block, the link beside the size option steps aside, so buyers never see two. You can also turn that link off in the Variant picker block, under Size guide link.",
         ],
       },
+      { type: "sub", text: "A Size guide section" },
+      {
+        type: "list",
+        items: [
+          "The Size guide section shows a whole chart on the page, with a cm and inches switch, a fit guide and the model's sizes.",
+          "Its Chart from setting decides the table. The product, else this table: on a product page, the product's chart, else the section's own table. This table only: always the section's own.",
+          "Type the section's own table in Table: one size per line, cells split by |, the first line the column names. Choose the unit it is typed in under Table measured in.",
+          "In the builder, a line over the table says where it comes from.",
+        ],
+      },
+      { type: "sub", text: "On your OnePage" },
+      { type: "p", text: "When a buyer taps a product on your OnePage, the sheet that opens has a Size guide row with the chart, in cm or inches." },
       { type: "sub", text: "On an imported theme" },
       {
         type: "list",
         items: [
           "The Size guide link appears beside the size option by itself, as on a Storelib theme.",
+          "A Featured product section has its product's chart too, so a theme's own size blocks there show it.",
+          "A theme setting like Use assigned Storelib size chart reads the same chart: the product's own, else its collection's or category's.",
           "To place it yourself, press Add block in the product section and choose Size chart under Apps.",
           "A block your theme kept from a size chart app at your old store, like Kiwi Sizing, now shows your Storelib chart.",
           "Theme developers can read the chart as product.metafields.storelib.size_chart or draw it with the storelib-size-chart snippet. The details are in the developer guide to [imported themes](/developers/imported-shopify-themes).",
@@ -1447,6 +1485,7 @@ const ARTICLES: Article[] = [
           "Deleting a chart takes it off every product that used it. The products themselves stay as they are.",
           "A change shows on your live website at the next visit, and in the builder as soon as you come back to it.",
           "Size charts are for physical products.",
+          "A change to a collection, or to which collection or category a product is in, shows on the product page at the next visit too.",
         ],
       },
       { type: "h", text: "Common mistakes" },

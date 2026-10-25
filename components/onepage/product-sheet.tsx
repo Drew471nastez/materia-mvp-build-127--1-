@@ -27,6 +27,7 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { loadProductFacts, type ProductFacts } from "@/components/checkout/instant-checkout"
 import { productCheckoutUrl } from "@/lib/onepage/product-block"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
+import { ProductQuestions, SizeChartPanel } from "@/components/product/size-chart-panel"
 
 /** Under 768px the sheet; above it the window. Known before the first paint, so it never swaps on screen. */
 export function usePhoneWidth(): boolean {
@@ -172,6 +173,9 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
                 <div className="h-3.5 w-2/3 rounded-full bg-[#f1f2f4]" />
               </div>
             ) : null}
+            {/* Round 13: its size chart and its own questions, as its product page shows them. */}
+            {p?.sizeChart ? <SizeChartPanel chart={p.sizeChart} className="mt-1" /> : null}
+            {p?.faqs?.length ? <ProductQuestions faqs={p.faqs} className="pt-2" /> : null}
           </div>
         </div>
         <div className="shrink-0 border-t border-[#f0f0f3] bg-white px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-5" data-product-sheet-actions="">

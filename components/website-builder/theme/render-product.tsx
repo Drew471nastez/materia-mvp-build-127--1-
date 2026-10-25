@@ -23,6 +23,7 @@ import type { Metadata } from "next"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
+import { pageProductOf, withProductFaqs } from "@/lib/products/page-product"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
 import { productFacts } from "@/lib/website-builder/storefront-data"
@@ -397,11 +398,14 @@ export async function renderProduct(
   const rating = productRating(reviewsHere)
   const placed = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources)).map((s) => (s.type === "product" ? withOffersBlock(withDeliveryBlock(withProductBlocks(s))) : s))
   const stars = rating ? { rating } : {}
-  const sections: SectionInstance[] = withProductReviews(placed, reviewsOn).map(s =>
+  const withProduct: SectionInstance[] = withProductReviews(placed, reviewsOn).map(s =>
     s.type === "product"
       ? { ...s, settings: { ...s.settings, _product_data: localizer?.pricing ? { ...productData, ...stars, display: { market: localizer.pricing.market, base: localizer.pricing.base, fx: localizer.pricing.fx, locale: localizer.locale } } : { ...productData, ...stars } } }
       : s
-  )
+  )  /* An FAQ section on the page shows the product's own questions when its "Questions from" says so (round 13: lib/products/page-product.ts), drawn here so the .storelib ones are drawn with them too. Never saved. */
+  const aboutProduct = pageProductOf(withProduct, withProductBlocks)
+  const sections: SectionInstance[] = withProduct.map((s) => withProductFaqs(s, aboutProduct))
+
 
   /**
    * The product page borrows the HOME page's header and footer when it has

@@ -119,7 +119,7 @@ console.log("\nA THEME VALUE MOVING RE-RENDERS NOTHING IT DOES NOT CHANGE")
 {
   check("the theme's stylesheet is written again only when its text changes", /const themeCssText = useMemo\(\(\) => themeStylesheet\(theme\), \[theme\]\)/.test(themePage) && /const themeCss = useMemo\(\(\) => \(\{ __html: themeCssText \}\), \[themeCssText\]\)/.test(themePage))
   check("and Custom CSS likewise", /\[customCssText\]\)/.test(themePage))
-  check("the storefront context changes with what Commerce says, not with the theme object", /const commerceKey = JSON\.stringify\(siteCommerce\(theme as Record<string, unknown>\)\)/.test(themePage) && /\[storefront, commerceKey\]\)/.test(themePage) && !/\[storefront, theme\]\)/.test(themePage))
+  check("the storefront context changes with what Commerce says, not with the theme object", /const commerceKey = JSON\.stringify\(siteCommerce\(theme as Record<string, unknown>\)\)/.test(themePage) && /* round 13: and with the page's product, by what it says (lib/products/page-product.ts) */ /\[storefront, commerceKey(, pageProductKey)?\]\)/.test(themePage) && !/\[storefront, theme\]\)/.test(themePage))
   check("the canvas's insert strips are memoised with the gap and one add function", /const CanvasInsertStrip = memo\(function CanvasInsertStrip\(\{ at, onAdd \}/.test(editor) && /<CanvasInsertStrip at=\{gap\} onAdd=\{onAddSectionAt\} \/>/.test(editor))
 }
 

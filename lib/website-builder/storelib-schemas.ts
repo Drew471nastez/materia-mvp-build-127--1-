@@ -13,6 +13,7 @@
  * FieldEditor resolves those through the same registry, so the file, the
  * validator, the AI's reference and the panel all describe one control.
  */
+import { FAQ_SECTION_TYPES, FAQ_SOURCE_FIELD } from "@/lib/products/page-product"
 import { DESIGN_SUPPORT_KEYS } from "./design-support"
 import { chromeRoleOf } from "@/lib/storelib-theme/chrome"
 import { COMPILE_CACHE_LIMIT, createLru } from "@/lib/storelib-theme/storelib/compile"
@@ -286,6 +287,13 @@ export function schemaFor(type: string, sources: Record<string, string> | undefi
  * whatever copy a theme has: no blocks and no source switch.
  */
 function platformShape(type: string, schema: SectionSchema | undefined): SectionSchema | undefined {
+  /* Round 13: an FAQ section's "Questions from", read by the page (lib/products/page-product.ts), under its Content heading. */
+  if (schema && type in FAQ_SECTION_TYPES && !(schema.fields ?? []).some((f) => f.id === FAQ_SOURCE_FIELD.id)) {
+    const fields = [...(schema.fields ?? [])]
+    const at = fields.findIndex((f) => f.id === "hdr_content")
+    fields.splice(at + 1, 0, { ...FAQ_SOURCE_FIELD, options: FAQ_SOURCE_FIELD.options.map((o) => ({ ...o })) } as unknown as (typeof fields)[number])
+    return { ...schema, fields }
+  }
   if (!schema || type !== "search") return schema
   return { ...schema, fields: (schema.fields ?? []).filter((f) => f.id !== "source"), blocks: [], accepts: undefined, statics: undefined }
 }

@@ -163,6 +163,8 @@ for (const type of types) {
     sources.set(type, stripComments(withoutSchema.replace(/<!--[\s\S]*?-->/g, " ")))
     continue
   }
+  /* Round 13: an FAQ section's "Questions from" is read by the page for it (lib/products/page-product.ts, withProductFaqs). */
+  if (["faq", "faq_accordion", "faq_columns", "faq_cta"].includes(type)) drawnBy.set(type, stripComments(readFileSync(join(root, "lib/products/page-product.ts"), "utf8")))
   const path = file ? join(RENDERERS, `${file}.tsx`) : ""
   const own = path && existsSync(path) ? readFileSync(path, "utf8") : ""
   /* A renderer split into files of its own (ProductSection and its
