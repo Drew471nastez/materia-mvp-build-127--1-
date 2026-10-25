@@ -35,6 +35,7 @@ import type { CommunityRow } from "../types"
 import type { Viewer } from "./context"
 import { type Db } from "./db"
 import { findProgram, grantProgram, ownedPrograms, programViewer, type ProgramRow } from "./learn"
+import { pushCommunitySale } from "@/lib/orders/sale-events"
 
 export const PROGRAM_SESSION_KIND = "community_program"
 
@@ -203,6 +204,7 @@ export async function grantFromSession(db: Db, session: Stripe.Checkout.Session,
     currency: session.currency ?? null,
   })
   if (done.ok === false) return { ok: false, status: done.error === "not_set_up" ? 409 : 500, error: done.error }
+  if (done.created) pushCommunitySale(db, { communityId: m.community_id, buyerId: m.buyer_id, title: program.title || "A program", amountCents: session.amount_total, currency: session.currency ?? null, saleId: session.id })
   return { ok: true, created: done.created, programId: program.id }
 }
 

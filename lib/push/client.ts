@@ -159,6 +159,21 @@ export async function registerDevice(): Promise<void> {
     askNativeForToken()
   }
 
+  /*
+    THE ANDROID CHANNEL EVERY PUSH NAMES. lib/push/sender sends to the channel
+    "default", and nothing made it, so Android 8 and up put every push in
+    Firebase's fallback channel: shown in the tray with no banner, the first
+    sale of the day easy to miss. Made here at importance 4 (a banner and a
+    sound), from the web layer so it ships with a deploy, not a store release.
+    Making a channel that exists changes nothing, and Android keeps whatever
+    the person set for it.
+  */
+  if (platform === "android") {
+    await PushNotifications.createChannel({ id: "default", name: "Notifications", importance: 4, visibility: 0, vibration: true }).catch((err) => {
+      console.error("[push] channel not made:", err instanceof Error ? err.message : err)
+    })
+  }
+
   /* Listeners first, so the token event is never missed. */
   await PushNotifications.register()
 }

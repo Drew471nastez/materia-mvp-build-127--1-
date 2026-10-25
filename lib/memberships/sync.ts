@@ -490,12 +490,13 @@ export async function recordPaidInvoice(admin: Db, invoice: Stripe.Invoice, opts
       correlationId: invoice.id,
     }),
   )
-  await step("push", async () => {
-    const { data: creator } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
-    if (!creator?.user_id) return
-    const { notifySale } = await import("@/lib/push/notifications")
-    await notifySale(creator.user_id, { productName: row!.title || "Membership", amountCents: total, orderId: orderId!, productId })
-  })
+  /* The first payment is pushed by raiseSaleEvents as a purchase; a renewal, which is not one, is pushed here. */
+  if (!firstPayment) {
+    await step("push", async () => {
+      const { pushPurchase } = await import("@/lib/orders/sale-events")
+      await pushPurchase(admin, creatorId, { orderId: orderId!, productId, productTitle: row!.title || "Membership", amountCents: total, lineCount: 1, currency: invoice.currency ?? null })
+    })
+  }
   if (invoice.billing_reason === "subscription_cycle") {
     await step("renewal receipt", () => notice(admin, row!, "membership.renewed", `membership:${row!.id}:renewed:${invoice.id}`, { amountCents: total, invoiceId: invoice.id, cardLast4: facts?.cardLast4 ?? row!.card_last4 }))
   }

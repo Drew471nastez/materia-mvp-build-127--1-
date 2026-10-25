@@ -300,13 +300,6 @@ async function handlePOST(request: Request) {
       }),
     )
 
-    if (creator.user_id) {
-      await step("push", async () => {
-        const { notifySale } = await import("@/lib/push/notifications")
-        await notifySale(creator.user_id as string, { productName: product.title, amountCents: 0, orderId: order.id, productId: product.id })
-      })
-    }
-
     await step("email flows", () =>
       triggerEmailFlows(admin, {
         triggerType: "purchase",

@@ -1,4 +1,5 @@
 import "server-only"
+import { after } from "next/server"
 import { emit } from "@/lib/notify/outbox"
 
 /**
@@ -33,6 +34,15 @@ import { emit } from "@/lib/notify/outbox"
  * the in-app half and does not send them again. That includes FIRST_SALE:
  * the seller's email for the creator's first paid order is drawn as the
  * first sale, so it arrives once, with the order in it.
+ *
+ * THE SELLER'S PHONE HEARS EVERY PURCHASE, ONCE. The push used to be sent by
+ * each caller in its own way: none of them gave it the currency, so it never
+ * said what the sale came to, and a free claim through quick-free sent none.
+ * Now it is sent here, for the purchase, in its currency, by whichever
+ * caller recorded its order.created first (emit's `fresh`), after the
+ * response has gone. A basket is one push naming its first item and how
+ * many more. A renewal of a membership is not a purchase here; lib/
+ * memberships/sync.ts pushes it itself.
  */
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -65,7 +75,7 @@ export async function raiseSaleEvents(db: Db, n: SaleNotice): Promise<void> {
 
     if (n.purchase) {
       const first = n.lines.find((l) => l.orderId === n.purchase!.orderId) ?? n.lines[0]
-      await emit({
+      const recorded = await emit({
         ...base,
         name: "order.created",
         key: `order:${n.purchase.orderId}:created`,
@@ -81,6 +91,11 @@ export async function raiseSaleEvents(db: Db, n: SaleNotice): Promise<void> {
           free: n.purchase.amountCents === 0,
         },
       })
+      /* Not recorded at all (the outbox is not set up) still pushes: the phone collapses a second one for the same order. */
+      if (recorded.fresh || !recorded.ok) {
+        const purchase = n.purchase
+        afterResponse(() => pushPurchase(db, n.creatorId, { orderId: purchase.orderId, productId: first?.productId ?? null, productTitle: first?.productTitle ?? null, amountCents: purchase.amountCents, lineCount: purchase.lineCount, currency }))
+      }
     }
 
     for (const line of n.lines) {
@@ -141,4 +156,46 @@ async function isFirstSale(db: Db, creatorId: string, these: string[]): Promise<
   if (these.length > 0) others = others.not("id", "in", `(${these.join(",")})`)
   const { count, error } = await others
   return !error && count === 0
+}
+
+/** After the response has gone, inside a request; outside one (a script, a test) now. Never throws. */
+function afterResponse(task: () => Promise<void>): void {
+  const safe = () => task().catch((e) => console.error("[push] sale:", e instanceof Error ? e.message : e))
+  try {
+    after(safe)
+  } catch {
+    void safe()
+  }
+}
+
+/** The purchase on the seller's phones and browsers. Settings' push switch is for communities and follows; a sale is the seller's own (components/account/push-switch-row.tsx). */
+export async function pushPurchase(db: Db, creatorId: string, p: { orderId: string; productId: string | null; productTitle: string | null; amountCents: number; lineCount: number; currency: string | null }): Promise<void> {
+  const { data: creator } = await db.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
+  const userId = creator?.user_id as string | undefined
+  if (!userId) return
+  const { notifySale } = await import("@/lib/push/notifications")
+  await notifySale(userId, {
+    productName: p.productTitle || "an item",
+    amountCents: p.amountCents,
+    currency: p.currency,
+    orderId: p.orderId,
+    productId: p.productId ?? "",
+    more: Math.max(0, p.lineCount - 1),
+  })
+}
+
+/**
+ * A program or one module of it, sold in a community: no order is written for
+ * it, so nothing above sees it, and the community's owner heard nothing. Told
+ * once, by the call that granted it (the webhook or the buyer's own confirm),
+ * after the response has gone. Never throws.
+ */
+export function pushCommunitySale(db: Db, s: { communityId: string; buyerId: string; title: string; amountCents: number | null; currency: string | null; saleId: string }): void {
+  afterResponse(async () => {
+    const { data: community } = await db.from("communities").select("owner_user_id").eq("id", s.communityId).maybeSingle()
+    const userId = community?.owner_user_id as string | undefined
+    if (!userId || userId === s.buyerId) return
+    const { notifySale } = await import("@/lib/push/notifications")
+    await notifySale(userId, { productName: s.title, amountCents: s.amountCents ?? 0, currency: s.currency, orderId: s.saleId, productId: "", url: `/app/community/${s.communityId}/learn` })
+  })
 }

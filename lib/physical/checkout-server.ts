@@ -1302,22 +1302,13 @@ async function onceForOrder(
       creatorId: co.creator_id,
       purchase: { orderId: s.firstOrderId, amountCents: s.paidTotal, lineCount: s.lines.length },
       lines: s.created.map((l) => ({ orderId: l.orderId, productId: l.productId, productTitle: s.lines[l.index]?.title ?? null, amountCents: l.amountCents })),
+      currency: co.currency ?? null,
       buyerEmail: co.buyer_email ?? null,
       buyerCountry: co.shipping_address?.country ?? null,
       correlationId: s.sessionId,
     }),
   )
-  await f.once("push", async () => {
-    const { data: creator } = await db.from("creators").select("user_id").eq("id", co.creator_id).maybeSingle()
-    if (!creator?.user_id) return
-    const { notifySale } = await import("@/lib/push/notifications")
-    await notifySale(creator.user_id, {
-      productName: s.lines.length > 1 ? `${s.lines.length} items` : s.lines[0]?.title ?? "An order",
-      amountCents: s.paidTotal,
-      orderId: s.firstOrderId,
-      productId: s.lines[0]?.product_id,
-    })
-  })
+  /* The seller's push is raiseSaleEvents' own, once per purchase. */
   const first = s.created.find((l) => l.index === 0) ?? s.created[0]
   if (first) {
     await f.once("seller email", async () => {

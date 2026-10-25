@@ -1,27 +1,14 @@
 import { sendPushToUser } from "./sender"
-import { formatMinor } from "@/lib/markets/money"
+import { moneyText, saleText } from "./sale-text"
 
 /**
  * Push notification builders for Storelib seller events.
  * Call these from webhook handlers, Stripe listeners, payout jobs, etc.
  */
 
-/** "$12.40" or "49.00 lei" in the amount's own currency, or "" when the currency is unknown: never a guessed one. */
-function moneyText(minor: number, currency: string | null | undefined): string {
-  const code = typeof currency === "string" && /^[a-z]{3}$/i.test(currency.trim()) ? currency.trim().toUpperCase() : null
-  if (!code || !Number.isFinite(minor)) return ""
-  try {
-    new Intl.NumberFormat("en", { style: "currency", currency: code })
-  } catch {
-    return ""
-  }
-  /* "25.00 lei", as Orders writes the same sale (lib/markets/money formatMinor). */
-  return formatMinor(minor, code, "en-US")
-}
-
 // ── Sale ─────────────────────────────────────────────────────────────────────
 
-interface SaleOptions {
+export interface SaleOptions {
   productName: string
   /** Amount in the currency's minor units */
   amountCents: number
@@ -29,6 +16,10 @@ interface SaleOptions {
   currency?: string | null
   orderId: string
   productId: string
+  /** Other items bought with it, in one basket: "You sold Mug and 2 more". */
+  more?: number
+  /** A sale that is not an order (a community program or module): the page inside /app a tap opens. */
+  url?: string
 }
 
 /**
@@ -48,19 +39,13 @@ async function milestoneTitle(userId: string): Promise<string | null> {
 }
 
 export async function notifySale(userId: string, opts: SaleOptions): Promise<void> {
-  const amount = moneyText(opts.amountCents, opts.currency)
-
-  const milestone = await milestoneTitle(userId)
-
+  const milestone = opts.amountCents > 0 ? await milestoneTitle(userId) : null
   return sendPushToUser(userId, {
-    title: milestone ?? "🎉 You made a sale!",
-    body: amount && opts.amountCents > 0 ? `You sold ${opts.productName} for ${amount}` : `You sold ${opts.productName}`,
-    data: {
-      type: "sale",
-      orderId: opts.orderId,
-      productId: opts.productId,
-    },
+    ...saleText(opts, milestone),
+    data: opts.url ? { type: "notification", kind: "sale", url: opts.url } : { type: "sale", orderId: opts.orderId, productId: opts.productId },
     sound: "cash",
+    /* The same order told twice (two paths, one retry) replaces itself on the phone instead of stacking. */
+    collapseKey: `sale:${opts.orderId}`,
   })
 }
 

@@ -28,7 +28,8 @@ import { DOMAIN_EVENTS, type DomainEvent } from "./types"
 
 export type EmitInput = Omit<DomainEvent, "occurredAt" | "id"> & { occurredAt?: string }
 
-export async function emit(event: EmitInput, opts: { db?: AdminDb | NotifyStore; soon?: boolean } = {}): Promise<{ ok: boolean; eventId?: string }> {
+/** `fresh` is true only for the call that recorded the event: the same key again answers ok without it. */
+export async function emit(event: EmitInput, opts: { db?: AdminDb | NotifyStore; soon?: boolean } = {}): Promise<{ ok: boolean; eventId?: string; fresh?: boolean }> {
   try {
     if (!(DOMAIN_EVENTS as readonly string[]).includes(event.name)) {
       notifyLog("warn", "unknown event not recorded", { event: String(event.name) })
@@ -52,7 +53,7 @@ export async function emit(event: EmitInput, opts: { db?: AdminDb | NotifyStore;
       const { processSoon } = await import("./worker")
       processSoon()
     }
-    return { ok: true, eventId: result.id }
+    return { ok: true, eventId: result.id, fresh: result.status === "inserted" }
   } catch (error) {
     notifyLog("warn", "event not recorded", { event: event?.name, error: reasonText(error) })
     return { ok: false }

@@ -478,12 +478,7 @@ async function followUp(admin: Db, f: Followups, input: FollowUpInput): Promise<
     }),
   )
 
-  await f.once("push", async () => {
-    const { data: creator } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
-    if (!creator?.user_id) return
-    const { notifySale } = await import("@/lib/push/notifications")
-    await notifySale(creator.user_id, { productName: m.product_title || "A product", amountCents: total, orderId: order.id, productId })
-  })
+  /* The seller's push is raiseSaleEvents' own, once per purchase. */
 
   await f.finish()
 }

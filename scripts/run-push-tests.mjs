@@ -569,6 +569,7 @@ const SUITES = [
   "tests/notification-rules.test.ts",
   "tests/notification-snapshot.test.ts",
   "tests/notify-integration.test.ts",
+  "tests/sale-push.test.ts",
   "tests/notify-engine.test.ts",
   "tests/notify-webhook.test.ts",
   "tests/rich-text.test.ts",

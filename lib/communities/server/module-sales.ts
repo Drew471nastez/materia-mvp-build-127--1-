@@ -25,6 +25,7 @@ import type { CommunityRow } from "../types"
 import type { Viewer } from "./context"
 import { type Db } from "./db"
 import { findProgram, ownedPrograms, programViewer, type ProgramRow } from "./learn"
+import { pushCommunitySale } from "@/lib/orders/sale-events"
 import type { CheckoutDeps, CheckoutStart, GrantAnswer, StripeSessions } from "./learn-checkout"
 
 export const MODULE_SESSION_KIND = "community_module"
@@ -192,6 +193,7 @@ export async function grantModuleFromSession(db: Db, session: Stripe.Checkout.Se
     ? await db.from("community_module_access").update({ ...row, created_at: new Date().toISOString() }).eq("module_id", mod.id).eq("user_id", m.buyer_id)
     : await db.from("community_module_access").insert(row)
   if (error && String(error.code) !== "23505") return { ok: false, status: 500, error: "failed" }
+  if (!error) pushCommunitySale(db, { communityId: m.community_id, buyerId: m.buyer_id, title: mod.title, amountCents: session.amount_total, currency: session.currency ?? null, saleId: session.id })
   return { ok: true, created: !error, programId: program.id }
 }
 

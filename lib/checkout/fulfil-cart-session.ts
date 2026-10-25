@@ -622,17 +622,7 @@ async function sideEffects(
         }),
       )
     }
-    await once("push", async () => {
-      const { data: creator } = await admin.from("creators").select("user_id").eq("id", ctx.creatorId).maybeSingle()
-      if (!creator?.user_id) return
-      const { notifySale } = await import("@/lib/push/notifications")
-      await notifySale(creator.user_id, {
-        productName: s.created.length > 1 ? `${s.created.length} products` : titles.get(s.created[0].productId) ?? "A product",
-        amountCents: s.paidTotal,
-        orderId: s.firstOrderId,
-        productId: s.created[0].productId,
-      })
-    })
+    /* The seller's push is raiseSaleEvents' own, once per purchase. */
   }
 
   /* The notification engine: the purchase once, from the caller that owns
@@ -644,6 +634,7 @@ async function sideEffects(
       creatorId: ctx.creatorId,
       purchase: s.ownsBasket ? { orderId: s.firstOrderId, amountCents: s.paidTotal, lineCount: s.created.length } : null,
       lines: s.created.map((l) => ({ orderId: l.orderId, productId: l.productId, productTitle: titles.get(l.productId) ?? null, amountCents: l.amountCents })),
+      currency: ctx.currency ?? null,
       buyerEmail: ctx.buyerEmail ?? null,
       buyerCountry: ctx.device?.country ?? null,
       correlationId: ctx.sessionId,
