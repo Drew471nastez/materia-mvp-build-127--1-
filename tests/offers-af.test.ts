@@ -493,7 +493,8 @@ async function main() {
     check("safe to run again, nothing dropped but checks it replaces", /ADD COLUMN IF NOT EXISTS tiers jsonb NOT NULL DEFAULT '\[\]'::jsonb/.test(part) && /DROP CONSTRAINT IF EXISTS store_offers_shape/.test(part) && !/DROP TABLE|DROP COLUMN|DELETE FROM|TRUNCATE/i.test(part.replace(/REVOKE[^;]+;/g, "")))
     check("the kind and the shapes: quantity_break, one product at most, one to six tiers", /kind IN \('bundle', 'checkout', 'quantity_break'\)/.test(part) && /kind = 'quantity_break' AND cardinality\(product_ids\) <= 1/.test(part) && /jsonb_array_length\(tiers\) <= 6/.test(part))
     check("owner reads, only the server writes, row level security on", /ENABLE ROW LEVEL SECURITY/.test(part) && /c\.user_id = auth\.uid\(\)/.test(part) && /REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public\.store_offers FROM PUBLIC, anon, authenticated/.test(part))
-    check("listed in the README and the check after, last", /304_store_offers_quantity_breaks\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p304_store_offers_quantity_breaks;\s*$/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    /* Changed on purpose (round 13): part 305 follows it, so p304 is no longer the last column. */
+    check("listed in the README and the check after", /304_store_offers_quantity_breaks\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p304_store_offers_quantity_breaks[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
