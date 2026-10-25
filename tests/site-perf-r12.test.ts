@@ -15,9 +15,10 @@
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { refusesSiteAction } from "../lib/website-builder/site-action-guard"
-import { createElement } from "react"
+import { Suspense, createElement } from "react"
 import { renderToReadableStream } from "react-dom/server"
 import { lazySection } from "../components/website-builder/sections/lazy-section"
+import { STREAMED_SECTIONS_CSS } from "../lib/website-builder/streamed-sections"
 import { pagesFromSitemap, publishWarmList, warmAfterPublish, PUBLISH_WARM_PAGES, SITEMAP_PAGES } from "../lib/website-builder/warm-sites"
 
 let passed = 0
@@ -68,6 +69,16 @@ function filesUnder(dir: string, out: string[] = []): string[] {
   check("  inside its own boundary, so the browser can still wait for the file", /<!--\$-->\s*<section id="s2">/.test(html), html.slice(0, 300))
   const lazySrc = read("components/website-builder/sections/lazy-section.tsx")
   check("only the server waits; the browser keeps fetching the file when a page draws it", /if \(typeof window === "undefined" && !loaded\) use\(settled\(\)\)/.test(lazySrc))
+
+  console.log("\nA finished section React writes out of place does not move the page\n")
+  /* React 19.2 outlines a finished boundary once the shell passes ~12KB (progressiveChunkSize). */
+  const longShell = createElement("main", null, createElement("style", null, "x".repeat(14000)), createElement(Suspense, { fallback: null }, createElement("section", null, "y".repeat(800))), createElement("footer", null, "F"))
+  const outlined = await new Response(await renderToReadableStream(longShell)).text()
+  check("React does write it out of place after a long shell (why the rule exists)", /hidden id="S:/.test(outlined) && /<template id="B:0">/.test(outlined))
+  check("while its place is an empty template, what follows it is not shown", STREAMED_SECTIONS_CSS === '@media (scripting: enabled){[id^="section-"]:has(> template[id^="B:"]) ~ *{visibility:hidden}}')
+  const siteLayout = read("app/(site)/layout.tsx")
+  check("  on every page of a website, before its sections", /<style data-storelib-streamed dangerouslySetInnerHTML=\{\{ __html: STREAMED_SECTIONS_CSS \}\} \/>/.test(siteLayout) && siteLayout.indexOf("data-storelib-streamed") < siteLayout.indexOf("{children}"))
+  check("  each section's place has the id the rule reads", /wrapperId=\{`section-\$\{section\.id\}`\}/.test(read("components/website-builder/theme/ThemePage.tsx")))
 
   console.log("\nA Publish draws its own pages\n")
   const site = "https://shop.storelib.com"

@@ -49,15 +49,14 @@ export function lazySection(load: () => Promise<Renderer>): Renderer & { preload
       ON THE SERVER THE FILE IS WAITED FOR BEFORE THE SECTION, NOT INSIDE IT.
       React.lazy suspends inside the section's own <Suspense>, so the first
       page a server drew after it started (every cold start, and the held
-      copy of a published page is often drawn on one) sent the page without
-      the section and the section after it, at the end of the document, with
-      a script to move it in (`<div hidden id="S:0">` and $RC). The browser
-      painted the page without it as soon as the CSS arrived, with the
-      footer straight under the hero, then moved the section in: a layout
-      shift of 0.49 to 0.56 on a phone, measured on six of seven live front
-      pages (scripts/check-site-perf-r12.mjs). Waiting here, outside the
-      boundary, holds the page's first bytes for the few milliseconds the
-      file takes to load on the server, so it is written in place. The tree
+      copy of a published page is often drawn on one) was sent without the
+      section, which came at the end of the document with a script to move
+      it in (`<div hidden id="S:0">` and $RC): the page could paint without
+      it and then jump. Waiting here, outside the boundary, holds the page's
+      first bytes for the few milliseconds the file takes to load on the
+      server, so a section is never sent late for that reason. (React also
+      writes a finished section out of place once the page before it is
+      long; that one is lib/website-builder/streamed-sections.ts.) The tree
       is the same on both sides; the browser still fetches the file only
       when a page draws the section.
     */

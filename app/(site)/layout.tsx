@@ -7,6 +7,7 @@ import { SiteDocument } from "@/components/website-builder/site-document"
 import { NewTabLinks } from "@/components/website-builder/new-tab-links"
 import { SiteLinks } from "@/components/website-builder/site-links"
 import { NAVIGATION_HEAD_SCRIPT, VIEW_TRANSITION_CSS } from "@/lib/website-builder/live-navigation"
+import { STREAMED_SECTIONS_CSS } from "@/lib/website-builder/streamed-sections"
 
 /**
  * A CREATOR'S WEBSITE DOES NOT SAY IT IS STORELIB'S. The root layout names
@@ -59,6 +60,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <style data-storelib-navigation dangerouslySetInnerHTML={{ __html: VIEW_TRANSITION_CSS }} />
       {/* No transition in an app's web view or on a slow phone, where it froze the page between two; a press ends one (live-navigation.ts). */}
       <script data-storelib-navigation dangerouslySetInnerHTML={{ __html: NAVIGATION_HEAD_SCRIPT }} />
+      {/* What follows a section still on its way stays unseen until it is moved in, so nothing shown jumps (lib/website-builder/streamed-sections.ts). */}
+      <style data-storelib-streamed dangerouslySetInnerHTML={{ __html: STREAMED_SECTIONS_CSS }} />
       {children}
       {/* A link to checkout carries which website and where its visit came
           from, for the order's Source. Static: nothing here reads the request. */}
