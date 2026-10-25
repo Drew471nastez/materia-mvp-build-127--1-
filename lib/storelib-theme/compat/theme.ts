@@ -47,6 +47,7 @@ import {
   localizationObject,
   productObject,
   productRatingFrom,
+  productById,
   reviewMetafields,
   storelibReviewSummary,
   requestObject,
@@ -767,7 +768,8 @@ export class CompatTheme {
     const all_products: O = {}
     for (const p of page.products) {
       const handle = String(p.settings.slug ?? "")
-      if (handle) Object.defineProperty(all_products, handle, { enumerable: true, get: () => productObject(p) })
+      /* Round 13: through the catalogue, as a collection's products are, so `all_products[h]` carries the product's questions and size chart. */
+      if (handle) Object.defineProperty(all_products, handle, { enumerable: true, get: () => productById(res, p.id) ?? productObject(p) })
     }
     const cart = cartObject(page.cart ?? [], currency, page.cartNote ?? "", page.cartAttributes ?? {}, page.cartDiscount ?? null, page.shop.taxesIncluded === true, page.cartOffers ?? null)
     const search = page.search
@@ -961,11 +963,14 @@ export class CompatTheme {
     const homed = blocksIntoDetails(instance.type, instance.blocks, this.blockTakes, this.staticsOf(path!))
     if (homed) instance = { ...instance, blocks: homed }
     /* The product's own questions, in an empty FAQ tab of the theme's, or under the description (./product-faq.ts). */
-    const faqs = group === undefined && !FAQ_SHOWN.has(ctx.globals.product as object) ? this.pageFaqs(ctx) : []
+    /* Round 13: on any page, a section that features a product (a Featured product) does the same for its product. */
+    const featured = group === undefined ? this.featuredProduct(ctx, instance) : null
+    const faqProduct = (featured ?? ctx.globals.product) as object | null | undefined
+    const faqs = group === undefined && faqProduct && !FAQ_SHOWN.has(faqProduct) ? (featured ? this.productFaqs(featured) : this.pageFaqs(ctx)) : []
     const tabbed = faqs.length ? withFaqTab(instance.blocks, faqs) : null
     if (tabbed) {
       instance = { ...instance, blocks: tabbed }
-      FAQ_SHOWN.add(ctx.globals.product as object)
+      FAQ_SHOWN.add(faqProduct as object)
     }
     ;(ctx.registers.drawnIds as Set<string> | undefined)?.add(instance.id)
     const schema = this.schemaOf("sections", instance.type)
@@ -993,16 +998,16 @@ export class CompatTheme {
     }
     errors.push(...said.slice(from, from + 5))
     child.out.chars = charsBefore
-    if (faqs.length && !FAQ_SHOWN.has(ctx.globals.product as object)) {
-      const placed = withFaqUnderDescription(html, String((ctx.globals.product as O).description ?? ""), faqs)
+    if (faqs.length && !FAQ_SHOWN.has(faqProduct as object)) {
+      const placed = withFaqUnderDescription(html, String((faqProduct as O).description ?? ""), faqs)
       if (placed !== null) {
         html = placed
-        FAQ_SHOWN.add(ctx.globals.product as object)
+        FAQ_SHOWN.add(faqProduct as object)
       }
     }
-    /* The product's size chart, beside the size option, when nothing else on the page has drawn it (./size-chart.ts). */
+    /* The product's size chart, beside the size option, when nothing else on the page has drawn it (./size-chart.ts); a Featured product's beside its own. */
     if (group === undefined && !holdsSizeChartBlock(instance.blocks)) {
-      const placed = this.sizeGuideIn(ctx, html)
+      const placed = this.sizeGuideIn(ctx, html, featured)
       if (placed !== null) html = placed
     }
     /* The product's personalization fields, inside its product form, when nothing else on the page has drawn them (./personalization.ts). */
@@ -1089,9 +1094,9 @@ export class CompatTheme {
 
   private readsSizeChart: boolean | null = null
   /** On a product page, the main product section with the product's size chart link beside its size option, or null (./size-chart.ts withSizeGuide). */
-  private sizeGuideIn(ctx: Ctx, html: string): string | null {
-    const product = ctx.globals.product
-    if (!product || typeof product !== "object" || (ctx.globals.request as O | undefined)?.page_type !== "product") return null
+  private sizeGuideIn(ctx: Ctx, html: string, featured: O | null = null): string | null {
+    const product = featured ?? ctx.globals.product
+    if (!product || typeof product !== "object" || (!featured && (ctx.globals.request as O | undefined)?.page_type !== "product")) return null
     if (SIZE_CHART_SHOWN.has(product)) return null
     const chart = sizeChartOf(product)
     if (!chart) return null
@@ -1190,10 +1195,33 @@ export class CompatTheme {
   private pageFaqs(ctx: Ctx): Faq[] {
     const product = ctx.globals.product
     if (!product || typeof product !== "object" || (ctx.globals.request as O | undefined)?.page_type !== "product") return []
+    return this.productFaqs(product as O)
+  }
+
+  /** A product's questions this theme leaves to Storelib to draw: none when its own code reads them. */
+  private productFaqs(product: O): Faq[] {
     const faqs = faqsOf(product)
     if (!faqs.length) return []
     if (this.readsFaqs === null) this.readsFaqs = themeReadsFaqs(Object.values(this.files))
     return this.readsFaqs ? [] : faqs
+  }
+
+  /**
+   * Round 13: the product a section features by its own Product setting (a
+   * theme's Featured product), or null: a section with no such setting, one
+   * left empty, or the product the page is about already.
+   */
+  private featuredProduct(ctx: Ctx, instance: CompatSectionInstance): O | null {
+    const schema = this.schemaOf("sections", instance.type)
+    const settings = (Array.isArray(schema.settings) ? schema.settings : []) as ShopifySetting[]
+    const field = settings.find((f) => f && f.type === "product")
+    const raw = field ? (instance.settings as O | undefined)?.[String(field.id)] : undefined
+    if (typeof raw !== "string" || !raw) return null
+    const res = ctx.registers.res as Resources | undefined
+    const product = res ? productById(res, raw) : null
+    if (!product) return null
+    const page = ctx.globals.product as O | null | undefined
+    return page && page.id === product.id ? null : product
   }
 
   private sectionObject(instance: CompatSectionInstance, schema: O, res: Resources, index: number, group: string | undefined, dyn: DynamicResolver): O {

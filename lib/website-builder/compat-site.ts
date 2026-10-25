@@ -21,7 +21,8 @@ import { pageSeoForSite } from "@/lib/website-builder/page-seo"
 import { unstable_cache } from "next/cache"
 import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { cardsWithDescriptions } from "@/lib/website-builder/product-descriptions"
+import { productDescriptions, withDescriptions } from "@/lib/website-builder/product-descriptions"
+import { productExtras, withExtras } from "@/lib/website-builder/product-extras"
 import { creatorByName, creatorShopTag, creatorSiteTag, siteCatalogue } from "@/lib/website-builder/published-site"
 import { catalogCards } from "@/lib/website-builder/shop-products"
 import { siteCollections } from "@/lib/website-builder/storefront-collections-server"
@@ -371,8 +372,15 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     ? async () => pageRowsOf(release.manifest)
     : () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
   /* With each product's own description (round 12): a theme's Featured product prints `product.description`, which a card did not carry. */
-  const readCatalog = () => catalogCards(admin as never, creator.creatorId).then((cards) => cardsWithDescriptions(admin as never, creator.creatorId, cards)).catch(() => [])
-  /* Every product's size chart, for a featured product and a card: read for this creator only, held under the shop's tag like the catalogue. */
+  /* And its own questions (round 13, ./product-extras.ts): a Featured product's `product.metafields.storelib.faqs`, as on its page. */
+  const readCatalog = () =>
+    catalogCards(admin as never, creator.creatorId)
+      .then(async (cards) => {
+        const [described, extras] = await Promise.all([productDescriptions(admin as never, creator.creatorId, { ids: cards.map((c) => c.id) }), productExtras(admin as never, creator.creatorId, cards)])
+        return withExtras(withDescriptions(cards, described), extras)
+      })
+      .catch(() => [])
+  /* Every product's size chart, for a featured product and a card: read for this creator only, held under the shop's tag like the catalogue (its own, else its collection's or category's: lib/size-charts/storefront.ts). */
   const readSizeCharts = () => import("@/lib/size-charts/storefront").then((m) => m.sizeChartsForStore(admin as never, creator.creatorId)).catch(() => ({}))
   const [pageRows, products, catalog, collections, menus, , store, sizeCharts] = await Promise.all([
     (draft || release ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)).then((data) => ({ data })),

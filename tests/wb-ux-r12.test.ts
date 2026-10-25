@@ -234,7 +234,7 @@ async function descriptions() {
   check("Product spotlight and Product hero show it unless words were typed", /\{% elsif settings\.button_url\.description_html %\}/.test(spot) && /\{% elsif settings\.button_url\.description_html %\}/.test(hero) && /"default": ""/.test(spot.slice(spot.indexOf('"id": "subheading"'), spot.indexOf('"id": "subheading"') + 300)))
   check("and say so under the field", /Leave empty to show the product's description from Products/.test(spot) && /Leave empty to show the product's description from Products/.test(hero))
   check("the product page's Description block says where its words come from", /"from_products"/.test(read("themes/default/sections/product.json")))
-  check("a published page reads the picked products' descriptions with the shop", /withDescriptions\(mergeCatalog\(products, picked\), descriptions\)/.test(read("lib/website-builder/published-site.ts")) && /cardsWithDescriptions/.test(read("lib/website-builder/compat-site.ts")))
+  check("a published page reads the picked products' descriptions with the shop", /withDescriptions\(mergeCatalog\(products, picked\), descriptions\)/.test(read("lib/website-builder/published-site.ts")) && /* Round 13: the catalogue reads the descriptions beside the questions and size charts (product-extras.ts), in one go. */ /withDescriptions\(cards, described\)/.test(read("lib/website-builder/compat-site.ts")) && /productDescriptions\(admin/.test(read("lib/website-builder/compat-site.ts")))
   void toCard
 }
 

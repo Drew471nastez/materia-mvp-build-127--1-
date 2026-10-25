@@ -49,9 +49,9 @@ The engine reads the theme's template language itself, and it is lenient: a tag 
 
 `shop.name` is the website's brand name from Theme settings, else the store's name from Settings › Store details. `shop.policies` and `shop.refund_policy` (and the other three) are the creator's own policy pages. `shop.enabled_payment_types` lists what Storelib's checkout takes: Visa, Mastercard, American Express, Apple Pay and Google Pay.
 
-**Metafields.** A product's custom fields from the product editor are `product.metafields.custom.<key>`, each printing as its value and with `.value`, `.key` and `.type`, so `{{ product.metafields.custom.material }}` and `.material.value` both work. The product's questions are `product.metafields.storelib.faqs.value`, a list of `{ question, answer }`. On the product page, what the store offers with the product is `product.metafields.storelib.offers.value`: `{ bundles, quantityBreaks, checkoutOffers }`, the same JSON as `GET /api/offers?product=` ([Physical commerce](/developers/physical-commerce#upsells-and-bundles)), so a theme can draw its quantity breaks and bundles in Liquid.
+**Metafields.** A product's custom fields from the product editor are `product.metafields.custom.<key>`, each printing as its value and with `.value`, `.key` and `.type`, so `{{ product.metafields.custom.material }}` and `.material.value` both work. The product's questions are `product.metafields.storelib.faqs.value`, a list of `{ question, answer, answer_html }` in the order the product editor keeps them: `question` and `answer` are plain text, and `answer_html` is the answer escaped with a `<br>` for each line, safe to print as it is. `product.metafields.storelib.faqs` prints as how many there are and is blank for a product with none. Every product object has them, the page's product and any product a section features (a Featured product, `all_products`, a collection's products), the same in the builder's canvas as on the live site. A theme whose code reads `metafields.storelib.faqs` draws them itself; otherwise Storelib puts them in an empty collapsible row headed FAQ, a new row like the section's last, or under the description, on the product page and in a Featured product. On the product page, what the store offers with the product is `product.metafields.storelib.offers.value`: `{ bundles, quantityBreaks, checkoutOffers }`, the same JSON as `GET /api/offers?product=` ([Physical commerce](/developers/physical-commerce#upsells-and-bundles)), so a theme can draw its quantity breaks and bundles in Liquid.
 
-**Size charts.** A product given a size chart in the product editor (Products › Size charts) has it as `product.metafields.storelib.size_chart`, which prints as the chart's name. It is the same on the product's own page, in a featured product section, on a product card and in a quick view, live and in the builder. Its `.value` is:
+**Size charts.** A product's size chart (Products › Size charts) is `product.metafields.storelib.size_chart`, which prints as the chart's name and is blank for a product with none. The chart is the one the product was given in the product editor, else one set for a collection it is in, else one set for its category. It is the same on the product's own page, in a featured product section, on a product card, in `all_products` and in a quick view, live and in the builder. Its `.value` is:
 
 | Key | What it is |
 | --- | --- |
@@ -65,7 +65,9 @@ The engine reads the theme's template language itself, and it is lenient: a tag 
 | `rows_cm`, `rows_in` | The same rows with the measurement columns in cm and in, so a theme can offer the switch without doing the arithmetic |
 | `tables` | `{ cm: { unit, unit_label, rows }, in: { ... } }`, one entry per unit in `units` |
 | `notes` | The line under the table, plain text |
-| `image` | The picture of where to measure, or nil |
+| `notes_html` | The same note escaped, a `<br>` for each line, safe to print as it is |
+| `image` | The picture of where to measure (an https address), or nil |
+| `source` | `product`, `collection` or `category`: where the chart came from |
 | `measuring_guide` | `{ text, image }`: the notes and the picture, for a How to measure part |
 
 Numbers convert at 2.54 cm to the inch, to one decimal, every number in a cell ("86-91" becomes "33.9-35.8"), with the decimal mark the seller typed. A label column and a cell with words in it are left as typed.

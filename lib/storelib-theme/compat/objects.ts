@@ -550,11 +550,14 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown, product
       custom[key] = { [OUTPUT]: value, value, key, namespace: "custom", type: value.includes("\n") ? "multi_line_text_field" : "single_line_text_field" }
     }
   }
-  const faqs = Array.isArray(s.faqs) ? (s.faqs as { question?: unknown; answer?: unknown }[]).filter((f) => typeof f?.question === "string" && typeof f?.answer === "string").map((f) => ({ question: f.question as string, answer: f.answer as string })) : []
+  /* Round 13: each answer also as safe markup (`answer_html`: escaped words, a <br> per line), so a theme prints it with no filter and never prints a seller's tag as a tag. */
+  const faqs = Array.isArray(s.faqs) ? (s.faqs as { question?: unknown; answer?: unknown }[]).filter((f) => typeof f?.question === "string" && typeof f?.answer === "string").map((f) => ({ question: f.question as string, answer: f.answer as string, answer_html: escapeText(f.answer as string).replace(/\r?\n/g, "<br>") })) : []
   const storelib: O = faqs.length ? { faqs: { [OUTPUT]: String(faqs.length), value: faqs, key: "faqs", namespace: "storelib", type: "list.faq" } } : {}
   const chart = readSizeChart(s.size_chart)
   if (chart) {
-    const value = sizeChartJson(chart)
+    /* Round 13: where the chart came from (its own, a collection's, a category's), for a theme that says so. */
+    const source = (s.size_chart as { source?: unknown } | null | undefined)?.source
+    const value = { ...sizeChartJson(chart), source: source === "collection" || source === "category" ? source : "product" }
     storelib.size_chart = { [OUTPUT]: chart.name, value, key: "size_chart", namespace: "storelib", type: "json" }
     /*
       `custom.size_chart`, the name most Shopify themes read a size chart
@@ -648,6 +651,11 @@ export function productRatingFrom(reviews: unknown, productId: string): { value:
  */
 function descriptionHtmlOf(text: string): string {
   return /<[a-z][\s\S]*>/i.test(text) ? sanitizeRichText(text) : escapeParagraphs(text)
+}
+
+/** Plain words as markup: every tag a seller typed shown as words, quotes too. */
+function escapeText(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
 }
 
 function escapeParagraphs(text: string): string {
@@ -994,15 +1002,19 @@ function cardById(r: Resources, idOrHandle: string): CardLike | null {
   let card = r.products.find(matches) ?? r.catalog?.find(matches)
   if (!card) return null
   /* The shop's card with the catalogue's description (round 12: lib/website-builder/product-descriptions.ts reads it for the catalogue). */
-  if (typeof card.settings.description_html !== "string") {
+  /* And its questions (round 13: lib/website-builder/product-extras.ts reads them for the catalogue), so a Featured product's metafields are its page's; its size chart is withChart's. */
+  {
     const id = card.id
     const full = r.catalog?.find((p) => p.id === id)
-    if (full && typeof full.settings.description_html === "string") card = { ...card, settings: { ...card.settings, description_html: full.settings.description_html } }
+    const fill: Record<string, unknown> = {}
+    if (full && typeof card.settings.description_html !== "string" && typeof full.settings.description_html === "string") fill.description_html = full.settings.description_html
+    if (full && card.settings.faqs === undefined && Array.isArray(full.settings.faqs)) fill.faqs = full.settings.faqs
+    if (Object.keys(fill).length) card = { ...card, settings: { ...card.settings, ...fill } }
   }
   return withChart(r, card)
 }
 
-function productById(r: Resources, raw: string): O | null {
+export function productById(r: Resources, raw: string): O | null {
   if (!raw) return null
   if (raw === "@current") return r.current ? productObject(withChart(r, r.current)) : null
   const idOrHandle = productKey(raw)

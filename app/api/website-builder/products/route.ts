@@ -91,8 +91,11 @@ export async function GET(request: Request) {
       const { sizeChartsForStore } = await import("@/lib/size-charts/storefront")
       const charts = await sizeChartsForStore(admin, creator.id)
       const charted = <T extends { id: string; settings: Record<string, unknown> }>(cards: T[]): T[] => cards.map((c) => (charts[c.id] && c.settings.size_chart === undefined ? { ...c, settings: { ...c.settings, size_chart: charts[c.id] } } : c))
-      const shop = charted(withDescriptions(shopRead, described))
-      const catalog = charted(withDescriptions(catalogRead, described))
+      /* And each with its own questions (round 13), so a Featured product in an imported theme shows them in the canvas as on the website. */
+      const { productExtras, withExtras } = await import("@/lib/website-builder/product-extras")
+      const extras = await productExtras(admin, creator.id, [...shopRead, ...catalogRead])
+      const shop = charted(withExtras(withDescriptions(shopRead, described), extras))
+      const catalog = charted(withExtras(withDescriptions(catalogRead, described), extras))
       return NextResponse.json({ shop, catalog }, { headers: { "Cache-Control": "private, no-store" } })
     }
 
