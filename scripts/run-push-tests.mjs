@@ -369,6 +369,7 @@ const SUITES = [
   "tests/onepage-search-share.test.ts",
   "tests/onepage-share-image.test.ts",
   "tests/onepage-host.test.ts",
+  "tests/memory-r12.test.ts",
   "tests/onepage-old-links.test.ts",
   "tests/policy-pages.test.ts",
   "tests/footer-complete.test.ts",

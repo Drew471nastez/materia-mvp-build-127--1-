@@ -48,6 +48,20 @@
  *   JSON=<file>            the numbers as JSON
  *   BUDGET=0               report without failing
  *
+ * Round 12, the bundle before (main at 1115ffa0d) and after, alternated, two
+ * runs each, on a shared machine (load 4 to 17): input to paint p95 / the
+ * longest task, ms. A time is claimed only where both runs agree.
+ *
+ *                          1x before        1x after         4x before          4x after
+ *   add menu link          664/567          152/76           1856/1886          592/605
+ *                          1352/1326        152/94           2304/4659          224/158
+ *   open a long menu       584/528 424/289  288/207 824/416  2456/2173 3024/2834  1080/913 2272/2067
+ *   slider, typing, colour, add section, page switches: within noise, no change claimed
+ *   blank canvas frames    0 of 3,137 painted (both)        0 of 4,675 / 0 of 3,684 (4x)
+ *   heap, 20 minutes       25.1 -> 32.2MB (464 cycles)      23.8 -> 32.5MB (468 cycles)
+ *   listeners, 20 minutes  1276 -> 1228                     1261 -> 1276 (flat)
+ *   section draws per key typed in a menu link (120 sections): every section -> 0
+ *
  * Budgets (at CPU 1x; at 4x the latency budgets are 4x):
  *   input to paint p95, every interaction      <= 200ms
  *   longest task, every interaction             <= 400ms
@@ -532,8 +546,11 @@ async function importedRun() {
 /* ── Memory over a scripted session ── */
 async function memoryRun() {
   console.log(`\nMemory: ${MINUTES} minutes of editing the ${SECTIONS}-section theme, CPU ${CPU}x`)
-  const ed = await openEditor({ kind: "storelib", bundle, css, globals: NATIVE_GLOBALS, init: INIT, cpu: CPU, settle: 3000 })
+  const ed = await openEditor({ kind: "storelib", bundle, css, globals: NATIVE_GLOBALS, init: process.env.MEM_INIT === "0" ? "" : INIT, cpu: CPU, settle: 3000 })
   const { page } = ed
+  /* A dialog the page opens holds every input after it: said, and dismissed. */
+  const dialogs = []
+  page.on("dialog", (d) => { dialogs.push(`${d.type()}: ${d.message().slice(0, 120)}`); console.log(`  dialog ${d.type()}: ${d.message().slice(0, 120)}`); d.dismiss().catch(() => {}) })
   try {
     const cdp = await page.createCDPSession()
     await cdp.send("Performance.enable")
