@@ -97,6 +97,10 @@ type Ctx = LinkListEditorProps & {
   drag: ReturnType<typeof useLinkTreeDrag>
 }
 
+/** Top-level links drawn as a menu opens, and how many more per idle moment after (LinkListEditor). */
+const FIRST_ROWS = 24
+const ROWS_PER_CHUNK = 24
+
 /** How far a sub-link sits in: one step, the grip's half and a little. */
 export const LINK_STEP = 20
 
@@ -433,11 +437,33 @@ export function LinkListEditor(props: LinkListEditorProps) {
   /* Which row is open is each row's own (openHere); a link added or removed changes only whether there is room for another (canOut), and each row's place is its own props. */
   const rev = [drag.dragging ?? "", room ? 1 : 0, targetsRev.current.n, props.nested ? 1 : 0, props.maxLinks ?? "", props.maxSubLinks ?? "", props.maxLabel ?? "", props.onNest ? 1 : 0, props.onPlace ? 1 : 0].join("|")
 
+  /*
+    A LONG MENU ARRIVES A SCREENFUL FIRST (round 12): the first FIRST_ROWS
+    links are drawn as it opens and the rest in chunks while the page is
+    idle, so opening a menu of 266 links is one screen's work, not the
+    whole menu's (scripts/check-wb-perf-r12.mjs, "open a long menu"). Add
+    link waits for the last of them, so it is never pressed mid-list.
+  */
+  const [drawn, setDrawn] = React.useState(() => Math.min(props.items.length, FIRST_ROWS))
+  const all = drawn >= props.items.length
+  React.useEffect(() => {
+    if (all) return
+    const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const more = () => React.startTransition(() => setDrawn((n) => n + ROWS_PER_CHUNK))
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(more, { timeout: 120 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const id = window.setTimeout(more, 16)
+    return () => window.clearTimeout(id)
+  }, [all, drawn])
+  const items = all ? props.items : props.items.slice(0, drawn)
+
   return (
     <div className={cn("relative", props.disabled && "pointer-events-none opacity-50")} data-link-list="" ref={drag.listRef}>
       {drag.line}
-      {props.items.length > 0 && <LinkLevel items={props.items} parent={null} depth={0} ctx={rowCtx} rev={rev} open={open} />}
-      {room && (
+      {items.length > 0 && <LinkLevel items={items} parent={null} depth={0} ctx={rowCtx} rev={rev} open={open} />}
+      {room && all && (
         <div className={cn(props.items.length === 0 && "[&>button]:border-t-0")}>
           <AddRow label={tt("Add link")} onClick={() => add(null)} data-link-add="top" />
         </div>

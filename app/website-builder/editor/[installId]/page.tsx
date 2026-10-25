@@ -196,7 +196,7 @@ import { MenusEditor } from "@/components/website-builder/editor/controls/menus-
 import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
-import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
+import { CanvasProblem, CompatCanvasWaiting, PageOutline } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
 import { tt } from "@/lib/i18n/text"
@@ -11564,9 +11564,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 data-leaving={!canvasLoaderUp}
                 aria-hidden={!canvasLoaderUp}
               >
+                {/*
+                  THE SHAPE OF A PAGE FROM THE FIRST FRAME (round 12). The
+                  loader waits half a second before it shows, and until then
+                  this surface was a blank white card: the owner's "white
+                  canvas" on every opening. Now it is the outline of a page in
+                  the builder's lightest grey, still, the same one an imported
+                  theme's canvas shows while it loads (canvas-problem.tsx).
+                */}
+                <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden" data-canvas-outline="">
+                  <PageOutline />
+                </div>
                 {showCanvasLoader && (
                   <BuilderLoader
-                    className="wb-loading-line"
+                    /* `relative`: above the outline, which is positioned. */
+                    className="wb-loading-line relative"
                     tone="light"
                     lines={
                       loading

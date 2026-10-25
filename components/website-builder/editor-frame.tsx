@@ -18,9 +18,13 @@
  * `fixed inset-0`, as the editor's own root is: an `h-svh` wrapper is
  * content, and the body's safe-area padding would sit under it.
  */
+import { EditorGround } from "./editor-ground"
+
 export function EditorFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#eef1f5]" data-wb-frame="">
+    /* `wb-frame`: the head script holds the first paint until this is read (app/layout.tsx, round 12). */
+    <div id="wb-frame" className="fixed inset-0 overflow-hidden bg-[#eef1f5]" data-wb-frame="">
+      <EditorGround />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 bg-[#171717]"

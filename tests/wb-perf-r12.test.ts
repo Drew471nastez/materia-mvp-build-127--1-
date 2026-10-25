@@ -75,6 +75,25 @@ const EDITOR = read("app/website-builder/editor/[installId]/page.tsx")
     check("a link that did not change keeps its row object", /const itemOf = new WeakMap<MenuLink, LinkItem>\(\)/.test(menus))
   }
 
+  console.log("\nA long menu, opened\n")
+  {
+    const menu = read("components/ui/responsive-action-menu.tsx")
+    check("a row's menu surface is mounted the first time it opens, and kept for its exit", /\{menuWanted \|\| menuOpen \? <ActionDropdownContent/.test(menu) && /if \(menuOpen && !menuWanted\) setMenuWanted\(true\)/.test(menu))
+    check("its phone sheet is mounted, closed, as a finger or the keys land, so the tap's click opens it", /\{sheetArmed \|\| sheetOpen \? <BottomSheet/.test(menu) && /onPointerDown: \(e: React\.PointerEvent\) => \{/.test(menu) && /setSheetArmed\(true\)\n\s+requestAnimationFrame\(\(\) => setSheetOpen\(true\)\)/.test(menu))
+    check("one listener for the phone line, shared by every menu", /useSyncExternalStore\(subscribePhone, phoneNow, phoneOnServer\)/.test(menu) && !/useState\(false\)\n\s+const \[sheetOpen/.test(menu))
+    const rows = read("components/website-builder/editor/controls/link-list-editor.tsx")
+    check("a long menu draws a screenful first and the rest while idle; Add link waits for the last", /const FIRST_ROWS = 24/.test(rows) && /requestIdleCallback\(more/.test(rows) && /\{room && all && \(/.test(rows))
+  }
+
+  console.log("\nThe editor's first frames\n")
+  {
+    const layout = read("app/layout.tsx")
+    check("the document's ground is the editor's surround from the first frame, and nothing is drawn before its frame", layout.includes("website-builder") && layout.includes("_wb.style.backgroundColor='#eef1f5'") && layout.includes("_wl.href='#wb-frame'"))
+    const frame = read("components/website-builder/editor-frame.tsx")
+    check("the frame is what the first paint waits for, and the ground is handed back on the way out", /id="wb-frame"/.test(frame) && /<EditorGround \/>/.test(frame))
+    check("the canvas's loader is the outline of a page from its first frame, never a blank white card", /data-canvas-outline=""/.test(EDITOR) && /<PageOutline \/>/.test(EDITOR))
+  }
+
   console.log("\nA theme change no variable reads\n")
   check("marks no section still", /if \(!changed\.length\) \{ if \(keys\) letGo\(el, keys\); continue \}/.test(EDITOR))
 

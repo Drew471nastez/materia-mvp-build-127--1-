@@ -56,6 +56,10 @@
  *   add menu link          664/567          152/76           1856/1886          592/605
  *                          1352/1326        152/94           2304/4659          224/158
  *   open a long menu       584/528 424/289  288/207 824/416  2456/2173 3024/2834  1080/913 2272/2067
+ *   (follow-up: a row's menu surface mounted on first open, its phone sheet
+ *   on first touch, one shared media listener, a screenful of rows first)
+ *     the bundle before it  216/131 208/141                   1408/1142 1000/725
+ *     after                 208/135 168/96                    912/604 792/477
  *   slider, typing, colour, add section, page switches: within noise, no change claimed
  *   blank canvas frames    0 of 3,137 painted (both)        0 of 4,675 / 0 of 3,684 (4x)
  *   heap, 20 minutes       25.1 -> 32.2MB (464 cycles)      23.8 -> 32.5MB (468 cycles)

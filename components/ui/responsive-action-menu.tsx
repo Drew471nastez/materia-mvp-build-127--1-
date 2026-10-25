@@ -104,6 +104,23 @@ const toneOf = (item: ActionMenuItem) => TONE[item.variant ?? "default"]
 
 /* ── the component ─────────────────────────────────────────────────────── */
 
+/* One listener for the phone line, shared by every menu on the page (round 12): one per menu was 266 on a long menu. */
+const PHONE = "(max-width: 639px)"
+let phoneQuery: MediaQueryList | null = null
+const phoneWatchers = new Set<() => void>()
+const phoneChanged = () => phoneWatchers.forEach((f) => f())
+function subscribePhone(onChange: () => void) {
+  if (!phoneQuery) phoneQuery = window.matchMedia(PHONE)
+  if (phoneWatchers.size === 0) phoneQuery.addEventListener("change", phoneChanged)
+  phoneWatchers.add(onChange)
+  return () => {
+    phoneWatchers.delete(onChange)
+    if (phoneWatchers.size === 0) phoneQuery?.removeEventListener("change", phoneChanged)
+  }
+}
+const phoneNow = () => (phoneQuery ??= window.matchMedia(PHONE)).matches
+const phoneOnServer = () => false
+
 export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
   trigger,
   items,
@@ -124,9 +141,22 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
   align?: "start" | "end" | "center"
   menuWidth?: string
 }) {
-  const [isMobile, setIsMobile] = React.useState(false)
+  const isMobile = React.useSyncExternalStore(subscribePhone, phoneNow, phoneOnServer)
   const [sheetOpen, setSheetOpen] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
+  /*
+    NOTHING BUT THE TRIGGER UNTIL IT IS WANTED (round 12). A list of 266
+    menu links mounted 266 of these, each with its menu's surface and its
+    phone sheet, and opening a long menu in the website builder took 1 to 2
+    seconds on a slowed phone (scripts/check-wb-perf-r12.mjs, "open a long
+    menu"). The surface is mounted the first time the menu opens and kept
+    from then on, so it still leaves with its animation; the phone sheet is
+    mounted, closed, as a finger or the keys land on the trigger, so its
+    entrance plays the same as before when the tap's click opens it.
+  */
+  const [menuWanted, setMenuWanted] = React.useState(false)
+  if (menuOpen && !menuWanted) setMenuWanted(true)
+  const [sheetArmed, setSheetArmed] = React.useState(false)
   const groups = React.useMemo(() => groupsOf(items), [items])
   /** The row pressed, run once the sheet has finished leaving. */
   const pendingRef = React.useRef<(() => void) | null>(null)
@@ -136,20 +166,15 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
     setSheetOpen(false)
   }, [])
 
-  React.useEffect(() => {
-    const mql = window.matchMedia("(max-width: 639px)")
-    const check = () => setIsMobile(mql.matches)
-    check()
-    mql.addEventListener("change", check)
-    return () => mql.removeEventListener("change", check)
-  }, [])
 
   React.useEffect(() => {
     if (!opener) return
     opener.current = () => {
       pendingRef.current = null
-      if (isMobile) setSheetOpen(true)
-      else setMenuOpen(true)
+      if (isMobile) {
+        setSheetArmed(true)
+        requestAnimationFrame(() => setSheetOpen(true))
+      } else setMenuOpen(true)
     }
     return () => {
       opener.current = null
@@ -159,8 +184,16 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
   if (isMobile) {
     // Inject onClick into the provided trigger element so it opens the sheet.
     const triggerWithHandler = React.cloneElement(
-      trigger as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void }>,
+      trigger as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void; onPointerDown?: (e: React.PointerEvent) => void; onFocus?: (e: React.FocusEvent) => void }>,
       {
+        onPointerDown: (e: React.PointerEvent) => {
+          ;(trigger.props as { onPointerDown?: (e: React.PointerEvent) => void }).onPointerDown?.(e)
+          setSheetArmed(true)
+        },
+        onFocus: (e: React.FocusEvent) => {
+          ;(trigger.props as { onFocus?: (e: React.FocusEvent) => void }).onFocus?.(e)
+          setSheetArmed(true)
+        },
         onClick: (e: React.MouseEvent) => {
           e.preventDefault()
           e.stopPropagation()
@@ -169,7 +202,11 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
           pendingRef.current = null
           /* Felt as the press lands, before anything has moved. */
           hapticTap("soft")
-          setSheetOpen(true)
+          /* A click with nothing before it (a script's): the sheet is mounted closed first, then opened. */
+          if (!sheetArmed) {
+            setSheetArmed(true)
+            requestAnimationFrame(() => setSheetOpen(true))
+          } else setSheetOpen(true)
         },
       },
     )
@@ -177,7 +214,7 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
     return (
       <>
         {triggerWithHandler}
-        <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)}
+        {sheetArmed || sheetOpen ? <BottomSheet isOpen={sheetOpen} onClose={() => setSheetOpen(false)}
           onClosed={() => {
             const run = pendingRef.current
             pendingRef.current = null
@@ -187,7 +224,7 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
           label={title ?? tt("Actions")}
         >
           <ActionSheetRows groups={groups} onPick={pick} />
-        </BottomSheet>
+        </BottomSheet> : null}
       </>
     )
   }
@@ -202,7 +239,7 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
      */
     <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <ActionDropdownContent groups={groups} align={align} menuWidth={menuWidth} />
+      {menuWanted || menuOpen ? <ActionDropdownContent groups={groups} align={align} menuWidth={menuWidth} /> : null}
     </DropdownMenu>
   )
 })
