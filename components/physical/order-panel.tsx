@@ -1102,9 +1102,7 @@ export function BuyerNoteCard({ order, className }: { order: PhysicalOrder | nul
                               <a href={f.downloadUrl ?? f.url} target="_blank" rel="noopener noreferrer" className="font-medium text-[#8b5cf6] hover:underline">
                                 {tt("Download")}
                               </a>
-                            ) : (
-                              tt("Not available")
-                            )}
+                            ) : null}
                           </span>
                         </span>
                       </span>

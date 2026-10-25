@@ -23,7 +23,9 @@ import type { ProductCtx } from "./product-blocks"
 type S = Record<string, unknown>
 
 export function PersonalizationBlock({ s, ctx }: { s: S; ctx: ProductCtx }) {
-  const [field] = personalizationFields([{ id: String(s.__id ?? "p"), type: "personalization", settings: s }])
+  const [field] = personalizationFields([
+    { id: String(s.__id ?? "p"), type: "personalization", settings: { kind: s.kind, label: s.label, placeholder: s.placeholder, max_length: s.max_length, upload_label: s.upload_label, required: s.required } },
+  ])
   const p = ctx.personalization
   const ink = ctx.palette.heading
   const muted = ctx.palette.text_muted ?? ctx.palette.paragraph
