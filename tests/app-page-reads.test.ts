@@ -133,7 +133,9 @@ section("The layout: everything that needs only the user, together")
   check("on the caller's own client only", !/createAdminClient/.test(layout))
   /* Round 12 (PLATPERF): the setup ring's payments answer was one more trip after the second batch. */
   const second = batchAfter(layout, /const \[\{ data: products \}/)
-  check("the setup ring's payments answer is in the second batch, not a trip after it", /providerPaymentsReady\(creator\.id/.test(second) && !/await providerPaymentsReady/.test(layout))
+  /* Round AE: Airwallex is gone, so the answer is the creator row's own (paymentsReadyFrom) and there is no trip at all. */
+  void second
+  check("the setup ring's payments answer costs no trip: it is the creator row's own", !/providerPaymentsReady/.test(layout) && /factsFromRows\(\{\s*creator,/.test(layout))
 }
 
 section("Home: three trips, and its title shares them")

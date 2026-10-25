@@ -35,8 +35,8 @@ export interface OverLimitOrder {
   creatorId: string | null
   /** What this order was charged, all of which goes back. */
   amountCents: number
-  provider: "stripe" | "airwallex" | "free" | string
-  /** Stripe's PaymentIntent, or Airwallex's. */
+  provider: "stripe" | "free" | string
+  /** Stripe's PaymentIntent. */
   paymentId: string | null
 }
 
@@ -50,14 +50,6 @@ export async function refundOverLimit(db: Db, o: OverLimitOrder): Promise<SoldOu
   if (amount <= 0 || !o.paymentId || o.provider === "free") {
     await markOrder(db, o.orderId, amount)
     return { refunded: false, reason: "nothing paid" }
-  }
-
-  if (o.provider === "airwallex") {
-    const { refundAirwallexOrder } = await import("@/lib/payments/refunds")
-    if (!o.creatorId) return { refunded: false, reason: "no seller" }
-    const done = await refundAirwallexOrder({ orderId: o.orderId, creatorId: o.creatorId, paymentIntentId: o.paymentId, amountMinor: amount, alreadyRefundedMinor: 0, reason: SOLD_OUT_REASON })
-    await markOrder(db, o.orderId, amount)
-    return { refunded: true, refundId: done.id, pending: done.status !== "SUCCEEDED" && done.status !== "succeeded" }
   }
 
   /* Stripe: a destination charge, so its refund is the platform's and the transfer comes back from the seller (reverse_transfer), as on the Orders page. */

@@ -14,6 +14,8 @@
  *                for the seller to approve, unless they chose Send to
  *                production: then POST .../send_to_production.json.
  *   fetchOrder   GET  /v1/shops/{shop}/orders/{id}.json: status and shipments
+ *   cancel       POST /v1/shops/{shop}/orders/{id}/cancel.json: Printify
+ *                cancels an order on hold or unpaid only, else refuses.
  *   webhooks     POST /v1/shops/{shop}/webhooks.json, one per topic
  *                (order:shipment:created, order:shipment:delivered,
  *                order:updated), each with Storelib's secret: Printify signs
@@ -22,7 +24,7 @@
  * Rate limit: 600 a minute overall. A 429 is retried by the job queue.
  */
 
-import { call, ProviderError, splitName } from "./http"
+import { call, cancelling, ProviderError, splitName } from "./http"
 import type { ConnectorCredential, FulfilmentConnector, ProviderOrderStage, ProviderOrderState } from "./types"
 
 const API = "https://api.printify.com/v1"
@@ -147,5 +149,11 @@ export const printify: FulfilmentConnector = {
     for (const w of Array.isArray(existing) ? existing : []) {
       if (w.url === url) await call(NAME, `${API}/shops/${shop}/webhooks/${encodeURIComponent(w.id)}.json`, { method: "DELETE", headers: auth(cred.key) }).catch(() => undefined)
     }
+  },
+
+  async cancel(cred, providerOrderId) {
+    if (!/^[A-Za-z0-9]{6,40}$/.test(providerOrderId)) return { cancelled: false, note: "Printify: that is not a Printify order." }
+    const shop = shopOf(cred)
+    return cancelling(() => call(NAME, `${API}/shops/${shop}/orders/${providerOrderId}/cancel.json`, { method: "POST", headers: auth(cred.key), body: {} }))
   },
 }

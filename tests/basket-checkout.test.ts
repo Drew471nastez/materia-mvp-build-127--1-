@@ -174,7 +174,10 @@ async function main() {
       profiles: [{ id: "u1", display_name: "Andrew", username: "andrew", avatar_url: "https://img.example/face.jpg" }],
     }
     const built = await checkoutBrand(fakeDb({ ...base, store_settings: [{ creator_id: SHOP, store_name: "Rull Studio", logo_url: "https://img.example/store.png" }], store_theme_installs: [{ id: "i1", creator_id: SHOP, status: "published", store_theme_settings: { settings: { logo_url: "https://img.example/site-logo.png" } } }] }), SHOP)
-    check("a built website's logo first, under the store's name", built.kind === "logo" && built.imageUrl === "https://img.example/site-logo.png" && built.name === "Rull Studio", built)
+    /* Changed on purpose (round AE4): one logo for the checkout, receipts and the Logo card (lib/store/logo-server.ts), so the one chosen in Store details goes first here too, and the website's stands in without it. */
+    check("the logo chosen in Store details first, under the store's name", built.kind === "logo" && built.imageUrl === "https://img.example/store.png" && built.name === "Rull Studio", built)
+    const siteOnly = await checkoutBrand(fakeDb({ ...base, store_settings: [{ creator_id: SHOP, store_name: "Rull Studio" }], store_theme_installs: [{ id: "i1", creator_id: SHOP, status: "published", store_theme_settings: { settings: { logo_url: "https://img.example/site-logo.png" } } }] }), SHOP)
+    check("  without one, the built website's logo", siteOnly.kind === "logo" && siteOnly.imageUrl === "https://img.example/site-logo.png", siteOnly)
     const imported = await checkoutBrand(
       fakeDb({
         ...base,

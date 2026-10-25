@@ -16,9 +16,9 @@
  * under test import cleanly here.
  */
 import { execFileSync } from "node:child_process"
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync, existsSync, unlinkSync, symlinkSync } from "node:fs"
+import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, readdirSync, statSync, existsSync, unlinkSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join, basename } from "node:path"
+import { join, basename, dirname, relative } from "node:path"
 
 // Fresh/temporary checkouts and parallel SQL changes use the current source catalog.
 execFileSync(process.execPath, ["scripts/build-sql-catalog.mjs"], { stdio: "inherit" })
@@ -41,6 +41,8 @@ const SUITES = [
   "tests/commerce-attention.test.ts",
   "tests/cash-on-delivery.test.ts",
   "tests/order-currency.test.ts",
+  /* Round AE4: one store logo for receipts, the Logo card and the checkout; the summary line kept per account; the owner's hand-off once per host for two minutes; legacy orders in the store's currency of their day; the unconverted count; CSV formulas behind a space; a second free claim; Customers less refunds. */
+  "tests/ae4-leftovers.test.ts",
   "tests/ai-theme-settings.test.ts",
   "tests/translation-integrity.test.ts",
   "tests/translations-k3.test.ts",
@@ -209,6 +211,7 @@ const SUITES = [
   "tests/analytics-e2e.test.ts",
   /* Round AB2: every /app Analytics figure against a fixture counted by hand and an independent reference (7 ranges, 5 places, All/Digital/Physical), the sales reports counted by the tabs' own rules, the comparison across a DST week, the yen cards, the morph by what a store sells, Add report at the bottom and the CSV export (scripts/check-analytics-ab2.mjs measures the page). */
   "tests/analytics-accuracy.test.ts",
+  "tests/order-followups.test.ts",
   /* Round AC2: a lei store selling in five other currencies through the routes' own code with day rates in the database fake, yen and dinar stores, the phantom discount of a converted line, refunds dated by the refund, shares that add up to 100, changes against nothing and below nothing, and the export's report and format choices (scripts/check-analytics-ac2.mjs measures the page). */
   "tests/analytics-currency.test.ts",
   /* Round AD1: bugs found by reading every analytics path, each a failing check first: Home's revenue line and the chart axis in the currency's own decimals, a product's orders as payments, kept answers of one period shown as another's, the jsonb origin, GA's purchase value in yen, the creator's own connected domain opened from the app. */
@@ -376,7 +379,7 @@ const SUITES = [
   "tests/anthropic-provider.test.ts",
   "tests/ai-chatgpt-only.test.ts",
   "tests/own-ai.test.ts",
-  "tests/storelib-payments.test.ts",
+  "tests/payments-stripe-only.test.ts",
   "tests/admin-payments-fees.test.ts",
   "tests/payments-setup-errors.test.ts",
   "tests/stripe-payments-facts.test.ts",
@@ -462,7 +465,7 @@ const SUITES = [
   "tests/money-rows-server-only.test.ts",
   "tests/private-columns.test.ts",
   "tests/ledger-and-deletion.test.ts",
-  /* Background jobs run once and stop (a Stripe or Airwallex event taken before it is handled, a job cut off every time ends), and run-now part 189 */
+  /* Background jobs run once and stop (a Stripe event taken before it is handled, a job cut off every time ends), and run-now part 189 */
   "tests/jobs-and-isolation.test.ts",
   /* A job, a store's translation and an order line, each done once (a lost job lease writes nothing, the hourly translate claim, run-now part 190) */
   "tests/jobs-dupes.test.ts",
@@ -620,6 +623,8 @@ const SUITES = [
   "tests/emails-language.test.ts",
   "tests/emails-identity.test.ts",
   "tests/emails-preview.test.ts",
+  /* Round AE2: every buyer and member email editable (Digital, Physical, Community), every community email in the community's name, picture, reply address and domain, per community unsubscribe; scripts/check-ae2-email-branding.mjs opens a sample at 390 and 600. SQL part 301. */
+  "tests/ae2-emails-branding.test.ts",
   "tests/files-t.test.ts",
   "tests/files-inventory-v.test.ts",
   "tests/activity-t.test.ts",
@@ -826,6 +831,8 @@ const SUITES = [
   "tests/integrations23.test.ts",
   "tests/marketing24.test.ts",
   "tests/partners24.test.ts",
+  /* Round AE3: each partner's cancel and costs against stubs of its API, holds and the partner card read from the timeline, the packing slip's paper and prices, the buyer's paid rate in Buy a label. */
+  "tests/fulfilment-ae3.test.ts",
   "tests/physical-ships-x1.test.ts",
   /* Round 25 */
   "tests/i18n25.test.ts",
@@ -936,6 +943,8 @@ const STRICT_SUITES = [
   "tests/e2e-more-currencies.test.ts",
   /* The seller ships it themselves: part shipped with tracking, the number fixed, the rest from a second place, a fulfilment undone, a return restocked and refunded, a cancel after an undo, a pickup, refused cash (tests/_journey) */
   "tests/e2e-manual-fulfillment.test.ts",
+  /* Round AE3: Hold fulfillment, Send again to a partner that refused, a send held back and released, a cancel that reaches Printful (tests/_journey) */
+  "tests/e2e-fulfilment-ae3.test.ts",
   /* Quick setup through the real routes: explicit prices, whole or nothing, once */
   "tests/e2e-shipsetup.test.ts",
   /* Shipping quick setup, the summary, one fulfilment question, carrier rates gated (strict: it renders the settings component, which narrows on api() results) */
@@ -1056,6 +1065,20 @@ try {
     })
 
   writeFileSync(join(out, "package.json"), '{"type":"module"}\n')
+
+  // Plain .mjs scripts a suite imports (tests/editor-freeze2 reads
+  // scripts/materia-store-kit.mjs): tsc compiles only TypeScript, so each one
+  // is copied next to the compiled tests at the same relative path.
+  for (const file of walk(out).filter((f) => f.endsWith(".js"))) {
+    for (const m of readFileSync(file, "utf8").matchAll(/from\s+["']((?:\.\.?\/)+scripts\/[\w./-]+\.mjs)["']/g)) {
+      const target = join(dirname(file), m[1])
+      const source = join(process.cwd(), relative(out, target))
+      if (!existsSync(target) && existsSync(source)) {
+        mkdirSync(dirname(target), { recursive: true })
+        writeFileSync(target, readFileSync(source))
+      }
+    }
+  }
 
   // Real packages, for suites that use one.
   //

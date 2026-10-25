@@ -21,6 +21,8 @@ import { eventIcs } from "@/components/community/events/model"
 import type { NotificationType, TemplateContext, TemplateFamily } from "../types"
 import { actionUrl, cleanText, segment } from "./escape"
 import { formatCurrency } from "@/lib/markets/money"
+import { fillCommunityValues } from "@/lib/emails/community-words"
+import { fillPlaceholders } from "@/lib/emails/customer-custom"
 import type { Fact, OrderSummary, SummaryRow } from "./layout"
 
 /* ── Data keys ─────────────────────────────────────────────────────────── */
@@ -45,16 +47,34 @@ const SALE_KEYS = [
  * cents with its interval ("month" or "year"), the dates it is about, and
  * the card's last four digits when a payment failed.
  */
+/**
+ * WHO A BUYER'S OR A MEMBER'S EMAIL IS FROM, when it is not Storelib
+ * (index.ts reads them): the community, or the creator selling a membership.
+ * Its name in the From line and on top of the email, its picture beside it,
+ * Reply-To its own address, the links on its own domain, and its name in the
+ * footer. Left out, the email is Storelib's, as every platform email is.
+ */
+export const BRAND_KEYS = ["brandName", "brandLogoUrl", "brandPicture", "brandReplyTo", "brandHost", "brandSlug", "brandKind"] as const
+
+/**
+ * The owner's own words on an email (lib/emails/community-words.ts for a
+ * community, lib/emails/customer-custom.ts for a store): tplMode "intro" puts
+ * the opening line before Storelib's text, "body" stands in for the first
+ * paragraph, as a store's order emails do.
+ */
+const TPL_KEYS = ["tplSubject", "tplHeading", "tplIntro", "tplButton", "tplMode", "tplDropIntro"] as const
+
 const MEMBERSHIP_KEYS = [
   "membershipId", "membershipTitle", "creatorName", "amountCents", "currency", "interval", "periodEnd", "endsAt", "trialEnd", "graceEndsAt", "cardLast4", "withdrawalWaiver", "fromTitle", "changeKind",
+  "buyerName", "storeName", "communityName", "communitySlug", ...BRAND_KEYS, ...TPL_KEYS,
 ] as const
 
 /**
  * What a community email reads (lib/communities/server/email.ts fills them):
- * the community's id, name and address, who runs it, and per kind the
- * announcement, the event, the course or the invite it is about.
+ * the community's id, name and address, who runs it, the member's name, and
+ * per kind the announcement, the event, the course or the invite it is about.
  */
-const COMMUNITY_KEYS = ["communityId", "communityName", "communitySlug", "creatorName", "tplSubject", "tplHeading", "tplIntro"] as const
+const COMMUNITY_KEYS = ["communityId", "communityName", "communitySlug", "creatorName", "memberName", ...TPL_KEYS, ...BRAND_KEYS] as const
 
 /**
  * What a ticket email reads beside the community's own facts
@@ -115,7 +135,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   ACCOUNT_RESTRICTED: ["reason"],
   PURCHASE_CONFIRMATION: ["productTitle", "productId", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken", "occurredAt"],
   DIGITAL_PRODUCT_ACCESS: ["productTitle", "productId", "storeName", "creatorName", "receiptToken"],
-  CUSTOMER_REFUND_PROCESSED: ["productTitle", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken"],
+  CUSTOMER_REFUND_PROCESSED: ["productTitle", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken", ...BRAND_KEYS],
   REVIEW_REQUEST: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId", "reviewToken", "reminderOn"],
   REVIEW_REMINDER: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId", "reviewToken"],
   MEMBERSHIP_STARTED: [...MEMBERSHIP_KEYS],
@@ -393,6 +413,8 @@ export interface Message {
    * The address it is sent from never changes.
    */
   sender?: { name: string; replyTo?: string | null } | null
+  /** Why the reader gets this, when the family's own line is not it ("because you were invited to join Makers Club"). */
+  reason?: string | null
   /** What the footer's unsubscribe link says, when it turns off one kind of email only. */
   unsubscribeLabel?: string | null
   /**
@@ -444,13 +466,6 @@ const NOT_YOU = {
 
 const when = (ctx: TemplateContext, d: Data): string => cleanText(ctx.when, 80) || d.date("occurredAt")
 
-/**
- * Who checks the details and holds the money: Stripe, unless the event says
- * the creator is on Storelib Payments' Airwallex rollout (lib/payments). The
- * default keeps every Stripe email word for word what it was.
- */
-const processor = (d: Data): string => (d.text("provider", 20).toLowerCase() === "airwallex" ? "Airwallex" : "Stripe")
-const onAirwallex = (d: Data): boolean => processor(d) === "Airwallex"
 const ending = (last4: string) => (last4 ? `Ending in ${last4}` : "")
 
 /** The receipt when there is one (it works without signing in), else the library. */
@@ -967,8 +982,8 @@ export const CATALOG: Record<NotificationType, Entry> = {
     preview: "It takes a few minutes and you only do it once.",
     heading: "Set up payments to get paid",
     paragraphs: [
-      `Before money from sales can reach you, we need a few details for your payouts. ${processor(d)} handles this part, and it takes a few minutes.`,
-      onAirwallex(d) ? "Once it is done, sales go to your balance and you pay them out to your bank." : "Once it is done, sales go to your balance and pay out to your bank on a regular schedule.",
+      `Before money from sales can reach you, we need a few details for your payouts. Stripe handles this part, and it takes a few minutes.`,
+      "Once it is done, sales go to your balance and pay out to your bank on a regular schedule.",
     ],
     action: { label: "Set up payments", path: PATHS.payments },
     note: REMINDER_NOTE,
@@ -983,7 +998,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
     heading: "Payments still need setting up",
     paragraphs: [
       "Without payments set up, you cannot get paid for your sales.",
-      `If you started and stopped, you can pick up where you left off. ${processor(d)} keeps what you already entered.`,
+      `If you started and stopped, you can pick up where you left off. Stripe keeps what you already entered.`,
     ],
     action: { label: "Finish payment setup", path: PATHS.payments },
     note: LAST_REMINDER_NOTE,
@@ -1007,8 +1022,8 @@ export const CATALOG: Record<NotificationType, Entry> = {
           ? "You started setting up payments and stopped before it was done. Until it is finished, Storelib cannot pay you for a sale."
           : "Your product is live, but payments are not set up, so a sale has nowhere to pay out to.",
         started
-          ? `${processor(d)} kept what you already entered, so you carry on from where you left off. It usually takes a few minutes.`
-          : `${processor(d)} handles this part and it usually takes a few minutes. You only do it once.`,
+          ? `Stripe kept what you already entered, so you carry on from where you left off. It usually takes a few minutes.`
+          : `Stripe handles this part and it usually takes a few minutes. You only do it once.`,
       ],
       action: { label: "Finish payout setup", path: PATHS.payments },
       note: REMINDER_NOTE,
@@ -1043,7 +1058,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
         started
           ? "You started setting up payouts and it is not finished yet. Until it is, buyers cannot check out and nothing can reach your bank."
           : "You have not set up payouts yet. Until you do, buyers cannot check out and a sale has nowhere to pay out to.",
-        `It takes about five minutes: your country, your name as it is on your ID, the few details ${processor(d)} needs to verify you and the bank account you want paid into.`,
+        `It takes about five minutes: your country, your name as it is on your ID, the few details Stripe needs to verify you and the bank account you want paid into.`,
       ],
       action: { label: started ? "Finish payout setup" : "Set up payouts", path: PATHS.payments },
       note: REMINDER_NOTE,
@@ -1051,34 +1066,18 @@ export const CATALOG: Record<NotificationType, Entry> = {
     }
   },
 
-  PAYMENT_SETUP_COMPLETED: (d) =>
-    onAirwallex(d)
-      ? {
-          /* Verified is not the whole of it on Airwallex: a sale also needs somewhere to pay out to. */
-          family: "success",
-          audience: "creator",
-          subject: "You are verified",
-          preview: "Add a payout account to start taking payments.",
-          heading: "You are verified",
-          paragraphs: [
-            "Airwallex has confirmed your details.",
-            "Add the bank account your sales are paid into. Checkout opens as soon as it is added.",
-          ],
-          action: { label: "Add payout account", path: PATHS.payments },
-          inApp: { title: "You are verified", body: "Add a payout account to start taking payments.", actionLabel: "Add payout account", actionPath: PATHS.payments },
-        }
-      : {
-          family: "success",
-          audience: "creator",
-          subject: "Your Storelib payments are ready",
-          preview: "Buyers can check out, and you get paid to your bank.",
-          heading: "Your payments are ready",
-          paragraphs: [
-            "Your details are confirmed. Buyers can check out now, and your earnings are paid to your bank.",
-          ],
-          action: { label: "View payouts", path: PATHS.payouts },
-          inApp: { title: "Payments active", body: "Buyers can check out now.", actionLabel: "View payouts", actionPath: PATHS.payouts },
-        },
+  PAYMENT_SETUP_COMPLETED: () => ({
+    family: "success",
+    audience: "creator",
+    subject: "Your Storelib payments are ready",
+    preview: "Buyers can check out, and you get paid to your bank.",
+    heading: "Your payments are ready",
+    paragraphs: [
+      "Your details are confirmed. Buyers can check out now, and your earnings are paid to your bank.",
+    ],
+    action: { label: "View payouts", path: PATHS.payouts },
+    inApp: { title: "Payments active", body: "Buyers can check out now.", actionLabel: "View payouts", actionPath: PATHS.payouts },
+  }),
 
   PAYMENT_VERIFICATION_REQUIRED: (d) => {
     const due = d.date("dueBy")
@@ -1086,15 +1085,15 @@ export const CATALOG: Record<NotificationType, Entry> = {
       family: "action_required",
       audience: "creator",
       subject: "Action needed: confirm your payout details",
-      preview: `${processor(d)} needs a bit more information to keep payouts going.`,
-      heading: `${processor(d)} needs a few more details`,
+      preview: `Stripe needs a bit more information to keep payouts going.`,
+      heading: `Stripe needs a few more details`,
       paragraphs: [
-        `To keep your payouts running, ${processor(d)} needs you to confirm some information about you or your business. This is a normal check.`,
+        `To keep your payouts running, Stripe needs you to confirm some information about you or your business. This is a normal check.`,
         due ? `Please do this by ${due} so your payouts are not paused.` : "Please do this soon so your payouts are not paused.",
       ],
       facts: [["What is needed", d.readable("reason")], ["Due by", due]],
       action: { label: "Confirm your details", path: PATHS.payments },
-      inApp: { title: "Confirm your payout details", body: due ? `${processor(d)} needs more information by ${due}.` : `${processor(d)} needs a bit more information to keep payouts going.`, actionLabel: "Confirm details", actionPath: PATHS.payments },
+      inApp: { title: "Confirm your payout details", body: due ? `Stripe needs more information by ${due}.` : `Stripe needs a bit more information to keep payouts going.`, actionLabel: "Confirm details", actionPath: PATHS.payments },
     }
   },
 
@@ -1105,7 +1104,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
     preview: "A quick look at your details usually fixes it.",
     heading: "We could not finish your payment setup",
     paragraphs: [
-      `${processor(d)} could not verify the details you entered, so payments are not set up yet.`,
+      `Stripe could not verify the details you entered, so payments are not set up yet.`,
       "Most of the time it is a small mismatch in a name, date of birth or address. Check your details and try again.",
     ],
     facts: [["Reason", d.readable("reason")]],
@@ -1769,16 +1768,17 @@ export const CATALOG: Record<NotificationType, Entry> = {
   },
 
   /* ── A member of a community ────────────────────────────────────────── */
-  COMMUNITY_WELCOME: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_WELCOME(d, ctx), d),
-  COMMUNITY_JOIN_APPROVED: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_JOIN_APPROVED(d, ctx), d),
-  COMMUNITY_INVITE: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_INVITE(d, ctx), d),
-  COMMUNITY_ANNOUNCEMENT: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_ANNOUNCEMENT(d, ctx), d),
-  COMMUNITY_EVENT_REMINDER: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_EVENT_REMINDER(d, ctx), d),
-  COMMUNITY_COURSE_AVAILABLE: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_COURSE_AVAILABLE(d, ctx), d),
-  COMMUNITY_EVENT_TICKET: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_TICKET(d, ctx),
-  COMMUNITY_EVENT_TICKET_INVITE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_TICKET_INVITE(d, ctx),
-  COMMUNITY_EVENT_REFUND: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_REFUND(d, ctx),
-  COMMUNITY_EVENT_CANCELLED: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_CANCELLED(d, ctx),
+  COMMUNITY_WELCOME: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_WELCOME(d, ctx), d, ctx),
+  COMMUNITY_JOIN_APPROVED: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_JOIN_APPROVED(d, ctx), d, ctx),
+  COMMUNITY_INVITE: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_INVITE(d, ctx), d, ctx),
+  COMMUNITY_ANNOUNCEMENT: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_ANNOUNCEMENT(d, ctx), d, ctx),
+  COMMUNITY_EVENT_REMINDER: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_EVENT_REMINDER(d, ctx), d, ctx),
+  COMMUNITY_COURSE_AVAILABLE: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_COURSE_AVAILABLE(d, ctx), d, ctx),
+  /* The owner's words go on a ticket email too (the subject, the heading, an opening line, the button); the event, the price and the refund stay in the facts. */
+  COMMUNITY_EVENT_TICKET: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_EVENT_TICKET(d, ctx), d, ctx),
+  COMMUNITY_EVENT_TICKET_INVITE: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_EVENT_TICKET_INVITE(d, ctx), d, ctx),
+  COMMUNITY_EVENT_REFUND: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_EVENT_REFUND(d, ctx), d, ctx),
+  COMMUNITY_EVENT_CANCELLED: (d, ctx) => withCommunityWords(COMMUNITY_ENTRIES.COMMUNITY_EVENT_CANCELLED(d, ctx), d, ctx),
   COMMUNITY_REPORT_DIGEST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_REPORT_DIGEST(d, ctx),
   COMMUNITY_WEEKLY_DIGEST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_WEEKLY_DIGEST(d, ctx),
   COMMUNITY_BROADCAST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_BROADCAST(d, ctx),
@@ -1938,6 +1938,8 @@ const COMMUNITY_ENTRIES: Record<
       note: "If you were not expecting this, you can ignore it. Nothing happens unless you accept.",
       greet: false,
       inApp: { title: "You are invited", body: c.name ? `Join ${c.name}.` : "You have an invite to a community.", actionLabel: "Open", actionPath: path },
+      /* Not a member yet: why it came is the invite. */
+      reason: c.name ? `You get this because you were invited to join ${c.name}.` : "You get this because you were invited to join a community.",
     }
   },
 
@@ -2212,7 +2214,8 @@ const COMMUNITY_ENTRIES: Record<
       action: { label: "Open the community", path: c.home },
       note: memberNote(c, "emails from this community"),
       greet: false,
-      unsubscribeLabel: null,
+      /* The link turns off this community's emails only (lib/notify/unsubscribe.ts communityUnsubscribeUrl), never anything else. */
+      unsubscribeLabel: c.name ? `Stop emails from ${c.name}` : "Stop emails from this community",
       inApp: { title: subject || "News from your community", body: c.name ? `From ${c.name}.` : "From your community.", actionLabel: "Open", actionPath: c.home },
     }
   },
@@ -2226,22 +2229,81 @@ const COMMUNITY_ENTRIES: Record<
  * it is for and how to turn it off.
  */
 export function fillCommunityWords(text: string, c: { name: string; creator: string }): string {
-  return text.replace(/\{\s*community\s*\}/gi, c.name || "the community").replace(/\{\s*creator\s*\}/gi, c.creator || "the team")
+  return fillCommunityValues(text, { community_name: c.name, creator_name: c.creator })
 }
 
-function withCommunityWords(m: Message, d: Data): Message {
+/** Every value a community's words can name (lib/emails/community-words.ts), from the job's own data. */
+function communityValues(d: Data, ctx: TemplateContext): Record<string, string> {
   const c = communityOf(d)
-  const subject = fillCommunityWords(d.text("tplSubject", 120), c)
-  const heading = fillCommunityWords(d.text("tplHeading", 120), c)
-  const intro = fillCommunityWords(d.text("tplIntro", 600), c)
-  if (!subject && !heading && !intro) return m
+  const m = membershipOf(d)
+  return {
+    first_name: d.first("memberName") || cleanText(ctx.recipientName, 60).split(" ")[0] || "",
+    community_name: c.name,
+    creator_name: c.creator,
+    inviter_name: d.text("inviterName", 40) || c.creator,
+    event_title: d.text("eventTitle", 120),
+    event_date: eventWhen(d),
+    amount: d.money(),
+    plan_name: m.title,
+    price: m.price,
+    next_payment: m.next,
+    access_until: d.date("endsAt") || m.next,
+  }
+}
+
+/** Every value a store's words can name (lib/emails/customer-custom.ts placeholdersFor) on a membership email. */
+function membershipValues(d: Data): Record<string, string> {
+  const m = membershipOf(d)
+  return {
+    customer_name: d.first("buyerName"),
+    plan_name: m.title,
+    shop_name: d.text("storeName", 60) || m.creator,
+    price: m.price,
+    next_payment: m.next,
+    amount: d.money(),
+    access_until: d.date("endsAt") || m.next,
+  }
+}
+
+/**
+ * THE OWNER'S OWN WORDS, ON ANY EMAIL THAT TAKES THEM. tplMode "intro" (a
+ * community's) puts the opening line before Storelib's text; "body" (a
+ * store's, on a membership sold on its own) stands in for the first
+ * paragraph, as its order emails do. The facts, the link and the note on why
+ * it came are never changed, so the email always says what it is about.
+ */
+function withOwnWords(m: Message, d: Data, fill: (text: string) => string): Message {
+  const subject = fill(d.text("tplSubject", 150))
+  const heading = fill(d.text("tplHeading", 120))
+  const button = fill(d.text("tplButton", 40))
+  const body = d.text("tplMode", 8) === "body"
+  const intro = body ? d.paras("tplIntro", 2000, 6).map(fill).filter(Boolean) : [fill(d.text("tplIntro", 600))].filter(Boolean)
+  /* A store that emptied the opening text: the email opens with what follows it, as its order emails do. */
+  const drop = body && !intro.length && d.bool("tplDropIntro") === true
+  if (!subject && !heading && !intro.length && !button && !drop) return m
   return {
     ...m,
-    subject: subject ? cleanText(subject, SUBJECT_MAX) : m.subject,
+    /* As long as an inbox shows (renderEmail keeps 90), not the 60 Storelib's own subjects are written to. */
+    subject: subject ? cleanText(subject, 90) : m.subject,
     heading: heading || m.heading,
-    preview: intro ? intro.slice(0, 120) : m.preview,
-    paragraphs: intro ? [intro, ...m.paragraphs] : m.paragraphs,
+    preview: intro.length ? intro[0].slice(0, 120) : m.preview,
+    paragraphs: intro.length ? (body ? [...intro, ...m.paragraphs.slice(1)] : [...intro, ...m.paragraphs]) : drop ? m.paragraphs.slice(1) : m.paragraphs,
+    action: m.action && button ? { ...m.action, label: button } : m.action,
   }
+}
+
+function withCommunityWords(m: Message, d: Data, ctx: TemplateContext): Message {
+  const vars = communityValues(d, ctx)
+  return withOwnWords(m, d, (text) => (text ? fillCommunityValues(text, vars) : ""))
+}
+
+/** A membership's email with its owner's words: a community's (its paid plan) or the store's (one sold on its own). */
+function withMembershipWords(m: Message, d: Data, ctx: TemplateContext): Message {
+  if (d.text("tplMode", 8) === "body") {
+    const vars = membershipValues(d)
+    return withOwnWords(m, d, (text) => (text ? fillPlaceholders(text, vars).trim() : ""))
+  }
+  return withCommunityWords(m, d, ctx)
 }
 
 /** What every membership notice says the same way: its name, who by, the price with its interval, the next date and its page. */
@@ -2334,6 +2396,12 @@ function reviewAsk(d: Data, reminder: boolean): Message {
     greet: false,
     inApp: { title: reminder ? "Review your purchase" : "How was your purchase?", body: title ? `Tell other buyers about ${title}.` : "Tell other buyers about it.", actionLabel: action?.label ?? null, actionPath: action?.path ?? null },
   }
+}
+
+/* A membership's emails take their owner's words (withMembershipWords): the community's for its paid plan, the store's for one sold on its own. */
+for (const type of ["MEMBERSHIP_STARTED", "MEMBERSHIP_RENEWED", "MEMBERSHIP_RENEWAL_REMINDER", "MEMBERSHIP_PAYMENT_FAILED", "MEMBERSHIP_CANCELED", "MEMBERSHIP_PLAN_CHANGED", "MEMBERSHIP_ENDED"] as const) {
+  const own = CATALOG[type]
+  CATALOG[type] = (d, ctx) => withMembershipWords(own(d, ctx), d, ctx)
 }
 
 /** Facts with a value, as the layout takes them. */

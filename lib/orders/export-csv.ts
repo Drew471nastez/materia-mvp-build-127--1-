@@ -12,6 +12,7 @@
  *                      makes Excel read "Zoë" as Zoë rather than ZoÃ«
  *   plain              UTF-8 and LF, for scripts and other tools
  */
+import { guardFormula } from "@/lib/csv/formula-guard"
 import { FULFILLMENT_LABEL, PAYMENT_LABEL, SOURCE_LABEL, type Order } from "./order-view"
 import { sourceDetailText } from "./order-source"
 import { orderCurrency } from "./money"
@@ -32,7 +33,7 @@ export function isExportFormat(value: unknown): value is ExportFormat {
 /** A cell a spreadsheet would read as a formula is written as text. */
 export function csvCell(value: string | number): string {
   let s = String(value ?? "")
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`
+  s = guardFormula(s)
   return `"${s.replace(/"/g, '""')}"`
 }
 

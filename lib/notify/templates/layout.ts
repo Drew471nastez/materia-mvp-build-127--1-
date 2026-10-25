@@ -34,7 +34,7 @@
  * arrive already checked (escape.ts actionUrl / sameSiteUrl).
  */
 import type { TemplateFamily } from "../types"
-import { emailDocument, emailKit, EMAIL_LOGO_URL as SHARED_LOGO_URL, ITEM_PX, type EmailKit } from "@/lib/emails/layout"
+import { emailDocument, emailKit, EMAIL_LOGO_URL as SHARED_LOGO_URL, ITEM_PX, type EmailKit, type EmailSender } from "@/lib/emails/layout"
 
 /**
  * The Storelib logo every platform email uses (lib/email.tsx too): a PNG,
@@ -117,6 +117,12 @@ export interface LayoutInput {
   /** What the unsubscribe link says, when it turns off one kind of email rather than all of them. */
   unsubscribeLabel?: string | null
   preferencesUrl?: string | null
+  /**
+   * Who the email is from, when it is not Storelib: a community or a creator
+   * (index.ts brandOf). Its picture and name on top instead of Storelib's
+   * mark, linked to its page, and its name in the footer.
+   */
+  brand?: { name: string; pictureUrl: string | null; picture: "mark" | "avatar"; url: string | null } | null
 }
 
 interface FamilyStyle {
@@ -186,7 +192,9 @@ function footerLinks(input: LayoutInput): Link[] {
 /** The whole email as HTML. */
 export function renderHtml(input: LayoutInput): string {
   const style = FAMILY_STYLES[input.family]
-  const k = emailKit({ kind: "storelib", homeUrl: input.homeUrl })
+  const b = input.brand
+  const sender: EmailSender = b ? { kind: "store", name: b.name, pictureUrl: b.pictureUrl, picture: b.picture, url: b.url } : { kind: "storelib", homeUrl: input.homeUrl }
+  const k = emailKit(sender)
   const rows: string[] = [k.heading(input.heading, { label: style.label, labelColor: style.labelColor })]
   if (input.greeting) rows.push(k.text(input.greeting))
   if (input.media && input.media.title) rows.push(k.media({ title: input.media.title, subtitle: input.media.subtitle ?? null, imageUrl: input.media.imageUrl ?? null }))
@@ -201,11 +209,12 @@ export function renderHtml(input: LayoutInput): string {
   if (input.action) rows.push(k.fallback(input.action.url))
   if (input.note) rows.push(k.small(input.note))
   return emailDocument({
-    sender: { kind: "storelib", homeUrl: input.homeUrl },
+    sender,
     subject: input.subject,
     preview: input.preview,
     rows,
-    footer: { reason: input.reason, links: footerLinks(input) },
+    /* A community's or creator's email names them at the foot, as a store's receipt does ("Sold by ... through Storelib"). */
+    footer: { reason: input.reason, links: footerLinks(input), legal: b ? `Sent by ${b.name} through Storelib.` : null },
   })
 }
 
@@ -239,7 +248,7 @@ export function renderText(input: LayoutInput): string {
   if (input.action) blocks.push(`${input.action.label}:\n${input.action.url}`)
   if (input.secondary) blocks.push(`${input.secondary.label}: ${input.secondary.url.replace(/^mailto:/, "").replace(/\?.*$/, "")}`)
   if (input.note) blocks.push(input.note)
-  const foot = ["--", "Storelib", input.reason]
+  const foot = ["--", input.brand ? input.brand.name : "Storelib", input.reason]
   for (const l of footerLinks(input)) foot.push(`${l.label}: ${l.url}`)
   blocks.push(foot.join("\n"))
   return blocks.join("\n\n") + "\n"

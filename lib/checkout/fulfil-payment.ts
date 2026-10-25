@@ -43,10 +43,11 @@ import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { verifiedAccountForEmail } from "@/lib/orders/attach-guest-orders"
 import { postLedger } from "@/lib/payments/ledger"
 import { ledgerAmountText, toLedger } from "@/lib/payments/ledger-currency"
-import { markFeeRecord, paidAirwallexCheckout, type PaidCheckout } from "@/lib/payments/checkout"
+import type { PaidCheckout } from "@/lib/payments/checkout"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 import { SALE_HOLDER_KEY, claimSale, releaseSale } from "./sales-limit"
 import { markSoldOut, owesSoldOutRefund, refundOverLimit } from "./sold-out-refund"
+import { beginFollowups, resumeFollowups, type Followups } from "./followups"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -115,10 +116,8 @@ export function paymentFacts(pi: Stripe.PaymentIntent): PaymentFacts {
 /* `created_at` is the invoice's date and half its number: read back from the row, never the clock's. */
 const ORDER_READ = "id, receipt_token, session_fingerprint, amount_cents, created_at"
 
-async function existingOrder(admin: Db, provider: PaidCheckout["provider"], paymentIntentId: string, receiptToken?: string) {
-  /* Stripe's orders carry the PaymentIntent in their own column; Airwallex's in provider_payment_id (part 76). */
-  const column = provider === "stripe" ? "stripe_payment_intent_id" : "provider_payment_id"
-  const { data } = await admin.from("orders").select(ORDER_READ).eq(column, paymentIntentId).maybeSingle()
+async function existingOrder(admin: Db, paymentIntentId: string, receiptToken?: string) {
+  const { data } = await admin.from("orders").select(ORDER_READ).eq("stripe_payment_intent_id", paymentIntentId).maybeSingle()
   if (data || !receiptToken) return data
   const { data: byToken } = await admin.from("orders").select(ORDER_READ).eq("receipt_token", receiptToken).maybeSingle()
   return byToken
@@ -180,41 +179,16 @@ export async function fulfilPaymentIntent(
 }
 
 /**
- * The same, for a checkout paid on Airwallex (lib/payments/checkout). Called
- * by the buyer's return from Airwallex's payment page and by the
- * payment_intent.succeeded webhook, whichever comes first, exactly as the
- * Stripe path is: the order is made once.
- */
-export async function fulfilAirwallexIntent(
-  admin: Db,
-  intentId: string,
-  opts: { request?: Request; baseUrl: string; clientSecret?: string | null },
-): Promise<Fulfilment> {
-  const loaded = await paidAirwallexCheckout(intentId)
-  if (loaded.ok === false) return loaded
-  if (opts.clientSecret !== undefined && !sameSecret(loaded.clientSecret, opts.clientSecret)) {
-    return { ok: false, status: 404, error: "That payment could not be found." }
-  }
-  if (!isCheckoutMetadata(loaded.paid.metadata)) return { ok: false, status: 400, error: "That payment is not a checkout." }
-  return fulfilPaidCheckout(admin, loaded.paid, opts)
-}
-
-/**
- * A payment that succeeded, from either provider, made into its order. Only
- * the few facts that differ come in `paid`; everything else is the one path
- * it always was.
+ * A payment that succeeded, made into its order. Only the few facts of the
+ * payment come in `paid`; everything else is the one path it always was.
  */
 export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { request?: Request; baseUrl: string }): Promise<Fulfilment> {
   const m = paid.metadata
-  const found = await existingOrder(admin, paid.provider, paid.paymentId, m.receipt_token)
+  const found = await existingOrder(admin, paid.paymentId, m.receipt_token)
   /* An order written over the sales limit whose refund did not go through the first time: tried again, under the same key, so once. */
   if (found && m.product_id && (await owesSoldOutRefund(admin, found.id))) {
     return refundedOverLimit(admin, paid, { orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null, productId: m.product_id, creatorId: m.creator_id, total: found.amount_cents ?? paid.amountMinor, feeCents: 0, destinationPaymentId: null, retry: true })
   }
-  if (found) {
-    return { ok: true, created: false, orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null, amountCents: found.amount_cents ?? paid.amountMinor }
-  }
-
   const productId = m.product_id
   const creatorId = m.creator_id
   const buyerId = m.buyer_id || null
@@ -246,9 +220,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     transfer_id: facts.transferId,
     provider: paid.provider,
     status: "completed",
-    /* Stripe's column for Stripe; Airwallex's payment in its own (part 76), and only then, so a Stripe insert is the one it always was. */
-    stripe_payment_intent_id: paid.provider === "stripe" ? paid.paymentId : null,
-    ...(paid.provider === "stripe" ? {} : { provider_payment_id: paid.paymentId }),
+    stripe_payment_intent_id: paid.paymentId,
     access_token: buyerId ? null : m.access_token || null,
     session_fingerprint: m.session_fingerprint || null,
     receipt_token: m.receipt_token,
@@ -275,6 +247,17 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   }
 
   /*
+    FOUND: another caller wrote this order. Its follow-ups are finished here
+    when that caller died before doing them (./followups.ts), and never run
+    a second time when it did.
+  */
+  if (found) {
+    const resumed = await resumeFollowups(admin, found.id, { log: "fulfil" })
+    if (resumed) await followUp(admin, resumed, { paid, opts, order: found, row, productId, creatorId, buyerId, buyerEmail, total, tipCents, variantId, variantName, feeCents })
+    return { ok: true, created: false, orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null, amountCents: found.amount_cents ?? paid.amountMinor }
+  }
+
+  /*
     LIMIT SALES (lib/checkout/sales-limit.ts): the copy this payment held
     when it started is taken again, and kept while the order is written. A
     payment that arrives with no copy left is still written as an order (the
@@ -287,7 +270,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   const { data: order, error } = await admin.from("orders").insert(row).select(ORDER_READ).single()
   if (error || !order) {
     /* Somebody else made it a moment ago: theirs is the order. */
-    const raced = await existingOrder(admin, paid.provider, paid.paymentId, m.receipt_token)
+    const raced = await existingOrder(admin, paid.paymentId, m.receipt_token)
     if (raced) return { ok: true, created: false, orderId: raced.id, receiptToken: raced.receipt_token, sessionFingerprint: raced.session_fingerprint ?? null, amountCents: raced.amount_cents ?? total }
     console.error("[fulfil] order insert failed", paid.paymentId, error?.code, error?.message)
     return { ok: false, status: 500, error: "The order could not be saved. The payment is safe; refresh this page in a moment." }
@@ -297,33 +280,59 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   if (!withinLimit) await markSoldOut(admin, order.id)
   if (!withinLimit) return refundedOverLimit(admin, paid, { orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null, productId, creatorId, total, feeCents, destinationPaymentId: facts.destinationPaymentId })
 
+  /* Everything after the order is recorded, step by step, so a retry finishes what a crash left (./followups.ts). */
+  const f = await beginFollowups(admin, order.id, { kind: "payment", ref: paid.paymentId, log: "fulfil" })
+  await followUp(admin, f, { paid, opts, order, row, productId, creatorId, buyerId, buyerEmail, total, tipCents, variantId, variantName, feeCents })
+
+  return { ok: true, created: true, orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null, amountCents: total }
+}
+
+interface FollowUpInput {
+  paid: PaidCheckout
+  opts: { request?: Request; baseUrl: string }
+  order: { id: string; receipt_token: string; created_at?: string | null }
+  row: { currency: string | null; buyer_country: string | null }
+  productId: string
+  creatorId: string
+  buyerId: string | null
+  buyerEmail: string
+  total: number
+  tipCents: number
+  variantId: string | null
+  variantName: string | null
+  feeCents: number
+}
+
+/**
+ * What a paid order needs after it is written: run by the caller that wrote
+ * it, and by a retry for whatever that caller did not finish. Each step is
+ * idempotent or claimed once (./followups.ts), so a retry never sends an
+ * email twice or counts a sale twice on the ledger.
+ */
+async function followUp(admin: Db, f: Followups, input: FollowUpInput): Promise<void> {
+  const { paid, opts, order, row, productId, creatorId, buyerId, buyerEmail, total, tipCents, variantId, variantName, feeCents } = input
+  const m = paid.metadata
+  const facts = paid.facts
   const origin = orderOriginFrom(m, opts.request)
   const source = orderSourceFrom(m, opts.request)
-  await tagOrderSource(admin, order.id, source, origin)
+  await f.idempotent("source", () => tagOrderSource(admin, order.id, source, origin))
   /* First and last touch and the property, from what stripe-session checked
      and put on the payment; the property follows `source` (lib/attribution).
      Only this caller made the row, and the write is once anyway. */
   const attribution = attributionFromMetadata(m, { source, origin })
-  await recordOrderAttribution(admin, order.id, attribution)
+  await f.idempotent("attribution", () => recordOrderAttribution(admin, order.id, attribution))
   /* How its price was made: the store's own, or a marketplace dollar price and its rate day (lib/money/order-pricing). */
-  await tagOrderPricing(admin, order.id, m as Record<string, string>)
+  await f.idempotent("pricing", () => tagOrderPricing(admin, order.id, m as Record<string, string>))
 
   /* Everything after the order is recorded is allowed to fail on its own:
      the buyer paid and the order exists, whatever an email server says. */
-  const step = async (name: string, fn: () => Promise<unknown>) => {
-    try {
-      await fn()
-    } catch (e) {
-      console.error(`[fulfil] ${name} failed for order ${order.id}:`, e instanceof Error ? e.message : e)
-    }
-  }
 
   /* Settings › Taxes: the tax inside the amount, as stripe-session worked it
      out, on the order for receipts and reports. Its own write, so a
      database without part 110 refuses this and nothing else. */
   const taxCents = Math.max(0, Number.parseInt(m.tax_cents || "0", 10) || 0)
   if (taxCents > 0) {
-    await step("tax", async () => {
+    await f.idempotent("tax", async () => {
       const { error: taxError } = await admin.from("orders").update({ tax_cents: Math.min(taxCents, total), tax_country: /^[A-Z]{2}$/.test(m.tax_country || "") ? m.tax_country : null }).eq("id", order.id)
       if (taxError) throw new Error(taxError.message)
       /* Part of the price or on top (SQL part 129), for the receipt's Tax row: its own write, so an older database loses only this. */
@@ -345,17 +354,17 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
      refuses this and nothing else. */
   const business = businessFromMetadata(m)
   if (business) {
-    await step("business details", async () => {
+    await f.idempotent("business details", async () => {
       const { error: kept } = await admin.from("orders").update({ business_details: business }).eq("id", order.id)
       if (kept) throw new Error(`${kept.code ?? ""} ${kept.message ?? ""}`.trim())
     })
   }
 
-  await step("customer", () => recordCustomer(admin, { creatorId, email: buyerEmail, first: m.buyer_first_name, last: m.buyer_last_name, total }))
+  await f.once("customer", () => recordCustomer(admin, { creatorId, email: buyerEmail, first: m.buyer_first_name, last: m.buyer_last_name, total }))
   /* A contact either way: subscribed when they ticked the box, a customer
      when they did not (lib/contacts/checkout-contact). A tick that puts them
      on the list starts the creator's welcome, once (lib/contacts/checkout-welcome). */
-  await step("contact", () =>
+  await f.once("contact", () =>
     recordCheckoutContactAndWelcome(admin, {
       creatorId,
       email: buyerEmail,
@@ -366,28 +375,23 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
       source: contactSourceOfOrder(origin, productId),
     }),
   )
-  await recordContactAttribution(admin, creatorId, buyerEmail, attribution)
-  await step("entitlement", () => grant(admin, { buyerId, email: buyerEmail, orderId: order.id, creatorId, productId, variantId }))
-  await step("sales count", async () => {
+  await f.idempotent("contact attribution", () => recordContactAttribution(admin, creatorId, buyerEmail, attribution))
+  await f.idempotent("entitlement", () => grant(admin, { buyerId, email: buyerEmail, orderId: order.id, creatorId, productId, variantId }))
+  await f.once("sales count", async () => {
     await admin.rpc("increment_product_sales", { p_product_id: productId })
     await admin.from("analytics_events").insert({ creator_id: creatorId, product_id: productId, event_type: "purchase" })
   })
-  if (m.coupon_id) await step("coupon use", () => recordCouponUse(admin, m.coupon_id, m.coupon_holder))
-  /* Stripe's balance is mirrored in seller_ledger; an Airwallex creator's balance is Airwallex's own
-     (their wallet), so nothing is mirrored for them: the payment's fee record says it succeeded. */
-  if (paid.provider === "stripe") {
-    await step("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId, currency: row.currency }))
-    await step("stripe processing fee", async () => {
-      if (!facts.chargeId) return
-      const { processingFeeFromChargeId, persistOrderStripeEconomics } = await import("@/lib/payments/stripe/reconcile-processing-fee")
-      const econ = await processingFeeFromChargeId(facts.chargeId)
-      if (econ) await persistOrderStripeEconomics(admin, order.id, econ)
-    })
-  } else {
-    await step("fee record", () => markFeeRecord(paid.paymentId, { status: "succeeded" }))
-  }
+  if (m.coupon_id) await f.once("coupon use", () => recordCouponUse(admin, m.coupon_id, m.coupon_holder))
+  /* Stripe's balance is mirrored in seller_ledger. */
+  await f.idempotent("ledger", () => recordSale(admin, { creatorId, orderId: order.id, total, fee: feeCents, destinationPaymentId: facts.destinationPaymentId, currency: row.currency }))
+  await f.idempotent("stripe processing fee", async () => {
+    if (!facts.chargeId) return
+    const { processingFeeFromChargeId, persistOrderStripeEconomics } = await import("@/lib/payments/stripe/reconcile-processing-fee")
+    const econ = await processingFeeFromChargeId(facts.chargeId)
+    if (econ) await persistOrderStripeEconomics(admin, order.id, econ)
+  })
 
-  await step("emails", async () => {
+  await f.once("emails", async () => {
     if (!buyerEmail) return
     const { data: product } = await admin.from("products").select("title").eq("id", productId).maybeSingle()
     /* Every paid order's receipt goes with the email as a PDF, an invoice
@@ -413,8 +417,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
           card_brand: facts.cardBrand,
           card_last4: facts.cardLast4,
           variant_name: variantName,
-          stripe_payment_intent_id: paid.provider === "stripe" ? paid.paymentId : null,
-          provider_payment_id: paid.provider === "stripe" ? null : paid.paymentId,
+          stripe_payment_intent_id: paid.paymentId,
           product: { title: product?.title ?? m.product_title ?? null, creator_id: creatorId },
         },
         { metadata: m, business },
@@ -447,7 +450,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   /* The creator's purchase automations. Only the caller that made the order
      gets here, and the engine enters each flow once per order in any case. */
   if (buyerEmail) {
-    await step("email flows", () =>
+    await f.idempotent("email flows", () =>
       triggerEmailFlows(admin, {
         triggerType: "purchase",
         creatorId,
@@ -463,7 +466,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
 
   /* The notification engine's order, sale and first sale, under the keys
      the webhook's other paths use too (lib/orders/sale-events.ts). */
-  await step("notify", () =>
+  await f.idempotent("notify", () =>
     raiseSaleEvents(admin, {
       creatorId,
       purchase: { orderId: order.id, amountCents: total, lineCount: 1 },
@@ -475,14 +478,14 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     }),
   )
 
-  await step("push", async () => {
+  await f.once("push", async () => {
     const { data: creator } = await admin.from("creators").select("user_id").eq("id", creatorId).maybeSingle()
     if (!creator?.user_id) return
     const { notifySale } = await import("@/lib/push/notifications")
     await notifySale(creator.user_id, { productName: m.product_title || "A product", amountCents: total, orderId: order.id, productId })
   })
 
-  return { ok: true, created: true, orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null, amountCents: total }
+  await f.finish()
 }
 
 /**
@@ -499,7 +502,7 @@ async function refundedOverLimit(
 ): Promise<Fulfilment> {
   console.warn("[fulfil] over the sales limit, refunding:", paid.paymentId, o.productId)
   /* The sale on the ledger once (its key is the order), on the first pass only. */
-  if (paid.provider === "stripe" && !o.retry) {
+  if (!o.retry) {
     try {
       await recordSale(admin, { creatorId: o.creatorId, orderId: o.orderId, total: o.total, fee: o.feeCents, destinationPaymentId: o.destinationPaymentId, currency: paid.currency })
     } catch (e) {
@@ -581,8 +584,9 @@ async function grant(
   if (!buyerId) return
   let q = admin.from("entitlements").select("id").eq("buyer_id", buyerId).eq("product_id", g.productId)
   q = g.variantId ? q.eq("variant_id", g.variantId) : q.is("variant_id", null)
-  const { data: owned } = await q.maybeSingle()
-  if (!owned) {
+  /* Any row is enough: two copies of the same entitlement made maybeSingle() error, read as none, and insert a third. */
+  const { data: owned } = await q.limit(1)
+  if (!(Array.isArray(owned) && owned.length > 0)) {
     await admin.from("entitlements").insert({
       buyer_id: buyerId,
       creator_id: g.creatorId,

@@ -1,12 +1,10 @@
 import "server-only"
 
 import { creatorSalesTotals } from "@/lib/analytics/creator-orders"
-import { providerPaymentsReady } from "@/lib/payments/readiness"
 import {
   SENT_CAMPAIGN_STATUSES,
   WEBSITE_LIVE_STATUS,
   factsFromRows,
-  paymentsReadyFrom,
   type ProgressFacts,
   type ProgressRows,
 } from "./progress"
@@ -77,7 +75,7 @@ export async function readProgressFacts(
   const creator = creatorRead.data
   if (!creator?.id) return null
 
-  const [products, domains, website, sales, counts, providerReady] = await Promise.all([
+  const [products, domains, website, sales, counts] = await Promise.all([
     settle<{ status?: string | null }[]>(db.from("products").select("status").eq("creator_id", creator.id)),
     /* Every column, so a database from before purposes answers too. */
     settle<ProgressRows["domains"]>(db.from("custom_domains").select("*").eq("creator_id", creator.id)),
@@ -85,12 +83,10 @@ export async function readProgressFacts(
     /* Counted over every order, by the creator (lib/analytics/creator-orders): a read of the rows stopped at 1,000. */
     input.withSales === false ? Promise.resolve(null) : creatorSalesTotals(db as Parameters<typeof creatorSalesTotals>[0], creator.id),
     readChallengeCounts(db, creator.id),
-    /* Storelib Payments on Airwallex, for a creator Stripe does not already count as set up (lib/payments/readiness). */
-    providerPaymentsReady(creator.id, paymentsReadyFrom(creator)),
   ])
 
   return factsFromRows({
-    creator: { ...creator, provider_payments_ready: providerReady },
+    creator,
     products: products.data ?? [],
     domains: domains.data ?? [],
     websiteLive: !!website.data,

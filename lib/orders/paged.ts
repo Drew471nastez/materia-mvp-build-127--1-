@@ -70,6 +70,7 @@ import { ordersCurrency } from "./money"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { codeOf, needsConversion, type ReportMoneyRow } from "@/lib/money/report-currency"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
+import { withOrderCurrency } from "@/lib/store/currency-at-read"
 import { buildIndex, orderNumbered, ordersWithin, type IndexRow, type IndexedOrder, type OrderIndex } from "./order-index"
 import { OrdersReadError, attachCheckouts, readCreatorProducts, toOrderRow, type CreatorProduct } from "./load-rows"
 
@@ -247,7 +248,8 @@ async function readRowsById(db: Db, scope: OrderScope, creatorId: string, index:
     )
     return read.rows.filter((r) => set.has(String(r.id)))
   })
-  return ownRows(out)
+  /* An order with no currency recorded is in what the store sold in on its day, as Analytics reads it (lib/store/currency-at). */
+  return withOrderCurrency(db, creatorId, ownRows(out))
 }
 
 /** Every row of these orders as the page draws them: each with its product, and a parcel's place from its checkout. */

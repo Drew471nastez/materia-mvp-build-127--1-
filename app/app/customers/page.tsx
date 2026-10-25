@@ -14,6 +14,8 @@ import { accountTimeZone } from "@/lib/account/time-zone"
 import { orderCurrency } from "@/lib/orders/money"
 import { formatMinor } from "@/lib/markets/money"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { withOrderCurrency } from "@/lib/store/currency-at-read"
+import { customerSpent, type SpentRow } from "@/lib/customers/spent"
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -58,7 +60,7 @@ export default async function CustomersPage() {
       .in("product_id", products?.map((p) => p.id) || [])
       .order("created_at", { ascending: false })
   }
-  const [{ data: customers }, { data: allOrders }, { currency: storeCurrency }] = await Promise.all([
+  const [{ data: customers }, { data: readRows }, { currency: storeCurrency }] = await Promise.all([
     admin
       .from("customers")
       .select("*")
@@ -68,6 +70,9 @@ export default async function CustomersPage() {
     /* A customer's total is in what the store sells in: a lei store's customers spent lei (lib/store/selling-currency). */
     readStoreCurrency(admin, creator.id),
   ])
+
+  /* An order with no currency recorded is in what the store sold in on its day (lib/store/currency-at), as Orders and Analytics read it. */
+  const allOrders = await withOrderCurrency(admin, creator.id, readRows ?? [], storeCurrency)
 
   /* In what the order was charged in, and a total in the platform's charge currency, every checkout's (lib/orders/money). */
   const formatPrice = (cents: number, currency?: unknown) => {
@@ -100,17 +105,10 @@ export default async function CustomersPage() {
     at its own day's ECB rate (lib/money/report-currency) and added up here;
     an order no rate converts is left out rather than counted at a guess.
   */
-  const inStore = await inStoreCurrency(admin, creator.id, (allOrders ?? []) as Array<{ created_at: string; currency?: string | null; amount_cents?: number | null; buyer_email?: string | null; status?: string | null }>, storeCurrency)
+  const inStore = await inStoreCurrency(admin, creator.id, allOrders as Array<{ created_at: string; currency?: string | null; amount_cents?: number | null; refund_amount_cents?: number | null; buyer_email?: string | null; status?: string | null }>, storeCurrency)
   const mixed = inStore.converted > 0 || inStore.unconverted > 0
-  const spentByEmail = new Map<string, number>()
-  if (mixed) {
-    for (const o of inStore.rows as Array<{ buyer_email?: string | null; status?: string | null; amount_cents?: number | null }>) {
-      if (!o.buyer_email || !["completed", "refunded", "partially_refunded"].includes(String(o.status))) continue
-      const key = o.buyer_email.trim().toLowerCase()
-      spentByEmail.set(key, (spentByEmail.get(key) ?? 0) + Math.max(0, Number(o.amount_cents) || 0))
-    }
-  }
-  const spentOf = (customer: { email: string; total_spent_cents: number }) => (mixed ? spentByEmail.get(String(customer.email || "").trim().toLowerCase()) ?? 0 : customer.total_spent_cents)
+  /* Less what was refunded (lib/customers/spent): the kept total never had a refund taken off it. */
+  const spentOf = customerSpent(inStore.rows as SpentRow[], mixed)
 
   return (
     <div className="space-y-6">

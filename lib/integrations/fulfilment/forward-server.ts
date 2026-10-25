@@ -328,12 +328,15 @@ export function providerOrderFor(order: ForwardOrder, locationId: string, autoCo
 
 /** The forward_fulfillment job. Throws only for what is worth trying again. */
 export async function forwardToProvider(db: Db, payload: Record<string, any>, deps: ForwardDeps): Promise<void> {
+  if (payload.op === "cancel") return cancelAtProvider(db, payload, deps)
   const checkoutId = String(payload.checkoutId ?? "")
   const locationId = String(payload.locationId ?? "")
   const creatorId = String(payload.creatorId ?? "")
   const integration = await integrationById(db, creatorId, String(payload.integrationId ?? ""))
   const c = connectorFor(integration?.provider)
-  const manual = (message: string, why: string) => deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message, key: `provider_manual:${checkoutId}:${locationId}:${why}`.slice(0, 200) })
+  /* Each entry names its location, so the order panel can say which partner it is about and offer Send again (lib/physical/fulfilment-state.ts). A Send again is keyed by its own try. */
+  const tryKey = typeof payload.attempt === "string" ? `:${payload.attempt.slice(0, 40)}` : ""
+  const manual = (message: string, why: string) => deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message, detail: { location_id: locationId, provider: integration?.provider ?? null }, key: `provider_manual:${checkoutId}:${locationId}:${why}${tryKey}`.slice(0, 200) })
   if (!integration || !c || integration.status !== "connected") return manual("The print partner for this order is not connected any more. Send this order to them yourself.", "gone")
   const cred = credentialOf(integration, db)
   if (!cred) return manual(`${c.name}'s key could not be read. Connect ${c.name} again in Settings > Integrations, then send this order yourself.`, "key")
@@ -353,7 +356,7 @@ export async function forwardToProvider(db: Db, payload: Record<string, any>, de
       creatorId,
       kind: "fulfillment.forwarded",
       message: sent.note ? `Order sent to ${c.name}. ${sent.note}` : sent.stage === "draft" ? `Order sent to ${c.name}. ${c.id === "cj_dropshipping" ? "Pay it in CJ to have it shipped." : "Approve it there to have it made."}` : `Order sent to ${c.name} for production.`,
-      detail: { provider: c.id, provider_order_id: sent.providerOrderId, location_id: locationId, stage: sent.stage },
+      detail: { provider: c.id, provider_order_id: sent.providerOrderId, location_id: locationId, stage: sent.stage, ...(sent.cost ? { cost_cents: sent.cost.cents, cost_currency: sent.cost.currency } : {}) },
       key: forwardedKey(checkoutId, locationId),
     })
     await db.from("commerce_integrations").update({ last_sync_at: new Date(deps.now()).toISOString(), last_error: null, status: "connected" }).eq("id", integration.id)
@@ -365,6 +368,33 @@ export async function forwardToProvider(db: Db, payload: Record<string, any>, de
     }
     throw e
   }
+}
+
+/**
+ * THE SHOP CANCELLED THE ORDER: the partner's order is cancelled too (a forward_fulfillment job with op "cancel",
+ * queued by lib/physical/jobs-server.ts queuePartnerCancels). A partner that refuses (it has started making it) is
+ * said on the order, with its reason, for the seller to cancel there. Busy or down: thrown, tried again.
+ */
+export async function cancelAtProvider(db: Db, payload: Record<string, any>, deps: ForwardDeps): Promise<void> {
+  const checkoutId = String(payload.checkoutId ?? "")
+  const locationId = String(payload.locationId ?? "")
+  const creatorId = String(payload.creatorId ?? "")
+  const providerOrderId = String(payload.providerOrderId ?? "")
+  const integration = await integrationById(db, creatorId, String(payload.integrationId ?? ""))
+  const c = connectorFor(integration?.provider ?? payload.provider)
+  const name = c?.name ?? "your partner"
+  const detail = { location_id: locationId, provider: c?.id ?? null, provider_order_id: providerOrderId }
+  const cred = integration && c && integration.status === "connected" ? credentialOf(integration, db) : null
+  if (!c || !cred || !providerOrderId) {
+    await deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message: `This order was sent to ${name}, which is not connected now. Cancel it in ${name} yourself.`, detail, key: `provider_cancel_manual:${checkoutId}:${locationId}` })
+    return
+  }
+  const r = await c.cancel(cred, providerOrderId)
+  if (r.cancelled) {
+    await deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.partner_cancelled", message: `Cancelled in ${c.name} too.`, detail, key: `provider_cancelled_ok:${checkoutId}:${locationId}` })
+    return
+  }
+  await deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message: `${c.name} did not cancel its order (${(r.note ?? "no reason given").replace(/^[^:]+:\s*/, "").slice(0, 160)}). Cancel it in ${c.name} yourself.`, detail, key: `provider_cancel_refused:${checkoutId}:${locationId}` })
 }
 
 /* ── tracking, back ───────────────────────────────────────────────────── */
@@ -402,11 +432,11 @@ export async function applyProviderState(
 ): Promise<{ finished: boolean; shipped: number }> {
   const { creatorId, checkoutId, locationId, name } = ctx
   if (state.stage === "cancelled") {
-    await deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message: `${name} cancelled its order. Send these items another way, or refund the buyer.`, key: `provider_cancelled:${checkoutId}:${locationId ?? ""}` })
+    await deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message: `${name} cancelled its order. Send these items another way, or refund the buyer.`, detail: { location_id: locationId }, key: `provider_cancelled:${checkoutId}:${locationId ?? ""}` })
     return { finished: true, shipped: 0 }
   }
   if (state.stage === "problem" && state.problem) {
-    await deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message: state.problem, key: `provider_problem:${checkoutId}:${locationId ?? ""}:${state.problem.slice(0, 40)}`.slice(0, 200) })
+    await deps.addOrderEvent(db, { checkoutId, creatorId, kind: "fulfillment.manual_needed", message: state.problem, detail: { location_id: locationId }, key: `provider_problem:${checkoutId}:${locationId ?? ""}:${state.problem.slice(0, 40)}`.slice(0, 200) })
   }
   let shipped = 0
   for (const s of state.shipments) {
@@ -438,6 +468,9 @@ export async function syncProviderTracking(db: Db, payload: Record<string, any>,
   const cred = integration ? credentialOf(integration, db) : null
   /* Disconnected since: nothing to read with, and the order's timeline already says it was sent there. */
   if (!integration || !c || !cred) return
+  /* Cancelled in Storelib: its partner order was cancelled too (cancelAtProvider), and there is nothing left to follow. */
+  const order = await deps.loadOrder(db, { creatorId, checkoutId: String(payload.checkoutId ?? "") })
+  if (order?.cancelledAt) return
   const state = await c.fetchOrder(cred, String(payload.providerOrderId ?? ""))
   const round = Number(payload.round ?? 1)
   const { finished } = await applyProviderState(db, { creatorId, checkoutId: String(payload.checkoutId), locationId: payload.locationId ? String(payload.locationId) : null, provider: c.id, name: c.name }, state, deps)
@@ -513,6 +546,8 @@ export async function handleProviderWebhook(
   const order = await deps.loadOrder(db, { creatorId: input.creatorId, checkoutId })
   const locationId = order?.lines.find((l) => l.locationId && ids.has(l.locationId))?.locationId ?? null
   if (!order || !locationId) return { status: 200, body: { ok: true, ignored: true } }
+  /* The shop cancelled it: the partner saying it cancelled too is not news, and nothing more ships. */
+  if (order.cancelledAt) return { status: 200, body: { ok: true, ignored: true } }
   const out = await applyProviderState(db, { creatorId: input.creatorId, checkoutId, locationId, provider: c.id, name: c.name }, state, deps)
   await db.from("commerce_integrations").update({ last_sync_at: new Date(deps.now()).toISOString() }).eq("id", row.id)
   return { status: 200, body: { ok: true, shipped: out.shipped } }

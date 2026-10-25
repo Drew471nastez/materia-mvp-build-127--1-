@@ -142,7 +142,7 @@ export async function countReportAnswer(
     const quick = countVisits(admin, { ...q, part: "figures" }, shared)
     const rest = countVisits(admin, { ...q, part: "detail" }, shared)
     const legacy = readLegacyOnePage(admin, q)
-    const orders = readOrders(admin, spans, q.creatorId, q.product)
+    const orders = readOrders(admin, spans, q.creatorId, q.product, q.window)
     const subscribers = q.product ? Promise.resolve(null) : readSubscribers(admin, spans, q.creatorId)
     const labels = q.selector.type === "onepage" || q.selector.type === "all" ? onePageLinkLabels(admin, q.properties.onePageId) : Promise.resolve({})
     const allTime = q.selector.type === "all" && !q.product && (q.mode ?? "all") === "all" ? allTimeOf(admin, q.creatorId) : Promise.resolve(null)

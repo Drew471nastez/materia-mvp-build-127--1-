@@ -99,3 +99,17 @@ export function checkoutIdOf(externalId: unknown): string | null {
   if (!/^[0-9a-f]{32}$/.test(hex)) return null
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
+
+/**
+ * A cancel asked of a provider: done, or refused with the provider's reason (an order being made already can't be
+ * cancelled there). Busy or down is thrown, so the job tries again.
+ */
+export async function cancelling(run: () => Promise<unknown>): Promise<{ cancelled: boolean; note: string | null }> {
+  try {
+    await run()
+    return { cancelled: true, note: null }
+  } catch (e) {
+    if (e instanceof ProviderError && !e.retry) return { cancelled: false, note: e.message.slice(0, 300) }
+    throw e
+  }
+}

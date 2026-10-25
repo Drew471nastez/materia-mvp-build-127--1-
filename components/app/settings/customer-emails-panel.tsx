@@ -56,7 +56,7 @@ import { SegmentedTabs } from "@/components/app/segmented-tabs"
 import { CommunityEmails, type CommunityRef } from "@/components/app/emails/community-emails"
 import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, languageName, sentLine } from "@/components/app/emails/email-parts"
 import { FAMILY_NAMES, GROUP_NAMES, GROUP_ORDER, emailsOf, previewCustomerEmail, type CustomerEmail, type EmailFamily, type PreviewShop } from "@/lib/emails/customer-catalog"
-import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, PLACEHOLDERS, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
+import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, placeholdersFor, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
 import { ownWordsApply, type BuyerChannel } from "@/lib/emails/buyer-channel"
 import { TRIGGERS, isTriggerType } from "@/lib/automations/flow-model"
 import type { EmailActivity, FlowActivity } from "@/lib/emails/activity-server"
@@ -353,7 +353,9 @@ const wordsKept = new Map<string, EmailWordsIn>()
  * for a language are read once (GET /api/store/emails?lang=, ?channel=storelib).
  */
 function usePreviewPlace(email: CustomerEmail | null, data: CustomerEmailsData | null | undefined) {
-  const digital = email?.family === "digital" && email.id !== "checkout_reminder"
+  /* A membership is only ever bought on Storelib (the creator page, a product page): signed by the creator, in English. */
+  const storelibOnly = !!email?.id.startsWith("membership_")
+  const digital = email?.family === "digital" && email.id !== "checkout_reminder" && !storelibOnly
   const def = data?.languages?.defaultLanguage ?? data?.language?.lang ?? "en"
   const langs = [def, ...(data?.languages?.others ?? [])]
   const [channel, setChannel] = React.useState<BuyerChannel>("website")
@@ -363,7 +365,7 @@ function usePreviewPlace(email: CustomerEmail | null, data: CustomerEmailsData |
     setChannel("website")
     setLang(def)
   }, [email?.id, def])
-  const place: BuyerChannel = digital ? channel : "website"
+  const place: BuyerChannel = storelibOnly ? "storelib" : digital ? channel : "website"
   const key = place === "storelib" ? "storelib" : lang
   if (data?.language && !wordsKept.has(data.language.lang)) wordsKept.set(data.language.lang, data.language)
   React.useEffect(() => {
@@ -400,6 +402,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const saved = asked ? savedAsked : keptSaved.current
   const id = email?.id
   const editable = !!id && !!DEFAULT_COPY[id]
+  const membership = !!id?.startsWith("membership_")
   const start = React.useMemo(() => draftOf(id, saved), [id, saved])
   const [draft, setDraft] = React.useState<Draft>(start)
   const [tab, setTab] = React.useState<"preview" | "edit">("preview")
@@ -537,7 +540,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
       <div>
         <p className="text-[12.5px] text-[#6b7280]">{tt("Placeholders fill in for each order. Tap one to add it where you're typing.")}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {PLACEHOLDERS.map((p) => (
+          {placeholdersFor(id).map((p) => (
             <button
               key={p.key}
               type="button"
@@ -555,7 +558,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
       </div>
       {checked && checked.ok === false ? <Notice>{checked.error}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("The items, totals, tracking and links stay as they are, filled in from each order.")}</p>
+      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("The price, the dates, the card and the link stay as they are, filled in from each membership.") : tt("The items, totals, tracking and links stay as they are, filled in from each order.")}</p>
       <button type="button" className={cn(BTN_GHOST, "-ml-3 sm:hidden")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset}>
         {tt("Reset to default")}
       </button>
@@ -602,12 +605,14 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
       : where.digital
         ? tt("Bought on your website: in the language the buyer used there, from {name}.", { name: shop.name })
         : null
+  /* A membership is bought on Storelib: from the creator, in English (lib/memberships/sync.ts membershipVoice). */
+  const membershipNote = membership ? tt("Bought on your creator page: in English, from {name}.", { name: creator?.name || shop.name }) : null
   const ownNote = editable && !where.language.own ? tt("Your own words go out in {language}, your website's language. Buyers in other languages get the standard words in theirs.", { language: languageName(where.def) }) : null
 
   const preview = (active: boolean) => (
     <div className="space-y-2.5" data-email-preview={id}>
       {placeControls}
-      {placeNote ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-preview-place-note="">{placeNote}</p> : null}
+      {placeNote || membershipNote ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-preview-place-note="">{placeNote || membershipNote}</p> : null}
       {ownNote ? <p className="text-[12.5px] leading-[18px] text-[#92400e]" data-preview-own-note="">{ownNote}</p> : null}
       {mail ? (
         <p className="text-[13px] text-[#6b7280]" data-email-subject="">
@@ -615,7 +620,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
         </p>
       ) : null}
       <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail?.html ?? ""} paused={!active} />
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("A sample order, drawn the way the real email is sent. The real email has the buyer's own items, address and order.")}</p>
+      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("A sample membership, drawn the way the real email is sent. The real email has the member's own plan, price and dates.") : tt("A sample order, drawn the way the real email is sent. The real email has the buyer's own items, address and order.")}</p>
     </div>
   )
 

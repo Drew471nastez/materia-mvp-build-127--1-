@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { sellerOrderNumber } from "@/lib/orders/order-number-server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadLocations } from "@/lib/physical/config-server"
-import { addNote, cancelOrder, checkoutOfOrderRow, declineBuyerCancel, fulfilItems, fulfilParcels, loadOrder, markCashCollected, markProcessing, refusedOnDelivery, moveReturn, noteRefund, openReturn, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
+import { addNote, cancelOrder, checkoutOfOrderRow, declineBuyerCancel, fulfilItems, fulfilParcels, holdOrder, loadOrder, markCashCollected, markProcessing, refusedOnDelivery, moveReturn, noteRefund, openReturn, releaseHold, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
+import { resendToPartner } from "@/lib/physical/jobs-server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { recordActivity } from "@/lib/activity/log-server"
 import { orderNumberOf } from "@/lib/receipts/rules"
@@ -42,8 +43,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
  *   return      open a return for some items
  *   return_move approve, decline, receive (restock), close a return
  *   refunded    after the existing refund route refunded lines: catch up
+ *   hold        hold fulfillment, with a reason and a note; release_hold lets it go
+ *   resend      send the order to the partner at a location again, when it never got it
  */
-const ORDER_ACTIVITY: Record<string, string> = { address: "order.address_changed", comment: "order.note", processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", tracking_auto: "order.shipment", cancel: "order.cancelled", cancel_decline: "order.cancel_declined", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded", cash_collected: "order.cash_collected", cash_refused: "order.cash_refused" }
+const ORDER_ACTIVITY: Record<string, string> = { address: "order.address_changed", comment: "order.note", processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", tracking_auto: "order.shipment", cancel: "order.cancelled", cancel_decline: "order.cancel_declined", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded", cash_collected: "order.cash_collected", cash_refused: "order.cash_refused", hold: "order.fulfillment_hold", release_hold: "order.fulfillment_hold", resend: "order.partner_resent" }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const c = await physicalCaller("orders")
@@ -151,6 +154,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     case "cash_refused":
       result = await refusedOnDelivery(c.db, c.creatorId, id)
       break
+    /* Hold fulfillment (lib/physical/fulfilment-state.ts): nothing ships or goes to a partner until it is released. */
+    case "hold":
+      result = await holdOrder(c.db, c.creatorId, id, { reason: body.reason, note: body.note })
+      break
+    case "release_hold":
+      result = await releaseHold(c.db, c.creatorId, id)
+      break
+    /* Send again: the partner at this location did not get the order. */
+    case "resend": {
+      if (!isUuid(body.locationId)) return physicalJson({ error: "Not found." }, 404)
+      const sent = await resendToPartner(c.db, c.creatorId, id, body.locationId)
+      if (sent.ok === false) return physicalJson({ error: (sent as { error: string }).error }, 400)
+      const fresh = await loadOrder(c.db, { creatorId: c.creatorId, checkoutId: id })
+      result = fresh ? { ok: true as const, order: fresh } : { ok: false as const, error: "Order not found.", status: 404 }
+      break
+    }
     default:
       return physicalJson({ error: "Unknown action." }, 400)
   }

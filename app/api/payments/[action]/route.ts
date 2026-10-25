@@ -2,20 +2,14 @@
  * ===========================================================================
  *  /api/payments/*: THE PAYMENTS HUB'S SERVER
  * ===========================================================================
- * Storelib Payments hub API (Stripe Connect or Airwallex). Each action acts
- * for the signed-in creator only; connected account ids never come from the body.
+ * Storelib Payments hub API, on Stripe Connect. Each action acts for the
+ * signed-in creator only; connected account ids never come from the body.
  *
  *   GET  overview        what the hub draws (lib/payments/service overview)
- *   POST start           { kind, country, businessName?, agree: true }
- *                        creates their Airwallex account, once
- *   POST verify          the hosted verification page's address, to go to
+ *   POST start           { kind, country, agree: true } creates their Stripe account
  *   POST component       { purpose }  a fresh, single-use session for an embedded form:
- *                        Airwallex "onboarding" | "payout_form" | "rfi", or Stripe
  *                        "stripe_onboarding" | "stripe_management" | "stripe_payouts"
- *   POST form-status     { status } what the embedded form said, for wording
- *   POST payout-account  { payload } the embedded payout form's submit()
- *   POST payout          { amountMinor, currency } a payout to their bank
- *   POST refresh         asks Airwallex again, now
+ *   POST refresh         asks Stripe again, now
  *   POST begin           { kind, country, firstName, lastName, businessName?, agree }
  *                        the Account step: creates or reuses their Stripe account
  *   POST prepare         makes sure the account is one Storelib runs, before Verify
@@ -33,9 +27,10 @@
  *                        apps' browser sheet, with a signed link for this creator
  *   POST hosted-setup    { inApp } Stripe's own setup page for this account, for the
  *                        phone app when the embedded form would ask for a Stripe sign in
+ *   POST disconnect      { confirm } lets the Stripe account go
  *
- * Errors are one sentence for the creator. Airwallex's own codes and
- * messages stay in the server log.
+ * Errors are one sentence for the creator. Stripe's own codes and messages
+ * stay in the server log.
  */
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
@@ -45,22 +40,15 @@ import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payme
 import { signSheetLink } from "@/lib/payments/stripe/app-sheet-link"
 import { startHostedSetup, startVerification, verificationStatus } from "@/lib/payments/stripe/hosted-verification"
 import {
-  addPayoutAccount,
   componentAuth,
   describe,
-  hostedFlowUrl,
-  noteFormStatus,
   beginOnboarding,
   disconnectPayoutAccount,
   overview,
   PaymentsProblem,
   prepareVerification,
-  providerFor,
-  refreshPayoutAccount,
   refreshProviderAccount,
-  requestPayout,
   startOnboarding,
-  syncAccount,
   type CreatorRef,
 } from "@/lib/payments/service"
 
@@ -115,15 +103,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   /* A document arrives as a file; everything else is JSON. */
   const form = action === "document" ? await request.formData().catch(() => null) : null
   const body = action === "document" ? {} : (((await request.json().catch(() => null)) ?? {}) as Record<string, unknown>)
-  const provider = await providerFor(creator.id)
 
-  const moves = action === "payout"
   /* Reads the flow makes on its own (polling for Stripe's answer) must not spend the budget for writes. */
   const reads = action === "details-form" || action === "identity-status" || action === "refresh" || action === "component" || action === "hosted-setup" || action === "app-sheet"
   const limited = await rateLimit({
-    bucket: moves ? "payout" : reads ? "payments-read" : "payments-setup",
+    bucket: reads ? "payments-read" : "payments-setup",
     subjects: [creator.id],
-    windows: moves ? LIMITS.payout : reads ? LIMITS.paymentsRead : LIMITS.paymentsSetup,
+    windows: reads ? LIMITS.paymentsRead : LIMITS.paymentsSetup,
     message: "That is a lot of requests in a short time. Wait a few minutes and try again.",
   })
   if (limited) return limited
@@ -137,51 +123,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         const started = await startOnboarding(creator, {
           kind,
           country: typeof body.country === "string" ? body.country : "",
-          businessName: typeof body.businessName === "string" ? body.businessName.slice(0, 120) : undefined,
-          consent: { ip: callerAddress(request), userAgent: request.headers.get("user-agent") },
         })
-        if (provider === "stripe") return NextResponse.json(started, { headers: NO_STORE })
-        return NextResponse.json(await overview(creator), { headers: NO_STORE })
-      }
-      case "verify": {
-        if (provider !== "airwallex") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
-        const url = await hostedFlowUrl(creator, originOf(request))
-        return NextResponse.json({ url }, { headers: NO_STORE })
+        return NextResponse.json(started, { headers: NO_STORE })
       }
       case "component": {
         const purpose =
-          body.purpose === "onboarding" ||
-          body.purpose === "payout_form" ||
-          body.purpose === "rfi" ||
-          body.purpose === "stripe_payouts" ||
-          body.purpose === "stripe_onboarding" ||
-          body.purpose === "stripe_management"
+          body.purpose === "stripe_payouts" || body.purpose === "stripe_onboarding" || body.purpose === "stripe_management"
             ? body.purpose
             : null
         if (!purpose) return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         return NextResponse.json(await componentAuth(creator, purpose), { headers: NO_STORE })
       }
       case "app-sheet": {
-        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         const form = body.form === "bank" ? "bank" : "setup"
         const token = signSheetLink({ c: creator.id, u: creator.userId, f: form })
         if (!token) return NextResponse.json({ error: "Try again in a moment." }, { status: 503, headers: NO_STORE })
         return NextResponse.json({ url: `${originOf(request)}/payouts-sheet#f=${form}&t=${encodeURIComponent(token)}` }, { headers: NO_STORE })
-      }
-      case "form-status": {
-        await noteFormStatus(creator, body.status)
-        return NextResponse.json({ ok: true }, { headers: NO_STORE })
-      }
-      case "payout-account": {
-        if (provider !== "airwallex") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
-        const destination = await addPayoutAccount(creator, body.payload)
-        return NextResponse.json({ destination }, { headers: NO_STORE })
-      }
-      case "payout": {
-        if (provider !== "airwallex") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
-        const amount = typeof body.amountMinor === "number" ? body.amountMinor : Number.NaN
-        const currency = typeof body.currency === "string" ? body.currency : ""
-        return NextResponse.json(await requestPayout(creator, amount, currency), { headers: NO_STORE })
       }
       case "begin": {
         if (body.agree !== true) return NextResponse.json({ error: "Agree to continue." }, { status: 400, headers: NO_STORE })
@@ -203,7 +160,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         )
       }
       case "details-form": {
-        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         /* Only an account Stripe still runs needs swapping, and that is rare: asking first cost every creator two calls to Stripe on every open. */
         try {
           return NextResponse.json(await detailsForm(creator), { headers: NO_STORE })
@@ -214,23 +170,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         }
       }
       case "details": {
-        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         const form = await submitDetails(creator, body, { ip: callerAddress(request), userAgent: request.headers.get("user-agent") })
         return NextResponse.json({ form, overview: await overview(creator) }, { headers: NO_STORE })
       }
       case "document": {
-        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         const file = form?.get("file")
         const result = await uploadDocument(creator, { which: String(form?.get("which") ?? ""), side: String(form?.get("side") ?? ""), file: file instanceof File ? file : null })
         return NextResponse.json({ form: result }, { headers: NO_STORE })
       }
       case "bank": {
-        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         const form = await addBank(creator, body)
         return NextResponse.json({ form, overview: await overview(creator) }, { headers: NO_STORE })
       }
       case "identity": {
-        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         await prepareVerification(creator)
         /*
          * WHERE STRIPE SENDS THEM BACK TO. A browser goes to Payouts with
@@ -246,7 +198,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         return NextResponse.json(started, { headers: NO_STORE })
       }
       case "hosted-setup": {
-        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         /*
           The app's sheet comes back to /stripe-done, outside /app: the sheet is the system browser's, without the app's
           sign in, and an /app address there was sent to the log in page. Anywhere else comes back to setup.
@@ -259,7 +210,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         return NextResponse.json(started, { headers: NO_STORE })
       }
       case "identity-status": {
-        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         const view = await verificationStatus(creator)
         return NextResponse.json({ ...view, form: await detailsForm(creator) }, { headers: NO_STORE })
       }
@@ -272,9 +222,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       }
       case "refresh": {
         await refreshProviderAccount(creator.id, "creator")
-        if (provider === "airwallex") {
-          await refreshPayoutAccount(creator).catch((e) => console.error("[payments api] payout account refresh", describe(e)))
-        }
         return NextResponse.json(await overview(creator), { headers: NO_STORE })
       }
       default:
@@ -286,7 +233,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
 }
 
 /**
- * Where the hosted page sends them back to: the address they are on. Not the
+ * Where Stripe's hosted page sends them back to: the address they are on. Not the
  * configured site URL, which on a preview deployment testing the sandbox is
  * still storelib.com and would drop them on production.
  */

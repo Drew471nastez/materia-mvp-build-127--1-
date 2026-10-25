@@ -218,13 +218,8 @@ export interface ProductFact {
   hasFile: boolean
 }
 export interface PaymentFact {
-  /**
-   * Who pays this creator: Stripe, or Storelib Payments on Airwallex
-   * (lib/payments) when an Airwallex account row exists for them. For
-   * Airwallex the booleans below are Airwallex's answer: set up means an
-   * ACTIVE account with a payout account (lib/payments/model checkoutOpen).
-   */
-  provider?: "stripe" | "airwallex"
+  /** Who pays this creator: Stripe, the only payments provider. */
+  provider?: "stripe"
   stripeAccountId: string | null
   chargesEnabled: boolean
   payoutsEnabled: boolean
@@ -800,29 +795,6 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
       const c = data as Record<string, unknown>
       /* select *, so a database without part 63's columns simply reads nothing here. */
       const asked = Array.isArray(c.stripe_requirements) ? c.stripe_requirements.filter((r): r is string => typeof r === "string" && r.length > 0).slice(0, 30) : null
-      /* On Airwallex (run-now part 76), its account decides. A database without the table reads nothing and Stripe answers, as before. */
-      const { data: awx, error: awxError } = await db
-        .from("payment_accounts")
-        .select("provider_account_id, lifecycle_status, payout_beneficiary_id")
-        .eq("creator_id", creatorId)
-        .eq("provider", "airwallex")
-        .maybeSingle()
-      const a = !awxError && awx ? (awx as { provider_account_id: string | null; lifecycle_status: string | null; payout_beneficiary_id: string | null }) : null
-      if (a) {
-        const active = !!a.provider_account_id && a.lifecycle_status === "ACTIVE"
-        const ready = active && !!a.payout_beneficiary_id
-        return {
-          provider: "airwallex",
-          stripeAccountId: null,
-          chargesEnabled: active,
-          payoutsEnabled: ready,
-          detailsSubmitted: a.lifecycle_status !== null && a.lifecycle_status !== "CREATED",
-          status: ready ? "connected" : a.provider_account_id ? "pending" : null,
-          /* Airwallex's own asks are announced by its webhook (lib/payments/airwallex/events), not re-read here. */
-          requirements: null,
-          requirementsDueBy: null,
-        }
-      }
       return {
         provider: "stripe",
         stripeAccountId: typeof c.stripe_account_id === "string" ? c.stripe_account_id : null,

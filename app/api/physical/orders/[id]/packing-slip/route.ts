@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller } from "@/lib/physical/auth"
 import { checkoutOfOrderRow, loadOrder } from "@/lib/physical/orders-server"
-import { packingSlipHtml, slipLines } from "@/lib/physical/packing-slip"
+import { packingSlipHtml, paperAsked, slipLines, slipPaper } from "@/lib/physical/packing-slip"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { creatorTimeZone } from "@/lib/account/time-zone"
 import { getServerTt } from "@/lib/i18n/server"
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
  * ===========================================================================
  *  ONE ORDER'S PACKING SLIP, AS A PAGE TO PRINT
  * ===========================================================================
- * GET /api/physical/orders/<checkout or line id>/packing-slip[?f=<shipment>|?loc=<location>]
+ * GET /api/physical/orders/<checkout or line id>/packing-slip[?f=<shipment>|?loc=<location>][&paper=a4|letter][&prices=1]
  *
  * A whole HTML page (lib/physical/packing-slip.ts), the shop's own order only
  * (physicalCaller: the owner, or a team member whose role has orders). On a
@@ -55,10 +55,26 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const [store, zone, { tt, language }] = await Promise.all([storeIdentity(c.db, c.creatorId, { logoOnly: true }).catch(() => null), creatorTimeZone(c.db, c.creatorId), getServerTt()])
   const lines = slipLines(order, { shipmentId, locationId: isUuid(loc) ? loc : null })
   const shipmentIndex = shipmentId ? order.shipments.findIndex((s) => s.id === shipmentId) : -1
+  /* A4 or Letter, prices or none: the bar's links are this same page with the one thing changed. */
+  const paper = paperAsked(url.searchParams.get("paper"))
+  const withPrices = url.searchParams.get("prices") === "1"
+  const linkTo = (change: Record<string, string | null>) => {
+    const q = new URLSearchParams(url.searchParams)
+    for (const [k, v] of Object.entries(change)) {
+      if (v === null) q.delete(k)
+      else q.set(k, v)
+    }
+    return `${url.pathname}?${q.toString()}`
+  }
+  const whole = !shipmentId && !isUuid(loc)
   const html = packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null }, {
     tt,
     lang: language,
     timeZone: zone,
+    paper,
+    paperShown: slipPaper(paper, request.headers.get("accept-language")),
+    prices: withPrices ? { currency: order.currency, totals: whole ? order : null } : null,
+    controls: { a4: linkTo({ paper: "a4" }), letter: linkTo({ paper: "letter" }), prices: linkTo({ prices: withPrices ? null : "1" }) },
     /* The Orders page opens an order by one of its lines. */
     back: `/app/orders?order=${encodeURIComponent(order.lines[0]?.orderId ?? order.id)}`,
     shipmentLabel: shipmentIndex >= 0 ? tt("Package {n} of {total}", { n: shipmentIndex + 1, total: order.shipments.filter((s) => s.status !== "cancelled").length || 1 }) : null,

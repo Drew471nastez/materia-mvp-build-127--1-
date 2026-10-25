@@ -250,7 +250,7 @@ async function main() {
     check("a platform price is written in its own currency, never converted", /10/.test(formatPlatformMoney(1000, "EUR")) && !/50/.test(formatPlatformMoney(1000, "EUR")))
     check("the unused rate route with its fallback rates is gone", !existsSync("app/api/fx/route.ts"))
     check("no Frankfurter anywhere in the app", !/frankfurter/i.test(code("app/api/stripe/cashout/route.ts")) && !existsSync("lib/exchange-rate.ts"))
-    for (const f of ["lib/checkout/fulfil-payment.ts", "lib/memberships/sync.ts", "lib/stripe/refund-sync.ts", "app/api/invoice/route.ts", "app/api/stripe/refund/route.ts", "app/api/admin/orders/refund/route.ts", "app/api/cron/release-holds/route.ts", "lib/payments/refunds.ts"]) {
+    for (const f of ["lib/checkout/fulfil-payment.ts", "lib/memberships/sync.ts", "lib/stripe/refund-sync.ts", "app/api/invoice/route.ts", "app/api/stripe/refund/route.ts", "app/api/admin/orders/refund/route.ts", "app/api/cron/release-holds/route.ts"]) {
       check(`${f}: no "usd" written for an unknown currency`, !/(\|\||\?\?) ?["']usd["']/i.test(code(f)) && !/currency: ["']usd["']/i.test(code(f)))
     }
     check("a notification never writes $ (or a bare number) for a currency nobody recorded", notifyMoney(1234, null) === "" && /€|EUR/.test(notifyMoney(1234, "eur")))

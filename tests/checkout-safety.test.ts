@@ -148,7 +148,7 @@ async function main() {
     check("the session fingerprint is repeatable too", cartFingerprint("cs_test_1") === cartFingerprint("cs_test_1"))
     const complete = read("app/api/checkout/cart/complete/route.ts")
     check("the buyer's return and the webhook share one fulfilment", /fulfilCartSession\(/.test(complete) && /fulfilCartSession\(supabaseAdmin/.test(read("app/api/stripe/webhook/route.ts")))
-    check("a line written by the other caller counts as there, not as a failure", /error\?\.code === "23505"\) return \{ status: "exists" \}/.test(read("lib/checkout/fulfil-cart-item.ts")))
+    check("a line written by the other caller counts as there, not as a failure", /* Round AE: it answers the other caller's order id too, so a retry can finish its follow-ups. */ /error\?\.code === "23505"\) \{[\s\S]{0,500}return \{ status: "exists", orderId:/.test(read("lib/checkout/fulfil-cart-item.ts")))
     check("the cart is rate limited", /bucket: "payment"/.test(read("app/api/checkout/cart/route.ts")))
   }
 

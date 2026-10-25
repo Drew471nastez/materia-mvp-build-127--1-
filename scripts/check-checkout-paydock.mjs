@@ -2,8 +2,8 @@
  * ===========================================================================
  *  CHECKOUT ON A PHONE: PAY IN REACH, AND WHAT IS MISSING FOUND (round 21)
  * ===========================================================================
- * The real checkout (scripts/render-checkout-paydock.tsx, the Airwallex path,
- * so no Stripe network) on a 390x844 phone:
+ * The real checkout (scripts/render-checkout-paydock.tsx, a free product, so
+ * no Stripe network) on a 390x844 phone:
  *
  *   IN PLACE   Pay is never pinned to the screen (round 11, the owner: no
  *              sticky Buy button in any checkout): at the top of a long

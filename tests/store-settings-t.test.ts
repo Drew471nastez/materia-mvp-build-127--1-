@@ -80,7 +80,7 @@ console.log("\nBoth checkouts read the settings, and the routes check them\n")
 console.log("\nThe store's name is what orders are from\n")
 {
   check("the sender name prefers Settings › Store details", /from\("store_settings"\)\.select\("store_name"\)/.test(read("lib/email.tsx")))
-  check("the physical checkout's header too", /checkoutBrand\(db, shop\)/.test(read("app/checkout/physical/page.tsx")) && /str\(settings\?\.store_name\) \|\| str\(profile\?\.display_name\)/.test(read("lib/checkout/brand-server.ts")))
+  check("the physical checkout's header too", /checkoutBrand\(db, shop\)/.test(read("app/checkout/physical/page.tsx")) && /* Changed on purpose (round AE4): the name is lib/store/logo-server chooseStoreName, the one receipts use too: store name, website brand, then the profile's display name. */ /chooseStoreName\(\{ store: settings\?\.store_name, theme, profile, creator \}/.test(read("lib/checkout/brand-server.ts")) && /return str\(c\.store\) \|\| brand \|\| str\(c\.profile\?\.display_name\)/.test(read("lib/store/logo-server.ts")))
 }
 
 console.log("\nSettings has both sections, for every store\n")

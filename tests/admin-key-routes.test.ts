@@ -55,8 +55,6 @@ const PROOFS: [string, RegExp][] = [
   ["the admin password", /isAdminAuthenticated|await requireAdmin\(\)/],
   ["a shared secret, failing closed", /requireBearerSecret\(/],
   ["a signature on the payload", /constructEvent|HOOK_SECRET/],
-  /* app/api/payments/airwallex/webhook: x-timestamp and x-signature, HMAC over the raw body, before anything is parsed. */
-  ["Airwallex's signature on the payload", /verifyAirwallexSignature\(\{\s*rawBody: raw,/],
   /* An agent connected to one site: its token, hashed, looked up, revocable.
      See lib/agent-access/tokens.ts. */
   ["a site connection token", /await authenticateAgent\(request\)/],
@@ -121,7 +119,6 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
 
   // Buyers. A buyer does not have an account on this platform.
   "checkout/confirm-payment/route.ts": "keyed by the Stripe payment intent and its client secret, which only the paying page holds",
-  "payments/airwallex/return/route.ts": "keyed by the Airwallex payment intent and its client secret, which only the paying tab holds (lib/payments/checkout)",
   "checkout/invoice/route.ts": "the receipt token is the credential",
   "checkout/site/route.ts": "a website's own checkout, a buyer paying (who may be a guest): only on a host that is a creator's published website, whose shop it is (siteOfRequest, from the database), every price the server's and another shop's products refused; an account first comes from the website's own signed session cookie when the store asks for one; the payment is confirmed with its client secret, which only the paying page holds; rate limited like the other payment routes",
   "receipt/[token]/assets/route.ts": "the receipt token in the path is the credential",
@@ -163,7 +160,8 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "newsletter/route.ts": "a visitor asking Storelib itself for news from the storelib.com footer; rate limited, and it tells the caller nothing about the list",
   "onepage/email-capture/route.ts": "a visitor leaving their email on a public page",
   "store/ga-seen/route.ts": "a store's own Google Analytics tag saying Google took a hit with the store's measurement ID; kept only when the ID is the one that store saved, one database question a minute a store, nothing about the visitor",
-  "track-view/route.ts": "records a page view for a visitor with no session; the creator, product and property are checked against the database in lib/analytics/collect",
+  "analytics/own/route.ts": "the owner's hand-off on the site's own host, before any session can reach it; the service role only writes the token down as used in rate_limit_hits (lib/analytics/own-marker consumeOwnHandoff), and only for a token this server signed",
+  "track-view/route.ts":"records a page view for a visitor with no session; the creator, product and property are checked against the database in lib/analytics/collect",
   "track-event/route.ts": "records an anonymous event, by the same pipeline and the same checks as a page view",
   "onepage/track/route.ts": "a OnePage link click from a visitor; whose OnePage it is comes from the onepages row, and the analytics copy goes through lib/analytics/collect",
   "blog/track/route.ts": "records a blog page view",

@@ -5,6 +5,7 @@ import { byCreator, ownRows, scopedOrders } from "@/lib/analytics/creator-orders
 import { imagesOnly } from "@/lib/media/video"
 import { currencyCode } from "@/lib/markets/money"
 import { orderCurrency } from "./money"
+import { withOrderCurrency } from "@/lib/store/currency-at-read"
 
 /**
  * AN ORDER ROW AS THE ORDERS PAGE READS IT, AND EVERY ONE AT ONCE
@@ -59,7 +60,7 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     receipt_token: order.receipt_token ?? null,
     stripe_session_id: order.stripe_session_id ?? null,
     stripe_payment_intent_id: order.stripe_payment_intent_id ?? null,
-    /* Who took the payment, so a sale paid on Airwallex can be refunded from its page too. */
+    /* Who took the payment: a sale paid through Airwallex before it was removed shows it, and offers no Refund (lib/payments/past-provider). */
     provider: order.provider ?? null,
     provider_payment_id: order.provider_payment_id ?? null,
     currency: orderCurrency(order.currency),
@@ -137,7 +138,8 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
   const products = productsOf(productsData)
 
   const byId = new Map(products.map((p) => [p.id, p]))
-  const rows = ordersData.map((order) => toOrderRow(order, byId.get(order.product_id)))
+  /* An order with no currency recorded is in what the store sold in on its day (lib/store/currency-at), as Analytics reads it. */
+  const rows = (await withOrderCurrency(admin, creatorId, ordersData)).map((order) => toOrderRow(order, byId.get(order.product_id)))
   await attachCheckouts(admin, creatorId, rows)
   return { products, rows }
 }

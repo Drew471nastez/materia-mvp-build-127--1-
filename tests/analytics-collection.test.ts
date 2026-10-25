@@ -62,6 +62,8 @@ function world(opts: { beforePart53?: boolean } = {}): FakeSupabase {
   const db = new FakeSupabase()
   db.clock = START
   db.table("profiles", {}, [{ id: ANA_USER, username: "ana" }, { id: BEE_USER, username: "bee" }])
+  /* Where a hand-off is written down as used (lib/analytics/own-marker consumeOwnHandoff). */
+  db.table("rate_limit_hits", {}, [])
   db.table("creators", {}, [{ id: ANA, user_id: ANA_USER, slug: "ana" }, { id: BEE, user_id: BEE_USER, slug: "bee" }])
   db.table("products", {}, [{ id: ANA_EBOOK, creator_id: ANA }, { id: BEE_PRODUCT, creator_id: BEE }])
   db.table("store_theme_installs", {}, [
@@ -422,6 +424,11 @@ async function main() {
     const handedOff = await ask(db, { body: { creatorId: ANA, href: "https://ana-shop.example/about", sessionId: "own-h1", visitorId: "own-vh1", own: String(signOwnHandoff(ANA, db.clock)) }, ip: "203.0.113.41" })
     check("a view carrying the app's hand-off is the creator's own, not a visitor", !handedOff.recorded && handedOff.reason === "own", handedOff.reason)
     check("  and its answer marks this browser on this host for the creator", marksOwner(handedOff.ownMarker, ANA, db.clock), handedOff.ownMarker)
+    /* Round AE4: a hand-off is taken once on a host, so a copied link with #sl_own= on it marks nobody else's browser. */
+    const copied = String(signOwnHandoff(ANA, db.clock))
+    await ask(db, { body: { creatorId: ANA, href: "https://ana.storelib.com/", sessionId: "own-c1", visitorId: "own-vc1", own: copied }, ip: "203.0.113.45" })
+    const copiedAgain = await ask(db, { body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-c2", visitorId: "own-vc2", own: copied }, ip: "203.0.113.46" })
+    check("  the same hand-off opened again on that host, by another browser, is a visit and marks nothing", copiedAgain.recorded && !copiedAgain.ownMarker, copiedAgain.reason)
     const handedOther = await ask(db, { body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-h2", visitorId: "own-vh2", own: String(signOwnHandoff(BEE, db.clock)) }, ip: "203.0.113.42" })
     check("  another creator's hand-off is no mark for this one", handedOther.recorded && !handedOther.ownMarker, handedOther.reason)
     const handedStale = await ask(db, { body: { creatorId: ANA, href: "https://ana.storelib.com/about", sessionId: "own-h3", visitorId: "own-vh3", own: String(signOwnHandoff(ANA, db.clock - 31 * 60_000)) }, ip: "203.0.113.43" })

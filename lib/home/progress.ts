@@ -151,19 +151,11 @@ export interface PaymentsRow {
   stripe_onboarding_status?: string | null
   charges_enabled?: boolean | null
   payouts_enabled?: boolean | null
-  /**
-   * Storelib Payments on Airwallex answered for this creator
-   * (lib/payments/readiness): true when checkout there would take money.
-   * Not a column: set by the loader that read the row.
-   */
-  provider_payments_ready?: boolean | null
 }
 
-/** Stripe can take a buyer's money and pay it out, or Airwallex can. Payouts alone is not enough: a card could not be charged. */
-/** Checkout can take money for this creator: Storelib's one rule (lib/payments/stripe/readiness), or Airwallex's answer. */
+/** Checkout can take money for this creator: Storelib's one rule (lib/payments/stripe/readiness). Payouts alone is not enough: a card could not be charged. */
 export function paymentsReadyFrom(creator: PaymentsRow | null | undefined): boolean {
   if (!creator) return false
-  if (creator.provider_payments_ready === true) return true
   return rowCanAcceptPayments(creator)
 }
 

@@ -34,6 +34,7 @@
  *
  * NOTHING HERE LOGS THE QUERY. It can be somebody's email address.
  */
+import { withOrderCurrency } from "@/lib/store/currency-at-read"
 import { groupOrders, matchesSearch, type Order, type OrderRow } from "@/lib/orders/order-view"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
@@ -183,7 +184,7 @@ const ORDER_COLUMNS =
   "id, product_id, created_at, stripe_session_id, amount_cents, tip_cents, status, buyer_email, customer_email, buyer_first_name, buyer_last_name, refund_amount_cents, currency"
 
 /** Every order row on the creator's products, a thousand at a time, as the Orders page reads them. */
-async function readOrderRows(db: Db, products: ProductIndex[]): Promise<OrderRow[]> {
+async function readOrderRows(db: Db, creatorId: string, products: ProductIndex[]): Promise<OrderRow[]> {
   if (products.length === 0) return []
   const productIds = products.map((p) => p.id)
   const byId = new Map(products.map((p) => [p.id, p]))
@@ -202,9 +203,10 @@ async function readOrderRows(db: Db, products: ProductIndex[]): Promise<OrderRow
     rows.push(...list)
     if (list.length < 1000) break
   }
-  /* The same fields, with the same fallbacks, as lib/orders/load-rows.ts. */
+  /* The same fields, with the same fallbacks, as lib/orders/load-rows.ts: an order with no currency recorded in what the store sold in on its day (lib/store/currency-at). */
+  const filled = await withOrderCurrency(db, creatorId, rows)
   const nullable = (v: unknown) => (v === undefined ? null : (v as string | null))
-  return rows.map((o) => {
+  return filled.map((o) => {
     const product = byId.get(text(o.product_id))
     const row: OrderRow = {
       id: text(o.id),
@@ -240,7 +242,7 @@ const orderIndex = new Map<string, { at: number; read: Promise<Order[]> }>()
 function cachedOrders(db: Db, creatorId: string, products: ProductIndex[], now = Date.now()): Promise<Order[]> {
   const hit = orderIndex.get(creatorId)
   if (hit && now - hit.at < ORDER_INDEX_MS) return hit.read
-  const read = readOrderRows(db, products).then(groupOrders)
+  const read = readOrderRows(db, creatorId, products).then(groupOrders)
   orderIndex.set(creatorId, { at: now, read })
   /* A failed read is not kept: the next search reads again. */
   read.catch(() => {

@@ -690,9 +690,12 @@ export function WebsiteBuilderClient({
   username,
   siteHandle = null,
   listings = builtinListings(),
+  account = null,
 }: {
   installs: WebsiteSummary[]
   username: string
+  /** The signed in account, which the Last 30 days line is kept under. */
+  account?: string | null
   /** The website's own name on Storelib, when it has one apart from the username. */
   siteHandle?: string | null
   /** The marketplace's themes, Storelib's own first (lib/themes/marketplace-server.ts). */
@@ -1429,7 +1432,7 @@ export function WebsiteBuilderClient({
                         <dd className="text-right font-medium text-[#1a1a2e]">{since(live.saved_at)}</dd>
                       </div>
                       {/* Its visitors and orders in the last 30 days, opening Analytics filtered to this website (components/app/analytics-summary-line). */}
-                      <AnalyticsSummaryFact property={`website:${live.id}`} />
+                      <AnalyticsSummaryFact property={`website:${live.id}`} account={account} />
                       {live.theme && live.theme.name !== live.name && (
                         <div className="flex items-center justify-between gap-4 py-2.5">
                           <dt className="text-[#6b7280]">{tt("Theme")}</dt>

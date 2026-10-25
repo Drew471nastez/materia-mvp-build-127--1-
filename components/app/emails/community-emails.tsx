@@ -9,13 +9,18 @@
  * settings, which now opens this: app/app/community/[id]/settings/page.tsx).
  * The same data and the same routes as before, so nothing saved moved:
  *
- *   Welcome, Request approved, Invite    the community's own subject, heading
- *                                        and opening line (community_email_
- *                                        templates, PUT .../emails/templates)
+ *   Members, Event tickets,              the community's own subject, heading,
+ *   Paid membership                      opening line and button, with the
+ *                                        values each email can name
+ *                                        (lib/emails/community-words.ts;
+ *                                        community_email_templates, PUT
+ *                                        .../emails/templates). The facts of
+ *                                        a ticket or a payment stay as they are.
  *   Email your members                   the owner's own email, one a day
  *                                        (community_broadcasts, POST .../emails)
- *   the four ticket emails               Storelib's words about someone's
- *                                        money: a preview, nothing to change
+ *
+ * Send test draws the email being typed and sends it to the owner's own
+ * inbox (POST .../emails/test); Reset to default deletes the row.
  *
  * Every preview is the email a member gets, drawn on the server by the
  * template that sends it with the community's own name and its owner's
@@ -31,6 +36,7 @@ import { BTN_GHOST, BTN_PRIMARY, FIELD, Field, Notice, SaveButton, TextInput, ap
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { COMMUNITY_EMAILS, GROUP_NAMES, type CustomerEmail } from "@/lib/emails/customer-catalog"
+import { COMMUNITY_DEFAULT_WORDS, COMMUNITY_WORD_LIMITS, communityValuesFor, isCommunityWordKind, unknownCommunityValues } from "@/lib/emails/community-words"
 import type { Sent } from "@/lib/emails/activity-server"
 import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, SlidingPanes, sentLine } from "./email-parts"
 
@@ -40,17 +46,21 @@ export interface CommunityRef {
   slug: string
 }
 
-type Words = { subject: string; heading: string; intro: string }
+type Words = { subject: string; heading: string; intro: string; button: string }
+type WordField = keyof Words
 type Broadcast = { id: string; subject: string; status: "sending" | "sent" | "failed"; sentCount: number; createdAt: string; sentAt: string | null; authorName: string | null }
-type Loaded = { emails: { ready: boolean; audience: number; nextAt: string | null; recent: Broadcast[] }; words: { ready: boolean; words: Partial<Record<string, Words>> } }
+type Loaded = { emails: { ready: boolean; audience: number; nextAt: string | null; recent: Broadcast[] }; words: { ready: boolean; words: Partial<Record<string, Partial<Words>>> } }
 
-const EMPTY: Words = { subject: "", heading: "", intro: "" }
-const LIMITS = { subject: 120, heading: 120, intro: 600 }
+const EMPTY: Words = { subject: "", heading: "", intro: "", button: "" }
+const LIMITS = COMMUNITY_WORD_LIMITS
+const WORD_FIELDS: WordField[] = ["subject", "heading", "intro", "button"]
 const SUBJECT_MAX = 120
 const MESSAGE_MAX = 4000
 const PHONE_SAFE = "text-[16px] sm:text-[14px]"
 
-const edited = (w: Words | undefined) => !!w && (!!w.subject || !!w.heading || !!w.intro)
+/** Saved words with every field there (a row from before the button reads as no button). */
+const full = (w: Partial<Words> | undefined): Words => ({ subject: w?.subject ?? "", heading: w?.heading ?? "", intro: w?.intro ?? "", button: w?.button ?? "" })
+const edited = (w: Partial<Words> | undefined) => !!w && (!!w.subject || !!w.heading || !!w.intro || !!w.button)
 
 export function CommunityEmails({ community, sent, days, bare }: { community: CommunityRef; sent: Record<string, Sent> | null; days: number; bare: boolean }) {
   const [loaded, setLoaded] = React.useState<Loaded | null>(null)
@@ -73,7 +83,7 @@ export function CommunityEmails({ community, sent, days, bare }: { community: Co
 
   const words = loaded?.words.words ?? {}
   const last = loaded?.emails.recent[0]
-  const groups = (["members", "tickets"] as const).map((g) => ({ g, rows: COMMUNITY_EMAILS.filter((e) => e.group === g) }))
+  const groups = (["members", "tickets", "plans"] as const).map((g) => ({ g, rows: COMMUNITY_EMAILS.filter((e) => e.group === g) }))
   return (
     <div data-community-emails={community.id}>
       {groups.map(({ g, rows }) => (
@@ -95,7 +105,7 @@ export function CommunityEmails({ community, sent, days, bare }: { community: Co
       <CommunityEmailSheet
         community={community}
         email={open}
-        saved={open?.community ? words[open.community] : undefined}
+        saved={open?.community && words[open.community] ? full(words[open.community]) : undefined}
         onSaved={(kind, w) => setLoaded((l) => (l ? { ...l, words: { ...l.words, words: { ...l.words.words, [kind]: w } } } : l))}
         onClose={() => setOpen(null)}
       />
@@ -112,14 +122,14 @@ export function CommunityEmails({ community, sent, days, bare }: { community: Co
 
 /** The email a member gets, drawn by the server a moment after the typing stops. */
 function useServerPreview(communityId: string, body: Record<string, unknown> | null) {
-  const [mail, setMail] = React.useState<{ subject: string; html: string } | null>(null)
+  const [mail, setMail] = React.useState<{ subject: string; html: string; fromName?: string | null } | null>(null)
   const key = body ? JSON.stringify(body) : ""
   React.useEffect(() => {
     if (!key) return
     let live = true
     const t = window.setTimeout(() => {
-      void api<{ subject: string; html: string }>(`/api/app/community/${communityId}/emails/preview`, { method: "POST", body: JSON.parse(key) }).then((r) => {
-        if (live && r.ok) setMail({ subject: r.data.subject, html: r.data.html })
+      void api<{ subject: string; html: string; fromName?: string | null }>(`/api/app/community/${communityId}/emails/preview`, { method: "POST", body: JSON.parse(key) }).then((r) => {
+        if (live && r.ok) setMail({ subject: r.data.subject, html: r.data.html, fromName: r.data.fromName ?? null })
       })
     }, 280)
     return () => {
@@ -130,7 +140,7 @@ function useServerPreview(communityId: string, body: Record<string, unknown> | n
   return mail
 }
 
-/** One community email: its words and its preview, or the preview alone for a ticket email. */
+/** One community email: its words, the values they can name, its preview as a member gets it, and a test to the owner's inbox. */
 function CommunityEmailSheet({ community, email: asked, saved, onSaved, onClose }: { community: CommunityRef; email: CustomerEmail | null; saved: Words | undefined; onSaved: (kind: string, w: Words) => void; onClose: () => void }) {
   const phone = usePhoneWidth()
   /* The last email stays in the sheet while it slides away, as the store's editor keeps it. */
@@ -138,21 +148,66 @@ function CommunityEmailSheet({ community, email: asked, saved, onSaved, onClose 
   if (asked) kept.current = asked
   const email = asked ?? kept.current
   const kind = email?.community ?? ""
-  const editable = !!email?.editable
+  const editable = !!email?.editable && isCommunityWordKind(kind)
+  const hints = isCommunityWordKind(kind) ? COMMUNITY_DEFAULT_WORDS[kind] : EMPTY
+  const values = communityValuesFor(kind)
   const [draft, setDraft] = React.useState<Words>(saved ?? EMPTY)
   const [tab, setTab] = React.useState<"preview" | "edit">("preview")
   const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
   const [error, setError] = React.useState<string | null>(null)
+  const [test, setTest] = React.useState<{ state: "sending" } | { state: "sent"; to: string } | { state: "failed"; error: string } | null>(null)
+  const last = React.useRef<{ field: WordField; el: HTMLInputElement | HTMLTextAreaElement } | null>(null)
+  const caret = React.useRef<{ el: HTMLInputElement | HTMLTextAreaElement; at: number } | null>(null)
   React.useEffect(() => {
     if (!asked) return
     setDraft(saved ?? EMPTY)
     setTab("preview")
     setState("idle")
     setError(null)
+    setTest(null)
+    last.current = null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asked?.id])
-  const mail = useServerPreview(community.id, asked && kind ? (editable ? { kind, ...draft } : { kind }) : null)
+  /* After a value goes in, the cursor stands right after it, in the field it went into. */
+  React.useLayoutEffect(() => {
+    const c = caret.current
+    if (!c) return
+    caret.current = null
+    try {
+      c.el.focus({ preventScroll: true })
+      c.el.setSelectionRange(c.at, c.at)
+    } catch {
+      /* A field that went away keeps nothing. */
+    }
+  }, [draft])
+  /* A value the email cannot fill in is named before anything is saved, as the store's editor does. */
+  const unknown = editable ? WORD_FIELDS.flatMap((f) => unknownCommunityValues(kind, draft[f]))[0] ?? null : null
+  const mail = useServerPreview(community.id, asked && kind ? (editable && !unknown ? { kind, ...draft } : { kind }) : null)
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved ?? EMPTY)
+
+  const insert = (key: string) => {
+    const token = `{{${key}}}`
+    const at = last.current
+    const field: WordField = at?.field ?? "intro"
+    const value = draft[field]
+    const el = at?.el
+    const from = el && typeof el.selectionStart === "number" ? el.selectionStart : value.length
+    const to = el && typeof el.selectionEnd === "number" ? el.selectionEnd : value.length
+    const next = `${value.slice(0, from)}${token}${value.slice(to)}`.slice(0, LIMITS[field])
+    if (el) caret.current = { el, at: Math.min(next.length, from + token.length) }
+    setDraft((d) => ({ ...d, [field]: next }))
+  }
+  const remember = (field: WordField) => (e: React.SyntheticEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    last.current = { field, el: e.currentTarget }
+  }
+
+  /* The email as it is on screen, words being typed included, to the owner's own inbox. */
+  const sendTest = async () => {
+    if (!kind || test?.state === "sending") return
+    setTest({ state: "sending" })
+    const r = await api<{ sentTo: string }>(`/api/app/community/${community.id}/emails/test`, { method: "POST", body: { kind, ...(editable && !unknown ? draft : {}) } })
+    setTest(r.ok ? { state: "sent", to: r.data.sentTo } : { state: "failed", error: r.error })
+  }
 
   const save = async (next: Words) => {
     setState("saving")
@@ -170,22 +225,45 @@ function CommunityEmailSheet({ community, email: asked, saved, onSaved, onClose 
     if (editable && dirty && !window.confirm(tt("Leave without saving your changes to this email?"))) return
     onClose()
   }
-  const set = (k: keyof Words) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft((v) => ({ ...v, [k]: e.target.value }))
+  const set = (k: WordField) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setDraft((v) => ({ ...v, [k]: e.target.value }))
 
   const fields = editable ? (
     <div className="space-y-3.5" data-community-email-editor={kind}>
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("Leave a field empty to keep Storelib's words. {community} and {creator} become your community's name and yours.", { community: "{community}", creator: "{creator}" })}</p>
       <Field label={tt("Subject")} htmlFor="community-email-subject">
-        <TextInput id="community-email-subject" value={draft.subject} maxLength={LIMITS.subject} onChange={set("subject")} autoComplete="off" className={PHONE_SAFE} />
+        {/* Emptied, the standard words go out: they show here as the hint. */}
+        <TextInput id="community-email-subject" value={draft.subject} maxLength={LIMITS.subject} onChange={set("subject")} onFocus={remember("subject")} onSelect={remember("subject")} placeholder={hints.subject} autoComplete="off" className={PHONE_SAFE} data-email-field="subject" />
       </Field>
       <Field label={tt("Heading")} htmlFor="community-email-heading">
-        <TextInput id="community-email-heading" value={draft.heading} maxLength={LIMITS.heading} onChange={set("heading")} autoComplete="off" className={PHONE_SAFE} />
+        <TextInput id="community-email-heading" value={draft.heading} maxLength={LIMITS.heading} onChange={set("heading")} onFocus={remember("heading")} onSelect={remember("heading")} placeholder={hints.heading} autoComplete="off" className={PHONE_SAFE} data-email-field="heading" />
       </Field>
       <Field label={tt("Opening line")} htmlFor="community-email-intro">
-        <textarea id="community-email-intro" value={draft.intro} maxLength={LIMITS.intro} rows={4} onChange={set("intro")} className={cn(FIELD, PHONE_SAFE, "h-auto min-h-[104px] resize-y py-2.5 leading-[21px] sm:h-auto")} />
+        <textarea id="community-email-intro" value={draft.intro} maxLength={LIMITS.intro} rows={4} onChange={set("intro")} onFocus={remember("intro")} onSelect={remember("intro")} placeholder={tt("No opening line")} className={cn(FIELD, PHONE_SAFE, "h-auto min-h-[104px] resize-y py-2.5 leading-[21px] sm:h-auto")} data-email-field="intro" />
       </Field>
+      <Field label={tt("Button")} htmlFor="community-email-button">
+        <TextInput id="community-email-button" value={draft.button} maxLength={LIMITS.button} onChange={set("button")} onFocus={remember("button")} onSelect={remember("button")} placeholder={hints.button} autoComplete="off" className={PHONE_SAFE} data-email-field="button" />
+      </Field>
+      <div>
+        <p className="text-[12.5px] text-[#6b7280]">{tt("Values fill in for each member. Tap one to add it where you're typing.")}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {values.map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              /* The field keeps the focus and the cursor, so the value goes where the person was typing. */
+              onPointerDown={(e) => e.preventDefault()}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => insert(v.key)}
+              className="h-8 rounded-full bg-[#f1f2f4] px-3 text-[12.5px] font-medium text-[#374151] transition-colors hover:bg-[#e8e9ec] active:bg-[#e2e4e8] [-webkit-tap-highlight-color:transparent]"
+              data-placeholder={v.key}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {unknown ? <Notice>{tt("{value} isn't one of this email's values.", { value: `{{${unknown}}}` })}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("The button and the note on why it came stay the same.")}</p>
+      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("The facts, the link and the note on why it came stay as they are.")}</p>
     </div>
   ) : null
 
@@ -197,9 +275,20 @@ function CommunityEmailSheet({ community, email: asked, saved, onSaved, onClose 
         </p>
       ) : null}
       <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail?.html ?? ""} paused={!active} />
-      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{editable ? tt("As a member of {name} gets it, in English.", { name: community.name }) : tt("Storelib's words, because it is about someone's money. As a member of {name} gets it, in English.", { name: community.name })}</p>
+      <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{tt("As a member of {name} gets it, from {from}, in English.", { name: community.name, from: mail?.fromName || community.name })}</p>
     </div>
   )
+
+  const testNote =
+    test?.state === "sent" ? (
+      <span className="truncate text-[13px] text-[#6b7280]" aria-live="polite" data-email-test-note="">
+        {tt("Sent to {to}", { to: test.to })}
+      </span>
+    ) : test?.state === "failed" ? (
+      <span className="truncate text-[13px] text-[#b42318]" aria-live="polite" data-email-test-note="">
+        {test.error}
+      </span>
+    ) : null
 
   return (
     <SheetDialog
@@ -229,14 +318,21 @@ function CommunityEmailSheet({ community, email: asked, saved, onSaved, onClose 
             <div className="bg-[#f8f9fa] px-5 py-5 lg:min-h-0 lg:overflow-y-auto">{preview(true)}</div>
           </div>
         )}
-        {editable ? (
-          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[#f1f2f4] bg-white px-4 py-3 sm:px-5" data-email-footer="">
-            <button type="button" className={BTN_GHOST} disabled={state === "saving" || (!edited(saved) && !edited(draft))} onClick={() => void save(EMPTY)}>
-              {tt("Use Storelib's words")}
+        {testNote ? <div className="flex shrink-0 bg-white px-4 pt-2 sm:hidden">{testNote}</div> : null}
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[#f1f2f4] bg-white px-4 py-3 sm:px-5" data-email-footer="">
+          <div className="flex min-w-0 items-center gap-1">
+            {editable ? (
+              <button type="button" className={BTN_GHOST} disabled={state === "saving" || (!edited(saved) && !edited(draft))} onClick={() => void save(EMPTY)} data-email-reset="">
+                {tt("Reset to default")}
+              </button>
+            ) : null}
+            <button type="button" className={BTN_GHOST} disabled={!kind || test?.state === "sending"} onClick={() => void sendTest()} data-email-test="">
+              {test?.state === "sending" ? tt("Sending") : tt("Send test")}
             </button>
-            <SaveButton state={state === "saved" && !dirty ? "saved" : state === "saving" ? "saving" : "idle"} disabled={!dirty} onClick={() => void save(draft)} data-email-save="" />
+            {testNote ? <span className="hidden min-w-0 sm:inline">{testNote}</span> : null}
           </div>
-        ) : null}
+          {editable ? <SaveButton state={state === "saved" && !dirty ? "saved" : state === "saving" ? "saving" : "idle"} disabled={!dirty || !!unknown} onClick={() => void save(draft)} data-email-save="" /> : null}
+        </div>
       </div>
     </SheetDialog>
   )

@@ -354,14 +354,15 @@ check("the payment is created from the server's totals, never the page's", /fixe
 check("stock is held all-or-nothing before the payment page exists", start.indexOf('rpc("physical_reserve"') > 0 && start.indexOf('rpc("physical_reserve"') < start.indexOf("checkout.sessions.create"))
 check("a changed delivery price is refused, not charged", /Delivery prices changed/.test(start))
 check("paid once: a conditional update decides who does the once-per-order work", /\.in\("status", \["pending", "expired", "failed"\]\)/.test(start) && /const owns =/.test(start))
-check("each line once, by a receipt token from the session and its place", /cartReceiptToken\(sessionId, i\)/.test(start) && /error\?\.code === "23505"\) continue/.test(start))
+check("each line once, by a receipt token from the session and its place", /cartReceiptToken\(sessionId, i\)/.test(start) && /* Round AE: the other caller's line is resumed, then skipped. */ /error\?\.code === "23505"\) \{[\s\S]{0,800}?continue\n/.test(start))
 check("a Stripe page is made once per checkout", /idempotencyKey: `physical-checkout:\$\{checkoutId\}`/.test(start))
 check("the lines add up to what Stripe took: price less discount plus delivery and tax shares", /itemNet\[i\] \+ \(shipShares\[i\] \?\? 0\) \+ \(taxShares\[i\] \?\? 0\)/.test(start))
 const jobs = code("lib/physical/jobs-server.ts")
 check("webhooks only to public https addresses, the socket refusing private ones, signed", /lookup: publicLookup/.test(jobs) && /createHmac\("sha256", secret\)/.test(jobs) && /publicUrlProblem\(url\)/.test(jobs))
 check("jobs are claimed once and retried with backoff until they are dead", /commerce_claim_jobs/.test(jobs) && /backoffSeconds/.test(jobs) && /status: dead \? "dead" : "failed"/.test(jobs))
 const csv = code("app/api/physical/orders/export/route.ts")
-check("the CSV export cannot run formulas in a spreadsheet", /\^\[=\+\\-@\\t\\r\]/.test(csv))
+/* The shared guard (lib/csv/formula-guard.ts) also looks past spaces, breaks and full width signs. */
+check("the CSV export cannot run formulas in a spreadsheet", /import \{ guardFormula \} from "@\/lib\/csv\/formula-guard"/.test(csv) && /const safe = guardFormula\(s\)/.test(csv))
 
 console.log("\nThe SQL part")
 const sql = read("supabase/sql/run-now/78_physical_commerce.sql")

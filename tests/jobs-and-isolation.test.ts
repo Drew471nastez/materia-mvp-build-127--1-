@@ -6,8 +6,7 @@
  *
  *   A Stripe event is taken before it is handled (claimStripeEvent), so a
  *   second delivery arriving while the first still runs waits instead of
- *   writing a second order and a second sale on the ledger. The same for an
- *   Airwallex event (claimEvent): a retry is taken by one delivery only.
+ *   writing a second order and a second sale on the ledger.
  *
  *   A physical commerce job whose run is cut off on every attempt is dead
  *   after its last one, rather than taken again every ten minutes for ever
@@ -22,7 +21,6 @@
 import { readFileSync } from "node:fs"
 import { fakeDb } from "./_fake-db"
 import { claimStripeEvent, STRIPE_EVENT_HOLD_MS } from "../lib/payments/ledger"
-import { claimEvent, EVENT_HOLD_MS } from "../lib/payments/store"
 import { deadAfterLease, runJobs } from "../lib/physical/jobs-server"
 import { JOB_LIMIT_MS, jobOutlived } from "../lib/markets/translation-jobs"
 
@@ -87,26 +85,11 @@ async function main() {
     check("connect webhook: a busy event is answered 409", /claim === "busy"\) return NextResponse\.json\([^)]*\{ status: 409 \}\)/.test(connect))
   }
 
-  console.log("\nAn Airwallex event, one delivery at a time")
+  console.log("\nAirwallex's old notification URL handles nothing")
   {
-    const event = { id: "awx_1", name: "payment_intent.succeeded", accountId: null, objectId: null, createdAt: null }
-    const db = fakeDb({ payment_webhook_events: [] }, { unique: { payment_webhook_events: [["provider", "event_id"]] } })
-    check("a first delivery is fresh", (await claimEvent(event, db as never, now)) === "fresh")
-    const row = db.tables.payment_webhook_events[0]
-    row.outcome = "processing"
-    row.attempts = 1
-    row.received_at = iso(now)
-    check("a copy while it is processing is busy", (await claimEvent(event, db as never, now + 5_000)) === "busy")
-    check("  and is not counted as an attempt", row.attempts === 1)
-    row.outcome = "failed"
-    check("after a failure the next delivery retries", (await claimEvent(event, db as never, now + 60_000)) === "retry")
-    check("  counted, and holding it from now", row.attempts === 2 && row.outcome === "processing" && row.received_at === iso(now + 60_000))
-    check("  so a copy now is busy", (await claimEvent(event, db as never, now + 61_000)) === "busy")
-    check("a run that died is taken over after the hold", (await claimEvent(event, db as never, now + 60_000 + EVENT_HOLD_MS + 1_000)) === "retry")
-    row.outcome = "done"
-    check("a finished event is only acknowledged", (await claimEvent(event, db as never, now + 2 * EVENT_HOLD_MS)) === "done")
+    /* Airwallex was removed (round AE): its event claim (claimEvent) went with it, and the route only answers 410. */
     const route = read("app/api/payments/airwallex/webhook/route.ts")
-    check("the route answers a busy event 409, before handling", /claim === "busy"\) return NextResponse\.json\(\{ error: "retry" \}, \{ status: 409 \}\)/.test(route) && route.indexOf('claim === "busy"') < route.indexOf("handleAirwallexEvent("))
+    check("the route answers 410 Gone and reads no body", /status: 410/.test(route) && !/request\.(text|json)\(/.test(route))
   }
 
   console.log("\nA physical commerce job cut off on every attempt ends")

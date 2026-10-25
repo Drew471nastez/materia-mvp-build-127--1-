@@ -12,8 +12,7 @@ import { TIME_ZONE_COOKIE } from "@/lib/orders/time-zone"
 import { accountTimeZone } from "@/lib/account/time-zone"
 import { pageUser } from "@/lib/auth/page-user"
 import { creatorPageHostFromRows, websiteHostFromRows } from "@/lib/custom-domains/client"
-import { factsFromRows, paymentsReadyFrom, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
-import { providerPaymentsReady } from "@/lib/payments/readiness"
+import { factsFromRows, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { readChallengeCounts } from "@/lib/home/progress-server"
 import { creatorSalesRows, creatorSalesTotals } from "@/lib/analytics/creator-orders"
 import { salesSummaryFrom } from "@/lib/home/announcements"
@@ -185,8 +184,7 @@ export default async function AppDashboard() {
    * disagree.
    */
   const progressFacts = factsFromRows({
-    /* Set up on Airwallex counts as set up (lib/payments/readiness): no read unless Airwallex is configured. */
-    creator: { ...creator, provider_payments_ready: await providerPaymentsReady(creator.id, paymentsReadyFrom(creator)) },
+    creator,
     products: products ?? [],
     domains: activeDomains ?? [],
     websiteLive: !!publishedSite,

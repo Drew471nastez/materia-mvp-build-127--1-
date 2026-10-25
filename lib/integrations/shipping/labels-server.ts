@@ -45,12 +45,13 @@ import { regionCode } from "@/lib/physical/regions"
 import { addressLines } from "@/lib/physical/address"
 import { trackingUrl } from "@/lib/physical/status"
 import { providerInfo } from "@/lib/physical/providers"
+import { holdOf } from "@/lib/physical/fulfilment-state"
 import { ProviderError } from "../fulfilment/http"
 import { connectedKey, noteSync } from "./connect-server"
 import { easypost } from "./easypost"
 import { formatMinor } from "./money"
 import { shippo } from "./shippo"
-import type { LabelAddress, LabelApi, LabelProviderId, LabelPurchase, LabelRate, Parcel, VoidOutcome } from "./types"
+import type { BuyerPaid, LabelAddress, LabelApi, LabelProviderId, LabelPurchase, LabelRate, Parcel, VoidOutcome } from "./types"
 
 export const LABEL_APIS: Record<LabelProviderId, LabelApi> = { shippo, easypost }
 
@@ -81,6 +82,8 @@ export interface LabelOrder {
   delivery?: { kind?: string | null } | null
   lines: LabelOrderLine[]
   shipments: { id: string; status: string; trackingNumber: string | null }[]
+  /** The timeline, for a hold (lib/physical/fulfilment-state.ts). Absent where a caller has none. */
+  events?: { id?: number; kind: string; createdAt: string; detail?: Record<string, unknown> | null }[]
 }
 type Outcome = { ok: true; order: any } | { ok: false; error: string; status?: number }
 export interface LabelDeps {
@@ -249,6 +252,9 @@ export function canShip(order: LabelOrder | null): string | null {
   if (order.deliveryMethod === "pickup") return "This order is picked up, so it needs no label."
   if (order.deliveryMethod === "none") return "Nothing on this order is shipped."
   if (order.delivery?.kind === "local") return "You deliver this order yourself, so it needs no label."
+  /* Held: no label is bought for it, so none is paid for and then can't be used. */
+  const hold = holdOf(order.events ?? [])
+  if (hold) return `This order is on hold (${hold.label}). Release the hold to ship it.`
   return null
 }
 
@@ -299,12 +305,37 @@ export interface LabelOptions {
   from: FromPlace | null
   to: { line: string; complete: boolean }
   labels: LabelView[]
+  /**
+   * What the buyer chose and paid for at checkout: the rate's name and price, and for a Carrier calculated rate the
+   * app and service it was priced by, so the dialog picks that service first. Null for an order with none.
+   */
+  paid: BuyerPaid | null
+}
+
+/** The buyer's chosen rate on the order (commerce_checkouts.shipping_rate), and the zone rate it came from when it was carrier calculated. */
+export async function buyerPaidRate(db: Db, creatorId: string, checkoutId: string): Promise<BuyerPaid | null> {
+  const { data: co } = await db.from("commerce_checkouts").select("shipping_rate, currency, shipping_cents").eq("id", checkoutId).eq("creator_id", creatorId).maybeSingle()
+  const rate = co?.shipping_rate as { name?: unknown; price_cents?: unknown; rate_ids?: unknown; kind?: unknown } | null | undefined
+  if (!rate || typeof rate.name !== "string" || !rate.name.trim() || rate.kind === "local") return null
+  const cents = Number(rate.price_cents ?? co?.shipping_cents ?? 0)
+  const ids = Array.isArray(rate.rate_ids) ? rate.rate_ids.filter((x): x is string => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x)).slice(0, 10) : []
+  let provider: LabelProviderId | null = null
+  let serviceCode: string | null = null
+  if (ids.length) {
+    const { data: rows } = await db.from("shipping_rates").select("id, kind, carrier, service_code").eq("creator_id", creatorId).in("id", ids)
+    const carrierRate = ((rows ?? []) as { kind: string; carrier: string | null; service_code: string | null }[]).find((r) => r.kind === "carrier" && (r.carrier === "shippo" || r.carrier === "easypost"))
+    if (carrierRate) {
+      provider = carrierRate.carrier as LabelProviderId
+      serviceCode = carrierRate.service_code?.trim() || null
+    }
+  }
+  return { name: rate.name.trim().slice(0, 120), cents: Number.isFinite(cents) ? cents : 0, price: formatMinor(Number.isFinite(cents) ? cents : 0, String(co?.currency ?? "USD")), provider, serviceCode }
 }
 
 export async function labelOptions(db: Db, creatorId: string, checkoutId: string, input: { locationId: string | null; items?: { orderId: string; quantity: number }[]; storeName: string }, deps: LabelDeps): Promise<LabelOptions | { error: string; status?: number }> {
   const order = await deps.loadOrder(db, { creatorId, checkoutId })
   if (!order) return { error: "Order not found.", status: 404 }
-  const [apps, packages, from, listed, settings] = await Promise.all([
+  const [apps, packages, from, listed, settings, paid] = await Promise.all([
     Promise.all((["shippo", "easypost"] as const).map(async (id) => {
       const c = await connectedKey(db, creatorId, id)
       return c ? { id, name: LABEL_APIS[id].name, test: LABEL_APIS[id].isTestKey(c.key) } : null
@@ -313,6 +344,7 @@ export async function labelOptions(db: Db, creatorId: string, checkoutId: string
     fromPlace(db, creatorId, input.locationId, input.storeName),
     listLabels(db, creatorId, checkoutId),
     db.from("commerce_settings").select("default_package_id, unit_system").eq("creator_id", creatorId).maybeSingle().then((r: { data: any }) => r.data, () => null),
+    buyerPaidRate(db, creatorId, checkoutId).catch(() => null),
   ])
   const items = input.items?.length ? input.items : openItems(order, input.locationId)
   const each = await gramsEach(db, order.lines.filter((l) => l.requiresShipping && l.quantity > l.fulfilled).map((l) => l.orderId))
@@ -329,6 +361,7 @@ export async function labelOptions(db: Db, creatorId: string, checkoutId: string
     from,
     to: { line: to ? addressLines(order.address as never).filter(Boolean).join(", ") : "The order has no complete delivery address.", complete: !!to },
     labels: listed.labels,
+    paid,
   }
 }
 

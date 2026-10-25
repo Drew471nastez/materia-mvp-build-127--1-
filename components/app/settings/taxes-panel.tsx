@@ -649,8 +649,8 @@ function TaxOverview({ currency, overview }: { currency: string; overview: TaxOv
  *                nothing in Storelib files or pays tax
  *   Memberships  Storelib's Stripe account: Stripe Tax when it is on for
  *                Storelib (lib/tax/membership.ts), else the store's own rate
- *   Payments     Stripe, or Airwallex, charge the total the checkout worked
- *                out; they do not work out tax for products
+ *   Payments     Stripe charges the total the checkout worked out; it
+ *                does not work out tax for products
  */
 function WhoDoesWhat({ open, onClose, membershipsAuto }: { open: boolean; onClose: () => void; membershipsAuto: boolean }) {
   const parts: { who: string; what: string }[] = [
@@ -662,7 +662,7 @@ function WhoDoesWhat({ open, onClose, membershipsAuto }: { open: boolean; onClos
         ? tt("Charged through Storelib's Stripe account. Stripe Tax works out the rate from where the buyer is, on every renewal.")
         : tt("Charged through Storelib's Stripe account, at your rate for the buyer's country, on every renewal."),
     },
-    { who: tt("Stripe and Airwallex"), what: tt("They take the payment for the total Storelib worked out, tax included. They don't work out tax on your products.") },
+    { who: tt("Stripe"), what: tt("Takes the payment for the total Storelib worked out, tax included. It doesn't work out tax on your products.") },
   ]
   return (
     <Modal open={open} onClose={onClose} title={tt("Who does what")}>

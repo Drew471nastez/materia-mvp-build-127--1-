@@ -84,3 +84,25 @@ export interface LabelApi {
   buy(key: string, rate: LabelRate): Promise<LabelPurchase>
   voidLabel(key: string, purchase: { labelId: string; shipmentId: string }): Promise<VoidOutcome>
 }
+
+/** What the buyer chose and paid for at checkout, as the label dialog reads it (labels-server buyerPaidRate). */
+export interface BuyerPaid {
+  name: string
+  cents: number
+  price: string
+  /** The app a Carrier calculated rate was priced by at checkout; null for the seller's own rates (flat, by weight). */
+  provider: LabelProviderId | null
+  serviceCode: string | null
+}
+
+/**
+ * Of the rates a label app quoted, the one standing for what the buyer paid for: the service the zone rate named,
+ * else, for a carrier calculated rate with none named, the cheapest (as checkout priced it). Null when the order's
+ * rate was the seller's own (flat, by weight), or quoted by the other app: the seller picks.
+ */
+export function rateForPaid(paid: Pick<BuyerPaid, "provider" | "serviceCode"> | null | undefined, provider: string, rates: Pick<LabelRate, "id" | "cents" | "service" | "serviceCode">[]): string | null {
+  if (!paid?.provider || paid.provider !== provider || rates.length === 0) return null
+  const want = (paid.serviceCode ?? "").toLowerCase()
+  const list = want ? rates.filter((r) => (r.serviceCode ?? "").toLowerCase() === want || r.service.toLowerCase() === want) : rates
+  return [...list].sort((a, b) => a.cents - b.cents)[0]?.id ?? null
+}

@@ -45,7 +45,8 @@ import "server-only"
  * one request a second on a new account, so calls are spaced.
  */
 
-import { call, ProviderError, providerMessage } from "./http"
+import { call, cancelling, ProviderError, providerMessage } from "./http"
+import { toMinor } from "@/lib/integrations/shipping/money"
 import { openSecret, sealSecret } from "@/lib/physical/secrets"
 import type { ConnectorCredential, FulfilmentConnector, ProviderOrderInput, ProviderOrderStage, ProviderOrderState } from "./types"
 
@@ -77,7 +78,7 @@ interface Envelope<T> {
 
 class CjAuthError extends ProviderError {}
 
-async function cj<T>(path: string, init: { method?: "GET" | "POST" | "PATCH"; token?: string | null; body?: unknown }): Promise<T> {
+async function cj<T>(path: string, init: { method?: "GET" | "POST" | "PATCH" | "DELETE"; token?: string | null; body?: unknown }): Promise<T> {
   await spaced()
   let env: Envelope<T>
   try {
@@ -163,7 +164,7 @@ export async function cjToken(cred: ConnectorCredential, force = false, now = Da
 }
 
 /** A call with the seller's token, fetched again once if CJ refuses the saved one. */
-export async function cjAuthed<T>(cred: ConnectorCredential, path: string, init: { method?: "GET" | "POST" | "PATCH"; body?: unknown } = {}): Promise<T> {
+export async function cjAuthed<T>(cred: ConnectorCredential, path: string, init: { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown } = {}): Promise<T> {
   try {
     return await cj<T>(path, { ...init, token: await cjToken(cred) })
   } catch (e) {
@@ -350,7 +351,7 @@ export const cjDropshipping: FulfilmentConnector = {
     const a = order.address
     const products = order.lines.map((l) => ({ vid: vids.get(l.lineId) as string, quantity: l.quantity }))
     const logisticName = await cjLogistic(cred, from, a.country, products)
-    const made = await cjAuthed<{ orderId?: string | number; orderStatus?: string }>(cred, "/shopping/order/createOrderV2", {
+    const made = await cjAuthed<{ orderId?: string | number; orderStatus?: string; orderAmount?: string | number }>(cred, "/shopping/order/createOrderV2", {
       method: "POST",
       body: {
         orderNumber: order.externalId,
@@ -373,16 +374,25 @@ export const cjDropshipping: FulfilmentConnector = {
     })
     const id = made?.orderId != null && String(made.orderId) ? String(made.orderId) : null
     if (!id) throw new ProviderError("CJ took the order but did not say its number.", 502, true)
-    if (!order.autoConfirm) return { providerOrderId: id, stage: "draft" }
+    /* CJ prices in US dollars: products and postage together. */
+    const amount = toMinor(made?.orderAmount, "USD")
+    const cost = amount != null && amount > 0 ? { cents: amount, currency: "USD" } : null
+    if (!order.autoConfirm) return { providerOrderId: id, stage: "draft", cost }
     /* Send to production: confirmed and paid from the CJ balance. Made either way; a payment CJ refuses is said, not retried into a second order. */
     try {
       await cjAuthed(cred, "/shopping/order/confirmOrder", { method: "PATCH", body: { orderId: id } })
       await cjAuthed(cred, "/shopping/pay/payBalance", { method: "POST", body: { orderId: id } })
-      return { providerOrderId: id, stage: "in_production" }
+      return { providerOrderId: id, stage: "in_production", cost }
     } catch (e) {
-      if (e instanceof ProviderError && !e.retry) return { providerOrderId: id, stage: "draft", note: `CJ made the order but could not pay it from your CJ balance (${e.message.replace(/^[^:]+:\s*/, "").slice(0, 120)}). Pay it in CJ to have it shipped.` }
-      return { providerOrderId: id, stage: "draft", note: "CJ made the order, but confirming and paying it did not finish. Pay it in CJ to have it shipped." }
+      if (e instanceof ProviderError && !e.retry) return { providerOrderId: id, stage: "draft", cost, note: `CJ made the order but could not pay it from your CJ balance (${e.message.replace(/^[^:]+:\s*/, "").slice(0, 120)}). Pay it in CJ to have it shipped.` }
+      return { providerOrderId: id, stage: "draft", cost, note: "CJ made the order, but confirming and paying it did not finish. Pay it in CJ to have it shipped." }
     }
+  },
+
+  /* CJ deletes an order not yet paid (DELETE /shopping/order/deleteOrder); a paid one is refused, and is cancelled in CJ by the seller. */
+  async cancel(cred, providerOrderId) {
+    if (!/^[A-Za-z0-9-]{4,64}$/.test(providerOrderId)) return { cancelled: false, note: "CJ: that is not a CJ order." }
+    return cancelling(() => cjAuthed(cred, `/shopping/order/deleteOrder?orderId=${encodeURIComponent(providerOrderId)}`, { method: "DELETE" }))
   },
 
   async fetchOrder(cred, providerOrderId) {

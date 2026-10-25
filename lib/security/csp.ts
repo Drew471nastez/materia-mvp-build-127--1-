@@ -105,7 +105,6 @@ const DIRECTIVES: [string, string[]][] = [
     "'unsafe-eval'",    // monaco-editor, esbuild-wasm, and the section-script sandbox
     "https://js.stripe.com",
     "https://connect-js.stripe.com",  // Stripe's embedded onboarding and account forms (Settings → Payments, Payouts)
-    "https://*.airwallex.com",        // Airwallex.js and its forms, for Storelib Payments on Airwallex
     "https://cdnjs.cloudflare.com",   // pdf.js, for reading a PDF in the browser
     "https://va.vercel-scripts.com",  // @vercel/analytics
     "https://vercel.live",            // the preview comment toolbar
@@ -141,7 +140,6 @@ const DIRECTIVES: [string, string[]][] = [
     "wss://*.supabase.co",            // realtime
     "https://api.stripe.com",
     "https://fonts.googleapis.com",   // Inter for Stripe's embedded forms (their fonts CSS is fetched from this page)
-    "https://*.airwallex.com",
     "https://*.vercel-insights.com",
     "https://va.vercel-scripts.com",
     /*
@@ -176,13 +174,12 @@ const DIRECTIVES: [string, string[]][] = [
     "https://*.omnisend.com",
   ]],
 
-  /* Stripe's and Airwallex's own frames, and the embed providers the sanitiser allows. */
+  /* Stripe's own frames, and the embed providers the sanitiser allows. */
   ["frame-src", [
     "'self'",
     "https://js.stripe.com",
     "https://connect-js.stripe.com",
     "https://hooks.stripe.com",
-    "https://*.airwallex.com",
     "https://www.youtube.com",
     "https://youtube.com",
     "https://www.youtube-nocookie.com",

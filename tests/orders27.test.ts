@@ -154,7 +154,8 @@ async function main() {
     check("the buyer's reference, the one their emails use", html.includes(slipReference(order.id)) && slipReference(order.id) === "#85737C57")
     check("the address, the method, the items with variant, SKU and the engraving, the quantities", /Jordan Blake<br>12 Strada Lipscani<br>Ap\. 4<br>Bucharest, 030031<br>Romania/.test(html) && html.includes("Standard") && html.includes("M / Natural · SKU LS-M") && html.includes("Engraving: Ana") && /class="qty">1</.test(html), html.slice(0, 400))
     check("the buyer's note and the cart's fields, escaped", html.includes("Please leave it with the neighbour &lt;b&gt;.") && html.includes("Gift message:") && html.includes("Andrew &lt;Rullz&gt;"))
-    check("no prices on the slip", !/[$€]|lei|price/i.test(html.replace(/<style>[\s\S]*?<\/style>/, "")))
+    /* The bar (never printed) may offer Show prices; the paper itself has none unless asked. */
+    check("no prices on the slip", !/[$€]|lei|price/i.test(html.replace(/<style>[\s\S]*?<\/style>/, "").replace(/<div class="bar"[\s\S]*?<\/div>\n/, "")))
     check("a picture only from a safe address", html.includes('src="/api/media/shirt.webp"') && !html.includes("javascript:"))
     check("Back and Print on screen, never on paper", /data-slip-bar/.test(html) && /@media print\{html,body\{background:#fff\}\.bar\{display:none\}/.test(html) && /onclick="window\.print\(\)"/.test(html))
     const pickup = packingSlipHtml({ ...order, deliveryMethod: "pickup", pickup: { name: "Home studio", address: [] } }, left, { name: "S", logoUrl: null }, { tt, lang: "en", back: "/" })
@@ -162,7 +163,7 @@ async function main() {
     const route = read("app/api/physical/orders/[id]/packing-slip/route.ts")
     check("the route: the shop's own order only, a page, framed by Storelib only", /physicalCaller\("orders"\)/.test(route) && /text\/html/.test(route) && /frame-ancestors 'self'/.test(route) && /noindex/.test(route))
     const panel = read("components/physical/order-panel.tsx")
-    check("no window.open for the slip any more: a frame on a computer, a link on a phone", !/window\.open\("", "_blank"/.test(panel) && /srcdoc/.test(panel) && /phone\s*\?\s*\{ label: tt\("Packing slip"\), icon: <Printer className="h-4 w-4" \/>, href \}/.test(panel))
+    check("no window.open for the slip any more: a frame on a computer, a link on a phone", !/window\.open\("", "_blank"/.test(panel) && /srcdoc/.test(panel) && /const label = q\.summary \? tt\("Order summary"\) : tt\("Packing slip"\)/.test(panel) && /phone\s*\?\s*\{ label, icon: <Printer className="h-4 w-4" \/>, href \}/.test(panel))
     check("both menus use it: the Unfulfilled card's (by place) and each shipment's", /slip\(\{ loc: pickup \? null : g\.locationId \}\)/.test(panel) && /slip\(\{ f: s\.id \}\)/.test(panel))
   }
 

@@ -21,6 +21,8 @@
  *   parseInventoryCsv
  */
 
+import { guardFormula } from "@/lib/csv/formula-guard"
+
 /** The reasons a seller can choose. "count" is a stock count; "other" fits nothing else. */
 export const MANUAL_REASONS = ["received", "returned_restock", "count", "correction", "damaged", "theft_or_loss", "promotion_or_donation", "other"] as const
 export type ManualReason = (typeof MANUAL_REASONS)[number]
@@ -191,7 +193,7 @@ export const INVENTORY_CSV_HEADER = ["Product", "Variant", "SKU", "Location", "O
 export function csvCell(v: unknown): string {
   let s = v === null || v === undefined ? "" : String(v)
   /* A cell that starts like a formula is read as text, so a product called "=HYPERLINK(...)" cannot run in Excel. */
-  if (/^[=+\-@\t\r]/.test(s) && !/^-?\d+$/.test(s)) s = `'${s}`
+  if (!/^-?\d+$/.test(s)) s = guardFormula(s)
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 

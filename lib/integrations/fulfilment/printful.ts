@@ -15,6 +15,8 @@
  *                confirm=true only when the seller chose Send to production;
  *                otherwise it waits in Printful as a draft, uncharged.
  *   fetchOrder   GET  /orders/{id}: status and shipments
+ *   cancel       DELETE /orders/{id}: a draft or pending order only; one
+ *                Printful has started is refused, and the timeline says so.
  *   webhooks     Printful keeps ONE webhook address per store and does not
  *                sign deliveries. So: only set when the store has none or
  *                already has Storelib's (never replacing a seller's own),
@@ -25,7 +27,8 @@
  * Rate limit: 120 a minute. A 429 is retried by the job queue.
  */
 
-import { call, ProviderError } from "./http"
+import { call, cancelling, ProviderError } from "./http"
+import { cleanCurrency, toMinor } from "@/lib/integrations/shipping/money"
 import type { ConnectorCredential, FulfilmentConnector, ProviderOrderStage, ProviderOrderState } from "./types"
 
 const API = "https://api.printful.com"
@@ -96,6 +99,12 @@ export async function findSyncVariants(cred: ConnectorCredential, skus: string[]
   return found
 }
 
+/** Printful's costs block ({ currency, total: "13.25" }) as what the seller pays, or null when it has none yet. */
+export function printfulCost(costs: { currency?: string; total?: string | number } | null | undefined): { cents: number; currency: string } | null {
+  const cents = toMinor(costs?.total, costs?.currency)
+  return cents != null && cents > 0 ? { cents, currency: cleanCurrency(costs?.currency) } : null
+}
+
 export const printful: FulfilmentConnector = {
   id: "printful",
   name: NAME,
@@ -113,7 +122,7 @@ export const printful: FulfilmentConnector = {
     const missing = order.lines.filter((l) => !map.has(l.sku.trim()))
     if (missing.length > 0) throw new ProviderError(`Printful has no product with SKU ${missing.map((l) => l.sku).join(", ")}. Give the Printful variant the same SKU as in Storelib.`, 422, false)
     const a = order.address
-    const made = await call<{ result?: { id?: number; status?: string } }>(NAME, `${API}/orders?confirm=${order.autoConfirm ? "true" : "false"}&update_existing=true`, {
+    const made = await call<{ result?: { id?: number; status?: string; costs?: { currency?: string; total?: string | number } } }>(NAME, `${API}/orders?confirm=${order.autoConfirm ? "true" : "false"}&update_existing=true`, {
       method: "POST",
       headers: headers(cred),
       body: {
@@ -137,7 +146,7 @@ export const printful: FulfilmentConnector = {
     })
     const id = made?.result?.id
     if (id == null) throw new ProviderError("Printful took the order but did not say its number.", 502, true)
-    return { providerOrderId: String(id), stage: STAGE[String(made?.result?.status ?? "draft")] ?? "draft" }
+    return { providerOrderId: String(id), stage: STAGE[String(made?.result?.status ?? "draft")] ?? "draft", cost: printfulCost(made?.result?.costs) }
   },
 
   async fetchOrder(cred, providerOrderId) {
@@ -157,5 +166,10 @@ export const printful: FulfilmentConnector = {
   async removeWebhooks(cred, url) {
     const now = await call<{ result?: { url?: string | null } }>(NAME, `${API}/webhooks`, { headers: headers(cred) })
     if (now?.result?.url === url) await call(NAME, `${API}/webhooks`, { method: "DELETE", headers: headers(cred) })
+  },
+
+  async cancel(cred, providerOrderId) {
+    if (!/^[0-9]{1,15}$/.test(providerOrderId)) return { cancelled: false, note: "Printful: that is not a Printful order." }
+    return cancelling(() => call(NAME, `${API}/orders/${providerOrderId}`, { method: "DELETE", headers: headers(cred) }))
   },
 }

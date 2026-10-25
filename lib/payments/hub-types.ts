@@ -1,12 +1,20 @@
 import type { PaymentsStage, PayoutStatus, RequirementNote, StageCopy } from "./model"
-import type { PayoutDestination } from "./store"
 import type { StorelibPaymentsBadge } from "./stripe/creator-badge"
 import type { PaymentUxState } from "./stripe/facts"
 import type { OnboardingBeat } from "./stripe/onboarding-steps"
 import type { StorelibStatusView } from "./stripe/status"
 
+/** The bank account a creator is paid into, masked: never a full number. */
+export interface PayoutDestination {
+  bankName: string | null
+  country: string | null
+  currency: string | null
+  last4: string | null
+  holder: "individual" | "business" | null
+}
+
 export interface HubOverview {
-  provider: "stripe" | "airwallex"
+  provider: "stripe"
   environment: "sandbox" | "production"
   configured: boolean
   tableMissing: boolean
@@ -50,6 +58,11 @@ export interface HubOverview {
   beat?: OnboardingBeat
   statusLabel?: string
   nextPayout?: { amountMinor: number; currency: string; arrivalDate: string | null } | null
+  /**
+   * This creator was paid through Airwallex before Storelib moved to Stripe,
+   * and Stripe is not set up yet: Settings shows a one-time note to connect it.
+   */
+  airwallexBefore?: boolean
   /** Setup still has the ID check ahead: Stripe lists the document and none is on file. The stepper shows the step from the start. */
   idAhead?: boolean
 }

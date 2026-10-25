@@ -18,8 +18,7 @@ import { profileAvatar } from "@/lib/account/avatar"
 import { accountTimeZone, timeZoneScript } from "@/lib/account/time-zone"
 import { TimeZoneSync } from "@/components/app/time-zone-sync"
 import { PlanWatch } from "@/components/app/plan-watch"
-import { factsFromRows, homeProgress, paymentsReadyFrom, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
-import { providerPaymentsReady } from "@/lib/payments/readiness"
+import { factsFromRows, homeProgress, WEBSITE_LIVE_STATUS } from "@/lib/home/progress"
 import { listBusinesses } from "@/lib/businesses/server"
 import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/businesses/switch-screen"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
@@ -202,7 +201,7 @@ export default async function AppLayout({
     own client. The sale is found through its product's creator, as Home
     reads orders, so it no longer waits for the product ids to come back.
   */
-  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, storeCurrency, paymentsReady] = await Promise.all([
+  const [{ data: products }, { data: domains }, { data: liveSite }, { data: aSale }, communitiesOn, storeCurrency] = await Promise.all([
     supabase.from("products").select("id").eq("creator_id", creator.id),
     supabase.from("custom_domains").select("*").eq("creator_id", creator.id),
     supabase.from("store_theme_installs").select("id").eq("creator_id", creator.id).eq("status", WEBSITE_LIVE_STATUS).limit(1).maybeSingle(),
@@ -216,8 +215,6 @@ export default async function AppLayout({
     communitiesEnabled().catch(() => false),
     /* Settings › Country & Currency: every price field under /app is typed in it (lib/store/currency-context). */
     cachedStoreCurrency(creator.id).catch(() => null),
-    /* With the rest, not one more trip after them. */
-    providerPaymentsReady(creator.id, paymentsReadyFrom(creator)),
   ])
 
   /*
@@ -237,7 +234,7 @@ export default async function AppLayout({
 
   const setup = homeProgress({
     ...factsFromRows({
-      creator: { ...creator, provider_payments_ready: paymentsReady },
+      creator,
       products: products ?? [],
       domains: domains ?? [],
       websiteLive: !!liveSite,

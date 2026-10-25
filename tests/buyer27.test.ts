@@ -179,7 +179,7 @@ async function main() {
     const route = read("app/api/physical/order-status/[token]/cancel/route.ts")
     check("the route cancels through it, answers what happened, and is still limited per address and per order", /buyerCancelOrder\(db, token, \{ reason: body\.reason, enabled: config\.buyerCancel \}\)/.test(route) && /done: result\.done/.test(route) && /addressSubject\(request\), `order:\$\{token\}`/.test(route))
     const server = read("lib/physical/buyer-cancel-server.ts")
-    check("money is given back the way the Orders page does: the seller's transfer reversed, one refund per line whatever retries", /reverse_transfer: true/.test(server) && /idempotencyKey: `storelib-buyer-cancel:\$\{l\.orderId\}:\$\{l\.alreadyRefundedCents\}:\$\{amount\}`/.test(server) && /syncChargeRefund\(/.test(server) && /refundAirwallexOrder\(/.test(server))
+    check("money is given back the way the Orders page does: the seller's transfer reversed, one refund per line whatever retries", /reverse_transfer: true/.test(server) && /idempotencyKey: `storelib-buyer-cancel:\$\{l\.orderId\}:\$\{l\.alreadyRefundedCents\}:\$\{amount\}`/.test(server) && /syncChargeRefund\(/.test(server) && !/refundAirwallexOrder\(/.test(server))
     const panel = read("components/app/settings/checkout-panel.tsx")
     check("Settings › Checkout says what the switch now does", /tt\("Let buyers cancel"\)/.test(panel) && /cancelled and refunded in full at once/.test(panel))
   }

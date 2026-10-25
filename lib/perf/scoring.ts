@@ -358,7 +358,7 @@ function stepFails(route: StepRoute, label: string): MeasureDef {
 const WEBHOOK_P75: MeasureDef = {
   key: "infra.webhooks",
   label: "Webhook answer time",
-  source: "Stripe, Mailgun and Airwallex webhooks, timed on the server, 75th percentile",
+  source: "Stripe and Mailgun webhooks, timed on the server, 75th percentile",
   unit: "ms",
   good: METRIC_LINES.api.good,
   poor: METRIC_LINES.api.poor,

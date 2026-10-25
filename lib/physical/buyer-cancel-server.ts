@@ -13,7 +13,8 @@ import "server-only"
  * Orders page refunds it (a destination charge reversed from the seller,
  * one refund per line whatever retries, applied to the order, the seller's
  * balance and the seller's inbox by the code Stripe's charge.refunded runs,
- * lib/stripe/refund-sync.ts; Airwallex through lib/payments/refunds). Then
+ * lib/stripe/refund-sync.ts). A line paid through Airwallex before it was
+ * removed has nothing here to refund it, so the request goes to the shop. Then
  * the order is cancelled with the shop's own Cancel order (./orders-server
  * cancelOrder): stock back on sale, cash on delivery voided, the buyer's
  * Order cancelled email, and the seller's email that the buyer cancelled.
@@ -56,26 +57,13 @@ export const CANCEL_REFUND_REASON = "cancelled"
 
 /**
  * Money back for one line: Stripe (the charge is the platform's, the
- * seller's transfer is reversed) or Airwallex. Never on a script's say:
+ * seller's transfer is reversed). Never on a script's say:
  * the caller checked the order may be cancelled.
  */
 export async function refundLine(db: Db, l: LineToRefund): Promise<LineRefund> {
   const amount = Math.max(0, Math.round(l.amountCents - l.alreadyRefundedCents))
   if (amount <= 0) return { ok: true, refundId: "", pending: false }
   try {
-    if (l.provider === "airwallex" && l.providerPaymentId?.startsWith("int_")) {
-      const { refundAirwallexOrder } = await import("@/lib/payments/refunds")
-      const done = await refundAirwallexOrder({ orderId: l.orderId, creatorId: l.creatorId, paymentIntentId: l.providerPaymentId, amountMinor: amount, alreadyRefundedMinor: l.alreadyRefundedCents, reason: CANCEL_REFUND_REASON })
-      const now = new Date().toISOString()
-      await db.from("orders").update({ status: "refunded" }).eq("id", l.orderId)
-      await db.from("orders").update({ refunded_at: now, refund_reason: CANCEL_REFUND_REASON, refund_amount_cents: l.alreadyRefundedCents + amount }).eq("id", l.orderId).then(
-        () => undefined,
-        () => undefined,
-      )
-      const { emit } = await import("@/lib/notify/outbox")
-      await emit({ name: "order.refunded", key: `refund:${l.orderId}:${done.id}`, creatorId: l.creatorId, entityType: "order", entityId: l.orderId, correlationId: done.id, payload: { orderId: l.orderId, refundId: done.id, productId: l.productId, amountCents: amount, currency: (done.currency || l.currency || "usd").toLowerCase(), full: true, reason: CANCEL_REFUND_REASON } })
-      return { ok: true, refundId: done.id, pending: !/^succeeded$/i.test(done.status ?? "") }
-    }
     if (!l.stripePaymentIntentId) return { ok: false, error: "no payment to refund" }
     const { stripe } = await import("@/lib/stripe")
     /* No creator_id in its metadata: the sync below (and charge.refunded) writes the row, the seller's balance and the seller's email, as for a refund the Orders page did not start. */

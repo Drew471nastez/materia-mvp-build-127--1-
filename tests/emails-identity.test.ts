@@ -46,7 +46,8 @@ check("  and the inbox shows the one who signs it", /const fromName = model\.sel
 check("the refund of a website order is signed by the shop", /storeIdentity\(admin, creatorId, \{ logoOnly: true \}\)/.test(email) && /const signedName = safeText\(signer\?\.name \|\| storeName/.test(email))
 const route = read("app/api/store/emails/route.ts")
 check("the page is given both: the shop and the creator", /creator: \{ name: identity\.fromName/.test(route) && /logoFrom: store\?\.logoFrom/.test(route))
-check("a test is signed as its preview is", /const signed = channel === "storelib" && \(id === "receipt" \|\| id === "digital_refund"\) \? creatorName : shopName/.test(read("lib/emails/customer-preview-server.ts")))
+/* A membership's test is signed by the creator too: a membership is only ever bought on Storelib. */
+check("a test is signed as its preview is", /const signed = \(channel === "storelib" && \(id === "receipt" \|\| id === "digital_refund"\)\) \|\| id\.startsWith\("membership_"\) \? creatorName : shopName/.test(read("lib/emails/customer-preview-server.ts")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

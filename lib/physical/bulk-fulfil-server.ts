@@ -21,6 +21,7 @@ import "server-only"
 import type { Db } from "./auth"
 import { fulfilParcels, loadOrder, checkoutOfOrderRow, type ParcelInput, type PhysicalOrder } from "./orders-server"
 import { openCancelRequest } from "./buyer-cancel"
+import { holdOf } from "./fulfilment-state"
 import { carrierOf, trackingRuleProblem } from "./carriers"
 import { guessCarrier } from "./status"
 import { BULK_MAX_ORDERS, orderRefOf, readTrackingCsv, type ImportRow } from "./bulk-fulfil"
@@ -63,6 +64,9 @@ export function bulkRefusal(order: PhysicalOrder, opts: { wholeOrder: boolean } 
   if (order.status !== "paid" && order.status !== "partially_refunded") return "Only a paid order can be fulfilled."
   if (order.returnStatus !== "none" || order.returns.some((r) => ["requested", "approved", "in_transit"].includes(r.status))) return "This order has a return. Fulfil it from the order."
   if (openCancelRequest(order)) return "The buyer asked to cancel this order. Answer them from the order first."
+  /* Held (./fulfilment-state.ts): left as it is, so the preview says why before anything is pressed. */
+  const hold = holdOf(order.events ?? [])
+  if (hold) return `On hold (${hold.label}). Release the hold from the order first.`
   const open = ships.filter((l) => l.quantity - l.fulfilled > 0)
   if (open.length === 0) return "Already fulfilled."
   if (order.deliveryMethod === "pickup") return "A pickup order is marked ready from the order."

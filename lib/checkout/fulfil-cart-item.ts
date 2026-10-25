@@ -28,7 +28,8 @@ import { recordContactAttribution, recordOrderAttribution, type Attribution } fr
 import { recordCustomer } from "./fulfil-payment"
 import { lineTotalCents } from "./cart-items"
 import { claimSale, releaseSale } from "./sales-limit"
-import { markSoldOut } from "./sold-out-refund"
+import { SOLD_OUT_REASON, markSoldOut } from "./sold-out-refund"
+import type { Followups } from "./followups"
 
 export interface FulfilLineInput {
   productId: string
@@ -89,7 +90,8 @@ export interface FulfilledLine {
   soldOut?: boolean
 }
 
-export type LineOutcome = { status: "created"; line: FulfilledLine } | { status: "exists" } | { status: "failed" }
+/** "exists": another caller wrote this line; its order id, when it could be read, lets a retry finish its follow-ups (./followups.ts). */
+export type LineOutcome = { status: "created"; line: FulfilledLine } | { status: "exists"; orderId: string | null; amountCents?: number; soldOut?: boolean } | { status: "failed" }
 
 export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, index: number, feeCents: number): Promise<LineOutcome> {
   /* What this line was charged: its price, less what a code took off it,
@@ -140,7 +142,11 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
 
   /* The order counts the copy now, or another caller's does, or there is none: the place goes either way. */
   await releaseSale(ctx.admin, line.productId, saleHolder)
-  if (error?.code === "23505") return { status: "exists" }
+  if (error?.code === "23505") {
+    const { data: theirs } = await ctx.admin.from("orders").select("id, amount_cents, refund_reason").eq("receipt_token", receiptToken).limit(1)
+    const row = Array.isArray(theirs) ? (theirs[0] as { id?: string; amount_cents?: number | null; refund_reason?: string | null } | undefined) : undefined
+    return { status: "exists", orderId: row?.id ? String(row.id) : null, amountCents: Number(row?.amount_cents) || amountCents, soldOut: row?.refund_reason === SOLD_OUT_REASON }
+  }
   if (error || !order) {
     console.error("[checkout/cart] order insert failed for product", line.productId, error?.code, error?.message)
     return { status: "failed" }
@@ -167,10 +173,6 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
       if (labelError) console.warn("[checkout/cart] tax_label not kept:", labelError.code)
     }
   }
-  /* A basket is only ever filled on a creator's website. */
-  await tagOrderSource(ctx.admin, order.id, "website", ctx.origin)
-  await recordOrderAttribution(ctx.admin, order.id, ctx.attribution)
-
   /* Over the limit: a record of the money, refunded by the basket, never a purchase (no library entry, no sales count). */
   if (!withinLimit) {
     console.warn("[checkout/cart] over the sales limit:", line.productId, order.id)
@@ -178,6 +180,33 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
     return { status: "created", line: { orderId: order.id, productId: line.productId, receiptToken: order.receipt_token, amountCents, soldOut: true } }
   }
 
+  return { status: "created", line: { orderId: order.id, productId: line.productId, receiptToken: order.receipt_token, amountCents } }
+}
+
+/**
+ * What one written line needs after it: where it came from, the buyer's
+ * library entry and the product's sales count. Run by the caller that wrote
+ * the line, and by a retry for what that caller did not finish
+ * (./followups.ts): the library entry is checked first, the count is
+ * claimed once. A line over the sales limit gets its tags only.
+ */
+export async function cartLineFollowups(ctx: FulfilContext, f: Followups, line: { orderId: string; productId: string; variantId: string | null; soldOut?: boolean }): Promise<void> {
+  /* A basket is only ever filled on a creator's website. */
+  await f.idempotent("source", () => tagOrderSource(ctx.admin, line.orderId, "website", ctx.origin))
+  await f.idempotent("attribution", () => recordOrderAttribution(ctx.admin, line.orderId, ctx.attribution))
+  if (line.soldOut) return
+  await f.idempotent("entitlement", () => cartEntitlement(ctx, line))
+  await f.once("sales count", async () => {
+    await ctx.admin.rpc("increment_product_sales", { p_product_id: line.productId })
+    await ctx.admin.from("analytics_events").insert({
+      creator_id: ctx.creatorId,
+      product_id: line.productId,
+      event_type: "purchase",
+    })
+  })
+}
+
+async function cartEntitlement(ctx: FulfilContext, line: { orderId: string; productId: string; variantId: string | null }): Promise<void> {
   if (ctx.buyerId) {
     let q = ctx.admin
       .from("entitlements")
@@ -185,9 +214,10 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
       .eq("buyer_id", ctx.buyerId)
       .eq("product_id", line.productId)
     q = line.variantId ? q.eq("variant_id", line.variantId) : q.is("variant_id", null)
-    const { data: existing } = await q.maybeSingle()
+    /* Any row is enough: two copies of the same entitlement made maybeSingle() error, read as none, and insert a third. */
+    const { data: existing } = await q.limit(1)
 
-    if (!existing) {
+    if (!(Array.isArray(existing) && existing.length > 0)) {
       await ctx.admin.from("entitlements").insert({
         buyer_id: ctx.buyerId,
         creator_id: ctx.creatorId,
@@ -197,15 +227,6 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
       })
     }
   }
-
-  await ctx.admin.rpc("increment_product_sales", { p_product_id: line.productId })
-  await ctx.admin.from("analytics_events").insert({
-    creator_id: ctx.creatorId,
-    product_id: line.productId,
-    event_type: "purchase",
-  })
-
-  return { status: "created", line: { orderId: order.id, productId: line.productId, receiptToken: order.receipt_token, amountCents } }
 }
 
 /**

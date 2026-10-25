@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 
 import { adminFailure, requireAdmin } from "@/lib/admin/gate"
 import { loadActiveFeeConfig } from "@/lib/payments/fees/active"
-import { activePaymentProvider } from "@/lib/payments/active-provider"
 import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { stripeConfigured, stripePublishableKey } from "@/lib/payments/stripe/config"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -27,7 +26,7 @@ export async function GET() {
     const { config, source } = await loadActiveFeeConfig(createAdminClient())
     return NextResponse.json(
       {
-        provider: activePaymentProvider(),
+        provider: "stripe",
         platformCurrency: platformChargeCurrencyUpper(),
         /* The marketplace dollar switch (MARKETPLACE_USD), read only: off, how many stores, or all. Never the ids themselves. */
         marketplaceUsd: await (async () => {

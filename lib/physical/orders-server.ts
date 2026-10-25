@@ -18,7 +18,8 @@ import "server-only"
 import type { Db } from "./auth"
 import { addOrderEvent, orderEvents, type OrderEvent } from "./events-server"
 import { applyInventory } from "./inventory-server"
-import { queueCancelledEmail, queueOrderUpdatedEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
+import { queueCancelledEmail, queueOrderUpdatedEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail, releaseHeldJobs } from "./jobs-server"
+import { HOLD, HOLD_RELEASED, holdOf, holdReason, holdReasonLabel } from "./fulfilment-state"
 import { addressLines, readAddress } from "./address"
 import { canMoveShipment, fulfillmentStatusOf, mergeItemQuantities, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod, sellerNextStep } from "./fulfillment"
@@ -434,6 +435,9 @@ export async function fulfilParcels(
   if (!order) return { ok: false, error: "Order not found.", status: 404 }
   if (order.status !== "paid" && order.status !== "partially_refunded") return { ok: false, error: order.status === "refunded" ? "This order was refunded." : "Only a paid order can be fulfilled." }
   if (order.cancelledAt) return { ok: false, error: "This order was cancelled." }
+  /* Held by the shop (./fulfilment-state.ts): nothing ships until it is released. A partner that already shipped it said so, and that stands. */
+  const hold = input.partner ? null : holdOf(order.events)
+  if (hold) return { ok: false, error: `This order is on hold (${hold.label}). Release the hold to fulfil it.`, status: 409 }
   if (input.parcels.length === 0) return { ok: false, error: "Choose at least one item to fulfil." }
   if (input.parcels.length > MAX_PARCELS) return { ok: false, error: `At most ${MAX_PARCELS} parcels at once.` }
   const multi = input.parcels.length > 1
@@ -773,6 +777,33 @@ export async function cancelOrder(db: Db, creatorId: string, checkoutId: string,
   await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? (by === "buyer" ? CANCELLED_BY_BUYER : "Cancelled by the shop"), fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
   await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `${by === "buyer" ? "The buyer cancelled this order" : "Order cancelled"}${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: by, key: `cancelled:${checkoutId}` })
   await queueCancelledEmail(db, checkoutId, creatorId)
+  const fresh = await loadOrder(db, { creatorId, checkoutId })
+  return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+}
+
+/**
+ * HOLD FULFILLMENT, as Shopify has it: the shop keeps an unfulfilled order from being shipped, labelled or sent to a
+ * partner, with a reason and an optional note. Released, whatever was held back goes (jobs-server releaseHeldJobs).
+ */
+export async function holdOrder(db: Db, creatorId: string, checkoutId: string, input: { reason: unknown; note: unknown }): Promise<Outcome> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404 }
+  if (order.cancelledAt) return { ok: false, error: "This order was cancelled." }
+  if (!order.lines.some((l) => l.requiresShipping && l.quantity - l.fulfilled > 0)) return { ok: false, error: "Nothing on this order is left to fulfil." }
+  if (holdOf(order.events)) return { ok: true, order }
+  const reason = holdReason(input.reason) ?? "other"
+  const note = cleanText(input.note, 200)
+  await addOrderEvent(db, { checkoutId, creatorId, kind: HOLD, message: `Fulfillment on hold: ${holdReasonLabel(reason)}${note ? `. ${note}` : ""}`, detail: { reason, ...(note ? { note } : {}) }, actor: "creator", key: `hold:${checkoutId}:${Date.now()}` })
+  const fresh = await loadOrder(db, { creatorId, checkoutId })
+  return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+}
+
+export async function releaseHold(db: Db, creatorId: string, checkoutId: string): Promise<Outcome> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404 }
+  if (!holdOf(order.events)) return { ok: true, order }
+  await addOrderEvent(db, { checkoutId, creatorId, kind: HOLD_RELEASED, message: "Hold released", actor: "creator", key: `hold_released:${checkoutId}:${Date.now()}` })
+  if (!order.cancelledAt) await releaseHeldJobs(db, creatorId, checkoutId)
   const fresh = await loadOrder(db, { creatorId, checkoutId })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
 }

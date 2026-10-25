@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller } from "@/lib/physical/auth"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { packingSlipHtml, slipLines } from "@/lib/physical/packing-slip"
+import { packingSlipHtml, paperAsked, slipLines, slipPaper } from "@/lib/physical/packing-slip"
 import { resolveOrder } from "@/lib/physical/bulk-fulfil-server"
 import { BULK_MAX_ORDERS } from "@/lib/physical/bulk-fulfil"
 import { storeIdentity } from "@/lib/store/identity-server"
@@ -44,13 +44,27 @@ export async function GET(request: Request) {
   const [store, zone, { tt, language }] = await Promise.all([storeIdentity(c.db, c.creatorId, { logoOnly: true }).catch(() => null), creatorTimeZone(c.db, c.creatorId), getServerTt()])
   const seen = new Set<string>()
   const slips: string[] = []
+  /* The same paper and prices controls as one order's slip, for the whole stack. */
+  const url = new URL(request.url)
+  const paper = paperAsked(url.searchParams.get("paper"))
+  const withPrices = url.searchParams.get("prices") === "1"
+  const linkTo = (change: Record<string, string | null>) => {
+    const q = new URLSearchParams(url.searchParams)
+    for (const [k, v] of Object.entries(change)) {
+      if (v === null) q.delete(k)
+      else q.set(k, v)
+    }
+    return `${url.pathname}?${q.toString()}`
+  }
+  const controls = { a4: linkTo({ paper: "a4" }), letter: linkTo({ paper: "letter" }), prices: linkTo({ prices: withPrices ? null : "1" }) }
+  const paperShown = slipPaper(paper, request.headers.get("accept-language"))
   for (const id of ids) {
     const order = await resolveOrder(c.db, c.creatorId, id)
     if (!order || seen.has(order.id)) continue
     seen.add(order.id)
     const lines = slipLines(order, {})
     if (!lines.length || order.cancelledAt) continue
-    slips.push(packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null }, { tt, lang: language, timeZone: zone, back: "/app/orders" }))
+    slips.push(packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null }, { tt, lang: language, timeZone: zone, back: "/app/orders", paper, paperShown, controls, prices: withPrices ? { currency: order.currency, totals: null } : null }))
   }
   if (slips.length === 0) return page(tt("None of these orders has anything left to pack."), 404)
   /* One head and bar, then each order's paper, a new sheet each. */

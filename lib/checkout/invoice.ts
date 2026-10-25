@@ -138,7 +138,7 @@ export interface OrderRow {
   variant_id?: string | null
   variant_name: string | null
   stripe_payment_intent_id: string | null
-  /** The Airwallex payment intent, for an order paid through Storelib Payments on Airwallex (part 76). */
+  /** A payment id off Stripe (part 76): an order paid through Airwallex before it was removed. Read, never called. */
   provider_payment_id?: string | null
   stripe_session_id?: string | null
   /** Settings › Taxes: the tax in the amount (SQL part 110), and whether it was part of the price (part 129). */
@@ -241,14 +241,6 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
       meta = (await stripe.paymentIntents.retrieve(first.stripe_payment_intent_id)).metadata ?? {}
     } catch {
       /* The order alone still makes an invoice: no discount line, no company from the payment. */
-    }
-  } else if (!context.metadata && first.provider_payment_id?.startsWith("int_")) {
-    /* Paid on Airwallex: the same fields, on its payment intent (lib/payments/checkout). */
-    try {
-      const { airwallexPaymentMetadata } = await import("@/lib/payments/checkout")
-      meta = (await airwallexPaymentMetadata(first.provider_payment_id)) ?? {}
-    } catch {
-      /* As above: the order alone still makes the invoice. */
     }
   }
   if (!businessKnown) business = business ?? businessFromMetadata(meta)

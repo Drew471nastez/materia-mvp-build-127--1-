@@ -7,6 +7,7 @@ import "server-only"
  */
 import { dayRatesBetween, keptDays, refreshHistory } from "@/lib/markets/fx-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
+import { withOrderCurrency } from "@/lib/store/currency-at-read"
 import { daySpan, inReportingCurrency, needsConversion, type DayRates, type ReportConversion, type ReportMoneyRow } from "./report-currency"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,14 +28,21 @@ export async function inStoreCurrency<T extends ReportMoneyRow>(
   opts: { rates?: (from: string, to: string) => Promise<DayRates[]> } = {},
 ): Promise<StoreCurrencyReport<T>> {
   const currency = (storeCurrency || (await readStoreCurrency(db, creatorId)).currency).toUpperCase()
+  /* Still counted as unknown for the reconciliation report, before they are given one. */
+  const unknown = rows.filter((r) => !(typeof r.currency === "string" && /^[a-z]{3}$/i.test(r.currency.trim()))).length
+  /*
+    An order with no currency recorded is in what the store sold in on its
+    day (lib/store/currency-at), as Orders reads it: the store's currency
+    now unless it changed since, and then converted like any other.
+  */
+  if (unknown > 0) rows = await withOrderCurrency(db, creatorId, rows, currency)
   if (!needsConversion(rows, currency)) {
-    const unknown = rows.filter((r) => !(typeof r.currency === "string" && /^[a-z]{3}$/i.test(r.currency.trim()))).length
     return { rows, converted: 0, unconverted: 0, unknown, currency }
   }
   const span = daySpan(rows)
   const dayRates = opts.rates ?? ((from: string, to: string) => dayRatesBetween(from, to))
   let days = span ? await dayRates(span.from, span.to) : []
-  let out = inReportingCurrency(rows, currency, days)
+  let out = { ...inReportingCurrency(rows, currency, days), unknown }
   /*
     A sale whose day has no kept rate was left out (never guessed), so a store
     that changed currency saw "no revenue" for its older sales whenever the
@@ -43,7 +51,7 @@ export async function inStoreCurrency<T extends ReportMoneyRow>(
   */
   if (out.unconverted > 0 && span && (await fillHistoryOnce(span.from))) {
     days = await dayRates(span.from, span.to)
-    out = inReportingCurrency(rows, currency, days)
+    out = { ...inReportingCurrency(rows, currency, days), unknown }
   }
   return { ...out, currency }
 }

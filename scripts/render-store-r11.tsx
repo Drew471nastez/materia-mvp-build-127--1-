@@ -2,7 +2,6 @@
  * Every checkout's real component for scripts/check-store-r11.mjs, `?case=`:
  *
  *   site, site-cod, physical, physical-cod, digital   as scripts/render-store23.tsx draws them
- *   airwallex     the single product checkout whose card is entered on the next page
  *   free          the single product checkout of a free product (Get it free)
  *   membership    a membership's checkout
  */
@@ -15,15 +14,14 @@ export function boot(render: (el: React.ReactElement) => void) {
   const which = new URLSearchParams(location.search).get("case") || "site"
   const wrap = (el: React.ReactElement) => <div data-case={which}>{el}</div>
   const creator = { id: "c1", name: "Clay Studio", avatar_url: null, username: "claystudio" }
-  if (which === "airwallex" || which === "free") {
+  if (which === "free") {
     render(
       wrap(
         <CheckoutPageClient
-          product={{ id: "p1", title: "Glaze recipes, the whole notebook", slug: "glaze-notebook", description: null, price_cents: which === "free" ? 0 : 2900, thumbnail_url: null, type: "digital" }}
+          product={{ id: "p1", title: "Glaze recipes, the whole notebook", slug: "glaze-notebook", description: null, price_cents: 0, thumbnail_url: null, type: "digital" }}
           creator={creator}
           userEmail={null}
           isLoggedIn={false}
-          paymentProvider={which === "airwallex" ? "airwallex" : undefined}
         />,
       ),
     )

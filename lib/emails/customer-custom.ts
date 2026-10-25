@@ -12,16 +12,19 @@
  *   saved      store_settings.customer_emails (SQL part 129), one object
  *              per email id, only the parts that differ from the default
  *   used by    lib/physical/jobs-server.ts (order, shipping, pickup,
- *              returns, cancelled, refund), lib/email.tsx (the receipt) and
- *              lib/automations/abandoned-reminder.ts (the checkout reminder)
+ *              returns, cancelled, refund), lib/email.tsx (the receipt and
+ *              a download's refund), lib/automations/abandoned-reminder.ts
+ *              (the checkout reminder) and lib/memberships/sync.ts (the
+ *              emails of a membership sold on its own, drawn by
+ *              lib/notify/templates)
  *   preview    lib/emails/customer-catalog.ts, drawn in the browser
  *
  * SAFE BY CONSTRUCTION. What a store types is plain text: tags are taken
  * out when it is saved, and every character is escaped when it is drawn,
  * placeholders included, so nothing typed here can put HTML in an email.
- * A placeholder is one of PLACEHOLDERS in double braces; anything else in
- * braces is refused on save, so a typo never reaches a buyer as
- * "{{ordr_number}}".
+ * A placeholder is one of that email's own (placeholdersFor) in double
+ * braces; anything else in braces is refused on save, so a typo never
+ * reaches a buyer as "{{ordr_number}}".
  *
  * Pure: the browser, the senders and the tests share it.
  */
@@ -40,6 +43,7 @@ export type CustomerEmailsCopy = Record<string, EmailCopy>
 
 export const COPY_LIMITS: Record<CopyField, number> = { subject: 150, heading: 120, body: 2000, button: 40 }
 
+/** The four every order email fills in. */
 export const PLACEHOLDERS = [
   { key: "customer_name", label: "Customer's first name" },
   { key: "order_number", label: "Order number" },
@@ -47,10 +51,48 @@ export const PLACEHOLDERS = [
   { key: "items", label: "What they bought" },
 ] as const
 
-export type PlaceholderKey = (typeof PLACEHOLDERS)[number]["key"]
-export type CopyVars = Partial<Record<PlaceholderKey, string | null | undefined>>
+/** Every value any email can fill in, as the editor names it. */
+export const PLACEHOLDER_LABELS: Record<string, string> = {
+  customer_name: "Customer's first name",
+  order_number: "Order number",
+  shop_name: "Store name",
+  items: "What they bought",
+  amount: "Amount",
+  plan_name: "Membership name",
+  price: "Price",
+  next_payment: "Next payment date",
+  access_until: "Access until",
+}
 
-const KNOWN = new Set<string>(PLACEHOLDERS.map((p) => p.key))
+export type PlaceholderKey = string
+export type CopyVars = Partial<Record<string, string | null | undefined>>
+
+const ORDER_KEYS: string[] = PLACEHOLDERS.map((p) => p.key)
+
+/**
+ * WHAT EACH EMAIL CAN FILL IN. An order email knows the order; a membership
+ * email knows the membership, its price and its dates, and has no order
+ * number. An email not named here fills in the four order values.
+ */
+const PLACEHOLDERS_BY_EMAIL: Record<string, string[]> = {
+  digital_refund: ["shop_name", "items", "amount", "order_number"],
+  membership_started: ["customer_name", "plan_name", "shop_name", "price", "next_payment"],
+  membership_renewed: ["customer_name", "plan_name", "shop_name", "amount", "next_payment"],
+  membership_renewal_reminder: ["customer_name", "plan_name", "shop_name", "price", "next_payment"],
+  membership_payment_failed: ["customer_name", "plan_name", "shop_name", "amount"],
+  membership_canceled: ["customer_name", "plan_name", "shop_name", "access_until"],
+  membership_plan_changed: ["customer_name", "plan_name", "shop_name", "price", "next_payment"],
+  membership_ended: ["customer_name", "plan_name", "shop_name"],
+}
+
+/** The values one email fills in, in the order the editor offers them. */
+export function placeholdersFor(id: string | null | undefined): Array<{ key: string; label: string }> {
+  const keys = (id && PLACEHOLDERS_BY_EMAIL[id]) || ORDER_KEYS
+  return keys.map((key) => ({ key, label: PLACEHOLDER_LABELS[key] ?? key }))
+}
+
+const ALL_KNOWN = new Set<string>(Object.keys(PLACEHOLDER_LABELS))
+const knownFor = (id?: string | null) => (id ? new Set(placeholdersFor(id).map((p) => p.key)) : ALL_KNOWN)
 const BRACES = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g
 
 /**
@@ -83,6 +125,16 @@ export const DEFAULT_COPY: Record<string, Required<EmailCopy>> = {
   review_request: { subject: "How is {{items}}?", heading: "How is {{items}}?", body: "If you have had a chance to use it, how was it? Your review helps other buyers decide, and tells {{shop_name}} what works.", button: "Write a review" },
   review_reminder: { subject: "A quick review of {{items}}?", heading: "Would you review {{items}}?", body: "If you have had a chance to use it, a rating and a line or two is all it takes. Good or bad, an honest review helps the next buyer.", button: "Write a review" },
   checkout_reminder: { subject: "You left {{items}} at checkout", heading: "Still thinking it over?", body: "Hi {{customer_name}}, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.", button: "Finish checkout" },
+  /* A download's refund (lib/emails/notices.ts buyerRefundEmail). The facts, the bank's days and the contact address stay. */
+  digital_refund: { subject: "Your {{amount}} refund for {{items}} has been processed", heading: "Your refund is on its way", body: "{{shop_name}} refunded {{amount}} for {{items}}. You don't need to do anything.", button: "Contact {{shop_name}}" },
+  /* A membership sold on its own (lib/notify/templates/catalog.ts MEMBERSHIP_*): the price, the dates and the card stay in the facts. */
+  membership_started: { subject: "You are a member of {{plan_name}}", heading: "Welcome to {{plan_name}}", body: "Thanks for joining. You pay {{price}}, and it renews by itself until you cancel.", button: "Open your membership" },
+  membership_renewed: { subject: "{{amount}} for {{plan_name}}", heading: "Your membership renewed", body: "We charged {{amount}} for {{plan_name}}. Your next payment is on {{next_payment}}.", button: "Open your membership" },
+  membership_renewal_reminder: { subject: "{{plan_name}} renews on {{next_payment}}", heading: "Your membership renews on {{next_payment}}", body: "{{plan_name}} renews on {{next_payment}} for {{price}}. Nothing to do if you want to stay.", button: "Manage your membership" },
+  membership_payment_failed: { subject: "Your payment for {{plan_name}} did not go through", heading: "Your payment did not go through", body: "We tried to charge {{amount}} for {{plan_name}}, and the bank declined it.", button: "Update your card" },
+  membership_canceled: { subject: "{{plan_name}} ends on {{access_until}}", heading: "Your membership ends on {{access_until}}", body: "Your membership of {{plan_name}} ends on {{access_until}}. No further charges.", button: "Open your membership" },
+  membership_plan_changed: { subject: "You're now on {{plan_name}}", heading: "You're now on {{plan_name}}", body: "Your plan has changed. It started straight away.", button: "Open your membership" },
+  membership_ended: { subject: "Your membership of {{plan_name}} has ended", heading: "Your membership has ended", body: "Your membership of {{plan_name}} has ended and you will not be charged again.", button: "See your memberships" },
 }
 
 export const isCustomizable = (id: unknown): id is string => typeof id === "string" && Object.prototype.hasOwnProperty.call(DEFAULT_COPY, id)
@@ -96,10 +148,11 @@ export function cleanCopyText(value: unknown, field: CopyField): string {
   return t.trim().slice(0, COPY_LIMITS[field])
 }
 
-/** Placeholders in a text that are not one of PLACEHOLDERS. */
-export function unknownPlaceholders(text: string): string[] {
+/** Placeholders in a text that the email (any email, without an id) cannot fill in. */
+export function unknownPlaceholders(text: string, id?: string | null): string[] {
+  const known = knownFor(id)
   const out = new Set<string>()
-  for (const m of text.matchAll(BRACES)) if (!KNOWN.has(m[1])) out.add(m[1])
+  for (const m of text.matchAll(BRACES)) if (!known.has(m[1])) out.add(m[1])
   return [...out]
 }
 
@@ -116,8 +169,8 @@ export function readCopy(id: string, input: unknown): { ok: true; copy: EmailCop
   for (const f of COPY_FIELDS) {
     if (!(f in body)) continue
     const text = cleanCopyText(body[f], f)
-    const bad = unknownPlaceholders(text)
-    if (bad.length) return { ok: false, error: `{{${bad[0]}}} isn't a placeholder. Use ${PLACEHOLDERS.map((p) => `{{${p.key}}}`).join(", ")}.` }
+    const bad = unknownPlaceholders(text, id)
+    if (bad.length) return { ok: false, error: `{{${bad[0]}}} isn't a placeholder. Use ${placeholdersFor(id).map((p) => `{{${p.key}}}`).join(", ")}.` }
     if (f !== "body" && !text) continue
     if (text === def[f]) continue
     copy[f] = text
@@ -136,7 +189,7 @@ export function readSavedCopy(raw: unknown): CustomerEmailsCopy {
       const v = (value as Record<string, unknown>)[f]
       if (typeof v !== "string") continue
       const text = cleanCopyText(v, f)
-      if ((text || f === "body") && unknownPlaceholders(text).length === 0) copy[f] = text
+      if ((text || f === "body") && unknownPlaceholders(text, id).length === 0) copy[f] = text
     }
     if (Object.keys(copy).length) out[id] = copy
   }
@@ -149,14 +202,14 @@ function escapeHtml(value: string): string {
 
 /** A placeholder's value, plain text. A missing first name reads "there", so "Hi {{customer_name}}," still reads. */
 function valueOf(key: string, vars: CopyVars): string {
-  const v = (vars[key as PlaceholderKey] ?? "").toString().replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim()
+  const v = (vars[key] ?? "").toString().replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim()
   if (key === "customer_name") return v || "there"
   return v
 }
 
-/** A text with its placeholders filled in, still plain text. */
+/** A text with its placeholders filled in, still plain text. Nothing in double braces is ever left for a buyer to read. */
 export function fillPlaceholders(text: string, vars: CopyVars): string {
-  return text.replace(BRACES, (_m, key: string) => (KNOWN.has(key) ? valueOf(key, vars) : ""))
+  return text.replace(BRACES, (_m, key: string) => (ALL_KNOWN.has(key) ? valueOf(key, vars) : ""))
 }
 
 /** The opening text as HTML: escaped, a blank line a paragraph break, a newline a line break. */

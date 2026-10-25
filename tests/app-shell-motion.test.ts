@@ -285,7 +285,9 @@ section("No page draws a picture of itself while it loads, inside or out")
       && /transition-\[filter,color,opacity\] duration-\[700ms\]/.test(tab)
       && /\n\s*\{value\}\n/.test(tab) && /\n\s*\{foot\}\n/.test(tab) && /\{loading \? null : change\}/.test(tab)
       && !/ShimmerBlock|shimmer-enter|shimmer-wait|from "@\/components\/ui\/shimmer"/.test(tab)
-      && (code("app/app/analytics/analytics-client.tsx").match(/loading=\{figuresLoading\}/g) ?? []).length === 4)
+      /* Changed on purpose: Analytics draws its tabs from one map over tabOrder now, so the one MetricTab there waits on figuresLoading for every tab. */
+      && /\{tabOrder\.map\(\(tab\) => \{[\s\S]*?return <MetricTab key=\{tab\}[^\n]*loading=\{figuresLoading\}/.test(code("app/app/analytics/analytics-client.tsx"))
+      && (code("app/app/analytics/analytics-client.tsx").match(/<MetricTab /g) ?? []).length === (code("app/app/analytics/analytics-client.tsx").match(/<MetricTab [^\n]*loading=\{figuresLoading\}/g) ?? []).length)
   const payouts = code("app/app/payouts/payouts-client.tsx")
   /* The redone page (round 5): the balance and revenue figures wait soft, the
      way MetricTab's do, rather than as grey bars; the two balance panels are

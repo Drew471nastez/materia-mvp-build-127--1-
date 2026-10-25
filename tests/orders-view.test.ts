@@ -298,9 +298,10 @@ async function main() {
     const insertFirst: Array<[string, RegExp]> = [
       ["app/api/checkout/process/route.ts", /Order created successfully:", order\.id\)\n\s*const origin = originOf\(body\.origin, request\)\n\s*const channel = channelOf\(origin, orderSourceFromRequest\(request\)\)\n\s*await tagOrderSource\(admin, order\.id, channel, origin\)/],
       ["app/api/checkout/quick-free/route.ts", /const origin = originOf\(body\.origin, request\)\n\s*const channel = channelOf\(origin, orderSourceFromRequest\(request\)\)\n\s*await tagOrderSource\(admin, order\.id, channel, origin\)/],
-      ["lib/checkout/fulfil-payment.ts", /const origin = orderOriginFrom\(m, opts\.request\)\n\s*const source = orderSourceFrom\(m, opts\.request\)\n\s*await tagOrderSource\(admin, order\.id, source, origin\)/],
+      /* Round AE: a recorded follow-up step, after the insert (lib/checkout/followups.ts). */
+      ["lib/checkout/fulfil-payment.ts", /const origin = orderOriginFrom\(m, opts\.request\)\n\s*const source = orderSourceFrom\(m, opts\.request\)\n\s*await f\.idempotent\("source", \(\) => tagOrderSource\(admin, order\.id, source, origin\)\)/],
       ["app/api/stripe/webhook/route.ts", /await tagOrderSource\(supabaseAdmin, order\.id, orderSourceFrom\(metadata\), orderOriginFrom\(metadata\)\)/],
-      ["lib/checkout/fulfil-cart-item.ts", /await tagOrderSource\(ctx\.admin, order\.id, "website", ctx\.origin\)/],
+      ["lib/checkout/fulfil-cart-item.ts", /await f\.idempotent\("source", \(\) => tagOrderSource\(ctx\.admin, line\.orderId, "website", ctx\.origin\)\)/],
       ["app/api/admin/sales-trigger/route.ts", /await tagOrderSource\(admin, order\.id, "storelib", \{ surface: "admin" \}\)/],
     ]
     for (const [file, pattern] of insertFirst) {
@@ -451,7 +452,8 @@ async function main() {
         && /\.orders-bar\[data-scrolled="true"\] \{\s*box-shadow: 0 1px 0 rgba\(17, 24, 39, 0\.07\)/.test(read("app/globals.css")))
     check("no comparison control; the changes are always against the period before",
       !/ComparePicker/.test(list) && /const compare = PREVIOUS_PERIOD/.test(client))
-    check("the export does not let a cell run as a formula", /\^\[=\+\\-@\\t\\r\]/.test(read("lib/orders/export-csv.ts")))
+    /* Changed on purpose (round AE4): the one guard every export shares (lib/csv/formula-guard), which also looks past a leading space, tab or line break; tests/ae4-leftovers.test.ts runs it. */
+    check("the export does not let a cell run as a formula", /s = guardFormula\(s\)/.test(read("lib/orders/export-csv.ts")) && /import \{ guardFormula \} from "@\/lib\/csv\/formula-guard"/.test(read("lib/orders/export-csv.ts")))
     check("  and the dialog writes its file with that same function", /from "@\/lib\/orders\/export-csv"/.test(read("app/app/orders/export-dialog.tsx")))
   }
 

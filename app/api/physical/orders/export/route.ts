@@ -3,6 +3,7 @@ import { sellerOrderNumbers } from "@/lib/orders/order-number-server"
 import { isUuid, physicalCaller } from "@/lib/physical/auth"
 import { countryName } from "@/lib/checkout/countries"
 import { orderNumber } from "@/lib/physical/status"
+import { guardFormula } from "@/lib/csv/formula-guard"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -13,8 +14,8 @@ const MAX_EXPORT = 50_000
 
 function cell(value: unknown): string {
   const s = value === null || value === undefined ? "" : String(value)
-  /* A spreadsheet runs a cell starting with = + - @ as a formula; a quote first stops that. */
-  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s
+  /* A spreadsheet runs a cell starting with = + - @ as a formula, even after spaces or breaks (lib/csv/formula-guard.ts); a quote first stops that. */
+  const safe = guardFormula(s)
   return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 

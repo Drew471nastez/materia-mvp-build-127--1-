@@ -142,7 +142,7 @@ async function main() {
     const reads = code("lib/analytics/report-read.ts")
     check("the reports route lists no product ids for orders", !/\.in\("product_id"/.test(route + reads) && !/productIds/.test(route + reads))
     check("  and reads the period's orders and the all time orders through byCreator",
-      /return byCreator\(\(scope\) =>\s*withColumns\(ORDER_COLUMNS/.test(reads) && /* Changed on purpose (currency round AM): read, then converted to the store's currency (lib/money/report-currency). */ /const read = await byCreator\(/.test(route) && /inStoreCurrency\(admin, creatorId, read, storeCurrency\)/.test(route) && /readOrders\(admin, spans, q\.creatorId, q\.product\)/.test(route) && /allTimeOf\(admin, q\.creatorId\)/.test(route))
+      /return byCreator\(\(scope\) =>\s*withColumns\(ORDER_COLUMNS/.test(reads) && /* Changed on purpose (currency round AM): read, then converted to the store's currency (lib/money/report-currency). */ /const read = await byCreator\(/.test(route) && /inStoreCurrency\(admin, creatorId, read, storeCurrency\)/.test(route) && /readOrders\(admin, spans, q\.creatorId, q\.product, q\.window\)/.test(route) && /allTimeOf\(admin, q\.creatorId\)/.test(route))
   }
 
   console.log("\nHome's sales count and revenue: every order, not the first 1,000 rows")

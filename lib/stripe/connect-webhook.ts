@@ -3,6 +3,7 @@ import "server-only"
 import { after } from "next/server"
 import type Stripe from "stripe"
 import { readCreatorStripe, syncStripeAccount, syncStripeAccountFull } from "@/lib/payments/stripe/connect"
+import { forgetPaymentsReadiness } from "@/lib/payments/stripe/readiness-cache"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { emit } from "@/lib/notify/outbox"
@@ -46,12 +47,13 @@ async function noteLastEvent(creatorId: string, event: Stripe.Event): Promise<vo
  * (lib/payments/stripe/readiness) going from no to yes is "Your Storelib
  * payments are ready". Keyed by the account and the last time Stripe's list
  * of asks emptied, so becoming ready again after a hold is told again, and
- * the many account.updated events around one change are told once. This was
- * only ever sent for Airwallex; a Stripe seller never heard it.
+ * the many account.updated events around one change are told once.
  */
 async function tellIfNowReady(creatorId: string, userId: string | null, accountId: string, wasReady: boolean, event: Stripe.Event): Promise<void> {
   const synced = await syncStripeAccountFull(creatorId, "webhook")
   const nowReady = synced.snapshot.canAcceptPayments === true
+  /* Connected or not any more: the store's cached readiness ("Connect payments") goes now, not in a minute. */
+  if (wasReady !== nowReady) await forgetPaymentsReadiness(creatorId)
   if (wasReady || !nowReady) return
   const row = await readCreatorStripe(creatorId).catch(() => null)
   await emit({
