@@ -190,7 +190,7 @@ async function main() {
   check("every community email in the list takes words but the broadcast", COMMUNITY_EMAILS.every((e) => e.editable === (e.community !== "broadcast")))
   const sql = read("supabase/sql/run-now/301_community_email_words.sql")
   check("part 301 widens the kinds, keeps the old ones, adds the button and keeps the table server only", /'membership_ended'/.test(sql) && /'announcement'/.test(sql) && /ADD COLUMN IF NOT EXISTS button text/.test(sql) && /ENABLE ROW LEVEL SECURITY/.test(sql) && /REVOKE ALL ON public\.community_email_templates FROM PUBLIC, anon, authenticated/.test(sql) && !/DROP TABLE|DELETE FROM|TRUNCATE/i.test(sql))
-  check("part 301 is in the migrations, the README and the after-check", read("supabase/migrations/20270201_ae2_community_email_words.sql") === sql && /301_community_email_words\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p301_community_email_words;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("part 301 is in the migrations, the README and the after-check", read("supabase/migrations/20270201_ae2_community_email_words.sql") === sql && /301_community_email_words\.sql/.test(read("supabase/sql/run-now/README.md")) && /* Changed on purpose (round AF): part 304's column comes after it now. */ /as p301_community_email_words[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) process.exit(1)

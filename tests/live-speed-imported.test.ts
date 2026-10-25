@@ -250,7 +250,7 @@ function together() {
   check("  and the install is read after they have started", site.indexOf("const releaseAsked") < site.indexOf("readInstall(admin, creator.creatorId)"))
   /* Changed on purpose (round BC): Settings › Taxes' prices-include-tax is read in the same Promise.all. */
   check("the returns line and the free shipping facts are read together", /const \[returnFacts, facts(, taxesIncluded)?\] = await Promise\.all\(\[/.test(site))
-  check("a product's description and its variants' facts are read together", /const \[found, pageFacts\] = await Promise\.all\(\[/.test(site))
+  check("a product's description and its variants' facts are read together", /* Changed on purpose (round AF): the product's offers are read beside them too. */ /const \[found, pageFacts, offers\] = await Promise\.all\(\[/.test(site))
   const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
   check("the route asks the languages and the store's tags beside the site", /const languagesAsked = creatorAsked \?/.test(route) && /const trackingAsked = creatorAsked && pageAsked \?/.test(route) && route.indexOf("const languagesAsked") < route.indexOf("await compatSiteByName("))
   check("  each used only for the site that was found", /forSite\(languagesAsked, found\.site\.creatorId\)/.test(route) && /forSite\(trackingAsked, found\.site\.creatorId\)/.test(route))
