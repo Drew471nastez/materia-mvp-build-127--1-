@@ -287,6 +287,70 @@ const pageIdOf = (p: object) => {
 /* Where the theme's pictures are, read once per set of the install's files: a theme is made for every value a theme setting passes. */
 const mediaHeld = new WeakMap<object, Record<string, string>>()
 
+/*
+  A THEME HOLDS NO PAGE (round 13). A theme object is kept for every set of
+  settings it was made with (the WeakMap in CompatCanvas, `themes`), and the
+  editor's undo steps keep those settings. Made inside the component, its
+  address functions closed over the render they were made in, and with it
+  that render's frames and every page drawn into them (each about 280KB on
+  Materia): a heap snapshot's retainers showed the drawn pages held by
+  theme.opts.imageUrl. Made here, a theme holds its files, its values and
+  its install's id.
+*/
+function themeOfFiles(installId: string, files: Record<string, string>, values: Record<string, unknown>) {
+  const media = mediaHeld.get(files) ?? assetAddresses(files)
+  mediaHeld.set(files, media)
+  return themeOfInstall(files, values, {
+    /* By what the file holds (THEME CODE THAT CHANGED): a push that changes it is a new address in the page. */
+    assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}?v=${assetVersionIn(files, name)}`,
+    assetText: (name) => files[`shopify/assets/${name}`] ?? null,
+    /* "shopify://shop_images/logo.png": the theme's own picture of that name where it brought one, as the live site draws it (lib/website-builder/compat-site.ts). */
+    imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),
+  })
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   THEME CODE THAT CHANGED (round 13)
+  ═══════════════════════════════════════════════════════════════════════
+  The owner: after a push to the theme's GitHub repository "something
+  triggers in the editor that causes a lot of bugs, glitches, scroll
+  issues, scatter ... I have to refresh the whole editor". The canvas named
+  the theme's stylesheets and scripts by one address whatever they held
+  (/edit/<name>), so a push that changed them drew the same page: the frame
+  kept the old stylesheet and the old script, and only a reload of the
+  editor showed the code just pushed (scripts/check-wb-stability-r13.mjs:
+  0 of 10 pushes reached the canvas's stylesheet or script).
+
+  Each address now carries what the file holds (`?v=`, a hash of its text),
+  so a changed file is a changed address: a stylesheet is swapped where it
+  stands (the new one loads, then the old one goes: canvas-bridge.ts), and a
+  script that changed draws the page again behind the one on screen, where
+  it was scrolled to (planPatch, scriptFileChanged). A theme's script is
+  never run a second time over its first run in the same page: that left
+  two of every slider, scroll listener and timer it starts.
+*/
+const assetVersions = new WeakMap<object, Map<string, string>>()
+export function assetVersionIn(files: Record<string, string>, name: string): string {
+  let byName = assetVersions.get(files)
+  if (!byName) assetVersions.set(files, (byName = new Map()))
+  let v = byName.get(name)
+  if (v === undefined) {
+    const text = files[`shopify/assets/${name}`] ?? files[`shopify/assets/${name}.liquid`] ?? ""
+    let h = 0x811c9dc5
+    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193)
+    v = `${(h >>> 0).toString(36)}${text.length.toString(36)}`
+    byName.set(name, v)
+  }
+  return v
+}
+/** The same script file at another version (`?v=` moved): the theme's code changed under the page. */
+export function scriptFileChanged(from: readonly string[], to: readonly string[]): boolean {
+  const base = (src: string) => src.replace(/[?&]v=[^&#]*/, "")
+  const was = new Map(from.map((src) => [base(src), src]))
+  return to.some((src) => was.has(base(src)) && was.get(base(src)) !== src)
+}
+
 /* The theme's reads of its settings (theme-css.ts settingUses), once per set of the install's files and page template. */
 const usesHeld = new WeakMap<object, Map<string, SettingUses | null>>()
 const usesOf = (rows: object, theme: CompatTheme, page: CompatPage, list: readonly StoredSection[]): SettingUses | null => {
@@ -430,17 +494,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* Not before the install's own .storelib files are in (sourcesReady): the page is drawn from them. */
   const sourcesReady = props.sourcesReady !== false
   const rows = useMemo(() => (compatFiles && sourcesReady ? { ...sources, ...compatFiles, ...(wordsFiles ?? {}) } : null), [sources, compatFiles, sourcesReady, wordsFiles])
-  /* The theme for a set of settings, from the install's files. */
-  const themeWith = (files: Record<string, string>, values: Record<string, unknown>) => {
-    const media = mediaHeld.get(files) ?? assetAddresses(files)
-    mediaHeld.set(files, media)
-    return themeOfInstall(files, values, {
-      assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
-      assetText: (name) => files[`shopify/assets/${name}`] ?? null,
-      /* "shopify://shop_images/logo.png": the theme's own picture of that name where it brought one, as the live site draws it (lib/website-builder/compat-site.ts). */
-      imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),
-    })
-  }
+  /* The theme for a set of settings, from the install's files (themeOfFiles, outside the component: A THEME HOLDS NO PAGE). */
+  const themeWith = (files: Record<string, string>, values: Record<string, unknown>) => themeOfFiles(installId, files, values)
   /*
     A THEME VALUE WRITTEN FROM THE PAGE'S TEMPLATE (round 35, below at
     applyLiveTheme) holds the page drawn with the settings it was drawn
@@ -742,6 +797,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
     loads?: number
     /** A link the theme's own script took (a page transition): where the page is about to go, said while it could still be heard. */
     taken?: { href: string; chrome: boolean; at: number }
+    /** Sections swapped into this page since it loaded: each one started the theme's code for it again (A PAGE WORN BY EDITS). */
+    swapped?: number
+    /** Drawn again from nothing once the finger is up and the changes stop (A PAGE WORN BY EDITS). */
+    freshDue?: boolean
   }
   const [slots, setSlots] = useState<Slot[]>([])
   /* The theme's first page has painted (its pictures in, or a moment after it is ready): the placeholder over it fades. */
@@ -944,9 +1003,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const stale = useRef(false)
   /* A change to the theme's start-up scripts waiting for the changes to stop (A SETTING THE THEME'S JAVASCRIPT READS AT START, below). */
   const scriptsTimer = useRef(0)
+  /* A page worn by edits waiting for them to stop (A PAGE WORN BY EDITS, below). */
+  const freshTimer = useRef(0)
+  useEffect(() => () => window.clearTimeout(freshTimer.current), [])
   const scriptsDue = useRef(false)
   /* The page drawn now and compared with the one on screen; what differs is sent to it. Reads everything it needs when it runs. */
-  const drawAndPatch = () => {
+  const drawAndPatch = (opts?: { fresh?: boolean }) => {
     if (!compatTheme) return
     stale.current = false
     /* An account page wears only this page's header, footer and overlay: those are the sections it can take a change to. */
@@ -993,6 +1055,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     overridesShown.current = null
     const now = front()
     if (!now) { loadBehind(html, docKey, list); return }
+    /* A page worn by edits, drawn fresh now that they have stopped (A PAGE WORN BY EDITS). */
+    if (opts?.fresh && now.key === docKey) { loadBehind(html, docKey, list); return }
     /*
       WHILE A FINGER IS DOWN, a drawing that differs from the last one only
       inside one <style> or one tag is sent as that change (live-draw.ts
@@ -1065,6 +1129,48 @@ export function CompatCanvas(props: CompatCanvasProps) {
       tell(win, false)
       loadBehind(html, docKey, list)
       return
+    }
+    /*
+      ═════════════════════════════════════════════════════════════════════
+       A CHANGE TO EVERY SECTION, AND A PAGE WORN BY EDITS (round 13)
+      ═════════════════════════════════════════════════════════════════════
+      Each section swapped in place is announced to the theme's code
+      (shopify:section:load), which starts again for it, and most store
+      themes never take down what the last start made: a theme colour that
+      every section prints swapped all of them, and ten such changes left
+      the canvas with 103 IntersectionObservers, 11 timers and 11 scroll
+      listeners where a fresh page has 2, 1 and 0, its slider rebuilt over
+      itself and its hero drawn out of place ("scatter": 71% of the canvas
+      differed from the same page loaded fresh; scripts/check-wb-stability-
+      r13.mjs). Only a reload of the editor put it right.
+
+      So a change that swaps most of the page (MASSIVE_SWAP_MIN) draws it
+      again behind the one on screen, where it was scrolled to, and the new
+      page takes its place once it is drawn: one clean start of the theme's
+      code, never a jump. And a page that has taken many swaps since it
+      loaded (WORN_SWAPS: a long session of edits) is drawn fresh the same
+      way once the edits stop for a moment, so nothing builds up however
+      long the editor stays open. Under a finger the page is changed in
+      place as before, and drawn fresh after it lifts.
+    */
+    const massive = plan.swaps.length >= MASSIVE_SWAP_MIN && plan.swaps.length * 2 >= next.order.length
+    if (massive && !isLive()) {
+      loadBehind(html, docKey, list)
+      return
+    }
+    now.swapped = (now.swapped ?? 0) + plan.swaps.length
+    if (massive || now.swapped >= WORN_SWAPS) {
+      now.freshDue = true
+      window.clearTimeout(freshTimer.current)
+      const n = now.n
+      const fresh = () => {
+        const slot = front()
+        if (!slot || slot.n !== n || !slot.freshDue) return
+        if (isLive() || slotsRef.current[1]) { freshTimer.current = window.setTimeout(fresh, FRESH_SETTLE_MS); return }
+        slot.freshDue = false
+        drawAndPatchRef.current({ fresh: true })
+      }
+      freshTimer.current = window.setTimeout(fresh, FRESH_SETTLE_MS)
     }
     if (plan.scripts) {
       next.scripts = now.shape.scripts
@@ -2272,6 +2378,11 @@ function CanvasPlaceholder({ hidden, label }: { hidden: boolean; label: string }
 const SCRIPTS_SETTLE_MS = 400
 /* A theme setting whose change is one value, never a run of them (ONE CHOICE, SHOWN AT ONCE). */
 const DISCRETE_SETTINGS = new Set(["select", "radio", "checkbox", "color_scheme", "font_picker", "text_alignment"])
+/* A PAGE WORN BY EDITS (drawAndPatch): a change that swaps at least this many sections, and half the page or more, draws the page again behind it. */
+const MASSIVE_SWAP_MIN = 3
+/* Sections swapped into one page since it loaded before it is drawn fresh, once the edits stop for FRESH_SETTLE_MS. */
+const WORN_SWAPS = 40
+const FRESH_SETTLE_MS = 1_500
 
 /* "slow" is not a failure yet: the page is still being asked for, and comes in under this if it arrives. */
 const PROBLEM_WORDS = {
@@ -2320,6 +2431,8 @@ export interface DocShape {
    * `scripts`). Storelib's own scripts are not among them.
    */
   scripts?: string[]
+  /** Every script's address in the page, sections' included (round 13: a theme script whose file changed, THEME CODE THAT CHANGED). */
+  srcs?: string[]
 }
 
 /*
@@ -2380,7 +2493,8 @@ export function docShape(html: string): DocShape {
   const scripts = Array.from(doc.querySelectorAll("script:not([src])"))
     .filter((el) => !el.closest(".shopify-section[data-section-id]") && !ownScript(el))
     .map((el) => `${el.getAttribute("type") ?? ""}|${el.textContent ?? ""}`)
-  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML, scripts }
+  const srcs = Array.from(doc.querySelectorAll("script[src]")).map((el) => el.getAttribute("src") ?? "")
+  return { head: head.join("\n"), headNodes, styles, bodyStyles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order, headLayout, bodyLayout: laid.innerHTML, scripts, srcs }
 }
 
 const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
@@ -2414,6 +2528,8 @@ const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.
  * stays where a setting changes another.
  */
 export function planPatch(from: DocShape, to: DocShape): { empty: boolean; message: Record<string, unknown>; swaps: { id: string; html: string }[]; scripts?: boolean } | null {
+  /* A theme script whose file changed (a push, the code editor): a new page, never the new script run over the old one (THEME CODE THAT CHANGED). */
+  if (from.srcs && to.srcs && scriptFileChanged(from.srcs, to.srcs)) return null
   const headMoved = from.head !== to.head || from.styles.length !== to.styles.length || from.headNodes.length !== to.headNodes.length
   const bodyMoved = from.skeleton !== to.skeleton || from.bodyStyles.length !== to.bodyStyles.length
   if (headMoved && !(from.headLayout && to.headLayout)) return null

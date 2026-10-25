@@ -1303,14 +1303,19 @@ export const CANVAS_BRIDGE = `
     out of what is swapped in.
   */
   var queue = Promise.resolve();
-  var kept = {};
+  var kept = {}, keptLink = {};
+  /* The same file at another version (?v=, its text changed: a push) takes the old one's place once it has loaded, never both (round 13). */
+  var fileOf = function (href) { return String(href).replace(/[?&]v=[^&#]*/, ""); };
   var keep = function (href) {
     if (kept[href]) return kept[href];
     var l = document.createElement("link");
     l.rel = "stylesheet";
     l.href = href;
     l.setAttribute("data-sl", "");
+    var old = keptLink[fileOf(href)];
+    keptLink[fileOf(href)] = l;
     kept[href] = new Promise(function (done) { l.onload = done; l.onerror = done; setTimeout(done, 2000); });
+    if (old) kept[href].then(function () { if (old.href && kept[old.href]) delete kept[old.href]; old.remove(); });
     document.head.appendChild(l);
     return kept[href];
   };

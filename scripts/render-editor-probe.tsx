@@ -135,6 +135,16 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   /* PROBE_CARDS: the shop's product cards as /api/website-builder/products?cards=1 answers them. */
   const cards = (window as unknown as { PROBE_CARDS?: unknown[] }).PROBE_CARDS
   if (cards && /\/website-builder\/products\?cards=1/.test(url)) return json({ shop: cards, catalog: cards })
+  /*
+    PROBE_ACTIVITY: the activity log a push or an agent writes ({ events, syncAt }), read at every ask, so a probe can
+    play a GitHub push arriving under an open editor (scripts/check-wb-stability-r13.mjs). The first ask is only a cursor.
+  */
+  const activity = (window as unknown as { PROBE_ACTIVITY?: { events: { id: number }[]; syncAt?: string | null } }).PROBE_ACTIVITY
+  if (/\/themes\/probe-install\/agent-activity/.test(url) && activity) {
+    const after = new URL(url, location.href).searchParams.get("after")
+    const top = activity.events.length ? activity.events[activity.events.length - 1].id : 0
+    return json({ ready: true, cursor: top, connections: probeGlobals.PROBE_CONNECTIONS, events: after === null ? [] : activity.events.filter((e) => e.id > Number(after)), sync_at: activity.syncAt ?? null })
+  }
   if (/\/themes\/probe-install\/agent-activity/.test(url) && probeGlobals.PROBE_CONNECTIONS) {
     return json({ ready: true, cursor: 0, connections: probeGlobals.PROBE_CONNECTIONS, events: [] })
   }
