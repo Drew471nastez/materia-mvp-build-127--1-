@@ -30,6 +30,7 @@ import { ShoppingBag, Minus, Plus, Trash2, X } from "lucide-react"
 import { ProductImg, isDarkColor } from "@/components/media/missing-image"
 import { useSiteCart } from "./site-cart"
 import { checkoutItems, lineKey } from "@/lib/website-builder/cart"
+import { CartLineProperties } from "@/components/website-builder/cart-line-properties"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
@@ -285,6 +286,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
                     {l.title}
                   </a>
                   {l.variantName && <p className="mt-0.5 text-[13px] opacity-60">{l.variantName}</p>}
+                  <CartLineProperties properties={l.properties} className="mt-0.5 space-y-0.5 text-[13px] opacity-70" />
                   <div className="mt-auto flex items-center gap-4 pt-3">
                     {l.digital ? (
                       <button

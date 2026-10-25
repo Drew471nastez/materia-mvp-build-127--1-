@@ -46,6 +46,7 @@ import { gelato } from "./gelato"
 import { cjDropshipping } from "./cj"
 import { linksForVariants, syncCjStock, type StockDeps } from "./links-server"
 import type { ConnectorCredential, FulfilmentConnector, ProviderOrderInput, ProviderOrderState, VariantLink } from "./types"
+import { readUploadValue, uploadsOf } from "@/lib/cart-uploads/rules"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -72,6 +73,8 @@ export interface ForwardOrderLine {
   fulfilled: number
   requiresShipping: boolean
   locationId: string | null
+  /** The buyer's words and pictures for this line (lib/physical/cart-link, lib/cart-uploads), as the order kept them. */
+  properties?: Record<string, string> | null
 }
 export interface ForwardOrder {
   id: string
@@ -101,6 +104,11 @@ export interface ForwardDeps {
   now: () => number
   /** CJ's stock, moved when its STOCK webhook names variants (./links-server.ts). Absent: the six hourly round catches up. */
   stock?: StockDeps
+  /**
+   * A link to each of the buyer's pictures the order names (lib/cart-uploads/store orderFiles), this store's own only,
+   * that lasts seven days: the print partner fetches the file from it. By upload id (32 hex). Absent: none are sent.
+   */
+  printFiles?: (db: Db, input: { creatorId: string; ids: string[] }) => Promise<Map<string, { name: string; url: string }>>
 }
 
 /* ── the webhook address: a token only Storelib can make ──────────────── */
@@ -291,7 +299,7 @@ async function integrationById(db: Db, creatorId: string, integrationId: string)
  * The items still to ship from one location, as the provider takes them. With links (Gelato, CJ), an item goes by the
  * partner variant the seller matched it to, or by its SKU where the partner confirms it; one with neither is refused here.
  */
-export function providerOrderFor(order: ForwardOrder, locationId: string, autoConfirm: boolean, links?: Map<string, VariantLink> | null): ProviderOrderInput | { error: string } {
+export function providerOrderFor(order: ForwardOrder, locationId: string, autoConfirm: boolean, links?: Map<string, VariantLink> | null, printFiles?: Map<string, { name: string; url: string }> | null): ProviderOrderInput | { error: string } {
   const open = order.lines.filter((l) => l.requiresShipping && l.locationId === locationId && l.quantity - l.fulfilled > 0)
   if (open.length === 0) return { error: "" }
   const linkOf = (l: ForwardOrderLine) => (links && l.variantId ? (links.get(l.variantId) ?? null) : null)
@@ -321,9 +329,48 @@ export function providerOrderFor(order: ForwardOrder, locationId: string, autoCo
       phone: a.phone ? String(a.phone) : order.buyerPhone,
       email: order.buyerEmail,
     },
-    lines: open.map((l) => ({ sku: String(l.sku ?? "").trim(), quantity: l.quantity - l.fulfilled, title: l.variantName ? `${l.title} (${l.variantName})` : l.title, lineId: externalIdOf(l.orderId), variantId: l.variantId ?? null, link: linkOf(l) })),
-    autoConfirm,
+    lines: open.map((l) => {
+      const p = personalizationOf(l.properties, printFiles)
+      return { sku: String(l.sku ?? "").trim(), quantity: l.quantity - l.fulfilled, title: l.variantName ? `${l.title} (${l.variantName})` : l.title, lineId: externalIdOf(l.orderId), variantId: l.variantId ?? null, link: linkOf(l), ...(p.text.length ? { personalization: p.text } : {}), ...(p.files.length ? { printFiles: p.files } : {}) }
+    }),
+    /* A line the buyer personalised goes as a draft, so the seller sees what was asked before it is made (each partner takes only part of it: see personalizationOf). */
+    autoConfirm: autoConfirm && !open.some((l) => hasPersonalization(l.properties)),
   }
+}
+
+/**
+ * WHAT THE BUYER ASKED FOR ON A LINE, as a print partner takes it: their
+ * words (each property they were shown, never a theme's own "_" one) and
+ * their pictures, each by a link that lasts seven days. A picture with no
+ * link (not found for this store, not signed) is left out, never guessed.
+ *
+ *   Printful   the words go in the item's name, which its dashboard and
+ *              packing slip show; the pictures are not sent (its items
+ *              print the store's own design), the seller downloads them
+ *              from the order page and the order arrives as a draft.
+ *   Printify   neither: its order items take a SKU and a quantity only.
+ *              The order arrives as a draft for the seller to apply them.
+ *   Gelato     the words in the order's metadata; a picture is the item's
+ *              print file when the seller matched the product without a
+ *              file of its own (a "your photo on canvas" product). Beside
+ *              the seller's own file it stays on the Storelib order page.
+ */
+export function personalizationOf(props: Record<string, string> | null | undefined, printFiles?: Map<string, { name: string; url: string }> | null): { text: { name: string; value: string }[]; files: { name: string; url: string }[] } {
+  const text: { name: string; value: string }[] = []
+  const files: { name: string; url: string }[] = []
+  for (const [k, v] of Object.entries(props ?? {})) {
+    if (k.startsWith("_")) continue
+    const upload = readUploadValue(v)
+    if (upload) {
+      const f = printFiles?.get(upload.id)
+      if (f) files.push({ name: k, url: f.url })
+    } else text.push({ name: k, value: v })
+  }
+  return { text, files }
+}
+
+function hasPersonalization(props: Record<string, string> | null | undefined): boolean {
+  return Object.keys(props ?? {}).some((k) => !k.startsWith("_"))
 }
 
 /** The forward_fulfillment job. Throws only for what is worth trying again. */
@@ -346,7 +393,10 @@ export async function forwardToProvider(db: Db, payload: Record<string, any>, de
   const order = await deps.loadOrder(db, { creatorId, checkoutId })
   if (!order || order.cancelledAt || (order.status !== "paid" && order.status !== "partially_refunded")) return
   const links = c.matching === "link" ? await linksForVariants(db, creatorId, c.id, order.lines.filter((l) => l.locationId === locationId).map((l) => l.variantId ?? "")) : null
-  const input = providerOrderFor(order, locationId, cred.config.auto_confirm === true, links)
+  /* The buyer's pictures on the lines going to this partner, each by a link that lasts seven days (this store's own uploads only). */
+  const fileIds = [...new Set(order.lines.filter((l) => l.locationId === locationId).flatMap((l) => uploadsOf(l.properties).map((u) => u.upload.id)))]
+  const printFiles = fileIds.length && deps.printFiles ? await deps.printFiles(db, { creatorId, ids: fileIds }).catch(() => null) : null
+  const input = providerOrderFor(order, locationId, cred.config.auto_confirm === true, links, printFiles)
   if ("error" in input) return input.error ? manual(`${c.name}: ${input.error}`, "input") : undefined
 
   try {

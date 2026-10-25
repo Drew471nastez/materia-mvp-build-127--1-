@@ -53,6 +53,7 @@ import { DynamicIcon, type SectionPalette } from "../../_shared"
 import { useStorefront, useWord } from "../../../theme/storefront-context"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { OffersBlock } from "./offers-block"
+import { PersonalizationBlock } from "./personalization-block"
 import { SizeGuideOpener } from "./size-chart"
 import { SAMPLE_SIZE_CHART, sizeOptionIndex, type SizeChart } from "@/lib/size-charts/model"
 import { checkoutIntent } from "@/lib/website-builder/checkout-prefetch"
@@ -91,6 +92,12 @@ export interface ProductCtx {
   hasSizeChartBlock?: boolean
   /** For the Bundles and upsells block (./offers-block.tsx): this product as chosen, and a way to put several lines in the cart. */
   offers?: { chosen: { variantId: string; variantName: string | null; priceCents: number; imageUrl: string | null; line?: CartLine } | null; addLines: (lines: CartLine[]) => void }
+  /**
+   * The Personalization blocks' values (./personalization-block.tsx), by `<block id>:text` and `<block id>:image`;
+   * `missing`, once Add to cart was pressed, is what a required one still needs; `uploadsOn`, a real product that
+   * ships on a live page, where a picture can be sent.
+   */
+  personalization?: { values: Record<string, string>; set: (key: string, value: string) => void; missing: string | null; uploadsOn: boolean }
 }
 
 type S = Record<string, unknown>
@@ -967,6 +974,7 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   files: Files,
   custom_code: CustomCode,
   offers: OffersBlock,
+  personalization: PersonalizationBlock,
 }
 
 /** One block, in its wrapper: the canvas selects it by `data-block-id`, and its spacing is its own. */
@@ -977,7 +985,8 @@ export function ProductBlock({ block, ctx }: { block: BlockInstance; ctx: Produc
   /* `empty:hidden`: a block with nothing to draw on this product takes no room, its spacing included. */
   return (
     <div className="empty:hidden" data-block-id={block.id} data-block-type={block.type} style={{ marginTop: num(s.margin_top, 0), marginBottom: num(s.margin_bottom, 16) }}>
-      <Draw s={s} ctx={ctx} />
+      {/* The Personalization block keeps its values under its own id (./personalization-block.tsx). */}
+      <Draw s={block.type === "personalization" ? { ...s, __id: block.id } : s} ctx={ctx} />
     </div>
   )
 }

@@ -31,6 +31,7 @@
 import { ITEM_PX, renderHtml, renderText, type Fact, type LayoutInput, type SummaryRow } from "./templates/layout"
 import { inboxPicture } from "./templates/index"
 import { PATHS, formatMoney } from "./templates/catalog"
+import { propertyText } from "@/lib/cart-uploads/rules"
 import { actionUrl, canonicalOrigin, cleanText, mailtoUrl, sameSiteUrl } from "./templates/escape"
 import type { TemplateFamily } from "./types"
 
@@ -102,7 +103,8 @@ function detailsOf(attributes: unknown, lines: Record<string, unknown>[]): strin
   }
   for (const l of lines) {
     const props = l.properties && typeof l.properties === "object" && !Array.isArray(l.properties) ? Object.entries(l.properties as Record<string, unknown>) : []
-    const said = props.map(([k, v]) => (str(k, 60) && str(v, 250) ? `${str(k, 60)}: ${str(v, 250)}` : "")).filter(Boolean)
+    /* A picture the buyer sent by its file name (lib/cart-uploads), never its address. */
+    const said = props.map(([k, v]) => (str(k, 60) && str(v, 250) ? `${str(k, 60)}: ${propertyText(str(v, 250))}` : "")).filter(Boolean)
     if (said.length) out.push(`${str(l.title, 80) || "Item"}: ${said.join(", ")}`)
   }
   return out.slice(0, 12)

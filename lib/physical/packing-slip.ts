@@ -33,6 +33,7 @@
 
 import { addressLines } from "./address"
 import { formatMinor } from "@/lib/markets/money"
+import { propertyText } from "@/lib/cart-uploads/rules"
 
 export type SlipPaper = "a4" | "letter"
 
@@ -104,7 +105,8 @@ export function slipLines(order: SlipOrder, pick: { shipmentId?: string | null; 
     sku: l.sku,
     imageUrl: l.imageUrl,
     quantity,
-    properties: Object.entries(l.properties ?? {}).filter(([k, v]) => k.trim() && String(v).trim()),
+    /* A picture the buyer sent, by its file name (lib/cart-uploads): the picture itself is on the order page. */
+    properties: Object.entries(l.properties ?? {}).filter(([k, v]) => k.trim() && String(v).trim()).map(([k, v]): [string, string] => [k, propertyText(String(v))]),
     unitCents: typeof l.unitCents === "number" && Number.isFinite(l.unitCents) ? l.unitCents : null,
   })
   const shipment = pick.shipmentId ? order.shipments.find((s) => s.id === pick.shipmentId) : null

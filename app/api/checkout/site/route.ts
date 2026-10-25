@@ -40,6 +40,13 @@ import { quoteInMarket } from "@/lib/checkout/site-quote-market"
 import { convertOrder, lineTaxShares } from "@/lib/markets/checkout-charge"
 import { differsFromShown, shownTotalOf, TOTAL_CHANGED } from "@/lib/checkout/shown-total"
 import { formatMinor } from "@/lib/markets/money"
+import { cartVisitorOf, visitorHash } from "@/lib/cart-uploads/sign"
+
+/** The SHA-256 of this browser's `sl_cart_uid` on this host, or null when it never uploaded a picture here. */
+function cartVisitorHashOf(request: Request): string | null {
+  const v = cartVisitorOf(request.headers.get("cookie"))
+  return v ? visitorHash(v) : null
+}
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -528,6 +535,8 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
     /* The visitor's market, as the website's pages were drawn in it: its currency is what the order is charged in. */
     marketCountry: countryOfRequest(request),
     shopId: site.creatorId,
+    /* The browser's own cart id for its pictures (lib/cart-uploads): a line naming a picture is taken only when it is this browser's, for this store. */
+    cartVisitor: cartVisitorHashOf(request),
     items: body.items,
     couponCode: body.couponCode,
     email: contact.email,
@@ -734,6 +743,8 @@ async function cashOnDelivery(request: Request, admin: Admin, site: SiteOfChecko
     /* The visitor's market, as the website's pages were drawn in it: its currency is what the order is charged in. */
     marketCountry: countryOfRequest(request),
     shopId: site.creatorId,
+    /* The browser's own cart id for its pictures (lib/cart-uploads): a line naming a picture is taken only when it is this browser's, for this store. */
+    cartVisitor: cartVisitorHashOf(request),
     items: body.items,
     couponCode: body.couponCode,
     email: contact.email,
@@ -794,6 +805,8 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
       /* The visitor's market, as the website's pages were drawn in it: its currency is what the order is charged in. */
       marketCountry: countryOfRequest(request),
       shopId: site.creatorId,
+      /* The browser's own cart id for its pictures (lib/cart-uploads): a line naming a picture is taken only when it is this browser's, for this store. */
+      cartVisitor: cartVisitorHashOf(request),
       items: body.items,
       couponCode: body.couponCode,
       email: contact.email,

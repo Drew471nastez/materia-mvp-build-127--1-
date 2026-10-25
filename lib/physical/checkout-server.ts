@@ -71,6 +71,7 @@ import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { lineProperties, physicalCheckoutHref } from "./cart-link"
+import { hasUploads } from "@/lib/cart-uploads/rules"
 import { cartAttributes, orderNote } from "@/lib/checkout/site-checkout"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { COD_PAYMENT_METHOD, COD_PROVIDER, codClientKey, codRefusal } from "./cash-on-delivery"
@@ -142,6 +143,12 @@ export interface StartInput {
    * downloads keeps it, so the invoice and the seller's copy are made out to the company.
    */
   business?: BusinessDetails | null
+  /**
+   * The browser's cart id for its pictures, as the server keeps it (lib/cart-uploads/sign visitorHash of the
+   * `sl_cart_uid` cookie on the website's host). A line naming an uploaded picture is taken only when the picture is
+   * this browser's, for this store; without it (any checkout not on the website's host) such a line is refused.
+   */
+  cartVisitor?: string | null
 }
 
 export type StartResult =
@@ -212,6 +219,16 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     if (placed?.status === "paid" && placed.receipt_token) {
       return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(placed.receipt_token as string)}`, checkoutId: placed.id as string, free: false, cod: true, receiptToken: placed.receipt_token as string }
     }
+  }
+
+  /* THE BUYER'S PICTURES ON THE LINES (lib/cart-uploads): each must be this browser's own upload to this store. One copied from another cart or store stops here. */
+  const anyFiles = Array.isArray(input.items) && input.items.slice(0, 50).some((i) => hasUploads(lineProperties((i as { properties?: unknown } | null)?.properties)))
+  const fileIds: string[] = []
+  if (anyFiles) {
+    const { checkLineFiles } = await import("@/lib/cart-uploads/store")
+    const files = checkLineFiles(input.items, { creatorId: input.shopId, visitorHash: input.cartVisitor ?? null })
+    if (files.ok === false) return { ok: false, status: 409, error: (files as { error: string }).error }
+    fileIds.push(...(files as { ids: string[] }).ids)
   }
 
   const items = readItems(input.items)
@@ -452,6 +469,11 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (business) {
     const { error: businessError } = await db.from("commerce_checkouts").update({ business_details: business }).eq("id", checkoutId)
     if (businessError) console.warn("[physical] company details not kept on the checkout:", businessError.code)
+  }
+  /* The pictures this checkout takes, said on their rows (lib/cart-uploads/store claimUploads), so the daily sweep asks how it ended before it removes anything. */
+  if (fileIds.length && input.cartVisitor) {
+    const { claimUploads } = await import("@/lib/cart-uploads/store")
+    await claimUploads(db as never, { creatorId: priced.creatorId, visitorHash: input.cartVisitor, checkoutId, ids: fileIds }).catch(() => undefined)
   }
   /* The cart's attributes, the same way: a database without SQL part 164's column loses them, never the checkout. */
   const attributes = cartAttributes(input.cartAttributes)
@@ -1118,6 +1140,17 @@ export async function completeCheckout(
       const { error: companyError } = await db.from("orders").update({ business_details: company }).in("id", followed.map((x) => x.orderId))
       if (companyError) console.warn("[physical] company details not kept on the order:", companyError.code)
     })
+  }
+
+  /*
+    THE BUYER'S PICTURES BECOME THE ORDER'S (lib/cart-uploads/store attachOrderFiles): copied to the order's own path
+    and marked as its, so they stay after the cart is gone. Asked again by every caller and by the daily sweep; a
+    picture already the order's is left as it is, and a copy that fails never fails the order.
+  */
+  if (lines.some((l) => hasUploads(lineProperties((l as { properties?: unknown }).properties)))) {
+    const { attachOrderFiles, idsOfLines } = await import("@/lib/cart-uploads/store")
+    const done = await attachOrderFiles(db as never, { creatorId: co.creator_id, checkoutId: c.checkoutId, ids: idsOfLines(lines) }).catch(() => ({ attached: 0, failed: 1 }))
+    if (done.failed) console.error("[physical] order pictures not all copied; the daily sweep tries again:", c.checkoutId)
   }
 
   const { data: firstOrder } = await db.from("orders").select("id").eq("receipt_token", cartReceiptToken(sessionId, 0)).maybeSingle()

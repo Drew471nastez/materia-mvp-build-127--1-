@@ -113,8 +113,24 @@ export function readGelatoOrder(o: any): ProviderOrderState {
 }
 
 /** The body POST /v4/orders takes for one Storelib order. Every item must carry its matched product UID and file. */
+/**
+ * The order's metadata: its Storelib number, then what each buyer wrote by
+ * item ("1 Name": "Ana"). Gelato keeps at most 20 pairs of up to 100
+ * characters; the rest, and a picture that is not the item's print file (its
+ * link is longer than a value may be), is on the Storelib order page.
+ */
+export function gelatoMetadata(order: ProviderOrderInput): { key: string; value: string }[] {
+  const out: { key: string; value: string }[] = [{ key: "storelib_order", value: order.label.slice(0, 100) }]
+  order.lines.forEach((l, i) => {
+    for (const p of l.personalization ?? []) out.push({ key: `${i + 1} ${p.name}`.slice(0, 100), value: p.value.slice(0, 100) })
+  })
+  return out.slice(0, 20)
+}
+
 export function gelatoOrderBody(cred: ConnectorCredential, order: ProviderOrderInput): Record<string, unknown> {
-  const unmatched = order.lines.filter((l) => !l.link?.providerVariantId || !PRODUCT_UID.test(l.link.providerVariantId) || !l.link.fileUrl)
+  /* The print file: the seller's own, else the buyer's picture (a "your photo on canvas" product matched without a file). */
+  const fileOf = (l: ProviderOrderInput["lines"][number]) => l.link?.fileUrl || l.printFiles?.[0]?.url || null
+  const unmatched = order.lines.filter((l) => !l.link?.providerVariantId || !PRODUCT_UID.test(l.link.providerVariantId) || !fileOf(l))
   if (unmatched.length > 0) {
     throw new ProviderError(
       `Gelato: ${unmatched.map((l) => l.title).join(", ")} ${unmatched.length === 1 ? "is" : "are"} not matched to a Gelato product with a print file. Match ${unmatched.length === 1 ? "it" : "them"} in Settings › Integrations › Gelato.`,
@@ -135,10 +151,10 @@ export function gelatoOrderBody(cred: ConnectorCredential, order: ProviderOrderI
     items: order.lines.map((l) => ({
       itemReferenceId: l.lineId,
       productUid: l.link!.providerVariantId,
-      files: [{ type: "default", url: l.link!.fileUrl }],
+      files: [{ type: "default", url: fileOf(l) }],
       quantity: l.quantity,
     })),
-    metadata: [{ key: "storelib_order", value: order.label.slice(0, 100) }],
+    metadata: gelatoMetadata(order),
     shippingAddress: {
       firstName: name.first,
       lastName: name.last || name.first,
