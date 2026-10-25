@@ -39,11 +39,12 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { MAX_BUNDLE, MAX_TRIGGERS, PLACEMENTS_FOR, type DiscountType, type Offer, type OfferKind, type Placement } from "@/lib/offers/offers"
-import { amountOf, bodyOf, draftOf, problemsOf, type Draft, type Problems } from "./offer-draft"
+import { amountOf, bodyOf, draftOf, problemsOf, tierOf, type Draft, type Problems, type TierDraft } from "./offer-draft"
+import { MAX_TIERS, MAX_TIER_BADGE, MAX_TIER_LABEL, type TierDiscountType } from "@/lib/offers/pricing"
 import { SWITCH_GROUP, Segmented, SwitchRow } from "../products/new/editor-controls"
 import { Tick } from "../coupons/coupon-parts"
 import { ProductThumb, usePhone } from "../products/collections/collection-parts"
-import { OfferPreview, PLACEMENT_WORD, currencySign, moneyIn, type OfferCollection, type OfferProduct } from "./offer-parts"
+import { BreakPreview, OfferPreview, PLACEMENT_WORD, currencySign, moneyIn, tierWords, type OfferCollection, type OfferProduct } from "./offer-parts"
 
 const SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.92)"
 /* The coupon and collection editors' fields: 16px on a phone so iOS does not zoom, 44px to press. */
@@ -65,6 +66,7 @@ export function OfferEditor({
   currency: currencyNow,
   physical,
   settingsReady,
+  breaksReady,
   onRequestClose,
   onSave,
   onDelete,
@@ -83,6 +85,8 @@ export function OfferEditor({
   physical: boolean
   /** SQL part 230 has run: dates, places, limits and the rest can be saved. */
   settingsReady: boolean
+  /** SQL part 304 has run: a quantity break can be saved. */
+  breaksReady: boolean
   onRequestClose: (dirty: boolean) => void
   /** Saves, and answers with what went wrong, or null. */
   onSave: (id: string | null, body: ReturnType<typeof bodyOf> & { formCurrency: string }) => Promise<string | null>
@@ -186,15 +190,20 @@ export function OfferEditor({
               <Segmented
                 label={tt("Kind of offer")}
                 value={d.kind}
+                /* Three kinds on a phone's width: each as wide as its name, so "Quantity break" is never cut. */
+                fit="content"
                 onChange={(k) => {
                   /* A name typed by hand stays; the other kind's own default name replaces the default one. */
                   const fresh = draftOf(null, k, currency)
                   const typed = d.title !== draftOf(null, d.kind, currency).title
-                  setD({ ...fresh, title: typed ? d.title : fresh.title, discountType: d.discountType, amount: d.amount, startsAt: d.startsAt, endsAt: d.endsAt, combinesWithCodes: d.combinesWithCodes, active: d.active })
+                  /* A bundle's and an upsell's discount carry across; a quantity break's are its tiers. */
+                  const sameDiscount = k !== "quantity_break" && d.kind !== "quantity_break"
+                  setD({ ...fresh, title: typed ? d.title : fresh.title, ...(sameDiscount ? { discountType: d.discountType, amount: d.amount } : {}), startsAt: d.startsAt, endsAt: d.endsAt, combinesWithCodes: d.combinesWithCodes, active: d.active })
                 }}
                 options={[
                   { value: "bundle", label: tt("Bundle") },
                   { value: "checkout", label: tt("Upsell") },
+                  { value: "quantity_break", label: tt("Quantity break") },
                 ]}
               />
             ) : null}
@@ -207,6 +216,49 @@ export function OfferEditor({
               {shown.title ? <p className={ERR}>{shown.title}</p> : null}
             </div>
 
+            {d.kind === "quantity_break" ? (
+              <>
+                <section aria-labelledby="offer-products" className="space-y-2.5" {...(shown.products ? { "data-problem": "" } : {})}>
+                  <h3 id="offer-products" className={SECTION_TITLE}>
+                    {tt("Applies to")}
+                  </h3>
+                  {collections.length || d.scope === "collection" ? (
+                    <Segmented
+                      label={tt("Applies to")}
+                      value={d.scope}
+                      fit="content"
+                      onChange={(scope) => set({ scope })}
+                      options={[
+                        { value: "product", label: tt("One product") },
+                        { value: "collection", label: tt("A collection") },
+                      ]}
+                    />
+                  ) : null}
+                  {d.scope === "product" ? (
+                    <ProductPicker products={products} chosen={d.productIds} onPick={(id) => set({ productIds: [id] })} single money={money} name="offer-products" />
+                  ) : (
+                    <ul role="radiogroup" aria-label={tt("Collections")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]">
+                      {collections.map((c) => {
+                        const on = d.triggerCollectionIds[0] === c.id
+                        return (
+                          <li key={c.id}>
+                            <button type="button" role="radio" aria-checked={on} data-pick-collection={c.id} onClick={() => set({ triggerCollectionIds: [c.id] })} className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 px-3.5 text-left outline-none focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[44px] sm:hover:bg-[#fafafb]">
+                              <Radio on={on} />
+                              <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{c.title}</span>
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                  {shown.products ? <p className={ERR}>{shown.products}</p> : null}
+                </section>
+
+                <TierEditor tiers={d.tiers} onChange={(tiers) => set({ tiers })} problems={shown.tier ?? {}} problem={shown.tiers ?? null} sign={sign} money={money} currency={currency} />
+              </>
+            ) : null}
+
+            {d.kind !== "quantity_break" ? (
             <section aria-labelledby="offer-products" {...(shown.products ? { "data-problem": "" } : {})}>
               <div className="mb-2 flex items-baseline justify-between gap-3">
                 <h3 id="offer-products" className={SECTION_TITLE}>
@@ -217,6 +269,7 @@ export function OfferEditor({
               <ProductPicker products={products} chosen={d.productIds} onPick={pickProduct} single={d.kind === "checkout"} money={money} name="offer-products" full={d.kind === "bundle" && d.productIds.length >= MAX_BUNDLE} />
               {shown.products ? <p className={ERR}>{shown.products}</p> : null}
             </section>
+            ) : null}
 
             {d.kind === "checkout" ? (
               <section aria-labelledby="offer-when" className="space-y-3" {...(shown.triggers ? { "data-problem": "" } : {})}>
@@ -263,6 +316,7 @@ export function OfferEditor({
               </section>
             ) : null}
 
+            {d.kind !== "quantity_break" ? (
             <section aria-labelledby="offer-discount" className="space-y-2.5" {...(shown.amount ? { "data-problem": "" } : {})}>
               <h3 id="offer-discount" className={SECTION_TITLE}>
                 {tt("Discount")}
@@ -286,6 +340,7 @@ export function OfferEditor({
               )}
               {shown.amount ? <p className={ERR}>{shown.amount}</p> : null}
             </section>
+            ) : null}
 
             <section aria-labelledby="offer-places" className="space-y-2" {...(shown.places ? { "data-problem": "" } : {})}>
               <h3 id="offer-places" className={SECTION_TITLE}>
@@ -309,7 +364,15 @@ export function OfferEditor({
               <h3 id="offer-preview" className={SECTION_TITLE}>
                 {tt("Preview")}
               </h3>
-              <OfferPreview draft={{ kind: d.kind, title: d.title, productIds: d.productIds, discountType: d.discountType, discountValue: bodyOf(d, currency).discountValue || 0 }} byId={byId} currency={currency} />
+              {d.kind === "quantity_break" ? (
+                d.scope === "collection" ? (
+                  <p className={HINT}>{tt("Each product in the collection shows these tiers at its own price.")}</p>
+                ) : (
+                  <BreakPreview tiers={d.tiers.map((t) => tierOf(t, currency)).filter((t) => t.quantity >= 1)} product={byId.get(d.productIds[0]) ?? null} currency={currency} />
+                )
+              ) : (
+                <OfferPreview draft={{ kind: d.kind, title: d.title, productIds: d.productIds, discountType: d.discountType, discountValue: bodyOf(d, currency).discountValue || 0 }} byId={byId} currency={currency} />
+              )}
             </section>
 
             <section aria-labelledby="offer-rules" className="space-y-3">
@@ -345,6 +408,10 @@ export function OfferEditor({
                 <SwitchRow title={tt("Active")} checked={d.active} onChange={(active) => set({ active })} />
               </div>
             </section>
+
+            {d.kind === "quantity_break" && !breaksReady ? (
+              <p data-sql-needed="304" className="rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] leading-5 text-[#5c4300]">{tt("Quantity breaks need SQL part 304 before they can be saved.")}</p>
+            ) : null}
 
             {newSettingsUsed ? (
               <p className="rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] leading-5 text-[#5c4300]">{tt("Dates, places, limits, collections, free shipping and the code rule need SQL part 230 before they can be saved.")}</p>
@@ -449,6 +516,99 @@ function ProductPicker({ products, chosen, onPick, single = false, money, name, 
         {shown.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">{tt("No product matches that.")}</li> : null}
       </ul>
     </div>
+  )
+}
+
+/**
+ * A QUANTITY BREAK'S TIERS, one row each, in the order a buyer climbs them:
+ * how many they buy, how many come free, the discount on what they pay
+ * for, and the words the product page shows (blank: the tier's own, "Buy 2
+ * get 1 free"). Each tier is checked in place; the server checks them all
+ * again (lib/offers/pricing.ts readTiers).
+ */
+function TierEditor({ tiers, onChange, problems, problem, sign, money, currency }: { tiers: TierDraft[]; onChange: (t: TierDraft[]) => void; problems: Record<number, string>; problem: string | null; sign: string; money: (minor: number) => string; currency: string }) {
+  const setTier = (i: number, patch: Partial<TierDraft>) => onChange(tiers.map((t, n) => (n === i ? { ...t, ...patch } : t)))
+  /* The next tier starts one unit past the last one's whole block (paid and free), so it is always bigger. */
+  const add = () => {
+    const last = tiers[tiers.length - 1]
+    const q = last ? (Math.max(1, Math.floor(Number(last.quantity)) || 1) + Math.max(0, Math.floor(Number(last.freeQuantity)) || 0)) + 1 : 2
+    onChange([...tiers, { quantity: String(Math.min(99, q)), freeQuantity: "0", discountType: "percent", value: last?.discountType === "percent" ? String(Math.min(90, (Number(last.value) || 10) + 5)) : "15", label: "", badge: "" }])
+  }
+  const SMALL = cn(FIELD, "tabular-nums")
+  return (
+    <section aria-labelledby="offer-tiers" className="space-y-2.5" {...(problem || Object.keys(problems).length ? { "data-problem": "" } : {})}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 id="offer-tiers" className={SECTION_TITLE}>
+          {tt("Tiers")}
+        </h3>
+        <span className={HINT}>{tt("{n} of {max}", { n: tiers.length, max: MAX_TIERS })}</span>
+      </div>
+      <ol className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]" data-tiers="">
+        {tiers.map((t, i) => {
+          const read = tierOf(t, currency)
+          const own = tierWords({ ...read, discountValue: Number.isFinite(read.discountValue) ? read.discountValue : 0 }, money)
+          return (
+            <li key={i} data-tier={i} className="space-y-2.5 px-3.5 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13px] font-medium text-[#4b5563]">{tt("Tier {n}", { n: i + 1 })}</span>
+                {tiers.length > 1 ? (
+                  <button type="button" data-tier-remove={i} onClick={() => onChange(tiers.filter((_, n) => n !== i))} className="-my-1.5 h-9 cursor-pointer rounded-lg px-2 text-[13px] text-[#6b7280] outline-none hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:bg-[#f4f5f7] sm:h-7">
+                    {tt("Remove")}
+                  </button>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[72px_72px_minmax(0,1fr)_120px]">
+                <label className="block min-w-0">
+                  <span className={LABEL}>{tt("Buy")}</span>
+                  <input inputMode="numeric" value={t.quantity} onChange={(e) => setTier(i, { quantity: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} aria-invalid={!!problems[i]} className={cn(SMALL, problems[i] && BAD)} />
+                </label>
+                <label className="block min-w-0">
+                  <span className={LABEL}>{tt("Free")}</span>
+                  <input inputMode="numeric" value={t.freeQuantity} onChange={(e) => setTier(i, { freeQuantity: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} aria-invalid={!!problems[i]} className={cn(SMALL, problems[i] && BAD)} />
+                </label>
+                <label className="block min-w-0">
+                  <span className={LABEL}>{tt("Discount")}</span>
+                  <select value={t.discountType} onChange={(e) => setTier(i, { discountType: e.target.value as TierDiscountType, value: e.target.value === "percent" ? "10" : e.target.value === "amount" ? "" : "" })} className={cn(FIELD, "cursor-pointer appearance-auto pr-2")}>
+                    <option value="none">{tt("None")}</option>
+                    <option value="percent">{tt("Percent off")}</option>
+                    <option value="amount">{tt("Amount off")}</option>
+                  </select>
+                </label>
+                {t.discountType === "none" ? (
+                  <span aria-hidden className="hidden sm:block" />
+                ) : (
+                  <label className="relative block min-w-0">
+                    <span className={LABEL}>{t.discountType === "percent" ? tt("Percent") : tt("Amount")}</span>
+                    {t.discountType === "amount" ? <span aria-hidden className="pointer-events-none absolute bottom-0 left-3.5 flex h-11 items-center text-[14px] text-[#6b7280] sm:h-10">{sign}</span> : null}
+                    <input inputMode={t.discountType === "percent" ? "numeric" : "decimal"} value={t.value} onChange={(e) => setTier(i, { value: t.discountType === "percent" ? e.target.value.replace(/[^0-9]/g, "").slice(0, 2) : e.target.value.replace(/[^0-9.,]/g, "").slice(0, 12) })} aria-invalid={!!problems[i]} className={cn(SMALL, t.discountType === "amount" && (sign.length > 1 ? "pl-12" : "pl-8"), t.discountType === "percent" && "pr-8", problems[i] && BAD)} />
+                    {t.discountType === "percent" ? <span aria-hidden className="pointer-events-none absolute bottom-0 right-3.5 flex h-11 items-center text-[14px] text-[#6b7280] sm:h-10">%</span> : null}
+                  </label>
+                )}
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_160px]">
+                <label className="block min-w-0">
+                  <span className={LABEL}>{tt("Label")}</span>
+                  <input value={t.label} maxLength={MAX_TIER_LABEL} placeholder={own} onChange={(e) => setTier(i, { label: e.target.value })} className={FIELD} />
+                </label>
+                <label className="block min-w-0">
+                  <span className={LABEL}>
+                    {tt("Badge")} <span className="font-normal text-[#9ca3af]">{tt("optional")}</span>
+                  </span>
+                  <input value={t.badge} maxLength={MAX_TIER_BADGE} placeholder={tt("Most popular")} onChange={(e) => setTier(i, { badge: e.target.value })} className={FIELD} />
+                </label>
+              </div>
+              {problems[i] ? <p className={cn(ERR, "mt-0")}>{problems[i]}</p> : null}
+            </li>
+          )
+        })}
+      </ol>
+      {tiers.length < MAX_TIERS ? (
+        <button type="button" data-tier-add="" onClick={add} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[15px] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}>
+          {tt("Add tier")}
+        </button>
+      ) : null}
+      {problem ? <p className={ERR}>{problem}</p> : null}
+    </section>
   )
 }
 

@@ -40,6 +40,7 @@ import { liveCarrierQuotes } from "@/lib/integrations/shipping/checkout-rates-se
 import { readStoreCurrency } from "@/lib/store/selling-currency-server"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { canSell, sellsWhenOut } from "./inventory-rules"
+import { lineProperties, propertiesKey } from "./cart-link"
 
 export const MAX_CHECKOUT_LINES = 50
 export const MAX_LINE_QUANTITY = 999
@@ -50,6 +51,12 @@ export interface CheckoutItem {
   quantity: number
   /** A pay what you want amount the buyer named for a digital line; held to its minimum below (baseFor). */
   customPriceCents?: number
+  /**
+   * The line's properties (lib/physical/cart-link lineProperties): kept on
+   * the order line, never read for a price. The same option with different
+   * properties is a line of its own, as Shopify keeps it.
+   */
+  properties?: Record<string, string>
 }
 
 export function readItems(input: unknown): CheckoutItem[] {
@@ -60,7 +67,8 @@ export function readItems(input: unknown): CheckoutItem[] {
     if (typeof r?.productId !== "string" || !/^[0-9a-f-]{36}$/i.test(r.productId)) continue
     const variantId = typeof r.variantId === "string" && /^[0-9a-f-]{36}$/i.test(r.variantId) ? r.variantId : null
     const quantity = Math.max(1, Math.min(MAX_LINE_QUANTITY, Math.floor(Number(r.quantity) || 1)))
-    const key = `${r.productId}:${variantId ?? ""}`
+    const properties = lineProperties(r.properties)
+    const key = `${r.productId}:${variantId ?? ""}:${propertiesKey(properties)}`
     const had = merged.get(key)
     const custom = wholeCents(r.customPriceCents, 0, MAX_PWYW_CENTS) ?? had?.customPriceCents ?? null
     merged.set(key, {
@@ -68,6 +76,7 @@ export function readItems(input: unknown): CheckoutItem[] {
       variantId,
       quantity: Math.min(MAX_LINE_QUANTITY, (had?.quantity ?? 0) + quantity),
       ...(custom !== null ? { customPriceCents: custom } : {}),
+      ...(properties ? { properties } : {}),
     })
   }
   return [...merged.values()]
@@ -238,6 +247,8 @@ export async function priceCheckout(
       continue
     }
     if (p.type !== "physical") {
+      /* A download is one of it, whatever properties two lines of it carry: the second is the same purchase, never charged again. */
+      if (lines.some((l) => l.type !== "physical" && l.productId === p.id && (l.variantId ?? null) === (item.variantId ?? null))) continue
       if (owned.has(ownedKey(p.id, item.variantId ?? null))) {
         dropped.push(p.title)
         ownedList.push({ productId: p.id, variantId: item.variantId ?? null, title: p.title, thumbnailUrl: p.thumbnail_url ?? null })
@@ -284,6 +295,7 @@ export async function priceCheckout(
         inventoryPolicy: "continue",
         shippingProfileId: null,
         fulfillmentMethod: null,
+        ...(item.properties ? { properties: item.properties } : {}),
       })
       continue
     }
@@ -317,7 +329,9 @@ export async function priceCheckout(
       continue
     }
     const available = locationId ? (levelOf.get(`${v.id}:${locationId}`) ?? 0) : 0
-    if (!canSell({ tracked, keepSelling: policy === "continue", available, quantity: item.quantity })) {
+    /* Two lines of one option (different properties) draw on the same stock: counted together. */
+    const before = lines.filter((l) => l.variantId === v.id && l.locationId === locationId).reduce((n, l) => n + l.quantity, 0)
+    if (!canSell({ tracked, keepSelling: policy === "continue", available, quantity: before + item.quantity })) {
       stockIssues.push({ productId: p.id, variantId: v.id, title: v.name && v.name !== "Default" ? `${p.title}, ${v.name}` : p.title, available: Math.max(0, available) })
       continue
     }
@@ -341,6 +355,7 @@ export async function priceCheckout(
       inventoryPolicy: policy,
       shippingProfileId: p.shipping_profile_id ?? null,
       fulfillmentMethod: methodOf(readMethod(v.fulfillment_method), readMethod(p.fulfillment_method)),
+      ...(item.properties ? { properties: item.properties } : {}),
     })
   }
 
@@ -362,7 +377,15 @@ export async function priceCheckout(
   const pwyw = (l: PricedLine) => l.type !== "physical" && !!((l.variantId ? digitalVariants.get(l.variantId) : null) ?? byId.get(l.productId))?.pay_what_you_want
   const offerLines = await offerLinesFor(db, creatorId, offers, lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, payWhatYouWant: pwyw(l) })))
   const fromOffers = applyOffers(offerLines, offers, { now })
+  /* Each line's discount, and which offers make it up, by name: the summary's saving lines and the order's record agree. */
+  const keepOffers = (per: NonNullable<PricedLine["offers"]>[]) => {
+    per.forEach((list, i) => {
+      if (list.length) lines[i].offers = list
+      else delete lines[i].offers
+    })
+  }
   fromOffers.discounts.forEach((d, i) => (lines[i].discountCents = d))
+  keepOffers(fromOffers.lineOffers)
   const base = { ok: true as const, creatorId, lines, dropped, needsOption, owned: ownedList, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available, offers: fromOffers.applied, suggestions: suggestionsFor(offerLines, offers, { placement: "checkout", now }) }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null
@@ -418,6 +441,7 @@ export async function priceCheckout(
   if (stacked.error) return { ok: false, status: 400, error: stacked.error }
   const discounts = stacked.codeDiscounts
   lines.forEach((l, i) => (l.discountCents = Math.min(l.unitCents * l.quantity, stacked.discounts[i] + discounts[i])))
+  keepOffers(stacked.lineOffers)
   const freeShipping = c.free_shipping === true
   if (!freeShipping && discounts.every((d) => d <= 0)) return { ok: false, status: 400, error: "That code takes nothing off this order." }
   const label = [Number(c.discount_value) > 0 ? couponLabel(c, (await readStoreCurrency(db, creatorId)).currency) : null, freeShipping ? "free shipping" : null].filter(Boolean).join(" and ")

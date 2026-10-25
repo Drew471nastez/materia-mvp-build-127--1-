@@ -233,6 +233,10 @@ export interface PricedLine {
   inventoryPolicy: InventoryPolicy
   shippingProfileId: string | null
   fulfillmentMethod: FulfillmentMethod | null
+  /** The cart line's properties (an engraving, a theme's `_sl_offer_id`): kept on the order line, never a price. */
+  properties?: Record<string, string>
+  /** The offers in `discountCents`, each with its part (lib/offers applyOffers lineOffers), kept on the order line. */
+  offers?: { offerId: string; title: string; kind: string; savedCents: number; tier?: number }[]
 }
 
 export interface DeliveryOption {

@@ -29,6 +29,7 @@
  * (app/api/site-account/*): same host, same checks, same rate limits.
  */
 import { escapeHtml } from "./filters"
+import { hashOf } from "./objects"
 import { wordsOf, type Words } from "@/lib/site-accounts/words"
 import { inLang, langOfRoot } from "@/lib/site-accounts/lang-path"
 import { ACCOUNT_FORMS_SCRIPT, ACCOUNT_FORMS_STYLE } from "@/lib/site-accounts/forms-script"
@@ -76,7 +77,7 @@ export interface StorelibOrder {
   total: string
   total_cents?: number
   currency?: string
-  items: { title: string; image: string; url: string; variant: string }[]
+  items: { title: string; image: string; url: string; variant: string; properties?: Record<string, string> }[]
   item_count: number
   action_label: string
   action_url: string
@@ -164,7 +165,8 @@ export function themeCustomer(c: StorelibCustomer): O {
           fulfillment_status: shopifyFulfillment(o),
         }
       : null
-    const line_items = o.items.map((it, i) => ({ id: `${o.id}-${i}`, title: it.title, product_title: it.title, variant_title: it.variant || null, quantity: 1, image: it.image || null, url: it.url, product: { title: it.title, url: it.url, featured_image: it.image || null }, fulfillment }))
+    /* line_item.properties as Shopify's order templates read it: `{% for p in line_item.properties %}` gives name and value (a theme leaves out a name starting with "_" itself). */
+    const line_items = o.items.map((it, i) => ({ id: `${o.id}-${i}`, title: it.title, product_title: it.title, variant_title: it.variant || null, quantity: 1, image: it.image || null, url: it.url, product: { title: it.title, url: it.url, featured_image: it.image || null }, fulfillment, properties: hashOf(it.properties ?? {}) }))
     const cancelled = o.fulfillment_status === "cancelled"
     return {
       id: o.id,

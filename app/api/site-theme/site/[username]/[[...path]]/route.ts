@@ -223,7 +223,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   mark("localize")
 
   const cookie = stranger ? undefined : req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
-  const { cart, note, attributes, discount } = readCartCookie(cookie)
+  const { cart, note, attributes, discount, codes } = readCartCookie(cookie)
   const sitePath = `/${segments.map(encodeURIComponent).join("/")}`
   const fields = await bodyOf(req)
   const ajax = req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("content-type") ?? "").includes("application/json") || (req.headers.get("accept") ?? "").includes("application/json")
@@ -290,6 +290,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     note,
     attributes,
     discountCode: discount,
+    discountCodes: codes,
     ajax,
     referer: refererPath(req.headers.get("referer"), host),
     account,
@@ -328,7 +329,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */
   if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store")
   if (out.cart) {
-    headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes, out.discountCode ?? discount)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
+    headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "", out.attributes ?? attributes, out.discountCode ?? discount, out.discountCodes ?? codes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
   }
   /*
     A stranger's plain page: the same for every stranger sent to this marked

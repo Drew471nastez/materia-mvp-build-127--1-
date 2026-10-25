@@ -36,6 +36,7 @@ import { isMissingColumn, UUID, type Db } from "./db"
 import type { CustomerRow } from "./customers"
 import { carrierTrackingUrl } from "@/lib/physical/carriers"
 import { orderPagePath } from "@/lib/physical/order-link"
+import { lineProperties } from "@/lib/physical/cart-link"
 import { fromCheckout, inBookOrder, readAddressBook, type SavedAddress } from "./addresses"
 
 export interface CustomerOrderItem {
@@ -45,6 +46,8 @@ export interface CustomerOrderItem {
   url: string
   /** The variant bought, e.g. "Blue", or "". */
   variant: string
+  /** The cart line's properties, as the order kept them (Shopify's line_item.properties). Absent: none. */
+  properties?: Record<string, string>
 }
 
 export interface CustomerOrder {
@@ -126,7 +129,7 @@ export interface CustomerObject {
 /** Rows a customer is shown: paid, and paid then refunded or disputed. Never a payment that failed. */
 const SHOWN = ["completed", "refunded", "partially_refunded", "disputed"]
 
-const ORDER_COLUMNS = "id, product_id, variant_name, amount_cents, tip_cents, currency, status, created_at, receipt_token, stripe_session_id, paypal_order_id, refund_amount_cents, shipped_at, delivered_at, checkout_id"
+const ORDER_COLUMNS = "id, product_id, variant_name, amount_cents, tip_cents, currency, status, created_at, receipt_token, stripe_session_id, paypal_order_id, refund_amount_cents, shipped_at, delivered_at, checkout_id, product_snapshot"
 
 interface OrderRow {
   id: string
@@ -145,6 +148,8 @@ interface OrderRow {
   delivered_at?: string | null
   /** The physical checkout it was paid in (supabase/sql/run-now/78), whose order page follows it. */
   checkout_id?: string | null
+  /** What the line was when it was bought; its `properties` are the cart line's (an engraving, a theme's offer notes). */
+  product_snapshot?: { properties?: unknown } | null
 }
 
 interface ProductRow {
@@ -174,6 +179,9 @@ export function firstName(name: string): string {
 }
 
 /** The rows of the orders placed with this email, this creator's only. */
+/** A line's properties as its order kept them (lib/physical/cart-link lineProperties), or undefined. */
+const propsOf = (r: OrderRow) => lineProperties(r.product_snapshot?.properties)
+
 async function readOrders(db: Db, creatorId: string, email: string): Promise<OrderRow[]> {
   const pattern = likeExact(email)
   const byCreator = await db
@@ -355,6 +363,7 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
         image: p?.thumbnail_url ?? "",
         url: p && p.status === "published" && p.slug ? `/products/${p.slug}` : "",
         variant: (r.variant_name ?? "").toString().trim(),
+        ...(propsOf(r) ? { properties: propsOf(r) } : {}),
       }
     })
     const types = lines.map((r) => (r.product_id ? products.get(r.product_id)?.type ?? null : null))

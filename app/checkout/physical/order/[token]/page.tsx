@@ -20,6 +20,7 @@ import { buyerCancelState, cancelMode } from "@/lib/physical/buyer-cancel"
 import { checkoutBrand } from "@/lib/checkout/brand-server"
 import { orderStoreUrl } from "@/lib/physical/store-link"
 import { orderPagePath } from "@/lib/physical/order-link"
+import { buyerProperties } from "@/lib/physical/cart-link"
 import { checkoutLanguage } from "@/lib/markets/checkout-language"
 import { CheckoutWords } from "@/app/checkout/parts/words"
 
@@ -97,7 +98,8 @@ export default async function OrderStatusPage({ params, searchParams }: { params
         cash: order.payment === "cod_due" ? "due" : order.payment === "cod_collected" ? "paid" : null,
         totals: { subtotal: order.itemsSubtotalCents, discount: order.discountCents, shipping: order.shippingCents - order.shippingDiscountCents, tax: order.taxCents, taxIncluded: order.taxIncluded, taxLabel: order.taxLabel, total: order.totalCents, refunded: order.refundedCents, currency: order.currency },
         /* Each line as bought: its option, how many, at what each, and how far it got (sent, back, refunded). */
-        lines: order.lines.map((l) => ({ orderId: l.orderId, title: l.title, variantName: l.variantName, imageUrl: l.imageUrl, quantity: l.quantity, unitCents: l.unitCents, cents: l.unitCents * l.quantity - l.discountCents, type: l.type, receiptToken: l.type === "physical" ? null : l.receiptToken, returnable: returnable.get(l.orderId) ?? 0, shipped: l.requiresShipping ? l.fulfilled : 0, returned: l.returned, refunded: l.refundedCents > 0 })),
+        /* `properties`: the buyer's own words on the line (an engraving); a theme's notes (a name starting with "_") stay with the store. */
+        lines: order.lines.map((l) => ({ orderId: l.orderId, title: l.title, variantName: l.variantName, properties: buyerProperties(l.properties), imageUrl: l.imageUrl, quantity: l.quantity, unitCents: l.unitCents, cents: l.unitCents * l.quantity - l.discountCents, type: l.type, receiptToken: l.type === "physical" ? null : l.receiptToken, returnable: returnable.get(l.orderId) ?? 0, shipped: l.requiresShipping ? l.fulfilled : 0, returned: l.returned, refunded: l.refundedCents > 0 })),
         shipments: order.shipments
           .filter((s) => s.status !== "cancelled")
           /* Its updates, oldest first, as statuses only: the seller's own notes stay on their side. */

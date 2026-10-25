@@ -80,7 +80,8 @@ const quote = read("app/api/physical/checkout/quote/route.ts")
 /* Changed on purpose (round V): a free shipping offer saves nothing off the items, so only offers that saved something are lines. */
 check("the checkout page hears what it got and what it could add", /offers: priced\.offers\.filter\(\(o\) => o\.savedCents > 0\)\.map/.test(quote) && /suggestions: await suggestionCards/.test(quote))
 /* Changed on purpose (round V): offers apply in the basket of downloads too, so the product page's are a store's whatever it sells. */
-check("bundles for a product page: a store's own, published, not behind the physical switch", !/physicalApiGate\(\)/.test(read("app/api/offers/bundles/route.ts")) && /product\.status !== "published"/.test(read("app/api/offers/bundles/route.ts")))
+/* Changed on purpose (round AF): the route reads lib/offers/offers-public.ts, the one public read of a product's offers. */
+check("bundles for a product page: a store's own, published, not behind the physical switch", !/physicalApiGate\(\)/.test(read("app/api/offers/bundles/route.ts")) && /productOffers\(/.test(read("app/api/offers/bundles/route.ts")) && /p\.status !== "published"/.test(read("lib/offers/offers-public.ts")))
 const store = read("app/api/store/offers/route.ts")
 /* Changed on purpose (round V): the owner check alone (shopCaller), as collections have it. */
 check("a store edits its own, and it's in the activity log", /shopCaller\(\)/.test(store) && /offer\.added/.test(store) && /saveOffer\(c\.db, c\.creatorId/.test(store))

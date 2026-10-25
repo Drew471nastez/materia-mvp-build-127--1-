@@ -42,6 +42,8 @@ export default async function OffersPage() {
       currency={area.currency}
       ready={area.ready}
       settingsReady={area.settings}
+      breaksReady={area.breaks}
+      sold={area.sold}
       physical={physical}
     />
   )

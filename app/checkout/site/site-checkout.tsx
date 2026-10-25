@@ -1117,7 +1117,7 @@ export function SiteCheckout({
     <div className="space-y-6">
       <ul className="space-y-4" data-lines="">
         {quote.lines.map((l) => (
-          <li key={`${l.productId}:${l.variantId ?? ""}`} data-line-item="" className="flex items-start gap-3.5">
+          <li key={`${l.productId}:${l.variantId ?? ""}:${l.propertiesKey ?? ""}`} data-line-item="" className="flex items-start gap-3.5">
             <LineImage url={l.imageUrl} />
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{l.title}</p>
@@ -1225,8 +1225,8 @@ export function SiteCheckout({
         />
         {(rows?.offers ?? []).length > 0 || ships || (t && t.taxCents > 0 && !t.taxIncluded) ? (
           <dl className="mt-3 space-y-3 text-[14px]">
-            {(rows?.offers ?? []).map((o) => (
-              <div key={o.title} className="flex justify-between gap-4" data-offer-saving="">
+            {(rows?.offers ?? []).map((o, i) => (
+              <div key={`${o.title}:${i}`} className="flex justify-between gap-4" data-offer-saving="">
                 <dt className="truncate text-[#6b7280]">{o.title}</dt>
                 <dd className="shrink-0 tabular-nums text-[#6b7280]">−{money(o.cents)}</dd>
               </div>
@@ -1472,7 +1472,7 @@ export function SiteProblem({ brand, backTo, shopUrl, title, message }: { brand:
  * Pay. A name starting with "_" is the theme's own and stays hidden, as on
  * Shopify (lib/checkout/site-checkout visibleAttributes).
  */
-function LineProperties({ items, line }: { items: LinkItem[] | null; line: { productId: string; variantId: string | null } }) {
+function LineProperties({ items, line }: { items: LinkItem[] | null; line: { productId: string; variantId: string | null; propertiesKey?: string } }) {
   const shown: [string, string][] = []
   for (const i of items ?? []) {
     if (!i.properties || !sameLine(i, line)) continue

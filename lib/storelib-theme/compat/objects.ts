@@ -549,6 +549,14 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown): O {
   const storelib: O = faqs.length ? { faqs: { [OUTPUT]: String(faqs.length), value: faqs, key: "faqs", namespace: "storelib", type: "list.faq" } } : {}
   const chart = readSizeChart(s.size_chart)
   if (chart) storelib.size_chart = { [OUTPUT]: chart.name, value: sizeChartJson(chart), key: "size_chart", namespace: "storelib", type: "json" }
+  /*
+    `storelib.offers`: what the page offers with the product, the same JSON
+    as GET /api/offers?product= (lib/offers/offers-public.ts): `.value` has
+    bundles, quantityBreaks and checkoutOffers, so a theme can draw them in
+    Liquid. It prints as that JSON, as a json metafield does on Shopify.
+  */
+  const offers = s.storelib_offers
+  if (offers && typeof offers === "object" && !Array.isArray(offers)) storelib.offers = { [OUTPUT]: JSON.stringify(offers), value: offers, key: "offers", namespace: "storelib", type: "json" }
   return { custom, storelib, reviews: reviewMetafields(rating) }
 }
 

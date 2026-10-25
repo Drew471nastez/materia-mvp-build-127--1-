@@ -288,7 +288,8 @@ async function main() {
     check("  its note for the shop starts with the cart's note and is sent with the order", /React\.useState\(initialNote \?\? ""\)/.test(checkout) && /buyerNote/.test(checkout) && /cartAttributes/.test(checkout))
     const route = code("app/api/checkout/site/route.ts")
     check("  the route hands both to the order", (route.match(/buyerNote: body\.buyerNote/g) ?? []).length >= 2 && (route.match(/cartAttributes: body\.cartAttributes/g) ?? []).length >= 2)
-    check("  and the checkout changing the order keeps the cart's attributes and code in the cookie", !/writeCartCookie\(kept, theme\.note\)/.test(route) && (route.match(/writeCartCookie\(kept, theme\.note, theme\.attributes, theme\.discount\)/g) ?? []).length === 2)
+    /* Changed on purpose (round AF): the codes a `discount` asked for are kept too. */
+    check("  and the checkout changing the order keeps the cart's attributes and code in the cookie", !/writeCartCookie\(kept, theme\.note\)/.test(route) && (route.match(/writeCartCookie\(kept, theme\.note, theme\.attributes, theme\.discount, theme\.codes\)/g) ?? []).length === 2)
     /* Changed on purpose (round BC): the note keeps its line breaks (orderNote); clean() ran every space together. */
     check("the order keeps the note (buyer_note) and the attributes", /buyer_note: orderNote\(input\.buyerNote\)/.test(code("lib/physical/checkout-server.ts")) && /cart_attributes: attributes/.test(code("lib/physical/checkout-server.ts")))
     check("  the seller's order view, the order emails and the seller's notice read them", /buyerNote: co\.buyer_note/.test(code("lib/physical/orders-server.ts")) && /buyer_note/.test(code("lib/email.tsx")) && /note: str\(co\.buyer_note/.test(code("lib/notify/seller-commerce.ts")))
@@ -318,7 +319,8 @@ async function main() {
   section("THE ROUTE: the cookie, the pricing, the code checks counted")
   {
     const route = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
-    check("reads the code from the cart cookie and writes it back", /const \{ cart, note, attributes, discount \} = readCartCookie/.test(route) && /out\.discountCode \?\? discount/.test(route))
+    /* Changed on purpose (round AF): and the codes asked for beside it. */
+    check("reads the code from the cart cookie and writes it back", /const \{ cart, note, attributes, discount, codes \} = readCartCookie/.test(route) && /out\.discountCode \?\? discount, out\.discountCodes \?\? codes/.test(route))
     check("prices with the website's checkout, never on a preview", /compatCartPricing\(\{ creatorId: shopId, storeCurrency, market \}\)/.test(route) && /token \|\| stranger \? found\.site/.test(route))
     check("a code tried from the cart is counted with the checkout's own code checks", /bucket: "coupon"/.test(route) && /typeof fields\?\.discount === "string"/.test(route))
   }

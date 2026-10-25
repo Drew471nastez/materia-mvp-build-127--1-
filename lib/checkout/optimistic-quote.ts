@@ -46,6 +46,8 @@ const same = (a: { productId: string; variantId: string | null }, b: { productId
 export function optimisticQuote<Q extends { lines: L[]; totals: T }, L extends QuoteLine, T extends QuoteTotals>(quote: Q, items: Item[]): Q | null {
   /* Every item must be a line the quote priced: anything new waits for the server. */
   if (!items.every((i) => quote.lines.some((l) => same(l, i)))) return null
+  /* One option on two lines (different properties): which is which is the server's to say. */
+  if (quote.lines.some((l, n) => quote.lines.findIndex((m) => same(m, l)) !== n)) return null
   const lines: L[] = []
   for (const l of quote.lines) {
     const item = items.find((i) => same(l, i))

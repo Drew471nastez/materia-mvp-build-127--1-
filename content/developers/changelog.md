@@ -12,6 +12,14 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 25 October 2026
+
+**Added**
+
+- Quantity breaks and Buy X get Y free as a third kind of offer, with `GET /api/offers/quantity-breaks?product=` and `GET /api/offers?product=` (bundles, quantity breaks and checkout offers in one answer), the formula a theme shows them by and the checkout charges by ([Physical commerce](/developers/physical-commerce#quantity-breaks)).
+- `product.metafields.storelib.offers` in an imported theme, the same JSON as `GET /api/offers`, and `line_item.properties` on the account's orders.
+- Line item properties reach the order: the checkout's `items` takes `[productId, variantId, quantity, properties?]`, and links without them read as before. The codes `/cart/update.js` `discount` asks for are kept on the cart and listed by `/cart.js` with whether each applies.
+
 ## 24 October 2026
 
 **Added**

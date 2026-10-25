@@ -27,6 +27,8 @@ export interface EmailLine {
   cents: number
   imageUrl: string | null
   sku?: string | null
+  /** The line's properties the buyer is shown (an engraving): never one whose name starts with "_", which is the theme's own. */
+  properties?: [string, string][]
 }
 
 export interface EmailTotals {
@@ -48,6 +50,12 @@ export interface EmailTotals {
   taxLabel?: string | null
   /** Cash on delivery's fee, inside `shipping` as the order keeps it (shipping_rate.cod_fee_cents): its own row here. */
   codFee?: number | null
+  /**
+   * The store's offers inside `discount`, each its own row named as the
+   * checkout named it ("Buy 2 get 1 free"), from what the order kept on
+   * its lines; `discount` less these is the code's row.
+   */
+  savings?: { label: string; cents: number }[] | null
 }
 
 function esc(value: unknown): string {
@@ -197,7 +205,7 @@ function linesTable(k: EmailKit, lines: EmailLine[], currency: string, prices = 
   return k.items(
     lines.map((l) => ({
       title: l.title,
-      detail: [l.variantName, et("Qty {quantity}", { quantity: l.quantity })].filter(Boolean).join(" · "),
+      detail: [l.variantName, ...(l.properties ?? []).map(([k, v]) => `${k}: ${v}`), et("Qty {quantity}", { quantity: l.quantity })].filter(Boolean).join(" · "),
       amount: prices ? formatMoney(l.cents, currency) : null,
       imageUrl: itemPicture(l.imageUrl),
     })),
@@ -216,9 +224,11 @@ const deliveryLabel = (local?: boolean) => (local ? et("Delivery") : et("Shippin
 
 function totalsTable(k: EmailKit, t: EmailTotals, extra: { label: string; value: string; tone?: "good" }[] = [], local = false): string {
   const { fee, shipped, shipping } = deliveryParts(t)
+  const { rows: saved, rest } = savingRows(t)
   return k.totals([
     { label: et("Subtotal"), value: formatMoney(t.subtotal, t.currency) },
-    ...(t.discount > 0 ? [{ label: et("Discount"), value: `-${formatMoney(t.discount, t.currency)}` }] : []),
+    ...saved.map((s) => ({ label: s.label, value: `-${formatMoney(s.cents, t.currency)}` })),
+    ...(rest > 0 ? [{ label: et("Discount"), value: `-${formatMoney(rest, t.currency)}` }] : []),
     ...(shipped > 0 || t.shippingDiscount > 0 ? [{ label: deliveryLabel(local), value: shipping === 0 ? et("Free") : formatMoney(shipping, t.currency) }] : []),
     ...(fee > 0 ? [{ label: et("Cash on delivery fee"), value: formatMoney(fee, t.currency) }] : []),
     ...taxRows(t),
@@ -246,11 +256,34 @@ function taxRows(t: EmailTotals): { label: string; value: string }[] {
 }
 
 /** The money as the plain text part says it, every row the HTML has. */
+/**
+ * The discount as rows: each offer the order kept by its own name, then the
+ * code's part (what is left) as Discount. The offers never come to more than
+ * the whole discount: the last one takes any rounding.
+ */
+export function savingRows(t: Pick<EmailTotals, "discount" | "savings">): { rows: { label: string; cents: number }[]; rest: number } {
+  const whole = Math.max(0, Math.round(t.discount))
+  // eslint-disable-next-line no-control-regex
+  const name = (l: string) => l.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 80)
+  let left = whole
+  const rows: { label: string; cents: number }[] = []
+  for (const s of t.savings ?? []) {
+    const cents = Math.min(left, Math.max(0, Math.round(Number(s.cents) || 0)))
+    const label = name(String(s.label ?? ""))
+    if (cents <= 0 || !label) continue
+    rows.push({ label, cents })
+    left -= cents
+  }
+  return { rows, rest: left }
+}
+
 function totalsText(t: EmailTotals, local = false): string[] {
   const { fee, shipped, shipping } = deliveryParts(t)
+  const { rows: saved, rest } = savingRows(t)
   return [
     `${et("Subtotal")}: ${formatMoney(t.subtotal, t.currency)}`,
-    ...(t.discount > 0 ? [`${et("Discount")}: -${formatMoney(t.discount, t.currency)}`] : []),
+    ...saved.map((s) => `${s.label}: -${formatMoney(s.cents, t.currency)}`),
+    ...(rest > 0 ? [`${et("Discount")}: -${formatMoney(rest, t.currency)}`] : []),
     ...(shipped > 0 || t.shippingDiscount > 0 ? [`${deliveryLabel(local)}: ${shipping === 0 ? et("Free") : formatMoney(shipping, t.currency)}`] : []),
     ...(fee > 0 ? [`${et("Cash on delivery fee")}: ${formatMoney(fee, t.currency)}`] : []),
     ...taxRows(t).map((r) => `${r.label}: ${r.value}`),
@@ -375,7 +408,7 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
     m.copy?.introText != null ? `${m.copy.introText}${cash}` : intro.replace(/<[^>]+>/g, ""),
     "",
     et("Order summary"),
-    ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),
+    ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}${(l.properties ?? []).map(([k, v]) => `, ${k}: ${v}`).join("")}: ${formatMoney(l.cents, m.totals.currency)}`),
     "",
     ...totalsText(m.totals, !!m.local),
     ...(saved > 0 ? [et("You saved {amount}", { amount: formatMoney(saved, m.totals.currency) })] : []),

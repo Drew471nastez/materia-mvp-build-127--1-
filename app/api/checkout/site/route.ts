@@ -210,7 +210,7 @@ async function forget(request: Request, admin: Admin, site: SiteOfCheckout) {
   const secure = site.origin.startsWith("https:") ? "; Secure" : ""
   return NextResponse.json(
     { ok: true, removed: theme.cart.length - kept.length },
-    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note, theme.attributes, theme.discount)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
+    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note, theme.attributes, theme.discount, theme.codes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
   )
 }
 
@@ -231,7 +231,7 @@ async function themeCart(request: Request, site: SiteOfCheckout, body: Body) {
   const secure = site.origin.startsWith("https:") ? "; Secure" : ""
   return NextResponse.json(
     { ok: true, changed: true },
-    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note, theme.attributes, theme.discount)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
+    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note, theme.attributes, theme.discount, theme.codes)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
   )
 }
 

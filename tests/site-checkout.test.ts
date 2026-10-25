@@ -328,7 +328,8 @@ async function main() {
     const theme = code("lib/storelib-theme/compat/site.ts")
     /* Changed on purpose: the cart's discount code goes on to the checkout too (couponCode), round cart-1023. */
     /* Changed on purpose (round BC): Back is the page the press was on (backOf, the cart when none is known), not always the cart. */
-    check("an imported theme's checkout hands its lines to /checkout on its own host", /redirect\(siteCheckoutHref\(\{ items, back, wholeCart: whole, note, attributes, couponCode: code \|\| null \}\)\)/.test(theme) && /back = "\/cart"\): SiteResponse/.test(theme) && !/basketCheckoutHref\(/.test(theme))
+    /* Changed on purpose (round AF): the address is built first, so a whole cart too long to carry goes on through its cookie. */
+    check("an imported theme's checkout hands its lines to /checkout on its own host", /const href = siteCheckoutHref\(\{ items, back, wholeCart: whole, note, attributes, couponCode: code \|\| null \}\)/.test(theme) && /return redirect\(href\)/.test(theme) && /back = "\/cart"\): SiteResponse/.test(theme) && !/basketCheckoutHref\(/.test(theme))
     const proxy = code("proxy.ts")
     check("the proxy serves it on a subdomain and on a connected website domain", (proxy.match(/siteCheckoutFor\(request, /g) ?? []).length === 2 && /pathname === "\/checkout" && \(request\.nextUrl\.searchParams\.has\("items"\)/.test(proxy))
     check("Apple Pay's domain file is the file on every host", /pathname === "\/\.well-known\/apple-developer-merchantid-domain-association"\) return NextResponse\.next\(\)/.test(proxy))

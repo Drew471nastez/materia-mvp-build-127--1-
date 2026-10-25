@@ -267,7 +267,8 @@ async function main() {
     const both = decodeItems(encodeItems([{ productId: "00000000-0000-4000-8000-000000000001", variantId: null, quantity: 1, customPriceCents: 700, properties: { Size: "XL" } }]))
     check("  a named price and properties travel together", both[0]?.customPriceCents === 700 && both[0]?.properties?.Size === "XL")
     check("  old links (no properties) read as before", decodeItems(encodeItems([{ productId: "00000000-0000-4000-8000-000000000001", variantId: null, quantity: 3 }]))[0]?.properties === undefined)
-    check("  properties are held to ten plain names", Object.keys(lineProperties(Object.fromEntries(Array.from({ length: 15 }, (_, i) => [`k${i}`, "v"]))) ?? {}).length === 10)
+    /* Changed on purpose (round AF): twenty, so a theme's nine offer notes (_sl_*) fit beside the buyer's own words. */
+    check("  properties are held to twenty plain names", Object.keys(lineProperties(Object.fromEntries(Array.from({ length: 25 }, (_, i) => [`k${i}`, "v"]))) ?? {}).length === 20)
 
     const { answer, readCartCookie, writeCartCookie, attributesAfter } = await import("../lib/storelib-theme/compat/site")
     const site = await compatSite()
@@ -302,7 +303,7 @@ async function main() {
     check("  and never grows past what a browser keeps: attributes give way, the cart stays", huge.length <= 3800 && readCartCookie(huge).cart.length === 1, huge.length)
 
     const cs = read("lib/physical/checkout-server.ts")
-    check("checkout keeps them on the order: attributes on the checkout, properties on its lines", /cart_attributes: attributes/.test(cs) && /snapshotLine\(l, propertiesFor\(input\.items, l\)\)/.test(cs) && /properties: l\.properties/.test(cs))
+    check("checkout keeps them on the order: attributes on the checkout, properties on its lines", /cart_attributes: attributes/.test(cs) && /* Changed on purpose (round AF): each priced line carries its own properties; the cart's first for its option is the fallback. */ /snapshotLine\(l, l\.properties \?\? propertiesFor\(input\.items, l\)\)/.test(cs) && /properties: l\.properties/.test(cs))
     check("  a database without part 164 loses only the attributes, never the checkout", /cart attributes not kept/.test(cs))
     check("  the website's checkout sends them, and shows them under the note", /cartAttributes,\n\s+wholeCart/.test(read("app/checkout/site/site-checkout.tsx")) && /data-cart-attributes/.test(read("app/checkout/site/site-checkout.tsx")) && (read("app/api/checkout/site/route.ts").match(/cartAttributes: body\.cartAttributes/g) ?? []).length === 3) /* card, free and cash on delivery */
     check("the seller's order shows them in Notes", /data-order-attributes/.test(read("components/physical/order-panel.tsx")) && /data-order-line-properties/.test(read("components/physical/order-panel.tsx")) && /cartAttributes: cartAttributes\(co\.cart_attributes\)/.test(read("lib/physical/orders-server.ts")))

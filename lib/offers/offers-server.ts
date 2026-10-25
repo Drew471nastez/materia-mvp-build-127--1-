@@ -11,13 +11,13 @@ import "server-only"
  */
 import { loggable } from "@/lib/admin/plain-reason"
 import { mediaUrl } from "@/lib/storage/media-url"
-import { selectTolerant } from "@/lib/supabase/tolerant-select"
+import { dropColumns, selectTolerant } from "@/lib/supabase/tolerant-select"
 import { MAX_OFFERS, PLACEMENTS_FOR, discountLabel, offerUnitPrice, type Offer } from "@/lib/offers/offers"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { shopMoneyIn } from "@/lib/store/shop-money"
-import { BASE_COLUMNS, COLUMNS, PART_230, loadOffers, offerOf, type Row } from "./offers-read"
+import { BASE_COLUMNS, COLUMNS, PART_230, PART_304, PART_304_COLUMNS, loadOffers, offerOf, type Row } from "./offers-read"
 
-export { collectionsOf, loadOffers, offerLinesFor, offerOf, PART_230, PART_230_COLUMNS } from "./offers-read"
+export { collectionsOf, loadOffers, offerLinesFor, offerOf, PART_230, PART_230_COLUMNS, PART_304 } from "./offers-read"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -66,10 +66,20 @@ function rowOf(o: Omit<Offer, "id">, withSettings: boolean) {
     combines_with_codes: o.combinesWithCodes !== false,
     max_per_order: o.maxPerOrder ?? null,
     min_subtotal_cents: o.minSubtotalCents ?? null,
+    /* Part 304's column, written only by a quantity break, so every other offer saves on a database without it. */
+    ...(o.kind === "quantity_break" ? { tiers: o.tiers ?? [] } : {}),
   }
 }
 
+/** What a save reads back: part 304's tiers only for a quantity break. */
+const COLUMNS_230 = dropColumns(COLUMNS, [...PART_304_COLUMNS])
+
 export async function saveOffer(db: Db, creatorId: string, id: string | null, offer: Omit<Offer, "id">): Promise<{ ok: true; offer: Offer } | Failure> {
+  /* A quantity break needs part 304 (its kind and its tiers): said plainly before anything is written. */
+  if (offer.kind === "quantity_break") {
+    const { breaks, ready } = await loadOffers(db, creatorId)
+    if (ready && !breaks) return { ok: false, error: `Quantity breaks need SQL part 304 (${PART_304}). Run it in Supabase and save again.`, status: 503 }
+  }
   const mine = await ownProducts(db, creatorId, [...offer.productIds, ...offer.triggerIds])
   if (offer.productIds.some((p) => !mine.has(p)) || offer.triggerIds.some((p) => !mine.has(p))) return { ok: false, error: "One of those products isn't in your store any more.", status: 400 }
   const collections = offer.triggerCollectionIds ?? []
@@ -79,7 +89,7 @@ export async function saveOffer(db: Db, creatorId: string, id: string | null, of
   }
   const write = async (withSettings: boolean) => {
     const row = rowOf(offer, withSettings)
-    const columns = withSettings ? COLUMNS : BASE_COLUMNS
+    const columns = !withSettings ? BASE_COLUMNS : offer.kind === "quantity_break" ? COLUMNS : COLUMNS_230
     if (id) return db.from("store_offers").update(row).eq("id", id).eq("creator_id", creatorId).select(columns).maybeSingle()
     const { count } = await db.from("store_offers").select("id", { count: "exact", head: true }).eq("creator_id", creatorId)
     if ((count ?? 0) >= MAX_OFFERS) return { data: null, error: { code: "LIMIT" } }
@@ -88,10 +98,13 @@ export async function saveOffer(db: Db, creatorId: string, id: string | null, of
   let { data, error } = await write(true)
   /* Part 230 not run yet: an offer that needs none of its settings is saved without them; one that does says so. */
   if (error && (error.code === "42703" || error.code === "PGRST204")) {
+    if (offer.kind === "quantity_break") return { ok: false, error: `Quantity breaks need SQL part 304 (${PART_304}). Run it in Supabase and save again.`, status: 503 }
     if (usesNewSettings(offer)) return { ok: false, error: `Dates, places, limits, collections, free shipping and the code rule need SQL part 230 (${PART_230}). Run it in Supabase and save again.`, status: 503 }
     ;({ data, error } = await write(false))
   }
   if (error?.code === "LIMIT") return { ok: false, error: `A store can have up to ${MAX_OFFERS} offers.`, status: 400 }
+  /* The kind check of a database before part 304 refuses the new kind. */
+  if (error?.code === "23514" && offer.kind === "quantity_break") return { ok: false, error: `Quantity breaks need SQL part 304 (${PART_304}). Run it in Supabase and save again.`, status: 503 }
   if (error) return failed(error)
   if (!data) return id ? { ok: false, error: "Not found.", status: 404 } : failed(null)
   return { ok: true, offer: offerOf(data as Row) }
@@ -224,7 +237,7 @@ export interface OfferAreaProduct {
  * caller was checked for.
  */
 export async function offersArea(db: Db, creatorId: string) {
-  const [{ offers, ready, settings }, { data: rows }, { data: cols }, store] = await Promise.all([
+  const [{ offers, ready, settings, breaks }, { data: rows }, { data: cols }, store] = await Promise.all([
     loadOffers(db, creatorId),
     db.from("products").select("id, title, type, status, price_cents, thumbnail_url, pay_what_you_want, pwyw_min_price_cents").eq("creator_id", creatorId).neq("status", "archived").order("created_at", { ascending: false }).limit(500),
     db.from("product_collections").select("id, title").eq("creator_id", creatorId).order("title").limit(200),
@@ -241,5 +254,46 @@ export async function offersArea(db: Db, creatorId: string) {
     payWhatYouWant: p.pay_what_you_want === true,
   }))
   const collections = ((cols ?? []) as { id: string; title: string }[]).map((c) => ({ id: c.id, title: c.title }))
-  return { offers, products, collections, ready, settings, currency: store.currency }
+  return { offers, products, collections, ready, settings, breaks, currency: store.currency, sold: await soldThrough(db, creatorId, offers.map((o) => o.id)) }
+}
+
+/** How long back the offers page counts what each offer sold. */
+export const SOLD_DAYS = 90
+
+/**
+ * WHAT EACH OFFER SOLD, the last 90 days: the units of paid order lines it
+ * saved on (the line's `offers`, what the checkout applied) or that a theme
+ * added through it (the line's `_sl_offer_id` property, what the buyer
+ * pressed). Counted from the store's own orders only, each line once. A
+ * read that fails counts nothing rather than stopping the page.
+ */
+export async function soldThrough(db: Db, creatorId: string, offerIds: string[]): Promise<Record<string, number>> {
+  const out: Record<string, number> = {}
+  if (offerIds.length === 0) return out
+  const mine = new Set(offerIds)
+  try {
+    const since = new Date(Date.now() - SOLD_DAYS * 86_400_000).toISOString()
+    const { data, error } = await db
+      .from("orders")
+      .select("product_snapshot, quantity")
+      .eq("creator_id", creatorId)
+      .in("status", ["completed", "partially_refunded"])
+      .gte("created_at", since)
+      .not("product_snapshot", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(5000)
+    if (error) return out
+    for (const row of (data ?? []) as { product_snapshot?: { offers?: unknown; properties?: Record<string, unknown> } | null; quantity?: number | null }[]) {
+      const s = row.product_snapshot ?? {}
+      const ids = new Set<string>()
+      for (const o of Array.isArray(s.offers) ? s.offers : []) if (typeof o?.offer_id === "string" && mine.has(o.offer_id)) ids.add(o.offer_id)
+      const pressed = s.properties?._sl_offer_id
+      if (typeof pressed === "string" && mine.has(pressed)) ids.add(pressed)
+      const units = Math.max(1, Math.floor(Number(row.quantity) || 1))
+      for (const id of ids) out[id] = (out[id] ?? 0) + units
+    }
+  } catch (e) {
+    console.error(`[offers] sold read failed: ${loggable(e)}`)
+  }
+  return out
 }

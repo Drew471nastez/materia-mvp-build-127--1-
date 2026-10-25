@@ -74,6 +74,8 @@ export interface PhysicalLine {
   refundedCents: number
   /** The buyer's words for this line from an imported theme's product form (an engraving). */
   properties?: Record<string, string> | null
+  /** The store's offers in this line's discount, as the checkout named each saving (lib/physical/checkout-server snapshotLine). */
+  offers?: { title: string; savedCents: number }[] | null
 }
 export interface PhysicalShipment {
   id: string
@@ -802,6 +804,11 @@ function LineRow({ line, quantity, currency }: { line: PhysicalLine; quantity: n
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{line.title}</p>
         {line.variantName || line.sku ? <p className="truncate text-[12px] text-[#6b7280]">{[line.variantName, line.sku ? tt("SKU {sku}", { sku: line.sku }) : null].filter(Boolean).join(" · ")}</p> : null}
+        {(line.offers ?? []).map((o, i) => (
+          <p key={`${o.title}:${i}`} data-line-offer="" className="truncate text-[12px] tabular-nums text-[#6b7280]">
+            {o.title} −{money(o.savedCents, currency)}
+          </p>
+        ))}
       </div>
       <span className="hidden text-[13px] tabular-nums text-[#6b7280] sm:inline">
         {money(unit, currency)} &times; {quantity}

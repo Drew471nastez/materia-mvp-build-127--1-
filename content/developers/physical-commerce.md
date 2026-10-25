@@ -68,7 +68,28 @@ A preview on storelib.com, and a Buy link outside a website, use Storelib's cart
 
 A product that ships is never paid for in the digital checkout: a `/checkout?productId=` link for one (an older theme's Buy button, a shared link) is sent on to a checkout that can ship it. A checkout's Back link is the page the buyer came from only when that page is one of the store's own websites.
 
-`items` is the cart as ids and quantities only: a JSON list of `[productId, variantId, quantity]`, base64url encoded, up to 50 lines. Nothing else in it is read, and nothing in it is trusted beyond being well formed. The website's own checkout button builds this for you; a section only needs it to make a Buy now link of its own.
+`items` is the cart as ids and quantities: a JSON list of `[productId, variantId, quantity, properties?]`, base64url encoded, up to 50 lines. `properties` is the line's properties as an object of strings (up to 20, a name up to 64 characters, a value up to 500); a link without them, `[productId, variantId, quantity]`, reads as it always has. Nothing in it is trusted beyond being well formed, and properties never change a price. The website's own checkout button builds this for you; a section only needs it to make a Buy now link of its own.
+
+## Line item properties
+
+A product form's `properties[Engraving]`, or `properties` on `/cart/add.js`, stays with the line all the way to the order: in the cart cookie, in `/cart.js` as each item's `properties`, in Liquid as `item.properties` in the cart and `line_item.properties` on the account's orders, on the checkout under the line, and on the order line, its emails, the order page and the orders export. The same option with different properties is a line of its own, as on Shopify.
+
+A name that starts with `_` is the theme's own note: it is kept on the order and shown to the store, and left out of everything the buyer reads (the checkout, the order emails, the order page). A theme can use these to say which offer added a line:
+
+| Property | What it says |
+| --- | --- |
+| `_sl_offer` | `bundle`, `bundle_partial`, `quantity_break`, `upsell`, `pair` or `addon` |
+| `_sl_offer_id` | The offer's id from `GET /api/offers`, when the page had one |
+| `_sl_group` | One id per add, shared by every line of that add |
+| `_sl_block`, `_sl_source` | The block, and the product page it was added from |
+| `_sl_tier`, `_sl_paid_qty`, `_sl_free_qty` | A quantity break's tier, units charged and units free |
+| `_sl_discount` | What the page showed: `percent:15`, `amount:500` (cents) or `free` |
+
+They are informational. The checkout prices every line from the database and the store's own offers, so a line that says `_sl_discount: percent:90` pays what it would without it. Products › Upsells and bundles counts, for each offer, the units sold through it in the last 90 days: the order lines it saved on, and the ones whose `_sl_offer_id` names it.
+
+## Discount codes from the cart
+
+`POST /cart/update.js` with `{"discount": "CODE,CODE2"}` (Shopify's) keeps the codes on the cart. Each is checked against the store's own codes by the checkout's rules, and `/cart.js` answers `discount_codes: [{ "code": "CODE", "applicable": true }, { "code": "CODE2", "applicable": false }]`: an unknown or expired code is `applicable: false`, never an error. The checkout takes one code, the first that applies, and opens with it already entered, so the buyer does not type it again. `{"discount": ""}` takes them off.
 
 ## What the checkout does
 
@@ -76,7 +97,7 @@ In order, on the server, every time the buyer changes something:
 
 1. Reads each product and option from the database. A product that isn't published, isn't this store's, or is a digital product the buyer already owns is left out, and the page says so.
 2. Checks the stock at the locations that fulfil orders. A line that can't be met is shown as short, and Pay waits until it's fixed.
-3. Applies the store's **upsells and bundles**: a bundle's discount on each complete set in the cart, and a checkout offer's discount on the one item it offers, each unit at most once.
+3. Applies the store's **offers**: a quantity break on every unit of its product, a bundle's discount on each complete set in the cart, and a checkout offer's discount on the one item it offers. A unit gets one offer at most: when two want it, the one that saves more on that unit. Each saving is its own line in the checkout's summary, named by the offer or the tier, and the order keeps the same lines.
 4. Applies a **discount code**, if one was entered, to what each line costs after step 3.
 5. Quotes **shipping** from the store's profiles, zones and rates for the buyer's country and region, or offers **local pickup** at a location that can hand over the whole cart.
 6. Works out **tax** from the store's own tax regions, including per product rates, and whether prices already include it.
@@ -86,12 +107,65 @@ A section never needs to repeat any of it.
 
 ## Upsells and bundles
 
-A store makes them under Products › Upsells and bundles. They are of two kinds:
+A store makes them under Products › Upsells and bundles. They are of three kinds:
 
 | Kind | What a buyer sees | What it takes off |
 | --- | --- | --- |
 | Bundle | Two to five products under each one's buy box, with the set's price and Add all to cart | A percent off each item of every complete set in the cart, or an amount off each set |
 | Checkout offer | One product under the order in the checkout, with Add | A percent or amount off one of it, while the cart holds something else (or one of the offer's trigger products) |
+| Quantity break | Up to six tiers on the product page: buy 2 get 1 free, 3 for 15% off | Per block of a tier: units free, then a percent or an amount off the units paid for |
+
+One call answers everything a product page offers with a product:
+
+```
+GET /api/offers?product=<product id>
+```
+
+```json
+{ "bundles": [ … ], "quantityBreaks": [ … ], "checkoutOffers": [ … ] }
+```
+
+`bundles` is the list below, `quantityBreaks` the list `GET /api/offers/quantity-breaks` answers, and `checkoutOffers` the checkout offers this product triggers, each with its `product` and the `offerPriceCents` it adds at. An imported theme reads the same JSON in Liquid, on the product page, as `product.metafields.storelib.offers.value`, so it can draw offers on the server. Only offers that are on now, for a published product, are listed, and nothing of the store's own settings beyond what a buyer is shown. Answers may be cached for a minute.
+
+### Quantity breaks
+
+```
+GET /api/offers/quantity-breaks?product=<product id>
+```
+
+```json
+{
+  "offers": [
+    {
+      "offerId": "…",
+      "productId": "…",
+      "title": "Buy more, save more",
+      "tiers": [
+        { "quantity": 2, "freeQuantity": 1, "discountType": "none", "discountValue": 0, "label": "Buy 2 get 1 free", "badge": "Most popular", "unitPriceCents": 2400, "totalCents": 7200, "compareCents": 10800 },
+        { "quantity": 3, "freeQuantity": 2, "discountType": "none", "discountValue": 0, "label": "Buy 3 get 2 free", "badge": "", "unitPriceCents": 2160, "totalCents": 10800, "compareCents": 18000 }
+      ]
+    }
+  ]
+}
+```
+
+A quantity break is for one product, or for every product of one collection (each product on its own). A tier is `quantity` units paid, `freeQuantity` units free (0 to 10), and `discountType` `percent` (`discountValue` 0 to 90), `amount` (`discountValue` in cents off the block) or `none`; tiers grow strictly from one to the next. The prices are the product's default variant's. For another variant, work the numbers out with the same formula the checkout charges by, in integer cents:
+
+```
+paid    = quantity
+free    = freeQuantity
+total   = round(price * (100 - percent) / 100) * paid - amountCents   (never below 0)
+compare = price * (paid + free)
+          (a plain tier, with no free units and no discount, on a product with a
+           compare at price: compare_at_price * paid)
+saving  = compare - total
+```
+
+`round` is half up, as JavaScript's `Math.round`. In a currency without cents, such as yen, `price` is in yen and the same formula applies.
+
+At checkout, every unit of the product counts, whatever its variant, line or properties. The units are split into tier blocks by repeating the largest tier that fits (paid plus free no more than the units left), then the next one down for the rest, and so on; units no tier fits pay full price. With tiers 2+1 and 3+2, five units are one 3+2 block, eight are 3+2 and 2+1, and seven are 3+2 with two at full price. The free units are the product's cheapest units in the cart; a percent or an amount comes off the units paid for in each block, an amount per block shared by price. A unit a bundle or a checkout offer also wants gets whichever saves more on it.
+
+### Bundles
 
 A custom product section that wants to show a bundle itself can read the same list the buy box does:
 
@@ -144,5 +218,5 @@ For agents and integrations reading the database through the store's own connect
 | `fulfillments`, `fulfillment_items`, `fulfillment_events` | What was shipped or handed over, with tracking. |
 | `commerce_returns`, `commerce_return_items`, `commerce_reasons` | Returns, and the store's own return and refund reasons. |
 | `commerce_order_events` | An order's timeline. |
-| `store_offers` | The store's bundles and checkout offers. |
+| `store_offers` | The store's bundles, checkout offers and quantity breaks (with their `tiers`). |
 | `store_activity_log` | Every change made to the store, for its Activity page. |

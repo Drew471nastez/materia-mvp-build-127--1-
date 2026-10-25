@@ -12,14 +12,18 @@
  * discount, where it shows and where it stands. The page arrives with its
  * rows (./page.tsx reads them on the server), so it lands whole.
  *
- *   Bundle   two to five products bought together, for less
- *   Upsell   one product suggested on a product page, in the cart or at
- *            the checkout, when the cart qualifies
+ *   Bundle          two to five products bought together, for less
+ *   Upsell          one product suggested on a product page, in the cart or
+ *                   at the checkout, when the cart qualifies
+ *   Quantity break  buy more of one product (or of a collection's), pay less
+ *                   per unit, or get some free
  *
- * The order of the list is the order they apply in: a unit already in an
- * earlier offer is never discounted again, so Move up and Move down decide.
- * No numbers about how each one sells are shown: nothing counts them yet,
- * and a figure nobody measured would be made up.
+ * The order of the list is the order bundles and upsells apply in: a unit
+ * already in an earlier one is never discounted again, so Move up and Move
+ * down decide; a unit a quantity break also wants goes to whichever saves
+ * more on it. Sold is counted, not guessed: the units of paid order lines
+ * in the last 90 days that the offer saved on or that a theme added through
+ * it (lib/offers/offers-server soldThrough).
  *
  * An offer opens in the editor (./offer-editor.tsx), a dialog on a computer
  * and the app's shared bottom sheet on a phone, over this list. Questions
@@ -81,6 +85,8 @@ export function OffersClient({
   currency,
   ready,
   settingsReady,
+  breaksReady,
+  sold,
   physical,
 }: {
   initialOffers: Offer[]
@@ -91,6 +97,10 @@ export function OffersClient({
   ready: boolean
   /** SQL part 230 has run. */
   settingsReady: boolean
+  /** SQL part 304 has run: quantity breaks can be saved. */
+  breaksReady: boolean
+  /** Units each offer sold in the last 90 days, by its id. */
+  sold: Record<string, number>
   physical: boolean
 }) {
   const [list, setList] = React.useState(initialOffers)
@@ -204,7 +214,7 @@ export function OffersClient({
     ].map((item, k) => (k === 0 ? { ...item, separatorBefore: true } : item)),
     { label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => remove(o) },
   ]
-  const missingIn = (o: Offer) => o.productIds.some((id) => !byId.has(id))
+  const missingIn = (o: Offer) => o.productIds.some((id) => !byId.has(id)) || (o.kind === "quantity_break" && o.productIds.length === 0 && !collections.some((c) => c.id === o.triggerCollectionIds?.[0]))
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-offers="">
@@ -238,6 +248,9 @@ export function OffersClient({
                   </button>
                   <button type="button" data-offer-create="checkout" onClick={() => start(null, "checkout")} className={cn(secondaryDepth, PRESS, "h-8 rounded-lg px-3 text-[13px] max-md:h-10 max-md:px-4 max-md:text-[14px]", BAR_BUTTON_SIZE)}>
                     {tt("Create upsell")}
+                  </button>
+                  <button type="button" data-offer-create="quantity_break" onClick={() => start(null, "quantity_break")} className={cn(secondaryDepth, PRESS, "h-8 rounded-lg px-3 text-[13px] max-md:h-10 max-md:px-4 max-md:text-[14px]", BAR_BUTTON_SIZE)}>
+                    {tt("Create quantity break")}
                   </button>
                 </div>
               ) : null}
@@ -289,7 +302,8 @@ export function OffersClient({
                               {state !== "active" ? <StatusBadge tone={STATE_TONE[state]}>{STATE_WORD[state]()}</StatusBadge> : null}
                             </span>
                             <span className="mt-1 block truncate text-[12.5px] leading-4 text-[#6b7280]">
-                              {KIND_WORD[o.kind]()} · <span className="text-[#1a1a2e]">{discountText(o, currency)}</span> · {contentsText(o, byId)}
+                              {KIND_WORD[o.kind]()} · <span className="text-[#1a1a2e]">{discountText(o, currency)}</span> · {contentsText(o, byId, collections)}
+                              {sold[o.id] ? ` · ${tt("{n} sold", { n: sold[o.id] })}` : ""}
                               {dates ? ` · ${dates}` : ""}
                             </span>
                             {missingIn(o) ? <span className="mt-0.5 block text-[12px] text-[#92400e]">{tt("A product in it was deleted. Edit it to fix.")}</span> : null}
@@ -305,8 +319,9 @@ export function OffersClient({
                     <thead>
                       <tr className="h-9 text-left text-[12px] text-[#6b7280] lg:h-[40px] lg:text-[13px]">
                         <th scope="col" className="border-b border-[#eef0f2] pl-4 pr-3 font-medium lg:pl-[18px]">{tt("Offer")}</th>
-                        <th scope="col" className="w-[96px] border-b border-[#eef0f2] px-3 font-medium">{tt("Type")}</th>
-                        <th scope="col" className="w-[120px] border-b border-[#eef0f2] px-3 font-medium">{tt("Discount")}</th>
+                        <th scope="col" className="w-[124px] border-b border-[#eef0f2] px-3 font-medium">{tt("Type")}</th>
+                        <th scope="col" className="w-[140px] border-b border-[#eef0f2] px-3 font-medium">{tt("Discount")}</th>
+                        <th scope="col" className="w-[116px] whitespace-nowrap border-b border-[#eef0f2] px-3 text-right font-medium" title={tt("Units sold through it in the last 90 days")}>{tt("Sold, 90 days")}</th>
                         <th scope="col" className="hidden w-[24%] border-b border-[#eef0f2] px-3 font-medium lg:table-cell">{tt("Shown on")}</th>
                         <th scope="col" className="w-[132px] border-b border-[#eef0f2] px-3 font-medium">{tt("Status")}</th>
                         <th scope="col" className="w-[56px] border-b border-[#eef0f2] pr-3" aria-label={tt("Actions")} />
@@ -334,12 +349,13 @@ export function OffersClient({
                                   <button type="button" onClick={() => start(o)} className="block max-w-full cursor-pointer truncate text-left font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline">
                                     {o.title}
                                   </button>
-                                  <span className="block truncate text-[12px] text-[#6b7280] lg:text-[12.5px]">{missingIn(o) ? <span className="text-[#92400e]">{tt("A product in it was deleted. Edit it to fix.")}</span> : contentsText(o, byId)}</span>
+                                  <span className="block truncate text-[12px] text-[#6b7280] lg:text-[12.5px]">{missingIn(o) ? <span className="text-[#92400e]">{tt("A product in it was deleted. Edit it to fix.")}</span> : contentsText(o, byId, collections)}</span>
                                 </span>
                               </div>
                             </td>
                             <td className="whitespace-nowrap bg-white px-3 text-[#4b5563] group-hover:bg-[#fafafb]">{KIND_WORD[o.kind]()}</td>
                             <td className="truncate whitespace-nowrap bg-white px-3 text-[#1a1a2e] group-hover:bg-[#fafafb]">{discountText(o, currency)}</td>
+                            <td data-offer-sold={sold[o.id] ?? 0} className="whitespace-nowrap bg-white px-3 text-right tabular-nums text-[#4b5563] group-hover:bg-[#fafafb]">{sold[o.id] ?? 0}</td>
                             <td className="hidden truncate bg-white px-3 text-[#4b5563] group-hover:bg-[#fafafb] lg:table-cell">{placesText(o)}</td>
                             <td className="bg-white px-3 group-hover:bg-[#fafafb]">
                               <span className="flex flex-col items-start gap-0.5">
@@ -376,6 +392,7 @@ export function OffersClient({
           currency={currency}
           physical={physical}
           settingsReady={settingsReady}
+          breaksReady={breaksReady}
           onRequestClose={requestClose}
           onSave={save}
           onDelete={remove}
