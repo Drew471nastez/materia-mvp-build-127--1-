@@ -61,6 +61,17 @@ export const ONEPAGE_FONTS: Readonly<Record<string, string | null>> = {
   "Russo One": null,
   "Abril Fatface": null,
   Satisfy: null,
+  /* Round 13: ten more, the same ten the website builder offers (lib/website-builder/font-options.ts), every one with 400 to 700. */
+  Fraunces: "400;500;600;700",
+  Newsreader: "400;500;600;700",
+  "Bodoni Moda": "400;500;600;700",
+  "Bricolage Grotesque": "400;500;600;700",
+  Geist: "400;500;600;700",
+  Manrope: "400;500;600;700",
+  Figtree: "400;500;600;700",
+  Fredoka: "400;500;600;700",
+  "Geist Mono": "400;500;600;700",
+  "Big Shoulders": "400;500;600;700",
 }
 
 /** The family a CSS value names first: "'Playfair Display', serif" is Playfair Display. */
@@ -118,9 +129,9 @@ export function onePageFontSampleHref(names: string[], text?: string): string | 
  * creator who had chosen Inter. `fontStack` adds the right generic family
  * to a name that has none; a value that already ends in one is left as it is.
  */
-const SERIF = new Set(["Playfair Display", "Merriweather", "Lora", "Crimson Text", "Source Serif Pro", "Abril Fatface", "Alfa Slab One"])
+const SERIF = new Set(["Playfair Display", "Merriweather", "Lora", "Crimson Text", "Source Serif Pro", "Abril Fatface", "Alfa Slab One", "Fraunces", "Newsreader", "Bodoni Moda"])
 const SCRIPT = new Set(["Dancing Script", "Caveat", "Pacifico", "Lobster", "Permanent Marker", "Satisfy"])
-const MONO = new Set(["JetBrains Mono"])
+const MONO = new Set(["JetBrains Mono", "Geist Mono"])
 const GENERIC = /(^|,)\s*(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-sans-serif|ui-serif|ui-monospace)\s*$/i
 
 export function fontStack(value: unknown, fallback = "Inter"): string {

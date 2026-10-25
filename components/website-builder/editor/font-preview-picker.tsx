@@ -40,6 +40,12 @@ const KIND: Record<string, string> = {
   get "EB Garamond"() { return tt("Serif") },
   get Oswald() { return tt("Condensed") },
   get "Bebas Neue"() { return tt("Display") },
+  get Fraunces() { return tt("Serif") },
+  get Newsreader() { return tt("Serif") },
+  get "Bodoni Moda"() { return tt("Serif") },
+  get "Big Shoulders"() { return tt("Condensed") },
+  get Fredoka() { return tt("Rounded") },
+  get "Geist Mono"() { return tt("Mono") },
 }
 
 /** A Shopify font handle ("work_sans_n7", an imported theme's font setting) as the family it names; anything else as it is. */
@@ -53,14 +59,30 @@ const faceOf = (value: string) => {
 }
 
 let previewsLoaded = false
-/** The one request for every preview: each family at 500, only the letters drawn. */
+/*
+  The one request for every preview: each family at its regular weight,
+  only the letters drawn. It asked for 500, which Lato and Bebas Neue do
+  not have: Google leaves a family out of the answer when the one weight
+  asked for is missing, so those two rows were drawn in the fallback face.
+  Every offered family has 400, the weight the rows are drawn at.
+
+  A FACE IS FETCHED WHEN ITS ROW IS SEEN (round 13, with ten more
+  families). The browser asks for a face's file the first time text in it
+  is laid out, and every row named its face, so opening the list fetched
+  all of them at once. A row now takes its face when it scrolls within a
+  little of the list's edge (an IntersectionObserver on the list), once the
+  face has loaded, so it changes from the app's own face to its own once
+  and never draws a fallback in between. Opening the list costs the faces
+  of the rows in view; a face seen once is kept for the visit.
+*/
+const facesShown = new Set<string>()
 function loadPreviews(extra: string[]) {
   if (previewsLoaded || typeof document === "undefined") return
   previewsLoaded = true
   const families = [...new Set([...OFFERED_FAMILIES, ...extra.filter((f) => OFFERED_FAMILIES.has(f))])]
   if (!families.length) return
   const letters = [...new Set([...families.join(""), ...sample(), ..."The quick brown fox", ..."Aa"])].join("")
-  const q = families.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@500`).join("&")
+  const q = families.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, "+")}`).join("&")
   const link = document.createElement("link")
   link.rel = "stylesheet"
   link.href = `https://fonts.googleapis.com/css2?${q}&text=${encodeURIComponent(letters)}&display=swap`
@@ -91,6 +113,50 @@ export function FontPreviewPicker({
   React.useEffect(() => {
     loadPreviews(options.map((o) => familyOf(o.value)))
   }, [options])
+
+  /* Each row's face once it is near the list's edge and loaded (A FACE IS FETCHED WHEN ITS ROW IS SEEN). */
+  const [, faceArrived] = React.useReducer((n: number) => n + 1, 0)
+  React.useEffect(() => {
+    const box = listRef.current
+    if (!open || !box) return
+    const rows = Array.from(box.querySelectorAll<HTMLElement>("[data-font-row]")).filter((r) => !facesShown.has(r.dataset.fontValue ?? ""))
+    if (!rows.length) return
+    if (typeof IntersectionObserver === "undefined" || typeof document === "undefined" || !("fonts" in document)) {
+      rows.forEach((r) => facesShown.add(r.dataset.fontValue ?? ""))
+      faceArrived()
+      return
+    }
+    let gone = false
+    /* Faces that arrive together are drawn in one frame, not one list each. */
+    let frame = 0
+    const arrived = () => {
+      if (gone || frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        if (!gone) faceArrived()
+      })
+    }
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue
+        io.unobserve(e.target)
+        const value = (e.target as HTMLElement).dataset.fontValue ?? ""
+        const family = familyOf(value)
+        const done = () => {
+          facesShown.add(value)
+          arrived()
+        }
+        if (!family) done()
+        else document.fonts.load(`16px "${family.replace(/"/g, "")}"`, sample()).then(done, done)
+      }
+    }, { root: box, rootMargin: "120px 0px" })
+    rows.forEach((r) => io.observe(r))
+    return () => {
+      gone = true
+      cancelAnimationFrame(frame)
+      io.disconnect()
+    }
+  }, [open, options])
 
   /* Opening lands on the chosen one, in view. */
   React.useEffect(() => {
@@ -169,16 +235,17 @@ export function FontPreviewPicker({
                 data-font-row={i}
                 onMouseMove={() => active !== i && setActive(i)}
                 onClick={() => choose(o.value)}
+                data-font-value={o.value}
                 className={cn(
                   "flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 transition-colors duration-75",
                   i === active ? "bg-muted" : "",
                 )}
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[16px] leading-6 text-foreground" style={{ fontFamily: faceOf(o.value) }}>
+                  <span className="block truncate text-[16px] leading-6 text-foreground" style={{ fontFamily: facesShown.has(o.value) ? faceOf(o.value) : undefined }}>
                     {o.label}
                   </span>
-                  <span className="block truncate text-[12.5px] leading-5 text-muted-foreground" style={{ fontFamily: faceOf(o.value) }}>
+                  <span className="block truncate text-[12.5px] leading-5 text-muted-foreground" style={{ fontFamily: facesShown.has(o.value) ? faceOf(o.value) : undefined }}>
                     {o.value ? sample() : o.label}
                   </span>
                 </span>

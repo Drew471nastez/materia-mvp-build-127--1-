@@ -216,7 +216,8 @@ async function main() {
     archetype: "nightlife",
     purpose: "sell tickets to the next party",
     palette: { direction: "near black with a hot red", colors: { background: "#0b0b0f", accent: "#e11d48", text: "notacolour" } },
-    typography: { heading: "Fraunces", body: "DM Sans" },
+    /* Round 13 offers Fraunces (lib/website-builder/font-options.ts): a family still not offered stands in for "one the theme cannot load". */
+    typography: { heading: "Comic Neue", body: "DM Sans" },
     sections: [
       { pattern: "hero_immersive", use: "new:bandidos_hero", content: "the party name huge" },
       { pattern: "marquee", use: "new:date_marquee" },
@@ -238,7 +239,7 @@ async function main() {
   check("a kept id that is not on the page becomes the pattern's built-in type", plan.sections.some((s) => s.pattern === "tickets" && s.use === "pricing_table"))
   check("a header is never a planned section", !plan.sections.some((s) => s.use === "header"))
   check("a type that does not exist becomes the pattern's built-in one", plan.sections.some((s) => s.pattern === "cta_final" && s.use === "cta_banner"))
-  check("a font the theme cannot load is replaced, and the change is said", plan.typography.heading === "Bebas Neue" && plan.corrections.some((c) => /Fraunces/.test(c)))
+  check("a font the theme cannot load is replaced, and the change is said", plan.typography.heading === "Bebas Neue" && plan.corrections.some((c) => /Comic Neue/.test(c)))
   check("a colour that is not a colour is dropped", plan.palette.colors.text === undefined && plan.palette.colors.accent === "#e11d48")
   check("only real body sections can be removed", JSON.stringify(plan.remove) === JSON.stringify(["hero-1", "cards-1", "cta-1"]))
   check("JSON is read out of a fenced reply", (extractJson('Here:\n```json\n{"a":1}\n```') as { a: number }).a === 1)

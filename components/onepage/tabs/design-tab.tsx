@@ -101,6 +101,17 @@ const FONTS = [
   { name: "Barlow Condensed", category: "display", get style() { return tt("Modern Condensed") }, value: "'Barlow Condensed', sans-serif" },
   { name: "Dancing Script", category: "script", get style() { return tt("Elegant Script") }, value: "'Dancing Script', cursive" },
   { name: "Caveat", category: "script", get style() { return tt("Natural Handwriting") }, value: "'Caveat', cursive" },
+  /* Round 13: ten more (lib/onepage/fonts.ts ONEPAGE_FONTS), the website builder's too. */
+  { name: "Geist", category: "sans", get style() { return tt("Crisp & Minimal") }, value: "'Geist', sans-serif" },
+  { name: "Manrope", category: "sans", get style() { return tt("Modern & Open") }, value: "'Manrope', sans-serif" },
+  { name: "Figtree", category: "sans", get style() { return tt("Friendly & Clear") }, value: "'Figtree', sans-serif" },
+  { name: "Fredoka", category: "sans", get style() { return tt("Round & Playful") }, value: "'Fredoka', sans-serif" },
+  { name: "Bricolage Grotesque", category: "sans", get style() { return tt("Bold & Playful") }, value: "'Bricolage Grotesque', sans-serif" },
+  { name: "Fraunces", category: "serif", get style() { return tt("Soft & Warm") }, value: "'Fraunces', serif" },
+  { name: "Newsreader", category: "serif", get style() { return tt("Editorial & Calm") }, value: "'Newsreader', serif" },
+  { name: "Bodoni Moda", category: "serif", get style() { return tt("Fashion & Sharp") }, value: "'Bodoni Moda', serif" },
+  { name: "Big Shoulders", category: "display", get style() { return tt("Tall & Condensed") }, value: "'Big Shoulders', sans-serif" },
+  { name: "Geist Mono", category: "mono", get style() { return tt("Code & Tech") }, value: "'Geist Mono', monospace" },
 ]
 
 // Display fonts for Title customization
@@ -129,6 +140,16 @@ const TITLE_FONTS = [
   { name: "DM Sans", value: "'DM Sans', sans-serif" },
   { name: "Space Grotesk", value: "'Space Grotesk', sans-serif" },
   { name: "Sora", value: "'Sora', sans-serif" },
+  { name: "Fraunces", value: "'Fraunces', serif" },
+  { name: "Newsreader", value: "'Newsreader', serif" },
+  { name: "Bodoni Moda", value: "'Bodoni Moda', serif" },
+  { name: "Bricolage Grotesque", value: "'Bricolage Grotesque', sans-serif" },
+  { name: "Big Shoulders", value: "'Big Shoulders', sans-serif" },
+  { name: "Geist", value: "'Geist', sans-serif" },
+  { name: "Manrope", value: "'Manrope', sans-serif" },
+  { name: "Figtree", value: "'Figtree', sans-serif" },
+  { name: "Fredoka", value: "'Fredoka', sans-serif" },
+  { name: "Geist Mono", value: "'Geist Mono', monospace" },
 ]
 
 /* Every name in the two lists above, drawn in its own face: one small request cut to the letters of the names (lib/onepage/fonts). */
@@ -140,6 +161,7 @@ const FONT_CATEGORIES = [
   { id: "serif", get label() { return tt("Serif") } },
   { id: "display", get label() { return tt("Display") } },
   { id: "script", get label() { return tt("Script") } },
+  { id: "mono", get label() { return tt("Mono") } },
 ]
 
 const SOCIAL_STYLES = [

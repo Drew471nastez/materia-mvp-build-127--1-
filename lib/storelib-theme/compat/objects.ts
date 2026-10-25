@@ -26,6 +26,7 @@ import { readSizeChart, sizeChartJson, type SizeChart } from "@/lib/size-charts/
 import { sizeChartTableHtml } from "@/lib/size-charts/html"
 import { COMPAT_HTML_EXPRS, COMPAT_SOURCE_EXPR } from "@/lib/storelib-theme/dynamic"
 import { safeHref } from "@/lib/storelib-theme/values"
+import { OFFERED_FAMILIES } from "@/lib/website-builder/font-link"
 
 type O = Record<string, unknown>
 
@@ -831,6 +832,16 @@ const SYSTEM_FONTS: Record<string, string> = {
   mono: "Menlo, Consolas, Monaco, Liberation Mono, monospace",
 }
 
+/*
+  A FAMILY BY ITS OWN NAME. A handle is written in small letters, and its
+  family was read back with each word capitalised: "dm_sans_n4" became
+  "Dm Sans", a name Google Fonts does not know (it answers 400), so a theme
+  set to DM Sans or EB Garamond from the font picker drew its fallback, in
+  the canvas and live. A family Storelib's picker offers is read back as
+  the picker names it.
+*/
+const OFFERED_BY_HANDLE = new Map([...OFFERED_FAMILIES].map((f) => [f.toLowerCase().replace(/[^a-z0-9]+/g, "_"), f]))
+
 /**
  * A font_picker value ("assistant_n4", "work_sans_i7") as Shopify's font
  * object: the family from the handle, the weight from the digit, italic from
@@ -845,8 +856,8 @@ export function fontObject(handle: unknown): O | null {
   const style = m ? (m[2] === "n" ? "normal" : "italic") : "normal"
   const weight = m ? String(Number(m[3]) * 100) : "400"
   const system = base in SYSTEM_FONTS || /^(system|sans_serif|serif|monospace)$/.test(base)
-  const family = system ? (base === "mono" || base === "monospace" ? "monospace" : base === "serif" ? "serif" : "system-ui") : base.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
-  const fallback = system ? SYSTEM_FONTS[base] ?? "sans-serif" : /serif|garamond|baskerville|playfair|lora|merriweather|crimson|libre_baskerville|cormorant|domine|bitter|arvo/i.test(base) ? "serif" : /mono|code|courier/i.test(base) ? "monospace" : "sans-serif"
+  const family = system ? (base === "mono" || base === "monospace" ? "monospace" : base === "serif" ? "serif" : "system-ui") : OFFERED_BY_HANDLE.get(base.toLowerCase()) ?? base.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+  const fallback = system ? SYSTEM_FONTS[base] ?? "sans-serif" : /serif|garamond|baskerville|playfair|lora|merriweather|crimson|libre_baskerville|cormorant|domine|bitter|arvo|fraunces|newsreader|bodoni/i.test(base) ? "serif" : /mono|code|courier/i.test(base) ? "monospace" : "sans-serif"
   return {
     [OUTPUT]: family,
     family,
