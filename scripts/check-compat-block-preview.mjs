@@ -62,7 +62,7 @@ for (const type of ["title", "price"]) {
   const m = await tab.evaluate(() => {
     const b = document.querySelector('[data-block-id="block-picker-preview"]')
     const r = b?.getBoundingClientRect()
-    return { found: !!b, w: r?.width ?? 0, h: r?.height ?? 0, page: document.documentElement.scrollHeight, gallery: !!document.querySelector(".gallery"), others: document.querySelectorAll("[data-block-id]").length, color: b ? getComputedStyle(b).color : "", size: b ? getComputedStyle(b).fontSize : "" }
+    return { found: !!b, w: r?.width ?? 0, h: r?.height ?? 0, page: Math.round(document.body.getBoundingClientRect().height), gallery: !!document.querySelector(".gallery"), others: document.querySelectorAll("[data-block-id]").length, color: b ? getComputedStyle(b).color : "", size: b ? getComputedStyle(b).fontSize : "" }
   })
   results.push({ type, ms: Number(ms.toFixed(2)), ...m })
   console.log(`\n${type}: drawn in ${ms.toFixed(2)} ms, block ${m.w}x${m.h}, page ${m.page}px tall, colour ${m.color}, ${m.size}`)
