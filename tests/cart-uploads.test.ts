@@ -410,7 +410,8 @@ async function main() {
     const theme = JSON.parse(read("themes/default/sections/product.json")) as { blocks: { type: string; name: string; fields: { id: string }[] }[] }
     const block = theme.blocks.find((b) => b.type === "personalization")
     check("the product section has a Personalization block: kind, labels, required, longest text", !!block && ["kind", "label", "upload_label", "required", "max_length", "placeholder"].every((id) => block!.fields.some((f) => f.id === id)))
-    check("it is drawn by the product section", /personalization: PersonalizationBlock/.test(read("components/website-builder/sections/renderers/product/product-blocks.tsx")))
+    /* Changed on purpose (round 13): one Personalization block, which draws its own asks (PersonalizationBlock) or, set to The product's fields, the product's own. */
+    check("it is drawn by the product section", /personalization: Personalization,/.test(read("components/website-builder/sections/renderers/product/product-blocks.tsx")) && /if \(s\.kind !== "product"\) return <PersonalizationBlock s=\{s\} ctx=\{ctx\} \/>/.test(read("components/website-builder/sections/renderers/product/product-blocks.tsx")))
     const pz = await import("@/lib/website-builder/personalization")
     const fields = pz.personalizationFields([
       { id: "b1", type: "personalization", settings: { kind: "text_and_image", label: "Name", upload_label: "Photo", required: true, max_length: 5 } },
