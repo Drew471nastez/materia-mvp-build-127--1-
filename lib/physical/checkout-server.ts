@@ -70,8 +70,9 @@ import { statementParams } from "@/lib/payments/platform-descriptor"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
-import { lineProperties, physicalCheckoutHref } from "./cart-link"
+import { lineProperties, physicalCheckoutHref, propertiesKey } from "./cart-link"
 import { hasUploads } from "@/lib/cart-uploads/rules"
+import { checkLines, personalizationOf } from "@/lib/products/personalization-server"
 import { cartAttributes, orderNote } from "@/lib/checkout/site-checkout"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { COD_PAYMENT_METHOD, COD_PROVIDER, codClientKey, codRefusal } from "./cash-on-delivery"
@@ -199,6 +200,29 @@ function propertiesFor(items: unknown, l: PricedLine): Record<string, string> | 
   return undefined
 }
 
+/** A priced line as the personalization check knows it: its product, option and properties. */
+const answersKey = (l: Pick<PricedLine, "productId" | "variantId" | "properties">) => `${l.productId}:${l.variantId ?? ""}:${propertiesKey(l.properties)}`
+
+/**
+ * EACH LINE HELD TO ITS PRODUCT'S PERSONALIZATION FIELDS
+ * (lib/products/personalization-server): a required answer missing, one too
+ * long, or a photo answer that is not a cart upload is refused here,
+ * whatever the page let through (whose upload it is, checkLineFiles above
+ * has said). Each line is one set of
+ * answers (two mugs with two names are two lines, ./checkout-pricing-server
+ * readItems). The answers kept are the cleaned ones; properties no field
+ * names (an imported theme's own) are kept as they came.
+ */
+async function personalizedLines(db: Db, lines: PricedLine[]): Promise<{ ok: true; answers: Map<string, Record<string, string> | undefined> } | { ok: false; error: string }> {
+  const answers = new Map<string, Record<string, string> | undefined>()
+  const fieldsOf = await personalizationOf(db, lines.map((l) => l.productId))
+  if (fieldsOf.size === 0) return { ok: true, answers }
+  const checked = checkLines(lines.map((l) => ({ productId: l.productId, title: l.title, properties: l.properties })), fieldsOf)
+  if (checked.ok === false) return { ok: false, error: checked.error }
+  lines.forEach((l, i) => answers.set(answersKey(l), checked.properties[i]))
+  return { ok: true, answers }
+}
+
 export async function startCheckout(db: Db, input: StartInput): Promise<StartResult> {
   const config = input.config ?? DEFAULT_CHECKOUT
   /* Settings › Checkout, checked here as well as on the page: an account first, and a confirmed one. */
@@ -245,6 +269,9 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     }
   }
   if (priced.lines.length === 0) return { ok: false, status: 400, error: priced.dropped.length ? `${priced.dropped[0]} can't be bought right now.` : "Your cart is empty." }
+  /* Personalization: what each item asks for, checked here as well as on the page (lib/products/personalization-server). */
+  const personalized = await personalizedLines(db, priced.lines)
+  if (personalized.ok === false) return { ok: false, status: 400, error: personalized.error, field: "personalization" }
 
   /* Picked up: no delivery address, the pickup point is where it is handed over. */
   const wantsPickup = priced.requiresShipping && isPickupOptionId(input.deliveryOptionId)
@@ -423,7 +450,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
         ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, ...taxFacts, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}), ...(totals.codFeeCents > 0 ? { cod_fee_cents: totals.codFeeCents } : {}) }
         : { ...taxFacts, ...(totals.codFeeCents > 0 ? { cod_fee_cents: totals.codFeeCents } : {}) },
       /* Each line with its own properties (a line of its own per set, lib/physical/checkout-pricing-server readItems); a line priced without them takes the cart's first for its option. */
-      lines: q.lines.map((l) => snapshotLine(l, l.properties ?? propertiesFor(input.items, l))),
+      /* Held to the product's personalization fields above (the cleaned answers) when it has any. */
+      lines: q.lines.map((l) => snapshotLine(l, personalized.answers.has(answersKey(l)) ? personalized.answers.get(answersKey(l)) : l.properties ?? propertiesFor(input.items, l))),
       coupon_id: priced.coupon?.id ?? null,
       coupon_code: priced.coupon?.code ?? null,
       provider: free ? "free" : cod ? COD_PROVIDER : "stripe",

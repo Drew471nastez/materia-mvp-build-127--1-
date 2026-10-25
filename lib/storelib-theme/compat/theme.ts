@@ -75,9 +75,14 @@ import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq }
 
 /** The product objects whose questions a page has drawn already, so they are drawn once (./product-faq.ts). */
 const FAQ_SHOWN = new WeakSet<object>()
+import { PERSONALIZATION_SCRIPT, PERSONALIZATION_SNIPPET, PERSONALIZATION_SNIPPET_NAME, holdsPersonalizationBlock, isPersonalizationAppBlock, personalizationFieldsOf, personalizationHtml, themeReadsPersonalization, withPersonalizationFields } from "./personalization"
 import { SIZE_CHART_APP_BLOCK as SIZE_CHART_APP_BLOCK_TYPE, SIZE_CHART_SNIPPET, SIZE_CHART_SNIPPET_NAME, holdsSizeChartBlock, isSizeChartAppBlock, sizeChartBlockHtml, sizeChartOf, sizeChartUid, themeReadsSizeChart, withSizeGuide } from "./size-chart"
 /** The product objects whose size chart a page has drawn already: a second link points at the first chart (./size-chart.ts). */
 const SIZE_CHART_SHOWN = new WeakSet<object>()
+/** The product objects whose personalization fields a page has drawn already, so they are drawn once (./personalization.ts). */
+const PERSONALIZATION_SHOWN = new WeakSet<object>()
+/** The pages that carry Storelib's personalization script already. */
+const PERSONALIZATION_SCRIPTED = new WeakSet<object>()
 import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
 import type { SizeChart } from "@/lib/size-charts/model"
 
@@ -891,16 +896,17 @@ export class CompatTheme {
         const p = this.fileFor("snippets", name)
         if (p) return this.tree(p)
         /* Storelib's own snippet for a theme's code to call: the product's size chart (./size-chart.ts). The theme's own file of that name wins. */
-        return name === SIZE_CHART_SNIPPET_NAME ? parsedMarkup(SIZE_CHART_SNIPPET).tree : null
+        return name === SIZE_CHART_SNIPPET_NAME ? parsedMarkup(SIZE_CHART_SNIPPET).tree : name === PERSONALIZATION_SNIPPET_NAME ? parsedMarkup(PERSONALIZATION_SNIPPET).tree : null
       },
       /* Storelib Reviews widgets (./storelib-reviews.ts) and the size chart (./size-chart.ts): Storelib's own filters, beside the theme's. */
-      filter: (name) => (name === "storelib_review_widget" ? storelibReviewWidgetFilter : name === "storelib_size_chart" ? this.sizeChartFilter : compatFilter(name)),
+      filter: (name) => (name === "storelib_review_widget" ? storelibReviewWidgetFilter : name === "storelib_size_chart" ? this.sizeChartFilter : name === "storelib_personalization" ? this.personalizationFilter : compatFilter(name)),
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
       appBlock: (ctx, block) => {
         const type = String(block.app_type ?? block.type ?? "")
         if (isSizeChartAppBlock(type)) return this.sizeChartBlock(ctx, { id: String(block.id ?? ""), type, settings: (block.__instance as CompatBlockInstance | undefined)?.settings ?? {} }, ctx.registers.closest as O | undefined)
+        if (isPersonalizationAppBlock(type)) return this.personalizationBlock(ctx, { id: String(block.id ?? ""), type, settings: (block.__instance as CompatBlockInstance | undefined)?.settings ?? {} }, ctx.registers.closest as O | undefined)
         if (isStorelibProductAppBlock(type)) return this.productAppBlock(ctx, { id: String(block.id ?? ""), type, settings: (block.__instance as CompatBlockInstance | undefined)?.settings ?? {} }, ctx.registers.closest as O | undefined)
         if (!isReviewsAppBlock(type)) return null
         const own = (block.__instance as CompatBlockInstance | undefined)?.settings
@@ -999,6 +1005,13 @@ export class CompatTheme {
       const placed = this.sizeGuideIn(ctx, html)
       if (placed !== null) html = placed
     }
+    /* The product's personalization fields, inside its product form, when nothing else on the page has drawn them (./personalization.ts). */
+    if (group === undefined && !holdsPersonalizationBlock(instance.blocks)) {
+      const placed = this.personalizationIn(ctx, html)
+      if (placed !== null) html = placed
+    }
+    /* The theme's own personalization markup anywhere (a featured product, a quick add): Storelib's script once per page, for its uploads and its held Add to cart. */
+    html = this.personalizationScriptFor(ctx, html)
     html = `${sectionCss(instance.id, instance.settings?.[SECTION_CSS_KEY])}${html}`
     const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
     const tag = typeof schema.tag === "string" && /^(div|section|article|aside|header|footer|main|nav)$/.test(schema.tag) ? schema.tag : "div"
@@ -1093,6 +1106,59 @@ export class CompatTheme {
     const placed = withSizeGuide(html, names, chart, { uid: sizeChartUid(product), label: words.size_guide, closeLabel: words.close })
     if (placed !== null) SIZE_CHART_SHOWN.add(product)
     return placed
+  }
+
+  private readsPersonalization: boolean | null = null
+  /** On a product page, the main product section with the product's personalization fields inside its product form, or null (./personalization.ts). */
+  private personalizationIn(ctx: Ctx, html: string): string | null {
+    const product = ctx.globals.product
+    if (!product || typeof product !== "object" || (ctx.globals.request as O | undefined)?.page_type !== "product") return null
+    if (PERSONALIZATION_SHOWN.has(product)) return null
+    const fields = personalizationFieldsOf(product)
+    if (!fields.length) return null
+    if (this.readsPersonalization === null) this.readsPersonalization = themeReadsPersonalization(Object.values(this.files))
+    /* The theme draws the fields itself: only Storelib's script goes with them (personalizationScriptFor). */
+    if (this.readsPersonalization) return null
+    const id = String((product as O).id ?? "")
+    const variantIds = Array.isArray((product as O).variants) ? ((product as O).variants as O[]).map((v) => String(v?.id ?? "")).filter(Boolean) : []
+    if (![id, ...variantIds].some((x) => x && html.includes(x))) return null
+    const page = (ctx.registers.page ?? {}) as CompatPage
+    const placed = withPersonalizationFields(html, personalizationHtml(fields, id, shopWords(page.i18n?.uiWords), { inEditor: page.designMode === true }))
+    if (placed !== null) PERSONALIZATION_SHOWN.add(product)
+    return placed
+  }
+
+  /** The script after a section holding personalization fields that Storelib did not draw itself, once per page. */
+  private personalizationScriptFor(ctx: Ctx, html: string): string {
+    const page = ctx.registers.page as object | undefined
+    if (!page || PERSONALIZATION_SCRIPTED.has(page) || (page as CompatPage).designMode === true) return html
+    if (!/data-storelib-personalization[\s>=]/.test(html)) return html
+    PERSONALIZATION_SCRIPTED.add(page)
+    return /data-storelib-personalization-js/.test(html) ? html : `${html}${PERSONALIZATION_SCRIPT}`
+  }
+
+  /** Storelib's Personalization app block (or one kept from a product options app): the fields of the product in scope. */
+  private personalizationBlock(ctx: Ctx, b: { id: string; type: string; settings?: unknown }, closest?: O): string {
+    const product = (closest?.product as O | undefined) ?? (ctx.lookup("product") as O | undefined)
+    if (!product || typeof product !== "object") return ""
+    const fields = personalizationFieldsOf(product)
+    const page = (ctx.registers.page ?? {}) as CompatPage
+    if (!fields.length) return page.designMode === true ? `<div class="shopify-app-block" ${blockAttributes(b.id)}><p style="margin:0;font-size:13px;opacity:.6">Shows the fields set in Products › Personalization</p></div>` : ""
+    const own = b.settings && typeof b.settings === "object" ? (b.settings as O) : {}
+    PERSONALIZATION_SHOWN.add(product)
+    const html = personalizationHtml(fields, String(product.id ?? ""), shopWords(page.i18n?.uiWords), { heading: toOutput(own.heading).trim() || undefined, inEditor: page.designMode === true })
+    return `<div class="shopify-app-block" ${blockAttributes(b.id)}>${html}</div>`
+  }
+
+  /** `{{ product | storelib_personalization }}`: the fields for a theme's own code, `heading:` its own words. */
+  private personalizationFilter = (input: unknown, _args: unknown[], kw: Record<string, unknown>, ctx: Ctx): string => {
+    const product = (input && typeof input === "object" ? input : ctx.lookup("product")) as O | undefined
+    if (!product || typeof product !== "object") return ""
+    const fields = personalizationFieldsOf(product)
+    if (!fields.length) return ""
+    const page = (ctx.registers.page ?? {}) as CompatPage
+    PERSONALIZATION_SHOWN.add(product)
+    return personalizationHtml(fields, String(product.id ?? ""), shopWords(page.i18n?.uiWords), { heading: toOutput(kw.heading).trim() || undefined, inEditor: page.designMode === true })
   }
 
   /** A size chart app block (Storelib's own, or one kept from a size chart app on Shopify): the chart of the product in scope. */
@@ -1275,7 +1341,7 @@ export class CompatTheme {
     const draw = (b: CompatBlockInstance) => {
       const path = this.fileFor("blocks", b.type)
       const tree = path ? this.tree(path) : null
-      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : isStorelibProductAppBlock(b.type) ? this.productAppBlock(ctx, b, closest) : isSizeChartAppBlock(b.type) ? this.sizeChartBlock(ctx, b, closest) : ""
+      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b, closest) : isStorelibProductAppBlock(b.type) ? this.productAppBlock(ctx, b, closest) : isSizeChartAppBlock(b.type) ? this.sizeChartBlock(ctx, b, closest) : isPersonalizationAppBlock(b.type) ? this.personalizationBlock(ctx, b, closest) : ""
       let holder: Ctx | null = null
       const block = this.blockObject(b, [], res, resolverFor(() => holder))
       const c = ctx.child({ block, closest, ...extra })

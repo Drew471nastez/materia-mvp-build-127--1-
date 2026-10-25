@@ -57,6 +57,7 @@ import { PersonalizationBlock } from "./personalization-block"
 import { SizeGuideOpener } from "./size-chart"
 import { SAMPLE_SIZE_CHART, sizeOptionIndex, type SizeChart } from "@/lib/size-charts/model"
 import { checkoutIntent } from "@/lib/website-builder/checkout-prefetch"
+import { PersonalizationFields, type PersonalizationState, type PersonalizationWords } from "@/components/personalization/personalization-fields"
 
 /* ── What every block is handed ───────────────────────────────────────────── */
 
@@ -98,6 +99,9 @@ export interface ProductCtx {
    * ships on a live page, where a picture can be sent.
    */
   personalization?: { values: Record<string, string>; set: (key: string, value: string) => void; missing: string | null; uploadsOn: boolean }
+  /** The product's own personalization fields and the buyer's answers (Products › Personalization, components/personalization): drawn by a Personalization block set to "The product's fields", or above the buy buttons when the section has none. */
+  productPersonalization?: PersonalizationState
+  hasProductFieldsBlock?: boolean
 }
 
 type S = Record<string, unknown>
@@ -522,6 +526,58 @@ function Quantity({ s, ctx }: { s: S; ctx: ProductCtx }) {
   )
 }
 
+/**
+ * PERSONALIZATION: what the product asks the buyer for (Products ›
+ * Personalization, lib/products/personalization.ts), in the section's own
+ * colours. The block places it; a section without the block still draws the
+ * fields, right above its buy buttons, so a product that needs an answer is
+ * never bought without one on any Storelib theme.
+ */
+function PersonalizationFieldsIn({ ctx, heading }: { ctx: ProductCtx; heading?: string }) {
+  const w = useWord()
+  const state = ctx.productPersonalization
+  if (!state || !state.fields.length) return null
+  const words: PersonalizationWords = {
+    optional: w("optional_field"),
+    upload_photo: w("upload_photo"),
+    change_photo: w("change_photo"),
+    remove_photo: w("remove_photo"),
+    uploading: w("uploading"),
+    photo_added: w("photo_added"),
+    photo_types: w("photo_types"),
+    photo_wait: w("photo_wait"),
+    fill_in: w("fill_in"),
+    characters_left: w("characters_left"),
+  }
+  return (
+    <div data-product-personalization="">
+      {heading ? (
+        <p className="mb-3 text-[15px] font-semibold" style={{ color: ctx.palette.heading }}>
+          {heading}
+        </p>
+      ) : null}
+      <PersonalizationFields
+        state={state}
+        productId={ctx.product.id || "sample"}
+        look={{ ink: ctx.palette.text, muted: ctx.palette.text_muted ?? ctx.palette.paragraph, line: ctx.palette.border, radius: `var(--theme-input-radius, ${ctx.radius})` }}
+        words={words}
+        inert={ctx.inert || ctx.sample}
+      />
+    </div>
+  )
+}
+
+/**
+ * THE ONE PERSONALIZATION BLOCK. Set to "The product's fields", it places
+ * what the product itself asks (Products › Personalization); any other kind
+ * asks what the block's own settings say (./personalization-block.tsx).
+ */
+function Personalization({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  if (s.kind !== "product") return <PersonalizationBlock s={s} ctx={ctx} />
+  if (!ctx.productPersonalization?.fields.length) return <EditorNote ctx={ctx}>{ctx.product.type === "physical" || ctx.sample ? "Shows the fields set in Products › Personalization" : "Only a product that ships asks for personalization"}</EditorNote>
+  return <PersonalizationFieldsIn ctx={ctx} heading={str(s.heading).trim() || undefined} />
+}
+
 function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
   /* A label left as the English default is the shop's own word, in the page's language (lib/markets/ui-words.ts); one the store wrote is translated with its section. */
   const w = useWord()
@@ -563,7 +619,9 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
       </div>
     )
   }
-  return (
+  /* No Personalization block in the section: the fields go right above the buttons. */
+  const fieldsHere = !ctx.hasProductFieldsBlock && !!ctx.productPersonalization?.fields.length
+  const buttons = (
     <div className={cn("flex flex-col gap-2.5", row && "@[480px]:flex-row")} data-buy-buttons="">
       {showAdd ? (
         <button
@@ -591,6 +649,13 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
           {blocked ?? (free ? label(s.free_label, "Get it free", "get_it_free") : label(s.buy_label, "Buy now", "buy_now"))}
         </button>
       ) : null}
+    </div>
+  )
+  if (!fieldsHere) return buttons
+  return (
+    <div className="flex flex-col gap-5">
+      <PersonalizationFieldsIn ctx={ctx} />
+      {buttons}
     </div>
   )
 }
@@ -957,6 +1022,7 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   variant_picker: VariantPicker,
   size_chart: SizeChartBlock,
   pay_what_you_want: PayWhatYouWant,
+  personalization: Personalization,
   quantity: Quantity,
   buy_buttons: BuyButtons,
   low_stock: LowStock,
@@ -974,7 +1040,6 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   files: Files,
   custom_code: CustomCode,
   offers: OffersBlock,
-  personalization: PersonalizationBlock,
 }
 
 /** One block, in its wrapper: the canvas selects it by `data-block-id`, and its spacing is its own. */

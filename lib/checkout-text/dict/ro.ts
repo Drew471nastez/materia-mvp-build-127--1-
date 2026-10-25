@@ -85,6 +85,8 @@ const ro: Record<string, string> = {
   "Free": "Gratuit",
   "Your price · Qty 1": "Prețul tău · Cant. 1",
   "Qty {quantity}": "Cant. {quantity}",
+  "Photo": "Fotografie",
+  "photo added": "fotografie adăugată",
   "Quantity {quantity}": "Cantitate {quantity}",
   "Add promotion code": "Adaugă cod de reducere",
   "Discount code": "Cod de reducere",

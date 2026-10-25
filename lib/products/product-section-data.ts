@@ -33,6 +33,7 @@ import { productDelivery } from "@/lib/physical/storefront-facts"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { uniqueImages, type ProductOptionData, type ProductSectionData, type ProductVariantData } from "./product-page-model"
 import { shownCustomFields } from "./custom-fields"
+import { readPersonalization } from "./personalization"
 import { productFaqs } from "./product-faqs"
 import { salesStanding } from "./sales-standings"
 import { FEW_LEFT, copiesLeft } from "./sales-limit"
@@ -64,6 +65,8 @@ export interface ProductSectionRow {
   category?: string | null
   faqs?: unknown
   custom_fields?: unknown
+  /** What a buyer is asked when buying it (SQL part 307, lib/products/personalization). */
+  personalization?: unknown
 }
 
 const VARIANT_TIERS = [
@@ -248,6 +251,8 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
     details: shownCustomFields(row.custom_fields),
     delivery,
     size_chart: sizeChart,
+    /* Personalization (lib/products/personalization): only a product that ships asks. */
+    personalization: type === "physical" ? readPersonalization(row.personalization) : [],
   }
 }
 

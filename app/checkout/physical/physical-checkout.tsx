@@ -25,6 +25,7 @@
  * Pay opens Stripe's own page as before.
  */
 
+import { CartLineProperties } from "@/components/website-builder/cart-line-properties"
 import { codCountryAllowed } from "@/lib/physical/cash-on-delivery"
 import * as React from "react"
 import { includedTaxLabel } from "@/lib/tax/rules"
@@ -211,7 +212,8 @@ export function PhysicalCheckout({
     } else if (shopId) {
       try {
         const lines = parseCart(window.localStorage.getItem(cartStorageKey(shopId)))
-        setItems(lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity, ...(typeof l.customPriceCents === "number" ? { customPriceCents: l.customPriceCents } : {}) })))
+        /* With each line's personalization answers (lib/products/personalization), which the checkout's server checks again. */
+        setItems(lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity, ...(typeof l.customPriceCents === "number" ? { customPriceCents: l.customPriceCents } : {}), ...(l.properties ? { properties: l.properties } : {}) })))
         setFromCart(true)
       } catch {
         setItems([])
@@ -502,13 +504,15 @@ export function PhysicalCheckout({
         {quote.lines.map((l, i) => {
           const idx = items?.findIndex((x) => x.productId === l.productId && (x.variantId ?? null) === (l.variantId ?? null)) ?? i
           return (
-            <li key={`${l.productId}:${l.variantId}`} className="flex items-start gap-3">
+            <li key={`${l.productId}:${l.variantId}:${i}`} className="flex items-start gap-3">
               <div className="relative shrink-0">
                 <ProductImg src={l.imageUrl} className="h-16 w-16 rounded-xl border border-[#e5e7eb] object-cover" />
                 <span className="absolute -right-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-[#6b7280] px-1 text-[11px] font-semibold text-white">{l.quantity}</span>
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{l.title}</p>
+                {/* The buyer's answers for this line (an engraving, a photo: lib/products/personalization, lib/cart-uploads); each set of answers is a line of its own. */}
+                <CartLineProperties properties={(l as { properties?: Record<string, string> }).properties} className="mt-0.5 space-y-0.5 text-[12.5px] leading-5 text-[#4b5563]" />
                 <VariantEdit
                   choices={quote.choices?.[l.productId]}
                   currentId={l.variantId}

@@ -9,6 +9,7 @@ import { deliveryPromise, deliveryPromiseLines } from "@/lib/physical/delivery-p
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
 import { loadStoreSettings } from "@/lib/store/settings-server"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
+import { personalizationOf } from "@/lib/products/personalization-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -37,12 +38,14 @@ export async function GET(request: Request) {
     .eq("type", "physical")
     .maybeSingle()
   if (!p) return NextResponse.json({ error: "Not found." }, { status: 404 })
-  const [{ data: options }, { data: variants }, profiles, locations, store] = await Promise.all([
+  const [{ data: options }, { data: variants }, profiles, locations, store, personalization] = await Promise.all([
     db.from("product_options").select("position, name, values").eq("product_id", p.id).order("position"),
     db.from("product_variants").select("id, name, option1, option2, option3, price_cents, compare_at_price_cents, image_url, track_inventory, inventory_policy, active, position, weight_grams").eq("product_id", p.id).order("position"),
     loadProfiles(db, p.creator_id).catch(() => []),
     loadLocations(db, p.creator_id).catch(() => []),
     loadStoreSettings(db, p.creator_id).catch(() => null),
+    /* What the buyer is asked when buying it (lib/products/personalization): its own read, so a database before part 307 still sells the product. */
+    personalizationOf(db, [p.id]).then((m) => m.get(p.id) ?? []),
   ])
   const live = ((variants ?? []) as Record<string, any>[]).filter((v) => liveVariant(v as StockVariant))
   /* Stock per variant, by the one rule the website's product section reads too (lib/physical/storefront-stock.ts). */
@@ -69,6 +72,7 @@ export async function GET(request: Request) {
     {
       product: { id: p.id, creatorId: p.creator_id, title: p.title, slug: p.slug, imageUrl: p.thumbnail_url },
       currency,
+      personalization,
       delivery: promise ? { ...promise, lines: deliveryPromiseLines(promise, currency) } : null,
       options: ((options ?? []) as { position: number; name: string; values: string[] }[]).map((o) => ({ name: o.name, values: o.values })),
       variants: live.map((v) => {

@@ -44,7 +44,8 @@ function nameOf(label: string, fallback: string): string {
 /** The section's Personalization blocks, as fields. A hidden block asks nothing. */
 export function personalizationFields(blocks: { id: string; type: string; hidden?: boolean; settings?: Record<string, unknown> }[] | undefined): PersonalizationField[] {
   return (blocks ?? [])
-    .filter((b) => b.type === "personalization" && !b.hidden)
+    /* A block set to "The product's fields" only places the product's own (lib/products/personalization): it asks nothing itself. */
+    .filter((b) => b.type === "personalization" && !b.hidden && b.settings?.kind !== "product")
     .slice(0, 5)
     .map((b) => {
       const s = b.settings ?? {}

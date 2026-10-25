@@ -12,6 +12,8 @@
  */
 
 const es: Record<string, string> = {
+  /* A personalization photo the buyer uploaded, on an order line (lib/products/personalization). */
+  "Photo": "Foto",
   "Your order is on the way": "Tu pedido está en camino", "Your order was delivered": "Tu pedido se ha entregado", "Your order was cancelled": "Tu pedido se ha cancelado", "Your order is ready to pick up": "Tu pedido está listo para recoger", "Your order was picked up": "Has recogido tu pedido", "There's a problem with your delivery": "Hay un problema con tu entrega",
   "A confirmation is on its way to {email}.": "Te hemos enviado una confirmación a {email}.", "Confirmed": "Confirmado", "Being prepared": "En preparación", "Shipped": "Enviado", "Delivered": "Entregado", "Ready for pickup": "Listo para recoger", "Picked up": "Recogido", "Est. {day}": "Est. {day}",
   "Usually arrives {estimate} after it ships.": "Suele llegar en {estimate} tras el envío.", "In transit": "En tránsito", "Out for delivery": "En reparto", "Track package": "Seguir paquete", "Estimated delivery": "Entrega estimada", "Package {n} of {count}": "Paquete {n} de {count}", "Tracking not added yet": "Aún no hay número de seguimiento", "Copy": "Copiar",
@@ -34,6 +36,8 @@ const es: Record<string, string> = {
 }
 
 const fr: Record<string, string> = {
+  /* A personalization photo the buyer uploaded, on an order line (lib/products/personalization). */
+  "Photo": "Photo",
   "Your order is on the way": "Votre commande est en route", "Your order was delivered": "Votre commande a été livrée", "Your order was cancelled": "Votre commande a été annulée", "Your order is ready to pick up": "Votre commande est prête à être retirée", "Your order was picked up": "Votre commande a été retirée", "There's a problem with your delivery": "Il y a un problème avec votre livraison",
   "A confirmation is on its way to {email}.": "Une confirmation a été envoyée à {email}.", "Confirmed": "Confirmée", "Being prepared": "En préparation", "Shipped": "Expédiée", "Delivered": "Livrée", "Ready for pickup": "Prête à retirer", "Picked up": "Retirée", "Est. {day}": "Prévu le {day}",
   "Usually arrives {estimate} after it ships.": "Arrive généralement {estimate} après l'expédition.", "In transit": "En transit", "Out for delivery": "En cours de livraison", "Track package": "Suivre le colis", "Estimated delivery": "Livraison prévue", "Package {n} of {count}": "Colis {n} sur {count}", "Tracking not added yet": "Numéro de suivi pas encore ajouté", "Copy": "Copier",
@@ -56,6 +60,8 @@ const fr: Record<string, string> = {
 }
 
 const de: Record<string, string> = {
+  /* A personalization photo the buyer uploaded, on an order line (lib/products/personalization). */
+  "Photo": "Foto",
   "Your order is on the way": "Deine Bestellung ist unterwegs", "Your order was delivered": "Deine Bestellung wurde zugestellt", "Your order was cancelled": "Deine Bestellung wurde storniert", "Your order is ready to pick up": "Deine Bestellung ist abholbereit", "Your order was picked up": "Deine Bestellung wurde abgeholt", "There's a problem with your delivery": "Es gibt ein Problem mit deiner Lieferung",
   "A confirmation is on its way to {email}.": "Eine Bestätigung ist unterwegs an {email}.", "Confirmed": "Bestätigt", "Being prepared": "In Vorbereitung", "Shipped": "Versendet", "Delivered": "Zugestellt", "Ready for pickup": "Abholbereit", "Picked up": "Abgeholt", "Est. {day}": "Vorauss. {day}",
   "Usually arrives {estimate} after it ships.": "Kommt meist {estimate} nach dem Versand an.", "In transit": "Unterwegs", "Out for delivery": "In Zustellung", "Track package": "Sendung verfolgen", "Estimated delivery": "Voraussichtliche Zustellung", "Package {n} of {count}": "Paket {n} von {count}", "Tracking not added yet": "Noch keine Sendungsnummer", "Copy": "Kopieren",
@@ -78,6 +84,8 @@ const de: Record<string, string> = {
 }
 
 const it: Record<string, string> = {
+  /* A personalization photo the buyer uploaded, on an order line (lib/products/personalization). */
+  "Photo": "Foto",
   "Your order is on the way": "Il tuo ordine è in arrivo", "Your order was delivered": "Il tuo ordine è stato consegnato", "Your order was cancelled": "Il tuo ordine è stato annullato", "Your order is ready to pick up": "Il tuo ordine è pronto per il ritiro", "Your order was picked up": "Il tuo ordine è stato ritirato", "There's a problem with your delivery": "C'è un problema con la consegna",
   "A confirmation is on its way to {email}.": "Abbiamo inviato una conferma a {email}.", "Confirmed": "Confermato", "Being prepared": "In preparazione", "Shipped": "Spedito", "Delivered": "Consegnato", "Ready for pickup": "Pronto per il ritiro", "Picked up": "Ritirato", "Est. {day}": "Prev. {day}",
   "Usually arrives {estimate} after it ships.": "Di solito arriva in {estimate} dalla spedizione.", "In transit": "In transito", "Out for delivery": "In consegna", "Track package": "Traccia il pacco", "Estimated delivery": "Consegna prevista", "Package {n} of {count}": "Pacco {n} di {count}", "Tracking not added yet": "Numero di tracciamento non ancora aggiunto", "Copy": "Copia",
@@ -100,6 +108,8 @@ const it: Record<string, string> = {
 }
 
 const ptBR: Record<string, string> = {
+  /* A personalization photo the buyer uploaded, on an order line (lib/products/personalization). */
+  "Photo": "Foto",
   "Your order is on the way": "Seu pedido está a caminho", "Your order was delivered": "Seu pedido foi entregue", "Your order was cancelled": "Seu pedido foi cancelado", "Your order is ready to pick up": "Seu pedido está pronto para retirada", "Your order was picked up": "Seu pedido foi retirado", "There's a problem with your delivery": "Há um problema com a sua entrega",
   "A confirmation is on its way to {email}.": "Enviamos uma confirmação para {email}.", "Confirmed": "Confirmado", "Being prepared": "Em preparação", "Shipped": "Enviado", "Delivered": "Entregue", "Ready for pickup": "Pronto para retirada", "Picked up": "Retirado", "Est. {day}": "Prev. {day}",
   "Usually arrives {estimate} after it ships.": "Costuma chegar em {estimate} após o envio.", "In transit": "Em trânsito", "Out for delivery": "Saiu para entrega", "Track package": "Rastrear pacote", "Estimated delivery": "Entrega prevista", "Package {n} of {count}": "Pacote {n} de {count}", "Tracking not added yet": "Código de rastreio ainda não adicionado", "Copy": "Copiar",
@@ -122,6 +132,8 @@ const ptBR: Record<string, string> = {
 }
 
 const pt: Record<string, string> = {
+  /* A personalization photo the buyer uploaded, on an order line (lib/products/personalization). */
+  "Photo": "Fotografia",
   ...ptBR,
   "Your order is on the way": "A sua encomenda está a caminho", "Your order was delivered": "A sua encomenda foi entregue", "Your order was cancelled": "A sua encomenda foi cancelada", "Your order is ready to pick up": "A sua encomenda está pronta para levantar", "Your order was picked up": "A sua encomenda foi levantada", "There's a problem with your delivery": "Há um problema com a sua entrega",
   "Ready for pickup": "Pronta para levantar", "Picked up": "Levantada", "Track package": "Seguir encomenda", "Package {n} of {count}": "Volume {n} de {count}", "Tracking not added yet": "Número de seguimento ainda não adicionado", "Pay {amount} in cash when you pick it up.": "Pague {amount} em dinheiro ao levantar.",
@@ -130,6 +142,8 @@ const pt: Record<string, string> = {
 }
 
 const nl: Record<string, string> = {
+  /* A personalization photo the buyer uploaded, on an order line (lib/products/personalization). */
+  "Photo": "Foto",
   "Your order is on the way": "Je bestelling is onderweg", "Your order was delivered": "Je bestelling is bezorgd", "Your order was cancelled": "Je bestelling is geannuleerd", "Your order is ready to pick up": "Je bestelling ligt klaar om op te halen", "Your order was picked up": "Je bestelling is opgehaald", "There's a problem with your delivery": "Er is een probleem met je bezorging",
   "A confirmation is on its way to {email}.": "Er is een bevestiging onderweg naar {email}.", "Confirmed": "Bevestigd", "Being prepared": "Wordt voorbereid", "Shipped": "Verzonden", "Delivered": "Bezorgd", "Ready for pickup": "Klaar om op te halen", "Picked up": "Opgehaald", "Est. {day}": "Verw. {day}",
   "Usually arrives {estimate} after it ships.": "Komt meestal {estimate} na verzending aan.", "In transit": "Onderweg", "Out for delivery": "Wordt bezorgd", "Track package": "Pakket volgen", "Estimated delivery": "Verwachte bezorging", "Package {n} of {count}": "Pakket {n} van {count}", "Tracking not added yet": "Nog geen trackingnummer", "Copy": "Kopiëren",
@@ -152,6 +166,8 @@ const nl: Record<string, string> = {
 }
 
 const pl: Record<string, string> = {
+  /* A personalization photo the buyer uploaded, on an order line (lib/products/personalization). */
+  "Photo": "Zdjęcie",
   "Your order is on the way": "Zamówienie jest w drodze", "Your order was delivered": "Zamówienie zostało dostarczone", "Your order was cancelled": "Zamówienie zostało anulowane", "Your order is ready to pick up": "Zamówienie czeka na odbiór", "Your order was picked up": "Zamówienie zostało odebrane", "There's a problem with your delivery": "Wystąpił problem z dostawą",
   "A confirmation is on its way to {email}.": "Potwierdzenie wysłaliśmy na {email}.", "Confirmed": "Potwierdzone", "Being prepared": "W przygotowaniu", "Shipped": "Wysłane", "Delivered": "Dostarczone", "Ready for pickup": "Gotowe do odbioru", "Picked up": "Odebrane", "Est. {day}": "Przew. {day}",
   "Usually arrives {estimate} after it ships.": "Zwykle dociera w {estimate} od wysyłki.", "In transit": "W drodze", "Out for delivery": "W doręczeniu", "Track package": "Śledź przesyłkę", "Estimated delivery": "Przewidywana dostawa", "Package {n} of {count}": "Paczka {n} z {count}", "Tracking not added yet": "Numer przesyłki nie został jeszcze dodany", "Copy": "Kopiuj",

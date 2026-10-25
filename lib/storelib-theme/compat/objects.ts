@@ -13,6 +13,7 @@
  *
  * Money is in cents, as Shopify themes expect (`{{ product.price | money }}`).
  */
+import { readPersonalization, themeFieldObjects } from "@/lib/products/personalization"
 import { OUTPUT, LFloat } from "./runtime"
 import { handleize, parseColor, toHex } from "./filters"
 import { shopifyAddress } from "./links"
@@ -399,7 +400,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     options_with_values,
     options_by_name: anyCase(Object.fromEntries(options_with_values.map((o) => [String(o.name).toLowerCase(), o]))),
     collections: [],
-    metafields: productMetafields(s, (card as { rating?: unknown }).rating),
+    metafields: productMetafields(s, (card as { rating?: unknown }).rating, String((card as { id?: unknown }).id ?? "")),
     gift_card: false,
     gift_card_: false,
     requires_selling_plan: false,
@@ -541,7 +542,7 @@ function productJson(p: O): O {
  * sizeChartJson), `.value` the name, unit, columns, rows (and the rows in
  * cm and in), notes and picture; it prints as the chart's name.
  */
-function productMetafields(s: Record<string, unknown>, rating?: unknown): O {
+function productMetafields(s: Record<string, unknown>, rating?: unknown, productId = ""): O {
   const custom: O = {}
   if (s.fields && typeof s.fields === "object") {
     for (const [key, value] of Object.entries(s.fields as Record<string, unknown>)) {
@@ -565,6 +566,9 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown): O {
       custom.size_chart = { [OUTPUT]: chart.name, value: { ...value, [OUTPUT]: chart.name, content: sizeChartTableHtml(chart, chart.unit) }, key: "size_chart", namespace: "custom", type: "json" }
     }
   }
+  /* `storelib.personalization`: what the buyer is asked when buying it (lib/products/personalization.ts themeFieldObjects), `.value` one object per field; it prints as how many there are. The theme posts each answer as properties[<label>] (./personalization.ts). */
+  const asks = readPersonalization(s.personalization)
+  if (asks.length) storelib.personalization = { [OUTPUT]: String(asks.length), value: themeFieldObjects(asks, productId), key: "personalization", namespace: "storelib", type: "list.personalization_field" }
   /*
     `storelib.offers`: what the page offers with the product, the same JSON
     as GET /api/offers?product= (lib/offers/offers-public.ts): `.value` has

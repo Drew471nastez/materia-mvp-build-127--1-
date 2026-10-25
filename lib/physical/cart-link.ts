@@ -30,7 +30,9 @@ export const LINE_PROPERTY_VALUE_MAX = 500
  * name up to 64 characters, a value up to 500, plain text (a number is
  * written as text; anything else is left out). They are the buyer's words
  * and a theme's notes (`_sl_offer_id`, `_sl_group`): kept and shown, never
- * read for a price.
+ * read for a price. A value keeps its line breaks (a long text answer of a
+ * personalization field, a two line gift message: lib/products/
+ * personalization); every other control character is a space.
  */
 export function lineProperties(raw: unknown): Record<string, string> | undefined {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined
@@ -39,8 +41,10 @@ export function lineProperties(raw: unknown): Record<string, string> | undefined
     if (Object.keys(out).length >= LINE_PROPERTIES_MAX) break
     // eslint-disable-next-line no-control-regex
     const clean = (x: unknown, max: number) => (typeof x === "string" || typeof x === "number" ? String(x).replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, max) : "")
+    // eslint-disable-next-line no-control-regex
+    const lines = (x: unknown, max: number) => (typeof x === "string" || typeof x === "number" ? String(x).replace(/\r\n?/g, "\n").replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, max) : "")
     const name = clean(k, LINE_PROPERTY_NAME_MAX)
-    const value = clean(v, LINE_PROPERTY_VALUE_MAX)
+    const value = lines(v, LINE_PROPERTY_VALUE_MAX)
     if (!name || !value || name === "__proto__" || name === "constructor" || name === "prototype") continue
     out[name] = value
   }

@@ -143,6 +143,18 @@ export const UI_WORDS = {
   /* A product's size chart: the link beside its size option and the Size chart block (lib/size-charts). */
   size_guide: "Size guide",
   size_chart: "Size chart",
+  /* A product's personalization fields: what the buyer types or uploads above the buy buttons, and how the cart and checkout name it (lib/products/personalization). */
+  optional_field: "Optional",
+  upload_photo: "Upload a photo",
+  change_photo: "Change photo",
+  remove_photo: "Remove photo",
+  uploading: "Uploading",
+  photo_added: "Photo added",
+  photo_types: "JPG, PNG or WEBP, up to 10 MB",
+  photo_failed: "The photo could not be uploaded. Try again.",
+  photo_wait: "Wait for the photo to finish uploading.",
+  fill_in: "Fill in {label}",
+  characters_left: "{count} characters left",
   /* A product page's stock and delivery lines (Stock status and Estimated delivery, lib/storelib-theme/compat/product-app-blocks.ts and the product section's blocks). */
   only_left: "Only {count} left",
   out_of_stock: "Out of stock",

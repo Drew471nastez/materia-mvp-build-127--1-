@@ -35,7 +35,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { cn } from "@/lib/utils"
 import { useSiteCart } from "../../site-cart"
 import { useSiteWishlist } from "../../site-wishlist"
-import { useStorefront } from "../../theme/storefront-context"
+import { useStorefront, useWord } from "../../theme/storefront-context"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutHrefWithOrigin } from "@/lib/orders/checkout-origin"
@@ -65,6 +65,14 @@ import {
 import { type SectionProps, sectionColors, str, bool, buttonRadiusStyle, SectionWrapper } from "../_shared"
 import { ProductMedia, type MediaLayout } from "./product/product-media"
 import { ProductBlock, type ProductCtx } from "./product/product-blocks"
+import { ENGLISH_WORDS, usePersonalization } from "@/components/personalization/personalization-fields"
+import { filledAnswers } from "@/lib/products/personalization"
+
+/** The Personalization blocks' properties and the product's own answers, one set for the line (the product's win a clash: the checkout checks them). */
+function withAnswers(block: Record<string, string> | undefined, own: Record<string, string> | undefined): Record<string, string> | undefined {
+  const all = { ...(block ?? {}), ...(own ?? {}) }
+  return Object.keys(all).length ? all : undefined
+}
 
 /** What the builder draws before a product is chosen to preview. Never on a live page. */
 const SAMPLE: ProductSectionData = {
@@ -214,11 +222,20 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
   const physical = product.type === "physical"
   const unavailable = physical && !physicalOn && !sample ? "Not available right now" : null
 
+  /* ── Personalization: the product's fields and the buyer's answers (lib/products/personalization.ts) ── */
+  const word = useWord()
+  const problemWords = useMemo(() => ({ ...ENGLISH_WORDS, fill_in: word("fill_in"), photo_wait: word("photo_wait") }), [word])
+  const personalization = usePersonalization(physical ? product.personalization : undefined, problemWords)
+
   const add = useCallback(() => {
     if (isEditing || sample || !canBuy || unavailable) return
     if (pwyw.error) { setPwywTouched(true); return }
     if (personalized.missing) { setPersonalTouched(true); return }
-    const line: CartLine = { ...cartLineFor(product, variant, qty, pwyw.cents), ...(personalized.properties ? { properties: personalized.properties } : {}) }
+    /* The product's own fields (lib/products/personalization): every required answer there and no photo still uploading, or the fields say what is missing and nothing is added. */
+    const answers = personalization.check()
+    if (answers === null) return
+    const properties = withAnswers(personalized.properties, answers)
+    const line: CartLine = { ...cartLineFor(product, variant, qty, pwyw.cents), ...(properties ? { properties } : {}) }
     if (physical && !cart.live && storefront.creatorId) {
       /* No website cart here: this browser's cart for the shop, which the physical checkout reads. */
       try {
@@ -233,7 +250,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     }
     setAdded(true)
     window.setTimeout(() => setAdded(false), 2400)
-  }, [isEditing, sample, canBuy, unavailable, pwyw, personalized, product, variant, qty, physical, cart, storefront.creatorId])
+  }, [isEditing, sample, canBuy, unavailable, pwyw, personalized, product, variant, qty, physical, cart, storefront.creatorId, personalization])
 
   /*
     THE WEBSITE'S OWN CHECKOUT FOR THIS ONE THING THAT SHIPS (app/checkout/site),
@@ -244,8 +261,9 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
   const siteBuyHref = useCallback((): string | null => {
     if (inEditor || sample || !canBuy || unavailable || !physical || !storefront.creatorId || pwyw.error || personalized.missing) return null
     if (!onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)) return null
-    return siteCheckoutHref({ items: [{ productId: product.id, variantId: variant?.id ?? null, quantity: qty, ...(personalized.properties ? { properties: personalized.properties } : {}) }], back: sitePath(`${window.location.pathname}${window.location.search}`) })
-  }, [inEditor, sample, canBuy, unavailable, physical, storefront.creatorId, pwyw.error, personalized, product.id, variant, qty])
+    const properties = withAnswers(personalized.properties, filledAnswers(personalization.values))
+    return siteCheckoutHref({ items: [{ productId: product.id, variantId: variant?.id ?? null, quantity: qty, ...(properties ? { properties } : {}) }], back: sitePath(`${window.location.pathname}${window.location.search}`) })
+  }, [inEditor, sample, canBuy, unavailable, physical, storefront.creatorId, pwyw.error, personalized, product.id, variant, qty, personalization.values])
 
   const now = useCallback(() => {
     /* NOT IN THE BUILDER. With the inspector off the canvas is a preview you
@@ -255,9 +273,13 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     if (personalized.missing) { setPersonalTouched(true); return }
     if (physical) {
       if (!storefront.creatorId) return
+      /* The same answers Add to cart would keep, checked first: a missing one is said under its field. */
+      const answers = personalization.check()
+      if (answers === null) return
       /* Buy now on something that ships is a step towards a sale too: it was the one Buy press Analytics never heard. */
       void trackFunnelStep("buy_click", storefront.creatorId, product.id)
-      window.location.href = siteBuyHref() ?? physicalCheckoutHref(storefront.creatorId, [{ productId: product.id, variantId: variant?.id ?? null, quantity: qty, ...(personalized.properties ? { properties: personalized.properties } : {}) }], window.location.href)
+      const properties = withAnswers(personalized.properties, answers)
+      window.location.href = siteBuyHref() ?? physicalCheckoutHref(storefront.creatorId, [{ productId: product.id, variantId: variant?.id ?? null, quantity: qty, ...(properties ? { properties } : {}) }], window.location.href)
       return
     }
     /* `src=website` is how the order ends up in the Orders table as a Website
@@ -267,7 +289,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
        reads every price again. */
     if (storefront.creatorId) void trackFunnelStep("buy_click", storefront.creatorId, product.id)
     window.location.href = checkoutHrefWithOrigin(buyNowHref(product, variant, pwyw.cents), pageOrigin(), window.location.href)
-  }, [inEditor, sample, canBuy, unavailable, pwyw, personalized, physical, storefront.creatorId, product, variant, qty, siteBuyHref])
+  }, [inEditor, sample, canBuy, unavailable, pwyw, personalized, physical, storefront.creatorId, product, variant, qty, siteBuyHref, personalization])
 
   /* ── Already theirs ──
      Signed in to this website (its sl_signed_in hint) and owning this
@@ -345,6 +367,9 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
       missing: personalTouched ? personalized.missing : null,
       uploadsOn: physical && !sample && !inEditor,
     },
+    productPersonalization: personalization,
+    /* Where the product's own fields go: a Personalization block set to "The product's fields", else above the buy buttons. */
+    hasProductFieldsBlock: (section.blocks ?? []).some((b) => b.type === "personalization" && !b.hidden && (b.settings as Record<string, unknown> | undefined)?.kind === "product"),
     offers: { chosen: chosenLine ? { variantId: chosenLine.variantId ?? "", variantName: chosenLine.variantName ?? null, priceCents: chosenLine.priceCents, imageUrl: chosenLine.thumbnailUrl ?? null, line: chosenLine } : null, addLines },
     radius,
     buttonRadius,

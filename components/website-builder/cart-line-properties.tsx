@@ -16,14 +16,15 @@ export function CartLineProperties({ properties, className }: { properties?: Rec
   return (
     <dl className={className ?? "mt-0.5 space-y-0.5 text-[12px] opacity-70"} data-cart-line-properties="">
       {raw.slice(0, 10).map(([k, v], i) => (
-        <div key={k} className="flex min-w-0 items-center gap-1">
+        <div key={k} className="flex min-w-0 items-start gap-1">
           <dt className="shrink-0">{k}:</dt>
           <dd className="flex min-w-0 items-center gap-1.5">
             {readUploadValue(v) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={v} alt="" width={20} height={20} className="h-5 w-5 shrink-0 rounded-[4px] object-cover" referrerPolicy="no-referrer" />
             ) : null}
-            <span className="min-w-0 truncate">{shown[i]?.[1] ?? v}</span>
+            {/* A long answer (a gift message) keeps its lines, at most three shown. */}
+            <span className={readUploadValue(v) ? "min-w-0 truncate" : "min-w-0 whitespace-pre-line break-words line-clamp-3"}>{shown[i]?.[1] ?? v}</span>
           </dd>
         </div>
       ))}

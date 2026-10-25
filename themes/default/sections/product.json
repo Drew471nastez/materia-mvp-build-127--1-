@@ -966,22 +966,35 @@
             {
               "label": "Text and picture",
               "value": "text_and_image"
+            },
+            {
+              "label": "The product's fields",
+              "value": "product"
             }
-          ]
+          ],
+          "info": "The product's fields are the ones set on the product itself (Products, Personalization); without this block they show above the buy buttons."
+        },
+        {
+          "id": "heading",
+          "label": "Heading",
+          "type": "text",
+          "default": "",
+          "placeholder": "Make it yours",
+          "visible_if": "{{ block.settings.kind == 'product' }}"
         },
         {
           "id": "label",
           "label": "Text label",
           "type": "text",
           "default": "Personalization",
-          "visible_if": "{{ block.settings.kind != 'image' }}"
+          "visible_if": "{{ block.settings.kind == 'text' or block.settings.kind == 'text_and_image' }}"
         },
         {
           "id": "placeholder",
           "label": "Placeholder",
           "type": "text",
           "default": "",
-          "visible_if": "{{ block.settings.kind != 'image' }}"
+          "visible_if": "{{ block.settings.kind == 'text' or block.settings.kind == 'text_and_image' }}"
         },
         {
           "id": "max_length",
@@ -991,20 +1004,21 @@
           "max": 500,
           "step": 5,
           "default": 40,
-          "visible_if": "{{ block.settings.kind != 'image' }}"
+          "visible_if": "{{ block.settings.kind == 'text' or block.settings.kind == 'text_and_image' }}"
         },
         {
           "id": "upload_label",
           "label": "Picture label",
           "type": "text",
           "default": "Photo",
-          "visible_if": "{{ block.settings.kind != 'text' }}"
+          "visible_if": "{{ block.settings.kind == 'image' or block.settings.kind == 'text_and_image' }}"
         },
         {
           "id": "required",
           "label": "Required",
           "type": "toggle",
-          "default": false
+          "default": false,
+          "visible_if": "{{ block.settings.kind != 'product' }}"
         },
         {
           "id": "margin_top",

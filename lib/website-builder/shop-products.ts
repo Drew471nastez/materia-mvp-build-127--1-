@@ -54,6 +54,8 @@ import { cleanSwatches } from "@/lib/products/option-swatches"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { salesSoldOut, type SalesStanding } from "@/lib/products/sales-limit"
 import { cleanCustomFields } from "@/lib/products/custom-fields"
+import type { PersonalizationField } from "@/lib/products/personalization"
+import { personalizationOf } from "@/lib/products/personalization-read"
 import type { SectionInstanceData } from "@/lib/storelib-theme/types"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { withoutCommunityProducts } from "@/lib/communities/listing"
@@ -469,7 +471,7 @@ export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?:
   const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
   const ids = rows.map((r) => r.id)
   /* In batches, so a long shop does not ask for hundreds of ids in one address. */
-  const [shown, variants, options, stock, standings, fields, ratings] = await Promise.all([
+  const [shown, variants, options, stock, standings, fields, ratings, asks] = await Promise.all([
     /* In the store's own currency (Settings › Country & Currency), the one its prices are in. */
     currency ?? (creatorId ? readStoreCurrency(db, creatorId).then((c) => c.currency) : SHOP_CURRENCY),
     variantsInBatches(db as Db, ids),
@@ -478,6 +480,8 @@ export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?:
     salesStandingsOf(db, rows).catch(() => null),
     customFieldsOf(db as Db, ids).catch(() => undefined),
     creatorId ? ratingsOf(db as Db, creatorId, ids).catch(() => null) : null,
+    /* Personalization (SQL part 307, lib/products/personalization): only a product that ships asks; none when the column is not there. */
+    physical.length ? personalizationOf(db, physical).catch(() => null) : null,
   ])
   const cards = rows.map((r) => toCard(r, variants, options, shown))
   /* Laid over in the order they always were: stock, sales limits, custom fields, stars. */
@@ -485,7 +489,27 @@ export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?:
   const capped = standings ? withStandings(stocked, standings) : stocked
   /* A read that threw leaves the cards as they were, as it always did. */
   const fielded = fields === undefined ? capped : withFieldsRead(capped, fields)
-  return ratings ? withRatingsRead(fielded, ratings) : fielded
+  const rated = ratings ? withRatingsRead(fielded, ratings) : fielded
+  return asks?.size ? withPersonalization(rated, asks) : rated
+}
+
+/**
+ * A card's personalization fields, as `settings.personalization` (what an
+ * imported theme reads as product.metafields.storelib.personalization, and
+ * what its cart holds an add to). A product that asks for a required answer
+ * has no straight-to-checkout link: a Buy button on a card or a hero goes to
+ * its page, where the buyer can give it.
+ */
+function withPersonalization(cards: ProductCard[], asks: Map<string, PersonalizationField[]>): ProductCard[] {
+  return cards.map((c) => {
+    const fields = asks.get(c.id)
+    if (!fields?.length) return c
+    const required = fields.some((f) => f.required)
+    const settings: Record<string, unknown> = { ...c.settings, personalization: fields }
+    if (required && settings.checkout_url) settings.checkout_url = settings.url || ""
+    if (required && Array.isArray(settings.variants)) settings.variants = (settings.variants as Record<string, unknown>[]).map((v) => (v.checkout_url ? { ...v, checkout_url: settings.url || "" } : v))
+    return { ...c, settings: settings as ProductCard["settings"] }
+  })
 }
 
 /**

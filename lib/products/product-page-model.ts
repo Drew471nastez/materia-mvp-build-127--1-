@@ -36,6 +36,7 @@ import type { ProductDelivery } from "@/lib/physical/delivery-lines"
 import type { CartLine } from "@/lib/website-builder/cart"
 import type { ProductRating } from "@/lib/reviews/storefront"
 import type { SizeChart } from "@/lib/size-charts/model"
+import type { PersonalizationField } from "./personalization"
 import { imagesOnly, isPosterName } from "@/lib/media/video"
 import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
@@ -120,6 +121,8 @@ export interface ProductSectionData {
   rating?: ProductRating | null
   /** The size chart the product editor gave it (lib/size-charts/storefront.ts), for the Size chart block and the variant picker's Size guide link. Null or absent: none. */
   size_chart?: SizeChart | null
+  /** What the buyer is asked when buying it (lib/products/personalization.ts), drawn above the buy buttons. */
+  personalization?: PersonalizationField[]
 }
 
 /* ── Pictures ─────────────────────────────────────────────────────────────── */

@@ -15,6 +15,7 @@
  */
 
 import { fieldRows, type CustomField } from "@/lib/products/custom-fields"
+import { readPersonalization, type PersonalizationField } from "@/lib/products/personalization"
 import { isPosterName, isVideoUrl } from "@/lib/media/video"
 import { tt, msg } from "@/lib/i18n/text"
 import { asSet, num, richText, stableKey } from "@/lib/forms/dirty"
@@ -143,6 +144,8 @@ export interface EditorProductRow {
   whats_included?: unknown
   faqs?: unknown
   custom_fields?: unknown
+  /** What a buyer is asked when buying a product that ships (SQL part 307). */
+  personalization?: unknown
 }
 
 export interface EditorAssetRow {
@@ -274,6 +277,8 @@ export interface EditorForm {
   whatsIncluded: string[]
   faqs: FAQItem[]
   customFields: CustomField[]
+  /** Personalization fields, for a product that ships (lib/products/personalization.ts). */
+  personalization: PersonalizationField[]
   /** Limit sales for a download: on, and the number of copies as typed. */
   limitSalesEnabled: boolean
   salesLimit: string
@@ -308,6 +313,7 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
       whatsIncluded: course ? said(COURSE_WHATS_INCLUDED) : startAs === "physical" ? PHYSICAL_WHATS_INCLUDED : said(DEFAULT_WHATS_INCLUDED),
       faqs: course ? COURSE_FAQS : startAs === "physical" ? PHYSICAL_FAQS : DEFAULT_FAQS,
       customFields: [],
+      personalization: [],
       limitSalesEnabled: false,
       salesLimit: "",
     }
@@ -355,6 +361,7 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
     whatsIncluded: Array.isArray(product.whats_included) ? (product.whats_included as string[]) : said(DEFAULT_WHATS_INCLUDED),
     faqs,
     customFields: fieldRows(product.custom_fields),
+    personalization: readPersonalization(product.personalization),
     limitSalesEnabled: typeof loaded.sales?.limit === "number",
     salesLimit: typeof loaded.sales?.limit === "number" ? String(loaded.sales.limit) : "",
   }
@@ -409,6 +416,7 @@ export function comparable(v: Partial<DirtyFields>): Partial<Record<DirtyField, 
     whatsIncluded: physical ? undefined : v.whatsIncluded?.filter((x) => x.trim()),
     faqs: v.faqs?.filter((f) => f.question.trim() || f.answer.trim()).map((f) => ({ question: f.question, answer: f.answer })),
     customFields: v.customFields?.filter((f) => f.key.trim() || f.value.trim()).map((f) => ({ key: f.key, value: f.value, type: f.type ?? "text", show: f.show === true })),
+    personalization: physical ? v.personalization?.filter((f) => f.label.trim()).map((f) => ({ ...f, label: f.label.trim() })) : undefined,
     limitSalesEnabled: physical ? undefined : v.limitSalesEnabled,
     /* The number is only saved while the limit is on. */
     salesLimit: physical || v.limitSalesEnabled === false || v.salesLimit === undefined ? undefined : num(v.salesLimit),

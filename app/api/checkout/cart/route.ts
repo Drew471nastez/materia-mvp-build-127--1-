@@ -15,6 +15,7 @@ import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
+import { itemsWithAnswers } from "@/lib/products/personalization"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
 import { chargeUnits, lineTotalCents, packExtras, packItems } from "@/lib/checkout/cart-items"
@@ -228,11 +229,13 @@ async function handlePOST(request: Request) {
   const siteServes = siteOrigin !== platformOrigin && !!(await servingSiteOrigin(admin, creatorId, siteOrigin))
 
   if (decision.kind === "ships") {
+    /* With the buyer's personalization answers for each item (lib/products/personalization itemsWithAnswers): the checkout checks them again. */
+    const shipped = itemsWithAnswers(decision.items, body.items)
     /* From the shop's own website: its own checkout, on its own address (app/checkout/site), which asks for the address and the delivery. */
     if (siteServes) {
-      return NextResponse.json({ url: siteCheckoutHref({ origin: siteOrigin, items: decision.items, back: returnPath, couponCode: typeof body.couponCode === "string" ? body.couponCode : null, wholeCart: true }), ships: true })
+      return NextResponse.json({ url: siteCheckoutHref({ origin: siteOrigin, items: shipped, back: returnPath, couponCode: typeof body.couponCode === "string" ? body.couponCode : null, wholeCart: true }), ships: true })
     }
-    return NextResponse.json({ url: physicalCheckoutHref(creatorId, decision.items, `${siteOrigin}${returnPath}`, platformOrigin), ships: true })
+    return NextResponse.json({ url: physicalCheckoutHref(creatorId, shipped, `${siteOrigin}${returnPath}`, platformOrigin), ships: true })
   }
 
   /* A basket is a website's. Which website is the one the request came

@@ -15,6 +15,7 @@
  * Only what the markup asks for is mounted. The cart drawer is drawn once a
  * cart, whoever asks for it (../site-drawer-host.ts).
  */
+import { buyerProperties } from "@/lib/physical/cart-link"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react"
 
 import { cleanMenus } from "@/lib/storelib-theme/values"
@@ -163,6 +164,8 @@ export function useStorefrontHooks({
         const text = (sel: string, value: string) => all(sel).forEach((el) => { el.textContent = value })
         text("[data-line-title]", line.title)
         text("[data-line-variant]", line.variantName ?? "")
+        /* The buyer's personalization answers, as text: "Name: Ana · Photo: pet.jpg" (a picture by its file name, lib/physical/cart-link buyerProperties). */
+        text("[data-line-properties]", buyerProperties(line.properties).map(([k, v]) => `${k}: ${v}`).join(" · "))
         text("[data-line-price]", (line.priceCents * line.quantity > 0 ? amounts.lines[i] : "Free"))
         text("[data-line-qty]", String(line.quantity))
         all<HTMLImageElement>("img[data-line-image]").forEach((img) => {

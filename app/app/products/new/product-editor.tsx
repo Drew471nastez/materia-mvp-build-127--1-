@@ -72,6 +72,8 @@ import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { CustomFieldsCard } from "./custom-fields-card"
+import { PersonalizationCard } from "./personalization-card"
+import { personalizationProblem, storedPersonalization, type PersonalizationField } from "@/lib/products/personalization"
 import { MarketplacePriceCard } from "./marketplace-price-card"
 import { SalesChannelsCard, type SalesChannelsHandle } from "./sales-channels-card"
 import { fieldKey, fieldProblem, storedCustomFields, type CustomField } from "@/lib/products/custom-fields"
@@ -616,6 +618,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const [faqs, setFaqs] = useState<FAQItem[]>(initial.faqs)
   /* Named details a website section prints as `fields.<name>` (lib/products/custom-fields.ts). */
   const [customFields, setCustomFields] = useState<CustomField[]>(initial.customFields)
+  /* What a buyer is asked when buying a product that ships (lib/products/personalization.ts). */
+  const [personalization, setPersonalization] = useState<PersonalizationField[]>(initial.personalization)
   /* The FAQ card is folded to one line until it is opened or a question is added. */
   const [faqOpen, setFaqOpen] = useState(false)
 
@@ -751,12 +755,12 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const currentForm: DirtyFields = {
     title, description, price, compareAtPrice, slug, productType, showSalesBadge, refundPolicyEnabled, refundPolicyType,
     seoTitle, seoDescription, callToAction, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice,
-    mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, limitSalesEnabled, salesLimit,
+    mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, personalization, limitSalesEnabled, salesLimit,
   }
   const { formChanges, formKey } = useMemo(
     () => ({ formChanges: changedFields(currentForm, savedForm), formKey: snapshotOf(currentForm) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [title, description, price, compareAtPrice, slug, productType, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, limitSalesEnabled, salesLimit, savedForm],
+    [title, description, price, compareAtPrice, slug, productType, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, personalization, limitSalesEnabled, salesLimit, savedForm],
   )
   const unsavedFields = [...formChanges, ...changedCards(cards)]
   const isDirty = unsavedFields.length > 0
@@ -1136,6 +1140,16 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (finalProductId) {
         const { error: fieldsError } = await supabase.from("products").update({ custom_fields: storedCustomFields(customFields) }).eq("id", finalProductId)
         if (fieldsError) console.warn("Custom fields were not saved:", fieldsError.message)
+      }
+
+      /*
+        PERSONALIZATION, in a request of its own as well: a database that has
+        not run part 307 has no column, and the product must still save. Only
+        a product that ships asks; one that stops shipping keeps none.
+      */
+      if (finalProductId && (productType === "physical" || personalization.length > 0)) {
+        const { error: personalizationError } = await supabase.from("products").update({ personalization: productType === "physical" ? storedPersonalization(personalization) : [] }).eq("id", finalProductId)
+        if (personalizationError) console.warn("Personalization fields were not saved:", personalizationError.message)
       }
 
       /*
@@ -1829,6 +1843,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     if (fieldIssue) {
       showToast(fieldIssue)
       document.getElementById("custom-fields")?.scrollIntoView({ behavior: "smooth", block: "center" })
+      return false
+    }
+
+    /* Personalization: every field named, no two the same, a limit that fits (lib/products/personalization.ts). */
+    const personalizationIssue = productType === "physical" ? personalizationProblem(personalization) : null
+    if (personalizationIssue) {
+      showToast(personalizationIssue)
+      document.getElementById("personalization")?.scrollIntoView({ behavior: "smooth", block: "center" })
       return false
     }
 
@@ -3332,6 +3354,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               </div>
               {/* Not on a course: its lessons are what it is ("what do custom fields have to do with a course?"). Fields it already has are kept. */}
               {productType === "course" ? null : <CustomFieldsCard fields={customFields} onChange={setCustomFields} cardClass={CARD} titleClass={CARD_TITLE} />}
+              {/* Only for a product that ships: its answers travel with the parcel's order. */}
+              {productType === "physical" ? <PersonalizationCard fields={personalization} onChange={setPersonalization} cardClass={CARD} titleClass={CARD_TITLE} /> : null}
           </div>
 
           <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4">

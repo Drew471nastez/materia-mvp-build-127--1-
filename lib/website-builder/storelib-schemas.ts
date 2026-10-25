@@ -27,11 +27,12 @@ import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/the
 import { contentForStatics } from "./product-details-rule"
 import { REVIEW_APP_BLOCK_SCHEMAS, reviewAppBlockSchema } from "@/lib/storelib-theme/compat/review-app-blocks"
 import { SIZE_CHART_APP_BLOCK_SCHEMAS, sizeChartAppBlockSchema } from "@/lib/storelib-theme/compat/size-chart"
+import { PERSONALIZATION_APP_BLOCK_SCHEMAS, personalizationAppBlockSchema } from "@/lib/storelib-theme/compat/personalization"
 import { PRODUCT_APP_BLOCK_SCHEMAS, productAppBlockSchema } from "@/lib/storelib-theme/compat/product-app-blocks"
 
 /* Storelib's own app blocks for an imported theme: Storelib Reviews' two, Stock status and Estimated delivery, and the size chart (round BC). */
-const STORELIB_APP_BLOCK_SCHEMAS: readonly BlockSchema[] = [...REVIEW_APP_BLOCK_SCHEMAS, ...PRODUCT_APP_BLOCK_SCHEMAS, ...SIZE_CHART_APP_BLOCK_SCHEMAS]
-const storelibAppBlockSchema = (type: string) => reviewAppBlockSchema(type) ?? productAppBlockSchema(type) ?? sizeChartAppBlockSchema(type)
+const STORELIB_APP_BLOCK_SCHEMAS: readonly BlockSchema[] = [...REVIEW_APP_BLOCK_SCHEMAS, ...PRODUCT_APP_BLOCK_SCHEMAS, ...SIZE_CHART_APP_BLOCK_SCHEMAS, ...PERSONALIZATION_APP_BLOCK_SCHEMAS]
+const storelibAppBlockSchema = (type: string) => reviewAppBlockSchema(type) ?? productAppBlockSchema(type) ?? sizeChartAppBlockSchema(type) ?? personalizationAppBlockSchema(type)
 import type { BlockInstance, BlockSchema, SchemaField, SchemaFieldType, SectionPreset, SectionSchema } from "./types"
 
 function field(s: SettingDefinition): SchemaField {

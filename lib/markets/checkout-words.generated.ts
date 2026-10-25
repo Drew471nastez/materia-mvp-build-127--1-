@@ -152,6 +152,7 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
   "{sent} of {count} sent",
   "{count, plural, one {# returned} other {# returned}}",
   "Refunded",
+  "Photo",
   "Download",
   "Pickup",
   "Shipping",
@@ -608,6 +609,7 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
 ]
 
 export const EMAIL_SENTENCES: readonly string[] = [
+  "photo added",
   "Sold by {name}",
   "Tax ID",
   "Questions about this order? Reply to this email and it goes to {shop}.",

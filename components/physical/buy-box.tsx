@@ -30,6 +30,8 @@ import { BundleOffers } from "@/components/offers/bundle-offers"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { announceVariantPhoto, galleryFollowsVariants } from "@/lib/physical/variant-photo"
 import { useSitePaint } from "@/lib/appearance/site-paint-context"
+import { PersonalizationFields, usePersonalization } from "@/components/personalization/personalization-fields"
+import type { PersonalizationField } from "@/lib/products/personalization"
 
 interface Variant {
   id: string
@@ -50,6 +52,8 @@ interface Data {
   delivery?: { lines: string[] } | null
   options: { name: string; values: string[] }[]
   variants: Variant[]
+  /** What the buyer is asked when buying it (lib/products/personalization.ts). */
+  personalization?: PersonalizationField[]
 }
 
 /** In what the product's store sells in (the route says), else the page's, else the platform's. */
@@ -95,6 +99,8 @@ export function PhysicalBuyBox({
   const [chosen, setChosen] = React.useState<(string | null)[]>([null, null, null])
   const [qty, setQty] = React.useState(1)
   const [added, setAdded] = React.useState(false)
+  /* The product's personalization fields and the buyer's answers (components/personalization). */
+  const personalization = usePersonalization(data?.personalization)
   /*
     The chosen variant's photo goes to the page's gallery once the buyer
     picks (lib/physical/variant-photo.ts); not on load, so the page opens on
@@ -177,7 +183,7 @@ export function PhysicalBuyBox({
   const valueOpen = (i: number, value: string) =>
     data.variants.some((v) => v.options[i] === value && !v.soldOut && data.options.every((_, j) => j === i || chosen[j] === null || v.options[j] === chosen[j]))
 
-  const line = () => ({
+  const line = (properties?: Record<string, string>) => ({
     productId: data.product.id,
     variantId: variant!.id,
     title: data.product.title,
@@ -188,6 +194,7 @@ export function PhysicalBuyBox({
     digital: false,
     physical: true,
     quantity,
+    ...(properties ? { properties } : {}),
   })
 
   /* Into the website's own cart when there is one, else this browser's cart for the shop, which the checkout reads (the storelib.com product page). */
@@ -206,17 +213,22 @@ export function PhysicalBuyBox({
 
   const addToCart = () => {
     if (!canBuy) return
+    /* Every required answer there and no photo still uploading, or the fields say what is missing. */
+    const answers = personalization.check()
+    if (answers === null) return
     /* Added to cart, for Analytics (once per page here, once per visit on the server). */
     void trackFunnelStep("buy_click", data.product.creatorId, data.product.id)
-    putInCart([line()])
+    putInCart([line(answers)])
     setAdded(true)
     window.setTimeout(() => setAdded(false), 2400)
   }
 
   const buyNow = () => {
     if (!canBuy) return
+    const answers = personalization.check()
+    if (answers === null) return
     void trackFunnelStep("buy_click", data.product.creatorId, data.product.id)
-    window.location.href = physicalCheckoutHref(data.product.creatorId, [{ productId: data.product.id, variantId: variant!.id, quantity }], window.location.href)
+    window.location.href = physicalCheckoutHref(data.product.creatorId, [{ productId: data.product.id, variantId: variant!.id, quantity, ...(answers ? { properties: answers } : {}) }], window.location.href)
   }
 
   return (
@@ -282,6 +294,9 @@ export function PhysicalBuyBox({
           ))}
         </ul>
       ) : null}
+
+      {/* What the product asks the buyer for (Products › Personalization), above the quantity and the buttons. */}
+      <PersonalizationFields state={personalization} productId={data.product.id} look={{ ink, muted, line: hairline, radius }} inert={inEditor} />
 
       <div className="flex items-center gap-3">
         <span className="text-[14px] font-medium" style={{ color: ink }}>

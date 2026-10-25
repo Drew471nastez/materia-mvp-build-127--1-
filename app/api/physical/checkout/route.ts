@@ -10,6 +10,7 @@ import { physicalApiGate } from "@/lib/physical/gate"
 import { physicalJson, readBody } from "@/lib/physical/auth"
 import { abandonCheckout, startCheckout } from "@/lib/physical/checkout-server"
 import { loadCheckoutConfig, loadStoreName } from "@/lib/store/settings-server"
+import { cartVisitorOf, visitorHash } from "@/lib/cart-uploads/sign"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -87,6 +88,11 @@ export async function POST(request: Request) {
     shopName: body.ui === "embedded" && shopId ? await loadStoreName(db, shopId) : null,
     /* Paid in cash when it arrives (lib/physical/cash-on-delivery.ts), when the shop takes it. */
     cashOnDelivery: body.cashOnDelivery === true,
+    /* This browser's cart cookie, so a buyer's photo uploaded on storelib.com's product page (lib/cart-uploads) is theirs to send. */
+    cartVisitor: (() => {
+      const v = cartVisitorOf(request.headers.get("cookie"))
+      return v ? visitorHash(v) : null
+    })(),
   })
   if (started.ok === false) return physicalJson({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
   /* Written at once, with no payment form: the buyer's session sees the order. */

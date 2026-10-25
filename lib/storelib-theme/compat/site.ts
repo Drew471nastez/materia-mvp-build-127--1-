@@ -35,6 +35,7 @@
  * the tests all drive the same function.
  */
 import type { SizeChart } from "@/lib/size-charts/model"
+import { checkAnswers, readPersonalization } from "@/lib/products/personalization"
 import { escapeHtml, handleize } from "./filters"
 import type { CardLike, CollectionLike, MenuLinkLike, CartLineLike, SiteI18n } from "./objects"
 import { localeRoot } from "./objects"
@@ -1228,6 +1229,8 @@ export function productJson(p: O): O {
     price: p.price, price_min: p.price_min, price_max: p.price_max, price_varies: p.price_varies, compare_at_price: p.compare_at_price,
     available: p.available, variants, images, featured_image: images[0] ?? null, media: ((p.media as O[]) ?? []).map((m) => (m.media_type === "video" ? { id: m.id, media_type: "video", alt: m.alt, position: m.position, duration: m.duration, sources: m.sources, preview_image: { src: (m.preview_image as O | null)?.src ?? null } } : { id: m.id, media_type: "image", src: m.src, alt: m.alt, position: m.position, preview_image: { src: m.src } })),
     options: ((p.options_with_values as O[]) ?? []).map((o) => ({ name: o.name, position: o.position, values: ((o.values as O[]) ?? []).map((x) => x.name) })),
+    /* Storelib's own: the product's personalization fields, as product.metafields.storelib.personalization.value has them (a quick add reads them here). Empty for none. */
+    personalization_fields: ((((p.metafields as O | undefined)?.storelib as O | undefined)?.personalization as O | undefined)?.value as unknown[] | undefined) ?? [],
   }
 }
 
@@ -1453,6 +1456,20 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       /* An option that is sold out is refused as Shopify refuses it (422), even when the product's other options are in stock: the picker's Sold out is never in the cart. */
       const soldOut = v ? variantSoldOut(hit.card, v) : null
       if (soldOut) return error(`${String(hit.card.settings.title)} - ${soldOut} is sold out.`)
+      /*
+        PERSONALIZATION (lib/products/personalization): the product's fields
+        held here, as Shopify never does, so a theme that posts without them
+        (a quick add, a form that skipped its own check) hears why in the
+        422 the theme already shows. Answers are cleaned for their type; a
+        photo must be an upload link of this shop. The checkout checks again,
+        with the link's signature.
+      */
+      const asks = readPersonalization(hit.card.settings.personalization)
+      if (asks.length) {
+        const checked = checkAnswers(asks, item.properties)
+        if (checked.ok === false) return error(`${String(hit.card.settings.title)}: ${checked.problem.message}`)
+        item.properties = Object.keys(checked.properties).length ? checked.properties : undefined
+      }
       const k = lineKey(hit.card.id, v, item.properties)
       const existing = cart.find((e) => e.k === k)
       const qty = Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))

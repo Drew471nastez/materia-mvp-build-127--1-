@@ -47,6 +47,8 @@ import { shipstation, type ShipStationAddress, type ShipStationOrder, type ShipS
 const NAME = "ShipStation"
 
 /* What this file needs from the order engine, handed in (./shipping-deps-server.ts). */
+import { propertyText } from "@/lib/cart-uploads/rules"
+
 export interface ShipStationLine {
   orderId: string
   title: string
@@ -59,6 +61,8 @@ export interface ShipStationLine {
   fulfilled: number
   requiresShipping: boolean
   fulfillmentMethod: string | null
+  /** The buyer's personalization answers (lib/products/personalization), by label. */
+  properties?: Record<string, string> | null
 }
 export interface ShipStationSourceOrder {
   id: string
@@ -137,7 +141,8 @@ export function shipStationOrderFor(order: ShipStationSourceOrder, grams: Map<st
       quantity: l.quantity,
       unitPrice: dollars(Math.max(0, l.unitCents - (l.quantity > 0 ? l.discountCents / l.quantity : 0))),
       weight: (grams.get(l.orderId) ?? 0) > 0 ? { value: grams.get(l.orderId)!, units: "grams" } : null,
-      options: l.variantName ? [{ name: "Variant", value: l.variantName }] : [],
+      /* The variant, then the buyer's personalization answers (a photo by its file name: the store downloads it from the order), as ShipStation's item options. */
+      options: [...(l.variantName ? [{ name: "Variant", value: l.variantName }] : []), ...Object.entries(l.properties ?? {}).filter(([k, v]) => k.trim() && !k.startsWith("_") && typeof v === "string" && v.trim()).map(([name, value]) => ({ name: name.slice(0, 100), value: propertyText(String(value)).slice(0, 250) }))],
     })),
     amountPaid: dollars(order.totalCents),
     taxAmount: dollars(order.taxCents),
