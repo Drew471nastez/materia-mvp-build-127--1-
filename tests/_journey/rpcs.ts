@@ -27,6 +27,19 @@ function movement(db: MemoryDb, m: Row): boolean {
 }
 
 export function installRpcs(db: MemoryDb) {
+  /* supabase/sql/run-now/305_translation_providers.sql: a day's calls per translator and model, added to. */
+  db.rpcs.translation_usage_add = (d, a) => {
+    const rows = d.rows("translation_provider_usage")
+    let r = rows.find((x) => x.day === a.p_day && x.provider === a.p_provider && x.model === (a.p_model || "-"))
+    if (!r) {
+      r = { day: a.p_day, provider: a.p_provider, model: a.p_model || "-", calls: 0, ok: 0, failed: 0, limited: 0, strings: 0, chars: 0, input_tokens: 0, output_tokens: 0 }
+      rows.push(r)
+    }
+    for (const [k, col] of [["p_calls", "calls"], ["p_ok", "ok"], ["p_failed", "failed"], ["p_limited", "limited"], ["p_strings", "strings"], ["p_chars", "chars"], ["p_input_tokens", "input_tokens"], ["p_output_tokens", "output_tokens"]] as const) r[col] = Number(r[col]) + Math.max(0, Number(a[k] ?? 0))
+    r.updated_at = new Date().toISOString()
+    return null
+  }
+
   /* run-now 32_orders_keep_sales.sql: orders_fill_creator, BEFORE INSERT OR UPDATE OF product_id. */
   db.beforeWrite.orders = (row, d) => {
     if (row.product_id) row.creator_id = d.rows("products").find((p) => p.id === row.product_id)?.creator_id ?? null

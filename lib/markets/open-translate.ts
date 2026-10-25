@@ -9,7 +9,11 @@ import "server-only"
  *   gemini          GEMINI_API_KEY: Google's Gemini Flash-Lite. A free daily
  *                   allowance, then about a cent a website. Whole sentences
  *                   with their markup, so the result reads like shop copy.
- *                   The recommended one.
+ *                   The recommended one. Its model is read from Google's
+ *                   own list once a day, never written down here
+ *                   (./gemini-models.ts), so a retired model hands over.
+ *   cloudflare      CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_AI_TOKEN: Workers AI,
+ *                   10,000 neurons a day free, no card (./cloudflare-models.ts).
  *   deepl           DEEPL_API_KEY: DeepL, 500,000 characters a month free.
  *   llm             TRANSLATE_LLM_URL + TRANSLATE_LLM_MODEL: any
  *                   OpenAI-compatible host serving an open model (Groq,
@@ -29,19 +33,27 @@ import "server-only"
  * language, and the next store with the same theme, cost almost nothing.
  *
  * A translator out of allowance is "busy": the background job waits and
- * carries on (./translation-jobs.ts) instead of failing.
+ * carries on (./translation-jobs.ts) instead of failing. Every call is paced
+ * and counted, and a model that said "too many" or "no more today" rests for
+ * as long as it said, for every run (./translate-budget.ts, SQL part 305);
+ * a translation is kept only when sound (./translation-check.ts), and a text
+ * refused that way waits before it is asked again. /admin/translations
+ * shows all of it. TRANSLATE_PROVIDERS="cloudflare,gemini" picks and orders.
  */
 import { createHash } from "node:crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { baseLanguage } from "./locales"
 import { cut, join, wordsOf } from "./translate-segments"
-import { keepsFixedParts } from "./draft-check"
+import { soundTranslation } from "./translation-check"
+import { listModels, modelOrder, rankModels } from "./gemini-models"
+import { CF_KNOWN_GOOD, listCfModels, rankCfModels } from "./cloudflare-models"
+import { count, loadRests, logOnce, nextMidnight, noteOutcome, readState, rest as restModel, restOf, takeSlot, writeState, type Rest } from "./translate-budget"
 
-export type OpenProvider = "gemini" | "deepl" | "llm" | "libretranslate" | "huggingface" | "mymemory"
+export type OpenProvider = "gemini" | "cloudflare" | "deepl" | "llm" | "libretranslate" | "huggingface" | "mymemory"
 
 const env = (k: string) => (process.env[k] ?? "").trim()
 
-const NAMES: Record<OpenProvider, string> = { gemini: "Gemini", deepl: "DeepL", libretranslate: "LibreTranslate", llm: "Your translation model", huggingface: "Hugging Face", mymemory: "MyMemory" }
+const NAMES: Record<OpenProvider, string> = { gemini: "Gemini", cloudflare: "Cloudflare Workers AI", deepl: "DeepL", libretranslate: "LibreTranslate", llm: "Your translation model", huggingface: "Hugging Face", mymemory: "MyMemory" }
 
 /**
  * The translators set up on this Storelib, first choice first:
@@ -60,11 +72,22 @@ const NAMES: Record<OpenProvider, string> = { gemini: "Gemini", deepl: "DeepL", 
 export function openProviders(): OpenProvider[] {
   const out: OpenProvider[] = []
   if (env("GEMINI_API_KEY") || env("GOOGLE_AI_API_KEY")) out.push("gemini")
+  if (env("CLOUDFLARE_ACCOUNT_ID") && (env("CLOUDFLARE_AI_TOKEN") || env("CLOUDFLARE_API_TOKEN"))) out.push("cloudflare")
   if (env("DEEPL_API_KEY")) out.push("deepl")
   if (env("TRANSLATE_LLM_URL") && env("TRANSLATE_LLM_MODEL")) out.push("llm")
   if (env("LIBRETRANSLATE_URL")) out.push("libretranslate")
   if (env("HF_TOKEN") || env("HUGGINGFACE_API_KEY")) out.push("huggingface")
-  if (env("TRANSLATE_FREE_FALLBACK").toLowerCase() !== "off") out.push("mymemory")
+  /*
+    The keyless last resort only while nothing better is set up (or with
+    TRANSLATE_FREE_FALLBACK=on): it reads words, not sentences, and what it
+    writes is kept in translation memory for good, so it should not fill a
+    store's text for a day Gemini is merely resting.
+  */
+  const fallback = env("TRANSLATE_FREE_FALLBACK").toLowerCase()
+  if (fallback === "on" || (fallback !== "off" && out.length === 0)) out.push("mymemory")
+  /* TRANSLATE_PROVIDERS="cloudflare,gemini": only these, in this order (the ones set up). */
+  const order = env("TRANSLATE_PROVIDERS").toLowerCase().split(",").map((x) => x.trim()).filter(Boolean)
+  if (order.length) return order.filter((p): p is OpenProvider => (out as string[]).includes(p)).filter((p, i, a) => a.indexOf(p) === i)
   return out
 }
 
@@ -75,7 +98,7 @@ export function openProviders(): OpenProvider[] {
  * a wage, in Romanian); a free translation memory answered "Apply" with
  * "squeeze" and "Ship" with "a boat". Those never see a checkout word.
  */
-const UI_PROVIDERS: ReadonlySet<OpenProvider> = new Set(["gemini", "deepl", "llm"])
+const UI_PROVIDERS: ReadonlySet<OpenProvider> = new Set(["gemini", "cloudflare", "deepl", "llm"])
 export const uiProviders = () => openProviders().filter((p) => UI_PROVIDERS.has(p))
 
 export const canTranslateOpen = (o: { ui?: boolean } = {}) => (o.ui ? uiProviders() : openProviders()).length > 0
@@ -177,6 +200,73 @@ async function remember(from: string, to: string, pairs: [string, string][], pro
   }
 }
 
+/*
+ * REFUSED, THEN LEFT A WHILE. A text whose every translation came back
+ * unsound (a price changed, words added, a placeholder lost) would be sent
+ * again by every run, every few minutes, for ever: free calls spent on the
+ * one text no model gets right. It waits instead, longer each time (an
+ * hour, 4, 16, 64, then a week), in translation_refusals (SQL part 305),
+ * and shows in its original language meanwhile. Without the table, the wait
+ * holds in this process.
+ */
+const refusedHere = new Map<string, { tries: number; retryAt: number }>()
+const refusalKey = (from: string, to: string, h: string) => `${from}|${to}|${h}`
+export const refusalWaitMs = (tries: number) => Math.min(7 * 86_400_000, 3_600_000 * 4 ** Math.max(0, tries - 1))
+
+async function refusedLately(from: string, to: string, texts: string[]): Promise<Set<string>> {
+  const out = new Set<string>()
+  if (texts.length === 0) return out
+  const now = Date.now()
+  const byHash = new Map(texts.map((t) => [hash(t), t]))
+  for (const [h, t] of byHash) {
+    const r = refusedHere.get(refusalKey(from, to, h))
+    if (r && r.retryAt > now) out.add(t)
+  }
+  const db = memory()
+  if (!db) return out
+  const hashes = [...byHash.keys()]
+  for (let at = 0; at < hashes.length; at += 200) {
+    const { data, error } = await db
+      .from("translation_refusals")
+      .select("source_hash, tries, retry_at")
+      .eq("source_lang", from)
+      .eq("target_lang", to)
+      .in("source_hash", hashes.slice(at, at + 200))
+      .then(
+        (r: { data: unknown; error: unknown }) => r,
+        (e: unknown) => ({ data: null, error: e }),
+      )
+    if (error) return out
+    for (const r of (data ?? []) as { source_hash: string; tries: number; retry_at: string }[]) {
+      refusedHere.set(refusalKey(from, to, r.source_hash), { tries: r.tries, retryAt: Date.parse(r.retry_at) })
+      if (Date.parse(r.retry_at) > now) out.add(byHash.get(r.source_hash)!)
+    }
+  }
+  return out
+}
+
+function refuse(from: string, to: string, texts: string[]): void {
+  const now = Date.now()
+  const rows = texts.map((t) => {
+    const h = hash(t)
+    const k = refusalKey(from, to, h)
+    const tries = (refusedHere.get(k)?.tries ?? 0) + 1
+    const retryAt = now + refusalWaitMs(tries)
+    refusedHere.set(k, { tries, retryAt })
+    return { source_lang: from, target_lang: to, source_hash: h, tries, retry_at: new Date(retryAt).toISOString(), updated_at: new Date(now).toISOString() }
+  })
+  logOnce(`refused:${from}:${to}:${rows.map((r) => r.source_hash.slice(0, 6)).join()}`, `[translate] ${from}->${to}: ${rows.length} ${rows.length === 1 ? "text" : "texts"} refused by the checks, asked again in ${Math.round(refusalWaitMs(rows[0].tries) / 3_600_000)}h`)
+  const db = memory()
+  if (!db) return
+  void db
+    .from("translation_refusals")
+    .upsert(rows, { onConflict: "source_lang,target_lang,source_hash" })
+    .then(
+      () => undefined,
+      () => undefined,
+    )
+}
+
 /* -------------------------------------------------------------- providers */
 
 class Refused extends Error {
@@ -205,7 +295,9 @@ async function post(url: string, body: unknown, headers: Record<string, string>,
   }
   if (res.ok) return json
   const err = (json as { error?: unknown } | null)?.error
-  const said = typeof err === "string" ? err : typeof (err as { message?: unknown } | null)?.message === "string" ? (err as { message: string }).message : null
+  /* Cloudflare says it as errors[0] with its code ("4006: daily free allocation"). */
+  const cf = (json as { errors?: { code?: unknown; message?: unknown }[] } | null)?.errors?.[0]
+  const said = typeof err === "string" ? err : typeof (err as { message?: unknown } | null)?.message === "string" ? (err as { message: string }).message : typeof cf?.message === "string" ? `${cf.code ?? ""} ${cf.message}`.trim() : null
   const message = `${said ? said.slice(0, 160) : text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) || "no answer"} (HTTP ${res.status})`
   /* Out of credits or of the month's characters: waiting does not help, the next translator is asked. */
   if (res.status === 402 || res.status === 456 || (res.status === 403 && /quota|credit|billing/i.test(message))) throw new Refused(message, "quota")
@@ -354,31 +446,282 @@ const llmBatch = (texts: string[], from: string, to: string, timeoutMs: number, 
 
 /* ----------------------------------------------------------------- gemini */
 
-const GEMINI_URL = () => env("GEMINI_URL").replace(/\/+$/, "") || "https://generativelanguage.googleapis.com/v1beta/openai"
 /*
- * Checked against https://ai.google.dev/gemini-api/docs/models on 2026-10-24:
- * gemini-2.0-flash and gemini-2.0-flash-lite are shut down (404 "no longer
- * available"), 2.5 Flash-Lite only answers keys that used it before, and new
- * keys are pointed at 3.5 Flash-Lite (stable, thinking "minimal" by default).
+ * EVERGREEN. The model is not written down here: it is read from Google's
+ * own list for this key once a day (./gemini-models.ts), the best cheap text
+ * model first, and the next one is asked when one is retired (404), out of
+ * today's free allowance (each model has its own), or asked too fast. Called
+ * through Gemini's own API (generateContent with a JSON schema answer), so a
+ * refusal says exactly which quota it was and for how long.
  */
-const GEMINI_MODELS = () => (env("GEMINI_TRANSLATE_MODEL") ? env("GEMINI_TRANSLATE_MODEL").split(",").map((m) => m.trim()).filter(Boolean) : ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash-lite"])
-const noGemini = new Set<string>()
+const GEMINI_API = () => {
+  const own = env("GEMINI_API_BASE").replace(/\/+$/, "")
+  if (own) return own
+  /* GEMINI_URL used to name the OpenAI compatible address; its base is the same API. */
+  const old = env("GEMINI_URL").replace(/\/+$/, "").replace(/\/openai$/, "")
+  return old || "https://generativelanguage.googleapis.com/v1beta"
+}
+const geminiKey = () => env("GEMINI_API_KEY") || env("GOOGLE_AI_API_KEY")
+const GEMINI_OVERRIDE = () => (env("GEMINI_TRANSLATE_MODEL") ? env("GEMINI_TRANSLATE_MODEL").split(",").map((m) => m.trim()).filter(Boolean) : [])
+/** Calls a minute to one model from one process: under the free tier's smallest per-minute limit. */
+const GEMINI_RPM = () => Number(env("GEMINI_RPM")) || 10
+const DAY_MS = 86_400_000
 
-/** One batch through Gemini's OpenAI-compatible endpoint: the first of its models this key can use. */
-async function geminiBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[], ui?: UiContext): Promise<string[]> {
-  const key = env("GEMINI_API_KEY") || env("GOOGLE_AI_API_KEY")
+let geminiListed: { at: number; key: string; models: string[] | null } | null = null
+
+/** The models to ask, best first: the override, then Google's list for this key (read once a day, kept in translation_provider_state), else the last known good. Batches that start together share one read. */
+let geminiReading: Promise<string[]> | null = null
+export function geminiModels(now = Date.now()): Promise<string[]> {
+  geminiReading ??= readGeminiModels(now).finally(() => {
+    geminiReading = null
+  })
+  return geminiReading
+}
+
+async function readGeminiModels(now: number): Promise<string[]> {
+  const key = geminiKey()
+  const keyTag = hash(key).slice(0, 12)
+  if (geminiListed && geminiListed.key === keyTag && now - geminiListed.at < (geminiListed.models ? DAY_MS : 10 * 60_000)) return modelOrder(GEMINI_OVERRIDE(), geminiListed.models)
+  const db = memory()
+  const kept = await readState(db, "gemini")
+  const keptModels = kept && Array.isArray(kept.models) && kept.models.length ? (kept.models as string[]) : null
+  if (keptModels && kept?.models_hash?.startsWith(keyTag) && kept.listed_at && now - Date.parse(kept.listed_at) < DAY_MS) {
+    geminiListed = { at: Date.parse(kept.listed_at), key: keyTag, models: keptModels }
+    return modelOrder(GEMINI_OVERRIDE(), keptModels)
+  }
+  let models: string[] | null = null
+  try {
+    models = rankModels(await listModels(GEMINI_API(), key))
+    if (models.length === 0) models = null
+  } catch (e) {
+    logOnce(`gemini-list:${(e as { status?: number }).status ?? "net"}`, `[translate] gemini: could not read the model list (${e instanceof Error ? e.message : "error"}); using the last known list`)
+  }
+  if (models) {
+    const tag = `${keyTag}:${hash(models.join(",")).slice(0, 16)}`
+    if (kept?.models_hash !== tag) {
+      console.error(`[translate] gemini models for translating now: ${models.slice(0, 8).join(", ")}${keptModels ? ` (was: ${keptModels.slice(0, 8).join(", ")})` : ""}`)
+      if (db) void writeState(db, "gemini", () => ({ models, models_hash: tag, listed_at: new Date(now).toISOString() }))
+    } else if (db) void writeState(db, "gemini", () => ({ listed_at: new Date(now).toISOString() }))
+  }
+  geminiListed = { at: now, key: keyTag, models: models ?? keptModels }
+  return modelOrder(GEMINI_OVERRIDE(), geminiListed.models)
+}
+
+/** For tests: forget the model list read before. */
+export function forgetGeminiModels(): void {
+  geminiListed = null
+  cfListed = null
+  proven.clear()
+  probing.clear()
+  refusedHere.clear()
+}
+
+/*
+ * ONE FIRST CALL PER MODEL. Batches run side by side; a model not yet heard
+ * from in this process is asked by one of them first and the others wait for
+ * that answer, so a retired model costs one 404, not one per batch.
+ */
+const proven = new Set<string>()
+const probing = new Map<string, Promise<unknown>>()
+/** The call, made now; or null after waiting for another batch's first call to this model. */
+async function firstCallOf<T>(key: string, call: () => Promise<T>): Promise<{ value: Promise<T> | null }> {
+  if (proven.has(key)) return { value: call() }
+  const was = probing.get(key)
+  if (was) {
+    await was.catch(() => undefined)
+    return { value: null }
+  }
+  const value = call()
+  probing.set(key, value)
+  value.then(
+    () => {
+      proven.add(key)
+      probing.delete(key)
+    },
+    () => probing.delete(key),
+  )
+  return { value }
+}
+
+interface GeminiAnswer {
+  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[]
+  promptFeedback?: { blockReason?: string }
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number }
+  error?: { code?: number; message?: string; status?: string; details?: { "@type"?: string; violations?: { quotaId?: string; quotaValue?: string }[]; retryDelay?: string }[] }
+}
+
+/** What a Gemini refusal means for this model: rest it (and for how long), or stop asking Gemini at all. */
+export function geminiRefusal(status: number, body: GeminiAnswer | null, now = Date.now()): { rest?: Rest; refused: Refused } {
+  const err = body?.error
+  const message = `${(err?.message ?? "no answer").slice(0, 160)} (HTTP ${status})`
+  const details = err?.details ?? []
+  if (status === 429) {
+    const violations = details.flatMap((d) => d.violations ?? [])
+    const ids = violations.map((v) => v.quotaId ?? "").join(" ")
+    const delay = details.map((d) => d.retryDelay).find(Boolean)
+    const secs = delay ? Number.parseFloat(delay) : NaN
+    if (violations.some((v) => v.quotaValue === "0")) return { rest: { until: now + DAY_MS, why: "gone", note: "no free allowance for this model on this key" }, refused: new Refused(message, "busy") }
+    /* The allowance Google said, for the admin page: "GenerateRequestsPerDayPerProjectPerModel-FreeTier, limit 1000". */
+    const limit = violations.map((v) => v.quotaValue).find(Boolean)
+    const note = `${ids.slice(0, 100)}${limit ? `, limit ${limit}` : ""}` || undefined
+    if (/PerDay/i.test(ids)) return { rest: { until: nextMidnight(now), why: "day", note }, refused: new Refused(message, "busy") }
+    return { rest: { until: now + (Number.isFinite(secs) ? Math.max(5, Math.min(600, secs)) * 1000 : 60_000), why: "minute", note }, refused: new Refused(message, "busy") }
+  }
+  if (status === 404) return { rest: { until: now + DAY_MS, why: "gone", note: message }, refused: new Refused(message, "missing") }
+  if (status === 400 && /api key|API_KEY/i.test(message)) return { refused: new Refused(message, "setup") }
+  if (status === 400 && /location is not supported|FAILED_PRECONDITION/i.test(`${message} ${err?.status ?? ""}`)) return { refused: new Refused(message, "setup") }
+  if (status === 400 && /model|not found|not supported|no longer available|deprecated/i.test(message)) return { rest: { until: now + DAY_MS, why: "gone", note: message }, refused: new Refused(message, "missing") }
+  if (status === 401 || status === 403) return { refused: new Refused(message, /billing|credit|quota/i.test(message) ? "quota" : "setup") }
+  if (status === 400) return { rest: { until: now + 3_600_000, why: "gone", note: message }, refused: new Refused(message, "failed") }
+  return { refused: new Refused(message, "busy") }
+}
+
+/** One call to one Gemini model. */
+async function geminiCall(model: string, texts: string[], from: string, to: string, timeoutMs: number, keep: string[], ui?: UiContext): Promise<string[]> {
+  const db = memory()
+  const chars = texts.reduce((n, t) => n + t.length, 0)
+  let res: Response
+  try {
+    res = await fetch(`${GEMINI_API()}/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey() },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: chatPrompt(from, to, keep) + (ui ? uiPromptFor(texts, ui) : "") }] },
+        contents: [{ role: "user", parts: [{ text: JSON.stringify(texts) }] }],
+        generationConfig: { temperature: 0.1, responseMimeType: "application/json", responseSchema: { type: "ARRAY", items: { type: "STRING" } }, maxOutputTokens: Math.min(30_000, 1_000 + chars * 3) },
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+  } catch (e) {
+    count(db, "gemini", model, { calls: 1, failed: 1, strings: texts.length, chars })
+    throw new Refused(e instanceof Error && e.name === "TimeoutError" ? "timed out" : "could not be reached", "busy")
+  }
+  const body = (await res.json().catch(() => null)) as GeminiAnswer | null
+  if (!res.ok) {
+    const { rest: r, refused } = geminiRefusal(res.status, body)
+    count(db, "gemini", model, { calls: 1, failed: 1, limited: res.status === 429 ? 1 : 0, strings: texts.length, chars })
+    if (r) restModel(db, "gemini", model, r)
+    throw refused
+  }
+  const u = body?.usageMetadata
+  const c = body?.candidates?.[0]
+  const text = (c?.content?.parts ?? []).filter((p) => !p.thought && typeof p.text === "string").map((p) => p.text).join("")
+  const list = text ? readChatList(text, texts.length) : null
+  count(db, "gemini", model, { calls: 1, ok: list ? 1 : 0, failed: list ? 0 : 1, strings: texts.length, chars, inputTokens: u?.promptTokenCount ?? 0, outputTokens: (u?.candidatesTokenCount ?? 0) + (u?.thoughtsTokenCount ?? 0) })
+  if (!list) throw new Refused(body?.promptFeedback?.blockReason ? `refused the text (${body.promptFeedback.blockReason})` : `answered in an unexpected shape${c?.finishReason ? ` (${c.finishReason})` : ""}`, "failed")
+  return list
+}
+
+/**
+ * One batch through Gemini: the first model that is not resting and has a
+ * free slot this minute; the next on a 404, a used up allowance or a slow
+ * minute. A batch the model would not answer as a list (a safety block on
+ * one text, an answer cut short) is split in two and each half asked again,
+ * so one text never holds back forty.
+ */
+async function geminiBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[], ui?: UiContext, depth = 0): Promise<string[]> {
+  const db = memory()
+  await loadRests(db)
+  const deadlineAt = Date.now() + timeoutMs
+  const models = await geminiModels()
   let last: Refused | null = null
-  for (const model of GEMINI_MODELS()) {
-    if (noGemini.has(model)) continue
-    try {
-      return await chatBatch(GEMINI_URL(), key, model, texts, from, to, timeoutMs, keep, ui)
-    } catch (e) {
-      last = e instanceof Refused ? e : new Refused(String(e), "failed")
-      if (last.kind !== "missing") throw last
-      noGemini.add(model)
+  const tried = new Set<string>()
+  for (let round = 0; round < 2; round++) {
+    for (const model of models) {
+      if (tried.has(model) || restOf("gemini", model)) continue
+      /* Another batch is asking this model for the first time: its answer decides (a 404 rests it for every batch). */
+      if (!proven.has(`gemini:${model}`) && probing.has(`gemini:${model}`)) {
+        await probing.get(`gemini:${model}`)!.catch(() => undefined)
+        if (restOf("gemini", model)) continue
+      }
+      /* First round: only a model with a slot now. Second: wait for one, as long as the run has time. */
+      if (!(await takeSlot(`gemini:${model}`, GEMINI_RPM(), round === 0 ? Date.now() : deadlineAt - 20_000))) continue
+      tried.add(model)
+      try {
+        const first = await firstCallOf(`gemini:${model}`, () => geminiCall(model, texts, from, to, Math.max(5_000, deadlineAt - Date.now()), keep, ui))
+        if (first.value === null) {
+          tried.delete(model)
+          if (restOf("gemini", model)) continue
+          return await geminiCall(model, texts, from, to, Math.max(5_000, deadlineAt - Date.now()), keep, ui)
+        }
+        return await first.value
+      } catch (e) {
+        last = e instanceof Refused ? e : new Refused(String(e), "failed")
+        if (last.kind === "setup" || last.kind === "quota") throw last
+        if (last.kind === "failed" && /unexpected shape|refused the text/.test(last.message) && texts.length > 3 && depth < 2) {
+          const half = Math.ceil(texts.length / 2)
+          const a = await geminiBatch(texts.slice(0, half), from, to, Math.max(5_000, deadlineAt - Date.now()), keep, ui, depth + 1).catch(() => texts.slice(0, half).map(() => ""))
+          const b = await geminiBatch(texts.slice(half), from, to, Math.max(5_000, deadlineAt - Date.now()), keep, ui, depth + 1).catch(() => texts.slice(half).map(() => ""))
+          return [...a, ...b]
+        }
+        /* A busy or failed answer from one model: the next model is asked; a retired one rests (geminiRefusal) and is not asked again today. */
+      }
     }
   }
-  throw last ?? new Refused("no model this key can use", "missing")
+  if (last) throw last
+  const resting = models.map((m) => restOf("gemini", m)).filter(Boolean) as Rest[]
+  if (resting.length) {
+    const soonest = Math.min(...resting.map((r) => r.until))
+    throw new Refused(`every model is resting until ${new Date(soonest).toISOString().slice(11, 16)} UTC (${resting.some((r) => r.why === "day") ? "today's free allowance used" : "too many a minute"})`, "busy")
+  }
+  throw new Refused("no free slot this minute", "busy")
+}
+
+/* ------------------------------------------------------------- cloudflare */
+
+const cfAccount = () => env("CLOUDFLARE_ACCOUNT_ID")
+const cfToken = () => env("CLOUDFLARE_AI_TOKEN") || env("CLOUDFLARE_API_TOKEN")
+const CF_API = () => env("CLOUDFLARE_API_BASE").replace(/\/+$/, "") || "https://api.cloudflare.com/client/v4"
+const CF_RPM = () => Number(env("CLOUDFLARE_RPM")) || 60
+let cfListed: { at: number; models: string[] | null } | null = null
+
+/** Workers AI's models for translating, best first: CLOUDFLARE_TRANSLATE_MODEL, then the account's list (once a day), else the known good. */
+export async function cloudflareModels(now = Date.now()): Promise<string[]> {
+  const override = env("CLOUDFLARE_TRANSLATE_MODEL") ? env("CLOUDFLARE_TRANSLATE_MODEL").split(",").map((m) => m.trim()).filter(Boolean) : []
+  if (!cfListed || now - cfListed.at >= (cfListed.models ? DAY_MS : 10 * 60_000)) {
+    let models: string[] | null = null
+    try {
+      models = rankCfModels(await listCfModels(cfAccount(), cfToken(), fetch, CF_API()), now)
+      if (!models.length) models = null
+    } catch (e) {
+      logOnce(`cf-list:${(e as { status?: number }).status ?? "net"}`, `[translate] cloudflare: could not read the model list (${e instanceof Error ? e.message : "error"}); using the known list`)
+    }
+    if (models && cfListed?.models?.join() !== models.join()) console.error(`[translate] cloudflare models for translating now: ${models.slice(0, 6).join(", ")}`)
+    cfListed = { at: now, models }
+  }
+  const out: string[] = []
+  for (const m of [...override, ...(cfListed.models ?? CF_KNOWN_GOOD)]) if (!out.includes(m)) out.push(m)
+  return out
+}
+
+/** One batch through Workers AI's OpenAI compatible chat endpoint, the first model not resting. */
+async function cloudflareBatch(texts: string[], from: string, to: string, timeoutMs: number, keep: string[], ui?: UiContext): Promise<string[]> {
+  const db = memory()
+  await loadRests(db)
+  const deadlineAt = Date.now() + timeoutMs
+  const chars = texts.reduce((n, t) => n + t.length, 0)
+  let last: Refused | null = null
+  for (const model of await cloudflareModels()) {
+    if (restOf("cloudflare", model)) continue
+    if (!(await takeSlot(`cloudflare:${model}`, CF_RPM(), deadlineAt - 20_000))) continue
+    try {
+      const out = await chatBatch(`${CF_API()}/accounts/${encodeURIComponent(cfAccount())}/ai/v1`, cfToken(), model, texts, from, to, Math.max(5_000, deadlineAt - Date.now()), keep, ui)
+      count(db, "cloudflare", model, { calls: 1, ok: 1, strings: texts.length, chars })
+      return out
+    } catch (e) {
+      last = e instanceof Refused ? e : new Refused(String(e), "failed")
+      count(db, "cloudflare", model, { calls: 1, failed: 1, limited: last.kind === "busy" ? 1 : 0, strings: texts.length, chars })
+      /* The day's free neurons used: every model shares them, so Cloudflare rests until 00:00 UTC. */
+      if (/neuron|daily free allocation|4006/i.test(last.message)) {
+        for (const m of await cloudflareModels()) restModel(db, "cloudflare", m, { until: nextMidnight(Date.now(), "UTC"), why: "day", note: last.message })
+        throw new Refused(last.message, "busy")
+      }
+      if (last.kind === "setup" || last.kind === "quota") throw last
+      if (last.kind === "missing") restModel(db, "cloudflare", model, { until: Date.now() + DAY_MS, why: "gone", note: last.message })
+      else if (last.kind === "busy") restModel(db, "cloudflare", model, { until: Date.now() + 60_000, why: "minute", note: last.message })
+    }
+  }
+  throw last ?? new Refused("every model is resting", "busy")
 }
 
 /* ------------------------------------------------------------------ deepl */
@@ -483,7 +826,7 @@ const BATCH_CHARS = 6_000
 const DETECT_FROM = 40
 
 /** Translators that are given whole texts, markup and all, and checked afterwards. */
-const WHOLE = new Set<OpenProvider>(["gemini", "deepl", "llm", "huggingface"])
+const WHOLE = new Set<OpenProvider>(["gemini", "cloudflare", "deepl", "llm", "huggingface"])
 
 export interface OpenResult {
   /** Each text's translation, by its index in the input; missing when it could not be translated now. */
@@ -525,6 +868,7 @@ async function translateRuns(p: OpenProvider, runs: string[], from: string, to: 
   }
   if (p === "mymemory") put(runs, await myMemoryBatch(runs, from, to, ms))
   else if (p === "gemini") put(runs, await geminiBatch(runs, from, to, ms, keep))
+  else if (p === "cloudflare") put(runs, await cloudflareBatch(runs, from, to, ms, keep))
   else if (p === "deepl") put(runs, await deeplBatch(runs, from, to, ms, keep))
   else if (p === "llm") put(runs, await llmBatch(runs, from, to, ms, keep))
   else put(runs, await hfBatch(runs, from, to, ms, keep))
@@ -540,10 +884,11 @@ async function translateBatch(p: OpenProvider, texts: string[], from: string, to
   const got = new Map<string, string>()
   let rest = texts
   if (WHOLE.has(p)) {
-    const answer = p === "gemini" ? await geminiBatch(texts, from, to, ms, keep, ui) : p === "deepl" ? await deeplBatch(texts, from, to, ms, keep, ui) : p === "llm" ? await llmBatch(texts, from, to, ms, keep, ui) : await hfBatch(texts, from, to, ms, keep)
+    const answer = p === "gemini" ? await geminiBatch(texts, from, to, ms, keep, ui) : p === "cloudflare" ? await cloudflareBatch(texts, from, to, ms, keep, ui) : p === "deepl" ? await deeplBatch(texts, from, to, ms, keep, ui) : p === "llm" ? await llmBatch(texts, from, to, ms, keep, ui) : await hfBatch(texts, from, to, ms, keep)
     texts.forEach((t, i) => {
       const a = answer[i]?.trim()
-      if (a && keepsFixedParts(t, a) && keep.every((k) => !t.includes(k) || a.includes(k))) got.set(t, a)
+      /* Kept only when sound (./translation-check.ts): every placeholder, tag, link, number and protected name, and nothing added. */
+      if (a && soundTranslation(t, a, { keep, from, to })) got.set(t, a)
     })
     rest = texts.filter((t) => !got.has(t))
     if (rest.length === 0) return got
@@ -555,7 +900,7 @@ async function translateBatch(p: OpenProvider, texts: string[], from: string, to
   const words = await translateRuns(p, runs, from, to, ms, keep, offers)
   for (const [t, ps] of parts) {
     const joined = join(ps, (w) => words.get(w))
-    if (joined !== null) got.set(t, joined)
+    if (joined !== null && soundTranslation(t, joined, { keep, from, to })) got.set(t, joined)
   }
   return got
 }
@@ -569,7 +914,7 @@ async function translateBatch(p: OpenProvider, texts: string[], from: string, to
  * no remaining credits" was asked, and logged, for every batch of every run.
  * It is asked again after this long, in case credits were bought.
  */
-const CREDITS_REST_MS = 15 * 60_000
+const CREDITS_REST_MS = 6 * 3_600_000
 const outOfCredits = new Map<OpenProvider, { until: number; refused: Refused }>()
 
 export async function translateOpen(
@@ -588,11 +933,14 @@ export async function translateOpen(
   /* Checkout words reuse only what a context aware translator wrote: the memory also holds bare words a segment translator got wrong. */
   const done = await recall(from, to, unique, ui ? [...UI_PROVIDERS] : null)
   /* Remembered from any store: one that translated a word this store keeps as written (its name, a glossary term) is asked again instead. */
-  for (const [t, v] of done) if (!keep.every((k) => !t.includes(k) || v.includes(k))) done.delete(t)
+  /* And one kept before these checks that would not pass them now (a number changed, text added) is asked again too. */
+  for (const [t, v] of done) if (!soundTranslation(t, v, { keep, from, to })) done.delete(t)
   const remembered = done.size
   /* Nothing to translate in it (a price, a code, a mark): it is its own translation. */
   for (const t of unique) if (!done.has(t) && wordsOf(cut(t, keep)).length === 0) done.set(t, t)
-  const todo = unique.filter((t) => !done.has(t))
+  /* Texts every translator's answer was refused for lately (a number changed, words added): not asked again until their wait is over (./translation-check.ts, refuse below). */
+  const waiting = await refusedLately(from, to, unique.filter((t) => !done.has(t)))
+  const todo = unique.filter((t) => !done.has(t) && !waiting.has(t))
 
   const batches: string[][] = []
   let b: string[] = []
@@ -611,9 +959,13 @@ export async function translateOpen(
   let refusedAll = 0
   const reasons = new Map<OpenProvider, Refused>()
   /* Out of credits, or the key refused: asked once, not again for every batch. */
+  await loadRests(memory())
   for (const p of providers) {
     const r = outOfCredits.get(p)
     if (r && r.until > Date.now()) reasons.set(p, r.refused)
+    /* Out of credits as another run found (kept in translation_provider_state): not asked here either. */
+    const shared = restOf(p, "*")
+    if (!reasons.has(p) && shared?.why === "credits") reasons.set(p, new Refused(shared.note ?? "out of credits", "quota"))
   }
   const offers = providers.includes("libretranslate") ? await libreOffers() : null
   let next = 0
@@ -621,26 +973,35 @@ export async function translateOpen(
     while (next < batches.length) {
       const left = (opts.deadlineAt ?? Infinity) - Date.now()
       if (left < 12_000) return
-      let rest = batches[next++]
+      const batch = batches[next++]
+      let rest = batch
+      /* A translator answered this batch (whatever it wrote): what is still untranslated after all of them was refused by the checks, not by a translator. */
+      let answered = false
       for (const p of providers) {
         if (rest.length === 0) break
         const said = reasons.get(p)
         if (said && (said.kind === "quota" || said.kind === "setup")) continue
         try {
           const got = await translateBatch(p, rest, from, to, Math.min(90_000, left - 5_000), keep, offers, ui)
-          /* A translator that gave back nothing for a whole batch did not translate it: the next one is asked. */
-          if (got.size === 0) throw new Refused("gave back nothing", "failed")
+          answered = true
+          /* A translator that gave back nothing usable for a whole batch did not translate it: the next one is asked. */
+          if (got.size === 0) continue
           for (const [t, v] of got) done.set(t, v)
           remember(from, to, [...got], p).catch(() => undefined)
+          noteOutcome(memory(), p, "ok")
           rest = rest.filter((t) => !got.has(t))
         } catch (e) {
           const r = e instanceof Refused ? e : new Refused(e instanceof Error ? e.message : "failed", "failed")
           reasons.set(p, r)
+          if (r.kind === "quota" && !outOfCredits.has(p)) restModel(memory(), p, "*", { until: Date.now() + CREDITS_REST_MS, why: "credits", note: r.message })
           if (r.kind === "quota") outOfCredits.set(p, { until: Date.now() + CREDITS_REST_MS, refused: r })
-          console.error(`[translate] ${p} ${from}->${to}: ${r.kind}: ${r.message.slice(0, 160)}`)
+          noteOutcome(memory(), p, r.kind, r.message)
+          /* Said once per provider, kind and language pair in a process, not for every batch: the admin page keeps the rest (/admin/translations). */
+          logOnce(`${p}:${from}:${to}:${r.kind}:${r.message.slice(0, 60)}`, `[translate] ${p} ${from}->${to}: ${r.kind}: ${r.message.slice(0, 160)}`)
         }
       }
-      if (rest.length === batches[next - 1]?.length) refusedAll++
+      if (rest.length && answered) refuse(from, to, rest)
+      else if (rest.length === batch.length) refusedAll++
     }
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(opts.concurrency ?? 3, batches.length)) }, run))

@@ -160,7 +160,8 @@ async function main() {
   check("a curated sentence is written as it is, with no call and no reuse of an older machine answer", /const mine = isCheckoutWordKey\(it\.key\) \? curated\[it\.source\] : undefined/.test(ai2))
   check("no context aware translator: nothing drafted and not a failure", /if \(opts\.ui && !process\.env\.OPENAI_API_KEY\) return \{ drafts, unavailable: false \}/.test(ai2))
   const open = read("lib/markets/open-translate.ts")
-  check("only whole sentence translators read checkout words (Gemini, DeepL, your own model)", /const UI_PROVIDERS: ReadonlySet<OpenProvider> = new Set\(\["gemini", "deepl", "llm"\]\)/.test(open))
+  /* Changed on purpose (round 13): Cloudflare Workers AI is a chat model reading whole sentences too. */
+  check("only whole sentence translators read checkout words (Gemini, Cloudflare Workers AI, DeepL, your own model)", /const UI_PROVIDERS: ReadonlySet<OpenProvider> = new Set\(\["gemini", "cloudflare", "deepl", "llm"\]\)/.test(open))
   check("a checkout word is never cut into bare words", /if \(ui\) return got/.test(open))
   check("the memory is read only for what those translators wrote", /recall\(from, to, unique, ui \? \[\.\.\.UI_PROVIDERS\] : null\)/.test(open) && /query\.in\("provider", onlyFrom\)/.test(open))
   check("DeepL is told it's a checkout", /context: "Buttons, headings and labels of an online store's checkout page/.test(open))

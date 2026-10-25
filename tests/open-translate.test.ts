@@ -26,6 +26,8 @@ function check(label: string, ok: boolean, detail?: string) {
 const read = (p: string) => readFileSync(joinPath(process.cwd(), p), "utf8")
 
 type Seen = { path: string; body: Record<string, unknown> }
+/* A letter per model, so an answer says which model wrote it without adding a digit (a changed number is refused). */
+const GEM_TAG: Record<string, string> = { "gemini-3.5-flash-lite": "A", "gemini-3.1-flash-lite": "B", "gemini-2.5-flash-lite": "C" }
 const seen: Seen[] = []
 let openAiCalls = 0
 
@@ -44,6 +46,11 @@ const send = (res: ServerResponse, status: number, json: unknown) => {
 async function answer(req: IncomingMessage, res: ServerResponse) {
   const path = req.url ?? ""
   if (req.method === "GET" && path === "/lt/languages") return send(res, 200, [{ code: "en", targets: ["fr", "es", "de", "pb"] }, { code: "es", targets: ["en", "fr"] }, { code: "fr", targets: ["en", "es"] }])
+  /* Gemini's own model list (GET /v1beta/models), as Google answers it today: the shut down 2.0 models are not on it. */
+  if (req.method === "GET" && path.startsWith("/gem/models")) {
+    seen.push({ path, body: {} })
+    return send(res, 200, { models: ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-2.5-flash-lite", "gemini-3.1-flash-lite-preview", "gemini-2.5-flash-preview-tts", "gemini-3.1-pro-preview", "text-embedding-004"].map((m) => ({ name: `models/${m}`, supportedGenerationMethods: m.includes("embedding") ? ["embedContent"] : ["generateContent", "countTokens"] })) })
+  }
   const b = await body(req)
   seen.push({ path, body: b })
   if (path.startsWith("/v1/")) {
@@ -60,13 +67,15 @@ async function answer(req: IncomingMessage, res: ServerResponse) {
     const p = b.parameters as { tgt_lang: string }
     return send(res, 200, (b.inputs as string[]).map((t) => ({ translation_text: `${p.tgt_lang} ${t}` })))
   }
-  if (path === "/gem/chat/completions") {
-    const model = b.model as string
-    if (model === "gemini-3.5-flash-lite" && process.env.GEMINI_OLD_ONLY) return send(res, 404, { error: { message: `models/${model} is not found` } })
-    if (process.env.GEMINI_BUSY) return send(res, 429, { error: { message: "Resource has been exhausted (e.g. check quota)." } })
-    const list = JSON.parse((b.messages as { content: string }[])[1].content) as string[]
+  const gem = path.match(/^\/gem\/models\/([^:]+):generateContent$/)
+  if (gem) {
+    const model = decodeURIComponent(gem[1])
+    if (model === "gemini-3.5-flash-lite" && process.env.GEMINI_OLD_ONLY) return send(res, 404, { error: { code: 404, message: `models/${model} is no longer available`, status: "NOT_FOUND" } })
+    if (process.env.GEMINI_BUSY) return send(res, 429, { error: { code: 429, message: "Resource has been exhausted (e.g. check quota).", status: "RESOURCE_EXHAUSTED" } })
+    const list = JSON.parse((b.contents as { parts: { text: string }[] }[])[0].parts[0].text) as string[]
     /* Drops the placeholder from a whole sentence: the check catches it and the words go again on their own. */
-    return send(res, 200, { choices: [{ message: { content: JSON.stringify({ t: list.map((t) => (t.includes("{{") ? "GEM lost it" : `GEM(${model}) ${t}`)) }) } }] })
+    const tag = GEM_TAG[model] ?? "X"
+    return send(res, 200, { candidates: [{ content: { parts: [{ text: JSON.stringify(list.map((t) => (t.includes("{{") ? "GEM lost it" : `GEM(${tag}) ${t}`))) }] }, finishReason: "STOP" }], usageMetadata: { promptTokenCount: 50, candidatesTokenCount: 40 } })
   }
   if (path === "/deepl/v2/translate") {
     const texts = b.text as string[]
@@ -188,14 +197,17 @@ async function main() {
   delete process.env.LIBRETRANSLATE_URL
   seen.length = 0
   r = await mod.translateOpen(["Free shipping on orders over 200 lei", "<p>Our <b>linen</b> shirts</p>", "Hi {{ customer.first_name }}, welcome"], "en", "fr", { keep: ["Green Garden"] })
-  check("first when set up, whole sentences with markup kept", r.out.get(0) === "GEM(gemini-3.5-flash-lite) Free shipping on orders over 200 lei" && r.out.get(1) === "GEM(gemini-3.5-flash-lite) <p>Our <b>linen</b> shirts</p>", JSON.stringify([...r.out]))
-  check("one that lost its placeholder goes again as its words, and keeps it", r.out.get(2) === "GEM(gemini-3.5-flash-lite) Hi {{ customer.first_name }}GEM(gemini-3.5-flash-lite) , welcome" || /\{\{ customer\.first_name \}\}/.test(r.out.get(2) ?? ""), r.out.get(2))
-  check("the store's name is named in the prompt to keep", seen.some((x) => /"Green Garden"/.test(String((x.body.messages as { content: string }[] | undefined)?.[0]?.content))))
+  /* Changed on purpose (round 13): Gemini's own API (generateContent) with the model read from its list, not the OpenAI compatible address with names written down. */
+  check("first when set up, whole sentences with markup kept, the best Flash-Lite on the key's own list", r.out.get(0) === "GEM(A) Free shipping on orders over 200 lei" && r.out.get(1) === "GEM(A) <p>Our <b>linen</b> shirts</p>", JSON.stringify([...r.out]))
+  check("the model list was read from the API", seen.some((x) => x.path.startsWith("/gem/models?pageSize=")))
+  check("one that lost its placeholder goes again as its words, and keeps it", /\{\{ customer\.first_name \}\}/.test(r.out.get(2) ?? "") && /GEM\(A\)/.test(r.out.get(2) ?? ""), r.out.get(2))
+  check("the store's name is named in the prompt to keep", seen.some((x) => /"Green Garden"/.test(String((x.body.systemInstruction as { parts: { text: string }[] } | undefined)?.parts?.[0]?.text))))
+  check("asked for a JSON list by schema", seen.some((x) => (x.body.generationConfig as { responseMimeType?: string } | undefined)?.responseMimeType === "application/json"))
   process.env.GEMINI_OLD_ONLY = "1"
   r = await mod.translateOpen(["Another sentence"], "en", "de")
-  check("a model the key cannot use: the next Gemini model", r.out.get(0) === "GEM(gemini-3.1-flash-lite) Another sentence", r.out.get(0))
+  check("a model the key cannot use: the next Gemini model", r.out.get(0) === "GEM(B) Another sentence", r.out.get(0))
   /* Google shut these down (404 "no longer available"): never asked by default again. */
-  check("no shut down Gemini model is asked", !seen.some((x) => /^gemini-2\.0-/.test(String(x.body.model))), seen.map((x) => x.body.model).join(","))
+  check("no shut down Gemini model is asked", !seen.some((x) => /gemini-2\.0-/.test(x.path)), seen.map((x) => x.path).join(","))
   delete process.env.GEMINI_OLD_ONLY
   process.env.GEMINI_BUSY = "1"
   r = await mod.translateOpen(["Out of allowance today"], "en", "es")

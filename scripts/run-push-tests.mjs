@@ -38,6 +38,8 @@ const SUITES = [
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",
+  /* Round 13: translation on free allowances that keeps working: the Gemini model read from Google's list (a retired one handed over), paced and rested by its own quotas, each text once, unsound answers refused; Cloudflare Workers AI second. */
+  "tests/translation-providers.test.ts",
   "tests/commerce-attention.test.ts",
   "tests/cash-on-delivery.test.ts",
   "tests/order-currency.test.ts",
@@ -931,6 +933,8 @@ const STRICT_SUITES = [
   "tests/e2e24.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
   "tests/e2e-store-currency.test.ts",
+  /* Round 13: a store translated by the cron on a fake Gemini, end to end: the retired model, refused answers left to wait, every call counted, translation memory across stores, /admin/translations (tests/_journey) */
+  "tests/e2e-translations-cron.test.ts",
   /* A euro store moves to lei: what converts and what stays (plans, offers, smart collections, part 258), More currencies from the new base, caches expired, orders and totals never relabelled or added across currencies (tests/_journey) */
   "tests/store-currency-change.test.ts",
   /* One lei store with the marketplace in dollars for it alone: website, shared link and Explore purchases, stale and missing rates, a refund, emails, ledger, chart and Payouts (tests/_journey) */

@@ -22,41 +22,83 @@ The parts it contains:
 | 177 | Translation jobs in the background |
 | 178 | Translation memory, the permanent cache |
 | 186 | Changes translated within minutes of a publish (`translate_dirty_at`, `translate_lease_until`) |
+| 305 | The translators' log: models read, rests, calls per day, texts refused by the checks (`supabase/sql/run-now/305_translation_providers.sql`) |
 
-## 2. Set up the translator (one key)
+## 2. Set up the translators (free)
 
-**Recommended: Google Gemini.** Accurate (it translates whole sentences as
-shop copy, with their markup and placeholders kept), fast, and free to start:
-Gemini's free tier covers a lot of translating every day, and past it a whole
-website costs about a cent or two. Every sentence translated is kept for good
-in the translation memory (SQL part 178) and shared by every store, so the
-same sentence is never paid for twice and the cost falls as Storelib grows.
+**First: Google Gemini (free tier).** Accurate (whole sentences as shop copy,
+with their markup and placeholders kept) and free within its daily
+allowance. No model name has to be set or ever updated: once a day Storelib
+reads the models the key can use from Google (`GET /v1beta/models`) and
+picks the best cheap text model by its family: Flash-Lite before Flash,
+stable before preview, newest first. When Google retires a model (a 404),
+or a model's free allowance for the day is used (each model has its own),
+the next one is asked. `lib/markets/gemini-models.ts` has the rules.
 
-1. Open https://aistudio.google.com/apikey and press **Create API key**.
+1. Open https://aistudio.google.com/apikey and press **Create API key**. No
+   billing is needed.
 2. Vercel → your project → Settings → Environment Variables: add
    `GEMINI_API_KEY` with that key, for Production.
 3. Redeploy.
 
-When the free daily allowance runs out, a translation waits and carries on by
-itself a few minutes later (the cron below), instead of failing. Enable
-billing on the Google Cloud project for no daily limit at all.
+Optional: `GEMINI_TRANSLATE_MODEL` (comma separated) is asked first; the
+discovered models still follow, so a stale name never stops translating.
+`GEMINI_RPM` (default 10) is the calls a minute to one model.
 
-**Also good, as a backup: DeepL.** Very accurate, 500,000 characters a month
-free. Create a free account at https://www.deepl.com/pro-api and add
-`DEEPL_API_KEY`. With both keys, Gemini goes first and DeepL takes over
-whatever Gemini cannot do.
+**Second, also free: Cloudflare Workers AI.** 10,000 "neurons" a day on the
+free Workers plan, no card; past that it waits until 00:00 UTC, it is never
+billed. Cloudflare does not train on what it is sent. The model is read from
+the account's own list the same way (Gemma first).
 
-Other choices, used in this order after those two when set:
+1. Sign up at https://dash.cloudflare.com (free plan). Copy the Account ID
+   from the right of the account home page.
+2. My Profile → API Tokens → Create Token → Custom token with **Account ›
+   Workers AI › Read** and **Edit**.
+3. Add `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_AI_TOKEN` in Vercel, redeploy.
+
+With both, Gemini goes first and Cloudflare takes whatever Gemini cannot do
+right now. `TRANSLATE_PROVIDERS=cloudflare,gemini` changes the order (or
+leaves one out).
+
+**A note on Google's terms.** Google's Gemini API terms say "You may use only
+Paid Services when making API Clients available to users in the European
+Economic Area" (also Switzerland and the UK), and that content sent to the
+free tier may be used to improve Google's products. Storelib only ever sends
+a store's public website text (never a customer's details), but if Storelib
+serves stores in those regions, read the terms
+(https://ai.google.dev/gemini-api/terms) and decide: either turn on billing
+for the Google Cloud project (Flash-Lite costs about a cent per website), or
+put Cloudflare first with `TRANSLATE_PROVIDERS=cloudflare,gemini`.
+
+**Optional extras**, used after those when set:
 
 | Name | Value |
 | --- | --- |
+| `DEEPL_API_KEY` | DeepL API Free, 500,000 characters a month (very accurate) |
 | `TRANSLATE_LLM_URL`, `TRANSLATE_LLM_MODEL`, `TRANSLATE_LLM_KEY` | any OpenAI-compatible host with an open model (Groq, OpenRouter, a local Ollama) |
-| `LIBRETRANSLATE_URL`, `LIBRETRANSLATE_API_KEY` | your own LibreTranslate server |
-| `HF_TOKEN` | Hugging Face (its free credits are small) |
+| `LIBRETRANSLATE_URL`, `LIBRETRANSLATE_API_KEY` | your own LibreTranslate server (the public ones are not for production) |
+| `HF_TOKEN` | Hugging Face (needs bought credits; one out of credits is asked again after 6 hours) |
 | `MYMEMORY_EMAIL` | the keyless last resort's allowance, 50,000 characters a day |
 
-`TRANSLATE_FREE_FALLBACK=off` turns the keyless last resort off. When a
-translation fails, Languages says which translator refused and what it said.
+The keyless last resort (MyMemory) is used only while no other translator is
+set up; `TRANSLATE_FREE_FALLBACK=off` turns it off, `=on` keeps it after the
+others.
+
+**How it stays free.** Each text is translated once per language and kept in
+translation memory (part 178) for every store, so a store's unchanged text,
+and the next store with the same words, cost no call. A store's own new text
+goes 40 texts to a call. Measured in `tests/e2e-translations-cron.test.ts`:
+the first store in a language (Storelib's shop, checkout and email words plus
+its own) needed 28 calls for about 900 texts; the next store with the same
+words needed none, and its own products cost about one call per 40 texts. A
+translation that changes a number, loses a placeholder or link, renames the
+store or adds words is never saved (the original shows) and waits an hour,
+then longer each time, before it is tried again.
+
+**Is it working?** storelib.com/admin/translations: each translator, the
+models it read, which are resting and until when, calls per day, and the
+stores where translating stopped, with the reason. Visitors never see a
+failure: a text with no translation shows in its own language.
 
 Also add `CRON_SECRET` (any long random string, `openssl rand -hex 32`): it
 lets the background job carry on between runs.

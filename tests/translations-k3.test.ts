@@ -74,7 +74,8 @@ async function main() {
   const reused = await draftReusing([{ key: "menu:footer:0", source: "Shop" }, { key: "section:s2:cta", source: "Buy" }], rows, "en", "ro", "Mugs")
   check("every text already known: answered from memory with no translator at all", !reused.unavailable && reused.reused === 2 && reused.drafts.get("menu:footer:0") === "Magazin")
   check("a reset reuses only Storelib AI's own, never another of the merchant's words passed off as automatic", /r\.source === "ai"/.test(press) && /!keys\.has\(r\.key\)/.test(press))
-  check("an open model's memory is never used where it dropped a word kept as written", /if \(!keep\.every\(\(k\) => !t\.includes\(k\) \|\| v\.includes\(k\)\)\) done\.delete\(t\)/.test(read("lib/markets/open-translate.ts")))
+  /* Changed on purpose (round 13): the memory is checked by soundTranslation (lib/markets/translation-check.ts), which keeps the protected words check and adds numbers and added text. */
+  check("an open model's memory is never used where it dropped a word kept as written", /if \(!soundTranslation\(t, v, \{ keep, from, to \}\)\) done\.delete\(t\)/.test(read("lib/markets/open-translate.ts")) && /changed a protected name/.test(read("lib/markets/translation-check.ts")))
 
   console.log("\nGlossary and Don't translate")
   const rules: TranslationRules = rulesFrom({ glossary: [{ term: "Storelib Pro", keep: true }, { term: "Gift card", to: { ro: "Card cadou", fr: "Carte cadeau" } }, { term: "x" }], noTranslate: ["section:s1:heading", "bad key"], keepProductNames: true })

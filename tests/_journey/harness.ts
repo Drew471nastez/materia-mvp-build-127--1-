@@ -71,6 +71,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/cron/physical": () => import("@/app/api/cron/physical/route"),
   "/api/cron/process-scheduled-emails": () => import("@/app/api/cron/process-scheduled-emails/route"),
   "/api/cron/notify": () => import("@/app/api/cron/notify/route"),
+  "/api/cron/translation-jobs": () => import("@/app/api/cron/translation-jobs/route"),
+  "/api/cron/translations": () => import("@/app/api/cron/translations/route"),
   "/api/coupons": () => import("@/app/api/coupons/route"),
   /* Before [id], which would take "validate" as an id (the first pattern that fits wins). Round 10. */
   "/api/coupons/validate": () => import("@/app/api/coupons/validate/route"),
