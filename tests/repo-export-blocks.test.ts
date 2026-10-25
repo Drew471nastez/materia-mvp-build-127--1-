@@ -87,7 +87,8 @@ async function main() {
   {
     /* Changed on purpose (round reviews-1023): "@app" takes Storelib Reviews' two app blocks (Star rating, Reviews), as an installed reviews app's are on Shopify; "@theme" alone never does, and none of Storelib's own theme blocks is offered. */
     /* Changed on purpose (round BC): "@app" also takes Storelib's Stock status, Estimated delivery and Size chart app blocks. */
-    const APP = ["shopify://apps/storelib-reviews/blocks/reviews/storelib", "shopify://apps/storelib-reviews/blocks/star-rating/storelib", "shopify://apps/storelib/blocks/estimated-delivery/storelib", "shopify://apps/storelib/blocks/stock-status/storelib", "shopify://apps/storelib-size-charts/blocks/size-chart/storelib"].sort().join(",")
+    /* Changed on purpose (round 13): and Storelib's Personalization app block (lib/storelib-theme/compat/personalization.ts). */
+    const APP = ["shopify://apps/storelib-reviews/blocks/reviews/storelib", "shopify://apps/storelib-reviews/blocks/star-rating/storelib", "shopify://apps/storelib/blocks/estimated-delivery/storelib", "shopify://apps/storelib/blocks/stock-status/storelib", "shopify://apps/storelib-size-charts/blocks/size-chart/storelib", "shopify://apps/storelib-personalization/blocks/personalization/storelib"].sort().join(",")
     check("the catalog is the theme's own blocks and Storelib Reviews' app blocks, none of Storelib's theme blocks", types(Object.values(compatCatalog)) === `_price,card,${APP}`)
     check('"@theme" lists the theme\'s public blocks; "@app" adds Storelib Reviews\' two', types(addableBlocks(compatSections.hero, compatCatalog)) === `card,${APP}`)
     check('a section of "@app" alone lists Storelib Reviews\' two', types(addableBlocks(compatSections.apps, compatCatalog)) === APP)

@@ -387,7 +387,8 @@ async function main() {
     const drawerSrc = code("lib/website-builder/cart-checkout.ts")
     check("the native cart drawer's Check out comes back to the page the drawer was open on", /back: drawerBackPath\(cartPath\)/.test(drawerSrc) && /returnPath: drawerBackPath\(cartPath\)/.test(drawerSrc) && /sitePath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\) \?\? cartPath/.test(drawerSrc))
     const product = code("components/website-builder/sections/renderers/ProductSection.tsx")
-    check("a native Buy now on something that ships goes straight to the website's checkout, Back to this very page", /window\.location\.href = siteBuyHref\(\) \?\? physicalCheckoutHref\(/.test(product) && /siteCheckoutHref\(\{ items: \[\{ productId: product\.id, variantId: variant\?\.id \?\? null, quantity: qty, \.\.\.\(personalized\.properties \? \{ properties: personalized\.properties \} : \{\}\) \}\], back: sitePath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\) \}\)/.test(product))
+    /* Changed on purpose (round 13): the line carries the Personalization blocks' properties and the product's own answers together (withAnswers). */
+    check("a native Buy now on something that ships goes straight to the website's checkout, Back to this very page", /window\.location\.href = siteBuyHref\(\) \?\? physicalCheckoutHref\(/.test(product) && /siteCheckoutHref\(\{ items: \[\{ productId: product\.id, variantId: variant\?\.id \?\? null, quantity: qty, \.\.\.\(properties \? \{ properties \} : \{\}\) \}\], back: sitePath\(`\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\) \}\)/.test(product))
   }
 
   /* ── SPEED ───────────────────────────────────────────────────────── */

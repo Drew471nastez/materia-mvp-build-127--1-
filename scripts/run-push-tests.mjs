@@ -872,6 +872,8 @@ const SUITES = [
   "tests/round-bc-dmnotify.test.ts",
   "tests/round-bc-sizecharts.test.ts",
   "tests/ag2-imported-theme.test.ts",
+  /* Round 13: personalization fields (text, long text, photo upload) and custom fields, from the editor through every theme, the cart, the checkout's server check, the order, emails, slip and exports */
+  "tests/personalization-r13.test.ts",
   "tests/round-bc-productblocks.test.ts",
   "tests/round-bc-checkout.test.ts",
   "tests/round-bc-accounts.test.ts",
@@ -940,6 +942,8 @@ const STRICT_SUITES = [
   "tests/shippypro.test.ts",
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
   "tests/e2e24.test.ts",
+  /* Round 13: a personalized mug through the real routes: photo upload to private storage, refusals, two lines with different answers, the order, emails, the photo link, an imported theme (tests/_journey) */
+  "tests/e2e-personalization.test.ts",
   /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
   "tests/e2e-store-currency.test.ts",
   /* Round 13: a store translated by the cron on a fake Gemini, end to end: the retired model, refused answers left to wait, every call counted, translation memory across stores, /admin/translations (tests/_journey) */

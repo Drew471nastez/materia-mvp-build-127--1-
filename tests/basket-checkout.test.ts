@@ -209,7 +209,7 @@ async function main() {
   const quote = code("lib/checkout/site-quote-server.ts")
   const client = code("app/checkout/site/site-checkout.tsx")
   check("the website's own request gets its own checkout's address, after every check and before any Stripe session", route.lastIndexOf("siteCheckoutHref({") > route.indexOf("checkoutReadyForCreator(creator.id as string)") && route.lastIndexOf("siteCheckoutHref({") < route.indexOf("stripe.checkout.sessions.create"))
-  check("  a cart that ships from the site goes to that same checkout, which asks for the address", route.indexOf("siteCheckoutHref({") > route.indexOf('decision.kind === "ships"') && /items: decision\.items/.test(route))
+  check("  a cart that ships from the site goes to that same checkout, which asks for the address", route.indexOf("siteCheckoutHref({") > route.indexOf('decision.kind === "ships"') && /* Changed on purpose (round 13): the shipped lines given back their personalization answers first (lib/products/personalization itemsWithAnswers). */ /const shipped = itemsWithAnswers\(decision\.items, body\.items\)/.test(route) && /items: shipped/.test(route))
   check("  carrying only the lines that priced", /kept\.has\(`\$\{i\.productId\}::\$\{i\.variantId \?\? ""\}`\)/.test(route))
   check("  an embedded session made before the change still completes to the basket's return", /ui_mode: "embedded" as const,\s*return_url: successUrl/.test(route) && /clientSecret: session\.client_secret/.test(route))
   check("  and only Stripe's hosted page keeps a cancel address", /: \{ success_url: successUrl, cancel_url: `\$\{siteOrigin\}\$\{returnPath\}` \}/.test(route))

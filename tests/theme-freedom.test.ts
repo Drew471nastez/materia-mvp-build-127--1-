@@ -84,7 +84,8 @@ console.log("\nLAYOUT, MEDIA, CARDS, MOTION")
   const field = THEME_SETTINGS_GROUPS.flatMap((g) => g.fields).find((f) => f.id === "animations_enabled")
   check("Animations shows off when nothing moves, and on means on", field?.default === false && themeAnimation({}) === "none" && themeAnimation({ animations_enabled: true }) !== "none")
   const product = read("components/website-builder/sections/renderers/product/product-blocks.tsx")
-  check("the product page's text boxes take Text boxes' corners", (product.match(/var\(--theme-input-radius, \$\{ctx\.radius\}\)/g) ?? []).length === 3)
+  /* Changed on purpose (round 13): a fourth text box, the Personalization fields, takes the same corners. */
+  check("the product page's text boxes take Text boxes' corners", (product.match(/var\(--theme-input-radius, \$\{ctx\.radius\}\)/g) ?? []).length === 4)
 }
 
 console.log("\nWHAT A TEMPLATE CAN READ")

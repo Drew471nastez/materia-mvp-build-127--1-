@@ -246,7 +246,8 @@ const hydra = { id: HYDRA, settings: { title: "Hydra", slug: "hydra", url: "/pro
     const files = withStorelibReviewsSection(rows)
     const catalog = themeBlockCatalog(files, { builtIn: false })
     const names = addableBlocks(schemaFor("main-product", files, {}), catalog).map((b) => b.name)
-    check("Add block in a section that takes @app lists Stock status and Estimated delivery after Storelib Reviews'", JSON.stringify(names.slice(-5, -1)) === '["Star rating","Reviews","Stock status","Estimated delivery"]', names)
+    /* Changed on purpose (round 13): Size chart and Personalization come last now. */
+    check("Add block in a section that takes @app lists Stock status and Estimated delivery after Storelib Reviews'", JSON.stringify(names.slice(-6, -2)) === '["Star rating","Reviews","Stock status","Estimated delivery"]', names)
   }
 
   console.log("\n4. Options: price, sold out, photo, ?variant= and the cart line")

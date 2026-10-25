@@ -119,6 +119,9 @@ function changeOf(key: DirtyField, value: unknown): unknown {
       return (value as DirtyFields["faqs"]).map((f) => ({ ...f, answer: "B" }))
     case "customFields":
       return (value as DirtyFields["customFields"]).map((f) => ({ ...f, value: "12 cm" }))
+    /* Round 13: a personalization field added (app/app/products/new/personalization-card.tsx). */
+    case "personalization":
+      return [...((value as DirtyFields["personalization"]) ?? []), { id: "pz1", label: "Name to engrave", type: "text", required: true, maxLength: 12, placeholder: "", help: "" }]
   }
   if (typeof value === "boolean") return !value
   if (value === null) return "Other"
@@ -138,10 +141,12 @@ console.log("\nEvery field of the form is a change, and changing it back is not\
       check(`${key}: has a change in this test`, false)
       continue
     }
-    const changed = { ...saved, [key]: next } as DirtyFields
-    check(`${key}: a change turns Save on`, changedFields(changed, saved).includes(key), changedFields(changed, saved))
-    const back = { ...changed, [key]: saved[key] } as DirtyFields
-    check(`${key}: changing it back turns Save off`, changedFields(back, saved).length === 0, changedFields(back, saved))
+    /* Round 13: personalization is saved only for a product that ships, so it is compared on one. */
+    const was = (key === "personalization" ? { ...saved, productType: "physical" } : saved) as DirtyFields
+    const changed = { ...was, [key]: next } as DirtyFields
+    check(`${key}: a change turns Save on`, changedFields(changed, was).includes(key), changedFields(changed, was))
+    const back = { ...changed, [key]: was[key] } as DirtyFields
+    check(`${key}: changing it back turns Save off`, changedFields(back, was).length === 0, changedFields(back, was))
   }
   check("the fields left out are the ones that save on their own or are not values", NOT_SAVED_WITH_FORM.join() === "productId,seoEdited,isPublished")
 }

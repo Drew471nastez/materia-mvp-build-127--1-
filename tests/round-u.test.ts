@@ -61,7 +61,7 @@ async function main() {
     /* The route decides with lib/checkout/basket-decision, which the branded basket checkout page shares. */
     const route = read("app/api/checkout/cart/route.ts")
     const decide = read("lib/checkout/basket-decision.ts")
-    check("the basket route sends a shipping cart to the physical checkout with its url", /if \(priced\.ships\.length > 0\)/.test(decide) && /decision\.kind === "ships"/.test(route) && /physicalCheckoutHref\(creatorId, decision\.items/.test(route) && /ships: true/.test(route))
+    check("the basket route sends a shipping cart to the physical checkout with its url", /if \(priced\.ships\.length > 0\)/.test(decide) && /decision\.kind === "ships"/.test(route) && /* Changed on purpose (round 13): the priced items with each cart line's personalization answers (itemsWithAnswers). */ /const shipped = itemsWithAnswers\(decision\.items, body\.items\)/.test(route) && /physicalCheckoutHref\(creatorId, shipped/.test(route) && /ships: true/.test(route))
     check("  and the old refusal is gone, with named items when something really can't be bought", !/"Nothing in the cart can be bought right now"/.test((route + decide).replace(/\/\*[\s\S]*?\*\//g, "")) && /can't be bought right now/.test(decide))
     check("  a code on a shipping cart is added on the next page, not refused", /Something in this cart ships/.test(read("app/api/coupons/validate/route.ts")))
     check("  an imported theme's checkout goes straight to the website's own checkout on its host, in one redirect", /return redirect\(\s*siteCheckoutHref\(/.test(read("lib/storelib-theme/compat/site.ts")) && !/location\.replace\(x\.b\.url\)/.test(read("lib/storelib-theme/compat/site.ts")))

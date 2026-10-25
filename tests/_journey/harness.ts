@@ -112,6 +112,9 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/onepage": () => import("@/app/api/onepage/route"),
   "/api/onepage/publish": () => import("@/app/api/onepage/publish/route"),
   "/api/website-builder/contact": () => import("@/app/api/website-builder/contact/route"),
+  /* Round 13: a buyer's photo for a personalization field, kept as a cart upload, and opened by the browser that sent it (tests/e2e-personalization.test.ts). */
+  "/api/cart/uploads/[ref]/[name]": () => import("@/app/api/cart/uploads/[ref]/[name]/route"),
+  "/api/cart/uploads": () => import("@/app/api/cart/uploads/route"),
 }
 
 /* Columns production has that no SQL file created were added by run-now part 165; none are taken on trust any more. */
@@ -198,8 +201,10 @@ export class Journey {
     for (const [k, v] of Object.entries(opts.cookies ?? {})) jar.set(k, v)
     const headers = new Headers({ host: url.host, "user-agent": "Mozilla/5.0 (journey)", "x-forwarded-for": "203.0.113.9", "x-vercel-ip-country": "RO", ...(opts.headers ?? {}) })
     if (jar.size) headers.set("cookie", [...jar].map(([k, v]) => `${k}=${v}`).join("; "))
-    const body = opts.raw ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body))
-    if (body !== undefined && !headers.has("content-type")) headers.set("content-type", "application/json")
+    /* A FormData body goes as multipart, its boundary set by the Request (round 13: a buyer's photo, /api/cart/uploads). */
+    const form = opts.body instanceof FormData ? opts.body : null
+    const body = opts.raw ?? form ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body))
+    if (body !== undefined && !form && !headers.has("content-type")) headers.set("content-type", "application/json")
     const request = new Request(url, { method, headers, body: method === "GET" || method === "HEAD" ? undefined : body })
     const setCookies: Record<string, string> = {}
     ;(globalThis as any).__PUSH_TEST_NEXT_HEADERS__ = {
