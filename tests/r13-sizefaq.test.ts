@@ -23,7 +23,7 @@
  * chart" the way Materia does, with collapsible rows), a Storelib theme's
  * product page (the page product handed to its FAQ and Size guide
  * sections, .storelib and React alike), the OnePage's sheet, the seller's
- * side (Also show it on, before and after SQL part 307), the SQL part and
+ * side (Also show it on, before and after SQL part 309), the SQL part and
  * the Help Center.
  *
  * Run with: npx tsx tests/r13-sizefaq.test.ts
@@ -192,7 +192,7 @@ async function main() {
     check("a chart picked on the product wins over its collection's", (await sizeChartsForProducts(fakeDb(own), CREATOR, [{ id: POLO }])).get(POLO)?.name === "Tees")
     check("one product, by the same rule (the product section and the OnePage read it so)", (await sizeChartForProduct(fakeDb(tables()), HOODIE, CREATOR))?.name === "Hoodies" && (await sizeChartForProduct(fakeDb(tables()), MUG, CREATOR)) === null)
     check("  and without the owner given, from the product's own store", (await sizeChartForProduct(fakeDb(tables()), POLO))?.name === "Shirts")
-    check("before SQL part 307 (no rule columns): only the product's own chart, never an error", (await sizeChartsForProducts(fakeDb(tables(), { missingColumns: ["collection_ids"] }), CREATOR, [{ id: TEE }, { id: POLO }])).size === 1)
+    check("before SQL part 309 (no rule columns): only the product's own chart, never an error", (await sizeChartsForProducts(fakeDb(tables(), { missingColumns: ["collection_ids"] }), CREATOR, [{ id: TEE }, { id: POLO }])).size === 1)
     check("before SQL part 283: nothing, never an error", (await sizeChartsForProducts(fakeDb({}, { missing: ["product_size_charts", "size_charts"] }), CREATOR, [{ id: TEE }])).size === 0)
   }
 
@@ -359,9 +359,9 @@ async function main() {
     check("saving keeps only this store's collections, categories trimmed without repeats", saved.ok && row.collection_ids.join() === SHIRTS && row.categories.join() === "T-Shirts,Tanks", row)
     const old = fakeDb(tables(), { missingColumns: ["collection_ids"] })
     const plain = await saveSizeChart(old as never, CREATOR, TEE_CHART, { ...body, collectionIds: [], categories: [] })
-    check("before SQL part 307: a chart with none set still saves", plain.ok)
+    check("before SQL part 309: a chart with none set still saves", plain.ok)
     const refused = await saveSizeChart(fakeDb(tables(), { missingColumns: ["collection_ids"] }) as never, CREATOR, TEE_CHART, body)
-    check("  one set for collections says which part to run", refused.ok === false && /SQL part 307/.test((refused as O).error))
+    check("  one set for collections says which part to run", refused.ok === false && /SQL part 309/.test((refused as O).error))
     const oldList = await listSizeCharts(fakeDb(tables(), { missingColumns: ["collection_ids"] }) as never, CREATOR)
     check("  and the list says rules are not ready, with the charts", oldList.ready && oldList.rules === false && oldList.charts.length === 3)
     const inherited = await productSizeChartId(fakeDb(tables()) as never, CREATOR, POLO)
@@ -377,18 +377,18 @@ async function main() {
 
   console.log("\nThe SQL part, the theme contracts and the Help Center\n")
   {
-    const part = code("supabase/sql/run-now/307_size_chart_rules.sql")
+    const part = code("supabase/sql/run-now/309_size_chart_rules.sql")
     const lines = part.trim().split("\n")
     check("one summary line, then one statement per line, the reload last", lines[0].startsWith("/*") && lines[0].endsWith("*/") && lines[lines.length - 1] === "notify pgrst, 'reload schema';")
     check("additive and safe to run again", /ADD COLUMN IF NOT EXISTS collection_ids uuid\[\] NOT NULL DEFAULT/.test(part) && /ADD COLUMN IF NOT EXISTS categories text\[\] NOT NULL DEFAULT/.test(part) && /DROP CONSTRAINT IF EXISTS size_charts_rules_len/.test(part) && !/DROP TABLE|DROP COLUMN/.test(part))
     check("  and waits for part 283", /to_regclass\('public\.size_charts'\) IS NULL/.test(part))
-    check("listed, checked after, and copied to migrations byte for byte", /`307_size_chart_rules\.sql`/.test(code("supabase/sql/run-now/README.md")) && /as p307_size_chart_rules\b/.test(code("supabase/sql/run-now/99_check_after.sql")) && code("supabase/migrations/20270217_size_chart_rules.sql") === part)
+    check("listed, checked after, and copied to migrations byte for byte", /`309_size_chart_rules\.sql`/.test(code("supabase/sql/run-now/README.md")) && /as p309_size_chart_rules\b/.test(code("supabase/sql/run-now/99_check_after.sql")) && code("supabase/migrations/20270217_size_chart_rules.sql") === part)
     check("the Materia contracts are in the repository", ["docs/theme-contracts/size-charts.md", "docs/theme-contracts/product-faqs.md"].every((p) => /metafields\.storelib/.test(code(p))))
     const faqArticle = ALL_HELP_ARTICLES.find((a) => a.slug === "product-questions")
     const text = JSON.stringify(faqArticle?.body ?? [])
     check("Help: Add questions (FAQ) to a product, with where they show and theme notes", !!faqArticle && ["Questions from", "The product, else these", "The product only", "These questions only", "product.metafields.storelib.faqs", "Featured product", "OnePage"].every((w) => text.includes(w)))
     const sizes = JSON.stringify(ALL_HELP_ARTICLES.find((a) => a.slug === "set-up-size-charts")?.body ?? [])
-    check("Help: size charts by collection and category, the order, the Size guide section, Use assigned Storelib size chart", ["Also show it on", "A chart set for a collection the product is in.", "Chart from", "This table only", "Use assigned Storelib size chart", "SQL part 307"].every((w) => sizes.includes(w)))
+    check("Help: size charts by collection and category, the order, the Size guide section, Use assigned Storelib size chart", ["Also show it on", "A chart set for a collection the product is in.", "Chart from", "This table only", "Use assigned Storelib size chart", "SQL part 309"].every((w) => sizes.includes(w)))
     check("the developer docs say the contract", ["answer_html", "notes_html", "`source`", "Featured product"].every((w) => code("content/developers/imported-shopify-themes.md").includes(w)))
   }
 

@@ -1427,7 +1427,7 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "p", text: "In the product editor, a product with no chart of its own says which chart it shows for now, and why. Picking a chart on the product always wins. Two charts set for the same collection or category: the first by name shows." },
-      { type: "note", text: "Collections and categories need SQL part 307. Until it has run, the chart editor says so, and you pick the chart on each product." },
+      { type: "note", text: "Collections and categories need SQL part 309. Until it has run, the chart editor says so, and you pick the chart on each product." },
 
       { type: "h", text: "What buyers see" },
       shot("size-guide-buyer", "A product page with Size guide beside the Size option, and the chart Linen aprons open over it in inches, with the chosen size L/XL marked.", "Size guide sits beside the size. The chart opens over the page, in cm or inches, with the chosen size marked."),
