@@ -268,6 +268,10 @@ function main() {
     /onClick=\{\(e\) => \{ if \(isPlainClick\(e\.nativeEvent\)\) onNavigate\?\.\(UPGRADE_HREF\) \}\}/.test(desktop) && /onPrefetch\?\.\(UPGRADE_HREF\)/.test(desktop)
       && /if \(isPlainClick\(e\.nativeEvent\)\) onNavigate\?\.\(UPGRADE_HREF\)/.test(phone) && /prefetchAppPage\(router, UPGRADE_HREF\)/.test(phone))
 
+  /* Round 12 (PLATPERF): the kept canvas's "context lost" marker was made in the cleanup and never taken off, so every visit kept the Home before it (about 500 DOM nodes). */
+  check("the globe kept between visits holds no old Home: its marker is made outside the effect and taken off on reuse",
+    !/addEventListener\("webglcontextlost", \(\) =>/.test(globe) && /function keepGlobe\(/.test(globe) && /window\.clearTimeout\(k\.timer\)\n\s*unmark\(k\)/.test(globe) && /if \(kept\) unmark\(kept\)/.test(globe))
+
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }
 }

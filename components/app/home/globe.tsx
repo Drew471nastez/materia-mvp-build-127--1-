@@ -95,8 +95,32 @@ interface Kept {
   timer: number
   /** Its context was lost while nobody held it: nothing in it can be trusted to draw. */
   dead: boolean
+  /** The listener that sets `dead`, taken off the canvas again when the next mount takes it. */
+  onDead: (() => void) | null
 }
 let kept: Kept | null = null
+
+/*
+  KEPT WITHOUT KEEPING THE PAGE (round 12). The "context lost" marker was an
+  arrow made inside the effect's cleanup, so it closed over that mount's
+  whole scope (its box, and through it the Home it was drawn in), and it was
+  never taken off: the canvas goes from mount to mount, so every visit to
+  Home left one more marker on it and one more detached copy of Home in
+  memory, about 500 DOM nodes a visit (scripts/check-dashboard-roundtrips.mjs).
+  Made out here it holds only the kept record, and reuse takes it off.
+*/
+function keepGlobe(canvas: HTMLCanvasElement | null, ball: HTMLCanvasElement | null, renderer: GlobeRenderer): Kept {
+  const k: Kept = { canvas, ball, renderer, timer: 0, dead: false, onDead: null }
+  k.onDead = () => {
+    k.dead = true
+  }
+  canvas?.addEventListener("webglcontextlost", k.onDead, { once: true })
+  return k
+}
+function unmark(k: Kept) {
+  if (k.onDead) k.canvas?.removeEventListener("webglcontextlost", k.onDead)
+  k.onDead = null
+}
 const pose = { yaw: (-10 * Math.PI) / 180, tilt: REST_TILT, at: 0 }
 
 export function BannerGlobe({ className }: { className?: string }) {
@@ -136,6 +160,7 @@ export function BannerGlobe({ className }: { className?: string }) {
       kept = null
       if (!k) return false
       window.clearTimeout(k.timer)
+      unmark(k)
       if (k.dead || !k.canvas || !k.ball || !k.renderer || k.renderer.failed()) {
         k.renderer?.dispose()
         return false
@@ -570,12 +595,13 @@ export function BannerGlobe({ className }: { className?: string }) {
       box.removeAttribute("data-renderer")
       /* Kept for the next mount while it can still draw; let go after a while so a page that never comes back holds no context. */
       if (renderer && !lost && !renderer.failed()) {
+        if (kept) unmark(kept)
         kept?.renderer?.dispose()
-        const k: Kept = { canvas, ball, renderer, timer: 0, dead: false }
-        canvas?.addEventListener("webglcontextlost", () => (k.dead = true), { once: true })
+        const k = keepGlobe(canvas, ball, renderer)
         k.timer = window.setTimeout(() => {
           if (kept !== k) return
           kept = null
+          unmark(k)
           k.renderer?.dispose()
         }, KEEP_MS)
         kept = k
