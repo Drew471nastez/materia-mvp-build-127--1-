@@ -27,7 +27,7 @@
  */
 import { compatFilter, escapeHtml } from "./filters"
 import { CompatSyntaxError } from "./lexer"
-import { parseCompat, type Parsed } from "./parser"
+import { parseCompat, type Node, type Parsed } from "./parser"
 import { Ctx, OUTPUT, evaluate, renderString, renderTree, toList, toOutput, type Env } from "./runtime"
 import { parseOutput } from "./expression"
 import {
@@ -48,6 +48,7 @@ import {
   productObject,
   productRatingFrom,
   reviewMetafields,
+  storelibReviewSummary,
   requestObject,
   schemesObject,
   typedSettings,
@@ -77,6 +78,14 @@ import { SIZE_CHART_APP_BLOCK as SIZE_CHART_APP_BLOCK_TYPE, SIZE_CHART_SNIPPET, 
 /** The product objects whose size chart a page has drawn already: a second link points at the first chart (./size-chart.ts). */
 const SIZE_CHART_SHOWN = new WeakSet<object>()
 import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
+import type { SizeChart } from "@/lib/size-charts/model"
+
+/** Every product's published rating from the page's Storelib Reviews, by product id; none for sample reviews or the app off. */
+function pageRatings(reviews: unknown): Resources["ratings"] {
+  const r = reviews as { enabled?: unknown; sample?: unknown; ratings?: unknown } | null | undefined
+  if (!r || r.enabled !== true || r.sample === true || !r.ratings || typeof r.ratings !== "object") return undefined
+  return r.ratings as Resources["ratings"]
+}
 import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { linkFactsOf, siteLink } from "./links"
 import { compileSection } from "../storelib/compile"
@@ -355,6 +364,13 @@ export interface CompatPage {
   catalog?: { filters?: O[]; sortBy?: string; pagination?: O } | null
   /** Storelib Reviews for this page (lib/reviews/storefront.ts), as `storelib_reviews`: ./storelib-reviews.ts. */
   reviews?: O | null
+  /**
+   * The store's size charts by product id (lib/size-charts/storefront.ts
+   * sizeChartsForStore), read for the creator whose site this is: a featured
+   * product and a card carry the same product.metafields.storelib.size_chart
+   * as the product's own page.
+   */
+  sizeCharts?: Record<string, SizeChart>
 }
 
 export interface CompatThemeOptions {
@@ -691,6 +707,8 @@ export class CompatTheme {
       currentPath: page.path,
       current: page.product ?? null,
       link: pageLinks(page),
+      sizeCharts: page.sizeCharts,
+      ratings: pageRatings(page.reviews),
     }
   }
 
@@ -708,7 +726,8 @@ export class CompatTheme {
     const currency = page.shop.currency ?? "USD"
     const moneyFormat = page.shop.moneyFormat ?? "${{amount}}"
 
-    const productObj = page.product ? productObject(page.product, { descriptionHtml: page.product.descriptionHtml, selectedVariantId: page.selectedVariantId, selectedValues: page.selectedValues }) : null
+    const pageCard = page.product && page.product.settings.size_chart === undefined && page.sizeCharts?.[page.product.id] ? { ...page.product, settings: { ...page.product.settings, size_chart: page.sizeCharts[page.product.id] } } : page.product
+    const productObj = pageCard ? productObject(pageCard, { descriptionHtml: page.product?.descriptionHtml, selectedVariantId: page.selectedVariantId, selectedValues: page.selectedValues }) : null
     /*
       THE PRODUCT PAGE'S OWN STARS. The card a product page is drawn from
       carries its rating only while "Stars on product cards" is on
@@ -721,7 +740,11 @@ export class CompatTheme {
     */
     if (productObj) {
       const rated = productRatingFrom(page.reviews, String(productObj.id ?? ""))
-      if (rated) (productObj.metafields as O).reviews = reviewMetafields(rated)
+      if (rated) {
+        ;(productObj.metafields as O).reviews = reviewMetafields(rated)
+        const summary = storelibReviewSummary(rated)
+        if (summary) ((productObj.metafields as O).storelib as O).reviews = { [OUTPUT]: String(summary.count), value: summary, key: "reviews", namespace: "storelib", type: "json" }
+      }
     }
     const collections: O = {}
     for (const c of page.collections) collections[c.handle] = collectionByHandle(res, c.handle)
@@ -1267,6 +1290,77 @@ export class CompatTheme {
   }
 
   /**
+   * ===========================================================================
+   *  ONE BLOCK, DRAWN ALONE: THE BLOCK LIBRARY'S PREVIEW
+   * ===========================================================================
+   * Add block showed each block by drawing the whole section it goes in (a
+   * main product section, gallery and all) and cropping to the block. Now
+   * the block is drawn from its own markup, with its sample settings and the
+   * page's product (the shop's first on a page that has none), inside a
+   * minimal section wrapper so the theme's CSS still applies:
+   *
+   *   a theme block           blocks/<type>.storelib, as {% content_for %}
+   *                           draws it
+   *   a Storelib app block    drawn in place as on the page (stars,
+   *                           reviews, stock, delivery, size chart)
+   *   a section's own block   its `{% when '<type>' %}` branch of the
+   *                           section's `case block.type`, drawn with that
+   *                           block as `block`
+   *
+   * Null when the block has no markup of its own to draw (the section draws
+   * it inline in a way that cannot be found, or it draws nothing): the
+   * library then shows the block's icon.
+   */
+  renderBlockAlone(ctx: Ctx, sectionType: string, block: CompatBlockInstance): string | null {
+    const res = ctx.registers.res as Resources | undefined
+    if (!res) return null
+    const schema = this.schemaOf("sections", sectionType)
+    const instance: CompatSectionInstance = { id: "storelib-block-preview", type: sectionType, settings: {}, blocks: [block] }
+    let holder: Ctx | null = null
+    const section = this.sectionObject(instance, schema, res, 0, undefined, resolverFor(() => holder))
+    const product = (ctx.globals.product as O | null | undefined) ?? (res.products[0] ? productObject(res.products[0]) : null)
+    const closest: O = product ? { product } : {}
+    for (const k of ["collection", "article", "blog", "page"]) if (ctx.globals[k]) closest[k] = ctx.globals[k]
+    const child = ctx.child({ section, closest, ...(product && !ctx.globals.product ? { product } : {}) })
+    holder = child
+    child.registers.section = section
+    child.registers.sectionInstance = instance
+    child.registers.closest = closest
+    let html = ""
+    try {
+      const path = this.fileFor("blocks", block.type)
+      const tree = path ? this.tree(path) : null
+      if (tree) {
+        let inner: Ctx | null = null
+        const obj = this.blockObject(block, [], res, resolverFor(() => inner))
+        const c = child.child({ block: obj, closest })
+        inner = c
+        c.registers.block = obj
+        c.registers.closest = closest
+        html = renderTree(tree, c)
+      } else if (isReviewsAppBlock(block.type)) html = this.reviewsBlock(child, block, closest)
+      else if (isStorelibProductAppBlock(block.type)) html = this.productAppBlock(child, block, closest)
+      else if (isSizeChartAppBlock(block.type)) html = this.sizeChartBlock(child, block, closest)
+      else {
+        const sectionPath = this.fileFor("sections", sectionType)
+        const sectionTree = sectionPath ? this.tree(sectionPath) : null
+        const branch = sectionTree ? blockBranch(sectionTree.nodes, block.type) : null
+        if (!branch) return null
+        const obj = (section.blocks as O[])[0]
+        if (!obj) return null
+        const c = child.child({ block: obj, forloop: { index: 1, index0: 0, first: true, last: true, length: 1 } })
+        c.registers.block = obj
+        html = renderTree(branch, c)
+      }
+    } catch {
+      return null
+    }
+    if (!html.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>|<!--[\s\S]*?-->/gi, "").replace(/<(?!img|svg|video|iframe|input|button|select|textarea|picture)[^>]*>/gi, "").trim()) return null
+    const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
+    return this.finish(`<div id="shopify-section-storelib-block-preview" class="shopify-section${cls}" data-section-type="${escapeHtml(sectionType)}" data-storelib-block-alone><div class="storelib-block-alone">${html}</div></div>`)
+  }
+
+  /**
    * `{% block 'header', tag: 'div' %}…{% endblock %}`: Shopify's newest
    * themes (Skeleton) place their header, footer and each page's parts this
    * way, in the layout and the templates, with no section around them. The
@@ -1474,6 +1568,30 @@ export class CompatTheme {
 }
 
 /** Dynamic sources read in a context that exists by the time a value is read. */
+/** The body of a section's `{% when '<type>' %}` inside a `case block.type`, at any depth, or null. */
+function blockBranch(nodes: readonly Node[], type: string): Node[] | null {
+  for (const n of nodes) {
+    if (n.k === "case") {
+      const s = n.subject
+      const isBlockType = s.t === "path" && s.root === "block" && s.segs.length === 1 && s.segs[0].k === "name" && s.segs[0].v === "type"
+      if (isBlockType) {
+        const hit = n.whens.find((w) => w.values.some((v) => v.t === "lit" && v.v === type))
+        if (hit) return hit.body
+      }
+    }
+    const kids: Node[][] = []
+    if (n.k === "if") kids.push(...n.branches.map((b) => b.body), ...(n.else ? [n.else] : []))
+    else if (n.k === "case") kids.push(...n.whens.map((w) => w.body), ...(n.else ? [n.else] : []))
+    else if (n.k === "for" || n.k === "tablerow" || n.k === "capture" || n.k === "ifchanged" || n.k === "form" || n.k === "paginate" || n.k === "style" || n.k === "block" || n.k === "partial") kids.push(n.body)
+    if (n.k === "for" && n.else) kids.push(n.else)
+    for (const k of kids) {
+      const found = blockBranch(k, type)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 function resolverFor(get: () => Ctx | null): DynamicResolver {
   return {
     value: (expr) => {

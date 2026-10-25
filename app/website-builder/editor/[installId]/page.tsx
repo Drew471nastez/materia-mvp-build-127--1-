@@ -9060,6 +9060,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       createCollection,
       /* An imported theme's sections pick from its own schemes, not Storelib's (lib/storelib-theme/compat/scheme-list.ts). */
       colorSchemes: compatSchemes,
+      compat: compatInstall,
       themeSettings: compatInstall ? null : (settingsDraft as Record<string, unknown>),
       /*
         Edit beside a section's scheme: Theme settings opens at that scheme, on

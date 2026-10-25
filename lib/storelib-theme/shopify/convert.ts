@@ -51,6 +51,7 @@ import { SECTION_CSS_KEY, splitCompatFile, wrapCompatTemplate } from "../compat/
 import { floatsOverPage } from "../section-groups"
 import { isReviewsAppBlock } from "../compat/storelib-reviews"
 import { isSizeChartAppBlock } from "../compat/size-chart"
+import { STORELIB_APP_SECTION_NAMES, isStorelibNativeSection } from "../compat/native-sections"
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
@@ -1010,10 +1011,14 @@ function templateSections(t: Tree, types: Map<string, string>, report: Report, p
   for (const id of Object.keys(all)) if (!order.includes(id)) order.push(id)
   const out: ImportedSection[] = []
   const missing = new Set<string>()
+  const native = new Set<string>()
   for (const id of order) {
     const s = all[id]
     if (!s || typeof s !== "object") continue
-    const type = types.get(String(s.type))
+    /* A Storelib section (../compat/native-sections.ts) needs no file of the theme's: Storelib draws it, as an app draws its own on Shopify. */
+    const own = types.get(String(s.type))
+    const type = own ?? (isStorelibNativeSection(s.type) ? String(s.type) : undefined)
+    if (!own && type) native.add(type)
     if (!type) { missing.add(String(s.type)); continue }
     if (out.length >= LIMITS.sectionsPerTemplate) {
       report.note(path, `The builder holds ${LIMITS.sectionsPerTemplate} sections a page; the rest were left off`)
@@ -1023,7 +1028,7 @@ function templateSections(t: Tree, types: Map<string, string>, report: Report, p
     /* Every save route reads a section's name; a group's sections usually come without one. */
     /* What the page calls it, else what the theme calls the section, as Shopify's editor names it. */
     const ownName = typeof s.name === "string" && s.name.trim() ? (SECTION_WORDS.get(types)?.(s.name, "") ?? (s.name.startsWith("t:") ? "" : s.name)) : ""
-    section.name = (ownName || SECTION_NAMES.get(types)?.get(type) || humanise(String(s.type))).slice(0, 80)
+    section.name = (ownName || SECTION_NAMES.get(types)?.get(type) || STORELIB_APP_SECTION_NAMES[type] || humanise(String(s.type))).slice(0, 80)
     if (s.disabled === true) section.hidden = true
     /* The section's Custom CSS from Shopify's editor, kept with its settings and drawn for that section alone (compat/theme.ts sectionCss). */
     const customCss = (Array.isArray(s.custom_css) ? (s.custom_css as unknown[]) : []).filter((x): x is string => typeof x === "string").join("\n").trim()
@@ -1034,6 +1039,7 @@ function templateSections(t: Tree, types: Map<string, string>, report: Report, p
     out.push(section)
   }
   if (missing.size) report.note(path, `It names sections the theme does not have, which were left off: ${[...missing].join(", ")}`)
+  if (native.size) report.note(path, `It places Storelib's own ${[...native].join(", ")}, kept with its settings and drawn by Storelib`)
   noteAppBlocks(out.flatMap((s) => s.blocks ?? []), report, path, "places")
   return out
 }

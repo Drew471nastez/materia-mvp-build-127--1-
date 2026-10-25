@@ -867,6 +867,7 @@ const SUITES = [
   "tests/round-bc-domains.test.ts",
   "tests/round-bc-dmnotify.test.ts",
   "tests/round-bc-sizecharts.test.ts",
+  "tests/ag2-imported-theme.test.ts",
   "tests/round-bc-productblocks.test.ts",
   "tests/round-bc-checkout.test.ts",
   "tests/round-bc-accounts.test.ts",

@@ -36,6 +36,7 @@
 import { createHash } from "node:crypto"
 import { sectionsFromTemplate } from "@/lib/storelib-theme/package"
 import { inGroup, splitGroups } from "@/lib/storelib-theme/section-groups"
+import { isStorelibNativeSection, preserveNativeWidgets } from "@/lib/storelib-theme/compat/native-sections"
 import { FOOTER_GROUP_PATH, HEADER_GROUP_PATH, OVERLAY_GROUP_PATH, packageFilesFromPages } from "@/lib/website-builder/theme-pages"
 import type { Template } from "@/lib/storelib-theme/types"
 import {
@@ -478,7 +479,8 @@ export function mergePages(
         errors.push({ path, reason: `${path}: section "${s.id}" has no valid "type"` })
         return false
       }
-      if (!opts.knownTypes(s.type)) {
+      /* Storelib's own sections (storelib-review-widget, storelib-reviews) need no file: Storelib draws them (lib/storelib-theme/compat/native-sections.ts). */
+      if (!opts.knownTypes(s.type) && !isStorelibNativeSection(s.type)) {
         errors.push({ path, reason: `${path}: section "${s.id}" is a "${s.type}", and there is no sections/${s.type}.storelib in this theme. Add the file in the same push, or use a section the theme has` })
         return false
       }
@@ -502,10 +504,11 @@ export function mergePages(
   const touch = (key: string, before: Section[] | null) => {
     const cur = splitGroups((before ?? []) as Section[])
     const isHome = key === "home"
-    const header = groups.header && (cur.header.length || isHome || before === null) ? groups.header : cur.header
-    const footer = groups.footer && (cur.footer.length || isHome || before === null) ? groups.footer : cur.footer
-    const overlay = groups.overlay && (cur.overlay.length || isHome || before === null) ? groups.overlay : cur.overlay
-    const own = templates[key] ?? cur.template
+    /* A Storelib widget the creator placed (a reviews widget, a Storelib app block) stays when the pushed file leaves it out, with its id and settings. */
+    const header = groups.header && (cur.header.length || isHome || before === null) ? preserveNativeWidgets(cur.header, groups.header) : cur.header
+    const footer = groups.footer && (cur.footer.length || isHome || before === null) ? preserveNativeWidgets(cur.footer, groups.footer) : cur.footer
+    const overlay = groups.overlay && (cur.overlay.length || isHome || before === null) ? preserveNativeWidgets(cur.overlay, groups.overlay) : cur.overlay
+    const own = templates[key] ? preserveNativeWidgets(cur.template, templates[key]) : cur.template
     const list = [...header, ...own, ...footer, ...overlay]
     if (list.length > opts.maxSections) {
       errors.push({ path: `templates/${key}.json`, reason: `templates/${key}.json: a page holds ${opts.maxSections} sections, and this would make ${list.length}` })

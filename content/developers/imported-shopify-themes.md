@@ -51,17 +51,26 @@ The engine reads the theme's template language itself, and it is lenient: a tag 
 
 **Metafields.** A product's custom fields from the product editor are `product.metafields.custom.<key>`, each printing as its value and with `.value`, `.key` and `.type`, so `{{ product.metafields.custom.material }}` and `.material.value` both work. The product's questions are `product.metafields.storelib.faqs.value`, a list of `{ question, answer }`. On the product page, what the store offers with the product is `product.metafields.storelib.offers.value`: `{ bundles, quantityBreaks, checkoutOffers }`, the same JSON as `GET /api/offers?product=` ([Physical commerce](/developers/physical-commerce#upsells-and-bundles)), so a theme can draw its quantity breaks and bundles in Liquid.
 
-**Size charts.** A product given a size chart in the product editor (Products › Size charts) has it as `product.metafields.storelib.size_chart`, which prints as the chart's name. Its `.value` is:
+**Size charts.** A product given a size chart in the product editor (Products › Size charts) has it as `product.metafields.storelib.size_chart`, which prints as the chart's name. It is the same on the product's own page, in a featured product section, on a product card and in a quick view, live and in the builder. Its `.value` is:
 
 | Key | What it is |
 | --- | --- |
-| `name` | The chart's name, shown as the title when a buyer opens it |
+| `name`, `title` | The chart's name, shown as the title when a buyer opens it |
 | `unit` | `cm` or `in`, the unit the seller typed the numbers in |
-| `columns` | A list of `{ name, measure }`: `measure` is true for a measurement (Chest, Waist) and false for a label (Size, EU) |
+| `unit_label` | That unit as it is printed |
+| `units` | The units the chart can be read in: `["cm", "in"]` when a measurement column has a number in it, else only its own |
+| `has_measurements` | Whether a measurement column has a number, so the cm and in switch means something |
+| `columns` | A list of `{ name, measure, unit }`: `measure` is true for a measurement (Chest, Waist) and false for a label (Size, EU); `unit` is the measurement's unit, nil for a label |
 | `rows` | A list of rows, each a list of cells as typed, one per column; the first cell is the size |
 | `rows_cm`, `rows_in` | The same rows with the measurement columns in cm and in, so a theme can offer the switch without doing the arithmetic |
+| `tables` | `{ cm: { unit, unit_label, rows }, in: { ... } }`, one entry per unit in `units` |
 | `notes` | The line under the table, plain text |
 | `image` | The picture of where to measure, or nil |
+| `measuring_guide` | `{ text, image }`: the notes and the picture, for a How to measure part |
+
+Numbers convert at 2.54 cm to the inch, to one decimal, every number in a cell ("86-91" becomes "33.9-35.8"), with the decimal mark the seller typed. A label column and a cell with words in it are left as typed.
+
+Most Shopify themes read a size chart as a page in `product.metafields.custom.size_chart`; that is there too, unless the product has a custom field of that name: `.value.title` the chart's name, `.value.content` the table in the chart's own unit, and every key above beside them.
 
 ```liquid
 {%- assign chart = product.metafields.storelib.size_chart.value -%}
@@ -75,6 +84,8 @@ The engine reads the theme's template language itself, and it is lenient: a tag 
 
 A theme whose code reads the metafield draws the chart itself and Storelib adds nothing. To place Storelib's own link and chart (a pop-up with a cm and in switch, no script needed), render `{% render 'storelib-size-chart' %}` or use the filter `{{ product | storelib_size_chart: label: 'Size guide', style: 'button' }}`; both print nothing for a product without a chart. A section that takes `@app` offers **Size chart** under Apps in Add block, and a block a theme kept from a size chart app on Shopify (Kiwi Sizing and the like) is drawn as Storelib's chart. With none of these on the page, the product page gets a Size guide link beside its size option by itself.
 
+**Reviews.** Storelib Reviews fills Shopify's standard review metafields from the product's published reviews (the ones the store shows on its website; sample reviews never count): `product.metafields.reviews.rating.value` is `{ rating, value, scale_min, scale_max }` (the average to one decimal, on 1 to 5) and prints as the average, and `product.metafields.reviews.rating_count.value` is how many. `product.metafields.storelib.reviews.value` has the same `average`, `count`, `scale_min`, `scale_max`, and on the product's page and a featured product `distribution`, five `{ stars, count, percent }` from five stars down. On the product's own page they are that page's reviews; a featured product reads the shop's ratings; a card has them while Stars on product cards is on. With none they are absent, so a theme's `!= blank` draws no stars. `{{ product | structured_data }}` writes the same numbers as its `aggregateRating`.
+
 **Stock.** A variant Storelib counts, once it is at its low stock line, has `inventory_management` set and `inventory_quantity` as the number left, so a theme's "Only 3 left" shows (Website settings › Commerce › Show how many are left can turn it off). Otherwise `inventory_quantity` only says whether it can be bought.
 
 A value Storelib does not have is present and empty, so a theme's `{% if %}` around it reads false: other metafields, metaobjects, vendors, blogs and articles, gift cards. A blog page draws the theme's blog template with its title and no posts.
@@ -82,6 +93,20 @@ A value Storelib does not have is present and empty, so a theme's `{% if %}` aro
 ## Sections, blocks and groups
 
 Every page is the header group, the template's sections and the footer group. A section on a page has its settings and its blocks, nested theme blocks included, and the builder edits them with the same panel as any section.
+
+**Storelib's own sections and app blocks need no file in the theme.** A template (in the ZIP, or pushed from GitHub) may name these, and they are kept with their settings and blocks:
+
+| Type | What it is |
+| --- | --- |
+| `storelib-review-widget` | One of the store's review widgets, with the look saved in Storelib Reviews › Widgets (`widget`, `review_config`, `heading` and the rest) |
+| `storelib-reviews` | The Storelib Reviews section: the product's reviews on its page, the shop's elsewhere |
+| `shopify://apps/storelib-reviews/blocks/star-rating/storelib`, `.../blocks/reviews/storelib` | Star rating and Reviews, in any section that takes `@app` |
+| `shopify://apps/storelib/blocks/stock-status/storelib`, `.../blocks/estimated-delivery/storelib` | Stock status and Estimated delivery |
+| `shopify://apps/storelib-size-charts/blocks/size-chart/storelib` | Size chart |
+
+Any other section type the theme has no file for is left off, and the import report (or the push's result) says which, and why. A push or a re-import whose template leaves out one of the creator's Storelib sections or app blocks keeps it where it was, after the section it followed, with its id and settings; the same section in both keeps the settings the creator saved.
+
+**Dynamic sources.** A setting whose value is `{{ ... }}` is read where the section is drawn, on the live site and in the builder alike: `{{ product.metafields.custom.material }}`, `{{ closest.product.title }}`, `{{ shop.name }}`, `{{ product.metafields.reviews.rating.value.rating }}`, `{{ product.metafields.storelib.size_chart }}`, a Shopify dynamic source kept in the template, or text around them ("Made of {{ product.metafields.custom.material }}"). What it reads is escaped for the setting it lands in: a text or rich text setting gets each value with `| escape`, except a description or a page's content in a rich text setting, which is markup already cleaned; a description in a text setting is its words only; a link that is not an address becomes `#`. The builder's Shop data button on a setting offers what an imported theme can fill (the product's title, price, description, picture, address, rating, number of reviews and size chart, the shop's name, description, address and product count, the page title, the year), and `{{ product.price }}` there is the price formatted, not cents.
 
 A theme's group files become Storelib's section groups:
 

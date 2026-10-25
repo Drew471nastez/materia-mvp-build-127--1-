@@ -22,7 +22,10 @@ import { withoutNewTab } from "@/lib/website-builder/new-tab"
 import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
 import { currencyWord } from "@/lib/markets/money"
 import { isVideoUrl, videoDuration, videoMime, videoPosterUrl } from "@/lib/media/video"
-import { readSizeChart, sizeChartJson } from "@/lib/size-charts/model"
+import { readSizeChart, sizeChartJson, type SizeChart } from "@/lib/size-charts/model"
+import { sizeChartTableHtml } from "@/lib/size-charts/html"
+import { COMPAT_HTML_EXPRS, COMPAT_SOURCE_EXPR } from "@/lib/storelib-theme/dynamic"
+import { safeHref } from "@/lib/storelib-theme/values"
 
 type O = Record<string, unknown>
 
@@ -548,7 +551,19 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown): O {
   const faqs = Array.isArray(s.faqs) ? (s.faqs as { question?: unknown; answer?: unknown }[]).filter((f) => typeof f?.question === "string" && typeof f?.answer === "string").map((f) => ({ question: f.question as string, answer: f.answer as string })) : []
   const storelib: O = faqs.length ? { faqs: { [OUTPUT]: String(faqs.length), value: faqs, key: "faqs", namespace: "storelib", type: "list.faq" } } : {}
   const chart = readSizeChart(s.size_chart)
-  if (chart) storelib.size_chart = { [OUTPUT]: chart.name, value: sizeChartJson(chart), key: "size_chart", namespace: "storelib", type: "json" }
+  if (chart) {
+    const value = sizeChartJson(chart)
+    storelib.size_chart = { [OUTPUT]: chart.name, value, key: "size_chart", namespace: "storelib", type: "json" }
+    /*
+      `custom.size_chart`, the name most Shopify themes read a size chart
+      under, as a page: `.value.title` and `.value.content` (the table in
+      the chart's own unit), with the same JSON beside them. Never over a
+      custom field of the creator's by that name.
+    */
+    if (custom.size_chart === undefined) {
+      custom.size_chart = { [OUTPUT]: chart.name, value: { ...value, [OUTPUT]: chart.name, content: sizeChartTableHtml(chart, chart.unit) }, key: "size_chart", namespace: "custom", type: "json" }
+    }
+  }
   /*
     `storelib.offers`: what the page offers with the product, the same JSON
     as GET /api/offers?product= (lib/offers/offers-public.ts): `.value` has
@@ -557,7 +572,27 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown): O {
   */
   const offers = s.storelib_offers
   if (offers && typeof offers === "object" && !Array.isArray(offers)) storelib.offers = { [OUTPUT]: JSON.stringify(offers), value: offers, key: "offers", namespace: "storelib", type: "json" }
-  return { custom, storelib, reviews: reviewMetafields(rating) }
+  const reviews = reviewMetafields(rating)
+  /* `storelib.reviews`: the same numbers with how many reviews gave each star, for a theme that draws the bars. */
+  const summary = storelibReviewSummary(rating)
+  if (summary) storelib.reviews = { [OUTPUT]: String(summary.count), value: summary, key: "reviews", namespace: "storelib", type: "json" }
+  return { custom, storelib, reviews }
+}
+
+/** `product.metafields.storelib.reviews.value`: average, count, scale and the five stars' counts when they were read. */
+export function storelibReviewSummary(rating: unknown): O | null {
+  const r = (rating && typeof rating === "object" ? rating : {}) as { value?: unknown; count?: unknown; stars?: unknown }
+  const count = typeof r.count === "number" && r.count > 0 ? Math.floor(r.count) : 0
+  const average = typeof r.value === "number" && r.value > 0 ? Math.round(r.value * 10) / 10 : 0
+  if (!count || !average) return null
+  const stars = r.stars && typeof r.stars === "object" ? (r.stars as Record<string, unknown>) : null
+  const distribution = stars
+    ? [5, 4, 3, 2, 1].map((n) => {
+        const c = Math.max(0, Math.floor(Number(stars[n]) || 0))
+        return { stars: n, count: c, percent: count ? Math.round((c / count) * 100) : 0 }
+      })
+    : null
+  return { average, rating: average, count, scale_min: 1, scale_max: 5, ...(distribution ? { distribution } : {}) }
 }
 
 /**
@@ -574,7 +609,8 @@ export function reviewMetafields(rating: unknown): O {
   const count = typeof r.count === "number" && r.count > 0 ? Math.floor(r.count) : 0
   const average = typeof r.value === "number" && r.value > 0 ? Math.round(r.value * 10) / 10 : 0
   if (!count || !average) return {}
-  const value = { [OUTPUT]: average.toFixed(1), rating: average, scale_min: 1, scale_max: 5 }
+  /* Shopify's rating: `.rating`, `.scale_min`, `.scale_max`; `.value` the same number, for a theme written against that name. */
+  const value = { [OUTPUT]: average.toFixed(1), rating: average, value: average, scale_min: 1, scale_max: 5 }
   return {
     /* `__star_color`: the store's star colour, for Storelib Reviews' own stars on a page that has no reviews of its own to read it from (./storelib-reviews.ts). A theme never sees a key that starts with __. */
     rating: { [OUTPUT]: average.toFixed(1), value, key: "rating", namespace: "reviews", type: "rating", ...(typeof r.color === "string" && r.color ? { __star_color: r.color } : {}) },
@@ -589,12 +625,14 @@ export function reviewMetafields(rating: unknown): O {
  * reviewMetafields above reads. Null for sample reviews, for another
  * product, or with none.
  */
-export function productRatingFrom(reviews: unknown, productId: string): { value: number; count: number; color: string } | null {
-  const r = reviews as { enabled?: unknown; sample?: unknown; star_color?: unknown; product?: { id?: unknown; summary?: { count?: unknown; average?: unknown } } | null } | null | undefined
+export function productRatingFrom(reviews: unknown, productId: string): { value: number; count: number; color: string; stars?: Record<string, number> } | null {
+  const r = reviews as { enabled?: unknown; sample?: unknown; star_color?: unknown; product?: { id?: unknown; summary?: { count?: unknown; average?: unknown; bars?: unknown } } | null } | null | undefined
   if (!r || r.enabled !== true || r.sample === true || !r.product || String(r.product.id ?? "") !== productId) return null
   const count = Number(r.product.summary?.count)
   const value = Number(r.product.summary?.average)
-  return count > 0 && value > 0 ? { value, count, color: typeof r.star_color === "string" ? r.star_color : "" } : null
+  const bars = Array.isArray(r.product.summary?.bars) ? (r.product.summary!.bars as { stars?: unknown; count?: unknown }[]) : []
+  const stars = bars.length ? Object.fromEntries(bars.map((b) => [String(b.stars), Math.max(0, Math.floor(Number(b.count) || 0))])) : undefined
+  return count > 0 && value > 0 ? { value, count, color: typeof r.star_color === "string" ? r.star_color : "", ...(stars ? { stars } : {}) } : null
 }
 
 /**
@@ -863,6 +901,20 @@ export interface Resources {
   productCache?: Map<string, O>
   /** The page's own product, for a picker set to "@current" (the product the page is showing). */
   current?: CardLike | null
+  /**
+   * Each product's size chart, by product id, read for this store
+   * (lib/size-charts/storefront.ts sizeChartsForStore): a featured product
+   * and a card get the same product.metafields.storelib.size_chart as the
+   * product's own page.
+   */
+  sizeCharts?: Record<string, SizeChart>
+  /**
+   * Every product's published rating, by product id (the page's Storelib
+   * Reviews, lib/reviews/storefront.ts `ratings`): a product a section picks
+   * (a featured product) gets its review metafields from it when its card
+   * carries none.
+   */
+  ratings?: Record<string, { count: number; average: number; stars?: Record<string, number> }>
 }
 
 /**
@@ -883,14 +935,45 @@ export function productKey(value: string): string {
   return v
 }
 
-function productById(r: Resources, raw: string): O | null {
-  if (!raw) return null
-  if (raw === "@current") return r.current ? productObject(r.current) : null
-  const idOrHandle = productKey(raw)
-  if (!idOrHandle) return null
+/** The card with its size chart from the store's charts, when the card does not carry one. */
+function withChart(r: Resources, card: CardLike): CardLike {
+  const chart = r.sizeCharts?.[card.id]
+  if (!chart || card.settings.size_chart !== undefined) return card
+  return { ...card, settings: { ...card.settings, size_chart: chart } }
+}
+
+/**
+ * A product a section picked (`product` setting: Dawn's and Horizon's
+ * featured product): the product's object with its review metafields from
+ * the page's ratings when its card has none, so its stars, its rating block
+ * and its structured data read the same numbers as its own page.
+ */
+function pickedProduct(r: Resources, raw: string): O | null {
+  const obj = productById(r, raw)
+  if (!obj) return null
+  const id = String(obj.id ?? "")
+  const mf = obj.metafields as O | undefined
+  const rated = r.ratings?.[id]
+  if (!mf || (mf.reviews && Object.keys(mf.reviews as O).length) || !rated || !(rated.count > 0) || !(rated.average > 0)) return obj
   r.productCache ??= new Map()
-  const hit = r.productCache.get(idOrHandle)
+  const key = `picked\u0000${id}`
+  const hit = r.productCache.get(key)
   if (hit) return hit
+  const card = cardById(r, id)
+  if (!card) return obj
+  /* Its own object, so the shop's cards keep what "Stars on product cards" says. */
+  const own = productObject(card)
+  const rating = { value: rated.average, count: rated.count, ...(rated.stars ? { stars: rated.stars } : {}) }
+  const metafields = own.metafields as O
+  metafields.reviews = reviewMetafields(rating)
+  const summary = storelibReviewSummary(rating)
+  if (summary) (metafields.storelib as O).reviews = { [OUTPUT]: String(summary.count), value: summary, key: "reviews", namespace: "storelib", type: "json" }
+  r.productCache.set(key, own)
+  return own
+}
+
+/** The card a product setting names, with the catalogue's description and the product's size chart. */
+function cardById(r: Resources, idOrHandle: string): CardLike | null {
   const urlOf = (p: CardLike) => productKey(String(p.settings.url ?? ""))
   const matches = (p: CardLike) => p.id === idOrHandle || String(p.settings.slug ?? "") === idOrHandle || handleize(String(p.settings.title ?? "")) === idOrHandle || (!!p.settings.url && urlOf(p) === idOrHandle)
   let card = r.products.find(matches) ?? r.catalog?.find(matches)
@@ -901,6 +984,19 @@ function productById(r: Resources, raw: string): O | null {
     const full = r.catalog?.find((p) => p.id === id)
     if (full && typeof full.settings.description_html === "string") card = { ...card, settings: { ...card.settings, description_html: full.settings.description_html } }
   }
+  return withChart(r, card)
+}
+
+function productById(r: Resources, raw: string): O | null {
+  if (!raw) return null
+  if (raw === "@current") return r.current ? productObject(withChart(r, r.current)) : null
+  const idOrHandle = productKey(raw)
+  if (!idOrHandle) return null
+  r.productCache ??= new Map()
+  const hit = r.productCache.get(idOrHandle)
+  if (hit) return hit
+  const card = cardById(r, idOrHandle)
+  if (!card) return null
   const obj = productObject(card)
   r.productCache.set(idOrHandle, obj)
   return obj
@@ -949,7 +1045,7 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
         product the shop sells only when it is one: the shop's first product
         stood in as the gift wrap, ticked and charged on every cart.
       */
-      return productById(r, value) ?? (!exact && r.products[0] ? productById(r, r.products[0].id) : null)
+      return pickedProduct(r, value) ?? (!exact && r.products[0] ? pickedProduct(r, r.products[0].id) : null)
     }
     case "product_list": {
       if (!Array.isArray(value)) return []
@@ -1031,7 +1127,8 @@ export { shopifyAddress }
  * Shopify calls these dynamic sources and reads them where they are drawn,
  * so a block inside a product card reads its own product.
  */
-const WHOLE = /^\s*\{\{\s*([\s\S]+?)\s*\}\}\s*$/
+/* One placeholder and nothing else: "{{ a }} from {{ b }}" is text with two in it, never one expression "a }} from {{ b". */
+const WHOLE = /^\s*\{\{\s*((?:(?!\{\{|\}\})[\s\S])+?)\s*\}\}\s*$/
 
 /** How a dynamic source is read: an expression to a value, or text with `{{ }}` in it to text. */
 export interface DynamicResolver {
@@ -1056,6 +1153,47 @@ function shopDefault(s: ShopifySetting, value: unknown, r: Resources): unknown {
   return value
 }
 
+/*
+  A BOUND SETTING, SAFELY. A setting whose value is a dynamic source (a
+  Storelib pill, `{{ product.metafields.custom.material }}`, a Shopify
+  dynamic source kept in the template) is read in the section's own scope,
+  live and in the builder's canvas alike. What it reads is the store's data
+  printed where the theme prints the setting, usually as it is, so:
+
+    a text setting       every value is HTML-escaped (`| escape`)
+    a rich text setting  the same, except a description or a page's content,
+                         which is markup already cleaned when it was saved
+                         (./objects.ts descriptionHtmlOf)
+    a text setting fed   its words only (`| strip_html | escape`)
+      a description
+    a link               an address that is not one (javascript:) is "#"
+
+  Storelib's own pill names read the theme's object where it has another
+  name (lib/storelib-theme/dynamic.ts COMPAT_SOURCE_EXPR): `product.price`
+  is the price formatted, as the pill says, not Shopify's cents.
+*/
+const BOUND_TEXT = new Set(["text", "textarea", "richtext", "inline_richtext", "html"])
+const BOUND_RICH = new Set(["richtext", "inline_richtext", "html"])
+
+const stripClosest = (e: string) => e.replace(/^closest\./, "")
+
+/** One bound expression, as it is read for a setting of this type. */
+export function boundExpression(expr: string, type: string): string {
+  const e = expr.trim()
+  const named = COMPAT_SOURCE_EXPR[e]
+  const read = named ?? e
+  if (!BOUND_TEXT.has(type)) return read
+  const head = stripClosest(read.split("|")[0].trim())
+  const markup = COMPAT_HTML_EXPRS.includes(head)
+  if (markup && !read.includes("|")) return BOUND_RICH.has(type) ? read : `${read} | strip_html | escape`
+  return `${read} | escape`
+}
+
+/** Text with bound expressions in it, each read as boundExpression says. */
+export function boundText(src: string, type: string): string {
+  return src.replace(/\{\{-?\s*([\s\S]+?)\s*-?\}\}/g, (_m, expr: string) => `{{ ${boundExpression(expr, type)} }}`)
+}
+
 /** A settings object: every declared setting, its stored value or its default, typed. */
 export function typedSettings(schema: ShopifySetting[], stored: Record<string, unknown> | undefined, r: Resources, dyn?: DynamicResolver, opts: { exactProducts?: boolean } = {}): O {
   const exact = opts.exactProducts === true
@@ -1071,7 +1209,10 @@ export function typedSettings(schema: ShopifySetting[], stored: Record<string, u
         get: () => {
           if (done) return cached
           done = true
-          const v = whole ? dyn.value(whole[1]) : dyn.text(raw)
+          const read = whole ? dyn.value(boundExpression(whole[1], type)) : dyn.text(boundText(raw, type))
+          /* A bound link is an address or "#", never a script. */
+          const said = read && typeof read === "object" && OUTPUT in (read as O) ? String((read as O)[OUTPUT] ?? "") : read
+          const v = (type === "url" || type === "link") && typeof said === "string" ? safeHref(said) : read
           /* A colour named by a palette is a colour; the words of a heading stay words. */
           cached = (type === "color" || type === "color_background") && v && typeof v === "object" ? v : typeof v === "string" ? typedValue(type, v, r, exact) : v ?? typedValue(type, "", r, exact)
           return cached

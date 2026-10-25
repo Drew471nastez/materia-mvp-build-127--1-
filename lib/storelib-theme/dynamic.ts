@@ -57,6 +57,8 @@ export interface DynamicSource {
   templates?: readonly string[]
   /** One sentence, for the editor and the docs. */
   description: string
+  /** Offered only on an imported theme's settings, where the theme's own Liquid objects fill it (COMPAT_SOURCE_EXPR). */
+  compatOnly?: boolean
 }
 
 const PRODUCT_ONLY = ["product"] as const
@@ -88,7 +90,49 @@ export const DYNAMIC_SOURCES: readonly DynamicSource[] = [
   { id: "date.year", label: "This year", group: "Date", kind: "number", description: "The current year, for a footer's copyright line." },
 ]
 
-const BY_ID = new Map(DYNAMIC_SOURCES.map((s) => [s.id, s]))
+/**
+ * ===========================================================================
+ *  THE SAME SOURCES ON AN IMPORTED SHOPIFY THEME
+ * ===========================================================================
+ * An imported theme's setting is drawn by the compatible engine
+ * (lib/storelib-theme/compat), which reads a placeholder as a Liquid
+ * expression in the section's own scope: `{{ product.title }}`,
+ * `{{ closest.product.metafields.custom.material }}`, `{{ shop.name }}`,
+ * and every Shopify-style dynamic source a theme's templates already hold.
+ * The pills the editor writes are Storelib's names; most are the theme's
+ * own objects by the same name, and the few that are not read the theme's
+ * object here. A source with no entry (the creator's bio, a social link) is
+ * not offered on an imported theme, because its page has no such object.
+ */
+export const COMPAT_SOURCE_EXPR: Readonly<Record<string, string>> = {
+  "shop.name": "shop.name",
+  "shop.description": "shop.description",
+  "shop.url": "shop.url",
+  "shop.product_count": "collections.all.products_count",
+  "product.title": "product.title",
+  "product.price": "product.price | money",
+  "product.compare_price": "product.compare_at_price | money",
+  "product.description": "product.description",
+  "product.image": "product.featured_image | image_url",
+  "product.url": "product.url",
+  "page.title": "page_title",
+  "date.year": "'now' | date: '%Y'",
+  "product.rating": "product.metafields.reviews.rating.value.rating",
+  "product.rating_count": "product.metafields.reviews.rating_count.value",
+  "product.size_chart": "product.metafields.storelib.size_chart",
+}
+
+/** Sources only an imported theme offers: the review metafields and the size chart every product drop carries there. */
+export const COMPAT_ONLY_SOURCES: readonly DynamicSource[] = [
+  { id: "product.rating", label: "Product rating", group: "Product", kind: "number", templates: PRODUCT_ONLY, compatOnly: true, description: "The average of its published reviews, such as 4.6 (product.metafields.reviews.rating)." },
+  { id: "product.rating_count", label: "Number of reviews", group: "Product", kind: "number", templates: PRODUCT_ONLY, compatOnly: true, description: "How many published reviews it has (product.metafields.reviews.rating_count)." },
+  { id: "product.size_chart", label: "Size chart name", group: "Product", kind: "text", templates: PRODUCT_ONLY, compatOnly: true, description: "The name of the size chart it uses (product.metafields.storelib.size_chart)." },
+]
+
+/** Sources whose value is markup already cleaned, never escaped on the way into a rich text setting. */
+export const COMPAT_HTML_EXPRS: readonly string[] = ["product.description", "collection.description", "page.content", "article.content", "blog.description"]
+
+const BY_ID = new Map([...DYNAMIC_SOURCES, ...COMPAT_ONLY_SOURCES].map((s) => [s.id, s]))
 
 export function dynamicSource(id: string): DynamicSource | undefined {
   return BY_ID.get(id)
@@ -217,12 +261,18 @@ export function targetIsWhole(target: SourceTarget): boolean {
   return target === "url" || target === "image" || target === "number"
 }
 
-/** The sources an editor may offer for a setting of this type on this page. */
-export function sourcesFor(controlType: string, template?: string): DynamicSource[] {
+/**
+ * The sources an editor may offer for a setting of this type on this page.
+ * `compat`: an imported theme's setting, which offers what its Liquid
+ * objects can fill (COMPAT_SOURCE_EXPR), the review and size chart sources
+ * among them.
+ */
+export function sourcesFor(controlType: string, template?: string, opts: { compat?: boolean } = {}): DynamicSource[] {
   const target = SOURCE_TARGETS[controlType]
   if (!target) return []
   const kinds = ACCEPTS[target]
-  return DYNAMIC_SOURCES.filter((s) => kinds.includes(s.kind) && (!s.templates || (template !== undefined && s.templates.includes(template))))
+  const list = opts.compat ? [...DYNAMIC_SOURCES, ...COMPAT_ONLY_SOURCES].filter((s) => COMPAT_SOURCE_EXPR[s.id] !== undefined) : DYNAMIC_SOURCES
+  return list.filter((s) => kinds.includes(s.kind) && (!s.templates || (template !== undefined && s.templates.includes(template))))
 }
 
 function escapeHtml(s: string): string {
