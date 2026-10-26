@@ -10477,11 +10477,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             trigger={actionsTrigger}
             items={actionItems}
           />
-          {/* A phone puts undo and redo here, straight after the menu, rather
-              than in the middle of the bar. Centred, they were an island
-              between the project's name and the page's; here they are the
-              end of the row of things you do TO the project, which is where
-              a thumb already is. */}
           {/*
             THE PHONE'S BAR, ROUND 24 (the owner): leaving and the project on the left (Back, a hairline, the menu, Ask
             Storelib beside it); what you do to the page on the right (undo and redo, the inspector, Publish as an

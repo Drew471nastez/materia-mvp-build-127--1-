@@ -36,7 +36,7 @@ check("a near black a step above the dark look's page (#111113) and the hero's p
 check("a hairline at its foot", dark.headerBorder === "border-b border-white/[0.08]")
 check("its depth class is kept", dark.root.startsWith("platform-header-depth "))
 const css = readSource("app/globals.css")
-check("scrolled, a soft black shadow, from a shared token", /\.platform-header-depth\[data-scrolled\] \{\s*box-shadow: var\(--bar-depth-dark-raised\);/.test(css) && /--bar-depth-dark-raised: 0 1px 2px rgba\(0, 0, 0, 0\.35\), 0 10px 28px -10px rgba\(0, 0, 0, 0\.6\);/.test(css))
+check("scrolled, a soft black shadow, from a shared token", /\.platform-header-depth\[data-scrolled\] \{\s*box-shadow: var\(--bar-depth-dark-raised\);/.test(css) && /* Round 24 (the owner): about 15% lighter than it was (0.35 and 0.6). */ /--bar-depth-dark-raised: 0 1px 2px rgba\(0, 0, 0, 0\.3\), 0 9px 24px -10px rgba\(0, 0, 0, 0\.51\);/.test(css))
 const header = readCode("components/platform/platform-header-client.tsx")
 check("the header writes data-scrolled itself, from a passive scroll listener, only when it changes", /window\.addEventListener\("scroll", read, \{ passive: true \}\)/.test(header) && /if \(now === was\) return/.test(header) && /el\.setAttribute\("data-scrolled", ""\)/.test(header))
 check("the stand in and the avatar ring use the same colour, written out for Tailwind", /bg-\[#16161a\]/.test(readCode("components/marketing/conditional-header.tsx")) && /ring-offset-\[#16161a\]/.test(header))

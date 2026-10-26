@@ -570,17 +570,17 @@ check(
 
 check(
   "undo and redo are on the bar at every size, not only in the three-dots menu",
-  // One pair, defined once, placed twice: the phone's centre and the
-  // desktop's right. Two definitions would drift.
+  // One pair, defined once. Round 24 (the owner: "undo/redo next to
+  // Publish, left of the inspector"): placed once, on the right, at every
+  // size; it was placed twice, next to the menu on a phone.
   (() => {
     const pair = editor.slice(editor.indexOf("const undoRedo = ("), editor.indexOf("// ── Main editor layout"))
     const header = editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))
     return (
       /onClick=\{handleUndo\}/.test(pair) &&
       /onClick=\{handleRedo\}/.test(pair) &&
-      // A phone puts them next to the menu; a desktop on the right.
-      /\{isMobileView && undoRedo\}/.test(header) &&
-      /\{!isMobileView && undoRedo\}/.test(header)
+      (header.match(/\{undoRedo\}/g) ?? []).length === 1 &&
+      !/isMobileView && undoRedo/.test(header)
     )
   })(),
 )
@@ -599,7 +599,7 @@ check(
     return (
       at > 0 &&
       !/\{!isMobileView && \(\s*<Tooltip>[\s\S]{0,400}wb-inspector/.test(cls) &&
-      /"wb-depth wb-inspector h-8 w-8 flex items-center justify-center rounded-lg/.test(cls) &&
+      /"wb-depth (wb-bar-key )?wb-inspector h-8 w-8 flex items-center justify-center rounded-lg/.test(cls) &&
       !/label: inspectorEnabled \? "Turn inspector off"/.test(editor)
     )
   })(),
@@ -607,7 +607,7 @@ check(
 
 check(
   "the AI button has depth and a shimmer, and no hairline border",
-  /wb-ai-button h-8 w-8 flex/.test(editor) &&
+  /wb-ai-button (wb-bar-key )?h-8 w-8 flex/.test(editor) &&
     !/aiOpen\s*\?\s*"border-foreground bg-muted"/.test(editor) &&
     /<span aria-hidden className="wb-ai-ring">\s*<span className="wb-ai-ring-spin" \/>/.test(editor) &&
     /\.wb-ai-ring-spin \{[\s\S]{0,300}conic-gradient\(\s*from 0deg/.test(css) &&
@@ -669,9 +669,10 @@ check(
     const pair = editor.slice(editor.indexOf("const undoRedo = ("), editor.indexOf("// ── Main editor layout"))
     const u = pair.indexOf('aria-label="Undo"')
     const r = pair.indexOf('aria-label="Redo"')
-    const placed = headerSrc.indexOf("{!isMobileView && undoRedo}")
+    const placed = headerSrc.indexOf("{undoRedo}")
     const insp = headerSrc.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
-    const ai = headerSrc.indexOf('aria-label="Ask Storelib"')
+    /* Ask Storelib is built once (askButton) and placed by size: beside the menu on a phone, here on a computer. */
+    const ai = headerSrc.indexOf("{!isMobileView && askButton}")
     const pub = headerSrc.indexOf("const live = install?.status")
     const left = headerSrc.indexOf("Desktop: sidebar mode toggles")
     return (
@@ -681,8 +682,9 @@ check(
       insp > placed &&
       ai > insp &&
       pub > ai &&
-      /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleUndo\}/.test(pair) &&
-      /wb-depth h-8 w-8[^"]*"\s*\n\s*onClick=\{handleRedo\}/.test(pair)
+      /wb-depth (wb-bar-key wb-bar-key-narrow )?h-8 w-8[^"]*"\s*\n\s*onClick=\{handleUndo\}/.test(pair) &&
+      /wb-depth (wb-bar-key wb-bar-key-narrow )?h-8 w-8[^"]*"\s*\n\s*onClick=\{handleRedo\}/.test(pair) &&
+      /aria-label="Ask Storelib"/.test(editor.slice(editor.indexOf("const askButton = ("), editor.indexOf("const askButton = (") + 3000))
     )
   })(),
 )
@@ -714,7 +716,7 @@ check(
 
 check(
   "the inspector has depth by default and glows through its icon when on, not a white button",
-  /wb-depth wb-inspector h-8 w-8[^"]*"[\s\S]{0,60}inspectorEnabled && "wb-inspector-on"/.test(headerSrc) &&
+  /wb-depth (wb-bar-key )?wb-inspector h-8 w-8[^"]*"[\s\S]{0,60}inspectorEnabled && "wb-inspector-on"/.test(headerSrc) &&
     !/bg-white border-white text-neutral-900/.test(headerSrc) &&
     /\.wb-inspector-on svg \{\s*fill: currentColor/.test(css),
 )
@@ -1678,15 +1680,16 @@ check(
 )
 
 check(
-  "on a phone the bar reads Back, menu, undo, redo on the left, then inspector, AI, Publish",
+  /* Changed on purpose (round 24, the owner): Ask beside the three dots, undo and redo next to Publish, left of the inspector. */
+  "on a phone the bar reads Back, menu, Ask on the left, then undo, redo, inspector, Publish",
   (() => {
     const header = editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))
     const menu = header.indexOf("<ResponsiveActionMenu")
-    const left = header.indexOf("{isMobileView && undoRedo}")
+    const ai = header.indexOf("{isMobileView && askButton}")
+    const pair = header.indexOf("{undoRedo}")
     const insp = header.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
-    const ai = header.indexOf('aria-label="Ask Storelib"')
     const pub = header.indexOf("const live = install?.status")
-    return menu > 0 && left > menu && insp > left && ai > insp && pub > ai
+    return menu > 0 && ai > menu && pair > ai && insp > pair && pub > insp
   })(),
 )
 

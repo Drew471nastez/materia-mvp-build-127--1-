@@ -26,7 +26,8 @@ check("the page draws the list with EmailsHome, and new and edit open the compos
 check("a send that is not simply done says so in the Sent list", /function SendBadge/.test(home) && /Partly sent/.test(home) && /Not sent/.test(home))
 check("the old pill tabs, stat boxes and flow cards are gone", !/Tabs - Pill Style/.test(page) && !/grid grid-cols-2 sm:grid-cols-4 gap-4/.test(page) && !/rounded-full transition-all whitespace-nowrap/.test(page))
 check("it is drawn with the Orders page's own parts", /from "\.\.\/orders\/order-parts"/.test(home) && /<PaneBar /.test(home) && /StatusBadge/.test(home))
-check("the views are tabs in the pane's bar, which never unmounts", /role="tablist" aria-label="Views"/.test(home) && /<PaneBar [^>]*>[\s\S]{0,1600}<Tabs tab=\{tab\}/.test(home))
+/* Round 24: the views are Analytics' sliding pill (components/app/segmented-pills.tsx, a tablist). */
+check("the views are tabs in the pane's bar, which never unmounts", /<SegmentedPills\s+label="Views"/.test(home) && /role="tablist"/.test(read("components/app/segmented-pills.tsx")) && /<PaneBar [^>]*>[\s\S]{0,1600}<Tabs tab=\{tab\}/.test(home))
 check("New automation sits beside New email, on a phone too", /href="\/app\/emails\/flow\/new"[^>]*data-new-automation/.test(home) && /<span className="sm:hidden">Automation<\/span>/.test(home) && /href="\/app\/emails\/new"[^>]*data-new-email/.test(home))
 check("a tab switch replaces ?tab= in the address, with no request and no scroll to the top", /writeAddress\(\(p\) => p\.set\("tab", next\), "replace"\)/.test(page) && !/router\.replace/.test(page.replace(/\/\*[\s\S]*?\*\//g, "")))
 check("each tab keeps its scroll, and the bar never drops back down", /scrolls\.current\.set\(tab/.test(page) && /pane\.scrollTop = Math\.max\(saved \?\? stick, stick\)/.test(page) && /min-h-full/.test(home))
@@ -38,7 +39,8 @@ check("the first column stays put on a phone", /const sticky = "orders-sticky st
 check("rows are dense", /const td = "h-12 /.test(home))
 check("fifty to a page", /const PAGE_SIZE = 50/.test(home))
 /* Five: subscribers, messages, emails, and the automations twice (their phone rows and their table from 768px). */
-check("a row's actions are the shared menu: a dropdown on a desktop, a sheet on a phone", (home.match(/<ResponsiveActionMenu/g) ?? []).length === 5)
+/* Five in the tables, and three in the phone rows (round 24: subscribers, messages, emails; an automation's phone row already had its own). */
+check("a row's actions are the shared menu: a dropdown on a desktop, a sheet on a phone", (home.match(/<ResponsiveActionMenu/g) ?? []).length === 8)
 check("and its trigger takes the menu's handlers, or the desktop dropdown never opens",
   /trigger=\{<RowMenuButton /.test(home) && /export const RowMenuButton = React\.forwardRef<HTMLButtonElement/.test(read("app/app/orders/order-parts.tsx")) && /\{\.\.\.rest\}/.test(read("app/app/orders/order-parts.tsx")))
 check("a search box is 16px on a phone, so iOS does not zoom", /text-\[16px\][^"]*sm:text-\[13px\]/.test(home))
@@ -70,7 +72,7 @@ console.log("\nTables that scroll sideways under a frozen column")
       && /@media \(prefers-reduced-motion: reduce\) \{\s*\.scroll-edge::before,\s*\.scroll-edge::after \{\s*transition: none;/.test(css))
   /* Four since Messages joined Subscribers, the automations and the emails. */
   check("Emails' four tables use it, and mark the frozen column in the header and in every row",
-    (home.match(/<ScrollEdge( frameClassName="max-md:hidden")?>/g) ?? []).length === 4 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead[,)]/g) ?? []).length === 4
+    (home.match(/<ScrollEdge( frameClassName="max-(sm|md):hidden")?>/g) ?? []).length === 4 && (home.match(/<th data-scroll-edge="" className=\{cn\(th, stickyHead[,)]/g) ?? []).length === 4
       && (home.match(/<td data-scroll-edge="" className=\{cn\(td, sticky/g) ?? []).length === 4)
   check("the subscribers' email column keeps to its content (w-px), so the scrolling columns stay in view on a phone", /<th data-scroll-edge="" className=\{cn\(th, stickyHead, "w-px"\)\}>Email<\/th>/.test(home))
   check("the frozen cells are the row's own opaque colour, hover and press included, and Orders' sticky cells, so a picked row's tint leaves them pinned",

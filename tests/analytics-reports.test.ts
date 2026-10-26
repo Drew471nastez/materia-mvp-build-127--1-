@@ -670,7 +670,7 @@ console.log("\nThe look: Storelib's violet, a grey comparison, real logos")
   */
   const productPicker = read("components/app/product-picker.tsx")
   check("the product picker on a phone is the shared sheet, above the navigation pill",
-    /<ProductPicker products=\{products\}/.test(page) && /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Product">/.test(productPicker)
+    /<ProductPicker products=\{products\}/.test(page) && /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title="Product"( maxHeight="[^"]+")?>/.test(productPicker)
       && !/function AnalyticsProductsSheet|isProductsSheetOpen|products-dropdown/.test(page))
   check("and it is the date picker's button, rows and popover, with nothing in front of the label",
     /import \{ PickerDivider, PickerRow, onRowsKey, pickerButton, pickerSurface, usePhone \} from "@\/components\/app\/date-range-picker"/.test(productPicker)

@@ -415,8 +415,15 @@ console.log("\nThe page morphs to what the store sells")
   check("nothing to sell yet: no sales sections", sellsOf(none) === "none" && !s(none).sales && !s(none).shipping)
   const client = read("app/app/analytics/analytics-client.tsx")
   check("  and the page draws the visits and one line, not zeros: three traffic tabs and the no-sales note", /sells === "none" \? TRAFFIC_TABS : CORE_TABS/.test(client) && /data-no-sales/.test(client))
-  /* Changed on purpose (round AC2, the owner: "I don't like the All / Digital / Physical switch"): no switch; both kinds together, split where it matters. */
-  check("  no All / Digital / Physical switch: every figure counts both kinds, an old ?kind= is dropped from the address", !/data-sales-mode|What to count|setMode\(/.test(client) && /const mode: SalesMode = "all"/.test(client) && /url\.searchParams\.delete\("kind"\)/.test(client))
+  /*
+    Changed on purpose twice. Round AC2 (the owner: "I don't like the All /
+    Digital / Physical switch") took the switch away. Round 24 (the owner:
+    "Digital / Communities / Physical pills, shown dynamically") brings the
+    views back as Analytics' sliding pills, drawn only when there is a
+    choice: All counts both kinds, a kind narrows to it, and ?kind= is kept
+    in the address (dropped for All).
+  */
+  check("  the kind pills only when there is a choice, All counting both kinds, ?kind= in the address", /const kindPills = useMemo/.test(client) && /\{kindPills\.length \? <SegmentedPills /.test(client) && /: "all"\s*$/m.test(client.split("const mode: SalesMode =")[1]?.split("\n")[0] ?? "") && /if \(next === "all"\) url\.searchParams\.delete\("kind"\)/.test(client))
   check("  and the split is drawn where it matters: the breakdown's kind columns, the kind of each top product, Shipping only with a physical order", /showKinds=\{sections\.productKinds\}/.test(client) && /data-kind-columns/.test(read("app/app/analytics/commerce-reports.tsx")) && /physicalOrders > 0/.test(read("app/app/analytics/commerce-reports.tsx")) && /data-kind-split/.test(read("app/app/analytics/analytics-reports.tsx")))
 }
 

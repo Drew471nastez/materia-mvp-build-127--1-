@@ -1732,10 +1732,8 @@ function ThemeChatPanel({
                 saidNow = reply
                 patch((e) => ({ ...e, reply, running: false, activity: settleActivity(e.activity) }))
                 /* The answer is in. Once per run: a question's closing message is not a second one. */
-                if (!finished) {
-                  playAskSound("done")
-                  hapticTap("soft")
-                }
+                if (!finished) playAskSound("done")
+                if (!finished) hapticTap("soft")
                 finished = true
                 return
               } else if (type === "error") {
@@ -2012,10 +2010,8 @@ function ThemeChatPanel({
       */
       const into = crypto.randomUUID()
       /* Heard and felt (round 24): the sound follows the phone's silent switch, as a system click does; the tick does not. */
-      if (!quiet) {
-        playAskSound("sent")
-        hapticTap("light")
-      }
+      if (!quiet) playAskSound("sent")
+      if (!quiet) hapticTap("light")
       setWanted(true)
       placeExchange({
         id: into,

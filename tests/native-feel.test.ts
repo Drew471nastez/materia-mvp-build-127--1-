@@ -434,7 +434,8 @@ section("What the native shell adds to every scroll frame")
   console.log("\n  Haptics have a level below the quietest knock")
   check(
     "soft is selection feedback, not a fourth impact style",
-    /if \(style === "soft"\) \{\s*\n\s*await Haptics\.selectionChanged\(\)/.test(bridge),
+    /* Round 24: selectionChanged plays nothing until selectionStart has run (Capacitor's Swift and Java both check it), so soft starts it once. */
+    /if \(style === "soft"\) \{\s*\n\s*await startSelection\(\(\) => Haptics\.selectionStart\(\)\)\s*\n\s*await Haptics\.selectionChanged\(\)/.test(bridge),
     "there is no impact style below Light; the softer thing is a different generator",
   )
   check(
