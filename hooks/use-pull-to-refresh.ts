@@ -194,8 +194,8 @@ const EXIT_FADE_MS = 200
    turn (a CSS animation on their own box, the compositor's), until the
    refresh settles. */
 /** The spinner's full size, and the room kept clear above and below it. */
-/** Five percent larger than 24px so the spinner reads clearly on every page. */
-export const SPOKES_SIZE = 25
+/** 28px since round 24 (the owner: "a little bit more big ... not so much"); its room grows with it. */
+export const SPOKES_SIZE = 28
 export const SPOKES_MARGIN = 6
 /** The gap held open while refreshing: the spinner and its room. */
 export const SPOKES_HOLD = SPOKES_SIZE + 2 * SPOKES_MARGIN + 8

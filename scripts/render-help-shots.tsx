@@ -198,6 +198,14 @@ const offers = {
   offers: [
     { id: "o1", kind: "bundle", title: "Breakfast set", productIds: [PRODUCT, "p-bowl"], triggerIds: [], discountType: "percent", discountValue: 10, active: true },
     { id: "o2", kind: "checkout", title: "Add an apron", productIds: ["p-apron"], triggerIds: [], discountType: "fixed", discountValue: 500, active: true },
+    /* A quantity break on the mug: Buy 2 get 1 free, and Buy 3 get 2 free (lib/offers/pricing.ts). */
+    {
+      id: "o3", kind: "quantity_break", title: "Mug offer", productIds: [PRODUCT], triggerIds: [], discountType: "none", discountValue: 0, active: true,
+      tiers: [
+        { quantity: 2, freeQuantity: 1, discountType: "none", discountValue: 0, label: "Buy 2 get 1 free", badge: "Most popular" },
+        { quantity: 3, freeQuantity: 2, discountType: "none", discountValue: 0, label: "Buy 3 get 2 free", badge: "Best value" },
+      ],
+    },
   ] satisfies Offer[],
 }
 
@@ -732,7 +740,7 @@ function App() {
     case "payouts":
       return <div id="shot"><PayoutsDemo /></div>
     case "offers":
-      return <div id="shot" style={{ height: "100vh" }}><OffersClient initialOffers={offers.offers} products={offers.products} collections={[]} currency="USD" ready={offers.ready} settingsReady physical /></div>
+      return <div id="shot" style={{ height: "100vh" }}><OffersClient initialOffers={offers.offers} products={offers.products} collections={[]} currency="USD" ready={offers.ready} settingsReady breaksReady sold={{ o1: 14, o2: 9, o3: 23 }} physical /></div>
     case "website-commerce":
       return <WebsiteSettings section="commerce" />
     case "website-policies":

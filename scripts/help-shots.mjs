@@ -38,7 +38,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const out = join(root, ".help-shots-probe")
 mkdirSync(out, { recursive: true })
 writeFileSync(join(out, "image.jsx"), `import React from "react"
-export default function Image({ src, alt, width, height, fill, priority, unoptimized, ...rest }) { return React.createElement("img", { src: typeof src === "string" ? src : src?.src, alt, width, height, ...rest }) }
+export default function Image({ src, alt, width, height, fill, priority, unoptimized, sizes, quality, placeholder, ...rest }) { return React.createElement("img", { src: typeof src === "string" ? src : src?.src, alt, width, height, ...rest, style: fill ? { position: "absolute", inset: 0, width: "100%", height: "100%", ...rest.style } : rest.style }) }
 `)
 writeFileSync(join(out, "link.jsx"), `import React from "react"
 export default function Link({ href, children, prefetch, scroll, replace, ...rest }) { return React.createElement("a", { href: typeof href === "string" ? href : "#", ...rest }, children) }
@@ -104,6 +104,15 @@ window.__dialog = (pad = 16) => {
   document.documentElement.style.background = document.body.style.background = "#f8f9fa"
   const white = [d, ...d.querySelectorAll("*")].filter((e) => getComputedStyle(e).backgroundColor === "rgb(255, 255, 255)").sort((a, b) => b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight)[0] ?? d
   return window.__rect([white], pad)
+}
+/* An offer's editor whole: its form drawn at full height instead of scrolling inside the dialog, cropped to the dialog. */
+window.__wholeDialog = (pad = 16) => {
+  const d = document.querySelector("[role=dialog]")
+  if (!d) return null
+  for (const el of [d, ...d.querySelectorAll("*")]) { const cs = getComputedStyle(el); if (cs.overflowY === "auto" || cs.overflowY === "scroll") el.style.overflowY = "visible"; if (cs.maxHeight !== "none") el.style.maxHeight = "none"; if (el !== d && cs.height !== "auto" && el.scrollHeight > el.clientHeight + 1) el.style.height = "auto" }
+  d.style.maxHeight = "none"; d.style.height = "auto"; d.style.top = "16px"; d.style.translate = "-50% 0"; d.style.transform = "none"
+  window.__dialog(pad)
+  return window.__rect([d], pad)
 }
 window.__rect = (els, pad = 12) => {
   els = els.filter(Boolean)
@@ -184,7 +193,10 @@ const SHOTS = [
     act: [async (p) => { await p.evaluate(() => { const s = [...document.querySelectorAll("select")].find((x) => [...x.options].some((o) => o.value === "usd")); if (s) { const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set; set.call(s, "usd"); s.dispatchEvent(new Event("change", { bubbles: true })) } }); await wait(1200) }],
     clip: (p) => p.evaluate(() => { const h = [...document.querySelectorAll("h1")].find((e) => e.textContent.trim() === "Payouts"); return window.__rect([h, window.__card("Balance")], 16) }),
   },
-  { name: "upsells-and-bundles", view: "offers", width: 1100, height: 760, clip: viewport(760) },
+  { name: "upsells-and-bundles", view: "offers", width: 1100, height: 760, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot h1"), document.querySelector("[data-offers-card]")], 24)) },
+  /* Round 24: an offer opened from the list, its editor and preview (app/app/offers/offer-editor.tsx). */
+  { name: "offer-bundle-editor", view: "offers", width: 1100, height: 1400, act: [async (p) => { await p.evaluate(() => document.querySelector('[data-row="o1"] td')?.click()); await wait(900) }], clip: (p) => p.evaluate(() => window.__wholeDialog()) },
+  { name: "offer-quantity-break-editor", view: "offers", width: 1100, height: 1600, act: [async (p) => { await p.evaluate(() => document.querySelector('[data-row="o3"] td')?.click()); await wait(900) }], clip: (p) => p.evaluate(() => window.__wholeDialog()) },
   { name: "website-commerce", view: "website-commerce", width: 1280, height: 860, clip: viewport(860), settle: 2500 },
   /* Website settings › Commerce › On this website (stock left, the low stock message, the free shipping banner, the return policy in the cart). */
   { name: "website-on-this-website", view: "website-commerce", width: 1280, height: 860, settle: 2500, act: [async (p) => { await p.evaluate(() => window.__card("On this website")?.scrollIntoView({ block: "center" })); await wait(400) }], clip: cards("On this website") },
