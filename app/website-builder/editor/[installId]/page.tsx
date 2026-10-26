@@ -9920,8 +9920,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* A history that refuses the entry: Back is then the browser's alone, and beforeunload still asks. */
     }
   }, [])
+  /* In a quiet moment, not in the frame the first edit lands: the entry copies the router's whole state, a 97ms task at a quarter speed in the frame a section Storelib AI wrote was put on the page (scripts/check-wb-write-r16.mjs). */
   useEffect(() => {
-    if (loseNow) armBackGuard()
+    if (!loseNow || guardArmed.current) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (!w.requestIdleCallback) {
+      armBackGuard()
+      return
+    }
+    const id = w.requestIdleCallback(armBackGuard, { timeout: 1000 })
+    return () => w.cancelIdleCallback?.(id)
   }, [loseNow, armBackGuard])
   /* Arrived back ON a guard entry (back from the code editor on a phone): it is this editor's, and armed. */
   useEffect(() => {

@@ -126,6 +126,12 @@ export function editorCanvasLive(): CanvasLive | null {
   return canvasLive
 }
 
+
+/** Every file of `before` is in `after` unchanged: `after` only adds files. */
+function onlyAdded(before: Record<string, string>, after: Record<string, string>): boolean {
+  for (const k in before) if (after[k] !== before[k]) return false
+  return true
+}
 export function StorelibLiveProvider({
   sources,
   page,
@@ -220,11 +226,26 @@ export function StorelibLiveProvider({
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template, products, dataKey, preview])
+  /*
+    A FILE ADDED IS NOT A NEW RENDER FUNCTION EITHER (round 18). A section
+    Storelib AI wrote, or a push that only adds files, brought a new sources
+    object, and with it every section on the page drawn again: a 368ms task
+    at a quarter speed in the frame the written section landed
+    (scripts/check-wb-write-r16.mjs). A section already on the page draws
+    from files that did not change; the new one draws from the files as they
+    are when it runs. A file changed or taken away is a new function, as it
+    always was.
+  */
+  const sourcesNow = useRef(sources)
+  sourcesNow.current = sources
+  const steadySources = useRef(sources)
+  if (steadySources.current !== sources && !onlyAdded(steadySources.current, sources)) steadySources.current = sources
+  const sourcesKey = steadySources.current
   const render = useCallback<SectionRenderFn>(
     (section: SectionInstance, theme: ThemeSettingsValues) =>
-      renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sources, products, dataNow.current, globals, canvas ? CANVAS_RENDER : undefined),
+      renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sourcesNow.current, products, dataNow.current, globals, canvas ? CANVAS_RENDER : undefined),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sources, template, inEditor, products, dataKey, globals, extras, headerLogo, canvas],
+    [sourcesKey, template, inEditor, products, dataKey, globals, extras, headerLogo, canvas],
   )
   /* The same object while the template is the same. Inline, it was a new
      context value on every render of the canvas, and every section that reads

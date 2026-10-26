@@ -2009,13 +2009,16 @@ function ThemeChatPanel({
           the spot now, not after the round trip, and the server's answer only
           confirms it. Nothing else is in the way: no run, no write.
         */
+        /* Asked first, so the round trip runs while the rules do; and the rules a frame after Enter, so the message is on screen before they run (91ms at a quarter speed, in the key's own task). */
+        const asked = decideRoute(installId, ask)
+        await new Promise<void>((done) => requestAnimationFrame(() => window.setTimeout(done, 0)))
         const early = !writing && !busy && writerAtOnce(ask)
         if (early) {
           startedEarly.current = into
           onWriteStart?.(prompt)
           onWorkingChange?.([WRITING_SECTION_ID], tt("New section"))
         }
-        const route = await decideRoute(installId, ask)
+        const route = await asked
         if (route.agent === "writer") void writeOne(prompt, images, true, into)
         else {
           if (early && startedEarly.current === into) {

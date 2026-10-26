@@ -117,8 +117,11 @@ async function run(device) {
     if (process.env.CSS_OFF) await ed.js((c) => { const st = document.createElement("style"); st.textContent = c; document.head.appendChild(st) }, process.env.CSS_OFF)
     const t0 = await ed.js(() => { window.__wr.rows = []; window.__wr.longs = []; window.__wr.longAt = []; window.__wr.on = true; return performance.now() })
     const cdp = process.env.PROFILE ? await page.createCDPSession() : null
-    if (cdp) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 250 }); await cdp.send("Profiler.start") }
+    /* PROFILE_AT=<ms>: the profile starts that long after Enter (the landing alone, say), not at Enter. */
+    const startProfile = async () => { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 250 }); await cdp.send("Profiler.start") }
+    if (cdp && !process.env.PROFILE_AT) await startProfile()
     await page.keyboard.press("Enter")
+    if (cdp && process.env.PROFILE_AT) setTimeout(() => void startProfile(), Number(process.env.PROFILE_AT))
     /* TRACE=1: two seconds of the main thread mid-writing, by what it did (style, layout, paint, script). */
     if (process.env.TRACE) {
       await sleep(1500)
@@ -156,6 +159,23 @@ async function run(device) {
         while (up && !up.callFrame.url && parent.has(up.id)) up = nodes.get(parent.get(up.id))
         const k = `${f.functionName || "(anon)"}:${f.lineNumber + 1}${f.url ? "" : ` [native] < ${up ? `${up.callFrame.functionName || "(anon)"}:${up.callFrame.lineNumber + 1}` : "?"}`}`
         self.set(k, (self.get(k) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000)
+      }
+      /* PROFILE=2: the time each function took with what it called (inclusive), to find who started the work. */
+      if (process.env.PROFILE === "2") {
+        const total = new Map()
+        for (let i = 0; i < profile.samples.length; i++) {
+          const ms = (profile.timeDeltas[i] ?? 0) / 1000
+          const seen = new Set()
+          for (let n = nodes.get(profile.samples[i]); n; n = parent.has(n.id) ? nodes.get(parent.get(n.id)) : null) {
+            if (/^\((idle|program|root)\)$/.test(n.callFrame.functionName) && n.callFrame.functionName !== "(root)") break
+            const k = `${n.callFrame.functionName || "(anon)"}:${n.callFrame.lineNumber + 1}`
+            if (seen.has(k)) continue
+            seen.add(k)
+            total.set(k, (total.get(k) ?? 0) + ms)
+          }
+        }
+        console.log("  busiest (inclusive ms):")
+        for (const [k, v] of [...total.entries()].sort((a, b) => b[1] - a[1]).slice(0, 45)) console.log(`    ${v.toFixed(0).padStart(6)}  ${k}`)
       }
       console.log("  busiest (self ms):")
       for (const [k, v] of [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20)) console.log(`    ${v.toFixed(0).padStart(6)}  ${k}`)
