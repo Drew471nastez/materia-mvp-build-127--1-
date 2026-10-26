@@ -163,6 +163,30 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     })
     return new Response(body, { status: 200, headers: { "content-type": "application/x-ndjson" } })
   }
+  /*
+    PROBE_WRITER: Ask Storelib writing a new section ({ gapMs, steps, path, type, name, source }): the router
+    sends the ask to the writer, the writer streams its steps and its answer, and the file it wrote is among
+    the install's files from then on (scripts/check-wb-write-r16.mjs).
+  */
+  const writer = (window as unknown as { PROBE_WRITER?: { gapMs: number; steps: number; path: string; type: string; name: string; source: string } }).PROBE_WRITER
+  if (writer && init?.method === "POST" && /\/themes\/probe-install\/agent\/decide$/.test(url)) return json({ agent: "writer", target: "page", lock: false, codeFocus: false })
+  if (writer && init?.method === "POST" && /\/themes\/probe-install\/sections\/code$/.test(url)) {
+    const encoder = new TextEncoder()
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "subject", text: `New section: ${writer.name}` })}\n`))
+        for (let k = 0; k < writer.steps; k++) {
+          await new Promise((r) => setTimeout(r, writer.gapMs))
+          controller.enqueue(encoder.encode(`${JSON.stringify({ type: "step", label: `Step ${k + 1}` })}\n`))
+        }
+        const files = window as unknown as { PROBE_FILES?: Record<string, string> }
+        files.PROBE_FILES = { ...(files.PROBE_FILES ?? {}), [writer.path]: writer.source }
+        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "result", status: 200, answer: { path: writer.path, name: writer.name, type: writer.type } })}\n`))
+        controller.close()
+      },
+    })
+    return new Response(body, { status: 200, headers: { "content-type": "application/x-ndjson" } })
+  }
   if (/\/themes\/probe-install\/agent-activity/.test(url) && probeGlobals.PROBE_CONNECTIONS) {
     return json({ ready: true, cursor: 0, connections: probeGlobals.PROBE_CONNECTIONS, events: [] })
   }

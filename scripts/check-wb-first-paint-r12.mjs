@@ -39,7 +39,9 @@
  * white card for the loader's first half second. After, the document's
  * ground is the editor's surround and the first paint waits for its frame
  * (app/layout.tsx, components/website-builder/editor-frame.tsx), and the
- * loader draws the outline of a page from its first frame.
+ * loader draws the outline of a page from its first frame. Round 16: no
+ * outline (the owner: no skeleton behind the loading animation); the loader
+ * itself is there from the first frame, on the editor's light grey card.
  */
 import { spawn } from "node:child_process"
 import http from "node:http"

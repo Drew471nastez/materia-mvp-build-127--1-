@@ -91,7 +91,8 @@ const EDITOR = read("app/website-builder/editor/[installId]/page.tsx")
     check("the document's ground is the editor's surround from the first frame, and nothing is drawn before its frame", layout.includes("website-builder") && layout.includes("_wb.style.backgroundColor='#eef1f5'") && layout.includes("_wl.href='#wb-frame'"))
     const frame = read("components/website-builder/editor-frame.tsx")
     check("the frame is what the first paint waits for, and the ground is handed back on the way out", /id="wb-frame"/.test(frame) && /<EditorGround \/>/.test(frame))
-    check("the canvas's loader is the outline of a page from its first frame, never a blank white card", /data-canvas-outline=""/.test(EDITOR) && /<PageOutline \/>/.test(EDITOR))
+    /* Round 16, the owner: no skeleton behind the loading animation. The card is never blank: the loader is there from the first frame of the opening. */
+    check("the canvas's loader is the loader alone, from the first frame of the opening, never a blank white card or a skeleton", !/data-canvas-outline=""/.test(EDITOR) && !/<PageOutline \/>/.test(EDITOR) && /const showCanvasLoader = useDelayedFlag\(canvasLoaderUp, SPINNER_WAIT_MS\) \|\| loading/.test(EDITOR))
   }
 
   console.log("\nA theme change no variable reads\n")

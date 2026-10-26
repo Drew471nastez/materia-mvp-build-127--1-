@@ -6665,6 +6665,8 @@ html.with-page-account {
   justify-content: flex-end;
   height: calc(14 * 1.75em);
   overflow: hidden;
+  /* Its lines are written every frame for as long as the section takes: kept to this box, so the page around it is never laid out again for them (round 16). */
+  contain: strict;
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 12.5px;
   line-height: 1.75;

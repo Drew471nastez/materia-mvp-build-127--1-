@@ -45,7 +45,7 @@ import { BlockPickerHandle, BlockPickerProvider, type BlockPickerRequest } from 
 import { CanvasBlockInserter, canvasAnchorAt, type CanvasBlockPlace } from "@/components/website-builder/editor/canvas-block-insert"
 import { insertIndexFor } from "@/lib/website-builder/block-gaps"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
-import { SectionLibrary } from "@/components/website-builder/editor/section-library"
+import { SectionLibrary, holdPreviewsForAi } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
@@ -196,7 +196,7 @@ import { MenusEditor } from "@/components/website-builder/editor/controls/menus-
 import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
-import { CanvasProblem, CompatCanvasWaiting, PageOutline } from "@/components/website-builder/canvas-problem"
+import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { usePreviewLanguage } from "@/components/website-builder/use-preview-language"
 import { usePreviewMarket } from "@/components/website-builder/use-preview-market"
 import { tt } from "@/lib/i18n/text"
@@ -3855,7 +3855,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * screen stays exactly where it is.
    */
   /* Round AH: `glide` for a section just made (added, pasted, duplicated, written by the AI): brought smoothly near the top, in an imported theme's frame too. */
-  const revealSection = useCallback((sectionId: string, glide = false) => {
+  /* `afterMs`: how long to wait first, for something still moving over the canvas (the Ask sheet going down). */
+  const revealSection = useCallback((sectionId: string, glide = false, afterMs?: number) => {
     setTimeout(() => {
       const el = document.getElementById(`wb-section-${sectionId}`)
       const scroller = document.getElementById("wb-preview-root")
@@ -3864,7 +3865,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         else revealWithin(scroller, el)
       }
       if (glide && typeof window !== "undefined") window.dispatchEvent(new CustomEvent(REVEAL_EVENT, { detail: { id: sectionId } }))
-    }, glide ? 120 : 80)
+    }, afterMs ?? (glide ? 120 : 80))
   }, [])
 
   /**
@@ -7380,9 +7381,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
       aiWritingRef.current = next
       setAiWriting(next)
-      /* On a phone the chat covers the canvas, and the canvas is the point. */
-      if (isMobileView) setAiOpen(false)
-      revealSection(WRITING_SECTION_ID)
+      /*
+        TAKEN TO WHERE IT IS BEING WRITTEN (round 16, the owner: "smoothly
+        close the sheet and take me there"). On a phone the chat covers the
+        canvas, and the canvas is the point: the sheet goes down first, and
+        only once it is down does the canvas glide to the spot, so the glide
+        is seen, and the spot is measured against the canvas uncovered. It
+        was asked for 80ms into the sheet's move and only when the spot was
+        off screen, and a spot under the sheet counted as on screen: nobody
+        was taken anywhere. On a computer the chat sits beside the page, and
+        the canvas glides to the spot whenever it starts.
+      */
+      if (isMobileView) {
+        setAiOpen(false)
+        revealSection(WRITING_SECTION_ID, true, sheetMoveMs() + 60)
+      } else {
+        revealSection(WRITING_SECTION_ID, true)
+      }
     },
     [canvasInsertAt, pendingInsertIndex, selectedSectionId, isMobileView, revealSection],
   )
@@ -7392,6 +7407,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * message, "add it from Add Section": the creator went to another page
    * while it was written, or its file could not be read back just now.
    */
+  /* The section library draws nothing ahead while Storelib AI works on the page (section-library.tsx holdPreviewsForAi). */
+  useEffect(() => {
+    holdPreviewsForAi(aiBusy || !!aiWriting)
+  }, [aiBusy, aiWriting])
+  useEffect(() => () => holdPreviewsForAi(false), [])
+
   const handleWriteDone = useCallback(
     /* The new section's id when it is on the page: the chat hands it back to aiRunFinished, which glides to it and rings it once. */
     async ({ type }: { type: string; name: string; path: string }): Promise<string | false> => {
@@ -7405,6 +7426,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         return false
       }
       const id = `${type}-${Date.now()}`
+      /*
+        NO JUMP AS IT LANDS (round 16). The finished section takes the spot's
+        place, and it is rarely the spot's height: the browser's scroll
+        anchoring kept the section below it still, which moved the canvas by
+        the difference (44px to the top of the page in the probe) a frame
+        before the glide to it began. Off for the swap and the glide that
+        follows, so the page changes where the person is looking and the only
+        movement is the glide; on again after, where it keeps a picture that
+        loads above the screen from shoving the page.
+      */
+      const canvas = document.getElementById("wb-preview-root")
+      if (canvas) {
+        canvas.style.overflowAnchor = "none"
+        window.setTimeout(() => { canvas.style.overflowAnchor = "" }, 1400)
+      }
       pushUndo()
       setSections((previous) => placeWrittenSection(previous, writing.anchor, instanceFromSchema(id, type, schema)))
       const placed = { ...writing, placedId: id }
@@ -8232,12 +8268,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             flash of grey before it.
           */}
           {/* The first load only: a page switch keeps the list it has (panelHeld, above) and swaps it in place. */}
+          {/*
+            Round 16, the owner: no skeleton structure while the editor opens.
+            The canvas says "Loading the editor" in the middle of the screen;
+            the list's place stays empty until its rows arrive, rather than
+            five grey bars standing in for them.
+          */}
           {loading ? (
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll skeleton-deferred px-2 py-2 space-y-1.5" aria-busy="true">
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="h-8 rounded-md bg-[#f3f4f6]" />
-              ))}
-            </div>
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2" aria-busy="true" />
           ) : (
             <div ref={keepListScroll} onScroll={noteListScroll} data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2" aria-busy={panelHeld || undefined} data-sections-held={panelHeld ? "" : undefined} style={panelHeld ? { pointerEvents: "none" } : undefined}>
               {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. Add block's picker: block-picker.tsx. */}
@@ -9418,9 +9456,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /**
    * See `useDelayedFlag`: a fast load should show nothing at all. Half a
    * second, the wait every other loader in Storelib keeps before it shows
-   * (SPINNER_WAIT_MS): only a load that is genuinely slow gets one.
+   * (SPINNER_WAIT_MS): only a load that is genuinely slow gets one. Except
+   * the editor opening (`loading`), which has nothing else to show: its
+   * loader is there from the first frame, on a clean card (round 16).
    */
-  const showCanvasLoader = useDelayedFlag(canvasLoaderUp, SPINNER_WAIT_MS)
+  const showCanvasLoader = useDelayedFlag(canvasLoaderUp, SPINNER_WAIT_MS) || loading
   /**
    * The loader's surface stays for a beat after the page has arrived, so it
    * can fade over the page rather than vanish from in front of it.
@@ -11562,21 +11602,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               */}
             {(canvasLoaderUp || canvasLoaderLingers) && (
               <div
-                className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-white"
+                className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-[#f4f5f7]"
                 data-leaving={!canvasLoaderUp}
                 aria-hidden={!canvasLoaderUp}
               >
                 {/*
-                  THE SHAPE OF A PAGE FROM THE FIRST FRAME (round 12). The
-                  loader waits half a second before it shows, and until then
-                  this surface was a blank white card: the owner's "white
-                  canvas" on every opening. Now it is the outline of a page in
-                  the builder's lightest grey, still, the same one an imported
-                  theme's canvas shows while it loads (canvas-problem.tsx).
+                  THE LOADER ALONE, ON A CLEAN CARD (round 16, the owner: "no
+                  skeleton structure behind the loading animation"). Round 12
+                  drew a grey outline of a page here, because the loader waited
+                  half a second and the card was blank white until then. The
+                  outline is gone, and opening the editor shows the loader from
+                  the first frame instead (showCanvasLoader), so the card is
+                  never blank and never a skeleton. The card is the editor's own
+                  light grey while it waits, never a white sheet, and fades
+                  into the page when it arrives.
                 */}
-                <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden" data-canvas-outline="">
-                  <PageOutline />
-                </div>
                 {showCanvasLoader && (
                   <BuilderLoader
                     /* `relative`: above the outline, which is positioned. */

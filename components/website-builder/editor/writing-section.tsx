@@ -72,6 +72,9 @@ const SAMPLE = `<template>
 /** Characters a second. Fast enough to read as written, not pasted. */
 export const TYPING_RATE = 200
 
+/** How often the lane is written: every other frame of a 60Hz screen. */
+const TYPE_EVERY_MS = 30
+
 /** The lines shown at once; older ones fade out above them. */
 const VISIBLE_LINES = 14
 
@@ -118,20 +121,46 @@ export function WritingSection({ prompt }: { prompt: string }) {
     /* Begun ten lines in, so the lane is full from the first frame rather
        than filling from an empty box. */
     const headStart = lines.slice(0, 10).join("\n").length + 1
+    /*
+      ONLY THE LINE BEING TYPED, EACH FRAME (round 16). The whole lane, every
+      line coloured again, was written into the page on every frame of the
+      thirty seconds a section takes, beside the canvas the person was
+      watching (scripts/check-wb-write-r16.mjs). The lines above it change
+      only when a line ends; until then the one being typed is all that is
+      written, and nothing at all on a frame that typed nothing.
+    */
+    let laneKey = ""
+    let typedBefore = -1
+    let current: HTMLDivElement | null = null
+    /* Thirty times a second: at 200 characters a second the eye cannot tell it from sixty, and a slow laptop gets half the frames back. */
+    let drawnAt = 0
     const draw = (now: number) => {
+      if (now - drawnAt < TYPE_EVERY_MS) {
+        raf = requestAnimationFrame(draw)
+        return
+      }
+      drawnAt = now
       if (!start) start = now - (headStart / TYPING_RATE) * 1000
       /* The whole file, over and over, for as long as the writing lasts. */
       const total = SAMPLE.length
       const typed = Math.floor(((now - start) / 1000) * TYPING_RATE) % (total + 1)
-      const upto = SAMPLE.slice(0, typed)
       /* How far it has got, for scripts/check-writing-section.mjs to time. */
       el.dataset.typed = String(Math.floor(((now - start) / 1000) * TYPING_RATE))
-      const written = upto.split("\n")
-      const current = written.pop() ?? ""
-      const shown = written.slice(-(VISIBLE_LINES - 1))
-      el.innerHTML =
-        shown.map((l) => `<div class="wb-writing-line">${tint(l) || "&nbsp;"}</div>`).join("") +
-        `<div class="wb-writing-line">${tint(current)}<span class="wb-writing-caret"></span></div>`
+      if (typed !== typedBefore) {
+        typedBefore = typed
+        const written = SAMPLE.slice(0, typed).split("\n")
+        const line = written.pop() ?? ""
+        const shown = written.slice(-(VISIBLE_LINES - 1))
+        const key = `${written.length}`
+        if (key !== laneKey || !current) {
+          laneKey = key
+          el.innerHTML =
+            shown.map((l) => `<div class="wb-writing-line">${tint(l) || "&nbsp;"}</div>`).join("") +
+            `<div class="wb-writing-line" data-writing-current=""></div>`
+          current = el.querySelector<HTMLDivElement>("[data-writing-current]")
+        }
+        if (current) current.innerHTML = `${tint(line)}<span class="wb-writing-caret"></span>`
+      }
       raf = requestAnimationFrame(draw)
     }
     raf = requestAnimationFrame(draw)

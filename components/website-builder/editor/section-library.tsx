@@ -476,9 +476,25 @@ function watchInput() {
   for (const type of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) window.addEventListener(type, seen, o)
   document.addEventListener("scroll", seen, o)
 }
+/*
+  NOR WHILE STORELIB AI IS AT WORK (round 16). A person watching a run is not
+  moving the pointer, so the quiet that lets drawing ahead start came in the
+  middle of every run, and batches of previews were laid out beside the
+  section being written and the sections being changed: long tasks of 120ms
+  and more on a slow laptop, in the animation being watched
+  (scripts/check-wb-write-r16.mjs). Held for the run, and let go after it.
+*/
+let aiAtWork = false
+export function holdPreviewsForAi(on: boolean) {
+  if (aiAtWork === on) return
+  aiAtWork = on
+  if (!on && typeof window !== "undefined" && (queue.length || unmeasured.length)) pump()
+}
+
 /** How much longer warm work has to wait, or 0 when it may run. */
 function busyFor(): number {
   if (urgent || typeof performance === "undefined") return 0
+  if (aiAtWork) return INPUT_QUIET_MS
   return Math.max(0, INPUT_QUIET_MS - (performance.now() - lastInput))
 }
 
