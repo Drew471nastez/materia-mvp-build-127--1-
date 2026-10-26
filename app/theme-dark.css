@@ -340,7 +340,7 @@ html[data-theme-swap]::view-transition-new(appearance-control) {
   }
 }
 
-/* ── Every colour class the buyer pages use, 877 of them ─────────────── */
+/* ── Every colour class the buyer pages use, 881 of them ─────────────── */
 
 /*
   A CREATOR'S OWN LOOK (round 31): the light look's tokens again, inside [data-own-look] (scripts/gen-theme-dark.mjs
@@ -710,6 +710,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#e8eaee\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#e9ecf0\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#ebe8ff\]:not([data-own-look], [data-own-look] *) { border-color: hsla(248,50%,40%,0.45); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#ececf1\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#eceef1\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#eef0f2\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#eef0f3\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
@@ -718,6 +719,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f0e2b6\]:not([data-own-look], [data-own-look] *) { border-color: hsla(46,50%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f0e2bf\]:not([data-own-look], [data-own-look] *) { border-color: hsla(43,50%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f0f0f2\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f0f0f3\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f0f1f3\]:not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f1b4ae\]:not([data-own-look], [data-own-look] *) { border-color: hsla(5,50%,40%,0.45); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .border-\[\#f1e3bd\]:not([data-own-look], [data-own-look] *) { border-color: hsla(44,50%,40%,0.45); }
@@ -816,6 +818,7 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#eef0f2\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#eef0f3\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#f0f0f2\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#f0f0f3\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#f0f1f3\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-\[\#f1f2f4\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.07); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .divide-black\/\[0\.06\] > :not(:last-child):not([data-own-look], [data-own-look] *) { border-color: rgba(255,255,255,0.014); }
@@ -1269,6 +1272,7 @@ html[data-sl-dark] [data-own-look] {
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:group-hover\/pill\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):is(:where(.group\/pill):hover *) { color: #ececee; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:bg-\[\#e8e9ec\]:not([data-own-look], [data-own-look] *):hover { background-color: #2b2b31; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:bg-\[\#f5f6f7\]:not([data-own-look], [data-own-look] *):hover { background-color: #25252a; }
+  :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:bg-\[\#f7f7f8\]:not([data-own-look], [data-own-look] *):hover { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:bg-\[\#f8f9fa\]:not([data-own-look], [data-own-look] *):hover { background-color: #25252a; }
   :is(html[data-sl-dark], [data-community-theme="dark"]) .\[\@media\(hover\:hover\)\]\:hover\:text-\[\#4b5563\]:not([data-own-look], [data-own-look] *):hover { color: hsla(215,14%,72%,1); }
 }
