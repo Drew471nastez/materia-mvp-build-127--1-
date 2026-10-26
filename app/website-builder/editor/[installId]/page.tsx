@@ -7477,6 +7477,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [showNotification],
   )
 
+  /* A writer started at Enter that the server gave to the page assistant (theme-chat.tsx writerAtOnce): the spot goes, and on a phone the chat comes back for the answer. */
+  const handleWriteCancel = useCallback(() => {
+    aiWritingRef.current = null
+    setAiWriting(null)
+    if (isMobileViewRef.current) setAiOpen(true)
+  }, [])
+
   /**
    * =========================================================================
    *  SECTIONS A CONNECTED AGENT WRITES
@@ -11155,6 +11162,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onWriteStart={handleWriteStart}
               onWriteDone={handleWriteDone}
               onWriteFailed={handleWriteFailed}
+              onWriteCancel={handleWriteCancel}
               onOpenCodeEditor={openAiCodeFromSheet}
             />
           </MobileEditorSheet>
@@ -11917,6 +11925,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onWriteStart={handleWriteStart}
               onWriteDone={handleWriteDone}
               onWriteFailed={handleWriteFailed}
+              onWriteCancel={handleWriteCancel}
               onOpenCodeEditor={openAiCodeFromDock}
             />
           )}

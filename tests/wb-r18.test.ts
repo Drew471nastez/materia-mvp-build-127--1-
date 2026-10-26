@@ -63,11 +63,24 @@ check("the page lock is let go after the sheet's slide, not in its first frame",
 check("the keyboard's settle reads at the start of a frame", /const soon = \(\) => requestAnimationFrame\(settleCanvas\)/.test(editor))
 check("the section library draws nothing ahead while a sheet slides", /window\.addEventListener\("transitionrun", moving, o\)/.test(library))
 
+console.log("\nA new section goes to its spot at Enter, on every kind of theme")
+const route = readCode("lib/website-builder/ask-route.ts")
+const theme = readCode("lib/storelib-theme/compat/theme.ts")
+const spot = readCode("lib/storelib-theme/compat/writing-spot.ts")
+check("the server's rules run in the chat at Enter", /export function writerAtOnce\(ask: RouteAsk\): boolean/.test(route) && /routeByRules\(/.test(route) && /ruled\.agent === "writer" && !ruled\.ambiguous/.test(route))
+check("a clear writer starts the spot and the glide before the router answers", /const early = !writing && !busy && writerAtOnce\(ask\)/.test(chat) && chat.indexOf("onWriteStart?.(prompt)\n          onWorkingChange") < chat.indexOf("const route = await decideRoute(installId, ask)"))
+check("and is not started twice", /if \(!into \|\| startedEarly\.current !== into\) onWriteStart\?\.\(prompt\)/.test(chat))
+check("a guess the server overrules is put back", /onWriteCancel\?\.\(\)/.test(chat) && /const handleWriteCancel = useCallback/.test(editor) && (editor.match(/onWriteCancel=\{handleWriteCancel\}/g) ?? []).length === 2)
+check("an imported theme's canvas draws the spot", /if \(instance\.type === WRITING_SPOT_TYPE\) return \{ html: writingSpotHtml\(/.test(theme) && /data-writing-section=""/.test(spot))
+check("with CSS motion only, still under reduced motion", /@keyframes slw-roll/.test(spot) && /prefers-reduced-motion:reduce/.test(spot))
+
 console.log("\nThe probes")
 const ask = existsSync("scripts/check-ask-sheet-r18.mjs") ? readCode("scripts/check-ask-sheet-r18.mjs") : ""
 const back = existsSync("scripts/check-wb-return-r18.mjs") ? readCode("scripts/check-wb-return-r18.mjs") : ""
 check("scripts/check-ask-sheet-r18.mjs measures the phone sheet's edges and its close", /nothing in the sheet ends past its edges/.test(ask) && /its top only moves down while it closes/.test(ask))
 check("scripts/check-wb-return-r18.mjs measures a return after minutes away", /AWAY_S/.test(back) && /the first frame comes within 200ms/.test(back))
+const imported = existsSync("scripts/check-wb-write-imported-r18.mjs") ? readCode("scripts/check-wb-write-imported-r18.mjs") : ""
+check("scripts/check-wb-write-imported-r18.mjs writes a section in an imported theme with a slow router", /DECIDE_MS/.test(imported) && /the spot is in the frame within 400ms of Enter/.test(imported) && /decideMs/.test(readCode("scripts/render-editor-probe.tsx")))
 check("this suite runs with the others", readCode("scripts/run-push-tests.mjs").includes('"tests/wb-r18.test.ts"'))
 
 console.log(`\n${passed} passed, ${failed} failed`)

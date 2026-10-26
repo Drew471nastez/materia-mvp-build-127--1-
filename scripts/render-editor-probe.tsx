@@ -168,8 +168,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     sends the ask to the writer, the writer streams its steps and its answer, and the file it wrote is among
     the install's files from then on (scripts/check-wb-write-r16.mjs).
   */
-  const writer = (window as unknown as { PROBE_WRITER?: { gapMs: number; steps: number; path: string; type: string; name: string; source: string } }).PROBE_WRITER
-  if (writer && init?.method === "POST" && /\/themes\/probe-install\/agent\/decide$/.test(url)) return json({ agent: "writer", target: "page", lock: false, codeFocus: false })
+  const writer = (window as unknown as { PROBE_WRITER?: { gapMs: number; steps: number; path: string; type: string; name: string; source: string; decideMs?: number } }).PROBE_WRITER
+  /* decideMs: the router's answer as slow as a real one can be (a round trip, sometimes a small model). */
+  if (writer && init?.method === "POST" && /\/themes\/probe-install\/agent\/decide$/.test(url)) {
+    if (writer.decideMs) await new Promise((r) => setTimeout(r, writer.decideMs))
+    return json({ agent: "writer", target: "page", lock: false, codeFocus: false })
+  }
   if (writer && init?.method === "POST" && /\/themes\/probe-install\/sections\/code$/.test(url)) {
     const encoder = new TextEncoder()
     const body = new ReadableStream<Uint8Array>({
@@ -227,7 +231,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
         return new Response(JSON.stringify({ error: "Something went wrong" }), { status: 500, headers: { "content-type": "application/json" } })
       }
     }
-    return json({ files: new URL(url, location.href).searchParams.get("compat") === "1" ? compat.files : compat.sources })
+    /* The theme's Storelib sections with any the writer saved since (PROBE_WRITER), as the files route answers. */
+    const written = (window as unknown as { PROBE_FILES?: Record<string, string> }).PROBE_FILES
+    return json({ files: new URL(url, location.href).searchParams.get("compat") === "1" ? compat.files : { ...compat.sources, ...(written ?? {}) } })
   }
   if (/\/themes\/probe-install\/sections/.test(url)) {
     const key = new URL(url, location.href).searchParams.get("page") ?? "home"

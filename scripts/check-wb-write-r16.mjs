@@ -51,7 +51,9 @@ const expect = (ok, what, got) => {
 const SOURCE = `<template><section class="pw"><h2>{{ settings.heading }}</h2><p>Written for the probe.</p></section></template>
 <style scoped>.pw { padding: 96px 24px; background: #ecfdf5; text-align: center; font-family: system-ui; }</style>
 <schema>{"schema_version":1,"type":"probe_written","name":"Probe written","category":"content","settings":[{"type":"text","id":"heading","label":"Heading","default":"Written by Storelib AI"}],"presets":[{"name":"Probe written","settings":{"heading":"Written by Storelib AI"}}]}</schema>`
-const WRITER = { gapMs: 450, steps: 8, path: "sections/probe_written.storelib", type: "probe_written", name: "Probe written", source: SOURCE }
+/* DECIDE_MS: how long the router takes to answer (round 18: the chat no longer waits for it to get out of the way). */
+const DECIDE_MS = Number(process.env.DECIDE_MS ?? 1500)
+const WRITER = { gapMs: 450, steps: 8, path: "sections/probe_written.storelib", type: "probe_written", name: "Probe written", source: SOURCE, decideMs: DECIDE_MS }
 
 /* Every frame: the canvas's scroll, where the spot and the written section are, whether the phone's sheet is up. */
 const WATCH = String.raw`
@@ -183,6 +185,12 @@ async function run(device) {
     const droppedPct = frameGaps.length ? Math.round((dropped / (frameGaps.length + dropped)) * 1000) / 10 : 0
 
     expect(!!firstSpot, "the spot being written is drawn on the canvas")
+    /* Round 18: at Enter, not when the router answers (DECIDE_MS later). */
+    expect(!!firstSpot && firstSpot.t - t0 < Math.min(400, DECIDE_MS), `the spot is there within 400ms of Enter, with the router taking ${DECIDE_MS}ms`, firstSpot ? Math.round(firstSpot.t - t0) : null)
+    if (phone) {
+      const sheetGoing = rows.find((r) => r.t > t0 && r.sheetTop !== null && rows[0].sheetTop !== null && r.sheetTop > rows[0].sheetTop + 4)
+      expect(!!sheetGoing && sheetGoing.t - t0 < Math.min(400, DECIDE_MS), "the sheet starts down within 400ms of Enter", sheetGoing ? Math.round(sheetGoing.t - t0) : null)
+    }
     if (phone) {
       expect(!!sheetDown, "the Ask sheet goes down when the writing starts", sheetDown ? Math.round(sheetDown.t - t0) : null)
       expect(!!sheetDown && !!firstMove && firstMove.t >= sheetDown.t - 34, "the canvas moves only once the sheet is down", { sheetDownAt: sheetDown && Math.round(sheetDown.t - t0), firstMoveAt: firstMove && Math.round(firstMove.t - t0) })

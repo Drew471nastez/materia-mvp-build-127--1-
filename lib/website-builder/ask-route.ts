@@ -16,6 +16,9 @@
  * Pure apart from the one fetch, which is injected in the tests.
  */
 
+import { routeByRules } from "@/lib/website-builder/agent/router"
+import { ADDABLE_SECTIONS, SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+
 export interface AskRoute {
   agent: "page" | "writer"
   target: "element" | "block" | "section" | "page" | "theme"
@@ -32,6 +35,37 @@ export interface RouteAsk {
   selectedBlockType?: string
   scoped: boolean
   hasHistory: boolean
+}
+
+/**
+ * THE WRITER, KNOWN AT ENTER (round 18, the owner: "as soon as I send the
+ * prompt, it should smoothly close the modal and take me to the section
+ * that's coding"). The server's rules (agent/router.ts routeByRules) run here
+ * first, on what the browser has: a request the rules alone send to the
+ * writer starts the writer's spot and the glide at once, while the server is
+ * still asked. Only a clear answer counts; one the rules leave to the small
+ * model waits for the server. What the browser does not know is the theme's
+ * own section files, so the kinds already on the page stand in for them: a
+ * guess that turns out wrong is put back (theme-chat.tsx, onWriteCancel).
+ */
+export function writerAtOnce(ask: RouteAsk): boolean {
+  const body = ask.sections.filter((s) => !s.group && s.type !== "header" && s.type !== "footer")
+  const found = ask.selectedSectionId ? ask.sections.find((s) => s.id === ask.selectedSectionId) : undefined
+  try {
+    const ruled = routeByRules({
+      prompt: ask.prompt,
+      images: ask.images,
+      selection: found ? { sectionId: found.id, sectionType: found.type, sectionName: found.name, blockId: ask.selectedBlockId ?? null, blockType: ask.selectedBlockType ?? null, origin: "builtin" } : null,
+      scoped: ask.scoped,
+      bodySections: body.length,
+      addable: [...ADDABLE_SECTIONS.map((type) => ({ type, name: SECTION_SCHEMAS[type]?.name })), ...body.map((s) => ({ type: s.type }))],
+      onPage: body.map((s) => ({ type: s.type, name: s.name || undefined })),
+      hasHistory: ask.hasHistory,
+    })
+    return ruled.agent === "writer" && !ruled.ambiguous
+  } catch {
+    return false
+  }
 }
 
 /** What the box does when the router cannot be asked. */

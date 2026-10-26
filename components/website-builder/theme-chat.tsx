@@ -123,7 +123,7 @@ import {
 } from "@/lib/website-builder/ask-activity"
 import { attachProblem, fileKey, kindOf, newFiles, pastedFiles, pictureFingerprint, stillsRoom } from "@/lib/website-builder/ask-attach"
 import { finishWrite, readWriteAnswer, type WriteOutcome } from "@/lib/website-builder/ask-code-run"
-import { blockAtKey, decideRoute, scopeName } from "@/lib/website-builder/ask-route"
+import { blockAtKey, decideRoute, scopeName, writerAtOnce } from "@/lib/website-builder/ask-route"
 import { anchorAt, composeDictation, spokenSince, type DictationAnchor } from "@/lib/website-builder/ask-dictation"
 import { uploadAskImage } from "@/lib/website-builder/ask-image-upload"
 import { imageAnswer, imageOp, type QuestionAction } from "@/lib/sites/agent/questions"
@@ -678,6 +678,7 @@ function ThemeChatPanel({
   onWriteStart,
   onWriteDone,
   onWriteFailed,
+  onWriteCancel,
   variant = "sheet",
   hidden = false,
   suspended: suspendedProp = false,
@@ -714,6 +715,8 @@ function ThemeChatPanel({
   onWriteDone?: (section: { type: string; name: string; path: string }) => Promise<string | boolean> | string | boolean
   /** Nothing was written: `answered` when it replied in words instead, which is not a failure. */
   onWriteFailed?: (reason: string, answered?: boolean) => void
+  /** A writer started at Enter (writerAtOnce) that the server sent to the page assistant instead: the spot goes and the chat comes back. */
+  onWriteCancel?: () => void
   /**
    * Opens the code editor at a path. A section the assistant writes is a file,
    * and the honest end of that is the creator reading it, not a thing that
@@ -1811,10 +1814,17 @@ function ThemeChatPanel({
    * The chat says one line, with View code beside it; the file itself is
    * one press away in the code editor, never pasted into the thread.
    */
+  /* The exchange whose writer was started at Enter (dispatch, writerAtOnce), before the server answered. */
+  const startedEarly = React.useRef<string | null>(null)
   const writeOne = React.useCallback(
     async (text: string, images: Attachment[] = [], quiet = false, into?: string) => {
       const prompt = text.trim()
       if ((!prompt && images.length === 0) || writing || busy) {
+        if (into && startedEarly.current === into) {
+          startedEarly.current = null
+          onWorkingChange?.([])
+          onWriteCancel?.()
+        }
         if (into) {
           dropExchange(into)
           if (prompt) setQueued({ text: prompt })
@@ -1845,7 +1855,9 @@ function ThemeChatPanel({
       /* The spot it is writing into, labelled with what it is writing. */
       let subject = tt("New section")
       const tell = () => onWorkingChange?.([WRITING_SECTION_ID], subject)
-      onWriteStart?.(prompt)
+      /* Started at Enter already (dispatch, writerAtOnce): the spot is held and the canvas is on its way to it. */
+      if (!into || startedEarly.current !== into) onWriteStart?.(prompt)
+      startedEarly.current = null
       tell()
       /* The section arrives on the canvas: the dock gets out of its way while it does, and the folded pill says where it is. */
       if (dock) setExpanded(false)
@@ -1934,7 +1946,7 @@ function ThemeChatPanel({
         setWriting(false)
       }
     },
-    [writing, busy, installId, loadingHistory, patchExchange, onWriteStart, onWriteDone, onWriteFailed, onWorkingChange, onRunFinished, dock, placeExchange, dropExchange],
+    [writing, busy, installId, loadingHistory, patchExchange, onWriteStart, onWriteDone, onWriteFailed, onWriteCancel, onWorkingChange, onRunFinished, dock, placeExchange, dropExchange],
   )
 
   /**
@@ -1980,7 +1992,7 @@ function ThemeChatPanel({
       })
       try {
         const now = live.current
-        const route = await decideRoute(installId, {
+        const ask = {
           prompt,
           images: images.length,
           sections: now.sections.map((s) => ({ id: s.id, type: s.type, name: s.name, group: (s as { group?: string }).group })),
@@ -1989,15 +2001,36 @@ function ThemeChatPanel({
           selectedBlockType: now.blockType,
           scoped: now.locked,
           hasHistory: now.exchanges > 0,
-        })
+        }
+        /*
+          A NEW SECTION GOES TO ITS SPOT AT ENTER (round 18). The rules the
+          server runs first say "the writer" for most asks for a section of
+          its own: then the chat gets out of the way and the canvas glides to
+          the spot now, not after the round trip, and the server's answer only
+          confirms it. Nothing else is in the way: no run, no write.
+        */
+        const early = !writing && !busy && writerAtOnce(ask)
+        if (early) {
+          startedEarly.current = into
+          onWriteStart?.(prompt)
+          onWorkingChange?.([WRITING_SECTION_ID], tt("New section"))
+        }
+        const route = await decideRoute(installId, ask)
         if (route.agent === "writer") void writeOne(prompt, images, true, into)
-        else void send(prompt, images, true, { codeFocus: route.codeFocus, lock: route.lock, into })
+        else {
+          if (early && startedEarly.current === into) {
+            startedEarly.current = null
+            onWorkingChange?.([])
+            onWriteCancel?.()
+          }
+          void send(prompt, images, true, { codeFocus: route.codeFocus, lock: route.lock, into })
+        }
       } finally {
         routing.current = false
         setRoutingNow(false)
       }
     },
-    [installId, send, writeOne, placeExchange],
+    [installId, send, writeOne, placeExchange, writing, busy, onWriteStart, onWorkingChange, onWriteCancel],
   )
   const dispatchRef = React.useRef(dispatch)
   dispatchRef.current = dispatch

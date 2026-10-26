@@ -26,6 +26,7 @@
  * builder, where they could act for the person signed in.
  */
 import { compatFilter, escapeHtml } from "./filters"
+import { WRITING_SPOT_TYPE, writingSpotHtml } from "./writing-spot"
 import { CompatSyntaxError } from "./lexer"
 import { parseCompat, type Node, type Parsed } from "./parser"
 import { Ctx, OUTPUT, evaluate, renderString, renderTree, toList, toOutput, type Env } from "./runtime"
@@ -946,6 +947,8 @@ export class CompatTheme {
   }
 
   private renderSectionRaw(ctx: Ctx, instance: CompatSectionInstance, index = 0, group?: string): RenderedSection {
+    /* The spot Storelib AI is writing a section into, held in the canvas until the section takes its place (./writing-spot.ts). */
+    if (instance.type === WRITING_SPOT_TYPE) return { html: writingSpotHtml(instance.id, typeof instance.settings?.prompt === "string" ? instance.settings.prompt : ""), errors: [] }
     const path = this.fileFor("sections", instance.type)
     /* A Storelib section in this imported theme (one the AI wrote, or added from Storelib's own): drawn by Storelib's renderer, never read as Liquid. */
     const native = path ? this.nativeSection(path) : null

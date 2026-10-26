@@ -143,7 +143,7 @@ async function main() {
     /* A typed message, and a suggestion once it is sent from the box, go where the server's router says (dispatch, lib/website-builder/ask-route.ts). */
     const dispatch = panel.slice(panel.indexOf("const dispatch = React.useCallback("), panel.indexOf("const submit = React.useCallback("))
     check("a tap fills the box with the suggestion, ready to send or change", /setDraft\(text\)/.test(body) && !/dispatch\(/.test(body) && /field\.focus\(/.test(body))
-    check("the router decides: a new kind of section goes to the writer, everything else to the page assistant", /await decideRoute\(installId,/.test(dispatch) && /if \(route\.agent === "writer"\) void writeOne\(prompt, images, true, into\)/.test(dispatch) && /else void send\(prompt, images, true, \{ codeFocus: route\.codeFocus, lock: route\.lock, into \}\)/.test(dispatch))
+    check("the router decides: a new kind of section goes to the writer, everything else to the page assistant", /await decideRoute\(installId,/.test(dispatch) && /if \(route\.agent === "writer"\) void writeOne\(prompt, images, true, into\)/.test(dispatch) && /else \{[\s\S]{0,260}void send\(prompt, images, true, \{ codeFocus: route\.codeFocus, lock: route\.lock, into \}\)/.test(dispatch))
     check("suggestions are offered only while the box is empty", (panel.match(/items=\{composerEmpty \? suggestions : \[\]\}/g) ?? []).length === 2 && /const composerEmpty = empty && attached\.length === 0/.test(panel))
     check(
       "and whatever is typed in the box, and its pictures, are not touched by a tap",
