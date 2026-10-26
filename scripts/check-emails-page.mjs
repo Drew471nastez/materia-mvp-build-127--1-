@@ -157,6 +157,8 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
       "--format=iife",
       "--jsx=automatic",
       '--define:process.env.NODE_ENV="production"',
+      /* A module that reads another public setting at run time finds an empty one, as Next leaves it. */
+      '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true};globalThis.process=process;',
       "--define:process.env.NEXT_PUBLIC_MAIN_DOMAIN=undefined",
       /* The Customer emails tab draws previews with the receipt's template, which reads this one (Next inlines it). */
       "--define:process.env.NEXT_PUBLIC_APP_URL=undefined",
@@ -528,35 +530,33 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
     await p.evaluate(() => { document.querySelector(".orders-list").scrollTop = 0 })
     await sleep(100)
     const S = "section[aria-label=Subscribers]"
-    const rows = await p.$$eval(`${S} tbody tr`, (r) => r.map((x) => Math.round(x.getBoundingClientRect().height)))
-    expect(rows.length === 50 && rows.every((h) => h === 48), "fifty dense 48px rows to a page", { count: rows.length, heights: [...new Set(rows)] })
+    /* Round 24: a phone draws each contact as Orders' phone row (emails-home PhoneItem); a computer keeps the dense table. */
+    const ROW = phone ? `${S} li[data-email-phone-row]` : `${S} tbody tr`
+    const rows = await p.$$eval(ROW, (r) => r.map((x) => Math.round(x.getBoundingClientRect().height)))
+    if (phone) expect(rows.length === 50 && rows.every((h) => h >= 56), "fifty rows to a page, each one a contact", { count: rows.length, heights: [...new Set(rows)] })
+    else expect(rows.length === 50 && rows.every((h) => h === 48), "fifty dense 48px rows to a page", { count: rows.length, heights: [...new Set(rows)] })
     expect((await p.$$eval(`${S} button`, (b) => b.map((x) => x.textContent.trim()))).includes("Next"), "and a Next page")
-    const long = await p.$eval(`${S} tbody tr:nth-child(4) td span`, (el) => ({ cut: el.scrollWidth > el.clientWidth, h: Math.round(el.closest("td").getBoundingClientRect().height), ell: getComputedStyle(el).textOverflow }))
-    expect(long.cut && long.h === 48 && long.ell === "ellipsis", "a long address is cut, not wrapped", long)
-    const customerRow = await p.$eval(`${S} tbody tr:nth-child(8)`, (r) => r.textContent)
+    const long = phone
+      ? await p.$eval(`${ROW}:nth-child(4) .truncate`, (el) => ({ cut: el.scrollWidth > el.clientWidth, h: Math.round(el.getBoundingClientRect().height), ell: getComputedStyle(el).textOverflow }))
+      : await p.$eval(`${S} tbody tr:nth-child(4) td span`, (el) => ({ cut: el.scrollWidth > el.clientWidth, h: Math.round(el.closest("td").getBoundingClientRect().height), ell: getComputedStyle(el).textOverflow }))
+    expect(long.cut && long.h === (phone ? 24 : 48) && long.ell === "ellipsis", "a long address is cut, not wrapped", long)
+    const customerRow = await p.$eval(`${ROW}:nth-child(8)`, (r) => r.textContent)
     expect(/Customer/.test(customerRow) && !/Unsubscribed/.test(customerRow), "a buyer who did not ask for news shows as a Customer", customerRow.slice(0, 60))
     await p.evaluate(() => [...document.querySelectorAll("section[aria-label=Subscribers] button")].find((b) => b.textContent.trim() === "Status").click())
     await sleep(300)
     await p.evaluate(() => [...document.querySelectorAll("[role=menu] *")].find((el) => el.childElementCount === 0 && el.textContent.trim() === "Customers").click())
     await sleep(200)
-    const onlyCustomers = await p.$$eval(`${S} tbody tr`, (r) => r.map((x) => /Customer/.test(x.textContent)))
+    const onlyCustomers = await p.$$eval(ROW, (r) => r.map((x) => /Customer/.test(x.textContent)))
     expect(onlyCustomers.length === 6 && onlyCustomers.every(Boolean), "the Status filter shows the customers alone", onlyCustomers.length)
     await p.click(`${S} button[aria-label="Clear Status"]`)
     await sleep(200)
     const sideways = () => p.evaluate(() => { const l = document.querySelector(".orders-list"); return l.scrollWidth - l.clientWidth })
     expect((await sideways()) === 0, "the page never scrolls sideways", await sideways())
     if (phone) {
-      const cell = `${S} tbody tr td`
-      const before = await p.$eval(cell, (td) => Math.round(td.getBoundingClientRect().left))
-      await p.$eval(`${S} .overflow-x-auto`, (el) => { el.scrollLeft = 200 })
-      await sleep(50)
-      const after = await p.$eval(cell, (td) => Math.round(td.getBoundingClientRect().left))
-      expect(before === after, "the email column stays put while the table scrolls", { before, after })
-      const col = await p.$eval(cell, (td) => Math.round(td.getBoundingClientRect().width))
-      expect(col <= 220, "and is narrow enough to leave the scrolling columns in view", col)
-      await p.$eval(`${S} .overflow-x-auto`, (el) => { el.scrollLeft = 0 })
+      const table = await p.$eval(S, (sec) => [...sec.querySelectorAll("table")].some((t) => t.getClientRects().length > 0))
+      expect(!table, "no table to swipe sideways on a phone", table)
     }
-    const btn = await p.$(`${S} tbody tr:first-child td:last-child button`)
+    const btn = await p.$(phone ? `${ROW}:first-child button` : `${S} tbody tr:first-child td:last-child button`)
     await btn.evaluate((b) => b.scrollIntoView({ block: "center", inline: "end" }))
     const hit = await btn.evaluate((b) => { const r = b.getBoundingClientRect(); return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest("button") === b })
     expect(hit, "the actions button is not covered by the pinned column", hit)

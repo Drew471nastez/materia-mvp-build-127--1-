@@ -8,7 +8,10 @@
  * measured (the server's markup) the chosen option draws its own pill where
  * the sliding one will be. A press is felt (a soft tick). Arrow keys move
  * between options, as a tablist's should. With reduced motion it is simply
- * there.
+ * there. A track wider than the screen scrolls sideways, and the chosen
+ * option is kept in view without moving the page. `onIntent` hears a
+ * pointer resting on an option, or a finger landing on it, so what it opens
+ * can be read ahead (Emails).
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
@@ -19,7 +22,7 @@ export interface PillOption<T extends string> {
   label: React.ReactNode
 }
 
-export function SegmentedPills<T extends string>({ options, value, onChange, label, className, size = "md" }: { options: PillOption<T>[]; value: T; onChange: (value: T) => void; label: string; className?: string; size?: "sm" | "md" }) {
+export function SegmentedPills<T extends string>({ options, value, onChange, onIntent, label, className, size = "md" }: { options: PillOption<T>[]; value: T; onChange: (value: T) => void; onIntent?: (value: T) => void; label: string; className?: string; size?: "sm" | "md" }) {
   const track = React.useRef<HTMLDivElement>(null)
   const refs = React.useRef<(HTMLButtonElement | null)[]>([])
   const [box, setBox] = React.useState<{ x: number; w: number } | null>(null)
@@ -32,6 +35,12 @@ export function SegmentedPills<T extends string>({ options, value, onChange, lab
       setBox((b) => (b && b.x === el.offsetLeft && b.w === el.offsetWidth ? b : { x: el.offsetLeft, w: el.offsetWidth }))
     }
     measure()
+    const strip = track.current
+    const el = refs.current[index]
+    if (strip && el && strip.scrollWidth > strip.clientWidth) {
+      if (el.offsetLeft < strip.scrollLeft) strip.scrollLeft = el.offsetLeft - 8
+      else if (el.offsetLeft + el.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = el.offsetLeft + el.offsetWidth - strip.clientWidth + 8
+    }
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null
     if (ro && track.current) ro.observe(track.current)
     return () => ro?.disconnect()
@@ -71,7 +80,10 @@ export function SegmentedPills<T extends string>({ options, value, onChange, lab
             role="tab"
             aria-selected={on}
             tabIndex={on ? 0 : -1}
+            data-tab={o.value}
             onClick={() => pick(i)}
+            onPointerEnter={onIntent ? () => onIntent(o.value) : undefined}
+            onTouchStart={onIntent ? () => onIntent(o.value) : undefined}
             onKeyDown={(e) => {
               if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return
               e.preventDefault()

@@ -42,6 +42,7 @@ import type { RangeValue } from "@/lib/date-range/range"
 import { cn } from "@/lib/utils"
 import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
 import { ScrollEdge } from "@/components/app/scroll-edge"
+import { SegmentedPills } from "@/components/app/segmented-pills"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
@@ -210,24 +211,33 @@ function rate(part: number, whole: number): string {
 /**
  * A row that opens something: darker while pressed, by mouse or finger.
  * `data-pressed` covers a quick tap that :active alone can miss on iOS, and
- * is cleared when the finger lifts, slides off or scrolls the list.
+ * is cleared when the finger lifts, slides off or scrolls the list. A finger
+ * darkens a row only after 120ms still on it (round 24, the owner: rows lit
+ * up under a scrolling finger): a scroll cancels the pointer before then.
  */
 function usePress() {
   const [pressed, setPressed] = React.useState<string | null>(null)
   const hover = React.useRef(0)
+  const touch = React.useRef(0)
+  const lift = () => {
+    window.clearTimeout(touch.current)
+    setPressed(null)
+  }
   const bind = (id: string, intent?: () => void) => ({
     "data-pressed": pressed === id ? "true" : undefined,
     onPointerDown: (e: React.PointerEvent) => {
       intent?.()
       if ((e.target as HTMLElement).closest("button, input, [role=switch], [role=menu]")) return
-      setPressed(id)
+      window.clearTimeout(touch.current)
+      if (e.pointerType === "touch") touch.current = window.setTimeout(() => setPressed(id), 120)
+      else setPressed(id)
     },
-    onPointerUp: () => setPressed(null),
+    onPointerUp: lift,
     onPointerLeave: () => {
       window.clearTimeout(hover.current)
-      setPressed(null)
+      lift()
     },
-    onPointerCancel: () => setPressed(null),
+    onPointerCancel: lift,
     /* A pointer resting on the row, as on Orders' rows: passing over it asks for nothing. */
     onPointerEnter: (e: React.PointerEvent) => {
       if (!intent || e.pointerType !== "mouse") return
@@ -240,7 +250,32 @@ function usePress() {
   return bind
 }
 
-const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[#fafbfb] active:bg-[#f4f5f7] data-[pressed=true]:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
+const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[#fafbfb] pointer-fine:active:bg-[#f4f5f7] data-[pressed=true]:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
+
+/**
+ * A ROW ON A PHONE, AS ORDERS DRAWS ONE (app/app/orders/orders-list.tsx
+ * PhoneRow): what it is and its figure on top at 17px, a line under it at
+ * 15px, a quiet line at 14px, then its badges; its menu at the end, where a
+ * thumb is. A table to swipe sideways stays a computer's.
+ */
+function PhoneItem({ head, aside, line, meta, badges, menu, ...row }: { head: React.ReactNode; aside?: React.ReactNode; line?: React.ReactNode; meta?: React.ReactNode; badges?: React.ReactNode; menu: React.ReactNode } & React.LiHTMLAttributes<HTMLLIElement> & Record<`data-${string}`, string | undefined>) {
+  return (
+    <li {...row} className={cn(pressable, "flex items-center gap-1 py-3 pl-4 pr-1.5")} data-email-phone-row="">
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-baseline justify-between gap-3">
+          <div className="min-w-0 truncate text-[17px] font-semibold leading-6 text-[#1a1a2e]">{head}</div>
+          {aside ? <span className="shrink-0 text-[14px] tabular-nums text-[#6b7280]">{aside}</span> : null}
+        </div>
+        {line ? <div className="mt-0.5 truncate text-[15px] leading-5 text-[#303036]">{line}</div> : null}
+        {meta ? <div className="mt-0.5 truncate text-[14px] leading-5 text-[#6b7280]">{meta}</div> : null}
+        {badges ? <div className="mt-1.5 flex flex-wrap gap-1.5">{badges}</div> : null}
+      </div>
+      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+        {menu}
+      </div>
+    </li>
+  )
+}
 
 export function EmailsHome(props: EmailsHomeProps) {
   const { tab } = props
@@ -284,41 +319,25 @@ export function EmailsHome(props: EmailsHomeProps) {
 /* ─── The tabs, in the bar ───────────────────────────────────────────── */
 
 function Tabs({ tab, onTab, onIntent, counts }: { tab: EmailsTab; onTab: (t: EmailsTab) => void; onIntent?: (t: EmailsTab) => void; counts?: Partial<Record<EmailsTab, number>> }) {
-  const stripRef = React.useRef<HTMLDivElement>(null)
-  /* The chosen tab scrolled into view on a phone, without moving the page. */
-  React.useLayoutEffect(() => {
-    const strip = stripRef.current
-    const el = strip?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)
-    if (!strip || !el) return
-    const left = el.offsetLeft - strip.offsetLeft
-    if (left < strip.scrollLeft) strip.scrollLeft = left - 8
-    else if (left + el.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = left + el.offsetWidth - strip.clientWidth + 8
-  }, [tab])
+  /* Analytics' sliding pill (round 24, the owner: "the pill shapes of the analytics"); the strip scrolls sideways on a phone and keeps the chosen one in view. */
   return (
-    <div ref={stripRef} role="tablist" aria-label={tt("Views")} className="orders-strip -mx-1 flex h-11 items-center gap-0.5 overflow-x-auto px-1" data-email-tabs="">
-      {TABS.map((t) => {
-        const active = t.id === tab
-        return (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            data-tab={t.id}
-            aria-selected={active}
-            onClick={() => onTab(t.id)}
-            onPointerEnter={() => onIntent?.(t.id)}
-            onTouchStart={() => onIntent?.(t.id)}
-            className={cn(
-              "h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100 [-webkit-tap-highlight-color:transparent]",
-              active ? "bg-[#e8e9ec] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#eef0f2] active:bg-[#e8e9ec]",
-            )}
-          >
-            {t.label}
-            {/* New messages, counted in the tab's own quiet type: a number, not a pill. */}
-            {counts?.[t.id] ? <span className="ml-1.5 tabular-nums text-[#8b5cf6]" data-tab-count="">{counts[t.id]}</span> : null}
-          </button>
-        )
-      })}
+    <div className="flex h-11 items-center" data-email-tabs="">
+      <SegmentedPills
+        label={tt("Views")}
+        value={tab}
+        onChange={onTab}
+        onIntent={onIntent}
+        options={TABS.map((t) => ({
+          value: t.id,
+          label: (
+            <>
+              {t.label}
+              {/* New messages, counted in the tab's own quiet type: a number, not a pill. */}
+              {counts?.[t.id] ? <span className="ml-1.5 tabular-nums text-[#8b5cf6]" data-tab-count="">{counts[t.id]}</span> : null}
+            </>
+          ),
+        }))}
+      />
     </div>
   )
 }
@@ -614,6 +633,11 @@ function SubscribersTable(props: EmailsHomeProps) {
     })
   }
   const q = props.search.trim().toLowerCase()
+  const subscriberMenu = (s: SubscriberRow): ActionMenuItem[] => [
+    { label: tt("Details"), onClick: () => openContact(s) },
+    { label: tt("Copy email"), onClick: () => props.onCopyEmail(s.email) },
+    { label: tt("Remove"), variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
+  ]
 
   /* Every contact's source, read once: the column, the filter and its counts. */
   const views = React.useMemo(() => new Map(props.subscribers.map((s) => [s.id, sourceView(s.source_detail, s.source)])), [props.subscribers])
@@ -715,7 +739,29 @@ function SubscribersTable(props: EmailsHomeProps) {
             <Empty title={tt("No subscribers yet")} body={tt("People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you.")} />
           )
         ) : (
-          <ScrollEdge>
+          <>
+          <ul aria-label={tt("Subscribers")} className="divide-y divide-[#f1f2f4] sm:hidden">
+            {shown.map((s) => {
+              const v = views.get(s.id)
+              return (
+                <PhoneItem
+                  key={s.id}
+                  data-contact-row=""
+                  onClick={() => openContact(s)}
+                  {...press(s.id, () => prefetchContact(s.email))}
+                  {...(waiting === s.id ? { "data-pressed": "true" } : null)}
+                  head={s.name || s.email}
+                  aside={formatDay(s.subscribed_at)}
+                  line={s.name ? s.email : undefined}
+                  meta={tt(v?.label ?? NOT_RECORDED)}
+                  /* Subscribed is most of them, so only the others are said. */
+                  badges={s.status === "subscribed" ? undefined : <SubscriberStatus s={s} />}
+                  menu={<ResponsiveActionMenu title={s.email} align="end" trigger={<RowMenuButton label={tt("Actions for {email}", { email: s.email })} className="h-11 w-11" />} items={subscriberMenu(s)} />}
+                />
+              )
+            })}
+          </ul>
+          <ScrollEdge frameClassName="max-sm:hidden">
             <table className="w-full min-w-[720px] border-collapse">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
@@ -759,11 +805,7 @@ function SubscribersTable(props: EmailsHomeProps) {
                           title={s.email}
                           align="end"
                           trigger={<RowMenuButton label={tt("Actions for {email}", { email: s.email })} />}
-                          items={[
-                            { label: tt("Details"), onClick: () => openContact(s) },
-                            { label: tt("Copy email"), onClick: () => props.onCopyEmail(s.email) },
-                            { label: tt("Remove"), variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
-                          ]}
+                          items={subscriberMenu(s)}
                         />
                       </td>
                     </tr>
@@ -772,6 +814,7 @@ function SubscribersTable(props: EmailsHomeProps) {
               </tbody>
             </table>
           </ScrollEdge>
+          </>
         )}
       </ShimmerSwap>
       <Pager page={page} pages={pages} total={rows.length} onPage={setPage} />
@@ -804,6 +847,13 @@ function MessagesTable(props: EmailsHomeProps) {
   const [page, setPage] = React.useState(1)
   const pages = Math.max(1, Math.ceil(props.messages.length / PAGE_SIZE))
   const shown = props.messages.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const messageMenu = (m: MessageRow): ActionMenuItem[] => [
+    { label: tt("Open"), onClick: () => props.onOpenMessage(m) },
+    { label: tt("Reply"), onClick: () => { window.location.href = replyHref(m) } },
+    { label: m.read_at ? tt("Mark as new") : tt("Mark as read"), onClick: () => props.onToggleRead(m) },
+    { label: tt("Copy email"), onClick: () => props.onCopyEmail(m.email) },
+    { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteMessage(m.id) },
+  ]
   return (
     <>
       <ShimmerSwap loading={props.loading} skeleton={<Loading />}>
@@ -817,7 +867,33 @@ function MessagesTable(props: EmailsHomeProps) {
             }
           />
         ) : (
-          <ScrollEdge>
+          <>
+          <ul aria-label={tt("Messages")} className="divide-y divide-[#f1f2f4] sm:hidden">
+            {shown.map((m) => {
+              const fresh = !m.read_at
+              const who = m.name || m.email
+              return (
+                <PhoneItem
+                  key={m.id}
+                  data-message-row={m.id}
+                  data-unread={fresh ? "true" : undefined}
+                  onClick={() => props.onOpenMessage(m)}
+                  {...press(m.id)}
+                  head={
+                    <>
+                      {fresh ? <span aria-label={tt("New")} className="mr-1.5 inline-block h-2 w-2 -translate-y-[2px] rounded-full bg-[#8b5cf6] align-middle" /> : null}
+                      <span className={fresh ? undefined : "font-medium"}>{who}</span>
+                    </>
+                  }
+                  aside={formatWhen(m.created_at)}
+                  line={m.subject || undefined}
+                  meta={m.message.replace(/\s+/g, " ").trim()}
+                  menu={<ResponsiveActionMenu title={who} align="end" trigger={<RowMenuButton label={tt("Actions for the message from {who}", { who })} className="h-11 w-11" />} items={messageMenu(m)} />}
+                />
+              )
+            })}
+          </ul>
+          <ScrollEdge frameClassName="max-sm:hidden">
             <table className="w-full min-w-[720px] border-collapse" data-messages-table="">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
@@ -862,13 +938,7 @@ function MessagesTable(props: EmailsHomeProps) {
                           title={who}
                           align="end"
                           trigger={<RowMenuButton label={tt("Actions for the message from {who}", { who })} />}
-                          items={[
-                            { label: tt("Open"), onClick: () => props.onOpenMessage(m) },
-                            { label: tt("Reply"), onClick: () => { window.location.href = replyHref(m) } },
-                            { label: fresh ? tt("Mark as read") : tt("Mark as new"), onClick: () => props.onToggleRead(m) },
-                            { label: tt("Copy email"), onClick: () => props.onCopyEmail(m.email) },
-                            { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteMessage(m.id) },
-                          ]}
+                          items={messageMenu(m)}
                         />
                       </td>
                     </tr>
@@ -877,6 +947,7 @@ function MessagesTable(props: EmailsHomeProps) {
               </tbody>
             </table>
           </ScrollEdge>
+          </>
         )}
       </ShimmerSwap>
       <Pager page={page} pages={pages} total={props.messages.length} onPage={setPage} />
@@ -933,13 +1004,13 @@ function FlowsTable(props: EmailsHomeProps) {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                        <Link href={href(f)} prefetch={false} className="min-w-0 break-words text-[15px] font-semibold leading-5 text-[#1a1a2e] outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
+                        <Link href={href(f)} prefetch={false} className="min-w-0 break-words text-[17px] font-semibold leading-6 text-[#1a1a2e] outline-none focus-visible:underline" onClick={(e) => e.stopPropagation()}>
                           {f.name}
                         </Link>
                         {t && t.failed > 0 ? <StatusBadge tone="critical">{tt("{failed} failed", { failed: t.failed })}</StatusBadge> : null}
                       </p>
-                      <p className="mt-0.5 text-[13px] leading-[18px] text-[#4b5563]">{trigger}</p>
-                      <p className="mt-0.5 text-[12px] leading-4 tabular-nums text-[#6b7280]">
+                      <p className="mt-0.5 text-[15px] leading-5 text-[#303036]">{trigger}</p>
+                      <p className="mt-0.5 text-[14px] leading-5 tabular-nums text-[#6b7280]">
                         {stepSummary(normalizeSteps(f.steps))}
                         {numbers ? ` · ${numbers}` : ""}
                       </p>
@@ -1024,6 +1095,21 @@ function CampaignsTable(props: EmailsHomeProps) {
         ? { title: tt("Nothing scheduled"), body: tt("Write an email and choose when it goes out, and it waits here until then.") }
         : { title: tt("No drafts"), body: tt("An email you start and do not send yet is kept here.") }
   const open = (c: CampaignRow) => (drafts ? openLayer(router, `/app/emails/edit/${c.id}`) : props.onOpenCampaign(c))
+  const campaignMenu = (c: CampaignRow): ActionMenuItem[] =>
+    drafts
+      ? [
+          { label: tt("Edit"), onClick: () => open(c) },
+          { label: tt("Duplicate"), onClick: () => props.onDuplicateCampaign(c) },
+          { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
+        ]
+      : [
+          { label: sent ? tt("View results") : tt("Open"), onClick: () => open(c) },
+          ...(tab === "scheduled" ? [{ label: tt("Edit"), onClick: () => openLayer(router, `/app/emails/edit/${c.id}`) }] : []),
+          { label: tt("Duplicate"), onClick: () => props.onDuplicateCampaign(c) },
+          ...(c.status === "queued" || c.status === "sending" ? [] : [{ label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) }]),
+        ]
+  const when = (c: CampaignRow) => (sent ? formatDay(c.sent_at) : tab === "scheduled" ? formatWhen(c.scheduled_at) : formatDay(c.updated_at ?? c.created_at))
+  const titleOf = (c: CampaignRow) => (c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || tt("Untitled")
 
   return (
     <>
@@ -1039,7 +1125,30 @@ function CampaignsTable(props: EmailsHomeProps) {
             }
           />
         ) : (
-          <ScrollEdge>
+          <>
+          <ul aria-label={TABS.find((t) => t.id === tab)?.label} className="divide-y divide-[#f1f2f4] sm:hidden">
+            {shown.map((c) => {
+              const recipients = c.recipient_count || c.audience_count || 0
+              const resent = /\(Resend\)/.test(c.subject ?? "")
+              const title = titleOf(c)
+              const people = recipients ? tt("{n, plural, one {# recipient} other {# recipients}}", { n: recipients }) : null
+              return (
+                <PhoneItem
+                  key={c.id}
+                  data-campaign-row={c.id}
+                  onClick={() => open(c)}
+                  {...press(c.id, () => props.onCampaignIntent(c))}
+                  head={title}
+                  aside={when(c)}
+                  line={sent && recipients ? tt("{opened} opened · {clicked} clicked", { opened: rate(c.unique_opens ?? 0, recipients), clicked: rate(c.unique_clicks ?? 0, recipients) }) : undefined}
+                  meta={people ?? undefined}
+                  badges={resent || (sent && c.status && c.status !== "sent") ? <>{resent ? <StatusBadge tone="neutral">{tt("Sent again")}</StatusBadge> : null}{sent ? <SendBadge status={c.status} /> : null}</> : undefined}
+                  menu={<ResponsiveActionMenu title={title} align="end" trigger={<RowMenuButton label={tt("Actions for {title}", { title })} className="h-11 w-11" />} items={campaignMenu(c)} />}
+                />
+              )
+            })}
+          </ul>
+          <ScrollEdge frameClassName="max-sm:hidden">
             <table className="w-full min-w-[640px] border-collapse">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
                 <tr>
@@ -1055,19 +1164,8 @@ function CampaignsTable(props: EmailsHomeProps) {
                 {shown.map((c) => {
                   const recipients = c.recipient_count || c.audience_count || 0
                   const resent = /\(Resend\)/.test(c.subject ?? "")
-                  const title = (c.subject ?? "").replace(/\s*\(Resend\)\s*$/, "") || tt("Untitled")
-                  const items: ActionMenuItem[] = drafts
-                    ? [
-                        { label: tt("Edit"), onClick: () => open(c) },
-                        { label: tt("Duplicate"), onClick: () => props.onDuplicateCampaign(c) },
-                        { label: tt("Delete"), variant: "destructive", separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) },
-                      ]
-                    : [
-                        { label: sent ? tt("View results") : tt("Open"), onClick: () => open(c) },
-                        ...(tab === "scheduled" ? [{ label: tt("Edit"), onClick: () => openLayer(router, `/app/emails/edit/${c.id}`) }] : []),
-                        { label: tt("Duplicate"), onClick: () => props.onDuplicateCampaign(c) },
-                        ...(c.status === "queued" || c.status === "sending" ? [] : [{ label: tt("Delete"), variant: "destructive" as const, separatorBefore: true, onClick: () => props.onDeleteCampaign(c.id) }]),
-                      ]
+                  const title = titleOf(c)
+                  const items = campaignMenu(c)
                   return (
                     <tr key={c.id} className={cn("orders-row", pressable)} data-campaign-row={c.id} data-order-id={c.id} onClick={() => open(c)} {...press(c.id, () => props.onCampaignIntent(c))}>
                       <td data-scroll-edge="" className={cn(td, sticky)}>
@@ -1079,9 +1177,7 @@ function CampaignsTable(props: EmailsHomeProps) {
                           {sent ? <SendBadge status={c.status} /> : null}
                         </span>
                       </td>
-                      <td className={cn(td, "tabular-nums text-[#4b5563]")}>
-                        {sent ? formatDay(c.sent_at) : tab === "scheduled" ? formatWhen(c.scheduled_at) : formatDay(c.updated_at ?? c.created_at)}
-                      </td>
+                      <td className={cn(td, "tabular-nums text-[#4b5563]")}>{when(c)}</td>
                       <td className={cn(td, "text-right tabular-nums")}>{recipients ? recipients.toLocaleString(appLocale()) : "–"}</td>
                       {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_opens ?? 0, recipients)}</td> : null}
                       {sent ? <td className={cn(td, "text-right tabular-nums")}>{rate(c.unique_clicks ?? 0, recipients)}</td> : null}
@@ -1094,6 +1190,7 @@ function CampaignsTable(props: EmailsHomeProps) {
               </tbody>
             </table>
           </ScrollEdge>
+          </>
         )}
       </ShimmerSwap>
       <Pager page={page} pages={pages} total={props.campaigns.length} onPage={setPage} />
