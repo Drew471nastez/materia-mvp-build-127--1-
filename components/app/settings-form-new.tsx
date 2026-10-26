@@ -184,7 +184,8 @@ const TAB_DATA: Partial<Record<TabId, (physical: boolean) => string[]>> = {
   shipping: () => ["/api/physical/settings"],
   locations: () => ["/api/physical/settings"],
   returns: (p) => ["/api/store/reasons", ...(p ? ["/api/physical/settings"] : [])],
-  integrations: (p) => ["/api/store/integrations", "/api/store/integrations/catalog", ...(p ? ["/api/physical/integrations"] : [])],
+  /* And how much each is used across Storelib (round 22): read with the rest, so the cards are in their order from the first frame and never move after. */
+  integrations: (p) => ["/api/store/integrations", "/api/store/integrations/catalog", "/api/integrations/popularity", ...(p ? ["/api/physical/integrations"] : [])],
 }
 const tabData = (id: TabId, physical: boolean): string[] => TAB_DATA[id]?.(physical) ?? []
 /** Tabs that exist only while physical commerce is on in /admin. */

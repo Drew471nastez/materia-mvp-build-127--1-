@@ -58,7 +58,8 @@ console.log("\nAll, mixed\n")
 console.log("\nThe directory\n")
 {
   const ui = read("components/app/settings/integrations-directory.tsx")
-  check("one woven order for every pill: working first, Coming soon after", /const entries: Entry\[\] = \[\.\.\.weave\(listed\.filter\(\(e\) => !later\(e\)\), laneOf\), \.\.\.weave\(listed\.filter\(later\), laneOf\)\]/.test(ui))
+  /* Round 22: the woven order is what a tie keeps; most used first on top of it, Coming soon still after. */
+  check("one woven order for every pill: working first, Coming soon after", /const woven: Entry\[\] = \[\.\.\.weave\(listed\.filter\(\(e\) => !later\(e\)\), laneOf\), \.\.\.weave\(listed\.filter\(later\), laneOf\)\]/.test(ui) && /Number\(later\(a\.e\)\) - Number\(later\(b\.e\)\) \|\| scoreOf\(b\.e\) - scoreOf\(a\.e\) \|\| a\.at - b\.at/.test(ui))
   check("  inside a lane Storelib's own first (its pages, then its apps), then the services as the catalog lists them", /const ownRank = \(e: Entry\) => \(e\.kind === "integration" \? \(hasBuiltInArt\(e\.id\) \? 0 : 2\) : 1\)/.test(ui))
   /* Changed on purpose (round K4): the pill, the search and the filters are one state in the address (?category=&q=&status=&by=, lib/integrations/directory-filter), read on the first render and written in place; ?c= is still read for old links. */
   const filterLib = read("lib/integrations/directory-filter.ts")

@@ -69,6 +69,14 @@ export interface PublishPanelProps {
   /** That read has come back, with an answer or without one. Until then the row keeps its place, empty. */
   connectionsSettled?: boolean
   /** Website Settings, on Connections. */
+  /**
+   * ADD DOMAIN OPENS WEBSITE SETTINGS (round 22, the owner: "it should not
+   * open the modal pop up in the editor, it should take me to the website
+   * settings"). Given, "Add domain" and the domain row close this panel and
+   * open Website settings on Domains, where a domain is added and finished;
+   * without it they open the domain window as before.
+   */
+  onDomains?: () => void
   onConnections?: () => void
 }
 
@@ -670,10 +678,12 @@ export function PublishPanel(props: PublishPanelProps) {
   /* The domain window takes the panel's place while it is open, and gives it back when it closes. */
   const [domainOpen, setDomainOpen] = useState(false)
   const domains = usePublishDomains(open, mobile ? SHEET_ARRIVES_MS : 0)
+  const { onDomains } = props
   const openDomain = useCallback(() => {
     onOpenChange(false)
-    setDomainOpen(true)
-  }, [onOpenChange])
+    if (onDomains) onDomains()
+    else setDomainOpen(true)
+  }, [onOpenChange, onDomains])
   const closeDomain = useCallback(() => {
     setDomainOpen(false)
     onOpenChange(true)

@@ -3045,6 +3045,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     openConnections()
     setConnectVia("github")
   }
+  /* Website settings on Domains: where Publish's "Add domain" and its domain row take a creator (publish-panel.tsx onDomains). */
+  const openDomainSettings = () => {
+    setSettingsSection("domains")
+    setPreviewMode("settings")
+    setProjectSettingsOpen(true)
+    setMobileSidebarOpen(false)
+    if (isMobileView) setAiOpen(false)
+  }
   const openConnections = () => {
     setConnectVia(null)
     setSettingsSection("connections")
@@ -10684,6 +10692,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     if (connection.online) openConnection()
                     else openConnections()
                   }}
+                  onDomains={openDomainSettings}
                 />
               </div>
             )

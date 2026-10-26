@@ -246,6 +246,20 @@ export function IntegrationsDirectory({ page = false, only = null }: { page?: bo
   const [openId, setOpenId] = React.useState<string | null>(wanted)
   const [requesting, setRequesting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  /*
+    HOW MUCH EACH IS USED ACROSS STORELIB (round 22, lib/integrations/popularity-server.ts).
+    Read with the tab's data (settings-form-new tabData), so the order is there
+    from the first frame; a directory opened without it keeps the order below
+    until it comes, and only then takes it, once.
+  */
+  const [scores, setScores] = React.useState<Record<string, number> | null>(() => peekGet<{ scores: Record<string, number> }>("/api/integrations/popularity")?.scores ?? null)
+  React.useEffect(() => {
+    if (scores) return
+    void api<{ scores: Record<string, number> }>("/api/integrations/popularity").then((r) => {
+      if (r.ok && r.data?.scores) setScores(r.data.scores)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [overrides, setOverrides] = React.useState<CatalogOverride[]>(() => peekGet<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog")?.overrides ?? [])
   /* Storelib's own apps: on or off (Storelib Reviews, lib/reviews/app-settings.ts). */
   const [appsOn, setAppsOn] = React.useState<Record<string, boolean>>(() => ({ storelib_reviews: peekGet<{ settings: { enabled: boolean } }>("/api/store/reviews-app")?.settings?.enabled === true }))
@@ -644,7 +658,21 @@ export function IntegrationsDirectory({ page = false, only = null }: { page?: bo
     .map(({ e }) => e)
   const categoryOf = (e: Entry): IntegrationCategory | null => (e.kind === "integration" ? e.item.category : (APP_CATEGORY[e.id] ?? null))
   const laneOf = (e: Entry): Lane => categoryOf(e) ?? "storelib"
-  const entries: Entry[] = [...weave(listed.filter((e) => !later(e)), laneOf), ...weave(listed.filter(later), laneOf)]
+  const woven: Entry[] = [...weave(listed.filter((e) => !later(e)), laneOf), ...weave(listed.filter(later), laneOf)]
+  /*
+    MOST USED FIRST (round 22, the owner: "the order based on what users use
+    the most, top to bottom, in All and in every category"). The ones that
+    work today by how many stores use them, then Coming soon, as before; a tie
+    keeps the woven order above. Still one order for every pill: a category is
+    this list filtered, so it is its own most used first too.
+  */
+  const scoreOf = (e: Entry) => scores?.[e.id] ?? (e.kind === "app" ? scores?.[`app:${e.id}`] : undefined) ?? 0
+  const entries: Entry[] = scores
+    ? woven
+        .map((e, at) => ({ e, at }))
+        .sort((a, b) => Number(later(a.e)) - Number(later(b.e)) || scoreOf(b.e) - scoreOf(a.e) || a.at - b.at)
+        .map(({ e }) => e)
+    : woven
   /* Storelib's own: its apps and the parts of Storelib shown as integrations (Reviews, Courier tracking, the webhook). All holds them as well as every service. */
   const isStorelib = (e: Entry) => e.kind === "app" || hasBuiltInArt(e.id)
   /*
