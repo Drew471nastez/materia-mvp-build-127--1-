@@ -27,7 +27,7 @@ import { followSitePage } from "@/lib/website-builder/site-navigation"
 import { useSiteCart } from "../../site-cart"
 import { useAmountMoney, useCartMoney, useStorefront, useWord } from "../../theme/storefront-context"
 import { CartReturnsNote } from "../../theme/shop-commerce"
-import { CartOfferSavings, CartOfferSuggestions, useCartOffers } from "@/components/offers/cart-offers"
+import { CartOfferSavings, CartOfferSuggestions, offerSubtotalCents, useCartOffers } from "@/components/offers/cart-offers"
 import { lineKey } from "@/lib/website-builder/cart"
 import { CartLineProperties } from "@/components/website-builder/cart-line-properties"
 import { cartPathFor, drawerCheckout, drawerCheckoutHref } from "@/lib/website-builder/cart-checkout"
@@ -794,7 +794,7 @@ function CartDrawerInner({
   const offers = useCartOffers(lines, shopId, open && live && !scopedToPreview)
   /* Amounts in the visitor's market's currency, as the product cards show them and checkout adds them up (lib/markets/cart-money). */
   const cartMoney = useCartMoney()
-  const amounts = cartMoney(lines, offers && offers.offerCents > 0 ? { subtotalCents: lines.reduce((n, l) => n + l.priceCents * l.quantity, 0), discountCents: offers.offerCents } : null)
+  const amounts = cartMoney(lines, offers && offers.offerCents > 0 ? { subtotalCents: offerSubtotalCents(lines, offers), discountCents: offers.offerCents } : null)
   const amountMoney = useAmountMoney()
   const unitMoney = (cents: number) => cartMoney([{ priceCents: cents, quantity: 1 }]).lines[0]
   /* Back from checkout lands on the cart in the page's language. */

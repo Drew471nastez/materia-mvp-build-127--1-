@@ -119,6 +119,21 @@ export function addLine(lines: CartLine[], incoming: CartLine): CartLine[] {
   return [...lines, { ...incoming, quantity: clampQuantity(incoming, incoming.quantity) }]
 }
 
+/**
+ * SEVERAL LINES, ALL OR NONE (round 23: a bundle or an upsell is never half added). Each goes in as addLine puts it,
+ * and if any is refused (a new line in a basket at MAX_LINES) or loses units to MAX_QUANTITY, none of them goes in and
+ * null says so: a set the buyer chose together is in the basket together or not at all.
+ */
+export function addAllLines(lines: CartLine[], incoming: CartLine[]): CartLine[] | null {
+  let next = lines
+  for (const line of incoming) {
+    const after = addLine(next, line)
+    if (cartCount(after) - cartCount(next) < Math.max(1, line.quantity)) return null
+    next = after
+  }
+  return next
+}
+
 export function removeLine(lines: CartLine[], key: string): CartLine[] {
   return lines.filter((l) => lineKey(l) !== key)
 }

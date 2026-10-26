@@ -11176,9 +11176,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             inside the editor bar, and the top pixel of the bar's buttons
             showed above the sheet as violet slivers at its corners. At 1 the
             sheet starts where the bar's buttons are not, and what shows
-            around its corners is the bar's own dark strip.
-
-            THE SAME MOTION AS THE EDITOR'S OWN SHEET (round 23, the owner:
+            around its corners is the bar's own dark strip. */}
+        {/* THE SAME MOTION AS THE EDITOR'S OWN SHEET (round 23, the owner:
             "more smooth and clean on open and close, similar to the mobile
             bottom sheet of the sidebar"). It faded as it moved, over 320ms:
             a full height panel half see-through over the canvas while it

@@ -2753,9 +2753,9 @@ check(
    * without. The rise-in still plays exactly once, when this mounts as the
    * editor finishes loading, which is the arrival worth animating.
    */
-  /const canvasLoaderLingers = useLinger\(canvasLoaderUp, 280\)/.test(editor) &&
-    /\(canvasLoaderUp \|\| canvasLoaderLingers\) && \(/.test(editor) &&
-    /data-leaving=\{!canvasLoaderUp\}/.test(editor) &&
+  /* Round 23: the first open is held too (canvasCovered, OPEN_HOLD_MS). */ /const canvasLoaderLingers = useLinger\(canvasCovered, 280\)/.test(editor) &&
+    /\(canvasCovered \|\| canvasLoaderLingers\) && \(/.test(editor) &&
+    /data-leaving=\{!canvasCovered\}/.test(editor) &&
     /<div className="wb-canvas-in flex w-full flex-1 flex-col">/.test(editor) &&
     !/key=\{currentPage\} className="wb-canvas-in/.test(editor) &&
     /export function useLinger\(active: boolean, ms = 280\)/.test(loaderSrc) &&

@@ -36,7 +36,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { CartReturnsNote } from "./theme/shop-commerce"
 import { useAmountMoney, useCartMoney, useStorefront, useWord } from "./theme/storefront-context"
-import { CartOfferSavings, CartOfferSuggestions, useCartOffers } from "@/components/offers/cart-offers"
+import { CartOfferSavings, CartOfferSuggestions, offerSubtotalCents, useCartOffers } from "@/components/offers/cart-offers"
 import { cartPathFor } from "@/lib/website-builder/cart-checkout"
 import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { useBackFromCache } from "@/hooks/use-back-from-cache"
@@ -90,7 +90,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
   /* The store's upsells and bundles for this cart (components/offers/cart-offers.tsx): what it gets now and what it could add. With a code on, the code's check prices them too. */
   const offers = useCartOffers(lines, shopId, ready)
   const offerCents = applied ? applied.offerCents : (offers?.offerCents ?? 0)
-  const amounts = cartMoney(lines, applied ? { subtotalCents: applied.subtotalCents, discountCents: applied.discountCents } : offerCents > 0 ? { subtotalCents: lines.reduce((n, l) => n + l.priceCents * l.quantity, 0), discountCents: offerCents } : null)
+  const amounts = cartMoney(lines, applied ? { subtotalCents: applied.subtotalCents, discountCents: applied.discountCents } : offerCents > 0 ? { subtotalCents: offerSubtotalCents(lines, offers), discountCents: offerCents } : null)
   const amountMoney = useAmountMoney()
   const unitMoney = (cents: number) => cartMoney([{ priceCents: cents, quantity: 1 }]).lines[0]
 

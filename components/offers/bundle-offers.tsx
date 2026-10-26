@@ -115,7 +115,8 @@ export function BundleOffers({
   productId: string
   /** This product as the buy box has it: the option chosen, or null while one still has to be. */
   chosen: { variantId: string; variantName: string | null; priceCents: number; imageUrl: string | null; line?: CartLine } | null
-  onAdd: (lines: CartLine[]) => void
+  /** Adds the lines, every one or none; false when nothing went in (a required answer missing, a full cart). */
+  onAdd: (lines: CartLine[]) => boolean | void
   ink?: string
   muted?: string
   accent?: string
@@ -157,6 +158,8 @@ export function BundleOffers({
   }
   const [picks, setPicks] = React.useState<Record<string, string>>({})
   const [added, setAdded] = React.useState<string | null>(null)
+  /* When the last press landed (press, below): a hook, so before the early return. */
+  const pressedAt = React.useRef(0)
   const bundles = show.bundles ? (data?.bundles ?? []) : []
   const upsells = show.upsells ? (data?.upsells ?? []) : []
   if (bundles.length === 0 && upsells.length === 0) return null
@@ -172,8 +175,16 @@ export function BundleOffers({
     if (i.type === "physical" && !v) return null
     return { productId: i.id, variantId: v?.id ?? null, title: i.title, variantName: v && i.variants.length > 1 ? v.name : null, priceCents: v?.priceCents ?? i.priceCents, thumbnailUrl: i.imageUrl, slug: i.slug, digital: i.type !== "physical", physical: i.type === "physical", quantity: 1 }
   }
+  /*
+    ONE PRESS, ONE SET (round 23, the bundles audit: "rapid taps", "duplicate submissions"). A second press while the
+    first is still being said ("Added to cart") adds nothing, nor does a press that lands in the same moment as the one
+    before it (a double tap on a phone). And the button says Added only when the cart took every line.
+  */
   const press = (key: string, lines: CartLine[]) => {
-    onAdd(lines)
+    const now = Date.now()
+    if (added === key || now - pressedAt.current < 600) return
+    pressedAt.current = now
+    if (onAdd(lines) === false) return
     setAdded(key)
     window.setTimeout(() => setAdded(null), 2400)
   }
@@ -257,7 +268,7 @@ export function BundleOffers({
                 </span>
               </span>
             </div>
-            <button type="button" disabled={!ready} onClick={() => press(b.offerId, lines as CartLine[])} className="mt-3 w-full border-2 py-3 text-[14.5px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50" style={button} data-bundle-add="">
+            <button type="button" disabled={!ready} aria-live="polite" onClick={() => press(b.offerId, lines as CartLine[])} className="mt-3 w-full border-2 py-3 text-[14.5px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50" style={button} data-bundle-add="">
               {added === b.offerId ? "Added to cart" : chosen ? labels.addAll || "Add all to cart" : "Choose your options above"}
             </button>
           </section>
@@ -292,7 +303,7 @@ export function BundleOffers({
                 </p>
                 {choice(p, u.offerId)}
               </div>
-              <button type="button" disabled={!line || disabled} onClick={() => line && press(u.offerId, [line])} className="inline-flex h-9 shrink-0 items-center gap-1 border px-3 text-[13.5px] font-semibold transition-opacity disabled:opacity-50" style={button} data-upsell-add="">
+              <button type="button" disabled={!line || disabled} aria-live="polite" onClick={() => line && press(u.offerId, [line])} className="inline-flex h-9 shrink-0 items-center gap-1 border px-3 text-[13.5px] font-semibold transition-opacity disabled:opacity-50" style={button} data-upsell-add="">
                 {added === u.offerId ? (
                   "Added"
                 ) : (

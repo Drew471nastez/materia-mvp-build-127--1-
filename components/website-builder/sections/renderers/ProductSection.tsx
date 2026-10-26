@@ -40,7 +40,7 @@ import { usePhysicalCommerceEnabled } from "@/components/platform/platform-setti
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { checkoutHrefWithOrigin } from "@/lib/orders/checkout-origin"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
-import { addLine, cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/website-builder/cart"
+import { addAllLines, addLine, cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/website-builder/cart"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { onWebsiteHost, siteCheckoutHref, sitePath } from "@/lib/checkout/site-checkout"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -325,21 +325,38 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
   const saved = !!product.id && wishlistStore.has(product.id)
   /* The Bundles and upsells block (./product/offers-block.tsx): this product as the buy box has it, and the lines a bundle or an upsell adds, into the same cart Add to cart uses. */
   const chosenLine = !sample && canBuy && !unavailable && !pwyw.error ? cartLineFor(product, variant, 1, pwyw.cents) : null
+  /*
+    A SET IS ADDED AS THE BUY BOX WOULD ADD THIS PRODUCT, AND WHOLE (round 23, the bundles audit). This product's line
+    in a bundle carries the buyer's answers (engraving, a photo, the section's fields), checked as Add to cart checks
+    them: a required one missing is said under its field and nothing goes in. And every line goes in or none does
+    (addAllLines): a basket that cannot take the whole set keeps what it had. False when nothing was added.
+  */
   const addLines = useCallback(
-    (lines: CartLine[]) => {
-      if (isEditing || sample) return
-      if (!cart.live && storefront.creatorId && lines.some((l) => l.physical)) {
+    (lines: CartLine[]): boolean => {
+      if (isEditing || sample || lines.length === 0) return false
+      let withAnswersLines = lines
+      if (lines.some((l) => l.productId === product.id)) {
+        if (personalized.missing) { setPersonalTouched(true); return false }
+        const answers = personalization.check()
+        if (answers === null) return false
+        const properties = withAnswers(personalized.properties, answers)
+        if (properties) withAnswersLines = lines.map((l) => (l.productId === product.id ? { ...l, properties: { ...(l.properties ?? {}), ...properties } } : l))
+      }
+      if (!cart.live && storefront.creatorId && withAnswersLines.some((l) => l.physical)) {
         try {
           const key = cartStorageKey(storefront.creatorId)
-          window.localStorage.setItem(key, serializeCart(lines.reduce((all, l) => addLine(all, l), parseCart(window.localStorage.getItem(key)))))
+          const next = addAllLines(parseCart(window.localStorage.getItem(key)), withAnswersLines)
+          if (!next) return false
+          window.localStorage.setItem(key, serializeCart(next))
+          return true
         } catch {
           /* Storage refused: each product can still be bought from its own page. */
+          return false
         }
-        return
       }
-      for (const l of lines) cart.add(l)
+      return cart.addAll(withAnswersLines)
     },
-    [isEditing, sample, cart, storefront.creatorId],
+    [isEditing, sample, cart, storefront.creatorId, product.id, personalized, personalization],
   )
   const ctx: ProductCtx = {
     product,

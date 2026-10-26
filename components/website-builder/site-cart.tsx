@@ -31,6 +31,7 @@ import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
 import { cartExtrasKey } from "@/lib/website-builder/cart-extras"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import {
+  addAllLines,
   addLine,
   cartCount,
   cartNeedsReprice,
@@ -55,6 +56,8 @@ interface SiteCartValue {
   open: boolean
   setOpen: (open: boolean) => void
   add: (line: CartLine) => void
+  /** Several lines at once, all or none (addAllLines): false when the basket could not take every one, and nothing changed. */
+  addAll: (lines: CartLine[]) => boolean
   setQty: (key: string, quantity: number) => void
   remove: (key: string) => void
   clear: () => void
@@ -88,6 +91,7 @@ const EMPTY: SiteCartValue = {
   open: false,
   setOpen: () => {},
   add: () => {},
+  addAll: () => false,
   setQty: () => {},
   remove: () => {},
   clear: () => {},
@@ -210,6 +214,23 @@ export function SiteCartProvider({ shopId, cartType = "drawer", currency, childr
     else setOpen(true)
   }, [cartType, shopId, storeCurrency])
 
+  /* The basket as it is now, for an add that has to know at once whether every line went in. */
+  const linesNow = useRef(lines)
+  linesNow.current = lines
+  const addAll = useCallback((incoming: CartLine[]) => {
+    if (incoming.length === 0) return true
+    const priced = storeCurrency ? incoming.map((l) => ({ ...l, currency: storeCurrency })) : incoming
+    const next = addAllLines(linesNow.current, priced)
+    if (!next) return false
+    linesNow.current = next
+    setLines(next)
+    if (shopId) for (const id of new Set(incoming.map((l) => l.productId))) if (id) void trackFunnelStep("buy_click", shopId, id)
+    if (cartType === "page" && shopId) goToCart.current = true
+    else if (cartType === "notification") setNotice(incoming[0])
+    else setOpen(true)
+    return true
+  }, [cartType, shopId, storeCurrency])
+
   const dismissNotice = useCallback(() => setNotice(null), [])
 
   const setQty = useCallback((k: string, quantity: number) => {
@@ -230,6 +251,7 @@ export function SiteCartProvider({ shopId, cartType = "drawer", currency, childr
     open,
     setOpen,
     add,
+    addAll,
     setQty,
     remove,
     clear,
@@ -237,7 +259,7 @@ export function SiteCartProvider({ shopId, cartType = "drawer", currency, childr
     shopId: shopId ?? null,
     notice,
     dismissNotice,
-  }), [lines, ready, open, add, setQty, remove, clear, shopId, notice, dismissNotice])
+  }), [lines, ready, open, add, addAll, setQty, remove, clear, shopId, notice, dismissNotice])
 
   return <SiteCartContext.Provider value={value}>{children}</SiteCartContext.Provider>
 }

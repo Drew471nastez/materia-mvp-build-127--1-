@@ -219,7 +219,7 @@ async function main() {
   console.log("\nThe wiring")
   {
     const section = read("components/website-builder/sections/renderers/ProductSection.tsx")
-    check("the website's Add to cart and Buy now ask the product's fields first and carry its answers with the blocks' own", (section.match(/personalization\.check\(\)/g) ?? []).length >= 2 && (section.match(/withAnswers\(personalized\.properties, /g) ?? []).length === 3)
+    check("the website's Add to cart and Buy now ask the product's fields first and carry its answers with the blocks' own", (section.match(/personalization\.check\(\)/g) ?? []).length >= 2 && (section.match(/withAnswers\(personalized\.properties, /g) ?? []).length === 4 /* round 23: a bundle's line carries them too */)
     const blocks = read("components/website-builder/sections/renderers/product/product-blocks.tsx")
     check("one Personalization block: its own asks, or set to The product's fields; the product's above the buy buttons without one", /personalization: Personalization,/.test(blocks) && !/personalization: PersonalizationBlock/.test(blocks) && /if \(s\.kind !== "product"\) return <PersonalizationBlock/.test(blocks) && /fieldsHere = !ctx\.hasProductFieldsBlock/.test(blocks))
     const schema = JSON.parse(read("themes/default/sections/product.json")) as { blocks: { type: string; fields: { id: string; options?: { value: string }[] }[] }[] }
@@ -228,7 +228,7 @@ async function main() {
     const { personalizationFields } = await import("../lib/website-builder/personalization")
     check("  a block set to The product's fields asks nothing itself", personalizationFields([{ id: "b1", type: "personalization", settings: { kind: "product" } }, { id: "b2", type: "personalization", settings: { kind: "text", label: "Initials" } }]).map((f) => f.label).join() === "Initials")
     const box = read("components/physical/buy-box.tsx")
-    check("the storelib.com product page's buy box asks the fields too", /usePersonalization\(data\?\.personalization\)/.test(box) && (box.match(/personalization\.check\(\)/g) ?? []).length === 2)
+    check("the storelib.com product page's buy box asks the fields too", /usePersonalization\(data\?\.personalization\)/.test(box) && (box.match(/personalization\.check\(\)/g) ?? []).length === 3 /* round 23: and its bundles */)
     const editor = read("app/app/products/new/product-editor.tsx")
     check("the editor shows the card for a product that ships and saves it in its own request", /productType === "physical" \? <PersonalizationCard/.test(editor) && /update\(\{ personalization:/.test(editor) && /personalizationProblem\(personalization\)/.test(editor))
     const server = read("lib/physical/checkout-server.ts")

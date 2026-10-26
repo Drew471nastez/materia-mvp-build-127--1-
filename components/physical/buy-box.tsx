@@ -23,7 +23,7 @@ import { useSellerCurrency } from "@/components/platform/price-currency"
 import { cn } from "@/lib/utils"
 import { useSiteCart } from "@/components/website-builder/site-cart"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { addLine, cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
+import { addAllLines, cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { trackFunnelStep } from "@/lib/analytics-utils"
 import { BundleOffers } from "@/components/offers/bundle-offers"
@@ -198,16 +198,18 @@ export function PhysicalBuyBox({
   })
 
   /* Into the website's own cart when there is one, else this browser's cart for the shop, which the checkout reads (the storelib.com product page). */
-  const putInCart = (lines: CartLine[]) => {
-    if (site.live) {
-      for (const l of lines) site.add(l)
-      return
-    }
+  /* Every line or none (round 23, addAllLines): a set chosen together is never half in the cart. False when nothing went in. */
+  const putInCart = (lines: CartLine[]): boolean => {
+    if (site.live) return site.addAll(lines)
     try {
       const key = cartStorageKey(data.product.creatorId)
-      window.localStorage.setItem(key, serializeCart(lines.reduce((cart, l) => addLine(cart, l), parseCart(window.localStorage.getItem(key)))))
+      const next = addAllLines(parseCart(window.localStorage.getItem(key)), lines)
+      if (!next) return false
+      window.localStorage.setItem(key, serializeCart(next))
+      return true
     } catch {
       /* Storage refused: Buy now still works. */
+      return false
     }
   }
 
@@ -335,9 +337,14 @@ export function PhysicalBuyBox({
         productId={data.product.id}
         chosen={canBuy && variant ? { variantId: variant.id, variantName: data.options.length ? variant.name : null, priceCents: variant.priceCents, imageUrl: variant.imageUrl ?? data.product.imageUrl } : null}
         onAdd={(lines) => {
-          putInCart(lines)
+          /* This product goes in with the buyer's answers, checked as Add to cart checks them (round 23). */
+          const answers = personalization.check()
+          if (answers === null) return false
+          const withAnswers = answers ? lines.map((l) => (l.productId === data.product.id ? { ...l, properties: { ...(l.properties ?? {}), ...answers } } : l)) : lines
+          if (!putInCart(withAnswers)) return false
           setAdded(true)
           window.setTimeout(() => setAdded(false), 2400)
+          return true
         }}
         ink={ink}
         muted={muted}

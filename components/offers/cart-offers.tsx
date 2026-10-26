@@ -19,21 +19,25 @@
 import * as React from "react"
 import { Package, Plus } from "lucide-react"
 import { checkoutItems, type CartLine } from "@/lib/website-builder/cart"
+import type { CartOffersAnswer, OfferItem } from "@/lib/offers/contract"
 
-interface Item {
-  id: string
-  title: string
-  slug: string
-  imageUrl: string | null
-  type: string
-  priceCents: number
-  variants: { id: string; name: string; priceCents: number }[]
-}
-export interface CartOffersData {
-  offers: { offerId: string; title: string; savedCents: number; freeShipping: boolean }[]
-  offerCents: number
-  suggestions: { offerId: string; title: string; label: string | null; product: Item; offerPriceCents: number }[]
-  completions: { offerId: string; title: string; label: string | null; missing: Item[]; savingCents: number }[]
+/* The answer's shape and what each field promises: lib/offers/contract.ts, the one contract the route answers by. */
+type Item = OfferItem
+export type CartOffersData = CartOffersAnswer
+
+/**
+ * The server's own subtotal for the cart, when its answer is for these lines in the currency they are priced in;
+ * else the lines' own sum. The drawer and the cart page print this beside the offers, so what they say before the
+ * checkout is the checkout's arithmetic (lib/offers/contract.ts).
+ */
+export function offerSubtotalCents(lines: CartLine[], data: CartOffersData | null): number {
+  const own = lines.reduce((n, l) => n + l.priceCents * l.quantity, 0)
+  if (!data || !data.currency || data.subtotalCents <= 0) return own
+  const cur = data.currency.toUpperCase()
+  if (!lines.every((l) => !l.currency || l.currency.toUpperCase() === cur)) return own
+  /* Only an answer for every line: one the server could not price (gone from the shop) leaves the cart's own sum. */
+  if (data.lines.length !== lines.length) return own
+  return data.subtotalCents
 }
 
 /** What the server says this cart gets from the store's offers, asked again 400ms after the cart last changed. */
@@ -50,7 +54,8 @@ export function useCartOffers(lines: CartLine[], shopId: string | null, enabled 
       fetch("/api/offers/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shopId, items: JSON.parse(items) }) })
         .then((r) => (r.ok ? r.json() : null))
         .then((d: CartOffersData | null) => {
-          if (!gone && d && Array.isArray(d.offers)) setData(d)
+          /* An older server's answer has no totals: the cart then sums its own lines, as before. */
+          if (!gone && d && Array.isArray(d.offers)) setData({ ...d, subtotalCents: Number(d.subtotalCents) || 0, totalCents: Number(d.totalCents) || 0, freeShipping: d.freeShipping === true, currency: typeof d.currency === "string" ? d.currency : null })
         })
         .catch(() => undefined)
     }, 400)

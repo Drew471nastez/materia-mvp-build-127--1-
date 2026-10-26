@@ -357,7 +357,7 @@ async function main() {
     check("  each colour painted on its element", ["s.heading_color", "s.text_color", "s.price_color", "s.border_color", "s.badge_background", "s.badge_text", "s.button_background", "s.button_text"].every((k) => block.includes(k)))
     check("  in the editor a sample shows so it can be styled; live it reads the product's offers", /ctx\.sample \? SAMPLE : live/.test(block) && /useProductOffers\(productId, !ctx\.sample\)/.test(block))
     check("  registered with the product blocks, and on the canvas, the live page and the sidebar", /offers: OffersBlock/.test(read("components/website-builder/sections/renderers/product/product-blocks.tsx")) && /withOffersBlock\(withDeliveryBlock\(withProductBlocks\(raw\)\)\)/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /withOffersBlock\(withDeliveryBlock\(withProductBlocks\(s\)\)\)/.test(read("components/website-builder/theme/render-product.tsx")) && /loaded = loaded\.map\(\(s\) => withOffersBlock\(s\)\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))
-    check("  Add all to cart puts every line in the website's cart", /for \(const l of lines\) cart\.add\(l\)/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
+    check("  Add all to cart puts every line in the website's cart", /* Round 23: every line or none (addAllLines). */ /return cart\.addAll\(withAnswersLines\)/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
   }
 
   /* ─────────────────────────────── wiring ─────────────────────────────── */

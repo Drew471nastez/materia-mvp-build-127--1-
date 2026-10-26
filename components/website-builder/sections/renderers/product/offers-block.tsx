@@ -135,7 +135,7 @@ export function OffersBlock({ s, ctx }: { s: S; ctx: ProductCtx }) {
       <BundleOffers
         productId={ctx.sample ? "sample" : ctx.product.id}
         chosen={ctx.sample ? { variantId: "", variantName: null, priceCents: 2900, imageUrl: null } : chosen}
-        onAdd={(lines: CartLine[]) => ctx.offers?.addLines(lines)}
+        onAdd={(lines: CartLine[]) => ctx.offers?.addLines(lines) ?? false}
         data={data}
         palette={palette}
         show={show}

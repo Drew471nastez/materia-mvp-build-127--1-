@@ -6,6 +6,8 @@ import { baseFor } from "@/lib/checkout/pricing"
 import { readItems } from "@/lib/physical/checkout-pricing-server"
 import { applyOffers, bundleCompletions, bundlePrice, offerUnitPrice, suggestionsFor } from "@/lib/offers/offers"
 import { loadOffers, offerLabeler, offerLinesFor, offerProducts } from "@/lib/offers/offers-server"
+import { NO_CART_OFFERS, type CartOffersAnswer } from "@/lib/offers/contract"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -13,7 +15,8 @@ export const dynamic = "force-dynamic"
 /**
  * WHAT A CART GETS FROM THE STORE'S OFFERS, FOR THE CART TO SHOW
  * (lib/offers): POST { shopId, items: [{ productId, variantId, quantity,
- * customPriceCents }] }, from the cart drawer and the cart page.
+ * customPriceCents }] }, from the cart drawer and the cart page. The
+ * contract, every field and what it promises, is lib/offers/contract.ts.
  *
  *   offers        each upsell and bundle the cart gets now, with what it saves
  *   offerCents    all of that together
@@ -29,7 +32,7 @@ export const dynamic = "force-dynamic"
 export async function POST(request: Request) {
   const limited = await rateLimit({ bucket: "offers-cart", subjects: [addressSubject(request)], windows: [{ limit: 240, seconds: 600 }], message: "Too many requests. Wait a moment and try again." })
   if (limited) return limited
-  const none = { offers: [], offerCents: 0, lines: [], suggestions: [], completions: [] }
+  const none: CartOffersAnswer = NO_CART_OFFERS
   let body: Record<string, unknown>
   try {
     body = (await request.json()) as Record<string, unknown>
@@ -70,9 +73,16 @@ export async function POST(request: Request) {
   const label = await offerLabeler(db, shopId)
   const cards = await offerProducts(db, shopId, [...new Set([...suggestions.map((s) => s.productIds[0]), ...completions.flatMap((c) => c.offer.productIds)])])
 
-  return NextResponse.json({
+  const subtotalCents = priced.reduce((n, l) => n + l.unitCents * l.quantity, 0)
+  const offerCents = got.discounts.reduce((n, d) => n + d, 0)
+  const { currency } = await readStoreCurrency(db, shopId).catch(() => ({ currency: null as string | null }))
+  const answer: CartOffersAnswer = {
+    currency: currency ? String(currency).toUpperCase() : null,
+    subtotalCents,
+    offerCents,
+    totalCents: Math.max(0, subtotalCents - offerCents),
+    freeShipping: got.applied.some((a) => a.freeShipping === true),
     offers: got.applied.map((a) => ({ offerId: a.offerId, title: a.title, savedCents: a.savedCents, freeShipping: a.freeShipping === true })),
-    offerCents: got.discounts.reduce((n, d) => n + d, 0),
     lines: priced.map((l, i) => ({ productId: l.productId, variantId: l.variantId, discountCents: got.discounts[i] })),
     suggestions: suggestions.flatMap((s) => {
       const p = cards.get(s.productIds[0])
@@ -83,7 +93,8 @@ export async function POST(request: Request) {
       const items = missing.map((id) => cards.get(id))
       if (all.some((x) => !x) || items.some((x) => !x)) return []
       const { fullCents, priceCents } = bundlePrice(offer, all.map((x) => x!.priceCents))
-      return [{ offerId: offer.id, title: offer.title, label: label(offer), missing: items, savingCents: Math.max(0, fullCents - priceCents) }]
+      return [{ offerId: offer.id, title: offer.title, label: label(offer), missing: items as NonNullable<(typeof items)[number]>[], savingCents: Math.max(0, fullCents - priceCents) }]
     }),
-  })
+  }
+  return NextResponse.json(answer)
 }

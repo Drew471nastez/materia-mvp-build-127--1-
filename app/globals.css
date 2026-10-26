@@ -7076,7 +7076,7 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 /* ANALYTICS ARRIVE AS THEY ARE REACHED (round 23, "as I scroll down ... should appear smooth ... the progress bars ...
    should feel very native"). A card below the screen when the page opens waits faded and 14px low; reaching it brings
    it up over 480ms on the /app curve and grows its bars from nothing (app/app/analytics/analytics-client.tsx
-   useRevealCards). Opacity and transform only; a card on screen at the first paint is simply there. */
+   useRevealCards). Opacity and a slide only, on the compositor; a card on screen at the first paint is simply there. */
 [data-reveal-armed] {
   transition: opacity 420ms ease-out, transform 520ms cubic-bezier(0.32, 0.72, 0, 1);
 }

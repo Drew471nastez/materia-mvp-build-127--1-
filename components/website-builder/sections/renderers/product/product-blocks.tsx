@@ -92,7 +92,7 @@ export interface ProductCtx {
   /** The section has a Size chart block: the variant picker then leaves its own Size guide link out (./size-chart.tsx). */
   hasSizeChartBlock?: boolean
   /** For the Bundles and upsells block (./offers-block.tsx): this product as chosen, and a way to put several lines in the cart. */
-  offers?: { chosen: { variantId: string; variantName: string | null; priceCents: number; imageUrl: string | null; line?: CartLine } | null; addLines: (lines: CartLine[]) => void }
+  offers?: { chosen: { variantId: string; variantName: string | null; priceCents: number; imageUrl: string | null; line?: CartLine } | null; addLines: (lines: CartLine[]) => boolean }
   /**
    * The Personalization blocks' values (./personalization-block.tsx), by `<block id>:text` and `<block id>:image`;
    * `missing`, once Add to cart was pressed, is what a required one still needs; `uploadsOn`, a real product that
