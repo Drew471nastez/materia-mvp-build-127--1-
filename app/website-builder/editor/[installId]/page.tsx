@@ -21,7 +21,7 @@ import { openInstallPreview } from "@/lib/website-builder/open-preview"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, KeyRound, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, ClipboardPaste, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
+  ArrowLeft, ArrowUpFromLine, KeyRound, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, ClipboardPaste, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
   Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
@@ -258,7 +258,23 @@ const COLLECTION_SECTIONS: ReadonlySet<string> = new Set(["collections_grid", "c
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
-const AI_SHEET_DETENTS = [0.5, 1]
+/* Its tallest is 80% of the screen (round 24, the owner: "reduce the sheet height a little bit more, like 20%"): the bar and the top of the canvas stay in sight above it. */
+const AI_SHEET_DETENTS = [0.5, 0.8]
+
+/*
+  THE SHEET ANSWERS A PICK (round 24, the owner: "when I select the section with the inspector, it should bump very
+  smoothly a little bit, just the mobile sheet sidebar"). The section sheet on screen lifts 8px and settles, 340ms, as
+  an animation added on top of where it is (composite "add"), so its own place, drag and stops are never touched. An
+  engine that cannot add one animation to another does nothing rather than move the sheet.
+*/
+function bumpSheet() {
+  if (typeof document === "undefined" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+  const canAdd = typeof KeyframeEffect !== "undefined" && "composite" in KeyframeEffect.prototype
+  if (!canAdd) return
+  const sheet = [...document.querySelectorAll<HTMLElement>("[data-mobile-bottom-sheet]")].find((el) => el.getClientRects().length && getComputedStyle(el).visibility !== "hidden" && !el.querySelector("[data-ask-view]"))
+  if (!sheet || typeof sheet.animate !== "function") return
+  sheet.animate([{ transform: "translateY(0)" }, { transform: "translateY(-8px)", offset: 0.35 }, { transform: "translateY(0)" }], { duration: 340, easing: "cubic-bezier(0.32, 0.72, 0, 1)", composite: "add" })
+}
 /** How long the editor's first open keeps its loader up at the least, from the mount (openHold). */
 const OPEN_HOLD_MS = 2400
 
@@ -7064,7 +7080,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         a tap that brings the sheet up is felt once, by the sheet's own arrival (mobile-editor-sheet.tsx, A TAP WHEN IT
         ARRIVES), not twice.
       */
-      if (isMobileViewRef.current && !(field && !mobileSidebarOpenRef.current)) hapticTap("soft")
+      if (isMobileViewRef.current && !(field && !mobileSidebarOpenRef.current)) {
+        hapticTap("soft")
+        bumpSheet()
+      }
       pickSection(sectionId, blockId ?? null)
       /**
        * A CLICK ON ONE THING OPENS ITS FIELD. A heading clicked lands the
@@ -9402,7 +9421,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[scale,color] duration-150 disabled:active:scale-100 shrink-0"
+            className="wb-depth wb-bar-key wb-bar-key-narrow h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white transition-[background-color,box-shadow,color] duration-150 shrink-0"
             onClick={handleUndo}
             disabled={undoStack.length === 0}
             aria-label="Undo"
@@ -9415,7 +9434,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       <Tooltip>
         <TooltipTrigger asChild>
           <button
-            className="wb-depth h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white active:scale-90 transition-[scale,color] duration-150 disabled:active:scale-100 shrink-0"
+            className="wb-depth wb-bar-key wb-bar-key-narrow h-8 w-8 flex items-center justify-center rounded-lg text-white/80 hover:text-white transition-[background-color,box-shadow,color] duration-150 shrink-0"
             onClick={handleRedo}
             disabled={redoStack.length === 0}
             aria-label="Redo"
@@ -10180,7 +10199,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     () => (
       <button
         type="button"
-        className="relative h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] active:scale-[0.92] active:bg-[var(--wb-chrome-active)] transition-[background-color,scale,color] duration-150 shrink-0 after:absolute after:-inset-1.5 after:content-[''] md:after:hidden [-webkit-tap-highlight-color:transparent]"
+        className="wb-depth wb-bar-key relative h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:text-[var(--wb-chrome-fg)] transition-[background-color,box-shadow,color] duration-150 shrink-0 [-webkit-tap-highlight-color:transparent]"
         title="Theme options"
         aria-label="Actions"
       >
@@ -10296,6 +10315,51 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const aiSelectedBlock = selectedPanel.type === "section" && selectedBlockId ? selectedBlockId : undefined
 
   // ── Main editor layout ─────────────────────────────────────
+  /* Ask Storelib's key: on the right on a computer, beside the menu on a phone (round 24). */
+  const askButton = (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className={cn(
+                  // Shown on every size. It was `hidden sm:flex`, which hid the
+                  // AI from the device most likely to want it.
+                  "wb-ai-button wb-bar-key h-8 w-8 flex items-center justify-center rounded-lg transition-[scale,box-shadow] duration-150 cursor-pointer active:scale-90",
+                  /*
+                    The mark keeps its own colour in both states. Inverting the
+                    button to solid black used to be fine for a line-art
+                    sparkle and is not for a logo — a brand mark on a black
+                    tile reads as a different brand.
+                  */
+                  aiOpen ? "wb-ai-button-open" : "",
+                )}
+                onClick={() => {
+                  setAiOpen(open => !open)
+                  // The section sheet and the AI sheet cannot both own the
+                  // bottom of the screen.
+                  if (isMobileView) setMobileSidebarOpen(false)
+                  // On a computer this shows or hides the pill, and a pill
+                  // brought back is no longer one that was closed.
+                  else rememberAskDockClosed(aiOpen)
+                }}
+                aria-label="Ask Storelib"
+                aria-pressed={aiOpen}
+                /* The ring turns only while Storelib AI works: a ring always turning kept the screen drawing a new frame every frame, idle or not. */
+                data-ai-spin={aiBusy ? "" : undefined}
+              >
+                {/* The ring round its edge: a gradient drawn once and turned,
+                    inside a mask drawn once. See `.wb-ai-ring` in globals.css. */}
+                <span aria-hidden className="wb-ai-ring">
+                  <span className="wb-ai-ring-spin" />
+                </span>
+                <StorelibLogo size={18} alt="" className={cn("transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
+                {/* Still working with the panel closed: the same live dot the connection mark uses. */}
+                {aiBusy && !aiOpen && <span aria-hidden className="wb-live-dot" data-pulse="" data-ai-working="" />}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{aiOpen ? "Hide Storelib AI" : aiBusy ? "Storelib AI is working" : "Ask Storelib"}</TooltipContent>
+          </Tooltip>
+  )
+
   return (
     <div
       /**
@@ -10361,7 +10425,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                className="h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] active:scale-90 active:bg-[var(--wb-chrome-active)] transition-[background-color,scale,color] duration-150 shrink-0"
+                className={cn(
+                  "h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:text-[var(--wb-chrome-fg)] transition-[background-color,box-shadow,color] duration-150 shrink-0",
+                  isMobileView ? "wb-depth wb-bar-key" : "hover:bg-[var(--wb-chrome-hover)] active:bg-[var(--wb-chrome-active)]",
+                )}
                 onClick={() => requestExit("/app/website-builder")}
                 aria-label="Back"
               >
@@ -10374,6 +10441,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             </TooltipTrigger>
             <TooltipContent side="bottom">Exit</TooltipContent>
           </Tooltip>
+          {/* A hairline between leaving and the project's own controls (round 24). */}
+          {isMobileView ? <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-[var(--wb-chrome-line)]" data-wb-bar-divider="" /> : null}
 
 <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-medium text-[var(--wb-chrome-fg)] truncate hidden md:block max-w-[180px]">{install?.name}</span>
@@ -10413,7 +10482,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               between the project's name and the page's; here they are the
               end of the row of things you do TO the project, which is where
               a thumb already is. */}
-          {isMobileView && undoRedo}
+          {/*
+            THE PHONE'S BAR, ROUND 24 (the owner): leaving and the project on the left (Back, a hairline, the menu, Ask
+            Storelib beside it); what you do to the page on the right (undo and redo, the inspector, Publish as an
+            icon). Every one of them a 40px key with a little depth, so a thumb finds it without looking.
+          */}
+          {isMobileView && askButton}
           {/* No running commentary on the save. The Publish button already
               says whether the public site is behind, in the one place
               somebody goes to do something about it, and a sentence of grey
@@ -10565,7 +10639,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           {/* Undo and redo are a pair and sit as one: the left button and
               the right button. On a desktop they are here; a phone puts them
               beside the menu, on the left. */}
-          {!isMobileView && undoRedo}
+          {undoRedo}
 
           {/* The inspector, immediately beside the AI at every size. The two
               of them are the builder's own tools — everything else on this
@@ -10576,7 +10650,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <button
                 type="button"
                 className={cn(
-                  "wb-depth wb-inspector h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:text-[var(--wb-chrome-fg)] shrink-0",
+                  "wb-depth wb-bar-key wb-inspector h-8 w-8 flex items-center justify-center rounded-lg text-[var(--wb-chrome-fg-2)] hover:text-[var(--wb-chrome-fg)] shrink-0",
                   inspectorEnabled && "wb-inspector-on",
                 )}
                 onClick={toggleInspector}
@@ -10613,48 +10687,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             onGone={() => setLiveBatch(null)}
           />
 
-          {/* Ask AI */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className={cn(
-                  // Shown on every size. It was `hidden sm:flex`, which hid the
-                  // AI from the device most likely to want it.
-                  "wb-ai-button h-8 w-8 flex items-center justify-center rounded-lg transition-[scale,box-shadow] duration-150 cursor-pointer active:scale-90",
-                  /*
-                    The mark keeps its own colour in both states. Inverting the
-                    button to solid black used to be fine for a line-art
-                    sparkle and is not for a logo — a brand mark on a black
-                    tile reads as a different brand.
-                  */
-                  aiOpen ? "wb-ai-button-open" : "",
-                )}
-                onClick={() => {
-                  setAiOpen(open => !open)
-                  // The section sheet and the AI sheet cannot both own the
-                  // bottom of the screen.
-                  if (isMobileView) setMobileSidebarOpen(false)
-                  // On a computer this shows or hides the pill, and a pill
-                  // brought back is no longer one that was closed.
-                  else rememberAskDockClosed(aiOpen)
-                }}
-                aria-label="Ask Storelib"
-                aria-pressed={aiOpen}
-                /* The ring turns only while Storelib AI works: a ring always turning kept the screen drawing a new frame every frame, idle or not. */
-                data-ai-spin={aiBusy ? "" : undefined}
-              >
-                {/* The ring round its edge: a gradient drawn once and turned,
-                    inside a mask drawn once. See `.wb-ai-ring` in globals.css. */}
-                <span aria-hidden className="wb-ai-ring">
-                  <span className="wb-ai-ring-spin" />
-                </span>
-                <StorelibLogo size={18} alt="" className={cn("transition-opacity", aiOpen ? "opacity-100" : "opacity-80")} />
-                {/* Still working with the panel closed: the same live dot the connection mark uses. */}
-                {aiBusy && !aiOpen && <span aria-hidden className="wb-live-dot" data-pulse="" data-ai-working="" />}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{aiOpen ? "Hide Storelib AI" : aiBusy ? "Storelib AI is working" : "Ask Storelib"}</TooltipContent>
-          </Tooltip>
+          {/* Ask Storelib: here on a computer, beside the menu on a phone (askButton). */}
+          {!isMobileView && askButton}
           {/* The button says what is actually true.
               On a LIVE theme it is Publish: the draft is saved automatically,
               so "Save" would be a button for something that has already
@@ -10671,13 +10705,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <div ref={publishBtnRef} className="relative">
                 <Button
                   size="sm"
+                  aria-label={isMobileView ? (busyNow ? (live ? "Publishing" : "Saving") : live ? "Publish" : pending ? "Save" : "Saved") : undefined}
                   className={cn(
                     "h-8 cursor-pointer min-w-[92px] rounded-full transition-all duration-200 gap-2",
+                    /* On a phone an icon in a 40px round key (round 24): the word was a third of the bar. */
+                    isMobileView && "h-10 w-10 min-w-0 px-0 gap-0",
                     // White on purple whatever the chrome's tone; the chrome's
                     // own text only on the chrome's own surface.
                     live ? "bg-[#8B56FA] text-white hover:bg-[#7b46ec]" : "bg-[var(--wb-chrome-hover)] text-[var(--wb-chrome-fg)] hover:bg-[var(--wb-chrome-active)]",
                   )}
                   onClick={() => {
+                    hapticTap("light")
                     if (!live) { void handleSave(); return }
                     setPublishOpen((v) => !v)
                     if (isMobileView) { setMobileSidebarOpen(false); setAiOpen(false) }
@@ -10686,10 +10724,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 >
                   {busyNow ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isMobileView ? (
+                    <span className="relative">
+                      <ArrowUpFromLine className="h-[18px] w-[18px]" strokeWidth={2} />
+                      {live && pending ? <span aria-hidden className="absolute -right-1.5 -top-1 h-2 w-2 rounded-full bg-white ring-2 ring-[#8B56FA]" /> : null}
+                    </span>
                   ) : live ? (
                     <span className={cn("h-2 w-2 rounded-full", pending ? "bg-white" : "bg-white/50")} />
                   ) : null}
-                  <span>{busyNow ? (live ? "Publishing" : "Saving") : live ? "Publish" : pending ? "Save" : "Saved"}</span>
+                  <span className={cn(isMobileView && "sr-only")}>{busyNow ? (live ? "Publishing" : "Saving") : live ? "Publish" : pending ? "Save" : "Saved"}</span>
                 </Button>
                 <PublishPanel
                   open={publishOpen}

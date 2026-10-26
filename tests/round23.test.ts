@@ -107,7 +107,7 @@ async function main() {
 
   console.log("\nThe editor")
   const editor = readCode("app/website-builder/editor/[installId]/page.tsx")
-  check("a section picked on a phone is felt, once", /if \(isMobileViewRef\.current && !\(field && !mobileSidebarOpenRef\.current\)\) hapticTap\("soft"\)/.test(editor))
+  check("a section picked on a phone is felt, once", /if \(isMobileViewRef\.current && !\(field && !mobileSidebarOpenRef\.current\)\) \{\s*hapticTap\("soft"\)/.test(editor))
   check("Ask Storelib's sheet moves as the sidebar's does, with no fade", /<MobileEditorSheet open=\{aiOpen\}[^\n]*detents=\{AI_SHEET_DETENTS\} keyboard="composer">/.test(editor))
   check("the first open holds its loader for 2.4s over a canvas that paints under it", /const OPEN_HOLD_MS = 2400/.test(editor) && /const canvasCovered = canvasLoaderUp \|\| \(openHold && !loadFailed\)/.test(editor))
   check("an outline asks the top of the stack first", /var top = document\.elementFromPoint\(x, y\);/.test(readCode("lib/storelib-theme/compat/canvas-bridge.ts")))

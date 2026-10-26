@@ -2166,8 +2166,9 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
       /sheetRef\.current\?\.contains\(active\)/.test(sheet),
   )
   check(
-    "the AI sheet's tallest stop is the whole screen below the status bar",
-    /const AI_SHEET_DETENTS = \[0\.5, 1\]/.test(editor) &&
+    /* Round 24: 80% of the screen ("reduce the sheet height ... like 20%"); the stops' arithmetic below is unchanged. */
+    "the AI sheet's tallest stop is 80% of the screen",
+    /const AI_SHEET_DETENTS = \[0\.5, 0\.8\]/.test(editor) &&
       /<MobileEditorSheet open=\{aiOpen\}[\s\S]{0,200}?detents=\{AI_SHEET_DETENTS\}[^>\n]*>/.test(editor) &&
       /offsetsFor\(\{ viewport, detents: stops, peekHeight: peek, safeTop, barBottom: barEdge \}\)/.test(sheet),
   )

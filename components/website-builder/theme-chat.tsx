@@ -132,6 +132,7 @@ import { guardAskSheet } from "@/lib/website-builder/ask-sheet-guard"
 import { reportAnswer, streamPost } from "@/lib/website-builder/ask-client"
 import { promptForPictures, restoreExchanges, type StoredMessage } from "@/lib/website-builder/ask-restore"
 import { armAskSounds, playAskSound, setSoundsOn, soundsOn } from "@/lib/website-builder/ask-sounds"
+import { hapticTap } from "@/lib/native-bridge"
 import { suggestionsFor } from "@/lib/website-builder/ask-suggestions"
 import { typeToward } from "@/lib/website-builder/ask-typing"
 import type { ThemeOp } from "@/lib/website-builder/agent/operations"
@@ -1731,7 +1732,10 @@ function ThemeChatPanel({
                 saidNow = reply
                 patch((e) => ({ ...e, reply, running: false, activity: settleActivity(e.activity) }))
                 /* The answer is in. Once per run: a question's closing message is not a second one. */
-                if (!finished) playAskSound("done")
+                if (!finished) {
+                  playAskSound("done")
+                  hapticTap("soft")
+                }
                 finished = true
                 return
               } else if (type === "error") {
@@ -2007,7 +2011,11 @@ function ThemeChatPanel({
         is never drawn twice).
       */
       const into = crypto.randomUUID()
-      if (!quiet) playAskSound("sent")
+      /* Heard and felt (round 24): the sound follows the phone's silent switch, as a system click does; the tick does not. */
+      if (!quiet) {
+        playAskSound("sent")
+        hapticTap("light")
+      }
       setWanted(true)
       placeExchange({
         id: into,

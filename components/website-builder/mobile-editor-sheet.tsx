@@ -2611,7 +2611,8 @@ export function MobileEditorSheet({
            * or a closing keyboard is more sheet and not the canvas. Inline
            * so it lives with the height it depends on.
            */
-          boxShadow: `0 -12px 40px -12px rgba(17,24,39,0.22), 0 ${height}px 0 0 var(--wb-sheet-skirt, transparent)`,
+          /* A short, faint shade over its top edge (round 24, the owner: "too much shadow dispersing above it"): 16px at 12%, where it was 40px at 22%. */
+          boxShadow: `0 -6px 16px -8px rgba(17,24,39,0.12), 0 ${height}px 0 0 var(--wb-sheet-skirt, transparent)`,
           /**
            * Painted on its own, so moving it never repaints the canvas under
            * it, and nothing under it is repainted when its contents change.

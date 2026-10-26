@@ -1377,6 +1377,18 @@ html.capacitor body {
   }
   .wb-depth:disabled { opacity: 0.35; }
 
+  /* THE PHONE'S BAR KEYS (round 24, the owner: "increase the area ... so it can be more easy to be clicked"): each a
+     40px rounded key below 768px (the narrow pair, undo and redo, 36 wide), its face the depth above. */
+  @media (max-width: 767px) {
+    .wb-editor-topbar .wb-bar-key {
+      height: 40px;
+      width: 40px;
+      border-radius: 12px;
+    }
+    .wb-editor-topbar .wb-bar-key.wb-bar-key-narrow { width: 36px; }
+    .wb-editor-topbar .wb-bar-key svg { width: 18px; height: 18px; }
+  }
+
   /* The inspector, on. The ICON fills and glows; the button stays what it
      was. Filling the whole button white on a dark bar is a flashlight. */
   /* The icon fills and lights up over a quarter of a second rather than
