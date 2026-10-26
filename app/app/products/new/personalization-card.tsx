@@ -35,7 +35,7 @@ export function PersonalizationCard({ fields, onChange, cardClass, titleClass }:
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className={titleClass}>{tt("Personalization")}</h2>
-          <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{tt("Ask buyers for a name, a message or a photo when they buy. You see their answers on the order.")}</p>
+          <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{tt("A name, a message or a photo, asked at checkout.")}</p>
         </div>
         {fields.length < MAX_PERSONALIZATION_FIELDS ? (
           <button type="button" data-personalization-add="" onClick={() => onChange([...fields, blankField()])} className={cn(secondaryDepth, "h-10 shrink-0 rounded-[10px] px-3 text-[14px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>

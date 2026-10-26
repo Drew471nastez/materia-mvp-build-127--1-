@@ -28,7 +28,6 @@ export function CustomFieldsCard({ fields, onChange, cardClass, titleClass }: { 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className={titleClass}>{tt("Custom fields")}</h2>
-          <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{tt("Details like material, care or size. Shown under Details on the product page, or used by your theme.")}</p>
         </div>
         {fields.length < MAX_FIELDS ? (
           <button type="button" onClick={() => onChange([...fields, { key: "", value: "", type: "text", show: true }])} className={cn(secondaryDepth, "h-10 shrink-0 rounded-[10px] px-3 text-[14px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>

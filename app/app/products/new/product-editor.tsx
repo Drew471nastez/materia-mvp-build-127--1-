@@ -76,6 +76,7 @@ import { PersonalizationCard } from "./personalization-card"
 import { personalizationProblem, storedPersonalization, type PersonalizationField } from "@/lib/products/personalization"
 import { MarketplacePriceCard } from "./marketplace-price-card"
 import { SalesChannelsCard, type SalesChannelsHandle } from "./sales-channels-card"
+import { CollectionsCard, type CollectionsHandle } from "./collections-card"
 import { fieldKey, fieldProblem, storedCustomFields, type CustomField } from "@/lib/products/custom-fields"
 import { MAX_SALES_LIMIT, missingSalesLimit, readSalesLimit, soldOfText, typedSalesLimit } from "@/lib/products/sales-limit"
 import { MediaGrid, type PendingMedia } from "./media-grid"
@@ -428,6 +429,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   cardsRef.current = cards
   /* The Sales channels card, saved after the product (./sales-channels-card). */
   const channelsRef = useRef<SalesChannelsHandle>(null)
+  /* The Collections card, saved after the product too (./collections-card, round 24). */
+  const collectionsRef = useRef<CollectionsHandle>(null)
   /* Every question the editor asks (leave, delete a file, a very large upload). */
   const [ask, confirmSheet, choose] = useConfirm()
 
@@ -501,6 +504,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   /* A physical product's cards say what they hold (reportCard above). */
   const reportPhysical = useCallback((value: unknown, saved: boolean) => reportCard("physical", value, saved), [reportCard])
   const reportChannels = useCallback((value: unknown, saved: boolean) => reportCard("channels", value, saved), [reportCard])
+  const reportCollections = useCallback((value: unknown, saved: boolean) => reportCard("collections", value, saved), [reportCard])
   /* A course's lessons, counted by its card (./course-editor.tsx), for the publish check. */
   const [lessonCount, setLessonCount] = useState(0)
   const [showSalesBadge, setShowSalesBadge] = useState(initial.showSalesBadge)
@@ -1176,6 +1180,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (finalProductId) {
         const channelsError = await channelsRef.current?.save(finalProductId)
         if (channelsError) console.warn("Sales channels were not saved:", channelsError)
+        const collectionsError = await collectionsRef.current?.save(finalProductId)
+        if (collectionsError) console.warn("Collections were not saved:", collectionsError)
       }
 
       /*
@@ -2209,9 +2215,6 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 <h2 className={CARD_TITLE}>{tt("Lessons")}</h2>
                 <span className="text-red-500 text-sm">*</span>
               </div>
-              <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                {tt("Buyers watch these in their library, and pick up where they left off.")}
-              </p>
             </div>
             {lessonCount === 0 ? (
               <button type="button" data-make-digital onClick={() => switchKind("digital")} className="shrink-0 text-[13px] font-medium text-[#6b7280] hover:text-[#1a1a2e]">
@@ -2234,9 +2237,6 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
           <h2 className={CARD_TITLE}>{tt("Digital Files")}</h2>
           <span className="text-red-500 text-sm">*</span>
         </div>
-        <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-          {tt("Files customers receive after purchase. Several files? A ZIP keeps them together.")}
-        </p>
 
         <DigitalFiles
           files={digitalFiles}
@@ -2472,9 +2472,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     <h2 className={CARD_TITLE}>{tt("Photos and video")}</h2>
                     <span className="text-red-500">*</span>
                   </div>
-                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    {tt("Add up to")} {MAX_PHOTOS} {tt("photos and")} {MAX_VIDEO_FILES} {tt("videos, uploaded or from YouTube. The first one is the cover.")}{productType === "physical" ? tt(" Any shape: nothing is cropped.") : ""}{mediaItems.length > 1 ? tt(" Hold and drag to reorder.") : ""}
-                  </p>
+                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{tt("The first is the cover.")}</p>
                 </div>
 
                 {/* The grid, held to reorder (./media-grid.tsx): two widescreen a row, or a physical product's photos square with the cover large. */}
@@ -2684,9 +2682,6 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               >
                 <div>
                   <h2 className={CARD_TITLE}>{tt("Content")}</h2>
-                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    {tt("Describe your product to attract customers.")}
-                  </p>
                 </div>
 
                 {/*
@@ -2735,9 +2730,6 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   <div className="flex items-center gap-1.5">
                     <h2 className={CARD_TITLE}>{tt("What's Included")}</h2>
                   </div>
-                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    {tt("Show customers what they'll get (max")} {MAX_WHATS_INCLUDED} {tt("items).")}
-                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -2807,7 +2799,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       {variants.length === 0 ? <span className="text-[13px] font-normal text-[#9ca3af]">{tt("Optional")}</span> : null}
                     </div>
                     {variants.length > 0 ? (
-                      <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{tt("Different versions or tiers, each with its own price.")}</p>
+                      null
                     ) : null}
                   </div>
                   {variants.length > 0 && variants.length < MAX_VARIANTS && (
@@ -3098,7 +3090,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   <div className="min-w-0">
                     <h2 className={CARD_TITLE}>{tt("Pricing")}</h2>
                     <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                      {productType === "physical" ? tt("What buyers pay. Variants can each have their own price.") : PRICE_MODE_HINT[priceMode]}
+                      {productType === "physical" ? null : PRICE_MODE_HINT[priceMode]}
                     </p>
                   </div>
                   {productType === "physical" ? null : (
@@ -3288,7 +3280,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       <h2 className={CARD_TITLE}>{tt("FAQ")}</h2>
                     </div>
                     <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                      {faqOpen ? tt("Answer common questions. Hold and drag to reorder.") : faqs.length === 0 ? tt("Answer the questions buyers ask.") : tt("{length, plural, one {# question} other {# questions}} on the product page.", { length: faqs.length })}
+                      {faqOpen || faqs.length === 0 ? null : tt("{length, plural, one {# question} other {# questions}} on the product page.", { length: faqs.length })}
                     </p>
                   </div>
                   <button
@@ -3391,6 +3383,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 ) : null}
               </div>
 
+              <CollectionsCard ref={collectionsRef} productId={productId ?? null} cardClass={CARD} titleClass={CARD_TITLE} onValue={reportCollections} />
               <SalesChannelsCard ref={channelsRef} productId={productId ?? null} physical={productType === "physical"} cardClass={CARD} titleClass={CARD_TITLE} onValue={reportChannels} />
 
               {/* Settings Section */}
@@ -3399,9 +3392,6 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               >
                 <div>
                   <h2 className={CARD_TITLE}>{tt("Settings")}</h2>
-                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    {productType === "physical" ? tt("How much one order can take.") : tt("Configure product display and policies.")}
-                  </p>
                 </div>
 
                 {/*
@@ -3605,7 +3595,6 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className={CARD_TITLE}>{tt("Search engine listing")}</h2>
-                    <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{tt("How it can look in Google.")}</p>
                   </div>
                   <button
                     type="button"

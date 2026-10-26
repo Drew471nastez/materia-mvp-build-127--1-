@@ -248,7 +248,8 @@ export function SizeChartEditor({
   )
 
   return (
-    <Modal open={open} onClose={onClose} title={chart ? tt("Edit size chart") : tt("New size chart")} footer={footer} wide>
+    /* Not the whole phone (round 24, the owner: "the edit size chart is too big on mobile"): 80% of the screen, its table a little narrower. */
+    <Modal open={open} onClose={onClose} title={chart ? tt("Edit size chart") : tt("New size chart")} footer={footer} wide phoneMax={0.8}>
       <div className="space-y-5" data-size-chart-editor="">
         {!chart && !touched ? (
           <div>
@@ -305,7 +306,7 @@ export function SizeChartEditor({
             </button>
           </div>
           <div ref={tableRef} className="overflow-x-auto rounded-xl border border-[#eceef1] [-webkit-overflow-scrolling:touch]" data-size-chart-grid="">
-            <table className="w-full border-separate border-spacing-0 text-[14px]">
+            <table className="w-full border-separate border-spacing-0 text-[13.5px] sm:text-[14px]">
               <thead>
                 <tr>
                   {draft.columns.map((col, c) => (
@@ -316,7 +317,7 @@ export function SizeChartEditor({
                         onChange={(e) => setColumn(c, { name: e.target.value })}
                         placeholder={c === 0 ? tt("Size") : tt("Chest")}
                         aria-label={tt("Column {n} name", { n: c + 1 })}
-                        className={cn(FIELD_COMPACT, "w-full min-w-[96px] font-medium sm:min-w-[104px]")}
+                        className={cn(FIELD_COMPACT, "w-full min-w-[80px] font-medium sm:min-w-[104px]")}
                         data-column-name=""
                       />
                       {c > 0 ? (
@@ -357,7 +358,7 @@ export function SizeChartEditor({
                           inputMode={col.measure && c > 0 ? "decimal" : undefined}
                           placeholder={c === 0 ? "M" : col.measure ? "0" : ""}
                           aria-label={tt("{column}, row {n}", { column: col.name || tt("Column {n}", { n: c + 1 }), n: r + 1 })}
-                          className={cn(FIELD_COMPACT, "w-full min-w-[96px] tabular-nums sm:min-w-[104px]", c === 0 && "font-medium")}
+                          className={cn(FIELD_COMPACT, "w-full min-w-[72px] tabular-nums sm:min-w-[104px]", c === 0 && "font-medium")}
                           {...(c === 0 ? { "data-row-size": "" } : {})}
                         />
                       </td>

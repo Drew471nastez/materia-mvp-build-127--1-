@@ -734,7 +734,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, onValue, images = [
   return (
     <div className="space-y-4 sm:space-y-5" data-physical-cards="">
       {/* ── Inventory ────────────────────────────────────────────────── */}
-      <Card id="physical-inventory" title={tt("Inventory")} description={printedAt ? tt("Not counted: {value} makes each one when it sells, so it never shows as sold out.", { value: printedAt.partner?.name ?? printedAt.name }) : trackInventory ? tt("Stock goes down with every sale. Nobody can buy more than you have.") : tt("Not counted: it can always be bought.")}>
+      <Card id="physical-inventory" title={tt("Inventory")} description={printedAt ? tt("Not counted: {value} makes each one when it sells, so it never shows as sold out.", { value: printedAt.partner?.name ?? printedAt.name }) : trackInventory ? undefined : tt("Not counted: it can always be bought.")}>
         <div className="space-y-4">
           {printedAt ? (
             <p className="text-[13.5px] leading-5 text-[#4b5563]" data-made-to-order="">
@@ -785,7 +785,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, onValue, images = [
       </Card>
 
       {/* ── Variants ─────────────────────────────────────────────────── */}
-      <Card id="physical-variants" title={tt("Variants")} description={multi ? tt("Every combination of your options is a variant with its own price, stock and photo.") : tt("Sizes, colors or anything else it comes in. Each one gets its own price, stock and photo.")}>
+      <Card id="physical-variants" title={tt("Variants")}>
         <MemoOptionsEditor options={options} setOptions={setOptionsDirty} renameValue={renameValue} moveOption={moveOption} removeOption={removeOption} />
         {multi ? (
           <VariantTable
@@ -811,7 +811,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, onValue, images = [
 
       {/* ── Shipping ─────────────────────────────────────────────────── */}
       {/* No "not shipped" switch: a physical product is always shipped or picked up, so checkout always asks where it goes (lib/physical/checkout-pricing-server). Handing it over in person is local pickup. */}
-      <Card id="physical-shipping" title={tt("Shipping")} description={tt("Used to work out delivery at checkout. To hand it over in person, turn on local pickup in Settings › Shipping.")}>
+      <Card id="physical-shipping" title={tt("Shipping")}>
         <div className="space-y-4">
           {requiresShipping ? (
             <div className={cn("grid gap-3", nonDefaultProfiles.length ? "sm:grid-cols-[minmax(0,1fr)_110px_minmax(0,1.3fr)]" : "grid-cols-[minmax(0,1fr)_110px] sm:max-w-[420px]")}>

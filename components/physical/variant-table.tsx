@@ -88,7 +88,8 @@ const ENTER = "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in
 export function VariantTable(props: VariantTableProps) {
   const { rows, options, basePrice, trackInventory, locations, stockAt, setStockAt, weightUnit, setRow, patchRows, pickImage, pending } = props
   const [openRow, setOpenRow] = React.useState<string | null>(null)
-  const [folded, setFolded] = React.useState<Set<string>>(new Set())
+  /* THE GROUPS START CLOSED (round 24, the owner: "those should not be toggled ... closed as default, because it just shows too many"): each size is one line with its count and price until it is opened. What is kept is which are open. */
+  const [unfolded, setUnfolded] = React.useState<Set<string>>(new Set())
   const [bulk, setBulk] = React.useState(false)
   const grouped = options.length >= 2
   const groups = grouped ? groupByFirst(rows) : []
@@ -97,7 +98,7 @@ export function VariantTable(props: VariantTableProps) {
   const sharedSkus = repeatedSkus(rows.map((r) => r.sku))
   const toggleFold = React.useCallback(
     (value: string) =>
-      setFolded((s) => {
+      setUnfolded((s) => {
         const n = new Set(s)
         const k = value.toLowerCase()
         if (n.has(k)) n.delete(k)
@@ -164,7 +165,7 @@ export function VariantTable(props: VariantTableProps) {
         </div>
         {grouped
           ? groups.map((g) => {
-              const isFolded = folded.has(g.value.toLowerCase())
+              const isFolded = !unfolded.has(g.value.toLowerCase())
               return (
                 <div key={g.value} className="border-b border-[#eceef1] last:border-b-0" data-variant-group={g.value}>
                   <GroupLine

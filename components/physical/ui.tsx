@@ -640,13 +640,13 @@ function useFieldInView(box: React.RefObject<HTMLElement | null>, on: boolean) {
  * the phone's Settings page (a layer under the app's header and nav pill)
  * was under both. Both halves are portalled to the body.
  */
-export function Modal({ open, onClose, title, children, footer, wide, closeButton = true }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean; /** False: the phone sheet has no X; a pull down, a tap above it or the footer's Cancel closes it. */ closeButton?: boolean }) {
+export function Modal({ open, onClose, title, children, footer, wide, closeButton = true, phoneMax }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean; /** False: the phone sheet has no X; a pull down, a tap above it or the footer's Cancel closes it. */ closeButton?: boolean; /** The phone sheet's tallest, as a share of the screen (0.88, or 0.92 when wide). */ phoneMax?: number }) {
   const phone = useModalPhone()
-  if (phone) return <ModalSheet open={open} onClose={onClose} title={title} footer={footer} wide={wide} closeButton={closeButton}>{children}</ModalSheet>
+  if (phone) return <ModalSheet open={open} onClose={onClose} title={title} footer={footer} wide={wide} closeButton={closeButton} phoneMax={phoneMax}>{children}</ModalSheet>
   return <ModalDialog open={open} onClose={onClose} title={title} footer={footer} wide={wide}>{children}</ModalDialog>
 }
 
-function ModalSheet({ open, onClose, title, children, footer, wide, closeButton = true }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean; closeButton?: boolean }) {
+function ModalSheet({ open, onClose, title, children, footer, wide, closeButton = true, phoneMax }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean; closeButton?: boolean; phoneMax?: number }) {
   const body = React.useRef<HTMLDivElement>(null)
   useFieldInView(body, open)
   return (
@@ -657,7 +657,7 @@ function ModalSheet({ open, onClose, title, children, footer, wide, closeButton 
       hideFrom={null}
       fill
       aboveKeyboard
-      maxHeight={wide ? "calc(var(--vv-h, 100dvh) * 0.92)" : "calc(var(--vv-h, 100dvh) * 0.88)"}
+      maxHeight={`calc(var(--vv-h, 100dvh) * ${phoneMax ?? (wide ? 0.92 : 0.88)})`}
       header={
         <div className={cn("flex items-center justify-between gap-3 px-4 pb-1", closeButton ? "pt-2" : "min-h-11 pt-1")} data-modal-sheet-head="">
           <h2 className="text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
