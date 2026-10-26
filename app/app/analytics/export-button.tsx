@@ -25,7 +25,8 @@
  * (lib/platform/save-file).
  */
 import * as React from "react"
-import { Download } from "lucide-react"
+import { ChevronDown, Download } from "lucide-react"
+import { SegmentedPills } from "@/components/app/segmented-pills"
 import { cn } from "@/lib/utils"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
@@ -64,61 +65,68 @@ export function exportAddress(query: string, choice: ExportChoice): string {
 }
 
 /** A radio row, drawn as the picker's checkbox rows are. */
-function FormatRow({ value, on, label, line, onPick }: { value: ExportFormat; on: boolean; label: string; line: string; onPick: () => void }) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={on}
-      onClick={onPick}
-      data-export-format={value}
-      className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 text-left outline-none hover:bg-[#f6f7f8] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.22)] active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
-    >
-      <span aria-hidden className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border border-[#c9ccd2] bg-white">
-        <span className={cn("h-2.5 w-2.5 rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none", on ? "scale-100 opacity-100" : "scale-50 opacity-0")} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-[14px] font-medium text-[#1a1a2e]">{label}</span>
-        <span className="mt-0.5 block text-[12.5px] leading-snug text-[#6b7280]">{line}</span>
-      </span>
-    </button>
-  )
-}
 
+/*
+  ONE CHOICE ON SCREEN, THE REST FOLDED (round 24, the owner: "the export mobile bottom sheet and modal in the analytics
+  is just too complex"). The period it covers, one line; the file as two pills, CSV or ZIP; and every report on the
+  page already in, folded behind one row that opens the list for whoever wants fewer.
+*/
 function Body({ options, picked, toggle, setAll, format, setFormat, range }: { options: readonly ExportReport[]; picked: ReadonlySet<ExportReport>; toggle: (id: ExportReport) => void; setAll: (on: boolean) => void; format: ExportFormat; setFormat: (f: ExportFormat) => void; range: string }) {
   const all = options.every((id) => picked.has(id))
+  const [choosing, setChoosing] = React.useState(false)
+  const count = options.filter((id) => picked.has(id)).length
   return (
     <div className="flex flex-col gap-4" data-export-body="">
+      <p className="px-3 text-[14px] tabular-nums text-[#4b5563]" data-export-range="">{range}</p>
+      <div className="px-3" data-export-formats="">
+        <SegmentedPills
+          options={[
+            { value: "csv" as ExportFormat, label: tt("CSV") },
+            { value: "zip" as ExportFormat, label: tt("ZIP") },
+          ]}
+          value={format}
+          onChange={setFormat}
+          label={tt("Format")}
+          size="sm"
+        />
+      </div>
       <div role="group" aria-label={tt("Reports")}>
-        <div className="flex items-center justify-between px-3 pb-1">
-          <p className="text-[12px] font-medium text-[#6b7280]">{tt("Reports")}</p>
-          <button type="button" onClick={() => setAll(!all)} data-export-all="" className="cursor-pointer rounded-md px-1.5 py-0.5 text-[12px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4]">
-            {all ? tt("Clear all") : tt("Select all")}
-          </button>
-        </div>
-        {options.map((id) => (
-          <button
-            key={id}
-            type="button"
-            role="checkbox"
-            aria-checked={picked.has(id)}
-            onClick={() => toggle(id)}
-            data-export-report={id}
-            className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 text-left text-[14px] text-[#1a1a2e] outline-none hover:bg-[#f6f7f8] focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.22)] active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
-          >
-            <ReportCheckbox on={picked.has(id)} />
-            {NAME[id]()}
-          </button>
-        ))}
-      </div>
-      <div className="px-3">
-        <p className="text-[12px] font-medium text-[#6b7280]">{tt("Range")}</p>
-        <p className="mt-1 text-[14px] tabular-nums text-[#1a1a2e]" data-export-range="">{range}</p>
-      </div>
-      <div role="radiogroup" aria-label={tt("Format")}>
-        <p className="px-3 pb-1 text-[12px] font-medium text-[#6b7280]">{tt("Format")}</p>
-        <FormatRow value="csv" on={format === "csv"} label={tt("CSV")} line={tt("One file, a section per report")} onPick={() => setFormat("csv")} />
-        <FormatRow value="zip" on={format === "zip"} label={tt("CSV per report")} line={tt("A .zip with one file for each report")} onPick={() => setFormat("zip")} />
+        <button
+          type="button"
+          aria-expanded={choosing}
+          onClick={() => setChoosing((v) => !v)}
+          data-export-choose=""
+          className="flex min-h-[44px] w-full items-center justify-between gap-3 rounded-[10px] px-3 text-left text-[14px] font-medium text-[#1a1a2e] outline-none focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.22)] [-webkit-tap-highlight-color:transparent]"
+        >
+          <span>{tt("Reports")}</span>
+          <span className="flex items-center gap-1.5 text-[13.5px] font-normal tabular-nums text-[#6b7280]">
+            {all ? tt("All") : tt("{n} of {count}", { n: count, count: options.length })}
+            <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", choosing && "rotate-180")} aria-hidden />
+          </span>
+        </button>
+        {choosing ? (
+          <div>
+            <div className="flex justify-end px-3 pb-1">
+              <button type="button" onClick={() => setAll(!all)} data-export-all="" className="cursor-pointer rounded-md px-1.5 py-0.5 text-[12.5px] font-medium text-[#1a1a2e]">
+                {all ? tt("Clear all") : tt("Select all")}
+              </button>
+            </div>
+            {options.map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="checkbox"
+                aria-checked={picked.has(id)}
+                onClick={() => toggle(id)}
+                data-export-report={id}
+                className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 text-left text-[14px] text-[#1a1a2e] outline-none focus-visible:shadow-[inset_0_0_0_2px_rgba(26,26,46,0.22)] [-webkit-tap-highlight-color:transparent]"
+              >
+                <ReportCheckbox on={picked.has(id)} />
+                {NAME[id]()}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   )

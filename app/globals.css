@@ -7077,12 +7077,18 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 }
 [data-analytics-controls] button[aria-haspopup="dialog"] svg { color: #9ca3af; }
 @media (max-width: 639px) {
-  /* The row scrolls sideways on a phone: what runs past its end fades out rather than being cut. */
+  /* Every chip whole on a phone (round 24, "the pill shapes there gets cutted"): the row wraps onto a second line
+     rather than running off the screen. */
   [data-analytics-pickers] {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-    padding-right: 24px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    row-gap: 8px;
+    overflow: visible;
+    margin-left: 0;
+    padding-left: 0;
   }
+  [data-analytics-pickers] > div { flex-wrap: wrap; }
+  [data-analytics-controls] { align-items: flex-start; }
 }
 [data-analytics-controls] button[aria-haspopup="dialog"][data-open],
 [data-analytics-controls] button[aria-haspopup="dialog"][data-state="open"] {
@@ -7104,6 +7110,19 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 [data-reveal="wait"] [data-bar] {
   width: 0 !important;
 }
+/* And fills as it is reached, a row at a time (round 24, "the progress fills bars should feel very smooth, like
+   filling"): 700ms on an ease out, each of the first eight rows 45ms after the one above. */
+[data-reveal-armed] [data-bar] {
+  transition-duration: 700ms !important;
+  transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1) !important;
+}
+[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(2) [data-bar] { transition-delay: 45ms; }
+[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(3) [data-bar] { transition-delay: 90ms; }
+[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(4) [data-bar] { transition-delay: 135ms; }
+[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(5) [data-bar] { transition-delay: 180ms; }
+[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(6) [data-bar] { transition-delay: 225ms; }
+[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(7) [data-bar] { transition-delay: 270ms; }
+[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(n+8) [data-bar] { transition-delay: 315ms; }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal-armed] { transition: none; }
   [data-reveal="wait"] { opacity: 1; transform: none; }

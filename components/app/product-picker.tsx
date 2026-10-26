@@ -143,7 +143,8 @@ export function ProductPicker({
     return (
       <>
         {trigger}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={tt("Product")}>
+        {/* A little shorter than a sheet's tallest (round 24, "its height, it's too big"): 74% of the screen. */}
+        <BottomSheet isOpen={open} onClose={() => setOpen(false)} title={tt("Product")} maxHeight="min(74dvh, 620px)">
           <div data-product-picker>{list(true)}</div>
         </BottomSheet>
       </>

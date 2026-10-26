@@ -70,7 +70,9 @@ import { ProductPicker } from "@/components/app/product-picker"
 import { PropertyPicker } from "@/components/app/property-picker"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
-import { kindOfProduct, profileOf, reportOptions, reportShown, sectionsFor, sellsOf, type ReportId, type SalesMode } from "@/lib/analytics/sections"
+import { kindOfProduct, modeFor, profileOf, reportOptions, reportShown, sectionsFor, sellsOf, type ReportId, type SalesMode } from "@/lib/analytics/sections"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
+import { SegmentedPills } from "@/components/app/segmented-pills"
 import { EXPORT_REPORTS, type ExportReport } from "@/lib/analytics/export-csv"
 import { propertyLabel } from "@/lib/analytics/properties"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
@@ -126,6 +128,7 @@ interface Figure {
 
 /** What every percentage on the page is measured against. */
 const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
+type AnalyticsView = "all" | "digital" | "physical" | "communities"
 
 /** How long the figures are waited for before the page says it is counting: "after ~2.5 s a quiet line". */
 export const COUNTING_NOTE_MS = 2500
@@ -290,21 +293,38 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const profile = useMemo(() => profileOf({ products, onePageId: properties.onePageId, websites: properties.websites, communities: communities.length }), [products, properties, communities.length])
   const sells = sellsOf(profile)
   /*
-    EVERY KIND TOGETHER. The All / Digital / Physical switch is gone; every
-    figure counts both kinds and the cards split them where it matters. A
-    link from before still carrying `?kind=` loses it from the address, once.
+    WHAT IS LOOKED AT: ALL, DIGITAL, PHYSICAL OR COMMUNITIES (round 24, the owner: "a pill shape where I can switch in
+    between the digital products, communities, and physical sales, but only physical sales if they sell physical ...
+    dynamically"). Only what the seller has is offered (KIND_PILLS below), and the row is drawn only when there is
+    more than one thing to choose. Digital and Physical narrow every figure and card to that kind (the reports' own
+    `kind`); Communities shows the communities' reports alone under the chart. Kept in the address as `?kind=`.
   */
-  const mode: SalesMode = "all"
-  useEffect(() => {
+  const physicalOn = usePhysicalCommerceEnabled()
+  const kindPills = useMemo(() => {
+    const out: { value: AnalyticsView; label: string }[] = []
+    if (profile.digital || profile.membership) out.push({ value: "digital", label: tt("Digital") })
+    if (profile.physical && physicalOn) out.push({ value: "physical", label: tt("Physical") })
+    if (communities.length > 0) out.push({ value: "communities", label: tt("Communities") })
+    return out.length >= 2 || (out.length === 1 && out[0].value === "communities") ? [{ value: "all" as AnalyticsView, label: tt("All") }, ...out] : []
+  }, [profile.digital, profile.membership, profile.physical, physicalOn, communities.length])
+  const [view, setViewState] = useState<AnalyticsView>(() => {
+    const raw = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("kind")
+    return raw === "digital" || raw === "physical" || raw === "communities" ? raw : "all"
+  })
+  const shownView: AnalyticsView = kindPills.some((k) => k.value === view) ? view : "all"
+  const setView = useCallback((next: AnalyticsView) => {
+    setViewState(next)
     try {
       const url = new URL(window.location.href)
-      if (!url.searchParams.has("kind")) return
-      url.searchParams.delete("kind")
+      if (next === "all") url.searchParams.delete("kind")
+      else url.searchParams.set("kind", next)
       window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
     } catch {
       /* the address is a convenience */
     }
   }, [])
+  const mode: SalesMode = shownView === "digital" || shownView === "physical" ? modeFor(profile, shownView) : "all"
+  const communitiesOnly = shownView === "communities"
   const chosenProduct = selectedProduct === "all" ? null : products.find((p) => p.id === selectedProduct) ?? null
   const sections = sectionsFor(profile, { property: propertyParam(property) ?? "all", productKind: chosenProduct ? kindOfProduct(chosenProduct.type) : null, mode })
   /* The reports the seller added: cards of their own after the rest, never more tabs on the chart. */
@@ -586,6 +606,9 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           <ExportButton query={exportQuery} name={exportName} options={exportOptions} range={exportRange} />
         </div>
 
+        {/* All, Digital, Physical, Communities: what the seller has, when there is a choice (round 24). */}
+        {kindPills.length ? <SegmentedPills options={kindPills} value={shownView} onChange={setView} label={tt("What to show")} className="-mt-2" /> : null}
+
         {/* The four figures and the chart of the one chosen */}
         <div className="relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden" aria-busy={waitingFigures || waitingLists}>
           <LoadingLine active={waitingFigures || waitingLists} />
@@ -664,7 +687,9 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
         </div>
 
         {/* The store's sales reports, for the same period, comparison, place and product as the chart (./commerce-reports). Physical sales are in the chart, the figures and Top products like any other sale; shipping and fulfilment only for a seller who ships or has a published website. */}
-        {sections.sales ? (
+        {communitiesOnly ? (
+          <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} />
+        ) : sections.sales ? (
           <CommerceReports
             span={safeSpan}
             compare={against}
@@ -674,6 +699,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             showShipping={sections.shipping}
             showFulfillment={sections.fulfillment}
             showKinds={sections.productKinds}
+            kind={mode}
             viewer={userId}
             refresh={tick}
           />
@@ -684,13 +710,13 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           </p>
         )}
         {/* The reports under the chart, from the same answer, with the communities and the reports the seller added. */}
-        <AnalyticsReports
+        {communitiesOnly ? null : <AnalyticsReports
           state={reportsState}
           property={property}
           sections={sections}
           extra={sections.communities ? <CommunityReports communities={communities} span={safeSpan} compare={against} timeZone={timeZone} refresh={tick} /> : null}
           added={{ ids: shownAdded, ...actions }}
-        />
+        />}
         {/* The grid's last tile, the full width: where the next report goes. */}
         <AddReportButton marker="add-more" label={tt("Add report")} onClick={() => setPicking(true)} />
 
@@ -710,6 +736,36 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
  * is; cards that arrive later (a report added, a property switched) are taken as they mount. Under reduced motion,
  * nothing waits.
  */
+/*
+  A CHART'S LINE DRAWS ITSELF IN as its card arrives (round 24, "the chart lines should appear very smooth and clean"):
+  each solid line of the card's charts runs from its first point to its last over 900ms, by its own length as a dash,
+  and is put back as it was once it has. A dashed line (the period before) is left as it is, and comes in with the card.
+*/
+function drawLines(card: HTMLElement) {
+  card.querySelectorAll<SVGPathElement>("svg path").forEach((path) => {
+    const cs = getComputedStyle(path)
+    if (cs.stroke === "none" || (cs.strokeDasharray && cs.strokeDasharray !== "none") || (cs.fill !== "none" && cs.fill !== "rgba(0, 0, 0, 0)")) return
+    let length = 0
+    try {
+      length = path.getTotalLength()
+    } catch {
+      return
+    }
+    if (!(length > 4)) return
+    path.style.transition = "none"
+    path.style.strokeDasharray = `${length}`
+    path.style.strokeDashoffset = `${length}`
+    path.getBoundingClientRect()
+    path.style.transition = "stroke-dashoffset 900ms cubic-bezier(0.33, 1, 0.68, 1)"
+    path.style.strokeDashoffset = "0"
+    window.setTimeout(() => {
+      path.style.transition = ""
+      path.style.strokeDasharray = ""
+      path.style.strokeDashoffset = ""
+    }, 960)
+  })
+}
+
 function useRevealCards() {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -722,6 +778,7 @@ function useRevealCards() {
         for (const e of entries) {
           if (!e.isIntersecting) continue
           ;(e.target as HTMLElement).removeAttribute("data-reveal")
+          drawLines(e.target as HTMLElement)
           io.unobserve(e.target)
         }
       },
