@@ -155,6 +155,20 @@ html.capacitor.app-layout {
 html.app-layout {
   --native-band: #111111;
 }
+/* UNDER A WHOLE SCREEN LAYER THE BAND IS THE LAYER'S (round 23, the owner: in add and edit product and the other
+   full screen pages on iOS "it just doesn't show the Wi-Fi and the clock"). The layer paints the strip under the clock
+   in its own light colour (components/app/page-layer.tsx), but the band stayed /app's black, so the status bar was
+   given light text: white on white. While a layer covers the screen the band says white, and
+   components/platform/native-chrome.tsx, which watches <html>'s class, gives the status bar dark text; it goes back
+   with the class. A phone only layer covers the screen below 768px only. */
+html.app-layout.has-page-layer {
+  --native-band: #ffffff;
+}
+@media (max-width: 767px) {
+  html.app-layout.has-phone-page-layer {
+    --native-band: #ffffff;
+  }
+}
 
 /*
   ===========================================================================

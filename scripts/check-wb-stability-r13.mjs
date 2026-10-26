@@ -384,6 +384,15 @@ async function push(ed, kind, i, compat) {
     if (withSettings) a.events.push({ id: ++id, agent_name: "GitHub", path: "settings", action: "page", detail: { replaced: true }, created_at: new Date().toISOString() })
     a.syncAt = new Date(Date.now() + i).toISOString()
   }, changed, i % 2 === 1, i)
+  /* THE MOMENT IT LANDS (round 23, "when a push from GitHub or any AI coding lands, a little freeze and stutter"): the
+     editor's main thread from the poll to the canvas settled, as long tasks, and the frames it drew. */
+  await page.evaluate(() => {
+    window.__landing = { longs: [], frames: [], on: true }
+    try { new PerformanceObserver((l) => { if (window.__landing?.on) for (const e of l.getEntries()) window.__landing.longs.push(Math.round(e.duration)) }).observe({ type: "longtask" }) } catch {}
+    const tick = (t) => { if (!window.__landing?.on) return; window.__landing.frames.push(t); requestAnimationFrame(tick) }
+    requestAnimationFrame(tick)
+  })
+  if (process.env.PROFILE) { await ed.cdp.send("Profiler.enable"); await ed.cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await ed.cdp.send("Profiler.start") }
   /* The editor's own poll reads it: woken by the window coming back, as after switching from GitHub. */
   const calls0 = await page.evaluate(() => window.probeCalls.length)
   for (let k = 0; k < 40; k++) {
@@ -392,7 +401,41 @@ async function push(ed, kind, i, compat) {
     if (await page.evaluate((c0) => window.probeCalls.slice(c0).some((c) => /agent-activity\?after=/.test(c)), calls0)) break
   }
   await settle(page)
+  const landing = await page.evaluate(() => {
+    const L = window.__landing
+    L.on = false
+    let worst = 0
+    for (let k = 1; k < L.frames.length; k++) worst = Math.max(worst, L.frames[k] - L.frames[k - 1])
+    return { longs: L.longs, worstFrame: Math.round(worst) }
+  })
+  if (process.env.PROFILE) {
+    const { profile } = await ed.cdp.send("Profiler.stop")
+    const self = new Map()
+    const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+    const dt = profile.timeDeltas
+    profile.samples.forEach((id, k) => {
+      const n = byId.get(id)
+      const key = `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").pop()}:${n.callFrame.lineNumber}`
+      self.set(key, (self.get(key) ?? 0) + (dt[k] ?? 0))
+    })
+    const parent = new Map()
+    for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n)
+    const callers = new Map()
+    profile.samples.forEach((id, k) => {
+      const n = byId.get(id)
+      if (n.callFrame.functionName !== "elementsFromPoint") return
+      const chain = []
+      for (let q = parent.get(n.id); q && chain.length < 4; q = parent.get(q.id)) chain.push(`${q.callFrame.functionName || "(anon)"}:${q.callFrame.lineNumber}`)
+      const key = chain.join(" < ")
+      callers.set(key, (callers.get(key) ?? 0) + (dt[k] ?? 0))
+    })
+    console.log("     elementsFromPoint from: " + [...callers].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${(v / 1000).toFixed(1)}ms`).join(" | "))
+    console.log("     self time: " + [...self].filter(([k]) => !/^\((idle|program|garbage collector)\)/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, v]) => `${k} ${(v / 1000).toFixed(1)}ms`).join(" | "))
+  }
+  console.log(`     landing: long tasks ${JSON.stringify(landing.longs)}, longest frame ${landing.worstFrame}ms`)
+  landings.push(landing)
 }
+const landings = []
 
 /* Theme settings' own onChange (compat-theme-settings.tsx), found on the open panel. */
 const themeOnChange = (page, id, value) => page.evaluate((id, value) => {

@@ -173,6 +173,20 @@ export const CANVAS_BRIDGE = `
   };
   /* Is the element itself what is seen at this point? \`loose\`: its own content is fixed (a phone tab bar), so that is it, not something over it. */
   var owns = function (el, x, y, loose) {
+    /*
+      THE TOP OF THE STACK FIRST (round 23, the owner: "when a push from GitHub or any AI coding lands ... a little
+      freeze and stutter"). elementsFromPoint lists every element under the point, and on a deep store page some sixty
+      of them a reading came to 50 to 70ms in one task after a push redrew the page (scripts/check-wb-stability-r13.mjs
+      PROFILE=1). The loop below almost always decides on its first element, so that element alone is asked first
+      (elementFromPoint stops at the first hit) and decided the same way; the whole stack is read only when the top
+      one is an outline of ours or says nothing either way.
+    */
+    var top = document.elementFromPoint(x, y);
+    if (top && !(top.hasAttribute && (top.hasAttribute("data-sl-box") || top.hasAttribute("data-sl-add")))) {
+      if ((top === el || el.contains(top)) && (loose || !fixedBetween(top, el))) return true;
+      if (top === document.body || top === document.documentElement) return false;
+      if (paints(top)) return false;
+    }
     var stack = document.elementsFromPoint(x, y);
     for (var i = 0; i < stack.length; i++) {
       var c = stack[i];
@@ -202,7 +216,9 @@ export const CANVAS_BRIDGE = `
   /* Something fixed or sticky that is not the element nor around it (a header, a tab bar) is what is seen at this point. */
   var barAt = function (el, x, y) {
     if (y < 0 || y >= innerHeight) return false;
-    var stack = document.elementsFromPoint(x, y);
+    /* The top of the stack decides unless it is an outline of ours (as owns, above). */
+    var head = document.elementFromPoint(x, y);
+    var stack = head && !(head.hasAttribute && (head.hasAttribute("data-sl-box") || head.hasAttribute("data-sl-add"))) ? [head] : document.elementsFromPoint(x, y);
     for (var i = 0; i < stack.length; i++) {
       var c = stack[i];
       if (c.hasAttribute && (c.hasAttribute("data-sl-box") || c.hasAttribute("data-sl-add"))) continue;
