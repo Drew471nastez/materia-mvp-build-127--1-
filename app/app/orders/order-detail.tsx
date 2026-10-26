@@ -76,7 +76,7 @@ import {
   type TimelineTone,
 } from "@/lib/orders/timeline"
 import { copyText } from "@/lib/platform/copy-text"
-import { prefetchSlip, shareSlip } from "@/components/physical/slip-share"
+import { prefetchInvoice, prefetchSlip, shareInvoice, shareSlip } from "@/components/physical/slip-share"
 import {
   DeliveryBadge,
   FulfillmentBadge,
@@ -195,6 +195,10 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
   React.useEffect(() => {
     if (slipHref && phone) prefetchSlip(slipHref)
   }, [slipHref, phone])
+  /* And its invoice, once it has been paid for (the Invoice button's own condition is the payment card's). */
+  React.useEffect(() => {
+    if (phone && order.payment === "paid") prefetchInvoice(order.id, timeZone)
+  }, [phone, order.id, order.payment, timeZone])
   const refundable = order.lines.filter(canRefundLine)
   const emailable = order.lines.some(canEmail)
   const firstReceipt = order.lines.find((l) => l.receipt_token)?.receipt_token
@@ -292,7 +296,8 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
         title={
           <>
             <h1 className="text-[24px] font-bold leading-8 text-[#1a1a2e] sm:text-[20px] sm:leading-7">#{order.number}</h1>
-            <span className="flex flex-wrap items-center gap-1.5">
+            {/* On a phone the badges go under the number, so the title never runs up to the buttons beside it (round 24). */}
+            <span className="flex flex-wrap items-center gap-1.5 max-sm:basis-full">
               <PaymentBadge status={order.payment} />
               {stage ? <ShipBadge stage={stage} problem={parcel ? parcel.shipments.some((s) => s.status === "failed") : order.shipping?.problem} /> : <FulfillmentBadge status={order.fulfillment} />}
             </span>
@@ -392,7 +397,11 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
             shippingName={parcel ? (parcel.deliveryMethod === "pickup" ? tt("Local pickup") : (parcel.delivery?.name ?? null)) : order.shipping ? (order.shipping.pickup ? tt("Local pickup") : order.shipping.method) : null}
             busy={busy}
             onRefund={canRefund && refundable.length > 0 ? () => setDialog("refund") : null}
-            onInvoice={() => void run("invoice", { kind: "invoice" })}
+            /* On a phone, to the share sheet as the packing slip goes (components/physical/slip-share, round 24); elsewhere saved as before. */
+            onInvoice={() => {
+              if (shareInvoice(order.id, timeZone)) return
+              void run("invoice", { kind: "invoice" })
+            }}
           />
           <div className="grid min-w-0 content-start gap-4 lg:col-start-2 lg:row-span-4 lg:row-start-1">
             {physicalOrder ? <BuyerNoteCard order={parcel} /> : <DigitalNoteCard orderId={order.id} />}

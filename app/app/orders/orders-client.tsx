@@ -341,6 +341,9 @@ export function OrdersClient(props: OrdersClientProps) {
   if (hadFigures.current === null) hadFigures.current = { key: props.listingKey === wantedKey ? figuresKey : "", at: props.now }
   const askedFor = React.useRef({ query, span, timeZone, figuresKey })
   askedFor.current = { query, span, timeZone, figuresKey }
+  /* The period the list on screen was read for, and a count that moves when a new period's orders arrive (orders-list REVEAL). */
+  const shownFigures = React.useRef(figuresKey)
+  const [reveal, setReveal] = React.useState(0)
   /* Each view's first page as last read, by what was asked (`wanted`); emptied by an action (version) through the key itself. */
   const viewCache = React.useRef(new Map<string, OrdersListing>())
   /*
@@ -396,6 +399,13 @@ export function OrdersClient(props: OrdersClientProps) {
         done = true
         if (next.figures) hadFigures.current = { key: fk, at: Date.now() }
         viewCache.current.set(wanted, next)
+        /* A new period's orders arrive in a short fade rather than a cut (round 24, "loading and then revealing"). */
+        /* The period and zone only: an action (the key's version) redraws the same orders, with no fade. */
+        const periodOf = (k: string) => k.replace(/,\d+\]$/, "]")
+        if (periodOf(fk) !== periodOf(shownFigures.current)) {
+          shownFigures.current = fk
+          setReveal((n) => n + 1)
+        }
         adopt(next)
         setLoading(false)
         rowsArrived.current?.()
@@ -776,6 +786,7 @@ export function OrdersClient(props: OrdersClientProps) {
       >
         <PullToRefresh onRefresh={onPullRefresh}>
         <OrdersListMemo
+          reveal={reveal}
           summary={listing.summary}
           loading={loading}
           pageOrders={page.items}

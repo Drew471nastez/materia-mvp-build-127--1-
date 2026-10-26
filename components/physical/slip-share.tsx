@@ -32,7 +32,17 @@ import { createPortal } from "react-dom"
 import { hapticTap } from "@/lib/native-bridge"
 import { tt } from "@/lib/i18n/text"
 
-type SlipState = { phase: "idle" } | { phase: "making" } | { phase: "made" } | { phase: "tap"; file: File } | { phase: "failed" }
+/** What the notice says for a document: the packing slip's, or the invoice's (round 24). */
+export interface DocWords {
+  making: string
+  made: string
+  ready: string
+  failed: string
+}
+const slipWords = (): DocWords => ({ making: tt("Generating packing slip"), made: tt("Packing slip generated"), ready: tt("Packing slip ready"), failed: tt("The packing slip could not be made. Try again.") })
+export const invoiceWords = (): DocWords => ({ making: tt("Generating invoice"), made: tt("Invoice generated"), ready: tt("Invoice ready"), failed: tt("The invoice could not be made. Try again.") })
+
+type SlipState = ({ phase: "idle" } | { phase: "making" } | { phase: "made" } | { phase: "tap"; file: File } | { phase: "failed" }) & { words?: DocWords; leaving?: boolean }
 
 let state: SlipState = { phase: "idle" }
 const subs = new Set<() => void>()
@@ -41,9 +51,14 @@ const set = (next: SlipState) => {
   subs.forEach((f) => f())
 }
 let hideTimer = 0
+/* LEAVES AS IT CAME (round 24, "when it appears and disappears, it needs to be more smooth in and out"): it slides down and fades over LEAVE_MS, then is gone. */
+const LEAVE_MS = 240
 const hideSoon = (ms: number) => {
   window.clearTimeout(hideTimer)
-  hideTimer = window.setTimeout(() => set({ phase: "idle" }), ms)
+  hideTimer = window.setTimeout(() => {
+    set({ ...state, leaving: true })
+    hideTimer = window.setTimeout(() => set({ phase: "idle" }), LEAVE_MS)
+  }, ms)
 }
 
 /** The PDF's address for a slip's page address. */
@@ -51,14 +66,16 @@ export const slipPdfHref = (href: string) => `${href}${href.includes("?") ? "&" 
 
 const kept = new Map<string, Promise<File | null>>()
 
-function readSlip(href: string): Promise<File | null> {
-  const pdf = slipPdfHref(href)
+const readSlip = (href: string) => readPdf(slipPdfHref(href), "packing-slip.pdf")
+
+/** A PDF from one of Storelib's own addresses, as a file named the way the server names it; kept for a minute. */
+function readPdf(pdf: string, fallbackName: string): Promise<File | null> {
   const had = kept.get(pdf)
   if (had) return had
   const made = fetch(pdf, { credentials: "same-origin", cache: "no-store" })
     .then(async (res) => {
       if (!res.ok) return null
-      const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "packing-slip.pdf"
+      const name = /filename="?([^";]+)"?/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? fallbackName
       return new File([await res.blob()], name, { type: "application/pdf" })
     })
     .catch(() => null)
@@ -100,25 +117,42 @@ async function share(file: File): Promise<"shared" | "cancelled" | "late"> {
 
 /** The tap on the print icon. False when this browser cannot share a file: the caller prints or opens the page. */
 export function shareSlip(href: string): boolean {
+  return shareDoc(() => readSlip(href), slipWords())
+}
+
+/** An order's invoice (GET /api/invoice), to read ahead and to share, as the packing slip is (round 24). */
+const invoicePdf = (orderId: string, timeZone: string) => `/api/invoice?orderId=${encodeURIComponent(orderId)}&tz=${encodeURIComponent(timeZone)}`
+export function prefetchInvoice(orderId: string, timeZone: string): void {
+  if (!canShareSlip()) return
+  const idle = (window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+  const go = () => void readPdf(invoicePdf(orderId, timeZone), "invoice.pdf")
+  if (idle) idle(go, { timeout: 2500 })
+  else window.setTimeout(go, 600)
+}
+export function shareInvoice(orderId: string, timeZone: string): boolean {
+  return shareDoc(() => readPdf(invoicePdf(orderId, timeZone), "invoice.pdf"), invoiceWords())
+}
+
+function shareDoc(read: () => Promise<File | null>, words: DocWords): boolean {
   if (!canShareSlip()) return false
   hapticTap("soft")
   window.clearTimeout(hideTimer)
-  set({ phase: "making" })
+  set({ phase: "making", words })
   const started = performance.now()
-  void readSlip(href).then(async (file) => {
+  void read().then(async (file) => {
     if (!file) {
-      set({ phase: "failed" })
+      set({ phase: "failed", words })
       hideSoon(3200)
       return
     }
     /* The ring is seen turning for a moment even when the file was already here, then becomes the check. */
     const madeIn = performance.now() - started
     window.setTimeout(() => {
-      if (state.phase === "making") set({ phase: "made" })
+      if (state.phase === "making") set({ phase: "made", words })
     }, Math.max(0, 420 - madeIn))
     const how = await share(file)
     if (how === "late") {
-      set({ phase: "tap", file })
+      set({ phase: "tap", file, words })
       hideSoon(8000)
       return
     }
@@ -145,10 +179,10 @@ export function SlipNotice() {
   React.useEffect(() => setMounted(true), [])
   if (!mounted || s.phase === "idle") return null
   const done = s.phase === "made" || s.phase === "tap"
-  const text =
-    s.phase === "making" ? tt("Generating packing slip") : s.phase === "failed" ? tt("The packing slip could not be made. Try again.") : s.phase === "tap" ? tt("Packing slip ready") : tt("Packing slip generated")
+  const w = s.words ?? slipWords()
+  const text = s.phase === "making" ? w.making : s.phase === "failed" ? w.failed : s.phase === "tap" ? w.ready : w.made
   return createPortal(
-    <div className="slip-notice-wrap" aria-live="polite" data-slip-notice={s.phase}>
+    <div className="slip-notice-wrap" aria-live="polite" data-slip-notice={s.phase} data-leaving={s.leaving ? "" : undefined}>
       <div className="slip-notice">
         {s.phase === "failed" ? null : (
           <span className="slip-notice-mark" data-done={done ? "" : undefined} aria-hidden>
@@ -166,7 +200,7 @@ export function SlipNotice() {
             className="slip-notice-share"
             onClick={() => {
               const file = s.file
-              set({ phase: "made" })
+              set({ phase: "made", words: s.words })
               void share(file).then(() => hideSoon(300))
             }}
           >

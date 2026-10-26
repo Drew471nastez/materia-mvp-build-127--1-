@@ -83,7 +83,7 @@ async function main() {
   const slipRoute = readCode("app/api/physical/orders/[id]/packing-slip/route.ts")
   check("the slip's address answers format=pdf with the PDF", /url\.searchParams\.get\("format"\) === "pdf"/.test(slipRoute) && /"Content-Type": "application\/pdf"/.test(slipRoute))
   const share = readCode("components/physical/slip-share.tsx")
-  check("a phone shares the file the tap already has, and a late tap becomes the notice's own Share", /navigator\.share\(\{ files: \[file\]/.test(share) && /if \(name === "NotAllowedError"\) return "late"/.test(share) && /set\(\{ phase: "tap", file \}\)/.test(share))
+  check("a phone shares the file the tap already has, and a late tap becomes the notice's own Share", /navigator\.share\(\{ files: \[file\]/.test(share) && /if \(name === "NotAllowedError"\) return "late"/.test(share) && /set\(\{ phase: "tap", file, words \}\)/.test(share))
   check("a computer prints, as before", /if \(!window\.matchMedia\?\.\("\(pointer: coarse\)"\)\.matches\) return false/.test(share))
   const detail = readCode("app/app/orders/order-detail.tsx")
   check("the print icon sits beside the order's menu, and Previous and Next are a computer's", /data-slip-print=""/.test(detail) && detail.indexOf("data-slip-print") < detail.indexOf("<ResponsiveActionMenu") && /<span className="flex shrink-0 items-center max-sm:hidden">/.test(detail))

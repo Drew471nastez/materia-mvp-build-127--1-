@@ -66,6 +66,8 @@ import { CarrierLogo } from "@/components/physical/carrier-logo"
 import type { OrdersSummary } from "@/lib/orders/paged"
 
 export interface OrdersListProps {
+  /** Moves when a new period's orders arrive: the rows and figures fade in once (app/globals.css .orders-reveal). */
+  reveal?: number
   /* What the list knows of every order, not only this page's (lib/orders/paged.ts): how many, whether anything ships, which tabs have something, the figures' currency. */
   summary: OrdersSummary
   /** A new page is on its way: the one shown dims until it is here. */
@@ -402,7 +404,7 @@ function OrdersTable(props: OrdersListProps) {
                 )}
               </tr>
             </thead>
-            <tbody>
+            <tbody key={props.reveal ?? 0} className={props.reveal ? "orders-reveal" : undefined}>
               {pageOrders.map((order) => {
                 const isSelected = selected.has(order.id)
                 const rowBg = isSelected ? "bg-[#f4f4f6]" : "bg-white group-hover:bg-[#fafafb]"
