@@ -887,6 +887,18 @@ export function WebsiteBuilderClient({
     fetched in a quiet moment once the page is up (not when the phone asks to
     save data), and again the moment a finger lands on the way in.
   */
+  /* Edit website was pressed: its circle turns until the editor is up, or the page is shown again (back) or a long wait is over. */
+  const [opening, setOpening] = React.useState(false)
+  React.useEffect(() => {
+    if (!opening) return
+    const done = () => setOpening(false)
+    const t = window.setTimeout(done, 15_000)
+    window.addEventListener("pageshow", done)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener("pageshow", done)
+    }
+  }, [opening])
   const warmed = React.useRef(new Set<string>())
   const warm = React.useCallback(
     (href: string) => {
@@ -1484,16 +1496,35 @@ export function WebsiteBuilderClient({
                         More as 44px squares, with Take offline last in More. */}
                     <div className="mt-auto flex gap-2 pt-5" data-card-actions="">
                       <Button
-                        onClick={() => go(editorHref(username, live.id))}
+                        onClick={() => {
+                          setOpening(true)
+                          go(editorHref(username, live.id))
+                        }}
                         onPointerDown={() => {
                           warm(editorHref(username, live.id))
                           hapticTap("light")
                         }}
                         data-edit-website=""
-                        /* A finger is answered: the button sinks a little and darkens while it is held, eased both ways, with no grey flash of the browser's own. */
-                        className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white transition-[scale,background-color] duration-150 ease-out [-webkit-tap-highlight-color:transparent] touch-manipulation hover:bg-[#2d2d44] active:scale-[0.97] active:bg-[#0f0f1d] active:duration-75 motion-reduce:active:scale-100"
+                        data-opening={opening ? "" : undefined}
+                        aria-busy={opening || undefined}
+                        /*
+                          THE PRESS IS ANSWERED BY A CIRCLE, AND BY NOTHING ELSE
+                          (round 21, the owner: "it should not bump or zoom ...
+                          extremely subtle and clean, not even fade, maybe a
+                          loading smooth circle"). The button stays exactly as it
+                          is under a finger: no sink, no darker shade, no fade, no
+                          grey flash of the browser's own. Once pressed, a small
+                          circle turns beside the words until the editor is up: a
+                          rotation only, which the screen draws by itself, so it
+                          keeps turning while the page is busy opening the editor.
+                        */
+                        className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white [-webkit-tap-highlight-color:transparent] touch-manipulation hover:bg-[#2d2d44] active:bg-[#1a1a2e]"
                       >
-                        {tt("Edit website")}
+                        {/* The circle hangs just left of the words, out of the line, so the words never move when it appears. */}
+                        <span className="relative">
+                          {opening ? <span aria-hidden data-edit-spinner="" className="wb-edit-spinner" /> : null}
+                          {tt("Edit website")}
+                        </span>
                       </Button>
                       <Tooltip delayDuration={400}>
                         <TooltipTrigger asChild>

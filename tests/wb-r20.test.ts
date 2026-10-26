@@ -51,7 +51,8 @@ check("a part that stops with the last part's words goes no further by itself", 
 check("when the chat will not carry on, the reply offers Continue and drops the promise", /patch\(\(e\) => \(\{ \.\.\.e, canContinue: true, reply: e\.reply \? withoutCarryOn\(e\.reply\) : e\.reply \}\)\)/.test(chat) && /Press Continue to pick up the rest\./.test(chat))
 
 console.log("\nEdit website answers a finger, and the editor is on its way")
-check("it sinks and darkens while held, with no grey flash", /data-edit-website=""/.test(page) && /active:scale-\[0\.97\]/.test(page) && /\[-webkit-tap-highlight-color:transparent\]/.test(page))
+/* Round 21: no sink and no darker shade any more, a turning circle instead (tests/wb-r21.test.ts). */
+check("no grey flash under a finger", /data-edit-website=""/.test(page) && /\[-webkit-tap-highlight-color:transparent\]/.test(page))
 check("a light tick in the app", /hapticTap\("light"\)/.test(page))
 check("the editor is fetched in a quiet moment (not on save data) and on the press", /requestIdleCallback\(\(\) => warm\(editorWay\)/.test(page) && /conn\?\.saveData/.test(page) && /onPointerDown=\{\(\) => \{\s*warm\(editorHref\(username, live\.id\)\)/.test(page))
 check("this suite runs with the others", readCode("scripts/run-push-tests.mjs").includes('"tests/wb-r20.test.ts"'))

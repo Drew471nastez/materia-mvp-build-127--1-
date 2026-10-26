@@ -128,6 +128,7 @@ import { anchorAt, composeDictation, spokenSince, type DictationAnchor } from "@
 import { uploadAskImage } from "@/lib/website-builder/ask-image-upload"
 import { imageAnswer, imageOp, type QuestionAction } from "@/lib/sites/agent/questions"
 import { WRITING_SECTION_ID } from "@/lib/website-builder/ai-placement"
+import { guardAskSheet } from "@/lib/website-builder/ask-sheet-guard"
 import { reportAnswer, streamPost } from "@/lib/website-builder/ask-client"
 import { promptForPictures, restoreExchanges, type StoredMessage } from "@/lib/website-builder/ask-restore"
 import { armAskSounds, playAskSound, setSoundsOn, soundsOn } from "@/lib/website-builder/ask-sounds"
@@ -3477,6 +3478,52 @@ function ThemeChatPanel({
    * pointer crosses, so a boolean would blink off on the way past the
    * thread and the target would flicker down the whole panel.
    */
+  /*
+    THE CONVERSATION STAYS IN ITS SHEET (round 21, lib/website-builder/ask-sheet-guard.ts).
+    On a phone, at the moments iOS could leave something panned or scrolled
+    behind: the sheet coming up, a keyboard going, the visible area moving,
+    the screen turning, the page coming back. One measurement each, in a
+    timer, never per frame.
+  */
+  const sheetColumnRef = React.useRef<HTMLDivElement | null>(null)
+  React.useEffect(() => {
+    if (dock) return
+    let timer = 0
+    const soon = (ms: number) => () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        const column = sheetColumnRef.current
+        if (column) guardAskSheet(column)
+      }, ms)
+    }
+    const afterMove = soon(450)
+    const vv = window.visualViewport
+    vv?.addEventListener("resize", afterMove)
+    vv?.addEventListener("scroll", afterMove)
+    window.addEventListener("resize", afterMove)
+    window.addEventListener("orientationchange", afterMove)
+    window.addEventListener("pageshow", afterMove)
+    document.addEventListener("focusout", afterMove)
+    document.addEventListener("visibilitychange", afterMove)
+    /* And each time the sheet comes up: the conversation comes into view, and is looked at once the slide is over. */
+    const column = sheetColumnRef.current
+    const io = column && typeof IntersectionObserver !== "undefined"
+      ? new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) afterMove() })
+      : null
+    if (column) io?.observe(column)
+    return () => {
+      io?.disconnect()
+      window.clearTimeout(timer)
+      vv?.removeEventListener("resize", afterMove)
+      vv?.removeEventListener("scroll", afterMove)
+      window.removeEventListener("resize", afterMove)
+      window.removeEventListener("orientationchange", afterMove)
+      window.removeEventListener("pageshow", afterMove)
+      document.removeEventListener("focusout", afterMove)
+      document.removeEventListener("visibilitychange", afterMove)
+    }
+  }, [dock])
+
   const dropHandlers = {
     onDragEnter: (event: React.DragEvent) => {
       if (!event.dataTransfer.types.includes("Files")) return
@@ -3511,6 +3558,7 @@ function ThemeChatPanel({
           on the keys. `min-w-0` and a clipped x axis so nothing in here can be
           wider than the panel, or scrolled sideways by script.
         */
+        ref={sheetColumnRef}
         className="relative flex h-full min-h-0 w-full min-w-0 flex-1 flex-col bg-background [overflow-x:clip]"
         data-ask-sheet=""
         /*

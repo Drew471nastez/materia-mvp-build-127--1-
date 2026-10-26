@@ -5358,6 +5358,10 @@ html.capacitor [data-app-nav-pill] nav a:active {
 html.capacitor [data-buyer-tab-bar] nav a:active {
   opacity: 1;
 }
+/* Edit website answers a press with its turning circle, never a fade (round 21, app/app/website-builder/website-builder-client.tsx). */
+html.capacitor [data-edit-website]:active {
+  opacity: 1;
+}
 
 /* ── AND NOT A PICTURE ────────────────────────────────────────────────────────
    "On a mobile device, if I touch the website cover, make sure there is no
@@ -8966,4 +8970,30 @@ dialog:focus,
   outline-offset: -2px;
   position: relative;
   z-index: 2;
+}
+
+/*
+  EDIT WEBSITE'S CIRCLE (round 21, app/app/website-builder/website-builder-
+  client.tsx). A thin ring with one lighter quarter, turning on `rotate` only
+  so the compositor draws every frame by itself, whatever the page is doing.
+  Still under reduced motion.
+*/
+.wb-edit-spinner {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  margin-top: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  border: 1.75px solid rgba(255, 255, 255, 0.28);
+  border-top-color: #ffffff;
+  animation: wb-edit-spin 700ms linear infinite;
+  will-change: rotate;
+}
+@keyframes wb-edit-spin {
+  to { rotate: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-edit-spinner { animation-duration: 2000ms; }
 }

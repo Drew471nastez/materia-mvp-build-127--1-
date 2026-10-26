@@ -127,9 +127,14 @@ const OVERFLOW = () => {
 
 const ed = await openEditor({ kind: "native", bundle, css, globals: `window.PROBE_FILES={};${STORELIB_GLOBALS}`, init: WATCH, cpu: CPU, width: W, height: 844, touch: true, settle: 4000 })
 const page = ed.page
+/* What the sheet's guard told the server (lib/website-builder/ask-sheet-guard.ts). */
+const reports = []
+page.on("request", (r) => { if (r.url().includes("/api/client-errors")) reports.push(r.postData() ?? "") })
 if (process.env.VERBOSE) page.on("pageerror", (e) => console.log("  thrown:", e.stack ?? String(e)))
 try {
   console.log(`\nphone ${W}x844 (CPU ${CPU}x)`)
+  /* The page's own fetch is the probe's (render-editor-probe.tsx): what the sheet's guard sends is read there. */
+  await ed.js(() => { window.__reports = []; const f = window.fetch; window.fetch = (u, i) => { if (String(u).includes("/api/client-errors")) window.__reports.push(String(i?.body ?? "")); return f(u, i) } })
   await ed.js((l) => { window.PROBE_AGENT_STREAM = { lines: l, gapMs: 300 } }, LINES)
   await ed.js(() => [...document.querySelectorAll("button[aria-label='Ask Storelib']")].find((b) => b.getClientRects().length)?.click())
   await sleep(900)
@@ -212,6 +217,35 @@ try {
   const pct = d.length ? Math.round((dropped / (d.length + dropped)) * 1000) / 10 : 0
   expect(pct < 10, "under 10% of frames dropped during the close", { droppedPct: pct, longestFrame: Math.round(Math.max(0, ...d)) })
   expect(Math.max(0, ...m.longs) < 100, "no long task over 100ms during the close", m.longs)
+  reports.push(...(await ed.js(() => window.__reports.splice(0))))
+  expect(reports.length === 0, "the sheet's guard found nothing out of place through the whole run (nothing reported)", reports)
+
+  /* GUARD (round 21): the sheet opened again, its content scrolled by hand as iOS left it, and the guard puts it back and says so. */
+  await ed.js(() => [...document.querySelectorAll("button[aria-label='Ask Storelib']")].find((b) => b.getClientRects().length)?.click())
+  await sleep(1200)
+  const shifted = await ed.js(() => {
+    const sheet = document.querySelector("[data-ask-sheet]")?.closest("[data-mobile-bottom-sheet]")
+    if (!sheet) return null
+    sheet.style.overflow = "hidden"
+    const tail = document.createElement("div")
+    tail.style.cssText = "height:400px;flex-shrink:0"
+    tail.setAttribute("data-probe-tail", "")
+    sheet.appendChild(tail)
+    document.querySelector("[data-ask-sheet]").style.minHeight = `${sheet.clientHeight}px`
+    sheet.scrollTop = 40
+    const top = Math.round(document.querySelector("[data-ask-header]").getBoundingClientRect().top - sheet.getBoundingClientRect().top)
+    window.visualViewport?.dispatchEvent(new Event("resize"))
+    return { scrolled: sheet.scrollTop, headerTop: top }
+  })
+  await sleep(900)
+  const back = await ed.js(() => {
+    const sheet = document.querySelector("[data-ask-sheet]")?.closest("[data-mobile-bottom-sheet]")
+    return sheet ? { scrolled: sheet.scrollTop, headerTop: Math.round(document.querySelector("[data-ask-header]").getBoundingClientRect().top - sheet.getBoundingClientRect().top) } : null
+  })
+  expect(!!shifted && shifted.scrolled > 0, "the sheet's content was knocked out of place", shifted)
+  expect(!!back && back.scrolled === 0 && back.headerTop === 20, "the guard put it back, the header under the grab bar again", back)
+  reports.push(...(await ed.js(() => window.__reports)))
+  expect(reports.length === 1 && /Ask sheet off by 0,-40 \(settled\)/.test(reports[0]) && /sheet scrolled 0,40/.test(reports[0]), "and told the server once, with what it found", reports.map((r) => r.slice(0, 220)))
   expect(ed.errors.length === 0, "nothing thrown", ed.errors)
 } finally {
   await ed.close()
