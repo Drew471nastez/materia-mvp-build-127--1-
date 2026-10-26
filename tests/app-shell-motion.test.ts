@@ -357,9 +357,13 @@ section("The press answers on the press")
   check("the shell no longer keeps a pendingHref nothing read, re-rendering itself on every click",
     !/pendingHref|setPendingHref/.test(code("components/app/sidebar.tsx")))
   check("the menu's rows start fetching their page on the pointerdown",
-    /onPointerDown: \(\) => \{ setPressed\(true\); onPress\?\.\(\) \}/.test(mobile)
-      && /usePressed\(\(\) => \{ if \(!active\) prefetchAppPage\(router, child\.href\) \}\)/.test(mobile)
-      && /usePressed\(\(\) => \{ if \(!active && !item\.forceNavigation\) prefetchAppPage\(router, item\.href\) \}\)/.test(mobile))
+    /* Round 22: the fetch on pointerdown stays; the grey fill under the finger is gone (a swipe lit up the row it started on). */
+    /onPointerDown: \(\) => onPress\?\.\(\)/.test(mobile)
+      && /usePrefetchOnPress\(\(\) => \{ if \(!active\) prefetchAppPage\(router, child\.href\) \}\)/.test(mobile)
+      && /usePrefetchOnPress\(\(\) => \{ if \(!active && !item\.forceNavigation\) prefetchAppPage\(router, item\.href\) \}\)/.test(mobile))
+  check("the menu shows nothing under a finger: no grey fill, no press fade in the app, the active page is the only fill",
+    !/PRESS_BG/.test(mobile) && /backgroundColor: active \? ACTIVE_BG : "transparent"/.test(mobile)
+      && /html\.capacitor \[data-mobile-menu\] :is\(a, button, \[role="button"\], \[tabindex="0"\]\):active \{\s*opacity: 1;/.test(readFileSync(join(root, "app/globals.css"), "utf8")))
   check("the pill fetches the page under the finger on the pointerdown, and warms its four again after the router's keep time",
     /onPress\?\.\(slotAt\(e\.clientX\)\)/.test(mobile) && /if \(item && index !== current\) onPrefetch\?\.\(item\.href\)/.test(mobile)
       && /document\.visibilityState === "visible" && Date\.now\(\) - warmedAt > APP_PAGE_KEPT_MS/.test(mobile))

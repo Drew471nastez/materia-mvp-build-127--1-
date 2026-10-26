@@ -33,7 +33,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 import { endLayerMove } from "@/components/app/page-layer"
@@ -78,7 +78,6 @@ const PAGE = "#f8f9fa"
 const REST_TEXT = "#6b7280"
 const ACTIVE_TEXT = "#1a1a2e"
 const ACTIVE_BG = "#ebecee"
-const PRESS_BG = "#e3e4e7"
 const LABEL_TEXT = "#a5a5a5"
 
 /**
@@ -142,34 +141,25 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 // ── The rows ────────────────────────────────────────────────────────────────
 
 /**
- * Pressed state, not hover state.
+ * A FINGER IS NOT A HOVER (round 22). A row turned grey the moment a finger
+ * landed on it, and stayed grey until the browser decided the touch was a
+ * scroll, so every swipe through the menu lit up the row it started on: the
+ * owner's "cheap, bad hover" on Orders while scrolling. The rows show
+ * nothing under a finger now; the active page is the only row with a fill.
  *
- * The rail drives its three colours from `onMouseEnter`, which a phone never
- * sends. What a phone does send is touchstart and touchend, so the row
- * answers the press — within a frame, before the navigation has begun — and
- * that acknowledgement is the whole of "it feels responsive".
- *
- * `onPress` runs on the same pointerdown: the rows use it to start fetching
- * their page, which gives the server the length of the tap (80 to 150ms of a
- * finger on glass) as a head start. The router picks that fetch up when the
- * click arrives instead of starting its own.
+ * What the press still does, unseen: it starts fetching the row's page on
+ * pointerdown, which gives the server the length of the tap (80 to 150ms of
+ * a finger on glass) as a head start. The router picks that fetch up when
+ * the click arrives instead of starting its own. A swipe that only began on
+ * a row fetches a page that is then simply there.
  */
-function usePressed(onPress?: () => void) {
-  const [pressed, setPressed] = useState(false)
-  return {
-    pressed,
-    handlers: {
-      onPointerDown: () => { setPressed(true); onPress?.() },
-      onPointerUp: () => setPressed(false),
-      onPointerCancel: () => setPressed(false),
-      onPointerLeave: () => setPressed(false),
-    },
-  }
+function usePrefetchOnPress(onPress?: () => void) {
+  return { onPointerDown: () => onPress?.() }
 }
 
-function rowStyle(active: boolean, pressed: boolean): React.CSSProperties {
+function rowStyle(active: boolean): React.CSSProperties {
   return {
-    backgroundColor: active ? ACTIVE_BG : pressed ? PRESS_BG : "transparent",
+    backgroundColor: active ? ACTIVE_BG : "transparent",
     color: active ? ACTIVE_TEXT : REST_TEXT,
     fontWeight: active ? ACTIVE_WEIGHT : REST_WEIGHT,
   }
@@ -186,7 +176,7 @@ function MobileSubNavItem({
 }) {
   const router = useRouter()
   const active = isRouteActive(useShownPath(), child.href, useShownSearch())
-  const { pressed, handlers } = usePressed(() => { if (!active) prefetchAppPage(router, child.href) })
+  const handlers = usePrefetchOnPress(() => { if (!active) prefetchAppPage(router, child.href) })
   return (
     <Link
       href={child.href}
@@ -196,7 +186,7 @@ function MobileSubNavItem({
       }}
       {...handlers}
       className={cn(ROW, "h-11 text-[14.5px]")}
-      style={rowStyle(active, pressed)}
+      style={rowStyle(active)}
     >
       {child.thumb ? <span className="-ml-0.5 flex shrink-0 items-center">{child.thumb}</span> : null}
       <span className="min-w-0 truncate">{child.label}</span>
@@ -249,8 +239,8 @@ export function MobileNavItem({
   const router = useRouter()
   const active = isRouteActive(useShownPath(), item.href, useShownSearch())
   /* A row that reloads the document (forceNavigation) has nothing to fetch ahead. */
-  const { pressed, handlers } = usePressed(() => { if (!active && !item.forceNavigation) prefetchAppPage(router, item.href) })
-  const style = rowStyle(active, pressed)
+  const handlers = usePrefetchOnPress(() => { if (!active && !item.forceNavigation) prefetchAppPage(router, item.href) })
+  const style = rowStyle(active)
   const tint = active ? ACTIVE_TEXT : REST_TEXT
 
   const body = (
@@ -482,7 +472,7 @@ export function MobileMenuPage({
             onClose()
           }}
           onPointerDown={() => prefetchAppPage(router, UPGRADE_HREF)}
-          className="group/upgrade mt-4 flex items-center justify-between gap-3 rounded-[16px] border border-violet-100/70 bg-white px-4 py-3.5 transition-colors duration-100 active:bg-violet-50/60"
+          className="group/upgrade mt-4 flex items-center justify-between gap-3 rounded-[16px] border border-violet-100/70 bg-white px-4 py-3.5"
         >
           <span className="block min-w-0">
             <span className="block truncate text-[14px] font-semibold" style={{ color: ACTIVE_TEXT }}>{upgradeTitle}</span>

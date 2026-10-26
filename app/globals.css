@@ -5358,6 +5358,10 @@ html.capacitor [data-app-nav-pill] nav a:active {
 html.capacitor [data-buyer-tab-bar] nav a:active {
   opacity: 1;
 }
+/* The menu shows nothing under a finger: a swipe through it lit up the row it started on (round 22, components/app/sidebar-mobile-nav.tsx A FINGER IS NOT A HOVER). */
+html.capacitor [data-mobile-menu] :is(a, button, [role="button"], [tabindex="0"]):active {
+  opacity: 1;
+}
 /* Edit website answers a press with its turning circle, never a fade (round 21, app/app/website-builder/website-builder-client.tsx). */
 html.capacitor [data-edit-website]:active {
   opacity: 1;
