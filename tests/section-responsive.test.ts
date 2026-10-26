@@ -2728,11 +2728,12 @@ check(
    * the canvas wherever one ended — the cut between the white and the grey.
    * A page that is loading is one empty page.
    */
-  /className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-white"/.test(editor) &&
+  /* Round 16: the editor's light grey, never a white sheet, and the loader from the first frame of the opening. */
+  /className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-\[#f4f5f7\]"/.test(editor) &&
     !/h-\[50vh\] flex items-center justify-center bg-neutral-50\/40/.test(editor) &&
     /* Half a second, the wait every Storelib loader keeps, and over an imported theme until its first page has painted. */
     /const canvasLoaderUp = canvasBusy \|\| compatFirstPaint/.test(editor) &&
-    /const showCanvasLoader = useDelayedFlag\(canvasLoaderUp, SPINNER_WAIT_MS\)/.test(editor) &&
+    /const showCanvasLoader = useDelayedFlag\(canvasLoaderUp, SPINNER_WAIT_MS\) \|\| loading/.test(editor) &&
     /export function useDelayedFlag\(active: boolean, delay = 350\)/.test(loaderSrc) &&
     // and it clears the instant the work does, so nothing lingers
     /if \(!active\) \{\s*setShown\(false\)/.test(loaderSrc),
