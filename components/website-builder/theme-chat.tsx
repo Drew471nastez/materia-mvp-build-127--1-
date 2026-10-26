@@ -599,6 +599,14 @@ const ExchangeItem = React.memo(function ExchangeItem({
 export const CONTINUE_PROMPT = "Continue where you stopped: finish the rest of what I asked, without redoing what is already done."
 export const MAX_CONTINUES = 3
 
+/** The server's "picking up the rest now" (lib/website-builder/agent/limits.ts stoppedSentence), when the chat is not going to: the Continue under it is. */
+const CARRY_ON_SENTENCE = "Storelib AI stopped answering for a moment, so I am picking up the rest now." // i18n-ignore: matched in the server's words, never shown
+export function withoutCarryOn(reply: string): string {
+  const said = reply.replace(CARRY_ON_SENTENCE, "").trim()
+  const next = tt("Storelib AI stopped answering for a moment. Press Continue to pick up the rest.")
+  return said ? `${said} ${next}` : next
+}
+
 export const ThemeChat = React.memo(ThemeChatPanel)
 
 
@@ -861,6 +869,8 @@ function ThemeChatPanel({
   const [queued, setQueued] = React.useState<{ text: string; direct?: boolean } | null>(null)
   /* How many parts in a row the current long task has run (the `continue` event); a message of the creator's own starts again. */
   const continues = React.useRef(0)
+  /** The words the last part that carried on by itself stopped with. */
+  const lastStopReply = React.useRef("")
   /**
    * ONLY THE OPEN SECTION MAY CHANGE.
    *
@@ -1552,6 +1562,8 @@ function ThemeChatPanel({
       /* Set by a `continue` event: this run stopped for time with the task not done. */
       let carryOn = false
       let abortedByPerson = false
+      /* What this part said last: a next part that stops with the same words has made no headway. */
+      let saidNow = ""
 
       /**
        * THE RUN BELONGS TO THE PAGE IT STARTED ON.
@@ -1715,6 +1727,7 @@ function ThemeChatPanel({
                 return
               } else if (type === "message") {
                 const reply = typeof event.text === "string" ? event.text : ""
+                saidNow = reply
                 patch((e) => ({ ...e, reply, running: false, activity: settleActivity(e.activity) }))
                 /* The answer is in. Once per run: a question's closing message is not a second one. */
                 if (!finished) playAskSound("done")
@@ -1767,11 +1780,27 @@ function ThemeChatPanel({
       } finally {
         abortRef.current = null
         /* A long task, in parts: up to MAX_CONTINUES more runs, each picking up from the conversation. A stop ends it. */
-        if (carryOn && !abortedByPerson && continues.current < MAX_CONTINUES) {
+        /*
+          NOT THE SAME PART TWICE, AND NEVER A PROMISE NOBODY KEEPS (round
+          20). The owner's phone showed a part that stopped, a next part that
+          stopped at the same place with the same words, and both saying "I
+          am picking up the rest now" with nothing picking it up: the last
+          allowed part said it too. A part that stops with the words the last
+          one stopped with goes no further by itself, and when the chat will
+          not send the next part, the reply says so and offers Continue.
+        */
+        const sameAgain = carryOn && !!saidNow && saidNow === lastStopReply.current
+        if (carryOn && !abortedByPerson && continues.current < MAX_CONTINUES && !sameAgain) {
           continues.current += 1
+          lastStopReply.current = saidNow
           setQueued({ text: CONTINUE_PROMPT, direct: true })
+        } else if (carryOn && !abortedByPerson) {
+          continues.current = 0
+          lastStopReply.current = ""
+          patch((e) => ({ ...e, canContinue: true, reply: e.reply ? withoutCarryOn(e.reply) : e.reply }))
         } else if (!carryOn) {
           continues.current = 0
+          lastStopReply.current = ""
         }
         setBusy(false)
         /* The sheen goes; what changed is brought into view and marked once. */

@@ -79,6 +79,7 @@ import { useToast } from "@/hooks/use-toast"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { cn } from "@/lib/utils"
+import { hapticTap } from "@/lib/native-bridge"
 import type { ThemeSettingsValues, ThemeStatus } from "@/lib/website-builder/types"
 import {
   THEME_INSTALL_LIMIT,
@@ -877,6 +878,42 @@ export function WebsiteBuilderClient({
     [router],
   )
 
+  /*
+    THE EDITOR IS ON ITS WAY BEFORE THE PRESS ENDS (round 20, the owner: "it
+    should feel very smooth", and "optimize for low internet speeds"). The
+    editor is the one place this page leads, and its code is the heaviest
+    thing in the app: asked for only on the tap, a slow connection spent the
+    first seconds after it fetching what could have been here already. It is
+    fetched in a quiet moment once the page is up (not when the phone asks to
+    save data), and again the moment a finger lands on the way in.
+  */
+  const warmed = React.useRef(new Set<string>())
+  const warm = React.useCallback(
+    (href: string) => {
+      if (warmed.current.has(href)) return
+      warmed.current.add(href)
+      try {
+        router.prefetch(href)
+      } catch {
+        /* it is fetched on the tap instead */
+      }
+    },
+    [router],
+  )
+  const editorWay = live ? editorHref(username, live.id) : starter ? editorHref(username, starter.id) : null
+  React.useEffect(() => {
+    if (!editorWay) return
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
+    if (conn?.saveData) return
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(() => warm(editorWay), { timeout: 2500 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(() => warm(editorWay), 1200)
+    return () => window.clearTimeout(t)
+  }, [editorWay, warm])
+
   /* Whether the page is still here when a request it started comes back. */
   const mounted = React.useRef(true)
   React.useEffect(() => {
@@ -1404,6 +1441,7 @@ export function WebsiteBuilderClient({
                     <button
                       type="button"
                       onClick={() => go(editorHref(username, live.id))}
+                      onPointerDown={() => warm(editorHref(username, live.id))}
                       aria-label={tt("Edit {name}", { name: live.name })}
                       data-cover=""
                       data-picture-press=""
@@ -1447,7 +1485,13 @@ export function WebsiteBuilderClient({
                     <div className="mt-auto flex gap-2 pt-5" data-card-actions="">
                       <Button
                         onClick={() => go(editorHref(username, live.id))}
-                        className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
+                        onPointerDown={() => {
+                          warm(editorHref(username, live.id))
+                          hapticTap("light")
+                        }}
+                        data-edit-website=""
+                        /* A finger is answered: the button sinks a little and darkens while it is held, eased both ways, with no grey flash of the browser's own. */
+                        className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white transition-[transform,background-color] duration-150 ease-out [-webkit-tap-highlight-color:transparent] touch-manipulation hover:bg-[#2d2d44] active:scale-[0.97] active:bg-[#0f0f1d] active:duration-75 motion-reduce:active:scale-100"
                       >
                         {tt("Edit website")}
                       </Button>

@@ -8473,6 +8473,7 @@ const words: Record<string, string> = {
  "This chat could not be loaded.": "Dieser Chat konnte nicht geladen werden.",
  "Earlier messages in this chat could not be loaded.": "Frühere Nachrichten in diesem Chat konnten nicht geladen werden.",
  "Sample product": "Beispielprodukt",
+ "Storelib AI stopped answering for a moment. Press Continue to pick up the rest.": "Storelib AI hat kurz nicht geantwortet. Tippe auf Weiter, um den Rest zu erledigen.",
  "This check looks at the email before it, and there is none.": "Diese Prüfung schaut auf die E-Mail davor, und es gibt keine.",
  "This community has no tiers yet. Add them in Settings, under who can join.": "Diese Community hat noch keine Stufen. Füge sie in den Einstellungen unter Wer beitreten kann hinzu.",
  "This community is archived. Bring it back to change it.": "Diese Community ist archiviert. Hol sie zurück, um sie zu ändern.",

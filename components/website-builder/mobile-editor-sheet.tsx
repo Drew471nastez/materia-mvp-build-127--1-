@@ -1092,7 +1092,8 @@ export function MobileEditorSheet({
   const bottomReservePx = peekInset + chromeGap
   const composerLift =
     composerKeys && keyboardHere ? Math.max(0, Math.round(keyboardInset + visibleTop - bottomReservePx)) : 0
-  const composerPan = composerKeys && keyboardHere ? Math.max(0, Math.round(visibleTop)) : 0
+  /* Only with keys up: a pan iOS leaves behind once the keyboard has gone pushed the whole conversation down under its header (round 20). */
+  const composerPan = composerKeys && keyboardHere && keyboardInset > 0 ? Math.max(0, Math.round(visibleTop)) : 0
 
   /**
    * translateY for each stop, tallest first — and SORTED, which is the whole
