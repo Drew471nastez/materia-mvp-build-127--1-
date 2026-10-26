@@ -413,13 +413,15 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             for a plan that is simply on.
           */}
           <div data-billing-overview="">
-            <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">{tt("Subscription Overview")}</h2>
+            {/* Centred on a phone, under the centred plans (round 22); on the left beside the cards from 640. */}
+            <h2 className="mb-4 text-center text-[17px] font-bold text-[#1a1a2e] sm:text-left">{tt("Subscription Overview")}</h2>
             {/* Side by side from 768px, where the plan cards pair up too, with the same 20px between them. */}
             <div data-billing-overview-grid="" className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
               {/* Left: Current Plan */}
               <div data-billing-plan="" className={cn(CARD, "flex flex-col app-card-x py-5")}>
-                <div className="flex items-start justify-between gap-3">
+                {/* The plan, its badge and its price centred on a phone, as the plan cards above are; side by side from 640. */}
+                <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:text-left">
                   <div className="min-w-0">
                     <p className="text-[13px] font-medium text-[#6b7280]">{tt("Current plan")}</p>
                     <p className="mt-1 text-[22px] font-bold leading-7 text-[#1a1a2e]">{currentPlan.name}</p>
@@ -433,7 +435,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                   ) : null}
                 </div>
 
-                <div className="mt-4 flex items-baseline gap-1">
+                <div className="mt-4 flex items-baseline justify-center gap-1 sm:justify-start">
                   <span className="text-[34px] font-bold leading-none tracking-[-0.02em] text-[#1a1a2e] tabular-nums">{planPrice}</span>
                   {currentPlan.price_cents > 0 && <span className="text-[14px] text-[#6b7280]">{tt("/month")}</span>}
                 </div>

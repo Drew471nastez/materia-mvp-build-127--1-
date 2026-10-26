@@ -112,7 +112,8 @@ export const REQUIRED_CATEGORIES: readonly PreferenceCategory[] = CATEGORY_INFO.
 /** The categories an unsubscribe link can be signed for. Never security, account or payouts and payments. */
 export const UNSUBSCRIBABLE: readonly PreferenceCategory[] = ["sales", "product_and_store", "lifecycle", "tips", "marketing"]
 
-export const REQUIRED_WHY = msg("Security and payment notices are always sent.")
+/* Said under Settings' rows, where these three categories no longer have rows of their own (round 22). */
+export const REQUIRED_WHY = msg("Payout, payment, account and security notices are always sent.")
 
 export function infoFor(category: unknown): CategoryInfo | null {
   return CATEGORY_INFO.find((c) => c.category === category) ?? null

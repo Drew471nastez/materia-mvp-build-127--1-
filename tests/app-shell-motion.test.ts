@@ -357,13 +357,15 @@ section("The press answers on the press")
   check("the shell no longer keeps a pendingHref nothing read, re-rendering itself on every click",
     !/pendingHref|setPendingHref/.test(code("components/app/sidebar.tsx")))
   check("the menu's rows start fetching their page on the pointerdown",
-    /* Round 22: the fetch on pointerdown stays; the grey fill under the finger is gone (a swipe lit up the row it started on). */
-    /onPointerDown: \(\) => onPress\?\.\(\)/.test(mobile)
-      && /usePrefetchOnPress\(\(\) => \{ if \(!active\) prefetchAppPage\(router, child\.href\) \}\)/.test(mobile)
-      && /usePrefetchOnPress\(\(\) => \{ if \(!active && !item\.forceNavigation\) prefetchAppPage\(router, item\.href\) \}\)/.test(mobile))
-  check("the menu shows nothing under a finger: no grey fill, no press fade in the app, the active page is the only fill",
-    !/PRESS_BG/.test(mobile) && /backgroundColor: active \? ACTIVE_BG : "transparent"/.test(mobile)
+    /* Round 22: fetched on the pointerdown still, through the press that shows a fill only to a finger held still (usePress). */
+    /onPointerDown: \(e: React\.PointerEvent\) => \{\s*onPress\?\.\(\)/.test(mobile)
+      && /usePress\(\(\) => \{ if \(!active\) prefetchAppPage\(router, child\.href\) \}\)/.test(mobile)
+      && /usePress\(\(\) => \{ if \(!active && !item\.forceNavigation && !item\.children\?\.length\) prefetchAppPage\(router, item\.href\) \}\)/.test(mobile))
+  check("a finger is shown a press only while it is still: the fill waits, goes when the finger travels, and a quick tap flashes it; no press fade in the app",
+    /const PRESS_WAIT_MS = 90/.test(mobile) && /const PRESS_SLOP_PX = 8/.test(mobile) && /p\.moved = true/.test(mobile) && /flash\.current = window\.setTimeout\(\(\) => setPressed\(false\), PRESS_FLASH_MS\)/.test(mobile)
       && /html\.capacitor \[data-mobile-menu\] :is\(a, button, \[role="button"\], \[tabindex="0"\]\):active \{\s*opacity: 1;/.test(readFileSync(join(root, "app/globals.css"), "utf8")))
+  check("on a phone a group's row opens its list, and its page is the list's first row",
+    /onClick=\{\(\) => onToggle\(item\.href\)\}/.test(mobile) && /<MobileSubNavItem child=\{\{ href: item\.href, label: overview \}\}/.test(mobile) && /All products/.test(mobile))
   check("the pill fetches the page under the finger on the pointerdown, and warms its four again after the router's keep time",
     /onPress\?\.\(slotAt\(e\.clientX\)\)/.test(mobile) && /if \(item && index !== current\) onPrefetch\?\.\(item\.href\)/.test(mobile)
       && /document\.visibilityState === "visible" && Date\.now\(\) - warmedAt > APP_PAGE_KEPT_MS/.test(mobile))

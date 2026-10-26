@@ -33,7 +33,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 import { endLayerMove } from "@/components/app/page-layer"
@@ -141,25 +141,83 @@ function Collapsible({ open, children }: { open: boolean; children: React.ReactN
 // ── The rows ────────────────────────────────────────────────────────────────
 
 /**
- * A FINGER IS NOT A HOVER (round 22). A row turned grey the moment a finger
- * landed on it, and stayed grey until the browser decided the touch was a
- * scroll, so every swipe through the menu lit up the row it started on: the
- * owner's "cheap, bad hover" on Orders while scrolling. The rows show
- * nothing under a finger now; the active page is the only row with a fill.
+ * A PRESS YOU FEEL, AND NEVER A SCROLL THAT LIGHTS UP (round 22).
  *
- * What the press still does, unseen: it starts fetching the row's page on
- * pointerdown, which gives the server the length of the tap (80 to 150ms of
- * a finger on glass) as a head start. The router picks that fetch up when
- * the click arrives instead of starting its own. A swipe that only began on
- * a row fetches a page that is then simply there.
+ * A row used to turn grey the moment a finger landed on it and stay grey
+ * until the browser decided the touch was a scroll, so every swipe through
+ * the menu lit up the row it started on: the owner's "cheap, bad hover" on
+ * Orders while scrolling. Then it showed nothing at all, and the owner: "when
+ * I click on something it should also feel like I'm touching it".
+ *
+ * So the soft fill comes only for a finger that is pressing, never for one
+ * that is scrolling: it waits PRESS_WAIT_MS with the finger still, and goes
+ * the moment the finger travels PRESS_SLOP_PX (a scroll has started). A tap
+ * quicker than the wait is shown the fill for PRESS_FLASH_MS as it lands,
+ * with a soft tick in the app. The fill eases in and out with the row's own
+ * background transition.
+ *
+ * The press also starts fetching the row's page on pointerdown, which gives
+ * the server the length of the tap (80 to 150ms of a finger on glass) as a
+ * head start. The router picks that fetch up when the click arrives.
  */
-function usePrefetchOnPress(onPress?: () => void) {
-  return { onPointerDown: () => onPress?.() }
+const PRESS_BG = "#e8e9ec"
+const PRESS_WAIT_MS = 90
+const PRESS_SLOP_PX = 8
+const PRESS_FLASH_MS = 140
+
+function usePress(onPress?: () => void) {
+  const [pressed, setPressed] = useState(false)
+  const at = useRef<{ x: number; y: number; timer: number; moved: boolean } | null>(null)
+  const flash = useRef(0)
+  useEffect(() => () => {
+    if (at.current) window.clearTimeout(at.current.timer)
+    window.clearTimeout(flash.current)
+  }, [])
+  const end = () => {
+    if (at.current) window.clearTimeout(at.current.timer)
+    at.current = null
+  }
+  return {
+    pressed,
+    handlers: {
+      onPointerDown: (e: React.PointerEvent) => {
+        onPress?.()
+        end()
+        const timer = window.setTimeout(() => {
+          if (at.current && !at.current.moved) setPressed(true)
+        }, e.pointerType === "touch" ? PRESS_WAIT_MS : 0)
+        at.current = { x: e.clientX, y: e.clientY, timer, moved: false }
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        const p = at.current
+        if (!p || p.moved) return
+        if (Math.abs(e.clientX - p.x) > PRESS_SLOP_PX || Math.abs(e.clientY - p.y) > PRESS_SLOP_PX) {
+          p.moved = true
+          window.clearTimeout(p.timer)
+          setPressed(false)
+        }
+      },
+      onPointerUp: () => {
+        const p = at.current
+        end()
+        if (!p || p.moved) return setPressed(false)
+        /* A tap quicker than the wait: shown as it lands, then let go. */
+        setPressed(true)
+        hapticTap("soft")
+        window.clearTimeout(flash.current)
+        flash.current = window.setTimeout(() => setPressed(false), PRESS_FLASH_MS)
+      },
+      onPointerCancel: () => {
+        end()
+        setPressed(false)
+      },
+    },
+  }
 }
 
-function rowStyle(active: boolean): React.CSSProperties {
+function rowStyle(active: boolean, pressed = false): React.CSSProperties {
   return {
-    backgroundColor: active ? ACTIVE_BG : "transparent",
+    backgroundColor: active ? ACTIVE_BG : pressed ? PRESS_BG : "transparent",
     color: active ? ACTIVE_TEXT : REST_TEXT,
     fontWeight: active ? ACTIVE_WEIGHT : REST_WEIGHT,
   }
@@ -176,7 +234,7 @@ function MobileSubNavItem({
 }) {
   const router = useRouter()
   const active = isRouteActive(useShownPath(), child.href, useShownSearch())
-  const handlers = usePrefetchOnPress(() => { if (!active) prefetchAppPage(router, child.href) })
+  const { pressed, handlers } = usePress(() => { if (!active) prefetchAppPage(router, child.href) })
   return (
     <Link
       href={child.href}
@@ -186,7 +244,7 @@ function MobileSubNavItem({
       }}
       {...handlers}
       className={cn(ROW, "h-11 text-[14.5px]")}
-      style={rowStyle(active)}
+      style={rowStyle(active, pressed)}
     >
       {child.thumb ? <span className="-ml-0.5 flex shrink-0 items-center">{child.thumb}</span> : null}
       <span className="min-w-0 truncate">{child.label}</span>
@@ -239,8 +297,8 @@ export function MobileNavItem({
   const router = useRouter()
   const active = isRouteActive(useShownPath(), item.href, useShownSearch())
   /* A row that reloads the document (forceNavigation) has nothing to fetch ahead. */
-  const handlers = usePrefetchOnPress(() => { if (!active && !item.forceNavigation) prefetchAppPage(router, item.href) })
-  const style = rowStyle(active)
+  const { pressed, handlers } = usePress(() => { if (!active && !item.forceNavigation && !item.children?.length) prefetchAppPage(router, item.href) })
+  const style = rowStyle(active, pressed)
   const tint = active ? ACTIVE_TEXT : REST_TEXT
 
   const body = (
@@ -268,34 +326,35 @@ export function MobileNavItem({
   }
 
   if (item.children?.length) {
+    /*
+      ON A PHONE THE ROW OPENS ITS LIST (round 22). Products was a page and a
+      group in one row: a tap went to the page and the list opened under it
+      in the same moment, and the menu slid away mid opening, which the owner
+      saw as a glitch, with the chevron the only way to just open the list.
+      The whole row opens and closes the list now, as a phone's settings do,
+      and the page itself is the list's first row ("All products").
+    */
+    const overview = item.href === "/app/products" ? tt("All products") : item.href === "/app/integrations" ? tt("All integrations") : item.label
     return (
       <div>
-        <div className="flex items-center gap-1">
-          <Link
-            href={item.href}
-            onClick={(e) => {
-              if (isPlainClick(e.nativeEvent)) onNavigate?.(item.href)
-              onClose()
-            }}
-            {...handlers}
-            className={cn(ROW, "min-w-0 flex-1")}
-            style={style}
-          >
-            {body}
-          </Link>
-          <button
-            type="button"
-            onClick={() => onToggle(item.href)}
-            aria-expanded={expanded}
-            aria-label={expanded ? tt("Collapse {label}", { label: item.label }) : tt("Expand {label}", { label: item.label })}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]"
-            style={{ color: LABEL_TEXT }}
-          >
+        <button
+          type="button"
+          onClick={() => onToggle(item.href)}
+          aria-expanded={expanded}
+          {...handlers}
+          className={cn(ROW, "justify-between")}
+          /* Its words say it is the page's group; the fill is the page's own row's, below. */
+          style={{ ...style, backgroundColor: pressed ? PRESS_BG : "transparent" }}
+          data-nav-group=""
+        >
+          <span className="flex min-w-0 items-center gap-3">{body}</span>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center" style={{ color: LABEL_TEXT }}>
             <Chevron open={expanded} />
-          </button>
-        </div>
+          </span>
+        </button>
         <Collapsible open={expanded}>
           <div className="space-y-0.5 pl-[30px] pt-1">
+            <MobileSubNavItem child={{ href: item.href, label: overview }} onNavigate={onNavigate} onClose={onClose} />
             {item.children.map((child) => (
               <MobileSubNavItem key={child.href} child={child} onNavigate={onNavigate} onClose={onClose} />
             ))}
@@ -530,9 +589,10 @@ const GLASS: React.CSSProperties = {
   /* 25px: 5% more than the 24 it was, asked for "just 5% more" around it. */
   backdropFilter: "blur(25px) saturate(120%)",
   WebkitBackdropFilter: "blur(25px) saturate(120%)",
+  /* A touch more depth (round 22, "just a little bit"): each layer a little deeper and lower, and a hairline of shade along its foot. */
   boxShadow:
-    "0 1px 2px rgba(16,18,27,0.06), 0 4px 10px rgba(16,18,27,0.07), 0 14px 30px rgba(16,18,27,0.14)," +
-    " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9)",
+    "0 1px 2px rgba(16,18,27,0.07), 0 5px 12px rgba(16,18,27,0.085), 0 16px 34px rgba(16,18,27,0.16)," +
+    " inset 0 0 0 0.5px rgba(255,255,255,0.65), inset 0 0.5px 0 rgba(255,255,255,0.9), inset 0 -0.5px 0 rgba(16,18,27,0.05)",
 }
 
 /**

@@ -9,7 +9,7 @@ import { createPortal } from "react-dom"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
-import { nativeLogOut } from "@/lib/native-bridge"
+import { hapticTap, nativeLogOut } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1742,7 +1742,16 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   type="button"
                   role="tab"
                   aria-selected={on}
-                  onClick={() => handleTabChange(tab.id)}
+                  /*
+                    NO FILL UNDER A FINGER (round 22). A pill lit up the moment a
+                    finger landed on it, so a swipe along the row lit the pill it
+                    started on. The press is answered by the pill becoming the
+                    open one, at once, and a soft tick in the app.
+                  */
+                  onClick={() => {
+                    if (!on) hapticTap("soft")
+                    handleTabChange(tab.id)
+                  }}
                   onPointerDown={() => prefetchGet(tabData(tab.id, physicalCommerce))}
                   data-settings-tab={tab.id}
                   data-settings-tab-on={on ? "" : undefined}
@@ -1750,7 +1759,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-medium outline-none transition-[color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none sm:px-4 sm:py-2.5 sm:text-[14px] [-webkit-tap-highlight-color:transparent] ${
                     on
                       ? "bg-[#f3f4f6] text-[#1a1a2e] shadow-[inset_0_0_0_1px_#d1d5db,0_1px_2px_rgba(0,0,0,0.04)]"
-                      : "bg-[#f3f4f6]/0 text-[#6b7280] shadow-[inset_0_0_0_1px_rgba(209,213,219,0),0_1px_2px_rgba(0,0,0,0)] active:bg-[#f3f4f6]/70"
+                      : "bg-[#f3f4f6]/0 text-[#6b7280] shadow-[inset_0_0_0_1px_rgba(209,213,219,0),0_1px_2px_rgba(0,0,0,0)]"
                   }`}
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden />

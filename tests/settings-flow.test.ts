@@ -165,7 +165,7 @@ check(
   const prefs = code("components/app/settings/notification-preferences.tsx")
   check(
     "the Notifications rows are drawn with their real names and lines while the switches load, so nothing grows when they land",
-    /data-notification-pref-loading=\{c\.category\}/.test(prefs) && /\{c\.label\}<\/p>/.test(prefs) && /\{c\.detail\}<\/p>/.test(prefs) && !/h-3\.5 w-32 rounded bg-\[#f1f2f4\]/.test(prefs),
+    /data-notification-pref-loading=\{shown\.key\}/.test(prefs) && /\{shown\.label\}<\/p>/.test(prefs) && /\{shown\.detail\}<\/p>/.test(prefs) && !/h-3\.5 w-32 rounded bg-\[#f1f2f4\]/.test(prefs),
   )
 }
 

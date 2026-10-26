@@ -3570,7 +3570,16 @@ function ThemeChatPanel({
           so nothing inside is laid out again. Zero, and so nothing, with no
           keyboard and on every platform that does not pan.
         */
-        style={{ transform: "translate3d(0, var(--sheet-pan, 0px), 0)" }}
+        /*
+          A 2D move, not `translate3d` (round 22). A 3D transform puts the
+          column on a layer of its own, and WebKit draws such a layer from
+          where it last was when the sheet holding it is hidden and shown
+          again: the owner's iPhone, opening Ask Storelib, closing it and
+          opening it again, showed the sheet in its place and the whole
+          conversation in it 43pt right and 56pt down. Flat, it is painted
+          with the sheet, and moves only by the pan, when there is one.
+        */
+        style={{ transform: "translateY(var(--sheet-pan, 0px))" }}
         {...dropHandlers}
       >
         {dropTarget}
@@ -3609,7 +3618,8 @@ function ThemeChatPanel({
           data-ask-footer=""
           className="relative z-[1] min-w-0 shrink-0 bg-background px-2.5 pb-2.5 pt-2 shadow-[0_-1px_0_rgba(15,23,42,0.05),0_-10px_22px_-14px_rgba(15,23,42,0.22)]"
           style={{
-            transform: "translate3d(0, calc(-1 * var(--sheet-keys, 0px)), 0)",
+            /* 2D, as the column above: no layer of its own to be left behind when the sheet is shown again. */
+            transform: "translateY(calc(-1 * var(--sheet-keys, 0px)))",
             transition: reducedMotion ? "none" : `transform ${KEYBOARD_RIDE_MS}ms ${EASE}`,
           }}
         >

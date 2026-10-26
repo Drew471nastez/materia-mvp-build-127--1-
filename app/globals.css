@@ -5362,6 +5362,10 @@ html.capacitor [data-buyer-tab-bar] nav a:active {
 html.capacitor [data-mobile-menu] :is(a, button, [role="button"], [tabindex="0"]):active {
   opacity: 1;
 }
+/* Settings' tabs on a phone: a swipe along the row never dims the pill it started on (round 22, components/app/settings-form-new.tsx). */
+html.capacitor [data-settings-tabs] button:active {
+  opacity: 1;
+}
 /* Edit website answers a press with its turning circle, never a fade (round 21, app/app/website-builder/website-builder-client.tsx). */
 html.capacitor [data-edit-website]:active {
   opacity: 1;

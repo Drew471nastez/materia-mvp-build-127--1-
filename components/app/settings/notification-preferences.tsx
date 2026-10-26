@@ -27,9 +27,13 @@ import { tt } from "@/lib/i18n/text"
  *   A ROW       the category, one line on what it covers, then two switches
  *               (the app's own Switch from account-panels.tsx): Email and In
  *               app, under their column names. 48px or taller.
- *   REQUIRED    payouts and payments, account, security: "Always on" in
- *               muted type where the switches would be, and one line at the
- *               foot of the card says why.
+ *   REQUIRED    payouts and payments, account, security: no row of their
+ *               own (round 22, "too many options"): a row with nothing to
+ *               choose is a row to read for nothing. One line at the foot of
+ *               the card says they are always sent.
+ *   TOGETHER    tips and onboarding reminders are one row, "Tips and
+ *               reminders": each switch sets both categories, which stay two
+ *               for the server and the emails' unsubscribe links.
  *   SALES       its email is a switch like the rest: on is an email for
  *               every sale, the one preference a sales email reads.
  *   SAVING      a change shows at once and saves behind it. If the save
@@ -49,6 +53,28 @@ type Cell = `${PreferenceCategory}:${PreferenceChannel}`
 const cellOf = (category: PreferenceCategory, channel: PreferenceChannel): Cell => `${category}:${channel}`
 
 type Load = { state: "loading" } | { state: "error" } | { state: "ready"; rows: CategoryView[] }
+
+/** A row Settings shows: one category, or two that are set together. */
+interface ShownRow {
+  key: string
+  label: string
+  detail: string
+  categories: PreferenceCategory[]
+}
+
+/** The categories a person can choose, in CATEGORY_INFO's order, with onboarding reminders folded into tips. */
+function shownRows(): ShownRow[] {
+  const rows: ShownRow[] = []
+  for (const c of CATEGORY_INFO) {
+    if (c.required || c.category === "lifecycle") continue
+    if (c.category === "tips") {
+      rows.push({ key: "tips", label: tt("Tips and reminders"), detail: tt("Ideas from other creators, and a nudge when your setup is not done yet."), categories: ["tips", "lifecycle"] })
+      continue
+    }
+    rows.push({ key: c.category, label: c.label, detail: c.detail, categories: [c.category] })
+  }
+  return rows
+}
 
 export function NotificationPreferencesPanel() {
   const [load, setLoad] = useState<Load>({ state: "loading" })
@@ -169,26 +195,19 @@ export function NotificationPreferencesPanel() {
         </div>
       ) : (
         <ul className="divide-y divide-[#f0f1f3]" aria-busy={load.state === "loading" || undefined}>
-          {(load.state === "ready" ? load.rows : null)?.map((row) => (
-            <PreferenceRow key={row.category} row={row} error={errors[row.category]} onChange={change} />
-          )) ??
-            CATEGORY_INFO.map((c) => (
-              /*
-                THE REAL ROWS WHILE THEY LOAD. The names and the lines under
-                them never come from the server, so they are drawn at once and
-                only the switches wait. The rows used to be one grey bar each,
-                48px tall, and the real rows (a name over a line, taller, and
-                two or three lines on a phone) pushed the card down 16px a row
-                when they landed, a jump just after the tab had faded in.
-              */
-              <li key={c.category} className="flex min-h-12 items-center justify-between gap-3 py-3" data-notification-pref-loading={c.category}>
-                <div className="min-w-0">
-                  <p className="text-[14px] font-medium leading-[1.4] text-[#1a1a2e]">{c.label}</p>
-                  <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">{c.detail}</p>
-                </div>
-                {c.required ? (
-                  <span className="flex w-[148px] shrink-0 justify-center text-[13px] text-[#9ca3af]">{tt("Always on")}</span>
-                ) : (
+          {shownRows().map((shown) => {
+            /*
+              THE REAL ROWS WHILE THEY LOAD. The names and the lines under
+              them never come from the server, so they are drawn at once and
+              only the switches wait: the card does not grow when they land.
+            */
+            if (load.state !== "ready") {
+              return (
+                <li key={shown.key} className="flex min-h-12 items-center justify-between gap-3 py-3" data-notification-pref-loading={shown.key}>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-medium leading-[1.4] text-[#1a1a2e]">{shown.label}</p>
+                    <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">{shown.detail}</p>
+                  </div>
                   <div className="flex shrink-0 items-center" aria-hidden="true">
                     <span className={EMAIL_COL}>
                       <span className="h-[22px] w-10 rounded-full bg-[#f1f2f4]" />
@@ -197,9 +216,23 @@ export function NotificationPreferencesPanel() {
                       <span className="h-[22px] w-10 rounded-full bg-[#f1f2f4]" />
                     </span>
                   </div>
-                )}
-              </li>
-            ))}
+                </li>
+              )
+            }
+            const views = shown.categories.map((c) => load.rows.find((r) => r.category === c)).filter((r): r is CategoryView => !!r)
+            if (!views.length) return null
+            return (
+              <PreferenceRow
+                key={shown.key}
+                shown={shown}
+                on={(channel) => views.some((v) => v.channels[channel].enabled)}
+                error={shown.categories.map((c) => errors[c]).find(Boolean)}
+                onChange={(channel, enabled) => {
+                  for (const c of shown.categories) void change(c, channel, enabled)
+                }}
+              />
+            )
+          })}
         </ul>
       )}
 
@@ -211,40 +244,36 @@ export function NotificationPreferencesPanel() {
 }
 
 function PreferenceRow({
-  row,
+  shown,
+  on,
   error,
   onChange,
 }: {
-  row: CategoryView
+  shown: ShownRow
+  on: (channel: PreferenceChannel) => boolean
   error?: string
-  onChange: (category: PreferenceCategory, channel: PreferenceChannel, enabled: boolean) => void
+  onChange: (channel: PreferenceChannel, enabled: boolean) => void
 }) {
   return (
-    <li className="flex min-h-12 items-center justify-between gap-3 py-3" data-notification-pref={row.category}>
+    <li className="flex min-h-12 items-center justify-between gap-3 py-3" data-notification-pref={shown.key}>
       <div className="min-w-0">
-        <p className="text-[14px] font-medium leading-[1.4] text-[#1a1a2e]">{row.label}</p>
-        <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">{row.detail}</p>
+        <p className="text-[14px] font-medium leading-[1.4] text-[#1a1a2e]">{shown.label}</p>
+        <p className="mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">{shown.detail}</p>
         {error ? (
           <p role="alert" className="mt-1 text-[13px] leading-[1.45] text-red-600">
             {error}
           </p>
         ) : null}
       </div>
-      {row.required ? (
-        <span className="flex w-[148px] shrink-0 justify-center text-[13px] text-[#9ca3af]" data-always-on="">
-          {tt("Always on")}
+      <div className="flex shrink-0 items-center">
+        <span className={EMAIL_COL}>
+          {/* Sales too: its email was a small "Every sale" menu wider than the column, which ran into the In app switch. On is every sale. */}
+          <Switch label={tt("{label} by email", { label: shown.label })} checked={on("email")} onChange={(v) => onChange("email", v)} />
         </span>
-      ) : (
-        <div className="flex shrink-0 items-center">
-          <span className={EMAIL_COL}>
-            {/* Sales too: its email was a small "Every sale" menu wider than the column, which ran into the In app switch. On is every sale. */}
-            <Switch label={tt("{label} by email", { label: row.label })} checked={row.channels.email.enabled} onChange={(v) => onChange(row.category, "email", v)} />
-          </span>
-          <span className={APP_COL}>
-            <Switch label={tt("{label} in app", { label: row.label })} checked={row.channels.in_app.enabled} onChange={(v) => onChange(row.category, "in_app", v)} />
-          </span>
-        </div>
-      )}
+        <span className={APP_COL}>
+          <Switch label={tt("{label} in app", { label: shown.label })} checked={on("in_app")} onChange={(v) => onChange("in_app", v)} />
+        </span>
+      </div>
     </li>
   )
 }

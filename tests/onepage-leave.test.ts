@@ -148,7 +148,8 @@ check("not a Cmd, Ctrl, Shift or Alt press, not another button, not one already 
   !isPlainClick({ button: 0, metaKey: true }) && !isPlainClick({ button: 0, ctrlKey: true }) && !isPlainClick({ button: 0, shiftKey: true })
     && !isPlainClick({ button: 0, altKey: true }) && !isPlainClick({ button: 1 }) && !isPlainClick({ button: 0, defaultPrevented: true }))
 check("every rail row, sub row and the Upgrade card asks it", (desktop.match(/if \(isPlainClick\(e\.nativeEvent\)\) onNavigate\?\.\(/g) ?? []).length === 4)
-check("and every row of the phone menu", (phone.match(/if \(isPlainClick\(e\.nativeEvent\)\) onNavigate\?\.\(/g) ?? []).length === 4)
+/* Round 22: on a phone a group's row opens its list and no longer goes anywhere (its page is the list's first row), so three rows navigate: a row, a sub row, the Upgrade card. */
+check("and every row of the phone menu", (phone.match(/if \(isPlainClick\(e\.nativeEvent\)\) onNavigate\?\.\(/g) ?? []).length === 3)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

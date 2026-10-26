@@ -212,9 +212,10 @@ async function main() {
     check("an older ?tab=privacy#notifications link lands on it too", /tab === "privacy" && window\.location\.hash === "#notifications"/.test(form))
     const panel = readCode("components/app/settings/notification-preferences.tsx")
     check("the panel reads and writes the route", /fetch\("\/api\/notifications\/preferences", \{ cache: "no-store" \}\)/.test(panel) && /method: "PUT"/.test(panel))
-    check("a required category says Always on, with no switch", /row\.required \? \([\s\S]{0,200}Always on/.test(panel) && /\{REQUIRED_WHY\}/.test(panel))
+    /* Changed on purpose (round 22, "too many options"): a required category has no row of its own; the card's last line says they are always sent. */
+    check("a required category has no switch, and the card says they are always sent", /if \(c\.required \|\| c\.category === "lifecycle"\) continue/.test(panel) && /\{REQUIRED_WHY\}/.test(panel))
     /* Changed on purpose: the menu was wider than its column and ran into the In app switch. On is every sale. */
-    check("sales email is a switch like every other row, on for every sale", !/<select/.test(panel) && /<Switch label=\{`\$\{row\.label\} by email`\}/.test(panel))
+    check("sales email is a switch like every other row, on for every sale", !/<select/.test(panel) && /<Switch label=\{`\$\{shown\.label\} by email`\}/.test(panel))
     check("a failed save goes back to what was saved and says so", /show\(category, channel, confirmed\.current\.get\(cell\) \?\? !enabled\)/.test(panel) && /role="alert"/.test(panel))
     check("an older answer arriving late changes nothing", /if \(latest\.current\.get\(cell\) !== id\) return/.test(panel))
     check("rows are 48px or taller", /<li className="flex min-h-12/.test(panel))
