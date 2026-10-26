@@ -841,7 +841,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       const url = new URL(window.location.href)
       url.searchParams.set("tab", "notifications")
       url.hash = ""
-      window.history.replaceState({}, "", url.pathname + url.search)
+      window.history.replaceState(window.history.state, "", url.pathname + url.search)
     } else if (allowed(tabFromAddress(tab, params.get("section")))) {
       const to = tabFromAddress(tab, params.get("section")) as TabId
       setActiveTab(to)
@@ -851,13 +851,13 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         const url = new URL(window.location.href)
         url.searchParams.set("tab", to)
         url.searchParams.delete("section")
-        window.history.replaceState({}, "", url.pathname + url.search)
+        window.history.replaceState(window.history.state, "", url.pathname + url.search)
       }
     } else if (tab) {
       /* A tab that is gone (?tab=stores) or never was: General, and the address says so. */
       const url = new URL(window.location.href)
       url.searchParams.delete("tab")
-      window.history.replaceState({}, "", url.pathname + url.search)
+      window.history.replaceState(window.history.state, "", url.pathname + url.search)
     }
 
     if (stripeParam === "return" || stripeParam === "refresh") {
@@ -867,7 +867,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       const url = new URL(window.location.href)
       url.searchParams.delete("tab")
       url.searchParams.delete("stripe")
-      window.history.replaceState({}, "", url.pathname)
+      window.history.replaceState(window.history.state, "", url.pathname)
     }
   }, [loadStripeStatus, fetchDomains])
 
@@ -958,7 +958,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     if (newTab === activeTab) {
       const url = new URL(window.location.href)
       url.searchParams.set("tab", newTab)
-      window.history.replaceState({}, "", url.toString())
+      window.history.replaceState(window.history.state, "", url.toString())
       return
     }
     /**
@@ -1024,7 +1024,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       url.searchParams.set("tab", newTab)
       url.searchParams.delete("section")
       url.searchParams.delete("integration")
-      window.history.replaceState({}, "", url.toString())
+      window.history.replaceState(window.history.state, "", url.toString())
     })
   }
 

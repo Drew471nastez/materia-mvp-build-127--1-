@@ -101,5 +101,20 @@ console.log("\nThe sections' column\n")
   check("a press gives under the pointer and the states ease in place", /transition-\[background-color,box-shadow,color,scale\] duration-150 ease-out active:scale-\[0\.98\]/.test(form))
 }
 
+console.log("\nA section changed over a page keeps the page under it\n")
+{
+  /*
+    The owner: changing sections in the Settings sheet reloaded the whole sheet and left an empty space behind it.
+    history.replaceState({}) is heard by Next's router (it patches replaceState) as an outside change of address: it
+    restores its tree with no record of the page Settings was opened over, so a refetch draws the bare Settings page
+    in the page's place. Keeping the router's own state (its __NA marker) writes the address and nothing else, as
+    every panel inside Settings already does. The open section is this form's own state.
+  */
+  const form = read("components/app/settings-form-new.tsx")
+  check("no address change in the settings form drops the router's state", !/history\.replaceState\(\{\}/.test(form))
+  check("  a section's press writes its tab with the router's state kept", /url\.searchParams\.set\("tab", newTab\)[\s\S]{0,200}window\.history\.replaceState\(window\.history\.state, "", url\.toString\(\)\)/.test(form))
+  check("  the address is read once, when the form opens (no effect follows ?tab)", (form.match(/searchParams\?\.get\("tab"\)/g) ?? []).length === 1)
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)
