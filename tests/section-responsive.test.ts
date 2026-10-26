@@ -3114,7 +3114,7 @@ check(
    * wider and without its labels — and a tooltip was the only thing that
    * ever named them, which on a phone is nothing at all.
    */
-  /Edit website\s*\n\s*<\/Button>/.test(wbPage) &&
+  /Edit website\s*\n\s*(<\/span>\s*\n\s*)?<\/Button>/.test(wbPage) &&
     // View website is a labelled button beside the title, not a menu row
     /aria-label="View website" data-control="view" className=\{HEADER_BUTTON\}>\s*<ViewLabel \/>/.test(wbPage) && /<span className="hidden sm:inline">View website<\/span>/.test(wbPage) && !/label: "View website"/.test(wbPage) &&
     // Settings is the gear square at every width, as the owner asked, named
