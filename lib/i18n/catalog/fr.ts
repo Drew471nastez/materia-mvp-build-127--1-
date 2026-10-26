@@ -8471,6 +8471,7 @@ const words: Record<string, string> = {
  "This browser cannot show notifications.": "Ce navigateur ne peut pas afficher de notifications.",
  "This browser could not shrink the picture.": "Ce navigateur n'a pas pu réduire l'image.",
  "This chat could not be loaded.": "Impossible de charger ce chat.",
+ "Earlier messages in this chat could not be loaded.": "Impossible de charger les messages précédents de ce chat.",
  "This check looks at the email before it, and there is none.": "Cette vérification regarde l'e-mail précédent, et il n'y en a pas.",
  "This community has no tiers yet. Add them in Settings, under who can join.": "Cette communauté n'a pas encore de niveaux. Ajoutez-les dans Réglages, sous qui peut rejoindre.",
  "This community is archived. Bring it back to change it.": "Cette communauté est archivée. Rétablissez-la pour la modifier.",

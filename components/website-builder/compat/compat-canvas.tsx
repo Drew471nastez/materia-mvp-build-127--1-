@@ -58,6 +58,7 @@ import { layoutPathIn, onlyInCss, probeValues, sameButStyles, settingAt, setting
 import { cutBetween, editBetween, fillTemplate, learning, oneChange, placeEdits, placesOf, templateCut, withLeaf, type LeafPath, type LiveTemplate, type Place } from "@/lib/storelib-theme/compat/live-draw"
 import type { CollectionLike, MenuLinkLike, SiteI18n } from "@/lib/storelib-theme/compat/objects"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
+import { setShownCompatPage } from "@/lib/website-builder/compat-shown-page"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { isLive, liveSectionNow, liveThemeNow, onLiveChange, useLiveSections, useLiveTheme } from "@/lib/website-builder/live-settings"
 import { reportLoadProblem } from "@/lib/website-builder/load-guard"
@@ -710,6 +711,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const page = useMemo((): CompatPage => pageFor(pageKey, productId), [pageKey, dataKey, productId, stockKey, i18n, canvasReviews])
   const pageRef = useRef(page)
   pageRef.current = page
+  useEffect(() => {
+    setShownCompatPage(page)
+  }, [page])
 
   /*
     THE ACCOUNT PAGES, IN THE CANVAS. The header's account link opens

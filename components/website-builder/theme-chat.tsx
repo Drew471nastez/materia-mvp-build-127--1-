@@ -2917,7 +2917,7 @@ function ThemeChatPanel({
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
               {tt("Loading")}
             </p>
-          ) : historyError === "read_failed" ? (
+          ) : historyError === "read_failed" && exchanges.length === 0 ? (
             <div className="rounded-xl border border-red-500/25 bg-red-500/[0.04] px-3 py-2.5">
               <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("This chat could not be loaded.")}</p>
               <p className="mt-0.5 text-[12.5px] leading-relaxed text-[#6b7280]">{tt("Nothing is lost. You can still ask for a change.")}</p>
@@ -2929,6 +2929,12 @@ function ThemeChatPanel({
             </div>
           ) : (
             <>
+              {/* An earlier read that failed: said once above the thread, and what was asked since is still shown under it. */}
+              {historyError === "read_failed" && (
+                <p data-ask-read-failed="" className="mb-4 text-[12.5px] leading-snug text-[#6b7280]">
+                  {tt("Earlier messages in this chat could not be loaded.")}
+                </p>
+              )}
               <ul className="space-y-5">
                 {exchanges.map((exchange, index) => (
                   <ExchangeItem

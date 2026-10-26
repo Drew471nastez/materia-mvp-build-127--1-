@@ -9565,12 +9565,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    *
    * `visibilitychange` is the app returning to the foreground, in the native
    * shell and in a browser tab alike. `pageshow` is the back/forward cache.
-   * Both end in a resize, because the canvas measures itself and what it
-   * measured before the suspension may no longer be true.
+   * Both end in a resize when the size changed while it was away, because
+   * the canvas measures itself and what it measured before may no longer be
+   * true. Only then: every return used to fire one, and every listener on it
+   * measured the canvas again on the frames the browser was drawing the
+   * whole page back after minutes away, the lag on the way back. The visible
+   * viewport counts too (a keyboard up when a phone put the app away is gone
+   * when it comes back, the window the same size), and a back/forward
+   * restore always resizes.
    */
   useEffect(() => {
-    const revive = () => {
-      if (document.visibilityState !== "visible") return
+    const sizeNow = () => `${window.innerWidth}x${window.innerHeight}:${Math.round(window.visualViewport?.height ?? 0)}:${Math.round(window.visualViewport?.offsetTop ?? 0)}`
+    let size = sizeNow()
+    const revive = (restored = false) => {
+      /* What it was as the page went away is what the return is held against. */
+      if (document.visibilityState !== "visible") {
+        size = sizeNow()
+        return
+      }
       /**
        * THE GUARD USED TO TALK ITSELF OUT OF EVER RUNNING ON A PHONE. It
        * skipped whenever it found `[data-mobile-bottom-sheet]`, and the
@@ -9581,13 +9593,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * never does. See lib/website-builder/stuck-layer.ts.
        */
       clearStaleDocumentLocks(document)
+      const now = sizeNow()
+      if (!restored && now === size) return
+      size = now
       window.dispatchEvent(new Event("resize"))
     }
-    const onPageShow = () => revive()
-    document.addEventListener("visibilitychange", revive)
+    const onVisible = () => revive()
+    const onPageShow = (e: PageTransitionEvent) => revive(e.persisted)
+    document.addEventListener("visibilitychange", onVisible)
     window.addEventListener("pageshow", onPageShow)
     return () => {
-      document.removeEventListener("visibilitychange", revive)
+      document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("pageshow", onPageShow)
     }
   }, [])
@@ -9723,10 +9739,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * damage with no handler. Twice, staggered: once as it goes, once after
    * the keyboard animation has finished putting the viewport back.
    */
-  useEffect(() => watchKeyboard(window, document, () => {
-    settleCanvas()
-    window.setTimeout(settleCanvas, 420)
-  }), [settleCanvas])
+  /* Each at the start of a frame: it reads where the boxes are, and read from a timer in the middle of a sheet's slide that laid the whole page out a second time in that frame (150ms at a quarter speed, scripts/check-ask-sheet-r18.mjs). */
+  useEffect(() => {
+    const soon = () => requestAnimationFrame(settleCanvas)
+    return watchKeyboard(window, document, () => {
+      soon()
+      window.setTimeout(soon, 420)
+    })
+  }, [settleCanvas])
 
   /** What leaving would cost right now, if anything. */
   const leaveReason: LeaveReason = {

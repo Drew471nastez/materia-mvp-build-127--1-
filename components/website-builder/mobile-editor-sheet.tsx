@@ -551,6 +551,9 @@ type Props = {
 /** A primed sheet's opacity while it waits: under half a level of any colour on any screen, but not 0 (an opacity of 0 is not rastered). */
 export const PRIMED_OPACITY = 0.0015
 
+/* The page lock of a sheet that has just closed, let go once its slide is over (THE PAGE BEHIND A SHEET DOES NOT SCROLL). */
+let pageRelease: (() => void) | null = null
+
 /**
  * ===========================================================================
  *  A TAP THAT STARTED ON THE SHEET ENDS ON THE SHEET
@@ -1652,6 +1655,8 @@ export function MobileEditorSheet({
    */
   React.useEffect(() => {
     if (!open || peekHeight > 0 || typeof document === "undefined") return
+    /* A lock still waiting to be let go from the last close is let go first, so what is kept here is the page's own. */
+    pageRelease?.()
     const root = document.documentElement
     const body = document.body
     const y = window.scrollY
@@ -1687,14 +1692,29 @@ export function MobileEditorSheet({
     return () => {
       window.removeEventListener("scroll", onScroll)
       if (frame) cancelAnimationFrame(frame)
-      if (holdPage === "overflow") {
-        root.style.overflow = prev.rootOverflow
-        body.style.overflow = prev.bodyOverflow
-        body.style.touchAction = prev.bodyTouch
+      /*
+        LET GO ONCE THE SHEET IS DOWN, NOT AS IT STARTS DOWN. Giving the
+        document its overflow back lays out the whole page, and reading
+        scrollY straight after made that happen inside the close: a 244ms
+        task in the slide's first frame on a phone at a quarter speed
+        (scripts/check-ask-sheet-r18.mjs, PROFILE=1). Nothing scrolls the
+        page while the sheet slides away, so the lock is let go after it.
+      */
+      const release = () => {
+        window.clearTimeout(timer)
+        if (pageRelease === release) pageRelease = null
+        if (holdPage === "overflow") {
+          root.style.overflow = prev.rootOverflow
+          body.style.overflow = prev.bodyOverflow
+          body.style.touchAction = prev.bodyTouch
+        }
+        if (window.scrollY !== y) window.scrollTo(0, y)
       }
-      if (window.scrollY !== y) window.scrollTo(0, y)
+      const timer = window.setTimeout(release, moveMs + 120)
+      pageRelease?.()
+      pageRelease = release
     }
-  }, [open, peekHeight, holdPage])
+  }, [open, peekHeight, holdPage]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * THE ROOM, IN THE FOCUS ITSELF (keyboardRoom). Where the platform reports

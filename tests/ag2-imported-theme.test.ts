@@ -268,7 +268,8 @@ async function main() {
     check("blockMarkup: the preview's markup is the block alone, no scripts", !!drawn && /Classic tee/.test(drawn) && !/GALLERY/.test(drawn) && !/<script(?![^>]*ld\+json)/.test(drawn), drawn)
     console.log(`        (drawn in ${ms.toFixed(1)} ms)`)
     const picker = code("components/website-builder/editor/block-picker.tsx")
-    check("the picker draws an imported theme's block with blockMarkup, never the whole section", /blockMarkup\(ctx\.theme, ctx\.page, session\.request\.section\.type, session\.blockFor\(choice\)/.test(picker) && !/sectionMarkup/.test(picker))
+    /* Round 18: the whole section only when the block cannot be drawn alone (a block drawn through a snippet), cropped to the block; it was an icon. */
+    check("the picker draws an imported theme's block with blockMarkup, and its section only when that draws nothing", /blockMarkup\(ctx\.theme, page, session\.request\.section\.type, session\.blockFor\(choice\)/.test(picker) && /if \(!html\) \{[\s\S]{0,120}sectionMarkup\(/.test(picker))
   }
 
   console.log("\nDynamic bindings, escaped\n")

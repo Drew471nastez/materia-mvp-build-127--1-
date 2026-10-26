@@ -63,9 +63,11 @@ import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sh
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { StorelibLiveProvider, editorCanvasLive } from "@/components/website-builder/sections/storelib-live"
 import { StorefrontProvider, editorCanvasStorefront } from "@/components/website-builder/theme/storefront-context"
-import { CompatPreviewProvider, blockMarkup, sheetDocument, useCompatPreview } from "@/components/website-builder/compat/compat-section-preview"
+import { CompatPreviewProvider, blockMarkup, sectionMarkup, sheetDocument, useCompatPreview } from "@/components/website-builder/compat/compat-section-preview"
+import { shownCompatPage } from "@/lib/website-builder/compat-shown-page"
 import { ICON_MAP } from "@/components/website-builder/sections/icon-map"
-import type { StoredBlock } from "@/lib/storelib-theme/compat/page"
+import type { StoredBlock, StoredSection } from "@/lib/storelib-theme/compat/page"
+import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
 import { splitStyles } from "@/lib/website-builder/preview-markup"
 import { REVEAL_EVENT } from "@/lib/website-builder/canvas-scroll"
 import { THEME_ROOT_ATTRIBUTE } from "@/lib/website-builder/theme-css"
@@ -625,13 +627,14 @@ function CompatPane({ session, choice, pad, reason, className, style }: PaneProp
   const [alone, setAlone] = useState(true)
   const width = session.look.width
   const inset = pad >= 20 ? PICKER_SIZE.inset : 12
+  const page = useMemo(() => (ctx ? pageWithShop(ctx.page) : null), [ctx, session]) // eslint-disable-line react-hooks/exhaustive-deps
   const doc = useMemo(() => {
-    if (!ctx?.theme) return null
-    const { html, main } = sheetDocument(ctx.theme, ctx.page, ctx.rows, width, 800)
+    if (!ctx?.theme || !page) return null
+    const { html, main } = sheetDocument(ctx.theme, page, ctx.rows, width, 800)
     const rules = `<style data-block-picker-stage>html,body{height:auto!important}${STAGE_RULES.replace(/\[data-bp-stage\]/g, "body")}</style>`
     const withRules = html.replace(/<\/head>/i, () => `${rules}</head>`)
     return withRules.replace(/<\/body>/i, () => `${main || "<main>"}</main></body>`)
-  }, [ctx?.theme, ctx?.page, ctx?.rows, width])
+  }, [ctx?.theme, page, ctx?.rows, width])
   const loaded = !!doc && loadedDoc === doc
   const apply = useCallback(() => {
     const frame = frameRef.current
@@ -639,15 +642,24 @@ function CompatPane({ session, choice, pad, reason, className, style }: PaneProp
     const clip = clipRef.current
     const outline = outlineRef.current
     const fd = frame?.contentDocument
-    if (!ctx?.theme || !frame || !pane || !clip || !outline || !fd || !loaded || !choice) return
+    if (!ctx?.theme || !page || !frame || !pane || !clip || !outline || !fd || !loaded || !choice) return
     const key = choiceKey(choice)
     let html = session.markup.get(key)
     if (html === undefined) {
       /* The block from its own markup (blockMarkup), never the whole section it goes in. */
       try {
-        html = blockMarkup(ctx.theme, ctx.page, session.request.section.type, session.blockFor(choice) as unknown as StoredBlock, ctx.rows, width, 800) ?? ""
+        html = blockMarkup(ctx.theme, page, session.request.section.type, session.blockFor(choice) as unknown as StoredBlock, ctx.rows, width, 800) ?? ""
       } catch {
         html = ""
+      }
+      /* A block the section draws inline, where it cannot be found alone: the section drawn with the block in its place, and the strip cropped to the block. */
+      if (!html) {
+        try {
+          const drawn = sectionMarkup(ctx.theme, page, session.sectionFor(choice) as unknown as StoredSection, ctx.rows, width, 800)
+          html = drawn.includes(`data-block-id="${PREVIEW_BLOCK_ID}"`) ? drawn : ""
+        } catch {
+          html = ""
+        }
       }
       session.markup.set(key, html)
     }
@@ -669,7 +681,7 @@ function CompatPane({ session, choice, pad, reason, className, style }: PaneProp
     frame.setAttribute("data-bp-showing", key.replace("\u0000", ":"))
     setNote(null)
     void found
-  }, [ctx?.theme, ctx?.page, ctx?.rows, loaded, choice, session, width, pad, inset, reason]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ctx?.theme, page, ctx?.rows, loaded, choice, session, width, pad, inset, reason]) // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     apply()
   }, [apply])
@@ -693,6 +705,24 @@ function CompatPane({ session, choice, pad, reason, className, style }: PaneProp
       ) : null}
     </PaneShell>
   )
+}
+
+/* A shop with nothing in it, for a store with no products yet: a title, a price and buy buttons still have something to draw. */
+const SAMPLE_CARD = { id: "storelib-sample-product", settings: { title: "Sample product", slug: "sample-product", url: "/products/sample-product", price: "$48.00", available: true } }
+
+/**
+ * The preview's page with the canvas's shop in it: the store's products,
+ * collections and menus, and the product the canvas shows (or its first).
+ * The library's own page has an empty shop, where a product section's
+ * blocks drew nothing and the pane showed an icon for every one of them.
+ */
+function pageWithShop(base: CompatPage): CompatPage {
+  const live = shownCompatPage()
+  const products = live?.products.length ? live.products : base.products.length ? base.products : [SAMPLE_CARD]
+  const product = live?.product ?? base.product ?? products[0] ?? null
+  return live
+    ? { ...base, products, pickable: live.pickable, collections: live.collections, menus: live.menus, shop: live.shop, i18n: live.i18n, product, collection: live.collection ?? base.collection }
+    : { ...base, products, product }
 }
 
 /* ── The picker ────────────────────────────────────────────────────────── */

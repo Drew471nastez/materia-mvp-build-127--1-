@@ -475,6 +475,12 @@ function watchInput() {
   const o = { capture: true, passive: true } as const
   for (const type of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) window.addEventListener(type, seen, o)
   document.addEventListener("scroll", seen, o)
+  /* A sheet sliding (Ask Storelib's going down, the sections sheet coming up) is the screen in use too: a batch laid out in its slide was a 278ms task at a quarter speed (scripts/check-ask-sheet-r18.mjs). */
+  const moving = (e: Event) => {
+    if (e.target instanceof Element && e.target.matches("[data-mobile-bottom-sheet]")) seen()
+  }
+  window.addEventListener("transitionrun", moving, o)
+  window.addEventListener("transitionend", moving, o)
 }
 /*
   NOR WHILE STORELIB AI IS AT WORK (round 16). A person watching a run is not

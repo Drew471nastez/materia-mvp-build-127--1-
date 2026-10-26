@@ -40,7 +40,15 @@ async function call<T>(url: string, init?: { method: string; body?: unknown }): 
   }
 }
 
-export function AskMemoryButton({ installId, className }: { installId: string; className?: string }) {
+/*
+  KEPT OUT OF THE CHAT'S RENDERS. It was drawn again on every key typed in
+  the chat, and each time its popover's anchor told the popover where it was
+  again: a state update in an effect, one per key, until a phone typing fast
+  hit React's limit on updates in a row ("Maximum update depth exceeded",
+  measured by scripts/check-ask-sheet-r18.mjs) and the chat stuttered. Its
+  props are two strings, so nothing typed reaches it now.
+*/
+export const AskMemoryButton = React.memo(function AskMemoryButton({ installId, className }: { installId: string; className?: string }) {
   const [open, setOpen] = React.useState(false)
   const [load, setLoad] = React.useState<Load>({ state: "idle" })
   const [draft, setDraft] = React.useState("")
@@ -203,4 +211,4 @@ export function AskMemoryButton({ installId, className }: { installId: string; c
       </PopoverContent>
     </Popover>
   )
-}
+})
