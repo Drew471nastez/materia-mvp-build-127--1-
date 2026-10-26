@@ -144,14 +144,14 @@ export async function openEditor({ kind, bundle, css, compat, globals = kind ===
   const base = `http://127.0.0.1:${server.address().port}`
   const browser = await puppeteer.launch({
     executablePath: process.env.CHROMIUM ?? "/opt/pw-browsers/chromium", headless: true,
-    args: ["--no-sandbox", "--disable-gpu", "--force-device-scale-factor=1", "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"],
+    args: ["--no-sandbox", "--disable-gpu", `--force-device-scale-factor=${process.env.DSF ?? 1}`, "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"],
   })
   const errors = []
   try {
     const page = await browser.newPage()
     page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)))
     if (process.env.DEBUG) page.on("console", (m) => { if (m.type() === "error" || /compat-canvas/.test(m.text())) console.log("           console:", m.text().slice(0, 300)) })
-    await page.setViewport({ width, height, deviceScaleFactor: 1, ...(touch ? { isMobile: true, hasTouch: true } : {}) })
+    await page.setViewport({ width, height, deviceScaleFactor: Number(process.env.DSF ?? 1), ...(touch ? { isMobile: true, hasTouch: true } : {}) })
     if (init) await page.evaluateOnNewDocument(init)
     if (cpu > 1) await (await page.createCDPSession()).send("Emulation.setCPUThrottlingRate", { rate: cpu })
     await page.setRequestInterception(true)

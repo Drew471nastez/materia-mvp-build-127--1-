@@ -782,9 +782,18 @@ export function MobileEditorSheet({
         if (scroller) h += naturalScrollHeight(scroller) - scroller.clientHeight
         wanted += h
       }
-      setContentHeight(
-        Math.ceil(wanted + (handle?.getBoundingClientRect().height ?? 0) + safe),
-      )
+      /*
+        A PIXEL EITHER WAY IS THE SAME HEIGHT. On a phone's screen (three
+        device pixels to a CSS pixel) the boxes measure in thirds of a pixel,
+        and the thirds shift with where the sheet stands: rounded up, a closed
+        sheet's height went 453, 454, 453 as the sheet moved to each, every
+        frame, for as long as the page was open, each one a render and a move
+        of the sheet (scripts/check-wb-touch-r19.mjs, DSF=3). A change of
+        under two pixels is no change; content that really grew or shrank
+        moves it by more.
+      */
+      const next = Math.ceil(wanted + (handle?.getBoundingClientRect().height ?? 0) + safe)
+      setContentHeight((was) => (was > 0 && Math.abs(was - next) < 2 ? was : next))
     }
     measure()
     // The wrapper's own box stops changing as soon as the sheet settles, so
@@ -1633,6 +1642,32 @@ export function MobileEditorSheet({
     coastFrame.current = requestAnimationFrame(tick)
   }
   React.useEffect(() => () => stopCoast(), [])
+
+  /*
+    NOTHING MOVES IN A SHEET THAT IS PUT AWAY (round 19). A phone keeps its
+    closed sheets in the page, and a primed one is even drawn, faintly, so it
+    can come up at once. Publish's "Checking for security issues" spinner
+    waited in one for a panel nobody had opened, turning for the whole visit:
+    a style update and a new set of layers every frame, the main thread busy
+    most of the time with the editor untouched (scripts/check-wb-touch-r19.mjs,
+    "at rest"). Once a sheet has slid away, what animates in it is paused, and
+    it plays again as the sheet opens. By the animations themselves, not a
+    style rule: a rule ending in `*` is tried against every element of the
+    editor at every style change, which made a run of Storelib AI slower.
+  */
+  React.useEffect(() => {
+    const sheet = sheetRef.current
+    if (!sheet || peekHeight > 0 || typeof sheet.getAnimations !== "function") return
+    if (open) {
+      for (const a of sheet.getAnimations({ subtree: true })) if (a.playState === "paused") a.play()
+      return
+    }
+    const t = window.setTimeout(() => {
+      if (openRef.current) return
+      for (const a of sheet.getAnimations({ subtree: true })) if (a.playState === "running" && a.effect?.getComputedTiming().iterations === Infinity) a.pause()
+    }, moveMs + 120)
+    return () => window.clearTimeout(t)
+  }, [open, peekHeight, moveMs])
 
   /**
    * ===========================================================================

@@ -730,9 +730,22 @@ interface Player {
   /** A press or a key has happened on this page. Until then nothing plays. */
   gestured: boolean
   armed: boolean
+  /** The context the silent unlocking buffer was played into: once is enough. */
+  unlocked: ContextLike | null
+  /** Gestures that did not get the context running. */
+  tries: number
 }
 
-const player: Player = { context: null, gestured: false, armed: false }
+const player: Player = { context: null, gestured: false, armed: false, unlocked: null, tries: 0 }
+/*
+  How many gestures may try to start the sound before it stops asking (round
+  19). A context the system will not run (a web view with its audio
+  interrupted, a browser with none) was woken on every key typed and every
+  press for the whole visit, a buffer made each time: 167ms of a Storelib AI
+  run at a quarter speed (scripts/check-wb-live-r15.mjs PROFILE=2). Nothing it
+  would have played could be heard anyway.
+*/
+const WAKE_TRIES = 6
 
 function contextCtor(): ContextCtor | null {
   if (typeof window === "undefined") return null
@@ -764,8 +777,10 @@ function wake(): void {
     /*
       A one sample silent buffer, played inside the gesture: what older iOS
       needs before it lets a context make any sound at all. Inaudible, and
-      harmless everywhere else.
+      harmless everywhere else. Once per context.
     */
+    if (player.unlocked === ctx) return
+    player.unlocked = ctx
     const silent = ctx.createBufferSource()
     silent.buffer = ctx.createBuffer(1, 1, ctx.sampleRate || 22050)
     silent.connect(ctx.destination)
@@ -786,9 +801,10 @@ const GESTURES = ["pointerdown", "pointerup", "touchend", "keydown", "click"] as
 export function armAskSounds(): void {
   if (player.armed || typeof window === "undefined") return
   player.armed = true
+  player.tries = 0
   const onGesture = () => {
     wake()
-    if (player.context?.state === "running") {
+    if (player.context?.state === "running" || ++player.tries >= WAKE_TRIES) {
       for (const type of GESTURES) window.removeEventListener(type, onGesture, true)
       player.armed = false
       /* Re-armed if the system suspends it later (a phone call, the app in the background). */
@@ -832,5 +848,7 @@ export function resetAskSoundsForTest(): void {
   player.context = null
   player.gestured = false
   player.armed = false
+  player.unlocked = null
+  player.tries = 0
   microphoneOpen = false
 }

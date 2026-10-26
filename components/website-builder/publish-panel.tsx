@@ -174,11 +174,14 @@ function issuePlace(page: string | null): string {
 function SecurityLine({
   check,
   open,
+  shown,
   onToggle,
   onRetry,
 }: {
   check: SecurityCheck
   open: boolean
+  /** The panel is on screen. Before its first look the line waits with a still mark: a spinner in a closed panel turned for the whole visit. */
+  shown: boolean
   onToggle: () => void
   onRetry: () => void
 }) {
@@ -187,7 +190,7 @@ function SecurityLine({
     <div data-publish-security={check.state}>
       {check.state === "checking" && (
         <p className={cn(line, "text-white/55")}>
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white/40" strokeWidth={1.75} />
+          <Loader2 className={cn("h-4 w-4 shrink-0 text-white/40", shown && "animate-spin")} strokeWidth={1.75} />
           <span className="min-w-0 flex-1 truncate">{tt("Checking for security issues")}</span>
         </p>
       )}
@@ -620,6 +623,7 @@ function Body({
       <SecurityLine
         check={security}
         open={issuesOpen}
+        shown={active}
         onToggle={() => setIssuesOpen((v) => !v)}
         onRetry={() => {
           setSecurity({ state: "checking" })

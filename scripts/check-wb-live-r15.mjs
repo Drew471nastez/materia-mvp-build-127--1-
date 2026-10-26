@@ -38,7 +38,7 @@
  *
  *   npx tsx scripts/check-wb-live-r15.mjs
  *   ONLY=idle|ask|agent|github|imported-(idle|ask|github)   CPU=4   GAP=80 (ms between Ask lines)   JSON=<file>   BUDGET=0
- *   PROFILE=1  (the editor's busiest functions while it played, self time, from a CPU profile)
+ *   PROFILE=1  (the editor's busiest functions while it played, self time, from a CPU profile; PROFILE=2 adds inclusive time)
  *   EDITOR_BUNDLE=<file> (the bundle to measure; before and after are two bundles)
  *
  * Round 15, the bundle before (main at 8eb0fb0) and after, same machine, CPU
@@ -95,10 +95,26 @@ const WATCH = String.raw`
     if (f && f.contentDocument && f.contentDocument.scrollingElement) return f.contentDocument.scrollingElement
     return document.getElementById("wb-preview-root")
   }
+  /*
+    The scroller found once and kept while it is in the page, and its position
+    taken from its own scroll events (round 19): read in every frame, the
+    probe looked it up and laid the page out each time, much of the cost it
+    measured (a CPU profile named the probe's tick first).
+  */
+  var sc = null, lastY = 0
+  var onScroll = function () { lastY = sc ? sc.scrollTop : 0 }
+  var keep = function () {
+    var now = window.__lvSc()
+    if (now === sc) return
+    if (sc) (sc === document.scrollingElement ? document : sc.ownerDocument === document ? sc : sc.ownerDocument).removeEventListener("scroll", onScroll, true)
+    sc = now
+    if (sc) { (sc.ownerDocument === document ? sc : sc.ownerDocument).addEventListener("scroll", onScroll, { capture: true, passive: true }); lastY = sc.scrollTop }
+  }
   var tick = function (t) {
-    if (W.on) { W.t.push(t); var sc = window.__lvSc(); W.y.push(sc ? sc.scrollTop : 0) }
+    if (W.on) { if (!sc || !sc.isConnected) keep(); W.t.push(t); W.y.push(lastY) }
     requestAnimationFrame(tick)
   }
+  setInterval(function () { if (W.on) keep() }, 500)
   requestAnimationFrame(tick)
   var watchBoxes = function () {
     var root = document.getElementById("wb-preview-root")
@@ -227,6 +243,23 @@ async function scenario(name) {
         while (up && !up.callFrame.url && parent.has(up.id)) up = nodes.get(parent.get(up.id))
         const k = `${f.functionName || "(anon)"}:${f.lineNumber + 1}${f.url ? "" : ` [native] < ${up ? `${up.callFrame.functionName || "(anon)"}:${up.callFrame.lineNumber + 1}` : "?"}`}`
         self.set(k, (self.get(k) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000)
+      }
+      /* PROFILE=2: with what each function called (inclusive), to find what started the work. */
+      if (process.env.PROFILE === "2") {
+        const total = new Map()
+        for (let i = 0; i < profile.samples.length; i++) {
+          const ms = (profile.timeDeltas[i] ?? 0) / 1000
+          const seen = new Set()
+          for (let n = nodes.get(profile.samples[i]); n; n = parent.has(n.id) ? nodes.get(parent.get(n.id)) : null) {
+            if (/^\((idle|program|root|garbage collector)\)$/.test(n.callFrame.functionName)) break
+            const k = `${n.callFrame.functionName || "(anon)"}:${n.callFrame.lineNumber + 1}`
+            if (seen.has(k)) continue
+            seen.add(k)
+            total.set(k, (total.get(k) ?? 0) + ms)
+          }
+        }
+        console.log("  busiest (inclusive ms):")
+        for (const [k, v] of [...total.entries()].sort((a, b) => b[1] - a[1]).slice(0, 50)) console.log(`    ${v.toFixed(0).padStart(6)}  ${k}`)
       }
       const top = [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25)
       console.log("  busiest (self ms):")
