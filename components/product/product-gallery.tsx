@@ -655,7 +655,7 @@ export function ProductGallery({
         */}
         <div slot="container-end" className="contents">
 
-        {/* Navigation Arrows - show on hover for desktop, always visible on mobile */}
+        {/* Navigation arrows: on a computer, shown on hover. A phone swipes. */}
         {mediaItems.length > 1 && (
           <>
             <Button
@@ -663,8 +663,8 @@ export function ProductGallery({
               size="icon"
               className={cn(
                 "absolute left-2 sm:left-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out z-20",
-                // Mobile: always visible, Desktop: show on hover with smooth animation
-                "sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
+                /* None on a phone, where the photos are swiped (round 24); on a computer they show on hover. */
+                "max-sm:hidden sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
               )}
               onClick={(e) => {
                 e.stopPropagation()
@@ -680,8 +680,8 @@ export function ProductGallery({
               size="icon"
               className={cn(
                 "absolute right-2 sm:right-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out z-20",
-                // Mobile: always visible, Desktop: show on hover with smooth animation
-                "sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
+                /* None on a phone, where the photos are swiped (round 24); on a computer they show on hover. */
+                "max-sm:hidden sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
               )}
               onClick={(e) => {
                 e.stopPropagation()

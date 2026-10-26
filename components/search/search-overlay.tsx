@@ -56,6 +56,7 @@
  * stuck-layer-guard respects), and the screen's own list scrolls inside it.
  */
 
+import { useLightChrome } from "@/lib/ui/light-chrome"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { createPortal, flushSync } from "react-dom"
@@ -112,6 +113,8 @@ function AddressWatch({ onChange }: { onChange: (address: string) => void }) {
 export function SearchOverlay() {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  /* Over the whole screen while it is open, the strip under the clock included (round 24): white, with dark text. */
+  useLightChrome(open)
   /** Mounted on the client only: the portal needs a body, and the server draws no closed screen. */
   const [ready, setReady] = useState(false)
   /** A result was chosen: the screen stays until the page it leads to is up, then goes. */

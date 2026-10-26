@@ -6,6 +6,7 @@
  * layer slides over it, and the back chevron slides it away. A computer
  * with a mouse still opens /account/settings.
  */
+import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
@@ -170,6 +171,8 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
 }
 
 function SettingsLayer({ section, data, full = false, onClose }: { section: SettingsSection; data: Loaded | null; full?: boolean; onClose: () => void }) {
+  /* A white page over the whole screen: the strip under the clock is white too, with dark text in it (round 24, the owner's screenshot: a black band over Settings). */
+  useLightChrome(true)
   const panel = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
   const closed = useRef(false)

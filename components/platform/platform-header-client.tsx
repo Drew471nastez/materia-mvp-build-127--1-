@@ -2234,7 +2234,7 @@ export function PlatformHeaderClient({
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   /* A 40px disc is under the 44px a thumb reliably hits, and this one sits in the corner of the screen where a hand is least accurate. The pseudo-element extends the TOUCH target 8px in every direction without moving the disc, so a near miss still opens the menu. `touch-manipulation` drops the browser's double-tap-to-zoom wait, which is the other half of "it sometimes does not register". */
-                  className={cn("relative flex h-10 w-10 touch-manipulation items-center justify-center rounded-full transition cursor-pointer before:absolute before:-inset-2 before:content-['']", chrome.menuBtn, chrome.hamburger)}
+                  className={cn("relative flex h-10 w-10 touch-manipulation items-center justify-center rounded-[10px] transition-[background-color,border-color,box-shadow] duration-150 cursor-pointer before:absolute before:-inset-2 before:content-[''] [-webkit-tap-highlight-color:transparent]", chrome.menuBtn, chrome.hamburger)}
                   aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                 >
                   <AnimatedHamburger isOpen={mobileMenuOpen} />

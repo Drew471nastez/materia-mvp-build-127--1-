@@ -22,6 +22,7 @@
  * grows one the moment this scrolls away. See lib/explore/use-search-handoff.
  */
 
+import { openSearchOverlay } from "@/components/search/search-overlay"
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Search, X } from "lucide-react"
 import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
@@ -539,6 +540,11 @@ export function ExploreHero({
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            /* On a phone a tap opens the search screen over the page, full screen, with the keyboard up (round 24), as the Search tab does. */
+            onPointerDown={(e) => {
+              if (e.pointerType !== "touch") return
+              if (openSearchOverlay(draft)) e.preventDefault()
+            }}
             type="search"
             inputMode="search"
             /* iOS labels the return key from this, so it reads Search. */

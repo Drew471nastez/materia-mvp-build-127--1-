@@ -2588,9 +2588,10 @@ html.capacitor body {
     a few percent, which is LIGHTER than a dark bar: at the seam it reads as a
     halo rather than as a shadow. Black, and further up, for those.
   */
-  --bar-depth-dark: 0 1px 2px rgba(0, 0, 0, 0.28), 0 6px 18px -14px rgba(0, 0, 0, 0.45);
+  /* About 15% lighter since round 24 (the owner: "reduce its depth shadow bottom ... 10%, 15% maximum"). */
+  --bar-depth-dark: 0 1px 2px rgba(0, 0, 0, 0.24), 0 6px 16px -14px rgba(0, 0, 0, 0.38);
   /* The dark platform header once the page has scrolled under it (round AD5): the same black, further out. */
-  --bar-depth-dark-raised: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -10px rgba(0, 0, 0, 0.6);
+  --bar-depth-dark-raised: 0 1px 2px rgba(0, 0, 0, 0.3), 0 9px 24px -10px rgba(0, 0, 0, 0.51);
 }
 
 /* Subscribe Bar Bottom Border */
@@ -7150,6 +7151,20 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 }
 @media (prefers-reduced-motion: reduce) {
   .orders-reveal { animation: none; }
+}
+
+/* A COMMUNITY'S HOME AND YOUR PROFILE ARRIVE, NOT CUT IN (round 24, the owner: "when I'm switching in between home
+   and profile in the mobile navigation bar ... it's too direct and snappy and glitchy"). The place that mounts
+   settles in from a shade over 240ms, opacity only: nothing moves, nothing is laid out again, and a fixed bar inside it
+   keeps the screen as its frame. */
+[data-community-main] > * {
+  animation: place-arrive 240ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+}
+@keyframes place-arrive {
+  from { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-community-main] > * { animation: none; }
 }
 
 /* A packing slip on its way to the share sheet (components/physical/slip-share.tsx): a dark pill above the app's bar,

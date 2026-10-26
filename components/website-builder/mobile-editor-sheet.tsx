@@ -1736,15 +1736,29 @@ export function MobileEditorSheet({
         (scripts/check-ask-sheet-r18.mjs, PROFILE=1). Nothing scrolls the
         page while the sheet slides away, so the lock is let go after it.
       */
+      /*
+        AND NEVER OVER A FINGER (round 24, the owner: "when I open a post ... and then I close it, and then I scroll
+        fast, it glitches the page, and it takes me up randomly"). The page was put back where it was when the sheet
+        opened as the lock was let go, after the slide: a scroll started in that moment was thrown back to the old
+        place. Once a finger, a wheel or a key has moved the page since the close began, the page is theirs and
+        nothing puts it back.
+      */
+      let moved = false
+      const mine = () => {
+        moved = true
+      }
+      const MOVES = ["touchstart", "wheel", "keydown", "pointerdown"] as const
+      for (const t of MOVES) window.addEventListener(t, mine, { capture: true, passive: true })
       const release = () => {
         window.clearTimeout(timer)
+        for (const t of MOVES) window.removeEventListener(t, mine, { capture: true })
         if (pageRelease === release) pageRelease = null
         if (holdPage === "overflow") {
           root.style.overflow = prev.rootOverflow
           body.style.overflow = prev.bodyOverflow
           body.style.touchAction = prev.bodyTouch
         }
-        if (window.scrollY !== y) window.scrollTo(0, y)
+        if (!moved && window.scrollY !== y) window.scrollTo(0, y)
       }
       const timer = window.setTimeout(release, moveMs + 120)
       pageRelease?.()

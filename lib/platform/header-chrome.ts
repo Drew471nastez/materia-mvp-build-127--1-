@@ -70,7 +70,8 @@ export function headerChrome(light: boolean): HeaderChrome {
       navIdle:
         "border-transparent text-white/70 hover:text-white hover:bg-white/10 hover:border-white/15 active:scale-[0.98]",
       iconBtn: "text-white/80 hover:text-white hover:bg-white/10",
-      menuBtn: "bg-white/10 backdrop-blur-sm border border-white/15 text-white hover:bg-white/15",
+      /* A key, as the community's bar has it (round 24): a hairline, a top light and a soft drop under it. */
+      menuBtn: "bg-[#262626] border border-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_1px_2px_rgba(0,0,0,0.45),0_4px_10px_-4px_rgba(0,0,0,0.55)] hover:bg-[#2e2e2e] active:bg-[#1f1f1f] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)]",
       hamburger: "text-white",
       navigator: "text-white hover:bg-white/10 focus-visible:ring-white/40",
       catBtn: "text-white/80 hover:bg-white/10 hover:text-white",
@@ -94,8 +95,9 @@ export function headerChrome(light: boolean): HeaderChrome {
     navIdle:
       "border-transparent text-[#5c6574] hover:text-[#1a1a2e] hover:bg-[rgba(16,18,27,0.04)] hover:border-[rgba(16,18,27,0.06)] active:scale-[0.98]",
     iconBtn: "text-[#5c6574] hover:text-[#1a1a2e] hover:bg-[rgba(16,18,27,0.05)]",
+    /* The community bar's key (components/community/member/ui.ts DEPTH_ICON_BTN), round 24. */
     menuBtn:
-      "bg-[rgba(16,18,27,0.04)] backdrop-blur-sm border border-[rgba(16,18,27,0.08)] text-[#1a1a2e] hover:bg-[rgba(16,18,27,0.06)]",
+      "bg-[#f8f9fa] border border-[#e6e8eb] text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.04)] hover:bg-[#f1f2f4] hover:border-[#dcdfe3] active:shadow-none",
     hamburger: "text-[#1a1a2e]",
     navigator: "text-[#1a1a2e] hover:bg-[rgba(16,18,27,0.05)] focus-visible:ring-[#1a1a2e]/20",
     catBtn: "text-[#5c6574] hover:bg-[rgba(16,18,27,0.05)] hover:text-[#1a1a2e]",
