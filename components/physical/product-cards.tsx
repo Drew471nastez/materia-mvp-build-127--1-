@@ -811,7 +811,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, onValue, images = [
 
       {/* ── Shipping ─────────────────────────────────────────────────── */}
       {/* No "not shipped" switch: a physical product is always shipped or picked up, so checkout always asks where it goes (lib/physical/checkout-pricing-server). Handing it over in person is local pickup. */}
-      <Card id="physical-shipping" title={tt("Shipping")}>
+      <Card id="physical-shipping" title={tt("Shipping")} description={tt("To hand it over in person, turn on local pickup in Settings › Shipping.")}>
         <div className="space-y-4">
           {requiresShipping ? (
             <div className={cn("grid gap-3", nonDefaultProfiles.length ? "sm:grid-cols-[minmax(0,1fr)_110px_minmax(0,1.3fr)]" : "grid-cols-[minmax(0,1fr)_110px] sm:max-w-[420px]")}>

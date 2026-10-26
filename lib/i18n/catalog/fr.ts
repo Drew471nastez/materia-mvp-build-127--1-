@@ -8662,6 +8662,7 @@ const words: Record<string, string> = {
  "To days": "À (jours)",
  "To do": "À faire",
  "To do ({count})": "À faire ({count})",
+ "To hand it over in person, turn on local pickup in Settings › Shipping.": "Pour le remettre en main propre, activez le retrait sur place dans Réglages › Livraison.",
  "To keep your payouts going, Stripe asks for this now{value}. It takes a minute.": "Pour que vos virements continuent, Stripe le demande maintenant{value}. Cela prend une minute.",
  "To make one link stand out, use the sparkle button on that link in Links.": "Pour faire ressortir un lien, utilisez le bouton étincelles sur ce lien dans Liens.",
  "To move a photo or video, press Space or Enter on it, then the arrow keys. Press Space or Enter again to drop it, or Escape to put it back. The first is the thumbnail.": "Pour déplacer une photo ou une vidéo, appuyez sur Espace ou Entrée dessus, puis sur les flèches. Appuyez à nouveau sur Espace ou Entrée pour la déposer, ou sur Échap pour l'annuler. La première est la vignette.",
