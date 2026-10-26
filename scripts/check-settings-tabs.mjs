@@ -88,6 +88,8 @@ rmSync(dir, { recursive: true, force: true })
 
 /* Every API answers quickly with an empty success, the way a fast network would. */
 const server = createServer((req, res) => {
+  /* Not the bundle: a 12MB favicon decoded on the main thread stalled the fade it measures. */
+  if (req.url.startsWith("/favicon")) { res.writeHead(204); return res.end() }
   if (req.url.startsWith("/api/")) {
     const free = { id: "free", name: "Free", price_cents: 0, billing_period: null, features: [] }
     const body = req.url.startsWith("/api/billing/overview")

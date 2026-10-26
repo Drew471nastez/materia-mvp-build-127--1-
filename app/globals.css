@@ -1545,12 +1545,18 @@ html.capacitor body {
     empty under the tabs. The old panel goes at once, with no fade out, and
     the class is only put on after a tab is pressed (components/app/
     settings-form-new), so the first paint does not fade.
+
+    ROUND 22, FASTER: "navigating between settings tabs should be faster and
+    smoother". 160ms from 0.25 on the same curve: still seen as a fade, done
+    40ms sooner. (The probe's 140ms stall in the fade's tail was its own
+    server answering /favicon.ico with the 12MB bundle, decoded on the main
+    thread mid fade; it answers 204 now.)
   */
   .settings-panel {
-    animation: settings-panel-in 200ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
+    animation: settings-panel-in 160ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
   }
   @keyframes settings-panel-in {
-    from { opacity: 0.2; }
+    from { opacity: 0.25; }
     to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -7001,6 +7007,16 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 }
 .orders-strip::-webkit-scrollbar {
   display: none;
+}
+
+/* An order on a phone reads a size up (the owner, round 22: "the whole
+   scale and size of the texts is just too low ... more like Shopify"). The
+   order's cards share their sizes with a computer's, where they are right,
+   so the step up is here, one place, for a phone's width only. */
+@media (max-width: 639px) {
+  .orders-body .text-\[12px\] { font-size: 13px; }
+  .orders-body .text-\[13px\] { font-size: 15px; line-height: 1.4; }
+  .orders-body .text-\[14px\] { font-size: 16px; }
 }
 
 /* An order over the list (app/app/orders/orders-client.tsx). Opened from the

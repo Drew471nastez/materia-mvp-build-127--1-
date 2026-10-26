@@ -101,7 +101,7 @@ export function OrderBarFrame({
       <div className="-ml-1.5 flex h-9 w-9 items-center justify-center">{back}</div>
       <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">{title}</div>
       <div className="flex min-h-9 shrink-0 items-center gap-1">{actions}</div>
-      <div className="col-span-2 col-start-2 -mt-0.5 min-w-0 truncate text-[13px] leading-5 text-[#6b7280]">{subtitle}</div>
+      <div className="col-span-2 col-start-2 -mt-0.5 min-w-0 truncate text-[14px] leading-5 text-[#6b7280] sm:text-[13px]">{subtitle}</div>
     </PaneBar>
   )
 }

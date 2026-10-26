@@ -480,7 +480,8 @@ async function main() {
      near one for the glass's thickness, a far one that lifts the whole pill
      off the page. Soft, so it reads as distance rather than as a sticker. */
   check("the depth is three soft drops and a half pixel of inner light, not a cast shadow",
-    /0 1px 2px rgba\(16,18,27,0\.06\), 0 4px 10px rgba\(16,18,27,0\.07\), 0 14px 30px rgba\(16,18,27,0\.14\)/.test(nav)
+    /* Round 22, "a little more depth": each drop a step deeper. */
+    /0 1px 2px rgba\(16,18,27,0\.07\), 0 5px 12px rgba\(16,18,27,0\.085\), 0 16px 34px rgba\(16,18,27,0\.16\)/.test(nav)
       && /inset 0 0 0 0\.5px rgba\(255,255,255,0\.65\)/.test(nav))
   /* "The glass animation circle should feel more like glass, like iOS 2026."
      A clearer fill than the bar with its own blur and saturation, light

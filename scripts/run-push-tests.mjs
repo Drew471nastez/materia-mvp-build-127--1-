@@ -576,6 +576,7 @@ const SUITES = [
   "tests/wb-r19.test.ts",
   "tests/wb-r20.test.ts",
   "tests/wb-r21.test.ts",
+  "tests/orders-phone-r22.test.ts",
   "tests/notify-engine.test.ts",
   "tests/notify-webhook.test.ts",
   "tests/rich-text.test.ts",

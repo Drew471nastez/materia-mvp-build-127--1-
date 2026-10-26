@@ -105,14 +105,16 @@ check(
      never from nothing, so no frame is empty under the tabs. */
   check(
     "it settles in tone only: no rise, no frame with nothing under the tabs",
-    /from \{ opacity: 0\.2; \}/.test(swap) && !/translate|transform|height|width|background/.test(swap),
+    /* Round 22, "faster": from 0.25. */
+    /from \{ opacity: 0\.25; \}/.test(swap) && !/translate|transform|height|width|background/.test(swap),
   )
   /* "Not that direct": 140ms from 0.4 was over before it was seen. */
   check(
     "long enough to be seen as a fade, on an ease out",
     (() => {
       const m = swap.match(/animation: settings-panel-in (\d+)ms cubic-bezier\(0\.33, 1, 0\.68, 1\) backwards/)
-      return m !== null && Number(m[1]) >= 180
+      /* Round 22, "faster and smoother": 160ms, still seen as a fade (scripts/check-settings-tabs.mjs). */
+      return m !== null && Number(m[1]) >= 150
     })(),
   )
   check(

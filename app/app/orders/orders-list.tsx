@@ -297,7 +297,10 @@ function OrdersTable(props: OrdersListProps) {
           </>
         )}
         <SortMenu value={query.sort} onChange={(sort) => onQuery({ sort, page: 1 })} />
-        <ColumnsMenu hidden={hidden} onToggle={props.onToggleColumn} />
+        {/* A phone shows each order as one stacked row (PhoneRow), so there are no columns to choose there. */}
+        <span className="contents max-sm:hidden">
+          <ColumnsMenu hidden={hidden} onToggle={props.onToggleColumn} />
+        </span>
       </div>
 
       {searching ? <FilterRow query={query} onQuery={onQuery} products={props.products} ships={ships} /> : null}
@@ -319,7 +322,7 @@ function OrdersTable(props: OrdersListProps) {
            (components/app/scroll-edge.tsx). */
         <ScrollEdge className="orders-scroller">
           <table className="w-full min-w-max border-separate border-spacing-0 text-[13px]">
-            <thead>
+            <thead className="max-sm:hidden">
               <tr className="h-9 text-left text-[12px] font-medium text-[#4b5563]">
                 <th scope="col" className="orders-sticky left-0 w-10 bg-[#f7f7f8] p-0">
                   <label className="flex h-9 w-10 cursor-pointer items-center pl-3">
@@ -419,7 +422,7 @@ function OrdersTable(props: OrdersListProps) {
                     }}
                     onPointerLeave={(e) => window.clearTimeout(Number(e.currentTarget.dataset.prefetch))}
                   >
-                    <td className={cn("orders-sticky left-0 w-10 border-t border-[#f0f1f3] p-0", rowBg)}>
+                    <td className={cn("orders-sticky left-0 w-10 border-t border-[#f0f1f3] p-0 max-sm:hidden", rowBg)}>
                       <label className="flex h-10 w-10 cursor-pointer items-center pl-3">
                         <Checkbox
                           label={tt("Select order {number}", { number: order.number })}
@@ -428,7 +431,7 @@ function OrdersTable(props: OrdersListProps) {
                         />
                       </label>
                     </td>
-                    <td data-scroll-edge="" className={cn("orders-sticky left-10 border-t border-[#f0f1f3] pl-2 pr-4", rowBg)}>
+                    <td data-scroll-edge="" className={cn("orders-sticky left-10 border-t border-[#f0f1f3] pl-2 pr-4 max-sm:hidden", rowBg)}>
                       <a
                         href={`?order=${encodeURIComponent(order.id)}`}
                         onClick={(e) => {
@@ -448,7 +451,7 @@ function OrdersTable(props: OrdersListProps) {
                       <td
                         key={c.key}
                         className={cn(
-                          "whitespace-nowrap border-t border-[#f0f1f3] px-3 text-[#303036]",
+                          "whitespace-nowrap border-t border-[#f0f1f3] px-3 text-[#303036] max-sm:hidden",
                           rowBg,
                           c.align === "right" && "text-right tabular-nums",
                         )}
@@ -456,6 +459,8 @@ function OrdersTable(props: OrdersListProps) {
                         <Cell column={c.key} order={order} now={now} timeZone={timeZone} />
                       </td>
                     ))}
+                    {/* Last, so a computer's cells keep their places (order-motion, the probes). */}
+                    <PhoneRow order={order} now={now} timeZone={timeZone} onOpen={onOpen} />
                   </tr>
                 )
               })}
@@ -466,7 +471,7 @@ function OrdersTable(props: OrdersListProps) {
 
       {summary.total > 0 ? (
         <div className="flex h-11 items-center justify-between gap-3 border-t border-[#eef0f2] bg-[#fafafb] px-3">
-          <span className="text-[12px] tabular-nums text-[#6b7280]">
+          <span className="text-[12px] tabular-nums text-[#6b7280] max-sm:text-[14px]">
             {matching > 0 ? tt("{from}–{to} of {value}", { from: range.from, to: range.to, value: matching.toLocaleString(appLocale()) }) : tt("0 orders")}
           </span>
           <div className="flex items-center gap-1">
@@ -492,6 +497,45 @@ function OrdersTable(props: OrdersListProps) {
         </div>
       ) : null}
     </section>
+  )
+}
+
+/**
+ * An order on a phone, one cell across the row instead of a table to swipe
+ * sideways (the owner, round 22: "the whole scale and size of the texts is
+ * just too low ... more like Shopify ... less text"). The number and the
+ * total on top, who bought under it, then when and how many, then where it
+ * is. Hidden from a computer, whose table keeps its columns.
+ */
+function PhoneRow({ order, now, timeZone, onOpen }: { order: Order; now: number; timeZone: string; onOpen: (id: string) => void }) {
+  const who = order.customerName || order.customerEmail
+  return (
+    <td data-phone-row="" className="relative border-t border-[#f0f1f3] bg-white px-4 py-3 sm:hidden">
+      <div className="flex items-baseline justify-between gap-3">
+        <a
+          href={`?order=${encodeURIComponent(order.id)}`}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+            e.preventDefault()
+            onOpen(order.id)
+          }}
+          className="text-[17px] font-semibold text-[#1a1a2e] outline-none after:absolute after:inset-0"
+        >
+          {order.unseen ? <span aria-hidden data-unseen="" className="mr-1.5 inline-block h-2 w-2 -translate-y-[2px] rounded-full bg-[#8b5cf6] align-middle" /> : null}
+          #{order.number}
+          {order.unseen ? <span className="sr-only">{tt(", not opened yet")}</span> : null}
+        </a>
+        <span className="text-[16px] font-medium tabular-nums text-[#1a1a2e]">{formatMoney(order.totalCents, order.currency)}</span>
+      </div>
+      <p className={cn("mt-0.5 truncate text-[15px]", who ? "text-[#303036]" : "text-[#9ca3af]")}>{who || tt("No customer")}</p>
+      <p className="mt-0.5 text-[14px] text-[#6b7280]">
+        {listDate(order.createdAt, now, timeZone)} · {itemsLabel(order.itemCount)}
+      </p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        <PaymentBadge status={order.payment} />
+        {order.shipping ? <ShipBadge stage={order.shipping.stage} problem={order.shipping.problem} /> : <FulfillmentBadge status={order.fulfillment} />}
+      </div>
+    </td>
   )
 }
 
@@ -575,7 +619,7 @@ function ViewTabs({
             aria-selected={active}
             onClick={() => onQuery({ view: v.value, page: 1 })}
             className={cn(
-              "h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100",
+              "h-8 shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors duration-100 max-sm:h-9 max-sm:text-[15px]",
               active ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
             )}
           >

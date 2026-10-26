@@ -356,7 +356,8 @@ section("On a phone")
   check(
     "only the composer's row rides the keyboard, on a transform, and the thread gets the same room at its end",
     /"--sheet-keys": `\$\{composerLift\}px`/.test(sheet) &&
-      /transform: "translate3d\(0, calc\(-1 \* var\(--sheet-keys, 0px\)\), 0\)"/.test(chat) &&
+      /* Round 22: a 2D translate, no layer of its own (WebKit left a stale layer where the sheet had been). */
+      /transform: "translateY\(calc\(-1 \* var\(--sheet-keys, 0px\)\)\)"/.test(chat) &&
       /data-ask-keys-room="" className="shrink-0" style=\{\{ height: "var\(--sheet-keys, 0px\)" \}\}/.test(chat) &&
       !/transition:[^\n]*height/.test(chat.slice(chat.indexOf("data-ask-footer"), chat.indexOf("data-ask-footer") + 1200)),
   )

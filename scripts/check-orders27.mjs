@@ -177,6 +177,8 @@ const server = createServer((req, res) => {
   if (url.pathname === "/api/store/cases") return json({ cases: [] })
   /* No label app connected: Fulfill items is the carrier and the number. */
   if (/^\/api\/physical\/orders\/[^/]+\/label$/.test(url.pathname)) return json({ apps: [], packages: [], labels: [] })
+  /* The shop's carriers as the server answers them: no stars or own carriers, no provider account. */
+  if (url.pathname === "/api/physical/carriers") return json(url.searchParams.get("connected") ? { carriers: [], errors: [] } : { favourites: [], defaultCarrier: null, lastCarrier: null, custom: [], ready: true })
   if (url.pathname.startsWith("/api/")) return json({})
   res.writeHead(200, { "content-type": "text/html" })
   res.end(page)
@@ -274,10 +276,16 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
   /* Unseen and the list's carriers */
   const unseen = await unseenRows(p)
   expect(unseen.join() === "d-2,u-1,n-1", "orders nobody opened carry the dot, the others do not", unseen)
-  const dot = await p.evaluate(() => { const d = document.querySelector("[data-unseen]").getBoundingClientRect(); const n = document.querySelector('tr[data-order-id="f-1"] td:nth-child(2) a').getBoundingClientRect(); const u = document.querySelector('tr[data-order-id="u-1"] td:nth-child(2) a').getBoundingClientRect(); return { w: d.width, h: d.height, color: getComputedStyle(document.querySelector("[data-unseen]")).backgroundColor, seenLeft: Math.round(n.left), unseenLeft: Math.round(u.left) } })
-  expect(dot.w === 6 && dot.h === 6 && dot.seenLeft === dot.unseenLeft, "the dot is small (6px) and the number does not move", dot)
-  const listLogos = await p.evaluate(() => [...document.querySelectorAll(".orders-list [data-carrier] img[data-carrier-logo]")].map((i) => ({ id: i.dataset.carrierLogo, ok: i.complete && i.naturalWidth > 0 })))
-  expect(listLogos.length === 2 && listLogos.every((l) => l.ok) && listLogos.map((l) => l.id).join() === "fan-courier,dpd", "fulfilled orders show their carrier's logo, loaded from /carriers", listLogos)
+  /* A phone shows each order as one stacked row (orders-list.tsx PhoneRow): its dot is the row's, a size up, and it carries no carrier logo. */
+  if (phone) {
+    const row = await p.evaluate(() => { const r = document.querySelector('tr[data-order-id="u-1"] [data-phone-row]'); const d = r?.querySelector("[data-unseen]")?.getBoundingClientRect(); const num = r?.querySelector("a"); return { shown: !!r && r.getClientRects().length > 0, dot: d ? Math.round(d.width) : 0, number: num ? parseFloat(getComputedStyle(num).fontSize) : 0, cells: [...document.querySelectorAll('tr[data-order-id="u-1"] > td')].filter((c) => c.getClientRects().length).length } })
+    expect(row.shown && row.cells === 1 && row.dot === 8 && row.number >= 17, "on a phone each order is one stacked row, its number at 17px and its dot 8px", row)
+  } else {
+    const dot = await p.evaluate(() => { const d = document.querySelector("[data-unseen]").getBoundingClientRect(); const n = document.querySelector('tr[data-order-id="f-1"] td:nth-child(2) a').getBoundingClientRect(); const u = document.querySelector('tr[data-order-id="u-1"] td:nth-child(2) a').getBoundingClientRect(); return { w: d.width, h: d.height, color: getComputedStyle(document.querySelector("[data-unseen]")).backgroundColor, seenLeft: Math.round(n.left), unseenLeft: Math.round(u.left) } })
+    expect(dot.w === 6 && dot.h === 6 && dot.seenLeft === dot.unseenLeft, "the dot is small (6px) and the number does not move", dot)
+    const listLogos = await p.evaluate(() => [...document.querySelectorAll(".orders-list [data-carrier] img[data-carrier-logo]")].map((i) => ({ id: i.dataset.carrierLogo, ok: i.complete && i.naturalWidth > 0 })))
+    expect(listLogos.length === 2 && listLogos.every((l) => l.ok) && listLogos.map((l) => l.id).join() === "fan-courier,dpd", "fulfilled orders show their carrier's logo, loaded from /carriers", listLogos)
+  }
 
   /* The unseen order to ship */
   await p.evaluate(() => document.querySelector('.orders-list tr[data-order-id="u-1"] a').click())
@@ -319,6 +327,7 @@ for (const [name, vp] of [["phone", PHONE], ["desk", DESK]]) {
     await sp.close()
   }
 
+  await p.screenshot({ path: join(shots, `k27-${name}-order.png`) })
   /* Fulfill items */
   const openFulfil = async () => {
     await tapSel(p, "[data-unfulfilled-card] [data-fulfil]", phone)
