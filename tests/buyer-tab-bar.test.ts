@@ -74,8 +74,9 @@ check("/account/library is tab 0 and /account is tab 1 when discover is off", bu
 */
 check("a creator's product never has the bar: its own buy bar is already there",
   !buyerTabsBelongOn("/maria/preset-pack", { sellerSurface: true, sellerProduct: true }) && !buyerTabsBelongOn("/p/preset-pack", { sellerSurface: true, sellerProduct: true }))
-check("  but their page keeps it, so the library is one press away",
-  buyerTabsBelongOn("/maria", { sellerSurface: true, sellerStore: true }) && buyerTabsBelongOn("/u/maria", { sellerSurface: true, sellerStore: true }))
+/* Round 24: the owner asked for the creator's page without it; the header's Back leads out. */
+check("  nor their page: it is the creator's, whole",
+  !buyerTabsBelongOn("/maria", { sellerSurface: true, sellerStore: true }) && !buyerTabsBelongOn("/u/maria", { sellerSurface: true, sellerStore: true }))
 check("  and never on their own subdomain: that is their site, not Storelib browsing",
   !buyerTabsBelongOn("/", { sellerSurface: true, sellerSite: true }) && !buyerTabsBelongOn("/preset-pack", { sellerSurface: true, sellerSite: true, sellerProduct: true }))
 check("never on a creator's own domain, whatever the path", !buyerTabsBelongOn("/explore", { customDomain: true }) && !buyerTabsBelongOn("/", { customDomain: true, sellerStore: true }))

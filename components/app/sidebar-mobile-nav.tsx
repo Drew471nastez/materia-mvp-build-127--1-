@@ -33,11 +33,12 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 import { endLayerMove } from "@/components/app/page-layer"
 import { hapticTap } from "@/lib/native-bridge"
+import { onPageOf, scrollAppToTop } from "@/lib/ui/scroll-app-top"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
 import { APP_PAGE_KEPT_MS, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { mayLeave } from "@/lib/ui/leave-guard"
@@ -87,13 +88,14 @@ const LABEL_TEXT = "#a5a5a5"
 export const CLOSE_EVENT = "storelib:close-mobile-menu"
 
 /** 44px is the smallest target a thumb hits reliably; the rows are 48. */
+/* A size up and a little firmer than the computer's sidebar (round 24, the owner: "a little bit more big ... a little bit more pronounced on the font weight"). */
 const ROW =
-  "relative flex h-12 w-full items-center gap-3 rounded-[14px] px-3.5 text-left " +
-  "text-[15.5px] leading-[24px] tracking-[-0.01em] " +
+  "relative flex h-[52px] w-full items-center gap-3 rounded-[14px] px-3.5 text-left " +
+  "text-[16.5px] leading-[24px] tracking-[-0.01em] " +
   "transition-[background-color,color] duration-[160ms] ease-out"
 
-const REST_WEIGHT = 470
-const ACTIVE_WEIGHT = 575
+const REST_WEIGHT = 510
+const ACTIVE_WEIGHT = 620
 
 /**
  * One easing and one duration for everything that opens or closes here, so
@@ -230,7 +232,8 @@ function MobileSubNavItem({
 }: {
   child: NavChild
   onNavigate?: (href: string) => void
-  onClose: () => void
+  /** With the address a press is going to: the menu stays until that page is here (MobileMenuPage, ONTO THE PAGE). */
+  onClose: (to?: string) => void
 }) {
   const router = useRouter()
   const active = isRouteActive(useShownPath(), child.href, useShownSearch())
@@ -240,10 +243,10 @@ function MobileSubNavItem({
       href={child.href}
       onClick={(e) => {
         if (isPlainClick(e.nativeEvent)) onNavigate?.(child.href)
-        onClose()
+        onClose(isPlainClick(e.nativeEvent) ? child.href : undefined)
       }}
       {...handlers}
-      className={cn(ROW, "h-11 text-[14.5px]")}
+      className={cn(ROW, "h-12 text-[15.5px]")}
       style={rowStyle(active, pressed)}
     >
       {child.thumb ? <span className="-ml-0.5 flex shrink-0 items-center">{child.thumb}</span> : null}
@@ -292,7 +295,7 @@ export function MobileNavItem({
   onToggle: (href: string) => void
   onNavigate?: (href: string) => void
   onForceNavigate?: (href: string) => void
-  onClose: () => void
+  onClose: (to?: string) => void
 }) {
   const router = useRouter()
   const active = isRouteActive(useShownPath(), item.href, useShownSearch())
@@ -369,7 +372,7 @@ export function MobileNavItem({
       href={item.href}
       onClick={(e) => {
         if (isPlainClick(e.nativeEvent)) onNavigate?.(item.href)
-        onClose()
+        onClose(isPlainClick(e.nativeEvent) ? item.href : undefined)
       }}
       {...handlers}
       className={ROW}
@@ -423,6 +426,31 @@ export function MobileMenuPage({
   const closeRef = useRef(onClose)
   closeRef.current = onClose
   const nodeRef = useRef<HTMLDivElement>(null)
+  /*
+    ONTO THE PAGE, NOT OVER IT ARRIVING (round 24, the owner: "when I click a menu link ... that transition is very
+    glitchy and ugly and buggy and interlacks"). A press used to close the menu in the same frame the page began to
+    change, so the menu faded out over a page that was still swapping in under it: two things moving at once. Now the
+    pressed row lights at once (useShownPath), the menu stays while the page is fetched and drawn under it, and fades
+    away the frame after the new page is here, onto a page already in place. A page that has not come in 1.6s, or a
+    press on the page already open, closes it at once.
+  */
+  const pathname = usePathname()
+  const going = useRef<{ from: string; timer: number } | null>(null)
+  const closeOnto = useCallback((to?: string) => {
+    if (going.current) window.clearTimeout(going.current.timer)
+    going.current = null
+    if (!to || to.split(/[?#]/)[0] === window.location.pathname) return closeRef.current()
+    going.current = { from: window.location.pathname, timer: window.setTimeout(() => { going.current = null; closeRef.current() }, 1600) }
+  }, [])
+  useEffect(() => {
+    const g = going.current
+    if (!g || pathname === g.from) return
+    window.clearTimeout(g.timer)
+    going.current = null
+    /* One frame for the new page to be painted under the menu, then the menu goes. */
+    requestAnimationFrame(() => requestAnimationFrame(() => closeRef.current()))
+  }, [pathname])
+  useEffect(() => () => { if (going.current) window.clearTimeout(going.current.timer) }, [])
   useEffect(() => {
     const node = nodeRef.current
     if (!node) return
@@ -495,7 +523,7 @@ export function MobileMenuPage({
               onToggle={onToggle}
               onNavigate={onNavigate}
               onForceNavigate={onForceNavigate}
-              onClose={onClose}
+              onClose={closeOnto}
             />
           ))}
         </div>
@@ -913,6 +941,15 @@ export function MobileNavPill({
     onPick: (index) => {
       const item = items[index]
       if (!item) return false
+      /*
+        THE TAB YOU ARE ON TAKES YOU TO ITS TOP (round 24), as a phone's own tab bar does: on that tab's own page (not
+        one under it, an order or a product), whatever of /app is scrolled glides back up, and nothing navigates.
+      */
+      if (index === current && onPageOf(item.href)) {
+        hapticTap("soft")
+        scrollAppToTop()
+        return false
+      }
       const go = () => {
         endLayerMove()
         onNavigate(item.href)

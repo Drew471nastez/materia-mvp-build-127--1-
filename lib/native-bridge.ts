@@ -396,6 +396,17 @@ function appleTouchBrowser(): boolean {
   return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1)
 }
 
+/*
+  THE SOFT TICK NEEDS ITS GENERATOR STARTED (round 24, the owner: "you deactivated the haptics across all Storelib").
+  "soft" is the selection generator, and Capacitor's Haptics only fires selectionChanged once selectionStart has made
+  one: on iOS (Haptics.swift, `if let generator = self.selectionFeedbackGenerator`) and on Android (Haptics.java,
+  `if (this.selectionStarted)`) alike. Nothing here ever called selectionStart, so every soft tick (the menu, the
+  settings tabs, the editor's tabs and picks, the nav pill) was silent on both phones. It is started once, the first
+  time a soft tick is asked for, and kept: the plugin holds the generator for the life of the app.
+*/
+let selectionStarted: Promise<void> | null = null
+const startSelection = (start: () => Promise<unknown>) => (selectionStarted ??= Promise.resolve(start()).then(() => undefined, () => { selectionStarted = null }))
+
 export async function triggerHaptic(style: "soft" | "light" | "medium" | "heavy" = "light"): Promise<boolean> {
   if (typeof window === "undefined") return false
   const cap = (window as any).Capacitor
@@ -411,7 +422,10 @@ export async function triggerHaptic(style: "soft" | "light" | "medium" | "heavy"
   const onBridge = cap.Plugins?.Haptics
   if (onBridge?.impact && onBridge?.selectionChanged) {
     try {
-      if (style === "soft") await onBridge.selectionChanged()
+      if (style === "soft") {
+        if (onBridge.selectionStart) await startSelection(() => onBridge.selectionStart())
+        await onBridge.selectionChanged()
+      }
       else await onBridge.impact({ style: style === "light" ? "LIGHT" : style === "medium" ? "MEDIUM" : "HEAVY" })
       return true
     } catch {
@@ -430,6 +444,7 @@ export async function triggerHaptic(style: "soft" | "light" | "medium" | "heavy"
      * tabs is, so it is the right shape as well as the quiet one.
      */
     if (style === "soft") {
+      await startSelection(() => Haptics.selectionStart())
       await Haptics.selectionChanged()
       return true
     }

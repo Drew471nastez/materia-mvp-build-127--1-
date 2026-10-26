@@ -34,6 +34,7 @@
  * fixed 20×20 box, so nothing an icon does can move the label beside it.
  */
 
+import { onPageOf, scrollAppToTop } from "@/lib/ui/scroll-app-top"
 import Link from "next/link"
 import { isPlainClick, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import type * as React from "react"
@@ -661,7 +662,13 @@ export function DesktopNavItem({
           <Link
             href={item.href}
             onClick={(e) => {
-              if (isPlainClick(e.nativeEvent)) onNavigate?.(item.href)
+              /* The row of the page on screen takes it to its top (lib/ui/scroll-app-top, round 24). */
+        if (isPlainClick(e.nativeEvent) && onPageOf(item.href)) {
+          e.preventDefault()
+          scrollAppToTop()
+          return
+        }
+        if (isPlainClick(e.nativeEvent)) onNavigate?.(item.href)
               onItemClick?.()
             }}
             onMouseEnter={() => {
@@ -738,6 +745,12 @@ export function DesktopNavItem({
       href={item.href}
       onClick={(e) => {
         /* Only a press this tab follows starts the shell's record: a Cmd-click opens a new tab and moves nothing here. */
+        /* The row of the page on screen takes it to its top (lib/ui/scroll-app-top, round 24). */
+        if (isPlainClick(e.nativeEvent) && onPageOf(item.href)) {
+          e.preventDefault()
+          scrollAppToTop()
+          return
+        }
         if (isPlainClick(e.nativeEvent)) onNavigate?.(item.href)
         onItemClick?.()
       }}

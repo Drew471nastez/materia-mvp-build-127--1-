@@ -131,7 +131,8 @@ async function main() {
   const pages = ["/", "/explore", "/explore?q=presets", "/maria", "/receipt/abcdefghijklmnop1234", "/account/library", "/community/film-club/feed", "/login", "/pricing"]
   check("signed out, no bar on any page", pages.every((p) => !buyerTabsBelongOn(p.split("?")[0], { signedIn: false })), pages.filter((p) => buyerTabsBelongOn(p.split("?")[0], { signedIn: false })))
   check("  on a creator's page on storelib.com either", !buyerTabsBelongOn("/maria", { signedIn: false, sellerStore: true, sellerSurface: true }))
-  check("signed in: Explore, a receipt, the library, a creator's page", buyerTabsBelongOn("/explore", { signedIn: true }) && buyerTabsBelongOn("/receipt/abcdefghijklmnop1234", { signedIn: true }) && buyerTabsBelongOn("/account/library", { signedIn: true }) && buyerTabsBelongOn("/maria", { signedIn: true, sellerStore: true, sellerSurface: true }))
+  /* Round 24: a creator's page has no bar, signed in or not. */
+  check("signed in: Explore, a receipt, the library, and not a creator's page", buyerTabsBelongOn("/explore", { signedIn: true }) && buyerTabsBelongOn("/receipt/abcdefghijklmnop1234", { signedIn: true }) && buyerTabsBelongOn("/account/library", { signedIn: true }) && !buyerTabsBelongOn("/maria", { signedIn: true, sellerStore: true, sellerSurface: true }))
   check("  never on a product, which has its own buy bar", !buyerTabsBelongOn("/maria/film-presets", { signedIn: true, sellerProduct: true, sellerSurface: true }))
   check("not known yet (the server, the page waking up): drawn pending, for the record to settle before paint", buyerTabsBelongOn("/explore", {}))
   check("the app keeps it signed out (no browser around it)", buyerTabsBelongOn("/explore", { signedIn: false, native: true }))

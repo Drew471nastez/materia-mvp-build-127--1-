@@ -162,8 +162,9 @@ export function isBuyerPath(pathname: string, exploreMarketplaceEnabled = true):
  *
  *   sellerProduct   a product, however its address is spelled. Never the
  *                   bar: the buy bar is already there.
- *   sellerStore     a creator's own page, on storelib.com. The bar, so the
- *                   library and Explore stay one press away.
+ *   sellerStore     a creator's own page, on storelib.com. No bar since
+ *                   round 24 (the owner): the page is the creator's, and
+ *                   the header's Back leads out of it.
  *   sellerSite      their subdomain. That is their site rather than
  *                   Storelib browsing, so nothing of ours goes over it.
  *   customDomain    their own domain, where none of this is drawn at all.
@@ -206,7 +207,8 @@ export function buyerTabsBelongOn(
   if (communityOf(pathname)) return where.signedIn !== false
   if (under(pathname, "/community")) return false
   if (where.sellerProduct) return false
-  if (where.sellerStore) return true
+  /* A creator's own page is the creator's, whole (round 24, the owner: "when I'm in a creator page, it should not show the mobile nav bar there at the bottom"). */
+  if (where.sellerStore) return false
   /*
     A RECEIPT HAS THE BAR. Somebody who has just bought something in the app
     was left on the receipt with nothing around it (image 64): no header, no
