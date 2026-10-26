@@ -178,7 +178,7 @@ function main() {
     check("each block drawn once an opening, the first in the press, the rest in idle moments", /s\.ensure\(first\)/.test(picker) && /cancel = idle\(next\)/.test(picker) && /this\.markup\.get\(key\)/.test(picker))
     check("nothing fetched for a preview", !/fetch\(/.test(picker))
     check("the pointer's block is committed in the move itself", /flushSync\(\(\) => setActiveKey\(choiceKey\(c\)\)\)/.test(picker))
-    check("an imported theme's block is drawn alone by its own engine, in a frame without scripts", /blockMarkup\(ctx\.theme, ctx\.page, session\.request\.section\.type, session\.blockFor\(choice\)/.test(picker) && !/sectionMarkup\(/.test(picker) && /sandbox="allow-same-origin"/.test(picker))
+    check("an imported theme's block is drawn alone by its own engine, in a frame without scripts", /blockMarkup\(ctx\.theme, page, session\.request\.section\.type, session\.blockFor\(choice\)/.test(picker) && /if \(!html\) \{[\s\S]{0,120}sectionMarkup\(/.test(picker) && /sandbox="allow-same-origin"/.test(picker))
     check("  a block that cannot be drawn alone shows its icon", /data-preview-icon=""/.test(picker) && /icon=\{!!ctx\?\.failed \|\| \(loaded && !alone\)\}/.test(picker))
     check("  a block the theme gives no marker is shown in its section, and says so", /tt\("Shown in its section"\)/.test(picker))
   }

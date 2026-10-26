@@ -529,7 +529,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
   // shop. What this guard is about is unchanged: the SAVED sources are what
   // the canvas renders from.
   check("a section renders from the saved source when there is one", /* Changed on purpose (round 36): the canvas asks for scheme colours as variables. */ /* The theme with the built-in header's logo where Branding has none (lib/website-builder/chrome-logo.ts), round 22. */
-    /renderStorelibSection\(section, (theme|themeWithHeaderLogo\(theme, headerLogo \?\? null\)), \{ (\.\.\.extras, )?template, in_editor: inEditor === true \}, sources, products(, data|, dataNow\.current)?(, globals)?(, canvas \? CANVAS_RENDER : undefined)?\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
+    /renderStorelibSection\(section, (theme|themeWithHeaderLogo\(theme, headerLogo \?\? null\)), \{ (\.\.\.extras, )?template, in_editor: inEditor === true \}, (sources|sourcesNow\.current), products(, data|, dataNow\.current)?(, globals)?(, canvas \? CANVAS_RENDER : undefined)?\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
   // Done in one place now, for every public route rather than the storefront
   // alone: see prerenderStorelibSections, and the route list in
   // tests/website-builder.test.ts.
@@ -998,7 +998,7 @@ section("The code editor on a phone")
     // moment belongs to something that did not clean up after itself. The
     // deciding is in stuck-layer.ts now, where it can be tested on its own;
     // the builder's job is to ask it at the two moments it matters.
-    /document\.addEventListener\("visibilitychange", revive\)/.test(builder) &&
+    /document\.addEventListener\("visibilitychange", (revive|onVisible)\)/.test(builder) &&
       /clearStaleDocumentLocks\(document\)/.test(builder) &&
       /el\.style\.removeProperty\(prop\)/.test(stuck) &&
       /data-state="open"/.test(stuck),

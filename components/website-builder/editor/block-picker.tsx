@@ -708,7 +708,7 @@ function CompatPane({ session, choice, pad, reason, className, style }: PaneProp
 }
 
 /* A shop with nothing in it, for a store with no products yet: a title, a price and buy buttons still have something to draw. */
-const SAMPLE_CARD = { id: "storelib-sample-product", settings: { title: "Sample product", slug: "sample-product", url: "/products/sample-product", price: "$48.00", available: true } }
+const sampleCard = () => ({ id: "storelib-sample-product", settings: { title: tt("Sample product"), slug: "sample-product", url: "/products/sample-product", price: "$48.00", available: true } })
 
 /**
  * The preview's page with the canvas's shop in it: the store's products,
@@ -718,7 +718,7 @@ const SAMPLE_CARD = { id: "storelib-sample-product", settings: { title: "Sample 
  */
 function pageWithShop(base: CompatPage): CompatPage {
   const live = shownCompatPage()
-  const products = live?.products.length ? live.products : base.products.length ? base.products : [SAMPLE_CARD]
+  const products = live?.products.length ? live.products : base.products.length ? base.products : [sampleCard()]
   const product = live?.product ?? base.product ?? products[0] ?? null
   return live
     ? { ...base, products, pickable: live.pickable, collections: live.collections, menus: live.menus, shop: live.shop, i18n: live.i18n, product, collection: live.collection ?? base.collection }

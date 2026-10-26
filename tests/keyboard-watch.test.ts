@@ -140,8 +140,8 @@ function main() {
     const root = process.cwd()
     const editor = readFileSync(join(root, "app/website-builder/editor/[installId]/page.tsx"), "utf8")
     const code = readFileSync(join(root, "app/website-builder/code/[installId]/page.tsx"), "utf8")
-    check("the builder settles the canvas when the keyboard goes: document unlocked, window put back, nothing done to the scroller's overflow", /watchKeyboard\(window, document, \(\) => \{\s*settleCanvas\(\)/.test(editor))
-    check("twice, so the second lands after the keyboard animation", /window\.setTimeout\(settleCanvas, 420\)/.test(editor))
+    check("the builder settles the canvas when the keyboard goes: document unlocked, window put back, nothing done to the scroller's overflow", /const soon = \(\) => requestAnimationFrame\(settleCanvas\)\s*return watchKeyboard\(window, document, \(\) => \{\s*soon\(\)/.test(editor))
+    check("twice, so the second lands after the keyboard animation", /window\.setTimeout\(soon, 420\)/.test(editor))
     check("and what it calls scrolls the window back without touching the scroller", (() => {
       const fn = editor.slice(editor.indexOf("const settleCanvas"), editor.indexOf("const settleCanvas") + 700)
       return /if \(window\.scrollY !== 0\) window\.scrollTo\(0, 0\)/.test(fn) && !/reviveScroller/.test(fn)

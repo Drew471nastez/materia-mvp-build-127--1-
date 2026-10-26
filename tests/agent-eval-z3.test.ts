@@ -317,7 +317,7 @@ async function main() {
     const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
     const chat = read("components/website-builder/theme-chat.tsx")
     const dispatch = chat.slice(chat.indexOf("const dispatch = React.useCallback"), chat.indexOf("const dispatchRef"))
-    check("the message is on screen and its sound played before the router is asked", dispatch.indexOf("placeExchange(") > 0 && dispatch.indexOf("playAskSound(\"sent\")") > 0 && dispatch.indexOf("placeExchange(") < dispatch.indexOf("await decideRoute("))
+    check("the message is on screen and its sound played before the router is asked", dispatch.indexOf("placeExchange(") > 0 && dispatch.indexOf("playAskSound(\"sent\")") > 0 && dispatch.indexOf("placeExchange(") < dispatch.indexOf("decideRoute("))
     check("and the run takes over that same message in place, quietly", /send\(prompt, images, true, \{ codeFocus: route\.codeFocus, lock: route\.lock, into \}\)/.test(dispatch) && /writeOne\(prompt, images, true, into\)/.test(dispatch))
     check("a run that cannot start queues the message rather than dropping it", (chat.match(/dropExchange\(\w+(?:\.into)?\)\s*\n\s*if \(prompt\) setQueued\(\{ text: prompt \}\)/g) ?? []).length === 2)
     check("the box eases to its new height", /easeFieldHeight\(field\)/.test(chat) && /transition = `height \$\{COMPOSER_EASE_MS\}ms/.test(read("lib/website-builder/ask-composer.ts")))

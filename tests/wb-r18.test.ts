@@ -48,7 +48,7 @@ const library = readCode("components/website-builder/editor/section-library.tsx"
 
 console.log("\nEvery block has a preview")
 check("the canvas hands its page (the store's products) to the picker", /setShownCompatPage\(page\)/.test(canvas) && /shownCompatPage\(\)/.test(picker))
-check("the picker's page carries the canvas's shop, or a sample product in an empty one", /function pageWithShop\(base: CompatPage\): CompatPage/.test(picker) && /\[SAMPLE_CARD\]/.test(picker))
+check("the picker's page carries the canvas's shop, or a sample product in an empty one", /function pageWithShop\(base: CompatPage\): CompatPage/.test(picker) && /\[sampleCard\(\)\]/.test(picker))
 check("blocks are drawn with that page", /blockMarkup\(ctx\.theme, page,/.test(picker) && /sheetDocument\(ctx\.theme, page,/.test(picker))
 check("a block that cannot be drawn alone is drawn in its section and cropped to it", /sectionMarkup\(ctx\.theme, page, session\.sectionFor\(choice\)/.test(picker) && /drawn\.includes\(`data-block-id="\$\{PREVIEW_BLOCK_ID\}"`\)/.test(picker))
 
