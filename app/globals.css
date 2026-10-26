@@ -5368,6 +5368,20 @@ html.capacitor [data-buyer-tab-bar] nav a:active {
 html.capacitor [data-mobile-menu] :is(a, button, [role="button"], [tabindex="0"]):active {
   opacity: 1;
 }
+/* An order's row on a phone (app/app/orders/orders-list.tsx PhoneRow): never faded under a finger that is scrolling
+   the list (round 23, "scrolling inside the orders page sometimes triggers glitches"). A finger that stays tints the row
+   after 90ms instead; a scroll has taken the touch by then. */
+html.capacitor .orders-list [data-phone-row] a:active {
+  opacity: 1;
+}
+.orders-list td[data-phone-row] {
+  transition: background-color 120ms ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.orders-list td[data-phone-row]:active {
+  background-color: #f4f4f6;
+  transition: background-color 0s 90ms;
+}
 /* Settings' tabs on a phone: a swipe along the row never dims the pill it started on (round 22, components/app/settings-form-new.tsx). */
 html.capacitor [data-settings-tabs] button:active {
   opacity: 1;
@@ -7009,10 +7023,156 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
   display: none;
 }
 
+/* ANALYTICS' FILTERS AS CHIPS (round 23, the owner: "I don't like how those buttons show there with the time frame, all
+   pages, all products ... very ugly"). The period, the place, the product and Export are the shared picker buttons;
+   on this page they are soft white pills with a hairline ring instead of boxed squares, one height at every width,
+   the chevron a shade lighter. Scoped to the row, so every other picker keeps its look. */
+[data-analytics-controls] button[aria-haspopup="dialog"] {
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 14px;
+  gap: 6px;
+  background-color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a2e;
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.08), 0 1px 2px rgba(17, 24, 39, 0.05);
+}
+[data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+[data-analytics-controls] button[aria-haspopup="dialog"] svg { color: #9ca3af; }
+@media (max-width: 639px) {
+  /* The row scrolls sideways on a phone: what runs past its end fades out rather than being cut. */
+  [data-analytics-pickers] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    padding-right: 24px;
+  }
+}
+[data-analytics-controls] button[aria-haspopup="dialog"][data-open],
+[data-analytics-controls] button[aria-haspopup="dialog"][data-state="open"] {
+  background-color: #f1f2f4;
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.1);
+}
+
+/* ANALYTICS ARRIVE AS THEY ARE REACHED (round 23, "as I scroll down ... should appear smooth ... the progress bars ...
+   should feel very native"). A card below the screen when the page opens waits faded and 14px low; reaching it brings
+   it up over 480ms on the /app curve and grows its bars from nothing (app/app/analytics/analytics-client.tsx
+   useRevealCards). Opacity and transform only; a card on screen at the first paint is simply there. */
+[data-reveal-armed] {
+  transition: opacity 420ms ease-out, transform 520ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+[data-reveal="wait"] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+[data-reveal="wait"] [data-bar] {
+  width: 0 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal-armed] { transition: none; }
+  [data-reveal="wait"] { opacity: 1; transform: none; }
+}
+
+/* A packing slip on its way to the share sheet (components/physical/slip-share.tsx): a dark pill above the app's bar,
+   rising in on transform and opacity. A ring turns while it is made; once made the ring fades, a green disc grows in
+   and the check draws itself, 260ms. */
+.slip-notice-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 104px);
+  z-index: 2147483000;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+.slip-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  min-height: 46px;
+  padding: 0 18px 0 14px;
+  border-radius: 999px;
+  background: rgba(38, 38, 44, 0.94);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(16, 18, 27, 0.22), 0 1px 3px rgba(16, 18, 27, 0.2);
+  pointer-events: auto;
+  animation: slip-notice-in 260ms cubic-bezier(0.32, 0.72, 0, 1) backwards;
+}
+@keyframes slip-notice-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+}
+.slip-notice-mark { flex: none; width: 20px; height: 20px; }
+.slip-notice-mark svg { display: block; overflow: visible; }
+.slip-ring {
+  stroke: rgba(255, 255, 255, 0.92);
+  stroke-dasharray: 34 60;
+  transform-origin: 10px 10px;
+  animation: slip-ring-turn 800ms linear infinite;
+  transition: opacity 160ms ease-out;
+}
+@keyframes slip-ring-turn { to { transform: rotate(360deg); } }
+.slip-disc {
+  fill: #2fb36b;
+  transform-origin: 10px 10px;
+  transform: scale(0.4);
+  opacity: 0;
+  transition: transform 260ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 160ms ease-out;
+}
+.slip-check {
+  stroke: #fff;
+  stroke-dasharray: 14;
+  stroke-dashoffset: 14;
+  transition: stroke-dashoffset 240ms ease-out 120ms;
+}
+.slip-notice-mark[data-done] .slip-ring { opacity: 0; }
+.slip-notice-mark[data-done] .slip-disc { transform: scale(1); opacity: 1; }
+.slip-notice-mark[data-done] .slip-check { stroke-dashoffset: 0; }
+.slip-notice-share {
+  margin-left: 4px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #fff;
+  color: #1a1a2e;
+  font-size: 14px;
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  .slip-notice, .slip-ring { animation: none; }
+  .slip-disc, .slip-check { transition: none; }
+}
+
 /* An order on a phone reads a size up (the owner, round 22: "the whole
    scale and size of the texts is just too low ... more like Shopify"). The
    order's cards share their sizes with a computer's, where they are right,
    so the step up is here, one place, for a phone's width only. */
+/* And its cards run edge to edge, white on grey bands between them, as Shopify's app lays an order out (round 23,
+   "more look more good, clean UI"): no rounded floating cards with a gutter round them on a phone. */
+@media (max-width: 639px) {
+  .orders-detail { background-color: #f0f1f3; }
+  /* The list's rows fit a phone (orders-list.tsx PhoneRow): no sideways scroller there to catch a vertical swipe. */
+  .orders-scroller.scroll-edge-scroller { overflow-x: visible; overscroll-behavior-x: auto; }
+  .orders-body.app-gutter { padding-left: 0; padding-right: 0; padding-top: 10px; }
+  .orders-body > .grid, .orders-body > .grid > .grid, .orders-body [data-physical-order] { gap: 10px; }
+  .orders-body section.rounded-2xl,
+  .orders-body [data-physical-order] > section,
+  .orders-body > .grid > .grid > section {
+    border-radius: 0;
+    border-left-width: 0;
+    border-right-width: 0;
+    box-shadow: none;
+  }
+}
 @media (max-width: 639px) {
   .orders-body .text-\[12px\] { font-size: 13px; }
   .orders-body .text-\[13px\] { font-size: 15px; line-height: 1.4; }

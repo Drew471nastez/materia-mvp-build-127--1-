@@ -343,8 +343,9 @@ section("On a phone")
 {
   const attachments = read("components/website-builder/ask-attachments.tsx")
   check(
-    "the AI sheet opens and closes in 320ms and is a composer sheet: it does not resize for a keyboard",
-    /<MobileEditorSheet open=\{aiOpen\}[^\n]*moveMs=\{320\} keyboard="composer">/.test(editor) &&
+    /* Round 23: the sidebar sheet's own motion (its time, no fade), "similar to the mobile bottom sheet of the sidebar". */
+    "the AI sheet moves as the editor's own sheet does and is a composer sheet: it does not resize for a keyboard",
+    /<MobileEditorSheet open=\{aiOpen\}[^\n]*detents=\{AI_SHEET_DETENTS\} keyboard="composer">/.test(editor) && !/<MobileEditorSheet open=\{aiOpen\}[^\n]*fadeOnMove/.test(editor) &&
       /const height = composerKeys \? detentHeight : sheetHeightWithKeyboard/.test(sheet),
   )
   check(

@@ -48,6 +48,7 @@ import {
   groupOrders,
   paramsFromQuery,
   queryFromParams,
+  VIEWS,
   type ColumnKey,
   type ListQuery,
   type Order,
@@ -67,6 +68,7 @@ import { hasConsent } from "@/lib/consent/client"
 import { todayIn, type CompareValue, type RangeValue } from "@/lib/date-range/range"
 import { writePeriod } from "@/lib/date-range/params"
 import { OrderDetail, type OrderAction } from "./order-detail"
+import { SlipNotice } from "@/components/physical/slip-share"
 import { formatMoney } from "./order-parts"
 import { saveFile, savedMessage } from "@/lib/platform/save-file"
 import { cn } from "@/lib/utils"
@@ -339,6 +341,38 @@ export function OrdersClient(props: OrdersClientProps) {
   if (hadFigures.current === null) hadFigures.current = { key: props.listingKey === wantedKey ? figuresKey : "", at: props.now }
   const askedFor = React.useRef({ query, span, timeZone, figuresKey })
   askedFor.current = { query, span, timeZone, figuresKey }
+  /* Each view's first page as last read, by what was asked (`wanted`); emptied by an action (version) through the key itself. */
+  const viewCache = React.useRef(new Map<string, OrdersListing>())
+  /*
+    THE OTHER VIEWS, READ AHEAD once the list is quiet: their first page in this period, without figures, so a tab
+    pressed next is drawn from viewCache in the frame of the press. Once per period and version.
+  */
+  const readAheadFor = React.useRef("")
+  const shownViews = React.useRef(listing.summary.views)
+  shownViews.current = listing.summary.views
+  const readViewsAhead = useStable(() => {
+    const { query: q, span: s, timeZone: zone } = askedFor.current
+    const mark = `${period.preset}|${period.start}|${period.end}|${zone}|${version}|${q.q}|${q.source}|${q.product}|${q.fulfillment}|${q.sort}`
+    if (readAheadFor.current === mark) return
+    readAheadFor.current = mark
+    const idle = (fn: () => void) => ((window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback ?? ((f: () => void) => window.setTimeout(f, 300)))(fn, { timeout: 1500 })
+    idle(() => {
+      /* Only the views the tabs show: All and those with an order in them. */
+      for (const v of VIEWS) {
+        if (v.value === q.view || (v.value !== "all" && !shownViews.current.includes(v.value))) continue
+        const ahead = { ...q, view: v.value, page: 1 }
+        const key = `${listingKey(ahead, period, zone)}#${version}`
+        if (viewCache.current.has(key)) continue
+        const params = listingParams({ query: ahead, window: { start: s.start, end: s.end }, previous: s.previous, timeZone: zone, open: null, figures: false })
+        fetch(`/api/app/orders/list?${params.toString()}`, { cache: "no-store" })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((next: OrdersListing | null) => {
+            if (next) viewCache.current.set(key, next)
+          })
+          .catch(() => {})
+      }
+    })
+  })
   React.useEffect(() => {
     if (asked.current === wanted) return
     asked.current = wanted
@@ -347,17 +381,26 @@ export function OrdersClient(props: OrdersClientProps) {
     const had = hadFigures.current
     const figures = !had || had.key !== fk || Date.now() - had.at > 60_000
     const params = listingParams({ query: q, window: { start: s.start, end: s.end }, previous: s.previous, timeZone: zone, open: openRef.current, figures })
-    setLoading(true)
+    /*
+      A VIEW ALREADY READ IS SHOWN AT ONCE (round 23, the owner: "when I switch between All, Unfulfilled, Paid,
+      Refund ... get rid of the fade ... it doesn't take too much"). Its last answer is drawn in the press's own
+      frame and the server's answer replaces it quietly; the list is never dimmed while it comes.
+    */
+    const kept = viewCache.current.get(wanted)
+    if (kept) adopt(kept)
+    else setLoading(true)
     let done = false
     fetch(`/api/app/orders/list?${params.toString()}`, { signal: ctrl.signal, cache: "no-store" })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
       .then((next: OrdersListing) => {
         done = true
         if (next.figures) hadFigures.current = { key: fk, at: Date.now() }
+        viewCache.current.set(wanted, next)
         adopt(next)
         setLoading(false)
         rowsArrived.current?.()
         rowsArrived.current = null
+        readViewsAhead()
       })
       .catch(() => {
         /* Aborted for a newer ask, or failed: what is on screen stays. */
@@ -372,6 +415,14 @@ export function OrdersClient(props: OrdersClientProps) {
       if (!done) asked.current = ""
     }
   }, [wanted, adopt])
+
+  /* The page the server drew is quiet once mounted: the other views are read ahead from there too. */
+  React.useEffect(() => {
+    if (asked.current !== wanted) return
+    viewCache.current.set(wanted, props.listing)
+    readViewsAhead()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* The server's own page after a pull to refresh: taken when it answers what the list shows, asked for again when not. */
   const propsListing = React.useRef(props.listing)
@@ -805,6 +856,7 @@ export function OrdersClient(props: OrdersClientProps) {
       <BulkFulfilSheet ids={bulk === "fulfil" ? [...selected] : []} open={bulk === "fulfil"} onClose={() => setBulk(null)} onDone={afterBulk} />
       <ImportTrackingSheet open={bulk === "import"} onClose={() => setBulk(null)} onDone={afterBulk} />
 
+      <SlipNotice />
       <div
         aria-live="polite"
         className="pointer-events-none fixed left-1/2 top-[calc(68px+env(safe-area-inset-top,0px)+12px)] z-[100] -translate-x-1/2 md:top-[calc(58px+env(safe-area-inset-top,0px)+12px)]"

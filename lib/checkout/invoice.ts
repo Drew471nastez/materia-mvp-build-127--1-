@@ -408,7 +408,7 @@ const RULE = "#e5e7eb"
 
 let fonts: { regular: Buffer; semibold: Buffer } | null | undefined
 
-function loadFonts() {
+export function loadFonts() {
   if (fonts !== undefined) return fonts
   try {
     const dir = join(process.cwd(), "lib", "checkout", "fonts")
@@ -420,7 +420,7 @@ function loadFonts() {
 }
 
 /** Without Inter, the standard font, and letters it cannot print lose their accent rather than become boxes. */
-function latin1(text: string): string {
+export function latin1(text: string): string {
   return text.normalize("NFKD").replace(/[^\u0000-ÿ]/g, "")
 }
 

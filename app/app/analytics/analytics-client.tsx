@@ -448,6 +448,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
 
   /* The row follows the chosen tab on a phone; the swipe itself is the browser's. */
   const metricStripRef = useTabStrip<HTMLDivElement>(chartMetricFilter, tabOrder)
+  const revealRef = useRevealCards()
   const trendData = useMemo<AnalyticsChartData[]>(() => {
     if (!answer) return []
     const r = answer.reports
@@ -560,7 +561,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
         header and tabs).
       */}
       <PullToRefreshEvent scope="app-analytics">
-      <div className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
+      <div ref={revealRef} className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
         {/* The heading alone. Add report is the tile under the last card; Export is the last control in the row below. */}
         <div className="flex items-center gap-3" data-analytics-head="">
           <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
@@ -700,4 +701,54 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
     </div>
     </CompareContext.Provider>
   )
+}
+
+/**
+ * THE CARDS COME UP AS THEY ARE REACHED (round 23). Every report card (`section[data-card]`) under the screen when it
+ * is first seen here waits (`data-reveal="wait"`, app/globals.css) until a sliver of it is in the page's scroller,
+ * then rises in and its bars grow. A card already on screen is never touched, so the first paint is the page as it
+ * is; cards that arrive later (a report added, a property switched) are taken as they mount. Under reduced motion,
+ * nothing waits.
+ */
+function useRevealCards() {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const root = ref.current
+    if (!root || typeof IntersectionObserver === "undefined") return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const scroller = root.closest<HTMLElement>(".page-scroll")
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue
+          ;(e.target as HTMLElement).removeAttribute("data-reveal")
+          io.unobserve(e.target)
+        }
+      },
+      { root: scroller, rootMargin: "0px 0px -6% 0px", threshold: 0.01 },
+    )
+    const arm = (el: HTMLElement) => {
+      if (el.hasAttribute("data-reveal-armed") || el.parentElement?.closest("section[data-card]")) return
+      el.setAttribute("data-reveal-armed", "")
+      const bottom = scroller ? scroller.getBoundingClientRect().bottom : window.innerHeight
+      if (el.getBoundingClientRect().top < bottom) return
+      el.setAttribute("data-reveal", "wait")
+      io.observe(el)
+    }
+    const armAll = () => root.querySelectorAll<HTMLElement>("section[data-card]").forEach(arm)
+    armAll()
+    /* Once a frame at most: the chart's morph changes the page every frame while it runs. */
+    let queued = 0
+    const mo = new MutationObserver(() => {
+      if (!queued) queued = requestAnimationFrame(() => ((queued = 0), armAll()))
+    })
+    mo.observe(root, { childList: true, subtree: true })
+    return () => {
+      mo.disconnect()
+      io.disconnect()
+      cancelAnimationFrame(queued)
+      root.querySelectorAll<HTMLElement>("[data-reveal]").forEach((el) => el.removeAttribute("data-reveal"))
+    }
+  }, [])
+  return ref
 }

@@ -259,6 +259,8 @@ import { visibleFields } from "@/lib/storelib-theme/visible-if"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
+/** How long the editor's first open keeps its loader up at the least, from the mount (openHold). */
+const OPEN_HOLD_MS = 2400
 
 /**
  * ASK STORELIB'S PILL, CLOSED ON PURPOSE, is remembered per browser: the
@@ -3612,6 +3614,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.removeEventListener("keydown", onKey)
   }, [fullView, setFullScreen, switchCanvas])
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  /* Read by the canvas's tap, which is made once (selectSectionFromCanvas). */
+  const mobileSidebarOpenRef = useRef(false)
+  mobileSidebarOpenRef.current = mobileSidebarOpen
   const [username, setUsername] = useState("")
   /* The creator's four public facts, for `{{ creator.name }}` on the canvas. See the install route. */
   const [creatorFacts, setCreatorFacts] = useState<CreatorFacts | null>(null)
@@ -7054,6 +7059,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           () => touchingCanvas.current,
         )
       }
+      /*
+        FELT ON A PHONE (round 23, the owner: "when I click on a section ... a smooth haptic"). A soft tick for the pick;
+        a tap that brings the sheet up is felt once, by the sheet's own arrival (mobile-editor-sheet.tsx, A TAP WHEN IT
+        ARRIVES), not twice.
+      */
+      if (isMobileViewRef.current && !(field && !mobileSidebarOpenRef.current)) hapticTap("soft")
       pickSection(sectionId, blockId ?? null)
       /**
        * A CLICK ON ONE THING OPENS ITS FIELD. A heading clicked lands the
@@ -9480,7 +9491,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * The loader's surface stays for a beat after the page has arrived, so it
    * can fade over the page rather than vanish from in front of it.
    */
-  const canvasLoaderLingers = useLinger(canvasLoaderUp, 280)
+  /*
+    THE OPENING IS GIVEN ITS MOMENT (round 23, the owner: "when I'm entering the website builder editor ... the
+    animation with just a second ... make it naturally to be like 2 seconds, 3 seconds"). The first open holds the
+    loader over the canvas for OPEN_HOLD_MS from the editor's mount, however soon the page is ready: the page is
+    laid out and painted under it all the while, so what it fades onto is finished. Only the first open: a page
+    switch or a reload of the canvas is never held.
+  */
+  const [openHold, setOpenHold] = useState(true)
+  useEffect(() => {
+    const id = window.setTimeout(() => setOpenHold(false), OPEN_HOLD_MS)
+    return () => window.clearTimeout(id)
+  }, [])
+  const canvasCovered = canvasLoaderUp || (openHold && !loadFailed)
+  const canvasLoaderLingers = useLinger(canvasCovered, 280)
   /** Light chrome on a phone, wherever the clock can still be read. */
   /**
    * THE BAR IS DARK, EVERYWHERE.
@@ -11152,9 +11176,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             inside the editor bar, and the top pixel of the bar's buttons
             showed above the sheet as violet slivers at its corners. At 1 the
             sheet starts where the bar's buttons are not, and what shows
-            around its corners is the bar's own dark strip. */}
+            around its corners is the bar's own dark strip.
+
+            THE SAME MOTION AS THE EDITOR'S OWN SHEET (round 23, the owner:
+            "more smooth and clean on open and close, similar to the mobile
+            bottom sheet of the sidebar"). It faded as it moved, over 320ms:
+            a full height panel half see-through over the canvas while it
+            rose and fell. Now a solid slide on the sidebar's curve and time,
+            nothing else changing. */}
         {isMobileView && aiMounted && (
-          <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} fadeOnMove moveMs={320} keyboard="composer">
+          <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} keyboard="composer">
             <ThemeChat
               variant="sheet"
               installId={installId}
@@ -11645,11 +11676,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               * across it while the page rises in underneath — the swap used
               * to happen in one frame, which is the cut that read as cheap.
               */}
-            {(canvasLoaderUp || canvasLoaderLingers) && (
+            {(canvasCovered || canvasLoaderLingers) && (
               <div
                 className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-[#f4f5f7]"
-                data-leaving={!canvasLoaderUp}
-                aria-hidden={!canvasLoaderUp}
+                data-leaving={!canvasCovered}
+                aria-hidden={!canvasCovered}
               >
                 {/*
                   THE LOADER ALONE, ON A CLEAN CARD (round 16, the owner: "no
@@ -11662,13 +11693,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   light grey while it waits, never a white sheet, and fades
                   into the page when it arrives.
                 */}
-                {showCanvasLoader && (
+                {(showCanvasLoader || openHold) && (
                   <BuilderLoader
                     /* `relative`: above the outline, which is positioned. */
                     className="wb-loading-line relative"
                     tone="light"
                     lines={
-                      loading
+                      loading || openHold
                         ? ["Loading the editor", "Fetching your sections", "Just a moment"]
                         : ["Loading the page", "Just a moment"]
                     }

@@ -225,6 +225,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
     { key: "tips", label: tt("Tips") },
     { key: "total", label: tt("Total sales"), strong: true },
   ]
+  const shownRows = rows.filter((r) => r.key === "gross" || r.key === "net" || r.key === "total" || !b || (b[r.key] as number) !== 0 || (!!p && (p[r.key] as number) !== 0))
   const signed = (v: number, sign?: "-") => (sign && v > 0 ? `−${money(v)}` : money(v))
   const channels = (data?.channels ?? []).slice(0, CHANNEL_ROWS)
   const channelMax = Math.max(1, ...channels.map((c) => c.total))
@@ -268,38 +269,6 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
 
   return (
     <div aria-busy={state.loading} className={cn("grid grid-cols-1 gap-3 transition-opacity duration-300 lg:grid-cols-2", soft ? "opacity-60" : "opacity-100")} data-commerce-reports="">
-      <Card card="sales-breakdown" title={tt("Total sales breakdown")} help={tt("Gross sales at list price, less discounts and returns, is net sales. Add shipping, taxes and tips for total sales. Sales are dated by the order, returns by the day of the refund.")}>
-        {kinds ? (
-          /* The columns' names, over the amounts they head. */
-          <div className="flex h-7 items-end justify-between gap-3 border-b border-[#f1f2f4] pb-1.5 text-[11.5px] font-medium text-[#6b7280]" data-kind-columns="">
-            <span />
-            <span className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <span className="w-[72px] text-right sm:w-[84px]">{tt("Digital")}</span>
-              <span className="w-[72px] text-right sm:w-[84px]">{tt("Physical")}</span>
-              <span className="hidden w-[52px] sm:block" />
-              <span className="w-[76px] text-right sm:w-[88px]">{tt("Total")}</span>
-            </span>
-          </div>
-        ) : null}
-        <div className="divide-y divide-[#f1f2f4]">
-          {rows.map((r) => (
-            <div key={r.key} data-line={r.key} className={cn("flex h-[37px] items-center justify-between gap-3", kinds ? "text-[12.5px] sm:text-[13.5px]" : "text-[13.5px]", r.strong ? "font-semibold text-[#1a1a2e]" : "text-[#374151]")}>
-              {/* With the kind columns a phone has room for "Shipping", not "Shipping charges". */}
-              <span className="min-w-0 truncate">{kinds && r.key === "shipping" ? <><span className="sm:hidden">{tt("Shipping")}</span><span className="hidden sm:inline">{r.label}</span></> : r.label}</span>
-              <span className="flex shrink-0 items-center gap-2 sm:gap-3">
-                {kinds ? (
-                  <>
-                    <span data-kind="digital" className="w-[72px] text-right tabular-nums text-[#4b5563] sm:w-[84px]">{signed(kinds.digital[r.key] as number, r.sign)}</span>
-                    <span data-kind="physical" className="w-[72px] text-right tabular-nums text-[#4b5563] sm:w-[84px]">{signed(kinds.physical[r.key] as number, r.sign)}</span>
-                  </>
-                ) : null}
-                <span className={cn("w-[52px] text-right", kinds && "hidden sm:block")}>{b && p ? <Delta compared={compared} now={b[r.key] as number} before={p[r.key] as number} invert={r.invert} /> : null}</span>
-                <span data-kind="total" className={cn("text-right tabular-nums", kinds ? "w-[76px] sm:w-[88px]" : "min-w-[88px]")}>{b ? signed(b[r.key] as number, r.sign) : <Pending />}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      </Card>
 
       <Card
         card="sales-over-time"
@@ -322,7 +291,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
           <div className="mb-3 flex h-7 items-baseline gap-2.5" data-figure="">
             {head ? (
               <>
-                <span className="text-[22px] font-semibold tabular-nums tracking-tight text-[#1a1a2e]">{head.text}</span>
+                <span className="text-[22px] font-bold tabular-nums tracking-tight text-[#1a1a2e]">{head.text}</span>
                 <Delta compared={compared} now={head.now} before={head.before} />
               </>
             ) : (
@@ -384,7 +353,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
           <section key={f.key} data-card={f.key} className="flex min-h-[76px] min-w-0 items-center justify-between gap-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <HelpLabel as="h3" label={f.title} description={f.help} className="min-w-0 text-[13.5px] font-medium leading-5 text-[#4b5563]" />
             <div className="flex shrink-0 flex-col items-end gap-0.5">
-              <span className="flex h-7 items-center whitespace-nowrap text-[22px] font-semibold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{f.value ?? <Pending w="w-20" />}</span>
+              <span className="flex h-7 items-center whitespace-nowrap text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{f.value ?? <Pending w="w-20" />}</span>
               <span className="h-[18px] whitespace-nowrap">{f.delta}</span>
             </div>
           </section>
@@ -402,7 +371,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
             <div data-card="fulfil" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pr-5">
               <dt className="text-[13px] text-[#4b5563]">{tt("Fulfilled")}</dt>
               <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
-                <span className="text-[22px] font-semibold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{rate && rate.rate !== null ? percentText(rate.rate) : "–"}</span>
+                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{rate && rate.rate !== null ? percentText(rate.rate) : "–"}</span>
                 <span className="inline-flex items-center gap-2 text-[12px] tabular-nums text-[#6b7280]">
                   {rate && rate.rate !== null && rateBefore && rateBefore.rate !== null ? <Delta compared={compared} now={rate.rate} before={rateBefore.rate} /> : null}
                   {rate && rate.orders ? tt("{n} of {count} sent", { n: rate.fulfilled, count: rate.orders }) : null}
@@ -412,20 +381,56 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
             <div data-shipping="wait" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:px-5 sm:py-0">
               <dt className="text-[13px] text-[#4b5563]">{tt("Time to ship")}</dt>
               <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
-                <span className="text-[22px] font-semibold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{waitText ?? "–"}</span>
+                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{waitText ?? "–"}</span>
                 <span className="text-[12px] tabular-nums text-[#6b7280]">{data?.fulfillment.shipped ? tt("{count, plural, one {# parcel} other {# parcels}}", { count: data.fulfillment.shipped }) : tt("None shipped yet")}</span>
               </dd>
             </div>
             <div data-shipping="charged" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pl-5">
               <dt className="text-[13px] text-[#4b5563]">{tt("Shipping charged")}</dt>
               <dd className="flex flex-col items-end gap-0.5 sm:mt-1 sm:items-start">
-                <span className="text-[22px] font-semibold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{money((kinds ? kinds.physical.shipping : b.shipping) || 0)}</span>
+                <span className="text-[22px] font-bold leading-7 tabular-nums tracking-tight text-[#1a1a2e]">{money((kinds ? kinds.physical.shipping : b.shipping) || 0)}</span>
                 <span className="text-[12px] tabular-nums text-[#6b7280]">{tt("{count, plural, one {# physical order} other {# physical orders}}", { count: physicalOrders })}</span>
               </dd>
             </div>
           </dl>
         </Card>
       ) : null}
+      {/*
+        THE BREAKDOWN LAST, AND SHORT (round 23, the owner: "the total sales breakdown seems too complicated, too much
+        text, and should not be the first"). Sales over time leads, as Shopify's analytics does; the breakdown follows
+        the figures, with only the lines that hold money in either period (gross, net and total always), and no
+        change column: the change is the chart's.
+      */}
+      <Card card="sales-breakdown" title={tt("Sales breakdown")} help={tt("Gross sales less discounts and returns is net sales. Add shipping, taxes and tips for total sales.")} className="lg:col-span-2">
+        {kinds ? (
+          /* The columns' names, over the amounts they head. */
+          <div className="flex h-7 items-end justify-between gap-3 border-b border-[#f1f2f4] pb-1.5 text-[11.5px] font-medium text-[#6b7280]" data-kind-columns="">
+            <span />
+            <span className="flex shrink-0 items-center gap-2 sm:gap-3">
+              <span className="w-[72px] text-right sm:w-[84px]">{tt("Digital")}</span>
+              <span className="w-[72px] text-right sm:w-[84px]">{tt("Physical")}</span>
+              <span className="w-[76px] text-right sm:w-[88px]">{tt("Total")}</span>
+            </span>
+          </div>
+        ) : null}
+        <div className="divide-y divide-[#f1f2f4]">
+          {shownRows.map((r) => (
+            <div key={r.key} data-line={r.key} className={cn("flex h-[37px] items-center justify-between gap-3", kinds ? "text-[12.5px] sm:text-[13.5px]" : "text-[13.5px]", r.strong ? "font-semibold text-[#1a1a2e]" : "text-[#374151]")}>
+              {/* With the kind columns a phone has room for "Shipping", not "Shipping charges". */}
+              <span className="min-w-0 truncate">{kinds && r.key === "shipping" ? <><span className="sm:hidden">{tt("Shipping")}</span><span className="hidden sm:inline">{r.label}</span></> : r.label}</span>
+              <span className="flex shrink-0 items-center gap-2 sm:gap-3">
+                {kinds ? (
+                  <>
+                    <span data-kind="digital" className="w-[72px] text-right tabular-nums text-[#4b5563] sm:w-[84px]">{signed(kinds.digital[r.key] as number, r.sign)}</span>
+                    <span data-kind="physical" className="w-[72px] text-right tabular-nums text-[#4b5563] sm:w-[84px]">{signed(kinds.physical[r.key] as number, r.sign)}</span>
+                  </>
+                ) : null}
+                <span data-kind="total" className={cn("text-right tabular-nums", kinds ? "w-[76px] sm:w-[88px]" : "min-w-[88px]")}>{b ? signed(b[r.key] as number, r.sign) : <Pending />}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </Card>
       {data?.truncated ? (
         <p data-commerce-truncated="" className="text-[12px] text-[#6b7280] lg:col-span-2">{tt("This period has more orders than one report reads at once, so these figures leave the latest ones out. Choose a shorter period for exact figures.")}</p>
       ) : null}

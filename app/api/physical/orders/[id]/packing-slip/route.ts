@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { isUuid, physicalCaller } from "@/lib/physical/auth"
 import { checkoutOfOrderRow, loadOrder } from "@/lib/physical/orders-server"
 import { packingSlipHtml, paperAsked, slipLines, slipPaper } from "@/lib/physical/packing-slip"
+import { packingSlipFilename, renderPackingSlipPdf } from "@/lib/physical/packing-slip-pdf"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { creatorTimeZone } from "@/lib/account/time-zone"
 import { getServerTt } from "@/lib/i18n/server"
@@ -13,7 +14,11 @@ export const dynamic = "force-dynamic"
  * ===========================================================================
  *  ONE ORDER'S PACKING SLIP, AS A PAGE TO PRINT
  * ===========================================================================
- * GET /api/physical/orders/<checkout or line id>/packing-slip[?f=<shipment>|?loc=<location>][&paper=a4|letter][&prices=1]
+ * GET /api/physical/orders/<checkout or line id>/packing-slip[?f=<shipment>|?loc=<location>][&paper=a4|letter][&prices=1][&format=pdf]
+ *
+ * format=pdf: the same slip as a PDF (lib/physical/packing-slip-pdf.ts), which
+ * the app on a phone hands to the share sheet rather than leaving the order
+ * for a page (round 23).
  *
  * A whole HTML page (lib/physical/packing-slip.ts), the shop's own order only
  * (physicalCaller: the owner, or a team member whose role has orders). On a
@@ -67,6 +72,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return `${url.pathname}?${q.toString()}`
   }
   const whole = !shipmentId && !isUuid(loc)
+  if (url.searchParams.get("format") === "pdf") {
+    const pdf = await renderPackingSlipPdf(order, lines, { name: store?.name || "Storelib", logoUrl: null }, {
+      tt,
+      lang: language,
+      timeZone: zone,
+      paper: slipPaper(paper, request.headers.get("accept-language")),
+      shipmentLabel: shipmentIndex >= 0 ? tt("Package {n} of {total}", { n: shipmentIndex + 1, total: order.shipments.filter((s) => s.status !== "cancelled").length || 1 }) : null,
+    })
+    return new NextResponse(new Uint8Array(pdf), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${packingSlipFilename(order)}"`,
+        "Cache-Control": "private, no-store",
+        "X-Robots-Tag": "noindex",
+      },
+    })
+  }
   const html = packingSlipHtml(order, lines, { name: store?.name || "Storelib", logoUrl: store?.logoUrl ?? null }, {
     tt,
     lang: language,

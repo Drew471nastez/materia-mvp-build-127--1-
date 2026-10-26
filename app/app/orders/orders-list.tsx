@@ -167,8 +167,12 @@ export function OrdersList(props: OrdersListProps) {
 
 /* ─── Metrics ─────────────────────────────────────────────────────────── */
 
-/* While the next page is read the one shown stays, a little dimmer, after a beat so a quick answer never flickers. */
-const WAITING = "transition-opacity duration-150 aria-busy:opacity-60 aria-busy:delay-150"
+/*
+  While the next page is read the one shown stays as it is: no dimming (round 23, the owner: "get rid of the fade").
+  A view already read is drawn at once from orders-client's viewCache, and one that is not is narrowed in place from
+  the page on screen until the server's answer replaces it.
+*/
+const WAITING = ""
 
 function MetricsStrip({ metrics, comparable, currency, loading }: { metrics: MetricReading[]; comparable: boolean; currency: string; loading?: boolean }) {
   return (

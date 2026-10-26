@@ -44,6 +44,7 @@ import {
   MoreHorizontal,
   Package,
   PackageCheck,
+  Printer,
   RotateCcw,
   Send,
   ShoppingBag,
@@ -75,6 +76,7 @@ import {
   type TimelineTone,
 } from "@/lib/orders/timeline"
 import { copyText } from "@/lib/platform/copy-text"
+import { prefetchSlip, shareSlip } from "@/components/physical/slip-share"
 import {
   DeliveryBadge,
   FulfillmentBadge,
@@ -90,7 +92,7 @@ import {
   OrderBarFrame,
 } from "./order-parts"
 import { activityUrl, cachedJson, hasPayoutSteps, paidLineOf, readJson, stripeTimelineUrl } from "./order-prefetch"
-import { BuyerNoteCard, NoteComposer, PhysicalFulfillment, ShippingCard, historyOf, usePhysicalOrder } from "@/components/physical/order-panel"
+import { BuyerNoteCard, NoteComposer, PhysicalFulfillment, ShippingCard, historyOf, printSlip, usePhysicalOrder } from "@/components/physical/order-panel"
 import { COD_PAYMENT_METHOD } from "@/lib/physical/cash-on-delivery"
 import { currencySymbol, minorPerUnit } from "@/lib/orders/money"
 import { useReasons } from "@/lib/store/use-reasons"
@@ -188,6 +190,11 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
 
   /* A card payment, or cash on delivery once the seller has it (lib/physical/cash-on-delivery.ts): before that there is nothing to give back. */
   /* Every line with money left to send back, a part refunded one too, on Stripe or collected cash (lib/orders/order-view canRefundLine). */
+  /* The order's packing slip, for one with something to send. Read ahead on a phone, so the print icon shares it in the tap (components/physical/slip-share). */
+  const slipHref = parcel && parcel.lines.some((l) => l.requiresShipping) ? `/api/physical/orders/${encodeURIComponent(parcel.id)}/packing-slip` : null
+  React.useEffect(() => {
+    if (slipHref && phone) prefetchSlip(slipHref)
+  }, [slipHref, phone])
   const refundable = order.lines.filter(canRefundLine)
   const emailable = order.lines.some(canEmail)
   const firstReceipt = order.lines.find((l) => l.receipt_token)?.receipt_token
@@ -293,6 +300,23 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
         }
         actions={
           <>
+            {slipHref ? (
+              /* The packing slip, beside the menu (round 23, as Shopify's app): on a phone to the share sheet as a PDF (components/physical/slip-share), on a computer printed from a frame. */
+              <button
+                type="button"
+                className={cn(buttonSecondary, "shrink-0 px-2.5")}
+                aria-label={tt("Packing slip")}
+                title={tt("Packing slip")}
+                data-slip-print=""
+                onClick={() => {
+                  if (shareSlip(slipHref)) return
+                  if (phone) window.location.assign(slipHref)
+                  else void printSlip(slipHref).then((e) => e && onNotice(e))
+                }}
+              >
+                <Printer className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            ) : null}
             <ResponsiveActionMenu
               title={tt("Order #{number}", { number: order.number })}
               menuWidth="w-56"
@@ -306,7 +330,8 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
               }
             />
             {onStep ? (
-              <span className="flex shrink-0 items-center">
+              /* Previous and next are a computer's: on a phone the order is one screen with Back, as Shopify's app (round 23). */
+              <span className="flex shrink-0 items-center max-sm:hidden">
                 {position ? (
                   <span className="ml-1 mr-1 hidden text-[12px] tabular-nums text-[#6b7280] md:inline">
                     {tt("{value} of {count}", { value: position.index + 1, count: position.count })}

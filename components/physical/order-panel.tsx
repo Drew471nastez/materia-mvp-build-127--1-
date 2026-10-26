@@ -54,6 +54,7 @@ import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice
 import { LabelFields, ShipModeSwitch, labelsWithoutShipment, shipLabelRequest, useLabelFlow, useOrderLabels, voidLabelRequest, type LabelView } from "./buy-label"
 import { tt } from "@/lib/i18n/text"
 import { propertyText } from "@/lib/cart-uploads/rules"
+import { canShareSlip, shareSlip } from "@/components/physical/slip-share"
 import type { PaymentState } from "@/lib/physical/cash-on-delivery"
 
 export interface PhysicalLine {
@@ -303,6 +304,8 @@ export function PhysicalFulfillment({
     const qs = params.toString()
     const href = `/api/physical/orders/${encodeURIComponent(order.id)}/packing-slip${qs ? `?${qs}` : ""}`
     const label = q.summary ? tt("Order summary") : tt("Packing slip")
+    /* Round 23: where a PDF can go to the share sheet (the iOS app, a phone's browser), it goes there (components/physical/slip-share). */
+    if (canShareSlip()) return { label, icon: <Printer className="h-4 w-4" />, onClick: () => void shareSlip(href) }
     return phone
       ? { label, icon: <Printer className="h-4 w-4" />, href }
       : { label, icon: <Printer className="h-4 w-4" />, onClick: () => void printSlip(href).then((e) => e && setError(e)) }
@@ -2007,7 +2010,7 @@ function PartnerSendLine({ state, fallback, currency, place }: { state: PartnerS
  * Prints a packing slip on a computer without leaving the order: the page is read, put in a frame out of sight, and
  * the frame prints itself once its pictures are in. Null when it printed, else what went wrong.
  */
-async function printSlip(href: string): Promise<string | null> {
+export async function printSlip(href: string): Promise<string | null> {
   const res = await fetch(href, { credentials: "same-origin", cache: "no-store" }).catch(() => null)
   if (!res?.ok) return tt("The packing slip could not be made. Try again.")
   const html = await res.text()

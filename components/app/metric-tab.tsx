@@ -120,11 +120,11 @@ export function MetricTab({
       )}
     >
       {selected && line ? <span aria-hidden data-metric-tab-line className="absolute inset-x-0 bottom-0 h-[1.5px]" style={{ background: METRIC_TAB_LINE }} /> : null}
-      <span className={cn("block truncate text-[11px] font-medium sm:text-[12px]", selected ? "text-[#374151]" : "text-[#6b7280]")}>{label}</span>
+      <span className={cn("block truncate text-[12px] font-medium sm:text-[13px]", selected ? "text-[#1a1a2e]" : "text-[#4b5563]")}>{label}</span>
       <span className="mt-0.5 flex min-w-0 items-baseline gap-1.5">
         <span
           className={cn(
-            "truncate text-[18px] font-semibold tabular-nums tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] sm:text-[22px]",
+            "truncate text-[19px] font-bold tabular-nums tracking-tight transition-[filter,color,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] sm:text-[22px]",
             sample ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]",
             blurred ? "blur-[2px]" : "blur-0",
           )}
@@ -136,7 +136,7 @@ export function MetricTab({
       </span>
       <span
         className={cn(
-          "block truncate text-[10px] text-[#9ca3af] transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] sm:text-[11px]",
+          "block truncate text-[11px] text-[#9ca3af] transition-[filter,opacity] duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] sm:text-[11px]",
           blurred ? "blur-[1px]" : "blur-0",
         )}
       >
