@@ -1491,7 +1491,7 @@ export function WebsiteBuilderClient({
                         }}
                         data-edit-website=""
                         /* A finger is answered: the button sinks a little and darkens while it is held, eased both ways, with no grey flash of the browser's own. */
-                        className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white transition-[transform,background-color] duration-150 ease-out [-webkit-tap-highlight-color:transparent] touch-manipulation hover:bg-[#2d2d44] active:scale-[0.97] active:bg-[#0f0f1d] active:duration-75 motion-reduce:active:scale-100"
+                        className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white transition-[scale,background-color] duration-150 ease-out [-webkit-tap-highlight-color:transparent] touch-manipulation hover:bg-[#2d2d44] active:scale-[0.97] active:bg-[#0f0f1d] active:duration-75 motion-reduce:active:scale-100"
                       >
                         {tt("Edit website")}
                       </Button>

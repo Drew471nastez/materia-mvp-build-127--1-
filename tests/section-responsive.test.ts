@@ -2412,7 +2412,7 @@ check(
   // measured against the viewport and adds no height to the document.
   /"wb-editor fixed inset-0 flex flex-col/.test(editor) &&
     !/"wb-editor h-svh/.test(editor) &&
-    /<EditorFrame>/.test(wbLayout) && /className="fixed inset-0 overflow-hidden bg-\[#eef1f5\]"/.test(readRoot("components/website-builder/editor-frame.tsx")) &&
+    /<EditorFrame>/.test(wbLayout) && /className="fixed inset-0 overflow-hidden bg-\[#eef1f5\][^"]*"/.test(readRoot("components/website-builder/editor-frame.tsx")) &&
     !/h-svh overflow-hidden bg-background/.test(wbLayout),
 )
 
