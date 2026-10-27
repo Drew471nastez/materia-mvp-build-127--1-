@@ -166,7 +166,7 @@ async function main() {
     const boot = shopifyBootstrap({ shopName: "S", currency: "USD", designMode: false, storeId: SID }).replace(/^<script[^>]*>/, "").replace(/<\/script>$/, "")
     check("the bootstrap reads, with the store's id in it", (() => { try { new Function(boot); return true } catch { return false } })() && boot.includes(JSON.stringify(SID)))
     const designBoot = shopifyBootstrap({ shopName: "S", currency: "USD", designMode: true, storeId: SID })
-    check("  and nothing is copied in the builder's canvas", /if\(!S\.designMode&&SID\)/.test(designBoot))
+    check("  and nothing is copied in the builder's canvas", /if\(!EDITING&&SID\)/.test(designBoot) && /EDITING=true/.test(designBoot))
     const store = new Map<string, string>()
     class Storage {
       getItem(k: string) { return store.has(k) ? store.get(k)! : null }
@@ -178,9 +178,9 @@ async function main() {
     let cookie = ""
     const page = () => {
       const g: Record<string, unknown> = {
-        Storage, location: { protocol: "https:" }, setTimeout, Promise, JSON, Object, Array, String, HTMLScriptElement: { supports: () => false },
+        Storage, location: { protocol: "https:" }, setTimeout, Promise, JSON, Object, Array, String, HTMLScriptElement: { supports: () => false }, addEventListener: () => {},
         fetch: () => Promise.resolve({ ok: false }),
-        document: { addEventListener: () => {}, get cookie() { return cookie }, set cookie(v: string) { cookie = v.split(";")[0] }, head: { appendChild: () => {} } },
+        document: { readyState: "loading", addEventListener: () => {}, querySelectorAll: () => [], createElement: () => ({ setAttribute: () => {}, style: {} }), documentElement: { appendChild: () => {} }, get cookie() { return cookie }, set cookie(v: string) { cookie = v.split(";")[0] }, head: { appendChild: () => {} } },
       }
       g.window = g
       g.localStorage = new Storage()

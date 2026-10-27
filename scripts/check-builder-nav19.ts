@@ -221,9 +221,16 @@ async function live(browser: Browser) {
 
 /* ── the editor ───────────────────────────────────────────────────────────── */
 
-export async function editorFor(browser: Browser, width: number, height: number, touch: boolean, tweak?: (compat: { pages: Record<string, unknown[]> }) => void, zip?: JSZip): Promise<{ page: Page; frame: () => Promise<Frame>; close: () => void }> {
+/** A theme as an install already holds it (a repository's files, scripts/check-materia-editor.ts), in place of one converted from a zip. */
+export interface InstalledTheme {
+  files: Record<string, string>
+  settings: Record<string, unknown>
+  pages: { page_key: string; sections: unknown }[]
+}
+
+export async function editorFor(browser: Browser, width: number, height: number, touch: boolean, tweak?: (compat: { pages: Record<string, unknown[]> }) => void, zip?: JSZip, installed?: InstalledTheme): Promise<{ page: Page; frame: () => Promise<Frame>; close: () => void }> {
   const { bundle, css } = (await import("./editor-probe-harness.mjs")) as { bundle: string; css: string }
-  const t = await converted(zip)
+  const t = installed ?? (await converted(zip))
   const sources = Object.fromEntries(Object.entries(t.files).filter(([p]) => p.endsWith(".storelib")))
   const files = Object.fromEntries(Object.entries(t.files).filter(([p, v]) => p.startsWith("shopify/") && !v.startsWith("base64:")))
   const pages = Object.fromEntries(t.pages.map((p) => [p.page_key, p.sections]))

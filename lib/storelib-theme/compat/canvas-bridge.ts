@@ -1554,6 +1554,76 @@ export const CANVAS_BRIDGE = `
     document.head.appendChild(l);
     return kept[href];
   };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A SLIDER DRAWN AGAIN STAYS ON THE SLIDE IT WAS ON
+    ═══════════════════════════════════════════════════════════════════════
+    A section drawn again whole (swap) is new markup, and the theme's script
+    builds its sliders from the start: measured on Materia (scripts/
+    check-materia-editor.ts), an edit to the slideshow put it back from its
+    second slide on its first, and one to the content tabs threw their track
+    from 278px back to 0. Somebody looking at the third picture of a gallery
+    while changing a setting lost their place on every change.
+
+    So what the visitor had moved to is read before the swap and put back
+    after it: the scroll of every element scrolled inside the section (a
+    scroll-snap track, a list of thumbnails) and the slide of every Swiper
+    (the slider most Shopify themes ship, Materia's included). Each is found
+    again by its id, or by its tag and its own classes and which of those it
+    is in the section. A slider is put back as soon as the theme has built
+    it, before that frame is painted, without an animation; one not built
+    again within a second is left as the theme drew it.
+  */
+  var ownClasses = function (n) {
+    return Array.prototype.filter.call(n.classList, function (c) { return !/^(swiper-|is-|js-|active$|lazy|aos)/.test(c); }).slice(0, 3);
+  };
+  var placeKey = function (root, n) {
+    if (n.id) return { id: n.id };
+    var sel = n.tagName.toLowerCase() + ownClasses(n).map(function (c) { return "." + CSS.escape(c); }).join("");
+    return { sel: sel, at: Array.prototype.indexOf.call(root.querySelectorAll(sel), n) };
+  };
+  var placeOf = function (root, k) {
+    if (k.id) { try { return root.querySelector("#" + CSS.escape(k.id)); } catch (e) { return null; } }
+    try { return root.querySelectorAll(k.sel)[k.at] || null; } catch (e) { return null; }
+  };
+  var placesIn = function (el) {
+    var out = [];
+    Array.prototype.forEach.call(el.querySelectorAll("*"), function (n) {
+      var sw = n.swiper, slide = sw && !sw.destroyed && typeof sw.realIndex === "number" ? sw.realIndex : 0;
+      if (n.scrollLeft || n.scrollTop || slide > 0) out.push({ key: placeKey(el, n), left: n.scrollLeft, top: n.scrollTop, slide: slide });
+    });
+    return out;
+  };
+  var putPlacesBack = function (next, places) {
+    if (!places.length) return;
+    var until = performance.now() + 1000;
+    var step = function () {
+      if (!next.isConnected) return;
+      var left = 0;
+      places.forEach(function (p) {
+        if (p.done) return;
+        var n = placeOf(next, p.key);
+        if (!n) { left++; return; }
+        if (p.slide > 0) {
+          var sw = n.swiper;
+          if (!sw || sw.destroyed) { left++; return; }
+          if (!p.slid) {
+            try { if (sw.params && sw.params.loop && sw.slideToLoop) sw.slideToLoop(p.slide, 0, false); else sw.slideTo(p.slide, 0, false); } catch (e) {}
+            p.slid = true;
+          }
+        }
+        if (p.left || p.top) {
+          if (Math.abs(n.scrollLeft - p.left) > 1 || Math.abs(n.scrollTop - p.top) > 1) n.scrollTo({ left: p.left, top: p.top, behavior: "instant" });
+          /* Short of it: the pictures that make the track that wide are not in yet. */
+          if (Math.abs(n.scrollLeft - p.left) > 1 || Math.abs(n.scrollTop - p.top) > 1) { left++; return; }
+        }
+        p.done = true;
+      });
+      /* Before every frame, so a slider the theme builds in a later task is moved before it is ever painted on its first slide. */
+      if (left && performance.now() < until) requestAnimationFrame(step);
+    };
+    step();
+  };
   var swap = function (id, html, prev) {
     var tpl = document.createElement("template");
     tpl.innerHTML = html;
@@ -1571,6 +1641,7 @@ export const CANVAS_BRIDGE = `
         tf.innerHTML = from;
         try { pairs = pairsOf(el, tf.content.firstElementChild, next, []); } catch (e) { pairs = []; }
       }
+      var places = placesIn(el);
       fire(el, "shopify:section:unload", { sectionId: id, load: true });
       /* Held at its height until its pictures are in: a new <img> has no size until it decodes. */
       var y = scrollY;
@@ -1597,6 +1668,7 @@ export const CANVAS_BRIDGE = `
       drawn[id] = html;
       fire(next, "shopify:section:load", { sectionId: id, load: true });
       wake(next);
+      putPlacesBack(next, places);
       rewatch(pairs, next);
       keepShown(pairs);
       if (selected.section === id) mark(selected.section, selected.block, false);
