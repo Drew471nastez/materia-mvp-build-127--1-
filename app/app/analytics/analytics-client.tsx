@@ -469,6 +469,27 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   /* The row follows the chosen tab on a phone; the swipe itself is the browser's. */
   const metricStripRef = useTabStrip<HTMLDivElement>(chartMetricFilter, tabOrder)
   const revealRef = useRevealCards()
+  /*
+    A NEW PERIOD ARRIVES, IT IS NOT CUT IN (round 25, the owner: "time frame apply on Orders and Analytics: a smooth
+    reveal"). When the figures of another period, place, product or kind are on screen (landed, or read from what was
+    kept, which used to swap with no wait and no fade at all), the figures and the cards already holding the answer
+    come in from a shade over 260ms, as a new period's orders do (app/globals.css .orders-reveal): opacity only, the
+    ones on screen only. Cards still on their way fade back in by themselves as theirs land (analytics-reports `soft`).
+  */
+  const revealedKey = useRef(waitingKey)
+  useLayoutEffect(() => {
+    if (waitingFigures || revealedKey.current === waitingKey) return
+    revealedKey.current = waitingKey
+    const root = revealRef.current
+    if (!root || typeof root.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const bottom = window.innerHeight
+    const shown = (el: Element) => {
+      const r = el.getBoundingClientRect()
+      return r.bottom > 0 && r.top < bottom && !el.closest('[aria-busy="true"], [data-soft], [data-reveal="wait"]')
+    }
+    const els = [metricStripRef.current, ...root.querySelectorAll<HTMLElement>("section[data-card]")].filter((el): el is HTMLDivElement => !!el && shown(el))
+    for (const el of els) el.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 260, easing: "cubic-bezier(0.33, 1, 0.68, 1)" })
+  }, [waitingKey, waitingFigures, revealRef, metricStripRef])
   const trendData = useMemo<AnalyticsChartData[]>(() => {
     if (!answer) return []
     const r = answer.reports

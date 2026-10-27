@@ -280,6 +280,15 @@ try {
     /* 5. Another period, from the picker. */
     {
       const before = await state(p)
+      /* Round 25: the new period's figures and cards come in from a shade (analytics-client, revealedKey). Every fade asked for is recorded. */
+      await p.evaluate(() => {
+        window.__reveals = []
+        const orig = Element.prototype.animate
+        Element.prototype.animate = function (k, o) {
+          if (Array.isArray(k) && k[0]?.opacity === 0.25) window.__reveals.push({ card: this.matches("section[data-card]"), ms: o?.duration })
+          return orig.call(this, k, o)
+        }
+      })
       await p.evaluate(() => [...document.querySelectorAll("button[aria-haspopup=dialog]")].find((b) => /Last 7 days/.test(b.textContent)).click())
       await sleep(450)
       await p.evaluate(() => document.querySelector('[data-row="last_30_days"]').click())
@@ -291,6 +300,8 @@ try {
       expect(d.skeletons === 0, "the cards keep their figures, softened, instead of skeletons", d.skeletons)
       /* A new period brings new numbers, and a number that is wider or narrower moves the text beside it. Nothing else may move. */
       expect(d.cls < 0.005, "nothing moves but text the new numbers change the width of", d.cls)
+      const reveals = await p.evaluate(() => window.__reveals)
+      expect(reveals.length >= 2 && reveals.some((r) => !r.card) && reveals.every((r) => r.ms === 260), "the new period comes in from a shade, once, over 260ms: the figures and the cards on screen holding it", { strip: reveals.filter((r) => !r.card).length, cards: reveals.filter((r) => r.card).length })
     }
 
     /*
