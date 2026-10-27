@@ -606,6 +606,8 @@ export const CANVAS_BRIDGE = `
     lent = a;
   }, true);
   document.addEventListener("mouseleave", giveBack);
+  /* The press gives it back first of all (CANVAS_HEAD's listener, before any of the theme's): a theme reading its own link at pointerdown or click (Materia's section links) reads what it wrote, not the borrowed address. */
+  window.__slGiveBack = giveBack;
   /*
     WHERE THE POINTER IS GOING. A link the mouse rests on, or a finger lands
     on, is told to the builder before the click, so it can ask for that
@@ -963,9 +965,36 @@ export const CANVAS_BRIDGE = `
     inline style changed restyles this theme's page (THE BUILDER'S OWN LAYER).
   */
   var farIO = null, farSeen = typeof WeakSet === "function" ? new WeakSet() : null, farOn = {};
+  /*
+    A MARGIN THAT LEAVES THE SECTION (round 25). Resting is containment, and a
+    box with containment keeps its children's margins inside it: a heading's
+    top margin that collapsed out through the section (a plain block with
+    no padding or border between them) is suddenly inside it, and the page
+    is longer or shorter by it as the section rests or wakes. A section link
+    scrolling smoothly toward a section below then landed short of it, under
+    the header (scripts/check-materia-section-links.mjs: 40px of the page
+    gone mid scroll). Such a section never rests; nothing of it moves.
+  */
+  var marginEscapes = function (s) {
+    var ends = [["firstElementChild", "nextElementSibling", "Top"], ["lastElementChild", "previousElementSibling", "Bottom"]];
+    for (var e = 0; e < 2; e++) {
+      var box = s;
+      for (var depth = 0; depth < 8 && box; depth++) {
+        var bs = getComputedStyle(box);
+        if (bs.display !== "block" || bs.overflow !== "visible" || parseFloat(bs["padding" + ends[e][2]]) || parseFloat(bs["border" + ends[e][2] + "Width"]) || bs.contain !== "none") break;
+        var child = box[ends[e][0]];
+        while (child) { var cp = getComputedStyle(child); if (cp.display !== "none" && cp.position !== "absolute" && cp.position !== "fixed" && cp.cssFloat === "none") break; child = child[ends[e][1]]; }
+        if (!child) break;
+        if (parseFloat(getComputedStyle(child)["margin" + ends[e][2]])) return true;
+        box = child;
+      }
+    }
+    return false;
+  };
   var farOk = function (s) {
     if (!s.isConnected || !s.parentElement || s.parentElement.closest(".shopify-section")) return false;
     if (/(^|\s)shopify-section-group-/.test(s.className)) return false;
+    if (marginEscapes(s)) return false;
     var all = s.getElementsByTagName("*");
     if (all.length > 8000) return false;
     for (var i = 0; i < all.length; i++) { var p = getComputedStyle(all[i]).position; if (p === "fixed" || p === "sticky") return false; }
@@ -3388,7 +3417,7 @@ export const CANVAS_SWITCH = `
   chosen M stayed with S's price, id and label. pushState and replaceState
   keep the state and leave the address as it is when the browser refuses it.
 */
-export const CANVAS_HEAD = `<style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{position:fixed!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}preload-page *,.preload-page *,website-intro *,.website-intro *,#preloader *,.site-preloader *,.page-loader *,.page-loading-overlay *{visibility:hidden!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
+export const CANVAS_HEAD = `<script>addEventListener("pointerdown",function(){var g=window.__slGiveBack;if(g)g()},true);addEventListener("keydown",function(){var g=window.__slGiveBack;if(g)g()},true);</script><style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{position:fixed!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}preload-page *,.preload-page *,website-intro *,.website-intro *,#preloader *,.site-preloader *,.page-loader *,.page-loading-overlay *{visibility:hidden!important;animation-duration:1ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:1ms!important;transition-delay:0s!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
 ["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(n),configurable:true})}catch(e){}}});
 try{document.cookie}catch(e){var jar=S("cookie");try{Object.defineProperty(document,"cookie",{get:function(){var o=[];for(var i=0;i<jar.length;i++){var k=jar.key(i);o.push(k+"="+jar.getItem(k))}return o.join("; ")},set:function(v){var parts=String(v).split(";"),first=parts.shift()||"",at=first.indexOf("=");if(at<1)return;var k=first.slice(0,at).trim(),val=first.slice(at+1).trim(),gone=false;parts.forEach(function(p){var q=p.split("="),n=(q[0]||"").trim().toLowerCase(),x=q.slice(1).join("=").trim();if(n==="max-age"&&Number(x)<=0)gone=true;if(n==="expires"){var t=Date.parse(x);if(!isNaN(t)&&t<=Date.now())gone=true}});if(gone)jar.removeItem(k);else jar.setItem(k,val)},configurable:true})}catch(e2){}}
 if(typeof IntersectionObserver==="function"){var IO=IntersectionObserver,watching=new WeakMap(),bySig=new Map(),gone=new WeakSet();var sig=function(el){return el.tagName+"."+String(el.getAttribute("class")||"").split(/\\s+/).filter(Boolean).sort().join(".")};var W=class extends IO{observe(t){try{gone.delete(this);if(t&&t.nodeType===1&&t.closest&&t.closest(".shopify-section")){var by=watching.get(t);if(!by)watching.set(t,by=new Set());by.add(this);if(String(t.getAttribute("class")||"").trim()){var k=sig(t),set=bySig.get(k);if(!set)bySig.set(k,set=new Set());set.add(this)}}}catch(e){}return super.observe(t)}unobserve(t){try{var by=watching.get(t);if(by)by.delete(this)}catch(e){}return super.unobserve(t)}disconnect(){gone.add(this);var me=this;bySig.forEach(function(set){set.delete(me)});return super.disconnect()}};window.IntersectionObserver=W;window.__slIO=IO;window.__slWatch={watching:watching,bySig:bySig,usable:function(io){var r=io.root;return !gone.has(io)&&(!r||r.nodeType===9)}}}

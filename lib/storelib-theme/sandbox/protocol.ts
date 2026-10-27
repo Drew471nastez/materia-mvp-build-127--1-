@@ -112,6 +112,13 @@ export type GuestMessage =
   | { k: "error"; id: string; message: string }
   /** `storelib.navigate(path)`, for a section that declared "navigation". */
   | { k: "navigate"; id: string; path: string }
+  /**
+   * `storelib.scrollToSection(key)`, or navigate() to a section of this
+   * page: the page scrolls its own scroller to that section (round 25, the
+   * parent's side of a script that cannot reach the page). No capability: it
+   * only moves the page the visitor is on, and only to one of its sections.
+   */
+  | { k: "reveal"; id: string; section: string }
 
 /**
  * A path on THIS site: starts with one slash, and is nothing else. "//host"
@@ -123,6 +130,31 @@ export function acceptNavigation(path: unknown): string | null {
   if (typeof path !== "string" || path.length === 0 || path.length > 512) return null
   if (!/^\/(?![\/\\])[^\s\\]*$/.test(path)) return null
   return path
+}
+
+/**
+ * A section of this page, as a script names it: its key or its anchor
+ * (`section-<key>`, or the name the section gave itself), letters, digits,
+ * `_` and `-` only, and short. Anything else is refused before it reaches a
+ * selector.
+ */
+export function acceptSectionKey(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const key = raw.replace(/^#/, "")
+  return /^[A-Za-z0-9][A-Za-z0-9_-]{0,95}$/.test(key) ? key : null
+}
+
+/**
+ * The section a navigation means when it stays on this page (`/#section-x`
+ * or `/page#x` on /page): its key, else null and it is a navigation.
+ */
+export function samePageSection(path: string, here: string): string | null {
+  const at = path.indexOf("#")
+  if (at < 0) return null
+  const page = (p: string) => p.replace(/\/+$/, "") || "/"
+  const before = path.slice(0, at)
+  if (before && page(before.split("?")[0]) !== page(here)) return null
+  return acceptSectionKey(path.slice(at + 1))
 }
 
 /** True when the page may write this attribute at a section's request. */

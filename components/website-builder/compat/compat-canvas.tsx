@@ -689,6 +689,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       /* The theme is told it is on the website, so its own motion plays as there (THE THEME MOVES AS ON THE WEBSITE, at the top of this file). */
       themeDesignMode: false,
       host: "",
+      /* The page's canonical is the website's (round 25): a theme resolving its own same page links against <link rel="canonical"> (Materia's section links) read the builder's address from it in a frame with no origin. */
+      ...canonicalOf(props.siteUrl),
       products,
       pickable: catalog,
       collections,
@@ -760,7 +762,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   stampRef.current = stamp
   const canvasSite = (): SiteData => {
     const { products, catalog, collections, menus } = dataRef.current
-    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", designMode: true, themeDesignMode: false, i18n }
+    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", ...canonicalOf(props.siteUrl), designMode: true, themeDesignMode: false, i18n }
   }
   /* `ahead`: a page drawn out of sight (KEPT PAGES): its own page, at its top, never an account page. */
   const draw = (list: StoredSection[], ahead?: CompatPage) => {
@@ -1920,6 +1922,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       menus,
       shop: current.shop,
       host: "",
+      ...canonicalOf(props.siteUrl),
       designMode: true,
       themeDesignMode: false,
       pricing: canvasPricing(installId),
@@ -2382,6 +2385,16 @@ export function CompatCanvas(props: CompatCanvasProps) {
       )}
     </div>
   )
+}
+
+/** The website's own host, for the page's canonical (canonical_url), when the builder knows the address. */
+function canonicalOf(siteUrl: string | undefined): { canonicalHost?: string } {
+  if (!siteUrl) return {}
+  try {
+    return { canonicalHost: new URL(siteUrl).host }
+  } catch {
+    return {}
+  }
 }
 
 /*

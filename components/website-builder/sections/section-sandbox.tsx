@@ -31,12 +31,16 @@ import {
   SANDBOX_LIMITS,
   acceptNavigation,
   acceptPatch,
+  acceptSectionKey,
+  samePageSection,
   type GuestMessage,
   type HostMessage,
   type Patch,
 } from "@/lib/storelib-theme/sandbox/protocol"
 import { GUEST_SOURCE } from "@/lib/storelib-theme/sandbox/guest-source"
 import { ownDatabase } from "@/lib/website-builder/own-database"
+import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
+import { SECTION_ANCHOR_PREFIX } from "@/lib/website-builder/section-anchors"
 
 export interface SandboxSection {
   id: string
@@ -115,6 +119,7 @@ export function SectionSandboxProvider({
   /** Read inside the message handler, which is set up once. */
   const inEditorRef = useRef(inEditor)
   inEditorRef.current = inEditor
+  const lastReveal = useRef(0)
 
   const send = useCallback((msg: HostMessage) => {
     const win = frameRef.current?.contentWindow
@@ -155,7 +160,37 @@ export function SectionSandboxProvider({
         }
         return
       }
+      /*
+        TO ANOTHER SECTION OF THIS PAGE (round 25), the page's side of a
+        script that cannot reach it: a registered section of this frame asks,
+        the key is checked, and the page scrolls its own scroller there with
+        section-motion's scroll (the canvas's or the window, the sticky
+        header measured at the start and on the last frame, a person's own
+        scroll stopping it, no travel for reduced motion). Once every 250ms
+        at most.
+      */
+      const reveal = (from: string, raw: unknown) => {
+        const entry = live.current.get(from)
+        const key = acceptSectionKey(raw)
+        if (!entry || !key || !entry.root.isConnected) return false
+        const now = performance.now()
+        if (now - lastReveal.current < 250) return true
+        const root = themeRootOf(entry.root)
+        if (!root) return false
+        const hash = key.startsWith(SECTION_ANCHOR_PREFIX) ? key : `${SECTION_ANCHOR_PREFIX}${key}`
+        const went = scrollToHash(root, `#${hash}`) || scrollToHash(root, `#${key}`)
+        if (went) lastReveal.current = now
+        return went
+      }
+      if (msg.k === "reveal") {
+        reveal(String(msg.id), msg.section)
+        return
+      }
       if (msg.k === "navigate") {
+        /* A section of this page is a scroll, in the editor too, not a page load. */
+        /* In the builder the address is the editor's: the section being on the canvas is what makes it this page. */
+        const same = typeof msg.path === "string" ? samePageSection(msg.path, inEditorRef.current ? msg.path.split("#")[0].split("?")[0] || "/" : window.location.pathname) : null
+        if (same && reveal(String(msg.id), same)) return
         /**
          * THE PAGE'S OWN RECORD OF WHAT THE SECTION DECLARED, not the frame's
          * word for it: the capabilities came from the compiled schema when

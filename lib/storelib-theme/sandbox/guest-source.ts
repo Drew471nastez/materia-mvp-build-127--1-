@@ -243,6 +243,8 @@ export const GUEST_SOURCE = `
         options = options || {};
         section.push({ k: "scroll", i: i, left: options.left, top: options.top, smooth: options.behavior === "smooth" });
       },
+      /* Another section of this page, by its key or anchor: the page scrolls itself there (protocol.ts reveal). */
+      scrollToSection: function (key) { post({ k: "reveal", id: section.id, section: String(key) }); },
     };
     /* Present only when declared. The page checks the declaration again
        before it acts: a message is not a permission. */
