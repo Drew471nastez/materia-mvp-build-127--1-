@@ -20,7 +20,7 @@
  */
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import type { ConnectionsBrief } from "@/lib/agent-access/connection-mark"
+import { isMissingActivityTable, type ConnectionsBrief } from "@/lib/agent-access/connection-mark"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -65,9 +65,11 @@ export async function GET(req: Request, { params }: Params) {
       github: link.error || !link.data ? null : { repo: (link.data as { repo_full_name: string | null }).repo_full_name ?? null },
       latest: row ? { name: row.agent_name, at: row.created_at } : null,
     }
-    /* Without the activity log there is nothing to follow; the mark can still be drawn. */
+    /* Without the activity log there is nothing to follow; the mark can still be drawn.
+       A blip is not that: the editor asks again. Only a missing table stops it. */
     const syncAt = link.error || !link.data ? null : ((link.data as { updated_at?: string | null }).updated_at ?? null)
-    return NextResponse.json({ ready: !latest.error, cursor: row?.id ?? 0, events: [], connections, sync_at: syncAt }, { headers: NO_STORE })
+    const missing = isMissingActivityTable(latest.error)
+    return NextResponse.json({ ready: !latest.error, missing, cursor: row?.id ?? 0, events: [], connections, sync_at: syncAt }, { headers: NO_STORE })
   }
 
   /* `detail` (an agent's page operations) arrived with RUN_AGENT_MCP.sql; without it, the rows as before. */
@@ -77,7 +79,10 @@ export async function GET(req: Request, { params }: Params) {
   const linkRead = supabase.from("theme_github_links").select("updated_at").eq("install_id", installId).maybeSingle()
   let { data, error } = await read("id, agent_name, path, action, created_at, detail")
   if (error) ({ data, error } = await read("id, agent_name, path, action, created_at"))
-  if (error) return NextResponse.json({ ready: false, cursor: after, events: [] }, { headers: NO_STORE })
+  if (error) {
+    if (isMissingActivityTable(error)) return NextResponse.json({ ready: false, missing: true, cursor: after, events: [] }, { headers: NO_STORE })
+    return NextResponse.json({ ready: true, retry: true, cursor: after, events: [] }, { status: 503, headers: NO_STORE })
+  }
   const events = (data ?? []) as unknown as { id: number }[]
   const linked = await linkRead
   const syncAt = linked.error || !linked.data ? null : ((linked.data as { updated_at?: string | null }).updated_at ?? null)

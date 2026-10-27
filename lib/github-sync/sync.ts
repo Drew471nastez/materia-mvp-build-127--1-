@@ -458,10 +458,15 @@ function newQualityErrors(source: string, original: string | undefined, path: st
  * it again from the draft (or keeps an edit not saved yet, and says so).
  */
 async function logActivity(db: Db, installId: string, who: string, row: { path: string; action: "created" | "updated" | "page" | "page_created"; detail?: { page?: string; replaced: true } }) {
-  try {
-    await db.from("theme_agent_activity").insert({ install_id: installId, token_id: null, agent_name: who, path: row.path, action: row.action, ...(row.detail ? { detail: row.detail } : {}) })
-  } catch {
-    /* the builder hears about it on its next load instead */
+  const body = { install_id: installId, token_id: null, agent_name: who, path: row.path, action: row.action, ...(row.detail ? { detail: row.detail } : {}) }
+  /* The client does not throw: a failed insert used to be ignored, and the open editor never heard about the push. */
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { error } = await db.from("theme_agent_activity").insert(body)
+    if (!error) return
+    if (attempt === 0 && row.detail) {
+      const plain = await db.from("theme_agent_activity").insert({ install_id: installId, token_id: null, agent_name: who, path: row.path, action: row.action })
+      if (!plain.error) return
+    }
   }
 }
 

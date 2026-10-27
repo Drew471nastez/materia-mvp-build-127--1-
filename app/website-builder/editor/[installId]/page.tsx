@@ -2878,7 +2878,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
   const loadStorelibSources = useCallback(async (opts?: { hold?: boolean }): Promise<Record<string, string> | null> => {
     try {
-      const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`)
+      const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`, { cache: "no-store" })
       if (!res.ok) return null
       const d = (await res.json()) as { files?: Record<string, string>; settings_schema?: string | null }
       const files = d.files ?? {}
@@ -7853,6 +7853,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     recheck: projectSettingsOpen,
     onEvents: handleAgentEvents,
     onSyncChanged: () => void refreshSync(),
+    /* Applying a line threw: the files are already saved. Read them, instead of waiting for a refresh. */
+    onStale: () => {
+      void loadStorelibSources()
+      if (compatInstall) {
+        compatFilesChanged(installId)
+        setCompatFilesVersion((n) => n + 1)
+      }
+      if (!isDirtyRef.current && !savingRef.current && !publishing) void loadData({ quiet: true })
+    },
   })
   /**
    * WHAT IS OPEN, for a connected agent's storelib_read_selected_section.
@@ -10368,12 +10377,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [forgetPage])
   const reloadAiSources = useCallback(() => {
     void loadStorelibSources()
+    /* Drop the copy read when the editor opened. Without this, the canvas asks again and is handed that copy, so a run's files show only after a full refresh. */
+    compatFilesChanged(installId)
     /* An imported theme draws from its own files and its panel is made from its schema: both read again after a run that wrote code. */
     if (compatInstall) {
       setCompatFilesVersion((n) => n + 1)
       setCompatPanelVersion((n) => n + 1)
     }
-  }, [loadStorelibSources, compatInstall])
+  }, [loadStorelibSources, compatInstall, installId])
   /**
    * A SECTION FILE THE RUN HAS JUST WRITTEN, drawn now. It was compiled and
    * drawn on the server before it was sent, and it is saved when the run
@@ -10383,7 +10394,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const aiSourceWritten = useCallback((path: string, source: string) => {
     setStorelibSources((previous) => (previous[path] === source ? previous : { ...previous, [path]: source }))
-  }, [])
+    /* An imported theme draws from its shopify files, not this map. Patch them as the line arrives, not after a refresh. */
+    if (path.startsWith("shopify/") && !patchCompatFiles(installId, { [path]: source })) compatFilesChanged(installId)
+  }, [installId])
   /**
    * WHAT STORELIB AI IS WORKING ON, AND WHAT IT JUST CHANGED: a faint sheen
    * over the first while the run works, a violet ring that fades once over

@@ -22,6 +22,7 @@ import {
   connectionTip,
   describeChange,
   kindForName,
+  activityFollowUp,
   nextPollDelay,
   pickConnection,
   sectionTypeOf,
@@ -83,6 +84,7 @@ function main() {
   check("to one small read every ten seconds and no slower", idle[idle.length - 1] === POLL_MAX_MS && POLL_MAX_MS === 10_000)
   // Changed on purpose (the owner: lower Vercel costs): after two quiet minutes with nobody at the editor it reads every thirty seconds; tests/polling-costs.test.ts pins that.
   check("changes arriving bring it back to about once a second, so the page follows a push", nextPollDelay(POLL_MAX_MS, true) === POLL_ACTIVE_MS && POLL_ACTIVE_MS === 1_000)
+  check("a missing activity table stops the editor; a blip is asked again", activityFollowUp(200, { missing: true, ready: false }) === "stop" && activityFollowUp(503, { ready: true, retry: true }) === "retry" && activityFollowUp(401, null) === "retry" && activityFollowUp(200, { ready: true }) === "ok" && activityFollowUp(200, { ready: false }) === "retry")
   check("an hour idle is at most 370 small reads, where it was 720 at the start", Math.ceil(3_600_000 / POLL_MAX_MS) + 10 <= 370)
 
   console.log("\nThe notice's lines, in words")

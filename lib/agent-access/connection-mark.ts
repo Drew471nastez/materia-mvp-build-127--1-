@@ -211,13 +211,11 @@ export function actedRecently(mark: ConnectionMark, now: number): boolean {
  * again from the quick end (site-connections.tsx), so nobody waits to see
  * what an agent or a push did while they were somewhere else.
  *
- * After two quiet minutes (no change arrived, nobody came back to the tab or
- * touched it) it drops to one read every thirty seconds: an editor left open
- * on a second screen all afternoon was 360 function calls an hour for
- * nothing. Changed on purpose (the owner: lower Vercel costs). The person at
- * the screen still sees a push within seconds, because coming back to the
- * tab, the pointer coming back over it, or a press or key in it all return
- * to the quick end at once.
+ * After two quiet minutes `nextPollDelay` would drop to one read every thirty
+ * seconds. The open editor does not use that while the tab is visible
+ * (site-connections.tsx): a push then sat there until the editor was
+ * refreshed. A visible editor asks about once a second the whole time
+ * something is connected. A hidden tab asks nothing.
  */
 export const POLL_ACTIVE_MS = 1_000
 export const POLL_BASE_MS = 5_000
@@ -235,6 +233,26 @@ export function nextPollDelay(previous: number, changesArrived: boolean, quietMs
   if (changesArrived) return POLL_ACTIVE_MS
   if (quietMs >= POLL_IDLE_AFTER_MS) return POLL_IDLE_MS
   return Math.min(POLL_MAX_MS, Math.max(POLL_BASE_MS, Math.round(previous * 1.6)))
+}
+
+/**
+ * One read of the activity log, and what the open editor does next.
+ * A database without the table stops. A 401 while the session refreshes, a
+ * 503, or a read that failed for any other reason is asked again: stopping
+ * there is what left a push unseen until the editor was refreshed.
+ */
+export function activityFollowUp(status: number, body: { ready?: boolean; missing?: boolean; retry?: boolean } | null): "ok" | "retry" | "stop" {
+  if (body?.missing === true) return "stop"
+  if (status === 200 && body != null && body.ready !== false && body.retry !== true) return "ok"
+  return "retry"
+}
+
+/** The activity table is not there (Postgres or PostgREST), as opposed to a blip. */
+export function isMissingActivityTable(error: { code?: string | null; message?: string | null } | null | undefined): boolean {
+  if (!error) return false
+  const code = error.code ?? ""
+  if (code === "42P01" || code === "PGRST205") return true
+  return /does not exist|schema cache|could not find the table/i.test(error.message ?? "")
 }
 
 /**

@@ -367,7 +367,7 @@ async function main() {
     return handler.length > 0 && !/revealSection|scrollWithin|scrollToSection/.test(handler)
   })())
   check("never twice", /!sectionsRef\.current\.some\(\(sec\) => sec\.type === type\)/.test(editor))
-  check("and it stops asking on a database without the tables", /if \(!res\.ok \|\| d\.ready === false\) \{\s*ready = false/.test(follow) && /if \(!ready\) \{\s*stopped = true/.test(follow))
+  check("and it stops asking on a database without the tables, and asks again after any other failure", /activityFollowUp\(/.test(follow) && /follow === "stop"/.test(follow) && /stopped = true/.test(follow) && /export function activityFollowUp/.test(read("lib/agent-access/connection-mark.ts")) && /body\?\.missing === true/.test(read("lib/agent-access/connection-mark.ts")))
 
   console.log("\nThe docs say how")
 

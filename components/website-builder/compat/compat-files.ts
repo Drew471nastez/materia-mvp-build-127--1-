@@ -87,7 +87,7 @@ export function loadCompatFiles(installId: string): Promise<Record<string, strin
     () =>
       deadline(
         (async () => {
-          const r = await fetchWithin(`/api/website-builder/themes/${installId}/files?compat=1`, {}, FILES_WAIT_MS)
+          const r = await fetchWithin(`/api/website-builder/themes/${installId}/files?compat=1`, { cache: "no-store" }, FILES_WAIT_MS)
           if (!r.ok) throw new Error(`the theme's files answered ${r.status}`)
           const d = (await r.json()) as { files?: Record<string, string> }
           return d.files ?? {}

@@ -49,6 +49,7 @@ console.log("\nBuilder activity")
   check("an hour left alone is about 130 reads, where it was 360", reads(60) <= 130, reads(60))
   const hook = read("components/website-builder/site-connections.tsx")
   check("the quiet clock starts again on a change, a wake, a press or a key", /if \(arrived\) lively = Date\.now\(\)/.test(hook) && /woke = Date\.now\(\)\s*lively = Date\.now\(\)/.test(hook) && /addEventListener\("pointerdown", stir, true\)/.test(hook) && /addEventListener\("keydown", stir, true\)/.test(hook))
+  check("a visible editor asks once a second, so a push is not left until a refresh", /document\.visibilityState === "visible" \? \(arrived && eventsFull \? 200 : POLL_ACTIVE_MS\)/.test(hook))
   check("and the wakes on focus, visibility and the pointer are kept", /addEventListener\("visibilitychange", wake\)/.test(hook) && /addEventListener\("focus", wake\)/.test(hook) && /addEventListener\("pointerenter", wake\)/.test(hook))
   check("every listener is taken off again", /removeEventListener\("pointerdown", stir, true\)/.test(hook) && /removeEventListener\("keydown", stir, true\)/.test(hook))
 }

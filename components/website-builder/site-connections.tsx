@@ -18,10 +18,11 @@
  *                      then "Done, 3 changes", which fades unless hovered.
  *
  * The channel is the one the editor already had for putting an agent's new
- * section on the page (app/api/.../agent-activity), made cheaper: one indexed
- * read, quick while changes arrive, backing off to one read every ten
- * seconds, then every thirty once the editor has been left alone for two
- * minutes, none while the tab is hidden.
+ * section on the page (app/api/.../agent-activity): one indexed read, about
+ * once a second the whole time the tab is visible and something is connected,
+ * so a push from GitHub, an external agent or Storelib AI shows without
+ * refreshing the editor. A hidden tab asks nothing. A read that fails is
+ * asked again. Only a database without the activity table stops.
  */
 import { useCallback, useEffect, useRef, useState, type Ref, type RefObject } from "react"
 import { createPortal } from "react-dom"
@@ -31,10 +32,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { AnchoredPanel, CHROME_POPOVER_Z } from "@/components/website-builder/anchored-panel"
 import { ConnectionMarkIcon } from "@/components/website-builder/connection-marks"
 import {
+  POLL_ACTIVE_MS,
   POLL_BASE_MS,
-  POLL_MAX_MS,
   RECENT_MS,
   actedRecently,
+  activityFollowUp,
   connectionTip,
   isGitHubName,
   kindForName,
@@ -61,6 +63,7 @@ export function useSiteActivity({
   recheck,
   onEvents,
   onSyncChanged,
+  onStale,
 }: {
   installId: string
   /** Any value; the brief is read again when it changes. */
@@ -69,6 +72,8 @@ export function useSiteActivity({
   onEvents: (events: ActivityEvent[], info?: { catchUp: boolean }) => void | Promise<void>
   /** The GitHub link changed since the last read (a push taken or refused, a send that failed): read the sync report again. */
   onSyncChanged?: () => void
+  /** The log moved but applying it threw: read the theme from the server, the way a refresh would, without leaving the editor. */
+  onStale?: () => void
 }): { brief: ConnectionsBrief | null; following: boolean; settled: boolean } {
   const [brief, setBrief] = useState<ConnectionsBrief | null>(null)
   const [ready, setReady] = useState(false)
@@ -79,34 +84,52 @@ export function useSiteActivity({
   onEventsRef.current = onEvents
   const onSyncRef = useRef(onSyncChanged)
   onSyncRef.current = onSyncChanged
+  const onStaleRef = useRef(onStale)
+  onStaleRef.current = onStale
   /** When the link last changed, as last read; undefined until the first answer. */
   const syncAt = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
     if (!installId) return
     let live = true
-    fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { ready?: boolean; cursor?: number; connections?: ConnectionsBrief; sync_at?: string | null } | null) => {
-        if (live) setSettled(true)
-        if (!live || !d) return
-        if (d.connections) setBrief(d.connections)
-        if (d.sync_at !== undefined) {
-          /* A re-read that finds the link changed (settings closed after a Pull) says so too. */
-          if (syncAt.current !== undefined && syncAt.current !== d.sync_at) onSyncRef.current?.()
-          syncAt.current = d.sync_at
-        }
-        /* Kept across a re-read, so a change made while settings were open
-           is not skipped; only the first answer sets where to start. */
-        if (cursor.current === null && typeof d.cursor === "number") cursor.current = d.cursor
-        setReady(d.ready !== false)
-      })
-      .catch(() => {
-        /* No mark and no following is the honest answer when the question could not be asked. */
-        if (live) setSettled(true)
-      })
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const ask = (attempt: number) => {
+      fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity`, { cache: "no-store", signal: AbortSignal.timeout(12_000) })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { ready?: boolean; missing?: boolean; cursor?: number; connections?: ConnectionsBrief; sync_at?: string | null } | null) => {
+          if (!live) return
+          setSettled(true)
+          /* A blip, or a session refresh: ask again, and keep asking. Stopping here is a push that only a refresh would show. */
+          if (!d || (d.ready === false && d.missing !== true)) {
+            timer = setTimeout(() => ask(Math.min(attempt + 1, 5)), attempt < 4 ? POLL_ACTIVE_MS : POLL_BASE_MS)
+            return
+          }
+          if (d.missing === true) {
+            setReady(false)
+            return
+          }
+          if (d.connections) setBrief(d.connections)
+          if (d.sync_at !== undefined) {
+            /* A re-read that finds the link changed (settings closed after a Pull) says so too. */
+            if (syncAt.current !== undefined && syncAt.current !== d.sync_at) onSyncRef.current?.()
+            syncAt.current = d.sync_at
+          }
+          /* Kept across a re-read, so a change made while settings were open
+             is not skipped; only the first answer sets where to start. A failed
+             read must not set it: its cursor is 0 and would replay the log. */
+          if (cursor.current === null && d.ready !== false && typeof d.cursor === "number") cursor.current = d.cursor
+          setReady(d.ready !== false)
+        })
+        .catch(() => {
+          if (!live) return
+          setSettled(true)
+          timer = setTimeout(() => ask(Math.min(attempt + 1, 5)), attempt < 4 ? POLL_ACTIVE_MS : POLL_BASE_MS)
+        })
+    }
+    ask(0)
     return () => {
       live = false
+      if (timer) clearTimeout(timer)
     }
   }, [installId, recheck])
 
@@ -136,6 +159,7 @@ export function useSiteActivity({
       busy = true
       let arrived = false
       let eventsFull = false
+      let retry = false
       const catchUp = catchUpPending
       catchUpPending = false
       try {
@@ -145,15 +169,20 @@ export function useSiteActivity({
         let after = cursor.current
         let pages = 0
         let syncSeen: string | null | undefined
-        let ready = true
         while (after !== null && pages < (catchUp ? CATCH_UP_PAGES : 1)) {
           const res = await fetch(
             `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${after}`,
-            { cache: "no-store" },
+            { cache: "no-store", signal: AbortSignal.timeout(12_000) },
           )
-          const d = (await res.json().catch(() => ({}))) as { ready?: boolean; cursor?: number; events?: ActivityEvent[]; sync_at?: string | null }
-          if (!res.ok || d.ready === false) {
-            ready = false
+          const d = (await res.json().catch(() => null)) as { ready?: boolean; missing?: boolean; retry?: boolean; cursor?: number; events?: ActivityEvent[]; sync_at?: string | null } | null
+          const follow = activityFollowUp(res.status, d)
+          /* The table is not there: nothing to follow. Any other failure is asked again, cursor unmoved. */
+          if (follow === "stop") {
+            stopped = true
+            return
+          }
+          if (follow !== "ok" || !d) {
+            retry = true
             break
           }
           if (typeof d.cursor === "number") after = d.cursor
@@ -163,19 +192,22 @@ export function useSiteActivity({
           pages++
           if (batch.length < ACTIVITY_PAGE) break
         }
-        if (!ready) {
-          stopped = true
-          return
-        }
-        if (after !== null) cursor.current = after
+        /* Apply before moving the cursor. A throw used to skip the lines and never read them again. */
         if (events.length) {
           arrived = true
           eventsFull = events.length >= ACTIVITY_PAGE * (catchUp ? CATCH_UP_PAGES : 1)
-          /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
-          await onEventsRef.current(events, { catchUp })
+          try {
+            /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
+            await onEventsRef.current(events, { catchUp })
+          } catch {
+            try { onStaleRef.current?.() } catch { /* the cursor still moves; the next read is the new lines */ }
+          }
           const last = events[events.length - 1]
           setBrief((b) => (b ? { ...b, latest: { name: last.agent_name, at: last.created_at ?? new Date().toISOString() } } : b))
         }
+        /* A failed page is not consumed: `after` is the last page that was read.
+           With no events and a failure, the cursor stays so the same read is asked again. */
+        if (after !== null && (!retry || events.length > 0)) cursor.current = after
         if (syncSeen !== undefined && syncSeen !== syncAt.current) {
           const first = syncAt.current === undefined
           syncAt.current = syncSeen
@@ -185,14 +217,19 @@ export function useSiteActivity({
           }
         }
       } catch {
-        /* offline for a moment; the next read asks again */
+        /* offline, or the read hung: the next one asks again from the same cursor */
+        retry = true
       } finally {
         busy = false
       }
-      if (document.visibilityState !== "visible") return
+      if (stopped || document.visibilityState !== "visible") return
       if (arrived) lively = Date.now()
-      /* A full page of the log means more is waiting. Ask again at once so a long push is not shown twenty lines at a time. */
-      delay = arrived && (eventsFull) ? 200 : nextPollDelay(delay, arrived, Date.now() - lively)
+      const paced = nextPollDelay(delay, arrived, Date.now() - lively)
+      /* Visible: about once a second, even when nothing has happened for a while.
+         The thirty second idle left a push sitting until the editor was refreshed.
+         A full page of the log means more is waiting, so that one is immediate. */
+      delay = document.visibilityState === "visible" ? (arrived && eventsFull ? 200 : POLL_ACTIVE_MS) : (arrived && eventsFull ? 200 : paced)
+      if (retry) delay = POLL_ACTIVE_MS
       schedule(delay)
     }
     let woke = 0

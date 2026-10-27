@@ -434,4 +434,9 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 /* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
-export const GET = timed("builder", "/api/website-builder/themes/:id/files", handleGET)
+export const GET = timed("builder", "/api/website-builder/themes/:id/files", async (req, params) => {
+  const res = await handleGET(req, params)
+  /* A push just wrote these. A cached copy is the editor showing the old theme until a hard refresh. */
+  res.headers.set("Cache-Control", "no-store")
+  return res
+})
