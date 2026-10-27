@@ -114,9 +114,11 @@ for (const [label, vp, q] of [
       row: document.querySelector("[data-publish-domain]")?.textContent.trim() ?? null,
       add: Boolean(document.querySelector("[data-publish-add-domain]")),
     }))
-    expect(!back.window && /www\.newstudio\.com/.test(back.row ?? "") && /Connected/.test(back.row ?? "") && !back.add, "closing gives Publish back, with the domain as a row and its status", back)
+    expect(!back.window && /www\.newstudio\.com/.test(back.row ?? "") && /Connected/.test(back.row ?? "") && back.add, "closing gives Publish back, with the domain as a row and its status, and Add domain still there (round 25)", back)
     await p.screenshot({ path: join(out, `${label}-back.png`) })
     const errors = await p.evaluate(() => window.__errors)
+    const said = await p.evaluate(() => document.body.innerText)
+    expect(!/Visible to anyone with the link|Nobody can see it until it is published/.test(said), "no row saying who can see the site (round 25, the owner: get rid of it)", null)
     expect(errors.length === 0, "no console errors", errors.slice(0, 3))
     await p.close()
   }
@@ -130,7 +132,7 @@ for (const [label, vp, q] of [
       const a = el?.querySelector("a")
       return el ? { kind: el.getAttribute("data-publish-add-domain"), pro: el.querySelector("[data-publish-pro]")?.textContent.trim(), href: a?.getAttribute("href"), target: a?.getAttribute("target") } : null
     })
-    expect(line?.kind === "upgrade" && line.pro === "Pro" && line.href === "/app/settings/billing/upgrade", "a plan without: the Pro pill, and Add domain goes to the upgrade page", line)
+    expect(line?.kind === "upgrade" && line.pro === "Pro" && !line.href, "a plan without: the Pro pill, and Add domain opens Website settings like any other (round 25), not the plans page", line)
     await p.screenshot({ path: join(out, `${label}-free.png`) })
     await p.close()
   }
@@ -140,7 +142,7 @@ for (const [label, vp, q] of [
     await p.goto(`${origin}/?plan=pro&domain=pending${q}`, { waitUntil: "load" })
     await sleep(1200)
     const row = await p.evaluate(() => ({ row: document.querySelector("[data-publish-domain]")?.textContent.trim() ?? null, add: Boolean(document.querySelector("[data-publish-add-domain]")) }))
-    expect(/www\.astridstudio\.com/.test(row.row ?? "") && /Waiting for DNS/.test(row.row ?? "") && !row.add, "a domain already connected shows with its status, and no Add domain", row)
+    expect(/www\.astridstudio\.com/.test(row.row ?? "") && /Waiting for DNS/.test(row.row ?? "") && row.add, "a domain already connected shows with its status, and Add domain stays (round 25)", row)
     await press(p, "[data-publish-domain]")
     await sleep(700)
     const opened = await p.evaluate(() => ({ records: Boolean(document.querySelector("[data-connect-domain] [data-dns-setup]")), field: Boolean(document.querySelector("#publish-new-domain")) }))

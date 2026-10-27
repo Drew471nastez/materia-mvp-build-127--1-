@@ -99,18 +99,11 @@ export function AddDomainActions({ canConnect, hidden, onAdd }: { canConnect: bo
   const link = "inline-flex min-h-8 items-center gap-1 rounded-md px-1 text-[14px] font-medium text-[#4d9bff] transition-colors hover:text-[#7ab4ff] [-webkit-tap-highlight-color:transparent]"
   return (
     <span className="flex shrink-0 items-center gap-2" data-publish-add-domain={locked ? "upgrade" : "connect"}>
-      {locked ? (
-        /* A new tab: the editor and its draft stay where they are while the plans are read. */
-        <a href={UPGRADE_HREF} target="_blank" rel="noopener noreferrer" className={link} aria-label={tt("Add domain, available on Pro")}>
-          <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-          {tt("Add domain")}
-        </a>
-      ) : (
-        <button type="button" onClick={onAdd} className={link}>
-          <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
-          {tt("Add domain")}
-        </button>
-      )}
+      {/* Always Website settings › Domains (round 25): a plan without domains is told so there, and the Pro pill says it here. */}
+      <button type="button" onClick={onAdd} className={link} aria-label={locked ? tt("Add domain, available on Pro") : undefined}>
+        <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
+        {tt("Add domain")}
+      </button>
       {locked && (
         <span data-publish-pro="" className="inline-flex h-6 items-center gap-1 rounded-full bg-white/[0.08] px-2.5 text-[12.5px] font-medium text-white/85">
           <Zap className="h-3.5 w-3.5 fill-current" strokeWidth={1.75} aria-hidden />

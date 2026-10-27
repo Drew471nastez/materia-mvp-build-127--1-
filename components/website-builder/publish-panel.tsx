@@ -555,11 +555,10 @@ function Body({
           {/* The owner's picture: the label on the left, "+ Add domain" and the Pro pill on the right, on one line whatever the answer, so nothing moves when it comes. */}
           <div className="mb-2.5 flex min-h-8 items-center justify-between gap-3">
             <p className="text-[15px] font-medium">{tt("Website URL")}</p>
-            <AddDomainActions
-              canConnect={domains.canConnect}
-              hidden={domains.domains === null || domains.domains.length > 0 || !onDomain}
-              onAdd={() => onDomain?.()}
-            />
+            {/* Always there, and always to Website settings › Domains (round 25, the owner: "the Add domain text that it
+                was before, but it should take me to the domains in the website settings"). It used to hide while the
+                domains were read and once one was connected, and a plan without domains sent it to the plans page. */}
+            <AddDomainActions canConnect={domains.canConnect} hidden={!onDomain} onAdd={() => onDomain?.()} />
           </div>
           <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
             <div className="flex items-center gap-3 px-4 py-3.5">
@@ -582,10 +581,6 @@ function Body({
               >
                 <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
               </a>
-            </div>
-            <div className="flex items-center gap-3 border-t border-white/10 px-4 py-3 text-[14px] text-white/70">
-              <Globe className="h-4 w-4 shrink-0 text-white/40" strokeWidth={1.75} />
-              {live ? tt("Visible to anyone with the link") : tt("Nobody can see it until it is published")}
             </div>
             {/* The website's own domain, once there is one, with where it is up to. */}
             {domains.domains?.[0] && onDomain ? (

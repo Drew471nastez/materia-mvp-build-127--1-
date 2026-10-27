@@ -72,7 +72,8 @@ async function main() {
     check("the window takes the panel's place and gives it back", /onOpenChange\(false\)\s*if \(onDomains\) onDomains\(\)\s*else setDomainOpen\(true\)/.test(panel) && /setDomainOpen\(false\)\s*onOpenChange\(true\)/.test(panel))
     check("the panel's own click away is left as it was", /if \(panelRef\.current\?\.contains\(t\) \|\| anchorRef\.current\?\.contains\(t\)\) return/.test(panel))
     const domain = code("components/website-builder/publish-domain.tsx")
-    check("a plan without domains: the Pro pill with a lightning mark, and the upgrade page", /data-publish-pro=""/.test(domain) && /<Zap /.test(domain) && /UPGRADE_HREF = "\/app\/settings\/billing\/upgrade"/.test(domain) && /href=\{UPGRADE_HREF\}/.test(domain))
+    /* Changed on purpose (round 25, the owner: Add domain "should take me to the domains in the website settings"): every plan opens Website settings › Domains, where the plan is explained; the Pro pill still says it here. */
+    check("a plan without domains: the Pro pill with a lightning mark, and the same way to Website settings", /data-publish-pro=""/.test(domain) && /<Zap /.test(domain) && !/href=\{UPGRADE_HREF\}/.test(domain) && /<button type="button" onClick=\{onAdd\}/.test(domain))
     check("connecting uses the same routes as Website settings", /fetch\("\/api\/domains", \{\s*method: "POST"/.test(domain) && /fetch\("\/api\/domains\/verify"/.test(domain) && /purpose: "website", replace: Boolean\(current\)/.test(domain))
     check("the records are the same three steps", /<DnsSetup[\s\S]{0,600}tone="dark"/.test(domain))
     check("a phone gets a bottom sheet, a computer a window", /<MobileEditorSheet/.test(domain) && /createPortal\(/.test(domain) && /role="dialog"/.test(domain))
