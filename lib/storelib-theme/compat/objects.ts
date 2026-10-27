@@ -580,6 +580,20 @@ function productMetafields(s: Record<string, unknown>, rating?: unknown, product
   */
   const offers = s.storelib_offers
   if (offers && typeof offers === "object" && !Array.isArray(offers)) storelib.offers = { [OUTPUT]: JSON.stringify(offers), value: offers, key: "offers", namespace: "storelib", type: "json" }
+  /*
+    `custom.sold_count`: units sold, verified from the store's paid orders
+    (lib/products/sold-counts-server.ts, which says what is and is not
+    counted), a whole number, 0 when none have sold. Absent when it was not
+    read whole, so a theme's counter stays hidden rather than show a short
+    number. It is the platform's: a custom field typed in by that name is
+    not a verified count, and gives way to it. `storelib.sold_count` the same.
+  */
+  const soldCount = s.sold_count
+  if (typeof soldCount === "number" && Number.isInteger(soldCount) && soldCount >= 0) {
+    const field = { [OUTPUT]: String(soldCount), value: soldCount, key: "sold_count", type: "number_integer" }
+    custom.sold_count = { ...field, namespace: "custom" }
+    storelib.sold_count = { ...field, namespace: "storelib" }
+  }
   const reviews = reviewMetafields(rating)
   /* `storelib.reviews`: the same numbers with how many reviews gave each star, for a theme that draws the bars. */
   const summary = storelibReviewSummary(rating)

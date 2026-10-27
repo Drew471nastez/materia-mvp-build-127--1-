@@ -248,6 +248,12 @@ const SHOP_HOLD_S = 60
 const NOT_HELD = Symbol("not held")
 
 /** `read`, held under `tags`, unless what it answered is `skip(value)` (a failed or empty read), which is passed on and read again next time. */
+/** Each card with its verified units sold (settings.sold_count), when the count was read whole; the cards as they were otherwise. */
+function withSoldCounts<T extends { id: string; settings: Record<string, unknown> }>(cards: T[], sold: Record<string, number> | null): T[] {
+  if (!sold) return cards
+  return cards.map((c) => (typeof sold[c.id] === "number" ? { ...c, settings: { ...c.settings, sold_count: sold[c.id] } } : c))
+}
+
 async function heldUnless<T>(key: string[], tags: string[], seconds: number, read: () => Promise<T>, skip: (v: T) => boolean): Promise<T> {
   let passed: { v: T } | null = null
   try {
@@ -395,6 +401,16 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     storeOf(creator.creatorId),
     (draft ? readSizeCharts() : heldUnless(["compat-size-charts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readSizeCharts, () => false)).catch(() => ({})),
   ])
+  /*
+    UNITS SOLD, VERIFIED (round 25, lib/products/sold-counts-server.ts): each
+    product's count from paid order lines, held a minute under the shop's
+    tag, laid on every card as settings.sold_count, which a theme reads as
+    product.metafields.custom.sold_count. Not for a preview's draft, which
+    reads it fresh. A count that could not be read whole is not given.
+  */
+  const soldIds = [...new Set([...products, ...catalog].map((c) => c.id))]
+  const readSold = () => import("@/lib/products/sold-counts-server").then((m) => m.soldCounts(admin as never, soldIds)).then((m) => (m ? Object.fromEntries(m) : null)).catch(() => null)
+  const soldAsked = soldIds.length === 0 ? Promise.resolve(null) : draft ? readSold() : heldUnless(["compat-sold", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readSold, (v) => v === null)
   const physical = await physicalAsked
   if (!rows) return { kind: "missing" }
   if (!draft) {
@@ -438,12 +454,13 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const origin = await originAsked
   const shareImage = compatShareImage(settings as Record<string, unknown>, pages.home ?? [], await avatarAsked)
   const storeName = brandOf(settings) || store.name || creator.displayName
+  const sold = await soldAsked
   const site: SiteData = {
     creatorId: creator.creatorId,
     theme,
     pages,
-    products,
-    pickable: catalog,
+    products: withSoldCounts(products, sold),
+    pickable: withSoldCounts(catalog, sold),
     ...(sizeCharts && Object.keys(sizeCharts).length ? { sizeCharts } : {}),
     collections,
     menus: compatMenus(menus as never, Object.keys(pages)),
