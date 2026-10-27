@@ -143,7 +143,7 @@ console.log("\nA SWITCH, A SELECT AND A CHOICE MOVE IN THEIR OWN FRAME")
   check("a section's switch and select", /if \(kind === "toggle" \|\| kind === "checkbox"\) \{\s*return <EchoSwitch /.test(editor) && /if \(kind === "select"\) \{\s*return <EchoSelect /.test(editor))
   /* Changed on purpose (round 1023): the segmented choice is ChoiceControl now (controls/choice-control.tsx), which takes the same echo path for every select setting. */
   check("Theme's switch, select and segmented choice", /<EchoSwitch checked=\{checked\} onChange=\{onChange\} \/>/.test(editor) && /<EchoSelect value=\{selected\} onChange=\{onChange\} options=\{options\} label=\{label\} \/>/.test(editor) && /const \[echoed, setEchoed\] = useEchoedValue\(value, onChange\)/.test(read("components/website-builder/editor/controls/choice-control.tsx")))
-  check("a link's Open in a new tab", /const \[newTab, setNewTab\] = useEchoedValue\(opensNewTab\(value\)/.test(linkPicker) && /onClick=\{\(\) => setNewTab\(!newTab\)\}/.test(linkPicker))
+  check("a link's Open in a new tab", /const \[newTab, setNewTab\] = useEchoedValue\(opensNewTab\(value\)/.test(linkPicker) && /onClick=\{\(\) => \{ hapticTap\("light"\); setNewTab\(!newTab\) \}\}/.test(linkPicker))
 }
 
 console.log("\nMEASURED, NOT ASSUMED")

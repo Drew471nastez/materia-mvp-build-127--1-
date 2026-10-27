@@ -122,15 +122,16 @@ console.log("\nA contact, opened from its row")
   const detail = code("app/app/emails/contact-detail.tsx")
   const homeCode = code("app/app/emails/emails-home.tsx")
   check("a finger on the row, or a pointer resting on it as long as on an order's row, asks for the contact's runs",
-    /\{\.\.\.press\(s\.id, \(\) => prefetchContact\(s\.email\)\)\}/.test(homeCode) && /onPointerDown: \(e: React\.PointerEvent\) => \{\s*intent\?\.\(\)/.test(homeCode)
+    /\{\.\.\.press\(s\.id, \(\) => prefetchContact\(s\.email\)\)\}/.test(homeCode) && /onPointerDown: \(e: React\.PointerEvent<HTMLElement>\) => \{\s*intent\?\.\(\)/.test(homeCode)
       && /hover\.current = window\.setTimeout\(intent, HOVER_PREFETCH_MS\)/.test(homeCode) && /import \{ HOVER_PREFETCH_MS \} from "\.\.\/orders\/order-prefetch"/.test(homeCode))
-  check("and the row stays pressed while its page waits", /\{\.\.\.\(waiting === s\.id \? \{ "data-pressed": "true" \} : null\)\}/.test(homeCode))
+  /* Round 25: written on the row itself, not kept in state, so a press draws nothing again (usePress). */
+  check("and the row stays pressed while its page waits", /row\.dataset\.pressed = "true"\s*\n\s*row\.setAttribute\("data-waiting", ""\)/.test(homeCode) && /if \(el && !el\.hasAttribute\("data-waiting"\)\) delete el\.dataset\.pressed/.test(homeCode))
   check("the tap waits for them, at most a moment, and the latest tap wins",
-    /export const OPEN_WAIT_MS = 300/.test(detail) && /void contactReady\(s\.email\)\.then\(\(\) => \{\s*if \(opening\.current !== s\) return/.test(homeCode) && /onClick=\{\(\) => openContact\(s\)\}/.test(homeCode))
+    /export const OPEN_WAIT_MS = 300/.test(detail) && /void contactReady\(s\.email\)\.then\(\(\) => \{[\s\S]{0,200}?if \(opening\.current !== s\) return/.test(homeCode) && /onClick=\{\(e\) => openContact\(s, e\.currentTarget\)\}/.test(homeCode))
   check("it opens as its own page over the list, like an order: a real address, the bar, cards; no sheet or side panel",
     /onOpenContact=\{onOpenContact\}/.test(code("app/app/emails/emails-client.tsx")) && /p\.set\("contact", s\.id\)/.test(code("app/app/emails/emails-client.tsx"))
       && /<ContactPage/.test(code("app/app/emails/emails-client.tsx")) && /<OrderBarFrame/.test(detail) && !/BottomSheet|aside/.test(detail)
-      && /props\.onOpenContact\(s\)/.test(homeCode) && !/<ContactDetail/.test(homeCode))
+      && /live\.current\.onOpenContact\(s\)/.test(homeCode) && !/<ContactDetail/.test(homeCode))
   check("its body is the contact's own and starts from what is known", /<ContactBody key=\{keyOf\(contact\.email\)\} contact=\{contact\} \/>/.test(detail) && /useState<RunLite\[\] \| null>\(\(\) => keptRuns\(contact\.email\)\)/.test(detail) && !/setRuns\(null\)/.test(detail))
   check("a failed read is not kept", /if \(!error\) runsKept\.set\(key/.test(detail))
 }
