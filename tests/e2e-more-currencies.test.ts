@@ -165,7 +165,7 @@ async function main() {
   const homePick = opts.find((o) => o.id === "home")!
   check("picking lei: the page is in lei, the card 99.00 lei", marketFor(homePick.country, "DE") === null && (await listCards(creator.id)).find((c) => c.id === mugId)?.settings.price === `99.00${NBSP}lei`)
   const homeQuote = await j.call("POST /api/checkout/site", { host, headers: { "x-vercel-ip-country": "DE", origin: `https://${host}` }, cookies: { sl_country: chose(homePick.country)! }, body: { action: "quote", items: [{ productId: mugId, variantId: small?.id, quantity: 2 }], country: "DE" } })
-  check("  and the checkout too: 2 × 99 lei and 25 lei delivery, in RON", homeQuote.status === 200 && !homeQuote.json?.currency && homeQuote.json?.totals?.itemsSubtotalCents === 19800 && homeQuote.json?.totals?.shippingCents === 2500, { status: homeQuote.status, cur: homeQuote.json?.currency, totals: homeQuote.json?.totals })
+  check("  and the checkout too: 2 × 99 lei and 25 lei delivery, in RON", homeQuote.status === 200 && homeQuote.json?.currency === "RON" && homeQuote.json?.totals?.itemsSubtotalCents === 19800 && homeQuote.json?.totals?.shippingCents === 2500, { status: homeQuote.status, cur: homeQuote.json?.currency, totals: homeQuote.json?.totals })
   const euPick = opts.find((o) => o.id === "eu")!
   check("picking euros again: the visitor's own Germany, the Europe market", marketFor(euPick.country, "DE") === "eu", euPick)
   check("  a visitor in France who picks euros starts checkout in France, not the market's first country", deliveryCountryGuess(langs.markets, chose(euPick.country), "FR") === "FR" && deliveryCountryGuess(langs.markets, chose(homePick.country), "DE") === "DE" && deliveryCountryGuess(langs.markets, chose("PL"), "DE") === "PL", [deliveryCountryGuess(langs.markets, chose(euPick.country), "FR"), deliveryCountryGuess(langs.markets, chose(homePick.country), "DE")])
@@ -271,7 +271,7 @@ async function main() {
   check("the card says 84.53 zł", plCard?.settings.price === `84.53${NBSP}zł`, plCard?.settings.price)
   check("  the cart says what checkout charges in", /You'll pay in RON/.test(plPage?.display?.note ?? ""), plPage?.display?.note)
   const plQ = await j.call("POST /api/checkout/site", { host, headers: { ...visitor, "x-vercel-ip-country": "PL" }, cookies: {}, body: { action: "quote", items: [{ productId: mugId, variantId: small?.id, quantity: 1 }], country: "PL" } })
-  check("  the checkout is in lei: 99 lei and 25 lei delivery", plQ.status === 200 && !plQ.json?.currency && plQ.json?.totals?.totalCents === 12400, { status: plQ.status, cur: plQ.json?.currency, t: plQ.json?.totals })
+  check("  the checkout is in lei: 99 lei and 25 lei delivery", plQ.status === 200 && plQ.json?.currency === "RON" && plQ.json?.totals?.totalCents === 12400, { status: plQ.status, cur: plQ.json?.currency, t: plQ.json?.totals })
   const plIntent = await j.call("POST /api/checkout/site", {
     host,
     headers: { ...visitor, "x-vercel-ip-country": "PL" },
@@ -394,7 +394,7 @@ async function main() {
   check("  a real choice made since still counts: Romania picks reais (2.BR)", for12("BR", "RO") === "brl" && (await drawn(checkoutVisitorCountry(chose("BR"), "RO")))?.code === "BR")
   check("  where they are: Vercel's header, else Cloudflare's; XX and T1 are unknown", seenCountry(new Headers({ "x-vercel-ip-country": "RO" })) === "RO" && seenCountry(new Headers({ "cf-ipcountry": "BR" })) === "BR" && seenCountry(new Headers({ "cf-ipcountry": "XX" })) === null && seenCountry(new Headers({ "x-vercel-ip-country": "T1" })) === null)
   const roQuote = await j.call("POST /api/checkout/site", { host, headers: { "x-vercel-ip-country": "RO", origin: `https://${host}` }, cookies: { sl_country: stale }, body: { action: "quote", items: [{ productId: mugId, variantId: small?.id, quantity: 2 }], country: "DE" } })
-  check("checkout, from Romania with the old cookie: lei, not reais", roQuote.status === 200 && !roQuote.json?.currency && roQuote.json?.totals?.itemsSubtotalCents === 19800, { status: roQuote.status, cur: roQuote.json?.currency, totals: roQuote.json?.totals })
+  check("checkout, from Romania with the old cookie: lei, not reais", roQuote.status === 200 && roQuote.json?.currency === "RON" && roQuote.json?.totals?.itemsSubtotalCents === 19800, { status: roQuote.status, cur: roQuote.json?.currency, totals: roQuote.json?.totals })
   const { countryOfRequest } = await import("@/lib/markets/checkout-market-server")
   const asked = (h: Record<string, string>) => countryOfRequest(new Request(`https://${host}/api/checkout/site`, { headers: h }))
   check("  the checkout's own reading of a request: the old cookie from Romania is Romania; from Brazil, reais shown", asked({ cookie: "sl_country=AX", "x-vercel-ip-country": "RO" }) === "RO" && (await checkoutMarket(creator.id, asked({ "x-vercel-ip-country": "BR" }))).pricing?.currency === "BRL" && asked({ cookie: "sl_country=2.BR", "x-vercel-ip-country": "RO" }) === "BR")

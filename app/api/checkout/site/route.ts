@@ -166,6 +166,8 @@ async function quote(request: Request, admin: Admin, site: SiteOfCheckout, body:
   if (!answer.ok) return json({ error: answer.error }, answer.status)
   /* In the market's own currency when the checkout charges it, as the pages showed the prices (lib/checkout/site-quote-market). */
   if (market.charge) answer.quote = quoteInMarket(answer.quote, market.charge)
+  /* The currency its totals are in, always: the page sends the total it showed back with Pay, in this currency, and the payment is refused if it is not what would be charged (lib/checkout/shown-total.ts). */
+  Object.assign(answer.quote, { currency: market.chargeCurrency })
   /* The order's titles and option names in the checkout's language, when it is one of the website's (lib/markets/checkout-quote.ts). */
   if (typeof body.lang === "string" && body.lang) {
     const [{ checkoutLanguage }, { localizeQuote }] = await Promise.all([import("@/lib/markets/checkout-language"), import("@/lib/markets/checkout-quote")])

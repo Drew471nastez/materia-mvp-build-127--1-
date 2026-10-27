@@ -187,7 +187,7 @@ function main() {
   check("not placed on another page than the one it was asked on",
     /writing\.page !== currentPageRef\.current/.test(done))
   check("loadStorelibSources hands back what it loaded",
-    /const loadStorelibSources = useCallback\(async \(\): Promise<Record<string, string> \| null>/.test(editor))
+    /const loadStorelibSources = useCallback\(async \((?:opts\?: \{ hold\?: boolean \})?\): Promise<Record<string, string> \| null>/.test(editor))
   check("the canvas draws the placeholder as the writing component, not as a section",
     /if \(section\.type === WRITING_SECTION_TYPE\) \{[\s\S]{0,200}<WritingSection prompt=/.test(editor))
   check("the insert strips are counted without it", /gapWithoutPlaceholder\(sections, at\)/.test(editor))

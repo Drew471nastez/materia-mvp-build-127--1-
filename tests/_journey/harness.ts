@@ -191,6 +191,24 @@ export class Journey {
    * secret, a visitor's country).
    */
   async call<T = any>(route: string, opts: { as?: Person | null; body?: unknown; raw?: string; headers?: Record<string, string>; host?: string; cookies?: Record<string, string> } = {}): Promise<Answer<T>> {
+    /*
+      Paying on the website's checkout carries the total the page showed
+      (app/checkout/site/site-checkout.tsx: the quote's totals.totalCents in
+      its currency), and the route refuses a payment without it. A journey
+      that pays without saying one does what the page does: quotes the same
+      basket first and sends that. One that sets shownTotal itself (to check
+      a refusal) is sent as written.
+    */
+    const asked = opts.body as Record<string, unknown> | undefined
+    if (route === "POST /api/checkout/site" && asked && asked.action === "intent" && !("shownTotal" in asked)) {
+      /* Asked as the page asks it: the address's country, region, postcode and city beside the basket. */
+      const at = (asked.address ?? {}) as Record<string, unknown>
+      const where = { country: at.country, region: at.region, postalCode: at.postalCode, city: at.city }
+      const quote = await this.call(route, { ...opts, body: { ...where, ...asked, action: "quote" } })
+      const totals = (quote.json as { totals?: { totalCents?: unknown }; currency?: unknown } | null)?.totals
+      const currency = (quote.json as { currency?: unknown } | null)?.currency
+      if (quote.status === 200 && typeof totals?.totalCents === "number" && typeof currency === "string") opts = { ...opts, body: { ...asked, shownTotal: { cents: totals.totalCents, currency } } }
+    }
     const [method, target] = route.split(" ")
     const url = new URL(target, `https://${opts.host ?? "storelib.com"}`)
     const { load, params } = this.findRoute(url.pathname)

@@ -19,7 +19,7 @@ export interface ShownTotal {
   currency: string
 }
 
-/** The total a page says it showed, or null when it sent none (a page from before this, which is not refused). */
+/** The total a page says it showed, or null when it sent none or one that cannot be read. Paying with none is refused (app/api/checkout/site intent): a tab opened before a deploy is asked to refresh, and prices itself again. */
 export function shownTotalOf(value: unknown): ShownTotal | null {
   if (!value || typeof value !== "object") return null
   const v = value as { cents?: unknown; currency?: unknown }

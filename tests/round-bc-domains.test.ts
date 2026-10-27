@@ -66,7 +66,7 @@ async function main() {
     const route = code("app/api/domains/route.ts")
     check("GET /api/domains says whether this plan may connect one, by POST's own gate", /const gate = siteGate\(await creatorSitePlan\(owner\.creatorId\), "customDomain"\)/.test(route) && /canConnect: gate === null/.test(route))
     const panel = code("components/website-builder/publish-panel.tsx")
-    check("the Website URL line carries Add domain on its right", /<p className="text-\[15px\] font-medium">\{tt\("Website URL"\)\}<\/p>\s*<AddDomainActions/.test(panel))
+    check("the Website URL line carries Add domain on its right", /<p className="text-\[15px\] font-medium">\{tt\("Website URL"\)\}<\/p>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)?<AddDomainActions/.test(panel))
     check("a connected domain is a row of the URL card", /<DomainCardRow domain=/.test(panel))
     /* Round 22: in the editor, Add domain opens Website settings' Domains (onDomains) instead of the window; elsewhere the window as before. */
     check("the window takes the panel's place and gives it back", /onOpenChange\(false\)\s*if \(onDomains\) onDomains\(\)\s*else setDomainOpen\(true\)/.test(panel) && /setDomainOpen\(false\)\s*onOpenChange\(true\)/.test(panel))
