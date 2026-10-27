@@ -154,7 +154,7 @@ export interface StartInput {
 
 export type StartResult =
   | { ok: true; url: string; checkoutId: string; free: boolean; cod?: boolean; clientSecret?: string | null; paymentIntentId?: string | null; receiptToken?: string | null }
-  | { ok: false; status: number; error: string; field?: string; stock?: { title: string; available: number }[] }
+  | { ok: false; status: number; error: string; field?: string; stock?: { title: string; available: number }[]; code?: string }
 
 function clean(value: unknown, max: number): string {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, max) : ""

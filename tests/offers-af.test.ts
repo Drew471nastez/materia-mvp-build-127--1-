@@ -75,7 +75,7 @@ function shopDb(opts: { offers?: Offer[]; currency?: string; teeCents?: number; 
   const product = (p: Record<string, unknown>) => ({ creator_id: SHOP, type: "physical", status: "published", thumbnail_url: null, requires_shipping: true, weight_grams: 200, taxable: true, track_inventory: false, continue_selling: true, fulfillment_location_id: null, fulfillment_method: "self", shipping_profile_id: null, max_per_order: null, compare_at_cents: null, ...p })
   const rate = (r: Record<string, unknown>) => ({ creator_id: SHOP, active: true, position: 0, tiers: [], min_value: null, max_value: null, free_over_cents: null, min_days: 2, max_days: 4, ...r })
   return fakeDb({
-    products: [product({ id: TEE, title: "Tee", slug: "tee", price_cents: tee }), product({ id: MUG, title: "Mug", slug: "mug", price_cents: opts.mugCents ?? 2000 }), product({ id: CAP, title: "Cap", slug: "cap", price_cents: 1500 })].map((p) => (opts.draft?.includes(p.id as string) ? { ...p, status: "draft" } : p)),
+    products: [product({ id: TEE, title: "Tee", slug: "tee", price_cents: tee }), product({ id: MUG, title: "Mug", slug: "mug", price_cents: opts.mugCents ?? 2000 }), product({ id: CAP, title: "Cap", slug: "cap", price_cents: 1500 })].map((p) => (opts.draft?.includes((p as { id?: string }).id ?? "") ? { ...p, status: "draft" } : p)),
     product_variants: [
       variant({ id: TEE_S, product_id: TEE, name: "S", option1: "S", price_cents: tee }),
       variant({ id: TEE_L, product_id: TEE, name: "L", option1: "L", price_cents: opts.teeLCents ?? tee, position: 1 }),
