@@ -38,6 +38,35 @@ export function compatFilesChanged(installId: string): void {
   for (const l of listeners) l()
 }
 
+/**
+ * A push changed these files and the editor already has the new text.
+ * The next reader gets the patched copy, and does not download the rest of
+ * the theme again. False when nothing has been read yet: the caller asks
+ * for the whole set (compatFilesChanged).
+ */
+export function patchCompatFiles(installId: string, patch: Record<string, string>): boolean {
+  const hit = loading.get(installId)
+  if (!hit) return false
+  const version = (versions.get(installId) ?? 0) + 1
+  versions.set(installId, version)
+  const files = hit.files.then((current) => {
+    let next = current
+    for (const [k, v] of Object.entries(patch)) {
+      if (next[k] === v) continue
+      if (next === current) next = { ...current }
+      next[k] = v
+    }
+    return next
+  })
+  files.catch((e) => {
+    if (loading.get(installId)?.files === files) loading.delete(installId)
+    reportLoadProblem("compat-canvas", e)
+  })
+  loading.set(installId, { version, files })
+  for (const l of listeners) l()
+  return true
+}
+
 /** Which version of the install's files is current, for an effect that reads them to depend on. */
 export function useCompatFilesVersion(installId: string | null): number {
   return useSyncExternalStore(

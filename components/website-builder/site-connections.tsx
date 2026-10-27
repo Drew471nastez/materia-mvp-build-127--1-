@@ -127,6 +127,7 @@ export function useSiteActivity({
       if (cursor.current === null) return schedule(delay)
       busy = true
       let arrived = false
+      let eventsFull = false
       try {
         const res = await fetch(
           `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${cursor.current}`,
@@ -142,9 +143,11 @@ export function useSiteActivity({
         const events = d.events ?? []
         if (events.length) {
           arrived = true
+          eventsFull = events.length >= 20
+          /* The page takes the changes first. The mark updates with them, not in a render of its own before the files are even read. */
+          await onEventsRef.current(events)
           const last = events[events.length - 1]
           setBrief((b) => (b ? { ...b, latest: { name: last.agent_name, at: last.created_at ?? new Date().toISOString() } } : b))
-          await onEventsRef.current(events)
         }
         if (d.sync_at !== undefined && d.sync_at !== syncAt.current) {
           const first = syncAt.current === undefined
@@ -160,7 +163,8 @@ export function useSiteActivity({
         busy = false
       }
       if (arrived) lively = Date.now()
-      delay = nextPollDelay(delay, arrived, Date.now() - lively)
+      /* A full page of the log means more is waiting. Ask again at once so a long push is not shown twenty lines at a time. */
+      delay = arrived && (eventsFull) ? 200 : nextPollDelay(delay, arrived, Date.now() - lively)
       schedule(delay)
     }
     let woke = 0

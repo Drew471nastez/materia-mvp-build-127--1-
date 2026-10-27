@@ -86,6 +86,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { createPortal, flushSync } from "react-dom"
 import { ArrowUpRight, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { editorSpares, prefetchPlan } from "@/lib/nav/prefetch-policy"
 import { hapticTap } from "@/lib/native-bridge"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
@@ -1172,6 +1173,8 @@ export const SectionLibrary = memo(function SectionLibrary({
       is drawn ahead as before; a changed one once it has stood for
       REWARM_AFTER_MS, and an open library draws what it shows at once.
     */
+    /* A small device draws the previews when Add section is opened, not while the canvas is being scrolled. */
+    if (editorSpares()) return
     const t = window.setTimeout(() => {
       warmed.current = true
       if (!compatInstallId) requestPreviews(jobs)
@@ -1215,8 +1218,11 @@ export const SectionLibrary = memo(function SectionLibrary({
   }, [order])
   useEffect(() => {
     if (!built) return
+    /* Closed, on a small device: nothing is parsed until Add section is open. */
+    if (!open && editorSpares()) return
     let cancelled = false
     let raf = 0
+    const batch = prefetchPlan().tier === "rich" ? FILL_PER_FRAME : 2
     const step = () => {
       if (cancelled) return
       const next = new Set(liveRef.current)
@@ -1224,7 +1230,7 @@ export const SectionLibrary = memo(function SectionLibrary({
       for (const k of orderRef.current) {
         if (next.has(k)) continue
         next.add(k)
-        if (++added === FILL_PER_FRAME) break
+        if (++added === batch) break
       }
       if (!added) return
       liveRef.current = next

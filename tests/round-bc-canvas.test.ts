@@ -79,7 +79,7 @@ console.log("\nThe canvas on a slow device\n")
   check("the page's headers are looked up again only when its elements changed", /if \(!topsCache \|\| !topsHere\(\)\) topsCache = document\.querySelectorAll\(HEADER_TOPS\)/.test(bridge) && !/topsCache = null;\s*if \(!boxes\)/.test(bridge))
   check("eases that start later are ended by their own transitionrun, not a list of every animation each frame", /document\.addEventListener\("transitionrun", function \(e\) \{/.test(bridge) && !/if \(performance\.now\(\) < stillUntil\) stillFrame = requestAnimationFrame\(finishEased\);/.test(bridge))
   check("a link is said to the builder once the mouse rests on it, not as it passes", /restTimer = setTimeout\(function \(\) \{ if \(a\.matches\(":hover"\)\) intent\(e\); \}, 180\);/.test(bridge))
-  check("a page drawn ahead waits for an idle moment, and is not drawn on a connection that saves data", /if \(conn\?\.saveData \|\| \/\(\^\|-\)2g\$\/\.test\(conn\?\.effectiveType \?\? ""\)\) return\s*const w = window/.test(canvas) && /w\.requestIdleCallback\(ahead, \{ timeout: 1500 \}\)/.test(canvas))
+  check("a page drawn ahead waits for an idle moment, and is not drawn on a small device or a slow connection", /if \(editorSpares\(\)\) return\s*const w = window/.test(canvas) && /w\.requestIdleCallback\(ahead, \{ timeout: 1500 \}\)/.test(canvas))
   check("a template's checks while a finger pauses are paced by what they cost", /return Math\.max\(160, p\.cost \* 3\)/.test(canvas) && (canvas.match(/const delay = checkDelay\(key\)/g) ?? []).length === 2 && (canvas.match(/paced\(key, \(\) => \{/g) ?? []).length === 2)
 }
 

@@ -898,6 +898,8 @@ const SUITES = [
   "tests/themeset-r13.test.ts",
   /* Round 13 (WBSTAB): pushes and large theme changes reach the canvas without the theme's code piling up (scripts/check-wb-stability-r13.mjs) */
   "tests/wb-stability-r13.test.ts",
+  /* A push from GitHub or a coding agent redraws the sections it changed, and an imported theme's page once, instead of reloading the editor on every poll. */
+  "tests/editor-incoming-push.test.ts",
   /* Round 14 (SCROLL): the canvas scrolled with the owner's real Materia theme: the builder's layer in a shadow root, outlines read after layout, nothing said or measured per scroll frame, far sections at rest (scripts/check-wb-scroll-r14.mjs) */
   "tests/wb-scroll-r14.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */

@@ -66,6 +66,7 @@ import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
+import { editorSpares } from "@/lib/nav/prefetch-policy"
 import { shopImageName } from "@/lib/website-builder/picture-address"
 import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords, compatUiWords } from "@/lib/markets/compat-fields"
 import { moneyFormatFor } from "@/lib/markets/pricing"
@@ -79,6 +80,13 @@ export interface CompatCanvasProps {
   installId: string
   /** Raised when the theme's own files changed elsewhere (a push to its GitHub repository): read again, the page shown meanwhile. */
   filesVersion?: number
+  /**
+   * Raised when a push or an agent rewrote the page. The new page is drawn
+   * once behind the one on screen and takes its place, instead of swapping
+   * sections in place (that restarts the theme's code on top of itself and
+   * the editor stutters until it is reloaded).
+   */
+  replaceDocument?: number
   /** The install's .storelib files (the editor's storelibSources). */
   sources: Record<string, string>
   /** The theme settings, `compat` and `shopify` among them. */
@@ -464,13 +472,17 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   /* The theme's own files: templates, config, the default locale, its stylesheets and scripts. */
   const filesVersion = props.filesVersion ?? 0
+  /* The version whose files are in state. A draw waits while a newer read is in flight, so it does not paint the old page and then the new one. */
+  const loadedVersion = useRef(filesVersion)
+  /* Bumped when a read lands, even when the text is the same object, so the waiting draw runs. */
+  const [filesAt, setFilesAt] = useState(filesVersion)
+  /* How many remote rewrites have been drawn as a fresh page (replaceDocument). */
+  const appliedReplace = useRef(0)
   useEffect(() => {
     let live = true
     /* Changed elsewhere since they were read: asked for again (the version says so), and the page already drawn stays until they are here. */
-    loadCompatFiles(installId).then(
-      (files) => { if (live) setCompatFiles(files) },
-      () => { if (live) setFailure("files") },
-    )
+    const got = (files?: Record<string, string>) => { if (!live) return; loadedVersion.current = filesVersion; if (files) setCompatFiles(files); else setFailure("files"); setFilesAt(filesVersion) }
+    loadCompatFiles(installId).then(got, () => got())
     return () => { live = false }
   }, [installId, attempt, filesVersion])
 
@@ -905,8 +917,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       save data, or a slow one, it is not done; otherwise it waits until the
       browser has a moment, never in the middle of a gesture.
     */
-    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
-    if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "")) return
+    /* Save-Data, 2g, 3g, or a small device: a hidden page runs the theme's scripts in this process, which is the canvas stuttering. The page is drawn when it is opened. */
+    if (editorSpares()) return
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
     const ahead = () => {
       if (isLive() || slotsRef.current.some((x) => x.key === key)) return
@@ -998,7 +1010,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     cancelRedraw()
     runRedraw(run)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compatTheme, page, shape, docKey, accountPath, attempt, holdForData])
+  }, [compatTheme, page, shape, docKey, accountPath, attempt, holdForData, props.replaceDocument, props.filesVersion, filesAt])
 
   /* A change arrived for the page in front while it was loading: drawn again and sent to it when it is ready. */
   const stale = useRef(false)
@@ -1011,6 +1023,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* The page drawn now and compared with the one on screen; what differs is sent to it. Reads everything it needs when it runs. */
   const drawAndPatch = (opts?: { fresh?: boolean }) => {
     if (!compatTheme) return
+    /* A push's files are still on their way: the page on screen stays, and the draw that follows uses the files that arrived. */
+    if ((props.filesVersion ?? 0) !== loadedVersion.current) return
     stale.current = false
     /* An account page wears only this page's header, footer and overlay: those are the sections it can take a change to. */
     const list = accountPath ? sectionsRef.current.filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay") : sectionsRef.current
@@ -1058,6 +1072,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (!now) { loadBehind(html, docKey, list); return }
     /* A page worn by edits, drawn fresh now that they have stopped (A PAGE WORN BY EDITS). */
     if (opts?.fresh && now.key === docKey) { loadBehind(html, docKey, list); return }
+    /*
+      A PUSH OR AN AGENT, ONCE. The new page is drawn behind this one and
+      takes its place when it is ready, so the theme's code starts clean.
+      Swapping each section in place started that code again on top of the
+      last start, and a run of pushes left the editor stuttering until it
+      was reloaded. Under a finger the page still changes where the finger
+      is; the fresh page follows when the finger lifts.
+    */
+    if ((props.replaceDocument ?? 0) > appliedReplace.current && now.key === docKey && !isLive()) {
+      appliedReplace.current = props.replaceDocument ?? 0
+      loadBehind(html, docKey, list)
+      return
+    }
     /*
       WHILE A FINGER IS DOWN, a drawing that differs from the last one only
       inside one <style> or one tag is sent as that change (live-draw.ts

@@ -8,7 +8,7 @@
  * compat-files.ts): a change is said there once, and every reader, the
  * library included, gets the new files from one read.
  */
-import { compatFilesChanged, loadCompatFiles } from "@/components/website-builder/compat/compat-files"
+import { compatFilesChanged, loadCompatFiles, patchCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { readCode } from "./_source"
 
 let passed = 0
@@ -36,9 +36,13 @@ async function main() {
   check("two readers of the same files share one read", reads === 1 && a === b && a["shopify/sections/hero.liquid"] === "old", reads)
 
   code = "new"
-  compatFilesChanged("inst-1")
+  const patched = patchCompatFiles("inst-1", { "shopify/sections/hero.liquid": "new" })
   const [c, d] = await Promise.all([loadCompatFiles("inst-1"), loadCompatFiles("inst-1")])
-  check("after a push, the next reader gets the new code, and the one after it shares that read", reads === 2 && c === d && c["shopify/sections/hero.liquid"] === "new", reads)
+  check("a push's changed file is the next read, shared, and the rest of the theme is not downloaded again", patched && reads === 1 && c === d && c["shopify/sections/hero.liquid"] === "new", reads)
+
+  compatFilesChanged("inst-1")
+  const again = await loadCompatFiles("inst-1")
+  check("a full reread still asks the server once and is shared", reads === 2 && again["shopify/sections/hero.liquid"] === "new")
 
   await loadCompatFiles("inst-2")
   check("another install's files are their own", reads === 3)
@@ -46,7 +50,7 @@ async function main() {
   const preview = readCode("components/website-builder/compat/compat-section-preview.tsx")
   check("the block library reads again when the version moves", /const filesVersion = useCompatFilesVersion\(installId\)/.test(preview) && /\}, \[installId, filesVersion\]\)/.test(preview))
   const page = readCode("app/website-builder/editor/[installId]/page.tsx")
-  check("the editor says so when a push or an agent writes a theme file", /compatFilesChanged\(installId\)\s*\n\s*setCompatFilesVersion/.test(page))
+  check("the editor patches the files a push changed, and reads the whole theme again only when that patch cannot land", /patchCompatFiles\(installId, shopify\)/.test(page) && /compatFilesChanged\(installId\)/.test(page) && /setCompatFilesVersion\(\(n\) => n \+ 1\)/.test(page))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) process.exit(1)

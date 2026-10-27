@@ -72,6 +72,17 @@ export function planFor(tier: PrefetchTier): PrefetchPlan {
 }
 
 /**
+ * The website builder's work that only makes the next press faster: pages
+ * read ahead, a theme page drawn out of sight, section previews drawn before
+ * Add section is opened. On a small device or a slow network that work sits
+ * on the same thread as the canvas, so it waits until the person asks.
+ * A press still does the thing they pressed.
+ */
+export function editorSpares(tier: PrefetchTier = prefetchPlan().tier): boolean {
+  return tier === "lean" || tier === "off"
+}
+
+/**
  * THE TIER, FROM WHAT THE DEVICE SAYS. Pure, so the suite can put every
  * phone and network through it. The network can only lower a tier and so
  * can the device: a fast phone on 3g is lean, a slow phone on wifi is lean.

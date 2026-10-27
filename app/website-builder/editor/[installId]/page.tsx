@@ -167,7 +167,9 @@ import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-sche
 import { THEME_DATA_FILE, clampTo, themeSettingsGroupsFor, withThemeDefaults } from "@/lib/storelib-theme/theme-config"
 import { CollectionBoundField } from "@/components/website-builder/editor/controls/collection-bound-field"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
-import { compatFilesChanged, forgetCompatFiles, loadCompatFiles } from "@/components/website-builder/compat/compat-files"
+import { compatFilesChanged, forgetCompatFiles, loadCompatFiles, patchCompatFiles } from "@/components/website-builder/compat/compat-files"
+import { sameFiles } from "@/lib/website-builder/source-revisions"
+import { editorSpares, prefetchPlan } from "@/lib/nav/prefetch-policy"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { assetAddresses, compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
 import { faviconFollows, faviconOf } from "@/lib/website-builder/favicon-sync"
@@ -2697,6 +2699,37 @@ function warmCompat(installId: string) {
   void loadCompatFiles(installId)
   void loadCompatCanvas().catch(() => {})
 }
+
+/** The text of these theme files, for a push that changed a few of them. Null when none of them could be read. */
+async function readThemeTexts(installId: string, paths: string[]): Promise<Record<string, string> | null> {
+  const unique = [...new Set(paths)]
+  if (unique.length === 0) return {}
+  const out: Record<string, string> = {}
+  const take = async (path: string) => {
+    const r = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/files?path=${encodeURIComponent(path)}`, { cache: "no-store" })
+    if (!r.ok) return
+    const d = (await r.json()) as { content?: unknown }
+    if (typeof d.content === "string") out[path] = d.content
+  }
+  if (unique.length > 6 && unique.every((p) => p.startsWith("shopify/"))) {
+    try {
+      const r = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/files?compat=1`, { cache: "no-store" })
+      if (!r.ok) return null
+      const d = (await r.json()) as { files?: Record<string, string> }
+      const files = d.files ?? {}
+      for (const p of unique) if (typeof files[p] === "string") out[p] = files[p]
+      return Object.keys(out).length > 0 ? out : null
+    } catch {
+      return null
+    }
+  }
+  try {
+    await Promise.all(unique.map((p) => take(p).catch(() => {})))
+  } catch {
+    return null
+  }
+  return Object.keys(out).length > 0 ? out : null
+}
 const ThemeChat = dynamic(() => loadThemeChat().then((m) => m.ThemeChat), { ssr: false })
 const ProjectSettings = dynamic(() => loadProjectSettings().then((m) => m.ProjectSettings), { ssr: false })
 function warmPanels(): () => void {
@@ -2811,10 +2844,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * one is a hit.
    */
   const [storelibSources, setStorelibSources] = useState<Record<string, string>>({})
+  const storelibSourcesRef = useRef(storelibSources)
+  storelibSourcesRef.current = storelibSources
+  /** The settings schema that came back with the last sources read, applied with those sources. */
+  const heldSchema = useRef<string | null>(null)
   /* The first read of them has answered (or failed): an imported theme's canvas draws from them, so it waits for this (CompatCanvas sourcesReady). */
   const [storelibSourcesRead, setStorelibSourcesRead] = useState(false)
   /** Raised when an imported theme's files changed elsewhere (a push to GitHub), so its canvas reads them again. */
   const [compatFilesVersion, setCompatFilesVersion] = useState(0)
+  /**
+   * A push or an agent rewrote what an imported theme is drawing. The canvas
+   * draws that page once behind the one on screen (CompatCanvas replaceDocument).
+   */
+  const [replaceDocument, setReplaceDocument] = useState(0)
   /**
    * Raised when an imported theme's Theme settings panel may have been made
    * again on the server: its settings_schema.json changed, or its values did
@@ -2833,14 +2875,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Raised when config/settings_data.json was saved in the code editor: the values are read again. */
   const [settingsFileVersion, setSettingsFileVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
-  const loadStorelibSources = useCallback(async (): Promise<Record<string, string> | null> => {
+  const loadStorelibSources = useCallback(async (opts?: { hold?: boolean }): Promise<Record<string, string> | null> => {
     try {
       const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`)
       if (!res.ok) return null
       const d = (await res.json()) as { files?: Record<string, string>; settings_schema?: string | null }
       const files = d.files ?? {}
-      setStorelibSources(files)
-      setThemeSchemaText(typeof d.settings_schema === "string" ? d.settings_schema : null)
+      const schema = typeof d.settings_schema === "string" ? d.settings_schema : null
+      heldSchema.current = schema
+      /* A push applies this with the rest of what arrived, in one render (hold). */
+      if (!opts?.hold) {
+        setStorelibSources((prev) => (sameFiles(prev, files) ? prev : files))
+        setThemeSchemaText((prev) => (prev === schema ? prev : schema))
+      }
       return files
     } catch {
       /* the bundled sources still render; the next save reloads */
@@ -4103,6 +4150,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   isDirtyRef.current = isDirty
   const savingRef = useRef(saving)
   savingRef.current = saving
+  /** Run inside a quiet load's one render, so a push's files and its page land together. */
+  const afterQuietLoad = useRef<(() => void) | null>(null)
   const pageCache = useRef(new Map<string, { at: number; ttl: number; read: Promise<SectionInstance[]> }>())
   /** A page written other than by its own save (or all of them): read afresh when it is next opened. */
   const forgetPage = useCallback((page?: string) => {
@@ -4175,6 +4224,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const warmCompatPage = useCallback((page: PageKey) => {
     if (!importedTheme.current || page === "product" || page === currentPageRef.current) return
     if (typeof window !== "undefined" && window.innerWidth < 768) return
+    /* A whole theme page drawn out of sight is the canvas's own work. A small device waits until the page is opened. */
+    if (editorSpares()) return
     const read = cachedPage(page)
     if (!read) return
     const asked = ++warmAsked.current
@@ -4356,16 +4407,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
 
     /* Read under an open editor: an edit made while it was on its way is not written over (the conflict line asks which to keep). */
+    const alongside = afterQuietLoad.current
+    afterQuietLoad.current = null
     if (quiet && (isDirtyRef.current || savingRef.current)) {
       setSyncConflict((c) => c ?? { what: "this page", by: "GitHub" })
+      if (alongside) startTransition(alongside)
       return
     }
-    setSettingsDraft(loadedSettings)
-    setSections(loaded)
+    /* One render, and a low priority one: the page stays usable while it takes the draft. */
+    if (quiet) {
+      startTransition(() => {
+        setSettingsDraft(loadedSettings)
+        setSections(loaded)
+        alongside?.()
+      })
+    } else {
+      setSettingsDraft(loadedSettings)
+      setSections(loaded)
+    }
     } catch (err) {
       console.error("[editor] loadData failed:", err)
       reportLoadProblem("editor", err)
       if (!quiet) setLoadFailed(true)
+      const alongside = afterQuietLoad.current
+      afterQuietLoad.current = null
+      if (alongside) startTransition(alongside)
     } finally {
       setLoading(false)
     }
@@ -7559,22 +7625,69 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (events.length > 0) setUnpublished(true)
     /* Any page may have been written: each is read afresh when it is next opened (pageCache). */
     if (events.length > 0) forgetPage()
-    /* An imported theme draws from its own files too: a file changed there is read again (CompatCanvas filesVersion). */
-    if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/") && ev.path !== "settings")) {
-      compatFilesChanged(installId)
-      setCompatFilesVersion((n) => n + 1)
-    }
-    /* And its Theme settings, made from its settings_schema.json and its values, both of which a push may have changed. */
-    if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/"))) setCompatPanelVersion((n) => n + 1)
-    /* Which of what is open was rewritten, for the conflict line: a page, home's header and footer, or the settings. */
+    /*
+      ONE PASS. The files a push changed are read while the page stays as it
+      is, then the editor takes them in a single render: the sections whose
+      files changed redraw, and an imported theme's page is drawn once behind
+      the one on screen. Downloading the whole theme and patching every
+      section in place, on every poll, is what made the editor stutter.
+    */
     let replacedWhat: string | null = null
+    for (const ev of events) {
+      if (!ev.detail?.replaced) continue
+      const page = ev.detail.page ?? null
+      if (page === null || page === currentPageRef.current || page === "home") {
+        replacedHere = true
+        replacedWhat = page === null ? "the theme settings" : page === currentPageRef.current ? "this page" : "the header and footer"
+      }
+    }
     /* An agent's own changes, counted for the "Publish to make them live" line (a push says its own, from the server). */
     const byAgents = events.filter((ev) => !isGitHubName(ev.agent_name))
-    if (byAgents.length) {
-      const who = byAgents[byAgents.length - 1].agent_name
-      setAgentNote((prev) => (prev && prev.who === who ? { who, count: prev.count + byAgents.length } : { who, count: byAgents.length }))
+    const shopifyPaths = events.filter((ev) => ev.path.startsWith("shopify/")).map((ev) => ev.path)
+    /* Only the files this push names. The whole theme is read when that read fails, not on every poll. */
+    const sourcePaths = events.map((ev) => ev.path).filter((p) => /\.storelib$/.test(p) || p.endsWith("settings_schema.json") || p.endsWith("settings_data.json"))
+    const [shopify, sourcePatch] = await Promise.all([
+      readThemeTexts(installId, shopifyPaths),
+      readThemeTexts(installId, sourcePaths),
+    ])
+    let files: Record<string, string> | null = null
+    if (sourcePaths.length > 0) {
+      if (sourcePatch && Object.keys(sourcePatch).length > 0) files = { ...storelibSourcesRef.current, ...sourcePatch }
+      else files = await loadStorelibSources({ hold: true })
     }
-    const files = await loadStorelibSources()
+    const schemaFile = sourcePaths.find((p) => p.endsWith("settings_schema.json"))
+    if (schemaFile && sourcePatch?.[schemaFile]) heldSchema.current = sourcePatch[schemaFile]
+    const importedNow = compatInstall || (!!files && isCompatSource(files["layout/theme.storelib"] ?? "")) || isCompatSource(storelibSourcesRef.current["layout/theme.storelib"] ?? "")
+    const sourcesChanged = !!files && !sameFiles(storelibSourcesRef.current, files)
+    const landRemote = () => {
+      if (files) {
+        const schema = heldSchema.current
+        storelibSourcesRef.current = files
+        setStorelibSources((prev) => (sameFiles(prev, files) ? prev : files))
+        setThemeSchemaText((prev) => (prev === schema ? prev : schema))
+      }
+      if (shopifyPaths.length > 0) {
+        /* The text we just read, or, when it could not be read, the whole set again. */
+        if (!(shopify && Object.keys(shopify).length > 0 && patchCompatFiles(installId, shopify))) compatFilesChanged(installId)
+        setCompatFilesVersion((n) => n + 1)
+      }
+      /*
+        A fresh document only when the theme's own code changed, or the open
+        page was rewritten whole, or a lot of files arrived at once. One
+        section file is drawn in place, so the canvas follows the agent
+        without loading the page again.
+      */
+      const themeCode = shopifyPaths.some((p) => /\/layout\//.test(p) || /\.(css|js)(\.liquid)?$/.test(p))
+      const many = shopifyPaths.length + sourcePaths.length > 4
+      if (importedNow && (themeCode || many || replacedHere)) setReplaceDocument((n) => n + 1)
+      if (importedNow && events.some((ev) => ev.path === "settings" || ev.path.endsWith("settings_schema.json") || ev.path.endsWith("settings_data.json"))) {
+        setCompatPanelVersion((n) => n + 1)
+      }
+      if (byAgents.length) {
+        const whoNote = byAgents[byAgents.length - 1].agent_name
+        setAgentNote((prev) => (prev && prev.who === whoNote ? { who: whoNote, count: prev.count + byAgents.length } : { who: whoNote, count: byAgents.length }))
+      }
+    }
     const custom = files ? customSectionSchemas(files) : {}
     /* One poll can hold two writers; each gets its own run of lines. */
     let who = events[0]?.agent_name ?? ""
@@ -7586,7 +7699,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setLiveBatch((b) => addToBatch(b, by, lines, Date.now()))
       changes = []
     }
-    for (const ev of events) {
+    const applyIncoming = () => { for (const ev of events) {
       if (ev.agent_name !== who) {
         flush()
         who = ev.agent_name
@@ -7600,7 +7713,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * the applier's may not have yet. See pageEventPlan.
        */
       const plan = pageEventPlan(ev, currentPageRef.current)
-      for (const op of [...plan.themeOps, ...plan.pageOps]) {
+      /* A page rewritten whole is read back below. Replaying its operations and then reading it again drew the page twice. */
+      if (!replacedHere) for (const op of [...plan.themeOps, ...plan.pageOps]) {
         if (op.kind === "add_section" && custom[op.sectionType]) {
           pushUndo()
           setSections((previous) => applyOp({ sections: previous, settings: {} }, op, { ...librarySchemas, ...custom }).sections)
@@ -7617,7 +7731,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const type = sectionTypeOf(ev.path)
       const schema = type ? custom[type] : undefined
       /* Placed by the agent itself: the page change that follows puts it where it asked. */
-      if (type && ev.action === "created" && schema && !ev.detail?.placed && !sectionsRef.current.some((sec) => sec.type === type)) {
+      if (!replacedHere && type && ev.action === "created" && schema && !ev.detail?.placed && !sectionsRef.current.some((sec) => sec.type === type)) {
         const id = `${type}-${Date.now()}`
         pushUndo()
         setSections((previous) => placeWrittenSection(previous, writingAnchor(previous), instanceFromSchema(id, type, schema)))
@@ -7633,7 +7747,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           replacedWhat = page === null ? "the theme settings" : page === currentPageRef.current ? "this page" : "the header and footer"
         }
       }
-    }
+    } }
     /*
       REWRITTEN WHOLE, NOT EDITED (a push to the linked GitHub repository,
       lib/github-sync/sync.ts). There are no operations to replay, and the
@@ -7645,6 +7759,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       draft is here, then take it, with the open section still open. The
       editor is not loaded again around it.
     */
+    if (replacedHere && !isDirtyRef.current && !savingRef.current && !publishing) afterQuietLoad.current = () => { landRemote(); applyIncoming(); flush() }
     if (replacedHere) {
       if (!isDirtyRef.current && !savingRef.current && !publishing) {
         clearHistory()
@@ -7655,11 +7770,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           it is GitHub's now. Autosave would have written this copy over
           theirs without a word; it waits instead, and the creator picks.
         */
-        setSyncConflict({ what: replacedWhat ?? "this page", by: who })
+        setSyncConflict({ what: replacedWhat ?? "this page", by: events[events.length - 1]?.agent_name ?? who })
         changes.push({ key: "github-conflict", text: "Your unsaved edit is kept until you pick a version.", sectionType: null })
+        /* Now, not deferred: a transition waits behind scrolling, and the push looks as if it never arrived. */
+        landRemote(); applyIncoming(); flush()
       }
+    } else {
+      landRemote(); applyIncoming(); flush()
     }
-    flush()
     void refreshSync()
   }
   /** The conflict line's two buttons. */
@@ -7809,13 +7927,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   useEffect(() => {
     if (loading) return
-    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
-    if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "")) return
+    /* The same plan as the rest of the app: nothing on Save-Data or 2g, one page on a small phone, a few on a normal one, and never more than READ_AHEAD_PAGES. */
+    const plan = prefetchPlan()
+    if (plan.idleBudget === 0) return
     /* Only pages the site has stored: one the server builds (the shop, search) is kept a moment only, and is not worth the request. */
     const listed = sitePages.map((p) => p.key)
     const keys = [...listed.filter((k) => rowPageKeys.includes(k)), ...rowPageKeys.filter((k) => !listed.includes(k))]
       .filter((k) => k !== currentPageRef.current && k !== "product")
-      .slice(0, READ_AHEAD_PAGES)
+      .slice(0, Math.min(READ_AHEAD_PAGES, plan.idleBudget))
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
     let cancelled = false
     let idle = 0
@@ -7829,8 +7948,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
       idle = w.requestIdleCallback ? w.requestIdleCallback(run, { timeout: 4000 }) : window.setTimeout(run, 300)
     }
-    /* After the first page has had the network to itself. */
-    const start = window.setTimeout(() => next(0), 1200)
+    /* After the first page has had the network to itself, and later still on a slower device. */
+    const start = window.setTimeout(() => next(0), Math.max(1200, plan.idleDelayMs))
     return () => {
       cancelled = true
       window.clearTimeout(start)
@@ -11803,6 +11922,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 <CompatCanvas
                   installId={installId}
                   filesVersion={compatFilesVersion}
+                  replaceDocument={replaceDocument}
                   sources={storelibSources}
                   theme={canvasThemeSettings as Record<string, unknown>}
                   pageKey={currentPage}

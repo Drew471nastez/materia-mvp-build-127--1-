@@ -9,6 +9,7 @@
  * bundle — see storelib-sources.tsx.
  */
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react"
+import { changedFilePaths, noteSourceChanges } from "@/lib/website-builder/source-revisions"
 import { sameExceptMenus } from "@/lib/website-builder/menu-readers"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { themeWithHeaderLogo, type HeaderLogo } from "@/lib/website-builder/chrome-logo"
@@ -127,11 +128,6 @@ export function editorCanvasLive(): CanvasLive | null {
 }
 
 
-/** Every file of `before` is in `after` unchanged: `after` only adds files. */
-function onlyAdded(before: Record<string, string>, after: Record<string, string>): boolean {
-  for (const k in before) if (after[k] !== before[k]) return false
-  return true
-}
 export function StorelibLiveProvider({
   sources,
   page,
@@ -227,25 +223,27 @@ export function StorelibLiveProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template, products, dataKey, preview])
   /*
-    A FILE ADDED IS NOT A NEW RENDER FUNCTION EITHER (round 18). A section
-    Storelib AI wrote, or a push that only adds files, brought a new sources
-    object, and with it every section on the page drawn again: a 368ms task
-    at a quarter speed in the frame the written section landed
-    (scripts/check-wb-write-r16.mjs). A section already on the page draws
-    from files that did not change; the new one draws from the files as they
-    are when it runs. A file changed or taken away is a new function, as it
-    always was.
+    THE RENDER FUNCTION DOES NOT CHANGE WHEN A FILE DOES. A new function
+    redrew every section on the page, a few hundred milliseconds, each time
+    a push or an agent wrote one file (scripts/check-wb-write-r16.mjs). The
+    function reads the files as they are when it runs. A section whose file
+    changed is told (source-revisions.ts) and redraws; the others stay.
   */
   const sourcesNow = useRef(sources)
   sourcesNow.current = sources
-  const steadySources = useRef(sources)
-  if (steadySources.current !== sources && !onlyAdded(steadySources.current, sources)) steadySources.current = sources
-  const sourcesKey = steadySources.current
+  const seenSources = useRef(sources)
+  useEffect(() => {
+    const before = seenSources.current
+    if (before === sources) return
+    seenSources.current = sources
+    const changed = changedFilePaths(before, sources)
+    if (changed.length) noteSourceChanges(changed)
+  }, [sources])
   const render = useCallback<SectionRenderFn>(
     (section: SectionInstance, theme: ThemeSettingsValues) =>
       renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sourcesNow.current, products, dataNow.current, globals, canvas ? CANVAS_RENDER : undefined),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sourcesKey, template, inEditor, products, dataKey, globals, extras, headerLogo, canvas],
+    [template, inEditor, products, dataKey, globals, extras, headerLogo, canvas],
   )
   /* The same object while the template is the same. Inline, it was a new
      context value on every render of the canvas, and every section that reads
