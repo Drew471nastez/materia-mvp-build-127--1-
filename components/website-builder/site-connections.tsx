@@ -50,6 +50,11 @@ import { tt } from "@/lib/i18n/text"
 
 /** The least time between two reads asked for by the person coming back (focus, the pointer). */
 const WAKE_GAP_MS = 3_000
+/** Away longer than this, the log that piled up is taken in one pass, not one reload of the canvas per page of it. */
+const CATCH_UP_AWAY_MS = 8_000
+/** How many pages of the log one pass will fold together. */
+const CATCH_UP_PAGES = 6
+const ACTIVITY_PAGE = 20
 
 export function useSiteActivity({
   installId,
@@ -60,8 +65,8 @@ export function useSiteActivity({
   installId: string
   /** Any value; the brief is read again when it changes. */
   recheck?: unknown
-  /** New lines from the log, oldest first. Awaited before the next read. */
-  onEvents: (events: ActivityEvent[]) => void | Promise<void>
+  /** New lines from the log, oldest first. Awaited before the next read. `catchUp`: the tab was away, so this is the pile, applied once. */
+  onEvents: (events: ActivityEvent[], info?: { catchUp: boolean }) => void | Promise<void>
   /** The GitHub link changed since the last read (a push taken or refused, a send that failed): read the sync report again. */
   onSyncChanged?: () => void
 }): { brief: ConnectionsBrief | null; following: boolean; settled: boolean } {
@@ -115,6 +120,9 @@ export function useSiteActivity({
     let delay = POLL_BASE_MS
     /** When a change last arrived or the person last came back or used the editor. */
     let lively = Date.now()
+    /** When the tab was hidden, so a return after a while is one catch-up, not a storm. */
+    let hiddenAt = 0
+    let catchUpPending = false
 
     const schedule = (ms: number) => {
       if (timer) clearTimeout(timer)
@@ -128,30 +136,49 @@ export function useSiteActivity({
       busy = true
       let arrived = false
       let eventsFull = false
+      const catchUp = catchUpPending
+      catchUpPending = false
       try {
-        const res = await fetch(
-          `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${cursor.current}`,
-          { cache: "no-store" },
-        )
-        const d = (await res.json().catch(() => ({}))) as { ready?: boolean; cursor?: number; events?: ActivityEvent[]; sync_at?: string | null }
-        /* Not set up on this database: stop asking until the next load. */
-        if (!res.ok || d.ready === false) {
+        /* Coming back after a while: let the restored page paint before the catch-up draws over it. */
+        if (catchUp) await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+        const events: ActivityEvent[] = []
+        let after = cursor.current
+        let pages = 0
+        let syncSeen: string | null | undefined
+        let ready = true
+        while (after !== null && pages < (catchUp ? CATCH_UP_PAGES : 1)) {
+          const res = await fetch(
+            `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${after}`,
+            { cache: "no-store" },
+          )
+          const d = (await res.json().catch(() => ({}))) as { ready?: boolean; cursor?: number; events?: ActivityEvent[]; sync_at?: string | null }
+          if (!res.ok || d.ready === false) {
+            ready = false
+            break
+          }
+          if (typeof d.cursor === "number") after = d.cursor
+          if (d.sync_at !== undefined) syncSeen = d.sync_at
+          const batch = d.events ?? []
+          for (const ev of batch) events.push(ev)
+          pages++
+          if (batch.length < ACTIVITY_PAGE) break
+        }
+        if (!ready) {
           stopped = true
           return
         }
-        if (typeof d.cursor === "number") cursor.current = d.cursor
-        const events = d.events ?? []
+        if (after !== null) cursor.current = after
         if (events.length) {
           arrived = true
-          eventsFull = events.length >= 20
-          /* The page takes the changes first. The mark updates with them, not in a render of its own before the files are even read. */
-          await onEventsRef.current(events)
+          eventsFull = events.length >= ACTIVITY_PAGE * (catchUp ? CATCH_UP_PAGES : 1)
+          /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
+          await onEventsRef.current(events, { catchUp })
           const last = events[events.length - 1]
           setBrief((b) => (b ? { ...b, latest: { name: last.agent_name, at: last.created_at ?? new Date().toISOString() } } : b))
         }
-        if (d.sync_at !== undefined && d.sync_at !== syncAt.current) {
+        if (syncSeen !== undefined && syncSeen !== syncAt.current) {
           const first = syncAt.current === undefined
-          syncAt.current = d.sync_at
+          syncAt.current = syncSeen
           if (!first) {
             arrived = true
             onSyncRef.current?.()
@@ -162,6 +189,7 @@ export function useSiteActivity({
       } finally {
         busy = false
       }
+      if (document.visibilityState !== "visible") return
       if (arrived) lively = Date.now()
       /* A full page of the log means more is waiting. Ask again at once so a long push is not shown twenty lines at a time. */
       delay = arrived && (eventsFull) ? 200 : nextPollDelay(delay, arrived, Date.now() - lively)
@@ -169,9 +197,18 @@ export function useSiteActivity({
     }
     let woke = 0
     const wake = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now()
+        /* A timer left running would read one page of the pile the moment the tab came back, and reload the canvas before the catch-up. */
+        if (timer) clearTimeout(timer)
+        timer = null
+        return
+      }
       if (document.visibilityState !== "visible") return
-      /* At most once every few seconds: the pointer coming back over the editor is a moment to look, not a stream of reads. */
-      if (Date.now() - woke < WAKE_GAP_MS) return
+      const back = hiddenAt > 0 && Date.now() - hiddenAt >= CATCH_UP_AWAY_MS
+      if (back) catchUpPending = true
+      /* At most once every few seconds: the pointer coming back over the editor is a moment to look, not a stream of reads. A long absence still reads. */
+      if (!back && Date.now() - woke < WAKE_GAP_MS) return
       woke = Date.now()
       lively = Date.now()
       delay = POLL_BASE_MS

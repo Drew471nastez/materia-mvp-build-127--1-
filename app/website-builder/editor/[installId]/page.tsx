@@ -7617,7 +7617,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * builder does not add everything agents wrote last week.
    */
   const [liveBatch, setLiveBatch] = useState<LiveBatch | null>(null)
-  const handleAgentEvents = async (events: ActivityEvent[]) => {
+  const handleAgentEvents = async (events: ActivityEvent[], info?: { catchUp?: boolean }) => {
+    const catchUp = info?.catchUp === true
     let replacedHere = false
     /*
       EVERYTHING AN AGENT OR A PUSH WRITES IS A DRAFT (a section file's
@@ -7649,13 +7650,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const shopifyPaths = events.filter((ev) => ev.path.startsWith("shopify/")).map((ev) => ev.path)
     /* Only the files this push names. The whole theme is read when that read fails, not on every poll. */
     const sourcePaths = events.map((ev) => ev.path).filter((p) => /\.storelib$/.test(p) || p.endsWith("settings_schema.json") || p.endsWith("settings_data.json"))
+    /* A pile of files from while the tab was away is one read of the theme, not one request per file. */
+    const folded = catchUp && sourcePaths.length > 8
     const [shopify, sourcePatch] = await Promise.all([
       readThemeTexts(installId, shopifyPaths),
-      readThemeTexts(installId, sourcePaths),
+      folded ? Promise.resolve(null) : readThemeTexts(installId, sourcePaths),
     ])
     let files: Record<string, string> | null = null
     if (sourcePaths.length > 0) {
-      if (sourcePatch && Object.keys(sourcePatch).length > 0) files = { ...storelibSourcesRef.current, ...sourcePatch }
+      if (folded) files = await loadStorelibSources({ hold: true })
+      else if (sourcePatch && Object.keys(sourcePatch).length > 0) files = { ...storelibSourcesRef.current, ...sourcePatch }
       else files = await loadStorelibSources({ hold: true })
     }
     const schemaFile = sourcePaths.find((p) => p.endsWith("settings_schema.json"))
@@ -7682,7 +7686,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       */
       const themeCode = shopifyPaths.some((p) => /\/layout\//.test(p) || /\.(css|js)(\.liquid)?$/.test(p))
       const many = shopifyPaths.length + sourcePaths.length > 4
-      if (importedNow && (themeCode || many || replacedHere)) setReplaceDocument((n) => n + 1)
+      /* Coming back to a pile of section files draws them in place. Reloading the document for that pile is the blank frame. */
+      if (importedNow && (themeCode || replacedHere || (many && !catchUp))) setReplaceDocument((n) => n + 1)
       if (importedNow && events.some((ev) => ev.path === "settings" || ev.path.endsWith("settings_schema.json") || ev.path.endsWith("settings_data.json"))) {
         setCompatPanelVersion((n) => n + 1)
       }

@@ -355,7 +355,7 @@ async function main() {
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   const follow = read("components/website-builder/site-connections.tsx")
   check("the builder asks what agents wrote, only while it is showing, and only while something is connected",
-    /useSiteActivity\(\{/.test(editor) && /agent-activity\?after=\$\{cursor\.current\}/.test(follow) &&
+    /useSiteActivity\(\{/.test(editor) && /agent-activity\?after=\$\{after\}/.test(follow) &&
       /document\.visibilityState !== "visible"/.test(follow) && /if \(!connected\) return/.test(follow))
   check("the first answer is a cursor, so nothing old is replayed",
     /if \(after === null\)/.test(read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")))
@@ -367,7 +367,7 @@ async function main() {
     return handler.length > 0 && !/revealSection|scrollWithin|scrollToSection/.test(handler)
   })())
   check("never twice", /!sectionsRef\.current\.some\(\(sec\) => sec\.type === type\)/.test(editor))
-  check("and it stops asking on a database without the tables", /if \(!res\.ok \|\| d\.ready === false\) \{\s*stopped = true/.test(follow))
+  check("and it stops asking on a database without the tables", /if \(!res\.ok \|\| d\.ready === false\) \{\s*ready = false/.test(follow) && /if \(!ready\) \{\s*stopped = true/.test(follow))
 
   console.log("\nThe docs say how")
 
