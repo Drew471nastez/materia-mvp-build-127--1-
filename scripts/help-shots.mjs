@@ -197,6 +197,10 @@ const SHOTS = [
   /* Round 24: an offer opened from the list, its editor and preview (app/app/offers/offer-editor.tsx). */
   { name: "offer-bundle-editor", view: "offers", width: 1100, height: 1400, act: [async (p) => { await p.evaluate(() => document.querySelector('[data-row="o1"] td')?.click()); await wait(900) }], clip: (p) => p.evaluate(() => window.__wholeDialog()) },
   { name: "offer-quantity-break-editor", view: "offers", width: 1100, height: 1600, act: [async (p) => { await p.evaluate(() => document.querySelector('[data-row="o3"] td')?.click()); await wait(900) }], clip: (p) => p.evaluate(() => window.__wholeDialog()) },
+  { name: "offer-upsell-editor", view: "offers", width: 1100, height: 1500, act: [async (p) => { await p.evaluate(() => document.querySelector('[data-row="o2"] td')?.click()); await wait(900) }], clip: (p) => p.evaluate(() => window.__wholeDialog()) },
+  /* The product section's Bundles and upsells block, as a buyer sees it (components/website-builder/sections/renderers/product/offers-block.tsx). */
+  { name: "product-offers", view: "product-offers", width: 480, height: 1400, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot")], 0)) },
+  { name: "cart-offers", view: "cart-offers", width: 440, height: 900, settle: 1200, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot")], 0)) },
   { name: "website-commerce", view: "website-commerce", width: 1280, height: 860, clip: viewport(860), settle: 2500 },
   /* Website settings › Commerce › On this website (stock left, the low stock message, the free shipping banner, the return policy in the cart). */
   { name: "website-on-this-website", view: "website-commerce", width: 1280, height: 860, settle: 2500, act: [async (p) => { await p.evaluate(() => window.__card("On this website")?.scrollIntoView({ block: "center" })); await wait(400) }], clip: cards("On this website") },

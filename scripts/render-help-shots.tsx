@@ -38,6 +38,8 @@ import { TranslateSheet } from "@/components/app/settings/translate-sheet"
 import { LanguageSwitch } from "@/components/website-builder/theme/language-switch"
 import { languageChoiceOf } from "@/lib/markets/choice"
 import { ProductBlock } from "@/components/website-builder/sections/renderers/product/product-blocks"
+import { CartOfferSavings, CartOfferSuggestions } from "@/components/offers/cart-offers"
+import { productBlockDefaults } from "@/lib/website-builder/product-page"
 
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "delivery"
@@ -192,6 +194,24 @@ import { DEFAULT_RETURN_REASONS, DEFAULT_REFUND_REASONS } from "@/lib/store/reas
 const reasons = { ready: true, return: DEFAULT_RETURN_REASONS.map((r, i) => ({ ...r, id: `rr${i}` })), refund: DEFAULT_REFUND_REASONS.map((r, i) => ({ ...r, id: `rf${i}` })) }
 
 const P = (id: string, title: string, priceCents: number, imageUrl: string | null) => ({ id, title, type: "physical", published: true, priceCents, imageUrl, payWhatYouWant: false })
+/** What GET /api/offers?product= answers for the mug: the same three offers, as the product page draws them. */
+function productPageOffers() {
+  const mug = { id: PRODUCT, title: "Speckled mug", slug: "speckled-mug", imageUrl: MUG_SAND, type: "physical", priceCents: 3200, variants: [{ id: V(0), name: "12 oz / Sand", priceCents: 3200 }] }
+  const bowl = { id: "p-bowl", title: "Serving bowl", slug: "serving-bowl", imageUrl: BOWL, type: "physical", priceCents: 4400, variants: [] }
+  const apron = { id: "p-apron", title: "Linen apron", slug: "linen-apron", imageUrl: APRON, type: "physical", priceCents: 3800, variants: [] }
+  return {
+    bundles: [{ offerId: "o1", title: "Breakfast set", label: "10% off", discountType: "percent", discountValue: 10, items: [mug, bowl], fullCents: 7600, priceCents: 6840 }],
+    checkoutOffers: [{ offerId: "o2", title: "Add an apron", label: "$5.00 off", discountType: "fixed", discountValue: 500, product: apron, offerPriceCents: 3300 }],
+    quantityBreaks: [{
+      offerId: "o3", productId: PRODUCT, title: "Mug offer",
+      tiers: [
+        { quantity: 2, freeQuantity: 1, discountType: "none", discountValue: 0, label: "Buy 2 get 1 free", badge: "Most popular" },
+        { quantity: 3, freeQuantity: 2, discountType: "none", discountValue: 0, label: "Buy 3 get 2 free", badge: "Best value" },
+      ],
+    }],
+  }
+}
+
 const offers = {
   ready: true,
   products: [P(PRODUCT, "Speckled mug", 3200, MUG_SAND), P("p-bowl", "Serving bowl", 4400, BOWL), P("p-apron", "Linen apron", 3800, APRON)],
@@ -431,6 +451,7 @@ function route(method: string, path: string, body: Record<string, unknown>, quer
   if (path.startsWith("/api/store/channels")) return channels
   if (path.startsWith("/api/store/settings")) return store
   if (path.startsWith("/api/store/reasons")) return reasons
+  if (path === "/api/offers") return productPageOffers()
   if (path.startsWith("/api/store/offers")) return offers
   if (path === "/api/store/emails") return { shop: { name: "Fern & Clay", supportEmail: "hello@fernandclay.example", storeUrl: null, logoUrl: null, phone: null, currency: "USD" }, copy: {}, ready: true }
   if (path.startsWith("/api/store/emails/preview")) return { subject: "Order confirmed", html: "<p>Preview</p>" }
@@ -490,6 +511,72 @@ function SizeGuidePage() {
         <p style={{ fontSize: 18, color: palette.text, margin: "0 0 24px" }}>$48.00</p>
         <ProductBlock block={{ id: "vp", type: "variant_picker", settings: {} } as never} ctx={ctx as never} />
         <button type="button" style={{ width: "100%", height: 50, borderRadius: 6, background: palette.heading, color: "#fff", fontSize: 15, fontWeight: 500 }}>Add to cart</button>
+      </div>
+    </div>
+  )
+}
+
+/** The product page's Bundles and upsells block (themes/default/sections/product.json, type offers), with the mug's real offers. */
+function ProductOffersPage() {
+  const [quantity, setQuantity] = React.useState(3)
+  const palette = {
+    heading: "#1c1917", text: "#292524", paragraph: "#44403c", text_muted: "#78716c", border: "#e7e5e4",
+    bg: "#ffffff", background: "#ffffff", background_secondary: "#f5f5f4",
+    primary_button_background: "#1c1917", primary_button_text: "#ffffff",
+  }
+  const product = {
+    id: PRODUCT, title: "Speckled mug", slug: "speckled-mug", type: "physical", description: "",
+    price_cents: 3200, compare_at_cents: null, thumbnail_url: MUG_SAND, gallery_urls: [],
+    options: [], variants: [],
+  }
+  const ctx = {
+    product, sample: false, variant: { price_cents: 3200, compare_at_cents: null },
+    chosen: [] as (string | null)[], choose: () => {}, facts: { payWhatYouWant: false },
+    canBuy: true, quantity, setQuantity, maxQuantity: 12,
+    pwywInput: "", setPwywInput: () => {}, pwywError: null, palette, inEditor: false, inert: false,
+    buy: { add: () => {}, now: () => {}, added: false, unavailable: null },
+    wishlist: { saved: false, toggle: () => {} },
+    radius: "10px", buttonRadius: { borderRadius: 10 },
+    money: (c: number) => `$${(c / 100).toFixed(2)}`,
+    offers: { chosen: { variantId: V(0), variantName: "12 oz / Sand", priceCents: 3200, imageUrl: MUG_SAND }, addLines: () => true },
+  }
+  return (
+    <div style={{ background: "#fff", minHeight: "100vh" }}>
+      <div id="shot" style={{ maxWidth: 440, margin: "0 auto", padding: "28px 20px 36px" }}>
+        <p style={{ fontSize: 26, fontWeight: 600, color: palette.heading, margin: "0 0 4px" }}>Speckled mug</p>
+        <p style={{ fontSize: 18, fontWeight: 600, color: palette.heading, margin: "0 0 20px" }}>$32.00</p>
+        <ProductBlock block={{ id: "offers", type: "offers", settings: { ...productBlockDefaults("offers"), margin_top: 0, margin_bottom: 0 } } as never} ctx={ctx as never} />
+      </div>
+    </div>
+  )
+}
+
+/** The cart's offer lines and suggestions (components/offers/cart-offers.tsx): three mugs on the quantity break, the rest of the bundle, and the upsell. */
+function CartOffersShot() {
+  const money = (c: number) => `$${(c / 100).toFixed(2)}`
+  const bowl = { id: "p-bowl", title: "Serving bowl", slug: "serving-bowl", imageUrl: BOWL, type: "physical", priceCents: 4400, variants: [] as { id: string; name: string; priceCents: number }[] }
+  const apron = { id: "p-apron", title: "Linen apron", slug: "linen-apron", imageUrl: APRON, type: "physical", priceCents: 3800, variants: [] as { id: string; name: string; priceCents: number }[] }
+  const data = {
+    currency: "USD", subtotalCents: 9600, offerCents: 3200, totalCents: 6400, freeShipping: false,
+    offers: [{ offerId: "o3", title: "Buy 2 get 1 free", savedCents: 3200, freeShipping: false }],
+    lines: [],
+    suggestions: [{ offerId: "o2", title: "Add an apron", label: "$5.00 off", product: apron, offerPriceCents: 3300 }],
+    completions: [{ offerId: "o1", title: "Breakfast set", label: "10% off", missing: [bowl], savingCents: 760 }],
+  }
+  return (
+    <div style={{ background: "#fff", minHeight: "100vh" }}>
+      <div id="shot" style={{ maxWidth: 400, margin: "0 auto", padding: "24px 20px 28px", color: "#1c1917" }}>
+        <p style={{ fontSize: 18, fontWeight: 600, margin: "0 0 16px" }}>Cart</p>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, marginBottom: 10 }}>
+          <span>Speckled mug × 3</span>
+          <span>$96.00</span>
+        </div>
+        <CartOfferSavings data={data} money={money} />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 600, margin: "12px 0 18px", paddingTop: 12, borderTop: "1px solid #e7e5e4" }}>
+          <span>Subtotal</span>
+          <span>$64.00</span>
+        </div>
+        <CartOfferSuggestions data={data} onAdd={() => {}} money={money} colors={{ text: "#1c1917", muted: "#78716c", border: "#e7e5e4" }} radius={10} />
       </div>
     </div>
   )
@@ -662,6 +749,10 @@ function App() {
     }
     case "size-guide":
       return <SizeGuidePage />
+    case "product-offers":
+      return <ProductOffersPage />
+    case "cart-offers":
+      return <CartOffersShot />
     case "buybox":
       return (
         <Page width={460} bg="#ffffff">
