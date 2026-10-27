@@ -1832,6 +1832,30 @@ async function heldToStock(site: SiteData, cart: CartEntry[]): Promise<CartEntry
  * Never a page of its own: the white "Sending" page this used to answer with was
  * a blank white page in the middle of the visitor's shop.
  */
+/**
+ * WHAT A MESSAGE WAS ABOUT (round 25). A theme's question on a product page
+ * (Materia's product addons) posts `contact[product]` and
+ * `contact[product_url]` with the contact form: the message keeps them, as
+ * its subject ("Question about Linen tee", unless the form sent a subject of
+ * its own) and the page it was sent from ("products/linen-tee"), so Emails ›
+ * Messages and the store's email say which product it was asked on. A page
+ * that is not one of the site's own kinds is left as the contact page.
+ */
+function contactContext(flat: (k: string) => string): { subject?: string; page: string } {
+  const product = flat("product").replace(/\s+/g, " ").trim().slice(0, 120)
+  const own = flat("subject").replace(/\s+/g, " ").trim()
+  let page = "contact"
+  try {
+    const path = new URL(flat("product_url") || flat("page_url"), "https://site.invalid").pathname
+    const m = /^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?(products|collections|pages)\/([a-z0-9][a-z0-9-]{0,99})\/?$/i.exec(path)
+    if (m) page = `${m[1].toLowerCase()}/${m[2].toLowerCase()}`
+  } catch {
+    page = "contact"
+  }
+  const subject = own || (product ? `Question about ${product}` : "")
+  return { ...(subject ? { subject } : {}), page }
+}
+
 async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteResponse> {
   const b = req.body ?? {}
   const type = String(b.form_type ?? "contact") === "customer" ? "customer" : "contact"
@@ -1844,7 +1868,7 @@ async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteRespons
   const subscribe = type === "customer"
   const payload = subscribe
     ? { creator_id: site.creatorId, email, placement: "footer" }
-    : { creator_id: site.creatorId, name: flat("name") || [flat("first_name"), flat("last_name")].filter(Boolean).join(" "), email, message: flat("body") || flat("message") || flat("comment"), consent: false, company: "", elapsed: 15000, page: "contact" }
+    : { creator_id: site.creatorId, name: flat("name") || [flat("first_name"), flat("last_name")].filter(Boolean).join(" "), email, message: flat("body") || flat("message") || flat("comment"), consent: false, company: "", elapsed: 15000, ...contactContext(flat) }
   const result = req.submit ? await req.submit(subscribe ? "subscribe" : "contact", payload).catch(() => ({ ok: false, status: 503 })) : { ok: false, status: 503 }
   const code = result.ok ? null : result.status === 400 ? (subscribe || !/@/.test(email) ? "email" : "check") : result.status === 429 ? "limit" : "failed"
   if (req.ajax) return json(result.ok ? { ok: true, form_type: type } : { ok: false, form_type: type, code, message: FORM_ERRORS[code ?? "failed"] }, result.ok ? 200 : result.status >= 400 ? result.status : 500)

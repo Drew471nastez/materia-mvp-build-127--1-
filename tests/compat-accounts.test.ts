@@ -199,6 +199,19 @@ async function main() {
     check("or with the reason, for the theme's own error", where(busy) === "/?form_error=limit&form_type=customer")
     const contact = await call(plain, "POST", "/contact", { body: { form_type: "contact", "contact[name]": "Cy", "contact[email]": "cy@mail.test", "contact[body]": "Hello" }, referer: "/pages/contact", submit })
     check("a contact form goes to the contact endpoint and back with contact_posted=true", sent.some((s) => s.kind === "contact" && s.payload.message === "Hello" && s.payload.name === "Cy") && where(contact) === "/pages/contact?contact_posted=true")
+    /* Round 25: a question asked on a product page (Materia's product addons) keeps which product it was about. */
+    sent.length = 0
+    const asked = await call(plain, "POST", "/contact", { body: { form_type: "contact", "contact[name]": "Cy", "contact[email]": "cy@mail.test", "contact[body]": "Does it shrink?", "contact[product]": "Linen   tee", "contact[product_url]": "/fr/products/linen-tee" }, referer: "/products/linen-tee", submit })
+    const q = sent.find((s) => s.kind === "contact")?.payload ?? {}
+    check("a product question keeps its product: the subject and the page it was asked on", q.subject === "Question about Linen tee" && q.page === "products/linen-tee" && q.message === "Does it shrink?" && where(asked) === "/products/linen-tee?contact_posted=true", q)
+    sent.length = 0
+    await call(plain, "POST", "/contact", { body: { form_type: "contact", "contact[email]": "cy@mail.test", "contact[body]": "Hi", "contact[subject]": "Wholesale", "contact[product]": "Linen tee", "contact[product_url]": "https://evil.test/../../x" }, submit })
+    const own = sent.find((s) => s.kind === "contact")?.payload ?? {}
+    check("  a subject of its own wins, and a link that is not one of the site's pages is the contact page", own.subject === "Wholesale" && own.page === "contact", own)
+    const { validateContact } = await import("../lib/site-contact/contact")
+    const v = validateContact({ creator_id: "11111111-1111-4111-8111-111111111111", email: "cy@mail.test", message: "Hi", page: "products/linen-tee", subject: "Question about Linen tee" })
+    check("  and the message's own check takes the product page", v.ok === true && v.value.page === "products/linen-tee" && v.value.subject === "Question about Linen tee", v)
+    check("  while a path deeper than that, or with anything else in it, is the contact page", (validateContact({ creator_id: "11111111-1111-4111-8111-111111111111", email: "cy@mail.test", message: "Hi", page: "products/a/b" }) as { value?: { page: string } }).value?.page === "contact" && (validateContact({ creator_id: "11111111-1111-4111-8111-111111111111", email: "cy@mail.test", message: "Hi", page: "../admin" }) as { value?: { page: string } }).value?.page === "contact")
     const none = await call(plain, "POST", "/contact", { body: { form_type: "customer", "contact[email]": "ana@mail.test" } })
     check("nothing to send it with: back with an error, never a page of its own", none.status === 303 && /form_error=failed/.test(where(none)))
     for (const r of [ajax, bad, back, busy, contact, none]) if (/Sending/.test(body(r))) check("never the Sending page", false)

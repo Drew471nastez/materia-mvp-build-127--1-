@@ -67,7 +67,8 @@ export const MIN_ELAPSED_MS = 2500
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const PAGE_KEY = /^[a-z0-9](?:[a-z0-9-]{0,62})$/
+/* A page key ("contact", "about"), or one level down for a page of a kind (round 25: "products/mug", a question asked on a product). */
+const PAGE_KEY = /^[a-z0-9](?:[a-z0-9-]{0,62})(?:\/[a-z0-9][a-z0-9-]{0,99})?$/
 
 export interface ContactMessage {
   creatorId: string
