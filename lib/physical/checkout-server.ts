@@ -269,6 +269,20 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     }
   }
   if (priced.lines.length === 0) return { ok: false, status: 400, error: priced.dropped.length ? `${priced.dropped[0]} can't be bought right now.` : "Your cart is empty." }
+  /*
+    ALL OF IT OR NONE OF IT (round 25). A line that can no longer be bought
+    (unpublished, an option no longer sold) used to be left out and the rest
+    charged: a bundle paid for without half of it. Only a download the buyer
+    already owns is left out quietly, as it is never charged twice.
+  */
+  const ownedTitles = (priced.owned ?? []).map((o) => o.title)
+  const lost = priced.dropped.filter((title) => {
+    const i = ownedTitles.indexOf(title)
+    if (i < 0) return true
+    ownedTitles.splice(i, 1)
+    return false
+  })
+  if (lost.length) return { ok: false, status: 409, error: `${lost.slice(0, 3).join(", ")} can't be bought right now. Remove ${lost.length === 1 ? "it" : "them"} and try again.`, code: "unavailable" }
   /* Personalization: what each item asks for, checked here as well as on the page (lib/products/personalization-server). */
   const personalized = await personalizedLines(db, priced.lines)
   if (personalized.ok === false) return { ok: false, status: 400, error: personalized.error, field: "personalization" }

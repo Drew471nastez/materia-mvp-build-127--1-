@@ -69,13 +69,13 @@ const ln = (productId: string, unitCents: number, quantity: number, extra: Parti
 /** A database row of store_offers, as part 304 writes it. */
 const offerRow = (o: Offer, position = 0) => ({ id: o.id, creator_id: SHOP, kind: o.kind, title: o.title, product_ids: o.productIds, trigger_product_ids: o.triggerIds, discount_type: o.discountType, discount_value: o.discountValue, active: o.active, position, created_at: `2026-10-0${position + 1}T00:00:00Z`, trigger_collection_ids: o.triggerCollectionIds ?? [], placements: ["product", "cart", ...(o.kind === "checkout" ? ["checkout"] : [])], starts_at: null, ends_at: null, combines_with_codes: true, max_per_order: null, min_subtotal_cents: null, tiers: o.tiers ?? [] })
 
-function shopDb(opts: { offers?: Offer[]; currency?: string; teeCents?: number; teeLCents?: number; mugCents?: number; collections?: boolean; extra?: Record<string, Record<string, unknown>[]> } = {}) {
+function shopDb(opts: { offers?: Offer[]; currency?: string; teeCents?: number; teeLCents?: number; mugCents?: number; collections?: boolean; extra?: Record<string, Record<string, unknown>[]>; draft?: string[] } = {}) {
   const tee = opts.teeCents ?? 3600
   const variant = (v: Record<string, unknown>) => ({ weight_grams: 200, track_inventory: false, inventory_policy: "continue", requires_shipping: null, taxable: true, active: true, fulfillment_location_id: null, fulfillment_method: null, position: 0, compare_at_price_cents: null, ...v })
   const product = (p: Record<string, unknown>) => ({ creator_id: SHOP, type: "physical", status: "published", thumbnail_url: null, requires_shipping: true, weight_grams: 200, taxable: true, track_inventory: false, continue_selling: true, fulfillment_location_id: null, fulfillment_method: "self", shipping_profile_id: null, max_per_order: null, compare_at_cents: null, ...p })
   const rate = (r: Record<string, unknown>) => ({ creator_id: SHOP, active: true, position: 0, tiers: [], min_value: null, max_value: null, free_over_cents: null, min_days: 2, max_days: 4, ...r })
   return fakeDb({
-    products: [product({ id: TEE, title: "Tee", slug: "tee", price_cents: tee }), product({ id: MUG, title: "Mug", slug: "mug", price_cents: opts.mugCents ?? 2000 }), product({ id: CAP, title: "Cap", slug: "cap", price_cents: 1500 })],
+    products: [product({ id: TEE, title: "Tee", slug: "tee", price_cents: tee }), product({ id: MUG, title: "Mug", slug: "mug", price_cents: opts.mugCents ?? 2000 }), product({ id: CAP, title: "Cap", slug: "cap", price_cents: 1500 })].map((p) => (opts.draft?.includes(p.id as string) ? { ...p, status: "draft" } : p)),
     product_variants: [
       variant({ id: TEE_S, product_id: TEE, name: "S", option1: "S", price_cents: tee }),
       variant({ id: TEE_L, product_id: TEE, name: "L", option1: "L", price_cents: opts.teeLCents ?? tee, position: 1 }),
@@ -301,6 +301,40 @@ async function main() {
     check("the checkout keeps the line with its properties and the offer that saved on it", co?.lines?.[0]?.properties?.Engraving === "Ana" && co?.lines?.[0]?.properties?._sl_group === "g7" && co?.lines?.[0]?.offers?.[0]?.title === "Buy 2 get 1 free" && co?.lines?.[0]?.offers?.[0]?.saved_cents === 3600 && co?.total_cents === 7200, { co, answer })
     const order = inserted.find((l) => l.table === "orders")?.payload as { product_snapshot?: { properties?: Record<string, string>; offers?: unknown[] } } | undefined
     check("  the order line (orders.product_snapshot) has them too", order?.product_snapshot?.properties?.Engraving === "Ana" && Array.isArray(order?.product_snapshot?.offers), { order, answer, tables: inserted.map((l) => l.table) })
+  }
+
+  section("ALL OF IT OR NONE OF IT (round 25): a cart that lost a line since is refused, never charged for the rest")
+  {
+    const { startCheckout } = await import("../lib/physical/checkout-server")
+    const { DEFAULT_CHECKOUT } = await import("../lib/store/checkout-config")
+    const start = async (db: ReturnType<typeof shopDb>, items: unknown[], key: string) => {
+      try {
+        return await startCheckout(db as never, {
+          shopId: SHOP, items, couponCode: null, email: "ana@example.com", name: "Ana Pop", phone: "+40722000000",
+          address: { name: "Ana Pop", line1: "Str. Lunga 2", city: "Cluj", postalCode: "400001", country: "RO", phone: "+40722000000" },
+          deliveryOptionId: undefined, clientKey: key, origin: null, attribution: null, buyerId: null, platformOrigin: "https://storelib.test",
+          backUrl: "https://shop.test/cart", config: { ...DEFAULT_CHECKOUT, cashOnDelivery: true, codFeeCents: 0 }, cashOnDelivery: true,
+        })
+      } catch (e) {
+        return { threw: String(e) }
+      }
+    }
+    /* A bundle of the tee and the mug, the mug unpublished since the cart was made. */
+    const gone = shopDb({ offers: [bundleOffer()], draft: [MUG] })
+    const r = (await start(gone, [{ productId: TEE, variantId: TEE_S, quantity: 1 }, { productId: MUG, variantId: MUGV, quantity: 1 }], "af-partial-1")) as { ok?: boolean; status?: number; error?: string }
+    const wrote = gone.log.filter((l) => l.op === "insert" && (l.table === "commerce_checkouts" || l.table === "orders")).length
+    /* Named as pricing names it: an unpublished product's own title is not said (it may be a draft's). */
+    check("a bundle whose mug was unpublished: refused, nothing written, the buyer told to remove it", r.ok === false && r.status === 409 && /no longer on sale can't be bought right now\. Remove it/.test(r.error ?? "") && wrote === 0, { r, wrote })
+    /* An option that is no longer sold. */
+    const db2 = shopDb({ offers: [] })
+    const r2 = (await start(db2, [{ productId: TEE, variantId: TEE_S, quantity: 1 }, { productId: CAP, variantId: "00000000-0000-4000-8000-00000000dead", quantity: 1 }], "af-partial-2")) as { ok?: boolean; status?: number; error?: string }
+    check("a line whose option is no longer sold: refused too, the rest not charged", r2.ok === false && r2.status === 409 && /Cap/.test(r2.error ?? ""), r2)
+    /* The same bundle whole is taken. */
+    const whole = shopDb({ offers: [bundleOffer()] })
+    const r3 = (await start(whole, [{ productId: TEE, variantId: TEE_S, quantity: 1 }, { productId: MUG, variantId: MUGV, quantity: 1 }], "af-partial-3")) as { ok?: boolean }
+    check("  and the whole bundle goes through", r3.ok === true && whole.log.some((l) => l.op === "insert" && l.table === "commerce_checkouts"), r3)
+    const site = readFileSync(join(process.cwd(), "app/api/checkout/site/route.ts"), "utf8")
+    check("a payment with no total shown is asked to price again, so nothing is charged unseen", /if \(!shownTotalOf\(body\.shownTotal\)\) return json\(\{ error: "Refresh the page and try again\.", code: TOTAL_CHANGED \}, 409\)/.test(site))
   }
 
   section("THE CHECKOUT'S ITEMS: [productId, variantId, quantity, properties?], old links read as before")

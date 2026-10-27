@@ -299,6 +299,15 @@ function originFor(site: SiteOfCheckout, body: Body): OrderOrigin {
 /* ── Pay ──────────────────────────────────────────────────────────────── */
 
 async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
+  /*
+    NOTHING IS CHARGED THAT WAS NOT SHOWN (round 25). The total the buyer saw
+    is what makes a cart that lost something since (a product unpublished, an
+    option no longer sold) refused rather than charged for what is left: the
+    check below compares it, and without it there was nothing to compare. The
+    checkout page always sends it; anything that does not is asked to price
+    again, the same answer a moved total gets.
+  */
+  if (!shownTotalOf(body.shownTotal)) return json({ error: "Refresh the page and try again.", code: TOTAL_CHANGED }, 409)
   const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
   const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body, owner ? { email: owner.email } : null)
   /* Everything in it is already the signed in customer's: nothing is charged. */
