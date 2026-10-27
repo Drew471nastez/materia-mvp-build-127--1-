@@ -28,7 +28,7 @@
 import { moneyFormatFor } from "@/lib/markets/pricing"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
-import { loadCompatFiles } from "@/components/website-builder/compat/compat-files"
+import { loadCompatFiles, useCompatFilesVersion } from "@/components/website-builder/compat/compat-files"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
@@ -70,11 +70,15 @@ export function CompatPreviewProvider({
 }) {
   const [files, setFiles] = useState<Record<string, string> | null>(null)
   const [failed, setFailed] = useState(false)
+  /* A push changed the theme's code: its cards are drawn again from the new files, the old ones staying until those are here. */
+  const filesVersion = useCompatFilesVersion(installId)
   useEffect(() => {
     let live = true
     loadCompatFiles(installId).then(
       (f) => {
-        if (live) setFiles(f)
+        if (!live) return
+        setFiles(f)
+        setFailed(false)
       },
       () => {
         if (live) setFailed(true)
@@ -83,7 +87,7 @@ export function CompatPreviewProvider({
     return () => {
       live = false
     }
-  }, [installId])
+  }, [installId, filesVersion])
 
   const rows = useMemo(() => (files ? { ...sources, ...files } : null), [files, sources])
   const theme = useMemo(() => {

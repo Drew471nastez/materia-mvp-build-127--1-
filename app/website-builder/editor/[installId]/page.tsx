@@ -167,7 +167,7 @@ import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-sche
 import { THEME_DATA_FILE, clampTo, themeSettingsGroupsFor, withThemeDefaults } from "@/lib/storelib-theme/theme-config"
 import { CollectionBoundField } from "@/components/website-builder/editor/controls/collection-bound-field"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
-import { forgetCompatFiles, loadCompatFiles } from "@/components/website-builder/compat/compat-files"
+import { compatFilesChanged, forgetCompatFiles, loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { assetAddresses, compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
 import { faviconFollows, faviconOf } from "@/lib/website-builder/favicon-sync"
@@ -7560,7 +7560,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* Any page may have been written: each is read afresh when it is next opened (pageCache). */
     if (events.length > 0) forgetPage()
     /* An imported theme draws from its own files too: a file changed there is read again (CompatCanvas filesVersion). */
-    if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/") && ev.path !== "settings")) setCompatFilesVersion((n) => n + 1)
+    if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/") && ev.path !== "settings")) {
+      compatFilesChanged(installId)
+      setCompatFilesVersion((n) => n + 1)
+    }
     /* And its Theme settings, made from its settings_schema.json and its values, both of which a push may have changed. */
     if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/"))) setCompatPanelVersion((n) => n + 1)
     /* Which of what is open was rewritten, for the conflict line: a page, home's header and footer, or the settings. */

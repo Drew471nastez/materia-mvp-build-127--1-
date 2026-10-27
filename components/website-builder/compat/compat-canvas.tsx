@@ -464,14 +464,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   /* The theme's own files: templates, config, the default locale, its stylesheets and scripts. */
   const filesVersion = props.filesVersion ?? 0
-  const readVersion = useRef(filesVersion)
   useEffect(() => {
     let live = true
-    /* Changed elsewhere since they were read: asked for again, and the page already drawn stays until they are here. */
-    if (readVersion.current !== filesVersion) {
-      readVersion.current = filesVersion
-      forgetCompatFiles(installId)
-    }
+    /* Changed elsewhere since they were read: asked for again (the version says so), and the page already drawn stays until they are here. */
     loadCompatFiles(installId).then(
       (files) => { if (live) setCompatFiles(files) },
       () => { if (live) setFailure("files") },

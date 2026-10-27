@@ -68,7 +68,7 @@ console.log("\nA push to GitHub reaches an open editor")
   check("  and at once when the pointer comes back over it, at most every few seconds", /addEventListener\("pointerenter", wake\)/.test(hook) && /removeEventListener\("pointerenter", wake\)/.test(hook) && /if \(Date\.now\(\) - woke < WAKE_GAP_MS\) return/.test(hook))
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("what arrives is a draft, so Publish says the site has changes", /const handleAgentEvents = async[\s\S]{0,900}?if \(events\.length > 0\) setUnpublished\(true\)/.test(editor))
-  check("an imported theme reads its files again, keeping the page drawn meanwhile", /setCompatFilesVersion\(\(n\) => n \+ 1\)/.test(editor) && /filesVersion=\{compatFilesVersion\}/.test(editor) && /if \(readVersion\.current !== filesVersion\) \{\s*readVersion\.current = filesVersion\s*forgetCompatFiles\(installId\)/.test(read("components/website-builder/compat/compat-canvas.tsx")))
+  check("an imported theme reads its files again, keeping the page drawn meanwhile", /setCompatFilesVersion\(\(n\) => n \+ 1\)/.test(editor) && /filesVersion=\{compatFilesVersion\}/.test(editor) && /compatFilesChanged\(installId\)/.test(editor) && /loadCompatFiles\(installId\)\.then\([\s\S]{0,200}?\}, \[installId, attempt, filesVersion\]\)/.test(read("components/website-builder/compat/compat-canvas.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

@@ -13,16 +13,47 @@
  * still fails rejects, is said to the error log, and is forgotten, so the
  * canvas can say so and its Try again asks the server again.
  */
+import { useSyncExternalStore } from "react"
 import { deadline, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
 
 /** One try at the theme's files, headers and body together. */
 export const FILES_WAIT_MS = 25_000
 
-const loading = new Map<string, Promise<Record<string, string>>>()
+/*
+ * THE FILES CHANGE UNDER AN OPEN EDITOR. A push or an agent that writes a
+ * theme file says so here once (compatFilesChanged, from the editor's
+ * activity poll), and whatever was read before is read again the next time
+ * anything asks: the canvas, the settings panel, and the block library, which
+ * stays mounted through a push and used to keep drawing its covers from the
+ * code as it was before. The first to ask reads the files again; the others
+ * share that read.
+ */
+const versions = new Map<string, number>()
+const listeners = new Set<() => void>()
+const loading = new Map<string, { version: number; files: Promise<Record<string, string>> }>()
+
+/** The install's files changed somewhere else: the next ask reads them again, and whoever watches the version draws again. */
+export function compatFilesChanged(installId: string): void {
+  versions.set(installId, (versions.get(installId) ?? 0) + 1)
+  for (const l of listeners) l()
+}
+
+/** Which version of the install's files is current, for an effect that reads them to depend on. */
+export function useCompatFilesVersion(installId: string | null): number {
+  return useSyncExternalStore(
+    (l) => {
+      listeners.add(l)
+      return () => listeners.delete(l)
+    },
+    () => (installId ? (versions.get(installId) ?? 0) : 0),
+    () => 0,
+  )
+}
 
 export function loadCompatFiles(installId: string): Promise<Record<string, string>> {
+  const version = versions.get(installId) ?? 0
   const hit = loading.get(installId)
-  if (hit) return hit
+  if (hit && hit.version === version) return hit.files
   const p = retrying(
     () =>
       deadline(
@@ -39,10 +70,10 @@ export function loadCompatFiles(installId: string): Promise<Record<string, strin
   )
   /* A failure is forgotten, so the next ask (Try again, another panel) asks the server again. */
   p.catch((e) => {
-    if (loading.get(installId) === p) loading.delete(installId)
+    if (loading.get(installId)?.files === p) loading.delete(installId)
     reportLoadProblem("compat-canvas", e)
   })
-  loading.set(installId, p)
+  loading.set(installId, { version, files: p })
   return p
 }
 
