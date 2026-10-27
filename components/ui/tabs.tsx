@@ -4,9 +4,12 @@ import * as React from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 
 import { cn } from '@/lib/utils'
+import { hapticTap } from '@/lib/native-bridge'
 
+/** A tick as another tab is chosen (round 25), as a segmented control's on an iPhone. */
 function Tabs({
   className,
+  onValueChange,
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.Root>) {
   return (
@@ -14,6 +17,10 @@ function Tabs({
       data-slot="tabs"
       className={cn('flex flex-col gap-2', className)}
       {...props}
+      onValueChange={(value) => {
+        hapticTap('soft')
+        onValueChange?.(value)
+      }}
     />
   )
 }

@@ -5,9 +5,12 @@ import * as CheckboxPrimitive from '@radix-ui/react-checkbox'
 import { CheckIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { hapticTap } from '@/lib/native-bridge'
 
+/** A tick as it is checked or cleared (round 25): the selection feedback, the softest the phone makes. */
 function Checkbox({
   className,
+  onCheckedChange,
   ...props
 }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
   return (
@@ -18,6 +21,10 @@ function Checkbox({
         className,
       )}
       {...props}
+      onCheckedChange={(checked) => {
+        hapticTap('soft')
+        onCheckedChange?.(checked)
+      }}
     >
       <CheckboxPrimitive.Indicator
         data-slot="checkbox-indicator"

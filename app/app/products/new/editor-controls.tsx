@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
+import { hapticTap } from "@/lib/native-bridge"
 
 /**
  * A switch, drawn for this form: the app's one slim, near black switch
@@ -27,7 +28,7 @@ export function FormSwitch({
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={() => onChange(!checked)}
+      onClick={() => { hapticTap("light"); onChange(!checked) }}
       className="group relative -m-2 inline-flex shrink-0 cursor-pointer items-center p-2 outline-none"
     >
       <span className={cn(switchTrack(checked), "group-focus-visible:ring-2 group-focus-visible:ring-[#111113]/30 group-focus-visible:ring-offset-2")}>

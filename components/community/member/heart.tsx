@@ -26,6 +26,7 @@
  */
 import { Heart } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { hapticTap } from "@/lib/native-bridge"
 
 const BEAT_MS = 460
 const FILL_MS = 400
@@ -493,7 +494,7 @@ export function SoundsSwitch({ className = "" }: { className?: string }) {
       type="button"
       role="switch"
       aria-checked={on}
-      onClick={() => setSoundsOn(!on)}
+      onClick={() => { hapticTap("light"); setSoundsOn(!on) }}
       className={`flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 text-left outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] ${className}`}
       data-sounds-switch={on ? "on" : "off"}
     >

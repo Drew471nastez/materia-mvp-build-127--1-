@@ -22,6 +22,7 @@ import { EDITABLE_LABELS, fieldsFor, rangeOf, type CustomizerField } from "@/lib
 import { renderReviewWidget, type WidgetReviews } from "@/lib/reviews/widgets/render"
 import { buttonPrimary, buttonSecondary, card } from "@/app/app/orders/order-parts"
 import { DESKTOP_WIDTH, PHONE_WIDTH, WidgetPreview } from "./widget-preview"
+import { hapticTap } from "@/lib/native-bridge"
 
 const LABEL = "text-[13px] font-medium text-[#1a1a2e]"
 const INPUT = "h-9 w-full rounded-lg border border-[#e3e4e8] bg-white px-3 text-[14px] text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 md:text-[13px]"
@@ -230,7 +231,7 @@ function Field({ field, value, onChange }: { field: CustomizerField; value: unkn
           <span className={LABEL}>{tt(field.label)}</span>
           {field.hint ? <span className="text-[12px] text-[#9ca3af]">{tt(field.hint)}</span> : null}
         </span>
-        <input id={id} type="checkbox" role="switch" checked={value === true} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 shrink-0 accent-[#1a1a2e]" data-field={field.key} />
+        <input id={id} type="checkbox" role="switch" checked={value === true} onChange={(e) => { hapticTap("light"); onChange(e.target.checked) }} className="h-4 w-4 shrink-0 accent-[#1a1a2e]" data-field={field.key} />
       </label>
     )
   }

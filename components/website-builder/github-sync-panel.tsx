@@ -35,6 +35,7 @@ import { buttonClass, primaryButtonClass } from "@/components/website-builder/we
 import { tt, msg } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 import { CONNECT_CLOSED_EVENT, inNativeApp, startConnect } from "@/lib/native-connect"
+import { hapticTap } from "@/lib/native-bridge"
 
 interface Link {
   account: string
@@ -229,7 +230,7 @@ function SyncRow({ title, detail, on, busy, onChange }: {
         aria-checked={on}
         aria-label={title}
         disabled={busy}
-        onClick={() => onChange(!on)}
+        onClick={() => { hapticTap("light"); onChange(!on) }}
         className={`relative h-[22px] w-[40px] shrink-0 rounded-full transition-colors duration-200 disabled:opacity-60 ${on ? "bg-emerald-500" : "bg-white/15"}`}
       >
         <span

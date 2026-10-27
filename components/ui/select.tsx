@@ -5,11 +5,23 @@ import * as SelectPrimitive from '@radix-ui/react-select'
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { hapticTap } from '@/lib/native-bridge'
 
+/** A tick as an option is picked (round 25), as a picker's on an iPhone. */
 function Select({
+  onValueChange,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  return (
+    <SelectPrimitive.Root
+      data-slot="select"
+      {...props}
+      onValueChange={(value) => {
+        hapticTap('soft')
+        onValueChange?.(value)
+      }}
+    />
+  )
 }
 
 function SelectGroup({

@@ -407,31 +407,106 @@ function appleTouchBrowser(): boolean {
 let selectionStarted: Promise<void> | null = null
 const startSelection = (start: () => Promise<unknown>) => (selectionStarted ??= Promise.resolve(start()).then(() => undefined, () => { selectionStarted = null }))
 
+type HapticStyle = "soft" | "light" | "medium" | "heavy"
+type NativeCall = (method: string, options?: Record<string, unknown>) => Promise<unknown>
+
+/*
+  WHICH WAY A TICK GOES (round 25, the owner: "you deactivated haptics across the app completely").
+
+  Capacitor decides once, when the app opens the page, which native plugins
+  the installed binary has (window.Capacitor.PluginHeaders). The Haptics pod
+  went into ios/App/Podfile on 24 October: an iPhone running a build from
+  before then has no Haptics plugin, every call to it was refused, and the
+  web fallback was navigator.vibrate, which iOS has never had. That phone
+  felt nothing, anywhere. So:
+
+    1. the plugin, when the binary has it (isPluginAvailable), called
+       directly on the bridge, so the tick lands on the frame it was asked for;
+    2. on an iPhone or iPad without it (an older build, or Safari), WebKit's
+       own switch: toggling <input type="checkbox" switch> plays the system's
+       selection tick through the Taptic Engine, on iOS 18 and later, with no
+       native code at all (switchTick below);
+    3. on Android without it, navigator.vibrate.
+*/
+function nativeHaptics(): NativeCall | null {
+  if (typeof window === "undefined") return null
+  const cap = (window as any).Capacitor
+  if (!cap?.isNativePlatform?.()) return null
+  if (typeof cap.isPluginAvailable === "function" && !cap.isPluginAvailable("Haptics")) return null
+  /* THE PLUGIN IS ALREADY ON THE BRIDGE. Capacitor exposes it as window.Capacitor.Plugins once anything registered it,
+     and every native method through nativePromise from the first frame: no chunk to fetch at a pull's threshold. */
+  const onBridge = cap.Plugins?.Haptics
+  if (onBridge?.impact && onBridge?.selectionChanged) return (method, options) => onBridge[method](options)
+  if (typeof cap.nativePromise === "function") return (method, options) => cap.nativePromise("Haptics", method, options ?? {})
+  return null
+}
+
+async function playNative(call: NativeCall, style: HapticStyle): Promise<boolean> {
+  try {
+    if (style === "soft") {
+      await startSelection(() => call("selectionStart"))
+      await call("selectionChanged")
+    } else await call("impact", { style: style === "light" ? "LIGHT" : style === "medium" ? "MEDIUM" : "HEAVY" })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/*
+  THE SWITCH'S TICK. WebKit plays the system haptic when a switch control
+  (<input type="checkbox" switch>, iOS 18) is toggled, in Safari and in any
+  WKWebView, so an iPhone without the plugin still feels a press. The switch
+  lives in a hidden same-origin frame of its own: a click toggling it never
+  reaches this page's document, whose capture listeners (the link reorder's
+  swallowed click, the loading bar, the layers) would each read it as a
+  press of their own. Asked for inside the press that wants it, synchronously,
+  as WebKit only plays it for a toggle made while a person is interacting.
+  At most one every 40ms, so a scrub over a chart is a run of ticks, not a buzz.
+*/
+let switchFrame: HTMLIFrameElement | null = null
+let switchAt = 0
+function switchTick(): boolean {
+  if (typeof document === "undefined" || !document.body) return false
+  const now = Date.now()
+  if (now - switchAt < 40) return true
+  switchAt = now
+  try {
+    if (!switchFrame || !switchFrame.isConnected || !switchFrame.contentDocument) {
+      const frame = document.createElement("iframe")
+      frame.setAttribute("aria-hidden", "true")
+      frame.tabIndex = -1
+      frame.title = ""
+      frame.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;border:0;opacity:0;pointer-events:none;visibility:hidden"
+      document.body.appendChild(frame)
+      const doc = frame.contentDocument
+      if (!doc) return false
+      doc.open()
+      doc.write('<!doctype html><label id="t"><input type="checkbox" switch></label>')
+      doc.close()
+      switchFrame = frame
+    }
+    const label = switchFrame.contentDocument?.getElementById("t")
+    if (!label) return false
+    label.click()
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Trigger a haptic on iOS/Android through the native plugin, when the
+ * installed app has it. Resolves whether it played. No-op on web or SSR.
+ */
 export async function triggerHaptic(style: "soft" | "light" | "medium" | "heavy" = "light"): Promise<boolean> {
   if (typeof window === "undefined") return false
   const cap = (window as any).Capacitor
   if (!cap?.isNativePlatform?.()) return false
-  /*
-    THE PLUGIN IS ALREADY ON THE BRIDGE. Capacitor injects every installed
-    plugin as window.Capacitor.Plugins before the page loads, so the tick is
-    called there and lands on the frame it was asked for (a pull to refresh
-    crossing its line). The import below is only for a shell that does not
-    expose it there: it costs a chunk the first time, which is a tick that
-    lands late.
-  */
-  const onBridge = cap.Plugins?.Haptics
-  if (onBridge?.impact && onBridge?.selectionChanged) {
-    try {
-      if (style === "soft") {
-        if (onBridge.selectionStart) await startSelection(() => onBridge.selectionStart())
-        await onBridge.selectionChanged()
-      }
-      else await onBridge.impact({ style: style === "light" ? "LIGHT" : style === "medium" ? "MEDIUM" : "HEAVY" })
-      return true
-    } catch {
-      return false
-    }
-  }
+  const native = nativeHaptics()
+  if (native) return playNative(native, style)
+  /* The binary says it has no Haptics: nothing to import, nothing to wait for. */
+  if (typeof cap.isPluginAvailable === "function" && !cap.isPluginAvailable("Haptics")) return false
   try {
     const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
     /**
@@ -452,20 +527,7 @@ export async function triggerHaptic(style: "soft" | "light" | "medium" | "heavy"
     await Haptics.impact({ style: styleMap[style] })
     return true
   } catch {
-    /**
-     * IT RETURNS WHETHER IT WORKED, and that is not pedantry.
-     *
-     * `@capacitor/haptics` is an npm dependency whose NATIVE half has to be
-     * installed in each app project, and in this repository it is not: the
-     * iOS Podfile lists Capacitor, Cordova, PushNotifications and Camera, and
-     * android/capacitor.settings.gradle lists capacitor-android, app and
-     * browser. No haptics in either.
-     *
-     * So this import resolves, the call is made, the bridge answers "plugin
-     * not implemented", and the catch swallowed it — silently, for every
-     * haptic in the app, on both platforms. Saying so lets the caller fall
-     * back to the web API, which Android WebView does support.
-     */
+    /* The bridge answered "not implemented": the caller falls back (hapticTap). */
     return false
   }
 }
@@ -476,32 +538,29 @@ export async function triggerHaptic(style: "soft" | "light" | "medium" | "heavy"
  * ===========================================================================
  *
  * `navigator.vibrate()` IS NOT IMPLEMENTED ON iOS. Not in Safari, and not in
- * the WKWebView that Capacitor runs the app inside. It is not deprecated and it
- * does not throw — the property simply is not there, so the usual
- * `"vibrate" in navigator` guard reads false and the call is skipped in
- * silence. The result is feedback that works on Android, does nothing at all on
- * an iPhone, and reports no error anywhere.
+ * the WKWebView that Capacitor runs the app inside. It does not throw; the
+ * property simply is not there, so a guarded call is skipped in silence.
  *
- * That is exactly how it came to be wrong in three separate places: the
- * dashboard chart, the analytics chart and the OnePage link reorder each wrote
- * the same reasonable-looking guarded call, and each was dead on the platform
- * the app mostly ships to.
- *
- * So there is one function now. Inside the native app it goes through the
- * Capacitor Haptics plugin, which is the only thing that reaches the iOS Taptic
- * Engine; on the web it falls back to navigator.vibrate for the browsers that
- * do support it. tests/page-performance.test.ts fails the build if a raw
- * navigator.vibrate call appears anywhere outside this file.
+ * So there is one function. Inside the app it goes through the Capacitor
+ * Haptics plugin, the direct way to the Taptic Engine; on an iPhone without
+ * it, through WebKit's switch (switchTick); elsewhere navigator.vibrate.
+ * tests/page-performance.test.ts fails the build if a raw navigator.vibrate
+ * call appears anywhere outside this file.
  */
+let lastTap = 0
 export function hapticTap(strength: "soft" | "light" | "medium" = "light"): void {
+  /* ONE TICK A PRESS. A control ticks for itself (components/ui: the switch, the tabs) and a screen may tick in its own
+     handler as well: two taps inside 35ms are one press, and the second is dropped rather than felt as a double knock. */
+  const now = Date.now()
+  if (now - lastTap < 35) return
+  lastTap = now
   const web = () => {
-    /* NEVER ON AN iPHONE'S OR iPAD'S BROWSER: Safari has no vibration for a
-       page today, and one that grew the API should not start buzzing for a
-       tick that was written for the Taptic Engine. */
-    if (appleTouchBrowser()) return
+    /* AN iPHONE OR iPAD NEVER VIBRATES: it has no vibration for a page. It
+       ticks through WebKit's switch, the system's own selection feedback. */
+    if (appleTouchBrowser()) return void switchTick()
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
       /* Android has no selection generator, so soft is simply a shorter buzz
-         than light — which is all `vibrate` can express. */
+         than light, which is all `vibrate` can express. */
       navigator.vibrate(strength === "soft" ? 6 : strength === "light" ? 10 : 15)
     }
   }
@@ -511,23 +570,16 @@ export function hapticTap(strength: "soft" | "light" | "medium" = "light"): void
     return
   }
 
-  /**
-   * NATIVE FIRST, THEN THE WEB API IF THE PLUGIN IS NOT THERE.
-   *
-   * This used to `return` unconditionally once it knew it was inside the app,
-   * on the reasonable assumption that the Capacitor plugin would handle it.
-   * The plugin is not built into either app project (see triggerHaptic), so
-   * that branch has been doing nothing at all since it was written — inside
-   * the Android app, where `navigator.vibrate` works perfectly well, as much
-   * as inside the iOS one, where nothing does.
-   *
-   * Falling through costs one rejected promise and makes Android work either
-   * way. The pod IS in ios/App/Podfile now, so an iPhone running a build made
-   * since then goes through the Taptic Engine; one running an older binary
-   * falls through to a web vibration API that does not exist on iOS, in
-   * Safari or in WKWebView, and stays silent. Nothing here can tell the two
-   * apart, and nothing here needs to.
-   */
+  /*
+    NATIVE FIRST, WHEN THE APP HAS IT. Without the plugin the fallback runs
+    now, inside the press, which is the only time WebKit plays the switch's
+    tick; with it, a refusal from the bridge (a build whose plugin is too old)
+    still falls back.
+  */
+  if (!nativeHaptics() && (window as any).Capacitor?.isPluginAvailable) {
+    web()
+    return
+  }
   void triggerHaptic(strength).then((ok) => {
     if (!ok) web()
   })

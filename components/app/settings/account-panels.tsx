@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { hapticTap } from "@/lib/native-bridge"
 
 /**
  * ===========================================================================
@@ -110,7 +111,7 @@ export function Switch({
       aria-busy={busy || undefined}
       data-settings-switch=""
       disabled={disabled}
-      onClick={() => onChange(!checked)}
+      onClick={() => { hapticTap("light"); onChange(!checked) }}
       className="relative -mr-[9px] inline-flex h-11 w-14 shrink-0 cursor-pointer items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25 disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span aria-hidden="true" className={switchTrack(checked)}>

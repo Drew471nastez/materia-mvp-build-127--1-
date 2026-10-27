@@ -43,6 +43,7 @@ import {
 } from "@/lib/website-builder/link-menu"
 import { normalizePath, splitSectionHref, type AnchorCandidate } from "@/lib/website-builder/section-anchors"
 import { tt } from "@/lib/i18n/text"
+import { hapticTap } from "@/lib/native-bridge"
 
 /**
  * ===========================================================================
@@ -196,7 +197,7 @@ export function LinkPicker({
             type="button"
             role="switch"
             aria-checked={newTab}
-            onClick={() => setNewTab(!newTab)}
+            onClick={() => { hapticTap("light"); setNewTab(!newTab) }}
             className={cn(switchTrack(newTab), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
           >
             <span className={switchKnob(newTab)} />

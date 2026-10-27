@@ -25,6 +25,7 @@ import { PickSheet, type PickOption } from "@/app/app/products/pick-sheet"
 import { SAVED_CHECK_MS, SaveButton, barButton, type SavePhase } from "@/app/app/products/new/editor-buttons"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { hapticTap } from "@/lib/native-bridge"
 
 /*
   The app's buttons, 40px tall on a phone so a thumb finds them; 32px on a computer as everywhere in /app. Round 31 ("nothing
@@ -393,7 +394,7 @@ export function Toggle({ checked, onChange, title, hint, disabled, id }: { check
       id={id}
       aria-checked={checked}
       disabled={disabled}
-      onClick={() => onChange(!checked)}
+      onClick={() => { hapticTap("light"); onChange(!checked) }}
       className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-4 rounded-lg py-1.5 text-left disabled:cursor-not-allowed disabled:opacity-60"
     >
       <span className="min-w-0">

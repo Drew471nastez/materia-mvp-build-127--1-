@@ -72,6 +72,7 @@ import type {
 } from "@/lib/onepage/types"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { hapticTap } from "@/lib/native-bridge"
 
 export { EXTRA_BLOCK_TYPES, extraBlockHasContent, isExtraBlock, isScheduledNow, scheduleLabel, videoSource, type ExtraBlockType } from "@/lib/onepage/extra-blocks"
 
@@ -767,7 +768,7 @@ export function ExtraBlockEditor({ block, updateData }: { block: OnePageBlock; u
               role="switch"
               aria-checked={d.show_button !== false}
               aria-label={tt("Show an Open in Maps button")}
-              onClick={() => updateData({ show_button: d.show_button === false })}
+              onClick={() => { hapticTap("light"); updateData({ show_button: d.show_button === false }) }}
               className="-my-[11px] -mr-[3px] grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
             >
               <span aria-hidden className={switchTrack(d.show_button !== false)}>
@@ -847,7 +848,7 @@ export function BlockExtras({
             aria-checked={sensitive}
             aria-label={tt("Sensitive content")}
             data-sensitive-switch=""
-            onClick={() => updateData({ sensitive: !sensitive })}
+            onClick={() => { hapticTap("light"); updateData({ sensitive: !sensitive }) }}
             className="-mr-[3px] grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
           >
             <span aria-hidden className={switchTrack(sensitive)}>

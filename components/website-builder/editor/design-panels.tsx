@@ -64,6 +64,7 @@ import { Collapse } from "./collapse"
 import { ChoiceControl } from "./controls/choice-control"
 import { SECTION_ANIMATION_OPTIONS, entranceSetting, isChromeType, themeAlternates, themeAnimation, type SectionAnimation } from "@/lib/website-builder/section-anchors"
 import { tt } from "@/lib/i18n/text"
+import { hapticTap } from "@/lib/native-bridge"
 
 /** The theme's animation in the words the section's own choices use. */
 const THEME_MOTION_LABEL: Record<SectionAnimation, string> = {
@@ -94,7 +95,7 @@ function SettingSwitch({ checked, onChange, label }: { checked: boolean; onChang
       role="switch"
       aria-checked={checked}
       aria-label={label}
-      onClick={() => onChange(!checked)}
+      onClick={() => { hapticTap("light"); onChange(!checked) }}
       className="group relative -m-1.5 inline-flex shrink-0 cursor-pointer items-center p-1.5 outline-none"
     >
       <span className={cn(switchTrack(checked), "group-focus-visible:ring-2 group-focus-visible:ring-[#111113]/30 group-focus-visible:ring-offset-2")}>

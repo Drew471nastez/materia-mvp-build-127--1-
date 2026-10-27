@@ -32,6 +32,7 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ClaudeMark, OpenAIMark } from "@/components/website-builder/connection-marks"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
+import { hapticTap } from "@/lib/native-bridge"
 
 export interface EngineOption {
   id: string
@@ -172,7 +173,7 @@ export function ModelPicker({
         role="switch"
         aria-checked={!!sounds}
         data-ask-sounds={sounds ? "on" : "off"}
-        onClick={() => onSoundsChange(!sounds)}
+        onClick={() => { hapticTap("light"); onSoundsChange(!sounds) }}
         className={cn(
           "flex w-full items-center gap-3 rounded-xl text-left transition-colors hover:bg-black/[0.04] active:bg-black/[0.06]",
           phone ? "min-h-[52px] px-3" : "min-h-[40px] px-2.5",
