@@ -192,9 +192,24 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
       The content is at least a pane tall (min-h-full), so that point can
       always be reached.
     */
-    /* Where the bar sticks: the end of what is above it. Not its own offsetTop, which a stuck bar reports where it is stuck. */
-    const above = pane.querySelector<HTMLElement>("[data-orders-bar]")?.previousElementSibling as HTMLElement | null
-    const stick = above ? above.offsetTop + above.offsetHeight : 0
+    /*
+      Where the bar sticks: where it sits at rest, measured from what holds it
+      still. Not its own offsetTop, which a stuck bar reports where it is
+      stuck. The end of what is just above it, or, when it comes first in
+      its wrapper (the pull to refresh's, under the Try Pro strip), the top
+      of that wrapper's content. It used to read the sibling alone, found
+      none there, took 0, and a switch while scrolled threw the page back to
+      its top with the bar dropping down under the strip.
+    */
+    const bar = pane.querySelector<HTMLElement>("[data-orders-bar]")
+    const above = bar?.previousElementSibling as HTMLElement | null
+    const holder = above ? null : bar?.parentElement ?? null
+    const paneTop = pane.getBoundingClientRect().top - pane.scrollTop
+    const stick = above
+      ? Math.round(above.getBoundingClientRect().bottom - paneTop)
+      : holder
+        ? Math.round(holder.getBoundingClientRect().top - paneTop + (parseFloat(getComputedStyle(holder).paddingTop) || 0))
+        : 0
     const saved = scrolls.current.get(tab)
     if (pane.scrollTop >= stick && stick >= 0) pane.scrollTop = Math.max(saved ?? stick, stick)
   }, [tab])

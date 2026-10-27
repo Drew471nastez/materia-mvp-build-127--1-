@@ -216,21 +216,33 @@ function rate(part: number, whole: number): string {
  * up under a scrolling finger): a scroll cancels the pointer before then.
  */
 function usePress() {
-  const [pressed, setPressed] = React.useState<string | null>(null)
+  /*
+    WRITTEN ON THE ROW, NOT KEPT IN STATE (round 25). A press held in React
+    state drew the whole table again on the way down, again on the way up
+    and again as a contact waited to open: on a computer one long task of
+    290 to 350ms from the click to the contact's page, with the pointer's up
+    and its click queued behind it (scripts/check-emails-r24.mjs). The tint
+    is one attribute on one row, as order-motion's markRow writes the picked
+    one, and nothing is drawn again.
+  */
   const hover = React.useRef(0)
   const touch = React.useRef(0)
+  const held = React.useRef<HTMLElement | null>(null)
   const lift = () => {
     window.clearTimeout(touch.current)
-    setPressed(null)
+    const el = held.current
+    held.current = null
+    if (el && !el.hasAttribute("data-waiting")) delete el.dataset.pressed
   }
-  const bind = (id: string, intent?: () => void) => ({
-    "data-pressed": pressed === id ? "true" : undefined,
-    onPointerDown: (e: React.PointerEvent) => {
+  const bind = (_id: string, intent?: () => void) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
       intent?.()
       if ((e.target as HTMLElement).closest("button, input, [role=switch], [role=menu]")) return
       window.clearTimeout(touch.current)
-      if (e.pointerType === "touch") touch.current = window.setTimeout(() => setPressed(id), 120)
-      else setPressed(id)
+      const el = e.currentTarget
+      held.current = el
+      if (e.pointerType === "touch") touch.current = window.setTimeout(() => { if (held.current === el) el.dataset.pressed = "true" }, 120)
+      else el.dataset.pressed = "true"
     },
     onPointerUp: lift,
     onPointerLeave: () => {
@@ -250,6 +262,27 @@ function usePress() {
   return bind
 }
 
+/*
+  ONE OF THE TWO LISTS IS DRAWN (round 25). A phone's rows and a computer's
+  table were both rendered, one hidden by CSS: every draw of a tab (a press,
+  a contact opening over it) built a hundred rows for fifty. Once the page
+  knows its width it draws only the one that shows; before then (the
+  server's markup, the first paint) both are there and CSS picks, so
+  nothing flashes. null until known.
+*/
+const NARROW = "(max-width: 639px)"
+function useNarrow(): boolean | null {
+  return React.useSyncExternalStore(
+    (changed) => {
+      const m = window.matchMedia(NARROW)
+      m.addEventListener("change", changed)
+      return () => m.removeEventListener("change", changed)
+    },
+    () => window.matchMedia(NARROW).matches,
+    () => null,
+  )
+}
+
 const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[#fafbfb] pointer-fine:active:bg-[#f4f5f7] data-[pressed=true]:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
 
 /**
@@ -260,7 +293,7 @@ const pressable = "group cursor-pointer transition-colors duration-75 hover:bg-[
  */
 function PhoneItem({ head, aside, line, meta, badges, menu, ...row }: { head: React.ReactNode; aside?: React.ReactNode; line?: React.ReactNode; meta?: React.ReactNode; badges?: React.ReactNode; menu: React.ReactNode } & React.LiHTMLAttributes<HTMLLIElement> & Record<`data-${string}`, string | undefined>) {
   return (
-    <li {...row} className={cn(pressable, "flex items-center gap-1 py-3 pl-4 pr-1.5")} data-email-phone-row="">
+    <li {...row} className={cn("orders-row", pressable, "flex items-center gap-1 py-3 pl-4 pr-1.5")} data-email-phone-row="">
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-baseline justify-between gap-3">
           <div className="min-w-0 truncate text-[17px] font-semibold leading-6 text-[#1a1a2e]">{head}</div>
@@ -609,11 +642,15 @@ function FilterChip({
 }
 
 function SubscribersTable(props: EmailsHomeProps) {
+  const narrow = useNarrow()
   const [searching, setSearching] = React.useState(props.search !== "")
   const [page, setPage] = React.useState(1)
   const [source, setSource] = React.useState("")
   const [status, setStatus] = React.useState("")
   const press = usePress()
+  /* The latest props, for the rows' handlers: the rows are drawn once per page of contacts (below), not once per draw of the page. */
+  const live = React.useRef(props)
+  live.current = props
   /*
     A contact's page opens with its content already in it: the tap waits
     for the contact's automation runs (asked for when the finger landed), at
@@ -621,22 +658,28 @@ function SubscribersTable(props: EmailsHomeProps) {
     pressed while it waits. The latest tap wins.
   */
   const opening = React.useRef<SubscriberRow | null>(null)
-  const [waiting, setWaiting] = React.useState<string | null>(null)
-  const openContact = (s: SubscriberRow) => {
+  const openContact = (s: SubscriberRow, row?: HTMLElement) => {
     opening.current = s
-    setWaiting(s.id)
+    /* The row stays pressed while it waits, on the row itself (usePress). */
+    if (row) {
+      row.dataset.pressed = "true"
+      row.setAttribute("data-waiting", "")
+    }
     void contactReady(s.email).then(() => {
+      if (row) {
+        row.removeAttribute("data-waiting")
+        delete row.dataset.pressed
+      }
       if (opening.current !== s) return
       opening.current = null
-      setWaiting(null)
-      props.onOpenContact(s)
+      live.current.onOpenContact(s)
     })
   }
   const q = props.search.trim().toLowerCase()
   const subscriberMenu = (s: SubscriberRow): ActionMenuItem[] => [
     { label: tt("Details"), onClick: () => openContact(s) },
-    { label: tt("Copy email"), onClick: () => props.onCopyEmail(s.email) },
-    { label: tt("Remove"), variant: "destructive", separatorBefore: true, onClick: () => props.onRemoveSubscriber(s.id) },
+    { label: tt("Copy email"), onClick: () => live.current.onCopyEmail(s.email) },
+    { label: tt("Remove"), variant: "destructive", separatorBefore: true, onClick: () => live.current.onRemoveSubscriber(s.id) },
   ]
 
   /* Every contact's source, read once: the column, the filter and its counts. */
@@ -666,7 +709,7 @@ function SubscribersTable(props: EmailsHomeProps) {
   )
   React.useEffect(() => setPage(1), [q, source, status])
   const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
-  const shown = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const shown = React.useMemo(() => rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [rows, page])
   const sourceName = source ? sources.find((o) => o.value === source)?.label ?? null : null
   const statuses = React.useMemo(
     () =>
@@ -677,6 +720,100 @@ function SubscribersTable(props: EmailsHomeProps) {
     [props.subscribers],
   )
   const statusName = status ? STATUS_GROUPS.find((g) => g.value === status)?.label ?? null : null
+
+  /*
+    THE ROWS, DRAWN ONCE PER PAGE OF CONTACTS (round 25). A contact opening
+    over the list, a menu, a search keystroke elsewhere: each drew fifty rows
+    and their fifty menus again, 70 to 100ms on a computer between the click
+    and the contact's first frame. The same element tree is handed back, so
+    React leaves the rows as they are; their handlers read the latest props
+    through live, and press and openContact keep nothing of a draw.
+  */
+  const list = React.useMemo(
+    () => (
+              <>
+              {narrow !== false ? (
+              <ul aria-label={tt("Subscribers")} className="divide-y divide-[#f1f2f4] sm:hidden">
+                {shown.map((s) => {
+                  const v = views.get(s.id)
+                  return (
+                    <PhoneItem
+                      key={s.id}
+                      data-contact-row=""
+                      data-order-id={s.id}
+                      onClick={(e) => openContact(s, e.currentTarget)}
+                      {...press(s.id, () => prefetchContact(s.email))}
+                      head={s.name || s.email}
+                      aside={formatDay(s.subscribed_at)}
+                      line={s.name ? s.email : undefined}
+                      meta={tt(v?.label ?? NOT_RECORDED)}
+                      /* Subscribed is most of them, so only the others are said. */
+                      badges={s.status === "subscribed" ? undefined : <SubscriberStatus s={s} />}
+                      menu={<ResponsiveActionMenu title={s.email} align="end" trigger={<RowMenuButton label={tt("Actions for {email}", { email: s.email })} className="h-11 w-11" />} items={subscriberMenu(s)} />}
+                    />
+                  )
+                })}
+              </ul>
+              ) : null}
+              {narrow !== true ? (
+              <ScrollEdge frameClassName="max-sm:hidden">
+                <table className="w-full min-w-[720px] border-collapse">
+                  <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
+                    <tr>
+                      <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>{tt("Email")}</th>
+                      <th className={th}>{tt("Name")}</th>
+                      <th className={th}>{tt("Source")}</th>
+                      <th className={th}>{tt("Status")}</th>
+                      <th className={th}>{tt("Added")}</th>
+                      <th className={cn(th, "w-12")} aria-label={tt("Actions")} />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#f1f2f4]">
+                    {shown.map((s) => {
+                      const v = views.get(s.id)
+                      return (
+                        <tr
+                          key={s.id}
+                          data-contact-row=""
+                          data-order-id={s.id}
+                          className={cn("orders-row", pressable)}
+                          onClick={(e) => openContact(s, e.currentTarget)}
+                          {...press(s.id, () => prefetchContact(s.email))}
+                        >
+                          <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
+                          <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
+                          <td className={td} title={v ? [v.label, v.detail].filter(Boolean).join(" · ") : undefined}>
+                            {/* The website's address is the part that matters: it keeps its
+                                width, and the detail after it is what gets cut. */}
+                            <span className="flex max-w-[380px] items-baseline gap-1.5">
+                              <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{tt(v?.label ?? NOT_RECORDED)}</span>
+                              {v?.detail ? <span className="min-w-0 truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
+                            </span>
+                          </td>
+                          <td className={td}>
+                            <SubscriberStatus s={s} />
+                          </td>
+                          <td className={cn(td, "tabular-nums text-[#4b5563]")}>{formatDay(s.subscribed_at)}</td>
+                          <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
+                            <ResponsiveActionMenu
+                              title={s.email}
+                              align="end"
+                              trigger={<RowMenuButton label={tt("Actions for {email}", { email: s.email })} />}
+                              items={subscriberMenu(s)}
+                            />
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </ScrollEdge>
+              ) : null}
+              </>
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- press, openContact and subscriberMenu read refs only (above)
+    [shown, narrow, views],
+  )
 
   return (
     <>
@@ -739,82 +876,7 @@ function SubscribersTable(props: EmailsHomeProps) {
             <Empty title={tt("No subscribers yet")} body={tt("People who sign up on your website, your Storelib profile or your OnePage show up here, and so do buyers who ask to hear from you.")} />
           )
         ) : (
-          <>
-          <ul aria-label={tt("Subscribers")} className="divide-y divide-[#f1f2f4] sm:hidden">
-            {shown.map((s) => {
-              const v = views.get(s.id)
-              return (
-                <PhoneItem
-                  key={s.id}
-                  data-contact-row=""
-                  onClick={() => openContact(s)}
-                  {...press(s.id, () => prefetchContact(s.email))}
-                  {...(waiting === s.id ? { "data-pressed": "true" } : null)}
-                  head={s.name || s.email}
-                  aside={formatDay(s.subscribed_at)}
-                  line={s.name ? s.email : undefined}
-                  meta={tt(v?.label ?? NOT_RECORDED)}
-                  /* Subscribed is most of them, so only the others are said. */
-                  badges={s.status === "subscribed" ? undefined : <SubscriberStatus s={s} />}
-                  menu={<ResponsiveActionMenu title={s.email} align="end" trigger={<RowMenuButton label={tt("Actions for {email}", { email: s.email })} className="h-11 w-11" />} items={subscriberMenu(s)} />}
-                />
-              )
-            })}
-          </ul>
-          <ScrollEdge frameClassName="max-sm:hidden">
-            <table className="w-full min-w-[720px] border-collapse">
-              <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
-                <tr>
-                  <th data-scroll-edge="" className={cn(th, stickyHead, "w-px")}>{tt("Email")}</th>
-                  <th className={th}>{tt("Name")}</th>
-                  <th className={th}>{tt("Source")}</th>
-                  <th className={th}>{tt("Status")}</th>
-                  <th className={th}>{tt("Added")}</th>
-                  <th className={cn(th, "w-12")} aria-label={tt("Actions")} />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f1f2f4]">
-                {shown.map((s) => {
-                  const v = views.get(s.id)
-                  return (
-                    <tr
-                      key={s.id}
-                      data-contact-row=""
-                      data-order-id={s.id}
-                      className={cn("orders-row", pressable)}
-                      onClick={() => openContact(s)}
-                      {...press(s.id, () => prefetchContact(s.email))}
-                      {...(waiting === s.id ? { "data-pressed": "true" } : null)}
-                    >
-                      <td data-scroll-edge="" className={cn(td, sticky, "font-medium")}><span className="block max-w-[180px] truncate sm:max-w-[260px]">{s.email}</span></td>
-                      <td className={cn(td, "text-[#4b5563]")}><span className="block max-w-[180px] truncate">{s.name || "–"}</span></td>
-                      <td className={td} title={v ? [v.label, v.detail].filter(Boolean).join(" · ") : undefined}>
-                        {/* The website's address is the part that matters: it keeps its
-                            width, and the detail after it is what gets cut. */}
-                        <span className="flex max-w-[380px] items-baseline gap-1.5">
-                          <span className={cn("max-w-[230px] shrink-0 truncate", v?.label === NOT_RECORDED ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>{tt(v?.label ?? NOT_RECORDED)}</span>
-                          {v?.detail ? <span className="min-w-0 truncate text-[12px] text-[#6b7280]">{v.detail}</span> : null}
-                        </span>
-                      </td>
-                      <td className={td}>
-                        <SubscriberStatus s={s} />
-                      </td>
-                      <td className={cn(td, "tabular-nums text-[#4b5563]")}>{formatDay(s.subscribed_at)}</td>
-                      <td className={cn(td, "w-12 px-2 text-right")} onClick={(e) => e.stopPropagation()}>
-                        <ResponsiveActionMenu
-                          title={s.email}
-                          align="end"
-                          trigger={<RowMenuButton label={tt("Actions for {email}", { email: s.email })} />}
-                          items={subscriberMenu(s)}
-                        />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </ScrollEdge>
-          </>
+          list
         )}
       </ShimmerSwap>
       <Pager page={page} pages={pages} total={rows.length} onPage={setPage} />
@@ -843,6 +905,7 @@ export function replyHref(m: Pick<MessageRow, "email" | "subject">): string {
  * deletes it.
  */
 function MessagesTable(props: EmailsHomeProps) {
+  const narrow = useNarrow()
   const press = usePress()
   const [page, setPage] = React.useState(1)
   const pages = Math.max(1, Math.ceil(props.messages.length / PAGE_SIZE))
@@ -868,6 +931,7 @@ function MessagesTable(props: EmailsHomeProps) {
           />
         ) : (
           <>
+          {narrow !== false ? (
           <ul aria-label={tt("Messages")} className="divide-y divide-[#f1f2f4] sm:hidden">
             {shown.map((m) => {
               const fresh = !m.read_at
@@ -877,6 +941,7 @@ function MessagesTable(props: EmailsHomeProps) {
                   key={m.id}
                   data-message-row={m.id}
                   data-unread={fresh ? "true" : undefined}
+                  data-order-id={m.id}
                   onClick={() => props.onOpenMessage(m)}
                   {...press(m.id)}
                   head={
@@ -893,6 +958,8 @@ function MessagesTable(props: EmailsHomeProps) {
               )
             })}
           </ul>
+          ) : null}
+          {narrow !== true ? (
           <ScrollEdge frameClassName="max-sm:hidden">
             <table className="w-full min-w-[720px] border-collapse" data-messages-table="">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
@@ -947,6 +1014,7 @@ function MessagesTable(props: EmailsHomeProps) {
               </tbody>
             </table>
           </ScrollEdge>
+          ) : null}
           </>
         )}
       </ShimmerSwap>
@@ -1079,6 +1147,7 @@ function FlowsTable(props: EmailsHomeProps) {
 }
 
 function CampaignsTable(props: EmailsHomeProps) {
+  const narrow = useNarrow()
   const { tab } = props
   const router = useRouter()
   const press = usePress()
@@ -1126,6 +1195,7 @@ function CampaignsTable(props: EmailsHomeProps) {
           />
         ) : (
           <>
+          {narrow !== false ? (
           <ul aria-label={TABS.find((t) => t.id === tab)?.label} className="divide-y divide-[#f1f2f4] sm:hidden">
             {shown.map((c) => {
               const recipients = c.recipient_count || c.audience_count || 0
@@ -1136,6 +1206,7 @@ function CampaignsTable(props: EmailsHomeProps) {
                 <PhoneItem
                   key={c.id}
                   data-campaign-row={c.id}
+                  data-order-id={c.id}
                   onClick={() => open(c)}
                   {...press(c.id, () => props.onCampaignIntent(c))}
                   head={title}
@@ -1148,6 +1219,8 @@ function CampaignsTable(props: EmailsHomeProps) {
               )
             })}
           </ul>
+          ) : null}
+          {narrow !== true ? (
           <ScrollEdge frameClassName="max-sm:hidden">
             <table className="w-full min-w-[640px] border-collapse">
               <thead className="border-b border-[#eef0f2] bg-[#fafbfb]">
@@ -1190,6 +1263,7 @@ function CampaignsTable(props: EmailsHomeProps) {
               </tbody>
             </table>
           </ScrollEdge>
+          ) : null}
           </>
         )}
       </ShimmerSwap>

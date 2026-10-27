@@ -201,11 +201,13 @@ export function stillOrder(detail: HTMLElement | null, list: HTMLElement | null)
  * tint is exactly the work the first frame of a move cannot afford.
  */
 export function markRow(list: HTMLElement, id: string | null, state: "held" | "fading") {
-  for (const row of list.querySelectorAll<HTMLElement>("tr[data-picked]")) {
+  for (const row of list.querySelectorAll<HTMLElement>("tr[data-picked], li[data-picked]")) {
     if (row.dataset.orderId !== id || state === "held") delete row.dataset.picked
   }
   if (!id) return
-  const row = [...list.querySelectorAll<HTMLElement>("tr[data-order-id]")].find((r) => r.dataset.orderId === id)
+  /* A table row, or a phone's own row (Emails' li, round 24): of the two with this id, the one drawn at this width. */
+  const rows = [...list.querySelectorAll<HTMLElement>("tr[data-order-id], li[data-order-id]")].filter((r) => r.dataset.orderId === id)
+  const row = rows.find((r) => r.getClientRects().length > 0) ?? rows[0]
   if (!row) return
   if (state === "fading" && row.dataset.picked === "fading") {
     /* Coming back to the same row twice in a second: its fade starts again. */

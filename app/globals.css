@@ -7325,12 +7325,27 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 .orders-row[data-picked="fading"] > td::after {
   animation: orders-row-fade 900ms ease-out forwards;
 }
+/* A phone's own row (Emails, round 24): one box, so the tint is its own layer. */
+li.orders-row[data-picked] {
+  position: relative;
+}
+li.orders-row[data-picked]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.06);
+  pointer-events: none;
+}
+li.orders-row[data-picked="fading"]::after {
+  animation: orders-row-fade 900ms ease-out forwards;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .orders-detail[data-arrival="step"] .orders-body {
     animation: none;
   }
-  .orders-row[data-picked="fading"] > td::after {
+  .orders-row[data-picked="fading"] > td::after,
+  li.orders-row[data-picked="fading"]::after {
     animation-duration: 1ms;
   }
 }
