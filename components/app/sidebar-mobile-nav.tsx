@@ -385,6 +385,9 @@ export function MobileNavItem({
 
 // ── The menu, as a page ─────────────────────────────────────────────────────
 
+/** When each of the menu's pages was last fetched whole as it opened (MobileMenuPage). */
+const menuWarmedAt = new Map<string, number>()
+
 export function MobileMenuPage({
   open,
   items,
@@ -451,6 +454,30 @@ export function MobileMenuPage({
     requestAnimationFrame(() => requestAnimationFrame(() => closeRef.current()))
   }, [pathname])
   useEffect(() => () => { if (going.current) window.clearTimeout(going.current.timer) }, [])
+  /*
+    WHAT IT LISTS IS WARMED AS IT OPENS (round 25, the owner: "/app navigation faster and smoother"). The pill's four
+    pages are fetched whole when the app starts; the menu's others (Emails, Payouts, Settings...) were fetched only
+    when a row was pressed, a tenth of a second before the tap lands, and a cold page then took 300 to 700ms over a
+    phone connection with the menu waiting on it. Opening the menu says where you are going next, so its pages are
+    fetched whole as it opens: after its own motion, one every 80ms so nothing in it stutters, each at most once in
+    APP_PAGE_KEPT_MS (the time the router keeps it, next.config staleTimes).
+  */
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+  useEffect(() => {
+    if (!open) return
+    const hrefs = itemsRef.current.filter((i) => !i.forceNavigation && !i.children?.length && i.href.startsWith("/app")).map((i) => i.href)
+    const timers: number[] = []
+    let n = 0
+    for (const href of hrefs) {
+      if (Date.now() - (menuWarmedAt.get(href) ?? 0) < APP_PAGE_KEPT_MS) continue
+      timers.push(window.setTimeout(() => {
+        menuWarmedAt.set(href, Date.now())
+        prefetchAppPage(router, href)
+      }, 280 + 80 * n++))
+    }
+    return () => timers.forEach((t) => window.clearTimeout(t))
+  }, [open, router])
   useEffect(() => {
     const node = nodeRef.current
     if (!node) return

@@ -36,7 +36,7 @@ const out = mkdtempSync(join(tmpdir(), "storelib-menu19-"))
 const shots = process.env.OUT || join(out, "shots")
 mkdirSync(shots, { recursive: true })
 writeFileSync(join(out, "navigation.js"), `
-const router = { back() {}, push() {}, replace() {}, prefetch() {}, refresh() {}, forward() {} }
+const router = { back() {}, push() {}, replace() {}, prefetch(href) { (window.__prefetched = window.__prefetched || []).push(href) }, refresh() {}, forward() {} }
 export function useRouter() { return router }
 export function usePathname() { return window.__path || "/app" }
 export function useSearchParams() { return new URLSearchParams() }
@@ -142,6 +142,7 @@ for (const scene of SCENES) {
   }
 
   const before = await probe(page)
+  const warmedBefore = await page.evaluate(() => (window.__prefetched || []).length)
   expect(before.state === "closed" && before.middle !== "menu", "at rest the menu is shut and not on the screen", before)
   await page.screenshot({ path: join(shots, `${scene.name}-0-rest.png`) })
 
@@ -160,11 +161,26 @@ for (const scene of SCENES) {
     expect(opened.top === 0, "over the editor, which hides the header, the menu starts at the top of the screen", opened.top)
   }
 
+  /* Round 25: what the menu lists is fetched whole as it opens, after its motion, a page at a time (sidebar-mobile-nav menuWarmedAt). */
+  await sleep(1400)
+  const warmed = await page.evaluate((n) => (window.__prefetched || []).slice(n), warmedBefore)
+  const listed = await page.evaluate(() => [...document.querySelectorAll("#app-mobile-menu nav a[href^='/app']")].map((a) => a.getAttribute("href")))
+  expect(warmed.length >= 3 && warmed.every((h) => listed.includes(h)) && new Set(warmed).size === warmed.length, "opening the menu fetches its pages ahead, each once", { warmed: warmed.length, listed: listed.length })
+
   await tap()
   await sleep(450)
   const shut = await probe(page)
   await page.screenshot({ path: join(shots, `${scene.name}-3-shut.png`) })
   expect(shut.expanded === "false" && shut.state === "closed" && shut.middle !== "menu", "a second tap: shut, and the layer under it shows again", shut)
+
+  /* Opened again within the five minutes the router keeps a page: nothing is fetched twice. */
+  const warmedAgain = await page.evaluate(() => (window.__prefetched || []).length)
+  await tap()
+  await sleep(1400)
+  const again = await page.evaluate((n) => (window.__prefetched || []).slice(n), warmedAgain)
+  expect(again.length === 0, "opened again soon after, it fetches nothing it already has", again)
+  await tap()
+  await sleep(450)
   await page.close()
 }
 
