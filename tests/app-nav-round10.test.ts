@@ -19,7 +19,7 @@ const store = new Map<string, string>()
   removeItem: (k: string) => void store.delete(k),
 }
 
-import { planFor, prefetchHref, resetPrefetchPolicy, tierFor } from "../lib/nav/prefetch-policy"
+import { editorSpares, planFor, prefetchHref, resetPrefetchPolicy, tierFor } from "../lib/nav/prefetch-policy"
 import { noteTabScroll, prepareTabArrival, tabScrollFor } from "../lib/navigation/tab-scroll"
 import { landsAsDocument } from "../lib/native-start-landing"
 import { buyerTabFor, buyerTabsBelongOn } from "../lib/nav/buyer-tabs"
@@ -44,6 +44,7 @@ check("a strong phone on 4g is rich", tierFor({ effectiveType: "4g", deviceMemor
 check("an iPhone (Safari says only its cores) is rich", tierFor({ hardwareConcurrency: 6 }) === "rich")
 check("a browser that says nothing is normal, never rich", tierFor({}) === "normal")
 check("a middling phone on 4g is normal", tierFor({ effectiveType: "4g", deviceMemory: 4, hardwareConcurrency: 4 }) === "normal")
+check("the editor holds its background work on a small device or a slow network, and does it on a normal one", editorSpares("lean") && editorSpares("off") && !editorSpares("normal") && !editorSpares("rich"))
 check("the plans step down: rich reads more and sooner than normal, lean only one frame, off nothing",
   planFor("rich").idleBudget > planFor("normal").idleBudget && planFor("rich").idleDelayMs < planFor("normal").idleDelayMs &&
   planFor("lean").idleBudget === 1 && !planFor("lean").idleFull && !planFor("lean").onHover && planFor("off").idleBudget === 0)

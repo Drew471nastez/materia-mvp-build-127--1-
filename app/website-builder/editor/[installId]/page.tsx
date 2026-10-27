@@ -169,6 +169,7 @@ import { CollectionBoundField } from "@/components/website-builder/editor/contro
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { compatFilesChanged, forgetCompatFiles, loadCompatFiles, patchCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { sameFiles } from "@/lib/website-builder/source-revisions"
+import { editorSpares, prefetchPlan } from "@/lib/nav/prefetch-policy"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { assetAddresses, compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
 import { faviconFollows, faviconOf } from "@/lib/website-builder/favicon-sync"
@@ -4223,6 +4224,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const warmCompatPage = useCallback((page: PageKey) => {
     if (!importedTheme.current || page === "product" || page === currentPageRef.current) return
     if (typeof window !== "undefined" && window.innerWidth < 768) return
+    /* A whole theme page drawn out of sight is the canvas's own work. A small device waits until the page is opened. */
+    if (editorSpares()) return
     const read = cachedPage(page)
     if (!read) return
     const asked = ++warmAsked.current
@@ -7905,13 +7908,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   useEffect(() => {
     if (loading) return
-    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
-    if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "")) return
+    /* The same plan as the rest of the app: nothing on Save-Data or 2g, one page on a small phone, a few on a normal one, and never more than READ_AHEAD_PAGES. */
+    const plan = prefetchPlan()
+    if (plan.idleBudget === 0) return
     /* Only pages the site has stored: one the server builds (the shop, search) is kept a moment only, and is not worth the request. */
     const listed = sitePages.map((p) => p.key)
     const keys = [...listed.filter((k) => rowPageKeys.includes(k)), ...rowPageKeys.filter((k) => !listed.includes(k))]
       .filter((k) => k !== currentPageRef.current && k !== "product")
-      .slice(0, READ_AHEAD_PAGES)
+      .slice(0, Math.min(READ_AHEAD_PAGES, plan.idleBudget))
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
     let cancelled = false
     let idle = 0
@@ -7925,8 +7929,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
       idle = w.requestIdleCallback ? w.requestIdleCallback(run, { timeout: 4000 }) : window.setTimeout(run, 300)
     }
-    /* After the first page has had the network to itself. */
-    const start = window.setTimeout(() => next(0), 1200)
+    /* After the first page has had the network to itself, and later still on a slower device. */
+    const start = window.setTimeout(() => next(0), Math.max(1200, plan.idleDelayMs))
     return () => {
       cancelled = true
       window.clearTimeout(start)

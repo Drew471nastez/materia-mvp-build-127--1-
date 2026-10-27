@@ -66,6 +66,7 @@ import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
+import { editorSpares } from "@/lib/nav/prefetch-policy"
 import { shopImageName } from "@/lib/website-builder/picture-address"
 import { compatCardIn, compatCollectionIn, compatFields, compatThemeWords, compatUiWords } from "@/lib/markets/compat-fields"
 import { moneyFormatFor } from "@/lib/markets/pricing"
@@ -916,8 +917,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       save data, or a slow one, it is not done; otherwise it waits until the
       browser has a moment, never in the middle of a gesture.
     */
-    const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
-    if (conn?.saveData || /(^|-)2g$/.test(conn?.effectiveType ?? "")) return
+    /* Save-Data, 2g, 3g, or a small device: a hidden page runs the theme's scripts in this process, which is the canvas stuttering. The page is drawn when it is opened. */
+    if (editorSpares()) return
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
     const ahead = () => {
       if (isLive() || slotsRef.current.some((x) => x.key === key)) return
