@@ -5207,6 +5207,7 @@ const words: Record<string, string> = {
  "Not sending. Turn it on and it starts for people who trigger it from then on.": "Não está enviando. Ative e ela começa para quem acionar a partir daí.",
  "Not sent": "Não enviado",
  "Not sent before": "Não enviado antes",
+ "Not sent to your inbox": "Não enviado para sua caixa de entrada",
  "Not sent yet: the order is on hold.": "Ainda não enviado: o pedido está em espera.",
  "Not sent. Try again.": "Não enviado. Tente de novo.",
  "Not set": "Não definido",

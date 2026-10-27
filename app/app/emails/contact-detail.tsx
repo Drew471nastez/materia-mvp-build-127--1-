@@ -113,6 +113,8 @@ interface MessageLite {
   message: string
   site: string | null
   page: string | null
+  /** When the copy to the creator's inbox went out; null when it did not. */
+  emailed_at: string | null
   created_at: string
 }
 
@@ -134,7 +136,7 @@ function readMessages(email: string): Promise<MessageLite[]> {
     try {
       const { data, error } = await createClient()
         .from("site_contact_messages")
-        .select("id, subject, message, site, page, created_at")
+        .select("id, subject, message, site, page, emailed_at, created_at")
         .eq("email", key)
         .order("created_at", { ascending: false })
         .limit(20)
@@ -311,6 +313,7 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
                 <p className="text-[12px] text-[#6b7280]">
                   {day(m.created_at)}
                   {m.site ? ` · ${m.site}${m.page && m.page !== "home" ? `/${m.page}` : ""}` : ""}
+                  {m.emailed_at ? null : ` · ${tt("Not sent to your inbox")}`}
                 </p>
                 {m.subject ? <p className="mt-1 break-words text-[14px] font-medium text-[#1a1a2e]">{m.subject}</p> : null}
                 <p className="mt-1 whitespace-pre-wrap break-words text-[14px] leading-6 text-[#374151]">{m.message}</p>
