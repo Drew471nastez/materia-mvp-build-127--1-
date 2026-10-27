@@ -22,6 +22,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react"
 import { SectionWrapper, type SectionProps } from "./_shared"
 import { useStorelibContext, useStorelibPage } from "./storelib-sources"
+import { useSectionSourceRev } from "@/lib/website-builder/source-revisions"
 import { useStorefront } from "../theme/storefront-context"
 import { withProductFaqs } from "@/lib/products/page-product"
 import { formIntent } from "@/lib/website-builder/form-intent"
@@ -113,6 +114,8 @@ export function StorelibSection({
   /* When this section appeared, for how long a form in it was on the screen. */
   const shownAt = useRef(0)
   useEffect(() => { shownAt.current = Date.now() }, [])
+  /* A push that changed this section's file, and not the page around it (source-revisions.ts). */
+  const sourceRev = useSectionSourceRev(section.type)
   const out = useMemo(() => {
     const ready = prerendered[section.id]
     if (ready) {
@@ -133,7 +136,7 @@ export function StorelibSection({
         message: `There is no sections/${section.type}.storelib in this theme. Write one in the code editor, or change this section's type.`,
       }],
     }
-  }, [prerendered, render, section, theme])
+  }, [prerendered, render, section, theme, sourceRev])
 
   /**
    * ITS SCRIPT RUNS, AND NOT HERE.

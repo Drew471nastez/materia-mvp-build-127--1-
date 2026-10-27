@@ -76,7 +76,7 @@ check("with CSS motion only, still under reduced motion", /@keyframes slw-roll/.
 
 console.log("\nA push or a written section lands without drawing the page again")
 const live = readCode("components/website-builder/sections/storelib-live.tsx")
-check("files only added keep the render function, so the sections on the page are not drawn again", /function onlyAdded\(before: Record<string, string>, after: Record<string, string>\): boolean/.test(live) && /if \(steadySources\.current !== sources && !onlyAdded\(steadySources\.current, sources\)\) steadySources\.current = sources/.test(live) && /\[sourcesKey, template,/.test(live))
+check("a changed file redraws the sections that read it, and the render function stays put so the rest of the page is not drawn again", /useSectionSourceRev\(section\.type\)/.test(readCode("components/website-builder/sections/StorelibSection.tsx")) && /noteSourceChanges\(changed\)/.test(live) && /\[template, inEditor, products, dataKey, globals, extras, headerLogo, canvas\]/.test(live))
 check("and a new section draws from the files as they are now", /sourcesNow\.current, products, dataNow\.current/.test(live))
 check("the back guard's history entry waits for a quiet moment", /w\.requestIdleCallback\(armBackGuard, \{ timeout: 1000 \}\)/.test(editor))
 check("the rules run a frame after Enter, with the router already asked", /const asked = decideRoute\(installId, ask\)\s*await new Promise<void>\(\(done\) => requestAnimationFrame/.test(chat))
