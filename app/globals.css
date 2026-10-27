@@ -8007,6 +8007,8 @@ html[data-canvas-swap]::view-transition-new(root) {
   container: wb-canvas / size;
   --sl-vh: 1cqh;
   --sl-vw: 1cqw;
+  /* A section growing under a sidebar drag must not shove the page. The browser's scroll anchor did that, a jump on every value. */
+  overflow-anchor: none;
 }
 
 /* A popover or dialog a section opens, opened in place rather than in the

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { noteCanvasScroll, thumbFor } from "@/lib/website-builder/scroll-rest"
 
 /**
  * ===========================================================================
@@ -71,20 +72,26 @@ export function CanvasScrollbar({ targetId }: { targetId: string }) {
     if (!el) return
     scroller.current = el
 
-    const measure = () => {
+    /* The page's size, read when it changes. A scroll does not read it again. */
+    const size = { scrollHeight: 0, clientHeight: 0 }
+    const readSize = () => {
+      size.scrollHeight = el.scrollHeight
+      size.clientHeight = el.clientHeight
+    }
+    const place = () => {
       frame.current = 0
-      const { scrollHeight, clientHeight, scrollTop } = el
-      const track = clientHeight - INSET_END * 2
-      if (scrollHeight <= clientHeight + 1 || track <= MIN_THUMB) {
+      const thumbAt = thumbFor(el.scrollTop, size.scrollHeight, size.clientHeight, INSET_END, MIN_THUMB)
+      if (!thumbAt) {
         geometry.current = null
         paintRef.current()
         return
       }
-      const height = Math.max(MIN_THUMB, Math.round((clientHeight / scrollHeight) * track))
-      const range = scrollHeight - clientHeight
-      const top = INSET_END + Math.round((scrollTop / range) * (track - height))
-      geometry.current = { top, height, track }
+      geometry.current = { top: thumbAt.top, height: thumbAt.height, track: size.clientHeight - INSET_END * 2 }
       paintRef.current()
+    }
+    const measure = () => {
+      readSize()
+      place()
     }
     const schedule = () => {
       if (!frame.current) frame.current = requestAnimationFrame(measure)
@@ -101,7 +108,8 @@ export function CanvasScrollbar({ targetId }: { targetId: string }) {
       }, HIDE_AFTER_MS)
     }
     const onScroll = () => {
-      schedule()
+      noteCanvasScroll()
+      if (!frame.current) frame.current = requestAnimationFrame(place)
       /* The editor's size switch holding the page under the eye moves the scroll; nobody scrolled (lib/website-builder/canvas-switch.ts, holdView). */
       if (el.hasAttribute("data-wb-switching")) return
       /* Nor does a window being resized, whose reflow moves it too. */

@@ -169,6 +169,7 @@ import { CollectionBoundField } from "@/components/website-builder/editor/contro
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { compatFilesChanged, forgetCompatFiles, loadCompatFiles, patchCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { sameFiles } from "@/lib/website-builder/source-revisions"
+import { noteCanvasScroll, shiftWithScroll, whenCanvasRests } from "@/lib/website-builder/scroll-rest"
 import { editorSpares, prefetchPlan } from "@/lib/nav/prefetch-policy"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { assetAddresses, compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
@@ -4409,6 +4410,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* Read under an open editor: an edit made while it was on its way is not written over (the conflict line asks which to keep). */
     const alongside = afterQuietLoad.current
     afterQuietLoad.current = null
+    /* A push that arrived while the canvas was moving waits until the gesture rests, then lands. */
+    if (quiet) await whenCanvasRests()
     if (quiet && (isDirtyRef.current || savingRef.current)) {
       setSyncConflict((c) => c ?? { what: "this page", by: "GitHub" })
       if (alongside) startTransition(alongside)
@@ -7773,9 +7776,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setSyncConflict({ what: replacedWhat ?? "this page", by: events[events.length - 1]?.agent_name ?? who })
         changes.push({ key: "github-conflict", text: "Your unsaved edit is kept until you pick a version.", sectionType: null })
         /* Now, not deferred: a transition waits behind scrolling, and the push looks as if it never arrived. */
+        await whenCanvasRests()
         landRemote(); applyIncoming(); flush()
       }
     } else {
+      await whenCanvasRests()
       landRemote(); applyIncoming(); flush()
     }
     void refreshSync()
@@ -11582,6 +11587,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               else if (el.scrollTop >= max) el.scrollTop = max - 1
             }}
             onTouchEnd={() => { touchingCanvas.current = false }}
+            onScroll={() => noteCanvasScroll()}
             onWheelCapture={(e) => {
               touchingCanvas.current = true
               /* A drawer's hold on the canvas that no drawer is counted for is let go (canvas-scroll.ts, releaseStrayDrawerHold). */
@@ -12511,21 +12517,40 @@ function SectionToolbar({
     measureNow.current = measure
     // Coalesced into a frame: a scroll fires far more often than the screen
     // is painted, and a measurement per event is a measurement thrown away.
+    /*
+      THE SCROLL MOVES THE BAR. Reading the section's box on every frame
+      laid the page out under the finger (the stutter). The bar follows the
+      scroll offset, and the boxes are read once the gesture rests.
+    */
+    let scrolled = scroller.scrollTop
+    let settle = 0
     const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(measure)
+      noteCanvasScroll()
+      const now = scroller.scrollTop
+      const bar = barRef.current
+      if (shownNow.current && bar && lastBox.current) {
+        const top = shiftWithScroll(lastBox.current.top, scrolled, now)
+        lastBox.current = { top, right: lastBox.current.right }
+        bar.style.top = `${top}px`
+      }
+      scrolled = now
+      window.clearTimeout(settle)
+      settle = window.setTimeout(measure, 120)
     }
+    const onResize = () => { if (!frame) frame = requestAnimationFrame(measure) }
     measure()
     scroller.addEventListener("scroll", onScroll, { passive: true })
-    window.addEventListener("resize", onScroll)
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onScroll) : null
+    window.addEventListener("resize", onResize)
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onResize) : null
     ro?.observe(scroller)
     /* And measured again when one opens or closes. */
-    const mo = typeof MutationObserver !== "undefined" ? new MutationObserver(onScroll) : null
+    const mo = typeof MutationObserver !== "undefined" ? new MutationObserver(onResize) : null
     mo?.observe(scroller, { attributes: true, attributeFilter: [SITE_DRAWER_OPEN_ATTRIBUTE] })
     return () => {
       if (frame) cancelAnimationFrame(frame)
+      window.clearTimeout(settle)
       scroller.removeEventListener("scroll", onScroll)
-      window.removeEventListener("resize", onScroll)
+      window.removeEventListener("resize", onResize)
       ro?.disconnect()
       mo?.disconnect()
     }
