@@ -41,8 +41,8 @@ console.log("\nPayouts page")
 
 console.log("\nBuilder activity")
 {
-  check("the quick cadence is unchanged", POLL_ACTIVE_MS === 3_000 && POLL_BASE_MS === 5_000 && POLL_MAX_MS === 10_000)
-  check("changes arriving read every three seconds", nextPollDelay(POLL_IDLE_MS, true, 10 * 60_000) === POLL_ACTIVE_MS)
+  check("while changes arrive the editor asks about once a second; idle stays slow", POLL_ACTIVE_MS === 1_000 && POLL_BASE_MS === 5_000 && POLL_MAX_MS === 10_000)
+  check("changes arriving read on that quick cadence", nextPollDelay(POLL_IDLE_MS, true, 10 * 60_000) === POLL_ACTIVE_MS)
   check("a minute quiet is still the quick end", nextPollDelay(POLL_MAX_MS, false, 60_000) === POLL_MAX_MS)
   check("two quiet minutes: every thirty seconds", POLL_IDLE_AFTER_MS === 120_000 && nextPollDelay(POLL_MAX_MS, false, POLL_IDLE_AFTER_MS) === POLL_IDLE_MS && POLL_IDLE_MS === 30_000)
   const reads = (quietMinutes: number) => Math.ceil((POLL_IDLE_AFTER_MS / POLL_MAX_MS)) + Math.ceil((quietMinutes * 60_000 - POLL_IDLE_AFTER_MS) / POLL_IDLE_MS)

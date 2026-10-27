@@ -202,8 +202,9 @@ export function actedRecently(mark: ConnectionMark, now: number): boolean {
  * ===========================================================================
  *  HOW OFTEN AN OPEN EDITOR ASKS
  * ===========================================================================
- * Quickly while changes are arriving, so a run of edits reads as one live
- * notice; slower and slower while nothing happens, down to one small read
+ * Quickly while changes are arriving, about once a second, so a push or an
+ * agent shows on the page as it lands and nobody reloads the editor to see
+ * it. Slower and slower while nothing happens, down to one small read
  * every ten seconds (it was twenty: a push to GitHub sat unseen in an open
  * editor for that long, which read as having to refresh). A tab coming back
  * into view, or the pointer coming back over it, asks at once and starts
@@ -218,7 +219,7 @@ export function actedRecently(mark: ConnectionMark, now: number): boolean {
  * tab, the pointer coming back over it, or a press or key in it all return
  * to the quick end at once.
  */
-export const POLL_ACTIVE_MS = 3_000
+export const POLL_ACTIVE_MS = 1_000
 export const POLL_BASE_MS = 5_000
 export const POLL_MAX_MS = 10_000
 /** Quiet for this long, the editor counts as left alone. */

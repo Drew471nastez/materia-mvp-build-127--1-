@@ -7644,10 +7644,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* An agent's own changes, counted for the "Publish to make them live" line (a push says its own, from the server). */
     const byAgents = events.filter((ev) => !isGitHubName(ev.agent_name))
     const shopifyPaths = events.filter((ev) => ev.path.startsWith("shopify/")).map((ev) => ev.path)
-    const shopifyP = readThemeTexts(installId, shopifyPaths)
-    const files = await loadStorelibSources({ hold: true })
-    const shopify = await shopifyP
-    const importedNow = compatInstall || (!!files && isCompatSource(files["layout/theme.storelib"] ?? ""))
+    /* Only the files this push names. The whole theme is read when that read fails, not on every poll. */
+    const sourcePaths = events.map((ev) => ev.path).filter((p) => /\.storelib$/.test(p) || p.endsWith("settings_schema.json") || p.endsWith("settings_data.json"))
+    const [shopify, sourcePatch] = await Promise.all([
+      readThemeTexts(installId, shopifyPaths),
+      readThemeTexts(installId, sourcePaths),
+    ])
+    let files: Record<string, string> | null = null
+    if (sourcePaths.length > 0) {
+      if (sourcePatch && Object.keys(sourcePatch).length > 0) files = { ...storelibSourcesRef.current, ...sourcePatch }
+      else files = await loadStorelibSources({ hold: true })
+    }
+    const schemaFile = sourcePaths.find((p) => p.endsWith("settings_schema.json"))
+    if (schemaFile && sourcePatch?.[schemaFile]) heldSchema.current = sourcePatch[schemaFile]
+    const importedNow = compatInstall || (!!files && isCompatSource(files["layout/theme.storelib"] ?? "")) || isCompatSource(storelibSourcesRef.current["layout/theme.storelib"] ?? "")
     const sourcesChanged = !!files && !sameFiles(storelibSourcesRef.current, files)
     const landRemote = () => {
       if (files) {
@@ -7661,7 +7671,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         if (!(shopify && Object.keys(shopify).length > 0 && patchCompatFiles(installId, shopify))) compatFilesChanged(installId)
         setCompatFilesVersion((n) => n + 1)
       }
-      if (importedNow && (sourcesChanged || shopifyPaths.length > 0 || replacedHere)) setReplaceDocument((n) => n + 1)
+      /*
+        A fresh document only when the theme's own code changed, or the open
+        page was rewritten whole, or a lot of files arrived at once. One
+        section file is drawn in place, so the canvas follows the agent
+        without loading the page again.
+      */
+      const themeCode = shopifyPaths.some((p) => /\/layout\//.test(p) || /\.(css|js)(\.liquid)?$/.test(p))
+      const many = shopifyPaths.length + sourcePaths.length > 4
+      if (importedNow && (themeCode || many || replacedHere)) setReplaceDocument((n) => n + 1)
       if (importedNow && events.some((ev) => ev.path === "settings" || ev.path.endsWith("settings_schema.json") || ev.path.endsWith("settings_data.json"))) {
         setCompatPanelVersion((n) => n + 1)
       }
@@ -7754,10 +7772,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         */
         setSyncConflict({ what: replacedWhat ?? "this page", by: events[events.length - 1]?.agent_name ?? who })
         changes.push({ key: "github-conflict", text: "Your unsaved edit is kept until you pick a version.", sectionType: null })
-        startTransition(() => { landRemote(); applyIncoming(); flush() })
+        /* Now, not deferred: a transition waits behind scrolling, and the push looks as if it never arrived. */
+        landRemote(); applyIncoming(); flush()
       }
     } else {
-      startTransition(() => { landRemote(); applyIncoming(); flush() })
+      landRemote(); applyIncoming(); flush()
     }
     void refreshSync()
   }

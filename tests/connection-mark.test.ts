@@ -82,7 +82,7 @@ function main() {
   // Changed on purpose (round AA): a GitHub push sat unseen for up to twenty seconds; the owner asked for it to show without waiting.
   check("to one small read every ten seconds and no slower", idle[idle.length - 1] === POLL_MAX_MS && POLL_MAX_MS === 10_000)
   // Changed on purpose (the owner: lower Vercel costs): after two quiet minutes with nobody at the editor it reads every thirty seconds; tests/polling-costs.test.ts pins that.
-  check("changes arriving bring it back to every three seconds", nextPollDelay(POLL_MAX_MS, true) === POLL_ACTIVE_MS && POLL_ACTIVE_MS === 3_000)
+  check("changes arriving bring it back to about once a second, so the page follows a push", nextPollDelay(POLL_MAX_MS, true) === POLL_ACTIVE_MS && POLL_ACTIVE_MS === 1_000)
   check("an hour idle is at most 370 small reads, where it was 720 at the start", Math.ceil(3_600_000 / POLL_MAX_MS) + 10 <= 370)
 
   console.log("\nThe notice's lines, in words")
