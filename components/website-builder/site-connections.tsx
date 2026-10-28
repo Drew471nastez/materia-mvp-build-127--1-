@@ -311,16 +311,16 @@ export function useSiteActivity({
           eventsFull = fresh.length >= ACTIVITY_PAGE * CATCH_UP_PAGES
           /* Taken before applying: a throw or a timeout below still counts them, so none is applied twice. */
           remember(seen.current, events.map((ev) => ev.id))
-          const appliedFrom = Date.now()
+          const applying = Date.now()
           try {
             /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
-            const applying = (async () => { await onEventsRef.current(events, { catchUp }) })()
+            const run = (async () => { await onEventsRef.current(events, { catchUp }) })()
             /* An apply that never answers (a read suspended with the web view) held the loop busy for good: the theme is read again instead. */
-            if ((await withinTime(applying, APPLY_CEILING_MS)) === "late") onStaleRef.current?.()
+            if ((await withinTime(run, APPLY_CEILING_MS)) === "late") onStaleRef.current?.()
           } catch {
             try { onStaleRef.current?.() } catch { /* the cursor still moves; the next read is the new lines */ }
           }
-          heldUp = Date.now() - appliedFrom >= POLL_ACTIVE_MS
+          heldUp = Date.now() - applying >= POLL_ACTIVE_MS
           const last = events[events.length - 1]
           setBrief((b) => (b ? { ...b, latest: { name: last.agent_name, at: last.created_at ?? new Date().toISOString() } } : b))
         }

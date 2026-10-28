@@ -194,7 +194,7 @@ function wiring() {
   check("the native app back to the front, and going to the back", /App\.addListener\("appStateChange"/.test(hook) && /const offNative = onNativeAppState\(/.test(hook) && /offNative\(\)/.test(hook))
   check("a timer that slept is an absence", /const away = slept\(dueAt, Date\.now\(\), CATCH_UP_AWAY_MS\)/.test(hook) && /dueAt = Date\.now\(\) \+ ms/.test(hook))
   check("a full page reads on in the same pass", /while \(after !== null && pages < CATCH_UP_PAGES\)/.test(hook) && /if \(!readMore\(batch\.length, pages, CATCH_UP_PAGES, ACTIVITY_PAGE\)\) break/.test(hook))
-  check("the apply has a ceiling", /withinTime\(applying, APPLY_CEILING_MS\)\) === "late"\) onStaleRef\.current\?\.\(\)/.test(hook))
+  check("the apply has a ceiling", /withinTime\(run, APPLY_CEILING_MS\)\) === "late"\) onStaleRef\.current\?\.\(\)/.test(hook))
   check("the cursor through nextCursor", /cursor\.current = nextCursor\(cursor\.current, after, retry, fresh\.length\)/.test(hook))
   check("nothing connected: the brief is asked again", /setBriefAsk\(\(n\) => n \+ 1\)/.test(hook) && /\[installId, recheck, briefAsk\]/.test(hook) && /if \(!installId \|\| connected \|\| missing \|\| !settled\) return/.test(hook))
   check("the restored page paints, and the browser has a moment, before the pile lands", /requestIdleCallback\(finish, \{ timeout: 800 \}\)/.test(hook) && /if \(catchUp\) await afterPaint\(\)/.test(hook))
