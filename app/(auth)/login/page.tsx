@@ -19,6 +19,7 @@ import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { classifyOAuthError, existingAccountHint, messageForCode, type OAuthErrorCode, type OAuthProvider, type SignInMethod } from "@/lib/auth/oauth-errors"
 import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
+import { goToAuthHref } from "@/lib/auth/session-sync"
 import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
 import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
@@ -556,7 +557,7 @@ function LoginFormContent() {
         const sheet = await signInWithNativeGoogle(supabase)
         if (sheet.result === "done" && sheet.href) {
           nativeAuthStart()
-          window.location.assign(sheet.href)
+          goToAuthHref(sheet.href)
           return
         }
         if (sheet.result === "cancelled") {

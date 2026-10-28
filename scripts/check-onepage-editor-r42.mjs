@@ -86,6 +86,11 @@ for (const vp of [PHONE, DESK]) {
     /* To the far end, then press the pill the start fade cuts, on the part of it that shows (clear of the arrow). */
     await p.evaluate(() => { const row = document.querySelector('[data-pill-row="settings-pills"]'); row.scrollLeft = row.scrollWidth })
     await sleep(400)
+    /* Then back a little, so the first pill wholly in view sits 10px from the edge, under the fade, its end still clear of the arrow. */
+    const sEnd = await rowState()
+    const next = sEnd.tabs.find((t) => t.left >= sEnd.left + 40)
+    await p.evaluate((by) => { const row = document.querySelector('[data-pill-row="settings-pills"]'); row.scrollLeft += by }, next.left - (sEnd.left + 10))
+    await sleep(300)
     const s2 = await rowState()
     const cut = s2.tabs.find((t) => t.left < s2.left + 40 && t.right > s2.left + 60)
     expect(!!cut, `${w}: a pill is cut by the start fade`, s2.tabs.map((t) => [t.id, Math.round(t.left), Math.round(t.right)]))

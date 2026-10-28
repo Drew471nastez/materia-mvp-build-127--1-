@@ -54,7 +54,7 @@ execFileSync(
 )
 const chunks = readdirSync(join(out, "js"))
 const css = await appCss(root)
-const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style><script>window.__delay=${DELAY};window.__previews=${previews.replace(/<\/script/gi, "<\\/script")}</script></head><body><div id="app"></div><script type="module" src="/js/main.js"></script></body></html>`
+const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style><script>window.process={env:{}};window.__delay=${DELAY};window.__previews=${previews.replace(/<\/script/gi, "<\\/script")}</script></head><body><div id="app"></div><script type="module" src="/js/main.js"></script></body></html>`
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu"] })
 async function open() {

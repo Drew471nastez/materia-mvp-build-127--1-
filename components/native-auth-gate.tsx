@@ -6,6 +6,7 @@ import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { nativeAppReadyForce } from "@/lib/native-bridge"
 import { hasStoredSessionToken } from "@/lib/auth/session-read"
 import { isSignedOutAnswer } from "@/lib/auth/auth-error"
+import { postSessionSync } from "@/lib/auth/session-sync"
 
 /**
  * Lightweight client gate for server-rendered layouts.
@@ -75,33 +76,8 @@ function noteRecovery() {
   }
 }
 
-/**
- * THE TOKENS GO IN A FORM BODY, NEVER THE ADDRESS. This used to navigate to
- * /auth/sync-session?access_token=…&refresh_token=…, and a request's address
- * is written to Vercel's request log: every recovery, on the web and in the
- * app, put a working refresh token in the logs. A same origin form post is
- * the same top level navigation (the cookies land on its redirect), with the
- * tokens in the body (app/auth/sync-session POST).
- */
-export function postSessionSync(session: { access_token: string; refresh_token: string }, nextPath: string): void {
-  const form = document.createElement("form")
-  form.method = "POST"
-  form.action = "/auth/sync-session"
-  form.style.display = "none"
-  for (const [name, value] of [
-    ["access_token", session.access_token],
-    ["refresh_token", session.refresh_token],
-    ["next", nextPath],
-  ] as const) {
-    const input = document.createElement("input")
-    input.type = "hidden"
-    input.name = name
-    input.value = value
-    form.appendChild(input)
-  }
-  document.body.appendChild(form)
-  form.submit()
-}
+/* The tokens go in a form body, never the address (lib/auth/session-sync.ts). */
+export { postSessionSync }
 
 /** Why the screen gave up, for the one report it sends (never a token, never an address). */
 type StuckWhy = "tries" | "renewal" | "threw" | "slow read" | "sync"

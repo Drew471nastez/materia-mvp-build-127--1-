@@ -28,6 +28,7 @@ import { signInInsteadHref, signUpFoundExisting } from "@/lib/auth/existing-acco
 import { inviteEmailFrom } from "@/lib/team/invite-links"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
+import { goToAuthHref } from "@/lib/auth/session-sync"
 import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
 
 function SignUpFormContent() {
@@ -454,7 +455,7 @@ function SignUpFormContent() {
         const sheet = await signInWithNativeGoogle(supabase)
         if (sheet.result === "done" && sheet.href) {
           nativeAuthStart()
-          window.location.assign(sheet.href)
+          goToAuthHref(sheet.href)
           return
         }
         if (sheet.result === "cancelled") {
