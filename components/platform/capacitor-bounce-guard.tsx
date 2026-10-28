@@ -151,6 +151,20 @@ export function CapacitorBounceGuard() {
       clientHeight = scroller.clientHeight
     }
 
+    /** The nearest ancestor of `from` that scrolls vertically and has room to go `dir` (-1 up, 1 down). Asked only at a boundary, never per move. */
+    function nextScroller(from: HTMLElement, dir: -1 | 1): HTMLElement | null {
+      let el = from.parentElement
+      while (el && el !== document.documentElement && el !== document.body) {
+        const oy = window.getComputedStyle(el).overflowY
+        if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight + 1) {
+          const room = dir < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1
+          if (room) return el
+        }
+        el = el.parentElement
+      }
+      return null
+    }
+
     /** The expensive part, and it runs once per gesture instead of once per frame. */
     function resolve(target: Element | null): void {
       if (window.innerWidth > window.innerHeight) {
@@ -308,8 +322,7 @@ export function CapacitorBounceGuard() {
           const next = nextScroller(scroller, deltaY > 0 ? -1 : 1)
           if (next) {
             scroller = next
-            scrollHeight = next.scrollHeight
-            clientHeight = next.clientHeight
+            refreshExtent()
             return
           }
         }
@@ -317,19 +330,6 @@ export function CapacitorBounceGuard() {
       }
     }
 
-    /** The nearest ancestor of `from` that scrolls vertically and has room to go `dir` (-1 up, 1 down). */
-    function nextScroller(from: HTMLElement, dir: -1 | 1): HTMLElement | null {
-      let el = from.parentElement
-      while (el && el !== document.documentElement && el !== document.body) {
-        const oy = window.getComputedStyle(el).overflowY
-        if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight + 1) {
-          const room = dir < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1
-          if (room) return el
-        }
-        el = el.parentElement
-      }
-      return null
-    }
 
     document.addEventListener("touchstart", onTouchStart, { passive: true })
     // passive: false required so e.preventDefault() is allowed
