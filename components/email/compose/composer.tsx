@@ -32,7 +32,6 @@ import * as React from "react"
 import { ArrowLeft, MoreHorizontal } from "lucide-react"
 import { PaneBar, LIST_WIDTH, GUTTER } from "@/app/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
-import { createClient } from "@/lib/supabase/client"
 import { displayEmail } from "@/lib/businesses/email-alias"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
@@ -162,27 +161,29 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
     let live = true
     const cancels: Array<() => void> = []
     ;(async () => {
-      const supabase = createClient()
-      const { data: auth } = await supabase.auth.getUser()
-      const user = auth.user
-      if (!user || !live) return
-      const [{ data: profile }, { data: creator }] = await Promise.all([
-        supabase.from("profiles").select("display_name, username, avatar_url").eq("id", user.id).maybeSingle(),
-        supabase.from("creators").select("id, support_email").eq("user_id", user.id).maybeSingle(),
-      ])
-      if (!live) return
+      /*
+        WHO IS SENDING, FOR THE STORE THE SESSION WORKS IN (app/api/email/area
+        ?part=sender): the store's owner's name and photo and its support
+        address, and the signed in person's own address for a test, also for
+        a team member given Marketing (lib/team), whose browser cannot read
+        the store's rows.
+      */
+      const sender = await fetch("/api/email/area?part=sender", { cache: "no-store" })
+        .then((r) => (r.ok ? (r.json() as Promise<{ creatorId: string | null; name: string | null; username: string | null; avatarUrl: string | null; email: string | null; replyTo: string | null }>) : null))
+        .catch(() => null)
+      if (!sender || !live) return
       cancels.push(afterLayerMove(() => setMe({
-        creatorId: creator?.id ?? null,
-        name: (profile?.display_name || profile?.username || "").trim() || "You",
-        username: profile?.username ?? null,
-        avatarUrl: profile?.avatar_url ?? null,
+        creatorId: sender.creatorId ?? null,
+        name: (sender.name || "").trim() || "You",
+        username: sender.username ?? null,
+        avatarUrl: sender.avatarUrl ?? null,
         /* Shown, so their own address and never the tag a second business's
            account carries (lib/businesses/email-alias.ts). Neither is posted:
            what a test is really sent to, and what replies really go to, are
            worked out on the server (app/api/email/send-test/route.ts,
            lib/email-campaigns/queue.ts). */
-        email: displayEmail(user.email),
-        replyTo: (creator?.support_email || displayEmail(user.email) || "").trim().toLowerCase() || null,
+        email: displayEmail(sender.email),
+        replyTo: (sender.replyTo || displayEmail(sender.email) || "").trim().toLowerCase() || null,
       })))
     })()
     fetch("/api/email/audience", { cache: "no-store" })

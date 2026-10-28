@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { requireTeamPermission } from "@/lib/team/server"
 import { readReportLayout, writeReportLayout } from "@/lib/analytics/report-layout"
 
 export const dynamic = "force-dynamic"
@@ -16,32 +15,26 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
  *   GET   { reports: ["pageviews", ...] | null }
  *   PUT   { reports: [...] }  the whole list, in its order; 204
  *
- * Only the signed in seller's own row, found from their session; anything in
+ * Only the row of the store the session works in; anything in
  * the body that is not a known report is dropped. Until part 254 has run a
  * write answers 503 not_ready and the page keeps the choice in the browser.
  */
+/** The row is the store's: its owner, or a team member given Analytics (lib/team), reads and changes it. */
 async function sellerOf() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-  const admin = createAdminClient()
-  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  return creator ? { admin, userId: user.id, creatorId: (creator as { id: string }).id } : { admin, userId: user.id, creatorId: null }
+  const gate = await requireTeamPermission("analytics")
+  if (gate instanceof NextResponse) return gate
+  return { admin: gate.db, ownerUserId: gate.ownerUserId, creatorId: gate.creatorId }
 }
 
 export async function GET() {
   const who = await sellerOf()
-  if (!who) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
-  if (!who.creatorId) return NextResponse.json({ reports: null }, { headers: NO_STORE })
-  return NextResponse.json({ reports: await readReportLayout(who.admin, who.userId) }, { headers: NO_STORE })
+  if (who instanceof NextResponse) return who.status === 401 ? NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE }) : NextResponse.json({ reports: null }, { headers: NO_STORE })
+  return NextResponse.json({ reports: who.ownerUserId ? await readReportLayout(who.admin, who.ownerUserId) : null }, { headers: NO_STORE })
 }
 
 export async function PUT(request: Request) {
   const who = await sellerOf()
-  if (!who) return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE })
-  if (!who.creatorId) return NextResponse.json({ error: "Creator not found" }, { status: 404, headers: NO_STORE })
+  if (who instanceof NextResponse) return who
   let body: unknown
   try {
     const text = await request.text()

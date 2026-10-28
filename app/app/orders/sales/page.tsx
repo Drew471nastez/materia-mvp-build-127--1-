@@ -148,7 +148,7 @@ export default async function OrdersPage({ searchParams }: { searchParams?: Prom
 
   /* The store's: the owner's own, or the one a team member works in when their role has orders (lib/team). */
   const found = await creatorFor<{ id: string; stripe_onboarding_status: string | null }>(admin, user.id, "orders", "id, stripe_onboarding_status")
-  if (found.kind === "denied") return <TeamAreaClosed area="orders" store={found.acting.name} />
+  if (found.kind === "denied") return <TeamAreaClosed area="orders" store={found.acting.name} permissions={found.acting.permissions} />
   if (found.kind === "none") redirect("/onboarding")
   const creator = found.creator
 

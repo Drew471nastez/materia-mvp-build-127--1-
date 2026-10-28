@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic"
 export async function GET(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const ctx = await requireCreator()
+  const ctx = await requireCreator("community")
   if (isResponse(ctx)) return ctx
   /* Round 33: GET ?address=<slug> -> { slug, available, reason }, the wizard's check beside its address field. */
   const asked = new URL(request.url).searchParams.get("address")
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const ctx = await requireCreator()
+  const ctx = await requireCreator("community")
   if (isResponse(ctx)) return ctx
   const limited = await rateLimit({
     bucket: "community-create",

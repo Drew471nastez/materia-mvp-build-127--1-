@@ -76,7 +76,7 @@ async function main() {
   check("the pill and the menu are both mounted",
     /<MobileNavPill/.test(shell) && /<MobileMenuPage/.test(shell))
   check("the menu is given the same nav list the desktop rail gets",
-    /* Changed on purpose (round I): both get navItems, the main list held to what a teammate's role opens. */ /items=\{navItems\}/.test(shell) && (shell.match(/items=\{navItems\}/g) ?? []).length >= 2 && /const navItems: NavItemData\[\] = teamRole\s*\? mainNavItems/.test(shell))
+    /* Changed on purpose (round I): both get navItems, the main list held to what a teammate's role opens. */ /items=\{navItems\}/.test(shell) && (shell.match(/items=\{navItems\}/g) ?? []).length >= 2 && /const navItems: NavItemData\[\] = teamPermissions\s*\? mainNavItems/.test(shell)) /* Round 40: a teammate's own permissions, not a role. */
   check("and the same expand state, so a group opens on both",
     /expandedGroups=\{expandedGroups\}/.test(shell) && /onToggle=\{toggleGroup\}/.test(shell))
   check("a row that leaves the /app router tree still leaves it the hard way",

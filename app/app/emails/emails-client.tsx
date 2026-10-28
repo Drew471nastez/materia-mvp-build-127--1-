@@ -45,7 +45,6 @@ import { TryProStrip } from "@/components/app/announcement-bar-mobile"
 import { ComposeDialog } from "@/components/email/compose/ui"
 import { load, peek, prefetch, refresh, useCached, write } from "@/components/email/emails-cache"
 import { PullToRefresh } from "@/components/ui/pull-to-refresh"
-import { createClient } from "@/lib/supabase/client"
 import { sourceView } from "@/lib/contacts/contact-source"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
@@ -412,8 +411,9 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   }
 
   const deleteCampaign = async (id: string): Promise<string> => {
-    const { error } = await createClient().from("email_campaigns").delete().eq("id", id)
-    if (error) return tt("The email was not deleted. Try again.")
+    /* On the server, by the store the session works in (app/api/email/area): the owner's, or the one a team member given Marketing works in. */
+    const res = await fetch("/api/email/area", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete_campaign", id }) }).catch(() => null)
+    if (!res || !res.ok) return tt("The email was not deleted. Try again.")
     for (const key of ALL_EMAIL_LISTS) write<CampaignRow[]>(key, (prev) => (prev ?? []).filter((c) => c.id !== id))
     write<SentData | undefined>(keyFor("published"), (prev) => (prev ? { ...prev, campaigns: prev.campaigns.filter((c) => c.id !== id) } : prev))
     refreshCampaignLists()
@@ -492,8 +492,8 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   }, [messageParam, messagesData, keyFor, loaderFor])
 
   const removeSubscriber = async (id: string) => {
-    const { error } = await createClient().from("subscribers").update({ is_active: false, status: "unsubscribed" }).eq("id", id)
-    if (error) return onNotice(tt("Not removed. Try again."))
+    const res = await fetch("/api/email/area", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "unsubscribe", id }) }).catch(() => null)
+    if (!res || !res.ok) return onNotice(tt("Not removed. Try again."))
     write<SubscribersData>(keyFor("subscribers"), (prev) => (prev ? { ...prev, rows: prev.rows.map((s) => (s.id === id ? { ...s, status: "unsubscribed" } : s)) } : prev!))
     onNotice(tt("Subscriber removed"))
   }

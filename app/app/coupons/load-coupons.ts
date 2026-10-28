@@ -1,23 +1,26 @@
 import "server-only"
 
 import { createClient } from "@/lib/supabase/server"
-import { creatorForRequest, currentUserForRequest } from "@/lib/auth/request-scope"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { teamPageStore } from "@/lib/team/server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 /**
- * The signed in creator, their published products (what a code can be
- * limited to) and, when asked, one of their codes. Read with their own
- * client: row-level security answers exactly as it does for the API, and
- * nothing here needs the service role.
+ * The store, its published products (what a code can be limited to) and,
+ * when asked, one of its codes. The owner reads with their own client:
+ * row-level security answers exactly as it does for the API. A team member
+ * given Marketing (lib/team) reads the store they work in through the
+ * service role, every query by the store's id; without it they are told
+ * (state "denied") and nothing is read.
  */
 export async function loadCouponArea(couponId: string | null) {
-  const { user } = await currentUserForRequest()
-  if (!user) return { state: "signed-out" as const }
-  /* The creator row the /app layout read with this same client, once per
-     request (lib/auth/request-scope.ts). */
-  const creator = await creatorForRequest(user.id)
-  if (!creator) return { state: "no-creator" as const }
-  const supabase = await createClient()
+  /* The creator row the /app layout read, once per request (lib/team/server teamPageStore, lib/auth/request-scope.ts). */
+  const access = await teamPageStore("marketing")
+  if (access.kind === "signed_out") return { state: "signed-out" as const }
+  if (access.kind === "denied") return { state: "denied" as const, acting: access.acting }
+  if (access.kind === "none") return { state: "no-creator" as const }
+  const creator = { id: access.creatorId }
+  const supabase = access.isOwner ? await createClient() : (createAdminClient() as unknown as Awaited<ReturnType<typeof createClient>>)
 
   const [products, coupons, store] = await Promise.all([
     supabase

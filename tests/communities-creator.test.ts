@@ -384,7 +384,8 @@ async function main() {
     const handlers = [...src.matchAll(/export async function (GET|POST|PATCH|PUT|DELETE)\(([\s\S]*?)\n\}/g)]
     const short = f.replace(/^app\/api\//, "")
     check(`${short}: every handler asks the switch first`, handlers.length > 0 && handlers.every((h) => /^[^{]*\{\s*const off = await requireCommunitiesOn\(\)\s*if \(off\) return off/.test(h[0].slice(h[0].indexOf("{", h[0].indexOf(")"))))))
-    check(`${short}: gated`, /requireCreatorCommunity\(|requireMember\(|requireCreator\(\)/.test(src))
+    /* Round 40: a creator route names its team area, requireCreator("community") (lib/team). */
+    check(`${short}: gated`, /requireCreatorCommunity\(|requireMember\(|requireCreator\((\)|"community"\))/.test(src))
     const writes = handlers.filter((h) => h[1] !== "GET")
     check(`${short}: every write is rate limited`, writes.every((h) => /rateLimit\(|manageLimit\(/.test(h[0])))
     check(`${short}: no role compared as a string`, !/role\s*===\s*"(owner|admin|moderator)"/.test(src))

@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic"
  * Ten an hour a person: a test is for looking, not for sending mail.
  */
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("marketing")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   const id = typeof body?.id === "string" ? body.id : ""

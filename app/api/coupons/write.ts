@@ -2,17 +2,21 @@ import "server-only"
 
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { requireTeamPermission } from "@/lib/team/server"
 import { escapeLike, isMissingColumn, type CouponValues } from "@/lib/checkout/coupons"
 
 /**
  * ===========================================================================
  *  WRITING A CREATOR'S CODES
  * ===========================================================================
- * Shared by the create and edit routes. Every read and write here is on the
- * creator's own client, so row-level security still decides what they can
- * touch; the checks below are the ones a policy cannot make: a code is one
- * per creator whatever its case, and a code can only name their products.
- * Database errors are logged by code and never sent back as text.
+ * Shared by the create and edit routes. The owner reads and writes on their
+ * own client, so row-level security still decides what they can touch. A
+ * team member given Marketing (lib/team) works in the store through the
+ * service role, and every query here names the store's id, found by the
+ * server from their membership, never from the request. The checks below
+ * are the ones a policy cannot make: a code is one per creator whatever its
+ * case, and a code can only name their products. Database errors are logged
+ * by code and never sent back as text.
  */
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
@@ -20,12 +24,10 @@ type Supabase = Awaited<ReturnType<typeof createClient>>
 export async function signedInCreator(): Promise<
   { ok: true; supabase: Supabase; creatorId: string } | { ok: false; response: NextResponse }
 > {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false, response: NextResponse.json({ error: "Sign in again to save this." }, { status: 401 }) }
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return { ok: false, response: NextResponse.json({ error: "There is no store on this account." }, { status: 404 }) }
-  return { ok: true, supabase, creatorId: creator.id as string }
+  const gate = await requireTeamPermission("marketing")
+  if (gate instanceof NextResponse) return { ok: false, response: gate }
+  const supabase = gate.isOwner ? await createClient() : (gate.db as Supabase)
+  return { ok: true, supabase, creatorId: gate.creatorId }
 }
 
 /** Another of this creator's codes already reads the same, ignoring case. */

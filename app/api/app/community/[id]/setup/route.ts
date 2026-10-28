@@ -29,7 +29,7 @@ async function idOf(key: string, db: Parameters<typeof loadCommunity>[0]): Promi
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const creator = await requireCreator()
+  const creator = await requireCreator("community")
   if (isResponse(creator)) return creator
   const { id: key } = await params
   const id = await idOf(key, creator.admin)
@@ -45,7 +45,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const creator = await requireCreator()
+  const creator = await requireCreator("community")
   if (isResponse(creator)) return creator
   const { id: key } = await params
   const id = await idOf(key, creator.admin)

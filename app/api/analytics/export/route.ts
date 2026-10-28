@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { creatorFor } from "@/lib/team/server"
+import { creatorFor, storeAccessOf, viewerKey } from "@/lib/team/server"
 import { countReportAnswer, reportQuestion } from "@/lib/analytics/report-answer"
 import { countCommerce } from "@/lib/analytics/commerce-server"
 import JSZip from "jszip"
@@ -34,31 +34,41 @@ export const dynamic = "force-dynamic"
  *        system browser sheet has no session (lib/platform/save-file)
  *   GET  ?t=<that link>
  *
- * WHO. The store is the signed in owner's own, found from the session
- * (lib/team/server creatorFor, area analytics); a team member working in
- * somebody else's store is refused, since Analytics is not open to the team
- * yet. Nothing in the question can name another store.
+ * WHO. The store the session works in (lib/team/server creatorFor, area
+ * analytics): the owner's own, or the store a team member given Analytics
+ * works in. A signed link names the store and the account, and opening it
+ * reads the membership and its permissions again (storeAccessOf). Nothing in
+ * the question can name another store.
  */
 
-async function owner(userId: string): Promise<{ ok: true; creatorId: string; store: string } | { ok: false; status: number; error: string }> {
+type Who = { ok: true; creatorId: string; store: string; ownerUserId: string | null; actingIn: string | null } | { ok: false; status: number; error: string }
+
+/** The store this account exports: the one the session works in, or (a signed link) the one the link names, if it still may. */
+async function owner(userId: string, linkStore?: string): Promise<Who> {
   const admin = createAdminClient()
+  if (linkStore) {
+    const access = await storeAccessOf(admin, userId, linkStore, "analytics")
+    if (!access.ok) return { ok: false, status: 403, error: "You don't have access to this store's analytics any more." }
+    const { data } = await admin.from("creators").select("display_name, slug").eq("id", linkStore).maybeSingle()
+    const c = (data ?? {}) as { display_name?: string | null; slug?: string | null }
+    return { ok: true, creatorId: linkStore, store: c.display_name || c.slug || "Store", ownerUserId: access.ownerUserId, actingIn: access.isOwner ? null : linkStore }
+  }
   const found = await creatorFor<{ id: string; display_name: string | null; slug: string | null }>(admin, userId, "analytics", "id, display_name, slug")
-  if (found.kind === "denied") return { ok: false, status: 403, error: "Your role on this store's team does not include Analytics. Ask the store's owner." }
+  if (found.kind === "denied") return { ok: false, status: 403, error: "You don't have access to Analytics. Ask the store's owner." }
   if (found.kind === "none") return { ok: false, status: 404, error: "Set up your store first." }
-  if (found.acting) return { ok: false, status: 403, error: "Only the store's owner can export its analytics." }
-  return { ok: true, creatorId: found.creator.id, store: found.creator.display_name || found.creator.slug || "Store" }
+  return { ok: true, creatorId: found.creator.id, store: found.creator.display_name || found.creator.slug || "Store", ownerUserId: found.acting ? found.acting.ownerUserId : userId, actingIn: found.acting ? found.creator.id : null }
 }
 
-async function fileFor(userId: string, query: string): Promise<NextResponse> {
-  const who = await owner(userId)
+async function fileFor(userId: string, query: string, linkStore?: string): Promise<NextResponse> {
+  const who = await owner(userId, linkStore)
   if (!who.ok) return NextResponse.json({ error: who.error }, { status: who.status })
   const admin = createAdminClient()
   const url = new URL(`https://export.local/?${query}`)
-  const asked = await reportQuestion(admin, userId, url, getMainDomain())
+  const asked = await reportQuestion(admin, userId, url, getMainDomain(), { creatorId: who.creatorId, ownerUserId: who.ownerUserId })
   if ("error" in asked) return NextResponse.json({ error: asked.error }, { status: asked.status })
   const q = asked.q
-  /* The very creator the owner check found: a question is never answered for another store. */
-  if (q.creatorId !== who.creatorId) return NextResponse.json({ error: "Only the store's owner can export its analytics." }, { status: 403 })
+  /* The very store the check found: a question is never answered for another store. */
+  if (q.creatorId !== who.creatorId) return NextResponse.json({ error: "You don't have access to this store's analytics." }, { status: 403 })
 
   const products = Object.entries(asked.productTypes).map(([, type]) => ({ type }))
   const profile = profileOf({ products, onePageId: q.properties.onePageId, websites: q.properties.websites, communities: 0 })
@@ -67,7 +77,7 @@ async function fileFor(userId: string, query: string): Promise<NextResponse> {
   const sections = sectionsFor(profile, { property: propertyParam(q.selector) ?? "all", productKind, mode })
 
   const [answer, commerce] = await Promise.all([
-    countReportAnswer(admin, { ...q, mode }, asked.productTitles, asked.productTypes, userId),
+    countReportAnswer(admin, { ...q, mode }, asked.productTitles, asked.productTypes, viewerKey(userId, who.actingIn)),
     sections.sales
       ? countCommerce(admin, { creatorId: q.creatorId, properties: q.properties, selector: q.selector, productId: q.product, productTypes: asked.productTypes, span: q.window, previous: q.previous, timeZone: q.timeZone, mode })
       : Promise.resolve(null),
@@ -133,9 +143,8 @@ export async function GET(request: Request) {
       if (!link || link.k !== "analytics") {
         return new NextResponse("This link has expired. Export again from Analytics.", { status: 410, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } })
       }
-      const who = await owner(link.u)
-      if (!who.ok || who.creatorId !== link.c) return NextResponse.json({ error: "Only the store's owner can export its analytics." }, { status: 403 })
-      return await fileFor(link.u, link.q)
+      /* The store the link was made for, if this account may still use its Analytics. */
+      return await fileFor(link.u, link.q, link.c)
     }
     const supabase = await createClient()
     const {

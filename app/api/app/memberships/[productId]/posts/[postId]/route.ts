@@ -15,7 +15,7 @@ export const runtime = "nodejs"
 export async function DELETE(_request: Request, { params }: { params: Promise<{ productId: string; postId: string }> }) {
   const { productId, postId } = await params
   if (!UUID.test(productId) || !UUID.test(postId)) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  const ctx = await requireCreator()
+  const ctx = await requireCreator("products")
   if (isResponse(ctx)) return ctx
   const product = await ownedMembership(ctx.admin, ctx.creatorId, productId)
   if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 })

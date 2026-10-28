@@ -364,7 +364,7 @@ async function main() {
   check("a POST, so the query is not in an address a log keeps", /export async function POST\(/.test(route) && !/export async function GET\(/.test(route))
   /* Changed on purpose: a teammate searches the store they work in, through the service role, held to it by actingStore and the role's areas. The owner is still on their own client. */
   check("signed in; the owner on their own client", /from "@\/lib\/supabase\/server"/.test(route) && /auth\.getUser\(\)/.test(route) && /searchCreator\(supabase, creator\.id, q\)/.test(route))
-  check("a teammate: the store they work in, only what their role opens", /const acting = await actingStore\(admin, user\.id\)/.test(route) && /memberCan\(acting\.role, GROUP_AREA\[g\]\)/.test(route) && /searchCreator\(admin, acting\.creatorId, q, \{ groups \}\)/.test(route) && /orders: "orders"/.test(route) && /customers: "customers"/.test(route) && /coupons: "products"/.test(route))
+  check("a teammate: the store they work in, only what their role opens", /const acting = await actingStore\(admin, user\.id\)/.test(route) && /permits\(acting\.permissions, GROUP_AREA\[g\]\)/.test(route) && /searchCreator\(admin, acting\.creatorId, q, \{ groups \}\)/.test(route) && /orders: "orders"/.test(route) && /customers: "customers"/.test(route) && /coupons: "marketing"/.test(route)) /* Round 40: a member's own permissions; coupons are Marketing. */
   check("the creator from the session's user, not the request", /\.eq\("user_id", user\.id\)/.test(route) && !/body\??\.creator/.test(route))
   check("rate limited per person", /rateLimit\(\{[\s\S]*subjects: \[`user:\$\{user\.id\}`\][\s\S]*LIMITS\.search/.test(route))
   check("never answers from a cache", /no-store/.test(route))

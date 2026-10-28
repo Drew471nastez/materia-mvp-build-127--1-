@@ -12,7 +12,9 @@ import { fakeDb } from "./_fake-db"
 import { hashToken, acceptInvite, declineInvite, readInvite, updateMember, joinPath } from "@/lib/team/server"
 import { inviteStateOf, refusalOf, tokenShapeOk, type InviteRow } from "@/lib/team/invite-state"
 import { inviteEmailFrom, inviteSignInPath } from "@/lib/team/invite-links"
-import { FREE_SEATS, RESEND_COOLDOWN_MS, ROLE_CAN, memberSees, resendWait } from "@/lib/team/roles"
+import { FREE_SEATS, RESEND_COOLDOWN_MS, resendWait } from "@/lib/team/roles"
+/* Round 40: what a member sees is their own permissions (lib/team/permissions); an old Manager row reads as Orders. */
+import { legacyPermissions, memberSees, permissionLinesEn } from "@/lib/team/permissions"
 import { APP_PATHS, WEB_ONLY_SEGMENTS, opensInApp } from "@/lib/platform/app-links"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 
@@ -149,7 +151,7 @@ async function main() {
   {
     const db = world({ status: "active", user_id: ANA })
     const out = await updateMember(db as never, OWNER, INVITE, { role: "manager" })
-    check("a role change is the owner's and applies to the row", out.ok === true)
+    check("a change of access is the owner's and applies to the row (an old page's role reads as what it could use)", out.ok === true)
     const notOwner = await updateMember(world({ status: "active", user_id: ANA }) as never, ANA, INVITE, { remove: true })
     check("a member cannot change the team (owner only)", notOwner.ok === false && notOwner.status === 403)
     const db2 = world({ status: "active", user_id: ANA })
@@ -163,12 +165,13 @@ async function main() {
   {
     check("a resend waits a minute", RESEND_COOLDOWN_MS === 60_000 && resendWait(new Date(NOW - 10_000).toISOString(), NOW) === 50 && resendWait(new Date(NOW - 61_000).toISOString(), NOW) === 0 && resendWait(null, NOW) === 0)
     check("  and the server enforces it", /const wait = existing \? resendWait\(existing\.invited_at\) : 0/.test(read("lib/team/server.ts")) && /status: 429/.test(read("lib/team/server.ts")))
-    check("a manager's menu shows orders and nothing the owner keeps", memberSees("manager", "/app/orders") && !memberSees("manager", "/app/payouts") && !memberSees("manager", "/app/settings/billing") && !memberSees("manager", "/app/products") && !memberSees("manager", "/app/website-builder") && !memberSees("manager", "/creator-page") && !memberSees("manager", "/app/integrations?integration=x"))
-    check("the invite page lists what the role can do", ROLE_CAN.manager.length >= 3)
+    const manager = legacyPermissions("manager")
+    check("an old Manager's menu shows orders and nothing the owner keeps", memberSees(manager, "/app/orders") && !memberSees(manager, "/app/payouts") && !memberSees(manager, "/app/settings/billing") && !memberSees(manager, "/app/products") && !memberSees(manager, "/app/website-builder") && !memberSees(manager, "/creator-page") && !memberSees(manager, "/app/integrations?integration=x"))
+    check("the invite page lists what the access lets them do", permissionLinesEn(["orders", "customers"]).length === 2)
     const sidebar = read("components/app/sidebar.tsx")
-    check("the sidebar draws only what the role opens", /memberSees\(teamRole, item\.href\)/.test(sidebar) && (sidebar.match(/items=\{navItems\}/g) ?? []).length === 2)
+    check("the sidebar draws only what the permissions open", /memberSees\(teamPermissions, item\.href\)/.test(sidebar) && (sidebar.match(/items=\{navItems\}/g) ?? []).length === 2)
     const layout = read("app/app/layout.tsx")
-    check("the layout hands the sidebar the role and the stores they are on", /teamRole=\{teamStore && acting \? acting\.role : null\}/.test(layout) && /teamStoresForRequest\(user\.id\)/.test(layout))
+    check("the layout hands the sidebar the permissions and the stores they are on", /teamPermissions=\{teamStore && acting \? acting\.permissions : null\}/.test(layout) && /teamStoresForRequest\(user\.id\)/.test(layout))
     check("the account switcher lists team stores and opens them through /api/team/act", /data-business-row="team"/.test(read("components/app/business-switcher.tsx")) && /\/api\/team\/act/.test(read("components/app/business-switcher.tsx")))
     const settings = read("components/app/settings-form-new.tsx")
     check("Settings while working in another store shows only the account's own sections", /!teamActing \|\| tab\.group === "account"/.test(settings))

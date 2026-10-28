@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { requireTeamPermission } from "@/lib/team/server"
 import { getMainDomain } from "@/lib/url-helpers"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, presetRange, todayIn } from "@/lib/date-range/range"
@@ -29,11 +28,9 @@ const kept = new Map<string, { at: number; answer: Record<string, unknown> }>()
 const HEADERS = { "Cache-Control": `private, max-age=${CACHE_MS / 1000}`, Vary: "Cookie, Authorization" }
 
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  /* The store's line, for its owner or a team member given Analytics (lib/team). */
+  const gate = await requireTeamPermission("analytics")
+  if (gate instanceof NextResponse) return gate
 
   const url = new URL(request.url)
   const tz = url.searchParams.get("tz")
@@ -42,14 +39,13 @@ export async function GET(request: Request) {
   /* "Now" as the Analytics page rounds it (lib/analytics/report-cache), so the line and the page it opens count the same moments. */
   const now = reportNow()
   const today = todayIn(timeZone, now)
-  const key = `${user.id}|${propertyParam(selector) ?? "all"}|${timeZone}|${today}`
+  const key = `${gate.viewer}|${propertyParam(selector) ?? "all"}|${timeZone}|${today}`
   const hit = kept.get(key)
   if (hit && Date.now() - hit.at < CACHE_MS) return NextResponse.json(hit.answer, { headers: HEADERS })
 
-  const admin = createAdminClient()
-  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
-  const properties = await creatorProperties(admin, creator.id, user.id)
+  const admin = gate.db
+  const creator = { id: gate.creatorId }
+  const properties = await creatorProperties(admin, creator.id, gate.ownerUserId)
   /* Only the creator's own places: anybody else's website is nothing at all. */
   if (!ownsProperty(properties, selector)) return NextResponse.json({ error: "No such property" }, { status: 404 })
 
@@ -76,7 +72,7 @@ export async function GET(request: Request) {
       visitors: wire.cur.visitors ?? 0,
       orders: sales.length,
       href: summaryHref(selector),
-      viewer: user.id,
+      viewer: gate.viewer,
     }
     kept.set(key, { at: Date.now(), answer })
     while (kept.size > 500) kept.delete(kept.keys().next().value as string)

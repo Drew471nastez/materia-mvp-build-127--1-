@@ -4,6 +4,7 @@ import { loadCouponArea } from "../load-coupons"
 import type { Metadata } from "next"
 import { getServerTt } from "@/lib/i18n/server"
 import { noStorePage } from "@/lib/team/server"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -30,5 +31,6 @@ export default async function NewCouponPage({ searchParams }: PageProps) {
   const load = await loadCouponArea(null)
   if (load.state === "signed-out") return null
   if (load.state === "no-creator") return noStorePage("/app/coupons/new")
+  if (load.state === "denied") return <TeamAreaClosed area="marketing" store={load.acting.name} permissions={load.acting.permissions} />
   return <CouponEditor products={load.products} currency={load.currency} initialCoupon={null} />
 }

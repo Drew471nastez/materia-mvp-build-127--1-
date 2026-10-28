@@ -2,15 +2,28 @@ import "server-only"
 import { createHash, randomBytes } from "node:crypto"
 import { cache } from "react"
 import { cookies } from "next/headers"
-import { redirect } from "next/navigation"
+import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { SHELL_CREATOR_COLUMNS, SHELL_PRIVATE_CREATOR_COLUMNS, type RequestCreator } from "@/lib/auth/request-scope"
+import { SHELL_CREATOR_COLUMNS, SHELL_PRIVATE_CREATOR_COLUMNS, creatorForRequest, type RequestCreator } from "@/lib/auth/request-scope"
 import { sendEmail } from "@/lib/mail"
 import { emailImageSrc } from "@/lib/email-campaigns/sender"
 import { teamInviteEmail } from "./invite-email"
 import { baseUrl } from "@/lib/notify/urls"
 import { isProPlan } from "@/lib/home/progress"
-import { INVITE_TTL_MS, ROLE_LABEL, invitable, isMemberRole, memberCan, resendWait, roleHome, seatLimit, teamEmail, type MemberRole, type TeamArea, type TeamRole } from "./roles"
+import { INVITE_TTL_MS, isMemberRole, resendWait, seatLimit, teamEmail, type MemberRole, type TeamRole } from "./roles"
+import {
+  TEAM_PERMISSIONS,
+  accessSummaryEn,
+  grantable,
+  homeFor,
+  legacyPermissions,
+  legacyRoleFor,
+  normalizePermissions,
+  permissionsOfRow,
+  permits,
+  type TeamArea,
+  type TeamPermission,
+} from "./permissions"
 import { acceptable, inviteStateOf, refusalOf, sameEmail, tokenShapeOk, type InviteRow, type InviteState } from "./invite-state"
 import { teamHomeHref } from "./landing"
 
@@ -20,16 +33,19 @@ import { teamHomeHref } from "./landing"
  * ===========================================================================
  * The team lives in public.store_team_members (SQL part 135), which only
  * the service role can read: a member's browser can never list a team,
- * change a role or join a store by itself. Everything goes through here.
+ * change what someone may do or join a store by itself. Everything goes
+ * through here. Since part 320 each member has their own permissions
+ * (lib/team/permissions.ts); before it runs, a row reads as what its old
+ * role could use.
  *
  * A member signs in with their OWN Storelib account. They are never given
  * the owner's session (that is how businesses switch, lib/businesses, and
  * it would hand a member everything the owner can do, payouts included).
  * Instead they choose which store they are working in (a cookie that only
  * names a store), and every page and route a member can reach asks
- * actingStore() / creatorFor(): it re-reads the membership and the role
- * from the database on each request, so a removed member, a lowered role or
- * a cookie pointed at another store gets nothing.
+ * requireTeamPermission() / creatorFor(): it re-reads the membership and the
+ * permissions from the database on each request, so a removed member, a
+ * permission taken away or a cookie pointed at another store gets nothing.
  *
  * A page that has not been taught about the team keeps reading the signed
  * in account's own store, which for a member is their own (often empty)
@@ -43,20 +59,27 @@ type Db = { from: (table: string) => any }
 export const TEAM_STORE_COOKIE = "sl_team_store"
 
 export const TEAM_NOT_SET_UP = "The team is not set up on Storelib yet. Try again later."
+/** Said when part 320 has not run and the change needs its column. */
+export const PERMISSIONS_NOT_SET_UP = "Team permissions are not set up on Storelib yet. Try again later."
+/** Said to a member asking for an area their permissions do not have. */
+export const NO_ACCESS = "You don't have access to this. Ask the store's owner."
 
 export interface TeamMemberRow {
   id: string
   creator_id: string
   email: string
   user_id: string | null
+  /** The old column, still written (lib/team/permissions legacyRoleFor). */
   role: MemberRole
+  permissions: TeamPermission[]
   status: "invited" | "active"
   invited_at: string
   expires_at: string | null
   accepted_at: string | null
 }
 
-const MEMBER_COLUMNS = "id, creator_id, email, user_id, role, status, invited_at, expires_at, accepted_at"
+const BASE_COLUMNS = "id, creator_id, email, user_id, role, status, invited_at, expires_at, accepted_at"
+const MEMBER_COLUMNS = `${BASE_COLUMNS}, permissions`
 
 /** The table is not there yet (part 135 not run): said, never thrown. */
 export function teamMissing(error: { code?: string; message?: string } | null | undefined): boolean {
@@ -64,23 +87,43 @@ export function teamMissing(error: { code?: string; message?: string } | null | 
   return ["42P01", "PGRST205", "PGRST204", "42703"].includes(error.code ?? "") || /store_team_members/.test(error.message ?? "")
 }
 
+/** The permissions column is not there yet (part 320 not run): the row is read as its role. */
+export function permissionsMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false
+  return ["42703", "PGRST204"].includes(error.code ?? "") && /permissions/.test(error.message ?? "")
+}
+
+/** A read of team rows with their permissions, read again without them when part 320 has not run. */
+async function readRows<T>(run: (columns: string) => PromiseLike<{ data: T; error: { code?: string; message?: string } | null }>): Promise<{ data: T; error: { code?: string; message?: string } | null }> {
+  const first = await run(MEMBER_COLUMNS)
+  if (!permissionsMissing(first.error)) return first
+  return run(BASE_COLUMNS)
+}
+
+/** A row as the app uses it: its permissions always a clean list. */
+function memberOf(row: Record<string, unknown>): TeamMemberRow {
+  return { ...(row as unknown as TeamMemberRow), permissions: permissionsOfRow(row) }
+}
+
 export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex")
 }
 
+type StoreRow = { id: string; user_id?: string | null; slug: string | null; display_name: string | null; subscription_plan_id: string | null }
+
 /** The store this account owns, if it owns one. */
-export async function ownStore(db: Db, userId: string): Promise<{ id: string; slug: string | null; display_name: string | null; subscription_plan_id: string | null } | null> {
+export async function ownStore(db: Db, userId: string): Promise<StoreRow | null> {
   const { data } = await db.from("creators").select("id, slug, display_name, subscription_plan_id").eq("user_id", userId).maybeSingle()
-  return (data as { id: string; slug: string | null; display_name: string | null; subscription_plan_id: string | null } | null) ?? null
+  return (data as StoreRow | null) ?? null
 }
 
 /**
  * WHAT EACH STORE IS CALLED: Settings › Store details' name
  * (store_settings.store_name), the one receipts, order emails and checkout
  * are signed with. The invite, the member's store list and the "You're now
- * Manager on …" line said the owner's own name (creators.display_name)
- * while every buyer saw the store's. Only stores that have one are in the
- * map; any failure is an empty map, and the owner's name stands in.
+ * on …" line said the owner's own name (creators.display_name) while every
+ * buyer saw the store's. Only stores that have one are in the map; any
+ * failure is an empty map, and the owner's name stands in.
  */
 export async function storeNames(db: Db, ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>()
@@ -104,33 +147,82 @@ async function storeNameOf(db: Db, store: { id: string; display_name: string | n
 }
 
 export async function listTeam(db: Db, creatorId: string): Promise<{ ok: true; members: TeamMemberRow[] } | { ok: false; error: string; missing?: boolean }> {
-  const { data, error } = await db.from("store_team_members").select(MEMBER_COLUMNS).eq("creator_id", creatorId).order("invited_at", { ascending: true })
+  const { data, error } = await readRows<Record<string, unknown>[] | null>((cols) => db.from("store_team_members").select(cols).eq("creator_id", creatorId).order("invited_at", { ascending: true }))
   if (error) return teamMissing(error) ? { ok: false, error: TEAM_NOT_SET_UP, missing: true } : { ok: false, error: "Could not read the team. Try again." }
-  return { ok: true, members: (data ?? []) as TeamMemberRow[] }
+  return { ok: true, members: (data ?? []).map(memberOf) }
 }
 
 type Result<T> = ({ ok: true } & T) | { ok: false; status: number; error: string }
 
 /**
- * Invite someone by email. Sending again to the same email is a new link
- * (the old one stops working); someone already on the team is said so.
+ * WHOSE TEAM, AND WHAT THEY MAY GIVE. The owner manages their own store's
+ * team and may give anything open to the team. A member working in a store
+ * with the Team permission manages that store's team, and only up to what
+ * they have themselves: they cannot give payouts they do not have, change
+ * the owner, or change their own access.
+ */
+export interface TeamScope {
+  store: StoreRow
+  byOwner: boolean
+  /** What this person may give. */
+  grant: TeamPermission[]
+  /** Their own row when they are a member, so they are never their own editor. */
+  selfMemberId: string | null
+}
+
+/**
+ * `acting` is the store the request works in, read from its cookie when not
+ * given (a suite hands it in, as the cookie would name it).
+ */
+export async function teamScope(db: Db, userId: string, given?: ActingStore | null): Promise<Result<{ scope: TeamScope }>> {
+  const acting = given !== undefined ? given : await actingStore(db, userId).catch(() => null)
+  if (acting) {
+    if (!permits(acting.permissions, "team")) return { ok: false, status: 403, error: "Only the store's owner, or someone they gave Team to, can change its team." }
+    const { data } = await db.from("creators").select("id, user_id, slug, display_name, subscription_plan_id").eq("id", acting.creatorId).maybeSingle()
+    if (!data) return { ok: false, status: 404, error: "This store isn't on Storelib any more." }
+    return { ok: true, scope: { store: data as StoreRow, byOwner: false, grant: grantable(false, acting.permissions), selfMemberId: acting.memberId } }
+  }
+  const store = await ownStore(db, userId)
+  if (!store) return { ok: false, status: 403, error: "Only a store's owner can change its team." }
+  return { ok: true, scope: { store, byOwner: true, grant: grantable(true, []), selfMemberId: null } }
+}
+
+/** What an invite or a change asks for: a list of permissions, or (an older page) a role read as what it could use. */
+function askedPermissions(input: { permissions?: unknown; role?: unknown }): TeamPermission[] {
+  if (Array.isArray(input.permissions)) return normalizePermissions(input.permissions)
+  if (isMemberRole(input.role)) return legacyPermissions(input.role)
+  return []
+}
+
+/** Whether every permission asked for is one this person may give. */
+function withinGrant(asked: readonly TeamPermission[], grant: readonly TeamPermission[]): boolean {
+  return asked.every((p) => grant.includes(p))
+}
+
+/**
+ * Invite someone by email, with what they may do. Sending again to the
+ * same email is a new link (the old one stops working), with the access
+ * given this time; someone already on the team is said so.
  */
 export async function inviteMember(
   db: Db,
-  opts: { owner: { id: string; email: string | null }; email: unknown; role: unknown },
+  opts: { owner: { id: string; email: string | null }; email: unknown; permissions?: unknown; role?: unknown; acting?: ActingStore | null },
 ): Promise<Result<{ member: TeamMemberRow; emailed: boolean }>> {
   const email = teamEmail(opts.email)
   if (!email) return { ok: false, status: 400, error: "Enter an email address." }
-  if (!isMemberRole(opts.role)) return { ok: false, status: 400, error: "Choose Manager or Staff." }
-  if (!invitable(opts.role)) return { ok: false, status: 400, error: "Staff is not open to the team yet. Invite them as a Manager, or wait for Staff." }
-  if (opts.owner.email && email === opts.owner.email.toLowerCase()) return { ok: false, status: 400, error: "That is your own email. You are already the owner." }
-  const store = await ownStore(db, opts.owner.id)
-  if (!store) return { ok: false, status: 403, error: "Only a store's owner can invite people to it." }
+  const permissions = askedPermissions(opts)
+  if (permissions.length === 0) return { ok: false, status: 400, error: "Choose at least one thing they can do." }
+  if (opts.owner.email && email === opts.owner.email.toLowerCase()) return { ok: false, status: 400, error: "That is your own email. You are already on this store." }
+  const scoped = await teamScope(db, opts.owner.id, opts.acting)
+  if (scoped.ok === false) return { ok: false, status: scoped.status, error: scoped.status === 403 ? "Only a store's owner, or someone they gave Team to, can invite people to it." : scoped.error }
+  const { store, grant } = scoped.scope
+  if (!withinGrant(permissions, grant)) return { ok: false, status: 403, error: "You can only give access you have yourself." }
 
   const listed = await listTeam(db, store.id)
   if (listed.ok === false) return { ok: false, status: listed.missing ? 503 : 500, error: listed.error }
   const existing = listed.members.find((m) => m.email === email)
   if (existing?.status === "active") return { ok: false, status: 409, error: `${email} is already on your team.` }
+  if (existing && !withinGrant(existing.permissions, grant)) return { ok: false, status: 403, error: "Only the owner can send this invite again." }
   /* The same invite again within a minute is a double press, not a second email (lib/team/roles RESEND_COOLDOWN_MS). */
   const wait = existing ? resendWait(existing.invited_at) : 0
   if (wait > 0) return { ok: false, status: 429, error: `An invite just went to ${email}. You can send it again in ${wait} seconds.` }
@@ -143,7 +235,8 @@ export async function inviteMember(
   const row = {
     creator_id: store.id,
     email,
-    role: opts.role,
+    role: legacyRoleFor(permissions),
+    permissions,
     status: "invited" as const,
     token_hash: hashToken(token),
     invited_by: opts.owner.id,
@@ -152,24 +245,33 @@ export async function inviteMember(
     user_id: null,
     accepted_at: null,
   }
-  const write = existing
-    ? db.from("store_team_members").update(row).eq("id", existing.id).eq("creator_id", store.id).select(MEMBER_COLUMNS).single()
-    : db.from("store_team_members").insert(row).select(MEMBER_COLUMNS).single()
-  const { data, error } = await write
+  const write = (r: Record<string, unknown>, cols: string) =>
+    existing
+      ? db.from("store_team_members").update(r).eq("id", existing.id).eq("creator_id", store.id).select(cols).single()
+      : db.from("store_team_members").insert(r).select(cols).single()
+  let { data, error } = await write(row, MEMBER_COLUMNS)
+  if (permissionsMissing(error)) {
+    /* Part 320 not run: only what the old role could hold can be kept, which is Orders. */
+    const legacy = legacyPermissions("manager")
+    if (permissions.join() !== legacy.join()) return { ok: false, status: 503, error: PERMISSIONS_NOT_SET_UP }
+    const { permissions: _drop, ...without } = row
+    ;({ data, error } = await write({ ...without, role: "manager" }, BASE_COLUMNS))
+  }
   if (error || !data) return { ok: false, status: teamMissing(error) ? 503 : 500, error: teamMissing(error) ? TEAM_NOT_SET_UP : "Could not send the invite. Try again." }
 
+  const member = memberOf(data as Record<string, unknown>)
   const storeName = await storeNameOf(db, store, "a store")
   const link = joinLink(token)
-  const mail = teamInviteEmail({ storeName, role: opts.role, email, link, ...(await inviteContext(db, store.id, opts.owner.id)) })
+  const mail = teamInviteEmail({ storeName, permissions: member.permissions, email, link, ...(await inviteContext(db, store.id, opts.owner.id)) })
   const sent = await sendEmail({ to: email, subject: mail.subject, transactional: true, keepBounce: true, text: mail.text, html: mail.html }).catch(() => ({ success: false }))
-  return { ok: true, member: data as TeamMemberRow, emailed: !!sent.success }
+  return { ok: true, member, emailed: !!sent.success }
 }
 
-/** The store's picture and the owner's name for the invite email. Either may be missing; the email reads without them. */
-async function inviteContext(db: Db, creatorId: string, ownerId: string): Promise<{ storeImageUrl: string | null; inviterName: string | null }> {
+/** The store's picture and the inviter's name for the invite email. Either may be missing; the email reads without them. */
+async function inviteContext(db: Db, creatorId: string, inviterId: string): Promise<{ storeImageUrl: string | null; inviterName: string | null }> {
   const [creator, profile] = await Promise.all([
     db.from("creators").select("avatar_url").eq("id", creatorId).maybeSingle().then((r: unknown) => r, () => ({ data: null })),
-    db.from("profiles").select("display_name").eq("id", ownerId).maybeSingle().then((r: unknown) => r, () => ({ data: null })),
+    db.from("profiles").select("display_name").eq("id", inviterId).maybeSingle().then((r: unknown) => r, () => ({ data: null })),
   ])
   const avatar = (creator as { data: { avatar_url?: string | null } | null })?.data?.avatar_url ?? null
   const name = (profile as { data: { display_name?: string | null } | null })?.data?.display_name ?? null
@@ -199,9 +301,9 @@ export async function readInvite(
 ): Promise<{ ok: true; state: InviteState; invite: InviteRow | null; ownerUserId: string | null } | { ok: false; status: number; error: string }> {
   const now = Date.now()
   if (!tokenShapeOk(token)) return { ok: true, state: inviteStateOf({ token, invite: null, store: null, teamSize: 0, user, hasAccount: false, now }), invite: null, ownerUserId: null }
-  const { data, error } = await db.from("store_team_members").select(MEMBER_COLUMNS).eq("token_hash", hashToken(token)).maybeSingle()
+  const { data, error } = await readRows<Record<string, unknown> | null>((cols) => db.from("store_team_members").select(cols).eq("token_hash", hashToken(token)).maybeSingle())
   if (error) return { ok: false, status: teamMissing(error) ? 503 : 500, error: teamMissing(error) ? TEAM_NOT_SET_UP : "Could not read the invite. Try again." }
-  const invite = (data as TeamMemberRow | null) ?? null
+  const invite = data ? memberOf(data) : null
   let store: (InviteStoreRow & { name: string }) | null = null
   let teamSize = 0
   let hasAccount = false
@@ -248,7 +350,7 @@ export async function readInvite(
  * link's hash stays on the row so opening it again says "already used"
  * rather than "never sent".
  */
-export async function acceptInvite(db: Db, token: unknown, user: { id: string; email: string | null }): Promise<Result<{ creatorId: string; role: MemberRole; storeName: string; home: string }>> {
+export async function acceptInvite(db: Db, token: unknown, user: { id: string; email: string | null }): Promise<Result<{ creatorId: string; role: MemberRole; permissions: TeamPermission[]; storeName: string; home: string }>> {
   const read = await readInvite(db, token, user)
   if (read.ok === false) return read
   const state = read.state
@@ -270,10 +372,10 @@ export async function acceptInvite(db: Db, token: unknown, user: { id: string; e
       creatorId: state.store.id,
       ownerUserId: read.ownerUserId,
       title: `${state.email} joined your team`,
-      message: `They're on ${state.store.name} as ${ROLE_LABEL[state.role]}.${user.email && !sameEmail(user.email, state.email) ? ` They signed in as ${user.email}.` : ""}`,
+      message: `They're on ${state.store.name} with ${accessSummaryEn(state.permissions).toLowerCase()}.${user.email && !sameEmail(user.email, state.email) ? ` They signed in as ${user.email}.` : ""}`,
     })
   }
-  return { ok: true, creatorId: state.store.id, role: state.role, storeName: state.store.name, home: roleHome(state.role) }
+  return { ok: true, creatorId: state.store.id, role: state.role, permissions: state.permissions, storeName: state.store.name, home: homeFor(state.permissions) }
 }
 
 /**
@@ -326,19 +428,30 @@ export async function notifyMember(db: Db, n: { userId: string; title: string; b
 }
 
 /**
- * Change a member's role, or remove them (or take back an invite). The
- * owner's alone. Takes effect on the member's next request: every page and
- * route reads the role again (actingStore). The member is told in their own
+ * Change what a member may do, or remove them (or take back an invite). The
+ * owner, or a member with Team for what is within their own access. Takes
+ * effect on the member's next request: every page and route reads the
+ * permissions again (actingStore). The member is told in their own
  * notifications.
  */
 export async function updateMember(
   db: Db,
-  ownerId: string,
+  byUserId: string,
   memberId: string,
-  change: { role: unknown } | { remove: true },
-): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const store = await ownStore(db, ownerId)
-  if (!store) return { ok: false, status: 403, error: "Only a store's owner can change its team." }
+  change: { permissions?: unknown; role?: unknown } | { remove: true },
+  /** The store the request works in, when the caller already knows it (teamScope). */
+  acting?: ActingStore | null,
+): Promise<{ ok: true; member?: TeamMemberRow } | { ok: false; status: number; error: string }> {
+  const scoped = await teamScope(db, byUserId, acting)
+  if (scoped.ok === false) return { ok: false, status: scoped.status, error: scoped.error }
+  const { store, grant, selfMemberId, byOwner } = scoped.scope
+  if (selfMemberId && selfMemberId === memberId) return { ok: false, status: 403, error: "Ask the store's owner to change your own access, or leave the store from Settings, Team." }
+  const { data: found, error: readErr } = await readRows<Record<string, unknown> | null>((cols) => db.from("store_team_members").select(cols).eq("id", memberId).eq("creator_id", store.id).maybeSingle())
+  if (readErr) return { ok: false, status: 500, error: "Could not read the team. Try again." }
+  if (!found) return { ok: false, status: 404, error: "They are not on your team any more." }
+  const target = memberOf(found)
+  /* A member with Team edits only people whose access is within their own: never someone who has more than they do. */
+  if (!byOwner && !withinGrant(target.permissions, grant)) return { ok: false, status: 403, error: "Only the owner can change someone with access you don't have." }
   const storeName = await storeNameOf(db, store, "a store")
   const stamp = Date.now().toString(36)
   if ("remove" in change) {
@@ -350,16 +463,28 @@ export async function updateMember(
     }
     return { ok: true }
   }
-  if (!isMemberRole(change.role)) return { ok: false, status: 400, error: "Choose Manager or Staff." }
-  if (!invitable(change.role)) return { ok: false, status: 400, error: "Staff is not open to the team yet." }
-  const { data, error } = await db.from("store_team_members").update({ role: change.role }).eq("id", memberId).eq("creator_id", store.id).select("id, user_id, status").maybeSingle()
-  if (error) return { ok: false, status: 500, error: "Could not change the role. Try again." }
-  if (!data) return { ok: false, status: 404, error: "They are not on your team any more." }
-  const row = data as { user_id: string | null; status: string }
-  if (row.user_id && row.status === "active") {
-    await notifyMember(db, { userId: row.user_id, title: `You're now ${ROLE_LABEL[change.role]} on ${storeName}`, body: "The owner changed your role. It applies right away.", url: "/app", dedupeKey: `team:role:${memberId}:${change.role}:${stamp}` })
+  const permissions = askedPermissions(change)
+  if (permissions.length === 0) return { ok: false, status: 400, error: "Choose at least one thing they can do, or remove them from the team." }
+  if (!withinGrant(permissions, grant)) return { ok: false, status: 403, error: "You can only give access you have yourself." }
+  let { data, error } = await db
+    .from("store_team_members")
+    .update({ permissions, role: legacyRoleFor(permissions) })
+    .eq("id", memberId)
+    .eq("creator_id", store.id)
+    .select(MEMBER_COLUMNS)
+    .maybeSingle()
+  if (permissionsMissing(error)) {
+    const legacy = legacyPermissions("manager")
+    if (permissions.join() !== legacy.join()) return { ok: false, status: 503, error: PERMISSIONS_NOT_SET_UP }
+    ;({ data, error } = await db.from("store_team_members").update({ role: "manager" }).eq("id", memberId).eq("creator_id", store.id).select(BASE_COLUMNS).maybeSingle())
   }
-  return { ok: true }
+  if (error) return { ok: false, status: 500, error: "Could not change their access. Try again." }
+  if (!data) return { ok: false, status: 404, error: "They are not on your team any more." }
+  const member = memberOf(data as Record<string, unknown>)
+  if (member.user_id && member.status === "active") {
+    await notifyMember(db, { userId: member.user_id, title: `Your access to ${storeName} changed`, body: "It applies right away.", url: "/app", dedupeKey: `team:access:${memberId}:${permissions.join("+")}:${stamp}` })
+  }
+  return { ok: true, member }
 }
 
 /** Leave a store you are on. */
@@ -373,13 +498,14 @@ export interface MemberStore {
   name: string
   avatarUrl: string | null
   role: MemberRole
+  permissions: TeamPermission[]
 }
 
 /** The stores this account is on as a member, with their names. */
 export async function storesOf(db: Db, userId: string): Promise<MemberStore[]> {
-  const { data, error } = await db.from("store_team_members").select("creator_id, role").eq("user_id", userId).eq("status", "active")
+  const { data, error } = await readRows<Record<string, unknown>[] | null>((cols) => db.from("store_team_members").select(cols).eq("user_id", userId).eq("status", "active"))
   if (error || !data?.length) return []
-  const rows = data as { creator_id: string; role: MemberRole }[]
+  const rows = data.map(memberOf)
   const ids = rows.map((r) => r.creator_id)
   const [{ data: creators }, names] = await Promise.all([db.from("creators").select("id, slug, display_name, avatar_url").in("id", ids), storeNames(db, ids)])
   const byId = new Map(((creators ?? []) as { id: string; slug: string | null; display_name: string | null; avatar_url: string | null }[]).map((c) => [c.id, c]))
@@ -387,14 +513,18 @@ export async function storesOf(db: Db, userId: string): Promise<MemberStore[]> {
     .filter((r) => byId.has(r.creator_id))
     .map((r) => {
       const c = byId.get(r.creator_id)!
-      return { creatorId: r.creator_id, name: names.get(r.creator_id) || c.display_name || c.slug || "Store", avatarUrl: c.avatar_url, role: r.role }
+      return { creatorId: r.creator_id, name: names.get(r.creator_id) || c.display_name || c.slug || "Store", avatarUrl: c.avatar_url, role: r.role, permissions: r.permissions }
     })
 }
 
 export interface ActingStore {
   creatorId: string
   name: string
+  /** The owner's account, for what is keyed by the account and not the store (a OnePage). */
+  ownerUserId: string | null
   role: MemberRole
+  permissions: TeamPermission[]
+  memberId: string
 }
 
 /** The store this account is working in as a member right now, read again from the database. null: their own account. */
@@ -405,13 +535,19 @@ export async function actingStore(db: Db, userId: string): Promise<ActingStore |
   } catch {
     return null
   }
+  return actingStoreIn(db, userId, chosen)
+}
+
+/** The database half of actingStore: the store the cookie names, if this account is an active member of it, with its permissions as the row holds them now. */
+export async function actingStoreIn(db: Db, userId: string, chosen: string | null | undefined): Promise<ActingStore | null> {
   if (!chosen || !/^[0-9a-f-]{36}$/i.test(chosen)) return null
-  const { data, error } = await db.from("store_team_members").select("role").eq("creator_id", chosen).eq("user_id", userId).eq("status", "active").maybeSingle()
+  const { data, error } = await readRows<Record<string, unknown> | null>((cols) => db.from("store_team_members").select(cols).eq("creator_id", chosen).eq("user_id", userId).eq("status", "active").maybeSingle())
   if (error || !data || !isMemberRole((data as { role: unknown }).role)) return null
-  const { data: c } = await db.from("creators").select("slug, display_name").eq("id", chosen).maybeSingle()
+  const row = memberOf(data)
+  const { data: c } = await db.from("creators").select("slug, display_name, user_id").eq("id", chosen).maybeSingle()
   if (!c) return null
-  const store = c as { slug: string | null; display_name: string | null }
-  return { creatorId: chosen, name: await storeNameOf(db, { id: chosen, ...store }, "Store"), role: (data as { role: MemberRole }).role }
+  const store = c as { slug: string | null; display_name: string | null; user_id?: string | null }
+  return { creatorId: chosen, name: await storeNameOf(db, { id: chosen, slug: store.slug, display_name: store.display_name }, "Store"), ownerUserId: store.user_id ?? null, role: row.role, permissions: row.permissions, memberId: row.id }
 }
 
 /**
@@ -440,8 +576,8 @@ export const teamStoresForRequest = cache(async (userId: string): Promise<Member
 /**
  * THE ONE QUESTION A TEAM-AWARE PAGE ASKS: whose store, for this area.
  *
- *   working in another store, and the role covers the area: that store
- *   working in another store, and it does not: denied (never their own
+ *   working in another store, and their permissions cover the area: that store
+ *   working in another store, and they do not: denied (never their own
  *     account in its place, which would look like the store's data)
  *   their own account: their own store, as the owner
  */
@@ -450,10 +586,12 @@ export async function creatorFor<T extends Record<string, unknown> = { id: strin
   userId: string,
   area: TeamArea,
   columns = "id",
+  /** The store the request works in, when the caller already read it (a suite hands it in as the cookie would name it). */
+  given?: ActingStore | null,
 ): Promise<{ kind: "store"; creator: T; role: TeamRole; acting: ActingStore | null } | { kind: "denied"; acting: ActingStore } | { kind: "none" }> {
-  const acting = await actingStore(db, userId)
+  const acting = given !== undefined ? given : await actingStore(db, userId)
   if (acting) {
-    if (!memberCan(acting.role, area)) return { kind: "denied", acting }
+    if (!permits(acting.permissions, area)) return { kind: "denied", acting }
     const { data } = await db.from("creators").select(columns).eq("id", acting.creatorId).maybeSingle()
     return data ? { kind: "store", creator: data as T, role: acting.role, acting } : { kind: "none" }
   }
@@ -462,21 +600,126 @@ export async function creatorFor<T extends Record<string, unknown> = { id: strin
 }
 
 /**
+ * A route's answer to "may the signed in person do this, and in which
+ * store": the store's id, who is asking, whether they are its owner, and the
+ * service role client every query is then filtered by that id with. Or the
+ * response to send: 401 signed out, 403 when their permissions do not cover
+ * the area (or they have no store), so a route reads
+ *
+ *   const gate = await requireTeamPermission("customers")
+ *   if (gate instanceof NextResponse) return gate
+ */
+export interface TeamGate {
+  creatorId: string
+  userId: string
+  userEmail: string | null
+  isOwner: boolean
+  /** The account the store belongs to, for what is kept by account and not by store (a OnePage, a saved report layout). */
+  ownerUserId: string | null
+  /**
+   * Who an answer is for, when a page keeps answers in the browser: the
+   * owner's user id as before, and for a member their id and the store's,
+   * so an answer for their own store is never shown in the one they work in.
+   */
+  viewer: string
+  acting: ActingStore | null
+  /** Everything for the owner; the member's own list otherwise. */
+  permissions: TeamPermission[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any
+}
+
+/** The owner is their user id; a member working in a store is their id and the store's. */
+export function viewerKey(userId: string, actingIn: string | null): string {
+  return actingIn ? `${userId}:${actingIn}` : userId
+}
+
+export async function requireTeamPermission(area: TeamArea): Promise<TeamGate | NextResponse> {
+  const { createClient } = await import("@/lib/supabase/server")
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser()
+  if (!user) return NextResponse.json({ error: "Sign in again to do this." }, { status: 401, headers: { "Cache-Control": "no-store" } })
+  const db = createAdminClient()
+  const found = await creatorFor(db, user.id, area)
+  if (found.kind === "denied") return NextResponse.json({ error: NO_ACCESS }, { status: 403, headers: { "Cache-Control": "no-store" } })
+  if (found.kind === "none") return NextResponse.json({ error: "Set up your store first." }, { status: 403, headers: { "Cache-Control": "no-store" } })
+  return {
+    creatorId: found.creator.id,
+    userId: user.id,
+    userEmail: user.email ?? null,
+    isOwner: found.role === "owner",
+    ownerUserId: found.acting ? found.acting.ownerUserId : user.id,
+    viewer: viewerKey(user.id, found.acting ? found.creator.id : null),
+    acting: found.acting,
+    permissions: found.acting ? found.acting.permissions : [...TEAM_PERMISSIONS],
+    db,
+  }
+}
+
+/**
+ * WITHOUT THE COOKIE: whether this account may use this area of this very
+ * store, read from the database alone. For a signed link opened where the
+ * dashboard's cookies are not (the phone app's system browser sheet): the
+ * link names the store and the account, and the membership and its
+ * permissions are read again when it is opened.
+ */
+export async function storeAccessOf(
+  db: Db,
+  userId: string,
+  creatorId: string,
+  area: TeamArea,
+): Promise<{ ok: true; isOwner: boolean; ownerUserId: string | null } | { ok: false }> {
+  if (!/^[0-9a-f-]{36}$/i.test(creatorId)) return { ok: false }
+  const { data: c } = await db.from("creators").select("id, user_id").eq("id", creatorId).maybeSingle()
+  const store = c as { id: string; user_id: string | null } | null
+  if (!store) return { ok: false }
+  if (store.user_id === userId) return { ok: true, isOwner: true, ownerUserId: userId }
+  const { data, error } = await readRows<Record<string, unknown> | null>((cols) => db.from("store_team_members").select(cols).eq("creator_id", creatorId).eq("user_id", userId).eq("status", "active").maybeSingle())
+  if (error || !data) return { ok: false }
+  return permits(memberOf(data).permissions, area) ? { ok: true, isOwner: false, ownerUserId: store.user_id } : { ok: false }
+}
+
+/**
  * For a route: the signed in person's store for this area, or why not, as
  * an answer to send. The session decides who; creatorFor decides whose store.
  */
 export async function storeIdFor(area: TeamArea): Promise<{ ok: true; creatorId: string; userId: string; role: TeamRole } | { ok: false; status: number; error: string }> {
-  const { createClient } = await import("@/lib/supabase/server")
-  const { createAdminClient } = await import("@/lib/supabase/admin")
-  const {
-    data: { user },
-  } = await (await createClient()).auth.getUser()
-  if (!user) return { ok: false, status: 401, error: "Sign in again to do this." }
-  const found = await creatorFor(createAdminClient(), user.id, area)
-  if (found.kind === "denied") return { ok: false, status: 403, error: "Your role on this store's team does not include this. Ask the store's owner." }
-  if (found.kind === "none") return { ok: false, status: 403, error: "Set up your store first." }
-  return { ok: true, creatorId: found.creator.id, userId: user.id, role: found.role }
+  const gate = await requireTeamPermission(area)
+  if (gate instanceof NextResponse) {
+    const body = (await gate.clone().json().catch(() => ({}))) as { error?: string }
+    return { ok: false, status: gate.status, error: body.error ?? NO_ACCESS }
+  }
+  return { ok: true, creatorId: gate.creatorId, userId: gate.userId, role: gate.isOwner ? "owner" : (gate.acting?.role ?? "manager") }
 }
+
+/**
+ * A page's answer to the same question (round 40). The page draws the
+ * store's data for "store", the "You don't have access" card for "denied"
+ * (components/app/team-area-closed), and its own no-store path for "none".
+ * Read once per request per area.
+ */
+export type TeamPageStore =
+  | { kind: "store"; creatorId: string; userId: string; isOwner: boolean; ownerUserId: string | null; viewer: string; acting: ActingStore | null }
+  | { kind: "denied"; userId: string; acting: ActingStore }
+  | { kind: "none"; userId: string }
+  | { kind: "signed_out" }
+
+export const teamPageStore = cache(async (area: TeamArea): Promise<TeamPageStore> => {
+  const { pageUser } = await import("@/lib/auth/page-user")
+  const user = await pageUser()
+  if (!user) return { kind: "signed_out" }
+  /* The answers the /app layout already asked for, once per request: an owner pays no read of their own here. */
+  const team = await teamStoreForRequest(user.id).catch(() => null)
+  if (team) {
+    const acting = team.acting
+    if (!permits(acting.permissions, area)) return { kind: "denied", userId: user.id, acting }
+    return { kind: "store", creatorId: acting.creatorId, userId: user.id, isOwner: false, ownerUserId: acting.ownerUserId, viewer: viewerKey(user.id, acting.creatorId), acting }
+  }
+  const own = await creatorForRequest(user.id)
+  if (!own) return { kind: "none", userId: user.id }
+  return { kind: "store", creatorId: own.id, userId: user.id, isOwner: true, ownerUserId: user.id, viewer: user.id, acting: null }
+})
 
 /**
  * The stores this account is on as an active member, each with when it was
@@ -507,12 +750,14 @@ export async function onATeam(db: Db, userId: string): Promise<boolean> {
  * landing):
  *
  *   working in a team store   null: the page draws nothing of its own, and
- *                             the team bar over it says whether the role has
+ *                             the team bar over it says whether they have
  *                             this part (components/app/team-bar)
  *   on a team, no cookie      back into that store, then this page
  *   neither                   /sell, as before
  */
 export async function noStorePage(path: string): Promise<null> {
+  /* Asked for here, not at the top: the rest of this file is read by suites outside Next, where navigation's client half cannot load. */
+  const redirect: (url: string) => never = (await import("next/navigation")).redirect
   const { createClient } = await import("@/lib/supabase/server")
   const {
     data: { user },

@@ -16,12 +16,12 @@ export const dynamic = "force-dynamic"
  * the store's offers and this one (as if on now) through applyOffers
  * (lib/offers/try-cart.ts). Nothing is saved, nothing is charged.
  *
- * The caller's own store only (shopCaller: the owner, or a team member whose
- * role has the store): every product is read under the caller's creator id,
+ * The caller's own store only (shopCaller: the owner, or a team member given
+ * Marketing): every product is read under the caller's creator id,
  * and one that is not theirs is left out of the cart.
  */
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("marketing")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

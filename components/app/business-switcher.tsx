@@ -9,7 +9,7 @@ import { iconDepth } from "@/components/ui/depth-button"
 import { canAddBusiness, LIMIT_REACHED } from "@/lib/businesses/rules"
 import { createBusiness, openAgain, SWITCH_FAILED, SwitchFailed, SwitchStalled, switchBusiness, type SwitchSteps } from "@/lib/businesses/switch-client"
 import { cn } from "@/lib/utils"
-import { ROLE_LABEL, roleHome, type MemberRole } from "@/lib/team/roles"
+import { accessSummary, homeFor, type TeamPermission } from "@/lib/team/permissions"
 import { ownAccountHref } from "@/lib/team/landing"
 import { tt } from "@/lib/i18n/text"
 
@@ -131,7 +131,8 @@ export interface TeamStoreRow {
   creatorId: string
   name: string
   avatarUrl: string | null
-  role: MemberRole
+  /** What this login may do there (lib/team/permissions). */
+  permissions: TeamPermission[]
   current: boolean
 }
 
@@ -323,7 +324,7 @@ export function BusinessSwitcher({
   const teamNameAndRole = (t: TeamStoreRow) => (
     <span className="min-w-0 flex-1">
       <span className={cn("block truncate font-medium text-neutral-900", sheet ? "text-[15px]" : "text-[13px]")}>{t.name}</span>
-      <span className={cn("block truncate text-neutral-500", sheet ? "text-[13px]" : "text-[11.5px]")}>{ROLE_LABEL[t.role]} · {tt("Team")}</span>
+      <span className={cn("block truncate text-neutral-500", sheet ? "text-[13px]" : "text-[11.5px]")}>{accessSummary(t.permissions)} · {tt("Team")}</span>
     </span>
   )
   /* The last line of the list, in the photo's column so its words line up with the names above. */
@@ -414,7 +415,7 @@ export function BusinessSwitcher({
             <button
               key={t.creatorId}
               type="button"
-              onClick={() => openTeam(t.creatorId, t.creatorId, roleHome(t.role))}
+              onClick={() => openTeam(t.creatorId, t.creatorId, homeFor(t.permissions))}
               disabled={!!busy}
               aria-busy={busy === t.creatorId || undefined}
               data-business-row="team"

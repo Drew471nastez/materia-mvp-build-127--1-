@@ -133,7 +133,8 @@ console.log("\nA contact, opened from its row")
       && /<ContactPage/.test(code("app/app/emails/emails-client.tsx")) && /<OrderBarFrame/.test(detail) && !/BottomSheet|aside/.test(detail)
       && /live\.current\.onOpenContact\(s\)/.test(homeCode) && !/<ContactDetail/.test(homeCode))
   check("its body is the contact's own and starts from what is known", /<ContactBody key=\{keyOf\(contact\.email\)\} contact=\{contact\} \/>/.test(detail) && /useState<RunLite\[\] \| null>\(\(\) => keptRuns\(contact\.email\)\)/.test(detail) && !/setRuns\(null\)/.test(detail))
-  check("a failed read is not kept", /if \(!error\) runsKept\.set\(key/.test(detail))
+  /* Round 40: read on the server by the store (app/api/email/area); a failed read is null and is not kept. */
+  check("a failed read is not kept", /if \(got\) runsKept\.set\(key/.test(detail))
 }
 
 /*

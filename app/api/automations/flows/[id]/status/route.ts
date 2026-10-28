@@ -37,13 +37,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const problems = problemsOf(flow.trigger_type, normalizeSteps(flow.steps))
     if (problems.length > 0) return NextResponse.json({ error: "Fix these before turning it on.", problems }, { status: 422 })
     if (flow.status !== "active") {
-      const { error } = await me.supabase.from("email_flows").update({ status: "active" }).eq("id", id)
+      const { error } = await me.supabase.from("email_flows").update({ status: "active" }).eq("id", id).eq("creator_id", me.creatorId)
       if (error) return NextResponse.json({ error: "Could not turn it on. Try again." }, { status: 500 })
     }
     return NextResponse.json({ status: "active", stopped: 0 })
   }
 
-  const { error } = await me.supabase.from("email_flows").update({ status: "paused" }).eq("id", id)
+  const { error } = await me.supabase.from("email_flows").update({ status: "paused" }).eq("id", id).eq("creator_id", me.creatorId)
   if (error) return NextResponse.json({ error: "Could not turn it off. Try again." }, { status: 500 })
   const stopped = await stopFlowRuns(id, "The flow was turned off.")
   return NextResponse.json({ status: "paused", stopped })
