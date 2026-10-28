@@ -25,6 +25,7 @@ import type {
   CalendlyBlockData,
 } from "@/lib/onepage/types"
 import { normalizeSocialUrl } from "@/lib/onepage/types"
+import { socialLinkId } from "@/lib/onepage/link-keys"
 import { LinkIcon, SocialIcon, socialPlatformLabel } from "@/components/onepage/brand-icons"
 import { resolveLinkIcon } from "@/components/onepage/link-icons"
 import { cn } from "@/lib/utils"
@@ -3606,7 +3607,8 @@ function PublicBlockRenderer({
         keepalive: true,
         body: JSON.stringify({
           onepage_id: onepageId,
-          block_id: block.id,
+          /* The block, or an icon in a row of social icons (lib/onepage/link-keys socialLinkId). */
+          block_id: blockId || block.id,
           event_type: "click",
           url,
           href: window.location.href,
@@ -4103,7 +4105,7 @@ function PublicBlockRenderer({
                 href={normalizedUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackClick(block.id, normalizedUrl)}
+                onClick={() => trackClick(socialLinkId(block.id, platform), normalizedUrl)}
                 className={cn(
                   "flex items-center justify-center transition-all",
                   !isInsideCarousel && "hover:scale-110",

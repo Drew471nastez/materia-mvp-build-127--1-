@@ -370,6 +370,8 @@ const SUITES = [
   "tests/email-inbox-image.test.ts",
   "tests/onepage-search-share.test.ts",
   "tests/onepage-share-image.test.ts",
+  /* Round 40: the OnePage editor's link stats are Analytics' own figures, each social icon its own click, noindex for a page that shows nothing. */
+  "tests/onepage-analytics-seo-r40.test.ts",
   "tests/onepage-host.test.ts",
   "tests/memory-r12.test.ts",
   "tests/onepage-old-links.test.ts",

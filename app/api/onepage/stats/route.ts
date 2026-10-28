@@ -1,203 +1,73 @@
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { NextRequest, NextResponse } from "next/server"
+import { isTimeZone } from "@/lib/orders/time-zone"
+import { readBlockStats, readPageClicks, type StatsPage } from "@/lib/onepage/link-stats-server"
+
+/**
+ * THE ONEPAGE EDITOR'S FIGURES, the same as Analytics' (lib/onepage/
+ * link-stats-server): a block's views, visitors, clicks (or sign-ups) and
+ * click rate over a period with `block_id`, or every block's clicks for the
+ * list without it. The owner is checked with their own session; the counts
+ * are then read with the service role, as /app/analytics reads them
+ * (analytics_events has no policy that lets a creator read their own rows).
+ *
+ * The period is two instants (`start`, `end`) from the shared date picker,
+ * bucketed in `tz`, the creator's zone. `days` alone is the last that many
+ * days, for an older caller.
+ */
+const MAX_SPAN_MS = 12 * 366 * 86_400_000
+const DAY = 86_400_000
+
+function periodOf(params: URLSearchParams, now: number): { start: number; end: number } {
+  const start = Date.parse(params.get("start") ?? "")
+  const end = Date.parse(params.get("end") ?? "")
+  if (Number.isFinite(start) && Number.isFinite(end) && end > start && end - start < MAX_SPAN_MS) return { start, end: Math.min(end, now + DAY) }
+  const days = Math.min(3660, Math.max(1, parseInt(params.get("days") || "7", 10) || 7))
+  return { start: now - days * DAY, end: now }
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const onepageId = searchParams.get("onepage_id")
-    const blockId = searchParams.get("block_id")
-    const days = parseInt(searchParams.get("days") || "7", 10)
-    const customStartDate = searchParams.get("start_date")
-    const customEndDate = searchParams.get("end_date")
-
-    if (!onepageId) {
-      return NextResponse.json({ error: "Missing onepage_id" }, { status: 400 })
-    }
+    const params = request.nextUrl.searchParams
+    const onepageId = params.get("onepage_id")
+    const blockId = params.get("block_id")
+    if (!onepageId) return NextResponse.json({ error: "Missing onepage_id" }, { status: 400 })
 
     const supabase = await createClient()
-
-    // Verify user owns this onepage
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const { data: onepage } = await supabase
       .from("onepages")
-      .select("owner_id, draft_blocks")
+      .select("id, owner_id, seller_id, creator_id, draft_blocks, published_blocks")
       .eq("id", onepageId)
       .maybeSingle()
+    if (!onepage || onepage.owner_id !== user.id) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
 
-    if (!onepage || onepage.owner_id !== user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
-    }
-
-    // Calculate date range
-    let startDate: Date
-    let endDate: Date = new Date()
-    let numDays: number
-
-    /* Two instants from the shared date picker: days on the creator's clock. */
-    const startAt = Date.parse(searchParams.get("start") ?? "")
-    const endAt = Date.parse(searchParams.get("end") ?? "")
-    if (Number.isFinite(startAt) && Number.isFinite(endAt) && endAt > startAt && endAt - startAt < 12 * 366 * 86_400_000) {
-      startDate = new Date(startAt)
-      endDate = new Date(endAt - 1)
-      numDays = Math.max(1, Math.round((endAt - startAt) / 86_400_000))
-    } else if (customStartDate && customEndDate) {
-      startDate = new Date(customStartDate)
-      endDate = new Date(customEndDate)
-      endDate.setHours(23, 59, 59, 999)
-      numDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    } else {
-      startDate = new Date()
-      startDate.setDate(startDate.getDate() - days)
-      numDays = days
-    }
-    const startDateStr = startDate.toISOString()
-    const endDateStr = endDate.toISOString()
-
-    // Use draft_blocks for block data
-    const blocksData = onepage.draft_blocks as any[] || []
+    const tz = params.get("tz")
+    const timeZone = isTimeZone(tz) ? tz : "UTC"
+    const window = periodOf(params, Date.now())
+    const admin = createAdminClient()
+    const page = onepage as StatsPage
 
     if (blockId) {
-      // Find the block in the onepage's blocks array
-      const targetBlock = blocksData.find((b: any) => b.id === blockId)
-
-      // Get all block IDs to query - include children if this is a group block
-      const blockIdsToQuery = [blockId]
-      if (targetBlock?.type === "group" && targetBlock?.data?.children) {
-        const children = targetBlock.data.children as { id: string }[]
-        children.forEach(child => blockIdsToQuery.push(child.id))
+      const blocks = (page.draft_blocks ?? page.published_blocks) as Array<{ id?: string; type?: string; data?: { children?: Array<{ id?: string; type?: string }> } }> | null
+      const find = (list: typeof blocks): { type?: string } | undefined => {
+        for (const b of list ?? []) {
+          if (b?.id === blockId) return b
+          const inner = find((b?.data?.children ?? null) as typeof blocks)
+          if (inner) return inner
+        }
+        return undefined
       }
-
-      // Get stats for specific block - both views (page views) and clicks
-      const [viewsResult, clicksResult] = await Promise.all([
-        supabase
-          .from("onepage_views")
-          .select("created_at")
-          .eq("onepage_id", onepageId)
-          .gte("created_at", startDateStr)
-          .lte("created_at", endDateStr),
-        supabase
-          .from("onepage_clicks")
-          .select("created_at")
-          .eq("onepage_id", onepageId)
-          .in("block_id", blockIdsToQuery)
-          .gte("created_at", startDateStr)
-          .lte("created_at", endDateStr)
-          .order("created_at", { ascending: true })
-      ])
-
-      // Group by day
-      const dailyStats: Record<string, { views: number; clicks: number }> = {}
-      const today = customEndDate ? new Date(customEndDate) : new Date()
-      for (let i = numDays - 1; i >= 0; i--) {
-        const date = new Date(today)
-        date.setDate(date.getDate() - i)
-        const dateKey = date.toISOString().split("T")[0]
-        dailyStats[dateKey] = { views: 0, clicks: 0 }
-      }
-
-      viewsResult.data?.forEach((view) => {
-        const dateKey = new Date(view.created_at).toISOString().split("T")[0]
-        if (dailyStats[dateKey] !== undefined) {
-          dailyStats[dateKey].views++
-        }
-      })
-
-      clicksResult.data?.forEach((click) => {
-        const dateKey = new Date(click.created_at).toISOString().split("T")[0]
-        if (dailyStats[dateKey] !== undefined) {
-          dailyStats[dateKey].clicks++
-        }
-      })
-
-      const chartData = Object.entries(dailyStats).map(([date, stats]) => ({
-        date,
-        views: stats.views,
-        clicks: stats.clicks,
-      }))
-
-      return NextResponse.json({
-        total_views: viewsResult.data?.length || 0,
-        total_clicks: clicksResult.data?.length || 0,
-        chart_data: chartData,
-      })
-    } else {
-      // Get overall stats for onepage
-      const [viewsResult, clicksResult] = await Promise.all([
-        supabase
-          .from("onepage_views")
-          .select("created_at")
-          .eq("onepage_id", onepageId)
-          .gte("created_at", startDateStr),
-        supabase
-          .from("onepage_clicks")
-          .select("created_at, block_id")
-          .eq("onepage_id", onepageId)
-          .gte("created_at", startDateStr),
-      ])
-
-      // Group by day
-      const dailyStats: Record<string, { views: number; clicks: number }> = {}
-      const today = new Date()
-      for (let i = days - 1; i >= 0; i--) {
-        const date = new Date(today)
-        date.setDate(date.getDate() - i)
-        const dateKey = date.toISOString().split("T")[0]
-        dailyStats[dateKey] = { views: 0, clicks: 0 }
-      }
-
-      viewsResult.data?.forEach((view) => {
-        const dateKey = new Date(view.created_at).toISOString().split("T")[0]
-        if (dailyStats[dateKey]) {
-          dailyStats[dateKey].views++
-        }
-      })
-
-      clicksResult.data?.forEach((click) => {
-        const dateKey = new Date(click.created_at).toISOString().split("T")[0]
-        if (dailyStats[dateKey]) {
-          dailyStats[dateKey].clicks++
-        }
-      })
-
-      // Get per-block click counts (including aggregation for group blocks)
-      const blockClicks: Record<string, number> = {}
-      const blocks = blocksData as any[] || []
-
-      // First, count all individual block clicks
-      clicksResult.data?.forEach((click) => {
-        blockClicks[click.block_id] = (blockClicks[click.block_id] || 0) + 1
-      })
-
-      // Then, for group blocks, aggregate child clicks into the group total
-      blocks.forEach((block: any) => {
-        if (block.type === "group" && block.data?.children) {
-          let groupTotal = blockClicks[block.id] || 0
-          block.data.children.forEach((child: any) => {
-            if (blockClicks[child.id]) {
-              groupTotal += blockClicks[child.id]
-            }
-          })
-          blockClicks[block.id] = groupTotal
-        }
-      })
-
-      const chartData = Object.entries(dailyStats).map(([date, stats]) => ({
-        date,
-        views: stats.views,
-        clicks: stats.clicks,
-      }))
-
-      return NextResponse.json({
-        total_views: viewsResult.data?.length || 0,
-        total_clicks: clicksResult.data?.length || 0,
-        block_clicks: blockClicks,
-        chart_data: chartData,
-      })
+      const stats = await readBlockStats(admin, page, { blockId, window, timeZone, blockType: find(blocks)?.type ?? null })
+      if (!stats) return NextResponse.json({ total_views: 0, total_visitors: 0, total_clicks: 0, click_rate: null, counts: "clicks", chart_data: [], truncated: false })
+      return NextResponse.json(stats, { headers: { "Cache-Control": "private, no-store" } })
     }
+
+    const summary = await readPageClicks(admin, page, { window, timeZone })
+    return NextResponse.json(summary ?? { total_views: 0, total_visitors: 0, total_clicks: 0, block_clicks: {}, truncated: false }, { headers: { "Cache-Control": "private, no-store" } })
   } catch (error) {
     console.error("Stats error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

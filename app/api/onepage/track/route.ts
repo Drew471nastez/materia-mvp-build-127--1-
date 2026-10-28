@@ -4,38 +4,48 @@ import { NextRequest, NextResponse } from "next/server"
 import { headers } from "next/headers"
 import crypto from "crypto"
 import { collectFrom } from "@/lib/analytics/collect-route"
+import type { CollectOutcome } from "@/lib/analytics/collect"
+import { clickCountable, legacyClickAllowed } from "@/lib/onepage/visit-gate"
 
 /**
  * A OnePage LINK, IN BOTH PLACES IT IS COUNTED.
  *
- * onepage_clicks is what the OnePage editor's link stats and Analytics'
- * OnePage view read, one per visitor, block and UTC day, exactly as before:
- * nothing here changes it. The same click is also an analytics event
- * (link_click, property onepage) through the one pipeline every page shares
- * (lib/analytics/collect), which has its own rules: not a robot, not the
- * owner, one per visit and link. Whose OnePage it is comes from the row,
- * never from the page.
+ * The click goes first through the one pipeline every page shares
+ * (lib/analytics/collect) as a link_click, property onepage, with its rules:
+ * not a robot, not a prefetch, not another site's request, not too many from
+ * one address, not the owner, one per visit and link. Whose OnePage it is
+ * comes from the row, never from the page.
+ *
+ * onepage_clicks, the older record (one per visitor, block and UTC day), is
+ * written only when that answer says a person pressed it
+ * (lib/onepage/visit-gate legacyClickAllowed), so it no longer counts what
+ * Analytics refuses. A page with no creator behind it is checked the same
+ * way here (clickCountable).
+ *
+ * An icon in a row of social icons sends `<row id>__<platform>` as its
+ * block (lib/onepage/link-keys), so each icon is its own click.
  */
-async function recordLinkClick(request: NextRequest, body: Record<string, unknown>): Promise<void> {
+async function recordLinkClick(request: NextRequest, body: Record<string, unknown>): Promise<CollectOutcome | null> {
   try {
     const admin = createAdminClient()
     const { data: page } = await admin.from("onepages").select("id, seller_id, creator_id, owner_id").eq("id", body.onepage_id).maybeSingle()
     const row = page as { id: string; seller_id?: string | null; creator_id?: string | null; owner_id?: string | null } | null
-    if (!row) return
+    if (!row) return null
     let creatorId = row.seller_id || row.creator_id || null
     if (!creatorId && row.owner_id) {
       const { data: creator } = await admin.from("creators").select("id").eq("user_id", row.owner_id).maybeSingle()
       creatorId = (creator as { id?: string } | null)?.id ?? null
     }
-    if (!creatorId) return
-    await collectFrom(
+    if (!creatorId) return null
+    return await collectFrom(
       request,
       "link_click",
       { creatorId, href: body.href, linkUrl: body.url, linkId: body.block_id, sessionId: body.session_id, visitorId: body.visitor_id },
       admin,
     )
   } catch {
-    /* The OnePage's own count above is what this route answers for. */
+    /* The OnePage's own count below decides for itself (clickCountable). */
+    return null
   }
 }
 
@@ -44,6 +54,8 @@ function hashIP(ip: string): string {
   return crypto.createHash("sha256").update(ip + process.env.SUPABASE_URL).digest("hex").slice(0, 16)
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -51,6 +63,10 @@ export async function POST(request: NextRequest) {
 
     if (!onepage_id || !event_type) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+    /* A page's id is a uuid and a block's id a short one: anything else is not from a OnePage. */
+    if (typeof onepage_id !== "string" || !UUID.test(onepage_id) || (block_id !== undefined && block_id !== null && (typeof block_id !== "string" || block_id.length > 120))) {
+      return NextResponse.json({ error: "Invalid fields" }, { status: 400 })
     }
 
     const supabase = await createClient()
@@ -88,6 +104,9 @@ export async function POST(request: NextRequest) {
       .slice(0, 32)
 
     if (event_type === "view") {
+      /* The page's render counts its own views (app/(marketing)/l/[slug]); a posted one is held to the same checks. */
+      if (!(await clickCountable(request))) return NextResponse.json({ success: true })
+
       // Check for duplicate view (same IP within the same calendar day - UTC)
       const today = new Date()
       today.setUTCHours(0, 0, 0, 0)
@@ -117,6 +136,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Missing block_id for click event" }, { status: 400 })
       }
 
+      /* Analytics first: its answer says whether a person pressed it, and this table counts only those. */
+      const outcome = await recordLinkClick(request, body)
+      const countable = outcome ? legacyClickAllowed(outcome) : await clickCountable(request)
+      if (!countable) return NextResponse.json({ success: true })
+
       // Check for duplicate click (same IP+device, same block within the same calendar day - UTC)
       const today = new Date()
       today.setUTCHours(0, 0, 0, 0)
@@ -135,15 +159,13 @@ export async function POST(request: NextRequest) {
         await supabase.from("onepage_clicks").insert({
           onepage_id,
           block_id,
-          url: url?.slice(0, 2000),
+          url: typeof url === "string" ? url.slice(0, 2000) : null,
           visitor_id: visitorId,
           country_code: countryCode,
           country_name: countryName,
           user_agent: userAgent.slice(0, 500),
         })
       }
-
-      await recordLinkClick(request, body)
     }
 
     return NextResponse.json({ success: true })
