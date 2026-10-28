@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -9,6 +9,7 @@ import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { signupLooksAutomated, signupName } from "@/lib/onepage/creator-blocks"
+import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
 
 export const runtime = "nodejs"
 
@@ -254,6 +255,15 @@ export async function POST(request: Request) {
         }
       }
     }
+
+    /*
+      THE CREATOR'S OWN TOOLS GET IT TOO: Mailchimp, Kit, beehiiv, a Zapier,
+      Make or Sheets hook (lib/onepage/integrations), after the answer, so the
+      visitor never waits for them. Klaviyo and Omnisend take it from the
+      subscriber list on their own sync (lib/integrations/marketing).
+    */
+    const toolsOwner = onepage.seller_id || onepage.creator_id || null
+    after(() => deliverSignup(adminSupabase, toolsOwner, pageSignup({ email: subscriberEmail, name, form: "signup", blockId: block_id, onepageId: onepage_id, pageUrl: request.headers.get("referer") })))
 
     // No email sending - download happens directly on the page
     console.log("[leads] ========== REQUEST COMPLETE ==========")

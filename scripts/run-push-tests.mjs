@@ -955,6 +955,8 @@ const SUITES = [
 const STRICT_SUITES = [
   /* Round 10: the course, music, testimonials and contact blocks, the Add block sheet's catalogue and search, the + that turns under a mouse, the email signup's name, link and spam checks (strict: it draws components/onepage/brand-icons, which only type-checks strict); scripts/check-onepage-blocks.mjs measures them. */
   "tests/onepage-creator-blocks.test.ts",
+  /* Round 40: OnePage integrations (Mailchimp, Kit, beehiiv, webhooks), consent-aware pixels, embeds without a jump, and the shelf, lead magnet, posts, followers and code blocks. */
+  "tests/onepage-blocks-r40.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
   /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */

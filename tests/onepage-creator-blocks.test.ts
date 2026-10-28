@@ -138,8 +138,8 @@ async function main() {
 
     const live = read("components/onepage/public-onepage.tsx")
     check("the live page sends the four to the one drawing, with the page's creator for the contact form",
-      /* Round 11 put the embed block (lib/onepage/creator-blocks embedSource) beside them on purpose. */
-      /case "course":\s*case "music":\s*case "testimonials":\s*case "contact_form":\s*case "embed":\s*case "heading":[\s\S]{0,120}return <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId \}\} \/>/.test(live))
+      /* Round 11 put the embed block (lib/onepage/creator-blocks embedSource) beside them on purpose. Round 40: the page's id goes too, for the lead magnet (pin updated on purpose). */
+      /case "course":\s*case "music":\s*case "testimonials":\s*case "contact_form":\s*case "embed":\s*case "heading":[\s\S]{0,120}return <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId, onepageId \}\} \/>/.test(live))
     check("and the preview is that live page, in a frame", /<PublicOnePage onepage=\{page as never\} \/>/.test(read("components/onepage/preview-document.tsx")))
     const module = read("components/onepage/creator-blocks.tsx")
     check("a contact message goes through the website's contact pipeline, with its spam checks", /sendContactMessage\(\{/.test(module) && /company,/.test(module) && /elapsed: Date\.now\(\) - shownAt\.current/.test(module) && /page: "onepage"/.test(module))
@@ -181,7 +181,8 @@ async function main() {
     /* Round 11 added the embeds on purpose ("add more essential integrations ... more embeds"): every one is still a real block, a player, an embed, a booking page or the signup sync (tests/onepage-addblock-r11.test.ts reads each embed). */
     check("the integrations, each a real block: the five of round 10 still there, the rest players, embeds or booking pages",
       ["int_youtube:video", "int_spotify:music", "int_tiktok:video", "int_booking:calendly", "int_email:email_capture"].every((x) => integrations.some((e) => `${e.id}:${e.type}` === x))
-        && integrations.every((e) => ["video", "music", "calendly", "email_capture", "embed"].includes(e.type)))
+        /* Round 40 adds the posts row (social_posts) to what an integration may be (pin updated on purpose). */
+        && integrations.every((e) => ["video", "music", "calendly", "email_capture", "embed", "social_posts"].includes(e.type)))
     check("courses and coaching are in Sell", ["course", "coaching"].every((id) => PICKER_ENTRIES.find((e) => e.id === id)?.category === "sell") && PICKER_ENTRIES.find((e) => e.id === "coaching")?.type === "calendly")
     check("search finds a block by what people call it", searchEntries(PICKER_ENTRIES, "newsletter")[0]?.type === "email_capture" && searchEntries(PICKER_ENTRIES, "reviews")[0]?.id === "testimonials" && searchEntries(PICKER_ENTRIES, "spot")[0]?.label === "Spotify")
     check("and nothing for words nothing has", searchEntries(PICKER_ENTRIES, "zzqx").length === 0)
@@ -216,9 +217,9 @@ async function main() {
     /* Changed on purpose (round 11): the thanks and the link after it are drawn by the layout (EmailSignupView thanks), once they have joined. */
     check("the link after joining is offered once they have joined, with the thanks", /afterSignup=\{afterSignupLink\}/.test(email) && /submitted \? \(\s*<div data-email-thanks="">[\s\S]*?\{afterSignup\}/.test(read("components/onepage/email-signup.tsx")) && /\/\^https\?:\\\/\\\/\/i\.test\(afterUrl\)/.test(email))
     const tab = read("components/onepage/tabs/links-tab.tsx")
-    check("the editor asks for both, and says where signups go", /updateData\(\{ ask_name: checked \}\)/.test(tab) && /updateData\(\{ after_signup_url: e\.target\.value\.trim\(\) \}\)/.test(tab) && /<SignupDestination \/>/.test(tab))
+    check("the editor asks for both, and says where signups go", /updateData\(\{ ask_name: checked \}\)/.test(tab) && /updateData\(\{ after_signup_url: e\.target\.value\.trim\(\) \}\)/.test(tab) && /* Round 40: it is told which tool the block was added as (pin updated on purpose). */ /<SignupDestination suggest=\{data\.integration_hint \?\? null\} \/>/.test(tab))
     const module = read("components/onepage/creator-blocks.tsx")
-    check("which is Emails › Subscribers, and Klaviyo or Omnisend when connected", /href="\/app\/emails\?tab=subscribers"/.test(module) && /fetch\("\/api\/store\/integrations\/marketing"\)/.test(module) && /href="\/app\/integrations\?integration=klaviyo"/.test(module))
+    check("which is Emails › Subscribers, and Klaviyo or Omnisend when connected", /href="\/app\/emails\?tab=subscribers"/.test(module) && /fetch\("\/api\/store\/integrations\/marketing"\)/.test(module) && /* Round 40: Omnisend when the block was added as Omnisend (pin updated on purpose). */ /href=\{`\/app\/integrations\?integration=\$\{suggest === "omnisend" \? "omnisend" : "klaviyo"\}`\}/.test(module))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

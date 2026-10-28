@@ -84,7 +84,8 @@ import {
   SiX,
   SiYoutube,
 } from "react-icons/si"
-import { Globe, Link as LinkGlyph, Mail, type LucideIcon } from "lucide-react"
+import { SiCaldotcom, SiGoogleanalytics, SiGooglesheets, SiKit, SiMailchimp, SiMake, SiMeta, SiZapier } from "react-icons/si"
+import { Globe, Link as LinkGlyph, Mail, Webhook, type LucideIcon } from "lucide-react"
 
 import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
 import { LINK_LINE_ICONS, isLinkBrandIcon, linkIconKey, type LinkBrandIcon } from "./link-icons"
@@ -463,4 +464,86 @@ export function markOn(background: string | null | undefined): string {
   })
   const luminance = 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
   return luminance > 0.6 ? "#000000" : "#ffffff"
+}
+
+/* ─── The marks of the tools a page connects to ───────────────────────── */
+
+/**
+ * ROUND 40: "Tally, Klaviyo, Omnisend must have icons." The tools a page's
+ * signups and forms go to, each in its own mark: Mailchimp, Kit, Google
+ * Sheets, Zapier, Make, Meta, Google Analytics and Cal.com from Simple
+ * Icons (react-icons/si), in their own colour; Klaviyo's flag and
+ * Omnisend's "i" redrawn from the logos Storelib already shows on Settings ›
+ * Integrations (public/integrations), so they take a colour like the rest;
+ * Tally and beehiiv have no mark in the set, so each is a plain drawing of
+ * its own (tally strokes, a hive cell), in near black.
+ */
+type MarkProps = { size?: number | string; color?: string; className?: string; tone?: MarkTone }
+
+function TallyMark({ size = 20, color = "currentColor", className }: MarkProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden focusable="false" data-mark="tally">
+      <rect x="2" y="2" width="20" height="20" rx="5" fill={color} />
+      <g stroke="#fff" strokeWidth="1.9" strokeLinecap="round">
+        <path d="M7.5 7v10M10.5 7v10M13.5 7v10M16.5 7v10" />
+        <path d="M5.8 15.6 18.2 8.4" />
+      </g>
+    </svg>
+  )
+}
+
+function KlaviyoMark({ size = 20, color = "currentColor", className }: MarkProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden focusable="false" data-mark="klaviyo">
+      <path d="M3 5.5h18l-5.2 6.5L21 18.5H3z" fill={color} />
+    </svg>
+  )
+}
+
+function OmnisendMark({ size = 20, color = "currentColor", className }: MarkProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden focusable="false" data-mark="omnisend">
+      <rect x="2" y="2" width="20" height="20" rx="5.5" fill={color} />
+      <circle cx="12" cy="8" r="1.9" fill="#fff" />
+      <path d="M11.4 11.6c0 3 .35 5 1.9 6.5" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function BeehiivMark({ size = 20, color = "currentColor", className }: MarkProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden focusable="false" data-mark="beehiiv">
+      <path d="M12 2.5 20.2 7.25v9.5L12 21.5l-8.2-4.75v-9.5z" fill={color} />
+      <path d="M7.5 10.25h9M7.5 13.75h9" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+const INTEGRATION_ICONS: Record<string, { brand?: IconType; draw?: (p: MarkProps) => React.ReactElement; color: string; line?: boolean }> = {
+  tally: { draw: TallyMark, color: "#111113" },
+  klaviyo: { draw: KlaviyoMark, color: "#232426" },
+  omnisend: { draw: OmnisendMark, color: "#111113" },
+  beehiiv: { draw: BeehiivMark, color: "#111113" },
+  mailchimp: { brand: SiMailchimp, color: "#241C15" },
+  kit: { brand: SiKit, color: "#111113" },
+  sheets: { brand: SiGooglesheets, color: "#34A853" },
+  zapier: { brand: SiZapier, color: "#FF4F00" },
+  make: { brand: SiMake, color: "#6D00CC" },
+  meta: { brand: SiMeta, color: "#0866FF" },
+  ga: { brand: SiGoogleanalytics, color: "#E37400" },
+  calcom: { brand: SiCaldotcom, color: "#111113" },
+  webhook: { color: "#111113", line: true },
+}
+
+export const INTEGRATION_MARK_KEYS: readonly string[] = Object.keys(INTEGRATION_ICONS)
+
+/** A connected tool's mark: in its own colour (`tone="brand"`, the default) or in `color` ("mono"). A name it does not know draws nothing. */
+export function IntegrationMark({ id, size = 20, color, className, tone = "brand" }: MarkProps & { id: string }) {
+  const m = INTEGRATION_ICONS[id]
+  if (!m) return null
+  const fill = tone === "brand" || !color ? m.color : color
+  if (m.line) return <Webhook size={size} color={fill} strokeWidth={1.8} className={className} aria-hidden data-mark={id} />
+  if (m.draw) return m.draw({ size, color: fill, className })
+  const Svg = m.brand as unknown as React.ComponentType<SvgProps>
+  return <Svg size={size} color={fill} className={className} aria-hidden focusable="false" data-mark={id} />
 }

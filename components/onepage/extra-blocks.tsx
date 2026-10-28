@@ -51,6 +51,7 @@ import { viewerZone, zoneLabel } from "@/lib/onepage/schedule"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DateTimeField } from "@/components/onepage/date-time-field"
 import { CreatorBlock, CreatorBlockEditor } from "@/components/onepage/creator-blocks"
+import { storelibBlockRow } from "@/components/onepage/storelib-blocks"
 import { GlyphBooking, GlyphContact, GlyphCountdown, GlyphCourse, GlyphFaq, GlyphHeading, GlyphIntegration, GlyphMap, GlyphMusic, GlyphTestimonials, GlyphVideo } from "@/components/onepage/block-icons"
 import { EMBED_PROVIDER_NAME, MUSIC_PROVIDER_NAME, cleanTestimonials, embedSource, lessonsLabel, musicSource, type EmbedKind } from "@/lib/onepage/creator-blocks"
 import { SocialIcon } from "@/components/onepage/brand-icons"
@@ -87,6 +88,8 @@ export interface ExtraBlockLook {
   preview?: boolean
   /** The page's creator (creators.id): where the contact block's messages go. */
   sellerId?: string | null
+  /** The page (onepages.id): where a lead magnet's signups are kept (./storelib-blocks). */
+  onepageId?: string | null
 }
 
 function hexToRgba(hex: string, alpha: number) {
@@ -401,7 +404,7 @@ export function ExtraBlock({ block, look: given }: { block: OnePageBlock; look: 
       return <VideoView data={block.data as VideoBlockData} look={look} />
     default:
       /* Course, music, testimonials and the contact form (./creator-blocks). */
-      return <CreatorBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, sellerId: look.sellerId, button: themeButtonStyle(look.theme) }} />
+      return <CreatorBlock block={block} look={{ theme: look.theme, scale: look.scale, preview: look.preview, sellerId: look.sellerId, onepageId: look.onepageId, button: themeButtonStyle(look.theme) }} />
   }
 }
 
@@ -621,7 +624,8 @@ export function extraBlockRow(block: OnePageBlock): { title: string; subtitle: s
       return { title: d.title?.trim() || (s ? EMBED_PROVIDER_NAME[s.kind] : tt("Embed")), subtitle: s ? EMBED_PROVIDER_NAME[s.kind] : tt("Paste a link"), icon: mark ? brandGlyph(mark) : GlyphIntegration }
     }
     default:
-      return { title: block.type, subtitle: "", icon: GlyphBooking }
+      /* The shelf, lead magnets, posts, followers and codes (./storelib-blocks). */
+      return storelibBlockRow(block) ?? { title: block.type, subtitle: "", icon: GlyphBooking }
   }
 }
 
