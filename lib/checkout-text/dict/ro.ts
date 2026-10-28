@@ -924,6 +924,14 @@ const ro: Record<string, string> = {
   "Your sign in code": "Codul tău de conectare",
   "Use this code to sign in to {store}.": "Folosește acest cod ca să te conectezi la {store}.",
   "You asked for this on {site}.": "L-ai cerut pe {site}.",
+  /* ── Offers at the checkout (components/offers/checkout-suggestions.tsx) ── */
+  "Buy {quantity} get {free} free": "Cumpără {quantity}, primești {free} gratuit",
+  "Buy {quantity}, save {percent}%": "Cumpără {quantity}, economisești {percent}%",
+  "Buy {quantity}, save {amount}": "Cumpără {quantity}, economisești {amount}",
+  "Buy {quantity}": "Cumpără {quantity}",
+  "Add to your order": "Adaugă la comandă",
+  "{title} option": "Opțiune pentru {title}",
+  "Add": "Adaugă",
 }
 
 export default ro

@@ -106,12 +106,13 @@ function main() {
   /* The header's links are its menu now, picked with the menu picker and edited in Menus (tests/menus-main-menu.test.ts). */
   check("and Transparent on is the old select too, and the header's links are its Menu",
     /<WbSelect\s+label="Transparent on"/.test(editor) && /<MenuPickerControl\s+label="Menu"/.test(editor))
+  /* Changed on purpose (countdown round): a countdown's hour, minute and offset settings are drawn inside its date's one control (lib/storelib-theme/countdown.ts), so the loop skips the ones it took. */
   check("a section's settings are listed one by one, the ones whose visible_if holds, with its other settings beside them",
     /const visible = visibleFields\(schema\.fields, section\.settings\)/.test(editor) &&
-      /<SiblingSettingsProvider settings=\{section\.settings\}>\s*<div className="px-3\.5 py-3\.5 space-y-3\.5">\s*\{clean\.map\(field => \(/.test(editor))
+      /<SiblingSettingsProvider settings=\{section\.settings\}>\s*<div className="px-3\.5 py-3\.5 space-y-3\.5">\s*\{clean\.map\(field => (countdown\?\.absorbed\.includes\(field\.id\) \? null : )?\(/.test(editor))
   check("and a block's the same way, its conditions reading the section's settings as well",
     /const fields = visibleFields\(def\?\.fields \?\? \[\], block\.settings, \{ fields: schema\.fields \?\? \[\], saved: section\.settings \}\)/.test(editor) &&
-      /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{fields\.map\(\(field\) => \(/.test(editor))
+      /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{fields\.map\(\(field\) => (countdown\?\.absorbed\.includes\(field\.id\) \? null : )?\(/.test(editor))
   check("the newer controls are drawn by the controls folder first, and Insert shop data wraps every field",
     /const registered = renderRegisteredControl\(kind, field, raw, onChange\)/.test(editor) && /<DynamicSourceField field=\{props\.field\}[^>]*label=\{label\}>/.test(editor))
   {
