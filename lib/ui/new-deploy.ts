@@ -253,12 +253,26 @@ export function loadFullyIfBehind(href: string, type: NavigationType) {
   window.location.assign(href)
 }
 
+/*
+  NOT UNDER AN EDITOR (the owner: coming back to the website builder, the canvas went black before it appeared). Armed on a
+  tap in /app, the reload ran on the next trip to the background wherever the app was by then, the builder included, whose
+  work is a draft on a timer and which asks its own question on the way out: the editor was thrown away and drawn again
+  from nothing on the way back. The editors and checkout are never reloaded from under somebody; the newer code is taken
+  on the next trip to the background from anywhere else, and a chunk that fails is healed by stale-code.ts.
+*/
+const KEEP_AWAY = /^\/(website-builder|checkout|app\/onepage)(\/|$)|^\/store\/[^/]+\/themes\/[^/]+\/editor(\/|$)/
+
+/** Whether the app, going to the background on this page, may reload there to pick up a newer deploy. */
+export function reloadWhileAway(pathname: string, holdsWork: boolean): boolean {
+  return !holdsWork && !KEEP_AWAY.test(pathname)
+}
+
 let awayArmed = false
 /** In the app: the next time it goes to the background, the page reloads there, so it comes back already new. */
 function takeNewDeployWhileAway() {
   if (awayArmed || typeof document === "undefined") return
   awayArmed = true
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden" && !leaveGuard()) window.location.reload()
+    if (document.visibilityState === "hidden" && reloadWhileAway(window.location.pathname, !!leaveGuard())) window.location.reload()
   })
 }

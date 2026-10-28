@@ -515,11 +515,11 @@ section("One scrollbar track on a computer, always there, never moving")
     /* Settings' country search is the shared list's now (components/app/settings/country-picker), so it is choice-list's halo. */
     const direct = ["components/app/product-picker.tsx", "components/ui/choice-list.tsx"]
     const heavy = /focus-within:border-\[#1a1a2e\] focus-within:shadow-\[0_0_0_1px_#1a1a2e\]/
-    /* "Make it that way: like mobile." The Products search is the phone's on every width: no box, in the card's toolbar, so no edge to draw on focus. */
+    /* Round 40: the Products search is Orders' boxed field, with Orders' halo. */
     const products = code("app/app/products/products-client.tsx")
     check("every /app search field focuses with a light grey hairline and a soft halo, never a black 2px edge or a violet ring",
       within.every((f) => HALO_WITHIN.test(code(f)) && !heavy.test(code(f))) && direct.every((f) => HALO.test(code(f)))
-        && !heavy.test(products) && !/focus-within:border|focus-within:ring|focus:ring-\[#8b5cf6\]/.test(products)
+        && !heavy.test(products) && HALO_WITHIN.test(products) && !/focus-within:ring|focus:ring-\[#8b5cf6\]/.test(products)
         && !/placeholder="Search countries\.\.\."[\s\S]{0,500}focus:ring-\[#8b5cf6\]/.test(code("components/app/settings-form-new.tsx"))
         && /<ChoicePicker/.test(code("components/app/settings/country-picker.tsx")) && !/<input/.test(code("components/app/settings/country-picker.tsx"))
         && /focus-visible:shadow-\[inset_0_0_0_1px_#c9ccd3,0_0_0_3px_rgba\(17,17,19,0\.06\)\]/.test(code("components/app/app-search.tsx")) && !/focus-visible:ring-\[#8b5cf6\]/.test(code("components/app/app-search.tsx")),

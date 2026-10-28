@@ -8,6 +8,8 @@
  */
 import * as React from "react"
 import { Package, Plus } from "lucide-react"
+import { useCt } from "@/app/checkout/parts/words"
+import { tierNameIn } from "@/lib/offers/pricing"
 
 export interface Suggestion {
   offerId: string
@@ -17,11 +19,27 @@ export interface Suggestion {
   product: { id: string; title: string; slug: string; imageUrl: string | null; type: string; priceCents: number; variants: { id: string; name: string; priceCents: number }[] }
 }
 
+/**
+ * A saving row's name as the checkout says it: a quantity break tier saved
+ * with no name of its own ("Buy 2 get 1 free") in the visitor's language,
+ * anything the store typed as typed (lib/offers/pricing.ts tierNameIn). The
+ * website checkout's and the physical checkout's summaries both use it.
+ */
+export function useOfferTitle(): (title: string) => string {
+  const ct = useCt()
+  return (title) =>
+    tierNameIn(title, (kind, vars) =>
+      kind === "free" ? ct("Buy {quantity} get {free} free", vars) : kind === "percent" ? ct("Buy {quantity}, save {percent}%", vars) : kind === "amount" ? ct("Buy {quantity}, save {amount}", vars) : ct("Buy {quantity}", vars),
+    )
+}
+
 export function CheckoutSuggestions({ suggestions, onAdd, busy = false, money }: { suggestions: Suggestion[]; onAdd: (s: Suggestion, variant: { id: string; name: string; priceCents: number } | null) => void; busy?: boolean; /** The checkout's own money: every amount in what the card is charged in (app/checkout/parts/ui useMoney). */ money: (cents: number) => string }) {
   const [picks, setPicks] = React.useState<Record<string, string>>({})
+  /* The checkout's words in the visitor's language (Translate › Checkout; scripts/i18n/checkout-sentences.mjs lists this file). */
+  const ct = useCt()
   if (suggestions.length === 0) return null
   return (
-    <section aria-label="Add to your order" className="space-y-2.5 border-t border-[#e5e7eb] pt-4" data-checkout-suggestions="">
+    <section aria-label={ct("Add to your order")} className="space-y-2.5 border-t border-[#e5e7eb] pt-4" data-checkout-suggestions="">
       {suggestions.map((s) => {
         const p = s.product
         const v = p.variants.find((x) => x.id === picks[s.offerId]) ?? p.variants[0] ?? null
@@ -43,7 +61,7 @@ export function CheckoutSuggestions({ suggestions, onAdd, busy = false, money }:
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{p.title}</p>
                 {p.variants.length > 1 ? (
-                  <select value={v?.id ?? ""} onChange={(e) => setPicks((x) => ({ ...x, [s.offerId]: e.target.value }))} className="mt-1 h-8 max-w-full rounded-md border border-[#d9dce1] bg-white px-2 text-[13px] text-[#1a1a2e]" aria-label={`${p.title} option`}>
+                  <select value={v?.id ?? ""} onChange={(e) => setPicks((x) => ({ ...x, [s.offerId]: e.target.value }))} className="mt-1 h-8 max-w-full rounded-md border border-[#d9dce1] bg-white px-2 text-[13px] text-[#1a1a2e]" aria-label={ct("{title} option", { title: p.title })}>
                     {p.variants.map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.name}
@@ -59,7 +77,7 @@ export function CheckoutSuggestions({ suggestions, onAdd, busy = false, money }:
               </div>
               <button type="button" disabled={busy || (p.type === "physical" && !v)} onClick={() => onAdd(s, v)} className="inline-flex h-9 shrink-0 items-center gap-1 rounded-[10px] border border-[#1a1a2e] px-3 text-[13.5px] font-semibold text-[#1a1a2e] transition-colors hover:bg-[#1a1a2e] hover:text-white disabled:opacity-50" data-suggestion-add="">
                 <Plus className="h-3.5 w-3.5" aria-hidden />
-                Add
+                {ct("Add")}
               </button>
             </div>
           </div>

@@ -82,6 +82,8 @@ import { reportNow } from "@/lib/analytics/report-cache"
 import { AnalyticsChartWithTooltip, CHART_COLORS, type AnalyticsChartData } from "@/components/app/analytics-chart"
 import { MetricTab, MetricTabLine } from "@/components/app/metric-tab"
 import { TAB_STRIP_STYLE, useTabStrip } from "@/components/app/use-tab-strip"
+import { useEdgeFade } from "@/components/app/use-edge-fade"
+import { StripArrow } from "@/components/app/strip-arrow"
 import { HoverNote } from "@/components/app/help-label"
 import { LoadingLine } from "@/components/app/loading-line"
 import { tt } from "@/lib/i18n/text"
@@ -468,6 +470,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
 
   /* The row follows the chosen tab on a phone; the swipe itself is the browser's. */
   const metricStripRef = useTabStrip<HTMLDivElement>(chartMetricFilter, tabOrder)
+  const pickersRef = useEdgeFade<HTMLDivElement>()
   const revealRef = useRevealCards()
   /*
     A NEW PERIOD ARRIVES, IT IS NOT CUT IN (round 25, the owner: "time frame apply on Orders and Analytics: a smooth
@@ -609,11 +612,17 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
         </div>
 
         {/* The period and the place side by side, the product and Export at the end. No comparison control.
-            On a phone the pickers are one row that scrolls sideways, as the figures below do, and Export
-            stays put at its right end: a longer label (a product's name, a custom range) never wraps it
-            onto a second row, and Export never scrolls off the screen. */}
+            On a phone the pickers are ONE row that scrolls sideways (the owner: "they wrap onto two rows"),
+            with momentum and no bar, fading where it is cut (components/app/use-edge-fade), and Export stays
+            put at its right end, so it never scrolls off the screen. Each picker opens its sheet through a
+            portal, so the scroller clips none of them. The 4px above and below are the chips' rings. */}
         <div className="flex items-center gap-2 sm:gap-3" data-analytics-controls="">
-          <div className="orders-strip -ml-[var(--app-gutter)] flex min-w-0 flex-1 items-center justify-between gap-2 overflow-x-auto pl-[var(--app-gutter)] sm:ml-0 sm:flex-wrap sm:gap-3 sm:overflow-visible sm:pl-0" data-analytics-pickers="">
+          <div
+            ref={pickersRef}
+            data-scroll-x
+            className="orders-strip edge-fade -my-1 -ml-[var(--app-gutter)] flex min-w-0 flex-1 items-center justify-between gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain py-1 pl-[var(--app-gutter)] touch-pan-x touch-pan-y sm:my-0 sm:ml-0 sm:flex-wrap sm:gap-3 sm:overflow-visible sm:py-0 sm:pl-0"
+            data-analytics-pickers=""
+          >
             <div className="flex shrink-0 items-center gap-2">
               <DateRangePicker value={period} onChange={setPeriod} today={today} />
               <PropertyPicker options={options} value={property} onChange={setProperty} />
@@ -627,8 +636,9 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           <ExportButton query={exportQuery} name={exportName} options={exportOptions} range={exportRange} />
         </div>
 
-        {/* All, Digital, Physical, Communities: what the seller has, when there is a choice (round 24). */}
-        {kindPills.length ? <SegmentedPills options={kindPills} value={shownView} onChange={setView} label={tt("What to show")} className="-mt-2" /> : null}
+        {/* All, Digital, Physical, Communities: what the seller has, when there is a choice (round 24). Separate chips,
+            the chosen one dark, so no label is ever cut by a track's end (components/app/segmented-pills "chips"). */}
+        {kindPills.length ? <SegmentedPills options={kindPills} value={shownView} onChange={setView} label={tt("What to show")} variant="chips" className="-mt-2" /> : null}
 
         {/* The four figures and the chart of the one chosen */}
         <div className="relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden" aria-busy={waitingFigures || waitingLists}>
@@ -657,6 +667,8 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
               }[tab]
               return <MetricTab key={tab} tab={tab} className={STRIP_TAB} label={spec.label} value={spec.value} change={spec.change} selected={chartMetricFilter === tab} soft={soft} loading={figuresLoading} foot={spec.foot} onSelect={() => setChartMetricFilter(tab)} line={false} />
             })}
+            {/* More figures that way: the home chart's arrow, which pages the row along and turns back at its end. */}
+            <StripArrow className="md:hidden" />
           </div>
 
           <div className="border-t border-[#e5e7eb]/60 px-2 pt-7 pb-3 sm:px-4 sm:pb-4">

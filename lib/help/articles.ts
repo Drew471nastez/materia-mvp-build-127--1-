@@ -19,6 +19,7 @@
  */
 
 import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY, SITE_WIDE_ARTICLES } from "./physical-articles"
+import { OFFER_ARTICLES } from "./offer-articles"
 
 export type HelpBlock =
   | { type: "p"; text: string }
@@ -420,6 +421,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         "the products it applies to, or all of them",
       ] },
       { type: "p", text: "Buyers enter the code at checkout. The discount is shown before they pay." },
+      { type: "p", text: "To give a better price without a code, for buying more or buying products together, use [upsells and bundles](/help/products/offers)." },
     ],
   },
   {
@@ -982,6 +984,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
   },
   /* Store currency, more currencies and languages (written in ./physical-articles beside the guide they grew from). */
   ...SITE_WIDE_ARTICLES,
+  /* Upsells and bundles, one kind of offer at a time, under Products (./offer-articles). */
+  ...OFFER_ARTICLES,
 ]
 
 /*

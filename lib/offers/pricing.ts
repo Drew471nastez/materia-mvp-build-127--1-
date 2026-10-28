@@ -242,3 +242,60 @@ export function storedTiers(raw: unknown): Tier[] {
   const r = readTiers(raw)
   return r.ok === true ? r.tiers : []
 }
+
+/**
+ * A TIER'S NAME IN THE BUYER'S LANGUAGE. A tier saved with no name of its
+ * own was given tierLabel's English ("Buy 2 get 1 free", "Buy 3, save 15%",
+ * "Buy 2, save $5.00", "Buy 1"), whatever the store's language. That name is
+ * read back here as what it says, so each page can say it in its own words
+ * (Translate › Shop words on the website, Translate › Checkout at checkout);
+ * a name the store typed is anything else, and stays as typed. Null: not one
+ * of the default names.
+ */
+export type TierWording =
+  | { kind: "free"; quantity: number; free: number }
+  | { kind: "percent"; quantity: number; percent: number }
+  | { kind: "amount"; quantity: number; amount: string }
+  | { kind: "plain"; quantity: number }
+
+export function defaultTierWording(label: string | null | undefined): TierWording | null {
+  const s = typeof label === "string" ? label.trim() : ""
+  let m = s.match(/^Buy (\d{1,2}) get (\d{1,2}) free$/)
+  if (m) return { kind: "free", quantity: Number(m[1]), free: Number(m[2]) }
+  m = s.match(/^Buy (\d{1,2}), save (\d{1,2})%$/)
+  if (m) return { kind: "percent", quantity: Number(m[1]), percent: Number(m[2]) }
+  m = s.match(/^Buy (\d{1,2}), save (\S.{0,30})$/)
+  /* An amount: a figure in it ("$5.00", "5,00 lei"), never words a store typed ("Buy 2, save big"). */
+  if (m && /\d/.test(m[2]) && !/[a-z]{4,}/i.test(m[2])) return { kind: "amount", quantity: Number(m[1]), amount: m[2] }
+  m = s.match(/^Buy (\d{1,2})$/)
+  if (m) return { kind: "plain", quantity: Number(m[1]) }
+  return null
+}
+
+/** The English patterns of a default tier name, the keys a page translates them by (lib/markets/ui-words.ts offer_tier_*, the checkout's ct sentences). */
+export const TIER_WORDS = {
+  free: "Buy {quantity} get {free} free",
+  percent: "Buy {quantity}, save {percent}%",
+  amount: "Buy {quantity}, save {amount}",
+  plain: "Buy {quantity}",
+} as const
+
+/**
+ * A tier's name as a page says it: the store's own as typed; a default one
+ * in `say`'s words (each TIER_WORDS pattern in the page's language, with its
+ * values in). `tier`, when known, gives the amount off in the page's money
+ * (`money`), so a default name saved as "$5.00" in a lei store reads in lei.
+ */
+export function tierNameIn(label: string, say: (kind: keyof typeof TIER_WORDS, vars: Record<string, string>) => string, tier?: Pick<Tier, "discountType" | "discountValue"> | null, money?: (minor: number) => string): string {
+  const w = defaultTierWording(label)
+  if (!w) return label
+  if (w.kind === "free") return say("free", { quantity: String(w.quantity), free: String(w.free) })
+  if (w.kind === "percent") return say("percent", { quantity: String(w.quantity), percent: String(w.percent) })
+  if (w.kind === "amount") return say("amount", { quantity: String(w.quantity), amount: tier && tier.discountType === "amount" && money ? money(tier.discountValue) : w.amount })
+  return say("plain", { quantity: String(w.quantity) })
+}
+
+/** A TIER_WORDS pattern with its values in: "{quantity}" and the rest replaced. */
+export function fillWords(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (all, k: string) => (k in vars ? vars[k] : all))
+}

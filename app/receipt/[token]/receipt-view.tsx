@@ -50,9 +50,10 @@ const PENDING_POLL_MS = 4000
 const PENDING_POLL_LIMIT = 30
 
 /**
- * A date in the buyer's own locale and time zone. The server renders it in
- * UTC with the Accept-Language locale; once the browser is running it swaps
- * in the local zone, so a purchase at 23:30 is not shown as tomorrow.
+ * A date in the receipt's language (lib/markets/buyer-language.ts) and the
+ * buyer's own time zone. The server renders it in UTC; once the browser is
+ * running it swaps in the local zone, so a purchase at 23:30 is not shown
+ * as tomorrow.
  */
 function LocalDate({ iso, locale }: { iso: string; locale: string }) {
   const format = useCallback(

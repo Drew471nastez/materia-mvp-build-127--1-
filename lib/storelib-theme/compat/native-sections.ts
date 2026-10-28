@@ -24,6 +24,7 @@
 import { REVIEW_STARS_BLOCK, REVIEWS_LIST_BLOCK } from "./review-app-blocks"
 import { ESTIMATED_DELIVERY_BLOCK, STOCK_STATUS_BLOCK } from "./product-app-blocks"
 import { SIZE_CHART_APP_BLOCK } from "./size-chart"
+import { OFFERS_APP_BLOCK } from "./offers-app-block"
 
 export const REVIEWS_SECTION_TYPE = "storelib-reviews"
 export const REVIEW_WIDGET_SECTION_TYPE = "storelib-review-widget"
@@ -35,7 +36,7 @@ export const STORELIB_APP_SECTION_TYPES: readonly string[] = [REVIEWS_SECTION_TY
 export const STORELIB_APP_SECTION_NAMES: Readonly<Record<string, string>> = { [REVIEWS_SECTION_TYPE]: "Storelib Reviews", [REVIEW_WIDGET_SECTION_TYPE]: "Reviews widget" }
 
 /** Storelib's own app blocks, by the address a page keeps them under. */
-export const STORELIB_APP_BLOCK_TYPES: readonly string[] = [REVIEW_STARS_BLOCK, REVIEWS_LIST_BLOCK, STOCK_STATUS_BLOCK, ESTIMATED_DELIVERY_BLOCK, SIZE_CHART_APP_BLOCK]
+export const STORELIB_APP_BLOCK_TYPES: readonly string[] = [REVIEW_STARS_BLOCK, REVIEWS_LIST_BLOCK, STOCK_STATUS_BLOCK, ESTIMATED_DELIVERY_BLOCK, SIZE_CHART_APP_BLOCK, OFFERS_APP_BLOCK]
 
 /** A section type Storelib draws in an imported theme without a file of the theme's. */
 export function isStorelibNativeSection(type: unknown): boolean {

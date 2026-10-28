@@ -988,7 +988,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           router.push(href)
         }}
         onPrefetch={(href) => {
-          prefetchAppPage(router, href)
+          /* Asked again whenever a router.refresh() drops it (lib/ui/app-navigation KEPT WARM THROUGH A REFRESH). */
+          prefetchAppPage(router, href, { keepWarm: true })
         }}
         icons={{
           home: NAV_ICONS.dashboard,

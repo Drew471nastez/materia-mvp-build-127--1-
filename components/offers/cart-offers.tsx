@@ -20,6 +20,9 @@ import * as React from "react"
 import { Package, Plus } from "lucide-react"
 import { checkoutItems, type CartLine } from "@/lib/website-builder/cart"
 import type { CartOffersAnswer, OfferItem } from "@/lib/offers/contract"
+import { fillWords, tierNameIn } from "@/lib/offers/pricing"
+import { offerRowKey, offerSavingsShown, shownMoney, type CartDiscountCents } from "@/lib/markets/cart-money"
+import { useStorefront, useWord } from "@/components/website-builder/theme/storefront-context"
 
 /* The answer's shape and what each field promises: lib/offers/contract.ts, the one contract the route answers by. */
 type Item = OfferItem
@@ -38,6 +41,19 @@ export function offerSubtotalCents(lines: CartLine[], data: CartOffersData | nul
   /* Only an answer for every line: one the server could not price (gone from the shop) leaves the cart's own sum. */
   if (data.lines.length !== lines.length) return own
   return data.subtotalCents
+}
+
+/**
+ * The offers' discount on the cart for its amounts (useCartMoney): the
+ * server's subtotal, what the offers take off, and each line's part when the
+ * answer is line for line for these lines, so a market's currency converts
+ * each line as checkout does. Null when the offers take nothing off.
+ */
+export function offerDiscount(lines: CartLine[], data: CartOffersData | null): CartDiscountCents | null {
+  if (!data || data.offerCents <= 0) return null
+  const subtotalCents = offerSubtotalCents(lines, data)
+  const own = subtotalCents === data.subtotalCents && data.lines.length === lines.length
+  return { subtotalCents, discountCents: data.offerCents, ...(own ? { lineDiscounts: data.lines.map((l) => l.discountCents) } : {}) }
 }
 
 /** What the server says this cart gets from the store's offers, asked again 400ms after the cart last changed. */
@@ -83,14 +99,21 @@ export interface CartOfferColors {
 
 /** Each offer the cart gets, as a line above the subtotal: its name and what it takes off. */
 export function CartOfferSavings({ data, money, className }: { data: CartOffersData | null; money: (cents: number) => string; className?: string }) {
+  /* In a market's currency each saving is converted line by line, as checkout lists it (lib/markets/cart-money offerSavingsShown); `money` writes the store's own. */
+  const { display, currency } = useStorefront()
+  /* A quantity break tier with no name of its own, in the page's language (lib/offers/pricing.ts tierNameIn). */
+  const w = useWord()
+  const tierWords = { free: w("offer_tier_free"), percent: w("offer_tier_percent"), amount: w("offer_tier_amount"), plain: w("offer_tier_plain") }
   const saving = (data?.offers ?? []).filter((o) => o.savedCents > 0)
   if (saving.length === 0) return null
+  const shown = offerSavingsShown(data?.lines ?? [], saving, display)
+  const write = shown ? shownMoney(display, currency ?? "USD") : null
   return (
     <div className={className} data-cart-offer-savings="">
       {saving.map((o) => (
-        <div key={o.offerId} className="flex items-baseline justify-between gap-3">
-          <span className="min-w-0 truncate opacity-70">{o.title}</span>
-          <span className="shrink-0 tabular-nums">&minus;{money(o.savedCents)}</span>
+        <div key={offerRowKey(o)} className="flex items-baseline justify-between gap-3">
+          <span className="min-w-0 truncate opacity-70">{tierNameIn(o.title, (kind, vars) => fillWords(tierWords[kind], vars))}</span>
+          <span className="shrink-0 tabular-nums">&minus;{shown && write && shown.has(offerRowKey(o)) ? write(shown.get(offerRowKey(o))!) : money(o.savedCents)}</span>
         </div>
       ))}
     </div>
@@ -100,14 +123,16 @@ export function CartOfferSavings({ data, money, className }: { data: CartOffersD
 /** Upsells to add and bundles to finish, each a row with its picture, its price and Add. */
 export function CartOfferSuggestions({ data, onAdd, money, colors, radius = 10 }: { data: CartOffersData | null; onAdd: (lines: CartLine[]) => void; money: (cents: number) => string; colors: CartOfferColors; radius?: number }) {
   const [picks, setPicks] = React.useState<Record<string, string>>({})
+  /* In the page's language (Translate › Shop words). */
+  const w = useWord()
   const rows = [
-    ...(data?.completions ?? []).map((c) => ({ key: c.offerId, heading: c.title, label: c.label, items: c.missing, price: c.missing.reduce((n, i) => n + i.priceCents, 0), was: null as number | null, note: c.savingCents > 0 ? `Save ${money(c.savingCents)} on the set` : null })),
+    ...(data?.completions ?? []).map((c) => ({ key: c.offerId, heading: c.title, label: c.label, items: c.missing, price: c.missing.reduce((n, i) => n + i.priceCents, 0), was: null as number | null, note: c.savingCents > 0 ? w("offer_save_on_set").replace("{amount}", money(c.savingCents)) : null })),
     ...(data?.suggestions ?? []).map((s) => ({ key: s.offerId, heading: s.title, label: s.label, items: [s.product], price: s.offerPriceCents, was: s.offerPriceCents < s.product.priceCents ? s.product.priceCents : null, note: null as string | null })),
   ]
   if (rows.length === 0) return null
   const muted = colors.muted ?? colors.text
   return (
-    <section aria-label="You may also like" className="space-y-2.5" data-cart-offer-suggestions="">
+    <section aria-label={w("offer_suggestions")} className="space-y-2.5" data-cart-offer-suggestions="">
       {rows.map((r) => {
         const first = r.items[0]
         const options = r.items.length === 1 && first.variants.length > 1 ? first.variants : null
@@ -136,7 +161,7 @@ export function CartOfferSuggestions({ data, onAdd, money, colors, radius = 10 }
                   {r.items.map((i) => i.title).join(" + ")}
                 </p>
                 {options ? (
-                  <select value={chosen ?? ""} onChange={(e) => setPicks((p) => ({ ...p, [r.key]: e.target.value }))} className="mt-1 h-8 max-w-full rounded-md border bg-transparent px-2 text-[13px]" style={{ borderColor: colors.border, color: colors.text }} aria-label={`${first.title} option`}>
+                  <select value={chosen ?? ""} onChange={(e) => setPicks((p) => ({ ...p, [r.key]: e.target.value }))} className="mt-1 h-8 max-w-full rounded-md border bg-transparent px-2 text-[13px]" style={{ borderColor: colors.border, color: colors.text }} aria-label={w("offer_option").replace("{title}", first.title)}>
                     {options.map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.name}
@@ -163,7 +188,7 @@ export function CartOfferSuggestions({ data, onAdd, money, colors, radius = 10 }
                 data-cart-offer-add=""
               >
                 <Plus className="h-3.5 w-3.5" aria-hidden />
-                Add
+                {w("offer_add")}
               </button>
             </div>
           </div>

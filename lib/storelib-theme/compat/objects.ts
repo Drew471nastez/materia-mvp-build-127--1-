@@ -416,6 +416,8 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   }
   /* The cheapest rate home's business days (./product-facts.ts), for Storelib's Estimated delivery block; a theme never sees a key that starts with __. */
   const ship = s.delivery_days as { minDays?: unknown; maxDays?: unknown } | undefined
+  /* The Bundles and upsells app block's figures, worked out on the server (./offers-app-block.ts offersShown). */
+  if (s.storelib_offers_shown && typeof s.storelib_offers_shown === "object") Object.defineProperty(product, "__offers_shown", { value: s.storelib_offers_shown, enumerable: false, configurable: true })
   if (ship && typeof ship === "object") Object.defineProperty(product, "__delivery", { value: { minDays: typeof ship.minDays === "number" ? ship.minDays : null, maxDays: typeof ship.maxDays === "number" ? ship.maxDays : null }, enumerable: false, configurable: true })
   for (const v of variants) {
     v.product = { id: product.id, title, handle, url: product.url }

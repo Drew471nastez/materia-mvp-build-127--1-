@@ -323,7 +323,9 @@ for (const [width, viewport] of VIEWPORTS) {
     return g
   }
 
-  for (const [name, path, strip] of ROUTES) {
+  for (const [name, path, routeStrip] of ROUTES) {
+    /* Try Pro is gone on a phone (components/app/announcement-bar-mobile NOT ON A PHONE): the plain page is under the curve there. Home's own strip stays. */
+    const strip = routeStrip && (name === "home" || !phone)
     await page.evaluate((p) => window.__go(p), path)
     await wait(name === "home" ? 900 : 450)
     await measure(name, { atRest: true, strip })
@@ -347,8 +349,10 @@ for (const [width, viewport] of VIEWPORTS) {
           svgIcons: s.querySelectorAll("svg").length,
         }
       }))
-      expect(strips.length === 1, `${width} ${name}: ${strips.length} strips on the page`)
-      for (const s of strips) {
+      if (!strip) {
+        expect(strips.every((s) => s.height === 0), `${width} ${name}: a Try Pro strip is drawn on a phone (${strips.map((s) => s.height)}px)`)
+      } else expect(strips.length === 1, `${width} ${name}: ${strips.length} strips on the page`)
+      for (const s of strip ? strips : []) {
         /* The violet band the owner asked back for, with the one sparkle on Upgrade, and no gradient. */
         expect(s.bg === "rgb(139, 92, 246)", `${width} ${name}: the strip is ${s.bg}, not the violet band`)
         expect(s.gradients === 0 && s.svgIcons === 1, `${width} ${name}: the strip has ${s.gradients} gradients and ${s.svgIcons} icons in it, not none and the sparkle`)

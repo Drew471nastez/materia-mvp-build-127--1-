@@ -100,6 +100,8 @@ const SUITES = [
   "tests/builder25.test.ts",
   "tests/help23.test.ts",
   "tests/help-center.test.ts",
+  /* The upsells and bundles guide (lib/help/offer-articles.ts): the screens' words and real screenshots, scripts/help-offer-shots.mjs. */
+  "tests/help-offers.test.ts",
   "tests/select22.test.ts",
   "tests/files-picker19.test.ts",
   "tests/polish21.test.ts",
@@ -419,6 +421,8 @@ const SUITES = [
   "tests/store-menus.test.ts",
   "tests/theme-breadcrumbs.test.ts",
   "tests/date-control.test.ts",
+  /* An imported theme's countdown: one calendar, time and zone for its end_date/end_hour/end_minute/utc_offset, end_iso or countdown_date, written back in the shape stored; scripts/check-countdown-restart.mjs measures the canvas. */
+  "tests/countdown.test.ts",
   "tests/media-url.test.ts",
   "tests/navigation-and-collections.test.ts",
   "tests/collections-ui.test.ts",
@@ -642,6 +646,8 @@ const SUITES = [
   /* Emails › Customer emails in three families, the language and the signature by where it was bought, previews that are the sent email; scripts/check-emails-families.mjs measures the switch and the lists. */
   "tests/emails-families.test.ts",
   "tests/emails-language.test.ts",
+  /* One language for everything about a placed order: the store's default unless the order or a link names another it publishes; never a cookie, the browser or the country (lib/markets/buyer-language.ts). */
+  "tests/buyer-language.test.ts",
   "tests/emails-identity.test.ts",
   "tests/emails-preview.test.ts",
   /* Round AE2: every buyer and member email editable (Digital, Physical, Community), every community email in the community's name, picture, reply address and domain, per community unsubscribe; scripts/check-ae2-email-branding.mjs opens a sample at 390 and 600. SQL part 301. */
@@ -656,6 +662,10 @@ const SUITES = [
   "tests/offers-af.test.ts",
   /* Round AG: offers end to end: a download basket's offers and properties on its order lines (receipt, invoice, emails, admin, export, each offer by name), a currency change converting quantity break amounts (SQL part 306, on Postgres when OFFERS_PG_HOST is set), /cart.js and the Liquid cart with Shopify's automatic discounts to the cent of checkout, the builder's canvas, the native tiers, the creator's try-a-cart and warnings. */
   "tests/offers-ag.test.ts",
+  /* Offers, one number everywhere: the checkout's saving rows, the cart's and the product page's in a market that rounds; pay what you want never shown discounted; a break on a download; the offers' words translated. */
+  "tests/offers-parity.test.ts",
+  /* Storelib's own Featured products and Product spotlight show the featured product's offers, with the product page block's pieces and figures (components/offers/featured-offers.tsx). */
+  "tests/offers-featured.test.ts",
   /* Round AG3: a buyer's words and pictures on a cart line: uploads checked by their bytes, drawn again without EXIF, kept privately per store and browser, refused on another store or cart, copied to the order when paid, shown in emails, slips, exports and the order page, sent to print partners, swept after 14 days; the Storelib theme's Personalization block; SQL part 308. */
   "tests/cart-uploads.test.ts",
   "tests/round-v.test.ts",
@@ -760,6 +770,8 @@ const SUITES = [
   "tests/pills17.test.ts",
   "tests/nav18.test.ts",
   "tests/nav23.test.ts",
+  /* Round 26: the pull's spinner capped (lib/ui/pull-refresh-cap), the pill's pages kept warm through a router.refresh, the menu closed on the tap, the creator's reads started when the creator is known. */
+  "tests/nav-speed.test.ts",
   /* V3: the builder's speed (scripts/check-editor-perf.mjs) and its Going back screen (scripts/check-editor-exit.mjs). */
   "tests/editor-perf-v.test.ts",
   /* Round perf2-1028: a push read back keeps the sections that did not change, an Ask run's lines are one render a frame, the activity poll no longer throws on every key and reads again after a scroll rests; scripts/check-editor-perf.mjs (PART=scroll,live) measures them. */
@@ -914,6 +926,8 @@ const SUITES = [
   "tests/editor-incoming-push.test.ts",
   /* The canvas scroll moves its chrome from the scroll offset, and a push waits until the gesture rests. */
   "tests/editor-scroll-rest.test.ts",
+  /* A push reaches an open editor without a reload: a sleep with no visibilitychange is an absence, a full page reads on and the pile lands once, an apply has a ceiling, online, pageshow and the app's return wake it; the session recovery and a stalled OnePage load end in something to press. */
+  "tests/editor-live-follow.test.ts",
   /* Round 14 (SCROLL): the canvas scrolled with the owner's real Materia theme: the builder's layer in a shadow root, outlines read after layout, nothing said or measured per scroll frame, far sections at rest (scripts/check-wb-scroll-r14.mjs) */
   "tests/wb-scroll-r14.test.ts",
   /* Round X1: an imported theme's blocking scripts deferred in their order, app widgets started after load, one copy of each stylesheet, desktop prerender for pages with nobody else's scripts, no unload listeners, builder sub-pages held for strangers */

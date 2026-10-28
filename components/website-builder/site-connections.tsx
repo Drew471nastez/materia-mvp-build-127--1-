@@ -48,6 +48,7 @@ import {
   type ConnectionsBrief,
 } from "@/lib/agent-access/connection-mark"
 import { tt } from "@/lib/i18n/text"
+import { APPLY_CEILING_MS, BRIEF_RECHECK_MS, LOOKBACK_EVERY_MS, briefDue, isPile, mergeLines, nextCursor, readMore, remember, slept, withinTime } from "@/lib/website-builder/live-follow"
 
 /* ── The channel ───────────────────────────────────────────────────────── */
 
@@ -60,6 +61,55 @@ const CATCH_UP_PAGES = 6
 const ACTIVITY_PAGE = 20
 /** The next read after an apply that had to wait (a scroll resting, a page read back): straight after, so a change made meanwhile lands with it. */
 export const HELD_UP_MS = 50
+
+/**
+ * The app coming back to the front, or going to the back, in the iOS and
+ * Android shells (Capacitor's App plugin). A suspended WKWebView does not
+ * always say `visibilitychange` on its way back; this does. Nothing in a
+ * browser.
+ */
+function onNativeAppState(listener: (active: boolean) => void): () => void {
+  if (typeof document === "undefined" || !document.documentElement.classList.contains("capacitor")) return () => {}
+  let removed = false
+  let handle: { remove: () => unknown } | null = null
+  import("@capacitor/app")
+    .then(({ App }) => App.addListener("appStateChange", ({ isActive }) => listener(isActive)))
+    .then((h) => {
+      if (removed) void h.remove()
+      else handle = h
+    })
+    .catch(() => {
+      /* no plugin in this shell: visibilitychange and focus still wake it */
+    })
+  return () => {
+    removed = true
+    void handle?.remove()
+  }
+}
+
+/**
+ * Two frames, so a page restored from the background has painted, then a
+ * moment the browser has free: coming back also reads the shop's cards and
+ * measures the canvas again, and the pile landing on those same frames was
+ * the stutter on the way back. A web view that runs no frames still goes on.
+ */
+function afterPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false
+    const finish = () => {
+      if (done) return
+      done = true
+      clearTimeout(cap)
+      resolve()
+    }
+    const cap = setTimeout(finish, 1_200)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }
+      if (w.requestIdleCallback) w.requestIdleCallback(finish, { timeout: 800 })
+      else finish()
+    }))
+  })
+}
 
 export function useSiteActivity({
   installId,
@@ -83,6 +133,10 @@ export function useSiteActivity({
   /** The first read has come back, with an answer or without one. */
   const [settled, setSettled] = useState(false)
   const cursor = useRef<number | null>(null)
+  /** Where the editor started in the log: a late line below it is what the editor loaded with. */
+  const floor = useRef<number | null>(null)
+  /** The lines applied, by id, so a late line looked at again is applied once (live-follow.ts mergeLines). */
+  const seen = useRef(new Set<number>())
   const onEventsRef = useRef(onEvents)
   onEventsRef.current = onEvents
   const onSyncRef = useRef(onSyncChanged)
@@ -91,6 +145,10 @@ export function useSiteActivity({
   onStaleRef.current = onStale
   /** When the link last changed, as last read; undefined until the first answer. */
   const syncAt = useRef<string | null | undefined>(undefined)
+  /** The database has no activity table: nothing to follow, and nothing to ask again. */
+  const [missing, setMissing] = useState(false)
+  /** Raised to read the brief again while nothing is connected (a connection made in another tab or on another device). */
+  const [briefAsk, setBriefAsk] = useState(0)
 
   useEffect(() => {
     if (!installId) return
@@ -109,6 +167,7 @@ export function useSiteActivity({
           }
           if (d.missing === true) {
             setReady(false)
+            setMissing(true)
             return
           }
           if (d.connections) setBrief(d.connections)
@@ -120,7 +179,10 @@ export function useSiteActivity({
           /* Kept across a re-read, so a change made while settings were open
              is not skipped; only the first answer sets where to start. A failed
              read must not set it: its cursor is 0 and would replay the log. */
-          if (cursor.current === null && d.ready !== false && typeof d.cursor === "number") cursor.current = d.cursor
+          if (cursor.current === null && d.ready !== false && typeof d.cursor === "number") {
+            cursor.current = d.cursor
+            floor.current = d.cursor
+          }
           setReady(d.ready !== false)
         })
         .catch(() => {
@@ -134,9 +196,38 @@ export function useSiteActivity({
       live = false
       if (timer) clearTimeout(timer)
     }
-  }, [installId, recheck])
+  }, [installId, recheck, briefAsk])
 
   const connected = ready && !!brief && (brief.agents.length > 0 || !!brief.github)
+
+  /*
+    NOTHING CONNECTED WHEN THE EDITOR OPENED IS NOT NOTHING FOR GOOD. A key
+    made on another device, a repository linked in another tab: the brief
+    was read once and the log was never followed. Asked again on a return to
+    the tab, on a connection coming back, and once a minute while visible.
+  */
+  useEffect(() => {
+    if (!installId || connected || missing || !settled) return
+    let last = Date.now()
+    const again = (reason: "timer" | "wake") => {
+      if (document.visibilityState !== "visible" || !briefDue(last, Date.now(), reason)) return
+      last = Date.now()
+      setBriefAsk((n) => n + 1)
+    }
+    const wake = () => again("wake")
+    const every = setInterval(() => again("timer"), BRIEF_RECHECK_MS)
+    document.addEventListener("visibilitychange", wake)
+    window.addEventListener("focus", wake)
+    window.addEventListener("online", wake)
+    const offNative = onNativeAppState((active) => { if (active) wake() })
+    return () => {
+      clearInterval(every)
+      document.removeEventListener("visibilitychange", wake)
+      window.removeEventListener("focus", wake)
+      window.removeEventListener("online", wake)
+      offNative()
+    }
+  }, [installId, connected, missing, settled])
 
   useEffect(() => {
     if (!connected) return
@@ -149,9 +240,14 @@ export function useSiteActivity({
     /** When the tab was hidden, so a return after a while is one catch-up, not a storm. */
     let hiddenAt = 0
     let catchUpPending = false
+    /** When the scheduled read was due: one that runs far later slept through it (a lid closed, the app put away). */
+    let dueAt = 0
+    /** When a read last looked back for a line that committed late. */
+    let lookedBack = 0
 
     const schedule = (ms: number) => {
       if (timer) clearTimeout(timer)
+      dueAt = Date.now() + ms
       timer = stopped ? null : setTimeout(tick, ms)
     }
     async function tick() {
@@ -163,23 +259,31 @@ export function useSiteActivity({
       let arrived = false
       let eventsFull = false
       let retry = false
+      /* Timers frozen with no visibilitychange (sleep, a suspended web view): that is an absence too. */
+      const away = slept(dueAt, Date.now(), CATCH_UP_AWAY_MS)
+      const pending = catchUpPending
       /* Applying waited (the canvas was being scrolled, a page was read back): the log may have grown meanwhile. */
       let heldUp = false
-      const catchUp = catchUpPending
       catchUpPending = false
+      let catchUp = pending || away
       try {
         /* Coming back after a while: let the restored page paint before the catch-up draws over it. */
-        if (catchUp) await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-        const events: ActivityEvent[] = []
+        if (catchUp) await afterPaint()
+        const fresh: ActivityEvent[] = []
+        const late: ActivityEvent[] = []
         let after = cursor.current
         let pages = 0
         let syncSeen: string | null | undefined
-        while (after !== null && pages < (catchUp ? CATCH_UP_PAGES : 1)) {
+        /* A full page means more is waiting: read it now and apply the lot once, however the pile came about. */
+        while (after !== null && pages < CATCH_UP_PAGES) {
+          /* The first page looks back every few seconds, and on a return, for a line that committed after a later one. */
+          const look = pages === 0 && (catchUp || Date.now() - lookedBack >= LOOKBACK_EVERY_MS)
+          if (look) lookedBack = Date.now()
           const res = await fetch(
-            `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${after}`,
+            `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${after}${look ? "&lookback=1" : ""}`,
             { cache: "no-store", signal: AbortSignal.timeout(12_000) },
           )
-          const d = (await res.json().catch(() => null)) as { ready?: boolean; missing?: boolean; retry?: boolean; cursor?: number; events?: ActivityEvent[]; sync_at?: string | null } | null
+          const d = (await res.json().catch(() => null)) as { ready?: boolean; missing?: boolean; retry?: boolean; cursor?: number; events?: ActivityEvent[]; late?: ActivityEvent[]; sync_at?: string | null } | null
           const follow = activityFollowUp(res.status, d)
           /* The table is not there: nothing to follow. Any other failure is asked again, cursor unmoved. */
           if (follow === "stop") {
@@ -193,18 +297,26 @@ export function useSiteActivity({
           if (typeof d.cursor === "number") after = d.cursor
           if (d.sync_at !== undefined) syncSeen = d.sync_at
           const batch = d.events ?? []
-          for (const ev of batch) events.push(ev)
+          for (const ev of batch) fresh.push(ev)
+          if (Array.isArray(d.late)) for (const ev of d.late) late.push(ev)
           pages++
-          if (batch.length < ACTIVITY_PAGE) break
+          if (!readMore(batch.length, pages, CATCH_UP_PAGES, ACTIVITY_PAGE)) break
         }
+        catchUp = isPile({ pending, slept: away, pagesRead: pages })
+        /* Each line once, oldest first: the new ones and any that committed late. */
+        const events = mergeLines(late, fresh, seen.current, floor.current)
         /* Apply before moving the cursor. A throw used to skip the lines and never read them again. */
         if (events.length) {
           arrived = true
-          eventsFull = events.length >= ACTIVITY_PAGE * (catchUp ? CATCH_UP_PAGES : 1)
+          eventsFull = fresh.length >= ACTIVITY_PAGE * CATCH_UP_PAGES
+          /* Taken before applying: a throw or a timeout below still counts them, so none is applied twice. */
+          remember(seen.current, events.map((ev) => ev.id))
           const applying = Date.now()
           try {
             /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
-            await onEventsRef.current(events, { catchUp })
+            const run = (async () => { await onEventsRef.current(events, { catchUp }) })()
+            /* An apply that never answers (a read suspended with the web view) held the loop busy for good: the theme is read again instead. */
+            if ((await withinTime(run, APPLY_CEILING_MS)) === "late") onStaleRef.current?.()
           } catch {
             try { onStaleRef.current?.() } catch { /* the cursor still moves; the next read is the new lines */ }
           }
@@ -214,7 +326,7 @@ export function useSiteActivity({
         }
         /* A failed page is not consumed: `after` is the last page that was read.
            With no events and a failure, the cursor stays so the same read is asked again. */
-        if (after !== null && (!retry || events.length > 0)) cursor.current = after
+        cursor.current = nextCursor(cursor.current, after, retry, fresh.length)
         if (syncSeen !== undefined && syncSeen !== syncAt.current) {
           const first = syncAt.current === undefined
           syncAt.current = syncSeen
@@ -270,8 +382,31 @@ export function useSiteActivity({
         schedule(delay)
       }
     }
+    /* Back online after a drop, restored from the back and forward cache, or the app brought back to the front. */
+    const online = () => {
+      woke = 0
+      wake()
+    }
+    const shown = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        catchUpPending = true
+        online()
+      }
+    }
+    const offNative = onNativeAppState((active) => {
+      if (!active) {
+        hiddenAt = Date.now()
+        if (timer) clearTimeout(timer)
+        timer = null
+        return
+      }
+      if (hiddenAt > 0 && Date.now() - hiddenAt >= CATCH_UP_AWAY_MS) catchUpPending = true
+      online()
+    })
     document.addEventListener("visibilitychange", wake)
     window.addEventListener("focus", wake)
+    window.addEventListener("online", online)
+    window.addEventListener("pageshow", shown)
     /* Back from the terminal or GitHub in a window beside this one: no focus change, but the pointer comes back. */
     document.documentElement.addEventListener("pointerenter", wake)
     window.addEventListener("pointerdown", stir, true)
@@ -280,6 +415,9 @@ export function useSiteActivity({
     return () => {
       stopped = true
       if (timer) clearTimeout(timer)
+      offNative()
+      window.removeEventListener("online", online)
+      window.removeEventListener("pageshow", shown)
       document.removeEventListener("visibilitychange", wake)
       window.removeEventListener("focus", wake)
       document.documentElement.removeEventListener("pointerenter", wake)

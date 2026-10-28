@@ -4,7 +4,7 @@ import "server-only"
  * The language a buyer's email is written in, and its words: the language
  * the order was placed in (its origin's `lang`, lib/orders/order-source.ts)
  * when it is still one of the website's published languages, else the
- * website's own. With the store's approved translations of the email
+ * store's default language (lib/markets/buyer-language.ts, the one rule). With the store's approved translations of the email
  * sentences in it (lib/markets/checkout-words emailWordsFrom); a website
  * written in another language than English has its own (translate.ts
  * BUILT_IN_GROUPS).
@@ -15,6 +15,7 @@ import { emailWordsIn } from "@/lib/markets/checkout-words"
 import { checkoutOverrides } from "@/lib/checkout-text/server"
 import { isBuiltInWordKey, isEnglish, translationMap } from "@/lib/markets/translate"
 import { ownWordsApply, type BuyerChannel } from "./buyer-channel"
+import { buyerLanguage } from "@/lib/markets/buyer-language"
 
 export interface EmailLanguage {
   lang: string
@@ -26,8 +27,9 @@ export interface EmailLanguage {
 export async function emailLanguageFor(creatorId: string, asked: unknown): Promise<EmailLanguage> {
   const langs = await siteLanguages(creatorId).catch(() => null)
   if (!langs) return { lang: "en", words: {}, own: true }
-  const want = typeof asked === "string" ? asked.toLowerCase() : ""
-  const other = want ? langs.others.find((l) => l.toLowerCase() === want) ?? null : null
+  /* The one rule (lib/markets/buyer-language.ts): the order's language while the store still offers it, else the store's default. Never the buyer's browser, country or cookie. */
+  const picked = buyerLanguage({ defaultLanguage: langs.defaultLanguage, published: langs.others, order: asked }).lang
+  const other = picked === langs.defaultLanguage ? null : picked
   /* The store's own checkout words (Settings › Checkout › Checkout text) where an email says the same sentence, and Storelib's curated words (lib/checkout-text/words.ts). */
   const lang = other ?? langs.defaultLanguage
   const overridesRead = checkoutOverrides(creatorId, lang).catch(() => ({}) as Record<string, string>)

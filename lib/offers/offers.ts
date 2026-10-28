@@ -451,17 +451,25 @@ export function upsellsFor(productId: string, collectionIds: string[], offers: O
     .slice(0, 2)
 }
 
-/** What a set costs with an offer's discount, for showing on a page (the server works it out again at checkout). */
-export function bundlePrice(o: Pick<Offer, "discountType" | "discountValue">, unitCents: number[]): { fullCents: number; priceCents: number } {
+/**
+ * What a set costs with an offer's discount, for showing on a page (the
+ * server works it out again at checkout). `named[k]`: item k is pay what you
+ * want, which applyOffers counts in the set and never discounts, so a fixed
+ * amount comes off the other items only and a percent skips it.
+ */
+export function bundlePrice(o: Pick<Offer, "discountType" | "discountValue">, unitCents: number[], named: boolean[] = []): { fullCents: number; priceCents: number } {
   const fullCents = unitCents.reduce((n, c) => n + c, 0)
-  if (o.discountType === "percent") return { fullCents, priceCents: unitCents.reduce((n, c) => n + c - Math.min(c, Math.round((c * Math.min(MAX_PERCENT, o.discountValue)) / 100)), 0) }
-  if (o.discountType === "fixed") return { fullCents, priceCents: Math.max(0, fullCents - Math.min(fullCents, o.discountValue)) }
+  if (o.discountType === "percent") return { fullCents, priceCents: unitCents.reduce((n, c, k) => n + c - (named[k] ? 0 : Math.min(c, Math.round((c * Math.min(MAX_PERCENT, o.discountValue)) / 100))), 0) }
+  if (o.discountType === "fixed") {
+    const discountable = unitCents.reduce((n, c, k) => n + (named[k] ? 0 : c), 0)
+    return { fullCents, priceCents: Math.max(0, fullCents - Math.min(discountable, Math.max(0, Math.round(o.discountValue)))) }
+  }
   return { fullCents, priceCents: fullCents }
 }
 
-/** One unit's price under a checkout offer, for showing. */
-export function offerUnitPrice(o: Pick<Offer, "discountType" | "discountValue">, unitCents: number): number {
-  return unitCents - unitOff(o, unitCents)
+/** One unit's price under a checkout offer, for showing. A pay what you want product is never discounted (applyOffers), so it adds at its own price. */
+export function offerUnitPrice(o: Pick<Offer, "discountType" | "discountValue">, unitCents: number, payWhatYouWant = false): number {
+  return payWhatYouWant ? unitCents : unitCents - unitOff(o, unitCents)
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

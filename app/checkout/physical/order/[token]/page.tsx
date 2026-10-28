@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { cookies, headers } from "next/headers"
+import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadOrder } from "@/lib/physical/orders-server"
@@ -21,7 +21,8 @@ import { checkoutBrand } from "@/lib/checkout/brand-server"
 import { orderStoreUrl } from "@/lib/physical/store-link"
 import { orderPagePath } from "@/lib/physical/order-link"
 import { buyerProperties } from "@/lib/physical/cart-link"
-import { checkoutLanguage } from "@/lib/markets/checkout-language"
+import { buyerPageLanguage } from "@/lib/markets/checkout-language"
+import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { CheckoutWords } from "@/app/checkout/parts/words"
 
 export const dynamic = "force-dynamic"
@@ -46,8 +47,8 @@ export default async function OrderStatusPage({ params, searchParams }: { params
   }
   /* Where it was bought (lib/orders/order-source.ts OrderOrigin): the website, in which language. */
   const origin = await originOf(db, order.id)
-  /* In the language an email link names, or the one the buyer bought in on the store's website (the checkout's, kept with the order), or the one they chose there; English for an order from storelib.com, or when the website has none of them published. */
-  const asked = lang ?? (typeof origin?.lang === "string" ? origin.lang : null) ?? (await cookies()).get("sl_lang")?.value ?? null
+  /* The order's language, as its emails (lib/markets/buyer-language.ts): the one an email link names, else the one it was placed in, else the store's default; English for an order from storelib.com. Never a cookie from another visit. */
+  const channel = buyerChannel({ family: "physical", surface: origin?.surface, lang: origin?.lang })
   const host = (await headers()).get("host")
   const [store, brand, storeUrl, settings, reasons, ready, open, checkout, language] = await Promise.all([
     storeIdentity(db, order.creatorId),
@@ -60,7 +61,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     casesReady(db),
     openCaseFor(db, { checkoutId: order.id }),
     loadCheckoutConfig(db, order.creatorId),
-    asked ? checkoutLanguage(order.creatorId, null, asked).catch(() => ENGLISH) : ENGLISH,
+    buyerPageLanguage(order.creatorId, { channel, named: lang, order: origin?.lang }).catch(() => ENGLISH),
   ])
   const cancelAsked = await cancelEvents(db, order.id)
   const path = orderPagePath(token)

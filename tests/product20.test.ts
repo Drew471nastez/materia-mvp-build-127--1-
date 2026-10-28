@@ -111,7 +111,7 @@ console.log("\n3. Save and go, without a title or photo")
   check("a new one moves to its own address, so Back from Settings finds it", /window\.history\.replaceState\(\{\}, "", `\/app\/products\/\$\{result\.productId\}`\)/.test(draft) && /rememberCreated\(result\.productId\)/.test(draft))
   check("then it goes in the app, never a reload", /router\.push\(href\)/.test(ed) && !/window\.location\.(href|assign)\s*=?\s*\(?href/.test(ed))
   check("the products list reads again when it lacks the new draft", (() => { rememberCreated("new-1"); const stale = isStale([{ id: "old", status: "draft" }]); const fresh = !isStale([{ id: "new-1", status: "draft" }]); rememberDeleted("new-1"); return stale && fresh && !isStale([{ id: "old", status: "draft" }]) })())
-  check("a draft with no title reads Untitled draft in the list", (read("app/app/products/products-client.tsx").match(/product\.title \|\| "Untitled draft"/g) ?? []).length === 2)
+  check("a draft with no title reads Untitled draft in the list", (read("app/app/products/products-client.tsx").match(/product\.title \|\| "Untitled draft"/g) ?? []).length === 3 /* Round 40: the phone row's link is named by it too. */)
   check("the question's third button stays on one line on a computer", /mr-auto h-8 whitespace-nowrap/.test(read("app/app/products/new/confirm-sheet.tsx")))
 }
 

@@ -2,7 +2,9 @@
 
 import { createPortal } from "react-dom"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ExternalLink, Globe, Loader2, Plus, X, Zap } from "lucide-react"
+import { ExternalLink, Globe, Loader2, Plus, X } from "lucide-react"
+
+import { BOLT_PATH } from "@/components/app/upgrade-bolt"
 
 import { DnsSetup, type DnsCheckResult } from "@/components/domains/dns-setup"
 import { MobileEditorSheet } from "@/components/website-builder/mobile-editor-sheet"
@@ -105,8 +107,18 @@ export function AddDomainActions({ canConnect, hidden, onAdd }: { canConnect: bo
         {tt("Add domain")}
       </button>
       {locked && (
-        <span data-publish-pro="" className="inline-flex h-6 items-center gap-1 rounded-full bg-white/[0.08] px-2.5 text-[12.5px] font-medium text-white/85">
-          <Zap className="h-3.5 w-3.5 fill-current" strokeWidth={1.75} aria-hidden />
+        /*
+          The Pro mark: the app's own bolt (components/app/upgrade-bolt.tsx), white and solid on a chip one step
+          lighter than this panel's #1f1f1f, with a hairline and a line of light on top, as the panel's own
+          controls are drawn. Only while the plan does not include domains; Add domain beside it still opens.
+        */
+        <span
+          data-publish-pro=""
+          className="inline-flex h-6 select-none items-center gap-[5px] rounded-full bg-[#2c2c2c] pl-[7px] pr-2.5 text-[12px] font-semibold leading-none tracking-[0.01em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08),inset_0_0_0_1px_rgba(255,255,255,0.1),0_1px_2px_rgba(0,0,0,0.35)]"
+        >
+          <svg data-publish-pro-bolt="" width="12" height="12" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true" className="shrink-0">
+            <path d={BOLT_PATH} />
+          </svg>
           Pro
         </span>
       )}

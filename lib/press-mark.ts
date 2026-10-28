@@ -25,11 +25,30 @@
  */
 import type { PointerEvent as ReactPointerEvent } from "react"
 
-function mark(e: ReactPointerEvent<HTMLElement>, on: boolean) {
-  const row = e.currentTarget.parentElement
+/*
+  A FINGER IS NOT A PRESS UNTIL IT STAYS. A touch marked the row the instant
+  it landed, and a finger lands on a row every time a list is scrolled, so
+  the row under the thumb went grey and stayed grey until the browser decided
+  the touch was a pan and sent pointercancel: the row "hovered" under every
+  scroll on an iPhone. A touch now marks the row only once it has stayed
+  TOUCH_MARK_MS without moving more than TOUCH_SLOP_PX; a scroll has moved or
+  been cancelled by then and nothing is ever drawn. A mouse marks at once.
+*/
+export const TOUCH_MARK_MS = 120
+export const TOUCH_SLOP_PX = 6
+
+const pending = new WeakMap<HTMLElement, { timer: number; x: number; y: number }>()
+
+function rowOf(e: ReactPointerEvent<HTMLElement>) {
+  return e.currentTarget.parentElement
+}
+
+function clear(row: HTMLElement | null) {
   if (!row) return
-  if (on) row.setAttribute("data-pressed", "")
-  else row.removeAttribute("data-pressed")
+  const p = pending.get(row)
+  if (p) window.clearTimeout(p.timer)
+  pending.delete(row)
+  row.removeAttribute("data-pressed")
 }
 
 /** Spread on the link that covers the row; the row is its parent. */
@@ -37,9 +56,24 @@ export const pressMark = {
   /* In the capture phase, so a link's own onPointerDown stays its own. */
   onPointerDownCapture: (e: ReactPointerEvent<HTMLElement>) => {
     if (e.pointerType === "mouse" && e.button !== 0) return
-    mark(e, true)
+    const row = rowOf(e)
+    if (!row) return
+    clear(row)
+    if (e.pointerType === "mouse") {
+      row.setAttribute("data-pressed", "")
+      return
+    }
+    const timer = window.setTimeout(() => row.setAttribute("data-pressed", ""), TOUCH_MARK_MS)
+    pending.set(row, { timer, x: e.clientX, y: e.clientY })
   },
-  onPointerUp: (e: ReactPointerEvent<HTMLElement>) => mark(e, false),
-  onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => mark(e, false),
-  onPointerLeave: (e: ReactPointerEvent<HTMLElement>) => mark(e, false),
+  onPointerMove: (e: ReactPointerEvent<HTMLElement>) => {
+    const row = rowOf(e)
+    if (!row) return
+    const p = pending.get(row)
+    /* Moved past the slop, before the mark or after it (a slow scroll that outlasted the wait). */
+    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > TOUCH_SLOP_PX) clear(row)
+  },
+  onPointerUp: (e: ReactPointerEvent<HTMLElement>) => clear(rowOf(e)),
+  onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => clear(rowOf(e)),
+  onPointerLeave: (e: ReactPointerEvent<HTMLElement>) => clear(rowOf(e)),
 }

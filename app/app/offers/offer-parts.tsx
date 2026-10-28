@@ -95,11 +95,11 @@ export const discountText = (o: Pick<Offer, "kind" | "discountType" | "discountV
 export function OfferThumbs({ offer, byId }: { offer: Pick<Offer, "productIds">; byId: Map<string, OfferProduct> }) {
   const shown = offer.productIds.slice(0, 3)
   return (
-    <span aria-hidden className="pointer-events-none flex shrink-0 -space-x-3">
+    <span aria-hidden className="pointer-events-none flex shrink-0">
       {shown.map((id, i) => {
         const p = byId.get(id)
         return (
-          <span key={id} className={cn("inline-flex rounded-[10px] ring-2 ring-white", i > 0 && "hidden sm:inline-flex")} style={{ zIndex: 3 - i }}>
+          <span key={id} className={cn("inline-flex rounded-[10px] ring-2 ring-white", i > 0 && "-ml-3 hidden sm:inline-flex")} style={{ zIndex: 3 - i }}>
             <ProductThumb src={p?.imageUrl ?? null} title={p?.title ?? ""} />
           </span>
         )

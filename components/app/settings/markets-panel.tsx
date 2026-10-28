@@ -476,6 +476,10 @@ export function MarketsPanel() {
             )
           })}
         </ul>
+        {/* What the default decides after a sale (lib/markets/buyer-language.ts): the owner read English here and got Romanian receipts. */}
+        <p className="mt-2.5 text-[13px] leading-[18px] text-[#6b7280]" data-default-language-note="">
+          {tt("Receipts, order emails and order pages use your default language, unless the buyer checked out in another one you publish.")}
+        </p>
         {/*
           ONE ROW OF ACTIONS. Add language and Glossary share a flex row with a
           gap, so they sit on one line at the same height at every width; the

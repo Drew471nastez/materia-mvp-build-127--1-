@@ -48,7 +48,7 @@ check("the checkout reminder", /inEmailLanguage\(language\.lang, language\.words
 check("the review ask", /buyerEmailLanguage\(row\.creator_id, channel, origin\?\.lang\)/.test(read("lib/reviews/requests-server.ts")))
 const words = read("lib/emails/words-server.ts")
 check("Storelib's is English, with the store's own English checkout words, never the website's language", /if \(channel === "website"\) return emailLanguageFor\(creatorId, asked\)/.test(words) && /checkoutOverrides\(creatorId, "en"\)/.test(words) && /lang: "en", words: emailWordsIn\("en", null, overrides\)/.test(words))
-check("a language that is not published any more falls back to the website's own", /langs\.others\.find/.test(words) && /const lang = other \?\? langs\.defaultLanguage/.test(words))
+check("a language that is not published any more falls back to the store's default (lib/markets/buyer-language.ts)", /buyerLanguage\(\{ defaultLanguage: langs\.defaultLanguage, published: langs\.others, order: asked \}\)/.test(words) && /const lang = other \?\? langs\.defaultLanguage/.test(words))
 
 console.log("\nThe refund email can be translated now, and English reads as it did\n")
 const facts = { storeName: "Bread Studio", productTitle: "Guide", amount: "$12.00", orderDate: "Oct 1, 2026", refundDate: "Oct 3, 2026", reason: "Requested by seller", orderRef: "#1A2B3C4D", contactEmail: "a@b.co" }

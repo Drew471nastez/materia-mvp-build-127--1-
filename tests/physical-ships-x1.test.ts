@@ -85,7 +85,7 @@ console.log("\nVIEW\n")
 {
   const list = code("app/app/products/products-client.tsx")
   check("View for a physical product is the live route, the website first", /product\.type === "physical" \? `\/api\/app\/products\/\$\{encodeURIComponent\(product\.id\)\}\/live`/.test(list))
-  check("  in the table and in the row's menu", /const url = viewUrl\(product, username\)/.test(list) && /href: viewUrl\(product, username\)/.test(list))
+  check("  in the table and in the row's menu", /const url = viewUrl\(product, username\)/.test(list) && /href: url, target: "_blank"/.test(list) /* Round 40: View is in the row's menu alone, on a phone and in the table. */)
   check("  and in the app, with the whole address for the phone's browser", /openExternal\(url\.startsWith\("\/"\) \? `\$\{getCanonicalSiteUrl\(\)\}\$\{url\}` : url\)/.test(list))
 }
 

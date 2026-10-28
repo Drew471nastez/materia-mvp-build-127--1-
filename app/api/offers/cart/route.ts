@@ -59,6 +59,13 @@ export async function POST(request: Request) {
     const own = variants.filter((v) => v.product_id === p.id)
     const v = i.variantId ? own.find((x) => x.id === i.variantId) : own.length === 1 && p.type === "physical" ? own[0] : undefined
     if (i.variantId && !v) return []
+    /* As the checkout prices it (lib/physical/checkout-pricing-server): a thing that ships needs its option (one with none chosen is asked for there, not priced), at the option's price or the product's. */
+    if (p.type === "physical") {
+      if (!v) return []
+      const raw = Math.round(Number(v.price_cents ?? p.price_cents))
+      if (!Number.isFinite(raw) || raw < 0) return []
+      return [{ productId: p.id, variantId: v.id, unitCents: raw, quantity: i.quantity, payWhatYouWant: false }]
+    }
     const base = baseFor(v ?? p, i.customPriceCents)
     const unitCents = base.ok === false ? 0 : (base as { cents: number }).cents
     return [{ productId: p.id, variantId: v?.id ?? null, unitCents, quantity: p.type === "physical" ? i.quantity : 1, payWhatYouWant: !!(v ?? p).pay_what_you_want }]
@@ -83,16 +90,23 @@ export async function POST(request: Request) {
     totalCents: Math.max(0, subtotalCents - offerCents),
     freeShipping: got.applied.some((a) => a.freeShipping === true),
     offers: got.applied.map((a) => ({ offerId: a.offerId, title: a.title, savedCents: a.savedCents, freeShipping: a.freeShipping === true })),
-    lines: priced.map((l, i) => ({ productId: l.productId, variantId: l.variantId, discountCents: got.discounts[i] })),
+    lines: priced.map((l, i) => ({
+      productId: l.productId,
+      variantId: l.variantId,
+      discountCents: got.discounts[i],
+      unitCents: l.unitCents,
+      quantity: l.quantity,
+      ...(got.lineOffers[i]?.length ? { offers: got.lineOffers[i].map((o) => ({ offerId: o.offerId, title: o.title, savedCents: o.savedCents })) } : {}),
+    })),
     suggestions: suggestions.flatMap((s) => {
       const p = cards.get(s.productIds[0])
-      return p ? [{ offerId: s.id, title: s.title, label: label(s), product: p, offerPriceCents: offerUnitPrice(s, p.priceCents) }] : []
+      return p ? [{ offerId: s.id, title: s.title, label: label(s), product: p, offerPriceCents: offerUnitPrice(s, p.priceCents, p.payWhatYouWant === true) }] : []
     }),
     completions: completions.flatMap(({ offer, missing }) => {
       const all = offer.productIds.map((id) => cards.get(id))
       const items = missing.map((id) => cards.get(id))
       if (all.some((x) => !x) || items.some((x) => !x)) return []
-      const { fullCents, priceCents } = bundlePrice(offer, all.map((x) => x!.priceCents))
+      const { fullCents, priceCents } = bundlePrice(offer, all.map((x) => x!.priceCents), all.map((x) => x!.payWhatYouWant === true))
       return [{ offerId: offer.id, title: offer.title, label: label(offer), missing: items as NonNullable<(typeof items)[number]>[], savingCents: Math.max(0, fullCents - priceCents) }]
     }),
   }

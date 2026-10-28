@@ -193,7 +193,8 @@ import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { isWidgetType } from "@/lib/reviews/widgets/config"
 import { REVIEW_WIDGET_SECTION_TYPE, isMainProductSectionType } from "@/lib/storelib-theme/compat/storelib-reviews"
-import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
+import { CountdownControl, DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
+import { countdownGroup } from "@/lib/storelib-theme/countdown"
 import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
 import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
@@ -2630,12 +2631,25 @@ function BlockFields({
   }
   /* Its texts in another language, by the key the website lays over; a block the section places but has not saved yet has none until it is. */
   const keyFor = virtual ? null : stableTextKey(`block\u0000${section.id}\u0000${block.id}`, () => (id: string) => translationBlockKey(section.id, block.id, id))
+  /* An imported theme's countdown: its date, hour, minute and offset settings as one control (lib/storelib-theme/countdown.ts). */
+  const countdown = countdownGroup(fields)
   return (
     <TranslationScope keyFor={keyFor}>
     <SiblingSettingsProvider settings={block.settings}>
-      {fields.map((field) => (
+      {fields.map((field) => countdown?.absorbed.includes(field.id) ? null : (
         <div key={field.id} data-block-field={field.id}>
-          {field.type === "color" ? (
+          {countdown?.lead === field.id ? (
+            <SharedInAllLanguages>
+            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+            <CountdownControl
+              group={countdown}
+              fields={fields}
+              settings={block.settings}
+              label={field.label}
+              onPatch={(patch) => { for (const [k, v] of Object.entries(patch)) onUpdate(blockKey, k, v, virtual) }}
+            />
+            </SharedInAllLanguages>
+          ) : field.type === "color" ? (
             <SharedInAllLanguages>
             <SectionColorSetting
               field={field}
@@ -2738,19 +2752,22 @@ function warmCompat(installId: string) {
 }
 
 /** The text of these theme files, for a push that changed a few of them. Null when none of them could be read. */
+/** The longest one read of the theme's files is waited on while a push lands. */
+const PUSH_READ_MS = 15_000
 async function readThemeTexts(installId: string, paths: string[]): Promise<Record<string, string> | null> {
   const unique = [...new Set(paths)]
   if (unique.length === 0) return {}
   const out: Record<string, string> = {}
   const take = async (path: string) => {
-    const r = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/files?path=${encodeURIComponent(path)}`, { cache: "no-store" })
+    /* Every read here has an end: one held by a suspended web view kept the push from landing, and the editor from hearing the next. */
+    const r = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/files?path=${encodeURIComponent(path)}`, { cache: "no-store", signal: AbortSignal.timeout(PUSH_READ_MS) })
     if (!r.ok) return
     const d = (await r.json()) as { content?: unknown }
     if (typeof d.content === "string") out[path] = d.content
   }
   if (unique.length > 6 && unique.every((p) => p.startsWith("shopify/"))) {
     try {
-      const r = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/files?compat=1`, { cache: "no-store" })
+      const r = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/files?compat=1`, { cache: "no-store", signal: AbortSignal.timeout(PUSH_READ_MS) })
       if (!r.ok) return null
       const d = (await r.json()) as { files?: Record<string, string> }
       const files = d.files ?? {}
@@ -2914,7 +2931,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
   const loadStorelibSources = useCallback(async (opts?: { hold?: boolean }): Promise<Record<string, string> | null> => {
     try {
-      const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`, { cache: "no-store" })
+      const res = await fetch(`/api/website-builder/themes/${installId}/files?sources=1`, { cache: "no-store", signal: AbortSignal.timeout(PUSH_READ_MS) })
       if (!res.ok) return null
       const d = (await res.json()) as { files?: Record<string, string>; settings_schema?: string | null }
       const files = d.files ?? {}
@@ -4321,6 +4338,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       reportLoadProblem("editor", `the website answered ${res.status}`)
       if (!quiet) setLoadFailed(true)
       setLoading(false)
+      /* A push waiting on this read still lands its files and its lines. Dropped here, it showed only after a reload. */
+      const alongside = afterQuietLoad.current
+      afterQuietLoad.current = null
+      if (alongside) startTransition(alongside)
       return
     }
     const data = await res.json()
@@ -8791,13 +8812,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 clean.push(f)
               }
               if (clean.length === 0) return null
+              /* An imported theme's countdown: its date, hour, minute and offset settings as one control (lib/storelib-theme/countdown.ts). */
+              const countdown = countdownGroup(clean)
               return (
                 <TranslationScope keyFor={stableTextKey(`section\u0000${section.id}`, () => (id) => translationSectionKey(section.id, id))}>
                 <SiblingSettingsProvider settings={section.settings}>
                 <div className="px-3.5 py-3.5 space-y-3.5">
-                  {clean.map(field => (
+                  {clean.map(field => countdown?.absorbed.includes(field.id) ? null : (
                     <div key={field.id} data-setting-field={field.id}>
-                      {field.type === "color" ? (
+                      {countdown?.lead === field.id ? (
+                        <SharedInAllLanguages>
+                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                        <CountdownControl
+                          group={countdown}
+                          fields={clean}
+                          settings={section.settings}
+                          label={field.label}
+                          onPatch={(patch) => { for (const [k, v] of Object.entries(patch)) updateSectionSetting(section.id, k, v) }}
+                        />
+                        </SharedInAllLanguages>
+                      ) : field.type === "color" ? (
                         <SharedInAllLanguages>
                         <SectionColorSetting
                           field={field}

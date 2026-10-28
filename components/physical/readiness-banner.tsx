@@ -118,13 +118,18 @@ export function bannerWords(items: ReadinessItem[], draft = false): { title: str
  */
 export function ReadinessBanner({ surface, className }: { surface: "home" | "products"; className?: string }) {
   const r = useReadiness()
-  const [hidden, setHidden] = React.useState(false)
+  /* Put away by a press here, this visit. */
+  const [hiddenKey, setHiddenKey] = React.useState<string | null>(null)
   const recommended = recommendedItems(r)
-  React.useEffect(() => {
-    if (recommended.length) setHidden(isHidden(recommended))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recommended.map((i) => i.id).join(",")])
   if (!r || r.live === 0) return null
+  /*
+    READ WHILE IT DRAWS, NOT AFTER. This was read in an effect, so a line put
+    away earlier was painted for a frame and then taken out, and the list
+    under it jumped up (Products, landing from the router's copy). It is only
+    ever read once there is an answer, which the server and hydration never
+    have, so the server's markup and the first client draw still agree.
+  */
+  const hidden = recommended.length > 0 && (hiddenKey === dismissKey(recommended) || isHidden(recommended))
   const blocking = blockingItems(r, { skipPayments: surface === "home" })
   if (blocking.length) {
     const words = bannerWords(blocking)
@@ -137,7 +142,7 @@ export function ReadinessBanner({ surface, className }: { surface: "home" | "pro
       className={className}
       onHide={() => {
         hide(recommended)
-        setHidden(true)
+        setHiddenKey(dismissKey(recommended))
       }}
     />
   )

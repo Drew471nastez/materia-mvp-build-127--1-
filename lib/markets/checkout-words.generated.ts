@@ -1,4 +1,4 @@
-/* Written by scripts/i18n/checkout-sentences.mjs from the ct("…") calls under app/checkout and lib/checkout and app/receipt and app/review and app/order-help and components/physical/tracking-timeline.tsx and components/support/order-help.tsx and components/support/case-photos.tsx and the answers of the checkout's server code, and the et("…") calls of a buyer's emails. Do not edit: run it again. */
+/* Written by scripts/i18n/checkout-sentences.mjs from the ct("…") calls under app/checkout and lib/checkout and app/receipt and app/review and app/order-help and components/physical/tracking-timeline.tsx and components/support/order-help.tsx and components/support/case-photos.tsx and components/offers/checkout-suggestions.tsx and the answers of the checkout's server code, and the et("…") calls of a buyer's emails. Do not edit: run it again. */
 export const CHECKOUT_SENTENCES: readonly string[] = [
   "Prices on Storelib are being updated. Try again in a few minutes.",
   "Back to the product",
@@ -546,6 +546,13 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
   "Previous photo",
   "Next photo",
   "Open the original",
+  "Buy {quantity} get {free} free",
+  "Buy {quantity}, save {percent}%",
+  "Buy {quantity}, save {amount}",
+  "Buy {quantity}",
+  "Add to your order",
+  "{title} option",
+  "Add",
   "Something was missing. Refresh the page and try again.",
   "Open the checkout from the shop's website.",
   "Bad request.",

@@ -88,7 +88,8 @@ async function main() {
     /* Changed on purpose (round reviews-1023): "@app" takes Storelib Reviews' two app blocks (Star rating, Reviews), as an installed reviews app's are on Shopify; "@theme" alone never does, and none of Storelib's own theme blocks is offered. */
     /* Changed on purpose (round BC): "@app" also takes Storelib's Stock status, Estimated delivery and Size chart app blocks. */
     /* Changed on purpose (round 13): and Storelib's Personalization app block (lib/storelib-theme/compat/personalization.ts). */
-    const APP = ["shopify://apps/storelib-reviews/blocks/reviews/storelib", "shopify://apps/storelib-reviews/blocks/star-rating/storelib", "shopify://apps/storelib/blocks/estimated-delivery/storelib", "shopify://apps/storelib/blocks/stock-status/storelib", "shopify://apps/storelib-size-charts/blocks/size-chart/storelib", "shopify://apps/storelib-personalization/blocks/personalization/storelib"].sort().join(",")
+    /* Changed on purpose (offers round): and Storelib's Bundles and upsells app block (lib/storelib-theme/compat/offers-app-block.ts). */
+    const APP = ["shopify://apps/storelib-reviews/blocks/reviews/storelib", "shopify://apps/storelib-reviews/blocks/star-rating/storelib", "shopify://apps/storelib/blocks/estimated-delivery/storelib", "shopify://apps/storelib/blocks/stock-status/storelib", "shopify://apps/storelib-size-charts/blocks/size-chart/storelib", "shopify://apps/storelib-personalization/blocks/personalization/storelib", "shopify://apps/storelib/blocks/offers/storelib"].sort().join(",")
     check("the catalog is the theme's own blocks and Storelib Reviews' app blocks, none of Storelib's theme blocks", types(Object.values(compatCatalog)) === `_price,card,${APP}`)
     check('"@theme" lists the theme\'s public blocks; "@app" adds Storelib Reviews\' two', types(addableBlocks(compatSections.hero, compatCatalog)) === `card,${APP}`)
     check('a section of "@app" alone lists Storelib Reviews\' two', types(addableBlocks(compatSections.apps, compatCatalog)) === APP)
@@ -121,7 +122,8 @@ async function main() {
     check("an imported theme's block is added, at the top and inside a block", card.ok === true, card)
     const builtIn = checkOps(compatPage, [{ op: "add_block", section_id: "s1", block_type: "heading" }], compat, mint)
     /* Changed on purpose (round reviews-1023): the hero takes "@app", so Storelib Reviews' two app blocks are among what it takes. */
-    check("  Storelib's heading block is not offered in an imported theme, as in the builder", builtIn.ok === false && /It takes: card, shopify:\/\/apps\/storelib(-reviews)?\//.test(builtIn.error), builtIn)
+    /* Changed on purpose (offers round): the list is by name, so Bundles and upsells comes before the theme's Card. */
+    check("  Storelib's heading block is not offered in an imported theme, as in the builder", builtIn.ok === false && /It takes: (shopify:\/\/apps\/storelib\/blocks\/offers\/storelib, )?card, shopify:\/\/apps\/storelib(-reviews)?\//.test(builtIn.error), builtIn)
     const nestedPrivate = checkOps(compatPage, [{ op: "add_block", section_id: "s1", block_type: "_price", parent_block_id: "c1" }], compat, mint)
     check("  a private block inside a block that does not name it is refused", nestedPrivate.ok === false)
 

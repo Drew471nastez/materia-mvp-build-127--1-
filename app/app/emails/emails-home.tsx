@@ -351,12 +351,41 @@ export function EmailsHome(props: EmailsHomeProps) {
 
 /* ─── The tabs, in the bar ───────────────────────────────────────────── */
 
+/** How far in from a faded end the chosen view is kept: the fade (24px, app/globals.css .edge-fade) and a little air. */
+const TAB_FADE_CLEAR = 28
+
 function Tabs({ tab, onTab, onIntent, counts }: { tab: EmailsTab; onTab: (t: EmailsTab) => void; onIntent?: (t: EmailsTab) => void; counts?: Partial<Record<EmailsTab, number>> }) {
   /* Analytics' sliding pill (round 24, the owner: "the pill shapes of the analytics"); the strip scrolls sideways on a phone and keeps the chosen one in view. */
+  /*
+    WIDER THAN A PHONE. The track used to run into its own rounded end with
+    the last label cut there mid word ("Cu"). The track marks the ends that
+    have more past them (components/app/use-edge-fade, inside SegmentedPills)
+    and `edge-fade` (app/globals.css) fades just those ends out, so the row
+    reads as "more this way"; a row that fits has no mask at all.
+  */
+  const host = React.useRef<HTMLDivElement>(null)
+  /*
+    The chosen view clear of a fade. SegmentedPills brings it into view with
+    8px to spare, which leaves its edge inside the 24px fade; this runs just
+    after (a parent's layout effect follows its child's) and moves the row
+    the rest of the way, at once, as the row's own does.
+  */
+  React.useLayoutEffect(() => {
+    const row = host.current?.querySelector<HTMLElement>("[data-segmented-pills]")
+    const on = row?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (!row || !on || row.scrollWidth <= row.clientWidth + 1) return
+    const left = row.scrollLeft
+    let next = left
+    if (on.offsetLeft - TAB_FADE_CLEAR < left) next = on.offsetLeft - TAB_FADE_CLEAR
+    else if (on.offsetLeft + on.offsetWidth + TAB_FADE_CLEAR > left + row.clientWidth) next = on.offsetLeft + on.offsetWidth + TAB_FADE_CLEAR - row.clientWidth
+    next = Math.max(0, Math.min(row.scrollWidth - row.clientWidth, next))
+    if (Math.abs(next - left) >= 1) row.scrollLeft = next
+  }, [tab])
   return (
-    <div className="flex h-11 items-center" data-email-tabs="">
+    <div ref={host} className="flex h-11 items-center" data-email-tabs="">
       <SegmentedPills
         label={tt("Views")}
+        className="edge-fade"
         value={tab}
         onChange={onTab}
         onIntent={onIntent}

@@ -53,6 +53,7 @@ import { withPageFacts } from "@/lib/storelib-theme/compat/product-facts"
 import { pageFactsFor } from "@/lib/storelib-theme/compat/product-facts-server"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { moneyFormatFor } from "@/lib/markets/pricing"
+import { minorUnits } from "@/lib/markets/money"
 import { liveRelease, releaseFiles } from "./site-releases-server"
 import { pageRowsOf, settingsRowOf } from "./site-releases"
 import { siteIconUrl } from "./site-icon"
@@ -382,8 +383,18 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const readCatalog = () =>
     catalogCards(admin as never, creator.creatorId)
       .then(async (cards) => {
-        const [described, extras] = await Promise.all([productDescriptions(admin as never, creator.creatorId, { ids: cards.map((c) => c.id) }), productExtras(admin as never, creator.creatorId, cards)])
-        return withExtras(withDescriptions(cards, described), extras)
+        /* And what each offers with it (lib/offers/offers-public catalogOffers): a Featured product's Bundles and upsells block and product.metafields.storelib.offers, as on its own page. */
+        const readOffers = () => import("@/lib/offers/offers-public").then((m) => m.catalogOffers(admin, creator.creatorId, cards.map((c) => c.id))).catch(() => ({}))
+        const [described, extras, offers, storeCurrency] = await Promise.all([productDescriptions(admin as never, creator.creatorId, { ids: cards.map((c) => c.id) }), productExtras(admin as never, creator.creatorId, cards), readOffers(), currencyAsked])
+        const done = withExtras(withDescriptions(cards, described), extras)
+        if (Object.keys(offers).length === 0) return done
+        const block = await import("@/lib/storelib-theme/compat/offers-app-block")
+        return done.map((c) => {
+          const mine = (offers as Record<string, unknown>)[c.id]
+          if (!mine) return c
+          const settings = { ...c.settings, storelib_offers: mine } as Record<string, unknown>
+          return { ...c, settings: block.withOffersShown({ id: c.id, settings }, block.cardOptions({ id: c.id, settings }, storeCurrency, minorUnits), { charge: null, currency: storeCurrency, locale: "en" }) } as typeof c
+        })
       })
       .catch(() => [])
   /* Every product's size chart, for a featured product and a card: read for this creator only, held under the shop's tag like the catalogue (its own, else its collection's or category's: lib/size-charts/storefront.ts). */
@@ -529,7 +540,10 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
         product-facts.ts).
       */
       const withStock = withPageFacts(card, pageFacts)
-      return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [], ...(found?.seoTitle ? { seo_title: found.seoTitle } : {}), ...(offers ? { storelib_offers: offers } : {}) } }
+      /* And the Bundles and upsells app block's figures at the store's own prices (lib/storelib-theme/compat/offers-app-block.ts); a market works them out again (lib/markets/compat-prices). */
+      const own = { ...withStock.settings, ...(offers ? { storelib_offers: offers } : {}) } as Record<string, unknown>
+      const shown = offers ? (await import("@/lib/storelib-theme/compat/offers-app-block").then((m) => m.withOffersShown({ id: card.id, settings: own }, m.cardOptions({ id: card.id, settings: own }, currency, minorUnits), { charge: null, currency, locale: "en" })).catch(() => own)) : own
+      return { ...withStock, descriptionHtml, settings: { ...shown, faqs: found?.faqs ?? [], ...(found?.seoTitle ? { seo_title: found.seoTitle } : {}) } }
     },
     /* Storelib Reviews: the shop's reviews and the product's, held a minute (lib/reviews/storefront-server.ts). */
     reviews: async (p) => (await import("@/lib/reviews/storefront-server")).storefrontReviews(creator.creatorId, p) as unknown as Promise<Record<string, unknown>>,

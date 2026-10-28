@@ -55,9 +55,10 @@ import { usePathname, useRouter } from "next/navigation"
 import { SPINNER_SPOKES } from "@/components/community/member/place-spinner"
 import { SPOKES_HOLD, SPOKES_SIZE, cancelAllPullToRefresh, usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { cn } from "@/lib/utils"
+import { PULL_SPIN_MAX_MS } from "@/lib/ui/pull-refresh-cap"
 
-/** Longest the ring waits for a refresh before the page comes home anyway. */
-export const REFRESH_MAX_MS = 10_000
+/** Longest the ring waits for a refresh before the page comes home anyway; the refresh carries on behind it (lib/ui/pull-refresh-cap). */
+export const REFRESH_MAX_MS = PULL_SPIN_MAX_MS
 
 function scrollerFor(root: HTMLElement): HTMLElement {
   const inside = root.querySelector<HTMLElement>("[data-pull-scroller], .page-scroll")

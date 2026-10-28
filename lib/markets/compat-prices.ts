@@ -19,6 +19,8 @@ import type { CompatCommerce } from "@/lib/storelib-theme/compat/site-commerce-m
 import { minorUnits } from "./money"
 import { naturalCountry } from "./market-countries"
 import { convertedCents, moneyFormatFor, type Pricing } from "./pricing"
+import { marketCharge } from "./checkout-charge"
+import { cardOptions, withOffersShown } from "@/lib/storelib-theme/compat/offers-app-block"
 
 type O = Record<string, unknown>
 
@@ -105,9 +107,12 @@ function shownPrice(v: unknown, pricing: Pricing): unknown {
 }
 
 /** A product card's settings with its prices, and each variant's, in the market's currency. */
-export function compatPrices(settings: O, pricing: Pricing): O {
+export function compatPrices(settings: O, pricing: Pricing, lang = "en", id?: string): O {
+  /* The Bundles and upsells block's figures (lib/storelib-theme/compat/offers-app-block.ts), worked out again in the market: each option's price as its card, each discount the checkout's share. */
+  const offers = id && settings.storelib_offers && typeof settings.storelib_offers === "object" ? withOffersShown({ id, settings }, cardOptions({ id, settings }, pricing.base, minorUnits), { charge: marketCharge(pricing), currency: pricing.currency, locale: lang, whole: pricing.market.rounding === "whole" }).storelib_offers_shown : undefined
   return {
     ...settings,
+    ...(offers ? { storelib_offers_shown: offers } : {}),
     price: shownPrice(settings.price, pricing),
     compare_price: shownPrice(settings.compare_price, pricing),
     currency: pricing.currency,

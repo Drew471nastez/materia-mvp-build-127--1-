@@ -72,6 +72,7 @@ import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/prod
 import { REVIEWS_WIDGET_LIQUID, isReviewsAppBlock, ratingOfProduct, reviewAppBlockKind, reviewStarsHtml, reviewsBlockSettings, storelibReviewWidgetFilter } from "./storelib-reviews"
 import { REVIEWS_LIST_BLOCK, REVIEW_STARS_BLOCK } from "./review-app-blocks"
 import { ESTIMATED_DELIVERY_BLOCK, STOCK_STATUS_BLOCK, estimatedDeliveryHtml, isStorelibProductAppBlock, stockStatusHtml } from "./product-app-blocks"
+import { OFFERS_APP_BLOCK, offersBlockHtml, type OffersShown } from "./offers-app-block"
 import { shopWords } from "@/lib/markets/ui-words"
 import { faqsOf, withFaqTab, themeReadsFaqs, withFaqUnderDescription, type Faq } from "./product-faq"
 
@@ -1346,6 +1347,10 @@ export class CompatTheme {
         const days = real ? (real.__delivery as { minDays?: number | null; maxDays?: number | null } | undefined) : undefined
         const ships = !!real && (String(real.kind ?? "") === "physical" || (Array.isArray(real.variants) && (real.variants as O[]).some((v) => v.requires_shipping === true)))
         html = estimatedDeliveryHtml({ ships: real ? ships : inEditor, days: days ? { minDays: days.minDays ?? null, maxDays: days.maxDays ?? null } : null, settings, words, locale: page.i18n?.locale ?? "en", inEditor })
+      } else if (b.type === OFFERS_APP_BLOCK) {
+        /* The figures the server worked out for this product (./offers-app-block.ts), at the option the page opens on. */
+        const selected = real ? (real.selected_or_first_available_variant as O | null | undefined) : null
+        html = offersBlockHtml({ shown: real ? ((real.__offers_shown as OffersShown | undefined) ?? null) : null, selectedId: selected ? String(selected.id ?? "") : real ? String(real.id ?? "") : null, settings, words, inEditor })
       }
       return html ? `<div class="shopify-app-block" ${blockAttributes(b.id)}>${html}</div>` : ""
     } catch (e) {

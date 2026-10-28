@@ -26,12 +26,13 @@
  */
 import type { BlockSchema } from "@/lib/website-builder/types"
 import { DELIVERY_WINDOW_WORDS, deliveryWindow, deliveryWindowLine } from "@/lib/physical/delivery-lines"
+import { OFFERS_APP_BLOCK, OFFERS_APP_BLOCK_SCHEMA } from "./offers-app-block"
 
 export const STOCK_STATUS_BLOCK = "shopify://apps/storelib/blocks/stock-status/storelib"
 export const ESTIMATED_DELIVERY_BLOCK = "shopify://apps/storelib/blocks/estimated-delivery/storelib"
 
 export function isStorelibProductAppBlock(type: unknown): boolean {
-  return type === STOCK_STATUS_BLOCK || type === ESTIMATED_DELIVERY_BLOCK
+  return type === STOCK_STATUS_BLOCK || type === ESTIMATED_DELIVERY_BLOCK || type === OFFERS_APP_BLOCK
 }
 
 export const PRODUCT_APP_BLOCK_SCHEMAS: readonly BlockSchema[] = [
@@ -60,6 +61,8 @@ export const PRODUCT_APP_BLOCK_SCHEMAS: readonly BlockSchema[] = [
       { id: "color", label: "Icon colour", type: "color", default: "" },
     ],
   },
+  /* The store's quantity breaks, bundles and upsells (./offers-app-block.ts), for a main product and a Featured product. */
+  OFFERS_APP_BLOCK_SCHEMA,
 ]
 
 export function productAppBlockSchema(type: string): BlockSchema | undefined {

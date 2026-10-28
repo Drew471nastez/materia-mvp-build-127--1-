@@ -178,7 +178,8 @@ async function main() {
     /* 33,000 until the product reference drew a collection and products chosen in the sidebar, the way a shop theme does, beside the shop: two more card loops, about 300 tokens. */
     /* 34,000 until the same round 25 change to the built-in sections it quotes: about 150 tokens. */
     /* 34,700 until the product cards it quotes (product_featured) drew Storelib Reviews' stars, as the shop grid's do: about 480 tokens. */
-    check(`Code section's reference stays under ~9.1k tokens (${Math.round(writer / 4)})`, writer <= 36_400, `${writer} chars`)
+    /* 36,400 until the product cards it quotes (product_featured) left a mark for each product's offers, with its Show bundles and upsells toggle (components/offers/featured-offers.tsx): about 330 tokens. */
+    check(`Code section's reference stays under ~9.45k tokens (${Math.round(writer / 4)})`, writer <= 37_800, `${writer} chars`)
     check("the framework itself stays short", FRAMEWORK_REFERENCE.length <= 6_600 && QUALITY_CHECKLIST.length <= 1_400, `${FRAMEWORK_REFERENCE.length} / ${QUALITY_CHECKLIST.length}`)
   }
 

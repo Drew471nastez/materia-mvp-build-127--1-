@@ -606,7 +606,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
       >
         <TryProStrip />
 
-        {/* The strip stays put; what is under it is what a pull moves (components/ui/pull-to-refresh). */}
+        {/* Try Pro, from md up only (none on a phone), stays put; what is under it is what a pull moves (components/ui/pull-to-refresh). */}
         <PullToRefresh onRefresh={onPullRefresh}>
         <EmailsHome
           tab={tab}

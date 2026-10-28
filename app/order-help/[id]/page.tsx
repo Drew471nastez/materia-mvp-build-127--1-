@@ -1,9 +1,8 @@
 import type { Metadata } from "next"
-import { cookies } from "next/headers"
 import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getCaseForBuyer } from "@/lib/support/cases-server"
-import { checkoutLanguage } from "@/lib/markets/checkout-language"
+import { buyerPageLanguage } from "@/lib/markets/checkout-language"
 import { CheckoutWords } from "@/app/checkout/parts/words"
 import { CaseView } from "./case-view"
 
@@ -19,10 +18,10 @@ const ENGLISH = { lang: "en", words: {} as Record<string, string> }
  * private link (`k`), the same one every email about it carries. Served on
  * storelib.com and on the store's own website (proxy.ts lets /order-help
  * through on every host); the links a parcel's case sends are on the
- * website (lib/support/cases-server.ts). In the language an email link
- * names (?lang), else the one the order was placed in, else the visitor's
- * choice on the website; English for an order from storelib.com, as the
- * order page (app/checkout/physical/order/[token]) reads it.
+ * website (lib/support/cases-server.ts). In the order's language, as its
+ * emails and its order page (lib/markets/buyer-language.ts): the one an
+ * email link names (?lang), else the one the order was placed in, else the
+ * store's default; English for an order from storelib.com.
  */
 export default async function OrderHelpPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ k?: string; lang?: string }> }) {
   const { id } = await params
@@ -30,8 +29,7 @@ export default async function OrderHelpPage({ params, searchParams }: { params: 
   if (!/^[0-9a-f-]{36}$/i.test(id) || !k) notFound()
   const out = await getCaseForBuyer(createAdminClient(), id, k)
   if (!out.ok) notFound()
-  const asked = lang ?? out.order.lang ?? (await cookies()).get("sl_lang")?.value ?? null
-  const language = asked ? await checkoutLanguage(out.store.creatorId, null, asked).catch(() => ENGLISH) : ENGLISH
+  const language = await buyerPageLanguage(out.store.creatorId, { channel: out.order.channel, named: lang, order: out.order.lang }).catch(() => ENGLISH)
   return (
     <CheckoutWords lang={language.lang} words={language.words}>
       <CaseView

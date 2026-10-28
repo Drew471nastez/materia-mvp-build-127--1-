@@ -175,7 +175,8 @@ function reviewsFor(product: { id: string; title: string } | null, enabled = tru
     const main = schemaFor("main-product", files, {})
     /* Changed on purpose (round BC): Storelib's Stock status, Estimated delivery and Size chart app blocks follow Storelib Reviews' two. */
     /* Changed on purpose (round 13): Storelib's Personalization app block follows Size chart. */
-    check("Dawn's main product (section blocks, @app): Star rating and Reviews after its own", JSON.stringify(names(addableBlocks(main, catalog)).slice(-6, -4)) === '["Star rating","Reviews"]' && JSON.stringify(names(addableBlocks(main, catalog)).slice(-2)) === '["Size chart","Personalization"]' && names(addableBlocks(main, catalog)).includes("Product rating"))
+    /* Changed on purpose (offers round): Storelib's Bundles and upsells app block (lib/storelib-theme/compat/offers-app-block.ts) follows Estimated delivery, before Size chart. */
+    check("Dawn's main product (section blocks, @app): Star rating and Reviews after its own", JSON.stringify(names(addableBlocks(main, catalog)).slice(-7, -5)) === '["Star rating","Reviews"]' && JSON.stringify(names(addableBlocks(main, catalog)).slice(-4, -2)) === '["Estimated delivery","Bundles and upsells"]' && JSON.stringify(names(addableBlocks(main, catalog)).slice(-2)) === '["Size chart","Personalization"]' && names(addableBlocks(main, catalog)).includes("Product rating"))
     check("  each with its panel", (blockSchemaIn(main, catalog, REVIEW_STARS_BLOCK)?.fields ?? []).map((f) => f.id).join() === "show_average,show_count,link,star_color" && (blockSchemaIn(main, catalog, REVIEWS_LIST_BLOCK)?.fields ?? []).some((f) => f.id === "show_write"))
     const pi = schemaFor("product-information", files, {})
     check("Horizon's product information (@theme and @app): among its theme blocks", names(addableBlocks(pi, catalog)).includes("Star rating") && names(addableBlocks(pi, catalog)).includes("Product title"))

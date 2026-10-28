@@ -42,6 +42,8 @@ async function clientFor(gate: TeamGate): Promise<Db> {
 const MESSAGE_COLUMNS = "id, email, name, subject, message, site, page, consent, subscriber_id, created_at"
 
 async function subscribers(db: Db, creatorId: string) {
+  /* The products are asked for alongside the list, not after it: one round trip fewer on every read, a pull to refresh's included. `.then` sends it now; a query is not sent until something waits on it. */
+  const productsRead = db.from("products").select("id").eq("creator_id", creatorId).then((r: { data: { id: string }[] | null }) => r)
   const { data, error } = await db
     .from("subscribers")
     .select("id, email, name, source, source_detail, consent_text, status, subscribed_at, unsubscribed_at")
@@ -56,7 +58,7 @@ async function subscribers(db: Db, creatorId: string) {
   }
   const list = rows ?? []
   let buyers = 0
-  const { data: products } = await db.from("products").select("id").eq("creator_id", creatorId)
+  const { data: products } = await productsRead
   if (products && products.length > 0) {
     const { data: orders } = await db
       .from("orders")

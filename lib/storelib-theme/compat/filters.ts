@@ -14,6 +14,7 @@ import { NEXT_IMAGE_WIDTHS, SITE_PICTURE_QUALITY, isOptimizableImage } from "@/l
 import { isOwnMedia } from "@/lib/storage/media-url"
 import { LFloat, OUTPUT, isBlank, prop, toList, toOutput, truthy, type Ctx, type FilterFn } from "./runtime"
 import { shopifyGlobalAssetUrl } from "./shopify-global-assets"
+import { instantOf, parseStamp } from "../countdown"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -383,6 +384,16 @@ function toDate(v: unknown): Date | null {
   if (!s) return null
   if (s === "now" || s === "today") return new Date()
   if (/^\d+$/.test(s)) return new Date(Number(s) * 1000)
+  /*
+    A date as a setting holds it ("2026-11-03 23:59", "Nov 3, 2026 23:59:00",
+    an ISO stamp) is taken apart by hand (lib/storelib-theme/countdown.ts):
+    `new Date` reads a stamp with no zone in the zone of whoever parses it,
+    so the canvas in a browser in Bucharest and the published page on a UTC
+    server printed one countdown's `| date: '%s'` two hours apart. With no
+    zone it is UTC, which is what strftime below prints in.
+  */
+  const stamp = parseStamp(s)
+  if (stamp) return new Date(instantOf(stamp.wall, stamp.zone ?? 0))
   const d = new Date(s)
   return Number.isNaN(d.getTime()) ? null : d
 }

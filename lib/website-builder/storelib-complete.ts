@@ -240,6 +240,32 @@ export function undeclaredNames(source: string): Diagnostic[] {
   const body = source.slice(open, close)
   const startLine = source.slice(0, open).split("\n").length
   const lines = body.split("\n")
+  /**
+   * The compiler's rule for a loop variable (lib/storelib-theme/storelib/
+   * compile.ts checkReferences): only one over the section's blocks is held
+   * against the block schema. `{% for block in products %}` hands out product
+   * cards, whose `slug` or `kind` no block declares, and the compiler saves
+   * that file; marking it here was a clean file lit up amber. So each
+   * `{% for %}` binding is kept with the span it covers, by offset.
+   */
+  const loops: { name: string; blocks: boolean; from: number; to: number }[] = []
+  {
+    const stack: { name: string; list: string; from: number }[] = []
+    for (const m of body.matchAll(/\{%-?\s*(?:for\s+([a-zA-Z_]\w*)\s+in\s+([\w.]+)|(endfor))\b/g)) {
+      if (m[3]) {
+        const top = stack.pop()
+        if (top) loops.push({ name: top.name, blocks: top.list === "blocks" || top.list === "section.blocks", from: top.from, to: m.index ?? 0 })
+      } else stack.push({ name: m[1], list: m[2], from: m.index ?? 0 })
+    }
+  }
+  const lineStart: number[] = []
+  for (let i = 0, at = 0; i < lines.length; at += lines[i].length + 1, i++) lineStart.push(at)
+  /* The innermost loop that binds `name` around `at` is what the name means there. */
+  const boundOutsideBlocks = (name: string, at: number) => {
+    let best: (typeof loops)[number] | null = null
+    for (const b of loops) if (b.name === name && b.from <= at && at < b.to && (!best || b.from > best.from)) best = b
+    return best !== null && !best.blocks
+  }
   for (const [i, text] of lines.entries()) {
     /**
      * `(?<![\w.])` and not `\b`: a word boundary sits happily after the dot
@@ -260,6 +286,7 @@ export function undeclaredNames(source: string): Diagnostic[] {
     for (const m of text.matchAll(/(?<![\w.])([a-zA-Z_]\w*)\.settings\.([a-zA-Z_][\w]*)/g)) {
       if (m[1] === "section") continue
       if (blockIds.has(m[2])) continue
+      if (boundOutsideBlocks(m[1], lineStart[i] + (m.index ?? 0))) continue
       out.push({
         line: startLine + i,
         column: (m.index ?? 0) + m[0].length - m[2].length + 1,

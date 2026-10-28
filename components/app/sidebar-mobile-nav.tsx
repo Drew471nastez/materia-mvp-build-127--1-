@@ -42,6 +42,7 @@ import { onPageOf, scrollAppToTop } from "@/lib/ui/scroll-app-top"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
 import { APP_PAGE_KEPT_MS, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { mayLeave } from "@/lib/ui/leave-guard"
+import { prefetchPlan } from "@/lib/nav/prefetch-policy"
 import {
   isRouteActive,
   type NavIconPair,
@@ -430,30 +431,17 @@ export function MobileMenuPage({
   closeRef.current = onClose
   const nodeRef = useRef<HTMLDivElement>(null)
   /*
-    ONTO THE PAGE, NOT OVER IT ARRIVING (round 24, the owner: "when I click a menu link ... that transition is very
-    glitchy and ugly and buggy and interlacks"). A press used to close the menu in the same frame the page began to
-    change, so the menu faded out over a page that was still swapping in under it: two things moving at once. Now the
-    pressed row lights at once (useShownPath), the menu stays while the page is fetched and drawn under it, and fades
-    away the frame after the new page is here, onto a page already in place. A page that has not come in 1.6s, or a
-    press on the page already open, closes it at once.
+    THE TAP CLOSES IT, AT ONCE (round 26, the owner: "tapping an item sometimes blocks ~4 seconds before navigating").
+    Round 24 kept the menu up until the new page had committed under it, up to 1.6s, so on a slow answer the menu sat
+    frozen over the screen with the row lit and nothing else moving, and then the page you were on came back for the
+    rest of the wait. Now the press starts the navigation (Link) and closes the menu in the same tap: it fades in its
+    own 180ms while the router brings the page, and the page you were on stays under it with the shell's spinner if
+    the server is slow (components/app/app-stage). The `to` is still passed by the rows; it no longer holds anything.
   */
-  const pathname = usePathname()
-  const going = useRef<{ from: string; timer: number } | null>(null)
   const closeOnto = useCallback((to?: string) => {
-    if (going.current) window.clearTimeout(going.current.timer)
-    going.current = null
-    if (!to || to.split(/[?#]/)[0] === window.location.pathname) return closeRef.current()
-    going.current = { from: window.location.pathname, timer: window.setTimeout(() => { going.current = null; closeRef.current() }, 1600) }
+    void to
+    closeRef.current()
   }, [])
-  useEffect(() => {
-    const g = going.current
-    if (!g || pathname === g.from) return
-    window.clearTimeout(g.timer)
-    going.current = null
-    /* One frame for the new page to be painted under the menu, then the menu goes. */
-    requestAnimationFrame(() => requestAnimationFrame(() => closeRef.current()))
-  }, [pathname])
-  useEffect(() => () => { if (going.current) window.clearTimeout(going.current.timer) }, [])
   /*
     WHAT IT LISTS IS WARMED AS IT OPENS (round 25, the owner: "/app navigation faster and smoother"). The pill's four
     pages are fetched whole when the app starts; the menu's others (Emails, Payouts, Settings...) were fetched only
@@ -466,7 +454,15 @@ export function MobileMenuPage({
   itemsRef.current = items
   useEffect(() => {
     if (!open) return
-    const hrefs = itemsRef.current.filter((i) => !i.forceNavigation && !i.children?.length && i.href.startsWith("/app")).map((i) => i.href)
+    /* Round 26: not the pill's four, which it keeps warm itself, and no more than the device's plan allows in one go
+       (lib/nav/prefetch-policy: 8 on a fast phone, 4 on most, none on Save-Data). A dozen whole pages drawn on the server
+       at once are a dozen renders the page the person then taps waits behind. Closing the menu cancels the rest. */
+    const plan = prefetchPlan()
+    const tabs = new Set<string>(TABS.map((t) => t.href))
+    const hrefs = itemsRef.current
+      .filter((i) => !i.forceNavigation && !i.children?.length && i.href.startsWith("/app") && !tabs.has(i.href))
+      .map((i) => i.href)
+      .slice(0, plan.idleBudget)
     const timers: number[] = []
     let n = 0
     for (const href of hrefs) {

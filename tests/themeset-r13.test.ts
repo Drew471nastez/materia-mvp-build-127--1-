@@ -96,7 +96,8 @@ console.log("\nA swatch choice in Theme settings shows at once (imported themes)
   check("  said to the page on screen first (storelib:settings-change), for a theme that applies it itself", /\(scriptsDue\.current \|\| choice\)\) \{\s*scriptsDue\.current = false\s*window\.clearTimeout\(scriptsTimer\.current\)\s*\/\*[^*]*\*\/\s*tell\(win, false\)\s*loadBehind\(html, docKey, list\)/.test(canvas))
   check("  typed words still wait for the changes to stop", /scriptsTimer\.current = window\.setTimeout\(settle, SCRIPTS_SETTLE_MS\)\s*\}/.test(canvas))
   check("a section swapped for a choice is told so", /type: "section", id: sw\.id, html: sw\.html, prev: now\.shape\.sections\.get\(sw\.id\), \.\.\.\(choice \? \{ now: true \} : \{\}\)/.test(canvas))
-  check("  and the frame starts its scripts again on the next frame, not 700ms later", /restartIn = m\.now \? 0 : 700;/.test(bridge) && (bridge.match(/\}, restartIn\);/g) ?? []).length === 2 && !/\}, 700\);/.test(bridge))
+  /* Changed on purpose (countdown round): morph's and written's two timers are one now, restartLater (which starts a countdown's own element again in place, else swaps the section), and both call it while restartIn is still the change's. */
+  check("  and the frame starts its scripts again on the next frame, not 700ms later", /restartIn = m\.now \? 0 : 700;/.test(bridge) && (bridge.match(/\}, restartIn\);/g) ?? []).length === 1 && /var restartLater = function \(id, html, els\) \{\s*clearTimeout\(settleTimers\[id\]\);\s*settleTimers\[id\] = setTimeout\(/.test(bridge) && /if \(ops\.restart\) restartLater\(id, html, /.test(bridge) && /if \(restart\) restartLater\(id, html, /.test(bridge) && !/\}, 700\);/.test(bridge))
   check("  put back for the next change", /if \(!done\) try \{ done = morph\(m\.id, m\.html, m\.prev\); \} catch \(err\) \{ done = false; \}\s*restartIn = 700;/.test(bridge))
 }
 

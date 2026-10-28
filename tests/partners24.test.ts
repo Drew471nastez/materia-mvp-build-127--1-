@@ -80,7 +80,8 @@ const cjAuth: Route = (c) => {
   if (c.method === "POST" && c.url === `${CJ}/authentication/getAccessToken`) {
     if (c.body?.apiKey !== CJ_KEY) return cjNo(1600001, "Invalid API key")
     tokenIssued++
-    return cjOk({ openId: 1234567, accessToken: `at-${tokenIssued}`, accessTokenExpiryDate: "2026-10-26T12:00:00+08:00", refreshToken: `rt-${tokenIssued}`, refreshTokenExpiryDate: "2027-04-09T12:00:00+08:00", createDate: "2026-10-11T12:00:00+08:00" })
+    /* Changed on purpose: the token's ends are counted from today (CJ's 15 and 180 days), not fixed dates, which passed on 2026-10-26 and made every connect refresh at once. */
+    return cjOk({ openId: 1234567, accessToken: `at-${tokenIssued}`, accessTokenExpiryDate: new Date(Date.now() + 15 * 86_400_000).toISOString(), refreshToken: `rt-${tokenIssued}`, refreshTokenExpiryDate: new Date(Date.now() + 180 * 86_400_000).toISOString(), createDate: "2026-10-11T12:00:00+08:00" })
   }
   return null
 }

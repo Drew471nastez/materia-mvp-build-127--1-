@@ -247,7 +247,8 @@ const hydra = { id: HYDRA, settings: { title: "Hydra", slug: "hydra", url: "/pro
     const catalog = themeBlockCatalog(files, { builtIn: false })
     const names = addableBlocks(schemaFor("main-product", files, {}), catalog).map((b) => b.name)
     /* Changed on purpose (round 13): Size chart and Personalization come last now. */
-    check("Add block in a section that takes @app lists Stock status and Estimated delivery after Storelib Reviews'", JSON.stringify(names.slice(-6, -2)) === '["Star rating","Reviews","Stock status","Estimated delivery"]', names)
+    /* Changed on purpose (offers round): Bundles and upsells follows Estimated delivery (lib/storelib-theme/compat/offers-app-block.ts). */
+    check("Add block in a section that takes @app lists Stock status and Estimated delivery after Storelib Reviews'", JSON.stringify(names.slice(-7, -2)) === '["Star rating","Reviews","Stock status","Estimated delivery","Bundles and upsells"]', names)
   }
 
   console.log("\n4. Options: price, sold out, photo, ?variant= and the cart line")
