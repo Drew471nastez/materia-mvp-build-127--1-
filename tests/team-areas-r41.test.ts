@@ -160,11 +160,11 @@ async function main() {
     check("  never another store's", "error" in elsewhere && elsewhere.status === 403)
     const without = await sellersReview(world(), R1, ANA, null)
     check("  and never without the store", "error" in without && without.status === 403)
-    const course = await ownerOf(world(), ANA, PRODUCT, STORE).catch((e: Error) => e)
+    const course = await ownerOf(world() as never, ANA, PRODUCT, STORE).catch((e: Error) => e)
     check("a course: a member with Products edits the store's", !(course instanceof Error) && course.creatorId === STORE && course.userId === ANA, course instanceof Error ? course.message : course)
-    const courseElsewhere = await ownerOf(world(), ANA, OTHER_PRODUCT, STORE).catch((e: Error) => e)
+    const courseElsewhere = await ownerOf(world() as never, ANA, OTHER_PRODUCT, STORE).catch((e: Error) => e)
     check("  never another store's", courseElsewhere instanceof Error)
-    const courseOwner = await ownerOf(world(), OWNER, PRODUCT).catch((e: Error) => e)
+    const courseOwner = await ownerOf(world() as never, OWNER, PRODUCT).catch((e: Error) => e)
     check("  the owner, as before", !(courseOwner instanceof Error) && courseOwner.creatorId === STORE)
   }
 
