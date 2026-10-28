@@ -5,6 +5,16 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Ends {when} in each visitor's own time": "Termina el {when} en la hora de cada visitante",
+ "Ended {when} in each visitor's own time": "Terminó el {when} en la hora de cada visitante",
+ "Ends {when} in {city} ({zone})": "Termina el {when} en {city} ({zone})",
+ "Ended {when} in {city} ({zone})": "Terminó el {when} en {city} ({zone})",
+ "Ends {when} {zone}": "Termina el {when} {zone}",
+ "Ended {when} {zone}": "Terminó el {when} {zone}",
+ "{value} is not a real date. Pick a day.": "{value} no es una fecha real. Elige un día.",
+ "A fixed UTC offset does not move with daylight saving.": "Un desfase UTC fijo no cambia con el horario de verano.",
+ "{city} is on {zone} on that date.": "{city} está en {zone} en esa fecha.",
+ "Saved in UTC.": "Guardado en UTC.",
  "  ·  not published yet": "  ·  aún sin publicar",
  " (buyer's reference {orderRef})": " (referencia del comprador {orderRef})",
  " (free for them)": " (gratis para ellos)",
@@ -10008,6 +10018,7 @@ const words: Record<string, string> = {
  "Your website has no text to translate yet.": "Tu sitio web aún no tiene texto que traducir.",
  "Your website in more languages": "Tu sitio web en más idiomas",
  "Your website in more languages, each at its own address like /fr.": "Tu sitio web en más idiomas, cada uno en su propia dirección, como /fr.",
+ "Receipts, order emails and order pages use your default language, unless the buyer checked out in another one you publish.": "Los recibos, los correos de pedido y las páginas de pedido usan tu idioma predeterminado, salvo que el comprador haya pagado en otro idioma que publicas.",
  "Your website in more languages.": "Tu sitio web en más idiomas.",
  "Your website is at {liveHost}. Its other addresses send visitors there.": "Tu sitio web está en {liveHost}. Sus otras direcciones envían a los visitantes allí.",
  "Your website is offline": "Tu sitio web está desconectado",

@@ -5,6 +5,16 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Ends {when} in each visitor's own time": "Kończy się {when} w czasie lokalnym każdego odwiedzającego",
+ "Ended {when} in each visitor's own time": "Zakończono {when} w czasie lokalnym każdego odwiedzającego",
+ "Ends {when} in {city} ({zone})": "Kończy się {when}, {city} ({zone})",
+ "Ended {when} in {city} ({zone})": "Zakończono {when}, {city} ({zone})",
+ "Ends {when} {zone}": "Kończy się {when} {zone}",
+ "Ended {when} {zone}": "Zakończono {when} {zone}",
+ "{value} is not a real date. Pick a day.": "{value} to nie jest prawdziwa data. Wybierz dzień.",
+ "A fixed UTC offset does not move with daylight saving.": "Stałe przesunięcie UTC nie zmienia się wraz z czasem letnim.",
+ "{city} is on {zone} on that date.": "{city} ma w tym dniu {zone}.",
+ "Saved in UTC.": "Zapisano w UTC.",
  "  ·  not published yet": "  ·  jeszcze nieopublikowana",
  " (buyer's reference {orderRef})": " (numer kupującego {orderRef})",
  " (free for them)": " (za darmo dla nich)",
@@ -10008,6 +10018,7 @@ const words: Record<string, string> = {
  "Your website has no text to translate yet.": "Strona nie ma jeszcze tekstu do tłumaczenia.",
  "Your website in more languages": "Twoja strona w większej liczbie języków",
  "Your website in more languages, each at its own address like /fr.": "Twoja strona w kolejnych językach, każdy pod własnym adresem, np. /fr.",
+ "Receipts, order emails and order pages use your default language, unless the buyer checked out in another one you publish.": "Potwierdzenia, e-maile i strony zamówień są w Twoim języku domyślnym, chyba że kupujący zapłacił w innym opublikowanym przez Ciebie języku.",
  "Your website in more languages.": "Twoja strona w kolejnych językach.",
  "Your website is at {liveHost}. Its other addresses send visitors there.": "Strona działa pod {liveHost}. Pozostałe adresy przekierowują tam odwiedzających.",
  "Your website is offline": "Twoja strona jest offline",

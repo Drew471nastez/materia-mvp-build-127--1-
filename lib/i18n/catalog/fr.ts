@@ -5,6 +5,16 @@
  * keys, no trailing comma). A sentence missing here shows in English.
  */
 const words: Record<string, string> = {
+ "Ends {when} in each visitor's own time": "Se termine le {when}, à l'heure de chaque visiteur",
+ "Ended {when} in each visitor's own time": "Terminé le {when}, à l'heure de chaque visiteur",
+ "Ends {when} in {city} ({zone})": "Se termine le {when} à {city} ({zone})",
+ "Ended {when} in {city} ({zone})": "Terminé le {when} à {city} ({zone})",
+ "Ends {when} {zone}": "Se termine le {when} {zone}",
+ "Ended {when} {zone}": "Terminé le {when} {zone}",
+ "{value} is not a real date. Pick a day.": "{value} n'est pas une vraie date. Choisissez un jour.",
+ "A fixed UTC offset does not move with daylight saving.": "Un décalage UTC fixe ne suit pas l'heure d'été.",
+ "{city} is on {zone} on that date.": "{city} est en {zone} à cette date.",
+ "Saved in UTC.": "Enregistré en UTC.",
  "  ·  not published yet": "  ·  pas encore publiée",
  " (buyer's reference {orderRef})": " (référence de l'acheteur {orderRef})",
  " (free for them)": " (gratuit pour eux)",
@@ -10008,6 +10018,7 @@ const words: Record<string, string> = {
  "Your website has no text to translate yet.": "Votre site n'a pas encore de texte à traduire.",
  "Your website in more languages": "Votre site dans plus de langues",
  "Your website in more languages, each at its own address like /fr.": "Votre site dans plus de langues, chacune à sa propre adresse comme /fr.",
+ "Receipts, order emails and order pages use your default language, unless the buyer checked out in another one you publish.": "Les reçus, les e-mails de commande et les pages de commande sont dans votre langue par défaut, sauf si l'acheteur a payé dans une autre langue que vous publiez.",
  "Your website in more languages.": "Votre site dans plus de langues.",
  "Your website is at {liveHost}. Its other addresses send visitors there.": "Votre site est sur {liveHost}. Ses autres adresses y redirigent les visiteurs.",
  "Your website is offline": "Votre site web est hors ligne",
