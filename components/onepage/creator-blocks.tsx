@@ -36,6 +36,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { usePageMoney } from "@/components/platform/price-currency"
 import { createClient } from "@/lib/supabase/client"
+import { teamStoreForProducts } from "@/lib/onepage/team-context"
 import { sendContactMessage } from "@/lib/website-builder/contact-client"
 import {
   CONTACT_LIMITS,
@@ -397,7 +398,9 @@ async function loadCourses(): Promise<CourseRow[]> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  /* A team member editing a store's OnePage lists that store's courses (lib/onepage/team-context); the owner, their own, as before. */
+  const teamStore = teamStoreForProducts()
+  const { data: creator } = teamStore ? { data: { id: teamStore } } : await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return []
   const { data } = await supabase
     .from("products")

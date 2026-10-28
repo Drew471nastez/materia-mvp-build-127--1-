@@ -55,7 +55,16 @@ export function isTeamPermission(v: unknown): v is TeamPermission {
  * A permission not open yet is shown in the invite form, unticked and
  * unavailable, and is never stored or honoured.
  */
-export const OPEN_TO_TEAM: ReadonlySet<TeamPermission> = new Set<TeamPermission>(["orders", "customers", "marketing", "analytics", "team"])
+export const OPEN_TO_TEAM: ReadonlySet<TeamPermission> = new Set<TeamPermission>(["onepage", "orders", "customers", "marketing", "community", "analytics", "team"])
+/*
+  Round 40, second pass: OnePage (lib/team/onepage, the store owner's page
+  through the editor's server routes) and Community (lib/communities/server
+  /team.ts, an admin of each of the store's communities, acting as the
+  store) are open. Still closed, and why, in tests/team-areas-r40.test.ts:
+  the website builder, the creator page, products and store settings read
+  and write from the browser under row level security that answers only
+  for the owner.
+*/
 
 export function isOpen(p: TeamPermission): boolean {
   return OPEN_TO_TEAM.has(p)

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
+import { onePageActor } from "@/lib/team/onepage"
+import { permits } from "@/lib/team/permissions"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { triggerEmailFlows } from "@/lib/email"
 import { contactSourceFrom, recordContactSource } from "@/lib/contacts/contact-source"
@@ -290,10 +292,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: onepage } = await supabase
+    /*
+      Whose leads (lib/team/onepage). The emails people left are the store's
+      customers: a team member sees them only with Customers as well as
+      OnePage. The owner, as before.
+    */
+    const actor = await onePageActor(supabase, user.id)
+    if (actor instanceof NextResponse) return actor
+    if (actor.acting && !permits(actor.acting.permissions, "customers")) {
+      return NextResponse.json({ error: "Signups are with Customers. Ask the store's owner for it." }, { status: 403, headers: { "Cache-Control": "no-store" } })
+    }
+    const db = actor.db
+
+    const { data: onepage } = await db
       .from("onepages")
       .select("id")
-      .eq("owner_id", user.id)
+      .eq("owner_id", actor.pageOwnerId)
       .single()
 
     if (!onepage) {
@@ -304,7 +318,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "50")
     const offset = parseInt(searchParams.get("offset") || "0")
 
-    const { data: leads, error, count } = await supabase
+    const { data: leads, error, count } = await db
       .from("onepage_leads")
       .select("*", { count: "exact" })
       .eq("onepage_id", onepage.id)

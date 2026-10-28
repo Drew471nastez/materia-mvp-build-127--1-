@@ -937,6 +937,8 @@ const SUITES = [
   "tests/team-landing.test.ts",
   /* Round 40: team permissions like Shopify staff: a list per member (part 320), presets, the invite and change of access, requireTeamPermission on every open area, the sidebar and the access card. */
   "tests/team-permissions-r40.test.ts",
+  /* Round 40, second pass: OnePage and Community open to the team (lib/team/onepage, lib/communities/server/team.ts), uploads in the store's folder, SQL part 319; website, creator page, products and settings still closed. */
+  "tests/team-areas-r40.test.ts",
   "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",

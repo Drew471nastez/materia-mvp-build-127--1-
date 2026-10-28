@@ -14,6 +14,7 @@ import * as React from "react"
 import { ArrowUpRight, CreditCard, ExternalLink, LayoutTemplate, PanelBottom, Package, Trash2, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import { teamStoreForProducts } from "@/lib/onepage/team-context"
 import { Switch } from "@/components/onepage/editor-kit"
 import { ChoiceMark } from "@/components/onepage/choice-marks"
 import { tt } from "@/lib/i18n/text"
@@ -43,7 +44,9 @@ async function readCreatorProducts(): Promise<CreatorProduct[] | null> {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return null
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).single()
+  /* A team member editing a store's OnePage lists that store's products (lib/onepage/team-context); the owner, their own, as before. */
+  const teamStore = teamStoreForProducts()
+  const { data: creator } = teamStore ? { data: { id: teamStore } } : await supabase.from("creators").select("id").eq("user_id", user.id).single()
   if (!creator) return []
   /* With the older archive flag where the database has it; the status alone says the same elsewhere (lib/products/visibility). */
   for (const cols of ["id, title, price_cents, thumbnail_url, description, slug, type, status, archived", "id, title, price_cents, thumbnail_url, description, slug, type, status"]) {

@@ -7,6 +7,8 @@ import { admin } from "@/lib/communities/server/db"
 import { loadCreatorCommunities } from "@/lib/communities/server/creator"
 import { CommunityList } from "@/components/community/creator/community-list"
 import { getServerTt } from "@/lib/i18n/server"
+import { teamPageStore } from "@/lib/team/server"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
 
 export const dynamic = "force-dynamic"
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,6 +22,13 @@ export default async function CreatorCommunitiesPage() {
   const user = await pageUser()
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return null
+  /* Round 40: a store's team member with Community lists the store's communities (lib/communities/server/team.ts). */
+  const access = await teamPageStore("community")
+  if (access.kind === "denied") return <TeamAreaClosed area="community" store={access.acting.name} permissions={access.acting.permissions} />
+  if (access.kind === "store" && !access.isOwner) {
+    const list = await loadCreatorCommunities(admin(), access.creatorId, user.id, { team: true })
+    return <CommunityList available={list.available} rows={list.rows} limit={list.limit} canCreate={false} />
+  }
   const creator = await creatorForRequest(user.id)
   if (!creator) redirect("/app")
   const list = await loadCreatorCommunities(admin(), creator.id, user.id)

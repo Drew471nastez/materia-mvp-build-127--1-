@@ -105,6 +105,10 @@ import { slugHeldByAnother } from "./slug-history"
 import { openReportCount, peopleOf } from "./moderation"
 import { overviewActivity } from "./overview-activity"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
+import { teamStaffContext } from "./team-page"
+import { TEAM_COMMUNITY_ROLE } from "./team"
+import { teamStoreForRequest } from "@/lib/team/server"
+import { permits } from "@/lib/team/permissions"
 import { checkGalleryForCommunity, coverAfterGallery, loadGallery, ownPicture, saveGallery } from "./gallery"
 import { keptSafety, slowModeChoice, withSlowMode } from "./safety"
 import { cleanLook, coverPosition, keptLook, pageLookOf, withPageLook } from "../page-look"
@@ -172,8 +176,12 @@ export const creatorCommunityPage = cache(async (id: string): Promise<CreatorPag
   const user = await pageUser()
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return "no-session"
+  /* Round 40: working in a store as a member of its team (lib/team). The owner pays no read here: no cookie, no query. */
+  const team = await teamStoreForRequest(user.id).catch(() => null)
+  if (team) return permits(team.acting.permissions, "community") ? teamStaffContext(admin(), key, user.id, team.acting, team.store) : null
   return staffContext(admin(), key, user.id, creatorForRequest(user.id))
 })
+
 
 /** The creator row as lib/auth/request-scope.ts reads it: the columns the gate needs. */
 type PageCreator = { id: string; display_name?: string | null; username?: string | null; slug?: string | null; stripe_account_id?: string | null; stripe_onboarding_status?: string | null; charges_enabled?: boolean | null }
@@ -322,11 +330,13 @@ export const communityHead = cache(async (ctx: CreatorPageContext): Promise<Comm
  * choices for their role (./creator-roles.ts) included. With them, the Free
  * plan's limit (lib/communities/plan-limit.ts) for New community.
  */
-export async function loadCreatorCommunities(db: Db, creatorId: string, userId: string): Promise<{ available: boolean; rows: CommunityListRow[]; limit: CommunityLimitView }> {
+export async function loadCreatorCommunities(db: Db, creatorId: string, userId: string, opts: { team?: boolean } = {}): Promise<{ available: boolean; rows: CommunityListRow[]; limit: CommunityLimitView }> {
   const LIST_COLUMNS = "id, slug, name, tagline, logo_url, cover_url, status, access, visibility, member_count, post_count, created_at, archived_at, creator_id, owner_user_id, onboarding"
+  /* Round 40: a store's team member (./team.ts) sees the store's communities, as an admin of each, and none they help run elsewhere. */
+  const ownRole: Role = opts.team ? TEAM_COMMUNITY_ROLE : "owner"
   const [owned, staff, plan] = await Promise.all([
     db.from("communities").select(LIST_COLUMNS).eq("creator_id", creatorId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100),
-    db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").in("role", ["admin", "moderator"]).limit(100),
+    opts.team ? Promise.resolve({ data: [] }) : db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").in("role", ["admin", "moderator"]).limit(100),
     creatorSitePlan(creatorId),
   ])
   const limit: CommunityLimitView = { max: communityLimitFor(plan), owned: 0 }
@@ -336,7 +346,7 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
   }
   type Lite = { id: string; slug: string; name: string; tagline: string | null; logo_url: string | null; cover_url: string | null; status: CommunityRow["status"]; access: CommunityRow["access"]; visibility: CommunityRow["visibility"]; member_count: number; post_count: number; created_at: string; archived_at: string | null; onboarding?: unknown }
   const rows = new Map<string, Lite & { role: Role }>()
-  for (const c of (owned.data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: "owner" })
+  for (const c of (owned.data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: ownRole })
   const staffRoles = new Map(((staff.data as { community_id: string; role: Role }[] | null) ?? []).map((m) => [m.community_id, m.role]))
   const extra = [...staffRoles.keys()].filter((id) => !rows.has(id))
   if (extra.length) {
@@ -346,7 +356,7 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
   const list = [...rows.values()]
   /* Round 26: a community whose deletion is scheduled says so on its card and takes no place on the plan (lib/communities/plan-limit.ts). */
   const [perms, pending] = await Promise.all([staffPermissionsFor(db, list.filter((c) => c.role !== "owner").map((c) => c.id)), pendingDeletions(db, list.filter((c) => c.status === "archived" || c.archived_at).map((c) => c.id))])
-  limit.owned = list.filter((c) => c.role === "owner" && takesCommunitySlot({ deleting: pending.has(c.id) })).length
+  limit.owned = list.filter((c) => (c.role === "owner" || (opts.team && c.role === ownRole)) && takesCommunitySlot({ deleting: pending.has(c.id) })).length
   const may = (c: Lite & { role: Role }, action: CommunityAction) => can(c.role, action, perms.get(c.id) ?? null)
   const paidIds = list.filter((c) => c.access === "paid").map((c) => c.id)
   const prices = new Map<string, string>()

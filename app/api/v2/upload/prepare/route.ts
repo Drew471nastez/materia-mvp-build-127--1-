@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { uploadCreator, uploadStore } from "@/lib/team/uploads"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   STORAGE_BUCKET,
@@ -63,12 +64,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
 
-    // Get creator
-    const { data: creator } = await admin
-      .from("creators")
-      .select("id, subscription_plan_id")
-      .eq("user_id", user.id)
-      .single()
+    // Get creator: their own, or for a team member working in a store with an area that uploads pictures, the store's (lib/team/uploads)
+    const store = await uploadStore(admin, user.id)
+    if (store.kind === "refused") {
+      return NextResponse.json({ error: "You don't have access to this. Ask the store's owner." }, { status: 403, headers: UPLOAD_HEADERS })
+    }
+    const creator = (await uploadCreator(admin, user.id, store, "id, subscription_plan_id")) as { id: string; subscription_plan_id: string | null } | null
 
     if (!creator) {
       return NextResponse.json({ error: "Creator account required" }, { status: 403, headers: UPLOAD_HEADERS })
@@ -98,6 +99,11 @@ export async function POST(request: NextRequest) {
     }
 
     const isDigital = folder === "digital" || folder === "digital-products"
+
+    /* A product's file is sold, not shown: the store's owner uploads those (lib/team/uploads). */
+    if (isDigital && store.kind === "store") {
+      return NextResponse.json({ error: "Only the store's owner can upload product files." }, { status: 403, headers: UPLOAD_HEADERS })
+    }
 
     /* A private file with no product has no row, so nothing can ever deliver
        it and nothing counts it: it only fills the bucket. The old page flow

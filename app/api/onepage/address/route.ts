@@ -12,6 +12,7 @@
  */
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { onePageActor } from "@/lib/team/onepage"
 import { checkOnePageName } from "@/lib/onepage/username"
 import { onePageNameTaken } from "@/lib/onepage/name-availability"
 import { rateLimit } from "@/lib/api/rate-limit"
@@ -38,13 +39,16 @@ export async function GET(request: Request) {
   })
   if (limited) return limited
 
-  const { data: page } = await supabase.from("onepages").select("id, slug").eq("owner_id", user.id).maybeSingle()
+  /* Whose page the name is for (lib/team/onepage): the owner's own, or for a team member with OnePage the store owner's. */
+  const actor = await onePageActor(supabase, user.id)
+  if (actor instanceof NextResponse) return actor
+  const { data: page } = await actor.db.from("onepages").select("id, slug").eq("owner_id", actor.pageOwnerId).maybeSingle()
   const own = page as { id?: string; slug?: string | null } | null
   if (own?.slug && own.slug.toLowerCase() === verdict.value) {
     return NextResponse.json({ name: verdict.value, available: true, current: true }, { headers: NO_STORE })
   }
 
-  const taken = await onePageNameTaken(verdict.value, { onepageId: own?.id ?? null, userId: user.id })
+  const taken = await onePageNameTaken(verdict.value, { onepageId: own?.id ?? null, userId: actor.pageOwnerId })
   if (taken === "unknown") {
     return NextResponse.json({ name: verdict.value, available: null, error: "Could not check that name just now" }, { status: 503, headers: NO_STORE })
   }
