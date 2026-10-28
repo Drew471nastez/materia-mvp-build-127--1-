@@ -421,7 +421,7 @@ async function main() {
     check("Website Settings is told on and set, never the hash", shown.enabled && shown.hasPassword && !JSON.stringify(shown).includes("scrypt"))
     check("B's website is untouched", (await readSiteAccess(db, B)).enabled === false)
     const settingsRoute = code("app/api/website-builder/site-password/route.ts")
-    check("the settings route changes only the signed in user's own creator", /auth\.getUser\(\)/.test(settingsRoute) && /\.eq\("user_id", auth\.user\.id\)/.test(settingsRoute) && /saveSiteAccess\(createAdminClient\(\), who\.creatorId, change\)/.test(settingsRoute))
+    check("the settings route changes only the signed in user's own creator", /websiteCaller\(\)/.test(settingsRoute) /* Changed on purpose (round 42 team): the store from lib/team/website: the owner's own, or the one a member with Website works in */ && /saveSiteAccess\(createAdminClient\(\), who\.creatorId, change\)/.test(settingsRoute))
     check("and answers with publicAccess, not the row", /return json\(publicAccess\(/.test(settingsRoute) && !/password_hash/.test(settingsRoute))
     const sql = read("supabase/sql/run-now/92_site_password_and_inbox.sql")
     check("site_access is server only: row level security on, nothing for visitors or signed in users", /ENABLE ROW LEVEL SECURITY/.test(sql) && /REVOKE ALL ON public\.site_access FROM PUBLIC, anon, authenticated/.test(sql) && !/CREATE POLICY/.test(sql))

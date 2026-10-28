@@ -105,10 +105,10 @@ async function main() {
   {
     const db = world()
     const own = await areaStoreFor(db, db, OWNER, "website", null)
-    check("the owner: their own store, their own client", own.kind === "store" && own.creatorId === STORE && own.isOwner && own.db === db, own)
+    check("the owner: their own store, their own client", own.kind === "store" && own.creatorId === STORE && own.isOwner && (own.db as unknown) === db, own)
     const member = await areaStoreFor(db, db, ANA, "website", acting(["website"]))
     check("a member with Website: the store, never their own", member.kind === "store" && member.creatorId === STORE && !member.isOwner && member.ownerUserId === OWNER, member)
-    check("  through a client that names them on record lines", member.kind === "store" && member.db !== db)
+    check("  through a client that names them on record lines", member.kind === "store" && (member.db as unknown) !== db)
     const without = await areaStoreFor(db, db, ANA, "website", acting(["products"]))
     check("a member without Website: refused, never their own store in its place", without.kind === "denied")
     const elsewhere = await areaStoreFor(db, db, ANA, "website", acting(["website"], OTHER_STORE, OTHER_OWNER))
@@ -218,7 +218,7 @@ async function main() {
     check("money changes are on the record: cash out, the bank, the schedule, the plan, the card, cancel, resume", /"payout_cashed_out"/.test(read("app/api/stripe/cashout/route.ts")) && /"payout_account_opened"/.test(read("app/api/payments/[action]/route.ts")) && /"payout_schedule_changed"/.test(settings) && (read("app/api/billing/subscription/change/route.ts").match(/"billing_plan_changed"/g) ?? []).length === 3 && /"billing_cancelled"/.test(read("app/api/billing/subscription/cancel/route.ts")) && /"billing_resumed"/.test(read("app/api/billing/subscription/resume/route.ts")) && /"billing_payment_method_changed"/.test(read("app/api/billing/payment-method/route.ts")))
     check("  never in a preview of a plan change", !/if \(previewOnly\) \{\s*await recordTeamAction/.test(read("app/api/billing/subscription/change/route.ts")))
     const row = teamActionRow({ creatorId: STORE, memberUserId: ANA, area: "billing_manage", action: "billing_plan_changed", detail: { plan_id: "growth" } })
-    check("the record line names the member, the store and the area", row.event_type === "team_billing_plan_changed" && row.metadata[TEAM_ACTOR_KEY] === ANA && row.metadata.creator_id === STORE && row.metadata.area === "billing_manage" && row.metadata.plan_id === "growth")
+    check("the record line names the member, the store and the area", row.event_type === "team_billing_plan_changed" && row.metadata[TEAM_ACTOR_KEY] === ANA && row.metadata.creator_id === STORE && row.metadata.area === "billing_manage" && (row.metadata as Record<string, unknown>).plan_id === "growth")
     check("  and the member cannot overwrite who they are with the detail", teamActionRow({ creatorId: STORE, memberUserId: ANA, area: "payouts_manage", action: "payout_cashed_out", detail: { team_member_user_id: OWNER, creator_id: OTHER_STORE } }).metadata[TEAM_ACTOR_KEY] === ANA)
   }
 
