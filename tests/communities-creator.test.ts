@@ -213,7 +213,8 @@ async function main() {
   check("a failed tier takes its product back", (tiers.match(/from\("products"\)\.delete\(\)\.eq\("id", productId\)/g) ?? []).length >= 3)
   check("a price change goes through saveMembership", /updateTier[\s\S]*saveMembership\(db, u\.creatorId, product,/.test(tiers))
   check("the products go on and off sale with the community", /syncTierProducts/.test(creatorSrc) && /status: onSale \? "published" : "draft"/.test(tiers))
-  check("a paid community is never made without its price", /if \(!tier\.ok\) \{\s*await db\.from\("communities"\)\.delete\(\)\.eq\("id", community\.id\)/.test(creatorSrc))
+  /* Changed on purpose (round 40): written "error" in tier so the loose test compile narrows it; the same check. */
+  check("a paid community is never made without its price", /if \("error" in tier\) \{\s*await db\.from\("communities"\)\.delete\(\)\.eq\("id", community\.id\)/.test(creatorSrc))
   /* Changed on purpose (round 33): deleting while members still pay is no longer refused; their memberships are stopped through Stripe first and the deletion waits for the last paid period (tests/community-lifecycle-round33.test.ts holds it). */
   check("deleting while members still pay stops their memberships first", /const paid = await paidMemberships\(db, c\.id\)\n\s+if \(paid\.length > 0\) return scheduleDeletion\(db,/.test(creatorSrc))
 
@@ -354,7 +355,8 @@ async function main() {
   check("before the column exists the answer says to run the update", missingColumn.ok === false && missingColumn.status === 409 && missingColumn.error === GALLERY_NOT_READY && /Run the update/.test(GALLERY_NOT_READY))
   const settingsBody = creatorSrc.slice(creatorSrc.indexOf("export async function updateSettings"), creatorSrc.indexOf("async function ensureFreeDefault"))
   check("the route checks the gallery before it writes anything, and saves it first", /checkGalleryForCommunity\(db, c\.id, b\.gallery\)/.test(settingsBody) && settingsBody.indexOf("checkGalleryForCommunity") < settingsBody.indexOf("saveGallery(db, c.id, gallery)") && settingsBody.indexOf("saveGallery(db, c.id, gallery)") < settingsBody.indexOf('db.from("communities").update(patch)'))
-  check("a failed gallery save answers its own status and words", /if \(!g\.ok\) return no\(g\.status, g\.error, "gallery"\)/.test(settingsBody))
+  /* Changed on purpose (round 40): written "error" in g so the loose test compile narrows it; the same check. */
+  check("a failed gallery save answers its own status and words", /if \("error" in g\) return no\(g\.status, g\.error, "gallery"\)/.test(settingsBody))
   const galleryEditor = code("components/community/creator/gallery-editor.tsx")
   check("pictures upload like the logo and cover, videos through the community's video upload", /compressPostPicture\(j\.file, \{ maxEdge: 2000/.test(galleryEditor) && /new DirectUploader\(\{ file, folder: "product-images"/.test(galleryEditor) /* Changed on purpose (round 27): sized on the device before it goes up. */ && /uploadCommunityVideo\(\{ endpoint: `\/api\/app\/community\/\$\{communityId\}\/videos`/.test(galleryEditor))
   /* Changed on purpose (round 31): "dragging doesn't work at all". The browser's drag and drop (no finger ever starts it) is the product editor's hold to drag (dnd-kit: a mouse, a held finger, the keyboard), and each tile keeps its menu. scripts/check-community-admin-round31.mjs DRAG moves them for real. */
