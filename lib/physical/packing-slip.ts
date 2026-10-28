@@ -8,7 +8,9 @@
  * them), the date, where it ships (or who picks it up), how it ships, each
  * item with its picture, variant, SKU and what the buyer asked for on it (an
  * engraving), how many, and the buyer's note and the cart's own fields (a
- * gift message). No prices: the slip travels with the parcel.
+ * gift message), and where a return goes (the store's own address, when it
+ * ships from one: the return email's). No prices: the slip travels with the
+ * parcel.
  *
  * Which items:
  *   a shipment (f)     what that parcel holds
@@ -34,6 +36,8 @@
 import { addressLines } from "./address"
 import { formatMinor } from "@/lib/markets/money"
 import { propertyText } from "@/lib/cart-uploads/rules"
+import { savingsOfLines } from "@/lib/offers/snapshot"
+import { splitSavings } from "@/lib/receipts/discount"
 
 export type SlipPaper = "a4" | "letter"
 
@@ -66,6 +70,8 @@ export interface SlipTotals {
   taxLabel: string
   totalCents: number
   refundedCents: number
+  /** The code the buyer typed: the code's row reads "Discount (SPRING10)", as at the checkout. */
+  couponCode?: string | null
 }
 
 type Tt = (source: string, vars?: Record<string, string | number>) => string
@@ -82,7 +88,7 @@ export interface SlipOrder {
   buyerName: string | null
   buyerNote: string | null
   cartAttributes?: Record<string, string> | null
-  lines: { orderId: string; title: string; variantName: string | null; sku: string | null; imageUrl: string | null; quantity: number; fulfilled: number; requiresShipping: boolean; locationId: string | null; properties?: Record<string, string> | null; unitCents?: number | null }[]
+  lines: { orderId: string; title: string; variantName: string | null; sku: string | null; imageUrl: string | null; quantity: number; fulfilled: number; requiresShipping: boolean; locationId: string | null; properties?: Record<string, string> | null; unitCents?: number | null; offers?: { title: string; savedCents: number }[] | null }[]
   shipments: { id: string; status: string; locationId: string | null; carrier: string | null; trackingNumber: string | null; items: { orderId: string; quantity: number }[] }[]
 }
 
@@ -141,6 +147,8 @@ const safeSrc = (u: string | null | undefined) => (u && (/^https:\/\/[^\s"'<>]+$
 export interface SlipStore {
   name: string
   logoUrl: string | null
+  /** Where a return is sent (lib/physical/jobs-server returnAddressOf), as address lines; absent or empty, none is printed. */
+  returnAddress?: string[] | null
 }
 
 /**
@@ -201,10 +209,13 @@ export function packingSlipHtml(
   const cols = priced ? 5 : 3
   const head = priced ? `<th colspan="2">${esc(tt("Items"))}</th><th class="amt">${esc(tt("Each"))}</th><th class="qty">${esc(tt("Qty"))}</th><th class="amt">${esc(tt("Amount"))}</th>` : `<th colspan="2">${esc(tt("Items"))}</th><th class="qty">${esc(tt("Qty"))}</th>`
   const t = priced?.totals ?? null
+  /* Each offer by the name the checkout showed it, then the code's part named by the code: the checkout's own rows (lib/checkout/summary-rows). */
+  const saved = t ? splitSavings(t.discountCents, savingsOfLines(order.lines)) : { rows: [], rest: 0 }
   const sums = t
     ? [
         [tt("Subtotal"), price(t.itemsSubtotalCents)],
-        ...(t.discountCents > 0 ? [[tt("Discount"), `−${price(t.discountCents)}`]] : []),
+        ...saved.rows.map((s) => [s.label, `−${price(s.cents)}`]),
+        ...(saved.rest > 0 ? [[t.couponCode ? tt("Discount ({code})", { code: t.couponCode }) : tt("Discount"), `−${price(saved.rest)}`]] : []),
         [tt("Shipping"), price(Math.max(0, t.shippingCents - t.shippingDiscountCents))],
         ...(t.taxCents > 0 ? [[t.taxIncluded ? tt("{label} included", { label: t.taxLabel }) : t.taxLabel, price(t.taxCents)]] : []),
         [tt("Total"), price(t.totalCents)],
@@ -219,6 +230,7 @@ export function packingSlipHtml(
   const notes = [
     order.buyerNote?.trim() ? `<section class="note"><h2>${esc(tt("Note from the buyer"))}</h2><p>${esc(order.buyerNote.trim()).replace(/\n/g, "<br>")}</p></section>` : "",
     attributes.length ? `<section class="note"><h2>${esc(tt("From the cart"))}</h2>${attributes.map(([k, v]) => `<p><span class="muted">${esc(k)}:</span> ${esc(v)}</p>`).join("")}</section>` : "",
+    store.returnAddress?.length ? `<section class="note" data-slip-return><h2>${esc(tt("Return address"))}</h2><p>${store.returnAddress.map(esc).join("<br>")}</p></section>` : "",
   ].join("")
   const title = `${priced ? tt("Order summary") : tt("Packing slip")} ${ref}`
   return `<!doctype html>

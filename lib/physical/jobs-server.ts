@@ -30,7 +30,8 @@ import { getMainDomain } from "@/lib/url-helpers"
 import type { Db } from "./auth"
 import { addOrderEvent } from "./events-server"
 import { loadCustomerEmailCopy, replyAddress } from "@/lib/emails/customer-copy-server"
-import { emailIdForJob, itemsText, resolveCopy } from "@/lib/emails/customer-custom"
+import { emailIdForJob, itemsText, pickCopy, resolveCopy, type ResolvedCopy } from "@/lib/emails/customer-custom"
+import { withOwnFrame } from "@/lib/emails/layout"
 import { COD_PAYMENT_METHOD, COD_PROVIDER } from "./cash-on-delivery"
 import { orderCancelledEmail, orderConfirmationEmail, orderDateText, orderUpdatedEmail, paymentFailedEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailBrand, type EmailLine } from "./email-templates"
 import { creatorTimeZone } from "@/lib/account/time-zone"
@@ -580,6 +581,8 @@ interface CheckoutForEmail {
   lines: Record<string, any>[]
   receipt_token: string
   buyer_note: string | null
+  /** The code the buyer typed, as written (lib/physical/checkout-server). */
+  coupon_code?: string | null
   delivery_method?: string | null
   pickup?: { name: string; address: string[]; instructions: string | null; ready: string; hours?: string | null } | null
   paid_at?: string | null
@@ -675,8 +678,8 @@ async function linesOfOrders(db: Db, checkoutId: string, items: { order_id: stri
   })
 }
 
-/** Where a return is sent: the store's default location when the store ships from it, as address lines. */
-async function returnAddressOf(db: Db, creatorId: string): Promise<string[] | null> {
+/** Where a return is sent: the store's default location when the store ships from it, as address lines. The return email and the packing slip say it. */
+export async function returnAddressOf(db: Db, creatorId: string): Promise<string[] | null> {
   const { data: settings } = await db.from("commerce_settings").select("default_location_id").eq("creator_id", creatorId).maybeSingle()
   let q = db.from("inventory_locations").select("name, kind, address_line1, address_line2, city, region, postal_code, country, forwarding").eq("creator_id", creatorId).eq("active", true)
   q = settings?.default_location_id ? q.eq("id", settings.default_location_id) : q.order("priority", { ascending: true })
@@ -753,9 +756,10 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
   let mail: { subject: string; html: string; text: string }
   /* Settings › Customer emails: the store's own words for this one, if it changed any (lib/emails/customer-custom.ts). */
   const saved = await loadCustomerEmailCopy(db, co.creator_id)
-  /* The store's own words are in its website's language: a buyer who bought in another gets the standard words in theirs. */
+  /* The store's own words in the buyer's language: the main ones in the website's, the ones written for another language in that one, the standard words when there are none (pickCopy). */
+  let ownCopy: ResolvedCopy | undefined
   const copyFor = (id: string | null, lines: { title?: string | null }[]) =>
-    id && language.own ? resolveCopy(saved[id], { customer_name: firstName, order_number: number, shop_name: shopName, items: itemsText(lines.map((l) => l.title)) }) : undefined
+    (ownCopy = id ? resolveCopy(pickCopy(saved[id], language), { customer_name: firstName, order_number: number, shop_name: shopName, items: itemsText(lines.map((l) => l.title)) }) : undefined)
 
   if (p.template === "confirmation") {
     /* How it was paid: optional, the email reads without it. */
@@ -787,6 +791,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
         codFee: Number(co.shipping_rate?.cod_fee_cents) || 0,
         /* Each offer's saving its own row, as the checkout's summary showed them. */
         savings: savingsOf(co.lines),
+        /* The code's row named by the code, as the checkout's summary named it. */
+        couponCode: co.coupon_code ?? null,
       },
       address: addressOf(co.shipping_address),
       deliveryName: co.shipping_rate?.name ?? null,
@@ -890,6 +896,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>, lease?: LeaseCheck
   } else {
     return
   }
+  /* The store's own preheader and footer line, around whichever template drew it (lib/emails/layout.ts). */
+  mail = withOwnFrame(mail, ownCopy)
   await holdLease(lease)
   const sent = await sendEmail({
     from: buildFromHeader(shopName),

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { pushRequestUser } from "@/lib/push/request-user"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { maskEmail } from "@/lib/privacy/mask-email"
 
@@ -12,16 +12,13 @@ import { maskEmail } from "@/lib/privacy/mask-email"
 export async function POST(req: Request) {
   console.log("[push/register] Request received")
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser()
+  /* The cookie, or the app's own access token when the web view's cookie is missing (lib/push/request-user.ts). */
+  const { user, via, authError } = await pushRequestUser(req)
 
-  console.log("[push/register] Auth user:", user ? `id=${user.id.slice(0, 8)}... email=${maskEmail(user.email)}` : "null", authError ? `authError=${authError.message}` : "")
+  console.log("[push/register] Auth user:", user ? `id=${user.id.slice(0, 8)}... email=${maskEmail(user.email)}${via === "bearer" ? " (bearer)" : ""}` : "null", authError ? `authError=${authError}` : "")
 
   if (!user) {
-    console.error("[push/register] Unauthorized — no session/cookie found")
+    console.error("[push/register] Unauthorized — no session cookie and no valid bearer token")
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -63,7 +60,8 @@ export async function POST(req: Request) {
 
   if (error) {
     console.error("[push/register] Insert/upsert failed:", error.message, error.details, error.hint)
-    return NextResponse.json({ error: "Failed to save token" }, { status: 500 })
+    /* The database's own words, so Settings' test can say which part is missing (scripts/060_create_push_tokens.sql, run-now 23). */
+    return NextResponse.json({ error: "Failed to save token", detail: error.message }, { status: 500 })
   }
 
   console.log(`[push/register] Insert/upsert SUCCESS`)

@@ -53,9 +53,12 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { Switch } from "@/components/ui/switch"
 import { SegmentedTabs } from "@/components/app/segmented-tabs"
+import { SegmentedPills, type PillOption } from "@/components/app/segmented-pills"
 import { CommunityEmails, type CommunityRef } from "@/components/app/emails/community-emails"
 import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, languageName, sentLine } from "@/components/app/emails/email-parts"
-import { FAMILY_NAMES, GROUP_NAMES, GROUP_ORDER, emailsOf, previewCustomerEmail, type CustomerEmail, type EmailFamily, type PreviewShop } from "@/lib/emails/customer-catalog"
+import { FAMILY_NAMES, GROUP_NAMES, GROUP_ORDER, emailsOf, type CustomerEmail, type EmailFamily } from "@/lib/emails/customer-list"
+import type { PreviewShop } from "@/lib/emails/customer-catalog"
+import { ShimmerBlock } from "@/components/ui/shimmer"
 import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, placeholdersFor, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
 import { ownWordsApply, type BuyerChannel } from "@/lib/emails/buyer-channel"
 import { TRIGGERS, isTriggerType } from "@/lib/automations/flow-model"
@@ -122,48 +125,108 @@ function writeView(v: View) {
   }
 }
 
-export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
+/*
+  WHAT EACH EMAIL HAS SENT, KEPT FOR THE PAGE'S LIFE. The Emails page
+  unmounts this list when another tab is opened; read again from nothing on
+  every return, its "12 sent in 30 days" lines arrived a beat after the rows
+  and the list moved under the eye. The last answer is drawn at once, and a
+  fresh one replaces it when it comes.
+*/
+const activityKept = new Map<string, EmailActivity>()
+/** This list has been drawn in this browser before: the address can be read on a first draw (below). */
+let panelMounted = false
+const activityPath = (communityKey: string) => `${ACTIVITY_PATH}${communityKey ? `?communities=${communityKey}` : ""}`
+
+/** Read the activity for this list ahead (Emails reads it with the list, so the tab opens with it). */
+export function prefetchCustomerActivity(data: CustomerEmailsData | null | undefined): void {
+  if (!data) return
+  const key = (data.communities ?? []).map((c) => c.id).join(",")
+  if (activityKept.has(key)) return
+  void api<EmailActivity>(activityPath(key)).then((r) => {
+    if (r.ok) activityKept.set(key, r.data)
+  })
+}
+
+export function CustomerEmailsPanel({
+  bare = false,
+  source,
+}: {
+  bare?: boolean
+  /**
+   * The Emails page's own read of this list (its tab cache), and where a
+   * change goes so the next look has it. Without it, Settings: the panel
+   * reads for itself.
+   */
+  source?: { data: CustomerEmailsData | null; onChange?: (data: CustomerEmailsData) => void }
+}) {
   const physical = usePhysicalCommerceEnabled()
   /* Drawn at once from what Settings (or Emails) fetched while the person was elsewhere (prefetchGet). */
-  const [data, setData] = React.useState<CustomerEmailsData | null>(() => peekGet<CustomerEmailsData>(CUSTOMER_EMAILS_PATH))
+  const [ownData, setOwnData] = React.useState<CustomerEmailsData | null>(() => (source ? source.data : peekGet<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)))
+  const data = source?.data ?? ownData
+  const sourceRef = React.useRef(source)
+  sourceRef.current = source
+  const setData = React.useCallback((update: (d: CustomerEmailsData | null) => CustomerEmailsData | null) => {
+    setOwnData((d) => {
+      const next = update(sourceRef.current?.data ?? d)
+      if (next && sourceRef.current?.onChange) queueMicrotask(() => sourceRef.current?.onChange?.(next))
+      return next
+    })
+  }, [])
   const [error, setError] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<CustomerEmail | null>(null)
-  const [view, setViewState] = React.useState<View>("all")
-  const [activity, setActivity] = React.useState<EmailActivity | null>(null)
+  /*
+    The family from the address. On the page's first draw it is All, as the
+    server drew it, and the address is read just after (a hydration that
+    disagreed with the server would throw the page's markup away); every
+    later mount (Emails' tab opened again) reads it on its first draw, so
+    the list does not draw All and then jump to the family.
+  */
+  const [view, setViewState] = React.useState<View>(() => (panelMounted ? viewFromAddress() : "all"))
   const communities = data?.communities ?? []
-  const [communityId, setCommunityId] = React.useState<string | null>(null)
+  const communityKey = communities.map((c) => c.id).join(",")
+  const [activity, setActivity] = React.useState<EmailActivity | null>(() => (data ? activityKept.get(communityKey) ?? null : null))
+  const [communityId, setCommunityId] = React.useState<string | null>(() => (panelMounted ? new URLSearchParams(window.location.search).get("community") : null))
 
   React.useEffect(() => {
-    void api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => (r.ok ? setData(r.data) : setError(r.error)))
-    setViewState(viewFromAddress())
-    setCommunityId(new URLSearchParams(window.location.search).get("community"))
+    if (!panelMounted) {
+      panelMounted = true
+      setViewState(viewFromAddress())
+      setCommunityId(new URLSearchParams(window.location.search).get("community"))
+    }
+    /* Emails reads the list itself (its tab cache); Settings asks here. */
+    if (sourceRef.current) return
+    void api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => (r.ok ? setOwnData(r.data) : setError(r.error)))
   }, [])
 
   /* What each has sent, once the list knows the communities it covers. */
-  const communityKey = communities.map((c) => c.id).join(",")
+  const hasData = !!data
   React.useEffect(() => {
-    if (!data) return
+    if (!hasData) return
     let live = true
-    void api<EmailActivity>(`${ACTIVITY_PATH}${communityKey ? `?communities=${communityKey}` : ""}`).then((r) => {
-      if (live && r.ok) setActivity(r.data)
+    const kept = activityKept.get(communityKey)
+    if (kept) setActivity(kept)
+    void api<EmailActivity>(activityPath(communityKey)).then((r) => {
+      if (!r.ok) return
+      activityKept.set(communityKey, r.data)
+      if (live) setActivity(r.data)
     })
     return () => {
       live = false
     }
-  }, [data, communityKey])
+  }, [hasData, communityKey])
 
   const setView = (v: View) => {
     setViewState(v)
     writeView(v)
   }
-  const tabs = [
-    { id: "all" as const, label: tt("All") },
-    { id: "digital" as const, label: FAMILY_NAMES.digital, short: tt("Digital") },
-    ...(physical ? [{ id: "physical" as const, label: FAMILY_NAMES.physical, short: tt("Physical") }] : []),
-    ...(communities.length ? [{ id: "communities" as const, label: FAMILY_NAMES.communities }] : []),
+  const tabs: PillOption<View>[] = [
+    { value: "all", label: tt("All") },
+    { value: "digital", label: FAMILY_NAMES.digital },
+    ...(physical ? [{ value: "physical" as const, label: FAMILY_NAMES.physical }] : []),
+    ...(communities.length ? [{ value: "communities" as const, label: FAMILY_NAMES.communities }] : []),
   ]
   /* A family that is not offered here (physical off, no community): All. */
-  const shown: View = tabs.some((t) => t.id === view) ? view : "all"
+  const shown: View = tabs.some((t) => t.value === view) ? view : "all"
   const families = (shown === "all" ? (["digital", "physical", "communities"] as EmailFamily[]) : [shown]).filter((f) => (f !== "physical" || physical) && (f !== "communities" || communities.length > 0))
   const community = communities.find((c) => c.id === communityId || c.slug === communityId) ?? communities[0] ?? null
 
@@ -188,7 +251,8 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
   const list = (
     <div className={cn(bare ? "pb-1" : "")} data-customer-email-list="">
       <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between", bare ? "border-b border-[#f1f2f4] px-4 py-3 sm:px-5" : "mb-4")}>
-        <SegmentedTabs value={shown} onChange={setView} tabs={tabs} label={tt("Email families")} controls="customer-emails-view" idPrefix="email-family" />
+        {/* Analytics' own family chips (SegmentedPills chips): quiet words, the chosen one a dark pill that slides. No grey track. */}
+        <SegmentedPills variant="chips" value={shown} onChange={setView} options={tabs} label={tt("Email families")} className="-ml-1 max-w-full self-start sm:self-auto" />
         {shown === "communities" && communities.length > 1 && community ? (
           <label className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[13px] text-[#6b7280]">{tt("Community")}</span>
@@ -212,8 +276,15 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
           </label>
         ) : null}
       </div>
-      {/* Keyed by the view, so a switch fades the new list in (opacity only) rather than swapping it under the eye. */}
-      <div key={shown} id="customer-emails-view" role="tabpanel" aria-labelledby={`email-family-${shown}`} className="animate-[fade-in_180ms_ease-out_both] motion-reduce:animate-none" data-email-view={shown}>
+      {/*
+        NOT KEYED BY THE VIEW (round 28, the owner: "switching must not
+        flash"). It was, so every switch threw the whole list away and drew
+        it again from opacity 0: a white flash, the community's emails read
+        again from the server. Now the list is filtered where it stands: each
+        family's section is kept by its own key, so All to Digital keeps
+        Digital's rows as they are and only takes the others away.
+      */}
+      <div id="customer-emails-view" role="tabpanel" aria-label={tabs.find((t) => t.value === shown)?.label as string} data-email-view={shown}>
         {shown === "digital" || shown === "physical" ? (
           <p className={cn("max-w-[70ch] text-[12.5px] leading-[18px] text-[#6b7280]", bare ? "px-4 pt-3 sm:px-5" : "mb-3")} data-language-rule="">
             {tt("Orders on your website get their emails in the language the buyer used there. Purchases on your creator page, Explore and in communities get them in English.")}
@@ -251,6 +322,7 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
                             ) : null
                           }
                           onOpen={() => setOpen(e)}
+                          onIntent={() => void warmPreviews()}
                         />
                       ))}
                     </ul>
@@ -328,6 +400,53 @@ function FlowRows({ flows, days, bare, onToggle }: { flows: FlowActivity[]; days
         })}
       </ul>
     </section>
+  )
+}
+
+/*
+  THE TEMPLATES LOAD WITH THE EDITOR (round 28, the owner: "opening the
+  editor must be fast"). A preview is drawn by the very templates that send
+  the email: the receipt, every order and shipping email, the notices. They
+  are most of this panel's weight and the list needs none of them, so they
+  are read the first time a row is pressed, hovered or focused (warmPreviews,
+  from EmailRow's own intent) and kept; the editor opens at once with its
+  fields, and a frame in the preview's own shape until they are in, which on
+  a press is under one frame most of the time.
+*/
+type PreviewModule = typeof import("@/lib/emails/customer-catalog")
+let previewModule: PreviewModule | null = null
+let previewLoading: Promise<PreviewModule> | null = null
+export function warmPreviews(): Promise<PreviewModule> {
+  if (previewModule) return Promise.resolve(previewModule)
+  previewLoading ??= import("@/lib/emails/customer-catalog").then((m) => (previewModule = m))
+  return previewLoading
+}
+function usePreviewModule(want: boolean): PreviewModule | null {
+  const [mod, setMod] = React.useState<PreviewModule | null>(previewModule)
+  React.useEffect(() => {
+    if (!want || mod) return
+    let live = true
+    void warmPreviews().then((m) => live && setMod(m))
+    return () => {
+      live = false
+    }
+  }, [want, mod])
+  return mod
+}
+
+/** The preview's room while its templates load: the subject line and the email's page, in light gray, the height the frame opens at. */
+function PreviewSkeleton() {
+  return (
+    <div aria-hidden className="space-y-2.5" data-preview-skeleton="">
+      <ShimmerBlock className="h-4 w-2/3 rounded-full" />
+      <div className="rounded-xl border border-[#eceef1] bg-white p-6" style={{ height: 640 }}>
+        <ShimmerBlock className="h-9 w-9 rounded-lg" />
+        <ShimmerBlock className="mt-8 h-6 w-3/5 rounded-full" />
+        <ShimmerBlock className="mt-4 h-3 w-full rounded-full" />
+        <ShimmerBlock className="mt-2 h-3 w-5/6 rounded-full" />
+        <ShimmerBlock className="mt-6 h-11 w-44 rounded-lg" />
+      </div>
+    </div>
   )
 }
 
@@ -445,9 +564,10 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const checked = React.useMemo(() => (id && editable ? readCopy(id, shown) : null), [id, editable, shown])
   const where = usePreviewPlace(email, data)
   const creator = data?.creator ?? null
+  const templates = usePreviewModule(!!asked)
   const mail = React.useMemo(
-    () => (id ? previewCustomerEmail(id, shop, checked?.ok ? checked.copy : saved, { channel: where.channel, language: where.language, creator }) : null),
-    [id, shop, checked, saved, where.channel, where.language, creator],
+    () => (id && templates ? templates.previewCustomerEmail(id, shop, checked?.ok ? checked.copy : saved, { channel: where.channel, language: where.language, creator }) : null),
+    [id, templates, shop, checked, saved, where.channel, where.language, creator],
   )
   const dirty = !sameDraft(draft, start)
   const isDefault = !saved
@@ -619,7 +739,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
           <span className="font-medium text-[#374151]">{tt("Subject:")}</span> {mail.subject}
         </p>
       ) : null}
-      <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail?.html ?? ""} paused={!active} />
+      {mail ? <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail.html} paused={!active} /> : <PreviewSkeleton />}
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("A sample membership, drawn the way the real email is sent. The real email has the member's own plan, price and dates.") : tt("A sample order, drawn the way the real email is sent. The real email has the buyer's own items, address and order.")}</p>
     </div>
   )

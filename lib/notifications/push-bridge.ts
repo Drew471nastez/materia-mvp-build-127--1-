@@ -343,7 +343,7 @@ function deferAfterResponse(task: () => Promise<void>): Promise<void> {
 }
 
 const DEFAULTS: Deps = {
-  sender: (userId, payload) => import("@/lib/push/sender").then((m) => m.sendPushToUser(userId, payload)),
+  sender: (userId, payload) => import("@/lib/push/sender").then(async (m) => void (await m.sendPushToUser(userId, payload))),
   communitiesOn: () => import("@/lib/communities/flag").then((m) => m.communitiesEnabled()),
   defer: deferAfterResponse,
 }

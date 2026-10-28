@@ -23,10 +23,12 @@ import "server-only"
 import { unconvertedIncluded } from "./unconverted-count"
 import { refundedOrderIds, withRefundHistory } from "./refund-history-server"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { dayRatesBetween } from "@/lib/markets/fx-server"
 import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
+import { withoutTestSales } from "./test-sales"
 import { onePageOf, publishedInstallOf } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost } from "./sources"
 import { isBotAgent, parseUserAgent } from "./user-agent"
@@ -473,6 +475,13 @@ export function readOrders(
   /** The period the figures add up: the "could not be converted" count is of its sales only (lib/analytics/unconverted-count). */
   counted?: Span,
 ): Promise<{ rows: OrderRow[]; truncated: boolean; conversion: { currency: string; converted: number; unconverted: number } }> {
+  /*
+    Side by side with the orders themselves, the two reads that do not need
+    them: the refunds the ledger dates inside the periods, and the store's
+    currency. They were each a round trip after the orders had come back.
+  */
+  const ledger = refundedOrderIds(admin, creatorId, spans)
+  const storeCurrency = readStoreCurrency(admin, creatorId)
   return byCreator((scope) =>
     withColumns(ORDER_COLUMNS, async (columns) => {
       const read = await readSpans<OrderRow>(orderSpans(spans), (start, end, after) =>
@@ -481,13 +490,14 @@ export function readOrders(
           .order("id", { ascending: true })
           .limit(PAGE) as unknown as Read<OrderRow>,
       )
-      const own = ownRows(read.rows)
-      const ledgerRefunded = await refundedOrderIds(admin, creatorId, spans)
+      /* An admin's test sale is not a buyer's order (lib/analytics/test-sales). */
+      const own = withoutTestSales(ownRows(read.rows))
+      const ledgerRefunded = await ledger
       const earlier = await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, product), spans, new Set(own.map((r) => r.id)), ledgerRefunded)
       /* Each part refund on its own day, from the seller's ledger (lib/analytics/refund-dates), before the money is converted. */
-      const dated = await withRefundHistory(admin, creatorId, [...own, ...ownRows(earlier)].map(asOrdersPageRow))
+      const dated = await withRefundHistory(admin, creatorId, [...own, ...withoutTestSales(ownRows(earlier))].map(asOrdersPageRow))
       /* Every amount in the store's currency, each order at its own day's ECB rate (lib/money/report-currency): Revenue never adds lei to dollars. */
-      const inStore = await inStoreCurrency(admin, creatorId, dated, undefined, { rates: ratesFrom(admin) })
+      const inStore = await inStoreCurrency(admin, creatorId, dated, (await storeCurrency).currency, { rates: ratesFrom(admin) })
       const unconverted = inStore.unconverted > 0 ? unconvertedIncluded(inStore.left, counted ?? spans[spans.length - 1]) : 0
       return { rows: inStore.rows, truncated: read.truncated, conversion: { currency: inStore.currency, converted: inStore.converted, unconverted } }
     }),

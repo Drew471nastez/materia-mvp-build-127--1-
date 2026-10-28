@@ -102,6 +102,10 @@ import { VIEW_DAYS_KEPT } from "./views"
 import { joinStats, loadEventMoney } from "./stats"
 import { cancellationsWithReasons } from "./membership-lifecycle"
 import { missing, reasonOf, type Db } from "./db"
+import { codeOf, dayOf, ratesForDate, type DayRates } from "@/lib/money/report-currency"
+import { convertMinor } from "@/lib/markets/money"
+import { dayRatesBetween } from "@/lib/markets/fx-server"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 
 const DAY = 86_400_000
 const PAGE = 1000
@@ -651,7 +655,72 @@ function moneyWindow(span: Span, starts: number[], members: MembershipRow[], ord
   return w
 }
 
-async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: number[] }, prev: { span: Span; starts: number[] } | null): Promise<MoneyReport | null> {
+/**
+ * ONE CURRENCY FOR A COMMUNITY'S MONEY. A community sells in the store's
+ * currency, and a market or a currency the store changed from leaves rows in
+ * another one: their cents were added together as one number and labelled
+ * with whichever row came first, so 20 euro and 100 lei read as 120 euro.
+ * Now every amount is the store's currency (the one it chose; while it never
+ * chose, the one currency its rows share, so a store that always sold in one
+ * reads exactly as before), each row at the ECB rate of its own day as
+ * /app Analytics converts orders (lib/money/report-currency). A row no rate
+ * could convert is left out of the money, never guessed, and counted.
+ */
+type Converter = {
+  currency: string
+  /** Copies of `rows` with `keys` in `currency`, each at the rate of `dateOf(row)`; the ones no rate converts are left out. */
+  rows<T extends { currency?: string | null }>(rows: T[], dateOf: (r: T) => string | null | undefined, keys: readonly (keyof T & string)[]): { rows: T[]; left: number }
+}
+
+export function moneyConverter(target: string, days: DayRates[]): Converter {
+  const to = codeOf(target) ?? "USD"
+  return {
+    currency: to.toLowerCase(),
+    rows(rows, dateOf, keys) {
+      const out: typeof rows = []
+      let left = 0
+      for (const row of rows) {
+        const from = codeOf(row.currency)
+        if (!from || from === to) {
+          out.push(row)
+          continue
+        }
+        const day = dayOf(dateOf(row) ?? "")
+        const fx = day ? ratesForDate(days, day) : null
+        const at = fx ? Date.parse(`${fx.asOf}T12:00:00Z`) : NaN
+        const copy = { ...row, currency: to.toLowerCase() } as Record<string, unknown>
+        let ok = !!fx
+        for (const key of keys) {
+          const v = (row as Record<string, unknown>)[key]
+          if (!ok || typeof v !== "number" || v === 0) continue
+          const c = convertMinor(Math.abs(v), from, to, fx, { now: at })
+          if (c === null) ok = false
+          else copy[key] = v < 0 ? -c : c
+        }
+        if (ok) out.push(copy as (typeof rows)[number])
+        else left += 1
+      }
+      return { rows: out, left }
+    },
+  }
+}
+
+/** The currency a community's money is reported in, and the day rates its rows need (read only when some row is in another currency). */
+async function communityMoneyCurrency(db: Db, creatorId: string | null | undefined, rows: Array<{ currency?: string | null; at?: string | null }>): Promise<Converter> {
+  const store = await readStoreCurrency(db, creatorId)
+  const codes = new Set(rows.map((r) => codeOf(r.currency)).filter((c): c is string => !!c))
+  const target = store.chosen ? store.currency : codes.size === 1 ? [...codes][0] : store.currency
+  const other = rows.filter((r) => {
+    const c = codeOf(r.currency)
+    return !!c && c !== codeOf(target)
+  })
+  if (!other.length) return moneyConverter(target, [])
+  const dates = other.map((r) => dayOf(r.at ?? "")).filter((d): d is string => !!d).sort()
+  const days = dates.length ? await dayRatesBetween(dates[0], dates[dates.length - 1], db) : []
+  return moneyConverter(target, days)
+}
+
+async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: number[] }, prev: { span: Span; starts: number[] } | null, creatorId?: string | null, now: number = Date.now()): Promise<MoneyReport | null> {
   const products = await sellingProducts(db, communityId)
   const from = iso(Math.min(cur.span.start, prev?.span.start ?? cur.span.start))
   const to = iso(cur.span.end)
@@ -694,8 +763,8 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
       return q.order("id", { ascending: true }).limit(PAGE)
     }, "tickets"),
     products.all.length
-      ? pages<{ id: string; amount_cents: number | null; refund_amount_cents: number | null; status: string; refunded_at: string | null }>((after) => {
-          let q = db.from("orders").select("id, amount_cents, refund_amount_cents, status, refunded_at").in("product_id", products.all).eq("status", "refunded").gte("refunded_at", iso(cur.span.start)).lt("refunded_at", to)
+      ? pages<{ id: string; amount_cents: number | null; refund_amount_cents: number | null; status: string; refunded_at: string | null; currency?: string | null }>((after) => {
+          let q = db.from("orders").select("id, amount_cents, refund_amount_cents, status, refunded_at, currency").in("product_id", products.all).eq("status", "refunded").gte("refunded_at", iso(cur.span.start)).lt("refunded_at", to)
           if (after !== null) q = q.gt("id", after)
           return q.order("id", { ascending: true }).limit(PAGE)
         }, "refunds")
@@ -709,24 +778,49 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
   */
   const [ticketRefunds, contentRefunds] = await Promise.all([
     (async () => {
-      const { data, error } = await db.from("community_event_tickets").select("amount_cents").eq("community_id", communityId).eq("source", "purchase").gte("refunded_at", iso(cur.span.start)).lt("refunded_at", to).limit(10_000)
-      return error ? [] : ((data as { amount_cents: number | null }[] | null) ?? [])
+      const { data, error } = await db.from("community_event_tickets").select("amount_cents, currency, refunded_at").eq("community_id", communityId).eq("source", "purchase").gte("refunded_at", iso(cur.span.start)).lt("refunded_at", to).limit(10_000)
+      return error ? [] : ((data as { amount_cents: number | null; currency?: string | null; refunded_at?: string | null }[] | null) ?? []).map((r) => ({ amount_cents: r.amount_cents, currency: r.currency ?? null, at: r.refunded_at ?? null }))
     })(),
     (async () => {
       const back = async (table: string) => {
-        const { data, error } = await db.from(table).select("amount_cents").eq("community_id", communityId).eq("source", "purchase").gte("revoked_at", iso(cur.span.start)).lt("revoked_at", to).limit(10_000)
-        return error ? [] : ((data as { amount_cents: number | null }[] | null) ?? [])
+        const { data, error } = await db.from(table).select("amount_cents, currency, revoked_at").eq("community_id", communityId).eq("source", "purchase").gte("revoked_at", iso(cur.span.start)).lt("revoked_at", to).limit(10_000)
+        return error ? [] : ((data as { amount_cents: number | null; currency?: string | null; revoked_at?: string | null }[] | null) ?? []).map((r) => ({ amount_cents: r.amount_cents, currency: r.currency ?? null, at: r.revoked_at ?? null }))
       }
       const [a, b] = await Promise.all([back("community_program_access"), back("community_module_access")])
       return [...a, ...b]
     })(),
   ])
-  const otherRefunds = [...ticketRefunds, ...contentRefunds]
   const soldAnything = products.all.length > 0 || (programs?.length ?? 0) > 0 || (tickets?.length ?? 0) > 0
   if (!soldAnything) return null
-  const ms = members ?? []
-  const c = moneyWindow(cur.span, cur.starts, ms, orders ?? [], programs ?? [], tickets ?? [])
-  const p = prev ? moneyWindow(prev.span, prev.starts, ms, orders ?? [], programs ?? [], tickets ?? []) : null
+  /* Every amount in one currency, the store's, each row at its own day's rate (moneyConverter). A membership's monthly value is a level: at the rate of the period's last day. */
+  const levelDay = iso(Math.max(cur.span.start, Math.min(cur.span.end, now) - 1))
+  const fx = await communityMoneyCurrency(db, creatorId, [
+    ...(members ?? []).map((m) => ({ currency: m.currency, at: levelDay })),
+    ...(orders ?? []).map((o) => ({ currency: o.currency, at: o.created_at })),
+    ...(programs ?? []).map((o) => ({ currency: o.currency, at: o.created_at })),
+    ...(tickets ?? []).map((o) => ({ currency: o.currency, at: o.paid_at })),
+    ...(refunds ?? []).map((o) => ({ currency: o.currency ?? null, at: o.refunded_at })),
+    ...ticketRefunds,
+    ...contentRefunds,
+  ])
+  let unconverted = 0
+  const conv = <T extends { currency?: string | null }>(rows: T[], dateOf: (r: T) => string | null | undefined, keys: readonly (keyof T & string)[]): T[] => {
+    const r = fx.rows(rows, dateOf, keys)
+    unconverted += r.left
+    return r.rows
+  }
+  const msConverted = fx.rows(members ?? [], () => levelDay, ["amount_cents"])
+  /* A membership no rate converts still counts its member as paying; only its money is left out. */
+  const convertedIds = new Set(msConverted.rows.map((m) => m.id))
+  unconverted += msConverted.left
+  const ms = [...msConverted.rows, ...(members ?? []).filter((m) => !convertedIds.has(m.id)).map((m) => ({ ...m, amount_cents: 0 }))]
+  const ordersIn = conv(orders ?? [], (o) => o.created_at, ["amount_cents", "refund_amount_cents"])
+  const programsIn = conv(programs ?? [], (o) => o.created_at, ["amount_cents"])
+  const ticketsIn = conv(tickets ?? [], (o) => o.paid_at, ["amount_cents"])
+  const refundsIn = refunds ? conv(refunds, (o) => o.refunded_at, ["amount_cents", "refund_amount_cents"]) : refunds
+  const otherRefunds = conv([...ticketRefunds, ...contentRefunds], (o) => o.at, ["amount_cents"])
+  const c = moneyWindow(cur.span, cur.starts, ms, ordersIn, programsIn, ticketsIn)
+  const p = prev ? moneyWindow(prev.span, prev.starts, ms, ordersIn, programsIn, ticketsIn) : null
   const n = cur.starts.length
   const line = (k: keyof Pick<MoneyWindow, "revenue" | "mrr" | "subscribers" | "newPaid" | "cancellations">): Line => ({ current: c[k], previous: p ? alignTo(p[k], n) : null })
   const last = (xs: number[]) => (xs.length ? xs[xs.length - 1] : 0)
@@ -746,15 +840,15 @@ async function moneyOf(db: Db, communityId: string, cur: { span: Span; starts: n
       if (j && Date.parse(j) < Date.parse(m.started_at ?? m.created_at) - 10 * 60_000) upgrades += 1
     }
   }
-  const currency = (ms.find((m) => m.currency)?.currency ?? orders?.find((o) => o.currency)?.currency ?? programs?.find((o) => o.currency)?.currency ?? tickets?.find((o) => o.currency)?.currency ?? "usd").toLowerCase()
   const cancelled = sum(c.cancellations)
   return {
-    currency,
+    currency: fx.currency,
+    ...(unconverted > 0 ? { unconverted } : {}),
     figures: { revenue: fig("revenue", false), mrr: fig("mrr", true), subscribers: fig("subscribers", true), newPaid: fig("newPaid", false), cancellations: fig("cancellations", false) },
     lines: { revenue: line("revenue"), mrr: line("mrr"), subscribers: line("subscribers"), newPaid: line("newPaid"), cancellations: line("cancellations") },
     upgrades,
     churnRate: rate(cancelled, c.payingAtStart),
-    refunds: { count: (refunds?.length ?? 0) + otherRefunds.length, totalCents: (refunds ?? []).reduce((t, o) => t + lineMoney({ ...o, status: "refunded" } as never).refunded, 0) + otherRefunds.reduce((t, x) => t + Math.max(0, num(x.amount_cents)), 0) },
+    refunds: { count: (refunds?.length ?? 0) + ticketRefunds.length + contentRefunds.length, totalCents: (refundsIn ?? []).reduce((t, o) => t + lineMoney({ ...o, status: "refunded" } as never).refunded, 0) + otherRefunds.reduce((t, x) => t + Math.max(0, num(x.amount_cents)), 0) },
     bySource: (["memberships", "programs", "tickets"] as const).map((key) => ({ key, cents: c.bySource[key] })).filter((x) => x.cents > 0),
     /*
       REVENUE BY PLAN (round 39): each tier or product that sells the community, by the name it is sold under, with its
@@ -1045,7 +1139,7 @@ export async function loadCommunityReport(db: Db, community: ReportCommunity, q:
     ready && ca?.topContributors ? contributorsOf(db, ca.topContributors) : Promise.resolve([]),
     eventsOf(db, id, span),
     loadEventMoney(db, id, iso(span.start), iso(span.end)).catch(() => null),
-    moneyOf(db, id, { span, starts: cur.starts }, prev && prevSpan ? { span: prevSpan, starts: prev.starts } : null).catch((e) => (console.error(`[communities] report money: ${reasonOf(e)}`), null)),
+    moneyOf(db, id, { span, starts: cur.starts }, prev && prevSpan ? { span: prevSpan, starts: prev.starts } : null, community.creator_id, now).catch((e) => (console.error(`[communities] report money: ${reasonOf(e)}`), null)),
     gaOf(db, community.creator_id),
     ready && activeTotal !== null ? newActiveOf(db, id, owner, span, tz) : Promise.resolve(null),
     leaveReasonsOf(db, id, span),

@@ -202,7 +202,7 @@ function Page({ path }: { path: string }) {
   if (path.startsWith("/app/products/")) {
     const id = path.split("/").pop() as string
     return (
-      <PageLayer pill inset="bar" phoneOnly>
+      <PageLayer pill inset="bar" phoneOnly moves>
         <ProductEditor key={path} creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={id === "new" ? null : loadedFor(id)} />
       </PageLayer>
     )

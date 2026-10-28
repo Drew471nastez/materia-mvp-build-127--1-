@@ -67,7 +67,10 @@ export interface ReportRow {
 }
 
 export interface MoneyReport {
+  /** The store's currency, lower case: every amount below is in it (rows in another one are converted at their own day's rate). */
   currency: string
+  /** Rows in another currency no rate could convert, left out of the money; absent when there are none. */
+  unconverted?: number
   figures: Record<MoneyMetric, Figure>
   lines: Record<MoneyMetric, Line>
   /** Members who were already in for free when they started paying. */

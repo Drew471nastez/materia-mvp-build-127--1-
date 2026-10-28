@@ -122,10 +122,21 @@ const ReactViewTransition = (React as unknown as { ViewTransition?: React.Compon
 */
 const LAYER_MOVES: boolean = false
 
-/* ── Whether a layer moves here: a phone, motion allowed, no drop of our own running ── */
+/*
+  ── EXCEPT THE PRODUCT EDITOR (round 41) ──
+  The owner, on a phone: "Opening Edit product or New product feels direct and glitchy", and going back "must be smooth
+  too". Orders still opens an order by rising from the bottom (app/app/orders/order-motion.ts), so the product editor
+  asks for the same move again: a layer drawn with `moves` carries this attribute, and the list asks for the rise
+  with moveLayer(..., { moves: true }). Every other layer stays as round 23 left it.
+*/
+export const LAYER_MOVES_ATTR = "data-page-layer-moves"
+/** Does this layer on the screen rise and drop? */
+const layerMoves = (layer: Element | null) => LAYER_MOVES || !!layer?.hasAttribute(LAYER_MOVES_ATTR)
+
+/* ── Whether a layer moves here: one that asks to, on a phone, motion allowed ── */
 const REDUCED = "(prefers-reduced-motion: reduce)"
-function layerMotionOn(): boolean {
-  if (!LAYER_MOVES) return false
+function layerMotionOn(moves: boolean = LAYER_MOVES): boolean {
+  if (!moves) return false
   if (typeof window === "undefined" || !window.matchMedia) return false
   return window.matchMedia(LAYER_PHONE).matches && !window.matchMedia(REDUCED).matches
 }
@@ -152,7 +163,8 @@ function subscribeMotion(change: () => void) {
     for (const q of queries) q.removeEventListener?.("change", change)
   }
 }
-const reactMoves = () => layerMotionOn() && !manual
+/* For a layer that moves: a phone, motion allowed, no drop of our own running. */
+const reactMoves = () => layerMotionOn(true) && !manual
 const serverMotion = () => false
 
 /* ── The mark on <html> while a layer moves ─────────────────────────────── */
@@ -586,7 +598,7 @@ function riseByHand(layer: HTMLElement | null) {
   if (!want) return
   rising = null
   const html = document.documentElement
-  if (!layer || !layerMotionOn() || html.dataset.layerMotion !== "enter") {
+  if (!layer || !layerMotionOn(layerMoves(layer)) || html.dataset.layerMotion !== "enter") {
     endRise(want)
     return
   }
@@ -603,11 +615,11 @@ function riseByHand(layer: HTMLElement | null) {
  * this commit does. True when React is moving the layer for it, so the layer
  * knows not to move itself as well (riseByHand).
  */
-function markReactMotion(kind: "enter" | "leave"): boolean {
+function markReactMotion(kind: "enter" | "leave", wanted: boolean): boolean {
   const html = document.documentElement
   const move = (document as WithViewTransitions).__reactViewTransition
-  /* Only inside a transition React is running for this commit, with the layer moving; a commit with none (a popstate, reduced motion, a wide window, our own way back) marks nothing here. */
-  if (!move || !reactMoves()) return false
+  /* Only inside a transition React is running for this commit, with the layer moving; a commit with none (a popstate, reduced motion, a wide window, our own way back, a layer that does not move) marks nothing here. */
+  if (!move || !wanted || !reactMoves()) return false
   const now = html.dataset.layerMotion as Mark | undefined
   /* Standing in for itself (holdLayerLanding), or already one layer for another in this commit. */
   if (now === "stay" || now === "swap") return true
@@ -679,7 +691,8 @@ function endManual() {
 function dropLayer(navigate: () => void) {
   const doc = document as WithViewTransitions
   /* Not while one is on its way or running already (ours, or React's), and only with a layer on the screen to drop. */
-  if (dropWant || dropping || manual || doc.__reactViewTransition || !layerMotionOn() || !document.querySelector("[data-page-layer]")) {
+  const up = document.querySelector("[data-page-layer]")
+  if (dropWant || dropping || manual || doc.__reactViewTransition || !up || !layerMotionOn(layerMoves(up))) {
     navigate()
     return
   }
@@ -733,7 +746,8 @@ function dropAtCommit(): boolean {
   window.clearTimeout(want.cap)
   const html = document.documentElement
   const still = want.still
-  if (!still || !still.isConnected || !layerMotionOn()) {
+  /* Only a layer that moves asked for a drop (dropLayer). */
+  if (!still || !still.isConnected || !layerMotionOn(true)) {
     still?.remove()
     endManual()
     return true
@@ -1057,15 +1071,17 @@ if (typeof window !== "undefined") listen()
  * the layer raises itself over a still of the page (raiseByHand). "leave":
  * `navigate` runs on the frame after the press, the layer stays live until
  * the commit that takes it away, and a still of it drops from there over the
- * page that commit brought (dropAtCommit), in every engine. `press` is the control
+ * page that commit brought (dropAtCommit), in every engine. `moves` is for a
+ * layer drawn with `moves` (the product editor): only then does the way in
+ * rise. `press` is the control
  * to answer: by default the one under the last pointer press; `false` when
  * the caller draws its own answer (the products list's row, the product
  * editor's Cancel).
  */
-export function moveLayer(motion: "enter" | "leave", navigate: () => void, press?: Element | null | false) {
+export function moveLayer(motion: "enter" | "leave", navigate: () => void, press?: Element | null | false, { moves = false }: { moves?: boolean } = {}) {
   if (press !== false) holdPress(press ?? recentPress())
   if (motion === "leave") dropLayer(navigate)
-  else if (layerMotionOn() && !canViewTransition()) raiseByHand(navigate)
+  else if (layerMotionOn(LAYER_MOVES || moves) && !canViewTransition()) raiseByHand(navigate)
   else navigate()
 }
 
@@ -1149,6 +1165,7 @@ export function PageLayer({
   pill = false,
   inset = "page",
   phoneOnly = false,
+  moves: movesAsked = false,
   className,
 }: {
   children: React.ReactNode
@@ -1164,10 +1181,13 @@ export function PageLayer({
   inset?: "page" | "white" | "bar"
   /** A layer below md only; from md an ordinary page inside the shell. */
   phoneOnly?: boolean
+  /** This layer rises from the bottom and drops back down on a phone (the product editor, round 41); the rest are simply there. */
+  moves?: boolean
   className?: string
 }) {
+  const asked = LAYER_MOVES || movesAsked
   /* Whether this layer rises and drops: read on the client only, so the server's HTML is the same for every width. */
-  const moves = useSyncExternalStore(subscribeMotion, reactMoves, serverMotion)
+  const moves = useSyncExternalStore(subscribeMotion, reactMoves, serverMotion) && asked
   /* The box itself, for a rise this file plays on it (riseByHand, where there are no view transitions). */
   const box = React.useRef<HTMLDivElement>(null)
 
@@ -1187,14 +1207,16 @@ export function PageLayer({
     /* The commit a press was waiting for: this layer is on the screen. */
     releasePresses()
     /* React's move at this commit, or, where it cannot make one, ours on this box. */
-    if (!markReactMotion("enter")) riseByHand(box.current)
+    if (!markReactMotion("enter", asked)) riseByHand(box.current)
     /*
       AND WITH NO MOVE, A WHOLE SCREEN LAYER IS SIMPLY THERE (round 23). The stage's landing faded it in from nothing,
       and over the whole screen its first frame was empty: the page gone, the layer not yet drawn. Where it covers the
       screen (a phone, or a layer at every width) it is drawn whole on its first frame, and so is the page it goes back
       to. From 768px a phone only layer is a page in the shell and lands like one.
     */
-    const whole = () => !LAYER_MOVES && (!phoneOnly || !!window.matchMedia?.(LAYER_PHONE).matches)
+    /* Round 41: a layer that moves is whole too whenever this commit plays no move of it (opened from a link, a reload, the browser's back). */
+    const moving = () => html.dataset.layerMotion === "enter" || html.dataset.layerMotion === "leave"
+    const whole = () => !moving() && (!phoneOnly || !!window.matchMedia?.(LAYER_PHONE).matches)
     if (whole()) holdLanding()
     /* A layer standing in for the one before it (holdLayerLanding): from the next frame the stage lands pages again. */
     if (html.dataset.layerMotion === "stay") {
@@ -1204,18 +1226,20 @@ export function PageLayer({
     }
     return () => {
       release()
-      if (whole()) holdLanding()
       /* ...or it has gone, and the page under it is in the same commit: a way back of our own drops a still of it now, before this frame is painted. */
       releasePresses()
-      if (!dropAtCommit()) markReactMotion("leave")
+      if (!dropAtCommit()) markReactMotion("leave", asked)
+      /* After the drop is decided, so a way back that plays one is not held as well. */
+      if (whole()) holdLanding()
     }
-  }, [phoneOnly])
+  }, [phoneOnly, asked])
 
   const layer = (
     <div
       ref={box}
       data-page-layer={pill ? "pill" : ""}
       data-page-layer-phone={phoneOnly ? "" : undefined}
+      {...{ [LAYER_MOVES_ATTR]: asked ? "" : undefined }}
       {...{ [LAYER_ATTR]: phoneOnly ? "phone-page" : "page" }}
       className={cn(
         phoneOnly

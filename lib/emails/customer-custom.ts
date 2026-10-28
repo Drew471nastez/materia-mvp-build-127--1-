@@ -2,9 +2,12 @@
  * ===========================================================================
  *  A STORE'S OWN WORDS IN ITS CUSTOMER EMAILS
  * ===========================================================================
- * Settings › Customer emails lets a store change four parts of each email
+ * Settings › Customer emails lets a store change six parts of each email
  * a buyer gets, the way Shopify's notification editor does without the
- * code: the subject, the heading, the opening text and the button's label.
+ * code: the subject, the inbox preview line (preheader), the heading, the
+ * opening text, the button's label and a line of its own above the footer,
+ * in the website's own language and, apart, in each other language it
+ * publishes (`langs`).
  * Everything else (the items, the totals, the tracking, the address, the
  * links) stays the template's own, so an order email can never lose the
  * order.
@@ -29,19 +32,57 @@
  * Pure: the browser, the senders and the tests share it.
  */
 
-export interface EmailCopy {
+/** The six parts of an email a store can write (round 28: the preheader and a footer line joined the first four). */
+export interface EmailWords {
   subject?: string
+  /** The inbox's preview line after the subject. Empty: the email's own first line. */
+  preheader?: string
   heading?: string
   body?: string
   button?: string
+  /** A line of the store's own above the footer (a returns note, a sign off). Empty: none. */
+  footer?: string
 }
 
-export type CopyField = keyof EmailCopy
-export const COPY_FIELDS: CopyField[] = ["subject", "heading", "body", "button"]
+/**
+ * One email's saved words: the parts in the website's own language, and
+ * `langs`, the same parts for buyers who read the email in another of the
+ * website's published languages (fr, de...). A language with nothing saved
+ * gets the standard words in that language, as before.
+ */
+export interface EmailCopy extends EmailWords {
+  langs?: Record<string, EmailWords>
+}
+
+export type CopyField = keyof EmailWords
+export const COPY_FIELDS: CopyField[] = ["subject", "preheader", "heading", "body", "button", "footer"]
 
 export type CustomerEmailsCopy = Record<string, EmailCopy>
 
-export const COPY_LIMITS: Record<CopyField, number> = { subject: 150, heading: 120, body: 2000, button: 40 }
+export const COPY_LIMITS: Record<CopyField, number> = { subject: 150, preheader: 150, heading: 120, body: 2000, button: 40, footer: 300 }
+
+/** A language a store can write its own words in: "fr", "pt-BR". */
+export function isCopyLanguage(lang: unknown): lang is string {
+  return typeof lang === "string" && /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(lang)
+}
+const langBase = (lang: string) => lang.toLowerCase().split("-")[0]
+
+/**
+ * THE WORDS FOR THE LANGUAGE THE EMAIL IS IN. The website's own language
+ * (`own`, lib/emails/buyer-channel.ts ownWordsApply) gets the store's main
+ * words; another language gets what the store wrote for it, or nothing (the
+ * standard words in that language). No language known is the website's own.
+ */
+export function pickCopy(copy: EmailCopy | null | undefined, language?: { lang?: string | null; own?: boolean } | null): EmailWords | undefined {
+  if (!copy) return undefined
+  if (!language || language.own !== false) {
+    const { langs: _langs, ...own } = copy
+    void _langs
+    return Object.keys(own).length ? own : undefined
+  }
+  const l = language.lang ? langBase(language.lang) : ""
+  return (l && copy.langs?.[l]) || undefined
+}
 
 /** The four every order email fills in. */
 export const PLACEHOLDERS = [
@@ -102,7 +143,7 @@ const BRACES = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g
  * part shipment, a pickup), which is why only what the store changes is
  * saved and used.
  */
-export const DEFAULT_COPY: Record<string, Required<EmailCopy>> = {
+const BASE_COPY: Record<string, Required<Pick<EmailWords, "subject" | "heading" | "body" | "button">>> = {
   receipt: { subject: "Your receipt for {{items}}", heading: "Thanks for your order, {{customer_name}}", body: "", button: "View your receipt" },
   order_confirmation: { subject: "Order {{order_number}} confirmed", heading: "Thank you for your purchase!", body: "Hi {{customer_name}}, we're getting your order ready to be shipped. We'll let you know when it's on its way.", button: "View your order" },
   shipping_confirmation: { subject: "Order {{order_number}} is on the way", heading: "Your order is on the way", body: "Good news, {{customer_name}}. Your order has shipped. Track it any time with the link below.", button: "Track your package" },
@@ -137,13 +178,18 @@ export const DEFAULT_COPY: Record<string, Required<EmailCopy>> = {
   membership_ended: { subject: "Your membership of {{plan_name}} has ended", heading: "Your membership has ended", body: "Your membership of {{plan_name}} has ended and you will not be charged again.", button: "See your memberships" },
 }
 
+/** The default words of every email; its preheader and footer are empty by default (the email's first line, no extra line). */
+export const DEFAULT_COPY: Record<string, Required<EmailWords>> = Object.fromEntries(
+  Object.entries(BASE_COPY).map(([id, c]) => [id, { subject: c.subject, preheader: "", heading: c.heading, body: c.body, button: c.button, footer: "" }]),
+)
+
 export const isCustomizable = (id: unknown): id is string => typeof id === "string" && Object.prototype.hasOwnProperty.call(DEFAULT_COPY, id)
 
 /** Plain text, as typed: no tags, no control characters, newlines kept only where they mean something. */
 export function cleanCopyText(value: unknown, field: CopyField): string {
   if (typeof value !== "string") return ""
   let t = value.replace(/\r\n?/g, "\n").replace(/<[^>]*>/g, "").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "")
-  if (field === "body") t = t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n")
+  if (field === "body" || field === "footer") t = t.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n")
   else t = t.replace(/\s+/g, " ")
   return t.trim().slice(0, COPY_LIMITS[field])
 }
@@ -161,11 +207,11 @@ export function unknownPlaceholders(text: string, id?: string | null): string[] 
  * the default are kept (null when nothing does). An unknown placeholder is
  * refused with the ones allowed.
  */
-export function readCopy(id: string, input: unknown): { ok: true; copy: EmailCopy | null } | { ok: false; error: string } {
+export function readCopy(id: string, input: unknown): { ok: true; copy: EmailWords | null } | { ok: false; error: string } {
   if (!isCustomizable(id)) return { ok: false, error: "That email can't be changed." }
   const body = (input && typeof input === "object" ? input : {}) as Record<string, unknown>
   const def = DEFAULT_COPY[id]
-  const copy: EmailCopy = {}
+  const copy: EmailWords = {}
   for (const f of COPY_FIELDS) {
     if (!(f in body)) continue
     const text = cleanCopyText(body[f], f)
@@ -182,18 +228,56 @@ export function readCopy(id: string, input: unknown): { ok: true; copy: EmailCop
 export function readSavedCopy(raw: unknown): CustomerEmailsCopy {
   const out: CustomerEmailsCopy = {}
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out
-  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (!isCustomizable(id) || !value || typeof value !== "object") continue
-    const copy: EmailCopy = {}
+  const wordsOf = (id: string, value: unknown): EmailWords => {
+    const copy: EmailWords = {}
+    if (!value || typeof value !== "object") return copy
     for (const f of COPY_FIELDS) {
       const v = (value as Record<string, unknown>)[f]
       if (typeof v !== "string") continue
       const text = cleanCopyText(v, f)
       if ((text || f === "body") && unknownPlaceholders(text, id).length === 0) copy[f] = text
     }
+    return copy
+  }
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!isCustomizable(id) || !value || typeof value !== "object") continue
+    const copy: EmailCopy = wordsOf(id, value)
+    const langs = (value as { langs?: unknown }).langs
+    if (langs && typeof langs === "object" && !Array.isArray(langs)) {
+      const kept: Record<string, EmailWords> = {}
+      for (const [lang, words] of Object.entries(langs as Record<string, unknown>)) {
+        if (!isCopyLanguage(lang)) continue
+        const w = wordsOf(id, words)
+        if (Object.keys(w).length) kept[langBase(lang)] = w
+      }
+      if (Object.keys(kept).length) copy.langs = kept
+    }
     if (Object.keys(copy).length) out[id] = copy
   }
   return out
+}
+
+/**
+ * One email's saved words with one language's part replaced: the main words
+ * (`lang` null or the website's own) or one other language's. `words` null
+ * takes that part back to the default. Null when nothing is left.
+ */
+export function withWords(prev: EmailCopy | null | undefined, words: EmailWords | null, lang: string | null): EmailCopy | null {
+  const langs = { ...(prev?.langs ?? {}) }
+  let own: EmailWords = {}
+  if (prev) {
+    const { langs: _l, ...rest } = prev
+    void _l
+    own = rest
+  }
+  if (lang) {
+    if (words) langs[langBase(lang)] = words
+    else delete langs[langBase(lang)]
+  } else {
+    own = words ?? {}
+  }
+  const next: EmailCopy = { ...own, ...(Object.keys(langs).length ? { langs } : {}) }
+  return Object.keys(next).length ? next : null
 }
 
 function escapeHtml(value: string): string {
@@ -228,11 +312,17 @@ export interface ResolvedCopy {
   introText?: string
   /** Plain text; the template escapes it like its own label. */
   button?: string
+  /** Plain text: the inbox's preview line (lib/emails/layout.ts withOwnFrame). */
+  preheader?: string
+  /** Plain text, newlines kept: the store's own line above the footer (withOwnFrame). */
+  footer?: string
 }
 
-export function resolveCopy(copy: EmailCopy | null | undefined, vars: CopyVars): ResolvedCopy | undefined {
+export function resolveCopy(copy: EmailWords | null | undefined, vars: CopyVars): ResolvedCopy | undefined {
   if (!copy) return undefined
   const out: ResolvedCopy = {}
+  if (copy.preheader) out.preheader = fillPlaceholders(copy.preheader, vars).replace(/\s+/g, " ").trim().slice(0, 160) || undefined
+  if (copy.footer) out.footer = fillPlaceholders(copy.footer, vars).trim().slice(0, 400) || undefined
   if (copy.subject) out.subject = fillPlaceholders(copy.subject, vars).replace(/\s+/g, " ").trim().slice(0, 200) || undefined
   if (copy.heading) out.heading = fillPlaceholders(copy.heading, vars).trim() || undefined
   if (typeof copy.body === "string") {

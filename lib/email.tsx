@@ -504,7 +504,21 @@ async function receiptEmailModel(
   }
 
   if (loaded) {
-    const v = loaded.view
+    /*
+      THE SAME ROWS AS THE RECEIPT PAGE AND THE CHECKOUT. A code's saving and
+      each offer's are kept on the payment, not the order rows: the receipt
+      page asks the invoice for them (app/receipt/[token]/page.tsx) and so
+      does this, bounded, so a slow Stripe costs the email its discount rows
+      and nothing else. The store's time zone for the date, as the PDF.
+    */
+    const [{ splitSavings, withDiscount, withinTime }, { invoiceForReceipt }, { creatorTimeZone }] = await Promise.all([import("@/lib/receipts/discount"), import("@/lib/checkout/invoice"), import("@/lib/account/time-zone")])
+    const [invoice, timeZone] = await Promise.all([
+      loaded.view.invoice ? withinTime(() => invoiceForReceipt(admin, params.receiptToken), 2500) : Promise.resolve(null),
+      params.creatorId ? creatorTimeZone(admin, params.creatorId).catch(() => null) : Promise.resolve(null),
+    ])
+    const v = withDiscount(loaded.view, invoice)
+    const discount = v.discountCents ?? 0
+    const saved = splitSavings(discount, v.savings)
     const money = (c: number) => (c === 0 ? "Free" : formatMoney(c, v.currency, "en-US"))
     const notes: Record<string, string | null> = {
       open: null,
@@ -523,16 +537,26 @@ async function receiptEmailModel(
       orderNumber: v.number,
       dateText: dateOf(v.createdAt),
       dateIso: v.createdAt,
-      items: v.items.map((i) => ({
-        title: i.title,
-        /* The option, the buyer's own words on the line (an engraving) and the offers that saved on it, by the name the checkout showed: under the title, as the receipt page writes them. */
-        variantName: [i.variantName, ...(i.properties ?? []).map(([k, val]) => `${k}: ${val}`), ...(i.offers ?? []).map((o) => `${o.title} −${formatMoney(o.cents, v.currency, "en-US")}`)].filter(Boolean).join(" · ") || null,
-        /* A membership's line is one period of it, "$9.00/month", as the receipt page writes it. */
-        amountText: i.priceInterval && i.subtotalCents > 0 ? `${money(i.subtotalCents)}/${i.priceInterval}` : money(i.subtotalCents),
-        note: notes[i.state] ?? null,
-        thumbnailUrl: i.thumbnailUrl,
-      })),
-      subtotalText: v.tipCents > 0 || v.items.length > 1 || (v.taxCents ?? 0) > 0 ? money(v.subtotalCents) : null,
+      items: v.items.map((i) => {
+        /* At its price before the code, as the receipt page shows it, so the lines add up to the Subtotal above the discount rows. */
+        const shown = typeof i.listCents === "number" && i.listCents > i.subtotalCents ? i.listCents : i.subtotalCents
+        return {
+          title: i.title,
+          /* The option, the buyer's own words on the line (an engraving) and the offers that saved on it, by the name the checkout showed: under the title, as the receipt page writes them. */
+          variantName: [i.variantName, ...(i.properties ?? []).map(([k, val]) => `${k}: ${val}`), ...(i.offers ?? []).map((o) => `${o.title} −${formatMoney(o.cents, v.currency, "en-US")}`)].filter(Boolean).join(" · ") || null,
+          /* A membership's line is one period of it, "$9.00/month", as the receipt page writes it. */
+          amountText: i.priceInterval && shown > 0 ? `${money(shown)}/${i.priceInterval}` : money(shown),
+          note: notes[i.state] ?? null,
+          thumbnailUrl: i.thumbnailUrl,
+        }
+      }),
+      /* Before the code and the offers, when the payment recorded them: the lines at their list price, as the page's Subtotal. */
+      subtotalText: v.tipCents > 0 || discount > 0 || v.items.length > 1 || (v.taxCents ?? 0) > 0 ? money(v.subtotalCents + discount) : null,
+      savings: saved.rows.map((r) => ({ label: r.label, text: formatMoney(r.cents, v.currency, "en-US") })),
+      discountText: saved.rest > 0 ? formatMoney(saved.rest, v.currency, "en-US") : null,
+      discountCode: saved.rest > 0 ? (v.discountCode ?? null) : null,
+      payment: v.totalCents > 0 && v.state === "open" ? v.payment : null,
+      timeZone,
       tipText: v.tipCents > 0 ? money(v.tipCents) : null,
       taxText: (v.taxCents ?? 0) > 0 ? formatMoney(v.taxCents ?? 0, v.currency, "en-US") : null,
       taxIncluded: v.taxIncluded === true,

@@ -18,6 +18,7 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { buyerPageLanguage } from "@/lib/markets/checkout-language"
 import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { CheckoutWords } from "@/app/checkout/parts/words"
+import { creatorTimeZone } from "@/lib/account/time-zone"
 
 export const dynamic = "force-dynamic"
 
@@ -100,8 +101,11 @@ export default async function ReceiptPage({ params, searchParams }: { params: Pr
     browser, and a cookie from another visit could pick the words.
   */
   const channel = buyerChannel({ family: "digital", source: bought?.source, surface: bought?.surface, lang: bought?.lang })
-  const language = bought?.creatorId ? await buyerPageLanguage(bought.creatorId, { channel, named: lang, order: bought.lang }).catch(() => null) : null
-  const view = <ReceiptView receipt={receipt} viewer={viewer} locale={formatLocale(language?.lang ?? "en")} storeHref={storeHref} help={help} account={account} />
+  /* The order's date on the store's clock, as its PDF and its emails write it. */
+  const [language, timeZone] = bought?.creatorId
+    ? await Promise.all([buyerPageLanguage(bought.creatorId, { channel, named: lang, order: bought.lang }).catch(() => null), creatorTimeZone(admin, bought.creatorId).catch(() => null)])
+    : [null, null]
+  const view = <ReceiptView receipt={receipt} viewer={viewer} locale={formatLocale(language?.lang ?? "en")} storeHref={storeHref} help={help} account={account} timeZone={timeZone} />
   return language ? <CheckoutWords lang={language.lang} words={language.words}>{view}</CheckoutWords> : view
 }
 

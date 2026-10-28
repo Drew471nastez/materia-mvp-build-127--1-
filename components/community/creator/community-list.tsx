@@ -49,6 +49,11 @@ import { UpgradeSheet } from "./upgrade-sheet"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
+import { holdLanding, isPlainClick, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { tintReturnedRow } from "@/components/app/list-return"
+import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
+import { whenIdle } from "@/app/app/products/list-return"
+import { communitiesReturn } from "./list-return"
 
 /** New community: the Products page's violet New product, at the bar's 32px (35 from 1024px) with a 44px press on a phone. */
 const NEW_LOOK = cn(accentDepth, "relative h-8 gap-1.5 rounded-lg px-3 text-[13px] max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-[''] lg:h-[35px] lg:px-[13px] lg:text-[14.5px]")
@@ -114,13 +119,50 @@ export function CommunityList(props: { rows: CommunityListRow[]; available: bool
   )
 }
 
-function List({ rows, available, limit, canCreate = true }: { rows: CommunityListRow[]; available: boolean; limit: CommunityLimitView; canCreate?: boolean }) {
+function List({ rows: given, available, limit, canCreate = true }: { rows: CommunityListRow[]; available: boolean; limit: CommunityLimitView; canCreate?: boolean }) {
   const router = useRouter()
   const toast = useToast()
+  /* A community just deleted from its Settings is gone from the rows the router kept, before the refresh brings them. */
+  const [gone] = React.useState(() => communitiesReturn.peek()?.deleted ? communitiesReturn.peek()?.id ?? null : null)
+  const rows = React.useMemo(() => (gone ? given.filter((r) => r.id !== gone) : given), [given, gone])
   const [upgrade, setUpgrade] = React.useState(false)
   const [archiving, setArchiving] = React.useState<CommunityListRow | null>(null)
   const [busy, setBusy] = React.useState(false)
   const room = limit.max === null || limit.owned < limit.max
+  const listRef = React.useRef<HTMLDivElement>(null)
+
+  /*
+    BACK FROM A COMMUNITY (./list-return): the list as it was left. The stage puts its scroll back (a back is a
+    traversal), no landing plays over it, and the card that was open is tinted for a moment.
+  */
+  const [returning] = React.useState(() => communitiesReturn.isReturning())
+  React.useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
+  React.useEffect(() => {
+    const back = communitiesReturn.take()
+    if (!back) return
+    if (back.message) toast(back.message)
+    /* A community deleted from its Settings: the rows again, without it. */
+    if (back.deleted) router.refresh()
+    else if (back.id) tintReturnedRow(listRef.current, back.id, LAYER_LEAVE_MS)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the list lands
+  }, [])
+
+  /* A community's admin, fetched whole when its card is pointed at or touched, and the first two once the list is idle. */
+  const warmed = React.useRef(new Set<string>())
+  const warm = React.useCallback(
+    (href: string) => {
+      if (warmed.current.has(href)) return
+      warmed.current.add(href)
+      prefetchAppPage(router, href)
+    },
+    [router],
+  )
+  const firstTwo = React.useRef<string[]>([])
+  firstTwo.current = rows.filter((r) => !r.deleting).slice(0, 2).map((r) => `/app/community/${r.slug}`)
+  React.useEffect(() => whenIdle(() => firstTwo.current.forEach(warm)), [warm])
+  const openCommunity = React.useCallback((href: string) => communitiesReturn.open(router, href), [router])
   /* At the limit, New community asks first: the link still points at the form, for a middle click or a screen reader. */
   const askNew = (e: React.MouseEvent) => {
     if (room) return
@@ -166,7 +208,7 @@ function List({ rows, available, limit, canCreate = true }: { rows: CommunityLis
   )
 
   return (
-    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-community-list="">
+    <div ref={listRef} className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-community-list="">
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
         <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{tt("Community")}</h1>
         {available && rows.length > 0 && canCreate ? (
@@ -196,7 +238,7 @@ function List({ rows, available, limit, canCreate = true }: { rows: CommunityLis
         ) : (
           <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3" data-community-grid="">
             {rows.map((r) => (
-              <CommunityCard key={r.id} row={r} busy={busy} onShare={share} onDuplicate={duplicate} onArchive={(x) => (x.archived ? void archive(x) : setArchiving(x))} />
+              <CommunityCard key={r.id} row={r} busy={busy} onOpen={openCommunity} onWarm={warm} onShare={share} onDuplicate={duplicate} onArchive={(x) => (x.archived ? void archive(x) : setArchiving(x))} />
             ))}
           </ul>
         )}
@@ -230,12 +272,16 @@ function List({ rows, available, limit, canCreate = true }: { rows: CommunityLis
 const CommunityCard = React.memo(function CommunityCard({
   row: r,
   busy,
+  onOpen,
+  onWarm,
   onShare,
   onDuplicate,
   onArchive,
 }: {
   row: CommunityListRow
   busy: boolean
+  onOpen: (href: string) => void
+  onWarm: (href: string) => void
   onShare: (r: CommunityListRow) => void
   onDuplicate: (r: CommunityListRow) => void
   onArchive: (r: CommunityListRow) => void
@@ -267,12 +313,26 @@ const CommunityCard = React.memo(function CommunityCard({
   return (
     <li
       data-community-card={r.id}
+      data-row={r.id}
       data-state={state}
       aria-busy={busy || undefined}
       className={cn(card, "group/card @container/card relative flex min-w-0 flex-col overflow-hidden transition-[box-shadow,border-color] duration-150 pointer-fine:hover:border-[#e5e7eb] pointer-fine:hover:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_6px_16px_-8px_rgba(16,24,40,0.12)]")}
     >
       {/* The whole card opens the editor; the menu sits above this link. */}
-      <Link href={base} aria-label={`${r.name}, ${COMMUNITY_STATE_WORD[state]}`} className="absolute inset-0 z-0 rounded-[inherit] outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" data-card-link="" />
+      <Link
+        href={base}
+        prefetch={false}
+        aria-label={`${r.name}, ${COMMUNITY_STATE_WORD[state]}`}
+        onMouseEnter={() => onWarm(base)}
+        onFocus={() => onWarm(base)}
+        onPointerDown={(e) => e.pointerType !== "mouse" && onWarm(base)}
+        /* A plain press opens it one entry after the list (./list-return); a middle click or a modifier is the browser's. */
+        onClick={(e) => {
+          if (!isPlainClick(e)) return
+          e.preventDefault()
+          onOpen(base)
+        }}
+        className="absolute inset-0 z-0 rounded-[inherit] outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" data-card-link="" />
       <Cover row={r} />
       <div className="pointer-events-none relative flex min-w-0 flex-1 flex-col px-4 pb-3">
         <div className="-mt-6 flex">

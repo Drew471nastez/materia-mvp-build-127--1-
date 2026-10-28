@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false, "noEmit": true },
+  "include": ["next-env.d.ts", "types/**/*.d.ts", "app/app/emails/**/*.ts", "app/app/emails/**/*.tsx", "components/app/settings/customer-emails-panel.tsx", "components/app/emails/*.tsx", "lib/emails/*.ts", "lib/physical/jobs-server.ts", "lib/receipts/receipt-mail.ts", "lib/automations/abandoned-reminder.ts", "lib/memberships/sync.ts", "lib/notify/templates/catalog.ts", "app/api/store/emails/route.ts", "app/api/email/**/*.ts"]
+}

@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { ownedOrderLines, type OwnedLine } from "@/lib/orders/owned"
 import { signOrderLink, verifyOrderLink } from "@/lib/orders/signed-link"
 import { isTimeZone } from "@/lib/orders/time-zone"
-import { invoiceNumber } from "@/lib/checkout/invoice"
+import { invoiceFilename, invoiceForOrder, invoiceNumber, renderInvoicePdf, type OrderRow } from "@/lib/checkout/invoice"
 import { addressLines, businessFromFields, businessFromMetadata, taxIdFor, type BusinessDetails } from "@/lib/checkout/business"
 import { countryName } from "@/lib/checkout/countries"
 import { stripe } from "@/lib/stripe"
@@ -28,6 +28,13 @@ export const runtime = "nodejs"
  * ONE INVOICE PER ORDER. A basket is one payment and one order on the
  * Orders page, so its invoice lists every product in it, rather than a PDF
  * per product that each claim to be the whole sale.
+ *
+ * THE BUYER'S OWN DOCUMENT. A paid order is drawn by lib/checkout/invoice.ts,
+ * the same function as the PDF the buyer was emailed and downloads from the
+ * receipt: one number in the store's sequence, the store's legal details,
+ * each line with its quantity, the offers, the code, shipping and the tax by
+ * its name. Only an order that is not paid (pending, failed) is drawn here
+ * by the plainer document below, which says so.
  *
  * It is the buyer's invoice: what they bought, what they paid, what came
  * back. What Storelib kept and what the creator receives are on the order's
@@ -94,6 +101,21 @@ export async function GET(request: Request) {
   if (!lines) return NextResponse.json({ error: "This order was not found." }, { status: 404 })
 
   try {
+    /* A paid order: the buyer's own document, letter for letter. The store's time zone, else the one this download was asked in. */
+    const shared = await invoiceForOrder(admin, lines[0] as unknown as OrderRow, { basket: lines as unknown as OrderRow[] }).catch(() => null)
+    if (shared) {
+      const doc = await renderInvoicePdf({ ...shared, timeZone: shared.timeZone ?? zone })
+      return new NextResponse(new Uint8Array(doc), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `${disposition}; filename="${invoiceFilename(shared)}"`,
+          "Content-Length": doc.length.toString(),
+          "Cache-Control": "private, no-store",
+          "Referrer-Policy": "no-referrer",
+        },
+      })
+    }
     const [{ data: creator }, logo] = await Promise.all([
       admin.from("creators").select("username, user_id, support_email").eq("id", creatorId).maybeSingle(),
       storelibLogo(),

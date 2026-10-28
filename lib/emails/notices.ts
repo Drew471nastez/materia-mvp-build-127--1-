@@ -15,10 +15,10 @@
  * Pure: the sender in lib/email.tsx passes plain values, a test and a probe
  * draw exactly what is sent.
  */
-import { emailDocument, emailKit, emailText, identity, platformEmail, type EmailSender } from "./layout"
+import { emailDocument, emailKit, emailText, identity, platformEmail, withOwnFrame, type EmailSender } from "./layout"
 import { emailLanguage, et, inEmailLanguage } from "./words"
 import { formatMinor } from "@/lib/markets/money"
-import { resolveCopy, type EmailCopy, type ResolvedCopy } from "./customer-custom"
+import { pickCopy, resolveCopy, type EmailCopy, type ResolvedCopy } from "./customer-custom"
 
 type Mail = { subject: string; html: string; text: string }
 
@@ -189,8 +189,9 @@ export function buyerRefundMail(
     }
     /* In the refund's own currency and decimals (¥ has none), and "lei" as the order and the receipt write it. */
     const amount = formatMinor(p.amountCents, p.currency.toUpperCase(), Array.isArray(locale) ? locale[0] : locale)
-    const copy = words && language?.own !== false ? resolveCopy(words, { shop_name: clean(p.storeName, 80) || "Store", items: clean(p.productTitle), amount, order_number: refundOrderRef(p.orderId) }) : null
-    return buyerRefundEmail({
+    /* The store's words in the buyer's language (pickCopy): the main ones in the website's, a language's own where written. */
+    const copy = words ? resolveCopy(pickCopy(words, language), { shop_name: clean(p.storeName, 80) || "Store", items: clean(p.productTitle), amount, order_number: refundOrderRef(p.orderId) }) ?? null : null
+    return withOwnFrame(buyerRefundEmail({
       copy,
       storeName: p.storeName,
       reason: refundReason(p.reason),
@@ -201,7 +202,7 @@ export function buyerRefundMail(
       orderRef: refundOrderRef(p.orderId),
       contactEmail: p.contactEmail,
       sellerPictureUrl: p.sellerPictureUrl ?? null,
-    })
+    }), copy)
   })
 }
 

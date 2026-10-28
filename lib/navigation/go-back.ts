@@ -181,7 +181,7 @@ export function readBackEvidence(): BackEvidence {
  *
  * Returns the cancel, for a screen that goes away before the watch is over.
  */
-export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS): () => void {
+export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS, steps: number = 1): () => void {
   if (typeof window === "undefined") {
     fallback()
     return () => {}
@@ -210,7 +210,9 @@ export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS):
   window.addEventListener("beforeunload", done)
   nav?.addEventListener?.("navigate", done)
   markBackStarted()
-  window.history.back()
+  /* More than one entry back (a list behind a page that moves its own address, components/app/list-return.ts): one traversal, never several backs. */
+  if (steps > 1) window.history.go(-Math.floor(steps))
+  else window.history.back()
   const timer = window.setTimeout(() => {
     if (settled) return
     done()

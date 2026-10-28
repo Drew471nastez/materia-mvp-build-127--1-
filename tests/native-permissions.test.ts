@@ -81,8 +81,9 @@ check("mounted in the root layout, not on websites", /<AccessSheet \/>/.test(lay
 
 console.log("\nNotifications at the moments they matter")
 check("joining, posting, commenting, a new product", /nudgeNotifications\("joined"\)/.test(readFileSync("components/community/public/join-controls.tsx", "utf8")) && /nudgeNotifications\("posted"\)/.test(readFileSync("components/community/member/composer.tsx", "utf8")) && /nudgeNotifications\("commented"\)/.test(readFileSync("components/community/member/comments.tsx", "utf8")) && /if \(created\) nudgeNotifications\("product"\)/.test(readFileSync("app/app/products/new/product-editor.tsx", "utf8")))
-check("not asked yet: the phone's own prompt", /if \(\(await askPushPermission\(\)\) === "granted"\) await accountOn\(\)/.test(ask))
-check("refused: on the launch reminder's budget, never stacked on a sheet", /permission !== "denied" \|\| !shouldAsk\(readRecord\(\), Date\.now\(\)\)/.test(ask) && /if \(pageIsBusy\(\)\)/.test(ask))
+/* Changed on purpose: a short sheet first, then the phone's prompt; one rule and one budget for every kind (lib/native-permissions-rule.ts). */
+check("not asked yet: Storelib's sheet, then the phone's own prompt", /void askPushPermission\(\)\.then\(\(answer\) => \(answer === "granted" \? accountOn\(\) : undefined\)\)/.test(ask))
+check("refused: on the shared budget, never stacked on a sheet", /permissionAskStep\(\{ signedIn: true, askedThisSession: askedThisSession\(\), permission, record: readRecord\(kind\) \}, Date\.now\(\)\)/.test(ask) && /if \(pageIsBusy\(\)\)/.test(ask))
 check("once per moment per launch", /nudged\.has\(at\)/.test(ask))
 check("back from Settings with them on: registered and switched on now", /wentToSettings\.current = openPhoneSettings\(\)/.test(ask) && /registerDevice\(\)/.test(ask) && /await accountOn\(\)/.test(ask))
 

@@ -47,7 +47,7 @@ import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, St
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
 import { CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
-import { emailsOf } from "@/lib/emails/customer-catalog"
+import { emailsOf } from "@/lib/emails/customer-list"
 import { tt } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
 
@@ -126,7 +126,15 @@ export interface OverviewStats {
 }
 
 export interface EmailsHomeProps {
+  /** The tab whose content is drawn. */
   tab: EmailsTab
+  /**
+   * The tab chosen in the bar. It runs ahead of `tab` for a moment when the
+   * chosen one has nothing read yet: the content of the last one stays until
+   * the next has its rows (./emails-client.tsx), so a switch never shows an
+   * empty table. Missing, the bar shows `tab`.
+   */
+  chosenTab?: EmailsTab
   onTab: (tab: EmailsTab) => void
   /** A pointer resting on a tab: its data can be read ahead. */
   onTabIntent?: (tab: EmailsTab) => void
@@ -138,6 +146,8 @@ export interface EmailsHomeProps {
   checkoutBuyersCount: number
   /** The Customer emails tab's read (the store, its saved words), when it has come. */
   customerEmails?: CustomerEmailsData | null
+  /** The Customer emails tab changed what it read (words saved, the reminder switched): kept for its next look. */
+  onCustomerEmails?: (data: CustomerEmailsData) => void
   /** Physical commerce is on: the shipping, pickup and return emails are listed too. */
   physical: boolean
   search: string
@@ -315,7 +325,8 @@ export function EmailsHome(props: EmailsHomeProps) {
   const router = useRouter()
   return (
     <>
-      <PaneBar width={LIST_WIDTH} sticky className="pb-1 pt-2">
+      {/* Flat, as every list's bar (round 28, the owner): the title, the two buttons and the tabs scroll away with the page. */}
+      <PaneBar width={LIST_WIDTH} className="pb-1 pt-2">
         <div className="flex min-h-[48px] items-center justify-between gap-2">
           <h1 className="shrink-0 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">{tt("Emails")}</h1>
           <div className="flex min-w-0 items-center gap-2">
@@ -330,10 +341,10 @@ export function EmailsHome(props: EmailsHomeProps) {
             </Link>
           </div>
         </div>
-        <Tabs tab={tab} onTab={props.onTab} onIntent={props.onTabIntent} counts={{ messages: props.messages.filter((m) => !m.read_at).length }} />
+        <Tabs tab={props.chosenTab ?? tab} onTab={props.onTab} onIntent={props.onTabIntent} counts={{ messages: props.messages.filter((m) => !m.read_at).length }} />
       </PaneBar>
 
-      <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab}>
+      <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab} data-tab-pending={props.chosenTab && props.chosenTab !== tab ? props.chosenTab : undefined}>
         <Metrics {...props} />
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>
@@ -341,7 +352,7 @@ export function EmailsHome(props: EmailsHomeProps) {
           {tab === "messages" ? <MessagesTable {...props} /> : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
           {/* The emails buyers and members get, in three families: the same list, editor and saved words as Settings › Customer emails. */}
-          {tab === "customer" ? <CustomerEmailsPanel bare /> : null}
+          {tab === "customer" ? <CustomerEmailsPanel bare source={{ data: props.customerEmails ?? null, onChange: props.onCustomerEmails }} /> : null}
           {tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
         </section>
       </div>

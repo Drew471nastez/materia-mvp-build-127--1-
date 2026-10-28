@@ -50,13 +50,13 @@ import { tt } from "@/lib/i18n/text"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { MAX_BUNDLE, MAX_TRIGGERS, PLACEMENTS_FOR, offerState, type DiscountType, type Offer, type OfferKind, type Placement } from "@/lib/offers/offers"
 import { amountOf, bodyOf, draftOf, problemsOf, tierOf, type Draft, type Problems } from "./offer-draft"
-import { SWITCH_GROUP, Segmented, SwitchRow } from "../products/new/editor-controls"
+import { SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "../products/new/editor-controls"
 import { LeaveButton } from "../products/new/editor-buttons"
 import { useConfirm } from "../products/new/confirm-sheet"
 import { StatusBadge, iconButton } from "../orders/order-parts"
 import { CouponSaveButton, Tick, quietDanger } from "../coupons/coupon-parts"
 import { BreakPreview, KIND_WORD, OfferPreview, PLACEMENT_WORD, STATE_TONE, STATE_WORD, currencySign, moneyIn, type OfferCollection, type OfferProduct } from "./offer-parts"
-import { BAD, ChoiceGrid, ERR, FIELD, HINT, LABEL, MoneyField, ProductPicker, Radio, TierEditor } from "./offer-fields"
+import { BAD, ChoiceGrid, ERR, FIELD, HINT, LABEL, MoneyField, ProductPicker, Radio, RadioRows, TierEditor } from "./offer-fields"
 import { DRAFT_ID, offerWarnings, type Tried } from "@/lib/offers/try-cart"
 import { sendOffer } from "./offer-api"
 import { newOfferHref, offersReturn } from "./list-return"
@@ -397,7 +397,7 @@ export function OfferEditor({
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{heading}</h1>
-          <span className="ml-1 shrink-0 text-[14px] text-[#6b7280]">{KIND_WORD[d.kind]()}</span>
+          {offer ? <span className="ml-1 shrink-0 text-[14px] text-[#6b7280]">{KIND_WORD[d.kind]()}</span> : null}
           {state ? (
             <span className="ml-1 shrink-0">
               <StatusBadge tone={STATE_TONE[state]}>{STATE_WORD[state]()}</StatusBadge>
@@ -478,23 +478,31 @@ export function OfferEditor({
                       ]}
                     />
                   ) : null}
-                  {d.scope === "product" ? (
-                    <ProductPicker products={products} chosen={d.productIds} onPick={(id) => set({ productIds: [id] })} single money={money} name="offer-products" />
-                  ) : (
-                    <ul role="radiogroup" aria-label={tt("Collections")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]">
-                      {collections.map((c) => {
-                        const on = d.triggerCollectionIds[0] === c.id
-                        return (
-                          <li key={c.id}>
-                            <button type="button" role="radio" aria-checked={on} data-pick-collection={c.id} onClick={() => set({ triggerCollectionIds: [c.id] })} className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 px-3.5 text-left outline-none focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[44px] sm:hover:bg-[#fafafb]">
-                              <Radio on={on} />
-                              <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{c.title}</span>
-                            </button>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
+                  {/* One product or a collection: the two lists cross-fade in one place, and the card eases to the new height. */}
+                  <SwapPanels
+                    active={d.scope}
+                    panels={[
+                      { key: "product", node: <ProductPicker products={products} chosen={d.productIds} onPick={(id) => set({ productIds: [id] })} single money={money} name="offer-products" /> },
+                      {
+                        key: "collection",
+                        node: (
+                          <ul role="radiogroup" aria-label={tt("Collections")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]">
+                            {collections.map((c) => {
+                              const on = d.triggerCollectionIds[0] === c.id
+                              return (
+                                <li key={c.id}>
+                                  <button type="button" role="radio" aria-checked={on} data-pick-collection={c.id} onClick={() => set({ triggerCollectionIds: [c.id] })} className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 px-3.5 text-left outline-none focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[44px] sm:hover:bg-[#fafafb]">
+                                    <Radio on={on} />
+                                    <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{c.title}</span>
+                                  </button>
+                                </li>
+                              )
+                            })}
+                        </ul>
+                        ),
+                      },
+                    ]}
+                  />
                   {shown.products ? <p className={ERR}>{shown.products}</p> : null}
                 </section>
 
@@ -527,10 +535,9 @@ export function OfferEditor({
                 <h2 id="offer-when" className={CARD_TITLE}>
                   {tt("Show it when the cart has")}
                 </h2>
-                <Segmented
+                <RadioRows
                   label={tt("Show it when the cart has")}
                   value={d.condition}
-                  fit="content"
                   onChange={(condition) => set({ condition })}
                   options={[
                     { value: "any", label: tt("Anything") },
@@ -538,25 +545,32 @@ export function OfferEditor({
                     ...(collections.length || d.condition === "collections" ? [{ value: "collections" as const, label: tt("A collection") }] : []),
                   ]}
                 />
-                {d.condition === "products" ? (
-                  <ProductPicker products={products.filter((p) => !d.productIds.includes(p.id))} chosen={d.triggerIds} onPick={(id) => set({ triggerIds: toggle(d.triggerIds, id) })} money={money} name="offer-triggers" />
-                ) : null}
-                {d.condition === "collections" ? (
-                  <ul aria-label={tt("Collections")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]">
-                    {collections.map((c) => {
-                      const on = d.triggerCollectionIds.includes(c.id)
-                      return (
-                        <li key={c.id}>
-                          <button type="button" role="checkbox" aria-checked={on} onClick={() => set({ triggerCollectionIds: toggle(d.triggerCollectionIds, c.id) })} className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 px-3.5 text-left outline-none focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[44px] sm:hover:bg-[#fafafb]">
-                            <Tick on={on} />
-                            <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{c.title}</span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                ) : null}
-                {d.condition === "any" ? <p className={HINT}>{tt("Any cart without this product in it.")}</p> : null}
+                {/* What the choice asks next, in one place: the hint, the products or the collections, cross-faded, the card easing to its height. */}
+                <SwapPanels
+                  active={d.condition}
+                  panels={[
+                    { key: "any", node: <p className={HINT}>{tt("Any cart without this product in it.")}</p> },
+                    { key: "products", node: <ProductPicker products={products.filter((p) => !d.productIds.includes(p.id))} chosen={d.triggerIds} onPick={(id) => set({ triggerIds: toggle(d.triggerIds, id) })} money={money} name="offer-triggers" /> },
+                    {
+                      key: "collections",
+                      node: (
+                        <ul aria-label={tt("Collections")} className="divide-y divide-[#eef0f2] overflow-hidden rounded-xl border border-[#e5e7eb]">
+                          {collections.map((c) => {
+                            const on = d.triggerCollectionIds.includes(c.id)
+                            return (
+                              <li key={c.id}>
+                                <button type="button" role="checkbox" aria-checked={on} onClick={() => set({ triggerCollectionIds: toggle(d.triggerCollectionIds, c.id) })} className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 px-3.5 text-left outline-none focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[44px] sm:hover:bg-[#fafafb]">
+                                  <Tick on={on} />
+                                  <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{c.title}</span>
+                                </button>
+                              </li>
+                            )
+                          })}
+                      </ul>
+                      ),
+                    },
+                  ]}
+                />
                 {shown.triggers ? <p className={ERR}>{shown.triggers}</p> : null}
                 <div>
                   <label htmlFor="offer-minimum" className={LABEL}>
@@ -575,22 +589,30 @@ export function OfferEditor({
                   {tt("Discount")}
                 </h2>
                 <ChoiceGrid label={tt("Discount type")} value={d.discountType} onChange={(t) => set({ discountType: t, amount: t === "percent" ? "10" : t === "fixed" ? amountOf(500, currency) : "" })} options={discountOptions} />
-                {d.discountType === "percent" || d.discountType === "fixed" ? (
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                    {d.discountType === "fixed" ? (
-                      <MoneyField id="offer-amount" sign={sign} value={d.amount} onChange={(amount) => set({ amount })} bad={!!shown.amount} className="w-[150px]" />
-                    ) : (
-                      <label className="relative block w-[120px]">
-                        <span className="sr-only">{tt("Percent off")}</span>
-                        <input id="offer-amount" inputMode="numeric" value={d.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} aria-invalid={!!shown.amount} className={cn(FIELD, "pr-8 tabular-nums", shown.amount && BAD)} />
-                        <span aria-hidden className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">%</span>
-                      </label>
-                    )}
-                    <p className={HINT}>{d.kind === "bundle" ? (d.discountType === "fixed" ? tt("Off each complete set.") : tt("Off every product in each complete set.")) : tt("Off the product it offers.")}</p>
-                  </div>
-                ) : (
-                  <p className={HINT}>{d.discountType === "free_shipping" ? (d.kind === "bundle" ? tt("The whole order ships free once the set is in the cart.") : tt("The whole order ships free once it's added.")) : tt("It's suggested at its own price.")}</p>
-                )}
+                {/* An amount to type, or a line that says what happens: one place, cross-faded, so the card never jumps. */}
+                <SwapPanels
+                  active={d.discountType === "percent" || d.discountType === "fixed" ? "amount" : "words"}
+                  panels={[
+                    {
+                      key: "amount",
+                      node: (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                          {d.discountType === "fixed" ? (
+                            <MoneyField id="offer-amount" sign={sign} value={d.amount} onChange={(amount) => set({ amount })} bad={!!shown.amount} className="w-[150px]" />
+                          ) : (
+                            <label className="relative block w-[120px]">
+                              <span className="sr-only">{tt("Percent off")}</span>
+                              <input id="offer-amount" inputMode="numeric" value={d.amount} onChange={(e) => set({ amount: e.target.value.replace(/[^0-9]/g, "").slice(0, 2) })} aria-invalid={!!shown.amount} className={cn(FIELD, "pr-8 tabular-nums", shown.amount && BAD)} />
+                              <span aria-hidden className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">%</span>
+                            </label>
+                          )}
+                          <p className={HINT}>{d.kind === "bundle" ? (d.discountType === "fixed" ? tt("Off each complete set.") : tt("Off every product in each complete set.")) : tt("Off the product it offers.")}</p>
+                        </div>
+                      ),
+                    },
+                    { key: "words", node: <p className={HINT}>{d.discountType === "free_shipping" ? (d.kind === "bundle" ? tt("The whole order ships free once the set is in the cart.") : tt("The whole order ships free once it's added.")) : tt("It's suggested at its own price.")}</p> },
+                  ]}
+                />
                 {shown.amount ? <p className={ERR}>{shown.amount}</p> : null}
               </section>
             ) : null}

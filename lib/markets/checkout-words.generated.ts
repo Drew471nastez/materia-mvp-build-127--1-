@@ -615,6 +615,8 @@ export const CHECKOUT_SENTENCES: readonly string[] = [
 ]
 
 export const EMAIL_SENTENCES: readonly string[] = [
+  "Discount ({code})",
+  "Discount",
   "Sold by {name}",
   "Tax ID",
   "Questions about this order? Reply to this email and it goes to {shop}.",
@@ -630,7 +632,6 @@ export const EMAIL_SENTENCES: readonly string[] = [
   "Delivery",
   "Shipping",
   "Subtotal",
-  "Discount",
   "Free",
   "Cash on delivery fee",
   "Total",
@@ -801,6 +802,7 @@ export const EMAIL_SENTENCES: readonly string[] = [
   "Order {number} from {shop}",
   "{seller}. Through {platform}.",
   "Sold by {shop} through {platform}.",
+  "{brand} ending {last4}",
   "Hi {name},",
   "Hi there,",
   "Thanks for your order from {shop}.",
@@ -832,7 +834,6 @@ export const EMAIL_SENTENCES: readonly string[] = [
   "Payment not made by the card's owner",
   "Payment not completed",
   "Not known",
-  "{brand} ending {last4}",
   "Card",
   "Cash on delivery",
   "your purchase",

@@ -25,15 +25,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         return true
     }
 
+    /// Never shows the system prompt. The app asks after sign in, at a moment
+    /// it matters, with a short sheet of its own first
+    /// (components/platform/notifications-ask.tsx, through the push plugin's
+    /// requestPermissions and register). Asking here put the one prompt iOS
+    /// ever shows on the welcome screen of a first launch, before anybody
+    /// knew what Storelib would notify them about. Where it was already
+    /// allowed, registering at launch keeps the FCM token fresh.
     private func requestPushPermission(_ application: UIApplication) {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                print("[push] permission error: \(error.localizedDescription)")
-                return
-            }
-            print("[push] permission granted: \(granted)")
-            DispatchQueue.main.async {
-                application.registerForRemoteNotifications()
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                DispatchQueue.main.async {
+                    application.registerForRemoteNotifications()
+                }
+            default:
+                print("[push] not allowed yet: the page asks after sign in")
             }
         }
     }

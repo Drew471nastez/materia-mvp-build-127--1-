@@ -7177,12 +7177,24 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
   color: #1a1a2e;
   box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.08), 0 1px 2px rgba(17, 24, 39, 0.05);
 }
+/* EXPORT, THE ROW'S ONE ACTION (round 41, the owner: "Export looks broken, text overflowing a too-small circle"): a
+   button with its icon and its name on a computer, the chips' height and ring, and an icon in a 36px circle on a phone,
+   where the label is not drawn at all (app/app/analytics/export-button.tsx). It was a 36px circle at every width with
+   the name spilling out of it from 640px. */
 [data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] {
-  width: 36px;
-  padding: 0;
-  justify-content: center;
+  padding: 0 16px 0 13px;
+  gap: 7px;
+  flex-shrink: 0;
+}
+@media (max-width: 639.98px) {
+  [data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
 }
 [data-analytics-controls] button[aria-haspopup="dialog"] svg { color: #9ca3af; }
+[data-analytics-controls] button[aria-haspopup="dialog"][data-analytics-export] svg { color: #4b5563; }
 /* On a phone the chips are ONE row that scrolls sideways (the owner: "they wrap onto two rows ... put them all in one
    row"), Export pinned at its right end. Where the row is cut it fades out (.edge-fade, below), so no chip is ever
    sliced at a hard edge, and the pickers open their sheets through a portal, so the scroller clips none of them. */
@@ -9271,6 +9283,14 @@ dialog:focus,
   scrollbar-width: none;
 }
 .sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+/* The same bar for a list that scrolls inside a page, a product picker
+   (components/app/thumb-scroll.tsx): no column of its own, the thumb over its edge. */
+[data-thumb-scroll] {
+  scrollbar-width: none;
+}
+[data-thumb-scroll]::-webkit-scrollbar {
   display: none;
 }
 [data-nav-thumb] {

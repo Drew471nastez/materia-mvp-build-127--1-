@@ -960,6 +960,13 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       )}
 
       {/*
+        THE PULL MOVES THE WHOLE PAGE, TITLE AND ALL, as Orders' and Emails'
+        do: the spinner opens in the room above "Products", at the very top
+        of the page, the way iOS draws it. It used to wrap only the card, so
+        the spinner came out between New product and the list.
+      */}
+      <PullToRefresh onRefresh={refreshList}>
+      {/*
         THE BAR, AS ORDERS' AND EMAILS': the title, then Collections (from
         768px; on a phone it is under Products in the menu), Export and New
         product. Export is the Download icon alone on a phone. An empty shop
@@ -1001,8 +1008,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         ) : null}
       </PaneBar>
 
-      {/* The bar stays put; the list under it is what a pull moves (components/ui/pull-to-refresh). */}
-      <PullToRefresh onRefresh={refreshList}>
       <div className={cn("mx-auto pb-6", LIST_WIDTH, GUTTER)}>
         {/* Physical products on sale that buyers can't check out with yet, and why (components/physical/readiness-banner). A late one opens its room (bannerSlot). */}
         <div ref={bannerSlot} data-readiness-slot="" className="flow-root">
@@ -1435,13 +1440,14 @@ const PhoneRow = memo(function PhoneRow({
           ) : null}
         </span>
       </span>
-      {opening ? <OpeningMark /> : null}
       <ResponsiveActionMenu
         title={product.title}
         align="end"
         trigger={<RowMenuButton label={tt("Actions for {title}", { title: product.title })} className={cn(ROW_MENU, "h-11 w-11")} />}
         items={items}
       />
+      {/* Over the more button, in its own box: the row's text keeps its width and the price stays where it was. */}
+      {opening ? <OpeningMark over /> : null}
     </li>
   )
 })
@@ -1529,11 +1535,15 @@ const TableRow = memo(function TableRow({
  * page-layer), so a warm editor, which rises well inside that, shows the
  * tint alone.
  */
-function OpeningMark() {
+function OpeningMark({ over = false }: { over?: boolean }) {
   return (
     <span
       data-row-opening=""
-      className="relative z-[1] grid h-8 w-8 shrink-0 place-items-center"
+      className={cn(
+        "z-[1] grid shrink-0 place-items-center",
+        /* A phone's row: laid over the 44px more button, in the row's pressed tint, so nothing beside it moves. */
+        over ? "pointer-events-none absolute right-1.5 top-1/2 h-11 w-11 -translate-y-1/2 bg-[#f4f5f7]" : "relative h-8 w-8",
+      )}
       style={{ animation: `press-spinner-in 120ms ease-out ${LAYER_PRESS_WAIT_MS}ms both` }}
     >
       <ActivitySpinner size={16} label={tt("Opening")} className="text-[#4b5563]" />

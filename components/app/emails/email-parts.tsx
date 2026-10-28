@@ -46,12 +46,15 @@ export interface RowEmail {
 }
 
 /** One email: its name, when it goes, what it sent; the whole row opens it, a switch at the end where it has one. */
-export function EmailRow({ email, bare, edited, sent, note, control, onOpen }: { email: RowEmail; bare: boolean; edited: boolean; sent: string | null; note?: string | null; control?: React.ReactNode; onOpen: () => void }) {
+export function EmailRow({ email, bare, edited, sent, note, control, onOpen, onIntent }: { email: RowEmail; bare: boolean; edited: boolean; sent: string | null; note?: string | null; control?: React.ReactNode; onOpen: () => void; /** A pointer arriving, a finger landing, a focus: what the row opens can be read ahead. */ onIntent?: () => void }) {
   return (
     <li className="flex items-center">
       <button
         type="button"
         onClick={onOpen}
+        onPointerEnter={onIntent}
+        onPointerDown={onIntent}
+        onFocus={onIntent}
         className={cn("flex min-h-[60px] min-w-0 flex-1 items-center gap-3 py-3 text-left outline-none transition-colors duration-100 hover:bg-[#fafafa] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]", bare ? "pl-4 sm:pl-5" : "pl-3.5", control ? "pr-2" : bare ? "pr-4 sm:pr-5" : "pr-3.5")}
         data-customer-email={email.id}
       >

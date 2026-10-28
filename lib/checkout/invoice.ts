@@ -13,12 +13,24 @@ import "server-only"
  * payment: no tax line the checkout never charged, no reverse charge note
  * for a tax that was never worked out, no figure that is not the order's.
  *
- * ONE NUMBER, FOREVER. "SL-20260923-1A2B3C4D" is the day the order was
- * written and its id, both fixed in the database the moment the order
- * exists. The PDF emailed after paying, the one downloaded from the
- * receipt a year later and the one drawn by a webhook retry therefore all
- * carry the same number, with nothing stored and nothing to race over. A
+ * ONE NUMBER, FOREVER, AND IN SEQUENCE. An invoice in the EU must carry a
+ * number that is unique and follows on from the store's previous one. The
+ * first time an order's PDF is drawn, SQL part 321
+ * (storelib_invoice_number) gives it the store's next number under a lock,
+ * kept with the moment it was issued, so the PDF emailed after paying, the
+ * one downloaded from the receipt a year later, the seller's copy and the
+ * one drawn by a webhook retry all carry "000153". An order from before part
+ * 321 ran, or any order while it has not, keeps "SL-20260923-1A2B3C4D": the
+ * day the order was written and its id, fixed the moment it exists. A
  * basket's number is its first line's.
+ *
+ * Dates are written in the store's time zone (Settings › Account), as its
+ * order emails are: an order paid at 00:30 in Bucharest is that day's.
+ *
+ * An order that ships (lib/physical, a commerce checkout) is drawn from its
+ * checkout: each line at its unit price and quantity, the buyer's
+ * personalization under it, the offers and the code, shipping as its own
+ * row, the tax and where it was sent.
  *
  * Where each value comes from:
  *   the order rows     amounts, the card, the date, the products and options,
@@ -48,8 +60,11 @@ import { fullyRefunded } from "@/lib/orders/refund-state"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { includedTaxLabel, percentText } from "@/lib/tax/rules"
 import { formatCurrency } from "@/lib/markets/money"
+import { creatorTimeZone } from "@/lib/account/time-zone"
+import { addressLines as shipAddressLines } from "@/lib/physical/address"
+import { buyerProperties, lineProperties } from "@/lib/physical/cart-link"
 
-type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export interface InvoiceLine {
   description: string
@@ -64,7 +79,12 @@ export interface InvoiceData {
   number: string
   /** "invoice" when a company is billed, "receipt" otherwise. */
   kind: "invoice" | "receipt"
+  /** When the number was given (SQL part 321); the order's date for a number from before it. */
   issuedAt: Date
+  /** When the order was placed. */
+  orderedAt?: Date
+  /** The store's time zone, every date is written in it; UTC when the store has none. */
+  timeZone?: string | null
   status: "paid" | "refunded" | "partially_refunded" | "disputed"
   currency: string
   /**
@@ -84,6 +104,12 @@ export interface InvoiceData {
   /** The store's offers inside `discountCents`, each by the name the checkout showed it with; the rest is the code's. */
   savings?: { label: string; cents: number }[]
   tipCents: number
+  /** Delivery after a free shipping code, for an order that ships; its own row between the discounts and the tax. */
+  shippingCents?: number
+  /** How it was sent ("Standard"), from the checkout. */
+  shippingMethod?: string | null
+  /** Where it was sent, as address lines; absent for a download or a pickup. */
+  shipTo?: string[]
   /** Settings › Taxes: the tax in the total, added on top or included in the price. */
   taxCents?: number
   taxIncluded?: boolean
@@ -96,10 +122,122 @@ export interface InvoiceData {
   orderId: string
 }
 
-/** "SL-20260923-1A2B3C4D": the day the order was written and the order it is for. */
+/** "SL-20260923-1A2B3C4D": the day the order was written and the order it is for. The number of an order from before SQL part 321. */
 export function invoiceNumber(orderId: string, at: Date | string): string {
   const day = new Date(at).toISOString().slice(0, 10).replace(/-/g, "")
   return `SL-${day}-${orderId.replace(/-/g, "").slice(0, 8).toUpperCase()}`
+}
+
+/** The store's own sequence (SQL part 321): 153 is "000153". */
+export function sequentialNumber(seq: number): string {
+  return String(Math.max(1, Math.floor(seq))).padStart(6, "0")
+}
+
+/**
+ * The store's next number for this order, or the one it already has, with
+ * when it was issued (SQL part 321). Null before the part has run, for an
+ * order from before it, and whenever the database cannot answer: the PDF
+ * then carries invoiceNumber's, as it always did.
+ */
+export async function sequenceFor(admin: Db, orderId: string, creatorId: string | null): Promise<{ seq: number; issuedAt: Date } | null> {
+  if (!creatorId || typeof admin.rpc !== "function") return null
+  try {
+    const { data, error } = await admin.rpc("storelib_invoice_number", { p_order: orderId, p_creator: creatorId })
+    if (error || !data) return null
+    const row = (typeof data === "string" ? JSON.parse(data) : data) as { seq?: unknown; issued_at?: unknown }
+    const seq = Number(row.seq)
+    const at = new Date(String(row.issued_at ?? ""))
+    if (!Number.isInteger(seq) || seq <= 0) return null
+    return { seq, issuedAt: Number.isNaN(at.getTime()) ? new Date() : at }
+  } catch {
+    return null
+  }
+}
+
+/** A line's option and the buyer's own words on it ("Size M · Engraving: Ana"), a theme's own notes ("_…") left out. */
+export function lineDetail(variant: string | null | undefined, properties: unknown): string | null {
+  const said = buyerProperties(lineProperties(properties)).map(([k, v]) => `${k}: ${v.replace(/\s*\n\s*/g, " / ")}`)
+  return [variant || null, ...said].filter(Boolean).join(" · ") || null
+}
+
+/** What a commerce checkout (lib/physical) holds that the invoice reads. */
+export interface ShippedCheckout {
+  shipping_cents?: number | null
+  shipping_discount_cents?: number | null
+  tax_cents?: number | null
+  total_cents?: number | null
+  refunded_cents?: number | null
+  coupon_code?: string | null
+  shipping_address?: Record<string, unknown> | null
+  shipping_rate?: { name?: string | null; tax_included?: boolean | null; tax_label?: string | null; kind?: string | null } | null
+  delivery_method?: string | null
+}
+
+export interface ShippedParts {
+  lines: InvoiceLine[]
+  discountCents: number
+  savings: { label: string; cents: number }[]
+  discountCode: string | null
+  shippingCents: number
+  shippingMethod: string | null
+  shipTo: string[]
+  taxCents: number
+  taxIncluded: boolean
+  taxLabel: string | null
+  refundedCents: number
+}
+
+/**
+ * An order that ships, as its invoice lists it: each row's snapshot (the
+ * unit price, the quantity, what the offers and the code took, the buyer's
+ * words) and the checkout's shipping, tax and address. Null when the figures
+ * do not add up to what was charged, and the rows are then listed as charged.
+ * Pure.
+ */
+export function shippedParts(rows: OrderRow[], co: ShippedCheckout | null): ShippedParts | null {
+  const charged = rows.reduce((n, r) => n + Math.max(0, Number(r.amount_cents) || 0), 0)
+  const priced = rows.map((r) => {
+    const snap = (r.product_snapshot ?? {}) as Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+    const unit = Number(snap.unit_cents ?? r.unit_price_cents)
+    if (!Number.isFinite(unit) || unit < 0) return null
+    const quantity = Math.max(1, Math.round(Number(r.quantity ?? snap.quantity) || 1))
+    const off = Math.max(0, Math.round(Number(snap.discount_cents) || 0))
+    return {
+      line: { description: String(snap.title || r.product?.title || "Item"), detail: lineDetail(r.variant_name ?? snap.variant_name, snap.properties), quantity, unitCents: unit, amountCents: unit * quantity },
+      off,
+      offers: offersOfSnapshot(snap.offers) ?? [],
+      tax: Math.max(0, Math.round(Number(snap.tax_cents) || 0)),
+      taxIncluded: snap.tax_included === true,
+      taxLabel: typeof snap.tax_label === "string" ? snap.tax_label.trim() : "",
+      shipping: Math.max(0, Math.round(Number(r.shipping_cents) || 0)),
+    }
+  })
+  if (priced.some((p) => p === null)) return null
+  const ok = priced as NonNullable<(typeof priced)[number]>[]
+  const subtotal = ok.reduce((n, p) => n + p.line.amountCents, 0)
+  const discount = ok.reduce((n, p) => n + p.off, 0)
+  const shipping = co ? Math.max(0, (Number(co.shipping_cents) || 0) - (Number(co.shipping_discount_cents) || 0)) : ok.reduce((n, p) => n + p.shipping, 0)
+  const taxIncluded = co ? co.shipping_rate?.tax_included === true : ok.some((p) => p.tax > 0) && ok.filter((p) => p.tax > 0).every((p) => p.taxIncluded)
+  const tax = co ? Math.max(0, Number(co.tax_cents) || 0) : ok.reduce((n, p) => n + p.tax, 0)
+  if (subtotal - discount + shipping + (taxIncluded ? 0 : tax) !== charged) return null
+  const savings = splitSavings(discount, ok.flatMap((p) => p.offers.map((o) => ({ label: o.title, cents: o.savedCents })))).rows
+  const offered = savings.reduce((n, s) => n + s.cents, 0)
+  const code = typeof co?.coupon_code === "string" && co.coupon_code.trim() && discount > offered ? co.coupon_code.trim().slice(0, 40) : null
+  const label = (typeof co?.shipping_rate?.tax_label === "string" && co.shipping_rate.tax_label.trim()) || ok.find((p) => p.taxLabel)?.taxLabel || null
+  const pickup = co?.delivery_method === "pickup"
+  return {
+    lines: ok.map((p) => p.line),
+    discountCents: discount,
+    savings,
+    discountCode: code,
+    shippingCents: shipping,
+    shippingMethod: pickup ? null : (typeof co?.shipping_rate?.name === "string" && co.shipping_rate.name.trim()) || null,
+    shipTo: pickup || !co?.shipping_address ? [] : shipAddressLines(co.shipping_address as never),
+    taxCents: tax,
+    taxIncluded,
+    taxLabel: tax > 0 ? label : null,
+    refundedCents: Math.max(0, Math.min(charged, Number(co?.refunded_cents) || 0)),
+  }
 }
 
 const BRANDS: Record<string, string> = {
@@ -153,8 +291,13 @@ export interface OrderRow {
   refund_amount_cents?: number | null
   /** The company the buyer bought for, when the database has the column (part 35). */
   business_details?: unknown
-  /** The line's snapshot: its offers by name (lib/offers/snapshot.ts), written when the order was. */
-  product_snapshot?: { offers?: unknown } | null
+  /** The line's snapshot: its offers by name (lib/offers/snapshot.ts), written when the order was; for a line that ships also its unit price, discount, tax and the buyer's words. */
+  product_snapshot?: { offers?: unknown; [key: string]: unknown } | null
+  /** An order that ships: its checkout (lib/physical), and the line's quantity, unit price and share of delivery. */
+  checkout_id?: string | null
+  quantity?: number | null
+  unit_price_cents?: number | null
+  shipping_cents?: number | null
   product: { title: string | null; creator_id: string | null } | null
 }
 
@@ -221,7 +364,20 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const businessKnown = context.business !== undefined
   let business = businessKnown ? (context.business ?? null) : businessFromFields(first.business_details)
   let discountCode = context.discountCode ?? null
-  if (isBasket) {
+  /* An order that ships: its checkout holds the shipping, the tax and the address, and its rows the lines as priced. */
+  let shipped: ShippedParts | null = null
+  const checkoutId = rows.find((r) => r.checkout_id)?.checkout_id ?? null
+  if (checkoutId) {
+    let co: ShippedCheckout | null = null
+    try {
+      const { data } = await admin.from("commerce_checkouts").select("*").eq("id", checkoutId).maybeSingle()
+      co = (data ?? null) as ShippedCheckout | null
+    } catch {
+      co = null
+    }
+    shipped = shippedParts(rows, co)
+  }
+  if (isBasket && !shipped) {
     if ((!items || (!business && !businessKnown)) && first.stripe_session_id?.startsWith("cs_")) {
       try {
         const session = await stripe.checkout.sessions.retrieve(first.stripe_session_id)
@@ -268,9 +424,15 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const taxRateBps = Math.max(0, Number.parseInt(meta.tax_rate_bps || "0", 10) || 0)
   /* The tax's own words: the payment's for one product, the rows' for a basket (one label when they agree), else the rate. */
   const rowLabels = [...new Set(rows.filter((r) => rowTax(r) > 0).map((r) => (typeof r.tax_label === "string" ? r.tax_label.trim() : "")).filter(Boolean))]
-  const taxLabel = (!isBasket ? (meta.tax_label || "").trim() || (singleFromRow ? rowLabels[0] ?? "" : "") : rowLabels.length === 1 ? rowLabels[0] : "") || (taxRateBps > 0 ? `Tax ${percentText(taxRateBps)}` : "Tax")
+  let taxLabel = (!isBasket ? (meta.tax_label || "").trim() || (singleFromRow ? rowLabels[0] ?? "" : "") : rowLabels.length === 1 ? rowLabels[0] : "") || (taxRateBps > 0 ? `Tax ${percentText(taxRateBps)}` : "Tax")
   const addedTax = taxIncluded ? 0 : taxCents
-  if (!isBasket) {
+  if (shipped) {
+    lines = shipped.lines
+    discount = shipped.discountCents
+    savings = shipped.savings
+    discountCode = shipped.discountCode
+    taxLabel = shipped.taxLabel || taxLabel
+  } else if (!isBasket) {
     const recordedDiscount = Math.max(0, Number(meta.discount_cents) || 0)
     const recordedBase = Number(meta.base_price_cents)
     /* The price before the code, as the checkout recorded it, when it adds
@@ -280,7 +442,7 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     const base = adds ? recordedBase : total - tip - addedTax
     discount = adds ? recordedDiscount : 0
     discountCode = discount > 0 ? discountCode ?? (meta.coupon_code || null) : null
-    lines = [{ description: first.product?.title || meta.product_title || "Digital product", detail: first.variant_name || null, quantity: 1, unitCents: base, amountCents: base }]
+    lines = [{ description: first.product?.title || meta.product_title || "Digital product", detail: lineDetail(first.variant_name, first.product_snapshot?.properties), quantity: 1, unitCents: base, amountCents: base }]
   } else {
     /* Each row with the line it was priced as: its quantity, its unit price and what a code took off it. */
     const left = [...(items ?? [])]
@@ -299,7 +461,7 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
         offers: fits && item ? ((offersOfSnapshot(r.product_snapshot?.offers) ?? (item.offers ?? []).map((o) => ({ title: o.title, savedCents: o.savedCents }))) as { title: string; savedCents: number }[]) : [],
         line: {
           description: r.product?.title || "Digital product",
-          detail: r.variant_name || null,
+          detail: lineDetail(r.variant_name, r.product_snapshot?.properties),
           quantity: fits ? quantity : 1,
           unitCents: fits && item ? item.priceCents : charged,
           amountCents: fits ? gross : charged,
@@ -315,16 +477,21 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     if (savings.reduce((n, s) => n + s.cents, 0) >= discount) discountCode = null
   }
   const subtotal = lines.reduce((n, l) => n + l.amountCents, 0)
+  /* The shipped order's tax is its checkout's (its rows keep it in their snapshots, never in orders.tax_cents). */
+  const finalTax = shipped ? shipped.taxCents : taxCents
+  const finalTaxIncluded = shipped ? shipped.taxIncluded : taxIncluded
 
-  const refunded = rows.reduce((n, r) => {
+  /* What went back: each refunded row's, and for an order that ships its checkout's own count, which a partial refund of one item is kept in. */
+  const rowsRefunded = rows.reduce((n, r) => {
     if (r.status !== "refunded") return n
     const charged = Math.max(0, Number(r.amount_cents) || 0)
     const recorded = Number(r.refund_amount_cents) || 0
     return n + (recorded > 0 ? Math.min(recorded, charged) : charged)
   }, 0)
+  const refunded = Math.min(total, Math.max(rowsRefunded, shipped?.refundedCents ?? 0))
   const status: InvoiceData["status"] = rows.some((r) => r.status === "disputed")
     ? "disputed"
-    : rows.every((r) => fullyRefunded(r))
+    : rows.every((r) => fullyRefunded(r)) || (refunded > 0 && refunded >= total)
       ? "refunded"
       : refunded > 0
         ? "partially_refunded"
@@ -368,11 +535,15 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
       /* The seller as read above. */
     }
 
-  const issuedAt = new Date(first.created_at)
+  /* The store's next number the first time this order is drawn, the same one ever after (SQL part 321); and the store's clock. */
+  const orderedAt = new Date(first.created_at)
+  const [sequence, timeZone] = await Promise.all([sequenceFor(admin, first.id, creatorId), creatorId ? creatorTimeZone(admin as never, creatorId).catch(() => null) : Promise.resolve(null)])
   return {
-    number: invoiceNumber(first.id, issuedAt),
+    number: sequence ? sequentialNumber(sequence.seq) : invoiceNumber(first.id, orderedAt),
     kind: business ? "invoice" : "receipt",
-    issuedAt,
+    issuedAt: sequence?.issuedAt ?? orderedAt,
+    orderedAt,
+    timeZone: timeZone ?? null,
     status,
     currency: String(first.currency || "usd").toUpperCase(),
     seller,
@@ -388,10 +559,11 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     discountCode,
     ...(savings.length ? { savings } : {}),
     tipCents: tip,
-    taxCents,
-    taxIncluded,
+    ...(shipped ? { shippingCents: shipped.shippingCents, shippingMethod: shipped.shippingMethod, ...(shipped.shipTo.length ? { shipTo: shipped.shipTo } : {}) } : {}),
+    taxCents: finalTax,
+    taxIncluded: finalTaxIncluded,
     taxRateBps,
-    taxLabel: taxCents > 0 ? taxLabel : null,
+    taxLabel: finalTax > 0 ? taxLabel : null,
     totalCents: total,
     payment: paymentLabel(first),
     reference: first.stripe_payment_intent_id ?? first.provider_payment_id ?? null,
@@ -428,7 +600,14 @@ export function moneyText(cents: number, currency = "USD"): string {
   return formatCurrency((cents || 0) / 100, currency || "USD", "en-US")
 }
 
-const dateText = (d: Date) => new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(d)
+/** "October 28, 2026" on the store's clock (UTC when it has none or names one this runtime does not know). */
+export function invoiceDateText(d: Date, timeZone?: string | null): string {
+  try {
+    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: timeZone || "UTC" }).format(d)
+  } catch {
+    return new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(d)
+  }
+}
 
 /**
  * The PDF. `trace`, when given, is handed every piece of text as it is
@@ -466,6 +645,7 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
     return doc.y as number
   }
   const money = (cents: number) => moneyText(cents, inv.currency)
+  const dateText = (d: Date) => invoiceDateText(d, inv.timeZone)
 
   const left = 56
   const right = doc.page.width - 56
@@ -492,7 +672,8 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
   const facts: [string, string, string?][] = [
     [`${title} number`, inv.number],
     ["Date of issue", dateText(inv.issuedAt)],
-    ["Order date", dateText(inv.issuedAt)],
+    ["Order date", dateText(inv.orderedAt ?? inv.issuedAt)],
+    ...(inv.shippingMethod ? ([["Shipping method", inv.shippingMethod]] as [string, string][]) : []),
     ["Order", inv.orderId.replace(/-/g, "").slice(0, 8).toUpperCase()],
     ["Payment", inv.payment],
     ...(inv.reference ? ([["Payment reference", inv.reference]] as [string, string][]) : []),
@@ -544,13 +725,17 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
   ].filter(Boolean) as string[]
   const fromEnd = block(left + col + 32, "Sold by", legalName ?? inv.seller.name, sellerLines)
   y = Math.max(fromEnd, billEnd) + 26
+  /* Where it was sent, for an order that ships: the name on the parcel, then the address. */
+  if (inv.shipTo?.length) {
+    y = block(left, "Shipped to", inv.shipTo[0], inv.shipTo.slice(1)) + 26
+  }
 
   /* ── The headline figure ─────────────────────────────────────────── */
   doc.font(BOLD).fontSize(15).fillColor(INK)
   put(
     inv.status === "refunded"
       ? `${money(inv.totalCents)} ${inv.currency} refunded`
-      : `${money(inv.totalCents)} ${inv.currency} paid on ${dateText(inv.issuedAt)}`,
+      : `${money(inv.totalCents)} ${inv.currency} paid on ${dateText(inv.orderedAt ?? inv.issuedAt)}`,
     left,
     y,
     { width },
@@ -610,6 +795,7 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
   const split = splitSavings(inv.discountCents, inv.savings)
   for (const s of split.rows) row(s.label, `−${money(s.cents)}`)
   if (split.rest > 0) row(inv.discountCode ? `Discount (${inv.discountCode})` : "Discount", `−${money(split.rest)}`)
+  if (inv.shippingCents !== undefined && (inv.shippingCents > 0 || inv.shippingMethod)) row("Shipping", inv.shippingCents > 0 ? money(inv.shippingCents) : "Free")
   if (inv.tipCents > 0) row("Tip", money(inv.tipCents))
   /* Named as the checkout named it: "VAT 19%". */
   const taxName = inv.taxLabel || (inv.taxRateBps ? `Tax ${percentText(inv.taxRateBps)}` : "Tax")

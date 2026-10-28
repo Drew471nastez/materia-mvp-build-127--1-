@@ -84,6 +84,8 @@ export function openEditor(router: Router, href: string, answered = false) {
       router.push(href)
     },
     answered ? false : undefined,
+    /* The editor's layer rises (its layouts draw it with `moves`), so the press asks for the rise too. */
+    { moves: true },
   )
 }
 

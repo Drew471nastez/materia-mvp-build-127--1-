@@ -65,7 +65,7 @@ import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { AppLink } from "@/components/app/app-link"
-import { prefetchAppPage, sameStageFrame, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
+import { isPlainClick, prefetchAppPage, sameStageFrame, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { connectionFacts, readAheadAllowed } from "@/lib/communities/client/place-cache"
 import { ArrowLeft, Copy, ExternalLink, MoreHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -79,6 +79,7 @@ import { SectionFrame, type SectionFrameFacts } from "./section-frame"
 import { OWN_SCREEN_ATTR } from "./page-editor/screen"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
+import { communitiesReturn } from "./list-return"
 
 /*
   NO ARRIVAL (round 37). A section used to arrive from 55% and 3px lower over 150ms. Filmed, that was a dip in every
@@ -236,6 +237,7 @@ function usePublish(head: CommunityHead) {
 
 function CommunityBar({ head }: { head: CommunityHead }) {
   const toast = useToast()
+  const router = useRouter()
   const pub = usePublish(head)
   const viewable = head.status === "published" || head.can.manage_settings === true
   const pageUrl = `/community/${head.slug}`
@@ -255,7 +257,12 @@ function CommunityBar({ head }: { head: CommunityHead }) {
   return (
     <div data-community-bar="" className="grid min-h-[52px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 py-1.5 sm:min-h-14 sm:gap-x-3">
       {/* The /app way back (the coupon and the order's header): the quiet 36px square, the arrow at 20px. */}
-      <AppLink href="/app/community" aria-label={tt("All communities")} title={tt("All communities")} scroll={false} data-community-back="" className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
+      <AppLink href="/app/community" aria-label={tt("All communities")} title={tt("All communities")} scroll={false} data-community-back="" onClick={(e) => {
+        /* Back to the list as it was left (./list-return): a back to its entry when it opened this community, however many sections since. */
+        if (!isPlainClick(e)) return
+        e.preventDefault()
+        communitiesReturn.leave(router, { id: head.id })
+      }} className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
         <ArrowLeft aria-hidden className="h-5 w-5" />
       </AppLink>
       {head.logoUrl ? (
@@ -439,6 +446,11 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
   const pathname = usePathname() || ""
   const router = useRouter()
   const pane = React.useRef<HTMLDivElement>(null)
+  /* Whether the list opened this community, and the list fetched ahead (kept warm through a save's refresh) so the way back finds it here. */
+  communitiesReturn.useOrigin()
+  React.useEffect(() => {
+    prefetchAppPage(router, communitiesReturn.href, { keepWarm: true })
+  }, [router])
 
   /* What the shell holds: every section drawn so far, as the router drew it. */
   const store = React.useRef(new Map<AdminSection, Held>())

@@ -69,6 +69,20 @@ export interface ReceiptEmailModel {
     thumbnailUrl?: string | null
   }>
   subtotalText: string | null
+  /**
+   * The store's offers that saved (a bundle, a quantity break, an upsell),
+   * each by the name the checkout showed, then the code's part as Discount
+   * (CODE): the rows the checkout's summary and the receipt page list, from
+   * the same payment record (lib/receipts/discount splitSavings). Already
+   * written as money.
+   */
+  savings?: { label: string; text: string }[]
+  discountText?: string | null
+  discountCode?: string | null
+  /** How it was paid (orders.payment_method, card_brand, card_last4): "Visa ending 4242", as the receipt page says it. */
+  payment?: { method: string | null; brand: string | null; last4: string | null } | null
+  /** The store's time zone (Settings › Account): the date is the store's day. */
+  timeZone?: string | null
   tipText: string | null
   /** Settings › Taxes: the tax in the total, and whether it was part of the prices. */
   taxText?: string | null
@@ -124,12 +138,14 @@ export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
   const doc = documentLine(m)
   const totals = [
     ...(m.subtotalText ? [{ label: et("Subtotal"), value: m.subtotalText }] : []),
+    ...savingRows(m).map((r) => ({ label: r.label, value: r.value })),
     ...(m.tipText ? [{ label: et("Tip"), value: m.tipText }] : []),
     ...(m.taxText && !m.taxIncluded ? [{ label: taxName(m), value: m.taxText }] : []),
     /* No total when the amount could not be read with its own currency (lib/email.tsx receiptEmailModel): never a guessed one. */
     ...(m.totalText ? [{ label: et("Total"), value: m.totalText, strong: true }] : []),
     ...(m.taxText && m.taxIncluded ? [{ label: includedName(m), value: m.taxText }] : []),
     ...(m.refundedText ? [{ label: et("Refunded"), value: m.refundedText }] : []),
+    ...(paymentText(m) ? [{ label: et("Payment method"), value: paymentText(m) as string }] : []),
   ]
   const rows = [
     k.heading(m.heading ? safeText(m.heading) : first ? et("Thanks for your order, {name}", { name: first }) : et("Thanks for your order, there"), { sub: `${et("Order {number}", { number: m.orderNumber })} · ${m.dateText}` }),
@@ -158,6 +174,26 @@ export function buyerReceiptEmailHtml(m: ReceiptEmailModel): string {
     rows,
     footer: { legal: legalText(m) ? et("{seller}. Through {platform}.", { seller: legalText(m), platform: PLATFORM_BRAND_NAME }) : et("Sold by {shop} through {platform}.", { shop: sellerPlain, platform: PLATFORM_BRAND_NAME }) },
   })
+}
+
+const BRANDS: Record<string, string> = { visa: "Visa", mastercard: "Mastercard", amex: "American Express", discover: "Discover", diners: "Diners Club", jcb: "JCB", unionpay: "UnionPay", cartes_bancaires: "Cartes Bancaires" }
+
+/** "Visa ending 4242", "PayPal": the card the receipt page names. Null for a free order or one that names none. */
+export function paymentText(m: Pick<ReceiptEmailModel, "payment" | "totalText">): string | null {
+  const p = m.payment
+  if (!p || !m.totalText) return null
+  const brand = p.brand ? BRANDS[p.brand] ?? safeName(p.brand.charAt(0).toUpperCase() + p.brand.slice(1)) : null
+  if (brand && p.last4 && /^\d{4}$/.test(p.last4)) return et("{brand} ending {last4}", { brand, last4: p.last4 })
+  if (p.method === "paypal") return "PayPal"
+  if (p.method === "link") return "Link"
+  return brand
+}
+
+/** Each offer by its name, then the code's part: "Discount (SPRING10)", as the checkout's summary names it. */
+function savingRows(m: ReceiptEmailModel): { label: string; value: string }[] {
+  const out = (m.savings ?? []).map((s) => ({ label: safeName(s.label).slice(0, 80), value: `−${s.text}` })).filter((r) => r.label)
+  if (m.discountText) out.push({ label: m.discountCode ? et("Discount ({code})", { code: safeName(m.discountCode).slice(0, 40) }) : et("Discount"), value: `−${m.discountText}` })
+  return out
 }
 
 /** The tax row's name: the checkout's own ("VAT 19%"), else "Tax". */
@@ -193,11 +229,13 @@ export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
     "",
     ...lines,
     m.subtotalText ? `${et("Subtotal")}: ${m.subtotalText}` : null,
+    ...savingRows(m).map((r) => `${r.label}: ${r.value}`),
     m.tipText ? `${et("Tip")}: ${m.tipText}` : null,
     m.taxText && !m.taxIncluded ? `${taxName(m)}: ${m.taxText}` : null,
     m.totalText ? `${et("Total")}: ${m.totalText}` : null,
     m.taxText && m.taxIncluded ? `${includedName(m)}: ${m.taxText}` : null,
     m.refundedText ? `${et("Refunded")}: ${m.refundedText}` : null,
+    paymentText(m) ? `${et("Payment method")}: ${paymentText(m)}` : null,
     "",
     `${m.buttonLabel}: ${m.link}`,
     documentLine(m)?.text ?? null,

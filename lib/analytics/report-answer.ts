@@ -14,6 +14,7 @@ import { buildReports, moneyOf, previousWindow, spansToRead, type ReportWire, ty
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { groupOrders, isSale, type OrderRow } from "@/lib/orders/order-view"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
+import { withoutTestSales } from "./test-sales"
 import { hasOrdersInOtherCurrency, inStoreCurrency } from "@/lib/money/report-currency-server"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { ownsProperty, parseProperty, propertyParam } from "./properties"
@@ -228,8 +229,8 @@ export async function allTimeOf(admin: Admin, creatorId: string) {
   const counted = mixed ? null : await rpc<{ views: number; orders: number; sales_cents: number }>(admin, "analytics_all_time", { p_creator_id: creatorId, p_product_id: null })
   if (counted) return { orders: Number(counted.orders) || 0, salesCents: Number(counted.sales_cents) || 0 }
   const read = await byCreator((scope) =>
-    withColumns("id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, currency", async (columns) =>
-      ownRows(
+    withColumns("id, product_id, amount_cents, tip_cents, status, created_at, stripe_session_id, refund_amount_cents, currency, source_detail", async (columns) =>
+      withoutTestSales(ownRows(
         (
           await readAll<OrderRow>((after) =>
             startingAt(scopedOrders(admin, columns, scope, creatorId, null), "1970-01-01T00:00:00.000Z", after)
@@ -238,7 +239,7 @@ export async function allTimeOf(admin: Admin, creatorId: string) {
               .limit(PAGE) as unknown as Read<OrderRow>,
           )
         ).rows,
-      ),
+      )),
     ),
   )
   const rows = (await inStoreCurrency(admin, creatorId, read, storeCurrency)).rows
