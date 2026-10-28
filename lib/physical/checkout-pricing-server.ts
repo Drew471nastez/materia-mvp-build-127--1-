@@ -21,9 +21,9 @@ import { selectTolerant } from "@/lib/supabase/tolerant-select"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
 import { ownedKey, ownedLines } from "@/lib/checkout/owned"
-import { couponCovers, couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
+import { couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
+import { needsCollections, productsInCollections, scopeCovers } from "@/lib/checkout/coupon-scope"
 import type { Db } from "./auth"
-import { inSmartCollection, readRules, type RuleProduct } from "./collections"
 import { defaultPackageGrams, loadLocations, loadProfiles, loadSettings, loadTaxSettings, type CommerceSettings } from "./config-server"
 import { methodOf, readMethod } from "./fulfillment"
 import { madeToOrder } from "./partner"
@@ -397,27 +397,11 @@ export async function priceCheckout(
   if (standing.ok === false) return { ok: false, status: 400, error: standing.error }
   const c = standing.coupon as typeof coupon & CouponRow
 
-  /* Which lines the code covers: its products, its collections, physical only. */
-  let inCollections: Set<string> | null = null
-  if (c.collection_ids && c.collection_ids.length) {
-    inCollections = new Set<string>()
-    const { data: cols } = await db.from("product_collections").select("id, kind, rules, match").eq("creator_id", creatorId).in("id", c.collection_ids)
-    const { data: manual } = await db.from("product_collection_items").select("collection_id, product_id").in("collection_id", c.collection_ids)
-    for (const m of (manual ?? []) as { product_id: string }[]) inCollections.add(m.product_id)
-    for (const col of (cols ?? []) as { kind: string; rules: unknown; match: "all" | "any" }[]) {
-      if (col.kind !== "smart") continue
-      const rules = readRules(col.rules)
-      for (const p of rows) {
-        const rp: RuleProduct = { id: p.id, title: p.title, type: p.type, tags: p.tags ?? [], vendor: p.vendor ?? null, priceCents: p.price_cents, compareAtCents: p.compare_at_price_cents ?? null, inventory: null, weightGrams: p.weight_grams ?? null, createdAt: p.created_at, category: p.category ?? null }
-        if (inSmartCollection(rules, col.match, rp)) inCollections.add(p.id)
-      }
-    }
-  }
-  const applies = lines.map((l) => {
-    if (c.physical_only && l.type !== "physical") return false
-    if (inCollections) return inCollections.has(l.productId)
-    return couponCovers(c, l.productId)
-  })
+  /* Which lines the code covers: its products, its collections, physical only. The one rule the download checkout and the basket use too (lib/checkout/coupon-scope). */
+  const inCollections = needsCollections(c)
+    ? await productsInCollections(db, creatorId, c.collection_ids as string[], rows.map((p) => ({ id: p.id, title: p.title, type: p.type, tags: p.tags ?? [], vendor: p.vendor ?? null, priceCents: p.price_cents, compareAtCents: p.compare_at_price_cents ?? null, inventory: null, weightGrams: p.weight_grams ?? null, createdAt: p.created_at, category: p.category ?? null })))
+    : null
+  const applies = lines.map((l) => scopeCovers(c, { id: l.productId, type: l.type }, inCollections))
   if (!applies.some(Boolean)) return { ok: false, status: 400, error: "That code does not apply to anything in your cart." }
   const eligible = lines.reduce((n, l, i) => n + (applies[i] ? l.unitCents * l.quantity : 0), 0)
   if (c.min_purchase_cents && eligible < c.min_purchase_cents) {

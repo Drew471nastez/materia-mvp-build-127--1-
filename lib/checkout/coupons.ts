@@ -141,12 +141,19 @@ export function lineDiscounts(coupon: Pick<CouponRow, "discount_type" | "discoun
 export function checkCouponLines(
   coupon: CouponRow | null,
   lines: CouponLine[],
-  opts: { now?: Date; notCovered?: string; currency?: string } = {},
+  opts: {
+    now?: Date
+    notCovered?: string
+    currency?: string
+    /** Which lines the code is for, when it is more than its product list: its collections, physical products only (./coupon-scope digitalCoverage). */
+    covers?: ((line: CouponLine) => boolean) | null
+  } = {},
 ): CouponLinesCheck {
   const standing = couponStanding(coupon, opts.now)
   if (standing.ok === false) return standing
   const c = standing.coupon
-  const applies = lines.map((l) => l.creatorId === c.creator_id && couponCovers(c, l.productId))
+  const covers = opts.covers ?? ((l: CouponLine) => couponCovers(c, l.productId))
+  const applies = lines.map((l) => l.creatorId === c.creator_id && covers(l))
   if (!applies.some(Boolean)) return { ok: false, error: opts.notCovered ?? "That code does not apply to anything in your cart." }
   const eligibleCents = lines.reduce((n, l, i) => n + (applies[i] ? l.cents : 0), 0)
   if (c.min_purchase_cents && eligibleCents < c.min_purchase_cents) {
@@ -161,11 +168,12 @@ export function checkCouponLines(
 /** Every rule a found code must pass for one product, without a database: one line of the above. */
 export function checkCoupon(
   coupon: CouponRow | null,
-  opts: { productId: string; priceCents: number; now?: Date },
+  opts: { productId: string; priceCents: number; now?: Date; covers?: ((line: CouponLine) => boolean) | null },
 ): CouponCheck {
   const r = checkCouponLines(coupon, [{ productId: opts.productId, creatorId: coupon?.creator_id ?? "", cents: opts.priceCents }], {
     now: opts.now,
     notCovered: "That code does not apply to this product.",
+    covers: opts.covers,
   })
   if (r.ok === false) return r
   return { ok: true, coupon: r.coupon, discountCents: r.discountCents, label: r.label }
@@ -223,13 +231,21 @@ export function adminCoupon(creatorId: string): CouponRow {
   }
 }
 
+/**
+ * A code for one product (the download checkout). `covers` is where the
+ * code's collections and "Physical products only" are applied
+ * (./coupon-scope digitalCoverage), worked out by the caller from the row
+ * this finds; without it the code's product list decides.
+ */
 export async function validateCoupon(
   db: Db,
-  opts: { creatorId: string; productId: string; code: unknown; priceCents: number },
+  opts: { creatorId: string; productId: string; code: unknown; priceCents: number; scope?: (coupon: CouponRow) => Promise<((line: CouponLine) => boolean) | null> },
 ): Promise<CouponCheck> {
   const code = normaliseCode(opts.code)
   if (!code) return { ok: false, error: "That code is not valid." }
-  return checkCoupon(await findCoupon(db, opts.creatorId, code), { productId: opts.productId, priceCents: opts.priceCents })
+  const found = await findCoupon(db, opts.creatorId, code)
+  const covers = found && opts.scope ? await opts.scope(found) : null
+  return checkCoupon(found, { productId: opts.productId, priceCents: opts.priceCents, covers })
 }
 
 /**

@@ -137,7 +137,7 @@ check("ten steps or more, from a code to the buyer's page and back", (testSteps?
 check("  honest about Stripe's test mode: a test site's, not a live store's", /test mode/.test(JSON.stringify(test)) && /4242 4242 4242 4242/.test(JSON.stringify(test)) && /only work on a Storelib test site/.test(JSON.stringify(test)))
 check("  a free order instead: 100 percent and free shipping, once per customer", /Percentage and type 100/.test(JSON.stringify(testSteps)) && /Free shipping/.test(JSON.stringify(testSteps)) && /Limit uses per customer/.test(JSON.stringify(testSteps)))
 const coupon = read("components/physical/coupon-options.tsx") + read("app/app/coupons/coupons-client.tsx") + read("app/app/coupons/coupon-editor.tsx") + read("app/app/coupons/coupon-form.ts")
-check("  the coupon really allows 100 percent and free shipping", /value > 100/.test(coupon) && coupon.includes('label="Free shipping"') && coupon.includes('label="Limit uses per customer"') && coupon.includes("Create coupon") && coupon.includes('"Percentage"'))
+check("  the coupon really allows 100 percent and free shipping", /value > 100/.test(coupon) && /(label|title)="Free shipping"/.test(coupon) && /(label|title)="Limit uses per customer"/.test(coupon) && coupon.includes("Create coupon") && coupon.includes('"Percentage"'))
 const siteRoute = read("app/api/checkout/site/route.ts")
 check("  and a free order that ships is placed with no card", /async function free\(/.test(siteRoute) && /if \(ships\)/.test(siteRoute) && read("app/checkout/site/site-checkout.tsx").includes('"Place order"'))
 

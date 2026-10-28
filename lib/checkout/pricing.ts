@@ -17,6 +17,7 @@
  */
 
 import { checkCoupon, checkCouponLines, findCoupon, normaliseCode, validateCoupon, type CouponRow } from "./coupons"
+import { digitalCoverage } from "./coupon-scope"
 import { adminCodeCheck } from "./admin-code"
 import type { PackedItem } from "./cart-items"
 import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
@@ -271,7 +272,10 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
   let couponLabel: string | null = null
   let discountCents = 0
   if (typeof req.couponCode === "string" && req.couponCode.trim()) {
-    const ask = { creatorId: (product as PricedProduct).creator_id, productId, code: req.couponCode, priceCents: baseCents }
+    const productType = String((product as PricedProduct).type ?? "")
+    /* Its collections and "Physical products only" count here too (./coupon-scope): a code for things that ship takes nothing off a download. */
+    const scope = (c: CouponRow) => digitalCoverage(db, c, [{ id: productId as string, type: productType }]).then((f) => (f ? () => f({ id: productId as string, type: productType }) : null))
+    const ask = { creatorId: (product as PricedProduct).creator_id, productId, code: req.couponCode, priceCents: baseCents, scope }
     /* The platform admin's own code first (./admin-code), then the creator's codes. */
     const admin = await adminCodeCheck(ask)
     const checked = admin ?? (couponFx ? await marketplaceCoupon(db, ask, storeCurrency, couponFx) : await validateCoupon(db, ask))
@@ -308,7 +312,7 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
  * at the same rate as the price before the code is checked. A percentage is
  * as it is. No rate for them: the code is refused, never guessed.
  */
-async function marketplaceCoupon(db: Db, ask: { creatorId: string; productId: string; code: unknown; priceCents: number }, storeCurrency: string, fx: FxRates) {
+async function marketplaceCoupon(db: Db, ask: { creatorId: string; productId: string; code: unknown; priceCents: number; scope?: (coupon: CouponRow) => Promise<((line: { productId: string }) => boolean) | null> }, storeCurrency: string, fx: FxRates) {
   const code = normaliseCode(ask.code)
   if (!code) return { ok: false as const, error: "That code is not valid." }
   const found = await findCoupon(db, ask.creatorId, code)
@@ -326,7 +330,7 @@ async function marketplaceCoupon(db: Db, ask: { creatorId: string; productId: st
     if (usd === null) return { ok: false as const, error: "That code can't be used on this item." }
     ;(c as { min_purchase_cents?: number | null }).min_purchase_cents = usd
   }
-  return checkCoupon(c, { productId: ask.productId, priceCents: ask.priceCents })
+  return checkCoupon(c, { productId: ask.productId, priceCents: ask.priceCents, covers: ask.scope ? await ask.scope(found) : null })
 }
 
 /* ===========================================================================
@@ -599,8 +603,12 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   }
   /* Its amounts said in the store's own currency, which its prices are in. */
   const currency = coupon ? (await readStoreCurrency(db, coupon.creator_id)).currency : undefined
+  /* Its collections and "Physical products only" count here too (./coupon-scope). */
+  const typeOfLine = new Map(lines.map((l) => [l.item.productId, String(l.product.type ?? "")]))
+  const scoped = await digitalCoverage(db, coupon, lines.map((l) => ({ id: l.item.productId, type: String(l.product.type ?? "") })))
+  const covers = scoped ? (line: { productId: string }) => scoped({ id: line.productId, type: typeOfLine.get(line.productId) ?? "" }) : null
   /* The code comes off what each line costs after its offers, so the two together never take a line below zero. */
-  const check = (cents: number[]) => checkCouponLines(coupon, lines.map((l, i) => ({ productId: l.item.productId, creatorId: l.product.creator_id, cents: cents[i] })), { currency })
+  const check = (cents: number[]) => checkCouponLines(coupon, lines.map((l, i) => ({ productId: l.item.productId, creatorId: l.product.creator_id, cents: cents[i] })), { currency, covers })
   const group = coupon ? offerGroups.find((g) => g.creatorId === coupon!.creator_id) : undefined
   if (!group) {
     const checked = check(lines.map((l) => Math.max(0, l.item.priceCents * l.item.quantity - l.item.discountCents)))
