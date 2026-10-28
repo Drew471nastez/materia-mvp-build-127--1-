@@ -393,7 +393,8 @@ async function main() {
     check("the canvas cart is priced by the checkout's quote (app/api/website-builder/cart-offers)", /function canvasPricing\(installId: string\): CartPricing/.test(canvas) && /pricing: canvasPricing\(installId\)/.test(canvas) && /cartOffers: \(canvasCarts\.get\(installId\)\?\.cart\.length \?\? 0\) > 0/.test(canvas))
     check("  the product page gets product.metafields.storelib.offers, as the live page", /storelib_offers: stock\.offers/.test(canvas) && /m\.productOffers\(admin, productId\)/.test(read("app/api/website-builder/products/route.ts")))
     const route = read("app/api/website-builder/cart-offers/route.ts")
-    check("  the canvas's pricing is the signed in creator's own store, never one the request names", /editorUser\(supabase\)/.test(route) && /\.eq\("user_id", user\.id\)/.test(route) && /creatorId: creator\.id/.test(route) && !/body\.creatorId|body\.shopId/.test(route))
+    /* Changed on purpose (round 42 team): the store is the signed in owner's own, or the one a team member with Website works in (lib/team/website websiteCaller); still never one the request names. */
+    check("  the canvas's pricing is the signed in creator's own store, never one the request names", /websiteCaller\(\)/.test(route) && /creatorId: creator\.id/.test(route) && !/body\.creatorId|body\.shopId/.test(route))
     const { answerInCanvas } = await import("../lib/storelib-theme/compat/canvas-cart")
     const { CompatTheme, wrapCompatTemplate } = await import("../lib/storelib-theme/compat/theme")
     const theme = new CompatTheme({ "layout/theme.storelib": wrapCompatTemplate("<html><body>{{ content_for_layout }}</body></html>") }, {}, { assetUrl: (n) => `/a/${n}` })
