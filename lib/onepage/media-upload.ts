@@ -31,7 +31,7 @@
  */
 import { createClient } from "@/lib/supabase/client"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
-import { teamPageOwner } from "@/lib/onepage/team-context"
+import { teamPageOwner } from "@/lib/onepage/team-owner"
 import { watchUploadStall } from "@/lib/net/request"
 import { tt } from "@/lib/i18n/text"
 import {

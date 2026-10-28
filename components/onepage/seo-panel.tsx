@@ -28,7 +28,7 @@
  * editor, so the previews, undo and the editor's Save all see them.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { teamPageOwner } from "@/lib/onepage/team-context"
+import { teamPageOwner } from "@/lib/onepage/team-owner"
 import { teamSignedUpload } from "@/lib/team/upload-fallback"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { Loader2, Plus } from "lucide-react"

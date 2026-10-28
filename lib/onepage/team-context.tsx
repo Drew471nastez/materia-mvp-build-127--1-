@@ -18,6 +18,7 @@
  */
 import * as React from "react"
 import { tt } from "@/lib/i18n/text"
+import { setTeamPageOwner } from "./team-owner"
 
 export interface OnePageTeam {
   /** The store's name, for the sentences that say whose it is. */
@@ -56,29 +57,22 @@ export function photoIsOwners(store: string): string {
   editor, lib below). Set by the provider's owner, the editor, on mount.
 */
 let currentStore: string | null = null
-let currentOwner: string | null = null
 /** The store whose products the editor lists, when a team member is editing; null reads the signed in account's own. */
 export function teamStoreForProducts(): string | null {
   return currentStore
 }
-/**
- * Round 41: the folder a team member's OnePage pictures and videos go into,
- * the page owner's account (onepage-assets/<owner>/...), so they are the
- * store's and not the member's. null for the owner: their own folder.
- */
-export function teamPageOwner(): string | null {
-  return currentOwner
-}
+/** Round 41: the page owner's folder for a member's uploads (./team-owner). */
+export { teamPageOwner } from "./team-owner"
 export function useTeamProductsStore(team: OnePageTeam | null): void {
   /* Set during render, before any child effect reads it, and cleared when the editor goes. */
   currentStore = team?.creatorId ?? null
-  currentOwner = team?.ownerUserId ?? null
+  setTeamPageOwner(team?.ownerUserId ?? null)
   React.useEffect(() => {
     currentStore = team?.creatorId ?? null
-    currentOwner = team?.ownerUserId ?? null
+    setTeamPageOwner(team?.ownerUserId ?? null)
     return () => {
       currentStore = null
-      currentOwner = null
+      setTeamPageOwner(null)
     }
   }, [team?.creatorId, team?.ownerUserId])
 }

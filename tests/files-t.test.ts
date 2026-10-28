@@ -150,7 +150,8 @@ async function main() {
   check("the API asks who is signed in and passes only their own folders", /* Changed on purpose (round 41 team): Files is part of Products, and its folders are the store owner's account */
 /shopCaller\("products"\)/.test(route) && /userId: c\.ownerUserId \?\? c\.userId, creatorId: c\.creatorId/.test(route))
   const lib = read("components/files/files-library.tsx")
-  check("uploads go to the owner's library folder, without the photo's location details", /\$\{user\.id\}\/files\//.test(lib) && /withoutMetadata\(f\)/.test(lib) && /confirmUpload\("store-builder-images"/.test(lib))
+  /* Changed on purpose (round 41 team): the owner's own folder, or for a team member the store owner's, as the list names it */
+  check("uploads go to the owner's library folder, without the photo's location details", /\$\{libraryFolder \|\| user\.id\}\/files\//.test(lib) && /withoutMetadata\(f\)/.test(lib) && /confirmUpload\("store-builder-images"/.test(lib))
   check("an uploaded picture's address is Storelib's", /mediaUrl\(supabase\.storage/.test(lib))
   /*
     Round R6's chooser, as it is after the merge with round 19's rebuild of
