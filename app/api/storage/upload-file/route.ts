@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { productCreator } from "@/lib/team/uploads"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { DIGITAL_BUCKETS, updateCreatorStorageUsed } from "@/lib/storage"
@@ -38,11 +39,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Asset ID is required" }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
-    const { data: creator } = await adminSupabase
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
+    /* Round 41: the store a team member with Products works in, or the owner's own (lib/team/uploads productCreator). */
+    const creator = (await productCreator(adminSupabase, user.id, "id")) as { id: string } | null
     if (!creator) {
       return NextResponse.json({ error: "Access denied" }, { status: 403, headers: UPLOAD_HEADERS })
     }
@@ -114,7 +112,8 @@ export async function PATCH(request: NextRequest) {
     const name = typeof body?.name === "string" ? sanitizeDisplayName(body.name) : ""
     if (!name) return NextResponse.json({ error: "Give the file a name." }, { status: 400, headers: UPLOAD_HEADERS })
 
-    const { data: creator } = await adminSupabase.from("creators").select("id").eq("user_id", user.id).single()
+    /* Round 41: the store a team member with Products works in, or the owner's own (lib/team/uploads productCreator). */
+    const creator = (await productCreator(adminSupabase, user.id, "id")) as { id: string } | null
     if (!creator) return NextResponse.json({ error: "Access denied" }, { status: 403, headers: UPLOAD_HEADERS })
     const { data: asset } = await adminSupabase.from("digital_assets").select("id, product:products!inner(creator_id)").eq("id", assetId).maybeSingle()
     if (!asset) return NextResponse.json({ error: "Asset not found" }, { status: 404, headers: UPLOAD_HEADERS })

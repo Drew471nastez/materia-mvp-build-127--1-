@@ -302,7 +302,8 @@ function wiring() {
   console.log("\nSitemaps")
   const maps = code("lib/seo/sitemaps.ts")
   check("storelib.com's creator files no longer list a OnePage", !/getLinksShareUrl/.test(maps) && /return \(await creatorChunk\(chunk\)\)\.creators/.test(maps))
-  check("storelib.me's files list them at storelib.me/{handle}", /pages\.push\(\{ url: onePageUrl\(profile\.username\)/.test(maps))
+  /* Changed on purpose (round 41): the chunk's rule is creatorChunkEntries, whose address defaults to onePageUrl (tests/indexing-r41.test.ts drives it). */
+  check("storelib.me's files list them at storelib.me/{handle}", /onePageAddress: \(handle: string\) => string = onePageUrl/.test(maps) && /onePages\.push\(\{ url: onePageAddress\(handle\)/.test(maps))
 
   console.log("\nAnalytics and origins keep counting a OnePage as a OnePage")
   const origin = describePage({ href: "https://storelib.me/mara?utm_source=instagram", referrer: "https://l.instagram.com/", trail: [], landingSearch: "?utm_source=instagram", userAgent: "Mozilla/5.0", mainDomain: "storelib.com" })

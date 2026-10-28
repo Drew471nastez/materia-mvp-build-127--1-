@@ -348,6 +348,23 @@ export async function scheduleMarketingSyncs(db: Db, now: number = Date.now()): 
   return n
 }
 
+/**
+ * A signup on a OnePage (round 41): the sync now rather than at the next
+ * quarter hour, so the new subscriber is in Klaviyo or Omnisend within the
+ * minute. The sync reads the subscriber list, so consent, an unsubscribe
+ * read back first and what was already sent all work as for any other run.
+ * Keyed by the minute: ten signups in a minute are one sync.
+ */
+export async function queueMarketingSignup(db: Db, creatorId: string, now: number = Date.now()): Promise<number> {
+  const { data, error } = await db.from("commerce_integrations").select("provider").eq("creator_id", creatorId).in("provider", MARKETING_PROVIDERS).eq("status", "connected")
+  if (error || !data?.length) return 0
+  let n = 0
+  for (const r of data as { provider: MarketingProvider }[]) {
+    if (await queueSync(db, creatorId, r.provider, now, `signup${Math.floor(now / 60_000)}`)) n++
+  }
+  return n
+}
+
 /** Order timeline kinds that are a marketing event (lib/physical/events-server.ts calls this for them). */
 export const ORDER_EVENT_KINDS: Record<string, MarketingEvent> = {
   "payment.paid": "placed",

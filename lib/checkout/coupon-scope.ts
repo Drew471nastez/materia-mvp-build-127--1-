@@ -16,6 +16,7 @@
  */
 import { couponCovers, type CouponRow } from "./coupons"
 import { inSmartCollection, readRules, type RuleProduct } from "@/lib/physical/collections"
+import { SHOP_CURRENCY, shopMoneyIn } from "@/lib/store/shop-money"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -31,6 +32,31 @@ export function scopeCovers(coupon: ScopedCoupon, product: { id: string; type: s
   if (coupon.physical_only === true && product.type !== "physical") return false
   if (Array.isArray(coupon.collection_ids) && coupon.collection_ids.length > 0) return !!inCollections && inCollections.has(product.id)
   return couponCovers(coupon, product.id)
+}
+
+/**
+ * ===========================================================================
+ *  WHAT A CODE'S MINIMUM ORDER IS HELD TO, IN EVERY CHECKOUT (round 41)
+ * ===========================================================================
+ * The physical checkout counted the minimum on the lines' list prices,
+ * before upsells and bundles; the basket counted it after them. So a $50
+ * minimum code worked on a $55 cart with a $10 bundle saving in one checkout
+ * and was refused in the other.
+ *
+ * The rule, everywhere: the lines the code covers, at what they cost AFTER
+ * the store's automatic offers (bundles, quantity breaks) and BEFORE the code
+ * itself. `afterOffers` is each line's price times its quantity less its
+ * offers' discount; `applies` says which lines the code covers.
+ */
+export function minimumBase(afterOffers: readonly number[], applies: readonly boolean[]): number {
+  return afterOffers.reduce((n, cents, i) => n + (applies[i] ? Math.max(0, Math.round(cents) || 0) : 0), 0)
+}
+
+/** The refusal when the covered lines, after offers, come to less than the code's minimum; null when it is met or there is none. */
+export function couponMinimumError(coupon: { min_purchase_cents?: number | null }, afterOffers: readonly number[], applies: readonly boolean[], currency?: string): string | null {
+  const min = Number(coupon.min_purchase_cents) || 0
+  if (min <= 0 || minimumBase(afterOffers, applies) >= min) return null
+  return `That code needs an order of at least ${shopMoneyIn(min, currency ?? SHOP_CURRENCY)}.`
 }
 
 /** Whether a code needs its collections read before scopeCovers can answer. */

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic"
 
 /** What the product editor's physical cards show: the product's shipping, options, variants, stock, and the shop's locations and profiles to choose from. */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)
@@ -26,7 +26,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)

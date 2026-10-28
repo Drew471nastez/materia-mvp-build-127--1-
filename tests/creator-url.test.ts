@@ -95,7 +95,8 @@ check(
 )
 check(
   "the sitemap lists it",
-  /url: `\$\{BASE\}\/\$\{profile\.username\}`/.test(code("lib/seo/sitemaps.ts")),
+  /* Changed on purpose (round 41): the chunk's rule moved to creatorChunkEntries, where the handle is `handle`. */
+  /url: `\$\{BASE\}\/\$\{handle\}`/.test(code("lib/seo/sitemaps.ts")),
   "the sellers block now reads the same map the products block built",
 )
 /**

@@ -43,6 +43,7 @@ import { instantOrderBody } from "@/lib/onepage/product-block"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { tt } from "@/lib/i18n/text"
+import { pixelEvent } from "@/lib/analytics/pixels"
 import { CompactPay, type StartedPayment } from "@/components/community/public/compact-pay"
 import { CheckoutMark, CheckoutWindow } from "./checkout-window"
 
@@ -64,6 +65,9 @@ export interface ProductFacts {
     left: number | null
     pageUrl: string
     ships: boolean
+    /** Round 41: the shop a product that ships is checked out from, and the most one order may hold (null: no limit). */
+    shopId?: string
+    maxQuantity?: number | null
     /** Round 13: the product's own questions, plain text (lib/products/product-faqs.ts). */
     faqs?: { question: string; answer: string }[]
     /** Round 13: the size chart it shows (lib/size-charts/storefront.ts), or null. */
@@ -191,14 +195,24 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
     (receiptToken: string, total: number, wasFree: boolean) => {
       /* The store's own analytics hear the purchase, as on /checkout (components/analytics/ga-route). */
       try {
-        window.dispatchEvent(new CustomEvent("storelib:paid", { detail: { ref: receiptToken, totalCents: total } }))
+        /* Round 41: with the currency and the product, so Meta, TikTok and Pinterest get the purchase too (components/analytics/pixel-paid). */
+        window.dispatchEvent(new CustomEvent("storelib:paid", { detail: { ref: receiptToken, totalCents: total, currency: currency.toUpperCase(), productId } }))
       } catch {
         /* nothing to tell */
       }
       setDone({ receiptToken, free: wasFree, email: email.trim() })
     },
-    [email],
+    [email, currency, productId],
   )
+
+  /* The window opened with its product read: InitiateCheckout, once per window, never in the editor's preview. */
+  const toldCheckout = React.useRef(false)
+  React.useEffect(() => {
+    if (!product || toldCheckout.current || preview) return
+    toldCheckout.current = true
+    pixelEvent(window, "begin_checkout", productId, { valueCents: baseCents, currency })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product])
 
   /* ── Paid: the checkout's own PaymentIntent, confirmed by Stripe, the order by confirm-payment ── */
   const start = async (paymentMethodId: string): Promise<StartedPayment> => {

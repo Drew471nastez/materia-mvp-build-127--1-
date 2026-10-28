@@ -4,30 +4,27 @@
  * ===========================================================================
  *  ONE COLLECTION, NEW OR SAVED, ON A PAGE OF ITS OWN
  * ===========================================================================
- * /app/products/collections/new and /app/products/collections/<id>, framed
- * as a coupon, an offer or a size chart is (app/app/coupons/coupon-editor.tsx),
- * not a sheet or a dialog over the list:
- *
- *   ON A PHONE a layer over the app's header (./new/layout, ./[id]/layout,
- *   components/app/page-layer), its own bar at the top under the status
- *   bar: Cancel (or Back, with nothing to lose) and Save. The cards in one
- *   column under it.
- *
- *   FROM lg the 1200px page: a header (back to Collections, the name), the
- *   collection on the left, whether it is shown and its order on the right,
- *   and Cancel and Save in a bar along the foot.
+ * /app/products/collections/new and /app/products/collections/<id> (round
+ * 41, the owner: "Collections and edit collections should act as subpages,
+ * not modals"). Framed exactly as a size chart or an offer is (../size-charts/
+ * size-chart-page.tsx): on a phone a layer over the app's header with Cancel
+ * or Back and Save at the top; from lg the 1200px page with a back arrow and
+ * the title, the form on the left and whether it is shown on the right, Cancel and
+ * Save along the foot with the save state. It was a SheetDialog over the
+ * list; a long rule list or a hundred products to pick did not fit a sheet.
  *
  * The form, in the order a person decides it: the name and the words, then
- * which products are in it. Either picked by hand from every product of
- * every kind, or matched by rules, written as sentences ("Product type is
+ * which products are in it, and beside it whether it is shown and in what
+ * order. Products are either picked by hand from every product of every
+ * kind, or matched by rules, written as sentences ("Product type is
  * Course"), with the products they catch counted and shown as the rules are
- * typed, by the same rules the storefront applies
- * (lib/physical/collections.ts inSmartCollection).
+ * typed, by the same rules the storefront applies (lib/physical/
+ * collections.ts inSmartCollection).
  *
- * Leaving with changes asks first, and so does Delete (the app's confirm,
- * a sheet on a phone and a small dialog on a computer; on a page there is
- * nothing under it to hide it). A save or a delete goes back to the list,
- * which says so, tints the row and reads its rows again (./list-return).
+ * A save or a delete goes back to the list, which says so, tints the row
+ * and reads its rows again (./list-return). The questions (discard the
+ * changes, delete it) are the app's confirm, asked on this page: nothing is
+ * under it any more.
  */
 
 import * as React from "react"
@@ -53,7 +50,6 @@ import {
   PRODUCT_KINDS,
   ProductThumb,
   SORTS,
-  StatusMark,
   countWords,
   fieldWords,
   finishedRules,
@@ -69,20 +65,20 @@ import { Rich } from "@/lib/i18n/rich"
 /* The coupon editor's fields (../../coupons/coupon-editor.tsx): 16px on a phone so iOS does not zoom, 44px to press. */
 const FIELD =
   "h-11 w-full min-w-0 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
+/* Spaces in the data URL written as %20: a bare space ends Tailwind's arbitrary value and the chevron never drew. */
 const CHEVRON =
   "appearance-none bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2212%22%20height=%2212%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%236b7280%22%20stroke-width=%222%22><path%20d=%22m6%209%206%206%206-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-8"
 const SELECT = cn(FIELD, CHEVRON, "cursor-pointer truncate")
 const LABEL = "mb-1.5 block text-[13px] font-medium text-[#4b5563]"
 const HINT = "text-[13px] leading-5 text-[#6b7280]"
 const ERR = "mt-1.5 text-[13px] font-medium leading-5 text-[#b42318]"
-
-/* The coupon, offer and size chart pages' card (CLAUDE.md's /app card), its padding from --app-card-x. */
+/* The size chart page's cards (../size-charts/size-chart-page.tsx), so the sub pages under Products are one place. */
 const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:py-6"
 const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
 
 const blankRule = (): CollectionRule => ({ field: "type", op: "equals", value: "" })
 
-/** What the API takes to save a collection (app/api/collections). */
+/** What the API takes to create or save a collection. */
 export interface SaveBody {
   title: string
   description: string
@@ -94,18 +90,19 @@ export interface SaveBody {
   productIds: string[]
 }
 
-async function send(url: string, method: string, body?: unknown): Promise<{ ok: true; id: string | null; collections: Collection[] } | { ok: false; error: string }> {
+async function send(url: string, method: string, body?: unknown): Promise<{ ok: true; collections: Collection[]; id: string | null } | { ok: false; error: string }> {
   try {
     const res = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined })
     const data = await res.json().catch(() => ({}))
     if (!res.ok || !Array.isArray(data?.collections)) return { ok: false, error: typeof data?.error === "string" ? data.error : tt("That did not go through. Try again.") }
-    return { ok: true, id: typeof data.id === "string" ? data.id : null, collections: data.collections as Collection[] }
+    const id = typeof data?.id === "string" ? data.id : typeof data?.collection?.id === "string" ? data.collection.id : null
+    return { ok: true, collections: data.collections as Collection[], id }
   } catch {
     return { ok: false, error: tt("No connection. Try again in a moment.") }
   }
 }
 
-export function CollectionEditor({ collection, products }: { /** Null for a new collection. */ collection: Collection | null; products: CollectionProduct[] }) {
+export function CollectionPage({ collection, products }: { collection: Collection | null; products: CollectionProduct[] }) {
   const router = useRouter()
   const physical = usePhysicalCommerceEnabled()
   const c = collection
@@ -117,6 +114,7 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
   const [match, setMatch] = React.useState<"all" | "any">(c?.match ?? "all")
   const [sort, setSort] = React.useState<string>(c?.sort ?? "manual")
   const [published, setPublished] = React.useState(c?.published ?? true)
+  /* A smart collection switched to picking starts from the products its rules catch now. */
   const [picked, setPicked] = React.useState<string[]>(c?.productIds ?? [])
   const [query, setQuery] = React.useState("")
   const [titleProblem, setTitleProblem] = React.useState<string | null>(null)
@@ -129,22 +127,26 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
   const paneRef = React.useRef<HTMLDivElement>(null)
   const [ask, confirmSheet] = useConfirm()
 
-  const body: SaveBody = { title: title.trim(), description, kind, rules: finishedRules(rules), match, sort, published, productIds: kind === "manual" ? picked : [] }
-  const [initial, setInitial] = React.useState(() => JSON.stringify(body))
-  const dirty = JSON.stringify(body) !== initial
-
-  /* The list, ready for the way back, and whether it opened this page (./list-return). */
   React.useEffect(() => {
     collectionsReturn.warm(router)
   }, [router])
   collectionsReturn.useOrigin()
 
+  const body: SaveBody = { title: title.trim(), description, kind, rules: finishedRules(rules), match, sort, published, productIds: kind === "manual" ? picked : [] }
+  const [initial, setInitial] = React.useState(() => JSON.stringify(body))
+  const dirty = JSON.stringify(body) !== initial
   const isNew = !c
   const canSave = !busy && (isNew || dirty)
+
+  const showError = (message: string) => {
+    setError(message)
+    paneRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+  }
 
   const save = async () => {
     if (!canSave) return
     if (!body.title) {
+      /* Said under the field, which takes the focus. */
       setTitleProblem(tt("Give the collection a title."))
       titleRef.current?.focus()
       titleRef.current?.scrollIntoView({ block: "center", behavior: "smooth" })
@@ -160,16 +162,14 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
     const r = await send(c ? `/api/collections/${c.id}` : "/api/collections", c ? "PUT" : "POST", body)
     if (!r.ok) {
       setSaving(false)
-      setError(r.error)
-      paneRef.current?.scrollTo({ top: 0, behavior: "smooth" })
-      return
+      return showError(r.error)
     }
     /* Nothing to lose now: a back while the list comes in does not ask. */
     setInitial(JSON.stringify(body))
-    collectionsReturn.leave(router, { id: c?.id ?? r.id, collections: r.collections, message: c ? tt("{value} saved", { value: body.title }) : tt("{value} created", { value: body.title }) })
+    const id = c?.id ?? r.id ?? r.collections.find((x) => x.title === body.title)?.id ?? null
+    collectionsReturn.leave(router, { id, collections: r.collections, message: c ? tt("{value} saved", { value: body.title }) : tt("{value} created", { value: body.title }) })
   }
 
-  /* CANCEL, OR BACK, as the coupon, offer and size chart pages: Cancel while something would be lost, which asks first; Back once it is all saved. */
   const leaveMode = c && !dirty ? "back" : "cancel"
   const leave = async () => {
     if (busy) return
@@ -198,9 +198,7 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
     const r = await send(`/api/collections/${c.id}`, "DELETE")
     if (!r.ok) {
       setDeleting(false)
-      setError(r.error)
-      paneRef.current?.scrollTo({ top: 0, behavior: "smooth" })
-      return
+      return showError(r.error)
     }
     collectionsReturn.leave(router, { id: c.id, deleted: true, collections: r.collections, message: tt("{title} deleted", { title: c.title }) })
   }
@@ -245,11 +243,6 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
   const pickedSet = new Set(picked)
   const toggle = (id: string) => setPicked((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]))
 
-  const heading = c ? c.title : tt("New collection")
-  const count = kind === "manual" ? picked.length : caught.length
-  const saveState: "saving" | "unsaved" | "new" | "saved" = saving ? "saving" : isNew ? "new" : dirty ? "unsaved" : "saved"
-  const stateLine = saveState === "saving" ? tt("Saving") : saveState === "unsaved" ? tt("Unsaved changes") : saveState === "new" ? tt("Not saved yet") : countWords(count)
-  const saveWord = isNew ? tt("Create") : tt("Save")
 
   const pickPanel = (
     <div data-pick-panel="" className="space-y-2">
@@ -349,10 +342,16 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
     </div>
   )
 
+  const heading = c ? c.title : tt("New collection")
+  const count = kind === "manual" ? picked.length : caught.length
+  const saveState = saving ? "saving" : isNew ? "new" : dirty ? "unsaved" : "saved"
+  const stateLine = saveState === "saving" ? tt("Saving") : saveState === "unsaved" ? tt("Unsaved changes") : saveState === "new" ? tt("Not saved yet") : countWords(count)
+  const saveWord = isNew ? tt("Create") : tt("Save")
+
   return (
     <div
       ref={paneRef}
-      data-collection-editor=""
+      data-collection-page=""
       className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pb-[calc(32px+env(safe-area-inset-bottom))] lg:flex lg:flex-col"
       onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
     >
@@ -360,7 +359,6 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
         {saving ? tt("Saving") : deleting ? tt("Deleting") : ""}
       </p>
 
-      {/* THE TOP BAR, BELOW lg: Cancel or Back, and Save. Under the status bar on a phone, where the page is a layer over the header. */}
       <div data-editor-bar="" className={cn("sticky top-0 z-30 bg-[#f8f9fa] transition-shadow duration-150 max-md:[[data-page-layer]_&]:pt-[env(safe-area-inset-top)] lg:hidden", scrolled ? "shadow-[0_1px_0_#e3e5e8,0_4px_12px_-8px_rgba(17,24,39,0.12)]" : "")}>
         <h1 className="sr-only">{c ? tt("Edit collection {title}", { title: c.title }) : tt("New collection")}</h1>
         <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 app-gutter sm:h-16 sm:px-6">
@@ -369,18 +367,12 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
         </div>
       </div>
 
-      <div data-editor-page="" className="mx-auto w-full max-w-[760px] app-gutter pb-6 pt-3 sm:pb-16 sm:pt-4 lg:max-w-[1200px] lg:pb-8 lg:pt-6">
-        {/* The page header, from lg: back to the list and the collection's name. */}
+      <div data-editor-page="" data-collection-editor="" className="mx-auto w-full max-w-[760px] app-gutter pb-6 pt-3 sm:pb-16 sm:pt-4 lg:max-w-[1200px] lg:pb-8 lg:pt-6">
         <header data-editor-head="" className="mb-5 hidden min-h-9 items-center gap-2 lg:flex">
           <button type="button" aria-label={tt("Back to collections")} title={tt("Collections")} disabled={busy} onClick={() => void leave()} className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
             <ArrowLeft className="h-5 w-5" />
           </button>
           <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{heading}</h1>
-          {c && !c.published ? (
-            <span className="ml-1 shrink-0">
-              <StatusMark published={false} />
-            </span>
-          ) : null}
         </header>
 
         {error ? (
@@ -389,17 +381,9 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
           </div>
         ) : null}
 
-        <form
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault()
-            void save()
-          }}
-          className="flex flex-col gap-3 sm:gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(272px,1fr)] lg:items-start"
-        >
+        <div className="flex flex-col gap-3 sm:gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(272px,1fr)] lg:items-start">
           <div data-editor-main="" className="flex min-w-0 flex-col gap-3 sm:gap-4">
-            {/* ── Its name and words ──────────────────────────────────── */}
-            <section className={CARD} aria-label={tt("Title and description")}>
+            <section className={CARD} aria-label={tt("Title")}>
               <div>
                 <label htmlFor="collection-title" className={LABEL}>
                   {tt("Title")}
@@ -431,19 +415,15 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
                   placeholder={tt("Shown at the top of the collection's page")}
-                  className={cn(FIELD, "h-auto min-h-[88px] resize-y py-2.5 leading-[1.45]")}
+                  className={cn(FIELD, "h-auto min-h-[88px] resize-none py-2.5 sm:resize-y leading-[1.45]")}
                 />
               </div>
             </section>
 
-            {/* ── Which products are in it ────────────────────────────── */}
-            <section className={CARD} aria-labelledby="collection-products">
-              <div className="flex items-baseline justify-between gap-3">
-                <h2 id="collection-products" className={CARD_TITLE}>
-                  {tt("Products")}
-                </h2>
-                <span className={cn(HINT, "tabular-nums")}>{countWords(count)}</span>
-              </div>
+            <section aria-labelledby="collection-products" className={CARD}>
+              <h2 id="collection-products" className={CARD_TITLE}>
+                {tt("Products")}
+              </h2>
               <Segmented
                 label={tt("How products get in")}
                 value={kind}
@@ -463,41 +443,37 @@ export function CollectionEditor({ collection, products }: { /** Null for a new 
             </section>
           </div>
 
-          {/* From lg the side column stays in view while the products are chosen. */}
           <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4 lg:sticky lg:top-6">
-            <section data-collection-status="" className={CARD} aria-label={tt("Status")}>
-              <div className={SWITCH_GROUP}>
-                <SwitchRow title={tt("Published")} hint={published ? tt("Can be shown on your website") : tt("Hidden from your website")} checked={published} onChange={setPublished} />
-                <label className="flex min-h-[56px] items-center gap-3 px-4 py-2 sm:min-h-[52px]">
-                  <span className="min-w-0 flex-1 text-[15px] font-medium leading-5 text-[#1a1a2e] sm:text-[14px]">{tt("Sort by")}</span>
-                  <select value={sort} onChange={(e) => setSort(e.target.value)} className={cn(SELECT, "h-10 w-auto max-w-[58%] rounded-[10px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>
-                    {SORTS.map(([v, label]) => (
-                      <option key={v} value={v}>
-                        {tt(label)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </section>
+            <div className={SWITCH_GROUP}>
+              <SwitchRow title={tt("Published")} hint={published ? tt("Can be shown on your website") : tt("Hidden from your website")} checked={published} onChange={setPublished} />
+              <label className="flex min-h-[56px] items-center gap-3 px-4 py-2 sm:min-h-[52px]">
+                <span className="min-w-0 flex-1 text-[15px] font-medium leading-5 text-[#1a1a2e] sm:text-[14px]">{tt("Sort by")}</span>
+                <select value={sort} onChange={(e) => setSort(e.target.value)} className={cn(SELECT, "h-10 w-auto max-w-[58%] rounded-[10px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>
+                  {SORTS.map(([v, label]) => (
+                    <option key={v} value={v}>
+                      {tt(label)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
 
             {c ? (
               <div className="flex justify-start lg:justify-end">
-                <button type="button" data-delete-collection="" disabled={busy} onClick={() => void remove()} className={cn(secondaryDepth, "h-10 rounded-[10px] px-3.5 text-[15px] text-[#4b5563] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}>
+                <button type="button" data-delete-collection="" disabled={busy} onClick={() => void remove()} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[15px] text-[#4b5563] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}>
                   {tt("Delete collection")}
                 </button>
               </div>
             ) : null}
           </div>
-        </form>
+        </div>
       </div>
 
-      {/* THE FOOT BAR, FROM lg: where the page stands on the left, Cancel (or Back) and Save on the right. */}
       <div data-editor-foot="" data-app-foot="up" className="sticky bottom-0 z-30 mt-auto hidden shrink-0 border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_-8px_rgba(17,24,39,0.10)] lg:block">
         <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-8">
           <p data-editor-state={saveState} className="flex min-w-0 items-center gap-2 text-[14px] leading-5">
             <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", saveState === "unsaved" ? "bg-[#111113]" : "bg-[#b6bac1]")} />
-            <span className={cn("truncate tabular-nums", saveState === "unsaved" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{stateLine}</span>
+            <span className={cn("truncate", saveState === "unsaved" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{stateLine}</span>
           </p>
           <div className="flex shrink-0 items-center gap-2">
             <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label={tt("Going back to collections")} onLeave={() => void leave()} />

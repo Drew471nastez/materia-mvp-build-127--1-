@@ -7,6 +7,7 @@
  * URLs, and a description with two photos in it was a megabyte row.
  */
 import { createClient } from "@/lib/supabase/client"
+import { teamSignedUpload } from "@/lib/team/upload-fallback"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
 
@@ -65,7 +66,8 @@ export async function uploadDescriptionImage(file: File, owner: { creatorId: str
     contentType: upload.type,
     upsert: false,
   })
-  if (error) throw new Error("The picture did not upload. Check the connection and try again.")
+  /* A team member writing into the store's folder (round 41): the server signs this one path when their permissions allow it (lib/team/upload-fallback). */
+  if (error && !(await teamSignedUpload("product-images", path, upload, upload.type))) throw new Error("The picture did not upload. Check the connection and try again.")
   confirmUpload("product-images", path)
   const { data } = supabase.storage.from("product-images").getPublicUrl(path)
   return { url: data.publicUrl, width: size.width, height: size.height }

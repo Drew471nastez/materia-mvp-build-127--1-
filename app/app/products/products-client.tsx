@@ -125,6 +125,8 @@ const EDITED_FADE_MS = 1200
 interface ProductsClientProps {
   products: Product[]
   creatorUsername: string
+  /** The store whose products these are (round 41: the store a team member works in, never their own account's). */
+  creatorId?: string
 }
 
 /**
@@ -314,7 +316,7 @@ function compare(sort: Sort) {
   }
 }
 
-export function ProductsClient({ products: initialProducts, creatorUsername }: ProductsClientProps) {
+export function ProductsClient({ products: initialProducts, creatorUsername, creatorId: storeId }: ProductsClientProps) {
   const { t } = useLanguage()
   /* Drawn from the copy the router kept, with what this tab has deleted or archived since applied (lib/products/delete-client). */
   const [products, setProducts] = useState<Product[]>(() => withChanges(initialProducts))
@@ -686,7 +688,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   productsRef.current = products
   const refreshList = useCallback(async () => {
     const supabase = createClient()
-    let creatorId = productsRef.current[0]?.creator_id as string | undefined
+    let creatorId = (productsRef.current[0]?.creator_id as string | undefined) ?? storeId
     if (!creatorId) {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return
@@ -697,7 +699,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     const { data } = await supabase.from("products").select("*").eq("creator_id", creatorId).order("created_at", { ascending: false })
     if (data) setProducts(withChanges((data as (Product & { community_id?: string | null })[]).filter((p) => !p.community_id)))
     router.refresh()
-  }, [router])
+  }, [router, storeId])
   /* A refresh from anywhere (a save, an archive, the pull) hands the list new rows: drawn, with this tab's own changes kept. */
   const firstRows = useRef(initialProducts)
   useEffect(() => {

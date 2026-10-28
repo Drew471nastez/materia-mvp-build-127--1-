@@ -6,7 +6,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const { data } = await c.db
     .from("inventory_transfers")
@@ -18,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body || !isUuid(body.originId) || !isUuid(body.destinationId)) return physicalJson({ error: "Choose where the stock goes from and to." }, 400)

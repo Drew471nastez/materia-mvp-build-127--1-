@@ -1,6 +1,7 @@
 "use client"
 
 import { announceChange } from "@/lib/seo/announce-client"
+import { teamSignedUpload } from "@/lib/team/upload-fallback"
 import { forgetProduct } from "@/lib/products/forget-client"
 import { deleteProduct, deleteQuestion, leaveNotice, previewProductDelete, rememberCreated, rememberDeleted, rememberStatus } from "@/lib/products/delete-client"
 import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect, memo, startTransition } from "react"
@@ -1390,7 +1391,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve({ error: null })
         } else {
-          resolve({ error: new Error(`Upload failed: ${xhr.statusText}`) })
+          /* A team member writing into the store's folder (round 41): storage answers only for the account's own, so the server signs this one path when their permissions allow it. */
+          void teamSignedUpload("product-images", filePath, file, file.type, (p) => onProgress(Math.round(p * 100))).then((ok) =>
+            resolve(ok ? { error: null } : { error: new Error(`Upload failed: ${xhr.statusText}`) }),
+          )
         }
       })
 
@@ -1503,7 +1507,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       const pending: PendingMedia = { id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`, preview: "", progress: 0 }
       setPendingMedia(prev => [...prev, pending])
       try {
-        const v = await uploadVideo(file, "products", (p) => setPendingMedia(prev => prev.map(x => (x.id === pending.id ? { ...x, progress: Math.min(96, Math.round(p * 100)) } : x))))
+        /* A team member's video goes into the store owner's folder (round 41), never their own account's. */
+        const v = await uploadVideo(file, "products", (p) => setPendingMedia(prev => prev.map(x => (x.id === pending.id ? { ...x, progress: Math.min(96, Math.round(p * 100)) } : x))), loadedCreator.team_owner ?? null)
         setMediaItems(prev => [...prev, { id: `video-${Date.now()}-${Math.random().toString(36).slice(2)}`, type: "video", url: v.url }])
       } catch (err) {
         console.error("Video upload error:", err)

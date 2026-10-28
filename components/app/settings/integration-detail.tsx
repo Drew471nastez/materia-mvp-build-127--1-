@@ -44,6 +44,8 @@ import { MarketingSyncPanel, type MarketingState } from "@/components/app/settin
 import { installVerb, oneTapInstall, removalPlan, setupSteps, type ActionCall } from "@/lib/integrations/detail-actions"
 import { integrationAppView, tabFor } from "@/components/app/settings/integration-apps"
 import { tt } from "@/lib/i18n/text"
+import { PageIntegrationsSection } from "@/components/onepage/page-integrations"
+import { isPageIntegration } from "@/lib/onepage/integrations/catalog"
 
 /* A card with a little depth: the hairline, a contact shadow and a soft one under it. */
 const DEPTH = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-14px_rgba(16,24,40,0.14)]"
@@ -257,6 +259,9 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   /* A header action changed what a panel shows: the panel is drawn again from the fresh read. */
   const [panelKey, setPanelKey] = React.useState(0)
   const [confirming, setConfirming] = React.useState(false)
+  /* Round 41: the setup steps and the details (what it does, your data, at a glance) open on top of the page, not under it. */
+  const [howTo, setHowTo] = React.useState(false)
+  const [details, setDetails] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const [notice, setNotice] = React.useState<{ tone: "green" | "red"; text: string } | null>(null)
   React.useEffect(() => setNotice(null), [item.id])
@@ -334,6 +339,8 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
   /* ---- the sections, each ready to place (an app's tabs place them too) ---- */
   const panel = notifyOnly ? (
     <div className="space-y-4">
+      {/* Round 41: Mailchimp, Brevo, Zapier and Make already take a OnePage's signups: connected here as on the OnePage's own Settings. */}
+      {isPageIntegration(item.id) ? <PageIntegrationsSection only={[item.id]} /> : null}
       <NotifyMe item={item} askTick={askTick} />
       {/* A key saved before this was marked Coming soon: shown, so it can be removed. */}
       {item.kind === "commerce" && item.providerId && providerInfo(item.providerId) && providerState && providerState.status !== "disconnected" ? (
@@ -364,17 +371,13 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
           <h3 id="integration-install" className={H3}>{notifyOnly ? tt("Get notified") : installed ? tt("Settings") : tt("Set up")}</h3>
         </div>
         <div className="px-4 py-4 sm:px-6 sm:py-5">
-          {steps.length > 0 ? (
-            <ol className="mb-5 space-y-2.5 border-b border-[#f1f2f4] pb-5" data-integration-steps="">
-              {steps.map((s, i) => (
-                <li key={s} className="flex gap-3 text-[14px] leading-[21px] text-[#374151]">
-                  <span aria-hidden className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#f3f4f6] text-[12px] font-semibold tabular-nums text-[#1a1a2e]">{i + 1}</span>
-                  <span className="pt-px">{s}</span>
-                </li>
-              ))}
-            </ol>
-          ) : null}
           <div key={panelKey}>{panel}</div>
+          {steps.length > 0 ? (
+            <button type="button" onClick={() => setHowTo(true)} className="mt-3 inline-flex h-9 items-center gap-1 rounded-lg px-1 text-[13.5px] font-medium text-[#4b5563] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline" data-integration-steps-open="">
+              {tt("How to set it up")}
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          ) : null}
         </div>
       </section>
       {item.kind === "tracker" && (item.trackerId === "klaviyo" || item.trackerId === "omnisend") && !notifyOnly ? (
@@ -682,6 +685,12 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
                     {standingNote}
                   </p>
                 ) : null}
+                {!Body ? (
+                  <button type="button" onClick={() => setDetails(true)} className="mt-2 inline-flex h-8 items-center gap-1 rounded-lg px-0.5 text-[13px] font-medium text-[#4b5563] underline-offset-2 transition-colors hover:text-[#1a1a2e] hover:underline" data-integration-details-open="">
+                    {tt("Details")}
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                ) : null}
               </div>
               {actions}
             </div>
@@ -728,14 +737,62 @@ export function IntegrationDetail({ item, status, installed, tracking, trackingR
               <>
                 {setup}
                 {statusSection}
-                {overview}
-                {data}
                 {danger}
               </>
             }
-            aside={glance}
           />
         )}
+
+        <Modal open={howTo} onClose={() => setHowTo(false)} title={tt("Set up {name}", { name: item.name })}>
+          <ol className="space-y-2.5" data-integration-steps="">
+            {steps.map((s, i) => (
+              <li key={s} className="flex gap-3 text-[14px] leading-[21px] text-[#374151]">
+                <span aria-hidden className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-[#f3f4f6] text-[12px] font-semibold tabular-nums text-[#1a1a2e]">{i + 1}</span>
+                <span className="pt-px">{s}</span>
+              </li>
+            ))}
+          </ol>
+        </Modal>
+
+        {/* What it does, your data and the facts at a glance, a tap away (round 41: the page itself is the header, the setup and the status). */}
+        <Modal open={details} onClose={() => setDetails(false)} title={item.name}>
+          <div className="space-y-5 text-[14px] leading-[21px] text-[#4b5563]" data-integration-details-sheet="">
+            <div className="space-y-2">
+              {(item.lead ? [item.lead, ...item.about] : item.about).map((x) => (
+                <p key={x}>{x}</p>
+              ))}
+            </div>
+            {item.data.length ? (
+              <div>
+                <h3 className={H3}>{tt("Your data")}</h3>
+                <ul className="mt-2 space-y-2">
+                  {item.data.map((d) => (
+                    <li key={d} className="flex gap-2.5">
+                      <span aria-hidden className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />
+                      {d}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {glanceRows.length ? (
+              <dl className="divide-y divide-[#f1f2f4] border-t border-[#f1f2f4]">
+                {glanceRows.map((g) => (
+                  <div key={g.label} className="flex items-baseline justify-between gap-3 py-2">
+                    <dt className="shrink-0 text-[13px] text-[#6b7280]">{g.label}</dt>
+                    <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{g.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            {item.docsUrl ? (
+              <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className={cn(BTN_SECONDARY, "h-10 w-full rounded-xl")}>
+                {tt("{name} help", { name: item.name })}
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              </a>
+            ) : null}
+          </div>
+        </Modal>
 
         <Modal
           open={confirming}

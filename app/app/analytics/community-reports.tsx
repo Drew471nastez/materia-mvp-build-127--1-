@@ -17,12 +17,25 @@
  * not the page views above, so they are never added to them.
  *
  * Drawn on the first paint with every row's name; only the numbers wait.
+ *
+ * WHAT THE COMMUNITIES TOOK IN (round 41, the owner: "Inside a community it
+ * shows monthly revenue $83.33 ... when I go to analytics the revenue is not
+ * there"). A second card, Community revenue, for a seller whose communities
+ * sell: the payments received in the period (the community's orders less
+ * refunds, with programs and tickets), its MRR at the period's end and who
+ * pays for it, by the one rule its own pages use (lib/communities/
+ * membership-money.ts), read from the same answer as the list. A switcher
+ * picks one community or all of them together. Payments received and MRR are
+ * named apart on purpose: a yearly plan paid last month is $83.33 of MRR and
+ * nothing received this month.
  */
 import * as React from "react"
-import { ReportBody, ReportCard, ReportChange } from "./analytics-reports"
+import { ReportBody, ReportCard, ReportChange, ReportList, ReportTabs } from "./analytics-reports"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { AppLink } from "@/components/app/app-link"
+import { formatCurrency } from "@/lib/markets/money"
+import { moneyTotal, type MoneyAnswer } from "@/lib/communities/membership-money"
 
 export interface CommunityPlace {
   id: string
@@ -37,6 +50,7 @@ interface Figure {
 interface CommunityAnswer {
   figures?: { members?: Figure; joined?: Figure; visits?: Figure }
   live?: { members?: number }
+  money?: MoneyAnswer | null
 }
 
 const fmt = (n: number | null | undefined) => (n === null || n === undefined ? "–" : Math.round(n).toLocaleString(appLocale()))
@@ -88,6 +102,7 @@ export function CommunityReports({
   const shown = communities.slice(0, 6)
   const blank = shown.every((c) => !answers[c.id])
   return (
+    <>
     <ReportCard
       card="communities"
       title={tt("Communities")}
@@ -127,6 +142,66 @@ export function CommunityReports({
               )
             })}
           </ol>
+        </div>
+      </ReportBody>
+    </ReportCard>
+    <CommunityMoney communities={shown} answers={answers} stale={!!question && question !== ask} runsToNow={span.end >= Date.now() - 60_000} />
+    </>
+  )
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  get memberships() { return tt("Memberships and purchases") },
+  get programs() { return tt("Programs") },
+  get tickets() { return tt("Event tickets") },
+}
+
+/**
+ * COMMUNITY REVENUE: the payments received in the period, the MRR at its end and who pays, for one community or all.
+ * Drawn only once an answer says a community sells something.
+ */
+function CommunityMoney({ communities, answers, stale, runsToNow }: { communities: CommunityPlace[]; answers: Record<string, CommunityAnswer | "failed">; stale: boolean; runsToNow: boolean }) {
+  const selling = communities.filter((c) => {
+    const a = answers[c.id]
+    return a && a !== "failed" && a.money
+  })
+  const all = moneyTotal(selling.map((c) => (answers[c.id] as CommunityAnswer).money as MoneyAnswer))
+  const options = [...(all && selling.length > 1 ? [{ value: "all", label: tt("All") }] : []), ...selling.map((c) => ({ value: c.id, label: c.name }))]
+  const [picked, setPicked] = React.useState("all")
+  const chosen = options.some((o) => o.value === picked) ? picked : options[0]?.value ?? "all"
+  if (selling.length === 0) return null
+  const m = chosen === "all" ? all : moneyTotal([(answers[chosen] as CommunityAnswer).money as MoneyAnswer])
+  if (!m) return null
+  const money = (cents: number) => formatCurrency((cents || 0) / 100, m.currency.toUpperCase(), appLocale())
+  const revenue = headline(m.revenue)
+  return (
+    <ReportCard
+      card="community-money"
+      title={tt("Community revenue")}
+      help={tt("Payments received is the money paid in this period, less refunds. MRR is what the plans being paid for bring in a month, a yearly plan counted as a twelfth.")}
+      tabs={options.length > 1 ? <ReportTabs label={tt("Community")} value={chosen} onChange={setPicked} options={options} /> : undefined}
+      className={stale ? "opacity-60 transition-opacity duration-300" : "transition-opacity duration-300"}
+    >
+      <ReportBody blank={false} wait="figure">
+        <div className="flex h-full flex-col" data-community-money={chosen}>
+          <div className="flex items-baseline gap-2.5">
+            <span className="text-[24px] font-bold tracking-tight tabular-nums text-[#1a1a2e]" data-money-received="">{money(m.revenue.value ?? 0)}</span>
+            <ReportChange h={revenue} />
+          </div>
+          <p className="text-[12px] text-[#6b7280]">{tt("Payments received")}</p>
+          <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-[#f1f2f4] pt-3">
+            <div className="min-w-0">
+              <dt className="truncate text-[12px] text-[#6b7280]">{runsToNow ? tt("MRR now") : tt("MRR at the end")}</dt>
+              <dd className="text-[16px] font-semibold tabular-nums text-[#1a1a2e]" data-money-mrr="">{money(m.mrr.value ?? 0)}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="truncate text-[12px] text-[#6b7280]">{tt("Paying members")}</dt>
+              <dd className="text-[16px] font-semibold tabular-nums text-[#1a1a2e]">{fmt(m.paying)}</dd>
+            </div>
+          </dl>
+          <div className="mt-3 min-h-0 flex-1">
+            <ReportList title={tt("Community revenue")} rows={m.bySource.slice(0, 3).map((x) => ({ key: x.key, label: SOURCE_LABEL[x.key] ?? x.key, value: x.cents }))} format={money} empty={tt("No payments in this period.")} />
+          </div>
         </div>
       </ReportBody>
     </ReportCard>

@@ -187,8 +187,9 @@ console.log("\n5. The tab's icon")
   check("not from a hidden header", siteIconUrl({}, [{ type: "header", hidden: true, settings: { logo_url: "/logo.png" } }]) === "")
   check("nothing when there is nothing, so the route's default stays", siteIcons({}, []) === undefined)
   check("never an address a tab cannot fetch", siteIconUrl({ favicon_url: "javascript:alert(1)", logo_url: "//evil.example/x.png" }) === "")
-  check("the site's pages use it", /siteIcons\(settings as Record<string, unknown>, found\.site\.pages\.home \?\? found\.site\.sections\)/.test(read("app/(site)/w/[username]/render-site.tsx")))
-  check("and so does a product page", /siteIcons\(settings, found\.site\.pages\.home \?\? found\.site\.sections\)/.test(read("app/(site)/w/[username]/products/[slug]/page.tsx")))
+  /* Changed on purpose (round 41, tests/indexing-r41.test.ts): the same picture, linked at the site's own host (lib/website-builder/site-favicon.ts). */
+  check("the site's pages use it", /ownHostIcons\(origin, siteIconUrl\(settings as Record<string, unknown>, found\.site\.pages\.home \?\? found\.site\.sections\)\)/.test(read("app/(site)/w/[username]/render-site.tsx")))
+  check("and so does a product page", /ownHostIcons\(origin, siteIconUrl\(settings, found\.site\.pages\.home \?\? found\.site\.sections\)\)/.test(read("app/(site)/w/[username]/products/[slug]/page.tsx")))
 }
 
 console.log("\n6. A header of the creator's own reaches the same drawers")

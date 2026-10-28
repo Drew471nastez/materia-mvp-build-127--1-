@@ -18,6 +18,7 @@ import "server-only"
  */
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import type { SpamState } from "@/lib/security/spam-signals"
 
 type Admin = ReturnType<typeof createAdminClient>
 
@@ -67,6 +68,55 @@ export async function creatorIsBanned(creatorId: string): Promise<boolean> {
       }
     },
     ["creator-banned", creatorId],
+    { revalidate: 60 },
+  )()
+}
+
+/*
+  ===========================================================================
+   AN OPERATOR'S SPAM VERDICT (round 41)
+  ===========================================================================
+  profiles.spam_state (part 20260815_signup_abuse): "confirmed" keeps every
+  page of the account out of the index, "clear" overrides the handle score.
+  Soft like the bans above: a database without the column has no verdicts,
+  and a failed read is "no verdict", never a page that does not draw.
+*/
+
+/** Every account an operator confirmed as spam, by user id. */
+export async function confirmedSpamUserIds(admin: Admin = createAdminClient()): Promise<Set<string>> {
+  const out = new Set<string>()
+  try {
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("spam_state", "confirmed")
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1)
+      if (error) return out
+      for (const row of (data ?? []) as { id: string }[]) out.add(row.id)
+      if (!data || data.length < PAGE) return out
+    }
+  } catch {
+    return out
+  }
+}
+
+/** One account's verdict, held for a minute like a ban. Null when there is none or it cannot be read. */
+export async function spamStateOf(userId: string | null | undefined): Promise<SpamState> {
+  if (!userId) return null
+  return unstable_cache(
+    async (): Promise<SpamState> => {
+      try {
+        const { data, error } = await createAdminClient().from("profiles").select("spam_state").eq("id", userId).maybeSingle()
+        if (error) return null
+        const v = (data as { spam_state?: string | null } | null)?.spam_state
+        return v === "clear" || v === "suspect" || v === "confirmed" ? v : null
+      } catch {
+        return null
+      }
+    },
+    ["profile-spam-state", userId],
     { revalidate: 60 },
   )()
 }

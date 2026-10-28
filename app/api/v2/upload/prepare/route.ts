@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { uploadCreator, uploadStore } from "@/lib/team/uploads"
+import { mayUploadProductFile, uploadCreator, uploadStore } from "@/lib/team/uploads"
 import { createAdminClient } from "@/lib/supabase/admin"
 import {
   STORAGE_BUCKET,
@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
 
     const isDigital = folder === "digital" || folder === "digital-products"
 
-    /* A product's file is sold, not shown: the store's owner uploads those (lib/team/uploads). */
-    if (isDigital && store.kind === "store") {
+    /* A product's file is sold, not shown: the owner, or a member with Products (lib/team/uploads). */
+    if (isDigital && !mayUploadProductFile(store)) {
       return NextResponse.json({ error: "Only the store's owner can upload product files." }, { status: 403, headers: UPLOAD_HEADERS })
     }
 

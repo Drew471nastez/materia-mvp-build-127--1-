@@ -10,10 +10,17 @@
  *   owner switched indexing off, a preview, the editor and the app are
  *   never listed, and carry noindex where a visitor could reach them.
  *
- *   SEO SURFACE IS EARNED BY PUBLISHING. A creator page is listed once its
- *   owner has a published product and the handle is not a link farm's
- *   (lib/security/spam-signals deservesIndexing). The same rule decides the
- *   page's robots tag, so the two can never disagree.
+ *   EVERY PUBLIC PAGE WITH SOMETHING ON IT IS LISTED (round 41). A OnePage
+ *   is listed when it is published, shows more than a name and a photo, has
+ *   no link marked sensitive, and its owner is not banned or a link farm
+ *   (lib/security/spam-signals deservesIndexing). A creator page is listed
+ *   once it has a published product of any kind, physical included: with
+ *   none it is an empty shop. The same rules decide each page's robots tag,
+ *   so the two can never disagree.
+ *
+ *   A LINK'S AUTHORITY IS EARNED BY PUBLISHING. An account with nothing on
+ *   sale is indexed with nofollow (trustsOutboundLinks), so a farm that signs
+ *   up for followed links gets none.
  *
  *   EACH HOST SPEAKS FOR ITSELF. Google treats storelib.com, every
  *   <name>.storelib.com and every connected domain as separate sites. Each
@@ -28,7 +35,7 @@
  *   hold SITEMAP_CHUNK, and storelib.com/sitemap.xml is an index of them.
  */
 
-import { deservesIndexing } from "@/lib/security/spam-signals"
+import { deservesIndexing, trustsOutboundLinks, type SpamState } from "@/lib/security/spam-signals"
 import { servingHost } from "@/lib/custom-domains/hostname"
 
 /** Addresses per sitemap file. The protocol allows 50,000; smaller files are read faster. */
@@ -140,8 +147,14 @@ const PRIVATE_ROUTES = [
   "downloads",
   "library",
   "native-start",
+  /* Round 41: the OnePage editor's preview, a wallet's return step, the payouts sheet, a buyer's case and a buyer's review link. Each says noindex as well. */
+  "onepage-preview",
+  "order-help",
+  "pay",
+  "payouts-sheet",
   "purchase",
   "receipt",
+  "review",
   "site",
   "sites",
   "store",
@@ -224,29 +237,46 @@ export interface ProductRowForSeo {
 }
 
 /** A product page is listed when it is published, not archived and has an address. */
-export function productIndexable(p: ProductRowForSeo, handle: string | null | undefined): boolean {
+export function productIndexable(p: ProductRowForSeo, handle: string | null | undefined, spamState?: SpamState): boolean {
   if (p.status !== "published" || p.archived === true || !p.slug) return false
   /* A farm's decoy listing does not buy its handle an indexed product either. */
-  return handle ? deservesIndexing({ publishedProducts: 1, handle }) : true
-}
-
-/** A creator page: the storefront's own robots rule, word for word. */
-export function creatorIndexable(input: { publishedProducts: number; handle: string | null | undefined }): boolean {
-  return !!input.handle && deservesIndexing({ publishedProducts: input.publishedProducts, handle: input.handle })
+  return handle ? deservesIndexing({ handle, spamState }) : true
 }
 
 /**
- * A OnePage: published, and its owner passes the creator page's rule. The
- * sitemap lists a OnePage only beside a creator page it lists, so the page's
- * robots tag asks the same question; a page of outbound links is exactly what
- * a link farm signs up for.
+ * A creator page: the storefront's own robots rule, word for word. It is a
+ * shop, so it needs something in it: one published product, of any type
+ * (round 41: physical products count; the sitemap used to count only the
+ * others while the page counted all of them).
+ */
+export function creatorIndexable(input: { publishedProducts: number; handle: string | null | undefined; spamState?: SpamState }): boolean {
+  return !!input.handle && input.publishedProducts >= 1 && deservesIndexing({ handle: input.handle, spamState: input.spamState })
+}
+
+/**
+ * A OnePage (round 41): published, under a handle, and its owner is not a
+ * link farm. No product is needed: a OnePage is often a creator's whole
+ * presence. The page adds what only it can see (lib/onepage/page-presence):
+ * it shows more than a name and a photo, and no link on it is marked
+ * sensitive. The owner's ban is the caller's (lib/seo/bans.ts).
  */
 export function onePageIndexable(input: {
   status: string | null | undefined
-  publishedProducts: number
   handle: string | null | undefined
+  spamState?: SpamState
 }): boolean {
-  return input.status === "published" && creatorIndexable(input)
+  return input.status === "published" && !!input.handle && deservesIndexing({ handle: input.handle, spamState: input.spamState })
+}
+
+/**
+ * The robots answer for a page of an account: not indexable is noindex and
+ * nofollow; indexable follows its links only when the account has earned it
+ * (trustsOutboundLinks). Page level, so every link on the page is covered,
+ * those inside embeds and blocks added later too.
+ */
+export function pageRobots(input: { indexable: boolean; publishedProducts: number; spamState?: SpamState }): { index: boolean; follow: boolean } {
+  if (!input.indexable) return { index: false, follow: false }
+  return { index: true, follow: trustsOutboundLinks({ publishedProducts: input.publishedProducts, spamState: input.spamState }) }
 }
 
 /**
@@ -269,8 +299,8 @@ export function websiteIndexable(settings: Record<string, unknown> | null | unde
  * used to be three: the site's sitemap left a farm's handle out while its
  * pages said index and storelib.com's sitemap listed it.
  */
-export function builtSiteIndexable(settings: Record<string, unknown> | null | undefined, handle: string | null | undefined): boolean {
-  return websiteIndexable(settings) && !!handle && deservesIndexing({ publishedProducts: 1, handle })
+export function builtSiteIndexable(settings: Record<string, unknown> | null | undefined, handle: string | null | undefined, spamState?: SpamState): boolean {
+  return websiteIndexable(settings) && !!handle && deservesIndexing({ handle, spamState })
 }
 
 /* ── A built site's address ───────────────────────────────────────────── */

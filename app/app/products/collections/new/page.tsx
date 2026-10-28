@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
-import { CollectionEditor } from "../collection-editor"
-import { loadCollectionsArea } from "../load-collections"
+import { CollectionPage } from "../collection-editor"
+import { loadCollectionArea } from "../load-collections"
 import { getServerTt } from "@/lib/i18n/server"
 import { noStorePage } from "@/lib/team/server"
 
@@ -13,8 +13,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function NewCollectionPage() {
-  const load = await loadCollectionsArea()
+  const load = await loadCollectionArea()
   if (load.state === "signed-out") return null
   if (load.state === "no-creator") return noStorePage("/app/products/collections/new")
-  return <CollectionEditor collection={null} products={load.products} />
+  return <CollectionPage collection={null} products={load.products} />
 }

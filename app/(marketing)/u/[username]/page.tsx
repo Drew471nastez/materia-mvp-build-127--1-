@@ -109,9 +109,9 @@ import { AllProductsGrid } from "@/components/storefront/all-products-grid"
 import { FirstProductPrompt, drawableSections, tabsWithoutProducts } from "@/components/storefront/no-products"
 import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/reviews-panel"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
-import { deservesIndexing } from "@/lib/security/spam-signals"
+import { creatorIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
-import { isBanned } from "@/lib/seo/bans"
+import { isBanned, spamStateOf } from "@/lib/seo/bans"
 import { MAX_LISTED_PRODUCTS, profilePageJsonLd, sameAsUrls } from "@/lib/seo/structured-data"
 import { plainSummary } from "@/lib/html-entities"
 import { getProductShareUrl } from "@/lib/url-helpers"
@@ -206,12 +206,14 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
           .select("id", { count: "exact", head: true })
           .eq("creator_id", creator.id)
           .eq("status", "published")
-          .neq("type", "physical")
+          /* Every type, physical too (round 41): a seller of shipped goods is a seller, and the sitemap counts them the same way. */
           .then(({ count }) => count ?? 0)
       : Promise.resolve(0),
     /* Cached (lib/custom-domains/store.ts), and needs only the creator. */
     primaryHostFor(creator?.id, "creator_page"),
   ])
+  /* An operator's spam verdict, if any (lib/seo/bans.ts): it overrides the handle score both ways. */
+  const spamState = await spamStateOf(profile.id)
 
   let faviconUrl: string | undefined
   let socialPreviewImage: string
@@ -337,13 +339,13 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
      * indexed the moment they publish, on the next crawl, with no action from
      * anybody — the page is force-dynamic and this is recomputed per request.
      *
-     * lib/seo/sitemaps.ts applies the identical rule via the same `deservesIndexing`
+     * lib/seo/sitemaps.ts applies the identical rule via the same `creatorIndexable`
      * helper. If these two ever disagree, the sitemap is advertising a page
      * that tells crawlers to go away, which is worse than either alone.
      */
     ...(() => {
       /* And not banned: a ban takes the products down, and a product put back afterwards does not buy the page back. */
-      const indexable = deservesIndexing({ publishedProducts, handle }) && !isBanned(creator)
+      const indexable = creatorIndexable({ publishedProducts, handle, spamState }) && !isBanned(creator)
       return {
         robots: indexable
           ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } }
@@ -825,7 +827,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    */
   /* The username as stored: the address typed may be /Andrew, the page is /andrew. */
   const pageHandle: string = profile.username || username
-  const indexable = deservesIndexing({ publishedProducts: products?.length ?? 0, handle: pageHandle }) && !isBanned(creator)
+  /* The products drawn here leave out physical ones; the rule counts every published product (round 41), asked only when none is drawn. */
+  const listedCount =
+    (products?.length ?? 0) ||
+    ((await supabase.from("products").select("id", { count: "exact", head: true }).eq("creator_id", creator.id).eq("status", "published")).count ?? 0)
+  const indexable = creatorIndexable({ publishedProducts: listedCount, handle: pageHandle, spamState: await spamStateOf(profile.id) }) && !isBanned(creator)
 
   /*
     WHO THE PAGE IS ABOUT, AND WHAT THEY SELL, printed by both branches below

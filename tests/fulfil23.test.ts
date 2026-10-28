@@ -309,7 +309,8 @@ async function main() {
   section("Stock per location and the low stock line")
   {
     check("the line is the product's own, else the shop's (Settings > Locations, Low stock)", lowStockLine(3, 8) === 3 && lowStockLine(null, 8) === 8)
-    check("Inventory's Low filter reads the same line per product (the variant's own first since round V)", /lowStockThreshold: lowStockAt\(variantLowStock, productLowStock, lowStockDefault\)/.test(read("lib/physical/inventory-server.ts")) && /v === "low"\) return r\.trackInventory && l\.available > 0 && l\.available <= r\.lowStockThreshold/.test(read("app/app/inventory/inventory-client.tsx")))
+    /* Changed on purpose (round 41): Low includes items at 0, as the low stock email lists them (lib/physical/inventory-rules inInventoryView). */
+    check("Inventory's Low filter reads the same line per product (the variant's own first since round V)", /lowStockThreshold: lowStockAt\(variantLowStock, productLowStock, lowStockDefault\)/.test(read("lib/physical/inventory-server.ts")) && /inInventoryView\(r, l, v\)/.test(read("app/app/inventory/inventory-client.tsx")) && /if \(view === "low"\) return lowForAlert\(level\.available, row\.lowStockThreshold, row\.trackInventory\)/.test(read("lib/physical/inventory-rules.ts")))
     check("Only N left on the product page comes from the same line (the variant's own first since round V)", /lowStockLine\(own\.get\(v\.id\) \?\? product\.low_stock_threshold, shopLine\)/.test(read("lib/physical/storefront-stock.ts")) && /Only \{variant\.left\} left/.test(read("components/physical/buy-box.tsx")))
     check("the checkout only sells a location's own stock, and holds it there", /levelOf\.get\(`\$\{v\.id\}:\$\{locationId\}`\)/.test(read("lib/physical/checkout-pricing-server.ts")) && /physical_reserve/.test(read("lib/physical/checkout-server.ts")))
   }

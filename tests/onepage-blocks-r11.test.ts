@@ -103,13 +103,15 @@ async function main() {
   section("Groups: what goes in, one edit in and out, and what is drawn")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    check("links, images and products go in a group; nothing else", GROUP_CHILD_TYPES.join() === "link_button,image,product" && canGoInGroup("product") && !canGoInGroup("email_capture") && !canGoInGroup("group") && !canGoInGroup("header"))
+    /* Changed on purpose (round 41): a group holds every block but the header, another group and the social icons ("show me ... the rest of the blocks from the whole picker"). */
+    check("every block but the header, a group and the social icons goes in a group", GROUP_CHILD_TYPES.length === 24 && canGoInGroup("product") && canGoInGroup("email_capture") && !canGoInGroup("group") && !canGoInGroup("header") && !canGoInGroup("social_row"))
     const page = [b("h", "header"), b("g", "group", { layout: "stack", children: [] }), b("a", "link_button", { url: "https://a.co" }), b("p", "product", { product_id: "p1" }), b("e", "email_capture")]
     const one = moveIntoGroup(page, "a", "g")!
     check("in: off the page and at the end of the group, in one list", one.map((x) => x.id).join() === "h,g,p,e" && kids(one, "g") === "a" && one.every((x, i) => x.sort_order === i))
     const two = moveIntoGroup(one, "p", "g")!
     check("a product goes in", kids(two, "g") === "a,p")
-    check("an email signup, a group into itself, or a block already in it does not", moveIntoGroup(two, "e", "g") === null && moveIntoGroup(two, "g", "g") === null && moveIntoGroup([...two, b("a", "link_button")], "a", "g") === null)
+    /* Changed on purpose (round 41): an email signup goes in now; a header, a group into itself, or a block already in it does not. */
+    check("a header, a group into itself, or a block already in it does not", moveIntoGroup(two, "h", "g") === null && moveIntoGroup(two, "g", "g") === null && moveIntoGroup([...two, b("a", "link_button")], "a", "g") === null)
     const out = moveOutOfGroup(two, "g", "a")!
     check("out: right under the group, gone from it, in one list", out.map((x) => x.id).join() === "h,g,a,e" && kids(out, "g") === "p")
     check("the page it was given is not changed (no edit in place)", kids(two, "g") === "a,p" && two.map((x) => x.id).join() === "h,g,e")
@@ -120,9 +122,10 @@ async function main() {
     const tab = read("components/onepage/tabs/links-tab.tsx")
     check("the editor drops into a group in one edit, and only what may go in", /const next = moveIntoGroup\(blocksInOrder\(\), id, groupId\)\s*if \(next\) reorderBlocks\(next\)/.test(tab) && /target\?\.type === "group" && !!moving && canGoInGroup\(moving\.type\)/.test(tab) && !/updateBlock\(groupId, \{ data: \{ \.\.\.groupData, children: \[\.\.\.children/.test(tab))
     check("and moves out in one edit, not two (one Undo left it in both places)", /const next = moveOutOfGroup\(blocksInOrder\(\), groupId, childBlock\.id\)/.test(tab) && !/newBlocks\.forEach\(\(b, i\) => \{\s*b\.sort_order = i/.test(tab))
-    check("the Add sheet lets in what the drop does, and says so", /if \(!canGoInGroup\(type\)\) \{/.test(tab) && tab.includes('tt("Links, images and products go in a group.")') && /inGroup \? PICKER_ENTRIES\.filter\(\(e\) => canGoInGroup\(e\.type\)\)/.test(read("components/onepage/add-block-picker.tsx")))
+    check("the Add sheet lets in what the drop does, and says so", /if \(!canGoInGroup\(type\)\) \{/.test(tab) && /* Changed on purpose (round 41): the note says what the sheet now offers. */ tab.includes('tt("Move a block from your page, or add a new one.")') && /inGroup \? PICKER_ENTRIES\.filter\(\(e\) => canGoInGroup\(e\.type\)\)/.test(read("components/onepage/add-block-picker.tsx")))
     check("pictures picked for a block in a group reach it", /findBlockDeep\(onepage\.draft_blocks, imageBlockId\)\?\.block/.test(tab) && /updateBlockDeep\(imageBlockId, /.test(tab) && /updateBlockDeep\(thumbnailBlockId, /.test(tab) && !/updateBlock\(imageBlockId, /.test(tab))
-    check("a block in a group moves up and down by tap too (a finger has no drag there)", /data-group-child-up=""/.test(tab) && /data-group-child-down=""/.test(tab) && /const moveChild = \(childId: string, dir: -1 \| 1\)/.test(tab))
+    /* Changed on purpose (round 41): the moves are the block foot's pair (components/onepage/block-remove), as on any block. */
+    check("a block in a group moves up and down by tap too (a finger has no drag there)", /onMoveUp=\{\(\) => moveChild\(selectedChild\.id, -1\)\}/.test(tab) && /onMoveDown=\{\(\) => moveChild\(selectedChild\.id, 1\)\}/.test(tab) && /const moveChild = \(childId: string, dir: -1 \| 1\)/.test(tab))
     check("its show switch says what it is", /role="switch"\s*aria-checked=\{!!child\.enabled\}\s*aria-label=\{tt\("Show on page"\)\}/.test(tab))
     check("the group's row says Stack or Carousel in the creator's language", !/layout: data\.layout \}\)/.test(tab))
 
@@ -159,7 +162,8 @@ async function main() {
     const settings = read("components/onepage/tabs/settings-tab.tsx")
     const mod = read("components/onepage/settings-integrations.tsx")
     check("an Integrations section, made by settings-integrations", /\{ id: "integrations", get label\(\) \{ return tt\("Integrations"\) \} \}/.test(settings) && /integrations: card\("integrations", <OnePageIntegrations \/>\)/.test(settings))
-    check("it reads what Storelib keeps: the tags, the email tools, the domain", /useJson<\{ tracking\?: Tracking \}>\("\/api\/store\/integrations"\)/.test(mod) && /"\/api\/store\/integrations\/marketing"/.test(mod) && /useJson<DomainsAnswer>\("\/api\/domains"\)/.test(mod))
+    check("it reads what Storelib keeps: the tags, the email tools, the domain", /useJson<\{ tracking\?: Tracking \}>\("\/api\/store\/integrations"\)/.test(mod) && /"\/api\/store\/integrations\/marketing"/.test(mod) && /* Changed on purpose (round 41 team): a team member is told the store's domain with the page instead */
+/useJson<DomainsAnswer>\(team \? null : "\/api\/domains"\)/.test(mod))
     check("and only reads them: nothing here writes a setting", !/method: "(PUT|POST|PATCH|DELETE)"/.test(mod))
     check("each row opens that integration's own page, with its own logo", /href=\{`\/app\/integrations\?integration=\$\{i\.id\}`\}/.test(mod) && /logo=\{i\.logo\}/.test(mod))
     check("the tags it lists are the ones the live page loads", /<StoreTracking creatorId=\{resolvedCreatorId\} \/>/.test(read("app/(marketing)/l/[slug]/page.tsx")))

@@ -2907,16 +2907,18 @@ export const CANVAS_BRIDGE = `
   */
   /*
     WHERE THE PAGE STANDS, ONCE IT STANDS (round 14): said 100ms after the
-    last scroll event, not on every one. Each was a message the editor took
-    on its own thread in the middle of the scroll (51 in a wheel down the
-    owner's home page), for a number only read when a page is drawn again
-    behind this one (compat-canvas.tsx scrollY).
+    last scroll event, with a bounded heartbeat during the gesture. Sending
+    every frame made the editor process a stream of messages on its own
+    thread (51 in a wheel down the owner's home page). The heartbeat now
+    carries the known offset without measuring any boxes.
   */
-  /* And that it is being scrolled, at most twice a second: the editor puts off work of its own while somebody uses the canvas (compat-section-preview.tsx watchInput). */
+  /* Keep the parent gesture alive between messages (SCROLL_REST_MS is 120ms).
+     Half-second heartbeats left gaps that let a push redraw under a moving finger.
+     Only the known offset is sent; no layout is measured here. */
   var scrolledTimer = 0, scrollingSaid = 0;
   addEventListener("scroll", function () {
     var t = Date.now();
-    if (t - scrollingSaid > 500) { scrollingSaid = t; post({ type: "scrolling" }); }
+    if (t - scrollingSaid > 60) { scrollingSaid = t; post({ type: "scrolling", scrollY: scrollY }); }
     clearTimeout(scrolledTimer);
     scrolledTimer = setTimeout(function () { post({ type: "scrolled", scrollY: scrollY }); }, 100);
   }, { passive: true });
@@ -3362,25 +3364,35 @@ export const CANVAS_SWITCH = `
   */
   var held = [];
   var holdBelow = function () {
-    var vh = innerHeight || 800;
+    var vh = innerHeight || 800, take = [];
+    // Measure the whole set before changing content-visibility. Interleaving
+    // these reads and writes laid out a long theme once for every section.
     document.querySelectorAll(".shopify-section").forEach(function (s) {
       if (s.parentElement && s.parentElement.closest(".shopify-section")) return;
       var r = s.getBoundingClientRect();
       if (r.top < vh * 2 || r.height < 2 || s.style.contentVisibility) return;
       var first = s.firstElementChild;
       if (first && /fixed|sticky/.test(getComputedStyle(first).position)) return;
-      s.style.containIntrinsicHeight = Math.round(r.height) + "px";
+      take.push({ section: s, height: r.height });
+    });
+    take.forEach(function (item) {
+      var s = item.section;
+      s.style.containIntrinsicHeight = Math.round(item.height) + "px";
       s.style.contentVisibility = "hidden";
       held.push(s);
     });
   };
   var releaseNear = function (all) {
-    var vh = innerHeight || 800;
+    var vh = innerHeight || 800, release = [];
     held = held.filter(function (s) {
       if (!all && s.isConnected && s.getBoundingClientRect().top > vh * 1.5) return true;
+      release.push(s);
+      return false;
+    });
+    // Removing containment changes layout too: finish all measurements first.
+    release.forEach(function (s) {
       s.style.removeProperty("content-visibility");
       s.style.removeProperty("contain-intrinsic-height");
-      return false;
     });
   };
   var lastW = 0;

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { productCreator } from "@/lib/team/uploads"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { DIGITAL_BUCKETS, STORAGE_BUCKET, updateCreatorStorageUsed } from "@/lib/storage"
@@ -65,7 +66,8 @@ export async function POST(request: NextRequest) {
     }
     await admin.from("digital_assets").delete().eq("id", asset.id).eq("uploaded_by", user.id)
 
-    const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+    /* Round 41: the store a team member with Products works in, or the owner's own (lib/team/uploads productCreator). */
+    const creator = (await productCreator(admin, user.id, "id")) as { id: string } | null
     if (creator) await updateCreatorStorageUsed(admin, creator.id).catch(() => undefined)
 
     return NextResponse.json({ success: true, removed: true }, { headers: UPLOAD_HEADERS })

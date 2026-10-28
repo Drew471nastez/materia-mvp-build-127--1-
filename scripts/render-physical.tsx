@@ -16,7 +16,7 @@ import { PhysicalProductCards, type PhysicalEditorHandle } from "@/components/ph
 import { InventoryClient } from "@/app/app/inventory/inventory-client"
 import { PhysicalOrderPanel } from "@/components/physical/order-panel"
 import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
-import { CollectionEditor } from "@/app/app/products/collections/collection-editor"
+import { CollectionPage } from "@/app/app/products/collections/collection-editor"
 import { ArticleBody } from "@/components/help/help-parts"
 import { helpArticle } from "@/lib/help/articles"
 
@@ -62,7 +62,7 @@ function App() {
       return (
         <div className="h-screen">
           {/* A collection's own page (app/app/products/collections/[id]), handed what its server page reads. */}
-          <CollectionEditor
+          <CollectionPage
             collection={{ id: "c1", title: "Summer", slug: "summer", description: null, imageUrl: null, kind: "smart", rules: [{ field: "tag", op: "equals", value: "summer" }], match: "all", sort: "manual", published: true, productIds: [SHOP] }}
             products={[{ id: SHOP, title: "Linen shirt", thumbnail_url: null, type: "physical", status: "published", price_cents: 4500, tags: ["summer"] }]}
           />

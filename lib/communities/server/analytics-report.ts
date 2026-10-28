@@ -71,7 +71,8 @@ import "server-only"
  * browsers is two visitors.
  */
 import { bucketStarts, bucketIndex, type Grain, type Span } from "@/lib/analytics/buckets"
-import { monthlyValue } from "@/lib/memberships/state"
+import { monthlyOf, payingAt, paymentNet } from "../membership-money"
+import { communitySellingProducts } from "./membership-money"
 import { lineMoney } from "@/lib/analytics/reports"
 import { loadGaStatus, loadTracking } from "@/lib/store/tracking-server"
 import { MEMBER_SOURCES } from "../types"
@@ -540,37 +541,9 @@ async function pages<T extends { id: string | number }>(ask: (after: string | nu
   return out
 }
 
-/**
- * The products that sell this community: its paid tiers (recurring or once) and the products made for it, with the
- * name each is sold under (round 39, Revenue by plan): the tier's own name, else the product's title.
- */
-async function sellingProducts(db: Db, communityId: string): Promise<{ all: string[]; recurring: string[]; names: Map<string, string> }> {
-  const [tiers, made] = await Promise.all([
-    db.from("community_tiers").select("product_id, billing, name").eq("community_id", communityId).eq("kind", "paid").limit(50),
-    db.from("products").select("id, type, title").eq("community_id", communityId).limit(200),
-  ])
-  const t = ((tiers.data as { product_id: string | null; billing: string | null; name?: string | null }[] | null) ?? []).filter((x) => x.product_id)
-  const m = (made.error ? [] : (made.data as { id: string; type: string | null; title?: string | null }[] | null) ?? [])
-  const all = [...new Set([...t.map((x) => x.product_id as string), ...m.map((x) => x.id)])]
-  const recurring = [...new Set([...t.filter((x) => x.billing === "recurring").map((x) => x.product_id as string), ...m.filter((x) => x.type === "membership").map((x) => x.id)])]
-  const names = new Map<string, string>()
-  for (const x of m) if (x.title?.trim()) names.set(x.id, x.title.trim())
-  for (const x of t) if (x.name?.trim()) names.set(x.product_id as string, x.name.trim())
-  return { all, recurring, names }
-}
-
-/** Paying at a moment: started, not ended, out of any trial. */
-function payingAt(m: MembershipRow, t: number): boolean {
-  if (m.status === "incomplete") return false
-  const started = Date.parse(m.started_at ?? m.created_at)
-  if (!(started <= t)) return false
-  const ended = m.ended_at ? Date.parse(m.ended_at) : m.status === "canceled" || m.status === "expired" ? Date.parse(m.canceled_at ?? m.created_at) : Infinity
-  if (ended <= t) return false
-  if (m.trial_end && Date.parse(m.trial_end) > t) return false
-  return true
-}
-
-const monthly = (m: MembershipRow) => monthlyValue({ status: "active", billing_interval: m.billing_interval, amount_cents: m.amount_cents })
+/* Round 41: which products sell it, who pays at a moment and what a plan is worth a month are ../membership-money.ts, shared with the community list and the Overview. */
+const sellingProducts = communitySellingProducts
+const monthly = (m: MembershipRow) => monthlyOf(m)
 
 interface MoneyWindow {
   revenue: number[]
@@ -605,7 +578,7 @@ function moneyWindow(span: Span, starts: number[], members: MembershipRow[], ord
   for (const o of orders) {
     const i = at(o.created_at)
     if (i < 0) continue
-    const net = lineMoney(o as never).net
+    const net = paymentNet(o)
     w.revenue[i] += net
     w.bySource.memberships += net
     const p = plan(o.product_id)

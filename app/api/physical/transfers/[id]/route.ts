@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 
 /** ship, receive (all or some) or cancel a transfer. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)

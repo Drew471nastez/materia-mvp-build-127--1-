@@ -46,7 +46,7 @@ export function compatFilesChanged(installId: string): void {
  */
 export function patchCompatFiles(installId: string, patch: Record<string, string>): boolean {
   const hit = loading.get(installId)
-  if (!hit) return false
+  if (!hit || hit.version !== (versions.get(installId) ?? 0)) return false
   const version = (versions.get(installId) ?? 0) + 1
   versions.set(installId, version)
   const files = hit.files.then((current) => {

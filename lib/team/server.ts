@@ -26,6 +26,7 @@ import {
 } from "./permissions"
 import { acceptable, inviteStateOf, refusalOf, sameEmail, tokenShapeOk, type InviteRow, type InviteState } from "./invite-state"
 import { teamHomeHref } from "./landing"
+import { teamStampDb } from "./audit"
 
 /**
  * ===========================================================================
@@ -574,6 +575,19 @@ export const teamStoreForRequest = cache(async (userId: string): Promise<{ actin
 export const teamStoresForRequest = cache(async (userId: string): Promise<MemberStore[]> => storesOf(createAdminClient(), userId).catch(() => []))
 
 /**
+ * Round 41: for library code that checks "is this the seller" by account
+ * (a review, a course): the store a member works in, when their permissions
+ * cover the area, so that check can also accept that one store. null for
+ * everyone in their own account (no cookie, no read) and for a member
+ * without the area.
+ */
+export async function teamStoreIdFor(userId: string | null, area: TeamArea): Promise<string | null> {
+  if (!userId) return null
+  const acting = await actingStore(createAdminClient(), userId).catch(() => null)
+  return acting && permits(acting.permissions, area) ? acting.creatorId : null
+}
+
+/**
  * THE ONE QUESTION A TEAM-AWARE PAGE ASKS: whose store, for this area.
  *
  *   working in another store, and their permissions cover the area: that store
@@ -653,7 +667,8 @@ export async function requireTeamPermission(area: TeamArea): Promise<TeamGate | 
     viewer: viewerKey(user.id, found.acting ? found.creator.id : null),
     acting: found.acting,
     permissions: found.acting ? found.acting.permissions : [...TEAM_PERMISSIONS],
-    db,
+    /* Round 41: a member's client names them on the record lines it writes (lib/team/audit); the owner's is the plain client. */
+    db: found.acting ? teamStampDb(db, user.id) : db,
   }
 }
 

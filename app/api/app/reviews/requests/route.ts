@@ -23,7 +23,7 @@ export const maxDuration = 30
  *                               when it did not go.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const p = new URL(request.url).searchParams
   const q = cleanSearch(p.get("q"))
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const limited = await rateLimit({ bucket: "review-ask-manual", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 30, seconds: 3600 }, { limit: 200, seconds: 86_400 }] })
   if (limited) return limited

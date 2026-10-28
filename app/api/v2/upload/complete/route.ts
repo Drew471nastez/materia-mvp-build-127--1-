@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { uploadCreator, uploadStore } from "@/lib/team/uploads"
+import { mayUploadProductFile, uploadCreator, uploadStore } from "@/lib/team/uploads"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { PUBLIC_BUCKET, STORAGE_BUCKET, checkUploadAllowed, updateCreatorStorageUsed } from "@/lib/storage"
 import {
@@ -81,9 +81,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields: path, bucket" }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
-    /* Whose folder (lib/team/uploads): their own, or the store's for a team member with an area that uploads pictures. Product files stay the owner's. */
+    /* Whose folder (lib/team/uploads): their own, or the store's for a team member with an area that uploads pictures. Product files: the owner, or a member with Products. */
     const store = await uploadStore(admin, user.id)
-    if (store.kind === "refused" || (store.kind === "store" && assetId)) {
+    if (store.kind === "refused" || (assetId && !mayUploadProductFile(store))) {
       return NextResponse.json({ error: "You don't have access to this. Ask the store's owner." }, { status: 403, headers: UPLOAD_HEADERS })
     }
 

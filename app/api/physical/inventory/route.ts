@@ -10,7 +10,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const settings = await loadSettings(c.db, c.creatorId)
   const [rows, locations] = await Promise.all([inventoryRows(c.db, c.creatorId, settings.lowStockDefault), loadLocations(c.db, c.creatorId)])
@@ -34,7 +34,7 @@ function readChange(body: Record<string, unknown>): { field: AdjustField; mode: 
  * double press one change.
  */
 export async function POST(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body || !isUuid(body.variantId) || !isUuid(body.locationId)) return physicalJson({ error: "Choose a product and a location." }, 400)
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
 /** The settings beside a count: Track stock and Keep selling (the product's), the low stock line (the variant's). */
 export async function PATCH(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body || !isUuid(body.variantId)) return physicalJson({ error: "Choose a product." }, 400)

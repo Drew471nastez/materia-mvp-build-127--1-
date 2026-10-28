@@ -20,6 +20,20 @@
  * own background and its corners are its own: nothing inside is drawn edge
  * to edge in another colour behind the same radius, which is what left a
  * white hairline around the share card's coloured top.
+ *
+ * ROUND 41: THE PAGE BEHIND NEVER MOVES. Opening set `overflow: hidden` on
+ * <html>, which takes the page's scrollbar away: on a computer the whole page
+ * jumped sideways by the scrollbar's width and back on close. Nothing on html
+ * or body is touched now. The page behind is kept still another way
+ * (useStillPage): a wheel, a finger or a scrolling key is refused unless it
+ * would scroll something inside the dialog that can still scroll that way.
+ * The scrollbar stays, so nothing shifts.
+ *
+ * `centered` keeps the centred card on a phone too (Share, as it was before
+ * round 40), and `bare` leaves the card's surface to what is inside it, for a
+ * card made of two surfaces (Share's band in the page's colour over its
+ * body): the card's own clip then cuts both at its corners, with nothing of
+ * another colour behind them to show at the edge.
  */
 import type React from "react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -91,11 +105,17 @@ export function OnePageDialog({
   width = 400,
   tall = false,
   scrollKey,
+  centered = false,
+  bare = false,
 }: {
   open: boolean
   onClose: () => void
   dark: boolean
   label: string
+  /** The centred card at every width, a phone's too. */
+  centered?: boolean
+  /** No surface of its own: what is inside draws it (see the note above). */
+  bare?: boolean
   /** Drawn above the content: on a phone it is part of what drags the sheet. */
   header?: React.ReactNode
   children: React.ReactNode
@@ -109,7 +129,7 @@ export function OnePageDialog({
   const phone = usePhoneWidth()
   const style = sheetTokens(dark)
   if (phone === null) return null
-  if (phone) {
+  if (phone && !centered) {
     return (
       <BottomSheet
         isOpen={open}
@@ -129,7 +149,7 @@ export function OnePageDialog({
     )
   }
   return (
-    <CenteredCard open={open} onClose={onClose} label={label} style={style} width={width} tall={tall} scrollKey={scrollKey} header={header}>
+    <CenteredCard open={open} onClose={onClose} label={label} style={style} width={width} tall={tall} scrollKey={scrollKey} header={header} bare={bare} phone={phone}>
       {children}
     </CenteredCard>
   )
@@ -149,10 +169,14 @@ function CenteredCard({
   scrollKey,
   header,
   children,
+  bare = false,
+  phone = false,
 }: {
   open: boolean
   onClose: () => void
   label: string
+  bare?: boolean
+  phone?: boolean
   style: React.CSSProperties
   width: number
   tall: boolean
@@ -164,6 +188,8 @@ function CenteredCard({
   const [shown, setShown] = useState(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  useStillPage(open, rootRef)
   /* What it showed while open, kept while it leaves, so it never empties on the way out. */
   const kept = useRef<React.ReactNode>(children)
   const keptHeader = useRef<React.ReactNode>(header)
@@ -196,14 +222,10 @@ function CenteredCard({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeRef.current()
     }
-    const html = document.documentElement
-    const was = html.style.overflow
-    html.style.overflow = "hidden"
     document.addEventListener("keydown", onKey)
     return () => {
       cancelAnimationFrame(f)
       document.removeEventListener("keydown", onKey)
-      html.style.overflow = was
       before?.focus?.({ preventScroll: true })
     }
   }, [open])
@@ -214,7 +236,7 @@ function CenteredCard({
 
   if (!mounted) return null
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label={label} data-onepage-dialog="">
+    <div ref={rootRef} className={cn("fixed inset-0 z-[200] flex items-center justify-center overscroll-contain", phone ? "p-4" : "p-6")} role="dialog" aria-modal="true" aria-label={label} data-onepage-dialog="">
       <div
         aria-hidden
         onClick={onClose}
@@ -231,11 +253,15 @@ function CenteredCard({
           height: tall ? "min(86vh, 820px)" : undefined,
           maxHeight: "min(86vh, 820px)",
           opacity: shown ? 1 : 0,
-          transform: shown ? "none" : "translateY(8px) scale(0.985)",
-          transition: `opacity ${shown ? IN_MS : OUT_MS}ms ${EASE}, transform ${shown ? IN_MS : OUT_MS}ms ${EASE}`,
+          /* translate and scale, named: the compositor moves them, and nothing transitions `transform`. */
+          translate: shown ? "0 0" : "0 8px",
+          scale: shown ? "1" : "0.985",
+          transition: `opacity ${shown ? IN_MS : OUT_MS}ms ${EASE}, translate ${shown ? IN_MS : OUT_MS}ms ${EASE}, scale ${shown ? IN_MS : OUT_MS}ms ${EASE}`,
         }}
         className={cn(
-          "relative flex flex-col overflow-hidden rounded-[24px] bg-[var(--sheet-bg)] text-[var(--sheet-body)] shadow-[0_24px_64px_rgba(0,0,0,0.22),0_2px_8px_rgba(0,0,0,0.08)] outline-none",
+          bare
+            ? "relative flex flex-col overflow-hidden rounded-[28px] bg-transparent text-[var(--sheet-body)] shadow-[0_24px_64px_rgba(0,0,0,0.22),0_2px_8px_rgba(0,0,0,0.08)] outline-none"
+            : "relative flex flex-col overflow-hidden rounded-[24px] bg-[var(--sheet-bg)] text-[var(--sheet-body)] shadow-[0_24px_64px_rgba(0,0,0,0.22),0_2px_8px_rgba(0,0,0,0.08)] outline-none",
         )}
         data-onepage-dialog-panel=""
       >
@@ -247,6 +273,75 @@ function CenteredCard({
     </div>,
     document.body,
   )
+}
+
+const SCROLL_KEYS = new Set([" ", "PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown"])
+
+/** Whether something from `from` up to `root` can still scroll by `dy` (down when positive). */
+export function canScrollWithin(from: Element | null, root: Element | null, dy: number): boolean {
+  for (let n: Element | null = from; n && root && root.contains(n); n = n.parentElement) {
+    const el = n as HTMLElement
+    const oy = getComputedStyle(el).overflowY
+    if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight + 1) {
+      if (dy < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1) return true
+    }
+    if (n === root) break
+  }
+  return false
+}
+
+/**
+ * THE PAGE BEHIND STAYS STILL, WITH ITS SCROLLBAR. While `open`, a wheel, a
+ * finger or a scrolling key that would not scroll something inside `root` is
+ * refused, so the page under the dialog cannot be scrolled; html and body are
+ * never touched, so the page keeps its scrollbar and its width.
+ */
+export function useStillPage(open: boolean, rootRef: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!open) return
+    let startY = 0
+    const inside = (t: EventTarget | null) => (t instanceof Element ? t : null)
+    const onWheel = (e: WheelEvent) => {
+      if (!e.cancelable) return
+      if (!canScrollWithin(inside(e.target), rootRef.current, e.deltaY)) e.preventDefault()
+    }
+    const onStart = (e: TouchEvent) => {
+      startY = e.touches[0]?.clientY ?? 0
+    }
+    const onMove = (e: TouchEvent) => {
+      if (!e.cancelable) return
+      const y = e.touches[0]?.clientY ?? startY
+      if (!canScrollWithin(inside(e.target), rootRef.current, startY - y)) e.preventDefault()
+      startY = y
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (!SCROLL_KEYS.has(e.key)) return
+      const t = inside(e.target) as HTMLElement | null
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
+      /* Space on a button or a link presses it. */
+      if (e.key === " " && t?.closest("button, a, [role=button], [role=radio], [role=checkbox]")) return
+      /* Arrows inside a group of choices move between them. */
+      if (e.key.startsWith("Arrow") && t?.closest("[role=radiogroup], [role=listbox], [role=menu], [role=tablist]")) return
+      /* The key would scroll the page behind (the card itself is focused, not its list): the list takes it instead. */
+      e.preventDefault()
+      const up = e.key === "PageUp" || e.key === "Home" || e.key === "ArrowUp" || (e.key === " " && e.shiftKey)
+      const scroller = rootRef.current?.querySelector<HTMLElement>("[data-onepage-dialog-scroll]") ?? null
+      if (!scroller || !canScrollWithin(scroller, rootRef.current, up ? -1 : 1)) return
+      if (e.key === "Home" || e.key === "End") scroller.scrollTo({ top: e.key === "Home" ? 0 : scroller.scrollHeight })
+      else scroller.scrollBy({ top: (up ? -1 : 1) * (e.key.startsWith("Arrow") ? 48 : scroller.clientHeight * 0.85) })
+    }
+    const opts = { passive: false, capture: true } as const
+    window.addEventListener("wheel", onWheel, opts)
+    window.addEventListener("touchstart", onStart, { passive: true, capture: true })
+    window.addEventListener("touchmove", onMove, opts)
+    window.addEventListener("keydown", onKey, true)
+    return () => {
+      window.removeEventListener("wheel", onWheel, opts)
+      window.removeEventListener("touchstart", onStart, { capture: true })
+      window.removeEventListener("touchmove", onMove, opts)
+      window.removeEventListener("keydown", onKey, true)
+    }
+  }, [open, rootRef])
 }
 
 /** The round close button every one of these cards has, top right. */

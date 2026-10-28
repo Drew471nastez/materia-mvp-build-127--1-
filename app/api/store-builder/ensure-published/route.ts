@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { teamStoreIdFor } from "@/lib/team/server"
 import { createClient } from "@/lib/supabase/server"
 import { ensureStorePublished } from "@/lib/store-builder/ensure-store-published"
 
@@ -23,7 +24,11 @@ export async function POST() {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const { data: creator } = await supabase
+  /* Round 41: after a team member with Products saves one of the store's products, the store's shop page, as for the owner. */
+  const teamStore = await teamStoreIdFor(user.id, "products")
+  const { data: creator } = teamStore
+    ? { data: { id: teamStore } }
+    : await supabase
     .from("creators")
     .select("id")
     .eq("user_id", user.id)

@@ -302,11 +302,14 @@ function editorPlan(row: { subscription_plan_id?: string | null; subscription_st
 async function teamOnePage({ creatorId, ownerUserId, store }: { creatorId: string; ownerUserId: string | null; store: string }) {
   if (!ownerUserId) throw new Error("This store has no owner account")
   const admin = createAdminClient()
-  const [creatorRead, pageRead, domainsRead] = await Promise.all([
+  const [creatorRead, pageRead, domainsRead, ownerRead] = await Promise.all([
     readTwice((signal) => admin.from("creators").select("*").eq("id", creatorId).eq("user_id", ownerUserId).abortSignal(signal).maybeSingle()),
     readTwice((signal) => admin.from("onepages").select("*").eq("owner_id", ownerUserId).abortSignal(signal).maybeSingle()),
     within((signal) => admin.from("custom_domains").select("*").eq("creator_id", creatorId).abortSignal(signal), STORE_SOCIALS_MS),
+    /* The owner's name and photo for the preview (round 41), read here with the page rather than from the member's browser. */
+    within((signal) => admin.from("profiles").select("display_name, avatar_url").eq("id", ownerUserId).abortSignal(signal).maybeSingle(), STORE_SOCIALS_MS),
   ])
+  const ownerRow = (ownerRead.data as { display_name?: string | null; avatar_url?: string | null } | null) ?? null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const creator = creatorRead.data as any
   if (creatorRead.error || pageRead.error) throw new Error("The OnePage could not be read")
@@ -324,6 +327,8 @@ async function teamOnePage({ creatorId, ownerUserId, store }: { creatorId: strin
     ownerUserId,
     plan: editorPlan(creator),
     domain: creatorPageHostFromRows((domainsRead.data as { domain?: string | null; status?: string | null; purpose?: string | null; is_primary?: boolean | null }[] | null) ?? null),
+    ownerName: ownerRow?.display_name ?? null,
+    ownerAvatar: ownerRow?.avatar_url ?? null,
   }
   return <OnePageEditor initialOnePage={onepage as OnePage} team={team} />
 }

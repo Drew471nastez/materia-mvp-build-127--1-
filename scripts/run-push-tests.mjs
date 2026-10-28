@@ -223,7 +223,7 @@ const SUITES = [
   /* Round AD1: bugs found by reading every analytics path, each a failing check first: Home's revenue line and the chart axis in the currency's own decimals, a product's orders as payments, kept answers of one period shown as another's, the jsonb origin, GA's purchase value in yen, the creator's own connected domain opened from the app. */
   "tests/analytics-ad1.test.ts",
   "tests/analytics-filters.test.ts",
-  /* Round ana-1028: test sales out of every Analytics figure (and part 324's all time line), a community's money in the store's currency at each row's own day's rate, and the refund reads beside the orders (SQL part 324's indexes). */
+  /* Round ana-1028: test sales out of every Analytics figure (and part 328's all time line), a community's money in the store's currency at each row's own day's rate, and the refund reads beside the orders (SQL part 324's indexes). */
   "tests/analytics-r1028.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
@@ -380,6 +380,8 @@ const SUITES = [
   "tests/onepage-share-image.test.ts",
   /* Round 40: the OnePage editor's link stats are Analytics' own figures, each social icon its own click, noindex for a page that shows nothing. */
   "tests/onepage-analytics-seo-r40.test.ts",
+  /* Round 41: every published OnePage, community and website indexed by one rule each, nofollow until an account sells, each website's sitemap, robots and its own icon on its own host. */
+  "tests/indexing-r41.test.ts",
   "tests/onepage-host.test.ts",
   "tests/memory-r12.test.ts",
   "tests/onepage-old-links.test.ts",
@@ -619,6 +621,8 @@ const SUITES = [
   "tests/cart-coupons.test.ts",
   /* Offers, coupons and size charts as sub pages (not dialogs or sheets), a code's collections and "physical only" in every checkout, the size chart table's keys and paste, Inventory's batched reads. */
   "tests/offers-subpages.test.ts",
+  /* Round 41: community MRR and payments received agree everywhere, collections as pages, Edit profile, a code's minimum after offers, Low includes 0. */
+  "tests/community-revenue-collections-r41.test.ts",
   "tests/product-page-t.test.ts",
   "tests/home-cards.test.ts",
   "tests/home-announcements.test.ts",
@@ -968,6 +972,7 @@ const SUITES = [
   "tests/team-permissions-r40.test.ts",
   /* Round 40, second pass: OnePage and Community open to the team (lib/team/onepage, lib/communities/server/team.ts), uploads in the store's folder, SQL part 319; website, creator page, products and settings still closed. */
   "tests/team-areas-r40.test.ts",
+  "tests/team-areas-r41.test.ts",
   "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",
@@ -979,6 +984,8 @@ const SUITES = [
   "tests/onepage-products-r10.test.ts",
   /* Round 40 (OnePage editing): four products then Show all, a block's Remove, Choose icon, Add social link, the sheets' drag by pointer, Add block's tints, the product picker, scheduling on the live page, the sensitive question over a player, the file an email signup gives. */
   "tests/onepage-editor-r40.test.ts",
+  /* Round 41 (OnePage blocks): grey Add block tiles again, settings that glide shut, groups that take any block and delete one, Add to group with the page's own blocks, and every catalogue block checked for settings, a live renderer and the page's look. */
+  "tests/onepage-editor-r41.test.ts",
   /* Round 12 (WBPERF): a link typed in a menu draws only what shows a menu, memoised menu rows, a 401 asked about before it is a sign out, a page's sections read again quietly; scripts/check-wb-perf-r12.mjs measures them on 120 sections. */
   "tests/wb-perf-r12.test.ts",
   /* Round 12 (website builder): Add block between two blocks in the canvas, the collection pickers' Add collection, a menu link's new tab on the live site, product descriptions bound to Storelib, the shop's filters from real products; scripts/check-wb-ux-r12.mjs measures them. */
@@ -1000,6 +1007,8 @@ const STRICT_SUITES = [
   "tests/onepage-creator-blocks.test.ts",
   /* Round 40: OnePage integrations (Mailchimp, Kit, beehiiv, webhooks), consent-aware pixels, embeds without a jump, and the shelf, lead magnet, posts, followers and code blocks. */
   "tests/onepage-blocks-r40.test.ts",
+  /* Round 41: every OnePage integration end to end with a fake transport (Mailchimp, Kit, beehiiv, MailerLite, Brevo, Flodesk, the webhooks), one delivery per signup, Klaviyo and Omnisend at once, the pixels' Lead, ViewContent, InitiateCheckout and Purchase, the directory's order on the first paint, SQL 323 and 324. */
+  "tests/onepage-integrations-r41.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
   /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */
@@ -1083,6 +1092,8 @@ const STRICT_SUITES = [
   "tests/e2e-onepage-live.test.ts",
   /* Round 40: /terms and /privacy laid out as the Help Center, one text in components/legal, /legal/* redirecting; a OnePage's Privacy and Terms in a sheet; Share and Subscribe as one theme aware dialog; Your own domain's icon, Settings' box the shown section's height, the preview's products asked again; no Follow on creator pages and profiles. */
   "tests/legal-and-onepage-settings-r40.test.ts",
+  /* Round 41: a OnePage's button edges (the fill stops inside the border), X posts at their card's width and corners, social icons that do not grow, Share as it was with the creator's photo and Subscribe with it, neither touching the page's scrollbar; three choices for a product tap, the sheet's own button, option and quantity before paying; a new profile video with no gap. scripts/check-onepage-r41.mjs measures them. */
+  "tests/onepage-public-r41.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

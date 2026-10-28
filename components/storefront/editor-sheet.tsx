@@ -192,6 +192,7 @@ export function EditorSheet({
   title,
   busy,
   error,
+  notice = null,
   onSave,
   saveDisabled = false,
   saveLabel = "Save",
@@ -206,6 +207,8 @@ export function EditorSheet({
   title: string
   busy?: boolean
   error?: string | null
+  /** Something to know that is not an error (round 41): saved, but not on the page yet. Grey, not red. */
+  notice?: string | null
   onSave: () => void
   saveDisabled?: boolean
   saveLabel?: React.ReactNode
@@ -337,6 +340,22 @@ export function EditorSheet({
       data-sheet-pin-bottom=""
       className="relative z-10 grid shrink-0 grid-cols-2 gap-3 border-t border-border bg-background px-5 py-3 after:pointer-events-none after:absolute after:inset-x-0 after:top-full after:h-16 after:bg-background after:content-[''] sm:px-6 sm:py-4"
     >
+      {/*
+        WHAT WENT WRONG IS SAID BESIDE SAVE (round 41). It was the last line of
+        the form, under the social links and the switches: a creator who
+        pressed Save at the top of a long form saw the button come back and
+        nothing else. It is pinned here, over Cancel and Save, where the eye is
+        when the request answers, and it goes as soon as the form is touched.
+      */}
+      {error || notice ? (
+        <p
+          role={error ? "alert" : "status"}
+          data-sheet-message={error ? "error" : "notice"}
+          className={cn("col-span-2 -mb-0.5 text-[13px] leading-5", error ? "font-medium text-[#b42318]" : "text-[#4b5563]")}
+        >
+          {error || notice}
+        </p>
+      ) : null}
       <Button type="button" variant="outline" className="w-full" onClick={onClose} disabled={busy}>
         Cancel
       </Button>
@@ -466,7 +485,6 @@ export function EditorSheet({
             className="wb-slim-scroll isolate min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-5 py-5"
           >
             {children}
-            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           {footer}
         </div>
@@ -555,7 +573,6 @@ export function EditorSheet({
         */}
         <OverlayScroll className="px-6 py-5" scrollerProps={{ "data-sheet-scroll": "" }}>
           {children}
-          {error && <p className="text-sm text-destructive">{error}</p>}
         </OverlayScroll>
 
         {/* Not DialogFooter: its `sm:justify-end` beats a grid quietly. */}

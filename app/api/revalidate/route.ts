@@ -28,6 +28,7 @@
  * owner of the product it just saved, so nothing legitimate loses anything.
  */
 import { NextRequest, NextResponse } from "next/server"
+import { teamStoreIdFor } from "@/lib/team/server"
 import { revalidatePath, revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { productTag, creatorTag } from "@/lib/commerce/product-page-cache"
@@ -53,7 +54,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ revalidated: false, error: "Not signed in" }, { status: 401 })
     }
 
-    const { data: creator } = await supabase
+    /* Round 41: a team member with Products saves the store's products, so the store's caches are theirs to refresh; read by the store's id with the service role. The owner's path is the one it was. */
+    const teamStore = await teamStoreIdFor(user.id, "products")
+    const db = teamStore ? createAdminClient() : supabase
+    const { data: creator } = teamStore
+      ? { data: { id: teamStore } }
+      : await supabase
       .from("creators")
       .select("id")
       .eq("user_id", user.id)
@@ -67,7 +73,7 @@ export async function POST(request: NextRequest) {
       a slug that belongs to somebody else simply does not come back. No
       separate ownership branch to get wrong.
     */
-    const { data: owned } = await supabase
+    const { data: owned } = await db
       .from("products")
       .select("id, creator_id")
       .eq("slug", slug)

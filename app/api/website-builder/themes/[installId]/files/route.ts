@@ -116,11 +116,12 @@ async function handleGET(req: Request, { params }: Params) {
     const lang = wordsOf.toLowerCase()
     if (!/^[a-z]{2,3}(-[a-z0-9]{2,4})?$/.test(lang)) return NextResponse.json({ files: {} })
     const names = new Set([`shopify/locales/${lang}.json`, `shopify/locales/${lang.split("-")[0]}.json`])
-    const { data } = await supabase!
+    const { data, error: wordsError } = await supabase!
       .from("store_theme_custom_files")
       .select("path, content, draft_content")
       .eq("install_id", installId)
       .like("path", "shopify/locales/%")
+    if (wordsError) return NextResponse.json({ error: "Could not read theme translations. Try again." }, { status: 503 })
     const files: Record<string, string> = {}
     for (const r of (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]) {
       if (!names.has(r.path.toLowerCase())) continue
@@ -140,7 +141,7 @@ async function handleGET(req: Request, { params }: Params) {
         .like("path", "shopify/%")
         .order("path")
         .range(from, from + 999)
-      if (readErr) break
+      if (readErr) return NextResponse.json({ error: "Could not read theme files. Try again." }, { status: 503 })
       const rows = (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]
       for (const r of rows) {
         if (/^shopify\/locales\/(?!.*\.default(\.schema)?\.json$)/.test(r.path)) continue
@@ -164,12 +165,18 @@ async function handleGET(req: Request, { params }: Params) {
       .select("path, content, draft_content")
       .eq("install_id", installId)
       .like("path", "%.storelib")
-    const rows = readErr
-      ? ((await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
-      : (data ?? [])
+    const fallback = readErr
+      ? await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")
+      : null
+    if (readErr && fallback?.error) return NextResponse.json({ error: "Could not read theme sources. Try again." }, { status: 503 })
+    const rows = readErr ? (fallback?.data ?? []) : (data ?? [])
     const files = sourceMap(rows as { path: string; content: string; draft_content?: string | null }[])
     /* The theme's own Theme settings, when it has a config/settings_schema.json: the sidebar draws its groups from it (lib/storelib-theme/theme-config.ts). */
-    const schemaRow = await supabase!.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
+    const schemaRead = await supabase!.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
+    const schemaRow = schemaRead.error
+      ? await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).eq("path", THEME_SCHEMA_FILE).maybeSingle()
+      : schemaRead
+    if (schemaRow.error) return NextResponse.json({ error: "Could not read theme settings. Try again." }, { status: 503 })
     const settingsSchema = schemaRow.error || !schemaRow.data ? null : (sourceMap([schemaRow.data as { path: string; content: string; draft_content?: string | null }])[THEME_SCHEMA_FILE] ?? null)
     /* An imported theme offers Storelib Reviews' section in Add section like one of its own (lib/storelib-theme/compat/storelib-reviews.ts). */
     return NextResponse.json({ files: withStorelibReviewsSection(files), settings_schema: settingsSchema })
@@ -224,6 +231,7 @@ async function handleGET(req: Request, { params }: Params) {
         .eq("install_id", installId)
         .eq("path", path)
         .maybeSingle()
+      if (plain.error) return NextResponse.json({ error: "Could not read that theme file. Try again." }, { status: 503 })
       customFile = plain.data
     } else {
       customFile = withDraft.data
@@ -434,7 +442,7 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 /* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
-export const GET = timed("builder", "/api/website-builder/themes/:id/files", async (req, params) => {
+export const GET = timed("builder", "/api/website-builder/themes/:id/files", async (req: Request, params: Params) => {
   const res = await handleGET(req, params)
   /* A push just wrote these. A cached copy is the editor showing the old theme until a hard refresh. */
   res.headers.set("Cache-Control", "no-store")

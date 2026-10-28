@@ -26,6 +26,7 @@
  */
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
+import { SCROLL_REST_MS } from "../lib/website-builder/scroll-rest"
 import { CANVAS_BRIDGE } from "../lib/storelib-theme/compat/canvas-bridge"
 
 let passed = 0
@@ -61,7 +62,8 @@ console.log("\nTHE OUTLINES, READ ONCE THE FRAME IS LAID OUT")
 console.log("\nNOTHING MEASURED OR SAID FOR EVERY FRAME OF A SCROLL")
 {
   check("the Add section strip goes while the page moves and is found again once it stops", /addEventListener\("scroll", function \(\) \{ if \(addFrame\) \{ cancelAnimationFrame\(addFrame\); addFrame = 0; \} if \(gapShown\) showGap\(null\); \}, \{ passive: true \}\);/.test(bridge) && /afterScroll = function \(\) \{ if \(addAt && !addFrame\) addFrame = requestAnimationFrame\(placeAdder\); \};/.test(bridge))
-  check("where the page stands is said 100ms after the last scroll, that it is scrolled twice a second at most", /scrolledTimer = setTimeout\(function \(\) \{ post\(\{ type: "scrolled", scrollY: scrollY \}\); \}, 100\);/.test(bridge) && /if \(t - scrollingSaid > 500\) \{ scrollingSaid = t; post\(\{ type: "scrolling" \}\); \}/.test(bridge))
+  const heartbeat = Number(/t - scrollingSaid > (\d+)/.exec(bridge)?.[1])
+  check("the final offset waits 100ms, and the bounded heartbeat keeps the parent gesture alive", /scrolledTimer = setTimeout\(function \(\) \{ post\(\{ type: "scrolled", scrollY: scrollY \}\); \}, 100\);/.test(bridge) && heartbeat > 0 && heartbeat < SCROLL_REST_MS)
   check("a wheel reads the page's hold only when <html> or <body> changed, or after a second", /lockDirty = true;/.test(bridge) && /lockSeen === null \|\| lockDirty \|\| t0 - lockSeen > 1000/.test(bridge))
   check("  and looks for a scroller of its own only for a wheel the theme took", /if \(!e\.defaultPrevented \|\| takesWheel\(e\.target, dy\)\) return;/.test(bridge))
   /* In the head's own script (CANVAS_SWITCH), not the bridge's. */
@@ -132,6 +134,7 @@ async function inBrowser() {
     })
     check("the selected section's outline is drawn, from inside the shadow root", layer.host && layer.inShadow && layer.light === 0 && layer.display === "block", layer)
     /* Twenty scrolls, a frame apart. */
+    const beganScroll = Date.now()
     await page.evaluate(() => { (window as unknown as { __msgs: string[] }).__msgs.length = 0 })
     for (let i = 1; i <= 20; i++) { await page.evaluate((y) => scrollTo(0, y), i * 10); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r(null)))) }
     const during = await page.evaluate(() => {
@@ -142,7 +145,7 @@ async function inBrowser() {
     await wait(400)
     const msgs = await page.evaluate(() => (window as unknown as { __msgs: string[] }).__msgs.slice())
     const count = (t: string) => msgs.filter((m) => m === t).length
-    check("  twenty scroll frames: where the page stands said once, that it scrolls at most twice", count("scrolled") === 1 && count("scrolling") <= 2, msgs)
+    check("  twenty scroll frames: one final offset and bounded heartbeats, never a message each frame", count("scrolled") === 1 && count("scrolling") > 1 && count("scrolling") < 20 && count("scrolling") <= Math.ceil((Date.now() - beganScroll) / 60) + 1, msgs)
     /* A write to a box costs what a write to nothing costs, whatever the theme's rules. */
     const cost = await page.evaluate(() => {
       const box = document.querySelector("[data-sl-box=layer]")!.shadowRoot!.querySelector<HTMLElement>("[data-sl-box=hover]")!

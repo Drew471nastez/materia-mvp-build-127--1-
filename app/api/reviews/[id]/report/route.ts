@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { teamStoreIdFor } from "@/lib/team/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MAX_REPLY_CHARS, isReportReason } from "@/lib/reviews/rules"
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     data: { user },
   } = await supabase.auth.getUser()
   const admin = createAdminClient()
-  const mine = await sellersReview(admin, id, user?.id ?? null)
+  const mine = await sellersReview(admin, id, user?.id ?? null, await teamStoreIdFor(user?.id ?? null, "products"))
   if (!mine.ok) return NextResponse.json({ error: mine.error }, { status: mine.status })
   if (mine.review.status === "hidden") return NextResponse.json({ error: "This review is already hidden while Storelib looks at it." }, { status: 409 })
 

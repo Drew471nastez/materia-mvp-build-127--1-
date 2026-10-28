@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { teamStoreIdFor } from "@/lib/team/server"
 
 import { rateLimit } from "@/lib/api/rate-limit"
 import { askAiForCategory, canAskAi } from "@/lib/products/category-suggest-ai"
@@ -41,7 +42,9 @@ export async function POST(request: Request) {
   })
   if (limited) return limited
 
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  /* Round 41: the store a team member with Products works in, or the owner's own (read with the service role, by id). */
+  const teamStore = await teamStoreIdFor(user.id, "products")
+  const { data: creator } = teamStore ? { data: { id: teamStore } } : await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator?.id) return NextResponse.json({ error: "No store yet." }, { status: 403, headers: NO_STORE })
 
   /* Refused before it is read, when it says it is too big. */

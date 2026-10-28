@@ -286,8 +286,8 @@ async function main() {
   console.log("\nCollections and coupons")
   {
     const r = await searchCreator(fakeDb(world()), A, "launch")
-    /* Changed on purpose: a collection is a page of its own now (app/app/products/collections/[id]). */
-    check("a collection opens its own page", r.groups.collections[0]?.href === "/app/products/collections/ca1" && r.groups.collections[0]?.detail === "Published", r.groups.collections[0])
+    /* Changed on purpose (round 41): a collection is a page of its own, not a dialog over the list. */
+    check("a collection opens on its own page", r.groups.collections[0]?.href === "/app/products/collections/ca1" && r.groups.collections[0]?.detail === "Published", r.groups.collections[0])
     check("a coupon by its code, what it takes off and whether it is on", r.groups.coupons[0]?.title === "LAUNCH20" && r.groups.coupons[0]?.detail === "20% off · On" && r.groups.coupons[0]?.href === "/app/coupons/qa1", r.groups.coupons[0])
     const rb = await searchCreator(fakeDb(world()), B, "launch")
     check("a fixed coupon says its amount", rb.groups.coupons[0]?.detail === "$5.00 off · On", rb.groups.coupons[0])

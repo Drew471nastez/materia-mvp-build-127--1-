@@ -13,7 +13,8 @@
  * address on every published site was a 404. Sub-pages were work a creator
  * could do and no visitor could see.
  */
-import { siteIcons } from "@/lib/website-builder/site-icon"
+import { siteIconUrl } from "@/lib/website-builder/site-icon"
+import { ownHostIcons } from "@/lib/website-builder/site-favicon"
 import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
@@ -166,8 +167,8 @@ export async function siteMetadata(
   const description = own.description ?? (typeof settings.seo_description === "string" && settings.seo_description
     ? settings.seo_description
     : `Visit ${brand}'s website on Storelib`)
-  /* The favicon, or the store's logo when there is none (lib/website-builder/site-icon.ts). */
-  const icons = siteIcons(settings as Record<string, unknown>, found.site.pages.home ?? found.site.sections)
+  /* The favicon, or the store's logo when there is none (lib/website-builder/site-icon.ts), served square from the site's own host (lib/website-builder/site-favicon.ts, round 41). */
+  const ownIcons = ownHostIcons(origin, siteIconUrl(settings as Record<string, unknown>, found.site.pages.home ?? found.site.sections))
 
   /**
    * ONE ADDRESS PER PAGE. The same page answers at `<name>.storelib.com` and
@@ -205,7 +206,7 @@ export async function siteMetadata(
     title: { absolute: rawTitle },
     description,
     alternates: { canonical: url, ...(languages ? { languages } : {}) },
-    icons,
+    ...(ownIcons ? { icons: ownIcons.icons, manifest: ownIcons.manifest } : {}),
     // The share image, the card type and — the one that matters — whether the
     // page may be indexed at all. All three were in the panel and read by
     // nothing, so "noindex" was a setting somebody trusted and did not have.

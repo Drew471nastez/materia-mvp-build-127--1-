@@ -1,12 +1,10 @@
 import type { Metadata } from "next"
-import { pageUser } from "@/lib/auth/page-user"
-import { creatorForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requirePhysicalPage } from "@/lib/physical/gate"
 import { listSizeCharts } from "@/lib/size-charts/server"
 import { SizeChartsClient } from "./size-charts-client"
 import { getServerTt } from "@/lib/i18n/server"
-import { noStorePage } from "@/lib/team/server"
+import { noStorePage, teamPageStore } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -25,11 +23,10 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function SizeChartsPage() {
   await requirePhysicalPage()
-  const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the session in the browser. */
-  if (!user) return null
-  const creator = await creatorForRequest(user.id)
-  if (!creator) return noStorePage("/app/products/size-charts")
-  const { ready, rules, charts, targets } = await listSizeCharts(createAdminClient(), creator.id)
-  return <SizeChartsClient creatorId={creator.id} ready={ready} rules={rules} targets={targets} initialCharts={charts} />
+  /* Whose store (round 41): the owner's own, or the store a team member with Products works in. */
+  const access = await teamPageStore("products")
+  if (access.kind === "signed_out" || access.kind === "denied") return null
+  if (access.kind === "none") return noStorePage("/app/products/size-charts")
+  const { ready, rules, charts, targets } = await listSizeCharts(createAdminClient(), access.creatorId)
+  return <SizeChartsClient creatorId={access.creatorId} ready={ready} rules={rules} targets={targets} initialCharts={charts} />
 }

@@ -9,6 +9,7 @@
  *
  * Run with:  npm run test:push
  */
+import { loadCompatFiles, patchCompatFiles, compatFilesChanged } from "@/components/website-builder/compat/compat-files"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { noteSourceChanges, resetSourceRevisions, sourceRevision } from "@/lib/website-builder/source-revisions"
@@ -46,7 +47,7 @@ console.log("\nThe open editor takes a push in one pass")
   const handler = editor.slice(editor.indexOf("const handleAgentEvents = async"), editor.indexOf("} = useSiteActivity({"))
   check("only the files a push names are read, and they are applied at once", /readThemeTexts\(installId, sourcePaths\)/.test(handler) && /else files = await loadStorelibSources\(\{ hold: true \}\)/.test(handler) && /landRemote\(\); applyIncoming\(\); flush\(\)/.test(handler))
   check("one section file is drawn in place; a rewritten page or theme code is a fresh document", /if \(importedNow && \(themeCode \|\| replacedHere \|\| \(many && !catchUp\)\)\) setReplaceDocument/.test(handler))
-  check("coming back to a pile is one pass, and that pile does not reload the document for section files", /CATCH_UP_AWAY_MS = 8_000/.test(read("components/website-builder/site-connections.tsx")) && /await onEventsRef\.current\(events, \{ catchUp \}\)/.test(read("components/website-builder/site-connections.tsx")) && /catchUp && sourcePaths\.length > 8/.test(handler))
+  check("coming back to a pile is one pass, and that pile does not reload the document for section files", /CATCH_UP_AWAY_MS = 8_000/.test(read("components/website-builder/site-connections.tsx")) && /await onEventsRef\.current\(events, \{ catchUp, isCurrent: \(\) => !stopped && applyCurrent \}\)/.test(read("components/website-builder/site-connections.tsx")) && /catchUp && sourcePaths\.length > 8/.test(handler))
   check("a page rewritten whole lands in the same render as its files", /afterQuietLoad\.current = \(\) => \{ landRemote\(\); applyIncoming\(\); flush\(\) \}/.test(handler) && /startTransition\(\(\) => \{[\s\S]{0,200}?setSettingsDraft\(\(prev\) => shareSettings\(prev, loadedSettings\)\)\s*setSections\(\(prev\) => shareUnchanged\(prev, loaded\)\)\s*alongside\?\.\(\)\s*\}\)/.test(editor))
   /* Changed on purpose: round perf2-1028 lays what was read over what is on screen (lib/website-builder/incoming-diff.ts), so only the sections a push changed draw again (tests/editor-perf-incoming.test.ts). */
   check("that page is not also built by replaying operations", /if \(!replacedHere\) for \(const op of/.test(handler))
@@ -56,5 +57,26 @@ console.log("\nThe open editor takes a push in one pass")
   check("this suite runs with the others", read("scripts/run-push-tests.mjs").includes('"tests/editor-incoming-push.test.ts"'))
 }
 
-console.log(`\n${passed} passed, ${failed} failed`)
-if (failed) process.exit(1)
+async function checkCache() {
+  const previousFetch = globalThis.fetch
+  const install = "incoming-push-cache-test"
+  let calls = 0
+  globalThis.fetch = (async () => {
+    calls++
+    return new Response(JSON.stringify({files: {"shopify/sections/hero.liquid": calls === 1 ? "old" : "fresh"}}))
+  }) as typeof fetch
+  try {
+    await loadCompatFiles(install)
+    compatFilesChanged(install)
+    check("a patch cannot resurrect a cache invalidated by another writer", !patchCompatFiles(install, {"shopify/assets/extra.css": "x"}))
+    const fresh = await loadCompatFiles(install)
+    check("the next reader gets the authoritative files", calls === 2 && fresh["shopify/sections/hero.liquid"] === "fresh")
+    check("a patch to a current cache is shared without downloading the theme", patchCompatFiles(install, {"shopify/sections/hero.liquid": "patched"}))
+    const patched = await loadCompatFiles(install)
+    check("every reader sees the patched source", calls === 2 && patched["shopify/sections/hero.liquid"] === "patched")
+  } finally { globalThis.fetch = previousFetch }
+}
+void checkCache().then(() => {
+  console.log(`\n${passed} passed, ${failed} failed`)
+  if (failed) process.exit(1)
+})

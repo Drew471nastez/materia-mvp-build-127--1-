@@ -96,7 +96,8 @@ async function main() {
     const mc = signupRequests("mailchimp", MC_KEY, { list_id: "a1b2c3", double_optin: false, tag: "OnePage" }, SIGNUP)
     const hash = createHash("md5").update("ana@example.com").digest("hex")
     const body = JSON.parse(mc[0].body ?? "{}")
-    check("Mailchimp: a PUT by the address's hash, so a second signup is the same member", mc[0].method === "PUT" && mc[0].url === `https://us21.api.mailchimp.com/3.0/lists/a1b2c3/members/${hash}`)
+    /* Changed on purpose (round 41): ?skip_merge_validation=true, so an audience with a required field of its own still takes the signup (tests/onepage-integrations-r41.test.ts). */
+    check("Mailchimp: a PUT by the address's hash, so a second signup is the same member", mc[0].method === "PUT" && mc[0].url === `https://us21.api.mailchimp.com/3.0/lists/a1b2c3/members/${hash}?skip_merge_validation=true`)
     check("  status_if_new only: someone who left in Mailchimp stays left", body.status_if_new === "subscribed" && !("status" in body) && body.merge_fields?.FNAME === "Ana")
     check("  the tag in a second call", mc.length === 2 && mc[1].url.endsWith("/tags") && JSON.parse(mc[1].body ?? "{}").tags[0].name === "OnePage")
     check("  double opt in is pending", JSON.parse(signupRequests("mailchimp", MC_KEY, { list_id: "a1b2c3", double_optin: true }, SIGNUP)[0].body ?? "{}").status_if_new === "pending")
@@ -178,7 +179,8 @@ async function main() {
     check("  the code comes from the creator's own coupons, checked live", /from\("coupons"\)[^\n]*\.eq\("creator_id", creatorId\)/.test(lm) && /couponUsable\(coupon\)/.test(lm))
     check("  same spam checks and limits as the email signup", /signupLooksAutomated\(body\)/.test(lm) && /windows: LIMITS\.subscribe/.test(lm))
     const api = read("app/api/onepage/integrations/route.ts")
-    check("the integrations route: the owner only, rate limited", /shopCaller\(\)/.test(api) && /rateLimit\(/.test(api))
+    check("the integrations route: the owner only, rate limited", /* Changed on purpose (round 41 team): the store's OnePage integrations for its owner and a team member with OnePage; a key stays the owner's */
+/shopCaller\("onepage"\)/.test(api) && /rateLimit\(/.test(api) && /if \(c\.isOwner === false && !memberMayStep\(body\)\)/.test(api))
     const conn = read("lib/onepage/integrations/connect-server.ts")
     check("  a key comes back as its last four characters only", /secretHint\(openSecret\(sealed\)\)/.test(conn) && !/secret_ciphertext:\s*r\.secret_ciphertext/.test(conn) && !/apiKey:\s*key/.test(conn))
     check("  webhooks are sent through the public-only socket lookup", /lookup: publicLookup/.test(read("lib/onepage/integrations/deliver-server.ts")))
@@ -245,7 +247,8 @@ async function main() {
   section("Registered wherever a block type is listed")
   {
     const page = read("components/onepage/public-onepage.tsx")
-    check("the live page draws any extra block it has no case for, with the page's id", /return isExtraBlock\(block\) \? <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId, onepageId \}\} \/> : null/.test(page))
+    /* Changed on purpose (round 41): the look also says whether the block is in a group or a carousel (its buttons keep still there). */
+    check("the live page draws any extra block it has no case for, with the page's id", /return isExtraBlock\(block\) \? <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId, onepageId, still: isInsideCarousel \|\| isInsideGroup \}\} \/> : null/.test(page))
     const tab = read("components/onepage/tabs/links-tab.tsx")
     check("the editor's rows and settings do too", (tab.match(/isExtraBlock\(block\) \? extraBlockRow\(block\)/g) ?? []).length === 2 && /if \(isExtraBlock\(block\)\) return <ExtraBlockEditor/.test(tab))
     check("the live page fills shelves, posts and counts on the server", /withStorelibBlocks\(db, creatorId, products\)/.test(read("lib/onepage/published-page.ts")))

@@ -67,6 +67,7 @@ import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
 import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
 import { emailSignupImage, emailSignupLayout, emailSignupStacked } from "@/lib/onepage/email-signup"
+import { pixelLead } from "@/lib/analytics/pixels"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -332,7 +333,9 @@ function NotificationBell({
   style = "glass",
   isVisible = true,
   onLight = false,
-}: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black"; isVisible?: boolean; onLight?: boolean }) {
+  avatarUrl = null,
+  avatarVideoUrl = null,
+}: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black"; isVisible?: boolean; onLight?: boolean; avatarUrl?: string | null; avatarVideoUrl?: string | null }) {
   const [isOpen, setIsOpen] = useState(false)
   const styles = {
     glass: {
@@ -438,10 +441,10 @@ function NotificationBell({
   */
   return (
     <div
-      className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-all duration-500 ease-out"
+      className="fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-[opacity,translate] duration-500 ease-out"
       style={{
         opacity: shouldShow ? 1 : 0,
-        transform: shouldShow ? "translateY(0)" : "translateY(-10px)",
+        translate: shouldShow ? "0 0" : "0 -10px",
         pointerEvents: shouldShow ? "auto" : "none",
       }}
     >
@@ -453,12 +456,14 @@ function NotificationBell({
         aria-label={`Subscribe to ${sellerName}`}
         aria-haspopup="dialog"
         className={cn(
-          "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 hover:scale-105",
+          "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-opacity duration-200 hover:opacity-85",
           style === "glass" && "backdrop-blur-md",
         )}
         style={{
           background: s.buttonBg,
           border: s.buttonBorder,
+          /* Round 41: the fill stops inside the ring, so the round edge is the ring's alone (no hair of fill outside it). */
+          backgroundClip: "padding-box",
           boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
         }}
       >
@@ -482,6 +487,8 @@ function NotificationBell({
         sellerName={sellerName}
         sellerId={sellerId}
         onepageId={onepageId}
+        avatarUrl={avatarUrl}
+        avatarVideoUrl={avatarVideoUrl}
       />
 
       {/* Bell animation keyframes */}
@@ -502,6 +509,10 @@ function ShareButton({
   avatarUrl,
   avatarVideoUrl,
   style = "white",
+  accentColor,
+  themeBackgroundType,
+  themeBackgroundColor,
+  themeBackgroundGradient,
   isVisible = true,
   onLight = false,
 }: {
@@ -510,12 +521,12 @@ function ShareButton({
   avatarUrl?: string | null
   avatarVideoUrl?: string | null
   style?: "glass" | "white" | "black"
-  /* Passed by the page and no longer read: the sheet takes the page's light or dark instead of a band in its colour (components/onepage/share-sheet). */
   showSubscribe?: boolean
+  /* Round 41: read again, for the share card's band in the page's own colour (components/onepage/share-sheet shareBandBackground). */
   accentColor?: string
   themeBackgroundType?: "solid" | "gradient" | "image" | "video"
   themeBackgroundColor?: string
-  themeBackgroundGradient?: string
+  themeBackgroundGradient?: string | null
   isVisible?: boolean
   /** The page behind is light: glass is drawn in ink (see GLASS ON A LIGHT PAGE). */
   onLight?: boolean
@@ -586,9 +597,9 @@ function ShareButton({
       <div
         className={positionClass}
         style={{
-          transition: "opacity 500ms ease-out, transform 500ms ease-out",
+          transition: "opacity 500ms ease-out, translate 500ms ease-out",
           opacity: shouldShow ? 1 : 0,
-          transform: shouldShow ? "translateY(0)" : "translateY(-10px)",
+          translate: shouldShow ? "0 0" : "0 -10px",
           pointerEvents: shouldShow ? "auto" : "none",
         }}
       >
@@ -601,12 +612,13 @@ function ShareButton({
             aria-label={`Share ${pageTitle}`}
             aria-haspopup="dialog"
             className={cn(
-              "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-all duration-300 hover:scale-105",
+              "relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full transition-opacity duration-200 hover:opacity-85",
               style === "glass" && "backdrop-blur-md",
             )}
             style={{
               background: s.buttonBg,
               border: s.buttonBorder,
+              backgroundClip: "padding-box",
               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
             }}
           >
@@ -624,6 +636,7 @@ function ShareButton({
         pageTitle={pageTitle}
         avatarUrl={avatarUrl}
         avatarVideoUrl={avatarVideoUrl}
+        band={{ backgroundType: themeBackgroundType, backgroundColor: themeBackgroundColor, backgroundGradient: themeBackgroundGradient, accentColor }}
       />
     </>
   )
@@ -1831,6 +1844,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           style={safeSettings.subscribe_style || "glass"}
           isVisible={buttonsVisible}
           onLight={pageIsLight(safeTheme)}
+          avatarUrl={avatar_url}
+          avatarVideoUrl={avatar_video_url}
         />
       )}
 
@@ -3568,14 +3583,20 @@ function PublicBlockRenderer({
             const normalizedUrl = normalizeSocialUrl(platform, url)
             return (
               <a
-                key={platform} // Added key prop
+                key={platform}
+                data-op-social-icon={platform}
                 href={normalizedUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => trackClick(socialLinkId(block.id, platform), normalizedUrl)}
+                /*
+                  Round 41, "a weird bump" on hover: the icon grew by a tenth with every property transitioning, so it
+                  swelled over its neighbours and its ring and fill were redrawn on the way. Now only its opacity
+                  changes: nothing about its box, or anything beside it, moves.
+                */
                 className={cn(
-                  "flex items-center justify-center transition-all",
-                  !isInsideCarousel && "hover:scale-110",
+                  "flex items-center justify-center transition-opacity duration-150 ease-out",
+                  !isInsideCarousel && "hover:opacity-70",
                   socialStyle === "filled" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full",
                   socialStyle === "outline" && "w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-full border-2",
                   socialStyle === "minimal" && "p-2.5",
@@ -4572,6 +4593,8 @@ function PublicBlockRenderer({
           const result = await response.json()
           if (response.ok) {
             setEmailSubmitted(true)
+            /* Round 41: the store's pixels hear the signup (Meta Lead, TikTok SubmitForm, GA4 generate_lead), by the lead's own id. */
+            pixelLead(window, { form: "signup", eventId: typeof result?.lead_id === "string" ? result.lead_id : null })
             // Record the subscription attempt for rate limiting
             recordSubscriptionAttempt()
             // Store the download link directly from data if digital product is enabled
@@ -4856,6 +4879,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const pdfButtonStyles: React.CSSProperties = {
+        ...buttonHoverVars(theme),
         backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
@@ -4905,15 +4929,18 @@ function PublicBlockRenderer({
       }
 
       const textColor = theme.button_text_color
-      const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
+      /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
+      const hoverEffect = "op-btn"
+      const pageHover = { "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
         return (
           <button
             onClick={handleOpenPdf}
+            {...pageHover}
             className={cn(
-              "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
+              "w-full overflow-hidden font-medium text-sm sm:text-base cursor-pointer",
               hoverEffect,
               getAnimationClass(data.animation_type)
             )}
@@ -4981,8 +5008,9 @@ function PublicBlockRenderer({
       return (
         <button
           onClick={handleOpenPdf}
+            {...pageHover}
           className={cn(
-            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
+            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
             hoverEffect,
             getAnimationClass(data.animation_type)
           )}
@@ -5037,6 +5065,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const menuButtonStyles: React.CSSProperties = {
+        ...buttonHoverVars(theme),
         backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
@@ -5086,15 +5115,18 @@ function PublicBlockRenderer({
       }
 
       const textColor = theme.button_text_color
-      const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
+      /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
+      const hoverEffect = "op-btn"
+      const pageHover = { "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
         return (
           <button
             onClick={handleOpenMenu}
+            {...pageHover}
             className={cn(
-              "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
+              "w-full overflow-hidden font-medium text-sm sm:text-base cursor-pointer",
               hoverEffect,
               getAnimationClass(data.animation_type)
             )}
@@ -5162,8 +5194,9 @@ function PublicBlockRenderer({
       return (
         <button
           onClick={handleOpenMenu}
+            {...pageHover}
           className={cn(
-            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
+            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
             hoverEffect,
             getAnimationClass(data.animation_type)
           )}
@@ -5219,6 +5252,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const calendlyButtonStyles: React.CSSProperties = {
+        ...buttonHoverVars(theme),
         backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
@@ -5276,7 +5310,9 @@ function PublicBlockRenderer({
       }
 
       const textColor = theme.button_text_color
-      const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
+      /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
+      const hoverEffect = "op-btn"
+      const pageHover = { "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Check if inline embed mode
       const isInlineEmbed = data.embed_mode === 'embedded' && data.embed_type === 'inline' && calendlyUrl
@@ -5312,8 +5348,9 @@ function PublicBlockRenderer({
           <>
             <button
               onClick={handleOpenCalendly}
+            {...pageHover}
               className={cn(
-                "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
+                "w-full overflow-hidden font-medium text-sm sm:text-base cursor-pointer",
                 hoverEffect,
                 getAnimationClass(data.animation_type)
               )}
@@ -5415,8 +5452,9 @@ function PublicBlockRenderer({
         <>
           <button
             onClick={handleOpenCalendly}
+            {...pageHover}
             className={cn(
-              "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
+              "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
               hoverEffect,
               getAnimationClass(data.animation_type)
             )}
@@ -5494,10 +5532,10 @@ function PublicBlockRenderer({
     case "countdown":
     case "map":
     case "video":
-      return <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId }} />
+      return <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId, still: isInsideCarousel || isInsideGroup }} />
 
     default:
       /* Round 40: the shelf, lead magnets, posts, followers and codes (components/onepage/storelib-blocks), and any later block in that list, with no case of their own here. */
-      return isExtraBlock(block) ? <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId }} /> : null
+      return isExtraBlock(block) ? <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId, still: isInsideCarousel || isInsideGroup }} /> : null
   }
 }

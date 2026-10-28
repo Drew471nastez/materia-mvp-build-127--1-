@@ -101,7 +101,8 @@ function run() {
     check("paused off screen and in a background tab, resumed from the back/forward cache", /new IntersectionObserver/.test(pv) && /visibilitychange/.test(pv) && /e\.persisted/.test(pv))
     check("reduced motion follows the system while open", /useSyncExternalStore\(subscribeStill/.test(pv))
     check("a refused play() (Low Power Mode) becomes the still", /NotAllowedError/.test(pv) && /setBlocked\(true\)/.test(pv))
-    check("the poster is drawn with the video's own style", /style=\{plan\.base === "poster" \? mediaStyle : fallbackStyle\}/.test(pv) && /style=\{\{ \.\.\.mediaStyle, opacity/.test(pv))
+    /* Changed on purpose (round 41): each layer also says its place (zIndex) and the poster fades in over a video being replaced, so the styles are spread with those beside them. */
+    check("the poster is drawn with the video's own style", /style=\{\{ \.\.\.\(plan\.base === "poster" \? mediaStyle : fallbackStyle\)/.test(pv) && /style=\{\{ \.\.\.mediaStyle, zIndex: 2, opacity/.test(pv))
   }
 
   console.log("\nthe live page (components/onepage/public-onepage)")

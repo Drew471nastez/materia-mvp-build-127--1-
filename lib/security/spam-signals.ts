@@ -44,6 +44,11 @@
  * app/(marketing)/u/[username]/page.tsx for the half of this fix that removes
  * the incentive; this file is the half that raises the cost.
  *
+ * Round 41 moved that line: every public page with something on it may be
+ * indexed now, and what is withheld until an account has published is the
+ * links' authority (trustsOutboundLinks, a page level nofollow). The farm's
+ * prize was the followed link, and that is still not on offer.
+ *
  * ---------------------------------------------------------------------------
  * THE ONE RULE THIS FILE MUST NOT BREAK
  * ---------------------------------------------------------------------------
@@ -380,23 +385,51 @@ export function handleSignature(handle: string | null | undefined): string {
 }
 
 /**
- * Whether an account should be given indexable, crawlable surface.
+ * An operator's decision about an account (profiles.spam_state, part
+ * 20260815_signup_abuse): "confirmed" is a farm, "clear" is a person the
+ * score got wrong, "suspect" and null are no decision yet.
+ */
+export type SpamState = "clear" | "suspect" | "confirmed" | null | undefined
+
+/**
+ * Whether an account's public pages may be indexed at all.
  *
- * This is the rule the sitemap and the storefront's robots tag both read, and
- * it is one line on purpose: an account earns SEO surface by publishing
- * something. Not by verifying an email, not by waiting a week, not by scoring
- * below a threshold — by putting a product on the marketplace, which is the one
- * thing a link farm will never do.
+ * ROUND 41: PUBLISHING IS NO LONGER THE GATE. It used to be: no published
+ * product, no index, which kept the August 2026 farm out but also kept out
+ * every creator whose OnePage is their whole presence (a musician's links, a
+ * coach's booking page). Those are the pages people search a name for.
  *
- * A spam verdict is checked too, so a farm that eventually publishes a decoy
- * listing still does not get indexed. But publication is the primary gate, and
- * it is the one that closes the hole for the vocabulary nobody has seen yet.
+ * What keeps a farm out now is, in order:
+ *   1. an operator's verdict: "confirmed" is never indexed, "clear" always
+ *      is (the operator overrides the score, both ways);
+ *   2. the handle and email score, as before (scoreSignup);
+ *   3. at the page, not here: a page that shows nothing past a name and a
+ *      photo is not indexed (lib/onepage/page-presence), and the links on the
+ *      page of an account that has not earned trust carry no authority
+ *      (trustsOutboundLinks below). A farm came for the links; an indexed page
+ *      whose links pass nothing is not what it came for.
+ * A ban is checked by the caller (lib/seo/bans.ts), as it always was.
  */
 export function deservesIndexing(account: {
-  publishedProducts: number
   handle?: string | null
   email?: string | null
+  spamState?: SpamState
 }): boolean {
-  if (!account.publishedProducts || account.publishedProducts < 1) return false
+  if (account.spamState === "confirmed") return false
+  if (account.spamState === "clear") return true
   return !scoreSignup({ handle: account.handle, email: account.email }).blocked
+}
+
+/**
+ * Whether search engines may follow the links on an account's pages and
+ * count them. A link farm's whole product is a followed link, so this is
+ * where the old publication gate lives now: an account has put something on
+ * sale (any product, a physical one too), or an operator cleared it. Until
+ * then its pages are indexed and say nofollow, which Google reads as "do not
+ * pass authority through these links" for every link on the page at once.
+ */
+export function trustsOutboundLinks(account: { publishedProducts: number; spamState?: SpamState }): boolean {
+  if (account.spamState === "confirmed") return false
+  if (account.spamState === "clear") return true
+  return account.publishedProducts >= 1
 }

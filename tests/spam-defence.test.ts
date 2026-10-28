@@ -35,11 +35,13 @@ import {
   scoreSignup,
   handleSignature,
   deservesIndexing,
+  trustsOutboundLinks,
   isDisposableEmail,
   BLOCK_SCORE,
   REVIEW_SCORE,
 } from "../lib/security/spam-signals"
 import { isValidUsername } from "../lib/reserved-words"
+import { creatorIndexable } from "../lib/seo/indexing"
 import { dictionaries } from "../lib/i18n/dictionaries"
 import { stripComments } from "./_source"
 
@@ -239,15 +241,19 @@ check(
  * 3. CONTAINMENT — the half that removes the incentive
  * ---------------------------------------------------------------------------
  */
+/* Changed on purpose (round 41, tests/indexing-r41.test.ts): publishing no longer gates the index, it gates the
+   links' authority (trustsOutboundLinks); the handle score and an operator's verdict still gate the index. */
 check(
-  "deservesIndexing requires a published product",
-  !deservesIndexing({ publishedProducts: 0, handle: "mariapopescu" }) &&
-    deservesIndexing({ publishedProducts: 1, handle: "mariapopescu" }),
+  "deservesIndexing judges the handle and the verdict, and trust in links needs a published product",
+  deservesIndexing({ handle: "mariapopescu" }) &&
+    !deservesIndexing({ handle: "mariapopescu", spamState: "confirmed" }) &&
+    !trustsOutboundLinks({ publishedProducts: 0 }) &&
+    trustsOutboundLinks({ publishedProducts: 1 }),
 )
 
 check(
   "a farm handle is refused indexing even if it publishes something",
-  !deservesIndexing({ publishedProducts: 5, handle: "powerokebos999" }),
+  !deservesIndexing({ handle: "powerokebos999" }) && !creatorIndexable({ publishedProducts: 5, handle: "powerokebos999" }),
 )
 
 /* The sitemap readers and the rules they apply (the index moved out of
@@ -266,7 +272,8 @@ check(
 const storefront = stripComments(read("app/(marketing)/u/[username]/page.tsx"))
 check(
   "the storefront's robots tag follows the same rule",
-  storefront.includes("deservesIndexing") &&
+  /* Changed on purpose (round 41): the storefront reads creatorIndexable, which reads deservesIndexing. */
+  storefront.includes("creatorIndexable") &&
     storefront.includes("index: false") &&
     storefront.includes("follow: false") &&
     // The unconditional `robots: { index: true ... }` is what a link farm was

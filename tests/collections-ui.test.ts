@@ -75,18 +75,24 @@ console.log("\nCovers, not icons\n")
 
 console.log("\nThe editor\n")
 {
-  /* Changed on purpose: the owner asked for Edit collection as a sub page, like the coupon and offer editors, not a sheet or a dialog. */
-  check("a page of its own, new and saved, framed as a coupon or an offer is", existsSync(`${DIR}/new/page.tsx`) && existsSync(`${DIR}/[id]/page.tsx`) && ["new/layout.tsx", "[id]/layout.tsx"].every((f) => /<PageLayer pill inset="bar" phoneOnly>/.test(read(`${DIR}/${f}`))) && !/SheetDialog|<Dialog|Modal/.test(editor) && !existsSync(`${DIR}/new/loading.tsx`))
-  check("  an id that is not one of this store's goes back to the list", /if \(!UUID\.test\(id\)\) redirect\("\/app\/products\/collections"\)/.test(read(`${DIR}/[id]/page.tsx`)) && /if \(!collection\) redirect\("\/app\/products\/collections"\)/.test(read(`${DIR}/[id]/page.tsx`)))
-  check("  a bar with Cancel or Back and Save under lg, a header and a foot bar from lg", /data-editor-bar=""/.test(editor) && /data-editor-head=""/.test(editor) && /data-editor-foot=""/.test(editor) && /<LeaveButton mode=\{leaveMode\}/.test(editor))
-  check("  the list opens it through the shared round trip and takes back what it did", /collectionsReturn\.open\(router, collection \? collectionHref\(collection\.id\) : newCollectionHref\(\)\)/.test(list) && /collectionsReturn\.peek\(\)\?\.collections \?\? initialCollections/.test(list) && /const back = collectionsReturn\.take\(\)/.test(list) && /createListReturn<CollectionReturn>/.test(read(`${DIR}/list-return.ts`)) && !/<CollectionEditor/.test(list))
+  /* Changed on purpose (round 41, the owner: "Collections and edit collections should act as subpages, not modals"): the editor is a page of its own, framed as a size chart or a coupon is. */
+  check("a page of its own at /new and /<id>, not a dialog: a layer on a phone, the shell from md", existsSync(`${DIR}/new/page.tsx`) && existsSync(`${DIR}/[id]/page.tsx`) && /<PageLayer pill inset="bar" phoneOnly>/.test(read(`${DIR}/new/layout.tsx`)) && /<PageLayer pill inset="bar" phoneOnly>/.test(read(`${DIR}/[id]/layout.tsx`)) && !/<SheetDialog\b|<Dialog/.test(editor) && !/\bModal\b/.test(ui) && !/components\/physical\/ui/.test(ui))
+  check("  both read this store's collections through one loader, and an id that is not one of them goes back to the list", ["new/page.tsx", "[id]/page.tsx"].every((f) => /await loadCollectionArea\(\)/.test(read(`${DIR}/${f}`)) && /noStorePage\(/.test(read(`${DIR}/${f}`))) && /creatorForRequest\(user\.id\)/.test(read(`${DIR}/load-collections.ts`)) && /if \(!UUID\.test\(id\)\) redirect\("\/app\/products\/collections"\)/.test(read(`${DIR}/[id]/page.tsx`)) && /if \(!collection\) redirect\("\/app\/products\/collections"\)/.test(read(`${DIR}/[id]/page.tsx`)))
+  check("  a back header: Back or Cancel and Save at the top on a phone, an arrow and the title from lg", /data-editor-bar=""/.test(editor) && /data-editor-head=""/.test(editor) && /<LeaveButton mode=\{leaveMode\}/.test(editor) && /"Back to collections"/.test(editor) && /<ArrowLeft /.test(editor))
+  check("  Cancel and Save along the foot from lg, with what is saved", /data-editor-foot=""[^>]*shrink-0/.test(editor) && /data-editor-state=\{saveState\}/.test(editor))
+  /* Changed on purpose (round 41): the side column says whether it is shown and in what order, nothing the form already says. */
+  check("  no summary card repeating the form", !/data-collection-summary/.test(editor) && !/"Summary"/.test(editor))
+  check("  rows open it as Size charts opens a chart, through the shared round trip, and the list takes back what was done", /collectionsReturn\.open\(router, collection \? collectionHref\(collection\.id\) : newCollectionHref\(\)\)/.test(list) && /collectionsReturn\.peek\(\)\?\.collections \?\? initialCollections/.test(list) && /const back = collectionsReturn\.take\(\)/.test(list) && /tintReturnedRow\(/.test(list) && /collectionsReturn\.leave\(router/.test(editor) && /createListReturn<CollectionReturn>/.test(read(`${DIR}/list-return.ts`)) && !/<CollectionPage/.test(list))
+  check("  no loading boundary under it", !existsSync(`${DIR}/new/loading.tsx`) && !existsSync(`${DIR}/[id]/loading.tsx`))
+  check("  Save with no title says so under the field, which takes the focus", /aria-invalid=\{!!titleProblem\}/.test(editor) && /\{titleProblem \? <p className=\{ERR\}>/.test(editor))
+  check("  the picker is the offer picker's box, with the app's thin bar over its edge", /<ThumbScroll className="max-h-\[336px\] overflow-y-auto overscroll-contain rounded-xl border/.test(editor) && /from "@\/components\/app\/thumb-scroll"/.test(editor) && /data-pick=\{p\.id\}/.test(editor))
+  check("  the selects' chevron draws: no bare space inside its data URL", /const CHEVRON =\s*"appearance-none bg-\[url\('data:image\/svg\+xml;utf8,[^ ']+'\)\]/.test(editor))
   check("Pick products / Match by rules is the sliding segmented control, and the panels cross-fade", /<Segmented\b[\s\S]{0,200}"Pick products"[\s\S]{0,80}"Match by rules"/.test(editor) && /<SwapPanels\b/.test(editor) && /from "\.\.\/new\/editor-controls"/.test(editor))
   check("a condition is a sentence that stacks on a phone: field and comparison, then the value", /grid grid-cols-2 gap-2[^"]*sm:grid-cols-\[minmax\(0,1\.15fr\)_minmax\(0,1fr\)_minmax\(0,1\.15fr\)_auto\]/.test(editor) && /col-span-2 flex min-w-0 items-center gap-2 sm:contents/.test(editor))
   check("  product type is a select of kinds", /rule\.field === "type" \? \(\s*<select/.test(editor) && /PRODUCT_KINDS\.filter/.test(editor))
   check("  Add condition is a quiet row", /data-add-condition=""/.test(editor) && /Add condition/.test(editor))
   check("  what the rules catch is counted as they are typed, by the storefront's own rule", /inSmartCollection\(finished, match, ruleProducts\[i\]\)/.test(editor) && /<Caught /.test(editor))
   check("stock, weight and vendor rules only while physical commerce is on", /physical \|\| !PHYSICAL_RULES\.has\(f\)/.test(editor) && /usePhysicalCommerceEnabled\(\)/.test(editor) && /new Set\(\["vendor", "inventory", "weight"\]\)/.test(parts))
-  /* Changed on purpose: the page saves and deletes, not the list. */
   check("the API contract is the one it was: POST to create, PUT to save, DELETE to remove", /c \? `\/api\/collections\/\$\{c\.id\}` : "\/api\/collections", c \? "PUT" : "POST"/.test(editor) && /`\/api\/collections\/\$\{c\.id\}`, "DELETE"/.test(editor))
 }
 
@@ -94,10 +100,10 @@ console.log("\nDelete is quiet, and asks first\n")
 {
   check("no red anywhere near delete", !/text-red|bg-red|BTN_DANGER|criticalDepth|quietDanger|variant: "destructive"/.test(ui))
   check("Delete collection is the app's white secondary button, in grey words", /data-delete-collection=""[^\n]*className=\{cn\(secondaryDepth, [^)]*text-\[#4b5563\]/.test(editor))
-  /* Changed on purpose: on a page of its own the question is asked over the page, nothing to wait for. */
+  /* Changed on purpose (round 41): the page asks, with nothing under it any more. */
   check("it asks with the app's confirm, never window.confirm", /useConfirm\(\)/.test(editor) && /confirm: "Delete"/.test(editor) && !/window\.confirm|\bconfirm\(/.test(ui.replace(/useConfirm\(\)/g, "")))
-  check("  Keep it keeps the page as it was", /if \(!yes\) return\n\s*setDeleting\(true\)/.test(editor))
-  check("  unsaved changes are asked about the same way, a new one too", /title: "Discard changes\?"/.test(editor) && /title: "Discard this collection\?"/.test(editor))
+  check("  before it deletes, and Keep it stays on the page", /const yes = await ask\(\{\s*title: `Delete \$\{c\.title\}\?`/.test(editor) && /if \(!yes\) return\n\s*setDeleting\(true\)/.test(editor))
+  check("  unsaved changes are asked about before leaving, a new one too", /title: "Discard changes\?"/.test(editor) && /title: "Discard this collection\?"/.test(editor) && /if \(dirty\) \{\s*const yes = await ask\(/.test(editor))
 }
 
 console.log("\nThe words\n")

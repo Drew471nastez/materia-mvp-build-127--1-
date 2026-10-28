@@ -151,11 +151,21 @@ export function buttonBackground(theme: ButtonThemeLike): string {
 export function themeButtonStyle(theme: ButtonThemeLike): CSSProperties {
   const fill = buttonFill(theme)
   const width = theme.button_border_width || 0
+  const drawn = fill === "outline" ? Math.max(2, width) : width
   return {
     backgroundColor: buttonBackground(theme),
+    /*
+      ROUND 41, "a scattered border" round a pill on a dark page. The fill was
+      painted under the border out to the outer edge, so at the curve two
+      anti-aliased layers met: the fill's and the border's. Wherever the fill
+      was lighter than the border (or the border see-through), a hair of fill
+      showed outside it, unevenly, worst in WebKit. With a border the fill now
+      stops inside it: the outer edge is the border's alone.
+    */
+    backgroundClip: drawn > 0 ? "padding-box" : undefined,
     color: theme.button_text_color as string,
     borderRadius: `${theme.button_border_radius}px`,
-    borderWidth: `${fill === "outline" ? Math.max(2, width) : width}px`,
+    borderWidth: `${drawn}px`,
     borderStyle: "solid",
     borderColor: fill === "outline" ? (theme.button_border_color || theme.button_color) as string : (theme.button_border_color as string),
     backdropFilter: fill === "glass" ? "blur(10px)" : undefined,

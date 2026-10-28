@@ -16,8 +16,9 @@
  *                 brings the first into view; a good bundle sends POST
  *   size charts   Enter in a cell goes one row down; Enter on the last row
  *                 adds a size; a pasted block fills the cells; Save sends PUT
- *   collections   the page of its own: Save with no title says so under the
- *                 field, a picked collection is sent once
+ *   collections   the page of its own, the same frame as the others, no
+ *                 sheet, picked by hand and matched by rules: Save with no
+ *                 title says so under the field, a picked collection is sent once
  *   the motion    nothing on any page moves after it is drawn (Chromium's
  *                 own layout shift count, from the first paint); the
  *                 discount's white slides through the frames between two
@@ -96,7 +97,7 @@ const frame = () => page.evaluate(() => {
 
 for (const [label, vp] of [["a phone (390)", { width: 390, height: 844, isMobile: true, hasTouch: true }], ["a computer (1280)", { width: 1280, height: 900 }]]) {
   const phone = vp.width < 768
-  for (const panel of ["offer-new", "offer-edit", "break-new", "chart-new", "chart-edit", "coupon-edit", "collection-new", "collection-edit"]) {
+  for (const panel of ["offer-new", "offer-edit", "break-new", "chart-new", "chart-edit", "coupon-edit", "collection-new", "collection-edit", "collection-rules"]) {
     console.log(`\n${panel} on ${label}`)
     await open(panel, vp)
     const f = await frame()

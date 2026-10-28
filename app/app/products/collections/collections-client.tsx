@@ -11,11 +11,11 @@
  * lands whole, with no skeleton and nothing fetched after it opens.
  *
  * A collection opens on a page of its own (./collection-editor.tsx, at
- * /app/products/collections/<id>, and /new for a new one), as a coupon, an
- * offer or a size chart does: on a phone it is a layer over this list, from
- * 768px it lands as every page does. Coming back is this list as it was
- * left, as far down as it was, with what was done said, the row tinted and
- * the rows read again (./list-return, components/app/list-return.ts).
+ * /app/products/collections/<id>, and /new for a new one), as a size chart
+ * or an offer does (round 41, the owner: "Collections and edit collections
+ * should act as subpages, not modals"): on a phone it rises over this list
+ * and drops back to it. Coming back, the list says what was done and tints
+ * the row (./list-return).
  */
 
 import * as React from "react"
@@ -33,8 +33,6 @@ import { pressMark } from "@/lib/press-mark"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { useStoreCurrency } from "@/lib/store/currency-context"
-
-export type { SaveBody } from "./collection-editor"
 
 /* The products page's own measures (../products-client.tsx), so the two pages are one place. */
 const BAR_BUTTON_SIZE = "lg:h-[35px] lg:px-[13px] lg:text-[14.5px]"
@@ -61,13 +59,10 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   const [notice, say] = usePill()
   const sectionRef = React.useRef<HTMLElement>(null)
-
-  /* Back from a collection is the list as it was, with no landing (as Coupons). */
   const [returning] = React.useState(() => collectionsReturn.isReturning())
   React.useLayoutEffect(() => {
     if (returning) holdLanding()
   }, [returning])
-  /* BACK FROM A COLLECTION: say what happened, tint its row, and read the rows again. */
   React.useEffect(() => {
     const back = collectionsReturn.take()
     if (!back) return
@@ -76,20 +71,18 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
     if (back.id && !back.deleted) tintReturnedRow(sectionRef.current, back.id, LAYER_LEAVE_MS)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the list lands
   }, [])
-
   const warmed = React.useRef(new Set<string>())
   const warm = (href: string) => {
     if (warmed.current.has(href)) return
     warmed.current.add(href)
     prefetchAppPage(router, href)
   }
-  /* A collection opens on its own page, over the list on a phone. */
+  /* A collection opens on its own page, rising over the list on a phone. */
   const start = (collection: Collection | null) => collectionsReturn.open(router, collection ? collectionHref(collection.id) : newCollectionHref())
-
   /*
     ?collection=<id>, from an older link to the list: that collection's own
-    page, in place of the list's address, so Back leaves for wherever the
-    link was. The header's search links to the page itself now.
+    page, in place of the list in the history. The header's search links to
+    the page itself now. Read once, even when an effect runs twice.
   */
   const openedFromLink = React.useRef(false)
   React.useEffect(() => {

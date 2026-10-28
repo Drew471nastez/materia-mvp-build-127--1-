@@ -7,10 +7,10 @@ import { collectionsArea } from "@/lib/physical/collections-server"
 
 /**
  * A collection's own page reads what the list reads (./page.tsx): the
- * store's collections and every product to pick from, by this creator's id,
- * through the reader the API uses (lib/physical/collections-server.ts).
+ * store's collections and products by this creator's id, through the reader
+ * the API uses (lib/physical/collections-server).
  */
-export async function loadCollectionsArea() {
+export async function loadCollectionArea() {
   const user = await pageUser()
   if (!user) return { state: "signed-out" as const }
   const creator = await creatorForRequest(user.id)

@@ -18,7 +18,7 @@
  *      with whichever row came first: a lei store's 100 lei and 20 euros read
  *      as "120 euros". Now the store's currency, each row at its own day's
  *      rate, anything no rate converts left out and counted.
- *   3. SQL part 324: the all time line leaves test sales out too, and the
+ *   3. SQL part 328: the all time line leaves test sales out too, and the
  *      refund reads have their indexes; run on a Postgres when there is one.
  *   4. Speed: the reads that do not need the orders go beside them.
  *
@@ -214,11 +214,11 @@ async function communityMoney() {
   check("a day with no rate within a week is not guessed", old.rows.length === 0 && old.left === 1, old)
 }
 
-/* ═══ 3. SQL part 324 ═════════════════════════════════════════════════════ */
+/* ═══ 3. SQL part 328 ═════════════════════════════════════════════════════ */
 
 function sqlPart() {
-  console.log("\nSQL part 324")
-  const file = "supabase/sql/run-now/324_analytics_test_sales_and_refund_reads.sql"
+  console.log("\nSQL part 328")
+  const file = "supabase/sql/run-now/328_analytics_test_sales_and_refund_reads.sql"
   const sql = read(file)
   const lines = sql.trim().split("\n")
   check("every line after the note is one whole statement", lines.slice(1).every((l) => /;\s*$/.test(l)) && lines[0].startsWith("/*") && lines[0].endsWith("*/"))
@@ -227,7 +227,7 @@ function sqlPart() {
   check("the all time line is part 61's word for word, with test sales left out", allTime === p61.replace("(p_product_id IS NULL OR o.product_id = p_product_id) )", "(p_product_id IS NULL OR o.product_id = p_product_id) AND coalesce(o.source_detail ->> 'surface', '') <> 'admin' )") && allTime !== p61)
   check("  and stays the server's alone", /REVOKE ALL ON FUNCTION public\.analytics_all_time\(uuid, uuid\) FROM PUBLIC, anon, authenticated;/.test(sql) && /GRANT EXECUTE ON FUNCTION public\.analytics_all_time\(uuid, uuid\) TO service_role;/.test(sql))
   check("the refunds of earlier orders and the ledger's refunds are read by an index", /orders_creator_refunded_at ON public\.orders \(creator_id, refunded_at\) WHERE status = 'refunded'/.test(sql) && /ledger_events_creator_refund_time ON public\.ledger_events \(creator_id, created_at\) WHERE event_type = 'refund'/.test(sql))
-  check("listed in the README and read by the after check", read("supabase/sql/run-now/README.md").includes("324_analytics_test_sales_and_refund_reads.sql") && /as p324_analytics_test_sales\b/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("listed in the README and read by the after check", read("supabase/sql/run-now/README.md").includes("328_analytics_test_sales_and_refund_reads.sql") && /as p328_analytics_test_sales\b/.test(read("supabase/sql/run-now/99_check_after.sql")))
 
   const PSQL = ["/usr/bin/psql", "/usr/lib/postgresql/16/bin/psql"].find((p) => existsSync(p))
   const host = process.env.ANALYTICS_PG_HOST

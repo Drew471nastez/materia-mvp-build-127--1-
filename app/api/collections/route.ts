@@ -8,13 +8,13 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   return physicalJson(await collectionsArea(c.db, c.creatorId))
 }
 
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

@@ -16,8 +16,8 @@
  *                          (app/(marketing)/l/[slug]/page.tsx StoreTracking).
  *                          GET /api/store/integrations.
  *   EMAIL TOOLS            Klaviyo and Omnisend, connected with a key, get
- *                          every signup from the page's forms on the next
- *                          sync. GET /api/store/integrations/marketing.
+ *                          every signup from the page's forms: a signup
+ *                          starts their sync at once (round 41). GET /api/store/integrations/marketing.
  *   YOUR OWN DOMAIN        the creator page's own domain (Settings › Domains,
  *                          purpose creator_page), which the page is served on
  *                          and its share links use. GET /api/domains.
@@ -25,13 +25,15 @@
  * Those three only read. Nothing here is a second copy of a setting.
  *
  *   SENT AS THEY SIGN UP   round 40: Mailchimp, Kit, beehiiv, Zapier, Make,
- *                          Google Sheets and a webhook belong to the page
+ *                          Google Sheets and a webhook (round 41: MailerLite,
+ *                          Brevo and Flodesk too) belong to the page
  *                          (its signups, as they happen), so they are
  *                          connected here (./page-integrations,
  *                          GET/POST /api/onepage/integrations, SQL part 315).
  */
 
 import * as React from "react"
+import { useOnePageTeam } from "@/lib/onepage/team-context"
 import { ChevronRight, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
@@ -46,10 +48,11 @@ const PAGE_TAGS = INTEGRATIONS.filter((i) => i.kind === "tracker" && i.trackerId
 /** Shown as "not set up" when the store has none: the three most asked for. */
 const SUGGESTED = new Set(["ga4", "meta_pixel", "tiktok_pixel"])
 
-function useJson<T>(url: string): T | null | undefined {
-  /* undefined while reading, null when it could not be read. */
+function useJson<T>(url: string | null): T | null | undefined {
+  /* undefined while reading, null when it could not be read. A null address reads nothing. */
   const [value, setValue] = React.useState<T | null | undefined>(undefined)
   React.useEffect(() => {
+    if (!url) return
     let live = true
     fetch(url)
       .then((r) => (r.ok ? r.json() : null))
@@ -104,14 +107,11 @@ export function OnePageIntegrations() {
 
   return (
     <div className="space-y-5" data-settings-integrations="">
-      <div>
-        <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Integrations")}</h3>
-        <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{tt("What your page is connected to. You change these in Settings, Integrations.")}</p>
-      </div>
+      {/* Round 41, the owner: "only what's necessary". Headings and rows; what each one does is on its own sheet or page. */}
+      <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{tt("Integrations")}</h3>
 
       <section className="space-y-2" aria-label={tt("Analytics and ads")}>
         <p className="text-[13px] font-medium text-[#374151]">{tt("Analytics and ads")}</p>
-        <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("These tags load on your page as well as your website.")}</p>
         {loading ? (
           <div aria-hidden className="h-[168px] animate-pulse rounded-xl bg-[#f4f4f6]" />
         ) : (
@@ -136,7 +136,6 @@ export function OnePageIntegrations() {
 
       <section className="space-y-2" aria-label={tt("Email tools")}>
         <p className="text-[13px] font-medium text-[#374151]">{tt("Email tools")}</p>
-        <p className="text-[12.5px] leading-snug text-[#6b7280]">{tt("Everyone who signs up on your page is in Emails, Subscribers. A connected tool gets them too.")}</p>
         {loading ? (
           <div aria-hidden className="h-[112px] animate-pulse rounded-xl bg-[#f4f4f6]" />
         ) : (
@@ -174,7 +173,10 @@ type DomainsAnswer = { primary?: { creator_page?: string | null }; purposes?: st
 
 /** The page's own domain, under its address in Basic info: the one it is served on, or how to connect one. */
 export function OnePageDomainRow() {
-  const answer = useJson<DomainsAnswer>("/api/domains")
+  /* Round 41: a team member is told the store's domain with the page (lib/onepage/team-context); the domains list is the owner's (Settings). */
+  const team = useOnePageTeam()
+  const fetched = useJson<DomainsAnswer>(team ? null : "/api/domains")
+  const answer: DomainsAnswer | null | undefined = team ? { primary: { creator_page: team.domain } } : fetched
   if (answer === undefined) return <div aria-hidden className="h-[60px] animate-pulse rounded-xl bg-[#f4f4f6]" />
   /* A store whose domains table cannot tell a page's domain from a website's has nowhere to connect one yet. */
   if (answer && Array.isArray(answer.purposes) && !answer.purposes.includes("creator_page")) return null

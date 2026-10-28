@@ -2772,7 +2772,7 @@ async function readThemeTexts(installId: string, paths: string[]): Promise<Recor
       const d = (await r.json()) as { files?: Record<string, string> }
       const files = d.files ?? {}
       for (const p of unique) if (typeof files[p] === "string") out[p] = files[p]
-      return Object.keys(out).length > 0 ? out : null
+      return unique.every((path) => typeof out[path] === "string") ? out : null
     } catch {
       return null
     }
@@ -2782,7 +2782,7 @@ async function readThemeTexts(installId: string, paths: string[]): Promise<Recor
   } catch {
     return null
   }
-  return Object.keys(out).length > 0 ? out : null
+  return unique.every((path) => typeof out[path] === "string") ? out : null
 }
 const ThemeChat = dynamic(() => loadThemeChat().then((m) => m.ThemeChat), { ssr: false })
 const ProjectSettings = dynamic(() => loadProjectSettings().then((m) => m.ProjectSettings), { ssr: false })
@@ -4342,7 +4342,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const alongside = afterQuietLoad.current
       afterQuietLoad.current = null
       if (alongside) startTransition(alongside)
-      return
+      return false
     }
     const data = await res.json()
     const inst: ThemeInstall = data.install
@@ -4469,6 +4469,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     afterQuietLoad.current = null
     /* A push that arrived while the canvas was moving waits until the gesture rests, then lands. */
     if (quiet) await whenCanvasRests()
+    // A push may finish loading after the creator opened another page.
+    // Its shared files still land, but its old sections must not replace that page.
+    if (quiet && currentPage !== currentPageRef.current) { alongside?.(); return }
     if (quiet && (isDirtyRef.current || savingRef.current)) {
       setSyncConflict((c) => c ?? { what: "this page", by: "GitHub" })
       if (alongside) startTransition(alongside)
@@ -4486,6 +4489,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setSettingsDraft(loadedSettings)
       setSections(loaded)
     }
+    return true
     } catch (err) {
       console.error("[editor] loadData failed:", err)
       reportLoadProblem("editor", err)
@@ -4493,6 +4497,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const alongside = afterQuietLoad.current
       afterQuietLoad.current = null
       if (alongside) startTransition(alongside)
+      return false
     } finally {
       setLoading(false)
     }
@@ -7675,8 +7680,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * builder does not add everything agents wrote last week.
    */
   const [liveBatch, setLiveBatch] = useState<LiveBatch | null>(null)
-  const handleAgentEvents = async (events: ActivityEvent[], info?: { catchUp?: boolean }) => {
+  const handleAgentEvents = async (events: ActivityEvent[], info?: { catchUp?: boolean; isCurrent?: () => boolean }) => {
     const catchUp = info?.catchUp === true
+    const isCurrent = () => info?.isCurrent?.() !== false
     let replacedHere = false
     /*
       EVERYTHING AN AGENT OR A PUSH WRITES IS A DRAFT (a section file's
@@ -7716,6 +7722,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       readThemeTexts(installId, shopifyPaths),
       folded ? Promise.resolve(null) : readThemeTexts(installId, sourcePaths),
     ])
+    if (!isCurrent()) return
     let files: Record<string, string> | null = null
     if (sourcePaths.length > 0) {
       if (folded) files = await loadStorelibSources({ hold: true })
@@ -7725,12 +7732,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const schemaFile = sourcePaths.find((p) => p.endsWith("settings_schema.json"))
     if (schemaFile && sourcePatch?.[schemaFile]) heldSchema.current = sourcePatch[schemaFile]
     const importedNow = compatInstall || (!!files && isCompatSource(files["layout/theme.storelib"] ?? "")) || isCompatSource(storelibSourcesRef.current["layout/theme.storelib"] ?? "")
-    const sourcesChanged = !!files && !sameFiles(storelibSourcesRef.current, files)
+    if (sourcePaths.length > 0 && !files) throw new Error("Could not read the changed theme sources")
+    if (shopifyPaths.length > 0 && !shopify) throw new Error("Could not read the changed imported theme files")
+    if (!isCurrent()) return
+    const landedFiles = files
     const landRemote = () => {
-      if (files) {
+      if (!isCurrent()) return
+      if (landedFiles) {
         const schema = heldSchema.current
-        storelibSourcesRef.current = files
-        setStorelibSources((prev) => (sameFiles(prev, files) ? prev : files))
+        storelibSourcesRef.current = landedFiles
+        setStorelibSources((prev) => (sameFiles(prev, landedFiles) ? prev : landedFiles))
         setThemeSchemaText((prev) => (prev === schema ? prev : schema))
       }
       if (shopifyPaths.length > 0) {
@@ -7831,7 +7842,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (replacedHere) {
       if (!isDirtyRef.current && !savingRef.current && !publishing) {
         clearHistory()
-        await loadData({ quiet: true })
+        if (await loadData({ quiet: true }) === false) throw new Error("Could not read the updated page")
       } else {
         /*
           BOTH CHANGED IT. The edit here is not saved yet and the draft under
@@ -7840,13 +7851,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         */
         setSyncConflict({ what: replacedWhat ?? "this page", by: events[events.length - 1]?.agent_name ?? who })
         changes.push({ key: "github-conflict", text: "Your unsaved edit is kept until you pick a version.", sectionType: null })
-        /* Now, not deferred: a transition waits behind scrolling, and the push looks as if it never arrived. */
+        /* Keep the canvas responsive while the files land after this gesture. */
         await whenCanvasRests()
-        landRemote(); applyIncoming(); flush()
+        if (!isCurrent()) return
+        startTransition(() => { landRemote(); applyIncoming(); flush() })
       }
     } else {
       await whenCanvasRests()
-      landRemote(); applyIncoming(); flush()
+      if (!isCurrent()) return
+      startTransition(() => { landRemote(); applyIncoming(); flush() })
     }
     void refreshSync()
   }
@@ -7914,13 +7927,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     onEvents: handleAgentEvents,
     onSyncChanged: () => void refreshSync(),
     /* Applying a line threw: the files are already saved. Read them, instead of waiting for a refresh. */
-    onStale: () => {
-      void loadStorelibSources()
+    onStale: async () => {
+      // Acknowledge activity only after the replacement files arrived. The
+      // cache and every consumer then take the same authoritative snapshot.
+      const files = await loadStorelibSources({ hold: true })
+      if (!files) throw new Error("Could not refresh theme sources")
+      let imported: Record<string, string> | null = null
       if (compatInstall) {
-        compatFilesChanged(installId)
-        setCompatFilesVersion((n) => n + 1)
+        forgetCompatFiles(installId)
+        imported = await loadCompatFiles(installId)
       }
-      if (!isDirtyRef.current && !savingRef.current && !publishing) void loadData({ quiet: true })
+      await whenCanvasRests()
+      startTransition(() => {
+        setStorelibSources(files)
+        setThemeSchemaText(heldSchema.current)
+      })
+      if (imported) {
+        patchCompatFiles(installId, imported)
+        setCompatFilesVersion((n) => n + 1)
+        setCompatPanelVersion((n) => n + 1)
+      }
+      if (!isDirtyRef.current && !savingRef.current && !publishing && await loadData({ quiet: true }) === false) throw new Error("Could not refresh the updated page")
     },
   })
   /**
@@ -10480,15 +10507,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (key === "home" || key in PAGE_META) return
     setCustomPages((prev) => (prev.some((p) => p.key === key) ? prev : [...prev, { id: key, name: title || pageTitleFromKey(key), key: key as PageKey }]))
   }, [forgetPage])
-  const reloadAiSources = useCallback(() => {
-    void loadStorelibSources()
-    /* Drop the copy read when the editor opened. Without this, the canvas asks again and is handed that copy, so a run's files show only after a full refresh. */
-    compatFilesChanged(installId)
-    /* An imported theme draws from its own files and its panel is made from its schema: both read again after a run that wrote code. */
-    if (compatInstall) {
-      setCompatFilesVersion((n) => n + 1)
-      setCompatPanelVersion((n) => n + 1)
-    }
+  const reloadAiSources = useCallback(async () => {
+    const files = await retrying(async () => {
+      const next = await loadStorelibSources({ hold: true })
+      if (!next) throw new Error("Could not refresh the AI's theme changes")
+      return next
+    }, [800, 2000]).catch((error) => { reportLoadProblem("editor", error); return null })
+    if (!files) return
+    await whenCanvasRests()
+    startTransition(() => {
+      setStorelibSources(files)
+      setThemeSchemaText(heldSchema.current)
+      /* Drop the copy read when the editor opened. Without this, the canvas asks again and is handed that copy, so a run's files show only after a full refresh. */
+      compatFilesChanged(installId)
+      /* An imported theme draws from its own files and its panel is made from its schema: both read again after a run that wrote code. */
+      if (compatInstall) {
+        setCompatFilesVersion((n) => n + 1)
+        setCompatPanelVersion((n) => n + 1)
+        setReplaceDocument((n) => n + 1)
+      }
+    })
   }, [loadStorelibSources, compatInstall, installId])
   /**
    * A SECTION FILE THE RUN HAS JUST WRITTEN, drawn now. It was compiled and
@@ -10497,10 +10535,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * file changes, so every other section keeps its compiled copy and the
    * canvas updates in place, with no reload and no flash.
    */
+  const pendingAiSources = useRef<Record<string, string>>({})
+  const aiSourceFlush = useRef<Promise<void> | null>(null)
   const aiSourceWritten = useCallback((path: string, source: string) => {
-    setStorelibSources((previous) => (previous[path] === source ? previous : { ...previous, [path]: source }))
-    /* An imported theme draws from its shopify files, not this map. Patch them as the line arrives, not after a refresh. */
-    if (path.startsWith("shopify/") && !patchCompatFiles(installId, { [path]: source })) compatFilesChanged(installId)
+    pendingAiSources.current[path] = source
+    if (aiSourceFlush.current) return
+    // A streamed run may write several files before the next frame. Fold
+    // them, and never compile a section while the canvas is being scrolled.
+    aiSourceFlush.current = whenCanvasRests().then(() => {
+      const patch = pendingAiSources.current
+      pendingAiSources.current = {}
+      aiSourceFlush.current = null
+      startTransition(() => {
+        setStorelibSources((previous) => {
+          const changed = Object.entries(patch).some(([key, text]) => previous[key] !== text)
+          return changed ? { ...previous, ...patch } : previous
+        })
+        const imported = Object.fromEntries(Object.entries(patch).filter(([key]) => key.startsWith("shopify/")))
+        if (Object.keys(imported).length) {
+          if (!patchCompatFiles(installId, imported)) compatFilesChanged(installId)
+          setCompatFilesVersion((n) => n + 1)
+        }
+      })
+    })
   }, [installId])
   /**
    * WHAT STORELIB AI IS WORKING ON, AND WHAT IT JUST CHANGED: a faint sheen

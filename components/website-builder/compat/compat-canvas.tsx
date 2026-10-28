@@ -61,6 +61,7 @@ import type { ProductCard } from "@/lib/website-builder/shop-products"
 import { setShownCompatPage } from "@/lib/website-builder/compat-shown-page"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { isLive, liveSectionNow, liveThemeNow, onLiveChange, useLiveSections, useLiveTheme } from "@/lib/website-builder/live-settings"
+import { canvasScrolling, noteCanvasScroll, whenCanvasRests } from "@/lib/website-builder/scroll-rest"
 import { reportLoadProblem } from "@/lib/website-builder/load-guard"
 import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { withPageFacts, type PageFacts } from "@/lib/storelib-theme/compat/product-facts"
@@ -501,16 +502,16 @@ export function CompatCanvas(props: CompatCanvasProps) {
   }, [installId, attempt, filesVersion])
 
   /* The theme's own words in the language previewed (its locales/fr.json), for `| t`: read once per language. */
-  const [langFiles, setLangFiles] = useState<{ lang: string; files: Record<string, string> } | null>(null)
+  const [langFiles, setLangFiles] = useState<{ lang: string; version: number; files: Record<string, string> } | null>(null)
   useEffect(() => {
-    if (!langCode || langFiles?.lang === langCode) return
+    if (!langCode || (langFiles?.lang === langCode && langFiles.version === filesVersion)) return
     let live = true
     fetch(`/api/website-builder/themes/${installId}/files?compat-locale=${encodeURIComponent(langCode)}`, { cache: "no-store" })
       .then((r) => (r.ok ? (r.json() as Promise<{ files?: Record<string, string> }>) : { files: {} }))
-      .then((d) => { if (live) setLangFiles({ lang: langCode, files: d.files ?? {} }) })
-      .catch(() => { if (live) setLangFiles({ lang: langCode, files: {} }) })
+      .then((d) => { if (live) setLangFiles({ lang: langCode, version: filesVersion, files: d.files ?? {} }) })
+      .catch(() => { if (live) setLangFiles({ lang: langCode, version: filesVersion, files: {} }) })
     return () => { live = false }
-  }, [installId, langCode, langFiles?.lang])
+  }, [installId, langCode, langFiles?.lang, langFiles?.version, filesVersion])
   const wordsFiles = langCode && langFiles?.lang === langCode ? langFiles.files : null
 
   /* Not before the install's own .storelib files are in (sourcesReady): the page is drawn from them. */
@@ -1022,7 +1023,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const run = () => drawAndPatch()
     if (isLive()) { scheduleRedraw(run); return }
     cancelRedraw()
-    runRedraw(run)
+    // Drawing Liquid and parsing a whole document are main-thread work. The
+    // file request may finish after the editor's own scroll-rest check.
+    let cancelled = false
+    void whenCanvasRests().then(() => {
+      if (!cancelled) runRedraw(run)
+    })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compatTheme, page, shape, docKey, accountPath, attempt, holdForData, props.replaceDocument, props.filesVersion, filesAt])
 
@@ -2014,6 +2021,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   /* The page being left, over the one that came forward, while it fades off it. */
   const [handover, setHandover] = useState<Slot | null>(null)
+  const pendingPromotion = useRef(new Set<number>())
   const promote = (n: number) => {
     /*
       The page that comes forward is drawn: the outline goes with it. A first
@@ -2023,6 +2031,25 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const list = slotsRef.current
     const at = list.findIndex((x) => x.n === n)
     if (at <= 0) return
+    // The page behind may have loaded while the person kept scrolling the
+    // front. Keep the front alive through that gesture, then restore the
+    // latest offset before exposing its replacement.
+    if (canvasScrolling()) {
+      if (!pendingPromotion.current.has(n)) {
+        pendingPromotion.current.add(n)
+        void whenCanvasRests().then(() => {
+          pendingPromotion.current.delete(n)
+          const current = slotsRef.current
+          const next = current.find((slot) => slot.n === n)
+          if (!next || current[0]?.n === n) return
+          const same = current[0]?.page === next.page
+          frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "scroll", top: same ? scrollY.current : 0, settle: true }, "*")
+          // The bridge acknowledges the restored offset with `settled`.
+          // Its normal handler promotes the frame after that acknowledgement.
+        })
+      }
+      return
+    }
     /* Another page: the one being left fades off it. The same page drawn again (an edit) is a cut: it looks as the one it replaces does. */
     const otherPage = list[0].key.split("|")[0] !== list[at].key.split("|")[0]
     if (paintedRef.current && otherPage && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) setHandover(list[0])
@@ -2210,10 +2237,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
           }
         } else setGhost(next)
       } else if (m.type === "scrolling" && isFront) {
+        if (typeof m.scrollY === "number") scrollY.current = m.scrollY
+        noteCanvasScroll()
         /* CANVAS_INPUT_EVENT: somebody is scrolling the canvas, and the editor's work done ahead waits (compat-section-preview.tsx watchInput). */
         window.dispatchEvent(new Event("storelib:canvas-input"))
       } else if (m.type === "scrolled" && typeof m.scrollY === "number") {
-        if (isFront) scrollY.current = m.scrollY
+        if (isFront) { scrollY.current = m.scrollY; noteCanvasScroll() }
         if (isFront) window.dispatchEvent(new Event("storelib:canvas-input"))
       } else if ((m.type === "press" || m.type === "escape") && isFront) {
         /* Round BC: a press or Escape inside the page, for what the builder has open over it (publish-panel.tsx CANVAS_PRESS_EVENT). */

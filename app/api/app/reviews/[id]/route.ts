@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { teamStoreIdFor } from "@/lib/team/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sellersReview } from "@/lib/reviews/access"
@@ -58,7 +59,7 @@ async function seller(id: string) {
     data: { user },
   } = await supabase.auth.getUser()
   const db = createAdminClient()
-  return { db, found: await sellersReview(db, id, user?.id ?? null) }
+  return { db, found: await sellersReview(db, id, user?.id ?? null, await teamStoreIdFor(user?.id ?? null, "products")) }
 }
 
 export async function PATCH(request: NextRequest, { params }: Params) {

@@ -18,7 +18,6 @@ import { isScheduledNow, scheduleLabel } from "@/lib/onepage/extra-blocks"
 import { isoFromWall, wallFromIso } from "@/lib/onepage/schedule"
 import { SCHEDULE_SLACK_MS, SCHEDULE_WAIT_CAP_MS, nextScheduleChange, scheduleWait } from "@/lib/onepage/schedule-clock"
 import { openableFileUrl, signupFileFor } from "@/lib/onepage/signup-file"
-import { BLOCK_TINTS, tintOf } from "@/components/onepage/block-tints"
 import { drawnBlocks } from "@/lib/onepage/public-shape"
 
 let passed = 0
@@ -140,17 +139,12 @@ function main() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  section("Add block: a tint for each kind")
+  section("Add block: the grey tiles again")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const ids = [...picker.matchAll(/\{ id: "(\w+)", get label\(\) \{ return tt\("[^"]+"\) \} \}/g)].map((m) => m[1])
-    check("every category has a tint", ids.length === 6 && ids.every((id) => id in BLOCK_TINTS), ids.join())
-    const washes = ["essentials", "sell", "media", "grow", "integrations"].map((id) => tintOf(id).wash)
-    check("five different washes for the five block kinds", new Set(washes).size === 5)
-    const weak = Object.entries(BLOCK_TINTS).filter(([, t]) => contrast(t.ink, t.wash) < 4.5 || contrast(t.ink, "#ffffff") < 4.5)
-    check("every ink reads as text on its wash and on white (4.5:1)", weak.length === 0, weak.map(([id, t]) => `${id} ${contrast(t.ink, t.wash).toFixed(2)}`).join(", "))
-    check("the tiles take the category's tint", /<BlockTile icon=\{entry\.icon \?\? GlyphLink\} tint=\{entry\.category\} \/>/.test(picker) && /style=\{tint \? tintTileStyle\(tint\) : undefined\}/.test(icons))
-    check("the headings and the chips carry it too", /data-picker-heading=\{id\}/.test(picker) && /dot: tintOf\(c\.id\)\.ink/.test(picker) && /data-pill-dot=""/.test(pills) && /dot\?: string/.test(pills))
+    /* Changed on purpose (round 41): the owner asked for the round 40 tints and the chips' dots to go. */
+    check("the tiles are the one light grey again, no tint", /<BlockTile icon=\{entry\.icon \?\? GlyphLink\} \/>/.test(picker) && !/tint/.test(code(icons)))
+    check("the chips carry no dot", !/data-pill-dot/.test(pills) && !/dot:/.test(code(picker)))
     check("a brand keeps its own colours on white", /<BlockTile className="bg-white shadow-\[inset_0_0_0_1px_rgba\(17,17,19,0\.08\),0_1px_2px_rgba\(17,17,19,0\.05\)\]">/.test(picker))
   }
 
@@ -238,7 +232,6 @@ function main() {
     const fresh = [
       "components/onepage/reveal.tsx",
       "components/onepage/block-remove.tsx",
-      "components/onepage/block-tints.ts",
       "components/onepage/block-settings-kit.tsx",
       "components/onepage/product-picker.tsx",
       "components/onepage/schedule-refresh.tsx",

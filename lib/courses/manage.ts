@@ -84,7 +84,8 @@ export interface Owner {
  * person must be someone who runs Learn in that community. Its files count
  * against the community creator's storage, under their folder.
  */
-export async function ownerOf(db: Db, userId: string, productId: unknown): Promise<Owner> {
+/** `teamStore`: round 41, the store a team member with Products works in (lib/team/server teamStoreIdFor); its courses are theirs to edit. Playing a lesson stays the owner's and buyers' (lib/courses/access). */
+export async function ownerOf(db: Db, userId: string, productId: unknown, teamStore: string | null = null): Promise<Owner> {
   if (!isUuid(productId)) throw new ManageError("Product not found", 404)
   const { data: product } = await db.from("products").select("id, creator_id").eq("id", productId).maybeSingle()
   if (!product) {
@@ -97,7 +98,7 @@ export async function ownerOf(db: Db, userId: string, productId: unknown): Promi
   if (!creatorId) throw new ManageError("Product not found", 404)
   const { data: creator } = await db.from("creators").select("id, user_id, subscription_plan_id").eq("id", creatorId).maybeSingle()
   const c = creator as { user_id?: string | null; subscription_plan_id?: string | null } | null
-  if (!c || c.user_id !== userId) throw new ManageError("Product not found", 404)
+  if (!c || (c.user_id !== userId && creatorId !== teamStore)) throw new ManageError("Product not found", 404)
   return { userId, creatorId, planId: c.subscription_plan_id ?? null, productId }
 }
 

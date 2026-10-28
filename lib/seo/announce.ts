@@ -23,7 +23,7 @@ import { submitToIndexNow, indexNowKey } from "./indexnow"
 type Admin = ReturnType<typeof createAdminClient>
 
 const notSpam = (handle: string | null | undefined): handle is string =>
-  !!handle && deservesIndexing({ publishedProducts: 1, handle })
+  !!handle && deservesIndexing({ handle })
 
 /**
  * The handle a creator's pages live under, or null, which every function

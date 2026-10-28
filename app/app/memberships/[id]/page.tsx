@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { creatorForRequest, profileForRequest } from "@/lib/auth/request-scope"
-import { pageUser } from "@/lib/auth/page-user"
+import { teamPageStore } from "@/lib/team/server"
+import { storeHandle } from "@/lib/team/store-handle"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadCreatorMembership } from "@/lib/memberships/creator"
 import { CreatorMembershipScreenView } from "@/components/memberships/creator-screen"
@@ -26,13 +27,22 @@ interface Props {
  */
 export default async function CreatorMembershipPage({ params, searchParams }: Props) {
   const [{ id }, query] = await Promise.all([params, searchParams])
-  const user = await pageUser()
-  if (!user) return null
-  const [creator, profile] = await Promise.all([creatorForRequest(user.id), profileForRequest(user.id)])
-  if (!creator) redirect("/app")
-  const read = await loadCreatorMembership(createAdminClient(), creator.id, id, profile?.username || creator.slug || null)
+  /* Whose store (round 41): the owner's own, or the store a team member with Products works in, with the store owner's handle. */
+  const access = await teamPageStore("products")
+  if (access.kind === "signed_out" || access.kind === "denied") return null
+  if (access.kind === "none") redirect("/app")
+  const handle = access.isOwner ? await ownHandle(access.userId) : await storeHandle(createAdminClient(), access.creatorId, access.ownerUserId)
+  if (handle === undefined) redirect("/app")
+  const read = await loadCreatorMembership(createAdminClient(), access.creatorId, id, handle)
   if (read.state === "not-found") notFound()
   if (read.state === "missing-tables") redirect("/app/memberships")
   const tab = query.tab === "members" || query.tab === "settings" || query.tab === "updates" ? query.tab : null
   return <CreatorMembershipScreenView screen={read.screen} initialTab={tab} isNew={query.new === "1"} />
+}
+
+/** The owner's own handle, as before: their username, else their store's address. undefined when they have no store. */
+async function ownHandle(userId: string): Promise<string | null | undefined> {
+  const [creator, profile] = await Promise.all([creatorForRequest(userId), profileForRequest(userId)])
+  if (!creator) return undefined
+  return profile?.username || creator.slug || null
 }

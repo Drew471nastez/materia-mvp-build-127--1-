@@ -267,6 +267,8 @@ interface SettingsFormProps {
   otherStores?: number
   /** Working in another store as a team member (lib/team): only the account's own sections, never this account's store dressed as the one they work in. */
   teamActing?: boolean
+  /** Round 41: the store's sections a team member working in the store also sees (lib/team/settings): Store details with Store settings. */
+  teamTabs?: readonly string[]
   initialTab?: TabId
 }
 
@@ -398,7 +400,7 @@ function DesktopSettingsModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], otherStores = 0, teamActing = false, initialTab = "general" }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, accountTimeZone = null, websitePublished = false, newsletter = false, website = null, onePageLive = false, sharePlatforms = [], otherStores = 0, teamActing = false, teamTabs = [], initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(currentLanguage)
@@ -516,7 +518,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const searchParams = useSearchParams()
   const addressTab = tabFromAddress(searchParams?.get("tab") ?? null, searchParams?.get("section") ?? null)
   const allowed = (tab: string | null): tab is TabId =>
-    !!tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce) && (!teamActing || TABS.find((x) => x.id === tab)?.group === "account")
+    !!tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce) && (!teamActing || TABS.find((x) => x.id === tab)?.group === "account" || teamTabs.includes(tab))
   const [activeTab, setActiveTab] = useState<TabId>(() => (allowed(addressTab) ? addressTab : TAB_IDS.includes(initialTab) && allowed(initialTab) ? initialTab : "general"))
   /*
     BELOW 1024px, PILLS (round V, the owner: "like it was before, the whole
@@ -527,7 +529,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   */
   /* The sections this account has: Shipping and Integrations only while physical commerce is on. */
   /* Every store refunds; only a store with physical products takes returns, so without them the section is Refunds. */
-  const shownTabs = TABS.filter((tab) => (!COMMERCE_TABS.has(tab.id) || physicalCommerce) && (!teamActing || tab.group === "account")).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: tt("Refunds"), line: tt("Why you refund") } : tab))
+  const shownTabs = TABS.filter((tab) => (!COMMERCE_TABS.has(tab.id) || physicalCommerce) && (!teamActing || tab.group === "account" || teamTabs.includes(tab.id))).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: tt("Refunds"), line: tt("Why you refund") } : tab))
   /* Each section's own name, from the one list (a name missing from a chain of cases used to fall through to "Domains"). */
   const labelOf = (id: TabId): string =>
     id === "general" ? t("settings.general") === "General" ? tt("Profile") : t("settings.general") :
@@ -2293,7 +2295,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {/* Settings › Store details and Checkout: every store, whatever it sells. */}
           {panelTab === "store" && (
             <StoreDetailsPanel
-              onSupportEmail={(email) => {
+              member={teamActing}
+              onSupportEmail={teamActing ? undefined : (email) => {
                 /* The same address Profile shows: kept in step, and not an unsaved change there. */
                 setSupportEmail(email)
                 initialSupportEmail.current = email

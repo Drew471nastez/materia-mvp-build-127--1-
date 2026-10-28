@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic"
  *   PUT  { productId, off: [key, …] }   set them whole, after the product is saved
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const productId = new URL(request.url).searchParams.get("productId")
   const [setup, off] = await Promise.all([loadChannels(c.db, c.creatorId), isUuid(productId) ? productOff(c.db, c.creatorId, productId) : Promise.resolve([])])
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

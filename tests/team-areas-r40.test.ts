@@ -57,11 +57,13 @@ async function main() {
   console.log("\nWhat is open")
   {
     check("OnePage and Community are open to the team now", OPEN_TO_TEAM.has("onepage") && OPEN_TO_TEAM.has("community"))
-    const closed: TeamPermission[] = ["website", "creator_pages", "products", "settings"]
-    check("the website, the creator page, products and store settings are still closed (browser writes under owner-only row level security)", closed.every((p) => !OPEN_TO_TEAM.has(p)))
+    /* Changed on purpose (round 41 team): Products and Store settings opened (tests/team-areas-r41.test.ts); the website and the creator page stay closed. */
+    const closed: TeamPermission[] = ["website", "creator_pages"]
+    check("the website, the creator page, products and store settings are still closed (browser writes under owner-only row level security)", closed.every((p) => !OPEN_TO_TEAM.has(p)) && OPEN_TO_TEAM.has("products") && OPEN_TO_TEAM.has("settings"))
     check("  and payouts and billing", !OPEN_TO_TEAM.has("payouts_billing"))
     check("an invite can now give OnePage and Community, and they are kept", same(normalizePermissions(["onepage", "community", "website"]), ["onepage", "community"]))
-    check("Content editor gives what of it is open: OnePage and Community", same(presetPermissions("content"), ["onepage", "community"]))
+    /* Changed on purpose (round 41 team): Products is open, so Content editor gives it too. */
+    check("Content editor gives what of it is open: OnePage and Community", same(presetPermissions("content"), ["onepage", "products", "community"]))
     check("Full access includes them, never money or the team", presetPermissions("full").includes("onepage") && presetPermissions("full").includes("community") && !presetPermissions("full").includes("payouts_billing") && !presetPermissions("full").includes("team"))
     check("the sidebar shows OnePage and Community to a member who has them", memberSees(["onepage"], "/app/onepage") && memberSees(["community"], "/app/community") && memberSees(["community"], "/app/community/my-club/feed") && !memberSees(["onepage"], "/app/community"))
     check("a member with only Community lands on it", homeFor(["community"]) === "/app/community" && homeFor(["onepage"]) === "/app/onepage")
@@ -113,12 +115,14 @@ async function main() {
   console.log("\nUploads go in the store's folder")
   {
     check("the owner: their own folder", uploadStoreOf(null).kind === "own")
-    check("a member with OnePage or Community: the store's", uploadStoreOf(acting(["onepage"])).kind === "store" && uploadStoreOf(acting(["community"])).kind === "store" && same(UPLOAD_AREAS, ["onepage", "community"]))
+    /* Changed on purpose (round 41 team): Products and Store settings upload pictures into the store's folder too. */
+    check("a member with OnePage or Community: the store's", uploadStoreOf(acting(["onepage"])).kind === "store" && uploadStoreOf(acting(["community"])).kind === "store" && same(UPLOAD_AREAS, ["onepage", "community", "products", "settings"]))
     check("a member without either: refused, never their own folder in its place", uploadStoreOf(acting(["orders"])).kind === "refused")
     const prepare = read("app/api/v2/upload/prepare/route.ts")
     const complete = read("app/api/v2/upload/complete/route.ts")
     check("prepare and complete ask uploadStore", /await uploadStore\(admin, user\.id\)/.test(prepare) && /await uploadStore\(admin, user\.id\)/.test(complete))
-    check("  and product files stay the owner's", /if \(isDigital && store\.kind === "store"\)/.test(prepare) && /store\.kind === "store" && assetId/.test(complete))
+    /* Changed on purpose (round 41 team): a product's file is uploaded by the owner or a member with Products (lib/team/uploads mayUploadProductFile). */
+    check("  and product files stay the owner's", /if \(isDigital && !mayUploadProductFile\(store\)\)/.test(prepare) && /assetId && !mayUploadProductFile\(store\)/.test(complete))
     const uploads = read("lib/team/uploads.ts")
     check("  the owner's lookup is the one it was", /q\.eq\("user_id", userId\)\.single\(\)/.test(uploads))
   }

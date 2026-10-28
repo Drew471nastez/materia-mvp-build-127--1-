@@ -354,9 +354,9 @@ async function main() {
 
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   const follow = read("components/website-builder/site-connections.tsx")
-  check("the builder asks what agents wrote, only while it is showing, and only while something is connected",
+  check("the builder follows activity while visible, including writers connected after opening",
     /useSiteActivity\(\{/.test(editor) && /agent-activity\?after=\$\{after\}/.test(follow) &&
-      /document\.visibilityState !== "visible"/.test(follow) && /if \(!connected\) return/.test(follow))
+      /document\.visibilityState !== "visible"/.test(follow) && /if \(!ready\) return/.test(follow) && !/if \(!connected\) return/.test(follow))
   check("the first answer is a cursor, so nothing old is replayed",
     /if \(after === null\)/.test(read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")))
   check("a new section is placed above the footer, undoably, with the arrival animation, and named",

@@ -209,5 +209,8 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "319", file: "319_team_store_areas.sql", sha256: "a2ef77929675c44f56b54b1b06fe549c04c7b9126e3b99cfbf1732ea973851f4" },
   { part: "320", file: "320_team_permissions.sql", sha256: "e9804b7c41d653dd2f00d2cd0652e01e39c4da35ce6043c86eb3e63da2053e7c" },
   { part: "321", file: "321_store_invoice_numbers.sql", sha256: "6398fbb627f85551d0bc06251ef39de14727612fd45c25d9ea7c8a3df746cc61" },
-  { part: "324", file: "324_analytics_test_sales_and_refund_reads.sql", sha256: "3e47b7b3b3825dbae0351db3dcbffa6953de9a34e531e7a9294fb73fd8e627e5" },
+  { part: "323", file: "323_onepage_integrations_more_tools.sql", sha256: "587203ab415208526b9a823367141cbb253c4a8f9b39676bb6cbca5e8870c02c" },
+  { part: "324", file: "324_onepage_integration_sends.sql", sha256: "f2685220f8adb7606dde956256f2bb1159042c3a4090eb84dfba52c52723dfa4" },
+  { part: "327", file: "327_team_products.sql", sha256: "530216cdacce417d2b693be13ebcc2ea658a32594a306ea8eaedce3fd98237fb" },
+  { part: "328", file: "328_analytics_test_sales_and_refund_reads.sql", sha256: "b103748ef74f967ec4c6ac595f71e243c3c52c570818f0b64746db21d652a5f0" },
 ]

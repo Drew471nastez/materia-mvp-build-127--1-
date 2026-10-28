@@ -18,16 +18,34 @@
  *
  * The block keeps #product-<slug> in the address while the sheet is up, so
  * Back closes it and a shared link opens it (components/onepage/product-block).
+ *
+ * ROUND 41. "Make the sheet more modern, not cut at the top by the pill-shaped
+ * drag handle": the pictures ran edge to edge right under the handle, so the
+ * handle's strip looked like it had cut the top off them. They now sit inside
+ * the sheet with their own rounded corners and room above, the handle alone
+ * on the sheet's surface over them. And what the button does is the creator's
+ * choice (lib/onepage/product-block productSheetAction): check out (with a
+ * quiet link to the full page, or not), or the full page. Before anything is
+ * paid the option is chosen and, for a product that ships, the quantity: the
+ * button says what is missing until it is (sheetBuyBlocker). A product that
+ * ships goes straight to the cart checkout with that option and quantity in
+ * it (lib/physical/cart-link physicalCheckoutHref), not to its page first.
  */
 import * as React from "react"
-import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react"
+import { ChevronLeft, ChevronRight, ExternalLink, Minus, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { shopMoneyIn } from "@/lib/store/shop-money"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { loadProductFacts, type ProductFacts } from "@/components/checkout/instant-checkout"
-import { productCheckoutUrl } from "@/lib/onepage/product-block"
+import { productCheckoutUrl, sheetBuyBlocker, sheetMaxQuantity } from "@/lib/onepage/product-block"
+import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { ProductQuestions, SizeChartPanel } from "@/components/product/size-chart-panel"
+import { pixelEvent } from "@/lib/analytics/pixels"
+
+/** The sheet's main button: lifted a pixel under a mouse (translate), lit by a layer's opacity. */
+const MAIN_BUTTON =
+  "relative isolate flex h-12 items-center justify-center overflow-hidden rounded-xl bg-[#111113] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] outline-none transition-[translate,opacity] duration-200 ease-out before:absolute before:inset-0 before:bg-white before:opacity-0 before:transition-opacity before:duration-200 hover:-translate-y-px hover:before:opacity-[0.08] active:translate-y-0 focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2"
 
 /** Under 768px the sheet; above it the window. Known before the first paint, so it never swaps on screen. */
 export function usePhoneWidth(): boolean {
@@ -59,13 +77,18 @@ export interface ProductSheetProps {
   onCheckoutLink?: (href: string) => void
   /** The OnePage to come back to from the checkout or the product page (lib/onepage/return-address). */
   back?: string | null
+  /** Round 41: the main button checks out (unset) or opens the full page. */
+  action?: "checkout" | "page"
+  /** Round 41: with checkout as the main button, a quiet link to the full page under it. */
+  pageLink?: boolean
 }
 
-export function ProductSheet({ open, onClose, warm = false, productId, title, image, priceText, ctaText, instant, onBuy, onCheckoutLink, back = null }: ProductSheetProps) {
+export function ProductSheet({ open, onClose, warm = false, productId, title, image, priceText, ctaText, instant, onBuy, onCheckoutLink, back = null, action = "checkout", pageLink = true }: ProductSheetProps) {
   const phone = usePhoneWidth()
   const [facts, setFacts] = React.useState<ProductFacts | null>(null)
   const [failed, setFailed] = React.useState<string | null>(null)
   const [variantId, setVariantId] = React.useState<string | null>(null)
+  const [quantity, setQuantity] = React.useState(1)
 
   React.useEffect(() => {
     if (!open && !warm) return
@@ -75,7 +98,8 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
       .then((f) => {
         if (!live) return
         setFacts(f)
-        setVariantId((v) => v ?? f.product.variants[0]?.id ?? null)
+        /* One option is the product: chosen for the buyer. Two or more: the buyer chooses before paying. */
+        setVariantId((v) => v ?? (f.product.variants.length === 1 ? f.product.variants[0].id : null))
       })
       .catch((e: Error) => live && setFailed(e.message))
     return () => {
@@ -84,7 +108,16 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   }, [open, warm, productId])
 
   const p = facts?.product ?? null
-  const fmt = (cents: number) => shopMoneyIn(cents, p?.currency || "usd")
+  /* Round 41: the sheet opened on its product is a product view to the store's pixels (Meta and TikTok ViewContent, GA4 view_item), once per opening. */
+  const toldView = React.useRef(false)
+  React.useEffect(() => {
+    if (!open) toldView.current = false
+    else if (p && !toldView.current) {
+      toldView.current = true
+      pixelEvent(window, "view_item", productId, { valueCents: p.priceCents, currency: p.currency })
+    }
+  }, [open, p, productId])
+  const fmt =(cents: number) => shopMoneyIn(cents, p?.currency || "usd")
   const variant = p?.variants.find((v) => v.id === variantId) ?? null
   const price = !p
     ? priceText ?? null
@@ -98,13 +131,33 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   const was = p && !variant && p.compareAtCents ? fmt(p.compareAtCents) : null
   const images = p?.images.length ? p.images : image ? [image] : []
   const owned = !!facts?.buyer && (facts.buyer.owned || (!!variant && facts.buyer.ownedVariants.includes(variant.id)))
-  const checkoutPath = p ? (p.ships ? p.pageUrl : productCheckoutUrl(p.id, variant?.id ?? null)) : null
+  const maxQuantity = p?.ships ? sheetMaxQuantity(p.maxQuantity) : 1
+  const blocker = sheetBuyBlocker({ loaded: !!p, soldOut: !!p?.soldOut, variantCount: p?.variants.length ?? 0, variantChosen: !!variant, quantity, maxQuantity })
+  /* A product that ships: the cart checkout, with the option and quantity chosen here. Anything else: its checkout. */
+  const cartPath = p?.ships && p.shopId ? physicalCheckoutHref(p.shopId, [{ productId: p.id, variantId: variant?.id ?? null, quantity }], back) : null
+  const checkoutPath = p ? (p.ships ? cartPath ?? p.pageUrl : productCheckoutUrl(p.id, variant?.id ?? null)) : null
   /* On storelib.com itself, with the way back here: one navigation, and Back lands on this OnePage. */
-  const checkoutHref = checkoutPath ? onePageOutboundHref(checkoutPath, back) : null
+  const checkoutHref = cartPath ? platformHref(cartPath) : checkoutPath ? onePageOutboundHref(checkoutPath, back) : null
   const pageHref = p?.pageUrl && p.pageUrl !== "#" ? onePageOutboundHref(p.pageUrl, back) : null
+  const free = price === "Free"
+  const label =
+    blocker === "loading"
+      ? ctaText
+      : blocker === "sold out"
+        ? "Sold out"
+        : blocker === "choose option"
+          ? "Choose an option"
+          : p?.ships
+            ? "Check out"
+            : free
+              ? "Get it free"
+              : "Buy now"
 
   const buy = (e: React.MouseEvent) => {
-    if (!p) return
+    if (!p || blocker) {
+      e.preventDefault()
+      return
+    }
     if (instant && facts?.checkout.instant && !p.ships) {
       e.preventDefault()
       onBuy(variant?.id ?? null)
@@ -130,7 +183,12 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
     >
       <div className="flex min-h-0 flex-col" data-product-sheet={productId}>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <Gallery images={images} title={title} phone={phone} />
+          {/* Inside the sheet, with room above and its own corners: the handle sits alone on the sheet over it. */}
+          {images.length ? (
+            <div className="px-4 pt-2 sm:px-5 sm:pt-5">
+              <Gallery images={images} title={title} phone={phone} />
+            </div>
+          ) : null}
           <div className="space-y-3 px-5 pb-4 pt-4 sm:px-6">
             <SheetDialogTitle className="text-[20px] font-semibold leading-snug tracking-[-0.01em] text-[#111113]">{p?.title || title}</SheetDialogTitle>
             {price ? (
@@ -162,6 +220,22 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
                 })}
               </div>
             ) : null}
+            {p?.ships && !p.soldOut ? (
+              <div className="flex items-center justify-between gap-3 pt-1" data-product-sheet-qty="">
+                <span className="text-[14px] font-medium text-[#374151]">Quantity</span>
+                <div className="flex h-10 items-center rounded-xl border border-[#e3e4e8]">
+                  <button type="button" aria-label="One fewer" onClick={() => setQuantity((q) => Math.max(1, q - 1))} disabled={quantity <= 1} className="grid h-10 w-10 place-items-center text-[#111113] transition-opacity disabled:opacity-30" data-product-sheet-qty-less="">
+                    <Minus aria-hidden className="h-4 w-4" />
+                  </button>
+                  <span className="w-8 text-center text-[15px] font-semibold tabular-nums text-[#111113]" aria-live="polite">
+                    {quantity}
+                  </span>
+                  <button type="button" aria-label="One more" onClick={() => setQuantity((q) => Math.min(maxQuantity, q + 1))} disabled={quantity >= maxQuantity} className="grid h-10 w-10 place-items-center text-[#111113] transition-opacity disabled:opacity-30" data-product-sheet-qty-more="">
+                    <Plus aria-hidden className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {failed ? <p className="text-[14px] text-[#6b7280]">{failed}</p> : null}
             {p?.descriptionHtml ? (
               <div
@@ -183,7 +257,11 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
           </div>
         </div>
         <div className="shrink-0 border-t border-[#f0f0f3] bg-white px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-5" data-product-sheet-actions="">
-          {p?.soldOut ? (
+          {failed && !p ? (
+            <p className="flex h-12 items-center justify-center rounded-xl bg-[#f4f4f6] text-[15px] font-semibold text-[#6b7280]" data-product-sheet-unavailable="">
+              Not for sale right now
+            </p>
+          ) : p?.soldOut ? (
             <p className="flex h-12 items-center justify-center rounded-xl bg-[#f4f4f6] text-[15px] font-semibold text-[#6b7280]" data-product-sheet-soldout="">
               Sold out
             </p>
@@ -191,21 +269,26 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
             <a href={platformHref(facts.buyer.library)} className="flex h-12 items-center justify-center rounded-xl bg-[#111113] text-[15px] font-semibold text-white transition-[opacity] duration-150 hover:opacity-90">
               Open in your library
             </a>
+          ) : action === "page" && pageHref ? (
+            <a href={pageHref} className={MAIN_BUTTON} data-product-sheet-buy="" data-product-sheet-action="page">
+              <span className="relative inline-flex items-center gap-1.5">
+                View full page
+                <ExternalLink aria-hidden className="h-4 w-4" />
+              </span>
+            </a>
           ) : (
             <a
               href={checkoutHref ?? "#"}
               onClick={buy}
-              aria-disabled={!p || undefined}
-              className={cn(
-                "relative isolate flex h-12 items-center justify-center overflow-hidden rounded-xl bg-[#111113] text-[15px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.18)] outline-none transition-[translate] duration-200 ease-out before:absolute before:inset-0 before:bg-white before:opacity-0 before:transition-opacity before:duration-200 hover:-translate-y-px hover:before:opacity-[0.08] active:translate-y-0 focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2",
-                !p && "pointer-events-none opacity-60",
-              )}
+              aria-disabled={blocker ? true : undefined}
+              className={cn(MAIN_BUTTON, blocker === "loading" && "pointer-events-none opacity-60", blocker === "choose option" && "opacity-50")}
               data-product-sheet-buy=""
+              data-product-sheet-action="checkout"
             >
-              <span className="relative">{p?.ships ? "Choose options" : ctaText}</span>
+              <span className="relative">{label}</span>
             </a>
           )}
-          {pageHref ? (
+          {pageHref && pageLink && action !== "page" && !(failed && !p) ? (
             <a href={pageHref} className="mt-2 flex h-10 items-center justify-center gap-1.5 text-[13.5px] font-medium text-[#6b7280] transition-colors hover:text-[#111113]" data-product-sheet-page="">
               See full page
               <ExternalLink aria-hidden className="h-3.5 w-3.5" />
@@ -229,7 +312,7 @@ function Gallery({ images, title, phone }: { images: string[]; title: string; ph
     el.scrollTo({ left: n * el.clientWidth, behavior: "smooth" })
   }
   return (
-    <div className="relative bg-[#f4f4f6]" data-product-sheet-gallery="">
+    <div className="relative overflow-hidden rounded-2xl bg-[#f4f4f6] [contain:paint]" data-product-sheet-gallery="">
       <div
         ref={ref}
         data-sheet-no-drag={images.length > 1 ? "" : undefined}

@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
  * are made here the first time, of the kind the shop said it fulfils from.
  */
 export async function GET() {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const settings = await loadSettings(c.db, c.creatorId)
   await ensureDefaultLocation(c.db, c.creatorId, MODEL_LOCATION[settings.fulfillmentModel ?? "self"])

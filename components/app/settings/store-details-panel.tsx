@@ -97,7 +97,8 @@ function Suggest({ code, onUse }: { code: string | null; onUse: (code: string) =
   )
 }
 
-export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email: string) => void }) {
+/** `member`: round 41, a team member with Store settings: the name, contact, phone and logo only (lib/team/settings); the currency, the business details and where orders ship from stay the owner's. */
+export function StoreDetailsPanel({ onSupportEmail, member = false }: { onSupportEmail?: (email: string) => void; member?: boolean }) {
   const physical = usePhysicalCommerceEnabled()
   const [data, setData] = React.useState<Loaded | null>(() => peekGet<Loaded>("/api/store/settings"))
   const [loadError, setLoadError] = React.useState<string | null>(null)
@@ -107,14 +108,14 @@ export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email:
 
   React.useEffect(() => {
     void api<Loaded>("/api/store/settings").then((r) => (r.ok ? setData(r.data) : setLoadError(r.error)))
-    if (physical) {
+    if (physical && !member) {
       void api<{ settings: { defaultLocationId: string | null }; locations: Location[] }>("/api/physical/settings").then((r) => {
         if (!r.ok) return
         setLocations(r.data.locations)
         setDefaultLocation(r.data.settings.defaultLocationId ?? "")
       })
     }
-  }, [physical])
+  }, [physical, member])
 
   if (loadError && !data) return <Notice>{loadError}</Notice>
   if (!data) {
@@ -133,9 +134,9 @@ export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email:
         setData((d) => (d ? { ...d, settings: s, supportEmail: email } : d))
         onSupportEmail?.(email ?? "")
       }} />
-      <CurrencyLink />
-      <Business data={data} onSaved={(s) => setData((d) => (d ? { ...d, settings: s } : d))} />
-      {physical ? <OrdersFrom locations={locations} value={defaultLocation} onSaved={setDefaultLocation} /> : null}
+      {member ? null : <CurrencyLink />}
+      {member ? null : <Business data={data} onSaved={(s) => setData((d) => (d ? { ...d, settings: s } : d))} />}
+      {physical && !member ? <OrdersFrom locations={locations} value={defaultLocation} onSaved={setDefaultLocation} /> : null}
     </div>
   )
 }

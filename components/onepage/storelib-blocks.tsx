@@ -39,6 +39,8 @@
  */
 
 import * as React from "react"
+import { buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
+import { teamStoreForProducts } from "@/lib/onepage/team-context"
 import { Check, ChevronRight, Copy, Loader2, Play, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -49,6 +51,7 @@ import { usePageMoney } from "@/components/platform/price-currency"
 import { createClient } from "@/lib/supabase/client"
 import { platformHref } from "@/lib/onepage/return-address"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
+import { pixelLead } from "@/lib/analytics/pixels"
 import { tt } from "@/lib/i18n/text"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import { GlyphEmail, GlyphProduct, GlyphSocial, GlyphStore, GlyphTestimonials, type Glyph } from "@/components/onepage/block-icons"
@@ -94,6 +97,8 @@ export interface StorelibBlockLook {
   sellerId?: string | null
   onepageId?: string | null
   button: React.CSSProperties
+  /** Round 41: inside a group or a carousel, where a button keeps still. */
+  still?: boolean
 }
 
 const k = (scale: Scale) => (scale === "small" ? 0.8 : 1)
@@ -184,7 +189,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
       {list ? (
         <div className="flex flex-col" style={{ gap: px(8, look.scale) }}>
           {items.map((item) => (
-            <a key={item.id} href={platformHref(item.href)} className="flex w-full items-center no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, borderRadius: radius, padding: px(8, look.scale), gap: px(12, look.scale) }}>
+            <a key={item.id} href={platformHref(item.href)} className="op-card flex w-full items-center no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, borderRadius: radius, padding: px(8, look.scale), gap: px(12, look.scale) }}>
               <span className="relative shrink-0 overflow-hidden bg-black/10" style={{ width: px(52, look.scale), height: px(52, look.scale), borderRadius: Math.max(radius - 6, 6) }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
@@ -203,7 +208,7 @@ function ShelfView({ block, look }: { block: OnePageBlock; look: StorelibBlockLo
       ) : (
         <div className="-mx-1 flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" style={{ gap: px(10, look.scale) }}>
           {items.map((item) => (
-            <a key={item.id} href={platformHref(item.href)} className="flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: px(158, look.scale), borderRadius: radius, padding: px(6, look.scale) }}>
+            <a key={item.id} href={platformHref(item.href)} className="op-card flex shrink-0 snap-start flex-col no-underline transition-[scale] duration-150 active:scale-[0.99]" style={{ ...look.button, width: px(158, look.scale), borderRadius: radius, padding: px(6, look.scale) }}>
               <span className="relative block w-full overflow-hidden bg-black/10" style={{ aspectRatio: "1 / 1", borderRadius: Math.max(radius - 4, 6) }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {item.image ? <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : null}
@@ -306,6 +311,7 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
 
   const image = data.image_url || (kind === "download" ? data.product_thumbnail : null) || null
   const button = (data.button_text || "").trim() || tt(leadMagnetButton(kind))
+  const press = pressableProps(look.theme, look.still)
   const radius = radiusOf(look.theme)
   const line = data.description?.trim() || (kind === "discount" && data.coupon_label ? tt("{value} with your email", { value: data.coupon_label }) : kind === "download" && data.product_title ? data.product_title : null)
 
@@ -351,6 +357,8 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
       if (!res.ok) throw new Error(typeof out?.error === "string" ? out.error : tt("That did not work. Try again."))
       const result: MagnetDone = { code: typeof out.code === "string" ? out.code : null, ended: out.ended === true, downloadLink: typeof out.downloadLink === "string" ? out.downloadLink : null }
       setDone(result)
+      /* Round 41: the store's pixels hear the signup (lib/analytics/pixels pixelLead). */
+      pixelLead(window, { form: "lead_magnet", eventId: typeof out.lead_id === "string" ? out.lead_id : null })
       try {
         window.localStorage.setItem(storeKey, JSON.stringify(result))
       } catch {
@@ -378,8 +386,11 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
         type="button"
         data-onepage-magnet={kind}
         onClick={() => setOpen(true)}
-        className="flex w-full items-center text-left transition-[scale] duration-150 active:scale-[0.99]"
-        style={{ ...look.button, borderRadius: radius, padding: px(10, look.scale), gap: px(12, look.scale) }}
+        /* Round 41: the page's button, its hover and size too (lib/onepage/block-look). */
+        data-hover={press["data-hover"]}
+        data-shadow={press["data-shadow"]}
+        className={cn(press.className, "flex w-full items-center text-left")}
+        style={{ ...press.style, borderRadius: radius, padding: px(10 * buttonPadScale(look.theme), look.scale), gap: px(12, look.scale) }}
       >
         {image ? (
           <span className="relative shrink-0 overflow-hidden bg-black/10" style={{ width: px(56, look.scale), height: px(56, look.scale), borderRadius: Math.max(radius - 6, 6) }}>
@@ -498,7 +509,7 @@ function PostSlide({ item, look }: { item: SocialPostItem; look: StorelibBlockLo
                 <SocialIcon platform={item.kind} size={28} color="#ffffff" />
               </span>
             )}
-            <span className="relative grid place-items-center rounded-full bg-black/60 text-white transition-transform duration-150 group-active:scale-95" style={{ width: px(46, look.scale), height: px(46, look.scale) }}>
+            <span className="relative grid place-items-center rounded-full bg-black/60 text-white transition-[scale] duration-150 group-active:scale-95" style={{ width: px(46, look.scale), height: px(46, look.scale) }}>
               <Play aria-hidden fill="currentColor" style={{ width: px(18, look.scale), height: px(18, look.scale), marginLeft: px(2, look.scale) }} />
             </span>
           </button>
@@ -758,7 +769,9 @@ async function loadFreeProducts(): Promise<FreeProduct[]> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  /* Round 41: a team member lists the store's free products (lib/onepage/team-context), never their own account's. */
+  const teamStore = teamStoreForProducts()
+  const { data: creator } = teamStore ? { data: { id: teamStore } } : await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return []
   const { data } = await supabase
     .from("products")
