@@ -112,7 +112,7 @@ createServer(async (req, res) => {
 }).listen(0, "127.0.0.1", function (this: any) { console.log("PORT " + this.address().port) })
 `,
 )
-const server = spawn("npx", ["tsx", join(out, "serve.ts")], { cwd: root, env: { ...process.env, NODE_OPTIONS: "--conditions=react-server" }, stdio: ["ignore", "pipe", "inherit"] })
+const server = spawn("npx", ["tsx", join(out, "serve.ts")], { cwd: root, env: { ...process.env, NODE_OPTIONS: "--conditions=react-server" }, stdio: ["ignore", "pipe", "inherit"], detached: true })
 const port = await new Promise((resolve, reject) => {
   let buf = ""
   server.stdout.on("data", (c) => {
@@ -181,7 +181,8 @@ try {
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "storelib-newsletter.png") })
 } finally {
   await browser.close()
-  server.kill()
+  /* The whole group: npx's child node is the server. */
+  try { process.kill(-server.pid, "SIGTERM") } catch { server.kill() }
   rmSync(out, { recursive: true, force: true })
 }
 console.log(failed ? `\n${failed} failed` : "\nall measured")

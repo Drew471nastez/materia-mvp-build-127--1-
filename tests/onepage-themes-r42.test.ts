@@ -56,7 +56,7 @@ async function main() {
 
   console.log("\nA theme shows products its own way, and what a person picked stays")
   check("missing, or anything unknown, is each block's own", themeProductLayoutOf({}) === "own" && themeProductLayoutOf(null) === "own" && themeProductLayoutOf({ product_layout: "x" }) === "own")
-  check("an existing page is drawn exactly as before", productLayoutOf({ style: "callout" }, {}) === "callout" && productLayoutOf({ style: "side" } as never, { block_layout: "grid" }) === "side")
+  check("an existing page is drawn exactly as before", productLayoutOf({ style: "callout" }, {}) === "callout" && productLayoutOf({ style: "side" } as never, { block_layout: "grid" } as never) === "side")
   check("Grid draws a block left as the Callout as a tile, Rows as a row", productLayoutOf({ style: "callout" }, { product_layout: "grid" }) === "tile" && productLayoutOf({ style: "callout" }, { product_layout: "rows" }) === "row")
   check("a block with no layout saved follows the theme too", themedProductStyle({ product_layout: "rows" }, {}) === "row")
   check("a layout the block chose stays", productLayoutOf({ style: "overlay" } as never, { product_layout: "grid" }) === "overlay")
