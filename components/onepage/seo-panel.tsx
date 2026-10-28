@@ -44,6 +44,7 @@ import {
 import { descriptionSourceNote } from "@/lib/onepage/seo-description"
 import { answersForBlocks, productIdsInBlocks, resolveProductBlocks, type ProductAnswers, type ProductsDb } from "@/lib/onepage/live-products"
 import { ShareCardArt } from "@/components/onepage/share-card"
+import { FilesLibraryChooser, LibraryButton } from "@/components/onepage/library-pick"
 import { useOwnerProfile } from "@/components/onepage/live-preview"
 import { createClient } from "@/lib/supabase/client"
 import { secondaryDepth } from "@/components/ui/depth-button"
@@ -213,6 +214,8 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
   const [uploading, setUploading] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
   const [showSocial, setShowSocial] = useState(false)
+  /* "Your files" for the custom share picture (components/onepage/library-pick). */
+  const [choosing, setChoosing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cropRef = useRef<HTMLDivElement>(null)
 
@@ -490,6 +493,7 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
                 {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 {uploading ? tt("Uploading") : image.customUrl ? tt("Replace") : tt("Upload picture")}
               </button>
+              {!uploading ? <LibraryButton onClick={() => setChoosing(true)} /> : null}
               {image.customUrl && !uploading ? (
                 <button
                   type="button"
@@ -516,6 +520,16 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
           onChange={(e) => {
             void handleImageUpload(e.target.files?.[0])
             e.target.value = ""
+          }}
+        />
+        {/* A picture already in Files is used where it is: written the way an upload is, at the centre. */}
+        <FilesLibraryChooser
+          open={choosing}
+          onClose={() => setChoosing(false)}
+          selectedUrl={image.customUrl}
+          onPick={(url) => {
+            setImageError(null)
+            void writeImage({ social_image_url: url, social_image_position_x: 50, social_image_position_y: 50 }, "custom")
           }}
         />
       </figure>

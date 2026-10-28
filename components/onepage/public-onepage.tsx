@@ -48,6 +48,8 @@ import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
+import { PosterVideo } from "@/components/onepage/poster-video"
+import { HERO_FADE_MASK, videoPoster } from "@/lib/onepage/poster-video"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
@@ -88,79 +90,46 @@ function wallpaperVideoStyle(theme: unknown, base: React.CSSProperties): React.C
   return { ...base, right: "auto", bottom: "auto", ...(framed as React.CSSProperties), position: base.position ?? "absolute" }
 }
 
+/*
+  THE PROFILE VIDEO, FROM ITS OWN FIRST FRAME (round 40). This drew the
+  profile photo blurred and scaled under the video, and the video blurred,
+  scaled and see-through, then let both transition into each other: two
+  different pictures blended for half a second ("they morph and interlace").
+  It also gave the video z-index 1 with nothing to contain it, which put it
+  over the hero's name, bio and social row. It is components/onepage/
+  poster-video now: the poster frame in the video's own box, the video
+  faded in over it on `playing`, opacity only, in its own stacking context.
+  The photo is only the still for a visitor who asked for reduced motion or
+  less data, or when the video will not play.
+*/
 function SmoothAvatarVideo({
   videoUrl,
   imageUrl,
+  poster,
   alt,
-  videoClassName,
-  imageClassName,
   videoStyle,
   imageStyle,
+  priority,
 }: {
   videoUrl: string
   imageUrl?: string | null
+  /** The video's first frame, saved with it (lib/onepage/poster-video). */
+  poster?: string | null
   alt: string
-  videoClassName?: string
-  imageClassName?: string
   videoStyle?: React.CSSProperties
   imageStyle?: React.CSSProperties
+  priority?: boolean
 }) {
-  const [isReady, setIsReady] = useState(false)
-  const [hasError, setHasError] = useState(false)
-
-  const markReady = useCallback(() => {
-    setIsReady(true)
-  }, [])
-
-  useEffect(() => {
-    setIsReady(false)
-    setHasError(false)
-  }, [videoUrl])
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsReady(true)
-    }, 1200)
-
-    return () => clearTimeout(timer)
-  }, [videoUrl])
-
   return (
-    <>
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={alt}
-          className={cn(
-            "absolute inset-0 w-full h-full object-cover scale-105 transition-all duration-500",
-            hasError ? "opacity-100 blur-0" : isReady ? "opacity-0 blur-0" : "opacity-100 blur-[2px]",
-            imageClassName,
-          )}
-          style={imageStyle}
-        />
-      ) : (
-        <div className={cn("absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-white/30 animate-pulse transition-opacity duration-500", isReady ? "opacity-0" : "opacity-100")} />
-      )}
-      {!hasError && (
-        <video
-          src={videoUrl}
-          className={cn(
-            "relative z-[1] w-full h-full object-cover transition-all duration-500",
-            isReady ? "opacity-100 blur-0 scale-100" : "opacity-65 blur-[5px] scale-[1.05] saturate-125",
-            videoClassName,
-          )}
-          style={videoStyle}
-          onLoadedData={markReady}
-          onCanPlay={markReady}
-          onPlaying={markReady}
-          onError={() => setHasError(true)}
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
-      )}
-    </>
+    <PosterVideo
+      src={videoUrl}
+      poster={poster}
+      fallback={imageUrl}
+      alt={alt}
+      mediaStyle={videoStyle}
+      fallbackStyle={imageStyle}
+      priority={priority}
+    />
   )
 }
 
@@ -1837,7 +1806,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             /* Product tiles that follow one another, two to a row (lib/onepage/product-block pairProductTiles). */
             if ("tiles" in item) {
               return (
-                <div key={item.key} className={cn("grid w-full gap-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1", animClass)} style={animStyle} data-product-pair="">
+                <div key={item.key} className={cn("grid w-full gap-3", item.tiles.length > 1 ? "grid-cols-2" : "grid-cols-1", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined} data-product-pair="">
                   {item.tiles.map((block) => (
                     <div key={block.id} className="min-w-0" data-sensitive-label={sensitiveLabel(block)}>
                       <PublicBlockRenderer
@@ -1858,7 +1827,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             const block = item
             if (inEditorPreview && isIncompleteLink(block)) {
               return (
-                <div key={block.id} className={cn("w-full", animClass)} style={animStyle}>
+                <div key={block.id} className={cn("w-full", animClass)} style={animStyle} data-onepage-enter={animClass ? "" : undefined}>
                   <IncompleteLinkPlaceholder label={(block.data as LinkButtonBlockData)?.label} theme={safeTheme} />
                 </div>
               )
@@ -1868,6 +1837,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 key={block.id}
                 className={cn("w-full", animClass)}
                 style={animStyle}
+                data-onepage-enter={animClass ? "" : undefined}
                 data-sensitive-label={sensitiveLabel(block)}
               >
               <PublicBlockRenderer
@@ -3366,18 +3336,36 @@ function PublicImageCarousel({
 
   useEffect(() => () => { if (rafRef.current !== null) cancelAnimationFrame(rafRef.current) }, [])
 
+  /*
+    AUTOPLAY ONLY WHILE SOMEONE CAN SEE IT (round 40). It advanced on a
+    timer whatever the page was doing: off screen, in a background tab, and
+    for a visitor who asked for reduced motion, which is the one case
+    autoplay must not move. Now it waits while the slider is out of view
+    or the tab is hidden, and never runs with reduced motion.
+  */
+  const [inView, setInView] = useState(true)
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el || !autoplay || typeof IntersectionObserver !== "function") return
+    const io = new IntersectionObserver((entries) => setInView(entries.some((e) => e.isIntersecting)), { threshold: 0.35 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [autoplay])
+
   // Auto-advance slides
   useEffect(() => {
-    if (!autoplay || isHovered || images.length <= 1) return
+    if (!autoplay || isHovered || !inView || images.length <= 1) return
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     const interval = setInterval(() => {
       if (Date.now() < heldUntilRef.current) return
+      if (typeof document !== "undefined" && document.hidden) return
       const el = scrollerRef.current
       if (!el) return
       const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 2
       goToSlide(atEnd ? 0 : currentIndex + 1)
     }, 5000)
     return () => clearInterval(interval)
-  }, [autoplay, isHovered, images.length, currentIndex, goToSlide])
+  }, [autoplay, isHovered, inView, images.length, currentIndex, goToSlide])
 
   const hold = useCallback(() => { heldUntilRef.current = Date.now() + 3000 }, [])
 
@@ -3728,77 +3716,60 @@ function PublicBlockRenderer({
       const data = (block.data || {}) as HeaderBlockData
       const hasVideo = !!profile.avatar_video_url
 
-      // Hero layout with SMOOTH fade using mask
+      // Hero layout: the picture fades into the page itself (a mask), so any wallpaper under it, a pattern included, carries on
       if (heroHeaderShown(theme as any, profile)) {
-        // For gradient backgrounds, use mask-image for seamless fade
-        const isGradientBg = theme.background_type === "gradient"
-        const fadeColor = getGradientBottomColor()
-
         // Desktop: +10% taller (14/11 vs old 7/5), Mobile: +20% taller (10/9 vs old 4/3)
         const aspectRatio = isDesktop ? "14/11" : "10/9"
         const heroMargin = isDesktop ? "-mx-7 -mt-0" : "-mx-5 -mt-8"
         const heroWidth = isDesktop ? "w-[calc(100%+56px)]" : "w-[calc(100%+40px)]"
+        const heroPosition = { objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }
 
         return (
-          <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)}>
-            <div className="relative w-full" style={{ aspectRatio, backgroundColor: theme.background_color || '#e5e7eb' }}>
+          <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)} data-hero-header="">
+            {/*
+              THE PICTURE IS MASKED, NOT PAINTED OVER (round 40). The page
+              colour used to be laid over its bottom, which on a pattern is a
+              flat band where the pattern stops, so Hero was switched off for
+              patterns. A mask fades the picture itself, and whatever the
+              page has under it shows through. A box of fixed shape, in its
+              own stacking context, so a video in it can neither move the
+              page nor be drawn over the name and the links.
+            */}
+            <div
+              className="relative isolate w-full overflow-hidden"
+              data-hero-media={hasVideo ? "video" : "image"}
+              style={{ aspectRatio, maskImage: HERO_FADE_MASK, WebkitMaskImage: HERO_FADE_MASK, backgroundColor: `color-mix(in srgb, ${theme.text_color || "#000000"} 6%, transparent)` }}
+            >
               {hasVideo ? (
                 <SmoothAvatarVideo
                   videoUrl={profile.avatar_video_url!}
                   imageUrl={onePageImageSrc(profile.avatar_url, ONEPAGE_COLUMN_PX)}
+                  poster={videoPoster(profile.avatar_video_crop)}
                   alt={profile.title || "Avatar"}
-                                    videoStyle={{
-                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
-                  }}
-                  imageStyle={{
-                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
-                  }}
+                  videoStyle={heroPosition}
+                  imageStyle={heroPosition}
+                  priority
                 />
               ) : (
                 <img
                   src={onePageImageSrc(profile.avatar_url, ONEPAGE_COLUMN_PX) || "/placeholder.svg"}
                   alt={profile.title || ""}
-                  className="w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover"
                   onError={(e) => { e.currentTarget.style.display = 'none' }}
                   style={{
                     imageRendering: "auto",
-                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
+                    ...heroPosition,
                   }}
                   loading="eager"
                   fetchPriority="high"
                   decoding="async"
                 />
               )}
-              {/* Smooth gradient fade overlay using CSS mask for gradient backgrounds */}
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: isGradientBg ? theme.background_gradient : fadeColor,
-                  maskImage: "linear-gradient(to bottom, transparent 0%, transparent 40%, black 100%)",
-                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, transparent 40%, black 100%)",
-                }}
-              />
-              {/* Additional soft fade for non-gradient backgrounds */}
-              {!isGradientBg && (
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    background: `linear-gradient(to bottom,
-                      transparent 0%,
-                      transparent 50%,
-                      ${fadeColor}33 60%,
-                      ${fadeColor}66 70%,
-                      ${fadeColor}99 80%,
-                      ${fadeColor}cc 90%,
-                      ${fadeColor} 100%
-                    )`,
-                  }}
-                />
-              )}
             </div>
+            {/* Over the faded end of the picture, where the page's own wallpaper already shows: always on top of the media. */}
             <div
               className={cn(
-                "absolute left-0 right-0 text-center px-6",
+                "absolute left-0 right-0 z-[1] text-center px-6",
                 isDesktop ? "bottom-8" : "bottom-4 sm:bottom-6",
               )}
             >
@@ -3940,9 +3911,10 @@ function PublicBlockRenderer({
                     <SmoothAvatarVideo
                       videoUrl={profile.avatar_video_url!}
                       imageUrl={onePageImageSrc(profile.avatar_url, 160)}
+                      poster={videoPoster(profile.avatar_video_crop)}
                       alt={profile.title || "Avatar"}
                       imageStyle={{
-                        transform: `translateY(${(theme as any).avatar_offset_y || 0}px) scale(1.05)`,
+                        translate: `0 ${(theme as any).avatar_offset_y || 0}px`,
                       }}
                       /* The square the creator framed, exactly (lib/onepage/media-crop); a crop saved before round 11 is drawn the way it always was. */
                       videoStyle={croppedMediaStyle(profile.avatar_video_crop) as React.CSSProperties | undefined}
@@ -4077,6 +4049,8 @@ function PublicBlockRenderer({
         <div
           className={cn(
             "flex items-center justify-center gap-2.5 flex-wrap",
+            /* Pulled up onto the hero, so it is drawn (and pressed) above the hero's box, not under it. */
+            isHeroLayout && "relative z-[1]",
             !hasCustomPadding && isHeroLayout && "md:mt-[-20px] md:mb-7"
           )}
           style={{
@@ -4811,8 +4785,9 @@ function PublicBlockRenderer({
     case "image": {
       const data = (block.data || { image_url: "" }) as ImageBlockData
       // Get images array (support both legacy single image and new multi-image)
-      const images = data.images || (data.image_url ? [{ id: '1', image_url: data.image_url, alt_text: data.alt_text, title: '', link_url: data.link_url }] : [])
-      if (images.length === 0 || !images[0]?.image_url) return null
+      /* Only pictures that have an address: a row just added in the editor (or one whose upload was stopped) is not a blank slide or a placeholder on the page. */
+      const images = (data.images || (data.image_url ? [{ id: '1', image_url: data.image_url, alt_text: data.alt_text, title: '', link_url: data.link_url }] : [])).filter((img) => !!img?.image_url)
+      if (images.length === 0) return null
 
       // Get border radius value
       const borderRadiusMap: Record<string, string> = {
@@ -4847,6 +4822,9 @@ function PublicBlockRenderer({
               <img
                 src={onePageImageSrc(img.image_url, ONEPAGE_COLUMN_PX) || "/placeholder.svg"}
                 alt={img.alt_text || ""}
+                /* Its own size when it was saved with one (round 40): the box is reserved before the picture arrives, so nothing below it moves. */
+                width={(img as { width?: number }).width || undefined}
+                height={(img as { height?: number }).height || undefined}
                 className={cn(
                   "w-full",
                   aspectRatioClass ? "h-full" : "h-auto",

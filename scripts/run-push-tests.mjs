@@ -683,6 +683,8 @@ const SUITES = [
   "tests/onepage-motion-r11.test.ts",
   /* Round 11: + Add, the Add block sheet's open, Storelib's pills for its chips, brand marks, the embeds and their frame hosts, the social sheet's close and keyboard, Choose icon (scripts/check-onepage-addblock-r11.mjs measures them). */
   "tests/onepage-addblock-r11.test.ts",
+  /* Round 40: the Header pencil, Hero with a video or a pattern, the video from its first frame, uploads and Your files, compact image rows, carousels, a return without a flash. */
+  "tests/onepage-media-r40.test.ts",
   "tests/own-section-html.test.ts",
   "tests/website-builder-api.test.ts",
   "tests/security-scan.test.ts",

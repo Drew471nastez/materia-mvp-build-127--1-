@@ -268,6 +268,9 @@ export interface ImageItem {
   alt_text?: string
   title?: string
   link_url?: string | null
+  /** The picture's own size, saved with it from round 40 so the page reserves its box before it loads. */
+  width?: number
+  height?: number
 }
 
 export type ImageCarouselViewType = "1" | "1.3" | "1.5" | "2"
