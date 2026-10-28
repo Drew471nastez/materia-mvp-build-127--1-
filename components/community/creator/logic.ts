@@ -677,7 +677,8 @@ export function overviewFigures(
     ...(sells
       ? [
           { label: tt("Paid members"), value: n(f.paidMembers), foot: f.cancellations30d > 0 ? tt("{n, plural, one {# cancellation} other {# cancellations}} in 30 days", { n: f.cancellations30d }) : undefined },
-          { label: tt("Monthly revenue"), value: money(f.mrrCents, f.currency), foot: tt("From active memberships"), href: head.can.view_analytics ? `${base}/analytics` : undefined },
+          /* Round 41: called what it is, MRR, a level and not money received; Analytics shows the payments beside it. */
+          { label: tt("MRR"), value: money(f.mrrCents, f.currency), foot: tt("Yearly plans counted monthly"), href: head.can.view_analytics ? `${base}/analytics` : undefined },
         ]
       : [{ label: tt("Posts this week"), value: n(f.posts7d), foot: tt("{n, plural, one {# comment} other {# comments}}", { n: f.comments7d }), href: head.can.moderate_content ? `${base}/feed` : undefined }]),
   ]

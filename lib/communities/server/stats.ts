@@ -29,7 +29,8 @@ import "server-only"
  * there were at its start (active now, plus cancelled in it, minus started
  * in it). With nothing at the start there is no rate, never a made up one.
  */
-import { monthlyValue } from "@/lib/memberships/state"
+import { mrrAt } from "../membership-money"
+import { communitySellingProducts, membershipsOf } from "./membership-money"
 import { MEMBER_SOURCES } from "../types"
 import type { EventMoneyStats, JoinStats, MoneyAndGrowth, RevenueStats } from "@/components/community/creator/view-types"
 
@@ -47,34 +48,16 @@ async function headCount(q: PromiseLike<{ count: number | null; error: { code?: 
   return error ? 0 : (count ?? 0)
 }
 
-/** The product ids that sell this community: recurring tiers (memberships) and one time ones (orders). */
+/** The product ids that sell this community: the same set its Overview and Analytics read (./membership-money). */
 async function sellingProducts(db: Db, communityId: string): Promise<{ recurring: string[]; all: string[] }> {
-  const { data } = await db.from("community_tiers").select("product_id, billing").eq("community_id", communityId).eq("kind", "paid").limit(50)
-  const rows = ((data as { product_id: string | null; billing: string | null }[] | null) ?? []).filter((t) => t.product_id)
-  const recurring = rows.filter((t) => t.billing === "recurring").map((t) => t.product_id as string)
-  return { recurring, all: rows.map((t) => t.product_id as string) }
+  const p = await communitySellingProducts(db, communityId)
+  return { recurring: p.recurring, all: p.all }
 }
 
+/* Round 41: MRR by the one rule (../membership-money.ts): a free trial was counted as paying here, and nowhere else. */
 async function mrrOf(db: Db, productIds: string[]): Promise<{ cents: number; currency: string; active: number }> {
-  let cents = 0
-  let active = 0
-  let currency = "usd"
-  let after: string | null = null
-  for (let page = 0; page < MAX_PAGES; page++) {
-    let q = db.from("memberships").select("id, status, billing_interval, amount_cents, currency").in("product_id", productIds).in("status", ["active", "past_due", "trialing"])
-    if (after) q = q.gt("id", after)
-    const { data, error } = await q.order("id", { ascending: true }).limit(PAGE)
-    if (error) break
-    const rows = (data as { id: string; status: string; billing_interval: string; amount_cents: number; currency: string | null }[] | null) ?? []
-    for (const m of rows) {
-      cents += monthlyValue(m)
-      active += 1
-    }
-    if (rows[0]?.currency) currency = rows[0].currency
-    if (rows.length < PAGE) break
-    after = rows[rows.length - 1].id
-  }
-  return { cents, currency, active }
+  const m = mrrAt((await membershipsOf(db, productIds, { open: true })) ?? [], Date.now())
+  return { cents: m.cents, currency: m.currency, active: m.paying }
 }
 
 /** Refunded orders of the products that sell it, in the period: the fallback while M's refundsFor is not there. */

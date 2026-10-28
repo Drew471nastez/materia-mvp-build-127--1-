@@ -28,7 +28,8 @@ import { communitiesEnabled } from "../flag"
 import { pageUser } from "@/lib/auth/page-user"
 import { creatorForRequest } from "@/lib/auth/request-scope"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { monthlyValue } from "@/lib/memberships/state"
+import { mrrAt } from "../membership-money"
+import { communitySellingProducts, membershipsOf } from "./membership-money"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { communityCategoryId } from "@/lib/explore/communities-mode"
 import { queueCommunityFanout } from "@/lib/notifications/fanout"
@@ -104,7 +105,7 @@ import { inviteCount } from "./invites"
 import { slugHeldByAnother } from "./slug-history"
 import { openReportCount, peopleOf } from "./moderation"
 import { overviewActivity } from "./overview-activity"
-import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
+import { createPaidTier, loadTiers, pickableProducts, syncTierProducts } from "./tiers"
 import { teamStaffContext } from "./team-page"
 import { TEAM_COMMUNITY_ROLE } from "./team"
 import { teamStoreForRequest } from "@/lib/team/server"
@@ -385,7 +386,8 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
     const shown = list.filter((c) => c.access === "paid" && may(c, "view_analytics"))
     await Promise.all(
       shown.map(async (c) => {
-        const recurring = tierRows.filter((t) => t.community_id === c.id && t.billing === "recurring" && t.product_id).map((t) => t.product_id as string)
+        /* Round 41: the same products the community's Overview and Analytics count, archived tiers and products made for it too. */
+        const { recurring } = await communitySellingProducts(db, c.id)
         mrr.set(c.id, await monthlyRevenue(db, recurring))
       }),
     )
@@ -490,24 +492,10 @@ async function count(q: PromiseLike<{ count: number | null; error: unknown }>): 
   return error ? 0 : (n ?? 0)
 }
 
-/** Monthly recurring revenue from the memberships that sell this community, a page of 1000 at a time. */
+/** Monthly recurring revenue of the memberships that sell this community, by the one rule (../membership-money.ts). */
 async function monthlyRevenue(db: Db, productIds: string[]): Promise<{ cents: number; currency: string }> {
-  if (productIds.length === 0) return { cents: 0, currency: "usd" }
-  let cents = 0
-  let currency = "usd"
-  let after: string | null = null
-  for (let page = 0; page < 50; page++) {
-    let q = db.from("memberships").select("id, status, billing_interval, amount_cents, currency").in("product_id", productIds).in("status", ["active", "past_due"])
-    if (after) q = q.gt("id", after)
-    const { data, error } = await q.order("id", { ascending: true }).limit(1000)
-    if (error) break
-    const rows = (data as { id: string; status: string; billing_interval: string; amount_cents: number; currency: string | null }[] | null) ?? []
-    for (const m of rows) cents += monthlyValue(m)
-    if (rows[0]?.currency) currency = rows[0].currency
-    if (rows.length < 1000) break
-    after = rows[rows.length - 1].id
-  }
-  return { cents, currency }
+  const m = mrrAt((await membershipsOf(db, productIds, { open: true })) ?? [], Date.now())
+  return { cents: m.cents, currency: m.currency }
 }
 
 export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewData> {
@@ -522,7 +510,7 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
     ONE ROUND, NOT THREE (round 32): the products that sell it were read first and the unsellable events last, each a
     round of its own before or after the figures. Now only the money waits on the products; everything else goes at once.
   */
-  const recurringRead = recurringProductIds(db, c.id)
+  const recurringRead = communitySellingProducts(db, c.id).then((p) => p.recurring)
   /* Round 33: the setup list's own facts (members who came without an invite, staff posts, the app, this person's skips), read beside the figures. */
   const staffSees = ctx.role === "owner" || ctx.role === "admin"
   const extrasRead = staffSees ? setupExtras(db, c, ctx.userId) : null
