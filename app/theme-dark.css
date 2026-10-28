@@ -469,6 +469,8 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *):active { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .active\:text-\[\#4b5563\]:not([data-own-look], [data-own-look] *):active { color: hsla(215,14%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .after\:bg-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)::after { background-color: #2d2d33; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .aria-\[current\=page\]\:after\:bg-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[aria-current="page"]::after { background-color: #35353c; }
+:is(html[data-sl-dark], [data-community-theme="dark"]) .aria-\[current\=page\]\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[aria-current="page"] { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .aria-\[current\=true\]\:before\:bg-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[aria-current="true"]::before { background-color: #35353c; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .aria-\[current\=true\]\:text-\[\#1a1a2e\]:not([data-own-look], [data-own-look] *)[aria-current="true"] { color: #ececee; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .aria-expanded\:bg-\[\#eef0f2\]:not([data-own-look], [data-own-look] *)[aria-expanded="true"] { background-color: #25252a; }
@@ -903,7 +905,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:ring-\[\#1a1a2e\]\/10:not([data-own-look], [data-own-look] *):focus { --tw-ring-color: rgba(255,255,255,0.024); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .focus\:ring-neutral-900\/10:not([data-own-look], [data-own-look] *):focus { --tw-ring-color: rgba(255,255,255,0.024); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .from-\[\#f8f9fa\]:not([data-own-look], [data-own-look] *) { --tw-gradient-from: #111113; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .from-\[\#fafafa\]:not([data-own-look], [data-own-look] *) { --tw-gradient-from: #111113; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .from-neutral-100:not([data-own-look], [data-own-look] *) { --tw-gradient-from: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .from-white:not([data-own-look], [data-own-look] *) { --tw-gradient-from: #18181b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .group-active\/back\:bg-\[\#eef0f3\]:not([data-own-look], [data-own-look] *):is(:where(.group\/back):active *) { background-color: #25252a; }
@@ -1032,7 +1033,6 @@ html[data-sl-dark] [data-own-look] {
 :is(html[data-sl-dark], [data-community-theme="dark"]) .text-violet-700:not([data-own-look], [data-own-look] *) { color: hsla(263,70%,72%,1); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .to-\[\#f8f9fa\]\/0:not([data-own-look], [data-own-look] *) { --tw-gradient-to: rgba(17,17,19,0); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .to-neutral-100:not([data-own-look], [data-own-look] *) { --tw-gradient-to: #1f1f23; }
-:is(html[data-sl-dark], [data-community-theme="dark"]) .to-white:not([data-own-look], [data-own-look] *) { --tw-gradient-to: #18181b; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .via-neutral-200:not([data-own-look], [data-own-look] *) { --tw-gradient-via: #1f1f23; }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=checked\]\:shadow-\[inset_0_1px_2px_rgba\(0\,0\,0\,0\.5\)\,0_0_0_0\.5px_rgba\(0\,0\,0\,0\.5\)\,0_1px_0_rgba\(255\,255\,255\,0\.6\)\]:not([data-own-look], [data-own-look] *)[data-state="checked"] { box-shadow: inset 0 1px 2px rgba(0,0,0,0.5),0 0 0 0.5px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.048); }
 :is(html[data-sl-dark], [data-community-theme="dark"]) .data-\[state\=unchecked\]\:shadow-\[inset_0_1px_2px_rgba\(16\,24\,40\,0\.16\)\,inset_0_0_0_0\.5px_rgba\(16\,24\,40\,0\.1\)\,0_1px_0_rgba\(255\,255\,255\,0\.7\)\]:not([data-own-look], [data-own-look] *)[data-state="unchecked"] { box-shadow: inset 0 1px 2px rgba(16,24,40,0.16),inset 0 0 0 0.5px rgba(16,24,40,0.1),0 1px 0 rgba(255,255,255,0.056); }

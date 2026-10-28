@@ -118,7 +118,7 @@ console.log("\nSOURCE: the page")
   check("the icons are not in the header any more", !/<header[\s\S]*?<SocialLinks[\s\S]*?<\/header>/.test(page))
   /* Round 27 (E27): Storelib's legal pages unless the creator set their own (lib/communities/legal-links.ts, tests/editor27.test.ts). */
   const legal = code("lib/communities/legal-links.ts")
-  check("Privacy and Terms are Storelib's legal pages", /legalLinksShown\(c\.legal\)/.test(page) && /"https:\/\/storelib\.com\/legal\/privacy"/.test(legal) && /"https:\/\/storelib\.com\/legal\/terms"/.test(legal) && /data-community-legal/.test(page))
+  check("Privacy and Terms are Storelib's legal pages", /legalLinksShown\(c\.legal\)/.test(page) && /* Changed on purpose (r40): the canonical /privacy and /terms, /legal/* only redirects. */ /"https:\/\/storelib\.com\/privacy"/.test(legal) && /"https:\/\/storelib\.com\/terms"/.test(legal) && /data-community-legal/.test(page))
   check("the full description is still the sanitized rich text", /dangerouslySetInnerHTML=\{\{ __html: c\.descriptionHtml \}\}/.test(page))
   check("the editor's markers are kept: summary, links, benefits, description, name, tagline, gallery", ["summary", "links", "benefits", "description", "name", "tagline", "gallery"].every((b) => page.includes(`block="${b}"`) || page.includes(`data-page-block="${b}"`)))
   check("a community entered by one of several products still lists them where its button points", /id="ways-to-join"/.test(page) && /join\.kind === "product" && c\.accessProducts\.length > 1/.test(page))
