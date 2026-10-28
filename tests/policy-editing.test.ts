@@ -136,6 +136,17 @@ const stubs: Record<string, string> = {
   "@/lib/api/rate-limit": stub("rate", `export const LIMITS = new Proxy({}, { get: () => [] })\nexport const rateLimit = async () => null\n`),
   "@/lib/website-builder/published-site": stub("published", `export const revalidatePublishedSite = async () => { globalThis.__policyStubs.revalidated = true }\n`),
   "@/lib/website-builder/custom-schemas": stub("custom", `export const customSchemaLookup = async () => undefined\n`),
+  /* Changed on purpose (round 42 team): the route asks lib/team/website whose store and install; the owner's path, on the stubbed database. */
+  "@/lib/team/website": stub(
+    "website",
+    `export const websiteInstallCaller = async (installId) => {
+  const S = globalThis.__policyStubs, user = S.user
+  const { data: c } = await S.db.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: install } = c ? await S.db.from("store_theme_installs").select("id, creator_id").eq("id", installId).eq("creator_id", c.id).maybeSingle() : { data: null }
+  if (!install) return { error: "Theme not found", status: 404, supabase: null, install: null }
+  return { error: null, status: 200, supabase: S.db, user, userId: user.id, creatorId: c.id, creator: { id: c.id }, isOwner: true, ownerUserId: user.id, acting: null, install }
+}\n`,
+  ),
 }
 register(pathToFileURL(join(process.cwd(), "scripts/push-test-stubs.mjs")).href, { parentURL: import.meta.url, data: { stubs } })
 

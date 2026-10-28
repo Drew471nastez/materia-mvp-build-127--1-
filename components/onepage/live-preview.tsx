@@ -151,7 +151,7 @@ export function LivePreviewFrame({
     carry zoom into the frame (the frame's own width would then come out
     small) is given the transform, as before.
   */
-  const [zoomed, setZoomed] = useState(true)
+  const [zoomed, setZoomed] = useState(false)
   const onFrameLoad = useCallback(() => {
     if (scale === 1 || typeof width !== "number") return
     try {
