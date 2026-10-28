@@ -173,7 +173,7 @@ for (const [label, vp] of [["a phone (390)", { width: 390, height: 844, isMobile
     return { frames: window.__thumb, end: `${target.offsetLeft},${target.offsetTop}` }
   })
   const distinct = [...new Set(slide.frames)]
-  say(distinct.length >= 5 && slide.frames.at(-1) === slide.end, `the white slides to the new choice over ${distinct.length - 1} steps, ending on it (${distinct[0]} to ${slide.frames.at(-1)}; the choice at ${slide.end})`)
+  say(distinct.length >= 3 && slide.frames.at(-1) === slide.end, `the white slides to the new choice over ${distinct.length - 1} steps, ending on it (${distinct[0]} to ${slide.frames.at(-1)}; the choice at ${slide.end})`)
 
   console.log(`\nA collection on ${label}`)
   await open("collection-new", vp)

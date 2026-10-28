@@ -3,7 +3,7 @@
  *
  *   /app/products/collections        the list, read on the server, the products page's shape
  *   /app/collections                 moved: a permanent redirect to the address above
- *   the editor                       SheetDialog: a dialog on a computer, the shared bottom sheet on a phone
+ *   the editor                       a page of its own (/new, /<id>), framed as a coupon or an offer is
  *   Pick products / Match by rules   the sliding segmented control, the panels cross-fading
  *   rules                            sentences, a select of product types, a live count of what they catch
  *   delete                           a quiet button and the app's confirm, never red
@@ -75,25 +75,29 @@ console.log("\nCovers, not icons\n")
 
 console.log("\nThe editor\n")
 {
-  check("SheetDialog: a dialog on a computer, the shared bottom sheet on a phone, with no close button", /<SheetDialog\b/.test(editor) && /showCloseButton=\{false\}/.test(editor) && /phone=\{phone\}/.test(editor) && !/\bModal\b/.test(ui) && !/components\/physical\/ui/.test(ui))
-  check("  the sheet keeps one height, cannot be pulled away mid save, and says when it has gone", /sheet=\{\{ height: SHEET_HEIGHT, maxHeight: SHEET_HEIGHT, dismissible: !busy, onClosed \}\}/.test(editor))
-  check("  Cancel and Save at its foot, outside what scrolls", /data-editor-foot=""[^>]*shrink-0/.test(editor) && /min-h-0 flex-1 overflow-y-auto overscroll-contain/.test(editor))
+  /* Changed on purpose: the owner asked for Edit collection as a sub page, like the coupon and offer editors, not a sheet or a dialog. */
+  check("a page of its own, new and saved, framed as a coupon or an offer is", existsSync(`${DIR}/new/page.tsx`) && existsSync(`${DIR}/[id]/page.tsx`) && ["new/layout.tsx", "[id]/layout.tsx"].every((f) => /<PageLayer pill inset="bar" phoneOnly>/.test(read(`${DIR}/${f}`))) && !/SheetDialog|<Dialog|Modal/.test(editor) && !existsSync(`${DIR}/new/loading.tsx`))
+  check("  an id that is not one of this store's goes back to the list", /if \(!UUID\.test\(id\)\) redirect\("\/app\/products\/collections"\)/.test(read(`${DIR}/[id]/page.tsx`)) && /if \(!collection\) redirect\("\/app\/products\/collections"\)/.test(read(`${DIR}/[id]/page.tsx`)))
+  check("  a bar with Cancel or Back and Save under lg, a header and a foot bar from lg", /data-editor-bar=""/.test(editor) && /data-editor-head=""/.test(editor) && /data-editor-foot=""/.test(editor) && /<LeaveButton mode=\{leaveMode\}/.test(editor))
+  check("  the list opens it through the shared round trip and takes back what it did", /collectionsReturn\.open\(router, collection \? collectionHref\(collection\.id\) : newCollectionHref\(\)\)/.test(list) && /collectionsReturn\.peek\(\)\?\.collections \?\? initialCollections/.test(list) && /const back = collectionsReturn\.take\(\)/.test(list) && /createListReturn<CollectionReturn>/.test(read(`${DIR}/list-return.ts`)) && !/<CollectionEditor/.test(list))
   check("Pick products / Match by rules is the sliding segmented control, and the panels cross-fade", /<Segmented\b[\s\S]{0,200}"Pick products"[\s\S]{0,80}"Match by rules"/.test(editor) && /<SwapPanels\b/.test(editor) && /from "\.\.\/new\/editor-controls"/.test(editor))
   check("a condition is a sentence that stacks on a phone: field and comparison, then the value", /grid grid-cols-2 gap-2[^"]*sm:grid-cols-\[minmax\(0,1\.15fr\)_minmax\(0,1fr\)_minmax\(0,1\.15fr\)_auto\]/.test(editor) && /col-span-2 flex min-w-0 items-center gap-2 sm:contents/.test(editor))
   check("  product type is a select of kinds", /rule\.field === "type" \? \(\s*<select/.test(editor) && /PRODUCT_KINDS\.filter/.test(editor))
   check("  Add condition is a quiet row", /data-add-condition=""/.test(editor) && /Add condition/.test(editor))
   check("  what the rules catch is counted as they are typed, by the storefront's own rule", /inSmartCollection\(finished, match, ruleProducts\[i\]\)/.test(editor) && /<Caught /.test(editor))
   check("stock, weight and vendor rules only while physical commerce is on", /physical \|\| !PHYSICAL_RULES\.has\(f\)/.test(editor) && /usePhysicalCommerceEnabled\(\)/.test(editor) && /new Set\(\["vendor", "inventory", "weight"\]\)/.test(parts))
-  check("the API contract is the one it was: POST to create, PUT to save, DELETE to remove", /id \? `\/api\/collections\/\$\{id\}` : "\/api\/collections", id \? "PUT" : "POST"/.test(list) && /`\/api\/collections\/\$\{c\.id\}`, "DELETE"/.test(list))
+  /* Changed on purpose: the page saves and deletes, not the list. */
+  check("the API contract is the one it was: POST to create, PUT to save, DELETE to remove", /c \? `\/api\/collections\/\$\{c\.id\}` : "\/api\/collections", c \? "PUT" : "POST"/.test(editor) && /`\/api\/collections\/\$\{c\.id\}`, "DELETE"/.test(editor))
 }
 
 console.log("\nDelete is quiet, and asks first\n")
 {
   check("no red anywhere near delete", !/text-red|bg-red|BTN_DANGER|criticalDepth|quietDanger|variant: "destructive"/.test(ui))
   check("Delete collection is the app's white secondary button, in grey words", /data-delete-collection=""[^\n]*className=\{cn\(secondaryDepth, [^)]*text-\[#4b5563\]/.test(editor))
-  check("it asks with the app's confirm, never window.confirm", /useConfirm\(\)/.test(list) && /confirm: "Delete"/.test(list) && !/window\.confirm|\bconfirm\(/.test(ui.replace(/useConfirm\(\)/g, "")))
-  check("  once the editor has gone, so the question is never under it; Keep it brings the editor back", /close\(async \(\) => \{\s*const yes = await ask\(\{\s*title: `Delete \$\{c\.title\}\?`/.test(list) && /if \(!yes\) return setOpen\(true\)/.test(list))
-  check("  unsaved changes are asked about the same way", /title: "Discard changes\?"/.test(list) && /else setOpen\(true\)/.test(list))
+  /* Changed on purpose: on a page of its own the question is asked over the page, nothing to wait for. */
+  check("it asks with the app's confirm, never window.confirm", /useConfirm\(\)/.test(editor) && /confirm: "Delete"/.test(editor) && !/window\.confirm|\bconfirm\(/.test(ui.replace(/useConfirm\(\)/g, "")))
+  check("  Keep it keeps the page as it was", /if \(!yes\) return\n\s*setDeleting\(true\)/.test(editor))
+  check("  unsaved changes are asked about the same way, a new one too", /title: "Discard changes\?"/.test(editor) && /title: "Discard this collection\?"/.test(editor))
 }
 
 console.log("\nThe words\n")

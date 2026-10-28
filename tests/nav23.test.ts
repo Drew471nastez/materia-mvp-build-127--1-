@@ -83,7 +83,7 @@ console.log("\nRELOADS: a whole page load only when nothing else can work, never
   }
   const back = code("lib/navigation/go-back.ts")
   check("every way back marks it: a history back, its fallback, and a back that has to be a push",
-    /markBackStarted\(\)\s*\n\s*window\.history\.back\(\)/.test(back) && /markBackStarted\(\)\s*\n\s*fallback\(\)/.test(back) && /swallowEchoClicks\(\)[\s\S]{0,200}?markBackStarted\(now\)/.test(back))
+    /* Changed on purpose (communities round trip): more than one entry back is one history.go, still marked first. */ /markBackStarted\(\)\s*\n\s*if \(steps > 1\) window\.history\.go\(-Math\.floor\(steps\)\)\s*\n\s*else window\.history\.back\(\)/.test(back) && /markBackStarted\(\)\s*\n\s*fallback\(\)/.test(back) && /swallowEchoClicks\(\)[\s\S]{0,200}?markBackStarted\(now\)/.test(back))
   const deploy = code("lib/ui/new-deploy.ts")
   check("the router's start reads the mark, and never loads in place", /inBack: backJustStarted\(\)/.test(deploy) && !/window\.location\.replace\(href\)/.test(deploy))
 

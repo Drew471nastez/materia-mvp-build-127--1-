@@ -35,6 +35,7 @@
 
 import { addressLines } from "./address"
 import { formatMinor } from "@/lib/markets/money"
+import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
 import { propertyText } from "@/lib/cart-uploads/rules"
 import { savingsOfLines } from "@/lib/offers/snapshot"
 import { splitSavings } from "@/lib/receipts/discount"
@@ -180,7 +181,8 @@ export function packingSlipHtml(
   const paper = o.paper ?? o.paperShown ?? "a4"
   const pageSize = o.paper ? `size:${o.paper === "letter" ? "letter" : "A4"};margin:${o.paper === "letter" ? "0.5in" : "14mm"}` : "margin:14mm"
   const priced = o.prices ?? null
-  const price = (cents: number) => esc(formatMinor(cents, priced?.currency ?? "USD", o.lang))
+  /* Written the slip's language's way, as the buyer's documents write it (lib/markets/buyer-language buyerMoneyLocale). */
+  const price = (cents: number) => esc(formatMinor(cents, priced?.currency ?? "USD", buyerMoneyLocale(o.lang)))
   const when = (() => {
     try {
       return new Intl.DateTimeFormat(o.lang, { dateStyle: "long", timeZone: o.timeZone || "UTC" }).format(new Date(order.paidAt || order.createdAt))

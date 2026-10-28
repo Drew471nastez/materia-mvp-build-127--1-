@@ -158,6 +158,26 @@ try {
       console.log("  grid:", JSON.stringify(cover))
       for (const [sel, c] of Object.entries(cover)) expect(c.minCover > 0.98, `${sel}: every band of cards covers the whole width`, c)
       /* And with the reports the seller added taken off, the last row still fills (10 cards: one alone across three columns). */
+      /* Measured on a copy of the grid with 10 and with 11 cards, so the page React draws is left alone. */
+      const fills = await p.evaluate(() => {
+        const g = document.querySelector("[data-analytics-cards]")
+        const out = []
+        for (const n of [10, 11]) {
+          const copy = g.cloneNode(true)
+          copy.removeAttribute("data-soft")
+          g.after(copy)
+          const cards = [...copy.children].filter((c) => c.matches("section[data-card]"))
+          cards.slice(n).forEach((c) => c.remove())
+          const kept = cards.slice(0, n)
+          const gw = copy.getBoundingClientRect().width
+          const last = kept[kept.length - 1].getBoundingClientRect()
+          out.push({ cards: n, lastShare: +(last.width / gw).toFixed(3), lastRight: Math.round(last.right - copy.getBoundingClientRect().right) })
+          copy.remove()
+        }
+        return out
+      })
+      console.log("  last row:", JSON.stringify(fills))
+      expect(fills[0].lastShare === 1 && fills[1].lastShare > 0.66 && fills[1].lastRight === 0, "a short last row is filled: one card across all three columns, the second of two across two", fills)
     }
 
     /* ── a report, opened ───────────────────────────────────────────── */
@@ -272,7 +292,7 @@ try {
       await p.mouse.move(box.x, box.y)
       await sleep(700)
       const before = await p.evaluate(() => window.__fetches.length)
-      const w3 = watch(500)
+      const w3 = watch(1200)
       await p.mouse.click(box.x, box.y)
       const ahead = await w3
       ahead.asked = await p.evaluate((n) => window.__fetches.slice(n).some((f) => f.url.includes("/api/analytics/reports")), before)

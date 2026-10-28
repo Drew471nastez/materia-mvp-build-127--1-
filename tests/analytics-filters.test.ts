@@ -112,7 +112,7 @@ async function main() {
     check("  the communities with the same period, comparison and zone", /<CommunityReports[^>]*span=\{safeSpan\}[^>]*compare=\{against\}[^>]*timeZone=\{timeZone\}/.test(client))
     check("  always the period just before (no comparison control, on the owner's word), and nothing for All time", /const compare = PREVIOUS_PERIOD/.test(client) && /isAllTime \? null : compareBounds\(period, compare, timeZone, reportNow\(\)\)/.test(client) && !/ComparePicker/.test(client))
     const cards = code("app/app/analytics/analytics-reports.tsx")
-    check("the added reports are drawn from the chart's own answer, never asked for apart", /function AddedBody\(\{ id, r \}: \{ id: ReportId; r: Reports \}\)/.test(cards) && !/fetch\(/.test(cards.slice(cards.indexOf("function AddedBody"), cards.indexOf("function AddedCards"))))
+    check("the added reports are drawn from the chart's own answer, never asked for apart", /* Changed on purpose (round 41): it also takes the card's way into its report, onAll. */ /function AddedBody\(\{ id, r(, onAll)? \}: \{ id: ReportId; r: Reports(; onAll\?: \(\) => void)? \}\)/.test(cards) && !/fetch\(/.test(cards.slice(cards.indexOf("function AddedBody"), cards.indexOf("function AddedCards"))))
     const route = code("app/api/analytics/commerce/route.ts")
     check("the sales route reads the comparison's instants, the zone and no comparison", /searchParams\.get\("cstart"\)/.test(route) && /searchParams\.get\("tz"\)/.test(route) && /searchParams\.get\("compare"\) === "none"/.test(route))
     /* Moved on purpose (round AB2): the reads are lib/analytics/commerce-server, shared with the export. */

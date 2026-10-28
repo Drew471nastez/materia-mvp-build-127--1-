@@ -62,19 +62,28 @@ const PHONE_SAFE = "text-[16px] sm:text-[14px]"
 const full = (w: Partial<Words> | undefined): Words => ({ subject: w?.subject ?? "", heading: w?.heading ?? "", intro: w?.intro ?? "", button: w?.button ?? "" })
 const edited = (w: Partial<Words> | undefined) => !!w && (!!w.subject || !!w.heading || !!w.intro || !!w.button)
 
+/* What each community's list read, kept for the page's life: switching families or tabs and back draws it at once, read again behind it (round 28). */
+const loadedKept = new Map<string, Loaded>()
+const keepLoaded = (id: string, l: Loaded | null) => {
+  if (l) loadedKept.set(id, l)
+  return l
+}
+
 export function CommunityEmails({ community, sent, days, bare }: { community: CommunityRef; sent: Record<string, Sent> | null; days: number; bare: boolean }) {
-  const [loaded, setLoaded] = React.useState<Loaded | null>(null)
+  const [loaded, setLoaded] = React.useState<Loaded | null>(() => loadedKept.get(community.id) ?? null)
   const [failed, setFailed] = React.useState(false)
   const [open, setOpen] = React.useState<CustomerEmail | null>(null)
   const [composing, setComposing] = React.useState(false)
   React.useEffect(() => {
     let live = true
-    setLoaded(null)
+    setLoaded(loadedKept.get(community.id) ?? null)
     setFailed(false)
     void api<Loaded>(`/api/app/community/${community.id}/emails`).then((r) => {
       if (!live) return
-      if (r.ok) setLoaded(r.data)
-      else setFailed(true)
+      if (r.ok) {
+        loadedKept.set(community.id, r.data)
+        setLoaded(r.data)
+      } else if (!loadedKept.has(community.id)) setFailed(true)
     })
     return () => {
       live = false
@@ -106,14 +115,14 @@ export function CommunityEmails({ community, sent, days, bare }: { community: Co
         community={community}
         email={open}
         saved={open?.community && words[open.community] ? full(words[open.community]) : undefined}
-        onSaved={(kind, w) => setLoaded((l) => (l ? { ...l, words: { ...l.words, words: { ...l.words.words, [kind]: w } } } : l))}
+        onSaved={(kind, w) => setLoaded((l) => keepLoaded(community.id, l ? { ...l, words: { ...l.words, words: { ...l.words.words, [kind]: w } } } : l))}
         onClose={() => setOpen(null)}
       />
       <BroadcastSheet
         community={community}
         open={composing}
         loaded={loaded}
-        onSent={(b, nextAt) => setLoaded((l) => (l ? { ...l, emails: { ...l.emails, nextAt, recent: [b, ...l.emails.recent].slice(0, 5) } } : l))}
+        onSent={(b, nextAt) => setLoaded((l) => keepLoaded(community.id, l ? { ...l, emails: { ...l.emails, nextAt, recent: [b, ...l.emails.recent].slice(0, 5) } } : l))}
         onClose={() => setComposing(false)}
       />
     </div>

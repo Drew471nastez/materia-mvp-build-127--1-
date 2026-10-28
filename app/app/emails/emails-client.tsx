@@ -154,7 +154,17 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const wanted = useCached<unknown>(keyFor(tab), loaderFor(tab))
   const current = useCached<unknown>(keyFor(shown), loaderFor(shown))
   const [heldOut, setHeldOut] = React.useState<EmailsTab | null>(null)
-  if (shown !== tab && (wanted.data !== undefined || wanted.error !== null || heldOut === tab)) setShown(tab)
+  /*
+    THE BAR FIRST, THE CONTENT AS A TRANSITION. The chosen tab's pill moves
+    in the render the click makes; the new content is drawn after it, as a
+    transition React can pause for the next input, with the last content on
+    screen until it is done. A tab drawn in one go with its pill held the
+    pill still for the 60 to 150ms its rows took to draw.
+  */
+  const canShow = wanted.data !== undefined || wanted.error !== null || heldOut === tab
+  React.useEffect(() => {
+    if (shown !== tab && canShow) React.startTransition(() => setShown(tab))
+  }, [shown, tab, canShow])
   React.useEffect(() => {
     if (shown === tab) return
     const t = window.setTimeout(() => setHeldOut(tab), HOLD_MS)
@@ -625,6 +635,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
         <EmailsHome
           tab={shown}
           chosenTab={tab}
+          skeletonAtOnce={heldOut === shown && current.loading}
           onTab={setTab}
           onTabIntent={(t) => prefetch(keyFor(t), loaderFor(t), 30_000)}
           loading={current.loading}

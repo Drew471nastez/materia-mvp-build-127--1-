@@ -18,6 +18,7 @@ import { addressLines } from "./address"
 import { emailLanguage, et } from "@/lib/emails/words"
 import type { Address } from "./types"
 import { formatMinor } from "@/lib/markets/money"
+import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
 
 export interface EmailLine {
   title: string
@@ -75,9 +76,14 @@ function esc(value: unknown): string {
     .replace(/"/g, "&quot;")
 }
 
-/** Minor units in the order's own currency, with its own decimals (¥2,500 is 2500, not ¥25). */
+/**
+ * Minor units in the order's own currency, with its own decimals (¥2,500 is
+ * 2500, not ¥25), written the way the email's language writes money
+ * (lib/markets/buyer-language buyerMoneyLocale): "$214.00" in English,
+ * "214,00 lei" in Romanian, as the order page and the invoice write it.
+ */
 export function formatMoney(cents: number, currency = "USD"): string {
-  return formatMinor(cents, (currency || "USD").toUpperCase(), "en-US")
+  return formatMinor(cents, (currency || "USD").toUpperCase(), buyerMoneyLocale(emailLanguage()))
 }
 
 const INK = "#111827"

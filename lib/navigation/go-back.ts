@@ -209,8 +209,8 @@ export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS, 
   window.addEventListener("pagehide", done)
   window.addEventListener("beforeunload", done)
   nav?.addEventListener?.("navigate", done)
-  markBackStarted()
   /* More than one entry back (a list behind a page that moves its own address, components/app/list-return.ts): one traversal, never several backs. */
+  markBackStarted()
   if (steps > 1) window.history.go(-Math.floor(steps))
   else window.history.back()
   const timer = window.setTimeout(() => {

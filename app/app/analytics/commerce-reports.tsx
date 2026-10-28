@@ -443,7 +443,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
         </section>
       ))}
 
-      <Card card="sales-by-channel" detail="sales-by-channel" title={tt("Total sales by channel")} help={tt("Where each order was placed: each of your websites by its name, your OnePage, your creator page, Storelib Explore or a checkout link opened on its own.")}>
+      <Card card="sales-by-channel" title={tt("Total sales by channel")} detail="sales-by-channel" help={tt("Where each order was placed: each of your websites by its name, your OnePage, your creator page, Storelib Explore or a checkout link opened on its own.")}>
         <div className="min-h-[150px]">
           {!data ? (
             <div aria-hidden className="space-y-3">
@@ -483,7 +483,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
         the figures, with only the lines that hold money in either period (gross, net and total always), and no
         change column: the change is the chart's.
       */}
-      <Card card="sales-breakdown" detail="sales-breakdown" title={tt("Sales breakdown")} help={tt("Gross sales less discounts and returns is net sales. Add shipping, taxes and tips for total sales.")} className="lg:col-span-2">
+      <Card card="sales-breakdown" title={tt("Sales breakdown")} detail="sales-breakdown" help={tt("Gross sales less discounts and returns is net sales. Add shipping, taxes and tips for total sales.")} className="lg:col-span-2">
         {kinds ? (
           /* The columns' names, over the amounts they head. */
           <div className="flex h-7 items-end justify-between gap-3 border-b border-[#f1f2f4] pb-1.5 text-[11.5px] font-medium text-[#6b7280]" data-kind-columns="">
@@ -519,7 +519,7 @@ export function CommerceReports({ span, compare, timeZone, product = "all", prop
           long they waited and what buyers paid for delivery. Three figures in one card, side by side from
           sm up and one under the other on a phone.
         */
-        <Card card="shipping" detail="shipping" title={tt("Shipping")} help={tt("This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid.")} className="lg:col-span-3">
+        <Card card="shipping" title={tt("Shipping")} detail="shipping" help={tt("This period's physical orders: the share shipped or delivered, how long a parcel waited from payment to shipped, and the shipping buyers paid.")} className="lg:col-span-3">
           <dl className="grid grid-cols-1 divide-y divide-[#f1f2f4] sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <div data-card="fulfil" className="flex items-center justify-between gap-3 py-2.5 sm:block sm:py-0 sm:pr-5">
               <dt className="text-[13px] text-[#4b5563]">{tt("Fulfilled")}</dt>

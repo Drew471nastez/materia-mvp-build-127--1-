@@ -19,6 +19,7 @@ import { buyerPageLanguage } from "@/lib/markets/checkout-language"
 import { buyerChannel } from "@/lib/emails/buyer-channel"
 import { CheckoutWords } from "@/app/checkout/parts/words"
 import { creatorTimeZone } from "@/lib/account/time-zone"
+import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
 
 export const dynamic = "force-dynamic"
 
@@ -37,15 +38,8 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 }
 
-/** The receipt's language as a tag dates and money are written in: English is en-US, as the receipt always was. */
-function formatLocale(lang: string): string {
-  if (!lang || lang.toLowerCase() === "en") return "en-US"
-  try {
-    return Intl.DateTimeFormat.supportedLocalesOf([lang])[0] ?? "en-US"
-  } catch {
-    return "en-US"
-  }
-}
+/** The receipt's language as a tag dates and money are written in: English is en-US, as the receipt always was (lib/markets/buyer-language.ts buyerMoneyLocale, shared with the emails, the PDF and the slip). */
+const formatLocale = (lang: string): string => buyerMoneyLocale(lang)
 
 export default async function ReceiptPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ lang?: string }> }) {
   const { token } = await params

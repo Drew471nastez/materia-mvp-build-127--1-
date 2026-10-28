@@ -3535,6 +3535,12 @@ html[data-post-typing] body {
   opacity: 0;
   animation: shimmer-fade-in 200ms ease-out 200ms forwards;
 }
+/* A skeleton after a wait already spent (Emails holds the last tab's rows first, app/app/emails/emails-client.tsx): in at once, or the card is empty for the 200ms more. */
+.shimmer-now .shimmer-wait,
+.shimmer-wait.shimmer-now {
+  animation: none;
+  opacity: 1;
+}
 .shimmer-block {
   position: relative;
   overflow: hidden;

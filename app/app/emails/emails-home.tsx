@@ -137,6 +137,8 @@ export interface EmailsHomeProps {
    * empty table. Missing, the bar shows `tab`.
    */
   chosenTab?: EmailsTab
+  /** The last tab's rows were already held for a while: a skeleton now shows at once, with no wait of its own. */
+  skeletonAtOnce?: boolean
   onTab: (tab: EmailsTab) => void
   /** A pointer resting on a tab: its data can be read ahead. */
   onTabIntent?: (tab: EmailsTab) => void
@@ -346,7 +348,7 @@ export function EmailsHome(props: EmailsHomeProps) {
         <Tabs tab={props.chosenTab ?? tab} onTab={props.onTab} onIntent={props.onTabIntent} counts={{ messages: props.messages.filter((m) => !m.read_at).length }} />
       </PaneBar>
 
-      <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab} data-tab-pending={props.chosenTab && props.chosenTab !== tab ? props.chosenTab : undefined}>
+      <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER, props.skeletonAtOnce && "shimmer-now")} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab} data-tab-pending={props.chosenTab && props.chosenTab !== tab ? props.chosenTab : undefined}>
         <Metrics {...props} />
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? tt("Emails")} className={cn(card, "mt-4 overflow-hidden")}>

@@ -25,7 +25,7 @@ import { buildReceiptEmail } from "@/lib/receipts/receipt-mail"
 import type { ReceiptEmailModel } from "@/lib/receipts/email"
 import { orderConfirmationEmail, type OrderEmailModel } from "@/lib/physical/email-templates"
 import { inEmailLanguage } from "@/lib/emails/words"
-import { emailWordsIn } from "@/lib/markets/checkout-words"
+import { checkoutWordsIn, emailWordsIn } from "@/lib/markets/checkout-words"
 import { packingSlipHtml, slipLines, type SlipOrder } from "@/lib/physical/packing-slip"
 import { renderPackingSlipPdf } from "@/lib/physical/packing-slip-pdf"
 import { formatMessage } from "@/lib/i18n/text"
@@ -272,7 +272,9 @@ async function main() {
       address: { name: "Ioana M", line1: "Str. Mare 1", city: "Iași", postalCode: "700000", country: "RO" } as never, deliveryName: "Fan Courier", deliveryEstimate: null, statusUrl: "https://atelier.test/o", hasDownloads: false, paymentLabel: "Visa terminat în 4242",
     }
     const mail = inEmailLanguage("ro", ro, () => orderConfirmationEmail(model))
-    check("the money in lei, as charged", /Total: 214[.,]00\s?lei/.test(mail.text), mail.text.match(/Total[^\n]*/)?.[0])
+    check("the money in lei, written the Romanian way (214,00 lei), as the order page writes it", /Total: 214,00\s?lei/.test(mail.text) && !/214\.00/.test(mail.text), mail.text.match(/Total[^\n]*/)?.[0])
+    const english = orderConfirmationEmail(model)
+    check("  and in English as it always read (214.00 lei)", /Total: 214\.00\s?lei/.test(english.text), english.text.match(/Total[^\n]*/)?.[0])
     check("the code's row in Romanian, named by the code", mail.text.includes("Reducere (TOAMNA)"), mail.text.match(/[^\n]*TOAMNA[^\n]*/)?.[0])
     check("the subject in Romanian", mail.subject === "Comanda #E0000000 a fost confirmată", mail.subject)
     check("the buyer's engraving kept as they wrote it", mail.text.includes("Gravură: I.M."))
@@ -289,6 +291,16 @@ async function main() {
     const { text } = inv ? await drawn(inv) : { text: "" }
     check("invoice in lei: the currency charged, never the store's", inv?.currency === "RON" && text.includes("lei") && text.includes("RON"), text.match(/[^\n]*RON[^\n]*/)?.[0])
     check("a company billed: called Invoice, with its VAT number and address", text.startsWith("Invoice") && text.includes("Client SRL") && text.includes("RO87654321") && text.includes("Str. Mică 2"))
+
+    /* The same order bought in Romanian: the PDF in the order's language (lib/markets/buyer-language.ts), through the checkout's words. */
+    const roInv = await invoiceForOrder(fakeDb(store({ orders: [row] })), row as unknown as OrderRow, { metadata: { base_price_cents: "10000", discount_cents: "1000", coupon_code: "TOAMNA" }, business: { company: "Client SRL", taxId: "RO87654321", line1: "Str. Mică 2", city: "Iași", postalCode: "700001", country: "RO" } as never, language: { lang: "ro", words: checkoutWordsIn("ro", null) } })
+    const r = roInv ? await drawn(roInv) : { text: "" }
+    check("PDF in Romanian: Factură, its number, issue date and order date", r.text.startsWith("Factură") && ["Numărul facturii", "Data emiterii", "Data comenzii", "Facturat către", "Vândut de", "Descriere", "Preț unitar", "Sumă plătită"].every((w) => r.text.includes(w)), r.text.split("\n").slice(0, 20))
+    check("  the code's row and the card in Romanian", r.text.includes("Reducere (TOAMNA)") && r.text.includes("Visa terminat în 4242"))
+    check("  money written the Romanian way: 100,00 lei, 90,00 lei", r.text.includes("100,00\u00a0lei") && r.text.includes("90,00\u00a0lei") && !/90\.00/.test(r.text), r.text.match(/[^\n]*lei[^\n]*/g))
+    check("  the date in Romanian on the store's clock", r.text.includes("27 octombrie 2026"))
+    check("  the small print in Romanian", r.text.includes("Factură pentru o plată finalizată.") && r.text.includes("Sumele sunt în RON."))
+    check("English when no language is given, as it always read", !text.includes("Factură") && text.includes("Invoice number"))
   }
 
   /* ── 5. Refunds: one line of a basket, then all of it ─────────────────── */
@@ -314,6 +326,32 @@ async function main() {
     check("a parcel refunded in part on its checkout reads Partially refunded with the amount", parcel?.status === "partially_refunded" && parcel.refundedCents === 1320, [parcel?.status, parcel?.refundedCents])
     const receipt = buildReceiptEmail({ firstName: "Mia", sellerName: "Atelier Ana", orderNumber: "F1", dateText: "October 22, 2026", items: [{ title: "Lightroom presets", variantName: null, amountText: "$10.00", note: "Refunded" }], subtotalText: null, tipText: null, totalText: "$30.00", refundedText: "$10.00", link: "https://x.test/r", buttonLabel: "View your receipt", supportEmail: "a@b.test" }, null)
     check("receipt email: the refunded line says so, and the refund is its own row", receipt.text.includes("Lightroom presets: $10.00 (Refunded)") && receipt.text.includes("Refunded: $10.00"))
+  }
+
+  console.log("\nThe store's logo on the PDF")
+  {
+    const ORDER = "e0000000-0000-4000-8000-0000000000aa"
+    const row = { id: ORDER, created_at: "2026-10-27T10:00:00Z", status: "completed", amount_cents: 1000, tip_cents: 0, currency: "usd", buyer_email: "a@b.test", buyer_first_name: "A", buyer_last_name: "B", payment_method: "card", card_brand: "visa", card_last4: "4242", product_id: P1, variant_id: null, variant_name: null, stripe_payment_intent_id: "pi_logo", stripe_session_id: null, product: { title: "Presets", creator_id: CREATOR } }
+    const withLogo = store({ orders: [row] })
+    withLogo.store_settings[0] = { ...withLogo.store_settings[0], logo_url: "https://xyz.supabase.co/storage/v1/object/public/avatars/logo.png" } as never
+    const inv = await invoiceForOrder(fakeDb(withLogo), row as unknown as OrderRow, { metadata: {}, business: null, language: null })
+    check("the store's logo is the one its receipt carries", !!inv?.seller.logoUrl && /logo\.png/.test(inv.seller.logoUrl), inv?.seller.logoUrl)
+    const png = readFileSync(join(process.cwd(), "app/icon.png"))
+    const asked: string[] = []
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (u: URL | string) => {
+      asked.push(String(u))
+      return new Response(new Uint8Array(png), { status: 200, headers: { "Content-Type": "image/png" } })
+    }) as typeof fetch
+    const images = (pdf: Buffer) => (pdf.toString("latin1").match(/\/Subtype \/Image/g) ?? []).length
+    const drawnWith = inv ? await drawn(inv) : null
+    check("  drawn on the PDF, fetched as a PNG at its size", !!drawnWith && images(drawnWith.pdf) >= 1 && asked.length === 1, asked)
+    globalThis.fetch = (async () => new Response("<svg/>", { status: 200 })) as typeof fetch
+    const notPng = inv ? await drawn(inv) : null
+    check("  anything but a PNG or JPEG: the PDF without it", !!notPng && images(notPng.pdf) === 0)
+    globalThis.fetch = realFetch
+    const none = inv ? await drawn({ ...inv, seller: { ...inv.seller, logoUrl: null } }) : null
+    check("  no logo: none drawn, nothing fetched", !!none && images(none.pdf) === 0)
   }
 
   console.log("\nWhere the numbers come from")

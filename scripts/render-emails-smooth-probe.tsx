@@ -8,6 +8,7 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { EmailsClient } from "@/app/app/emails/emails-client"
+import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 
 type W = { __requests: { method: string; url: string; at: number }[]; __delays: Record<string, number>; __defaultDelay: number }
 const w = window as unknown as W
@@ -54,10 +55,10 @@ const store = {
   creator: { name: "Andrei Popescu", photoUrl: null, logoUrl: null },
   languages: { defaultLanguage: "en", others: ["fr"] },
   language: { lang: "en", words: {}, own: true },
-  copy: { order_confirmation: { subject: "Order {{order_number}} is in", footer: "Returns within 30 days." } },
+  copy: { receipt: { subject: "Your order from {{shop_name}}", footer: "Returns within 30 days." } },
   ready: true,
   reminder: true,
-  communities: [],
+  communities: [{ id: "11111111-1111-4111-8111-111111111111", name: "Makers Club", slug: "makers" }],
 }
 const activity = { days: 30, emails: { receipt: { sent: 41, lastAt: day(1) }, order_confirmation: { sent: 18, lastAt: day(0) } }, communities: {}, flows: [], reminderReplacedBy: null }
 
@@ -79,13 +80,16 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (url.startsWith("/api/email/campaigns?status=scheduled")) return reply(200, { campaigns: scheduled })
   if (url.startsWith("/api/email/campaigns?status=draft")) return reply(200, { campaigns: drafts })
   if (url.startsWith("/api/store/emails/activity")) return reply(200, activity)
+  if (/^\/api\/app\/community\/[^/]+\/emails$/.test(url)) return reply(200, { emails: { ready: true, audience: 42, nextAt: null, recent: [] }, words: { ready: true, words: {} } })
   if (url.startsWith("/api/store/emails?lang=")) return reply(200, { language: { lang: "fr", words: {}, own: false } })
   if (url.startsWith("/api/store/emails")) return reply(200, store)
   return reply(404, { error: "Not in the probe" })
 }
 
 createRoot(document.getElementById("app")!).render(
-  <div id="shell" style={{ position: "fixed", inset: 0 }}>
-    <EmailsClient initialTab="subscribers" />
-  </div>,
+  <PlatformSettingsProvider exploreMarketplace={false} buyerHeaderLight={false} physicalCommerce>
+    <div id="shell" style={{ position: "fixed", inset: 0 }}>
+      <EmailsClient initialTab="subscribers" />
+    </div>
+  </PlatformSettingsProvider>,
 )

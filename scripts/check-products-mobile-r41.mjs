@@ -140,6 +140,12 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
 const RECORD = () => {
   window.__frames = []
   window.__recording = true
+  /* The last press (a tap ends in a click): what a move is timed from. */
+  window.__lastClick = null
+  if (!window.__clickWatch) {
+    window.__clickWatch = true
+    window.addEventListener("click", () => { window.__lastClick = performance.now() }, { capture: true })
+  }
   const yOfAnim = (a) => {
     const kf = a.effect.getKeyframes()
     const timing = a.effect.getComputedTiming()
@@ -241,9 +247,9 @@ async function pickRow(p) {
   })
 }
 
-function summarise(frames) {
+function summarise(frames, lastClick = null) {
   const moving = frames.filter((f) => f.y !== null)
-  if (moving.length === 0) return { frames: 0, partway: 0, late: 0, ys: [], maxGap: null, held: 0, which: null }
+  if (moving.length === 0) return { frames: 0, partway: 0, late: 0, ys: [], maxGap: null, held: 0, pressToMove: null, which: null }
   /* From the last frame still at its starting place (a move is held there until the screen keeps up, page-layer startWhenFramesFlow): the wait before it is `held`, not a late frame of it. */
   const startY = moving[0].y
   const firstMoved = moving.findIndex((f) => Math.abs(f.y - startY) > 1)
@@ -260,7 +266,10 @@ function summarise(frames) {
   }
   const ys = moving.map((f) => Math.round(f.y))
   const partway = ys.filter((y) => y > 2 && y < 842).length
-  return { frames: span.length, partway, late, maxGap: +maxGap.toFixed(1), held, ys, which: moving[0].which }
+  /* From the press to the first frame drawn off its starting place: everything the eye waits through. */
+  const moved = moving.find((f) => Math.abs(f.y - startY) > 1)
+  const pressToMove = lastClick !== null && moved ? +(moved.t - lastClick).toFixed(1) : null
+  return { frames: span.length, partway, late, maxGap: +maxGap.toFixed(1), held, pressToMove, ys, which: moving[0].which }
 }
 
 async function recordWhile(p, cdp, act, ms = 1400) {
@@ -281,12 +290,12 @@ async function recordWhile(p, cdp, act, ms = 1400) {
     if (!state.seen && Date.now() - began > ms) break
     if (Date.now() - began > 6000) break
   }
-  const frames = await p.evaluate(() => {
+  const { frames, lastClick } = await p.evaluate(() => {
     window.__recording = false
-    return window.__frames
+    return { frames: window.__frames, lastClick: window.__lastClick }
   })
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
-  return summarise(frames)
+  return summarise(frames, lastClick)
 }
 
 /* Back from the editor; the probe's fixture reads as edited, so the discard question is answered. */
@@ -429,7 +438,11 @@ try {
         stills: document.querySelectorAll("[data-layer-still]").length,
         scroll: document.querySelector(".orders-pane")?.scrollTop ?? null,
       }))
-      console.log(`  ${trip} back${asked ? " (after Discard)" : ""} (${drop.which}): ${drop.frames} frames, ${drop.partway} part way, ${drop.late} late, largest gap ${drop.maxGap}ms, held ${drop.held}ms first; translateY ${drop.ys.join(" ")}`)
+      console.log(`  ${trip} back${asked ? " (after Discard)" : ""} (${drop.which}): ${drop.frames} frames, ${drop.partway} part way, ${drop.late} late, largest gap ${drop.maxGap}ms, held ${drop.held}ms first, ${drop.pressToMove}ms from the press to the first frame off the top; translateY ${drop.ys.join(" ")}`)
+      /* Round 41: a product opens untouched, so Back asks nothing ("Discard changes?" with no change made). */
+      expect(!asked, `${trip} back: an untouched editor leaves without asking to discard`, { asked })
+      /* Round 41: the drop starts on the frame after the press, over a copy of the list, instead of after the list has been drawn. */
+      expect(drop.pressToMove !== null && drop.pressToMove <= (THROTTLE > 1 ? 150 : 80), `${trip} back: the editor leaves the top within ${THROTTLE > 1 ? 150 : 80}ms of the press`, drop.pressToMove)
       expect(!back.layer && back.path === "/app/products" && back.stills === 0, `${trip} back: the list is on the screen, nothing left over it`, back)
       expect(drop.partway >= 6 && drop.ys.every((y, i) => i === 0 || y >= drop.ys[i - 1] - 1), `${trip} back: drops to the bottom edge, 6 frames or more part way, never backwards`, { partway: drop.partway })
       expect(Math.abs(back.scroll - scrollBefore) <= 2, `${trip} back: the list's scroll is where it was left`, { before: scrollBefore, after: back.scroll })

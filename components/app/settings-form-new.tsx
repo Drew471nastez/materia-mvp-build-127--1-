@@ -589,9 +589,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       if (!live) return
       prefetchGet([...new Set(Object.keys(TAB_DATA).flatMap((id) => tabData(id as TabId, physicalCommerce)))])
       prefetchGet([...new Set(Object.values(TAB_WARM).flatMap((v) => v ?? []))])
-      void loadBilling()
       /* Payments' card reads Stripe's account (lib/payments/overview-cache): asked for now, so the section opens on it rather than on a spinner. */
       if (!teamActing) warmOverview()
+      void loadBilling()
       preloadSettingsPanels()
     }
     const rising = (formRef.current?.closest("[data-settings-sheet]") as HTMLElement | null)?.getAnimations?.() ?? []

@@ -70,7 +70,7 @@ function main() {
   check("the state is the /app StatusBadge, with the product editor's dot", /<StatusBadge tone=\{STATE_TONE\[state\]\}/.test(parts) && /export function CommunityStatusBadge/.test(parts) && /<CommunityStatusBadge state=\{state\} \/>/.test(list) && !/STATE_DOT\[state\]\)\} \/>\s*\{STATE_WORD/.test(list))
   check("no cover: the gradient, never the grey field alone", /<CoverFill name=\{r\.name\} iconUrl=\{r\.logoUrl\} \/>/.test(list) && /data-card-cover=\{src \? "picture" : "gradient"\}/.test(list))
   check("no logo either: the letter on the name's gradient", /backgroundImage: nameCoverGradient\(r\.name\)/.test(list))
-  check("Edit opens the Page section; a copy opens on its page", /href: `\$\{base\}\/page` \}/.test(list) && /router\.push\(`\/app\/community\/\$\{res\.data\.slug \|\| res\.data\.id\}\/page`\)/.test(list))
+  check("Edit opens the Page section; a copy opens on its page", /* Changed on purpose (communities round trip): through the list's way in (./list-return). */ /onClick: \(\) => onOpen\(`\$\{base\}\/page`\) \}/.test(list) && /router\.push\(`\/app\/community\/\$\{res\.data\.slug \|\| res\.data\.id\}\/page`\)/.test(list))
   const teal = paletteFromPixels(icon([15, 118, 110], [245, 158, 11]))
   check("an icon's palette starts with its main colour", !!teal && gap(hueOf(teal[0]), 175) < 12, teal)
   check("two colours far apart (teal and amber) do not blend through mud: the second is the first's neighbour", !!teal && gap(hueOf(teal[0]), hueOf(teal[1])) <= 40, teal)
