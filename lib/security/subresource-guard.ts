@@ -9,6 +9,8 @@ const SUBRESOURCE = new Set(["image", "style", "script", "font", "audio", "video
 export function pageAskedAsSubresource(dest: string | null, pathname: string): boolean {
   if (!dest || !SUBRESOURCE.has(dest)) return false
   if (/^\/(?:api|_next|media|cdn|files|_vercel)(?:\/|$)/.test(pathname)) return false
+  /* A website's home screen icon (lib/website-builder/site-favicon.ts): a picture at an address without an extension, on purpose (the proxy never sees a .png). */
+  if (pathname === "/apple-touch-icon") return false
   const last = pathname.split("/").pop() ?? ""
   return !/\.[a-z0-9]{1,8}$/i.test(last)
 }

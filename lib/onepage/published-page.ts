@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getLinksShareUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import { primaryHostFor } from "@/lib/custom-domains/store"
 import { isBanned } from "@/lib/seo/bans"
+import type { SpamState } from "@/lib/security/spam-signals"
 import { activeDomainOf } from "@/lib/website-builder/site-seo-data"
 import { publicOnePage } from "@/lib/onepage/public-shape"
 import { resolveOnePageSeo, type ResolvedOnePageSeo } from "@/lib/onepage/seo"
@@ -40,8 +41,16 @@ import { withStorelibBlocks } from "@/lib/onepage/storelib-blocks-server"
 export const onePageOwner = cache(async (sellerId: string | null, creatorId: string | null, ownerId: string | null) => {
   const supabase = createAdminClient()
   const effective = sellerId || creatorId || null
-  const readProfile = (userId: string | null) =>
-    userId ? supabase.from("profiles").select("avatar_url, display_name, username").eq("id", userId).maybeSingle() : Promise.resolve({ data: null })
+  /*
+    The operator's spam verdict comes with the profile (round 41, lib/seo/bans.ts): one read, as before. A database
+    without the column (before part 20260815) answers the read without it.
+  */
+  const readProfile = async (userId: string | null): Promise<{ data: unknown }> => {
+    if (!userId) return { data: null }
+    const withVerdict = await supabase.from("profiles").select("avatar_url, display_name, username, spam_state").eq("id", userId).maybeSingle()
+    if (!withVerdict.error) return withVerdict
+    return supabase.from("profiles").select("avatar_url, display_name, username").eq("id", userId).maybeSingle()
+  }
   const readCount = (id: string | null) =>
     id ? supabase.from("products").select("id", { count: "exact", head: true }).eq("creator_id", id).eq("status", "published") : Promise.resolve({ count: 0 })
   /*
@@ -73,11 +82,14 @@ export const onePageOwner = cache(async (sellerId: string | null, creatorId: str
     ? [(await together)[2], (await together)[3]]
     : await Promise.all([readCount(id), id ? activeDomainOf(id) : Promise.resolve(null)])
   const handle = (profile as { username?: string | null } | null)?.username || null
+  const verdict = (profile as { spam_state?: string | null } | null)?.spam_state
+  const spamState: SpamState = verdict === "clear" || verdict === "suspect" || verdict === "confirmed" ? verdict : null
   return {
     handle,
     /* The seller the page's products belong to, for a page row that does not name one. */
     creatorId: id || null,
     banned: isBanned(row),
+    spamState,
     avatarUrl: (profile as { avatar_url?: string | null } | null)?.avatar_url || null,
     displayName: (profile as { display_name?: string | null } | null)?.display_name || null,
     publishedProducts: (products as { count?: number | null }).count ?? 0,

@@ -246,7 +246,8 @@ function seo() {
   check("  limits are Google's", SEO_TITLE_MAX === 60 && SEO_DESCRIPTION_MAX === 160)
   const noindex = onePageMetadataFrom(resolved, { handle: "ana", indexable: false }) as Record<string, any>
   check("a page that may not be listed says noindex", noindex.robots.index === false && noindex.robots.googleBot.index === false)
-  check("an unpublished page may not be listed", !onePageIndexable({ status: "draft", publishedProducts: 3, handle: "ana" }))
+  /* Changed on purpose (round 41): onePageIndexable takes no product count (tests/indexing-r41.test.ts). */
+  check("an unpublished page may not be listed", !onePageIndexable({ status: "draft", handle: "ana" }))
   check("storelib.me's sitemap names its OnePage files", parseSitemapName("onepages.xml")?.kind === "onepages-index" && parseSitemapName("onepages-0.xml")?.kind === "onepages")
   check("robots.txt leaves a handle's page open", !PLATFORM_DISALLOW.some((r) => r === "/ana$" || r === "/ana/"))
 }

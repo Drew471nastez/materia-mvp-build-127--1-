@@ -86,12 +86,13 @@ console.log("\nA OnePage says where it lives and who it is about")
 {
   check("it is canonical at storelib.me/<handle>, or at /links on a connected domain",
     getLinksShareUrl("Mara") === "https://storelib.me/mara" && getLinksUrlWithCustomDomain("mara", "marashop.com") === "https://www.marashop.com/links")
-  check("it is listed by the sitemap's rule: published, with something published, under a handle that is not a farm's",
-    onePageIndexable({ status: "published", publishedProducts: 2, handle: "mariapopescu" }) &&
-      !onePageIndexable({ status: "draft", publishedProducts: 2, handle: "mariapopescu" }) &&
-      !onePageIndexable({ status: "published", publishedProducts: 0, handle: "mariapopescu" }) &&
-      !onePageIndexable({ status: "published", publishedProducts: 2, handle: "powerokebos999" }) &&
-      !onePageIndexable({ status: "published", publishedProducts: 2, handle: null }))
+  /* Changed on purpose (round 41, tests/indexing-r41.test.ts): a OnePage no longer needs a published product to be listed. */
+  check("it is listed by the sitemap's rule: published, under a handle that is not a farm's",
+    onePageIndexable({ status: "published", handle: "mariapopescu" }) &&
+      !onePageIndexable({ status: "draft", handle: "mariapopescu" }) &&
+      onePageIndexable({ status: "published", handle: "mariapopescu" }) &&
+      !onePageIndexable({ status: "published", handle: "powerokebos999" }) &&
+      !onePageIndexable({ status: "published", handle: null }))
   const same = onePageSameAs({ instagram: "@mara.studio", youtube: "https://youtube.com/@mara", email: "mara@example.com", whatsapp: "+15550100", tiktok: "", twitter: "javascript:alert(1)" })
   check("its social links become sameAs addresses, a handle made whole the way the page draws it",
     same.includes("https://instagram.com/mara.studio") && same.includes("https://youtube.com/@mara"), JSON.stringify(same))
@@ -114,7 +115,8 @@ console.log("\nA OnePage says where it lives and who it is about")
     /if \(owner\.canonical\) return owner\.canonical/.test(loader) && /return getLinksShareUrl\(slug, pageHost\)/.test(loader) &&
       /alternates: \{ canonical: seo\.url \}/.test(seoLib) && /type: "profile" as const/.test(seoLib) && /url: seo\.url,/.test(seoLib) && /onePageMetadataFrom\(seo, /.test(page))
   check("its robots tag is the sitemap's rule, and noindex means nofollow too",
-    /const indexable = !owner\.banned && onePageIndexable\(\{ status: onepage\.status, publishedProducts: owner\.publishedProducts, handle: owner\.handle \}\)/.test(page) &&
+    /* Changed on purpose (round 41): no product count, and the owner's spam verdict beside the handle. */
+    /const indexable = !owner\.banned && onePageIndexable\(\{ status: onepage\.status, handle: owner\.handle, spamState: owner\.spamState \}\)/.test(page) &&
       /robots: extra\.indexable\s*\?[^:]*index: true[\s\S]{0,200}: \{ index: false, follow: false/.test(seoLib))
   /* Changed on purpose (round 40, tests/onepage-analytics-seo-r40.test.ts): sameAs is the icons the page draws,
      its rows of social icons first and the profile's links otherwise (lib/onepage/page-presence). */
@@ -151,7 +153,8 @@ console.log("\nThe creator page is one address, described in the creator's own w
   check("the description is the creator's own before anything generic: override, SEO tab, headline or bio, then the sentence",
     /seoOverride\?\.seo_description \|\|\s*ownDescription \|\|\s*plainSummary\(creator\?\.headline \|\| headerBio \|\| creator\?\.bio \|\| "", 200\) \|\|\s*defaultDescription/.test(meta) &&
       /ownDescription = globalSettings\?\.seoDescription\?\.trim\(\)/.test(meta) && /ownTitle = globalSettings\?\.seoTitle\?\.trim\(\)/.test(meta))
-  check("its robots rule judges the stored handle", /deservesIndexing\(\{ publishedProducts, handle \}\)/.test(meta) && /deservesIndexing\(\{ publishedProducts: products\?\.length \?\? 0, handle: pageHandle \}\)/.test(page))
+  /* Changed on purpose (round 41): creatorIndexable, counting every product type (tests/indexing-r41.test.ts). */
+  check("its robots rule judges the stored handle", /creatorIndexable\(\{ publishedProducts, handle, spamState \}\)/.test(meta) && /creatorIndexable\(\{ publishedProducts: listedCount, handle: pageHandle,/.test(page))
   check("its structured data carries sameAs and the products, in both branches, behind the same gate",
     /sameAs: sameAsUrls\(Object\.values\(shopHeader\?\.socialLinks \?\? \{\}\)/.test(page) && /\.slice\(0, MAX_LISTED_PRODUCTS\)/.test(page) &&
       (page.match(/jsonLdScript\(profileJsonLd\)/g) ?? []).length === 2)

@@ -587,7 +587,7 @@ export function coverRect(w: number, h: number, boxW: number, boxH: number, fx: 
  * add a second "| Storelib" to a title that already has one, or one to a
  * title the creator chose without it.
  */
-export function onePageMetadataFrom(seo: ResolvedOnePageSeo, extra: { handle?: string | null; indexable: boolean; icon?: string | null }) {
+export function onePageMetadataFrom(seo: ResolvedOnePageSeo, extra: { handle?: string | null; indexable: boolean; icon?: string | null; follow?: boolean }) {
   const images = [{ url: seo.image.url, width: seo.image.width, height: seo.image.height, alt: seo.image.alt, type: seo.image.type }]
   return {
     /*
@@ -616,8 +616,9 @@ export function onePageMetadataFrom(seo: ResolvedOnePageSeo, extra: { handle?: s
       description: seo.socialDescription.value,
       images: [seo.image.url],
     },
+    /* Indexed, and its links followed only once the account has earned it (round 41, lib/seo/indexing pageRobots). Left out, it follows, as it always did. */
     robots: extra.indexable
-      ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } }
+      ? { index: true, follow: extra.follow !== false, googleBot: { index: true, follow: extra.follow !== false, "max-image-preview": "large" as const } }
       : { index: false, follow: false, googleBot: { index: false, follow: false } },
     ...(extra.icon ? { icons: { icon: extra.icon, apple: extra.icon } } : {}),
   }

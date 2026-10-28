@@ -66,3 +66,44 @@ export function onePageShowsSomething(input: { blocks: unknown; bio: unknown; so
   if (Object.keys(onePageSocialLinks({ blocks: input.blocks, socialLinks: input.socialLinks, now })).length > 0) return true
   return blocksOf(input.blocks).some((b) => typeof b.type === "string" && !FRAME.has(b.type) && b.type !== "social_row" && isBlockShown(b, now))
 }
+
+/**
+ * Whether the page shows a link its creator marked sensitive (round 41): the
+ * page asks the visitor before opening it (components/onepage/public-onepage
+ * SensitiveLinkQuestion), and a page that has to ask is not one Storelib puts
+ * in a search result. Shown blocks only, a group's children included.
+ */
+export function onePageSensitive(input: { blocks: unknown; now?: number }): boolean {
+  const now = input.now ?? Date.now()
+  const marked = (list: unknown): boolean =>
+    blocksOf(list).some((b) => {
+      if (!isBlockShown(b, now)) return false
+      if (b.type === "link_button" && b.data?.sensitive === true) return true
+      return b.type === "group" && marked(b.data?.children)
+    })
+  return marked(input.blocks)
+}
+
+/** The fields of a published `onepages` row the two questions read, as lib/onepage/public-shape draws them. */
+export type OnePagePresenceRow = {
+  bio?: string | null
+  social_links?: unknown
+  published_blocks?: unknown
+  draft_blocks?: unknown
+  published_profile?: unknown
+  published_social_links?: unknown
+}
+
+/**
+ * The sitemap's half of the page's rule, from the row alone: the published
+ * copy (falling back where public-shape falls back) shows something, and no
+ * link on it is marked sensitive. The page asks the same of the shape it
+ * draws, so a page the sitemap lists does not say noindex.
+ */
+export function onePageRowListable(row: OnePagePresenceRow, now: number = Date.now()): boolean {
+  const profile = row.published_profile && typeof row.published_profile === "object" ? (row.published_profile as { bio?: unknown }) : null
+  const blocks = row.published_blocks || row.draft_blocks || []
+  const socialLinks = row.published_social_links || row.social_links || {}
+  const bio = (typeof profile?.bio === "string" && profile.bio) || row.bio || ""
+  return onePageShowsSomething({ blocks, bio, socialLinks, now }) && !onePageSensitive({ blocks, now })
+}
