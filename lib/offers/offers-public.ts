@@ -166,3 +166,36 @@ export async function productOffers(db: Db, productId: unknown, opts: { only?: (
   }) : []
   return { bundles: bundleCards, quantityBreaks, checkoutOffers }
 }
+
+/** The most products a catalogue reads offers for at once (catalogOffers): a store's offers name a handful; one shown on every product is capped here. */
+export const CATALOG_OFFERS_MAX = 24
+
+/**
+ * What each of a catalogue's products offers with it, for an imported
+ * theme's Featured product (its Bundles and upsells block and
+ * product.metafields.storelib.offers, as on the product's own page). The
+ * store's offers are read once; only a product an offer can show on is read
+ * further (in a bundle, a quantity break's product or collection, a checkout
+ * offer it triggers, or every product for one that names no trigger), at
+ * most CATALOG_OFFERS_MAX of them. A product with nothing is left out.
+ */
+export async function catalogOffers(db: Db, creatorId: string, productIds: string[], opts: { now?: Date } = {}): Promise<Record<string, ProductOffers>> {
+  const out: Record<string, ProductOffers> = {}
+  const ids = [...new Set(productIds.filter(isUuid))]
+  if (ids.length === 0) return out
+  const now = opts.now ?? new Date()
+  const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
+  const shown = offers.filter((o) => offerLive(o, now) && placementsOf(o).includes("product"))
+  if (shown.length === 0) return out
+  const everyone = shown.some((o) => o.kind === "checkout" && o.triggerIds.length === 0 && (o.triggerCollectionIds ?? []).length === 0)
+  const collections = [...new Set(shown.flatMap((o) => (o.kind === "quantity_break" && o.productIds.length === 0 ? (o.triggerCollectionIds ?? []).slice(0, 1) : o.kind === "checkout" ? (o.triggerCollectionIds ?? []) : [])))]
+  const inCollections = collections.length ? await collectionsOf(db, creatorId, collections, ids) : new Map<string, string[]>()
+  const named = new Set(shown.flatMap((o) => (o.kind === "checkout" ? o.triggerIds : o.productIds)))
+  const candidates = ids.filter((id) => everyone || named.has(id) || (inCollections.get(id)?.length ?? 0) > 0).slice(0, CATALOG_OFFERS_MAX)
+  const found = await Promise.all(candidates.map((id) => productOffers(db, id, { now }).catch(() => NO_OFFERS)))
+  candidates.forEach((id, i) => {
+    const f = found[i]
+    if (f.bundles.length || f.quantityBreaks.length || f.checkoutOffers.length) out[id] = f
+  })
+  return out
+}

@@ -155,7 +155,7 @@ export function CountdownControl({
               type="date"
               aria-label={label ? `${label}: ${tt("Date")}` : tt("Date")}
               data-countdown-date=""
-              className={cn(field, "min-w-[9.5rem] flex-[1.25_1_0%] max-sm:min-w-[10.5rem]")}
+              className={cn(field, "min-w-[7.5rem] flex-[1.25_1_0%] max-sm:min-w-[10.5rem]")}
               value={date}
               min="1000-01-01"
               max="9999-12-31"
@@ -169,7 +169,7 @@ export function CountdownControl({
                 type="time"
                 aria-label={label ? `${label}: ${tt("Time")}` : tt("Time")}
                 data-countdown-time=""
-                className={cn(field, "min-w-[7.5rem] flex-[1_1_0%] max-sm:min-w-[8.75rem]")}
+                className={cn(field, "min-w-[6.5rem] flex-[1_1_0%] max-sm:min-w-[8.75rem]")}
                 value={time}
                 disabled={!state.date}
                 onChange={(e) => {

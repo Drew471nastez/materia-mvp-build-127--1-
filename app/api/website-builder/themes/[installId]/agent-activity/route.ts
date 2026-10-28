@@ -74,8 +74,8 @@ export async function GET(req: Request, { params }: Params) {
   }
 
   /* `detail` (an agent's page operations) arrived with RUN_AGENT_MCP.sql; without it, the rows as before. */
-  const read = (cols: string) =>
-    supabase.from("theme_agent_activity").select(cols).eq("install_id", installId).gt("id", after).order("id", { ascending: true }).limit(20)
+  const log = (cols: string) => supabase.from("theme_agent_activity").select(cols).eq("install_id", installId)
+  const read = (cols: string) => log(cols).gt("id", after).order("id", { ascending: true }).limit(20)
   /* One more indexed read by the link's key, beside the log's. */
   const linkRead = supabase.from("theme_github_links").select("updated_at").eq("install_id", installId).maybeSingle()
   /*
@@ -86,7 +86,7 @@ export async function GET(req: Request, { params }: Params) {
   */
   const lookback = new URL(req.url).searchParams.get("lookback") === "1"
   const behind = (cols: string) =>
-    supabase.from("theme_agent_activity").select(cols).eq("install_id", installId).lte("id", after).order("id", { ascending: false }).limit(20)
+    log(cols).lte("id", after).order("id", { ascending: false }).limit(20)
   let cols = "id, agent_name, path, action, created_at, detail"
   let { data, error } = await read(cols)
   if (error) {

@@ -99,7 +99,7 @@ export async function localizeCompatSite(site: SiteData, locale: string | null, 
     /* A product shown in its own words in every language (Products › Translations) keeps them. */
     const worded = original.has(c.id) ? c : compatCardIn(c, map, opts)
     /* In the market's currency, as the builder's canvas previews it (lib/markets/compat-prices.ts). */
-    return pricing ? { ...worded, settings: compatPrices(worded.settings, pricing) } : worded
+    return pricing ? { ...worded, settings: compatPrices(worded.settings, pricing, code ?? langs.defaultLanguage, c.id) } : worded
   }
   /*
     THE PAGE'S SEARCH ENGINE TEXT (Website settings › SEO, each page's own),

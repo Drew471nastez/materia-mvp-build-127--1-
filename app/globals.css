@@ -5426,6 +5426,21 @@ html.capacitor .orders-list [data-phone-row] a:active {
 .orders-list td[data-phone-row] {
   -webkit-tap-highlight-color: transparent;
 }
+/* The Products list on a touch screen (app/app/products/products-client.tsx): a scroll that starts on a row's more
+   button or a view's tab lights nothing. The app's rule above sets `transition: opacity` on every control, which
+   made a background change on :active instant; here colour and dim both wait 130ms for the touch to stay a tap, as a
+   sheet's rows do, and letting go is instant. The row itself is marked by lib/press-mark, which waits the same way. */
+@media (hover: none) and (pointer: coarse) {
+  [data-products-list] :is(button, a) {
+    transition-property: background-color, color, opacity, box-shadow;
+    transition-duration: 100ms;
+    transition-timing-function: ease-out;
+  }
+  [data-products-list] :is(button, a):active {
+    transition-delay: 130ms;
+    transition-duration: 60ms;
+  }
+}
 /* Settings' tabs on a phone: a swipe along the row never dims the pill it started on (round 22, components/app/settings-form-new.tsx). */
 html.capacitor [data-settings-tabs] button:active {
   opacity: 1;
