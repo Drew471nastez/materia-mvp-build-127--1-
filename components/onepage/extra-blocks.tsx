@@ -436,7 +436,19 @@ export function IncompleteLinkPlaceholder({ label, theme }: { label?: string | n
  * So the link's own code (the click count, the new tab, a player that opens)
  * runs exactly as it would have, just after the visitor has said yes.
  */
-type Ask = { label: string; target: HTMLElement } | null
+/*
+ * AND A PLAYER INSIDE ONE ASKS TOO (round 40, "Sensitive content works"). A
+ * link to a YouTube video in the Pro layout plays inside the page, in a
+ * frame, and a press inside a frame never reaches this page: the video
+ * played with no question at all. So a frame inside a marked box takes no
+ * press (SENSITIVE_FRAME_RULE) until the visitor has said yes for that box;
+ * the press lands on the box, the question opens, and Continue lets that
+ * box's frames take presses from then on (`data-sensitive-ok`), so the next
+ * press plays it.
+ */
+const SENSITIVE_FRAME_RULE = "[data-sensitive-label]:not([data-sensitive-ok]) iframe{pointer-events:none}"
+
+type Ask = { label: string; target: HTMLElement | null; box: HTMLElement } | null
 let asking: Ask = null
 let letThrough: HTMLElement | null = null
 const listeners = new Set<() => void>()
@@ -462,14 +474,27 @@ export function SensitiveLinkQuestion() {
       const box = el?.closest<HTMLElement>("[data-sensitive-label]")
       if (!box) return
       const target = el?.closest<HTMLElement>("a[href], button")
-      if (!target || !box.contains(target)) return
+      if (!target || !box.contains(target)) {
+        /* A press on a player's frame (it takes none until allowed, so it lands on the box around it). */
+        if (box.hasAttribute("data-sensitive-ok")) return
+        const onFrame = Array.from(box.querySelectorAll("iframe")).some((f) => {
+          const r = f.getBoundingClientRect()
+          return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom
+        })
+        if (!onFrame) return
+        e.preventDefault()
+        e.stopPropagation()
+        asking = { label: box.dataset.sensitiveLabel || "", target: null, box }
+        emit()
+        return
+      }
       if (letThrough === target) {
         letThrough = null
         return
       }
       e.preventDefault()
       e.stopPropagation()
-      asking = { label: box.dataset.sensitiveLabel || "", target }
+      asking = { label: box.dataset.sensitiveLabel || "", target, box }
       emit()
     }
     document.addEventListener("click", onClick, true)
@@ -483,8 +508,11 @@ export function SensitiveLinkQuestion() {
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
   }, [ask])
-  if (!ask) return null
+  const rule = <style dangerouslySetInnerHTML={{ __html: SENSITIVE_FRAME_RULE }} />
+  if (!ask) return rule
   return (
+    <>
+    {rule}
     <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/50 p-4 animate-in fade-in-0 duration-200 sm:items-center" onClick={close} role="presentation">
       <div
         role="alertdialog"
@@ -512,8 +540,11 @@ export function SensitiveLinkQuestion() {
             type="button"
             autoFocus
             onClick={() => {
-              const target = ask.target
+              const { target, box } = ask
               close()
+              /* Said yes for this box: its player takes presses now, and a link or button is pressed again, let through. */
+              box.setAttribute("data-sensitive-ok", "")
+              if (!target) return
               letThrough = target
               target.click()
               letThrough = null
@@ -525,6 +556,7 @@ export function SensitiveLinkQuestion() {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

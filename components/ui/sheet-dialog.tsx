@@ -38,6 +38,20 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
+/**
+ * ROUND 40: THE DIALOG ARRIVES AND LEAVES ON TWO DIFFERENT CURVES. The
+ * owner, on Add social link and Choose icon on a computer: "smoother and
+ * cleaner, opens and closes smoothly". Both opened and closed on the same
+ * 200ms zoom from 95%, so the close looked like the open played backwards
+ * and the 5% scale read as a jump. Now the open is 260ms on iOS's curve
+ * from 97% and 6px low (it rises into place and settles, never past it),
+ * and the close is 150ms, quicker, from where it is to 98% on an ease in, so
+ * it gets out of the way. Only opacity and the scale and rise of the
+ * animation move: nothing is laid out again on any frame.
+ */
+export const SHEET_DIALOG_MOTION =
+  "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-97 data-[state=closed]:zoom-out-98 data-[state=open]:slide-in-from-bottom-[6px] data-[state=open]:duration-[260ms] data-[state=closed]:duration-150 data-[state=open]:ease-[cubic-bezier(0.32,0.72,0,1)] data-[state=closed]:ease-[cubic-bezier(0.4,0,1,1)] [will-change:opacity,translate,scale]"
+
 /** Three quarters of what is on screen, keyboard included: what the hand built sheets asked for. */
 export const SHEET_DIALOG_MAX_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.75)"
 
@@ -100,7 +114,7 @@ export function SheetDialog({
   }
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent {...dialog} className={className} showCloseButton={showCloseButton} onOpenAutoFocus={onOpenAutoFocus}>
+      <DialogContent {...dialog} disableDefaultAnimations disableOverlayDefaultAnimations={false} className={cn(SHEET_DIALOG_MOTION, className)} showCloseButton={showCloseButton} onOpenAutoFocus={onOpenAutoFocus}>
         {children}
       </DialogContent>
     </Dialog>

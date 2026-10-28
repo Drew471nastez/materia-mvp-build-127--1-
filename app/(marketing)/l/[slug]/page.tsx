@@ -3,6 +3,8 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
 import { PublicOnePage } from "@/components/onepage/public-onepage"
+import { ScheduleRefresh } from "@/components/onepage/schedule-refresh"
+import { nextScheduleChange } from "@/lib/onepage/schedule-clock"
 import { PriceCurrency } from "@/components/platform/price-currency"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
@@ -307,6 +309,8 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
       {/* Its products are its seller's, in the seller's store currency (components/platform/price-currency). */}
       <PriceCurrency currency={transformedOnepage.seller_id ? await cachedStoreCurrency(transformedOnepage.seller_id) : null}>
         <PublicOnePage onepage={transformedOnepage} />
+        {/* A scheduled block arrives or leaves while the page is open (lib/onepage/schedule-clock), read from the same blocks the shape was drawn from. */}
+        <ScheduleRefresh at={nextScheduleChange((onepage.published_blocks || onepage.draft_blocks || []) as unknown[], Date.now())} />
       </PriceCurrency>
       {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
       <CaptureTouch creatorId={resolvedCreatorId} property="onepage" />
