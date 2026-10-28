@@ -17,6 +17,7 @@
  */
 
 import * as React from "react"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -47,6 +48,17 @@ import type { SocialPlatformKey } from "@/lib/social/platforms"
 const MemoImageUpload = React.memo(ImageUpload)
 const MemoSchemePicker = React.memo(SchemePicker)
 const MemoSocialLinksEditor = React.memo(SocialLinksEditor)
+
+/*
+  THE /app FIELDS, NOT THE LIBRARY'S (round 41). The name and the bio were the
+  component library's own boxes and labels, a different grey and height from
+  every other form a creator fills in. These are the coupon and collection
+  editors' measures: 16px type on a phone so iOS does not zoom, 44px to
+  press, a quiet ring on focus.
+*/
+const LABEL = "text-[13px] font-medium text-[#4b5563]"
+const FIELD =
+  "h-11 w-full min-w-0 rounded-[10px] border border-[#e3e5e8] bg-white px-3.5 text-[16px] text-[#1a1a2e] shadow-none outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus-visible:border-[#c9ccd3] focus-visible:ring-0 focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.06)] sm:h-10 sm:rounded-lg sm:text-[14px]"
 
 // The platforms, their order and their icons all come from
 // lib/social/platforms and components/social. This file used to carry its own
@@ -128,6 +140,8 @@ export function EditProfileButton({
   }, [])
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  /* Saved, but not on the page yet: said in grey beside Save, never as an error (round 41). */
+  const [notice, setNotice] = React.useState<string | null>(null)
 
   const [name, setName] = React.useState(displayName)
   const [about, setAbout] = React.useState(bio)
@@ -204,6 +218,7 @@ export function EditProfileButton({
       })
       setScheme(saved.themePreset)
       setError(null)
+      setNotice(null)
   }
   useSavedValues(open, savedValues, applySaved)
 
@@ -215,6 +230,32 @@ export function EditProfileButton({
    * form is put back to what is saved once the sheet has finished leaving,
    * so nothing changes in it on the way out.
    */
+  /**
+   * WHAT SAVE WOULD CHANGE (round 41). Save dims while the form is what is
+   * saved, as the other editors' Save does, so pressing it always does
+   * something. And a message from the last try goes the moment the form is
+   * touched again: it was about that try, not this one.
+   */
+  const formNow = JSON.stringify([name, about, avatar, cover, crop, links, shown, scheme])
+  const formSaved = JSON.stringify([
+    displayName,
+    bio,
+    avatarUrl ?? null,
+    coverUrl ?? null,
+    cropFromSettings(coverFocalPoint, coverZoom),
+    { ...socialLinks },
+    { showReviews: display?.showReviews ?? true, showTotalSalesBadge: display?.showTotalSalesBadge ?? true, showSocialMedia: display?.showSocialMedia ?? true },
+    themePreset,
+  ])
+  const dirty = formNow !== formSaved
+  const lastForm = React.useRef(formNow)
+  React.useEffect(() => {
+    if (lastForm.current === formNow) return
+    lastForm.current = formNow
+    setError(null)
+    setNotice(null)
+  }, [formNow])
+
   const abandoned = React.useRef(false)
   const restoreRef = React.useRef(() => applySaved(savedValues))
   restoreRef.current = () => applySaved(savedValues)
@@ -237,6 +278,7 @@ export function EditProfileButton({
   const save = async () => {
     setSaving(true)
     setError(null)
+    setNotice(null)
     try {
       const res = await fetch("/api/creator-profile", {
         method: "PATCH",
@@ -275,7 +317,7 @@ export function EditProfileButton({
        * nothing saved at all.
        */
       if (data.storefront === false) {
-        setError("Saved, but your storefront has not been set up yet. Open the store builder once and publish, then this will show on your page.")
+        setNotice("Saved. It shows on your page once your store is published from the store builder.")
         return
       }
       setOpen(false)
@@ -377,8 +419,9 @@ export function EditProfileButton({
         wide
         busy={saving}
         error={error}
+        notice={notice}
         onSave={() => void save()}
-        saveDisabled={name.trim().length === 0}
+        saveDisabled={name.trim().length === 0 || !dirty}
         /* The spinner is the sheet's, beside the word. `busy` already says
            a save is in flight; a label that changes as well took the word
            away at the moment it was pressed. */
@@ -391,7 +434,7 @@ export function EditProfileButton({
             */}
             <div className="space-y-2">
               <div className="flex items-baseline justify-between gap-3">
-                <Label>Cover</Label>
+                <Label className={LABEL}>Cover</Label>
                 {/* What the frame does, said once, in place of a pill over the picture. */}
                 {cover ? (
                   <span className="text-right text-xs text-muted-foreground">
@@ -437,7 +480,7 @@ export function EditProfileButton({
             </div>
 
             <div className="space-y-2">
-              <Label>Profile photo</Label>
+              <Label className={LABEL}>Profile photo</Label>
               <div className="w-28">
                 <MemoImageUpload
                   bucket="avatars"
@@ -452,8 +495,8 @@ export function EditProfileButton({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="ep-name">Name</Label>
-              <Input id="ep-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+              <Label className={LABEL} htmlFor="ep-name">Name</Label>
+              <Input id="ep-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} className={FIELD} />
               {username && (
                 <p className="text-xs text-muted-foreground">
                   Your page lives at <span className="font-medium">@{username}</span>. Change the handle in settings.
@@ -462,13 +505,14 @@ export function EditProfileButton({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="ep-bio">Bio</Label>
+              <Label className={LABEL} htmlFor="ep-bio">Bio</Label>
               <Textarea
                 id="ep-bio"
                 value={about}
                 maxLength={500}
                 rows={3}
                 onChange={(e) => setAbout(e.target.value)}
+                className={cn(FIELD, "h-auto min-h-[88px] resize-none py-2.5 leading-[1.45]")}
                 placeholder="What you make, and who it is for."
               />
               <p className="text-xs text-muted-foreground">{about.length}/500</p>
@@ -483,7 +527,7 @@ export function EditProfileButton({
               changes.
             */}
             <div className="space-y-3" data-scheme-picker="">
-              <Label>Colour scheme</Label>
+              <Label className={LABEL}>Colour scheme</Label>
               <MemoSchemePicker
                 value={scheme}
                 onChange={onPickScheme}
@@ -492,7 +536,7 @@ export function EditProfileButton({
             </div>
 
             <div className="space-y-3">
-              <Label>Social links</Label>
+              <Label className={LABEL}>Social links</Label>
               {/* Leave one empty to remove it — the icon disappears with it. */}
               <p className="text-xs text-muted-foreground">
                 Only the ones you fill in appear on your page. A username or a full link both work.
@@ -518,7 +562,7 @@ export function EditProfileButton({
               a person is deciding about.
             */}
             <div className="space-y-3">
-              <Label>Show on your profile</Label>
+              <Label className={LABEL}>Show on your profile</Label>
               <div className="divide-y divide-border rounded-lg border border-border">
                 {(
                   [

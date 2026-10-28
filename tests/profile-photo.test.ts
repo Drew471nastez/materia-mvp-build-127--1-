@@ -259,7 +259,8 @@ async function main() {
     check("and calls itself by the same name", links.includes(">Profile photo</SheetDialogTitle>"))
 
     const storefront = readSource("components/storefront/edit-profile-button.tsx")
-    check("nor the storefront sheet", !WHERE.test(storefront) && storefront.includes("<Label>Profile photo</Label>"))
+    /* Changed on purpose (round 41): the sheet's labels carry the /app label style. */
+    check("nor the storefront sheet", !WHERE.test(storefront) && storefront.includes(">Profile photo</Label>"))
 
     const builderSidebar = readSource("components/store-builder/sections-sidebar.tsx")
     check("nor the creator page builder", !WHERE.test(builderSidebar))
