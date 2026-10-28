@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic"
 type Row = { id: string; title: string; kind: "manual" | "smart"; member: boolean }
 
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const productId = new URL(request.url).searchParams.get("productId")
   const collections = await listCollections(c.db, c.creatorId)
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   const productId = body?.productId

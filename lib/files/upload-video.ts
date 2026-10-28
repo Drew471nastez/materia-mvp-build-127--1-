@@ -22,6 +22,7 @@
  * 70 size), and the server's check after is the one that cannot be skipped.
  */
 import { createClient } from "@/lib/supabase/client"
+import { teamSignedUpload } from "@/lib/team/upload-fallback"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { MAX_VIDEO_BYTES, MAX_VIDEO_TEXT, VIDEO_TYPES, posterPathFor } from "@/lib/media/video"
@@ -133,11 +134,16 @@ export async function putObject(bucket: string, path: string, body: Blob, type: 
   const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "")
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
   const session = base && key ? (await supabase.auth.getSession()).data.session : null
-  if (session?.access_token && base && key && typeof XMLHttpRequest !== "undefined") {
-    await putWithProgress(`${base}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`, session.access_token, key, body, type, onProgress)
-  } else {
-    const { error } = await supabase.storage.from(bucket).upload(path, body, { cacheControl: "31536000", contentType: type, upsert: false })
-    if (error) throw error
+  try {
+    if (session?.access_token && base && key && typeof XMLHttpRequest !== "undefined") {
+      await putWithProgress(`${base}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`, session.access_token, key, body, type, onProgress)
+    } else {
+      const { error } = await supabase.storage.from(bucket).upload(path, body, { cacheControl: "31536000", contentType: type, upsert: false })
+      if (error) throw error
+    }
+  } catch (refused) {
+    /* A team member writing into the store's folder (round 41): storage answers only for the account's own, so the server signs this one path when their permissions allow it (lib/team/upload-fallback). */
+    if (!(await teamSignedUpload(bucket, path, body, type, onProgress))) throw refused
   }
   onProgress(1)
 }
@@ -156,7 +162,8 @@ export interface UploadedVideo {
  * "products" for a product's media, "videos" for a website video setting) with its first frame beside it.
  * Throws when the video itself did not go up; a frame that did not is let go.
  */
-export async function uploadVideo(file: File, folder: "files" | "products" | "videos", onProgress: (p: number) => void = () => {}): Promise<UploadedVideo> {
+/** `owner`: round 41, the folder a team member uploads into (the store owner's account, or the store's id), so the video is the store's; the signed in account's own when not given. */
+export async function uploadVideo(file: File, folder: "files" | "products" | "videos", onProgress: (p: number) => void = () => {}, owner: string | null = null): Promise<UploadedVideo> {
   const refused = videoRefusal(file)
   if (refused) throw new Error(refused)
   const supabase = createClient()
@@ -167,7 +174,7 @@ export async function uploadVideo(file: File, folder: "files" | "products" | "vi
   const ext = VIDEO_TYPES[file.type]
   const probe = await probeVideo(file)
   const secs = probe.duration !== null && probe.poster ? `-${Math.max(1, Math.round(probe.duration))}s` : ""
-  const path = `${user.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}${secs}.${ext}`
+  const path = `${owner || user.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}${secs}.${ext}`
   /* The frame first, small and quick, so a tile that lists the video can draw it. Only a name with the length stamp promises a frame. */
   let poster: string | null = null
   if (probe.poster && secs) {

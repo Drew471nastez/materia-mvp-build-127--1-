@@ -13,10 +13,10 @@ export const dynamic = "force-dynamic"
  *   GET ?bucket=<bucket>&path=<path>
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const u = new URL(request.url)
-  const out = await fileUsage(c.db, { userId: c.userId, creatorId: c.creatorId }, u.searchParams.get("bucket"), u.searchParams.get("path"))
+  const out = await fileUsage(c.db, { userId: c.ownerUserId ?? c.userId, creatorId: c.creatorId }, u.searchParams.get("bucket"), u.searchParams.get("path"))
   if (out.ok === false) return physicalJson({ error: out.error }, out.status)
   return physicalJson({ uses: out.uses })
 }

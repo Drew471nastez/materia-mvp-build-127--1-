@@ -24,7 +24,7 @@ export const maxDuration = 60
  *   POST { action, ids: [...] } → { done: [{ id, review }], skipped: [{ id, error }] }
  */
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const limited = await rateLimit({ bucket: "review-bulk", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 60, seconds: 600 }] })
   if (limited) return limited

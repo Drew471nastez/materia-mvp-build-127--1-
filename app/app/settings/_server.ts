@@ -10,6 +10,7 @@ import { connectedBioPlatforms } from "@/components/app/share/share-data"
 import { businessGroup } from "@/lib/businesses/server"
 import { groupIds } from "@/lib/businesses/rules"
 import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
+import { memberSettingsTabs } from "@/lib/team/settings"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "domains"
 
@@ -70,8 +71,10 @@ export async function loadSettingsData() {
     if (acting || stores.length > 0) return { memberOnly: true as const }
     redirect("/onboarding")
   }
-  /* Working in another store as a team member: Settings is about them (their account), not the store they work in. */
-  const teamActing = !!(await teamStoreForRequest(user.id).catch(() => null))
+  /* Working in another store as a team member: Settings is about them (their account), not the store they work in, and (round 41) Store details too when they hold Store settings (lib/team/settings). */
+  const actingTeam = await teamStoreForRequest(user.id).catch(() => null)
+  const teamActing = !!actingTeam
+  const teamTabs = memberSettingsTabs(actingTeam ? actingTeam.acting.permissions : null)
 
   const [{ data: publishedSite }, websiteHandle, { data: pageSocials }] = await Promise.all([
     /**
@@ -152,6 +155,7 @@ export async function loadSettingsData() {
   return {
     memberOnly: false as const,
     teamActing,
+    teamTabs,
     profile: personalizedProfile,
     creator,
     /* The account's time zone (lib/account/time-zone): the column, else the one kept on the account. */

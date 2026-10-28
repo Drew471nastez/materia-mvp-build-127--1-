@@ -165,7 +165,8 @@ section("Products: the creator and the profile together")
   const src = code("app/app/products/page.tsx")
   check("both rows in one batch, through the request cache the layout filled",
     /Promise\.all\(\[creatorForRequest\(user\.id\), profileForRequest\(user\.id\)\]\)/.test(src))
-  check("the products on the caller's own client, by the creator's id", /\.from\("products"\)\s*\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)/.test(src) && !/createAdminClient/.test(src))
+  /* Changed on purpose (round 41 team): the owner's list is on their own client as before; a team member's is read with the service role, by the store's id */
+  check("the products on the caller's own client, by the creator's id", /\.from\("products"\)\s*\.select\("\*"\)\s*\.eq\("creator_id", creator\.id\)/.test(src) && /supabase\s*\.from\("products"\)/.test(src) && /admin\.from\("products"\)\.select\("\*"\)\.eq\("creator_id", team\.creatorId\)/.test(src))
   check("no user or no creator is sent where that is sorted out, rather than reading an id off nothing",
     /const user = await pageUser\(\)/.test(src) && /if \(!user\) return null/.test(src) && /if \(!creator\) redirect\("\/app"\)/.test(src) && !/!\.id/.test(src))
 }

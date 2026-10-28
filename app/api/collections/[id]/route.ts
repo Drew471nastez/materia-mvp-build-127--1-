@@ -8,7 +8,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)
@@ -24,7 +24,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)

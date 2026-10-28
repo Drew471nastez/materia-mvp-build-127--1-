@@ -1,11 +1,9 @@
 import type { Metadata } from "next"
-import { pageUser } from "@/lib/auth/page-user"
-import { creatorForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { collectionsArea } from "@/lib/physical/collections-server"
 import { CollectionsClient } from "./collections-client"
 import { getServerTt } from "@/lib/i18n/server"
-import { noStorePage } from "@/lib/team/server"
+import { noStorePage, teamPageStore } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -24,12 +22,11 @@ export async function generateMetadata(): Promise<Metadata> {
  * product, as GET /api/collections answers them.
  */
 export default async function CollectionsPage() {
-  const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the session in the browser. */
-  if (!user) return null
-  const creator = await creatorForRequest(user.id)
-  if (!creator) return noStorePage("/app/products/collections")
-  /* The same reader the API uses (lib/physical/auth shopCaller): the owner is checked above, every query is filtered by their creator id. */
-  const { collections, products } = await collectionsArea(createAdminClient(), creator.id)
+  /* Whose store (round 41): the owner's own, or the store a team member with Products works in. Supabase did not answer in time: the layout's gate recovers the session in the browser. */
+  const access = await teamPageStore("products")
+  if (access.kind === "signed_out" || access.kind === "denied") return null
+  if (access.kind === "none") return noStorePage("/app/products/collections")
+  /* The same reader the API uses (lib/physical/auth shopCaller("products")): the store is checked above, every query is filtered by its id. */
+  const { collections, products } = await collectionsArea(createAdminClient(), access.creatorId)
   return <CollectionsClient initialCollections={collections} products={products} />
 }

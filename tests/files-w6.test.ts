@@ -136,7 +136,8 @@ async function main() {
   check("an empty or huge list is refused", !(await deleteLibraryFiles(del, owner, [])).ok && !(await deleteLibraryFiles(del, owner, Array.from({ length: 101 }, () => ({ bucket: "store-builder-images", path: "user-1/files/a.png" })))).ok)
   const route = read("app/api/files/route.ts")
   /* Changed on purpose (round 39): one or several go through removeFromFiles (lib/files/keep.ts), which keeps a file still in use. */
-  check("the API takes { files } as well as one", /const many = !!body && Array\.isArray\(body\.files\)/.test(route) && /removeFromFiles\(c\.db, \{ userId: c\.userId, creatorId: c\.creatorId \}, list\)/.test(route))
+  check("the API takes { files } as well as one", /const many = !!body && Array\.isArray\(body\.files\)/.test(route) && /* Changed on purpose (round 41 team): the folders are the store owner's account, for the owner and a team member alike */
+/removeFromFiles\(c\.db, \{ userId: c\.ownerUserId \?\? c\.userId, creatorId: c\.creatorId \}, list\)/.test(route))
 
   console.log("\nCopy")
   const words = [["un", "lock"], ["ele", "vate"], ["seam", "less"], ["power", "ful"], ["effort", "less"], ["super", "charge"], ["trans", "form"]].map((w) => w.join(""))

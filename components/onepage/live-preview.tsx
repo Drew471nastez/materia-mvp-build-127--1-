@@ -22,6 +22,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useOnePageTeam } from "@/lib/onepage/team-context"
 import { useOnePage } from "@/lib/onepage/context"
 import { publicOnePageFromDraft, type PublicOnePageData } from "@/lib/onepage/public-shape"
 import { ONEPAGE_PREVIEW_CHANNEL, ONEPAGE_PREVIEW_PATH, type PreviewMessage } from "@/lib/onepage/preview-channel"
@@ -59,10 +60,12 @@ function useMedia(query: string): boolean {
  * the next page load.
  */
 export function useOwnerProfile(ownerId: string | undefined) {
+  /* Round 41: a team member is handed the owner's name and photo with the page (lib/onepage/team-context): nothing is read from their browser, and the shell's photo (theirs) is never put in the owner's place. */
+  const team = useOnePageTeam()
   const [owner, setOwner] = useState<{ displayName: string | null; avatarUrl: string | null }>({ displayName: null, avatarUrl: null })
   const shellAvatar = useShellAvatar(owner.avatarUrl)
   useEffect(() => {
-    if (!ownerId) return
+    if (!ownerId || team) return
     let live = true
     createClient()
       .from("profiles")
@@ -80,8 +83,11 @@ export function useOwnerProfile(ownerId: string | undefined) {
     return () => {
       live = false
     }
-  }, [ownerId])
-  return useMemo(() => ({ displayName: owner.displayName, avatarUrl: shellAvatar }), [owner.displayName, shellAvatar])
+  }, [ownerId, team])
+  return useMemo(
+    () => (team ? { displayName: team.ownerName ?? null, avatarUrl: team.ownerAvatar ?? null } : { displayName: owner.displayName, avatarUrl: shellAvatar }),
+    [team, owner.displayName, shellAvatar],
+  )
 }
 
 /** The editor's page, as the published page would be built from it: the draft first, then the owner's profile. */

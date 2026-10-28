@@ -19,7 +19,7 @@ const MAX_CHARS = 1_000_000
  * time (each line's key is the file's hash and its line number).
  */
 export async function POST(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   const csv = typeof body?.csv === "string" ? body.csv : ""

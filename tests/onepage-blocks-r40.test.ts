@@ -179,7 +179,8 @@ async function main() {
     check("  the code comes from the creator's own coupons, checked live", /from\("coupons"\)[^\n]*\.eq\("creator_id", creatorId\)/.test(lm) && /couponUsable\(coupon\)/.test(lm))
     check("  same spam checks and limits as the email signup", /signupLooksAutomated\(body\)/.test(lm) && /windows: LIMITS\.subscribe/.test(lm))
     const api = read("app/api/onepage/integrations/route.ts")
-    check("the integrations route: the owner only, rate limited", /shopCaller\(\)/.test(api) && /rateLimit\(/.test(api))
+    check("the integrations route: the owner only, rate limited", /* Changed on purpose (round 41 team): the store's OnePage integrations for its owner and a team member with OnePage; a key stays the owner's */
+/shopCaller\("onepage"\)/.test(api) && /rateLimit\(/.test(api) && /if \(c\.isOwner === false && !memberMayStep\(body\)\)/.test(api))
     const conn = read("lib/onepage/integrations/connect-server.ts")
     check("  a key comes back as its last four characters only", /secretHint\(openSecret\(sealed\)\)/.test(conn) && !/secret_ciphertext:\s*r\.secret_ciphertext/.test(conn) && !/apiKey:\s*key/.test(conn))
     check("  webhooks are sent through the public-only socket lookup", /lookup: publicLookup/.test(read("lib/onepage/integrations/deliver-server.ts")))

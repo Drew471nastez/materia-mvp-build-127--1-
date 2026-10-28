@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 
 /** One of the store's charts: PUT replaces it, DELETE removes it and leaves its products with none. Both answer with the list again. */
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const { id } = await params
   const body = await readBody(request)
@@ -21,7 +21,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const { id } = await params
   const gone = await deleteSizeChart(c.db, c.creatorId, id)

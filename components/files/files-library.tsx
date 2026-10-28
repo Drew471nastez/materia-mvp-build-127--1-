@@ -178,12 +178,16 @@ const inFlight: Record<LibraryKind, Promise<ListResult> | null> = { image: null,
 /* Every library on screen hears a list arrive, whoever asked for it (a prefetch, an upload). */
 const listeners = new Set<(kind: LibraryKind, r: ListResult) => void>()
 
+/** Round 41: the folder a team member's uploads go into (the store owner's account), from the list's answer; null for the owner, whose own folder it is. */
+let libraryFolder: string | null = null
+
 function fetchList(kind: LibraryKind): Promise<ListResult> {
   const asking = inFlight[kind]
   if (asking) return asking
   const next = (async (): Promise<ListResult> => {
-    const r = await api<{ files: LibraryFile[] }>(kind === "image" ? "/api/files" : `/api/files?kind=${kind}`)
+    const r = await api<{ files: LibraryFile[]; folder?: string }>(kind === "image" ? "/api/files" : `/api/files?kind=${kind}`)
     if ("error" in r) return { error: r.error }
+    libraryFolder = typeof r.data.folder === "string" && r.data.folder ? r.data.folder : null
     kept[kind] = r.data.files
     keptAt[kind] = Date.now()
     return { files: r.data.files }
@@ -355,14 +359,14 @@ const manyAtOnce = () => savePlatform() === "web"
  */
 async function uploadOne(f: File, onProgress: (p: number) => void): Promise<LibraryFile> {
   if (isVideoFile(f)) {
-    const v = await uploadVideo(f, "files", onProgress)
+    const v = await uploadVideo(f, "files", onProgress, libraryFolder)
     return { id: `store-builder-images:${v.path}`, bucket: "store-builder-images", path: v.path, name: v.path.split("/").pop() ?? f.name, url: v.url, bytes: v.bytes, type: v.type, createdAt: new Date().toISOString(), source: msg("Library"), poster: v.poster, duration: v.duration }
   }
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error(tt("signed out"))
   const ext = (f.type.split("/")[1] || "jpg").replace("jpeg", "jpg")
-  const path = `${user.id}/files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const path = `${libraryFolder || user.id}/files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
   const body: Blob = await withoutMetadata(f)
   await putObject("store-builder-images", path, body, f.type, onProgress)
   confirmUpload("store-builder-images", path)

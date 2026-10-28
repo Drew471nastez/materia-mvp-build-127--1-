@@ -31,32 +31,34 @@ export const dynamic = "force-dynamic"
  * part 280 has not run.
  */
 export async function GET(request: Request) {
-  const c = await shopCaller()
+  /* Round 41: the list is read too by the pickers of the OnePage editor and Store details (a team member with OnePage or Store settings); changing or removing a file stays Products'. */
+  const c = await shopCaller(["products", "onepage", "settings"])
   if (c instanceof NextResponse) return c
   /* `?kind=video`: the videos a video setting can use, from the same folders; `?kind=media`: both. */
   const asked = new URL(request.url).searchParams.get("kind")
   const kind = asked === "video" ? "video" : asked === "media" ? "media" : "image"
-  const [all, details] = await Promise.all([listLibrary(c.db, { userId: c.userId, creatorId: c.creatorId }, kind), fileDetails(c.db, c.creatorId)])
+  const [all, details] = await Promise.all([listLibrary(c.db, { userId: c.ownerUserId ?? c.userId, creatorId: c.creatorId }, kind), fileDetails(c.db, c.creatorId)])
   const files = details.hidden.size ? all.filter((f) => !details.hidden.has(f.id)) : all
-  return physicalJson({ files: details.alts.size ? files.map((f) => (details.alts.has(f.id) ? { ...f, alt: details.alts.get(f.id) } : f)) : files })
+  /* `folder`: for a team member (round 41), the store owner's account, whose folder an upload goes into so it is listed here. Not sent for the owner. */
+  return physicalJson({ files: details.alts.size ? files.map((f) => (details.alts.has(f.id) ? { ...f, alt: details.alts.get(f.id) } : f)) : files, ...(c.isOwner === false && c.ownerUserId ? { folder: c.ownerUserId } : {}) })
 }
 
 export async function PATCH(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
-  const out = await saveAltText(c.db, { userId: c.userId, creatorId: c.creatorId }, body?.bucket, body?.path, body?.alt)
+  const out = await saveAltText(c.db, { userId: c.ownerUserId ?? c.userId, creatorId: c.creatorId }, body?.bucket, body?.path, body?.alt)
   if (out.ok === false) return physicalJson({ error: out.error }, out.status)
   return physicalJson({ ok: true, alt: out.alt })
 }
 
 export async function DELETE(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   const many = !!body && Array.isArray(body.files)
   const list = many ? body.files : [{ bucket: body?.bucket, path: body?.path }]
-  const out = await removeFromFiles(c.db, { userId: c.userId, creatorId: c.creatorId }, list)
+  const out = await removeFromFiles(c.db, { userId: c.ownerUserId ?? c.userId, creatorId: c.creatorId }, list)
   if (out.ok === false) return physicalJson({ error: out.error }, out.status)
   const taken = out.deleted.length + out.hidden.length
   if (taken) await recordActivity(c.db, c, { action: "file.deleted", subjectType: "file", subjectLabel: many ? `${taken} files` : String(body?.path ?? "").split("/").pop() })

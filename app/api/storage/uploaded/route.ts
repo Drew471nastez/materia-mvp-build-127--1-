@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { uploadStore } from "@/lib/team/uploads"
 
 import { checkDirectUpload, isDirectUploadBucket, ownedDirectPath } from "@/lib/security/uploads/direct"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
@@ -43,14 +44,17 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createAdminClient()
-    const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+    const [{ data: own }, store] = await Promise.all([admin.from("creators").select("id").eq("user_id", user.id).maybeSingle(), uploadStore(admin, user.id)])
+    const creator = own as { id: string } | null
+    /* Round 41: a team member working in a store, with an area that uploads (lib/team/uploads), writes into that store's folders (its id, and its owner's account for the Files library and videos). */
+    const team = store.kind === "store" ? [store.acting.creatorId, store.acting.ownerUserId] : []
     /* Their own folder only: the id a page builds a path from is either the
-       signed in user's or their creator row's, and nothing else is theirs. */
-    if (!ownedDirectPath(path, [user.id, creator?.id])) {
+       signed in user's or their creator row's (or the store's they work in), and nothing else is theirs. */
+    if (!ownedDirectPath(path, [user.id, creator?.id, ...team])) {
       return NextResponse.json({ ok: false }, { status: 403, headers: UPLOAD_HEADERS })
     }
 
-    runAfterResponse(() => checkDirectUpload(admin, { bucket, path }, { userId: user.id, creatorId: creator?.id ?? null }))
+    runAfterResponse(() => checkDirectUpload(admin, { bucket, path }, { userId: user.id, creatorId: store.kind === "store" ? store.acting.creatorId : (creator?.id ?? null) }))
     return NextResponse.json({ ok: true }, { headers: UPLOAD_HEADERS })
   } catch {
     /* This is a note to the server, not a step in anybody's upload. */

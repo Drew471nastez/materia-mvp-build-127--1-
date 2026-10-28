@@ -11196,6 +11196,7 @@ const words: Record<string, string> = {
  "Posts, members and settings of the store's communities": "Posts, membros e configurações das comunidades da loja",
  "Reports and exports": "Relatórios e exportações",
  "Store details, shipping, taxes, checkout and integrations": "Dados da loja, frete, impostos, checkout e integrações",
+ "The store's name, contact email, phone and logo": "O nome, o e-mail de contato, o telefone e o logo da loja",
  "Invite people and change their access, up to their own": "Convidar pessoas e mudar o acesso delas, até o próprio",
  "Payouts, the plan and invoices": "Repasses, o plano e as faturas",
  "Full access": "Acesso total",

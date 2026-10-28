@@ -123,7 +123,8 @@ export type SellerResult =
   | { ok: false; status: number; error: string }
 
 /** The review, when the signed in person sells the product it is about. */
-export async function sellersReview(db: Db, reviewId: unknown, userId: string | null): Promise<SellerResult> {
+/** `teamStore`: round 41, the store a team member with Products works in (lib/team/server teamStoreIdFor); its reviews are theirs to answer too. */
+export async function sellersReview(db: Db, reviewId: unknown, userId: string | null, teamStore: string | null = null): Promise<SellerResult> {
   if (!userId) return { ok: false, status: 401, error: "Sign in to answer reviews." }
   if (!isUuid(reviewId)) return { ok: false, status: 404, error: "That review is not there any more." }
   const { data } = await db.from("reviews").select("*").eq("id", reviewId).maybeSingle()
@@ -133,7 +134,7 @@ export async function sellersReview(db: Db, reviewId: unknown, userId: string | 
     db.from("creators").select("id, user_id").eq("id", review.creator_id).maybeSingle(),
     db.from("products").select("id, title, slug, creator_id").eq("id", review.product_id).maybeSingle(),
   ])
-  if (!creator || creator.user_id !== userId) return { ok: false, status: 403, error: "Only the seller can do that." }
+  if (!creator || (creator.user_id !== userId && !(teamStore && creator.id === teamStore))) return { ok: false, status: 403, error: "Only the seller can do that." }
   return { ok: true, review, product: { id: review.product_id, title: product?.title ?? null, slug: product?.slug ?? null } }
 }
 

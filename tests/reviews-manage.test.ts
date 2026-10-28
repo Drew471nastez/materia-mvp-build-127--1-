@@ -189,6 +189,8 @@ export const isUuid = (v) => typeof v === "string" && UUID.test(v)
 export const shopCaller = async () => globalThis.__rmStubs.caller ?? NextResponse.json({ error: "Sign in to continue." }, { status: 401 })
 `,
   ),
+  /* Changed on purpose (round 41 team): the seller's review routes also ask whether a team member with Products works in the review's store; nobody here is on a team. */
+  "@/lib/team/server": stub("team", `export const teamStoreIdFor = async () => null\n`),
   "@/lib/api/rate-limit": stub("rl", `export const rateLimit = async () => null\n`),
   "@/lib/activity/log-server": stub("act", `export const recordActivity = async () => undefined\n`),
   "@/lib/notify/providers/mailgun": stub("mail", `export const emailProvider = () => ({ send: async (m) => { globalThis.__rmStubs.sent.push(m); return { status: "sent" } } })\nexport const mailgunDomain = () => "mg.test"\n`),

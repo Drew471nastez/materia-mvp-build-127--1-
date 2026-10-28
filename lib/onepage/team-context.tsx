@@ -18,6 +18,7 @@
  */
 import * as React from "react"
 import { tt } from "@/lib/i18n/text"
+import { setTeamPageOwner } from "./team-owner"
 
 export interface OnePageTeam {
   /** The store's name, for the sentences that say whose it is. */
@@ -30,6 +31,9 @@ export interface OnePageTeam {
   plan: "free" | "growth" | "pro"
   /** The creator page's connected domain, or null. */
   domain: string | null
+  /** Round 41: the owner's name and photo for the preview, read on the server, so the member's browser never reads the owner's profile (and never shows the member's own photo in its place). */
+  ownerName?: string | null
+  ownerAvatar?: string | null
 }
 
 const Ctx = React.createContext<OnePageTeam | null>(null)
@@ -57,13 +61,18 @@ let currentStore: string | null = null
 export function teamStoreForProducts(): string | null {
   return currentStore
 }
+/** Round 41: the page owner's folder for a member's uploads (./team-owner). */
+export { teamPageOwner } from "./team-owner"
 export function useTeamProductsStore(team: OnePageTeam | null): void {
   /* Set during render, before any child effect reads it, and cleared when the editor goes. */
   currentStore = team?.creatorId ?? null
+  setTeamPageOwner(team?.ownerUserId ?? null)
   React.useEffect(() => {
     currentStore = team?.creatorId ?? null
+    setTeamPageOwner(team?.ownerUserId ?? null)
     return () => {
       currentStore = null
+      setTeamPageOwner(null)
     }
-  }, [team?.creatorId])
+  }, [team?.creatorId, team?.ownerUserId])
 }

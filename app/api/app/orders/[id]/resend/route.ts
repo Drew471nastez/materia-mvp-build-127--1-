@@ -51,7 +51,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   if (limited) return limited
 
   const report = await sendAccessEmails(admin, creatorId, lines, to)
-  await recordOrderEvent(admin, lines[0].id, "receipt_resent", { sent: report.sent, failed: report.failed })
+  await recordOrderEvent(admin, lines[0].id, "receipt_resent", { sent: report.sent, failed: report.failed }, store.role === "owner" ? null : store.userId)
 
   if (report.sent === 0) {
     return NextResponse.json({ error: `The email did not send. ${report.error ?? ""}`.trim(), lines: report.lines }, { status: 502 })

@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic"
  *   PUT  { id, value }   set one (null or "" removes it)
  */
 export async function GET() {
-  const c = await shopCaller()
+  /* Round 41: read too by the OnePage editor's Integrations panel, so a team member with OnePage sees the store's tags. Changing one stays the owner's (PUT). */
+  const c = await shopCaller(["store", "onepage"])
   if (c instanceof NextResponse) return c
   const loaded = await loadTracking(c.db, c.creatorId)
   /* Google Analytics: is it receiving data, and when was it last checked (lib/store/tracking-server loadGaStatus). */

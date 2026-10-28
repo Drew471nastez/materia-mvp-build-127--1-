@@ -187,7 +187,8 @@ async function files() {
   }
   {
     const route = raw("app/api/files/route.ts")
-    check("the route deletes through removeFromFiles, one or several, and lists without the hidden", /removeFromFiles\(c\.db, \{ userId: c\.userId, creatorId: c\.creatorId \}, list\)/.test(route) && /details\.hidden\.has\(f\.id\)/.test(route) && !/deleteLibraryFiles?\(/.test(route))
+    check("the route deletes through removeFromFiles, one or several, and lists without the hidden", /* Changed on purpose (round 41 team): the folders are the store owner's account, for the owner and a team member alike */
+/removeFromFiles\(c\.db, \{ userId: c\.ownerUserId \?\? c\.userId, creatorId: c\.creatorId \}, list\)/.test(route) && /details\.hidden\.has\(f\.id\)/.test(route) && !/deleteLibraryFiles?\(/.test(route))
     const lib = raw("components/files/files-library.tsx")
     check("Files says what stays: in use, Remove from Files, kept where it shows", /tt\("Remove from Files"\)/.test(lib) && /hiddenNote\(keptThere\.uses,/.test(lib) && /tt\("It leaves Files and stays in those places\."\)/.test(lib))
     check("  and no longer that those places will show nothing", !/will show nothing/.test(lib))

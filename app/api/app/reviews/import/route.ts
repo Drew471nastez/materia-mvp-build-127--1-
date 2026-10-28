@@ -68,7 +68,7 @@ async function existingFingerprints(db: any, creatorId: string, productIds: stri
 const counts = (rows: RowOutcome[]) => ({ ok: rows.filter((r) => r.ok).length, skipped: rows.filter((r) => !r.ok).length })
 
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const [history, products] = await Promise.all([listImports(c.db, c.creatorId), importCatalog(c.db, c.creatorId)])
   return physicalJson({ ...history, products })
@@ -189,7 +189,7 @@ async function chunked(c: { creatorId: string; userId: string; db: any }, body: 
 }
 
 export async function DELETE(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const id = new URL(request.url).searchParams.get("id")
   if (!isUuid(id)) return physicalJson({ error: "Bad request." }, 400)

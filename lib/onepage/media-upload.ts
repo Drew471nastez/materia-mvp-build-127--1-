@@ -31,6 +31,7 @@
  */
 import { createClient } from "@/lib/supabase/client"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
+import { teamPageOwner } from "@/lib/onepage/team-owner"
 import { watchUploadStall } from "@/lib/net/request"
 import { tt } from "@/lib/i18n/text"
 import {
@@ -164,6 +165,8 @@ export interface MediaUploadOptions {
   /** Milliseconds before the first retry; doubles each time. */
   retryDelayMs?: number
   maxRetries?: number
+  /** Round 41: whose folder. Left out, the page owner's for a team member (lib/onepage/team-context teamPageOwner), else the signed in account's. */
+  owner?: string | null
 }
 
 export interface MediaUploadResult {
@@ -234,7 +237,9 @@ export async function uploadOnePageMedia(file: File | Blob, o: MediaUploadOption
 
   const first = await getSession()
   if (!first) throw new UploadError("auth", uploadErrorText("auth"))
-  const path = mediaPath(first.userId, o.prefix, ext)
+  /* Round 41: a team member editing the store's OnePage uploads into the page owner's folder (lib/onepage/team-context), never their own. */
+  const teamOwner = o.owner === undefined ? teamPageOwner() : o.owner
+  const path = mediaPath(teamOwner ?? first.userId, o.prefix, ext)
   const total = body.size
   let lastReported = -1
   const report = (loaded: number) => {
@@ -261,7 +266,10 @@ export async function uploadOnePageMedia(file: File | Blob, o: MediaUploadOption
   o.onStage?.("uploading")
   report(0)
 
-  if (uploadRoute(total) === "single") {
+  if (teamOwner && teamOwner !== first.userId) {
+    /* Storage's own policies answer only for the account's own folder, so the server signs this one path when the member holds OnePage (app/api/team/upload-url), and the file goes up as one request. */
+    await signedPut({ wire, bucket, path, body, mime, report, fail, signal: o.signal })
+  } else if (uploadRoute(total) === "single") {
     for (let attempt = 0; ; attempt++) {
       const res = await wire({
         method: "POST",
@@ -283,6 +291,23 @@ export async function uploadOnePageMedia(file: File | Blob, o: MediaUploadOption
   report(total)
   confirmUpload(bucket, path)
   return { url: publicMediaUrl(base, bucket, path), path, bucket, mime, size: total, kind }
+}
+
+/** A team member's upload (round 41): a signed address for the path from the server, then one PUT with progress. */
+async function signedPut(a: { wire: Wire; bucket: string; path: string; body: Blob; mime: string; report: (n: number) => void; fail: (res: WireResponse) => never; signal?: AbortSignal }): Promise<void> {
+  let signedUrl: string | null = null
+  try {
+    const r = await fetch("/api/team/upload-url", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ bucket: a.bucket, path: a.path }), signal: a.signal })
+    if (r.status === 401) throw new UploadError("auth", uploadErrorText("auth"))
+    if (r.ok) signedUrl = ((await r.json()) as { signedUrl?: string }).signedUrl ?? null
+  } catch (e) {
+    if (e instanceof UploadError) throw e
+    if (a.signal?.aborted) throw new UploadError("cancelled", uploadErrorText("cancelled"))
+    throw new UploadError("network", uploadErrorText("network"))
+  }
+  if (!signedUrl) throw new UploadError("server", uploadErrorText("server"))
+  const res = await a.wire({ method: "PUT", url: signedUrl, headers: { "content-type": a.mime, "cache-control": "max-age=31536000" }, body: a.body, onProgress: a.report, signal: a.signal })
+  if (res.status < 200 || res.status >= 300) a.fail(res)
 }
 
 async function resumable(a: {

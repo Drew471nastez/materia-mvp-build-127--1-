@@ -19,13 +19,13 @@ export const dynamic = "force-dynamic"
  * store's collections and its products' categories a chart can be set for.
  */
 export async function GET() {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   return physicalJson(await listSizeCharts(c.db, c.creatorId))
 }
 
 export async function POST(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

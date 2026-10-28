@@ -40,6 +40,7 @@
 
 import * as React from "react"
 import { buttonPadScale, pressableProps } from "@/lib/onepage/block-look"
+import { teamStoreForProducts } from "@/lib/onepage/team-context"
 import { Check, ChevronRight, Copy, Loader2, Play, Plus, RefreshCw, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
@@ -768,7 +769,9 @@ async function loadFreeProducts(): Promise<FreeProduct[]> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  /* Round 41: a team member lists the store's free products (lib/onepage/team-context), never their own account's. */
+  const teamStore = teamStoreForProducts()
+  const { data: creator } = teamStore ? { data: { id: teamStore } } : await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   if (!creator) return []
   const { data } = await supabase
     .from("products")

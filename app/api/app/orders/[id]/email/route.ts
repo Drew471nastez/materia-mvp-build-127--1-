@@ -63,7 +63,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   await moveCheckoutEmail(admin, lines, creatorId, email)
 
   const report = await sendAccessEmails(admin, creatorId, lines, email)
-  await recordOrderEvent(admin, lines[0].id, "email_changed_by_creator", { sent: report.sent, failed: report.failed })
+  await recordOrderEvent(admin, lines[0].id, "email_changed_by_creator", { sent: report.sent, failed: report.failed }, store.role === "owner" ? null : store.userId)
 
   return NextResponse.json({
     email,

@@ -298,6 +298,8 @@ export const isUuid = (v) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-
   "@/lib/supabase/server": stub("server", `export const createClient = async () => ({ auth: { getUser: async () => ({ data: { user: globalThis.__rvImportStubs.user }, error: null }) } })\n`),
   "@/lib/email": stub("email", `export const sendReviewNotificationEmail = async (_a, p) => { globalThis.__rvImportStubs.sent.push({ kind: "review", ...p }); return { success: true } }\nexport const resolveSellerEmail = async () => "seller@example.com"\n`),
   "@/lib/reviews/requests-server": stub("rq", `export const askNow = async (_db, _c, orderId) => { globalThis.__rvImportStubs.sent.push({ kind: "ask", orderId }); return true }\nexport const requestContext = async () => null\n`),
+  /* Changed on purpose (round 41 team): the seller's review routes also ask whether a team member with Products works in the review's store; nobody here is on a team. */
+  "@/lib/team/server": stub("team", `export const teamStoreIdFor = async () => null\n`),
   "@/lib/activity/log-server": stub("act", `export const recordActivity = async () => undefined\n`),
   "@/lib/notifications/events": stub("ev", `export const noteReview = async () => undefined\n`),
   "@/lib/reviews/later": stub("later", `export const later = (task) => { globalThis.__rvImportStubs.later.push(task()) }\n`),
@@ -645,7 +647,8 @@ function sql() {
   check("undo is by part 215's import_id, whose import going leaves the reviews (SET NULL)", /import_id uuid REFERENCES public\.review_imports\(id\) ON DELETE SET NULL/.test(read("supabase/sql/run-now/215_reviews_manage.sql")) && !/ON DELETE CASCADE/.test(part))
   check("listed in the run-now README and in the after check", read("supabase/sql/run-now/README.md").includes("`232_review_imports_from_apps.sql`") && /as p232_review_imports_from_apps[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
   const routeSrc = read("app/api/app/reviews/import/route.ts")
-  check("every import call is the signed in store's (shopCaller), rate limited", (routeSrc.match(/await shopCaller\(\)/g) ?? []).length === 3 && (routeSrc.match(/rateLimit\(/g) ?? []).length >= 3)
+  /* Changed on purpose (round 41 team): Reviews is part of Products: the owner, or a team member with Products. */
+  check("every import call is the signed in store's (shopCaller), rate limited", (routeSrc.match(/await shopCaller\("products"\)/g) ?? []).length === 3 && (routeSrc.match(/rateLimit\(/g) ?? []).length >= 3)
   const server = read("lib/reviews/import-server.ts")
   check("every write and delete is filtered by the creator", /\.delete\(\)\.eq\("creator_id", creatorId\)\.eq\("import_id", importId\)/.test(read("lib/reviews/manage-server.ts")) && /\.from\("products"\)\.select\("id"\)\.eq\("creator_id", a\.creatorId\)/.test(server) && !/NEXT_PUBLIC_/.test(server))
   const dialog = read("components/reviews/manage/import-dialog.tsx")

@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic"
  *                                    widget's lists and ranges
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const [{ configs, ready }, langs, creator] = await Promise.all([
     listWidgetConfigs(c.db, c.creatorId),
@@ -31,7 +31,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
  *   GET → { summary, funnel, recent, ready, app: { enabled, ready } }
  */
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const [overview, app] = await Promise.all([reviewsOverview(c.db, c.creatorId), loadReviewsApp(c.db, c.creatorId).catch(() => null)])
   return physicalJson({ ...overview, app: { enabled: app?.settings.enabled === true, ready: app?.ready !== false } })

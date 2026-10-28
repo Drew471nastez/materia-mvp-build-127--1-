@@ -45,8 +45,8 @@ export const dynamic = "force-dynamic"
  */
 
 type Db = Awaited<ReturnType<typeof readyCaller>>["db"]
-async function readyCaller() {
-  const c = await shopCaller()
+async function readyCaller(area: "store" | "products" = "store") {
+  const c = await shopCaller(area)
   if (c instanceof NextResponse) throw c
   return c
 }
@@ -145,14 +145,16 @@ async function state(db: Db, creatorId: string, headers: Headers) {
 }
 
 export async function GET(request: Request) {
+  /* `?only=currency` is read by the product editor before a save, so a team member with Products may read that one answer (round 41); the rest of this page is the owner's. */
+  const only = new URL(request.url).searchParams.get("only") === "currency"
   let c
   try {
-    c = await readyCaller()
+    c = await readyCaller(only ? "products" : "store")
   } catch (r) {
     return r as NextResponse
   }
   /* `?only=currency`: what a price form checks before it saves (lib/store/currency-guard), without the counts. */
-  if (new URL(request.url).searchParams.get("only") === "currency") {
+  if (only) {
     const now = await storeCurrencyNow(c.db, c.creatorId)
     return now ? physicalJson({ currency: now }) : physicalJson({ error: "Could not read the store's currency." }, 503)
   }

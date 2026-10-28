@@ -28,6 +28,8 @@
  * editor, so the previews, undo and the editor's Save all see them.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { teamPageOwner } from "@/lib/onepage/team-owner"
+import { teamSignedUpload } from "@/lib/team/upload-fallback"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { Loader2, Plus } from "lucide-react"
 import { useOnePage } from "@/lib/onepage/context"
@@ -284,8 +286,12 @@ export function SeoPanel({ pageUrl, footer }: { pageUrl: string; footer?: ReactN
       } = await supabase.auth.getUser()
       if (!user) throw new Error(tt("signed out"))
       const ext = jpeg ? "jpg" : (file.name.split(".").pop() || "img").toLowerCase().replace(/[^a-z0-9]/g, "")
-      const path = `${user.id}/og-image-${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from("onepage-assets").upload(path, body, { upsert: true, contentType: jpeg ? "image/jpeg" : file.type })
+      /* Round 41: a team member's picture goes into the page owner's folder; storage takes it through a path the server signs (lib/team/upload-fallback). */
+      const owner = teamPageOwner()
+      const path = `${owner ?? user.id}/og-image-${Date.now()}.${ext}`
+      const { error } = owner
+        ? { error: (await teamSignedUpload("onepage-assets", path, body, jpeg ? "image/jpeg" : file.type)) ? null : new Error("upload refused") }
+        : await supabase.storage.from("onepage-assets").upload(path, body, { upsert: true, contentType: jpeg ? "image/jpeg" : file.type })
       if (error) throw error
       confirmUpload("onepage-assets", path)
       const {
