@@ -2,38 +2,44 @@
 
 /**
  * ===========================================================================
- *  ONE COLLECTION, NEW OR SAVED
+ *  ONE COLLECTION, NEW OR SAVED, ON A PAGE OF ITS OWN
  * ===========================================================================
- * Storelib's SheetDialog (components/ui/sheet-dialog.tsx): on a phone the
- * app's shared bottom sheet, with its grabber, its drag and its motion, and
- * no close button, since a pull down or a tap above it closes it; on a
- * computer a dialog in the middle of the page. Both draw the same thing: a
- * title, the form that scrolls, and Cancel and Save at the foot, which on a
- * phone stays on the bottom of the sheet above the home indicator.
+ * /app/products/collections/new and /app/products/collections/<id> (round
+ * 41, the owner: "Collections and edit collections should act as subpages,
+ * not modals"). Framed exactly as a size chart or an offer is (../size-charts/
+ * size-chart-page.tsx): on a phone a layer over the app's header with Cancel
+ * or Back and Save at the top; from lg the 1200px page with a back arrow and
+ * the title, the form on the left and a summary on the right, Cancel and
+ * Save along the foot with the save state. It was a SheetDialog over the
+ * list; a long rule list or a hundred products to pick did not fit a sheet.
  *
- * The form, in the order a person decides it: the name and the words, whether
- * it is shown and in what order, then which products are in it. Either
- * picked by hand from every product of every kind, or matched by rules,
- * written as sentences ("Product type is Course"), with the products they
- * catch counted and shown as the rules are typed, by the same rules the
- * storefront applies (lib/physical/collections.ts inSmartCollection).
+ * The form, in the order a person decides it: the name and the words, then
+ * which products are in it, and beside it whether it is shown and in what
+ * order. Products are either picked by hand from every product of every
+ * kind, or matched by rules, written as sentences ("Product type is
+ * Course"), with the products they catch counted and shown as the rules are
+ * typed, by the same rules the storefront applies (lib/physical/
+ * collections.ts inSmartCollection).
  *
- * Questions (discard the changes, delete it) are asked by the page, once
- * this has gone: see ONE QUESTION AT A TIME in ./collections-client.tsx.
+ * A save or a delete goes back to the list, which says so and tints the row
+ * (./list-return). The questions (discard the changes, delete it) are the
+ * app's confirm, asked on this page: nothing is under it any more.
  */
 
 import * as React from "react"
-import { Plus, Search, X } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, Plus, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
-import { ActivitySpinner } from "@/components/ui/activity-spinner"
-import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { secondaryDepth } from "@/components/ui/depth-button"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { RULE_FIELDS, inSmartCollection, type CollectionRule, type RuleField, type RuleOp } from "@/lib/physical/collections"
 import { CATEGORY_GROUPS, PHYSICAL_CATEGORY_GROUPS } from "@/lib/products/category-groups"
 import { SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "../new/editor-controls"
-import { Tick } from "../../coupons/coupon-parts"
-import type { SaveBody } from "./collections-client"
+import { LeaveButton } from "../new/editor-buttons"
+import { useConfirm } from "../new/confirm-sheet"
+import { iconButton } from "../../orders/order-parts"
+import { CouponSaveButton, Tick } from "../../coupons/coupon-parts"
+import { collectionsReturn } from "./list-return"
 import {
   KIND_LABEL,
   NUMERIC_FIELDS,
@@ -45,18 +51,15 @@ import {
   countWords,
   fieldWords,
   finishedRules,
+  howWords,
   opsFor,
   ruleProduct,
-  usePhone,
   type Collection,
   type CollectionProduct,
 } from "./collection-parts"
 import { tt } from "@/lib/i18n/text"
-import { useMoneyMark } from "@/lib/store/currency-context"
+import { useMoneyMark, useStoreCurrency } from "@/lib/store/currency-context"
 import { Rich } from "@/lib/i18n/rich"
-
-/** On a phone the sheet is the form's height whatever is in it, so switching between picking and rules never moves its top edge. */
-const SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.9)"
 
 /* The coupon editor's fields (../../coupons/coupon-editor.tsx): 16px on a phone so iOS does not zoom, 44px to press. */
 const FIELD =
@@ -66,39 +69,40 @@ const CHEVRON =
 const SELECT = cn(FIELD, CHEVRON, "cursor-pointer truncate")
 const LABEL = "mb-1.5 block text-[13px] font-medium text-[#4b5563]"
 const HINT = "text-[13px] leading-5 text-[#6b7280]"
-const SECTION_TITLE = "text-[15px] font-semibold text-[#1a1a2e] sm:text-[14px]"
-
-/* The foot's two buttons: the confirm sheet's 48px pair on a phone, the app's 32px buttons on a computer. */
-const FOOT_BUTTON = "h-12 min-w-0 rounded-xl text-[16px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]"
+/* The size chart page's cards (../size-charts/size-chart-page.tsx), so the sub pages under Products are one place. */
+const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:py-6"
+const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
 
 const blankRule = (): CollectionRule => ({ field: "type", op: "equals", value: "" })
 
-export function CollectionEditor({
-  open,
-  collection,
-  products,
-  onRequestClose,
-  onSave,
-  onDelete,
-  onClosed,
-  leaveMs,
-}: {
-  open: boolean
-  /** Null for a new collection. */
-  collection: Collection | null
-  products: CollectionProduct[]
-  /** Every way out: a pull down, a tap above the sheet, Escape, Cancel. The page asks first when something would be lost. */
-  onRequestClose: (dirty: boolean) => void
-  /** Saves, and answers with what went wrong, or null. */
-  onSave: (id: string | null, body: SaveBody) => Promise<string | null>
-  onDelete: (collection: Collection) => void
-  /** Once it has finished leaving. */
-  onClosed: () => void
-  /** How long the computer's dialog takes to leave. */
-  leaveMs: number
-}) {
-  const phone = usePhone()
+/** What the API takes to create or save a collection. */
+export interface SaveBody {
+  title: string
+  description: string
+  kind: "manual" | "smart"
+  rules: Collection["rules"]
+  match: "all" | "any"
+  sort: string
+  published: boolean
+  productIds: string[]
+}
+
+async function send(url: string, method: string, body?: unknown): Promise<{ ok: true; collections: Collection[]; id: string | null } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !Array.isArray(data?.collections)) return { ok: false, error: typeof data?.error === "string" ? data.error : tt("That did not go through. Try again.") }
+    const id = typeof data?.id === "string" ? data.id : typeof data?.collection?.id === "string" ? data.collection.id : null
+    return { ok: true, collections: data.collections as Collection[], id }
+  } catch {
+    return { ok: false, error: tt("No connection. Try again in a moment.") }
+  }
+}
+
+export function CollectionPage({ collection, products }: { collection: Collection | null; products: CollectionProduct[] }) {
+  const router = useRouter()
   const physical = usePhysicalCommerceEnabled()
+  const storeCurrency = useStoreCurrency()
   const c = collection
 
   const [title, setTitle] = React.useState(c?.title ?? "")
@@ -112,38 +116,96 @@ export function CollectionEditor({
   const [picked, setPicked] = React.useState<string[]>(c?.productIds ?? [])
   const [query, setQuery] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
-  const [busy, setBusy] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
+  const [scrolled, setScrolled] = React.useState(false)
+  const busy = saving || deleting
   const titleRef = React.useRef<HTMLInputElement>(null)
+  const paneRef = React.useRef<HTMLDivElement>(null)
+  const [ask, confirmSheet] = useConfirm()
+
+  React.useEffect(() => {
+    collectionsReturn.warm(router)
+  }, [router])
+  collectionsReturn.useOrigin()
 
   const body: SaveBody = { title: title.trim(), description, kind, rules: finishedRules(rules), match, sort, published, productIds: kind === "manual" ? picked : [] }
-  const [initial] = React.useState(() => JSON.stringify(body))
+  const [initial, setInitial] = React.useState(() => JSON.stringify(body))
   const dirty = JSON.stringify(body) !== initial
+  const isNew = !c
+  const canSave = !busy && (isNew || dirty)
 
-  /* The computer's dialog has no "gone" of its own to report: its fade is a fixed length. The phone's sheet says when it has gone (onClosed below). */
-  React.useEffect(() => {
-    if (open || phone) return
-    const t = window.setTimeout(onClosed, leaveMs)
-    return () => window.clearTimeout(t)
-  }, [open, phone, onClosed, leaveMs])
-
-  const close = () => {
-    if (!busy) onRequestClose(dirty)
+  const showError = (message: string) => {
+    setError(message)
+    paneRef.current?.scrollTo({ top: 0, behavior: "smooth" })
   }
 
   const save = async () => {
-    if (busy) return
+    if (!canSave) return
     if (!body.title) {
       setError(tt("Give the collection a title."))
       titleRef.current?.focus()
       return
     }
-    if (kind === "smart" && body.rules.length === 0) return setError(tt("Finish at least one condition: a field, how it compares and a value."))
-    setBusy(true)
+    if (kind === "smart" && body.rules.length === 0) return showError(tt("Finish at least one condition: a field, how it compares and a value."))
+    setSaving(true)
     setError(null)
-    const problem = await onSave(c?.id ?? null, body)
-    setBusy(false)
-    if (problem) setError(problem)
+    const r = await send(c ? `/api/collections/${c.id}` : "/api/collections", c ? "PUT" : "POST", body)
+    if (!r.ok) {
+      setSaving(false)
+      return showError(r.error)
+    }
+    setInitial(JSON.stringify(body))
+    const id = c?.id ?? r.id ?? r.collections.find((x) => x.title === body.title)?.id ?? null
+    collectionsReturn.leave(router, { id, collections: r.collections, message: tt("{value} saved", { value: body.title }) })
   }
+
+  const leaveMode = c && !dirty ? "back" : "cancel"
+  const leave = async () => {
+    if (busy) return
+    if (dirty) {
+      const yes = await ask(
+        c
+          ? { title: tt("Discard changes?"), body: tt("Your edits to this collection will be lost."), confirm: tt("Discard"), cancel: tt("Keep editing") }
+          : { title: tt("Discard this collection?"), body: tt("It has not been saved yet, so it will not be kept."), confirm: tt("Discard"), cancel: tt("Keep editing") },
+      )
+      if (!yes) return
+    }
+    collectionsReturn.leave(router, { id: c?.id ?? null })
+  }
+
+  const remove = async () => {
+    if (!c || busy) return
+    const yes = await ask({
+      title: tt("Delete {title}?", { title: c.title }),
+      body: tt("The collection and its page on your website go. The products in it stay as they are."),
+      confirm: tt("Delete"),
+      cancel: tt("Keep it"),
+    })
+    if (!yes) return
+    setDeleting(true)
+    const r = await send(`/api/collections/${c.id}`, "DELETE")
+    if (!r.ok) {
+      setDeleting(false)
+      return showError(r.error)
+    }
+    collectionsReturn.leave(router, { id: c.id, deleted: true, collections: r.collections, message: tt("{title} deleted", { title: c.title }) })
+  }
+
+  /* Cmd or Ctrl and S, from anywhere on the page. */
+  const saveRef = React.useRef(save)
+  React.useEffect(() => {
+    saveRef.current = save
+  })
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.key.toLowerCase() !== "s") return
+      e.preventDefault()
+      void saveRef.current()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [])
 
   /* ── Rules ─────────────────────────────────────────────────────────── */
   const fields = RULE_FIELDS.filter((f) => physical || !PHYSICAL_RULES.has(f) || rules.some((r) => r.field === f))
@@ -170,7 +232,6 @@ export function CollectionEditor({
   const pickedSet = new Set(picked)
   const toggle = (id: string) => setPicked((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]))
 
-  const heading = c ? tt("Edit collection") : tt("New collection")
 
   const pickPanel = (
     <div data-pick-panel="" className="space-y-2">
@@ -267,124 +328,150 @@ export function CollectionEditor({
     </div>
   )
 
+  const heading = c ? c.title : tt("New collection")
+  const count = kind === "manual" ? picked.length : caught.length
+  const saveState = saving ? "saving" : isNew ? "new" : dirty ? "unsaved" : "saved"
+  const stateLine = saveState === "saving" ? tt("Saving") : saveState === "unsaved" ? tt("Unsaved changes") : saveState === "new" ? tt("Not saved yet") : countWords(c ? c.productIds.length : 0)
+  const saveWord = isNew ? tt("Create") : tt("Save")
+
   return (
-    <SheetDialog
-      open={open}
-      onClose={close}
-      phone={phone}
-      label={heading}
-      showCloseButton={false}
-      /* A new collection starts in its title; a saved one opens on the dialog itself, rather than with its name selected. */
-      onOpenAutoFocus={(e) => {
-        if (!c) return
-        e.preventDefault()
-        ;(e.currentTarget as HTMLElement | null)?.focus?.()
-      }}
-      className="flex max-h-[min(88vh,820px)] flex-col gap-0 overflow-hidden rounded-2xl outline-none border-[#e5e7eb] p-0 shadow-[0_20px_48px_-16px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] sm:max-w-[600px]"
-      sheet={{ height: SHEET_HEIGHT, maxHeight: SHEET_HEIGHT, dismissible: !busy, onClosed }}
+    <div
+      ref={paneRef}
+      data-collection-page=""
+      className="page-scroll h-full overflow-y-auto overflow-x-hidden bg-[#f8f9fa] max-md:[[data-page-layer]_&]:pb-[calc(32px+env(safe-area-inset-bottom))] lg:flex lg:flex-col"
+      onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 0)}
     >
-      <div data-collection-editor="" className="flex min-h-0 flex-1 flex-col">
-        <div className="shrink-0 px-5 pb-3 pt-1 sm:px-6 sm:pt-5">
-          <SheetDialogTitle className="text-[17px] font-semibold leading-6 text-[#1a1a2e]">{heading}</SheetDialogTitle>
-        </div>
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {saving ? tt("Saving") : deleting ? tt("Deleting") : ""}
+      </p>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-1 sm:px-6">
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="collection-title" className={LABEL}>
-                {tt("Title")}
-              </label>
-              <input id="collection-title" ref={titleRef} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder={tt("New in, Courses, Under $30")} autoComplete="off" className={FIELD} />
-            </div>
-            <div>
-              <label htmlFor="collection-description" className={LABEL}>
-                {tt("Description")} <span className="font-normal text-[#9ca3af]">{tt("optional")}</span>
-              </label>
-              <textarea
-                id="collection-description"
-                value={description}
-                maxLength={5000}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                placeholder={tt("Shown at the top of the collection's page")}
-                className={cn(FIELD, "h-auto min-h-[88px] resize-none py-2.5 sm:resize-y leading-[1.45]")}
-              />
-            </div>
-          </div>
-
-          <div className={cn(SWITCH_GROUP, "mt-5")}>
-            <SwitchRow title={tt("Published")} hint={tt("Can be shown on your website")} checked={published} onChange={setPublished} />
-            <label className="flex min-h-[56px] items-center gap-3 px-4 py-2 sm:min-h-[52px]">
-              <span className="min-w-0 flex-1 text-[15px] font-medium leading-5 text-[#1a1a2e] sm:text-[14px]">{tt("Sort by")}</span>
-              <select value={sort} onChange={(e) => setSort(e.target.value)} className={cn(SELECT, "h-10 w-auto max-w-[58%] rounded-[10px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>
-                {SORTS.map(([v, label]) => (
-                  <option key={v} value={v}>
-                    {tt(label)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <section aria-labelledby="collection-products" className="mt-6 space-y-3">
-            <h3 id="collection-products" className={SECTION_TITLE}>
-              {tt("Products")}
-            </h3>
-            <Segmented
-              label={tt("How products get in")}
-              value={kind}
-              onChange={setKind}
-              options={[
-                { value: "manual", label: tt("Pick products") },
-                { value: "smart", label: tt("Match by rules") },
-              ]}
-            />
-            <SwapPanels
-              active={kind}
-              panels={[
-                { key: "manual", node: pickPanel },
-                { key: "smart", node: rulesPanel },
-              ]}
-            />
-          </section>
-
-          {error ? (
-            <p role="alert" className="mt-4 text-[14px] font-medium leading-5 text-[#b42318] sm:text-[13px]">
-              {error}
-            </p>
-          ) : null}
-
-          {c ? (
-            <div className="mt-6 border-t border-[#eef0f2] pt-4">
-              <button type="button" data-delete-collection="" disabled={busy} onClick={() => onDelete(c)} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[15px] text-[#4b5563] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}>
-                {tt("Delete collection")}
-              </button>
-            </div>
-          ) : null}
-        </div>
-
-        <div data-editor-foot="" className="grid shrink-0 grid-cols-2 gap-2.5 border-t border-[#eef0f2] px-5 pt-3 sm:flex sm:justify-end sm:gap-2 sm:px-6 sm:pb-3">
-          <button type="button" onClick={close} disabled={busy} className={cn(secondaryDepth, FOOT_BUTTON)}>
-            {tt("Cancel")}
-          </button>
-          <button
-            type="button"
-            data-save-collection=""
-            onClick={() => void save()}
-            disabled={!busy && !!c && !dirty}
-            aria-busy={busy || undefined}
-            className={cn(primaryDepth, FOOT_BUTTON, "relative sm:min-w-[60px]", "disabled:cursor-default disabled:bg-[#ebebef] disabled:text-[#a1a1aa] disabled:shadow-none", busy && "cursor-default")}
-          >
-            <span className={cn(busy && "opacity-0")}>{c ? tt("Save") : tt("Create")}</span>
-            {busy ? (
-              <span aria-hidden className="absolute inset-0 flex items-center justify-center">
-                <ActivitySpinner size={18} label={tt("Saving")} className="text-white" />
-              </span>
-            ) : null}
-          </button>
+      <div data-editor-bar="" className={cn("sticky top-0 z-30 bg-[#f8f9fa] transition-shadow duration-150 max-md:[[data-page-layer]_&]:pt-[env(safe-area-inset-top)] lg:hidden", scrolled ? "shadow-[0_1px_0_#e3e5e8,0_4px_12px_-8px_rgba(17,24,39,0.12)]" : "")}>
+        <h1 className="sr-only">{c ? tt("Edit collection {title}", { title: c.title }) : tt("New collection")}</h1>
+        <div className="mx-auto flex h-14 max-w-[760px] items-center justify-between gap-2 app-gutter sm:h-16 sm:px-6">
+          <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label={tt("Going back to collections")} onLeave={() => void leave()} />
+          <CouponSaveButton saving={saving} disabled={!canSave} label={saveWord} onSave={() => void save()} />
         </div>
       </div>
-    </SheetDialog>
+
+      <div data-editor-page="" data-collection-editor="" className="mx-auto w-full max-w-[760px] app-gutter pb-6 pt-3 sm:pb-16 sm:pt-4 lg:max-w-[1200px] lg:pb-8 lg:pt-6">
+        <header data-editor-head="" className="mb-5 hidden min-h-9 items-center gap-2 lg:flex">
+          <button type="button" aria-label={tt("Back to collections")} title={tt("Collections")} disabled={busy} onClick={() => void leave()} className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{heading}</h1>
+        </header>
+
+        {error ? (
+          <div role="alert" className="mb-3 rounded-xl border border-[#f5c2bd] bg-[#fef3f2] px-4 py-3 text-[14px] leading-5 text-[#8a1c0f] lg:mb-4">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="flex flex-col gap-3 sm:gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(272px,1fr)] lg:items-start">
+          <div data-editor-main="" className="flex min-w-0 flex-col gap-3 sm:gap-4">
+            <section className={CARD} aria-label={tt("Title")}>
+              <div>
+                <label htmlFor="collection-title" className={LABEL}>
+                  {tt("Title")}
+                </label>
+                <input id="collection-title" ref={titleRef} value={title} maxLength={120} onChange={(e) => setTitle(e.target.value)} placeholder={tt("New in, Courses, Under $30")} autoComplete="off" className={FIELD} />
+              </div>
+              <div>
+                <label htmlFor="collection-description" className={LABEL}>
+                  {tt("Description")} <span className="font-normal text-[#9ca3af]">{tt("optional")}</span>
+                </label>
+                <textarea
+                  id="collection-description"
+                  value={description}
+                  maxLength={5000}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  placeholder={tt("Shown at the top of the collection's page")}
+                  className={cn(FIELD, "h-auto min-h-[88px] resize-none py-2.5 sm:resize-y leading-[1.45]")}
+                />
+              </div>
+            </section>
+
+            <section aria-labelledby="collection-products" className={CARD}>
+              <h2 id="collection-products" className={CARD_TITLE}>
+                {tt("Products")}
+              </h2>
+              <Segmented
+                label={tt("How products get in")}
+                value={kind}
+                onChange={setKind}
+                options={[
+                  { value: "manual", label: tt("Pick products") },
+                  { value: "smart", label: tt("Match by rules") },
+                ]}
+              />
+              <SwapPanels
+                active={kind}
+                panels={[
+                  { key: "manual", node: pickPanel },
+                  { key: "smart", node: rulesPanel },
+                ]}
+              />
+            </section>
+          </div>
+
+          <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4 lg:sticky lg:top-6">
+            <div className={SWITCH_GROUP}>
+              <SwitchRow title={tt("Published")} hint={tt("Can be shown on your website")} checked={published} onChange={setPublished} />
+              <label className="flex min-h-[56px] items-center gap-3 px-4 py-2 sm:min-h-[52px]">
+                <span className="min-w-0 flex-1 text-[15px] font-medium leading-5 text-[#1a1a2e] sm:text-[14px]">{tt("Sort by")}</span>
+                <select value={sort} onChange={(e) => setSort(e.target.value)} className={cn(SELECT, "h-10 w-auto max-w-[58%] rounded-[10px] sm:h-8 sm:rounded-lg sm:text-[13px]")}>
+                  {SORTS.map(([v, label]) => (
+                    <option key={v} value={v}>
+                      {tt(label)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <section className={CARD} aria-labelledby="collection-summary-title" data-collection-summary="">
+              <h2 id="collection-summary-title" className={CARD_TITLE}>
+                {tt("Summary")}
+              </h2>
+              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+                <div>
+                  <dt className={HINT}>{tt("Products")}</dt>
+                  <dd className="mt-1 text-[15px] font-medium tabular-nums text-[#1a1a2e] sm:text-[14px]">{countWords(count)}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className={HINT}>{tt("Product conditions")}</dt>
+                  <dd className="mt-1 truncate text-[15px] font-medium text-[#1a1a2e] sm:text-[14px]">{howWords({ kind, rules: body.rules, match }, storeCurrency)}</dd>
+                </div>
+              </dl>
+            </section>
+
+            {c ? (
+              <div className="flex justify-start lg:justify-end">
+                <button type="button" data-delete-collection="" disabled={busy} onClick={() => void remove()} className={cn(secondaryDepth, "h-11 w-full rounded-xl text-[15px] text-[#4b5563] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}>
+                  {tt("Delete collection")}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div data-editor-foot="" data-app-foot="up" className="sticky bottom-0 z-30 mt-auto hidden shrink-0 border-t border-[#e5e7eb] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_-8px_rgba(17,24,39,0.10)] lg:block">
+        <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 px-8">
+          <p data-editor-state={saveState} className="flex min-w-0 items-center gap-2 text-[14px] leading-5">
+            <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", saveState === "unsaved" ? "bg-[#111113]" : "bg-[#b6bac1]")} />
+            <span className={cn("truncate", saveState === "unsaved" ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{stateLine}</span>
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <LeaveButton mode={leaveMode} disabled={busy} asks={dirty} label={tt("Going back to collections")} onLeave={() => void leave()} />
+            <CouponSaveButton saving={saving} disabled={!canSave} label={saveWord} onSave={() => void save()} />
+          </div>
+        </div>
+      </div>
+
+      {confirmSheet}
+    </div>
   )
 }
 

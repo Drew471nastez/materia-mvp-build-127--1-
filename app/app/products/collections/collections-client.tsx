@@ -10,25 +10,25 @@
  * page arrives with its rows (./page.tsx reads them on the server), so it
  * lands whole, with no skeleton and nothing fetched after it opens.
  *
- * A collection opens in the editor (./collection-editor.tsx): a dialog on a
- * computer and the app's shared bottom sheet on a phone, over this list.
- *
- * ONE QUESTION AT A TIME. The app's confirm (../new/confirm-sheet.tsx) is a
- * sheet on a phone and a small dialog on a computer, and a sheet or dialog
- * drawn over another one is drawn under it on one of the two. So the
- * questions this page asks (discard the changes, delete the collection) are
- * asked once the editor has gone: it slides away, the question rises, and
- * "Keep editing" brings the editor back exactly as it was left.
+ * A collection opens on a page of its own (./collection-editor.tsx, at
+ * /app/products/collections/<id>, and /new for a new one), as a size chart
+ * or an offer does (round 41, the owner: "Collections and edit collections
+ * should act as subpages, not modals"): on a phone it rises over this list
+ * and drops back to it. Coming back, the list says what was done and tints
+ * the row (./list-return).
  */
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { accentDepth } from "@/components/ui/depth-button"
 import { GUTTER, LIST_BAR, PaneBar } from "../../orders/order-parts"
-import { useConfirm } from "../new/confirm-sheet"
 import { Pill, usePill } from "../../coupons/coupon-parts"
-import { CollectionEditor } from "./collection-editor"
 import { CollectionCover, StatusMark, countWords, howWords, picturesOf, type Collection, type CollectionProduct } from "./collection-parts"
+import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
+import { tintReturnedRow } from "@/components/app/list-return"
+import { holdLanding, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { collectionHref, collectionsReturn, newCollectionHref } from "./list-return"
 import { pressMark } from "@/lib/press-mark"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
@@ -44,33 +44,10 @@ const PRESS = "relative max-md:after:absolute max-md:after:-inset-1.5 max-md:aft
 /** New collection: the products page's New product, violet, the one violet button here. */
 const NEW_LOOK = cn(accentDepth, PRESS, "h-8 gap-1.5 rounded-lg px-3 text-[13px]", BAR_BUTTON_SIZE)
 
-/** How long the computer's dialog takes to fade out (components/ui/dialog.tsx), before a question takes its place. */
-const DIALOG_LEAVE_MS = 200
-
-async function send(url: string, method: string, body?: unknown): Promise<{ ok: true; collections: Collection[] } | { ok: false; error: string }> {
-  try {
-    const res = await fetch(url, { method, headers: body ? { "Content-Type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined })
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok || !Array.isArray(data?.collections)) return { ok: false, error: typeof data?.error === "string" ? data.error : tt("That did not go through. Try again.") }
-    return { ok: true, collections: data.collections as Collection[] }
-  } catch {
-    return { ok: false, error: tt("No connection. Try again in a moment.") }
-  }
-}
-
-export interface SaveBody {
-  title: string
-  description: string
-  kind: "manual" | "smart"
-  rules: Collection["rules"]
-  match: "all" | "any"
-  sort: string
-  published: boolean
-  productIds: string[]
-}
-
 export function CollectionsClient({ initialCollections, products }: { initialCollections: Collection[]; products: CollectionProduct[] }) {
-  const [list, setList] = React.useState(initialCollections)
+  const router = useRouter()
+  /* The collections as a collection's page saved them, laid over the ones the router kept (./list-return). */
+  const [list, setList] = React.useState(() => collectionsReturn.peek()?.collections ?? initialCollections)
   /* The server's list again (a refresh: a change of the store's currency converts price conditions): it is the truth from here, as Coupons does. */
   const [seen, setSeen] = React.useState(initialCollections)
   if (seen !== initialCollections) {
@@ -81,81 +58,36 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
   const storeCurrency = useStoreCurrency()
   const byId = React.useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
   const [notice, say] = usePill()
-  const [ask, confirmSheet] = useConfirm()
-
-  /* The editor: which collection (null for a new one), and whether it is up. It stays mounted while a question is asked, so it comes back as it was. */
-  const [editing, setEditing] = React.useState<{ key: number; collection: Collection | null } | null>(null)
-  const [open, setOpen] = React.useState(false)
-  const afterClose = React.useRef<(() => void) | null>(null)
-
-  const start = (collection: Collection | null) => {
-    afterClose.current = null
-    setEditing({ key: Date.now(), collection })
-    setOpen(true)
-  }
-  /*
-    ?collection=<id>, from the search in the header (lib/search/app-search.ts):
-    that collection opens as its row would open it. Read once, then taken
-    out of the address, so Back and a reload land on the list.
-  */
-  const openedFromLink = React.useRef(false)
+  const sectionRef = React.useRef<HTMLElement>(null)
+  const [returning] = React.useState(() => collectionsReturn.isReturning())
+  React.useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
   React.useEffect(() => {
-    if (openedFromLink.current) return
-    openedFromLink.current = true
-    const url = new URL(window.location.href)
-    const id = url.searchParams.get("collection")
-    if (!id) return
-    url.searchParams.delete("collection")
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
-    const found = list.find((c) => c.id === id)
-    if (found) start(found)
+    const back = collectionsReturn.take()
+    if (!back) return
+    if (back.message) say(back.message)
+    if (back.collections || back.deleted) router.refresh()
+    if (back.id && !back.deleted) tintReturnedRow(sectionRef.current, back.id, LAYER_LEAVE_MS)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the list lands
+  }, [])
+  const warmed = React.useRef(new Set<string>())
+  const warm = (href: string) => {
+    if (warmed.current.has(href)) return
+    warmed.current.add(href)
+    prefetchAppPage(router, href)
+  }
+  /* A collection opens on its own page, rising over the list on a phone. */
+  const start = (collection: Collection | null) => collectionsReturn.open(router, collection ? collectionHref(collection.id) : newCollectionHref())
+  /*
+    ?collection=<id>, from an older link to the list: that collection's own
+    page, in place of the list in the history.
+  */
+  React.useEffect(() => {
+    const id = new URL(window.location.href).searchParams.get("collection")
+    if (id && list.some((c) => c.id === id)) router.replace(collectionHref(id))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  /** Takes the editor down; `then` runs once it has gone (by default, it is put away). */
-  const close = (then?: () => void) => {
-    afterClose.current = then ?? (() => setEditing(null))
-    setOpen(false)
-  }
-  const closed = React.useCallback(() => {
-    const then = afterClose.current
-    afterClose.current = null
-    then?.()
-  }, [])
-
-  const requestClose = (dirty: boolean) => {
-    if (!dirty) return close()
-    close(async () => {
-      const yes = await ask({ title: tt("Discard changes?"), body: tt("Your edits to this collection will be lost."), confirm: tt("Discard"), cancel: tt("Keep editing") })
-      if (yes) setEditing(null)
-      else setOpen(true)
-    })
-  }
-
-  const save = async (id: string | null, body: SaveBody): Promise<string | null> => {
-    const r = await send(id ? `/api/collections/${id}` : "/api/collections", id ? "PUT" : "POST", body)
-    if (!r.ok) return r.error
-    setList(r.collections)
-    close()
-    say(tt("{value} saved", { value: body.title.trim() }))
-    return null
-  }
-
-  const remove = (c: Collection) => {
-    close(async () => {
-      const yes = await ask({
-        title: tt("Delete {title}?", { title: c.title }),
-        body: tt("The collection and its page on your website go. The products in it stay as they are."),
-        confirm: tt("Delete"),
-        cancel: tt("Keep it"),
-      })
-      if (!yes) return setOpen(true)
-      setEditing(null)
-      const r = await send(`/api/collections/${c.id}`, "DELETE")
-      if (!r.ok) return say(r.error, "error")
-      setList(r.collections)
-      say(tt("{title} deleted", { title: c.title }))
-    })
-  }
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter">
@@ -163,14 +95,14 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
       <PaneBar width={PAGE_WIDTH} className={cn(LIST_BAR, PAGE_BAR, PAGE_GUTTER)}>
         <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{tt("Collections")}</h1>
         {list.length > 0 ? (
-          <button type="button" data-new-collection="" className={NEW_LOOK} onClick={() => start(null)}>
+          <button type="button" data-new-collection="" className={NEW_LOOK} onPointerEnter={() => warm(newCollectionHref())} onClick={() => start(null)}>
             {tt("New collection")}
           </button>
         ) : null}
       </PaneBar>
 
       <div className={cn("mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER)}>
-        <section aria-label={tt("Collections")} data-collections-card="" className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]">
+        <section ref={sectionRef} aria-label={tt("Collections")} data-collections-card="" className="relative mt-1 overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:mt-2 lg:mt-[9px]">
           {list.length === 0 ? (
             <div data-empty="" className="flex flex-col items-center px-6 py-16 text-center md:py-14 lg:py-[62px]">
               <p className="text-[16px] font-semibold text-[#1a1a2e] md:text-[15px] lg:text-[16.5px]">{tt("No collections yet")}</p>
@@ -196,7 +128,7 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
                     data-row={c.id}
                     className="relative flex h-16 items-center gap-3 px-3 data-[pressed]:bg-[#eef0f2] [li+&]:before:absolute [li+&]:before:left-[74px] [li+&]:before:right-0 [li+&]:before:top-0 [li+&]:before:h-px [li+&]:before:bg-[#eceef1]"
                   >
-                    <button type="button" data-row-open="" aria-label={c.title} onClick={() => start(c)} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
+                    <button type="button" data-row-open="" aria-label={c.title} onClick={() => start(c)} onPointerDown={() => warm(collectionHref(c.id))} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
                     <CollectionCover collection={c} pictures={picturesOf(c, byId)} size="phone" />
                     <span className="pointer-events-none min-w-0 flex-1">
                       <span className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{c.title}</span>
@@ -235,6 +167,7 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
                     <tr
                       key={c.id}
                       data-row={c.id}
+                      onMouseEnter={() => warm(collectionHref(c.id))}
                       onClick={(e) => {
                         if ((e.target as HTMLElement).closest("button")) return
                         start(c)
@@ -268,20 +201,6 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
         </section>
       </div>
 
-      {editing ? (
-        <CollectionEditor
-          key={editing.key}
-          open={open}
-          collection={editing.collection}
-          products={products}
-          onRequestClose={requestClose}
-          onSave={save}
-          onDelete={remove}
-          onClosed={closed}
-          leaveMs={DIALOG_LEAVE_MS}
-        />
-      ) : null}
-      {confirmSheet}
     </div>
   )
 }
