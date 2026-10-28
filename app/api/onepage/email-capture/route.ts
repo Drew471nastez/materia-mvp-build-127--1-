@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isPubliclyVisible, publicOnly } from "@/lib/products/visibility"
 import { sendLeadMagnetEmail, triggerEmailFlows } from "@/lib/email"
@@ -7,6 +7,7 @@ import { recordSignupAttribution } from "@/lib/attribution/server"
 import { fromOfHost } from "@/lib/orders/order-source"
 import { v4 as uuidv4 } from "uuid"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { deliverSignup, pageSignup } from "@/lib/onepage/integrations/deliver-server"
 
 export const runtime = "nodejs"
 
@@ -345,6 +346,9 @@ export async function POST(request: Request) {
         }
       }
     }
+
+    /* The creator's own tools (lib/onepage/integrations), after the answer. */
+    after(() => deliverSignup(adminSupabase, onepage.seller_id, pageSignup({ email: normalizedEmail, name, form: "lead_magnet", magnet: deliverable ? "download" : null, detail: deliverable?.title ?? null, blockId: block_id, onepageId: onepage_id, pageUrl: request.headers.get("referer") })))
 
     return NextResponse.json({
       success: true,

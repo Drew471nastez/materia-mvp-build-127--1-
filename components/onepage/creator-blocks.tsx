@@ -42,7 +42,6 @@ import {
   CONTACT_LIMITS,
   EMBED_PROVIDER_NAME,
   embedFrameUrl,
-  embedHeightFromMessage,
   embedSource,
   MUSIC_PROVIDER_NAME,
   TESTIMONIAL_LIMITS,
@@ -64,6 +63,10 @@ import type {
   TestimonialsBlockData,
 } from "@/lib/onepage/types"
 import { tt } from "@/lib/i18n/text"
+import { isDarkColor } from "@/lib/onepage/storelib-blocks"
+import { EMBED_MAX_WIDTH, EmbedFrame } from "@/components/onepage/embed-frame"
+import { StorelibBlock, StorelibBlockEditor } from "@/components/onepage/storelib-blocks"
+import { SignupTools } from "@/components/onepage/page-integrations"
 
 type Scale = "small" | "normal" | "live"
 
@@ -73,6 +76,8 @@ export interface CreatorBlockLook {
   preview?: boolean
   /** The page's creator (creators.id): where a contact message goes. */
   sellerId?: string | null
+  /** The page itself (onepages.id): where a lead magnet's signup is kept (./storelib-blocks). */
+  onepageId?: string | null
   /** The button look of the page (./extra-blocks themeButtonStyle). */
   button: React.CSSProperties
 }
@@ -173,26 +178,11 @@ const serverHost = () => null
 function EmbedView({ data, look }: { data: EmbedBlockData; look: CreatorBlockLook }) {
   const source = embedSource(data.url)
   const host = React.useSyncExternalStore(noHost, readHost, serverHost)
-  const frameRef = React.useRef<HTMLIFrameElement>(null)
-  const [measured, setMeasured] = React.useState<number | null>(null)
-  const kind = source?.kind
-  const resizes = !!source?.resizes
-  React.useEffect(() => {
-    if (!kind || !resizes) return
-    const onMessage = (e: MessageEvent) => {
-      if (e.source !== frameRef.current?.contentWindow) return
-      const h = embedHeightFromMessage(kind, e.origin, e.data)
-      if (h) setMeasured(h)
-    }
-    window.addEventListener("message", onMessage)
-    return () => window.removeEventListener("message", onMessage)
-  }, [kind, resizes])
   if (!source) return null
-  const src = host ? embedFrameUrl(source, host) : source.kind === "twitch" ? null : source.embedUrl
+  const base = host ? embedFrameUrl(source, host) : source.kind === "twitch" ? null : source.embedUrl
+  /* Round 40: an X post on a dark page in X's own dark look. */
+  const src = base && source.kind === "x" && isDarkColor(look.theme.background_color) ? `${base}&theme=dark` : base
   const radius = Math.min(Math.max(Number(look.theme.button_border_radius) || 0, 10), 16)
-  const box: React.CSSProperties = source.height === null
-    ? { aspectRatio: "16 / 9", borderRadius: radius }
-    : { height: measured ?? source.height, borderRadius: radius }
   return (
     <div data-onepage-embed={source.kind} className="flex w-full flex-col" style={{ gap: px(8, look.scale) }}>
       {data.title?.trim() ? (
@@ -200,21 +190,12 @@ function EmbedView({ data, look }: { data: EmbedBlockData; look: CreatorBlockLoo
           {data.title}
         </p>
       ) : null}
-      <div className="relative w-full overflow-hidden bg-black/[0.04]" style={box}>
-        {src ? (
-          <iframe
-            ref={frameRef}
-            title={data.title?.trim() || EMBED_PROVIDER_NAME[source.kind]}
-            src={src}
-            loading="lazy"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture; web-share"
-            allowFullScreen
-            className="absolute inset-0 block h-full w-full border-0 bg-transparent"
-            style={{ colorScheme: "normal" }}
-          />
-        ) : null}
-      </div>
+      {/* Round 40 (./embed-frame): the post's own width, no box of ours around it, shown once it has its height. */}
+      {src ? (
+        <EmbedFrame src={src} kind={source.kind} title={data.title?.trim() || EMBED_PROVIDER_NAME[source.kind]} height={source.height} resizes={!!source.resizes} radius={radius} maxWidth={EMBED_MAX_WIDTH[source.kind]} />
+      ) : (
+        <div aria-hidden className="w-full" style={source.height === null ? { aspectRatio: "16 / 9" } : { height: source.height }} />
+      )}
     </div>
   )
 }
@@ -382,7 +363,8 @@ export function CreatorBlock({ block, look }: { block: OnePageBlock; look: Creat
     case "embed":
       return <EmbedView data={block.data as EmbedBlockData} look={look} />
     default:
-      return null
+      /* The shelf, lead magnets, posts, followers and codes (./storelib-blocks), or nothing. */
+      return <StorelibBlock block={block} look={look} />
   }
 }
 
@@ -672,7 +654,7 @@ export function CreatorBlockEditor({ block, updateData }: { block: OnePageBlock;
     case "embed":
       return <EmbedEditor data={block.data as EmbedBlockData} updateData={update} />
     default:
-      return null
+      return <StorelibBlockEditor block={block} updateData={updateData} />
   }
 }
 
@@ -688,7 +670,7 @@ type MarketingRow = { provider: "klaviyo" | "omnisend"; connected: boolean; list
  * lib/integrations/marketing) has it sent there on the next sync. This says
  * how many joined from this page and which of those is on.
  */
-export function SignupDestination() {
+export function SignupDestination({ suggest }: { suggest?: string | null } = {}) {
   const [joined, setJoined] = React.useState<number | null>(null)
   const [tools, setTools] = React.useState<MarketingRow[] | null>(null)
   React.useEffect(() => {
@@ -725,12 +707,14 @@ export function SignupDestination() {
           ? tt("Also sent to {value} on the next sync.", { value: on.map((t) => name(t.provider) + (t.listName ? ` (${t.listName})` : "")).join(", ") })
           : tt("Use Klaviyo or Omnisend? Connect it and every signup is sent there too.")}
       </p>
+      {/* Round 40: Mailchimp, Kit, beehiiv and the webhooks, each sent the signup as it happens; the one this block was added as first (./page-integrations). */}
+      <SignupTools suggest={suggest} />
       <div className="flex gap-2">
         <a href="/app/emails?tab=subscribers" className="inline-flex h-9 flex-1 items-center justify-center rounded-lg bg-[#1a1a2e] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#2a2a40]">
           {tt("See subscribers")}
         </a>
         {!on.length && tools !== null ? (
-          <a href="/app/integrations?integration=klaviyo" className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
+          <a href={`/app/integrations?integration=${suggest === "omnisend" ? "omnisend" : "klaviyo"}`} className="inline-flex h-9 flex-1 items-center justify-center rounded-lg border border-[#e3e4e8] bg-white px-3 text-[13px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f7f7f8]">
             {tt("Connect an email tool")}
           </a>
         ) : null}

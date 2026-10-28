@@ -8,6 +8,7 @@ import { isShareImageMode } from "@/lib/onepage/seo"
 import { followProfileIdentity, type FollowClient } from "@/lib/account/profile-follow"
 import { onePageNameTaken } from "@/lib/onepage/name-availability"
 import { onePageActor } from "@/lib/team/onepage"
+import { stripResolved } from "@/lib/onepage/storelib-blocks"
 
 /* A plain sentence the editor shows as it is (lib/onepage/editor-state describeSaveFailure). */
 const refuse = (error: string) => NextResponse.json({ error }, { status: 400 })
@@ -216,7 +217,8 @@ export async function PUT(request: Request) {
     if (avatar_video_url !== undefined) updates.avatar_video_url = avatar_video_url
     if (theme !== undefined) updates.theme = theme
     if (social_links !== undefined) updates.social_links = social_links
-    if (draft_blocks !== undefined) updates.draft_blocks = draft_blocks
+    /* What the live page reads for a shelf or a posts row is never kept in the draft (lib/onepage/storelib-blocks stripResolved). */
+    if (draft_blocks !== undefined) updates.draft_blocks = stripResolved(draft_blocks)
     if (nextSlug !== undefined) updates.slug = nextSlug
     if (archived_blocks !== undefined) (updates as any).archived_blocks = archived_blocks
     if (isShareImageMode(share_image_mode)) updates.share_image_mode = share_image_mode
