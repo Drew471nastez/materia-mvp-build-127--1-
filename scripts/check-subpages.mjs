@@ -16,6 +16,7 @@
  *                 brings the first into view; a good bundle sends POST
  *   size charts   Enter in a cell goes one row down; Enter on the last row
  *                 adds a size; a pasted block fills the cells; Save sends PUT
+ *   collections   (round 41) the same frame as the others, no sheet
  */
 import { execFileSync } from "node:child_process"
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs"
@@ -75,7 +76,7 @@ const frame = () => page.evaluate(() => {
 
 for (const [label, vp] of [["a phone (390)", { width: 390, height: 844, isMobile: true, hasTouch: true }], ["a computer (1280)", { width: 1280, height: 900 }]]) {
   const phone = vp.width < 768
-  for (const panel of ["offer-new", "offer-edit", "break-new", "chart-new", "chart-edit", "coupon-edit"]) {
+  for (const panel of ["offer-new", "offer-edit", "break-new", "chart-new", "chart-edit", "coupon-edit", "collection-new", "collection-edit"]) {
     console.log(`\n${panel} on ${label}`)
     await open(panel, vp)
     const f = await frame()

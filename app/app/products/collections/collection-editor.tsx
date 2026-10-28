@@ -9,7 +9,7 @@
  * not modals"). Framed exactly as a size chart or an offer is (../size-charts/
  * size-chart-page.tsx): on a phone a layer over the app's header with Cancel
  * or Back and Save at the top; from lg the 1200px page with a back arrow and
- * the title, the form on the left and a summary on the right, Cancel and
+ * the title, the form on the left and whether it is shown on the right, Cancel and
  * Save along the foot with the save state. It was a SheetDialog over the
  * list; a long rule list or a hundred products to pick did not fit a sheet.
  *
@@ -51,14 +51,13 @@ import {
   countWords,
   fieldWords,
   finishedRules,
-  howWords,
   opsFor,
   ruleProduct,
   type Collection,
   type CollectionProduct,
 } from "./collection-parts"
 import { tt } from "@/lib/i18n/text"
-import { useMoneyMark, useStoreCurrency } from "@/lib/store/currency-context"
+import { useMoneyMark } from "@/lib/store/currency-context"
 import { Rich } from "@/lib/i18n/rich"
 
 /* The coupon editor's fields (../../coupons/coupon-editor.tsx): 16px on a phone so iOS does not zoom, 44px to press. */
@@ -102,7 +101,6 @@ async function send(url: string, method: string, body?: unknown): Promise<{ ok: 
 export function CollectionPage({ collection, products }: { collection: Collection | null; products: CollectionProduct[] }) {
   const router = useRouter()
   const physical = usePhysicalCommerceEnabled()
-  const storeCurrency = useStoreCurrency()
   const c = collection
 
   const [title, setTitle] = React.useState(c?.title ?? "")
@@ -329,7 +327,6 @@ export function CollectionPage({ collection, products }: { collection: Collectio
   )
 
   const heading = c ? c.title : tt("New collection")
-  const count = kind === "manual" ? picked.length : caught.length
   const saveState = saving ? "saving" : isNew ? "new" : dirty ? "unsaved" : "saved"
   const stateLine = saveState === "saving" ? tt("Saving") : saveState === "unsaved" ? tt("Unsaved changes") : saveState === "new" ? tt("Not saved yet") : countWords(c ? c.productIds.length : 0)
   const saveWord = isNew ? tt("Create") : tt("Save")
@@ -429,22 +426,6 @@ export function CollectionPage({ collection, products }: { collection: Collectio
                 </select>
               </label>
             </div>
-
-            <section className={CARD} aria-labelledby="collection-summary-title" data-collection-summary="">
-              <h2 id="collection-summary-title" className={CARD_TITLE}>
-                {tt("Summary")}
-              </h2>
-              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-                <div>
-                  <dt className={HINT}>{tt("Products")}</dt>
-                  <dd className="mt-1 text-[15px] font-medium tabular-nums text-[#1a1a2e] sm:text-[14px]">{countWords(count)}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className={HINT}>{tt("Product conditions")}</dt>
-                  <dd className="mt-1 truncate text-[15px] font-medium text-[#1a1a2e] sm:text-[14px]">{howWords({ kind, rules: body.rules, match }, storeCurrency)}</dd>
-                </div>
-              </dl>
-            </section>
 
             {c ? (
               <div className="flex justify-start lg:justify-end">
