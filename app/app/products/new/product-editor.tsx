@@ -68,7 +68,7 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { askBeforeLeaving } from "@/lib/ui/leave-guard"
 import { num } from "@/lib/forms/dirty"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
-import { afterLayerMove, holdLayerLanding } from "@/components/app/page-layer"
+import { afterLayerMove, forgetPageCopy, holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { CustomFieldsCard } from "./custom-fields-card"
@@ -801,6 +801,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   }, [digitalFiles])
   /** After a save: what was sent is what is saved, the form and every card. Changes made while it saved stay changes. */
   const markSaved = useCallback((sent: DirtyFields, sentCards: CardDrafts, savedSlug?: string) => {
+    /* The list as it was is not the list any more: Back drops over the real one (page-layer forgetPageCopy). */
+    forgetPageCopy()
     setSavedForm({ ...sent, slug: savedSlug ?? sent.slug, digitalFiles: savedFormRef.current.digitalFiles.map((f) => sent.digitalFiles.find((x) => x.file_path === f.file_path) ?? f) })
     setCards((c) => cardsSaved(c, sentCards))
     setReleasedAt(null)
@@ -2054,6 +2056,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (updateError) throw updateError
 
       announceChange({ product: productId })
+      /* The list's row has a new status: its copy from before is not used for the way back (page-layer forgetPageCopy). */
+      forgetPageCopy()
       /* Off the page or back on it: what is cached of it is dropped either way (app/api/products/forget). */
       await forgetProduct(productId, slug)
       setIsPublished(!isPublished)
@@ -2107,8 +2111,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       showToast(err instanceof Error && err.message ? err.message : tt("Could not delete the product"))
       return
     }
-    /* Nothing left to save: the way out asks nothing. */
+    /* Nothing left to save: the way out asks nothing. The row is gone or archived, so the list's copy is not used either. */
     releaseUnsaved()
+    forgetPageCopy()
     leavingRef.current = true
     startTransition(() => setLeaving(true))
     startNavigationLoading(PRODUCTS_HREF)

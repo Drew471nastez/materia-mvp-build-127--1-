@@ -822,6 +822,13 @@ console.log("\nRound 41: a product opens untouched, and Back drops it at once")
       && /const move = moveByHand\(layer, false, LAYER_LEAVE_MS, false\)/.test(lyr)
       && /move\.finished\.then\(send, send\)/.test(lyr)
       && /\{ to: PRODUCTS_HREF \}/.test(ret))
+  /* After a save, a status change or a delete the copy would show the row as it was: it is forgotten, and Back drops at the commit over the real list. */
+  check("a save, a publish or unpublish, and a delete each forget the list's copy",
+    /export function forgetPageCopy\(\) \{\s*pageCopy\?\.box\?\.remove\(\)\s*pageCopy = null\s*\}/.test(lyr)
+      && /const markSaved = useCallback\(\(sent: DirtyFields, sentCards: CardDrafts, savedSlug\?: string\) => \{\s*forgetPageCopy\(\)/.test(ed)
+      && /announceChange\(\{ product: productId \}\)\s*forgetPageCopy\(\)\s*await forgetProduct\(productId, slug\)/.test(ed)
+      && /releaseUnsaved\(\)\s*forgetPageCopy\(\)\s*leavingRef\.current = true[\s\S]{0,200}returnToProducts\(router, null\)/.test(ed))
+  check("without a copy the way back is the drop at the commit, as before", /const kept = pageCopy && to && pageCopy\.path === to \? pageCopy : null/.test(lyr) && /if \(layer && kept && layerMotionOn\(true\)\) \{/.test(lyr))
   check("the copy goes in the commit that brings the page, and the mark a frame later so the stage lands nothing",
     /if \(want\.under\) \{\s*want\.under\.remove\(\)/.test(lyr) && /requestAnimationFrame\(\(\) => \{\s*if \(html\.dataset\.layerHand !== undefined && html\.dataset\.layerMotion === "leave"\)/.test(lyr))
 }

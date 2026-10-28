@@ -566,6 +566,18 @@ function keepPageCopy() {
   layer, hidden, and Back only uncovers it. It goes when the layer does.
 */
 const COPY_AHEAD_MS = 400
+
+/**
+ * THE COPY IS OF THE PAGE AS IT WAS. After a save, a status change or a
+ * delete in the layer, the page it goes back to is not that page any more:
+ * the copy would show the edited row's old title, price and status (or a
+ * deleted row) until the real page came. So the layer forgets it, and that
+ * way back is the drop at the commit, over the page as it now is.
+ */
+export function forgetPageCopy() {
+  pageCopy?.box?.remove()
+  pageCopy = null
+}
 function layCopyAhead() {
   const kept = pageCopy
   if (!kept || kept.box?.isConnected) return
