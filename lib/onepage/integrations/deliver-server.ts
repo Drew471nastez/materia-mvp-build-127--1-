@@ -182,7 +182,7 @@ export async function connectedRows(db: Db, creatorId: string): Promise<Connecti
 /** Counts and the last error, in one step (the part's own function, so two signups at once both count). */
 export async function noteResult(db: Db, rowId: string, result: SendResult): Promise<void> {
   try {
-    await db.rpc("onepage_integration_note", { p_id: rowId, p_ok: result.ok, p_error: result.ok ? null : result.error.slice(0, 500) })
+    await db.rpc("onepage_integration_note", { p_id: rowId, p_ok: result.ok, p_error: "error" in result ? result.error.slice(0, 500) : null })
   } catch {
     /* the record is a nicety; the signup is on Storelib already */
   }
@@ -211,7 +211,7 @@ export async function deliverSignup(db: Db, creatorId: string | null | undefined
       }
       out[row.provider as PageIntegration] = result
       await noteResult(db, row.id, result)
-      if (!result.ok) console.warn(`[onepage-integrations] ${row.provider} for ${creatorId}: ${result.error}`)
+      if ("error" in result) console.warn(`[onepage-integrations] ${row.provider} for ${creatorId}: ${result.error}`)
     }),
   )
   return out

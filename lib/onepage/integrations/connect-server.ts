@@ -207,8 +207,8 @@ export async function savePageIntegration(db: Db, creatorId: string, body: Recor
       const hook = existing ? openWebhook(existing.secret_ciphertext) : null
       if (!hook) return { ok: false, error: `Connect ${name} first.`, status: 400 }
       const t = await testWebhook(provider, hook.url, hook.secret)
-      await db.from("onepage_integrations").update(t.ok ? { last_error: null, last_error_at: null, updated_at: now } : { last_error: t.error.slice(0, 500), last_error_at: now, updated_at: now }).eq("id", existing!.id)
-      return t.ok ? { ok: true } : { ok: false, error: t.error, status: 400 }
+      await db.from("onepage_integrations").update("error" in t ? { last_error: t.error.slice(0, 500), last_error_at: now, updated_at: now } : { last_error: null, last_error_at: null, updated_at: now }).eq("id", existing!.id)
+      return "error" in t ? { ok: false, error: t.error, status: 400 } : { ok: true }
     }
     if (step !== "connect") return { ok: false, error: "Bad request.", status: 400 }
     const url = clean(body.url, 600)
@@ -216,7 +216,7 @@ export async function savePageIntegration(db: Db, creatorId: string, body: Recor
     if (problem || !url) return { ok: false, error: problem ?? "Paste the address.", status: 400 }
     const secret = randomBytes(24).toString("base64url")
     const t = await testWebhook(provider, url, secret)
-    if (!t.ok) return { ok: false, error: t.error, status: 400 }
+    if ("error" in t) return { ok: false, error: t.error, status: 400 }
     const row = { creator_id: creatorId, provider, status: "connected", account_label: new URL(url).host, config: {}, secret_ciphertext: sealSecret(JSON.stringify({ url, secret })), last_error: null, last_error_at: null, updated_at: now }
     const { error } = await db.from("onepage_integrations").upsert(row, { onConflict: "creator_id,provider" })
     if (error) return { ok: false, error: tableMissing(error) ? NEEDS_SQL : "That could not be saved. Try again.", status: tableMissing(error) ? 409 : 500 }
