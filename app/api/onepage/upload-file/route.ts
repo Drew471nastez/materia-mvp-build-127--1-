@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { onePageActor } from "@/lib/team/onepage"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { storageExtension } from "@/lib/storage/validation"
 import { safeStoredContentType } from "@/lib/storage/file-signature"
@@ -45,7 +46,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: UPLOAD_HEADERS })
     }
 
-    const { data: creator } = await createAdminClient().from("creators").select("id, subscription_plan_id").eq("user_id", user.id).single()
+    /* The store the file is for (lib/team/onepage): the owner's own, or for a team member with OnePage the store they work in. The rate limit stays the person's. */
+    const actor = await onePageActor(supabase, user.id)
+    if (actor instanceof NextResponse) return actor
+
+    const { data: creator } = await createAdminClient().from("creators").select("id, subscription_plan_id").eq("user_id", actor.pageOwnerId).single()
 
     if (!creator) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404, headers: UPLOAD_HEADERS })

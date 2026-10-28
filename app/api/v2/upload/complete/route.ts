@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { uploadCreator, uploadStore } from "@/lib/team/uploads"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { PUBLIC_BUCKET, STORAGE_BUCKET, checkUploadAllowed, updateCreatorStorageUsed } from "@/lib/storage"
 import {
@@ -80,9 +81,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields: path, bucket" }, { status: 400, headers: UPLOAD_HEADERS })
     }
 
+    /* Whose folder (lib/team/uploads): their own, or the store's for a team member with an area that uploads pictures. Product files stay the owner's. */
+    const store = await uploadStore(admin, user.id)
+    if (store.kind === "refused" || (store.kind === "store" && assetId)) {
+      return NextResponse.json({ error: "You don't have access to this. Ask the store's owner." }, { status: 403, headers: UPLOAD_HEADERS })
+    }
+
     /* The creator and, for a product file, its pending row: read together. */
-    const [{ data: creator }, pendingRead] = await Promise.all([
-      admin.from("creators").select("id").eq("user_id", user.id).single(),
+    const [creatorRow, pendingRead] = await Promise.all([
+      uploadCreator(admin, user.id, store, "id"),
       assetId
         ? admin
             .from("digital_assets")
@@ -93,6 +100,7 @@ export async function POST(request: NextRequest) {
         : Promise.resolve({ data: null }),
     ])
 
+    const creator = creatorRow as { id: string } | null
     if (!creator) {
       return NextResponse.json({ error: "Creator account required" }, { status: 403, headers: UPLOAD_HEADERS })
     }

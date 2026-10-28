@@ -15,7 +15,8 @@ export const dynamic = "force-dynamic"
  * The signed in owner only, a few a minute.
  */
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  /* The OnePage's own area (round 40): the owner as before, or a team member with OnePage for the store's page. */
+  const c = await shopCaller("onepage")
   if (c instanceof NextResponse) return c
   const limited = await rateLimit({ bucket: "onepage-followers", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 20, seconds: 60 }, { limit: 200, seconds: 86400 }] })
   if (limited) return limited

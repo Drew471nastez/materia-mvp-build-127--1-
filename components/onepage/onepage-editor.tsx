@@ -60,6 +60,7 @@ import { SaveNotification, ToastSpot } from "@/components/ui/save-notification"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { AvatarMark } from "@/components/app/app-avatar"
 import { tt } from "@/lib/i18n/text"
+import { OnePageTeamProvider, useOnePageTeam, useTeamProductsStore, type OnePageTeam } from "@/lib/onepage/team-context"
 
 /* React 19.2's <Activity>. The installed types are 19.0's, which do not name it yet; the runtime has it. */
 const Activity = (ReactModule as unknown as {
@@ -75,16 +76,21 @@ const SettingsFilterIcon = ({ className }: { className?: string }) => (
 
 interface OnePageEditorProps {
   initialOnePage: OnePage
+  /** A team member editing the store's page (lib/onepage/team-context); absent for the owner. */
+  team?: OnePageTeam | null
 }
 
-export function OnePageEditor({ initialOnePage }: OnePageEditorProps) {
+export function OnePageEditor({ initialOnePage, team = null }: OnePageEditorProps) {
+  useTeamProductsStore(team)
   return (
-    <OnePageProvider initialOnePage={initialOnePage}>
-      {/* Every toast in the editor, its tabs' included, sits clear of its bars and its preview (components/ui/save-notification ToastSpot). */}
-      <ToastSpot spot="onepage-editor">
-        <EditorLayout />
-      </ToastSpot>
-    </OnePageProvider>
+    <OnePageTeamProvider team={team}>
+      <OnePageProvider initialOnePage={initialOnePage}>
+        {/* Every toast in the editor, its tabs' included, sits clear of its bars and its preview (components/ui/save-notification ToastSpot). */}
+        <ToastSpot spot="onepage-editor">
+          <EditorLayout />
+        </ToastSpot>
+      </OnePageProvider>
+    </OnePageTeamProvider>
   )
 }
 
@@ -779,8 +785,16 @@ function EditorLayout() {
   const [connectedDomain, setConnectedDomain] = useState<string | null>(null)
   const [userPlan, setUserPlan] = useState<"free" | "growth" | "pro" | null>(null)
 
+  /* A team member: the store owner's plan and domain came with the page (lib/onepage/team-context); the two reads below are the member's own account's. */
+  const team = useOnePageTeam()
+
   // Fetch custom domain and user plan on mount
   useEffect(() => {
+    if (team) {
+      setConnectedDomain(team.domain)
+      setUserPlan(team.plan)
+      return
+    }
     fetch("/api/domains")
       .then((res) => res.json())
       .then((data) => {
@@ -798,7 +812,7 @@ function EditorLayout() {
         setUserPlan(plan || "free")
       })
       .catch(() => setUserPlan("free"))
-  }, [])
+  }, [team])
 
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
   const completedThisSessionRef = useRef(false)
@@ -807,6 +821,12 @@ function EditorLayout() {
   // Check onboarding status directly from database on mount
   useEffect(() => {
     if (!onepage?.id || onboardingChecked || completedThisSessionRef.current) return
+    /* The first visit's wizard sets up the owner's own account (their name, photo, store): never for a team member. */
+    if (team) {
+      setShowOnboarding(false)
+      setOnboardingChecked(true)
+      return
+    }
     /*
       THE PAGE ALREADY SAYS. The server read the whole row a moment ago
       (app/app/onepage/page.tsx), onboarding_completed with it. Asking the
@@ -879,7 +899,7 @@ function EditorLayout() {
     }
     
     checkOnboardingStatus()
-  }, [onepage?.id, onboardingChecked])
+  }, [onepage?.id, onboardingChecked, team])
 
   // Check if user has Pro features enabled that require Pro plan
   const hasProFeaturesEnabled = useCallback(() => {

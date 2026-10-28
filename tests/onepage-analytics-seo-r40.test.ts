@@ -258,7 +258,8 @@ function wiring() {
     track.indexOf("await recordLinkClick(request, body)") < track.indexOf('from("onepage_clicks").insert(') && /legacyClickAllowed\(outcome\)/.test(track) && /clickCountable\(request\)/.test(track))
   check("  a page id that is not a uuid is refused", /UUID\.test\(onepage_id\)/.test(track))
   const stats = read("app/api/onepage/stats/route.ts")
-  check("the stats route checks the owner, then reads what Analytics reads", /auth\.getUser\(\)/.test(stats) && /onepage\.owner_id !== user\.id/.test(stats) && /readBlockStats\(/.test(stats) && /readPageClicks\(/.test(stats) && /isTimeZone\(tz\)/.test(stats))
+  /* Round 40 (team areas): the page's owner is the signed in owner, or for a team member with OnePage the store owner (lib/team/onepage), so the check compares with actor.pageOwnerId. Pin changed on purpose. */
+  check("the stats route checks the owner, then reads what Analytics reads", /auth\.getUser\(\)/.test(stats) && /onePageActor\(supabase, user\.id\)/.test(stats) && /onepage\.owner_id !== actor\.pageOwnerId/.test(stats) && /readBlockStats\(/.test(stats) && /readPageClicks\(/.test(stats) && /isTimeZone\(tz\)/.test(stats))
   const page = read("app/(marketing)/l/[slug]/page.tsx")
   check("the page's render asks before counting a view", /const countable = viewCountable\(/.test(page) && /if \(!\(await countable\)\) return/.test(page))
   check("  a page that shows nothing is noindex, and has no structured data", (page.match(/onePageShowsSomething\(/g) ?? []).length === 2)

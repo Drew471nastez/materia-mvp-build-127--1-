@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { onePageActor } from "@/lib/team/onepage"
 
 // GET - Fetch free products for email capture digital product selector
 export async function GET(request: Request) {
@@ -14,11 +15,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    /* The page owner's store (lib/team/onepage): their own, or for a team member with OnePage the store they work in. */
+    const actor = await onePageActor(supabase, user.id)
+    if (actor instanceof NextResponse) return actor
+    const db = actor.db
+
     // Get user's creator record
-    const { data: creator } = await supabase
+    const { data: creator } = await db
       .from("creators")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("user_id", actor.pageOwnerId)
       .single()
 
     if (!creator) {
@@ -26,7 +32,7 @@ export async function GET(request: Request) {
     }
 
     // Fetch only free products (price_cents = 0 or null)
-    const { data: products, error } = await supabase
+    const { data: products, error } = await db
       .from("products")
       .select("id, title, slug, thumbnail_url, price_cents, status")
       .eq("creator_id", creator.id)

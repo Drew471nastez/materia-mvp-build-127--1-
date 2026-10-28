@@ -8,6 +8,7 @@ import { useLinkReorder } from "@/components/onepage/link-reorder"
 import { useOnePage } from "@/lib/onepage/context"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
 import { announceAvatar } from "@/lib/account/avatar-store"
+import { photoIsOwners, useOnePageTeam } from "@/lib/onepage/team-context"
 import {
   createDefaultBlock,
   type OnePageBlock,
@@ -365,6 +366,8 @@ function isSpotifyUrl(url: string): boolean {
 
 export function LinksTab() {
   const sellerMoney = useProductMoney()
+  /* A team member edits the store's page; the photo is the owner's account photo, theirs to change (lib/onepage/team-context). */
+  const team = useOnePageTeam()
   const {
     onepage,
     selectedBlockId,
@@ -2890,18 +2893,28 @@ export function LinksTab() {
             <SheetDialogTitle className="text-lg font-semibold text-center">{tt("Profile photo")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5 space-y-3">
+            {team ? (
+              <p className="px-1 text-[13px] leading-snug text-[#6b7280]" data-team-photo-note="">{photoIsOwners(team.store)}</p>
+            ) : (
             <button onClick={() => { setShowAvatarEditModal(false); setShowAvatarUploadModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center"><ImageIcon className="h-6 w-6 text-gray-600" /></div>
               <div className="flex-1 text-left"><p className="font-medium">{tt("Select image or GIF")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
+            )}
             <button onClick={() => { setShowAvatarEditModal(false); setShowVideoModal(true) }} className="w-full flex items-center gap-4 p-4 rounded-xl border hover:bg-gray-50 transition-colors">
               <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center"><Video className="h-6 w-6 text-yellow-600" /></div>
               <div className="flex-1 text-left"><p className="font-medium">{tt("Select video")}</p></div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
-            {(onepage.avatar_url || onepage.avatar_video_url) && (
+            {(team ? onepage.avatar_video_url : onepage.avatar_url || onepage.avatar_video_url) && (
               <button onClick={async () => {
+                /* A team member removes the page's video only: the photo is the owner's account photo. */
+                if (team) {
+                  updateProfile({ avatar_video_url: null })
+                  setShowAvatarEditModal(false)
+                  return
+                }
                 /* The one photo, removed everywhere, the same way Settings removes it. */
                 if (onepage.avatar_url) {
                   await fetch("/api/account/avatar", {
@@ -3010,6 +3023,7 @@ export function LinksTab() {
                     Settings uses, so every surface takes it
                     (lib/account/avatar-save, lib/account/profile-follow).
                   */
+                  if (team) throw new Error(photoIsOwners(team.store))
                   const saved = await fetch("/api/account/avatar", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },

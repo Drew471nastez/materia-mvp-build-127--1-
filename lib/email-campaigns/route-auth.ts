@@ -21,6 +21,10 @@ export interface CreatorContext {
   user: any
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   admin: any
+  /** Round 40: false for a team member working in the store (lib/team), who is never its owner. */
+  isOwner?: boolean
+  /** The store owner's account: the signed in owner, or for a team member the store's. */
+  ownerUserId?: string | null
 }
 
 /**
@@ -36,7 +40,7 @@ export async function requireCreator(area: TeamArea = "marketing"): Promise<Crea
     return gate.status === 403 && body.error === "Set up your store first." ? NextResponse.json({ error: "Set up your store before sending email." }, { status: 404 }) : gate
   }
   /* `user` is the signed in person's own client: for a member it reads their own account, never the store's, so nothing here reads the store with it. */
-  return { userId: gate.userId, userEmail: gate.userEmail, creatorId: gate.creatorId, user: await createClient(), admin: gate.db ?? createAdminClient() }
+  return { userId: gate.userId, userEmail: gate.userEmail, creatorId: gate.creatorId, user: await createClient(), admin: gate.db ?? createAdminClient(), isOwner: gate.isOwner, ownerUserId: gate.ownerUserId }
 }
 
 export function isResponse(x: unknown): x is NextResponse {

@@ -10,6 +10,10 @@ import { pageUser } from "@/lib/auth/page-user"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { SessionRecovery } from "@/components/auth/session-recovery"
 import { readTwice, within } from "@/lib/onepage/bounded-read"
+import { teamPageStore } from "@/lib/team/server"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
+import { creatorPageHostFromRows } from "@/lib/custom-domains/client"
+import type { OnePageTeam } from "@/lib/onepage/team-context"
 
 export const dynamic = "force-dynamic"
 
@@ -54,6 +58,19 @@ export default async function OnePageEditorPage() {
     browser and reloads, which is what the layout's gate would have done.
   */
   if (!user) return <SessionRecovery />
+
+  /*
+    A TEAM MEMBER WITH ONEPAGE edits the store owner's page (lib/team/onepage).
+    Read here with the service role, by the owner's account and nothing else,
+    and handed to the editor with what it would otherwise ask the signed in
+    account for (lib/onepage/team-context). The owner never enters this branch:
+    teamPageStore answers them from the reads the layout already made.
+  */
+  const access = await teamPageStore("onepage")
+  if (access.kind === "denied") return <TeamAreaClosed area="onepage" store={access.acting.name} permissions={access.acting.permissions} />
+  if (access.kind === "store" && !access.isOwner && access.acting) {
+    return teamOnePage({ creatorId: access.creatorId, ownerUserId: access.acting.ownerUserId, store: access.acting.name })
+  }
 
   /*
     EVERY WAIT HAS AN END, AND THE TWO READS GO TOGETHER. The creator row
@@ -271,4 +288,42 @@ export default async function OnePageEditorPage() {
   }
 
   return <OnePageEditor initialOnePage={onepage as OnePage} />
+}
+
+/** The plan a creators row is on, as the editor names it: Pro ("growth", or the older "pro") while it still entitles, else free. */
+function editorPlan(row: { subscription_plan_id?: string | null; subscription_status?: string | null } | null): OnePageTeam["plan"] {
+  const plan = (row?.subscription_plan_id || "free").toLowerCase().trim()
+  const status = (row?.subscription_status || "active").toLowerCase()
+  if (!["active", "trialing", "past_due"].includes(status)) return "free"
+  return plan === "growth" ? "growth" : plan === "pro" || plan === "professional" ? "pro" : "free"
+}
+
+/** The store owner's OnePage, for a team member with the OnePage permission. Made for the owner if they have none yet, as their own first visit would. */
+async function teamOnePage({ creatorId, ownerUserId, store }: { creatorId: string; ownerUserId: string | null; store: string }) {
+  if (!ownerUserId) throw new Error("This store has no owner account")
+  const admin = createAdminClient()
+  const [creatorRead, pageRead, domainsRead] = await Promise.all([
+    readTwice((signal) => admin.from("creators").select("*").eq("id", creatorId).eq("user_id", ownerUserId).abortSignal(signal).maybeSingle()),
+    readTwice((signal) => admin.from("onepages").select("*").eq("owner_id", ownerUserId).abortSignal(signal).maybeSingle()),
+    within((signal) => admin.from("custom_domains").select("*").eq("creator_id", creatorId).abortSignal(signal), STORE_SOCIALS_MS),
+  ])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const creator = creatorRead.data as any
+  if (creatorRead.error || pageRead.error) throw new Error("The OnePage could not be read")
+  if (!creator) throw new Error("This store isn't on Storelib any more")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let onepage = pageRead.data as any
+  if (!onepage) {
+    const made = await within(async () => ({ data: await ensureOnePage(admin, ownerUserId, creator), error: null }), MAKE_PAGE_MS)
+    onepage = made.data
+  }
+  if (!onepage) throw new Error("The OnePage could not be made")
+  const team: OnePageTeam = {
+    store,
+    creatorId,
+    ownerUserId,
+    plan: editorPlan(creator),
+    domain: creatorPageHostFromRows((domainsRead.data as { domain?: string | null; status?: string | null; purpose?: string | null; is_primary?: boolean | null }[] | null) ?? null),
+  }
+  return <OnePageEditor initialOnePage={onepage as OnePage} team={team} />
 }

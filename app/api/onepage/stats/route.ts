@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { onePageActor } from "@/lib/team/onepage"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextRequest, NextResponse } from "next/server"
 import { isTimeZone } from "@/lib/orders/time-zone"
@@ -38,12 +39,16 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: onepage } = await supabase
+    /* Whose page (lib/team/onepage): the owner's own, or for a team member with OnePage the store owner's. */
+    const actor = await onePageActor(supabase, user.id)
+    if (actor instanceof NextResponse) return actor
+
+    const { data: onepage } = await actor.db
       .from("onepages")
       .select("id, owner_id, seller_id, creator_id, draft_blocks, published_blocks")
       .eq("id", onepageId)
       .maybeSingle()
-    if (!onepage || onepage.owner_id !== user.id) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    if (!onepage || onepage.owner_id !== actor.pageOwnerId) return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
 
     const tz = params.get("tz")
     const timeZone = isTimeZone(tz) ? tz : "UTC"
