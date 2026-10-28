@@ -69,7 +69,7 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { askBeforeLeaving } from "@/lib/ui/leave-guard"
 import { num } from "@/lib/forms/dirty"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
-import { holdLayerLanding } from "@/components/app/page-layer"
+import { afterLayerMove, forgetPageCopy, holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { CustomFieldsCard } from "./custom-fields-card"
@@ -728,8 +728,14 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   /* Things that ship are filed under their own list (Apparel, Home & Garden...), downloads under theirs. */
   const categoryKind = productType === "physical" ? "physical" : "digital"
   const suggestedCategory = useCategorySuggestion(title, description, mediaItems, categoryKind)
-  /* Switched between a download and a thing that ships: a category from the other list doesn't fit, so the suggestion takes over again. */
+  /* Switched between a download and a thing that ships: a category from the other list doesn't fit, so the suggestion takes over again.
+     Only on a switch, never as the editor opens: a saved category the lists no longer have (an older name such as
+     "Photography") was cleared on the first frame, and the product opened reading as edited, so leaving it untouched
+     asked "Discard changes?" (round 41). */
+  const kindShown = useRef(categoryKind)
   useEffect(() => {
+    if (kindShown.current === categoryKind) return
+    kindShown.current = categoryKind
     setSelectedCategory((c) => {
       if (!c || isCategoryFor(c, categoryKind)) return c
       categoryTouched.current = false
@@ -757,15 +763,18 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     longer a change. The names of what differs are on the page
     (data-unsaved-fields) for scripts/check-product-save-r12.mjs.
   */
+  /* A suggestion nobody has chosen is not a change of theirs (round 41): a saved product with no category opened with
+     one filled in and asked "Discard changes?" on the way out. It is still the value a save sends. */
+  const categoryAsChanged = categoryTouched.current ? selectedCategory : savedForm.selectedCategory
   const currentForm: DirtyFields = {
     title, description, price, compareAtPrice, slug, productType, showSalesBadge, refundPolicyEnabled, refundPolicyType,
-    seoTitle, seoDescription, callToAction, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice,
+    seoTitle, seoDescription, callToAction, selectedCategory: categoryAsChanged, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice,
     mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, personalization, limitSalesEnabled, salesLimit,
   }
   const { formChanges, formKey } = useMemo(
     () => ({ formChanges: changedFields(currentForm, savedForm), formKey: snapshotOf(currentForm) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [title, description, price, compareAtPrice, slug, productType, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, personalization, limitSalesEnabled, salesLimit, savedForm],
+    [title, description, price, compareAtPrice, slug, productType, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, categoryAsChanged, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, mediaItems, digitalFiles, variants, whatsIncluded, faqs, customFields, personalization, limitSalesEnabled, salesLimit, savedForm],
   )
   const unsavedFields = [...formChanges, ...changedCards(cards)]
   const isDirty = unsavedFields.length > 0
@@ -793,6 +802,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   }, [digitalFiles])
   /** After a save: what was sent is what is saved, the form and every card. Changes made while it saved stay changes. */
   const markSaved = useCallback((sent: DirtyFields, sentCards: CardDrafts, savedSlug?: string) => {
+    /* The list as it was is not the list any more: Back drops over the real one (page-layer forgetPageCopy). */
+    forgetPageCopy()
     setSavedForm({ ...sent, slug: savedSlug ?? sent.slug, digitalFiles: savedFormRef.current.digitalFiles.map((f) => sent.digitalFiles.find((x) => x.file_path === f.file_path) ?? f) })
     setCards((c) => cardsSaved(c, sentCards))
     setReleasedAt(null)
@@ -1796,9 +1807,18 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     window.setTimeout(() => {
       leavingRef.current = false
     }, 10_000)
-    startTransition(() => setLeaving(true))
+    /*
+      The leaving state draws the whole editor again, which on a phone landed
+      inside the first frames of the drop as one long task (146ms at a
+      quarter of the CPU, scripts/check-layer-motion.mjs). The button has
+      already answered (LeaveButton), so on a phone that moves it waits for
+      the move (page-layer afterLayerMove), queued after the drop has begun.
+    */
+    const drawLeaving = () => afterLayerMove(() => startTransition(() => setLeaving(true)))
     startNavigationLoading(PRODUCTS_HREF)
     returnToProducts(router, productId)
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(() => window.setTimeout(drawLeaving, 0))
+    else drawLeaving()
   }
 
   /** Saves and publishes. True when it saved. */
@@ -2041,6 +2061,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (updateError) throw updateError
 
       announceChange({ product: productId })
+      /* The list's row has a new status: its copy from before is not used for the way back (page-layer forgetPageCopy). */
+      forgetPageCopy()
       /* Off the page or back on it: what is cached of it is dropped either way (app/api/products/forget). */
       await forgetProduct(productId, slug)
       setIsPublished(!isPublished)
@@ -2094,8 +2116,9 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       showToast(err instanceof Error && err.message ? err.message : tt("Could not delete the product"))
       return
     }
-    /* Nothing left to save: the way out asks nothing. */
+    /* Nothing left to save: the way out asks nothing. The row is gone or archived, so the list's copy is not used either. */
     releaseUnsaved()
+    forgetPageCopy()
     leavingRef.current = true
     startTransition(() => setLeaving(true))
     startNavigationLoading(PRODUCTS_HREF)

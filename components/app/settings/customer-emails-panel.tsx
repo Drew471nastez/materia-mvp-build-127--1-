@@ -53,10 +53,13 @@ import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { Switch } from "@/components/ui/switch"
 import { SegmentedTabs } from "@/components/app/segmented-tabs"
+import { SegmentedPills, type PillOption } from "@/components/app/segmented-pills"
 import { CommunityEmails, type CommunityRef } from "@/components/app/emails/community-emails"
 import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, languageName, sentLine } from "@/components/app/emails/email-parts"
-import { FAMILY_NAMES, GROUP_NAMES, GROUP_ORDER, emailsOf, previewCustomerEmail, type CustomerEmail, type EmailFamily, type PreviewShop } from "@/lib/emails/customer-catalog"
-import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, placeholdersFor, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
+import { FAMILY_NAMES, GROUP_NAMES, GROUP_ORDER, emailsOf, type CustomerEmail, type EmailFamily } from "@/lib/emails/customer-list"
+import type { PreviewShop } from "@/lib/emails/customer-catalog"
+import { ShimmerBlock } from "@/components/ui/shimmer"
+import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, pickCopy, placeholdersFor, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy, type EmailWords } from "@/lib/emails/customer-custom"
 import { ownWordsApply, type BuyerChannel } from "@/lib/emails/buyer-channel"
 import { TRIGGERS, isTriggerType } from "@/lib/automations/flow-model"
 import type { EmailActivity, FlowActivity } from "@/lib/emails/activity-server"
@@ -122,48 +125,108 @@ function writeView(v: View) {
   }
 }
 
-export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
+/*
+  WHAT EACH EMAIL HAS SENT, KEPT FOR THE PAGE'S LIFE. The Emails page
+  unmounts this list when another tab is opened; read again from nothing on
+  every return, its "12 sent in 30 days" lines arrived a beat after the rows
+  and the list moved under the eye. The last answer is drawn at once, and a
+  fresh one replaces it when it comes.
+*/
+const activityKept = new Map<string, EmailActivity>()
+/** This list has been drawn in this browser before: the address can be read on a first draw (below). */
+let panelMounted = false
+const activityPath = (communityKey: string) => `${ACTIVITY_PATH}${communityKey ? `?communities=${communityKey}` : ""}`
+
+/** Read the activity for this list ahead (Emails reads it with the list, so the tab opens with it). */
+export function prefetchCustomerActivity(data: CustomerEmailsData | null | undefined): void {
+  if (!data) return
+  const key = (data.communities ?? []).map((c) => c.id).join(",")
+  if (activityKept.has(key)) return
+  void api<EmailActivity>(activityPath(key)).then((r) => {
+    if (r.ok) activityKept.set(key, r.data)
+  })
+}
+
+export function CustomerEmailsPanel({
+  bare = false,
+  source,
+}: {
+  bare?: boolean
+  /**
+   * The Emails page's own read of this list (its tab cache), and where a
+   * change goes so the next look has it. Without it, Settings: the panel
+   * reads for itself.
+   */
+  source?: { data: CustomerEmailsData | null; onChange?: (data: CustomerEmailsData) => void }
+}) {
   const physical = usePhysicalCommerceEnabled()
   /* Drawn at once from what Settings (or Emails) fetched while the person was elsewhere (prefetchGet). */
-  const [data, setData] = React.useState<CustomerEmailsData | null>(() => peekGet<CustomerEmailsData>(CUSTOMER_EMAILS_PATH))
+  const [ownData, setOwnData] = React.useState<CustomerEmailsData | null>(() => (source ? source.data : peekGet<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)))
+  const data = source?.data ?? ownData
+  const sourceRef = React.useRef(source)
+  sourceRef.current = source
+  const setData = React.useCallback((update: (d: CustomerEmailsData | null) => CustomerEmailsData | null) => {
+    setOwnData((d) => {
+      const next = update(sourceRef.current?.data ?? d)
+      if (next && sourceRef.current?.onChange) queueMicrotask(() => sourceRef.current?.onChange?.(next))
+      return next
+    })
+  }, [])
   const [error, setError] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<CustomerEmail | null>(null)
-  const [view, setViewState] = React.useState<View>("all")
-  const [activity, setActivity] = React.useState<EmailActivity | null>(null)
+  /*
+    The family from the address. On the page's first draw it is All, as the
+    server drew it, and the address is read just after (a hydration that
+    disagreed with the server would throw the page's markup away); every
+    later mount (Emails' tab opened again) reads it on its first draw, so
+    the list does not draw All and then jump to the family.
+  */
+  const [view, setViewState] = React.useState<View>(() => (panelMounted ? viewFromAddress() : "all"))
   const communities = data?.communities ?? []
-  const [communityId, setCommunityId] = React.useState<string | null>(null)
+  const communityKey = communities.map((c) => c.id).join(",")
+  const [activity, setActivity] = React.useState<EmailActivity | null>(() => (data ? activityKept.get(communityKey) ?? null : null))
+  const [communityId, setCommunityId] = React.useState<string | null>(() => (panelMounted ? new URLSearchParams(window.location.search).get("community") : null))
 
   React.useEffect(() => {
-    void api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => (r.ok ? setData(r.data) : setError(r.error)))
-    setViewState(viewFromAddress())
-    setCommunityId(new URLSearchParams(window.location.search).get("community"))
+    if (!panelMounted) {
+      panelMounted = true
+      setViewState(viewFromAddress())
+      setCommunityId(new URLSearchParams(window.location.search).get("community"))
+    }
+    /* Emails reads the list itself (its tab cache); Settings asks here. */
+    if (sourceRef.current) return
+    void api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH).then((r) => (r.ok ? setOwnData(r.data) : setError(r.error)))
   }, [])
 
   /* What each has sent, once the list knows the communities it covers. */
-  const communityKey = communities.map((c) => c.id).join(",")
+  const hasData = !!data
   React.useEffect(() => {
-    if (!data) return
+    if (!hasData) return
     let live = true
-    void api<EmailActivity>(`${ACTIVITY_PATH}${communityKey ? `?communities=${communityKey}` : ""}`).then((r) => {
-      if (live && r.ok) setActivity(r.data)
+    const kept = activityKept.get(communityKey)
+    if (kept) setActivity(kept)
+    void api<EmailActivity>(activityPath(communityKey)).then((r) => {
+      if (!r.ok) return
+      activityKept.set(communityKey, r.data)
+      if (live) setActivity(r.data)
     })
     return () => {
       live = false
     }
-  }, [data, communityKey])
+  }, [hasData, communityKey])
 
   const setView = (v: View) => {
     setViewState(v)
     writeView(v)
   }
-  const tabs = [
-    { id: "all" as const, label: tt("All") },
-    { id: "digital" as const, label: FAMILY_NAMES.digital, short: tt("Digital") },
-    ...(physical ? [{ id: "physical" as const, label: FAMILY_NAMES.physical, short: tt("Physical") }] : []),
-    ...(communities.length ? [{ id: "communities" as const, label: FAMILY_NAMES.communities }] : []),
+  const tabs: PillOption<View>[] = [
+    { value: "all", label: tt("All") },
+    { value: "digital", label: FAMILY_NAMES.digital },
+    ...(physical ? [{ value: "physical" as const, label: FAMILY_NAMES.physical }] : []),
+    ...(communities.length ? [{ value: "communities" as const, label: FAMILY_NAMES.communities }] : []),
   ]
   /* A family that is not offered here (physical off, no community): All. */
-  const shown: View = tabs.some((t) => t.id === view) ? view : "all"
+  const shown: View = tabs.some((t) => t.value === view) ? view : "all"
   const families = (shown === "all" ? (["digital", "physical", "communities"] as EmailFamily[]) : [shown]).filter((f) => (f !== "physical" || physical) && (f !== "communities" || communities.length > 0))
   const community = communities.find((c) => c.id === communityId || c.slug === communityId) ?? communities[0] ?? null
 
@@ -188,7 +251,8 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
   const list = (
     <div className={cn(bare ? "pb-1" : "")} data-customer-email-list="">
       <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between", bare ? "border-b border-[#f1f2f4] px-4 py-3 sm:px-5" : "mb-4")}>
-        <SegmentedTabs value={shown} onChange={setView} tabs={tabs} label={tt("Email families")} controls="customer-emails-view" idPrefix="email-family" />
+        {/* Analytics' own family chips (SegmentedPills chips): quiet words, the chosen one a dark pill that slides. No grey track. */}
+        <SegmentedPills variant="chips" value={shown} onChange={setView} options={tabs} label={tt("Email families")} className="-ml-1 max-w-full self-start sm:self-auto" />
         {shown === "communities" && communities.length > 1 && community ? (
           <label className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[13px] text-[#6b7280]">{tt("Community")}</span>
@@ -212,8 +276,15 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
           </label>
         ) : null}
       </div>
-      {/* Keyed by the view, so a switch fades the new list in (opacity only) rather than swapping it under the eye. */}
-      <div key={shown} id="customer-emails-view" role="tabpanel" aria-labelledby={`email-family-${shown}`} className="animate-[fade-in_180ms_ease-out_both] motion-reduce:animate-none" data-email-view={shown}>
+      {/*
+        NOT KEYED BY THE VIEW (round 28, the owner: "switching must not
+        flash"). It was, so every switch threw the whole list away and drew
+        it again from opacity 0: a white flash, the community's emails read
+        again from the server. Now the list is filtered where it stands: each
+        family's section is kept by its own key, so All to Digital keeps
+        Digital's rows as they are and only takes the others away.
+      */}
+      <div id="customer-emails-view" role="tabpanel" aria-label={tabs.find((t) => t.value === shown)?.label as string} data-email-view={shown}>
         {shown === "digital" || shown === "physical" ? (
           <p className={cn("max-w-[70ch] text-[12.5px] leading-[18px] text-[#6b7280]", bare ? "px-4 pt-3 sm:px-5" : "mb-3")} data-language-rule="">
             {tt("Orders on your website get their emails in the language the buyer used there. Purchases on your creator page, Explore and in communities get them in English.")}
@@ -251,6 +322,7 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
                             ) : null
                           }
                           onOpen={() => setOpen(e)}
+                          onIntent={() => void warmPreviews()}
                         />
                       ))}
                     </ul>
@@ -331,12 +403,82 @@ function FlowRows({ flows, days, bare, onToggle }: { flows: FlowActivity[]; days
   )
 }
 
-type Draft = Required<EmailCopy>
-const LABELS: Record<CopyField, string> = { get subject() { return tt("Subject") }, get heading() { return tt("Heading") }, get body() { return tt("Text") }, get button() { return tt("Button") } }
+/*
+  THE TEMPLATES LOAD WITH THE EDITOR (round 28, the owner: "opening the
+  editor must be fast"). A preview is drawn by the very templates that send
+  the email: the receipt, every order and shipping email, the notices. They
+  are most of this panel's weight and the list needs none of them, so they
+  are read the first time a row is pressed, hovered or focused (warmPreviews,
+  from EmailRow's own intent) and kept; the editor opens at once with its
+  fields, and a frame in the preview's own shape until they are in, which on
+  a press is under one frame most of the time.
+*/
+type PreviewModule = typeof import("@/lib/emails/customer-catalog")
+let previewModule: PreviewModule | null = null
+let previewLoading: Promise<PreviewModule> | null = null
+export function warmPreviews(): Promise<PreviewModule> {
+  if (previewModule) return Promise.resolve(previewModule)
+  previewLoading ??= import("@/lib/emails/customer-catalog").then((m) => (previewModule = m))
+  return previewLoading
+}
+function usePreviewModule(want: boolean): PreviewModule | null {
+  const [mod, setMod] = React.useState<PreviewModule | null>(previewModule)
+  React.useEffect(() => {
+    if (!want || mod) return
+    let live = true
+    void warmPreviews().then((m) => live && setMod(m))
+    return () => {
+      live = false
+    }
+  }, [want, mod])
+  return mod
+}
 
-function draftOf(id: string | undefined, saved: EmailCopy | undefined): Draft {
+/** The preview's room while its templates load: the subject line and the email's page, in light gray, the height the frame opens at. */
+function PreviewSkeleton() {
+  return (
+    <div aria-hidden className="space-y-2.5" data-preview-skeleton="">
+      <ShimmerBlock className="h-4 w-2/3 rounded-full" />
+      <div className="rounded-xl border border-[#eceef1] bg-white p-6" style={{ height: 640 }}>
+        <ShimmerBlock className="h-9 w-9 rounded-lg" />
+        <ShimmerBlock className="mt-8 h-6 w-3/5 rounded-full" />
+        <ShimmerBlock className="mt-4 h-3 w-full rounded-full" />
+        <ShimmerBlock className="mt-2 h-3 w-5/6 rounded-full" />
+        <ShimmerBlock className="mt-6 h-11 w-44 rounded-lg" />
+      </div>
+    </div>
+  )
+}
+
+type Draft = Required<EmailWords>
+const LABELS: Record<CopyField, string> = {
+  get subject() { return tt("Subject") },
+  get preheader() { return tt("Preview text") },
+  get heading() { return tt("Heading") },
+  get body() { return tt("Text") },
+  get button() { return tt("Button") },
+  get footer() { return tt("Footer note") },
+}
+/** What a field says about itself, under it, where its job is not plain from its name. */
+const HINTS: Partial<Record<CopyField, string>> = {
+  get preheader() { return tt("Shown after the subject in most inboxes. Empty, the email's first line is shown.") },
+  get footer() { return tt("A line of your own above the footer, such as a returns note. The address and links stay.") },
+}
+
+/**
+ * The fields as they open. The main words start from the saved ones, or
+ * the defaults. Another language's start empty where nothing was written
+ * for it: an empty part goes out in the standard words of that language.
+ */
+function draftOf(id: string | undefined, saved: EmailWords | undefined, other = false): Draft {
+  if (other) return { subject: saved?.subject ?? "", preheader: saved?.preheader ?? "", heading: saved?.heading ?? "", body: saved?.body ?? "", button: saved?.button ?? "", footer: saved?.footer ?? "" }
   const def = id ? DEFAULT_COPY[id] : undefined
-  return { subject: saved?.subject || def?.subject || "", heading: saved?.heading || def?.heading || "", body: saved?.body ?? def?.body ?? "", button: saved?.button || def?.button || "" }
+  return { subject: saved?.subject || def?.subject || "", preheader: saved?.preheader || "", heading: saved?.heading || def?.heading || "", body: saved?.body ?? def?.body ?? "", button: saved?.button || def?.button || "", footer: saved?.footer || "" }
+}
+/** What is sent for a draft: another language sends only the parts written for it, so an empty text is the standard one there, never no text. */
+function payloadOf(draft: Draft, other: boolean): Partial<Draft> {
+  if (!other) return draft
+  return Object.fromEntries(COPY_FIELDS.filter((f) => draft[f].trim() !== "").map((f) => [f, draft[f]])) as Partial<Draft>
 }
 const sameDraft = (a: Draft, b: Draft) => COPY_FIELDS.every((f) => a[f] === b[f])
 
@@ -403,7 +545,17 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const id = email?.id
   const editable = !!id && !!DEFAULT_COPY[id]
   const membership = !!id?.startsWith("membership_")
-  const start = React.useMemo(() => draftOf(id, saved), [id, saved])
+  const where = usePreviewPlace(email, data)
+  /*
+    WHICH WORDS ARE BEING WRITTEN (round 28, the owner: "per language where
+    the product supports it"). The main words go to buyers in the website's
+    own language; the preview's language picker, set to another of the
+    website's languages, writes that language's words (saved under `langs`,
+    lib/emails/customer-custom.ts pickCopy), the main ones left as they are.
+  */
+  const otherLang = where.language.own === false ? where.language.lang : null
+  const savedWords = React.useMemo(() => (otherLang ? saved?.langs?.[otherLang.toLowerCase().split("-")[0]] : pickCopy(saved, null)), [saved, otherLang])
+  const start = React.useMemo(() => draftOf(id, savedWords, !!otherLang), [id, savedWords, otherLang])
   const [draft, setDraft] = React.useState<Draft>(start)
   const [tab, setTab] = React.useState<"preview" | "edit">("preview")
   const [busy, setBusy] = React.useState(false)
@@ -442,16 +594,28 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
 
   /* The preview follows the typing a beat behind, so a long email never holds a key up. */
   const shown = React.useDeferredValue(draft)
-  const checked = React.useMemo(() => (id && editable ? readCopy(id, shown) : null), [id, editable, shown])
-  const where = usePreviewPlace(email, data)
+  const checked = React.useMemo(() => (id && editable ? readCopy(id, payloadOf(shown, !!otherLang)) : null), [id, editable, shown, otherLang])
+  /* The words the preview draws: the ones being typed in the part being written, the saved ones in every other. */
+  const previewWords = React.useMemo<EmailCopy | null | undefined>(() => {
+    if (!checked?.ok) return saved
+    if (!otherLang) return { ...(checked.copy ?? {}), ...(saved?.langs ? { langs: saved.langs } : {}) }
+    const langs = { ...(saved?.langs ?? {}) }
+    const key = otherLang.toLowerCase().split("-")[0]
+    if (checked.copy) langs[key] = checked.copy
+    else delete langs[key]
+    return { ...(pickCopy(saved, null) ?? {}), langs }
+  }, [checked, saved, otherLang])
   const creator = data?.creator ?? null
+  const templates = usePreviewModule(!!asked)
   const mail = React.useMemo(
-    () => (id ? previewCustomerEmail(id, shop, checked?.ok ? checked.copy : saved, { channel: where.channel, language: where.language, creator }) : null),
-    [id, shop, checked, saved, where.channel, where.language, creator],
+    () => (id && templates ? templates.previewCustomerEmail(id, shop, previewWords, { channel: where.channel, language: where.language, creator }) : null),
+    [id, templates, shop, previewWords, where.channel, where.language, creator],
   )
   const dirty = !sameDraft(draft, start)
-  const isDefault = !saved
+  const isDefault = !savedWords
 
+  /* A switch of language changes which words are being written: unsaved ones are asked about first. */
+  const keepTyping = () => !dirty || window.confirm(tt("Leave without saving your changes to this email?"))
   const close = () => {
     if (dirty && !window.confirm(tt("Leave without saving your changes to this email?"))) return
     onClose()
@@ -460,7 +624,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const save = async (copy: Draft | null) => {
     if (!id) return
     setBusy(true)
-    const r = await api<{ copy: CustomerEmailsCopy }>(CUSTOMER_EMAILS_PATH, { method: "PUT", body: { id, copy } })
+    const r = await api<{ copy: CustomerEmailsCopy }>(CUSTOMER_EMAILS_PATH, { method: "PUT", body: { id, copy: copy ? payloadOf(copy, !!otherLang) : null, ...(otherLang ? { lang: otherLang } : {}) } })
     setBusy(false)
     if (!r.ok) return setError(r.error)
     setError(null)
@@ -472,13 +636,13 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const sendTest = async () => {
     if (!id || test?.state === "sending") return
     setTest({ state: "sending" })
-    const r = await api<{ sentTo: string }>("/api/store/emails/test", { method: "POST", body: { id, channel: where.channel, lang: where.lang, ...(editable && checked?.ok ? { copy: draft } : {}) } })
+    const r = await api<{ sentTo: string }>("/api/store/emails/test", { method: "POST", body: { id, channel: where.channel, lang: where.lang, ...(editable && checked?.ok ? { copy: payloadOf(draft, !!otherLang), ...(otherLang ? { copyLang: otherLang } : {}) } : {}) } })
     setTest(r.ok ? { state: "sent", to: r.data.sentTo } : { state: "failed", error: r.error })
   }
 
   const reset = () => {
     if (isDefault) {
-      setDraft(draftOf(id, undefined))
+      setDraft(draftOf(id, undefined, !!otherLang))
       return
     }
     void save(null)
@@ -505,19 +669,24 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const fields = editable ? (
     <div className="space-y-3.5" data-email-editor={id}>
       {!ready ? <Notice tone="amber">{tt("Saving changes needs the database update (SQL part 129). You can try words out here meanwhile.")}</Notice> : null}
+      {otherLang ? (
+        <p className="rounded-lg bg-[#f4f5f7] px-3 py-2 text-[12.5px] leading-[18px] text-[#374151]" data-email-editing-lang={otherLang}>
+          {tt("Words for buyers who read this email in {language}. A part left empty goes out in the standard {language} words.", { language: languageName(otherLang) })}
+        </p>
+      ) : null}
       {COPY_FIELDS.map((f) => (
-        <Field key={f} label={LABELS[f]} htmlFor={`email-${f}`}>
-          {f === "body" ? (
+        <Field key={f} label={LABELS[f]} htmlFor={`email-${f}`} hint={HINTS[f]}>
+          {f === "body" || f === "footer" ? (
             <textarea
               id={`email-${f}`}
-              value={draft.body}
-              maxLength={COPY_LIMITS.body}
-              rows={6}
+              value={draft[f]}
+              maxLength={COPY_LIMITS[f]}
+              rows={f === "body" ? 6 : 2}
               onFocus={remember(f)}
               onSelect={remember(f)}
-              onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))}
-              className={cn(FIELD, PHONE_SAFE, "h-auto min-h-[132px] resize-y py-2.5 leading-[21px] sm:h-auto")}
-              placeholder={tt("No opening text")}
+              onChange={(e) => setDraft((d) => ({ ...d, [f]: e.target.value }))}
+              className={cn(FIELD, PHONE_SAFE, "h-auto resize-y py-2.5 leading-[21px] sm:h-auto", f === "body" ? "min-h-[132px]" : "min-h-[64px]")}
+              placeholder={otherLang ? tt("Standard {language} words", { language: languageName(otherLang) }) : f === "body" ? tt("No opening text") : tt("No footer note")}
               data-email-field={f}
             />
           ) : (
@@ -529,8 +698,8 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
               onFocus={remember(f)}
               onSelect={remember(f)}
               onChange={(e) => setDraft((d) => ({ ...d, [f]: e.target.value }))}
-              /* Emptied, the default goes out: it shows here as the hint. */
-              placeholder={id ? DEFAULT_COPY[id][f] : undefined}
+              /* Emptied, the default goes out: it shows here as the hint (in another language, the standard words of that one). */
+              placeholder={otherLang ? tt("Standard {language} words", { language: languageName(otherLang) }) : f === "preheader" ? tt("The email's first line") : id ? DEFAULT_COPY[id][f] : undefined}
               className={PHONE_SAFE}
               data-email-field={f}
             />
@@ -559,7 +728,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
       {checked && checked.ok === false ? <Notice>{checked.error}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("The price, the dates, the card and the link stay as they are, filled in from each membership.") : tt("The items, totals, tracking and links stay as they are, filled in from each order.")}</p>
-      <button type="button" className={cn(BTN_GHOST, "-ml-3 sm:hidden")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset}>
+      <button type="button" className={cn(BTN_GHOST, "-ml-3 sm:hidden")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined, !!otherLang)))} onClick={reset}>
         {tt("Reset to default")}
       </button>
     </div>
@@ -572,7 +741,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
         {where.digital ? (
           <SegmentedTabs
             value={where.channel}
-            onChange={where.setChannel}
+            onChange={(v) => keepTyping() && where.setChannel(v)}
             label={tt("Bought on")}
             idPrefix="preview-place"
             className="sm:w-auto"
@@ -585,7 +754,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
         {where.channel === "website" && where.langs.length > 1 ? (
           <select
             value={where.lang}
-            onChange={(e) => where.setLang(e.target.value)}
+            onChange={(e) => keepTyping() && where.setLang(e.target.value)}
             aria-label={tt("Language")}
             className="h-9 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-8 sm:text-[13px]"
             data-preview-language=""
@@ -607,19 +776,20 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
         : null
   /* A membership is bought on Storelib: from the creator, in English (lib/memberships/sync.ts membershipVoice). */
   const membershipNote = membership ? tt("Bought on your creator page: in English, from {name}.", { name: creator?.name || shop.name }) : null
-  const ownNote = editable && !where.language.own ? tt("Your own words go out in {language}, your website's language. Buyers in other languages get the standard words in theirs.", { language: languageName(where.def) }) : null
+  /* Which buyers the words on the left reach, when the website has more than one language. */
+  const ownNote = editable && where.langs.length > 1 && !otherLang && where.channel === "website" ? tt("These words go to buyers in {language}, your website's language. Pick another language above to write its own.", { language: languageName(where.def) }) : null
 
   const preview = (active: boolean) => (
     <div className="space-y-2.5" data-email-preview={id}>
       {placeControls}
       {placeNote || membershipNote ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-preview-place-note="">{placeNote || membershipNote}</p> : null}
-      {ownNote ? <p className="text-[12.5px] leading-[18px] text-[#92400e]" data-preview-own-note="">{ownNote}</p> : null}
+      {ownNote ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-preview-own-note="">{ownNote}</p> : null}
       {mail ? (
         <p className="text-[13px] text-[#6b7280]" data-email-subject="">
           <span className="font-medium text-[#374151]">{tt("Subject:")}</span> {mail.subject}
         </p>
       ) : null}
-      <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail?.html ?? ""} paused={!active} />
+      {mail ? <PreviewFrame title={tt("{value} preview", { value: email?.name ?? tt("Email") })} html={mail.html} paused={!active} /> : <PreviewSkeleton />}
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("A sample membership, drawn the way the real email is sent. The real email has the member's own plan, price and dates.") : tt("A sample order, drawn the way the real email is sent. The real email has the buyer's own items, address and order.")}</p>
     </div>
   )
@@ -644,7 +814,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
     <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[#f1f2f4] bg-white px-4 py-3 sm:px-5" data-email-footer="">
       <div className="flex min-w-0 items-center gap-1">
         {editable ? (
-          <button type="button" className={cn(BTN_GHOST, "hidden sm:inline-flex")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset} data-email-reset="">
+          <button type="button" className={cn(BTN_GHOST, "hidden sm:inline-flex")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined, !!otherLang)))} onClick={reset} data-email-reset="">
             {tt("Reset to default")}
           </button>
         ) : null}

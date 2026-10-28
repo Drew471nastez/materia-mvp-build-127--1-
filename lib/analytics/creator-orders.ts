@@ -6,9 +6,10 @@ import { homeTotals } from "./home-figures"
 import { KEYSET_PAGE, keysetFrom, readByKeyset } from "./keyset"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { hasOrdersInOtherCurrency, inStoreCurrency } from "@/lib/money/report-currency-server"
+import { withoutTestSales } from "./test-sales"
 
 /* What a sale and its money are counted from (lib/orders/order-view, reports.ts moneyOf). */
-const SALE_COLUMNS = "id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, currency"
+const SALE_COLUMNS = "id, product_id, amount_cents, status, created_at, stripe_session_id, refund_amount_cents, currency, source_detail"
 
 /**
  * THE CREATOR'S ORDERS, BY THE CREATOR, NEVER BY A LIST OF PRODUCT IDS.
@@ -97,7 +98,8 @@ export async function creatorSalesTotals(admin: Admin, creatorId: string): Promi
           .order("id", { ascending: true })
           .limit(KEYSET_PAGE),
       )
-      return ownRows(read.rows)
+      /* An admin's test sale is not a sale (lib/analytics/test-sales). */
+      return withoutTestSales(ownRows(read.rows))
     })
     const { totalOrders, totalRevenue } = homeTotals((await inStoreCurrency(admin, creatorId, rows, storeCurrency)).rows)
     return { sales: totalOrders, revenueCents: Math.max(0, totalRevenue) }

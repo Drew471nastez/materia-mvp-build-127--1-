@@ -84,6 +84,8 @@ export function openEditor(router: Router, href: string, answered = false) {
       router.push(href)
     },
     answered ? false : undefined,
+    /* The editor's layer rises (its layouts draw it with `moves`), so the press asks for the rise too. */
+    { moves: true },
   )
 }
 
@@ -137,11 +139,12 @@ export function returnToProducts(router: Router, productId: string | null) {
     markTraversal()
     router.replace(PRODUCTS_HREF)
   }
+  /* Back to the list the editor was opened from: its copy lies under the editor and the drop starts at once (page-layer, THE PAGE A LAYER WAS OPENED FROM). */
   moveLayer("leave", () => {
     /* A popstate: the app marks it a return itself (navigation-loading-bar). */
     if (back) backThen(replaceWithList)
     else replaceWithList()
-  })
+  }, undefined, { to: PRODUCTS_HREF })
 }
 
 /*

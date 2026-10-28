@@ -60,9 +60,13 @@ interface BillingPageClientProps {
  * (components/billing/plan-cards); the overview and the history used to run
  * the settings column's full width under them, so the tab had two right
  * edges and the cards looked like they floated. Now all three sit in the
- * cards' column, from the same left edge as every other settings panel.
+ * cards' column. Centred in the panel (the owner: "Plans and pricing on
+ * desktop, center the layout instead of left aligned"): the column is 720px
+ * and the settings panel beside the sections is 856px at 1440, so a column
+ * held to the left put the centred "Plans and pricing" title 68px left of the
+ * panel's middle (scripts/check-settings-switch.mjs measures it).
  */
-const PLAN_COLUMN = "w-full max-w-[720px]"
+const PLAN_COLUMN = "mx-auto w-full max-w-[720px]"
 
 export function BillingPageClient({ initialData, embedded = false }: BillingPageClientProps) {
   const router = useRouter()

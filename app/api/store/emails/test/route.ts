@@ -3,7 +3,7 @@ import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { loadCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
 import { CUSTOMER_EMAILS } from "@/lib/emails/customer-catalog"
 import { storePreview } from "@/lib/emails/customer-preview-server"
-import { readCopy } from "@/lib/emails/customer-custom"
+import { isCopyLanguage, readCopy, withWords } from "@/lib/emails/customer-custom"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { maskEmail } from "@/lib/privacy/mask-email"
@@ -47,8 +47,9 @@ export async function POST(request: Request) {
   const db = c.db
   const saved = await loadCustomerEmailCopy(db, c.creatorId)
   /* The words being typed, when the editor sent them and they are valid; else what is saved. */
-  const typed = body?.copy && typeof body.copy === "object" ? readCopy(id, body.copy) : null
-  const words = typed?.ok ? typed.copy : saved[id]
+  const typed = body?.copy && typeof body.copy === "object" ? readCopy(id, body.copy as Record<string, unknown>) : null
+  /* Typed for one of the website's other languages (`copyLang`): put in that language's place, the rest as saved. */
+  const words = typed?.ok ? withWords(saved[id], typed.copy, isCopyLanguage(body?.copyLang) ? body!.copyLang : null) : saved[id]
   /* As the preview showed it: where it was bought and the language picked there (lib/emails/buyer-channel.ts). */
   const { name, mail } = await storePreview(db, c.creatorId, id, words, { channel: body?.channel === "storelib" ? "storelib" : "website", lang: typeof body?.lang === "string" ? body.lang : null })
   if (!mail) return physicalJson({ error: "That email was not found." }, 404)

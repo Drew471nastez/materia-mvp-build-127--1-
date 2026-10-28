@@ -18,6 +18,7 @@ import { appUrl } from "@/lib/notify/urls"
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { buyerCancelState, cancelMode } from "@/lib/physical/buyer-cancel"
 import { checkoutBrand } from "@/lib/checkout/brand-server"
+import { savingsOfLines } from "@/lib/offers/snapshot"
 import { orderStoreUrl } from "@/lib/physical/store-link"
 import { orderPagePath } from "@/lib/physical/order-link"
 import { buyerProperties } from "@/lib/physical/cart-link"
@@ -94,6 +95,10 @@ export default async function OrderStatusPage({ params, searchParams }: { params
         address: order.deliveryMethod === "pickup" ? null : order.address,
         delivery: order.delivery,
         coupon: order.couponCode,
+        /* Each offer's saving by the name the checkout showed it, inside the discount; the rest is the code's (lib/receipts/discount splitSavings). */
+        savings: savingsOfLines(order.lines),
+        /* The invoice PDF (lib/checkout/invoice.ts, app/api/checkout/invoice), opened by one of the order's own receipt tokens: for an order paid by card. */
+        invoiceToken: order.payment === "card" && order.totalCents > 0 ? (order.lines.find((l) => l.receiptToken)?.receiptToken ?? null) : null,
         pickup: order.pickup ? { name: order.pickup.name, address: order.pickup.address, instructions: order.pickup.instructions, ready: PICKUP_READY_LABEL[order.pickup.ready], hours: order.pickup.hours ?? null } : null,
         processing: !!order.processingAt,
         cash: order.payment === "cod_due" ? "due" : order.payment === "cod_collected" ? "paid" : null,

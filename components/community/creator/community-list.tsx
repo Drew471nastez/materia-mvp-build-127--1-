@@ -49,6 +49,12 @@ import { UpgradeSheet } from "./upgrade-sheet"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
+import { holdLanding, isPlainClick, prefetchAppPage } from "@/lib/ui/app-navigation"
+import { tintReturnedRow } from "@/components/app/list-return"
+import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
+import { whenIdle } from "@/app/app/products/list-return"
+import { communitiesReturn } from "./list-return"
+import { shareCommunity } from "./share-link"
 
 /** New community: the Products page's violet New product, at the bar's 32px (35 from 1024px) with a 44px press on a phone. */
 const NEW_LOOK = cn(accentDepth, "relative h-8 gap-1.5 rounded-lg px-3 text-[13px] max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-[''] lg:h-[35px] lg:px-[13px] lg:text-[14.5px]")
@@ -65,46 +71,6 @@ function shortDate(iso: string): string {
   return Number.isFinite(t) ? new Intl.DateTimeFormat(appLocale(), { month: "short", day: "numeric", year: "numeric" }).format(t) : ""
 }
 
-/**
- * The address a card shares and opens: storelib.com, always. Only a
- * storelib.com address opens the Storelib app (lib/platform/app-links.ts),
- * so a share from a creator's own domain or a preview host would hand out a
- * link that can never do that.
- */
-function publicUrl(slug: string): string {
-  return `https://storelib.com/community/${slug}`
-}
-
-/** The system share sheet where there is one on a touch screen, otherwise the address copied. */
-async function shareCommunity(r: CommunityListRow): Promise<"shared" | "copied" | "failed"> {
-  const url = publicUrl(r.slug)
-  const touch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
-  if (touch && typeof navigator.share === "function") {
-    try {
-      await navigator.share({ title: r.name, text: r.tagline ?? undefined, url })
-      return "shared"
-    } catch (e) {
-      if ((e as { name?: string })?.name === "AbortError") return "shared"
-    }
-  }
-  try {
-    await navigator.clipboard.writeText(url)
-    return "copied"
-  } catch {
-    /* An older webview, or a page without clipboard permission: a hidden field and the old command. */
-    const ta = document.createElement("textarea")
-    ta.value = url
-    ta.setAttribute("readonly", "")
-    ta.style.position = "fixed"
-    ta.style.opacity = "0"
-    document.body.appendChild(ta)
-    ta.select()
-    const ok = document.execCommand("copy")
-    ta.remove()
-    return ok ? "copied" : "failed"
-  }
-}
-
 /** `canCreate`: false for a store's team member (lib/communities/server/team.ts), who runs the store's communities but makes none. */
 export function CommunityList(props: { rows: CommunityListRow[]; available: boolean; limit: CommunityLimitView; canCreate?: boolean }) {
   return (
@@ -114,18 +80,57 @@ export function CommunityList(props: { rows: CommunityListRow[]; available: bool
   )
 }
 
-function List({ rows, available, limit, canCreate = true }: { rows: CommunityListRow[]; available: boolean; limit: CommunityLimitView; canCreate?: boolean }) {
+function List({ rows: given, available, limit, canCreate = true }: { rows: CommunityListRow[]; available: boolean; limit: CommunityLimitView; canCreate?: boolean }) {
   const router = useRouter()
   const toast = useToast()
+  /* A community just deleted from its Settings is gone from the rows the router kept, before the refresh brings them. */
+  const [gone] = React.useState(() => communitiesReturn.peek()?.deleted ? communitiesReturn.peek()?.id ?? null : null)
+  const rows = React.useMemo(() => (gone ? given.filter((r) => r.id !== gone) : given), [given, gone])
   const [upgrade, setUpgrade] = React.useState(false)
   const [archiving, setArchiving] = React.useState<CommunityListRow | null>(null)
   const [busy, setBusy] = React.useState(false)
   const room = limit.max === null || limit.owned < limit.max
+  const listRef = React.useRef<HTMLDivElement>(null)
+
+  /*
+    BACK FROM A COMMUNITY (./list-return): the list as it was left. The stage puts its scroll back (a back is a
+    traversal), no landing plays over it, and the card that was open is tinted for a moment.
+  */
+  const [returning] = React.useState(() => communitiesReturn.isReturning())
+  React.useLayoutEffect(() => {
+    if (returning) holdLanding()
+  }, [returning])
+  React.useEffect(() => {
+    const back = communitiesReturn.take()
+    if (!back) return
+    if (back.message) toast(back.message)
+    /* A community deleted from its Settings: the rows again, without it. */
+    if (back.deleted) router.refresh()
+    else if (back.id) tintReturnedRow(listRef.current, back.id, LAYER_LEAVE_MS)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the list lands
+  }, [])
+
+  /* A community's admin, fetched whole when its card is pointed at or touched, and the first two once the list is idle. */
+  const warmed = React.useRef(new Set<string>())
+  const warm = React.useCallback(
+    (href: string) => {
+      if (warmed.current.has(href)) return
+      warmed.current.add(href)
+      prefetchAppPage(router, href)
+    },
+    [router],
+  )
+  const firstTwo = React.useRef<string[]>([])
+  firstTwo.current = rows.filter((r) => !r.deleting).slice(0, 2).map((r) => `/app/community/${r.slug}`)
+  React.useEffect(() => whenIdle(() => firstTwo.current.forEach(warm)), [warm])
+  const openCommunity = React.useCallback((href: string) => communitiesReturn.open(router, href), [router])
   /* At the limit, New community asks first: the link still points at the form, for a middle click or a screen reader. */
   const askNew = (e: React.MouseEvent) => {
-    if (room) return
+    if (!isPlainClick(e)) return
     e.preventDefault()
-    setUpgrade(true)
+    if (!room) return setUpgrade(true)
+    /* One entry after the list (./list-return): the wizard gives that entry to the community it makes. */
+    communitiesReturn.open(router, "/app/community/new")
   }
 
   const duplicate = React.useCallback(
@@ -158,7 +163,7 @@ function List({ rows, available, limit, canCreate = true }: { rows: CommunityLis
 
   const share = React.useCallback(
     async (r: CommunityListRow) => {
-      const done = await shareCommunity(r)
+      const done = await shareCommunity({ name: r.name, tagline: r.tagline, slug: r.slug })
       if (done === "copied") toast(tt("Link copied"))
       else if (done === "failed") toast(tt("The link could not be copied."))
     },
@@ -166,7 +171,7 @@ function List({ rows, available, limit, canCreate = true }: { rows: CommunityLis
   )
 
   return (
-    <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-community-list="">
+    <div ref={listRef} className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-community-list="">
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
         <h1 className="min-w-0 truncate text-[22px] font-bold leading-7 text-[#1a1a2e] sm:text-[25px] sm:leading-8 lg:text-[28px] lg:leading-[35px]">{tt("Community")}</h1>
         {available && rows.length > 0 && canCreate ? (
@@ -196,7 +201,7 @@ function List({ rows, available, limit, canCreate = true }: { rows: CommunityLis
         ) : (
           <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3" data-community-grid="">
             {rows.map((r) => (
-              <CommunityCard key={r.id} row={r} busy={busy} onShare={share} onDuplicate={duplicate} onArchive={(x) => (x.archived ? void archive(x) : setArchiving(x))} />
+              <CommunityCard key={r.id} row={r} busy={busy} onOpen={openCommunity} onWarm={warm} onShare={share} onDuplicate={duplicate} onArchive={(x) => (x.archived ? void archive(x) : setArchiving(x))} />
             ))}
           </ul>
         )}
@@ -230,12 +235,16 @@ function List({ rows, available, limit, canCreate = true }: { rows: CommunityLis
 const CommunityCard = React.memo(function CommunityCard({
   row: r,
   busy,
+  onOpen,
+  onWarm,
   onShare,
   onDuplicate,
   onArchive,
 }: {
   row: CommunityListRow
   busy: boolean
+  onOpen: (href: string) => void
+  onWarm: (href: string) => void
   onShare: (r: CommunityListRow) => void
   onDuplicate: (r: CommunityListRow) => void
   onArchive: (r: CommunityListRow) => void
@@ -245,13 +254,13 @@ const CommunityCard = React.memo(function CommunityCard({
   const items = React.useMemo<ActionMenuItem[]>(() => {
     const out: ActionMenuItem[] = [{ label: tt("Open"), icon: <ExternalLink className="h-4 w-4" />, href: `/community/${r.slug}`, target: "_blank" }]
     /* Round 33: Edit opens the community's page in its own section; Settings is a tab beside it. */
-    if (r.can.edit) out.push({ label: tt("Edit page"), icon: <Pencil className="h-4 w-4" />, href: `${base}/page` })
+    if (r.can.edit) out.push({ label: tt("Edit page"), icon: <Pencil className="h-4 w-4" />, onClick: () => onOpen(`${base}/page`) })
     /* Round 26: a draft's link is a 404 to everyone else, and an archived one or one being deleted takes nobody new. */
     if (state === "published") out.push({ label: tt("Share"), icon: <Share className="h-4 w-4" />, onClick: () => onShare(r) })
-    if (r.can.analytics) out.push({ label: tt("Analytics"), icon: <BarChart3 className="h-4 w-4" />, href: `${base}/analytics` })
+    if (r.can.analytics) out.push({ label: tt("Analytics"), icon: <BarChart3 className="h-4 w-4" />, onClick: () => onOpen(`${base}/analytics`) })
     if (r.can.duplicate) out.push({ label: tt("Duplicate settings"), icon: <Copy className="h-4 w-4" />, onClick: () => onDuplicate(r), separatorBefore: true })
     /* Round 26: one being deleted comes back only through Keep, on the card that says when it goes (Settings, Publish and archive). */
-    if (r.deleting?.canKeep) out.push({ label: tt("Keep the community"), icon: <RotateCcw className="h-4 w-4" />, href: `${base}/settings?tab=advanced`, separatorBefore: !r.can.duplicate })
+    if (r.deleting?.canKeep) out.push({ label: tt("Keep the community"), icon: <RotateCcw className="h-4 w-4" />, onClick: () => onOpen(`${base}/settings?tab=advanced`), separatorBefore: !r.can.duplicate })
     else if (r.can.archive && state !== "suspended" && state !== "deleting")
       out.push(
         r.archived
@@ -259,7 +268,7 @@ const CommunityCard = React.memo(function CommunityCard({
           : { label: tt("Archive"), icon: <Archive className="h-4 w-4" />, onClick: () => onArchive(r), variant: "warning", separatorBefore: !r.can.duplicate },
       )
     return out
-  }, [r, base, state, onShare, onDuplicate, onArchive])
+  }, [r, base, state, onOpen, onShare, onDuplicate, onArchive])
   const line = r.deleting
     ? tt("Deleting on {date}", { date: shortDate(r.deleting.deleteAt) })
     : r.tagline?.trim() || (r.role !== "owner" ? tt("You are {value} here", { value: r.role === "admin" ? tt("an admin") : tt("a moderator") }) : r.priceLine) || ""
@@ -267,12 +276,26 @@ const CommunityCard = React.memo(function CommunityCard({
   return (
     <li
       data-community-card={r.id}
+      data-row={r.id}
       data-state={state}
       aria-busy={busy || undefined}
       className={cn(card, "group/card @container/card relative flex min-w-0 flex-col overflow-hidden transition-[box-shadow,border-color] duration-150 pointer-fine:hover:border-[#e5e7eb] pointer-fine:hover:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_6px_16px_-8px_rgba(16,24,40,0.12)]")}
     >
       {/* The whole card opens the editor; the menu sits above this link. */}
-      <Link href={base} aria-label={`${r.name}, ${COMMUNITY_STATE_WORD[state]}`} className="absolute inset-0 z-0 rounded-[inherit] outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" data-card-link="" />
+      <Link
+        href={base}
+        prefetch={false}
+        aria-label={`${r.name}, ${COMMUNITY_STATE_WORD[state]}`}
+        onMouseEnter={() => onWarm(base)}
+        onFocus={() => onWarm(base)}
+        onPointerDown={(e) => e.pointerType !== "mouse" && onWarm(base)}
+        /* A plain press opens it one entry after the list (./list-return); a middle click or a modifier is the browser's. */
+        onClick={(e) => {
+          if (!isPlainClick(e)) return
+          e.preventDefault()
+          onOpen(base)
+        }}
+        className="absolute inset-0 z-0 rounded-[inherit] outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" data-card-link="" />
       <Cover row={r} />
       <div className="pointer-events-none relative flex min-w-0 flex-1 flex-col px-4 pb-3">
         <div className="-mt-6 flex">

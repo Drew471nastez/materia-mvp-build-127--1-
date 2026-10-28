@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils"
 import { COUPON_STATE_LABEL, couponState, type CouponState } from "@/lib/checkout/coupon-state"
 import { StatusBadge, iconButton } from "../orders/order-parts"
 import { LeaveButton, secondaryDepth } from "../products/new/editor-buttons"
-import { FormSwitch, SWITCH_GROUP, Segmented, SwitchRow } from "../products/new/editor-controls"
+import { FormSwitch, SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "../products/new/editor-controls"
+import { ThumbScroll } from "@/components/app/thumb-scroll"
 import { useConfirm } from "../products/new/confirm-sheet"
 import {
   emptyForm,
@@ -460,78 +461,85 @@ export function CouponEditor({ products, initialCoupon, currency: currencyNow = 
                   { value: "specific", label: tt("Selected products") },
                 ]}
               />
-              {form.applies_to === "specific" ? (
-                products.length > 0 ? (
-                  <div id="coupon-products" tabIndex={-1} className="space-y-2 outline-none">
-                    {products.length > 6 ? (
-                      <div className="relative">
-                        <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-                        <input
-                          type="search"
-                          value={query}
-                          onChange={(e) => setQuery(e.target.value)}
-                          placeholder={tt("Search products")}
-                          aria-label={tt("Search products")}
-                          enterKeyHint="search"
-                          className={cn(FIELD, "pl-9")}
-                        />
-                      </div>
-                    ) : null}
-                    <ul
-                      aria-label={tt("Products")}
-                      className={cn("max-h-[336px] divide-y divide-[#eef0f2] overflow-y-auto overscroll-contain rounded-xl border", wrong("products") ? "border-[#c4290c]" : "border-[#e5e7eb]")}
-                    >
-                      {shownProducts.map((p) => {
-                        const on = form.product_ids.includes(p.id)
-                        return (
-                          <li key={p.id}>
-                            <button
-                              type="button"
-                              role="checkbox"
-                              aria-checked={on}
-                              onClick={() => toggleProduct(p.id)}
-                              className="flex min-h-[56px] w-full cursor-pointer items-center gap-3 px-3 py-2 text-left outline-none transition-colors duration-100 focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[52px] sm:hover:bg-[#fafafb]"
-                            >
-                              <Tick on={on} />
-                              <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[#eef0f2] bg-[#f3f4f6]">
-                                {p.thumbnail_url ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={p.thumbnail_url} alt="" width={40} height={40} loading="lazy" className="h-full w-full object-cover" />
-                                ) : (
-                                  <span className="flex h-full items-center justify-center">
-                                    <Package className="h-4 w-4 text-[#9ca3af]" />
-                                  </span>
-                                )}
-                              </span>
-                              <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{p.title}</span>
-                              <span className="shrink-0 text-[13px] tabular-nums text-[#6b7280]">{money(p.price_cents / 100)}</span>
-                            </button>
-                          </li>
-                        )
-                      })}
-                      {shownProducts.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">{tt("No product matches that.")}</li> : null}
-                    </ul>
-                    <FieldError id="coupon-products" problem={problem} />
-                    <div className="flex min-h-8 items-center justify-between gap-3">
-                      <p className={HINT}>
-                        {picked === 0 && hidden === 0 ? tt("None selected yet.") : tt("{picked} of {length} selected", { picked, length: products.length })}
-                        {hidden > 0 ? tt(", and {hidden} not on sale now", { hidden }) : ""}
-                      </p>
-                      {form.product_ids.length > 0 ? (
-                        <button type="button" onClick={() => set("product_ids", [])} className="h-8 shrink-0 cursor-pointer rounded-lg px-2 text-[14px] font-medium text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:text-[13px]">
-                          {tt("Clear")}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : (
-                  <p id="coupon-products" className={HINT}>
-                    {tt("Publish a product first. A code can only be for products buyers can see.")}
-                  </p>
-                )
-              ) : (
-                <p className={HINT}>{tt("Every product, including ones you add later.")}</p>
-              )}
+              {/* All products or a pick of them: the two cross-fade in one place, and the card eases to the new height. */}
+              <SwapPanels
+                active={form.applies_to}
+                panels={[
+                  { key: "all", node: <p className={HINT}>{tt("Every product, including ones you add later.")}</p> },
+                  {
+                    key: "specific",
+                    node:
+                      products.length > 0 ? (
+                        <div id="coupon-products" tabIndex={-1} className="space-y-2 outline-none">
+                          {products.length > 6 ? (
+                            <div className="relative">
+                              <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+                              <input
+                                type="search"
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder={tt("Search products")}
+                                aria-label={tt("Search products")}
+                                enterKeyHint="search"
+                                className={cn(FIELD, "pl-9")}
+                              />
+                            </div>
+                          ) : null}
+                          {/* The app's own slim bar over the list's edge (components/app/thumb-scroll), as the offer and collection pickers. */}
+                          <ThumbScroll className={cn("max-h-[336px] overflow-y-auto overscroll-contain rounded-xl border", wrong("products") ? "border-[#c4290c]" : "border-[#e5e7eb]")}>
+                            <ul aria-label={tt("Products")} className="divide-y divide-[#eef0f2]">
+                              {shownProducts.map((p) => {
+                                const on = form.product_ids.includes(p.id)
+                                return (
+                                  <li key={p.id}>
+                                    <button
+                                      type="button"
+                                      role="checkbox"
+                                      aria-checked={on}
+                                      onClick={() => toggleProduct(p.id)}
+                                      className="flex min-h-[56px] w-full cursor-pointer items-center gap-3 px-3 py-2 text-left outline-none transition-colors duration-100 focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:min-h-[52px] sm:hover:bg-[#fafafb]"
+                                    >
+                                      <Tick on={on} />
+                                      <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-[#eef0f2] bg-[#f3f4f6]">
+                                        {p.thumbnail_url ? (
+                                          // eslint-disable-next-line @next/next/no-img-element
+                                          <img src={p.thumbnail_url} alt="" width={40} height={40} loading="lazy" className="h-full w-full object-cover" />
+                                        ) : (
+                                          <span className="flex h-full items-center justify-center">
+                                            <Package className="h-4 w-4 text-[#9ca3af]" />
+                                          </span>
+                                        )}
+                                      </span>
+                                      <span className="min-w-0 flex-1 truncate text-[15px] text-[#1a1a2e] sm:text-[14px]">{p.title}</span>
+                                      <span className="shrink-0 text-[13px] tabular-nums text-[#6b7280]">{money(p.price_cents / 100)}</span>
+                                    </button>
+                                  </li>
+                                )
+                              })}
+                              {shownProducts.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-[#6b7280]">{tt("No product matches that.")}</li> : null}
+                            </ul>
+                          </ThumbScroll>
+                          <FieldError id="coupon-products" problem={problem} />
+                          <div className="flex min-h-8 items-center justify-between gap-3">
+                            <p className={HINT}>
+                              {picked === 0 && hidden === 0 ? tt("None selected yet.") : tt("{picked} of {length} selected", { picked, length: products.length })}
+                              {hidden > 0 ? tt(", and {hidden} not on sale now", { hidden }) : ""}
+                            </p>
+                            {form.product_ids.length > 0 ? (
+                              <button type="button" onClick={() => set("product_ids", [])} className="h-8 shrink-0 cursor-pointer rounded-lg px-2 text-[14px] font-medium text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:text-[13px]">
+                                {tt("Clear")}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : (
+                        <p id="coupon-products" className={HINT}>
+                          {tt("Publish a product first. A code can only be for products buyers can see.")}
+                        </p>
+                      ),
+                  },
+                ]}
+              />
             </section>
 
             <PhysicalCouponOptions initial={initialCoupon} handle={physicalOptions} onChange={() => setOptionsTouched((n) => n + 1)} cardClass={CARD} titleClass={CARD_TITLE} />

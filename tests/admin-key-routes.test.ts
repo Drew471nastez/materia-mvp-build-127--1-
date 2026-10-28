@@ -83,6 +83,9 @@ const PROOFS: [string, RegExp][] = [
   /* Changed on purpose (round 40 team permissions): lib/team/server.ts requireTeamPermission is auth.getUser() (401 without a session),
      then the store this account owns or is an active member of with that area, read from the database on every request (403 otherwise).
      The same proof as storeIdFor, which wraps it; a route acts only on the gate it got back. */
+  /* lib/push/request-user.ts pushRequestUser: auth.getUser() on the session cookie, or the app's access token checked with
+     Supabase (auth.getUser(token)) when the web view's cookie is missing; the push routes answer 401 without one and act only on that user. */
+  ["a signed-in account for the app's push routes, cookie or bearer", /await pushRequestUser\(req\)[\s\S]*if \(!user\)/],
   ["the store behind the session, for one area (the gate itself)", /await requireTeamPermission\("[a-z_]+"\)[\s\S]*gate instanceof NextResponse/],
 ]
 

@@ -20,7 +20,9 @@ import { refundedOrderIds, withRefundHistory } from "./refund-history-server"
 import type { createAdminClient } from "@/lib/supabase/admin"
 import type { OrderRow } from "@/lib/orders/order-view"
 import { inStoreCurrency } from "@/lib/money/report-currency-server"
+import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { byCreator, ownRows, scopedOrders } from "./creator-orders"
+import { isTestSale, withoutTestSales } from "./test-sales"
 import { creatorProperties, orderSpans, ratesFrom, readSpans, refundedEarlier, startingAt } from "./report-read"
 import { spansToRead } from "./buckets"
 import { commerceReport, commerceRowCounts, customersOf, grainFor, salesOf, linesFor, withListTotal, type CommerceOrderRow, type CommerceReport, type Span } from "./commerce"
@@ -72,6 +74,8 @@ export interface CommerceAnswer extends CommerceReport {
 /** The creator's order lines for the stretches, the richest columns the database has. */
 async function readLines(admin: Admin, creatorId: string, spans: Span[]): Promise<{ rows: OrderRow[]; truncated: boolean; columns: string }> {
   let last: Error | null = null
+  /* The ledger's refunds in the periods do not need the orders: asked for beside them, not after them. */
+  const ledger = refundedOrderIds(admin, creatorId, spans)
   for (const columns of COLUMN_SETS) {
     try {
       const read = await byCreator(async (scope) => {
@@ -82,11 +86,12 @@ async function readLines(admin: Admin, creatorId: string, spans: Span[]): Promis
             .limit(1000) as Read<OrderRow>,
         )
         /* Refunds made in the periods of orders placed before them: dated by the refund (report-read refundedEarlier). */
-        const own = ownRows(got.rows)
-        const ledgerRefunded = /refunded_at/.test(columns) ? await refundedOrderIds(admin, creatorId, spans) : []
+        /* An admin's test sale is not a buyer's order (lib/analytics/test-sales). */
+        const own = withoutTestSales(ownRows(got.rows))
+        const ledgerRefunded = /refunded_at/.test(columns) ? await ledger : []
         const earlier = /refunded_at/.test(columns) ? await refundedEarlier<OrderRow>(() => scopedOrders(admin, columns, scope, creatorId, null), spans, new Set(own.map((r) => r.id)), ledgerRefunded) : []
         /* Each part refund on its own day, from the seller's ledger (lib/analytics/refund-dates). */
-        return { rows: await withRefundHistory(admin, creatorId, [...own, ...ownRows(earlier)]), truncated: got.truncated }
+        return { rows: await withRefundHistory(admin, creatorId, [...own, ...withoutTestSales(ownRows(earlier))]), truncated: got.truncated }
       })
       return { rows: read.rows, truncated: read.truncated, columns }
     } catch (e) {
@@ -107,15 +112,16 @@ async function boughtBefore(admin: Admin, creatorId: string, emails: string[], b
     for (let i = 0; i < emails.length && i < 5000; i += 100) {
       const chunk = emails.slice(i, i + 100)
       const rows = await byCreator(async (scope) => {
-        const { data, error } = await scopedOrders(admin, "buyer_email, status", scope, creatorId, null)
+        const { data, error } = await scopedOrders(admin, "buyer_email, status, source_detail", scope, creatorId, null)
           .in("buyer_email", chunk)
           .lt("created_at", new Date(before).toISOString())
           .limit(5000)
         if (error) throw new Error(error.message)
-        return ownRows((data ?? []) as Array<{ buyer_email: string | null; status: string | null }>)
+        return ownRows((data ?? []) as Array<{ buyer_email: string | null; status: string | null; source_detail?: unknown }>)
       })
       /* A sale, by the line: an unfinished, failed or disputed payment made nobody a customer. */
-      for (const r of rows) if (r.buyer_email && !NOT_A_SALE.has(String(r.status ?? "pending"))) out.add(r.buyer_email.trim().toLowerCase())
+      /* Nor did an admin's test sale (lib/analytics/test-sales). */
+      for (const r of rows) if (r.buyer_email && !NOT_A_SALE.has(String(r.status ?? "pending")) && !isTestSale(r)) out.add(r.buyer_email.trim().toLowerCase())
     }
   } catch (error) {
     console.warn("[analytics/commerce] earlier customers not read:", (error as Error).message)
@@ -200,9 +206,11 @@ function asStored(orders: Array<{ lines: Array<{ buyer_email?: string | null }> 
 /** Every sales figure for the question, read and counted. */
 export async function countCommerce(admin: Admin, q: CommerceQuestion): Promise<CommerceAnswer> {
   const spans = spansToRead(q.span, q.previous)
+  /* The store's currency beside the orders, not after them. */
+  const storeCurrency = readStoreCurrency(admin, q.creatorId)
   const read = await readLines(admin, q.creatorId, spans)
   const placeUnknown = !/property_type/.test(read.columns)
-  const inStore = await inStoreCurrency(admin, q.creatorId, withListTotal(read.rows as CommerceOrderRow[]) as unknown as OrderRow[], undefined, { rates: ratesFrom(admin) })
+  const inStore = await inStoreCurrency(admin, q.creatorId, withListTotal(read.rows as CommerceOrderRow[]) as unknown as OrderRow[], (await storeCurrency).currency, { rates: ratesFrom(admin) })
   const rows = inStore.rows
   const selector: PropertySelector = placeUnknown ? { type: "all" } : q.selector
 

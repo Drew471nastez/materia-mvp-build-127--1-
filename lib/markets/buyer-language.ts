@@ -71,3 +71,20 @@ export function buyerLanguage(f: BuyerLanguageFacts): BuyerLanguage {
   if (order) return { lang: order, reason: "order" }
   return { lang: own, reason: "default" }
 }
+
+/**
+ * THE LOCALE A BUYER'S DOCUMENT WRITES ITS MONEY AND DATES IN, from the
+ * language the rule above chose: English as en-US ("$214.00", as the receipt
+ * always read), any other language as itself ("ro": "214,00 lei", "de":
+ * "214,00 €"). The receipt page, the receipt and order emails, the invoice
+ * PDF and the packing slip all ask this, so one order reads one way.
+ */
+export function buyerMoneyLocale(lang: string | null | undefined): string {
+  const l = typeof lang === "string" ? lang.trim() : ""
+  if (!l || /^en$/i.test(l)) return "en-US"
+  try {
+    return Intl.NumberFormat.supportedLocalesOf([l])[0] ?? "en-US"
+  } catch {
+    return "en-US"
+  }
+}

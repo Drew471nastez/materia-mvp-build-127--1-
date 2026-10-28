@@ -77,8 +77,10 @@ import { EXPORT_REPORTS, type ExportReport } from "@/lib/analytics/export-csv"
 import { propertyLabel } from "@/lib/analytics/properties"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { DEFAULT_PROPERTY, ownsProperty, parseProperty, propertyOptions, propertyParam, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
-import { AnalyticsReports, useAnalyticsReports } from "./analytics-reports"
+import { AnalyticsReports, ReportDetailHost, prefetchReports, useAnalyticsReports } from "./analytics-reports"
+import { prefetchCommerce } from "./commerce-reports"
 import { reportNow } from "@/lib/analytics/report-cache"
+import { ViewReport } from "./report-detail"
 import { AnalyticsChartWithTooltip, CHART_COLORS, type AnalyticsChartData } from "@/components/app/analytics-chart"
 import { MetricTab, MetricTabLine } from "@/components/app/metric-tab"
 import { TAB_STRIP_STYLE, useTabStrip } from "@/components/app/use-tab-strip"
@@ -131,6 +133,23 @@ interface Figure {
 /** What every percentage on the page is measured against. */
 const PREVIOUS_PERIOD: CompareValue = { mode: "previous_period" }
 type AnalyticsView = "all" | "digital" | "physical" | "communities"
+
+/** How long a switch may take before the figures on screen dim: a quicker answer, or one kept, swaps them with no dim. */
+export const SOFT_AFTER_MS = 150
+
+/** True once `on` has stayed true for `ms`; false the moment it is not. */
+function useLateFlag(on: boolean, ms: number): boolean {
+  const [late, setLate] = useState(false)
+  useEffect(() => {
+    if (!on) {
+      setLate(false)
+      return
+    }
+    const t = window.setTimeout(() => setLate(true), ms)
+    return () => window.clearTimeout(t)
+  }, [on, ms])
+  return on && late
+}
 
 /** How long the figures are waited for before the page says it is counting: "after ~2.5 s a quiet line". */
 export const COUNTING_NOTE_MS = 2500
@@ -195,9 +214,9 @@ function trendLabelsFor(span: Span, timeZone: string): string[] {
 const TREND_SKELETON_MAX = 90
 
 /** Which line is which: the period in violet, what it is compared with in grey, dashed. */
-export function ChartLegend({ range, compare }: { range: DateRange; compare: DateRange | null }) {
+export function ChartLegend({ range, compare, align = "center" }: { range: DateRange; compare: DateRange | null; align?: "center" | "start" }) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-[12px] text-[#6b7280]">
+    <div className={`flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1 text-[12px] text-[#6b7280] ${align === "center" ? "justify-center" : ""}`}>
       <span className="inline-flex items-center gap-1.5 tabular-nums">
         <span className="h-[2px] w-4 rounded-full" style={{ background: CHART_COLORS.views }} aria-hidden />
         {rangeLabel(range)}
@@ -420,6 +439,20 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
     kind: mode,
   })
   /*
+    READ AHEAD ON INTENT (round 41): a pointer resting on Digital, Physical or All, or a finger landing on it, starts
+    that view's figures and sales reports, so the tap that follows is usually answered from memory. A question already
+    answered recently, or on its way, asks nothing more (lib/analytics/report-cache joins it).
+  */
+  const warmView = useCallback(
+    (v: AnalyticsView) => {
+      if (v === shownView || v === "communities") return
+      const kind = v === "all" ? "all" : modeFor(profile, v)
+      prefetchReports({ start: safeSpan.start, end: safeSpan.end, compare: against, product: selectedProduct, property: propertyKey, currency: storeCurrency, kind }, userId)
+      prefetchCommerce({ start: safeSpan.start, end: safeSpan.end, compare: against, product: selectedProduct, property: propertyKey, timeZone, currency: storeCurrency, kind }, userId)
+    },
+    [shownView, profile, safeSpan, against, selectedProduct, propertyKey, storeCurrency, timeZone, userId],
+  )
+  /*
     PULLED DOWN TO REFRESH (components/ui/pull-to-refresh.tsx, around the
     page under its purple bar, below): the same question as the minute's refresh, asked now,
     and the ring turns until its answer is in. The figures stay on screen
@@ -454,6 +487,13 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
     screen (analytics-reports useAnalyticsReports).
   */
   const isRefreshing = reportsState.stale
+  /*
+    DIMMED ONLY ONCE THE WAIT IS FELT (round 41, the owner: "switching ... sometimes takes too long or flashes"). An
+    answer kept for the question, or one that lands within SOFT_AFTER_MS, replaces the figures with no dim at all:
+    the figures used to blur and fade for every switch, even the ones answered from memory, and the next frame swapped
+    them sharp, which is the flash. A longer wait dims them slightly, in place, until the new ones land.
+  */
+  const softLate = useLateFlag(isRefreshing, SOFT_AFTER_MS)
 
   /*
     WHAT THE PAGE IS WAITING FOR, AS THE PERSON SEES IT: the figures of this
@@ -473,26 +513,15 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const pickersRef = useEdgeFade<HTMLDivElement>()
   const revealRef = useRevealCards()
   /*
-    A NEW PERIOD ARRIVES, IT IS NOT CUT IN (round 25, the owner: "time frame apply on Orders and Analytics: a smooth
+    Round 41: the 260ms fade from 25% that used to play on every new answer is gone. Played over figures that were
+    already dimmed to 60%, it dipped them darker first and then up, and over figures answered from memory it was the
+    only thing that moved: both read as a flash. The figures now go from dimmed (only after SOFT_AFTER_MS) to sharp by
+    their own opacity transition. Was round 25: A NEW PERIOD ARRIVES, IT IS NOT CUT IN (round 25, the owner: "time frame apply on Orders and Analytics: a smooth
     reveal"). When the figures of another period, place, product or kind are on screen (landed, or read from what was
     kept, which used to swap with no wait and no fade at all), the figures and the cards already holding the answer
     come in from a shade over 260ms, as a new period's orders do (app/globals.css .orders-reveal): opacity only, the
     ones on screen only. Cards still on their way fade back in by themselves as theirs land (analytics-reports `soft`).
   */
-  const revealedKey = useRef(waitingKey)
-  useLayoutEffect(() => {
-    if (waitingFigures || revealedKey.current === waitingKey) return
-    revealedKey.current = waitingKey
-    const root = revealRef.current
-    if (!root || typeof root.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    const bottom = window.innerHeight
-    const shown = (el: Element) => {
-      const r = el.getBoundingClientRect()
-      return r.bottom > 0 && r.top < bottom && !el.closest('[aria-busy="true"], [data-soft], [data-reveal="wait"]')
-    }
-    const els = [metricStripRef.current, ...root.querySelectorAll<HTMLElement>("section[data-card]")].filter((el): el is HTMLDivElement => !!el && shown(el))
-    for (const el of els) el.animate([{ opacity: 0.25 }, { opacity: 1 }], { duration: 260, easing: "cubic-bezier(0.33, 1, 0.68, 1)" })
-  }, [waitingKey, waitingFigures, revealRef, metricStripRef])
   const trendData = useMemo<AnalyticsChartData[]>(() => {
     if (!answer) return []
     const r = answer.reports
@@ -567,7 +596,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
   const shown = figures ?? { views: zero, revenue: zero, orders: zero, conversion: { value: null, previous: null, allTime: null }, pageviews: zero, refunds: zero, clicks: zero, pageViews: 0, visits: 0 }
   /* Nothing has come back yet: the tabs draw soft (MetricTab `loading`) and clear to the real figures when they land. */
   const figuresLoading = !answer
-  const soft = isRefreshing && !figuresLoading
+  const soft = softLate && !figuresLoading
 
   /*
     STABLE, because the chart below is memoised and this is one of its props.
@@ -605,40 +634,38 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
         header and tabs).
       */}
       <PullToRefreshEvent scope="app-analytics">
+      {/* Every card and every figure opens its report beside the page (./report-detail, analytics-reports ReportDetailHost). */}
+      <ReportDetailHost state={reportsState} range={rangeLabel(period)} against={compareLabel}>
       <div ref={revealRef} className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
         {/* The heading alone. Add report is the tile under the last card; Export is the last control in the row below. */}
         <div className="flex items-center gap-3" data-analytics-head="">
           <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
         </div>
 
-        {/* The period and the place side by side, the product and Export at the end. No comparison control.
-            On a phone the pickers are ONE row that scrolls sideways (the owner: "they wrap onto two rows"),
-            with momentum and no bar, fading where it is cut (components/app/use-edge-fade), and Export stays
-            put at its right end, so it never scrolls off the screen. Each picker opens its sheet through a
-            portal, so the scroller clips none of them. The 4px above and below are the chips' rings. */}
-        <div className="flex items-center gap-2 sm:gap-3" data-analytics-controls="">
+        {/* THE FILTERS, ONE ROW IN ONE ORDER (the owner: "arrange the whole control area with UX in mind"): the
+            period, the place, the product, then what is shown (All, Digital, Physical, Communities), every one the
+            same 36px white chip with the same 8px between them, and Export, the one action, at the row's end.
+            On a phone the filters are ONE row that scrolls sideways, with momentum and no bar, fading where it is
+            cut (components/app/use-edge-fade), and Export stays put at its right end as an icon, so it never
+            scrolls off the screen. On a computer they sit together from the left and Export says its name. Each
+            picker opens its sheet through a portal, so the scroller clips none of them. The 4px around the
+            strip are the chips' rings. */}
+        <div className="flex items-center gap-2" data-analytics-controls="">
           <div
             ref={pickersRef}
             data-scroll-x
-            className="orders-strip edge-fade -my-1 -ml-[var(--app-gutter)] flex min-w-0 flex-1 items-center justify-between gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain py-1 pl-[var(--app-gutter)] touch-pan-x touch-pan-y sm:my-0 sm:ml-0 sm:flex-wrap sm:gap-3 sm:overflow-visible sm:py-0 sm:pl-0"
+            className="orders-strip edge-fade -my-1 -ml-[var(--app-gutter)] flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain py-1 pl-[var(--app-gutter)] pr-1 [&>*]:shrink-0 touch-pan-x touch-pan-y sm:-ml-1 sm:pl-1"
             data-analytics-pickers=""
           >
-            <div className="flex shrink-0 items-center gap-2">
-              <DateRangePicker value={period} onChange={setPeriod} today={today} />
-              <PropertyPicker options={options} value={property} onChange={setProperty} />
-            </div>
-
+            <DateRangePicker value={period} onChange={setPeriod} today={today} />
+            <PropertyPicker options={options} value={property} onChange={setProperty} />
             {/* Which product: the date picker's button, list and sheet (components/app/product-picker). */}
-            <div className="flex shrink-0 items-center gap-2">
-              {products.length ? <ProductPicker products={products} value={selectedProduct} onChange={setSelectedProduct} align="end" /> : null}
-            </div>
+            {products.length ? <ProductPicker products={products} value={selectedProduct} onChange={setSelectedProduct} align="start" /> : null}
+            {/* What is shown, when there is a choice (round 24): the chips' own shape, the chosen one dark (components/app/segmented-pills "filter"). A pointer resting on one reads it ahead. */}
+            {kindPills.length ? <SegmentedPills options={kindPills} value={shownView} onChange={setView} onIntent={warmView} label={tt("What to show")} variant="filter" /> : null}
           </div>
           <ExportButton query={exportQuery} name={exportName} options={exportOptions} range={exportRange} />
         </div>
-
-        {/* All, Digital, Physical, Communities: what the seller has, when there is a choice (round 24). Separate chips,
-            the chosen one dark, so no label is ever cut by a track's end (components/app/segmented-pills "chips"). */}
-        {kindPills.length ? <SegmentedPills options={kindPills} value={shownView} onChange={setView} label={tt("What to show")} variant="chips" className="-mt-2" /> : null}
 
         {/* The four figures and the chart of the one chosen */}
         <div className="relative bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden" aria-busy={waitingFigures || waitingLists}>
@@ -677,8 +704,9 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
                 /* The placeholder is not blurred: the frame IS the loading
                    state. The blur belongs to a refetch, where real numbers
                    are being replaced and going soft says so. */
-                className={`transition-opacity duration-[700ms] ease-[cubic-bezier(0.32,0.72,0,1)] ${
-                  chartIsLoading ? "opacity-100" : isRefreshing ? "opacity-40" : "opacity-100"
+                data-chart-soft=""
+                className={`transition-opacity duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                  chartIsLoading ? "opacity-100" : softLate ? "opacity-60" : "opacity-100"
                 }`}
               >
                 <AnalyticsChartWithTooltip
@@ -692,8 +720,10 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
                   seriesLabels={SERIES_LABELS}
                 />
                 {/* ALWAYS THERE, so nothing under it moves: its words are the period's, known before any number is. */}
-                <div className="mt-2">
-                  <ChartLegend range={period} compare={comparedRange} />
+                <div className="mt-2 flex min-h-8 items-center justify-between gap-3 pl-2 sm:pl-0">
+                  <ChartLegend range={period} compare={comparedRange} align="start" />
+                  {/* The figure chosen, opened: its line, every day of it and what makes it up (./report-detail). */}
+                  <ViewReport id={`metric:${chartMetricFilter}`} className="mr-0" />
                 </div>
               </div>
               {/*
@@ -735,6 +765,8 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             kind={mode}
             viewer={userId}
             refresh={tick}
+            rangeText={rangeLabel(period)}
+            againstText={compareLabel}
           />
         ) : (
           <p data-no-sales="" className="rounded-2xl border border-[#e5e7eb]/60 bg-white px-5 py-4 text-[14px] text-[#6b7280] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
@@ -755,6 +787,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
 
         <ReportPicker open={picking} onOpenChange={setPicking} options={reportChoices} added={added} onSave={saveFromPicker} />
       </div>
+      </ReportDetailHost>
       </PullToRefreshEvent>
 
     </div>

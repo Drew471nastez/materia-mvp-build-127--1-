@@ -260,7 +260,8 @@ check("Cancel and Back answer the press at once: the button itself dims on the n
   /data-leaving=\{going \? "" : undefined\}/.test(buttons) && /const going = leaving \|\| pressed/.test(buttons) && /if \(!asks\) setPressed\(true\)\s*onLeave\(\)/.test(buttons) && /<ActivitySpinner size=\{16\} label=\{label\}/.test(buttons)
     && /data-answers-press=""/.test(buttons) && /export const PRESS_SPINNER_IN = "\[animation:press-spinner-in_120ms_ease-out_100ms_both\]"/.test(buttons)
     && /@keyframes press-content-out \{\s*from \{ opacity: 0\.4; \}\s*to \{ opacity: 0; \}/.test(read("app/globals.css"))
-    && /leavingRef\.current = true[\s\S]{0,120}startTransition\(\(\) => setLeaving\(true\)\)\s*startNavigationLoading\(PRODUCTS_HREF\)\s*returnToProducts\(router, productId\)/.test(editor)
+    /* Changed on purpose (round 41): the leaving state is drawn once the drop has run (afterLayerMove), queued after the drop's own frame. */
+    && /leavingRef\.current = true[\s\S]{0,120}const drawLeaving = \(\) => afterLayerMove\(\(\) => startTransition\(\(\) => setLeaving\(true\)\)\)\s*startNavigationLoading\(PRODUCTS_HREF\)\s*returnToProducts\(router, productId\)/.test(editor)
     && /if \(leaving \|\| leavingRef\.current\) return/.test(editor) && !/requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => resolve\(\)\)\)/.test(editor))
 check("busy is aria-busy and not disabled, and a press while busy does nothing", /aria-busy=\{phase === "saving" \|\| undefined\}/.test(buttons) && /disabled=\{!busy && disabled\}/.test(buttons) && /if \(!busy\) onSave\(\)/.test(buttons))
 check("a check for SAVED_CHECK_MS after a save", /export const SAVED_CHECK_MS = 900/.test(buttons) && /data-save-check=""/.test(buttons) && /setTimeout\(\(\) => setSavedFlash\(false\), SAVED_CHECK_MS\)/.test(editor))
@@ -315,8 +316,9 @@ console.log("\nThe editor's page")
 check("on a phone, first on the screen as a layer over the app's header, it starts below the status bar; from md, under the header, it adds nothing",
   /max-md:\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(barSource) && /max-md:\[\[data-page-layer\]_&\]:pb-\[calc\(32px\+env\(safe-area-inset-bottom\)\)\]/.test(editor)
     && !/(^|[\s"])\[\[data-page-layer\]_&\]/.test(barSource + editor))
+/* Changed on purpose (round 41): both editor layers ask to rise and drop (`moves`). */
 check("a layer on a phone only: both editor addresses ask for it, and from md it is a page in the shell",
-  /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/new/layout.tsx")) && /<PageLayer pill inset="bar" phoneOnly>/.test(code("app/app/products/[id]/layout.tsx")))
+  /<PageLayer pill inset="bar" phoneOnly moves>/.test(code("app/app/products/new/layout.tsx")) && /<PageLayer pill inset="bar" phoneOnly moves>/.test(code("app/app/products/[id]/layout.tsx")))
 check("the editor scrolls as a page-scroll pane, so the pill's room is the shared --app-nav-room and nothing else", /className=\{cn\(FIELD_FOCUS, "page-scroll h-full overflow-y-auto/.test(editor) && !/pb-24 sm:pb-8/.test(editor))
 check("prices bring up the decimal keypad", (editor.match(/inputMode="decimal"/g) ?? []).length >= 4)
 
@@ -357,11 +359,13 @@ check("a row's more button is Orders' and Emails' (RowMenuButton), 44px on a pho
     && /className=\{cn\(ROW_MENU, "h-11 w-11"\)\}/.test(list) && /className=\{ROW_MENU\}/.test(list) && !/quietDepth/.test(list))
 /* Round 40: the eye and then the View word went with the restyle to Orders' rows; View is the menu's first link after Edit. */
 check("a row has the more button alone, as Orders' and Emails' rows do: View is in its menu",
-  /\{opening \? <OpeningMark \/> : null\}\s*<ResponsiveActionMenu/.test(list) && /\{opening \? <OpeningMark \/> : \(\s*<ResponsiveActionMenu/.test(list) && !/function Preview|data-preview|\bEye\b/.test(list))
+  /* Changed on purpose (round 41): on a phone the mark is laid over the more button, after it, so the price never moves. */
+  /items=\{items\}\s*\/>\s*\{\/\*[^*]*\*\/\}\s*\{opening \? <OpeningMark over \/> : null\}\s*<\/li>/.test(list) && /\{opening \? <OpeningMark \/> : \(\s*<ResponsiveActionMenu/.test(list) && !/function Preview|data-preview|\bEye\b/.test(list))
 /* A pressed row answers at once: its tint held, a spinner where View was; only that row is drawn again (a prop of the memoised row). */
 check("a pressed row holds its tint with a spinner, and only that row is drawn again",
   /opening=\{opening === product\.id\}/.test(list) && (list.match(/data-opening=\{opening \? "" : undefined\}/g) ?? []).length === 2
-    && /function OpeningMark\(\)/.test(list) && /openRow: open,/.test(list))
+    /* Changed on purpose (round 41): `over`, the phone's mark laid over the more button in its own 44px box. */
+    && /function OpeningMark\(\{ over = false \}: \{ over\?: boolean \}\)/.test(list) && /over \? "pointer-events-none absolute right-1\.5 top-1\/2 h-11 w-11 -translate-y-1\/2 bg-\[#f4f5f7\]"/.test(list) && /openRow: open,/.test(list))
 check("View, in the row's menu, opens the product's own page in a new tab, the live route for a thing that ships",
   /const url = viewUrl\(product, username\)/.test(list) && /\{ label: labels\.view, href: url, target: "_blank" as const \}/.test(list) && /view: t\("common\.view"\)/.test(list))
 check("in the app View goes through openExternal to the phone's browser, and a press inside a row's controls never opens the editor",
@@ -523,16 +527,19 @@ check("  the page under a rising layer stays: React's hiding of the root's pictu
   the claim is the same one, said about the way back rather than the file.
 */
 check("the way back drops the layer at the commit that brings the page under it, in every engine, however long that takes",
-  /if \(motion === "leave"\) dropLayer\(navigate\)/.test(layer) && !/doc\.startViewTransition\(\(\) => \{/.test(layer)
+  /* Changed on purpose (round 41): with where the way back goes (`to`), for an early drop over the page's copy. */
+  /if \(motion === "leave"\) dropLayer\(navigate, to\)/.test(layer) && !/doc\.startViewTransition\(\(\) => \{/.test(layer)
     && !/skipTransition\(\)/.test(layer.slice(layer.indexOf("function dropLayer"), layer.indexOf("export function endLayerMove")))
     && (layer.match(/skipTransition\(\)/g) ?? []).length === 1
     && layer.indexOf("skipTransition()") > layer.indexOf("export function endLayerMove")
-    && /if \(!dropAtCommit\(\)\) markReactMotion\("leave"\)/.test(layer)
+    /* Changed on purpose (round 41): the layer says whether it moves (`asked`). */
+    && /if \(!dropAtCommit\(\)\) markReactMotion\("leave", asked\)/.test(layer)
     && /want\.still = layer \? layerStill\(layer\) : null\s*if \(want\.still\) want\.still\.style\.visibility = "hidden"/.test(layer)
     && /still\.style\.visibility = ""\s*let over = false/.test(layer)
     && /const move = moveByHand\(still, false, LAYER_LEAVE_MS\)/.test(layer)
-    && /\}, LAYER_PRESS_KEPT_MS\)\s*afterNextPaint\(\(\) => \{/.test(layer)
-    && /manual = true\s*flushSync\(\(\) => \{/.test(layer) && /const reactMoves = \(\) => layerMotionOn\(\) && !manual/.test(layer))
+    /* Changed on purpose (round 41): the kept copy of the page is taken up between the cap and the next paint (an early drop). */
+    && /\}, LAYER_PRESS_KEPT_MS\)\s*const kept = pageCopy && to && pageCopy\.path === to \? pageCopy : null\s*pageCopy = null\s*afterNextPaint\(\(\) => \{/.test(layer)
+    && /manual = true\s*flushSync\(\(\) => \{/.test(layer) && /const reactMoves = \(\) => layerMotionOn\(true\) && !manual/.test(layer))
 /*
   Changed on purpose. This used to end "...or without view transitions: the
   page swaps and lands as any other", and that was the whole of the owner's
@@ -544,10 +551,11 @@ check("the way back drops the layer at the commit that brings the page under it,
 check("no move under reduced motion or from 768px where the editor is a page in the shell; without view transitions the layer moves itself rather than the page swapping",
   /return window\.matchMedia\(LAYER_PHONE\)\.matches && !window\.matchMedia\(REDUCED\)\.matches/.test(layer) && /export const LAYER_PHONE = "\(max-width: 767px\)"/.test(layer)
     /* Changed on purpose: one way back for every engine (dropAtCommit), so no branch on startViewTransition here. */
-    && /if \(dropWant \|\| dropping \|\| manual \|\| doc\.__reactViewTransition \|\| !layerMotionOn\(\) \|\| !document\.querySelector\("\[data-page-layer\]"\)\) \{\s*navigate\(\)\s*return/.test(layer)
-    && /if \(!still \|\| !still\.isConnected \|\| !layerMotionOn\(\)\) \{/.test(layer)
-    && /else if \(layerMotionOn\(\) && !canViewTransition\(\)\) raiseByHand\(navigate\)/.test(layer)
-    && /if \(!move \|\| !reactMoves\(\)\) return false/.test(layer))
+    /* Changed on purpose (round 41): only a layer that asks to move (the product editor's) moves; each path reads it. */
+    && /const up = document\.querySelector\("\[data-page-layer\]"\)\s*if \(dropWant \|\| dropping \|\| manual \|\| doc\.__reactViewTransition \|\| !up \|\| !layerMotionOn\(layerMoves\(up\)\)\) \{\s*navigate\(\)\s*return/.test(layer)
+    && /if \(!still \|\| !still\.isConnected \|\| !layerMotionOn\(true\)\) \{/.test(layer)
+    && /else if \(layerMotionOn\(LAYER_MOVES \|\| moves\) && !canViewTransition\(\)\) raiseByHand\(navigate\)/.test(layer)
+    && /if \(!move \|\| !wanted \|\| !reactMoves\(\)\) return false/.test(layer))
 check("the duration and curve reach the CSS from the script, one number in one place", /html\.style\.setProperty\("--layer-motion-ms", `\$\{LAYER_MOTION_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-leave-ms", `\$\{LAYER_LEAVE_MS\}ms`\)/.test(layer) && /html\.style\.setProperty\("--layer-motion-ease", LAYER_MOTION_EASE\)/.test(layer))
 check("on a phone the layer rises from the bottom edge and drops back to it, on transform alone; nothing slides sideways and the page under it never fades",
   /@keyframes layer-rise \{\s*from \{ transform: translateY\(100%\); \}/.test(css) && /@keyframes layer-drop \{\s*to \{ transform: translateY\(100%\); \}/.test(css)
@@ -793,6 +801,37 @@ check("the paste file runs the same statements as the migration", statements(mig
 check("one statement per line, and no -- comments", [migration, paste].every((sql) => !/^\s*--/m.test(sql) && statements(sql).every((l) => l.trim().endsWith(";"))))
 check("safe to run twice", statements(migration).every((l) => /IF NOT EXISTS|IF EXISTS|CREATE OR REPLACE|REVOKE|GRANT|NOT VALID/.test(l)))
 check("the public list of every active code is closed", /DROP POLICY IF EXISTS "Public read active coupons"/.test(migration))
+
+console.log("\nRound 41: a product opens untouched, and Back drops it at once")
+{
+  const ed = code("app/app/products/new/product-editor.tsx")
+  const lyr = code("components/app/page-layer.tsx")
+  const ret = code("app/app/products/list-return.ts")
+  /* "Discard changes?" with no change made: a saved category the lists no longer have was cleared on the first frame. */
+  check("the category is put right only on a switch between a download and a thing that ships, never as the editor opens",
+    /const kindShown = useRef\(categoryKind\)\s*useEffect\(\(\) => \{\s*if \(kindShown\.current === categoryKind\) return\s*kindShown\.current = categoryKind/.test(ed))
+  check("a suggested category nobody chose is not an unsaved change, and a save still sends it",
+    /const categoryAsChanged = categoryTouched\.current \? selectedCategory : savedForm\.selectedCategory/.test(ed)
+      && /selectedCategory: categoryAsChanged,/.test(ed) && /category: selectedCategory \|\| null,/.test(ed))
+  check("the editor's leaving state waits for the drop, so it is no long task inside it",
+    /const drawLeaving = \(\) => afterLayerMove\(\(\) => startTransition\(\(\) => setLeaving\(true\)\)\)/.test(ed))
+  check("the press that opens a layer that moves keeps a copy of the page, before the press is drawn on it",
+    /if \(motion === "enter"\) \{\s*if \(layerMotionOn\(LAYER_MOVES \|\| moves\)\) keepPageCopy\(\)\s*else pageCopy = null\s*\}\s*if \(press !== false\) holdPress/.test(lyr))
+  check("Back to that page drops the live layer at once over the copy, and navigates once it has landed",
+    /const kept = pageCopy && to && pageCopy\.path === to \? pageCopy : null/.test(lyr)
+      && /const move = moveByHand\(layer, false, LAYER_LEAVE_MS, false\)/.test(lyr)
+      && /move\.finished\.then\(send, send\)/.test(lyr)
+      && /\{ to: PRODUCTS_HREF \}/.test(ret))
+  /* After a save, a status change or a delete the copy would show the row as it was: it is forgotten, and Back drops at the commit over the real list. */
+  check("a save, a publish or unpublish, and a delete each forget the list's copy",
+    /export function forgetPageCopy\(\) \{\s*pageCopy\?\.box\?\.remove\(\)\s*pageCopy = null\s*\}/.test(lyr)
+      && /const markSaved = useCallback\(\(sent: DirtyFields, sentCards: CardDrafts, savedSlug\?: string\) => \{\s*forgetPageCopy\(\)/.test(ed)
+      && /announceChange\(\{ product: productId \}\)\s*forgetPageCopy\(\)\s*await forgetProduct\(productId, slug\)/.test(ed)
+      && /releaseUnsaved\(\)\s*forgetPageCopy\(\)\s*leavingRef\.current = true[\s\S]{0,200}returnToProducts\(router, null\)/.test(ed))
+  check("without a copy the way back is the drop at the commit, as before", /const kept = pageCopy && to && pageCopy\.path === to \? pageCopy : null/.test(lyr) && /if \(layer && kept && layerMotionOn\(true\)\) \{/.test(lyr))
+  check("the copy goes in the commit that brings the page, and the mark a frame later so the stage lands nothing",
+    /if \(want\.under\) \{\s*want\.under\.remove\(\)/.test(lyr) && /requestAnimationFrame\(\(\) => \{\s*if \(html\.dataset\.layerHand !== undefined && html\.dataset\.layerMotion === "leave"\)/.test(lyr))
+}
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) {

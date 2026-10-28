@@ -10,7 +10,8 @@
  *
  * The same facts as the page, in the same order: the store, the slip's
  * reference and date, where it goes and how, the items with their variant,
- * SKU and the buyer's choices, how many, and the buyer's note. No pictures:
+ * SKU and the buyer's choices, how many, the buyer's note and the cart's
+ * fields (a gift message), and where a return goes. No pictures:
  * a slip is read by the person packing, and a picture fetched for each line
  * would make the file wait on every image host. Inter where the server has
  * it (lib/checkout/invoice.ts loadFonts), as the invoice is drawn.
@@ -177,7 +178,19 @@ export async function renderPackingSlipPdf(
       y = heading(tt("From the cart"), left, y) + 4
       doc.font(REG).fontSize(10.5).fillColor(INK)
       for (const [k, v] of attributes) y = put(`${k}: ${v}`, left, y, { width }) + 1
+      y += 11
     }
+  }
+
+  /* Where a return goes: the store's own address, as the return email says it. */
+  if (store.returnAddress?.length) {
+    if (y > bottom - 80) {
+      doc.addPage()
+      y = 48
+    }
+    y = heading(tt("Return address"), left, y) + 4
+    doc.font(REG).fontSize(10.5).fillColor(INK)
+    for (const line of store.returnAddress) y = put(line, left, y, { width }) + 1
   }
 
   doc.end()

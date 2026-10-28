@@ -254,7 +254,7 @@ async function main() {
   const flowLayout = read("app/app/emails/flow/layout.tsx")
   const parts = read("app/app/emails/flow/flow-parts.tsx")
   check("on a phone both pages are a full screen layer, the product editor's, with no nav pill over them",
-    /<PageLayer inset="bar" phoneOnly>/.test(flowLayout) && !/\bpill\b/.test(flowLayout.replace(/\/\*[\s\S]*?\*\//g, "")) && /<PageLayer pill inset="bar" phoneOnly>/.test(read("app/app/products/new/layout.tsx")))
+    /<PageLayer inset="bar" phoneOnly>/.test(flowLayout) && !/\bpill\b/.test(flowLayout.replace(/\/\*[\s\S]*?\*\//g, "")) /* Changed on purpose (round 41): the product editor's layer also asks to move. */ && /<PageLayer pill inset="bar" phoneOnly moves>/.test(read("app/app/products/new/layout.tsx")))
   check("their bar clears the status bar itself and sticks only on a phone; from 768px it is a header in the page",
     /max-md:\[\[data-page-layer\]_&\]:pt-\[env\(safe-area-inset-top\)\]/.test(parts) && /"md:static md:bg-transparent"/.test(parts)
       && /<FlowTopBar width=\{FLOW_WIDTH\}[^>]*md:pt-6/.test(builder) && /<FlowTopBar width=\{WIDTH\}[^>]*md:pt-6/.test(chooser))

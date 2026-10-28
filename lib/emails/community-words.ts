@@ -2,10 +2,14 @@
  * ===========================================================================
  *  A COMMUNITY'S OWN WORDS ON THE EMAILS IT SENDS ITS MEMBERS
  * ===========================================================================
- * Emails › Customer emails › Communities lets an owner change four parts of
+ * Emails › Customer emails › Communities lets an owner change six parts of
  * every email their community sends, the way a store changes its order
- * emails (lib/emails/customer-custom.ts): the subject, the heading, an
- * opening line put before Storelib's own text, and the button's label. The
+ * emails (lib/emails/customer-custom.ts): the subject, the inbox's preview
+ * text, the heading, an opening line put before Storelib's own text, the
+ * button's label and a footer note. The first four are kept in
+ * community_email_templates; the preview text and the footer note (round 28)
+ * beside the store's own email words (lib/communities/server/email-templates.ts
+ * communityExtras), so no database change was needed for them. The
  * facts (the event, the price, the dates, the card), the link and the note
  * on why the email came stay the template's own, so an email about a ticket
  * or a payment always carries the ticket or the payment.
@@ -55,10 +59,18 @@ export interface CommunityWords {
   heading: string
   intro: string
   button: string
+  /** The inbox's preview line after the subject (round 28). Empty: the email's own first line. */
+  preheader?: string
+  /** A line of the community's own at the foot of the email (round 28), newlines kept. Empty: none. */
+  footer?: string
 }
 
-export const COMMUNITY_WORD_LIMITS = { subject: 120, heading: 120, intro: 600, button: 40 } as const
-export const EMPTY_COMMUNITY_WORDS: CommunityWords = { subject: "", heading: "", intro: "", button: "" }
+/** Every part an owner can write, in the editor's order. */
+export const COMMUNITY_WORD_FIELDS = ["subject", "preheader", "heading", "intro", "button", "footer"] as const
+export type CommunityWordField = (typeof COMMUNITY_WORD_FIELDS)[number]
+
+export const COMMUNITY_WORD_LIMITS = { subject: 120, preheader: 150, heading: 120, intro: 600, button: 40, footer: 300 } as const
+export const EMPTY_COMMUNITY_WORDS: CommunityWords = { subject: "", heading: "", intro: "", button: "", preheader: "", footer: "" }
 
 export const COMMUNITY_VALUE_LABELS: Record<string, string> = {
   first_name: "Member's first name",
@@ -147,23 +159,41 @@ function oneLine(v: unknown, max: number): string {
  */
 export function readCommunityWords(kind: string, body: Record<string, unknown>): CommunityWords | { error: string } {
   const out: CommunityWords = { ...EMPTY_COMMUNITY_WORDS }
-  for (const key of ["subject", "heading", "intro", "button"] as const) {
+  for (const key of COMMUNITY_WORD_FIELDS) {
     const raw = body?.[key]
     if (raw == null || raw === "") continue
-    if (typeof raw !== "string") return { error: "Use text for the subject, heading, opening line and button." }
-    if (raw.trim().length > COMMUNITY_WORD_LIMITS[key]) return { error: `Keep the ${key === "intro" ? "opening line" : key} under ${COMMUNITY_WORD_LIMITS[key]} characters.` }
-    const text = oneLine(raw, COMMUNITY_WORD_LIMITS[key])
+    if (typeof raw !== "string") return { error: "Use text for the subject, preview text, heading, opening line, button and footer note." }
+    const name = key === "intro" ? "opening line" : key === "preheader" ? "preview text" : key === "footer" ? "footer note" : key
+    if (raw.trim().length > COMMUNITY_WORD_LIMITS[key]) return { error: `Keep the ${name} under ${COMMUNITY_WORD_LIMITS[key]} characters.` }
+    const text = key === "footer" ? lines(raw, COMMUNITY_WORD_LIMITS.footer) : oneLine(raw, COMMUNITY_WORD_LIMITS[key])
     const bad = unknownCommunityValues(kind, text)
     if (bad.length) return { error: `{{${bad[0]}}} isn't one of this email's values. Use ${communityValuesFor(kind).map((v) => `{{${v.key}}}`).join(", ")}.` }
     /* The hint, typed out as it is, is Storelib's words: nothing to save. */
-    if (isCommunityWordKind(kind) && text === COMMUNITY_DEFAULT_WORDS[kind][key]) continue
+    if (isCommunityWordKind(kind) && key !== "preheader" && key !== "footer" && text === COMMUNITY_DEFAULT_WORDS[kind][key]) continue
     out[key] = text
   }
   return out
 }
 
 export function noCommunityWords(w: Partial<CommunityWords> | null | undefined): boolean {
-  return !w || (!w.subject && !w.heading && !w.intro && !w.button)
+  return !w || (!w.subject && !w.heading && !w.intro && !w.button && !w.preheader && !w.footer)
+}
+
+/** A few lines of text: tags and control characters out, each line's spaces collapsed, blank lines kept to one, at most `max`. */
+function lines(v: string, max: number): string {
+  return (
+    v
+      .replace(/<[^>]*>/g, "")
+      .replace(/\r\n?/g, "\n")
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]+/g, " ")
+      .split("\n")
+      .map((l) => l.replace(/\s+/g, " ").trim())
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+      .slice(0, max)
+  )
 }
 
 /**
@@ -185,4 +215,48 @@ export function fillCommunityValues(text: string, vars: Record<string, string | 
     .replace(LEGACY, (_m, key: string) => value(key.toLowerCase() === "community" ? "community_name" : "creator_name"))
     .replace(/[ \t]{2,}/g, " ")
     .trim()
+}
+
+/*
+  THE PREVIEW TEXT AND THE FOOTER NOTE, KEPT BESIDE THE STORE'S OWN WORDS
+  (round 28). community_email_templates has a column for each of the first
+  four parts; rather than a database change, these two are kept in the
+  owner's store_settings.customer_emails under COMMUNITY_EXTRAS_KEY, by
+  community and kind. lib/emails/customer-custom.ts readSavedCopy ignores the
+  key, and saving the store's words keeps it (customer-copy-server.ts).
+*/
+export const COMMUNITY_EXTRAS_KEY = "_communities"
+export type CommunityExtras = { preheader?: string; footer?: string }
+
+/** One community's extras out of a stored customer_emails object, cleaned. */
+export function readCommunityExtras(raw: unknown, communityId: string): Partial<Record<CommunityWordKind, CommunityExtras>> {
+  const all = raw && typeof raw === "object" ? (raw as Record<string, unknown>)[COMMUNITY_EXTRAS_KEY] : null
+  const mine = all && typeof all === "object" ? (all as Record<string, unknown>)[communityId] : null
+  const out: Partial<Record<CommunityWordKind, CommunityExtras>> = {}
+  if (!mine || typeof mine !== "object") return out
+  for (const [kind, v] of Object.entries(mine as Record<string, unknown>)) {
+    if (!isCommunityWordKind(kind) || !v || typeof v !== "object") continue
+    const e = v as Record<string, unknown>
+    const pre = typeof e.preheader === "string" ? oneLine(e.preheader, COMMUNITY_WORD_LIMITS.preheader) : ""
+    const foot = typeof e.footer === "string" ? lines(e.footer, COMMUNITY_WORD_LIMITS.footer) : ""
+    if ((pre && !unknownCommunityValues(kind, pre).length) || (foot && !unknownCommunityValues(kind, foot).length)) {
+      out[kind] = { ...(pre && !unknownCommunityValues(kind, pre).length ? { preheader: pre } : {}), ...(foot && !unknownCommunityValues(kind, foot).length ? { footer: foot } : {}) }
+    }
+  }
+  return out
+}
+
+/** The stored object with one community's kind's extras replaced (or taken out when empty); everything else as it was. */
+export function withCommunityExtras(raw: unknown, communityId: string, kind: CommunityWordKind, extras: CommunityExtras): Record<string, unknown> {
+  const base = raw && typeof raw === "object" && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : {}
+  const all = { ...((base[COMMUNITY_EXTRAS_KEY] as Record<string, unknown> | undefined) ?? {}) }
+  const mine = { ...((all[communityId] as Record<string, unknown> | undefined) ?? {}) }
+  const kept: CommunityExtras = { ...(extras.preheader ? { preheader: extras.preheader } : {}), ...(extras.footer ? { footer: extras.footer } : {}) }
+  if (Object.keys(kept).length) mine[kind] = kept
+  else delete mine[kind]
+  if (Object.keys(mine).length) all[communityId] = mine
+  else delete all[communityId]
+  if (Object.keys(all).length) base[COMMUNITY_EXTRAS_KEY] = all
+  else delete base[COMMUNITY_EXTRAS_KEY]
+  return base
 }

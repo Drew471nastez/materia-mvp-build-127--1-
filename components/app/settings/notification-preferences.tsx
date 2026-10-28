@@ -13,6 +13,7 @@ import {
 } from "@/lib/notify/preference-view"
 import type { PreferenceCategory } from "@/lib/notify/types"
 import { cn } from "@/lib/utils"
+import { peekGet, readFresh } from "@/components/physical/ui"
 import { tt } from "@/lib/i18n/text"
 
 /**
@@ -76,38 +77,57 @@ function shownRows(): ShownRow[] {
   return rows
 }
 
+const PREFERENCES_PATH = "/api/notifications/preferences"
+
+/** The route's answer as rows, only the categories this build knows, in its order; null for anything else. */
+function rowsOf(data: unknown): CategoryView[] | null {
+  const categories = (data as { categories?: unknown } | null)?.categories
+  if (!Array.isArray(categories)) return null
+  return preferencesView(
+    (categories as CategoryView[]).flatMap((c) =>
+      (["email", "in_app"] as const).map((channel) => ({
+        category: c.category,
+        channel,
+        enabled: c.channels?.[channel]?.enabled === true,
+        updatedAt: c.channels?.[channel]?.updatedAt ?? null,
+      })),
+    ),
+  )
+}
+
+const confirmedOf = (rows: CategoryView[]) => new Map(rows.flatMap((r) => (["email", "in_app"] as const).map((ch) => [cellOf(r.category, ch), r.channels[ch].enabled] as const)))
+
 export function NotificationPreferencesPanel() {
-  const [load, setLoad] = useState<Load>({ state: "loading" })
+  /*
+    DRAWN FROM WHAT SETTINGS FETCHED AHEAD (settings-form-new TAB_WARM), so
+    the section opens with its switches rather than a loading line every
+    time; read again on every open all the same, and corrected if it moved.
+  */
+  const [load, setLoad] = useState<Load>(() => {
+    const rows = rowsOf(peekGet(PREFERENCES_PATH))
+    return rows ? { state: "ready", rows } : { state: "loading" }
+  })
   const [errors, setErrors] = useState<Partial<Record<PreferenceCategory, string>>>({})
   const [savedAt, setSavedAt] = useState(0)
   /** What the server last confirmed, per control, to go back to. */
-  const confirmed = useRef(new Map<Cell, boolean>())
+  const confirmed = useRef<Map<Cell, boolean>>(load.state === "ready" ? confirmedOf(load.rows) : new Map())
   /** The newest request per control, so a late answer to an older one is ignored. */
   const latest = useRef(new Map<Cell, number>())
   const seq = useRef(0)
   const cardRef = useRef<HTMLElement>(null)
 
   const read = useCallback(async () => {
-    setLoad({ state: "loading" })
+    /* What is on screen stays while it is read again: the list only says it is loading when it has nothing to show. */
+    setLoad((l) => (l.state === "ready" ? l : { state: "loading" }))
     try {
       const res = await fetch("/api/notifications/preferences", { cache: "no-store" })
       const data = res.ok ? await res.json() : null
-      if (!data || !Array.isArray(data.categories)) throw new Error("unreadable")
-      /* Only the categories this build knows, in its order, whatever came back. */
-      const rows = preferencesView(
-        (data.categories as CategoryView[]).flatMap((c) =>
-          (["email", "in_app"] as const).map((channel) => ({
-            category: c.category,
-            channel,
-            enabled: c.channels?.[channel]?.enabled === true,
-            updatedAt: c.channels?.[channel]?.updatedAt ?? null,
-          })),
-        ),
-      )
-      confirmed.current = new Map(rows.flatMap((r) => (["email", "in_app"] as const).map((ch) => [cellOf(r.category, ch), r.channels[ch].enabled] as const)))
+      const rows = rowsOf(data)
+      if (!rows) throw new Error("unreadable")
+      confirmed.current = confirmedOf(rows)
       setLoad({ state: "ready", rows })
     } catch {
-      setLoad({ state: "error" })
+      setLoad((l) => (l.state === "ready" ? l : { state: "error" }))
     }
   }, [])
 
@@ -163,6 +183,8 @@ export function NotificationPreferencesPanel() {
     if (latest.current.get(cell) !== id) return
     if (ok) {
       setSavedAt(Date.now())
+      /* The copy kept for the next open, read again, so it never opens on the switch as it was. */
+      void readFresh(PREFERENCES_PATH)
     } else {
       show(category, channel, confirmed.current.get(cell) ?? !enabled)
       setErrors((e) => ({ ...e, [category]: message }))

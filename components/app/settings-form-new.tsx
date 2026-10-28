@@ -53,6 +53,7 @@ import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { peekGet, prefetchGet, readFresh, whenGets } from "@/components/physical/ui"
 import { inboxAddress } from "@/lib/seller-inbox"
+import { warmOverview } from "@/lib/payments/overview-cache"
 /* Every section but General's own is its own chunk, fetched once the sheet has risen (components/app/settings/lazy-panels.tsx). */
 import {
   ActivityPanel,
@@ -73,6 +74,7 @@ import {
 } from "@/components/app/settings/lazy-panels"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 import { SettingsLeaveGuard } from "@/components/app/settings/leave-guard"
+import { SettingsSectionBoundary } from "@/components/app/settings/section-boundary"
 import { markDirty, requestLeave } from "@/lib/settings/unsaved-guard"
 import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
 import { tt } from "@/lib/i18n/text"
@@ -188,6 +190,22 @@ const TAB_DATA: Partial<Record<TabId, (physical: boolean) => string[]>> = {
   integrations: (p) => ["/api/store/integrations", "/api/store/integrations/catalog", "/api/integrations/popularity", ...(p ? ["/api/physical/integrations"] : [])],
 }
 const tabData = (id: TabId, physical: boolean): string[] => TAB_DATA[id]?.(physical) ?? []
+/*
+  WHAT ELSE A SECTION READS AS IT OPENS, fetched ahead with the rest but never
+  waited for (a press does not hold for it): each of these sections drew a
+  loading line, or a card that filled a beat later, every single time it was
+  opened, because nothing had asked for them before the press
+  (scripts/check-settings-switch.mjs lists what a press on a warm Settings
+  still asks the server for). Each section draws them from the kept answer
+  (components/physical/ui peekGet) and reads them again as it opens.
+*/
+const TAB_WARM: Partial<Record<TabId, string[]>> = {
+  notifications: ["/api/notifications/preferences"],
+  team: ["/api/team"],
+  taxes: ["/api/store/taxes/overview?days=30"],
+  markets: ["/api/store/translations?summary=1"],
+  integrations: ["/api/store/integrations/apps", "/api/store/integrations/marketing", "/api/store/reviews-app", "/api/store/tracking-app"],
+}
 /** Tabs that exist only while physical commerce is on in /admin. */
 /** Behind the physical commerce switch in /admin. */
 const COMMERCE_TABS = new Set<string>(["shipping", "locations"])
@@ -399,20 +417,34 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     account, else the one this browser chose before it was saved anywhere,
     else the device's own. Saved with the rest of the page, to the account.
   */
-  const [selectedTimezone, setSelectedTimezone] = useState<string>(() => {
-    if (accountTimeZone) return accountTimeZone
-    if (typeof window !== "undefined") {
-      try {
-        const stored = validTimeZone(localStorage.getItem(TIME_ZONE_STORAGE_KEY))
-        if (stored) return stored
-      } catch {
-        /* Storage refused: the device's zone. */
-      }
-      return validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "UTC"
-    }
-    return "UTC"
-  })
+  /*
+    THE SAME ON THE SERVER AND IN THE BROWSER'S FIRST DRAW. Settings opened on
+    its own (a reload, an email link) is drawn on the server, where there is
+    no storage and no device zone, so an account with no zone saved was drawn
+    as UTC there and as, say, Europe/Stockholm in the browser: React's
+    hydration found the text differ, threw the server's Settings away and
+    drew it all again in the browser, a visible blink of the whole sheet and
+    a hydration error in the console. Now both draw the saved zone, or UTC,
+    and the browser's own choice is put in before its first paint.
+  */
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(accountTimeZone ?? "UTC")
   const initialTimezone = useRef(selectedTimezone)
+  useLayoutEffect(() => {
+    if (accountTimeZone) return
+    let zone: string | null = null
+    try {
+      zone = validTimeZone(localStorage.getItem(TIME_ZONE_STORAGE_KEY))
+    } catch {
+      /* Storage refused: the device's zone. */
+    }
+    zone = zone ?? validTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "UTC"
+    if (zone === initialTimezone.current) return
+    const was = initialTimezone.current
+    /* Not an unsaved change: it is where the page starts, as it was before. */
+    initialTimezone.current = zone
+    setSelectedTimezone((cur) => (cur === was ? (zone as string) : cur))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Support Email state - for customer receipts
   const [supportEmail, setSupportEmail] = useState(creator?.support_email || "")
@@ -558,6 +590,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     const go = () => {
       if (!live) return
       prefetchGet([...new Set(Object.keys(TAB_DATA).flatMap((id) => tabData(id as TabId, physicalCommerce)))])
+      prefetchGet([...new Set(Object.values(TAB_WARM).flatMap((v) => v ?? []))])
+      /* Payments' card reads Stripe's account (lib/payments/overview-cache): asked for now, so the section opens on it rather than on a spinner. */
+      if (!teamActing) warmOverview()
       void loadBilling()
       preloadSettingsPanels()
     }
@@ -568,7 +603,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       live = false
       window.clearTimeout(t)
     }
-  }, [physicalCommerce, loadBilling])
+  }, [physicalCommerce, loadBilling, teamActing])
   const formRef = useRef<HTMLDivElement>(null)
   const pillRowRef = useRef<HTMLDivElement>(null)
   /*
@@ -620,8 +655,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     /* The section's code is asked for with its data (components/app/settings/lazy-panels.tsx; normally here since the sheet rose). */
     void whenSettingsPanel(activeTab)
     let waitedForCode = false
-    const show = () => {
-      /* Never drawn half loaded: a section whose code is still on its way swaps in the moment it lands (once; a chunk that failed is the form's Suspense's). */
+    const show = (): void => {
+      /* Never drawn half loaded: a section whose code is still on its way swaps in the moment it lands (once; a chunk that failed is the section's own boundary's, components/app/settings/section-boundary.tsx). */
       if (!waitedForCode && !settingsPanelReady(activeTab)) {
         waitedForCode = true
         return void whenSettingsPanel(activeTab).then(show)
@@ -1676,7 +1711,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         key={tab.id}
                         type="button"
                         onClick={() => handleTabChange(tab.id)}
-                        onPointerEnter={() => prefetchGet(tabData(tab.id, physicalCommerce))}
+                        onPointerEnter={() => prefetchGet(tabData(tab.id, physicalCommerce).concat(TAB_WARM[tab.id] ?? []))}
                         aria-current={on ? "page" : undefined}
                         data-settings-side-tab={tab.id}
                         /*
@@ -1755,7 +1790,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     if (!on) hapticTap("soft")
                     handleTabChange(tab.id)
                   }}
-                  onPointerDown={() => prefetchGet(tabData(tab.id, physicalCommerce))}
+                  onPointerDown={() => prefetchGet(tabData(tab.id, physicalCommerce).concat(TAB_WARM[tab.id] ?? []))}
                   data-settings-tab={tab.id}
                   data-settings-tab-on={on ? "" : undefined}
                   style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
@@ -1797,6 +1832,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {/* Only a section opened by its address before its code has come waits here (components/app/settings/lazy-panels.tsx): a press swaps a section in once its code is here. */}
           <Suspense fallback={<WaitingArea className="min-h-[240px]" />}>
           <div key={panelTab} data-settings-panel={panelTab} className={panelEntrance ? "settings-panel" : undefined}>
+          {/* A section that throws (its chunk gone with a deploy, a field the server stopped sending) says so in its own place; the column, the pills and the title stay (components/app/settings/section-boundary.tsx). */}
+          <SettingsSectionBoundary name={labelOf(panelTab)}>
           {/*
             NO SKELETON BETWEEN TABS.
             There used to be one here: forty-five lines of shimmering grey
@@ -2377,6 +2414,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
             />
           )}
 
+          </SettingsSectionBoundary>
           </div>
           </Suspense>
         </div>

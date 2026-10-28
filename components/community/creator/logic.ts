@@ -1313,3 +1313,6 @@ export function communityEmailsHref(communityId: string): string {
 export function settingsTabAsked(raw: string | undefined | null): boolean {
   return typeof raw === "string" && raw.trim() !== ""
 }
+
+/** The most join requests one Approve all call approves (app/api/app/community/[id]/join-requests POST); the panel sends a longer queue in parts. */
+export const APPROVE_MANY = 50

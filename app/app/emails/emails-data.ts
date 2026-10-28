@@ -8,7 +8,7 @@
 import type { RecipientCounts } from "@/lib/email-campaigns/state"
 import type { CampaignRow, EmailsTab, FlowRow, MessageRow, OverviewStats, SubscriberRow } from "./emails-home"
 import { api } from "@/components/physical/ui"
-import { CUSTOMER_EMAILS_PATH, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
+import { CUSTOMER_EMAILS_PATH, prefetchCustomerActivity, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
 import { tt } from "@/lib/i18n/text"
 
 export const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "customer", "published", "scheduled", "drafts"]
@@ -127,6 +127,8 @@ export function loadTab(tab: EmailsTab, rangeQuery: string): Promise<unknown> {
 export async function loadCustomerEmails(): Promise<CustomerEmailsData> {
   const r = await api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)
   if (!r.ok) throw new Error(r.error || tt("Could not load your customer emails."))
+  /* What each has sent, read with the list, so the tab opens with its "sent" lines in place. */
+  prefetchCustomerActivity(r.data)
   return r.data
 }
 

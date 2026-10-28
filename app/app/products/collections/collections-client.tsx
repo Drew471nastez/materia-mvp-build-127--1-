@@ -81,9 +81,13 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
   const start = (collection: Collection | null) => collectionsReturn.open(router, collection ? collectionHref(collection.id) : newCollectionHref())
   /*
     ?collection=<id>, from an older link to the list: that collection's own
-    page, in place of the list in the history.
+    page, in place of the list in the history. The header's search links to
+    the page itself now. Read once, even when an effect runs twice.
   */
+  const openedFromLink = React.useRef(false)
   React.useEffect(() => {
+    if (openedFromLink.current) return
+    openedFromLink.current = true
     const id = new URL(window.location.href).searchParams.get("collection")
     if (id && list.some((c) => c.id === id)) router.replace(collectionHref(id))
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -185,8 +185,9 @@ console.log("\nThe frame: the product editor's")
   /* Whether it is a return is read once, on the first render: the same answer takes up the view and holds the stage's landing (tests/return-navigation). */
   check("and takes up the view it was on only on a return", /const \[returning\] = useState\(isReturning\)/.test(list) && /useState<View>\(\(\) => \(returning && leftAt \? leftAt : "all"\)\)/.test(list))
 
-  const ret = code("app/app/coupons/list-return.ts")
-  check("back in history when the list opened it, a replace marked as a return otherwise", /if \(back\) backThen\(replaceWithList\)\s*else replaceWithList\(\)/.test(ret) && /const replaceWithList = \(\) => \{\s*markTraversal\(\)\s*router\.replace\(COUPONS_HREF\)/.test(ret) && /moveLayer\("enter"/.test(ret) && /moveLayer\("leave"/.test(ret))
+  /* Changed on purpose: Coupons takes the one round trip every commerce list shares (components/app/list-return.ts). */
+  const ret = code("components/app/list-return.ts")
+  check("back in history when the list opened it, a replace marked as a return otherwise", /createListReturn<CouponReturn>\(COUPONS_HREF\)/.test(code("app/app/coupons/list-return.ts")) && /if \(!back\) return replaceWithList\(\)|if \(back\) backThen\(replaceWithList\)/.test(ret) && /backThen\(/.test(ret) && /const replaceWithList = \(\) => \{\s*markTraversal\(\)\s*router\.replace\(listHref\)/.test(ret) && /moveLayer\("enter"/.test(ret) && /moveLayer\("leave"/.test(ret))
 
   const files = ["app/app/coupons/coupon-editor.tsx", "app/app/coupons/coupon-parts.tsx", "app/app/coupons/coupons-client.tsx"].map(read).join("\n")
   check("no violet anywhere in the coupon pages", !/#8b5cf6|#7c3aed|#6d28d9|#f5f3ff|violet-|buttonAccent|primaryDepth/i.test(files))

@@ -51,11 +51,12 @@ const PENDING_POLL_LIMIT = 30
 
 /**
  * A date in the receipt's language (lib/markets/buyer-language.ts) and the
- * buyer's own time zone. The server renders it in UTC; once the browser is
- * running it swaps in the local zone, so a purchase at 23:30 is not shown
- * as tomorrow.
+ * store's time zone, as its invoice PDF and order emails write it, so the
+ * receipt, the PDF and the email name the same day. A store with no zone
+ * set: the server renders it in UTC and the browser swaps in the buyer's
+ * own zone once it runs, so a purchase at 23:30 is not shown as tomorrow.
  */
-function LocalDate({ iso, locale }: { iso: string; locale: string }) {
+function LocalDate({ iso, locale, timeZone }: { iso: string; locale: string; timeZone?: string | null }) {
   const format = useCallback(
     (tz?: string) => {
       try {
@@ -66,8 +67,10 @@ function LocalDate({ iso, locale }: { iso: string; locale: string }) {
     },
     [iso, locale],
   )
-  const [text, setText] = useState(() => format("UTC"))
-  useEffect(() => setText(format(undefined)), [format])
+  const [text, setText] = useState(() => format(timeZone || "UTC"))
+  useEffect(() => {
+    if (!timeZone) setText(format(undefined))
+  }, [format, timeZone])
   return <time dateTime={iso}>{text}</time>
 }
 
@@ -331,10 +334,13 @@ export function ReceiptView({
   storeHref: serverStoreHref,
   help,
   account = null,
+  timeZone = null,
 }: {
   receipt: Receipt
   viewer: ReceiptViewer
   locale: string
+  /** The store's time zone (Settings › Account), the order's date is written in it; null for the buyer's own. */
+  timeZone?: string | null
   /**
    * The way into an account from this receipt (app/receipt/[token]/page.tsx):
    * `base` is "" on storelib.com and storelib.com's own address on a
@@ -635,7 +641,7 @@ export function ReceiptView({
           </h1>
           <p className="mt-1.5 text-[14px] text-[#6b7280]">
             <Slot sentence={ct("Order {number} · {date}", { number: receipt.number })} name="date">
-              <LocalDate iso={receipt.createdAt} locale={locale} />
+              <LocalDate iso={receipt.createdAt} locale={locale} timeZone={timeZone} />
             </Slot>
           </p>
           {subline ? <p className="mt-3 text-[14px] leading-relaxed text-[#4b5563]">{subline}</p> : null}

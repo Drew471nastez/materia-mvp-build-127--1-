@@ -36,7 +36,8 @@ type Db = any
  *   GET                      all of the above
  *   GET ?lang=fr             { language }: the email words in one published language, for a preview in it
  *   GET ?channel=storelib    { language }: the words an email bought on Storelib is written in (English)
- *   PUT { id, copy }         one email's words; `copy: null` puts it back to the default
+ *   PUT { id, copy, lang? }  one email's words; `copy: null` puts it back to the default;
+ *                            `lang` (another published language) saves that language's words
  */
 export async function GET(request: Request) {
   const c = await shopCaller("marketing")
@@ -104,7 +105,7 @@ export async function PUT(request: Request) {
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)
-  const done = await saveCustomerEmailCopy(c.db, c.creatorId, body.id, body.copy === null ? null : body.copy)
+  const done = await saveCustomerEmailCopy(c.db, c.creatorId, body.id, body.copy === null ? null : body.copy, typeof body.lang === "string" && body.lang ? body.lang : null)
   if (!done.ok) return physicalJson({ error: done.error }, done.status)
   const name = CUSTOMER_EMAILS.find((e) => e.id === body.id)?.name ?? null
   await recordActivity(c.db, c, { action: "settings.customer_emails", subjectType: "customer_email", subjectId: String(body.id), subjectLabel: name })

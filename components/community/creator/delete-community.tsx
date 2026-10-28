@@ -37,6 +37,7 @@ import { ChoiceCards, Dialog, EditorCard, buttonPrimary, buttonSecondary, errorT
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
+import { communitiesReturn } from "./list-return"
 
 const dangerButton = "inline-flex h-10 items-center justify-center rounded-lg bg-[#b42318] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#9a1d14] disabled:cursor-not-allowed disabled:opacity-40 sm:h-9"
 const dangerOutline = "inline-flex h-10 items-center rounded-lg border border-[#fecaca] bg-white px-3.5 text-[13px] font-medium text-[#b42318] transition-colors hover:bg-[#fef2f2] sm:h-8 sm:px-3"
@@ -88,7 +89,8 @@ export function DeleteCommunity({ head }: { head: CommunityHead }) {
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error, tt("That did not go through. Nothing changed. Try again.")))
     if (res.data.deleted) {
-      router.push("/app/community")
+      /* Back to the list it was opened from (./list-return), which reads its rows again without this one. */
+      communitiesReturn.leave(router, { id: head.id, deleted: true, message: tt("Community deleted") })
       return
     }
     setOpen(false)

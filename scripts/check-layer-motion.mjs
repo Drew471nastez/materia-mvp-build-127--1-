@@ -591,8 +591,15 @@ async function productsTrip(p, cdp, label, { isNew }) {
       rows[0]?.querySelector("a[data-row-link]")?.setAttribute("data-probe-pick", "")
     })
   }
-  const openSel = isNew ? open : "a[data-probe-pick]"
-  const up = await timedMove(p, cdp, { sel: openSel, pressed: isNew ? "[data-new-product][data-layer-press]" : "[data-row][data-layer-press], [data-row][data-opening]", kind: "enter" })
+  /* Round 41: New product asks first, in a sheet (app/app/products/new/kind-chooser.tsx); the editor rises from the pick, once the sheet has gone. */
+  const chooseKind = async () => {
+    await p.touchscreen.tap(...Object.values(await p.$eval("[data-new-product]", (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 } })))
+    await p.waitForSelector("[data-new-product-chooser] [data-kind]")
+    await sleep(600)
+  }
+  if (isNew) await chooseKind()
+  const openSel = isNew ? "[data-new-product-chooser] [data-kind]" : "a[data-probe-pick]"
+  const up = await timedMove(p, cdp, { sel: openSel, pressed: isNew ? "[data-new-product-chooser] [data-kind][data-layer-press], [data-new-product-chooser] [data-kind]" : "[data-row][data-layer-press], [data-row][data-opening]", kind: "enter" })
   const onScreen = await p.evaluate(() => ({ layer: !!document.querySelector("[data-page-layer]"), motion: document.documentElement.dataset.layerMotion ?? null, path: window.__path }))
   report(`${trip} in`, up, "enter")
   expect(onScreen.layer && onScreen.motion === null, "the editor is up, and the move has cleaned up after itself", onScreen)
@@ -607,6 +614,7 @@ async function productsTrip(p, cdp, label, { isNew }) {
   expect(Math.abs(after.outer - before.outer) <= 2 && Math.abs(after.inner - before.inner) <= 2, "the list is where it was left", { before, after })
 
   /* Frozen, for the pictures: in, then out. */
+  if (isNew) await chooseKind()
   const shotIn = await frozenMove(p, cdp, { sel: openSel === "a[data-probe-pick]" ? "[data-row]:not([hidden]) a[data-row-link]" : openSel, label: `${trip}-in-${label}`, layer: true, which: "::view-transition-new(page-layer)" })
   pictures(`${trip} in`, shotIn, "enter")
   await sleep(250)
@@ -944,44 +952,47 @@ async function slowTrips(p, cdp) {
     live with its spinner for as long as the list takes, and drops from
     where it is, over the list, in the commit that brings it.
   */
-  console.log(`  -- the list 700ms away: Back answers, the editor stays live with its spinner, and drops over the list when it comes`)
+  /*
+    Changed on purpose (round 41): "the editor holds before dropping". The
+    press that opened the editor kept a copy of the list (page-layer, THE
+    PAGE A LAYER WAS OPENED FROM), so Back drops the editor itself at once,
+    over that copy, and the list is drawn once it has landed; the copy goes
+    in the commit that brings the list. It used to stand live with a spinner
+    until the list came, and only then drop.
+  */
+  console.log(`  -- the list 700ms away: Back drops the editor at once over a copy of the list, and the list takes the copy's place when it comes`)
   n = await moveCount(p)
   await p.evaluate(() => {
     window.__slowDrop = []
     const t0 = performance.now()
     const tick = () => {
-      const still = document.querySelector('[data-layer-still="over"]')
-      const shown = still && getComputedStyle(still).visibility !== "hidden"
+      const layer = document.querySelector("[data-page-layer]")
+      const copy = document.querySelector('[data-layer-still="page"]')
       window.__slowDrop.push({
         t: Math.round(performance.now() - t0),
-        layer: !!document.querySelector("[data-page-layer]"),
-        list: !!document.querySelector("[data-new-product]"),
-        y: shown ? Math.round(new DOMMatrixReadOnly(getComputedStyle(still).transform).m42) : null,
+        layer: !!layer,
+        copy: !!copy,
+        list: !!document.querySelector("[data-new-product]:not([data-layer-still] *)"),
+        y: layer ? Math.round(new DOMMatrixReadOnly(getComputedStyle(layer).transform).m42) : null,
       })
       if (performance.now() - t0 < 2200) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
   })
   await p.$eval(EDITOR_BACK, (el) => el.click())
-  await sleep(260)
-  const b1 = await readSpin(EDITOR_BACK)
-  await sleep(120)
-  const b2 = await readSpin(EDITOR_BACK)
-  await sleep(1900)
+  await sleep(2300)
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
   const slow = await p.evaluate(() => window.__slowDrop)
   const vts = (await moveCount(p)) - n
   expect(vts === 0, "no view transition is started for the way back: nothing is photographed and let go", vts)
-  expect(b1.layer && b1.spinner > 0.9 && b1.state === "running" && b2.t > b1.t, "the editor is live, and Back holds a spinner, turning", { b1, b2 })
-  const shownAt = slow.findIndex((f) => f.y !== null)
-  const before = shownAt > 0 ? slow.slice(0, shownAt) : slow
-  const dropping = slow.filter((f) => f.y !== null)
-  const partWay = dropping.filter((f) => f.y > 2 && f.y < 842).length
-  const bare = slow.filter((f) => !f.layer && !f.list)
-  console.log(`        (still shown at ${slow[shownAt]?.t}ms; drop y ${dropping.map((f) => f.y).join(" ")})`)
-  expect(shownAt > 0 && before.every((f) => f.layer), "until the list is there the editor is the live layer, never a still over it", { shownAt: slow[shownAt]?.t })
-  expect(dropping.length > 0 && dropping.every((f) => f.list) && partWay >= 5, "then it drops from where it was, over the list, over several frames", { partWay, first: dropping[0], last: dropping[dropping.length - 1] })
-  expect(bare.length === 0, "no frame with neither the editor nor the list", bare.slice(0, 3))
+  const firstMoved = slow.find((f) => f.layer && f.y > 2)
+  const partWay = slow.filter((f) => f.layer && f.y > 2 && f.y < 842).length
+  const listAt = slow.find((f) => f.list)
+  const bare = slow.filter((f) => !f.list && !f.copy && !(f.layer && f.y < 2))
+  console.log(`        (the editor off the top at ${firstMoved?.t}ms, ${partWay} frames part way; the list drawn at ${listAt?.t}ms; drop y ${slow.filter((f) => f.layer).map((f) => f.y).join(" ")})`)
+  expect(!!firstMoved && firstMoved.t <= 250 && partWay >= 5, "Back drops the editor at once, over several frames, without waiting for the list", { at: firstMoved?.t, partWay })
+  expect(!!listAt && slow.filter((f) => f.t < listAt.t && !f.layer).every((f) => f.copy), "until the list is drawn, the copy of it is what the editor drops over", { listAt: listAt?.t })
+  expect(bare.length === 0, "no frame with neither the editor, the list nor its copy", bare.slice(0, 3))
   const landed = await p.evaluate(() => ({ path: window.__path, layer: !!document.querySelector("[data-page-layer]"), stills: document.querySelectorAll("[data-layer-still]").length }))
   expect(landed.path === "/app/products" && !landed.layer && landed.stills === 0, "and the list is left on the screen", landed)
   await p.evaluate(() => {

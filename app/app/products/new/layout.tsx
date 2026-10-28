@@ -15,5 +15,5 @@ import { PageLayer } from "@/components/app/page-layer"
  * (./product-editor.tsx).
  */
 export default function NewProductLayout({ children }: { children: React.ReactNode }) {
-  return <PageLayer pill inset="bar" phoneOnly>{children}</PageLayer>
+  return <PageLayer pill inset="bar" phoneOnly moves>{children}</PageLayer>
 }

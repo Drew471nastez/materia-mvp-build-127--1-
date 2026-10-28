@@ -349,7 +349,8 @@ console.log("\n6. Every share in the product shares https://storelib.com/...")
 check("a post shares the canonical address, not the host the reader happens to be on (a creator's own domain would never open the app)",
   /const SHARE_ORIGIN = "https:\/\/storelib\.com"/.test(code("components/community/member/post-card.tsx")) && !/\$\{window\.location\.origin\}\$\{href\}/.test(code("components/community/member/post-card.tsx")))
 check("the invite sheet shares the community's own address", /return `https:\/\/storelib\.com\/community\/\$\{slug\}`/.test(code("components/community/member/invite-sheet.tsx")))
-check("a creator's community list does too", /https:\/\/storelib\.com\/community\/\$\{slug\}/.test(code("components/community/creator/community-list.tsx")) && !/window\.location\.origin.*community/.test(code("components/community/creator/community-list.tsx")))
+/* Changed on purpose (communities round trip): the address lives in ./share-link, which the list, the bar and the Overview share. */
+check("a creator's community list does too", /https:\/\/storelib\.com\/community\/\$\{slug\}/.test(code("components/community/creator/share-link.ts")) && /from "\.\/share-link"/.test(code("components/community/creator/community-list.tsx")) && ["community-list.tsx", "community-shell.tsx", "overview.tsx"].every((f) => !/window\.location\.origin.*community/.test(code(`components/community/creator/${f}`))))
 check("the community's address on the wall is copied whole", /https:\/\/storelib\.com\$\{path\}/.test(code("components/community/member/wall.tsx")))
 check("a creator page's share copies the address it shows, storelib.com, not the host the workspace is open on",
   /const absolute = `https:\/\/storelib\.com\$\{path\}`/.test(code("components/app/creator-page-share.tsx")) && !/window\.location\.origin/.test(code("components/app/creator-page-share.tsx")))

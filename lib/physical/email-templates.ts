@@ -18,6 +18,7 @@ import { addressLines } from "./address"
 import { emailLanguage, et } from "@/lib/emails/words"
 import type { Address } from "./types"
 import { formatMinor } from "@/lib/markets/money"
+import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
 
 export interface EmailLine {
   title: string
@@ -56,6 +57,15 @@ export interface EmailTotals {
    * its lines; `discount` less these is the code's row.
    */
   savings?: { label: string; cents: number }[] | null
+  /** The code the buyer typed (commerce_checkouts.coupon_code): its row reads "Discount (SPRING10)", as the checkout's summary. */
+  couponCode?: string | null
+}
+
+/** The code's row: "Discount (SPRING10)" when the order kept the code, "Discount" otherwise. */
+function discountLabel(t: Pick<EmailTotals, "couponCode">): string {
+  // eslint-disable-next-line no-control-regex
+  const code = (t.couponCode ?? "").replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, 40)
+  return code ? et("Discount ({code})", { code }) : et("Discount")
 }
 
 function esc(value: unknown): string {
@@ -66,9 +76,14 @@ function esc(value: unknown): string {
     .replace(/"/g, "&quot;")
 }
 
-/** Minor units in the order's own currency, with its own decimals (¥2,500 is 2500, not ¥25). */
+/**
+ * Minor units in the order's own currency, with its own decimals (¥2,500 is
+ * 2500, not ¥25), written the way the email's language writes money
+ * (lib/markets/buyer-language buyerMoneyLocale): "$214.00" in English,
+ * "214,00 lei" in Romanian, as the order page and the invoice write it.
+ */
 export function formatMoney(cents: number, currency = "USD"): string {
-  return formatMinor(cents, (currency || "USD").toUpperCase(), "en-US")
+  return formatMinor(cents, (currency || "USD").toUpperCase(), buyerMoneyLocale(emailLanguage()))
 }
 
 const INK = "#111827"
@@ -228,7 +243,7 @@ function totalsTable(k: EmailKit, t: EmailTotals, extra: { label: string; value:
   return k.totals([
     { label: et("Subtotal"), value: formatMoney(t.subtotal, t.currency) },
     ...saved.map((s) => ({ label: s.label, value: `-${formatMoney(s.cents, t.currency)}` })),
-    ...(rest > 0 ? [{ label: et("Discount"), value: `-${formatMoney(rest, t.currency)}` }] : []),
+    ...(rest > 0 ? [{ label: discountLabel(t), value: `-${formatMoney(rest, t.currency)}` }] : []),
     ...(shipped > 0 || t.shippingDiscount > 0 ? [{ label: deliveryLabel(local), value: shipping === 0 ? et("Free") : formatMoney(shipping, t.currency) }] : []),
     ...(fee > 0 ? [{ label: et("Cash on delivery fee"), value: formatMoney(fee, t.currency) }] : []),
     ...taxRows(t),
@@ -283,7 +298,7 @@ function totalsText(t: EmailTotals, local = false): string[] {
   return [
     `${et("Subtotal")}: ${formatMoney(t.subtotal, t.currency)}`,
     ...saved.map((s) => `${s.label}: -${formatMoney(s.cents, t.currency)}`),
-    ...(rest > 0 ? [`${et("Discount")}: -${formatMoney(rest, t.currency)}`] : []),
+    ...(rest > 0 ? [`${discountLabel(t)}: -${formatMoney(rest, t.currency)}`] : []),
     ...(shipped > 0 || t.shippingDiscount > 0 ? [`${deliveryLabel(local)}: ${shipping === 0 ? et("Free") : formatMoney(shipping, t.currency)}`] : []),
     ...(fee > 0 ? [`${et("Cash on delivery fee")}: ${formatMoney(fee, t.currency)}`] : []),
     ...taxRows(t).map((r) => `${r.label}: ${r.value}`),

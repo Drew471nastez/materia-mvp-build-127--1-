@@ -49,6 +49,7 @@ import { EVENT_KIND_LABEL, overviewFigures, type OverviewFigure } from "./logic"
 import { EDITOR_CARD_TITLE, buttonPrimary, buttonSecondary, card, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
+import { copyText, publicCommunityUrl } from "./share-link"
 
 /** A card of the overview: the /app card, its heading and an optional link at the heading's right. */
 function Panel({ title, aside, children, className, ...rest }: { title: string; aside?: React.ReactNode; children: React.ReactNode; className?: string } & React.HTMLAttributes<HTMLElement>) {
@@ -185,10 +186,8 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
   ].filter((x): x is { href: string; label: string } => x !== null)
   const shareable = head.status === "published" && !head.suspended
   const copyLink = () => {
-    void navigator.clipboard?.writeText(`${window.location.origin}${data.publicUrl}`).then(
-      () => toast(tt("Link copied")),
-      () => toast(tt("The link could not be copied")),
-    )
+    /* storelib.com's address, the one that opens the app, as the list's card shares it (./share-link). */
+    void copyText(publicCommunityUrl(head.slug)).then((ok) => toast(ok ? tt("Link copied") : tt("The link could not be copied")))
   }
   const recent = data.recent ?? []
   /* ROUND 14: a price nobody can pay is said once. The checklist says it when this person sees the checklist. */

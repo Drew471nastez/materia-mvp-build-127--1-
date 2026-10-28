@@ -288,24 +288,26 @@ function AskSheet({ onClose, onSent }: { onClose: () => void; onSent: () => void
 /* ── The email ────────────────────────────────────────────────────────── */
 
 type Kind = "request" | "reminder"
-const FIELDS: CopyField[] = ["subject", "heading", "body", "button"]
-const FIELD_LABEL: Record<CopyField, () => string> = { subject: () => tt("Subject"), heading: () => tt("Heading"), body: () => tt("Text"), button: () => tt("Button") }
+/** A review email has these four parts; preview text and a footer note are the store emails' own. */
+type ReviewField = "subject" | "heading" | "body" | "button"
+const FIELDS: ReviewField[] = ["subject", "heading", "body", "button"]
+const FIELD_LABEL: Record<ReviewField, () => string> = { subject: () => tt("Subject"), heading: () => tt("Heading"), body: () => tt("Text"), button: () => tt("Button") }
 const PLACES = ["customer_name", "items", "shop_name"] as const
 const PLACE_LABEL: Record<(typeof PLACES)[number], () => string> = { customer_name: () => tt("First name"), items: () => tt("Product"), shop_name: () => tt("Store name") }
 
 /** The standard words, as the editor shows them (lib/emails/customer-custom DEFAULT_COPY, review_request and review_reminder). */
-const STANDARD: Record<Kind, Record<CopyField, string>> = { request: DEFAULT_COPY.review_request, reminder: DEFAULT_COPY.review_reminder }
+const STANDARD: Record<Kind, Record<ReviewField, string>> = { request: DEFAULT_COPY.review_request, reminder: DEFAULT_COPY.review_reminder }
 
 function RequestEmailCard({ onSaved, onError }: { onSaved: (m: string) => void; onError: (m: string) => void }) {
   const loaded = useRead<{ ready: boolean; copy: Record<Kind, EmailCopy | null> }>("/api/app/reviews/request-email")
   const [kind, setKind] = React.useState<Kind>("request")
-  const [draft, setDraft] = React.useState<Record<Kind, Record<CopyField, string>> | null>(null)
+  const [draft, setDraft] = React.useState<Record<Kind, Record<ReviewField, string>> | null>(null)
   const [saving, setSaving] = React.useState(false)
   const [preview, setPreview] = React.useState<{ subject: string; html: string } | null>(null)
   const [previewError, setPreviewError] = React.useState<string | null>(null)
-  const focused = React.useRef<{ field: CopyField; el: HTMLInputElement | HTMLTextAreaElement } | null>(null)
+  const focused = React.useRef<{ field: ReviewField; el: HTMLInputElement | HTMLTextAreaElement } | null>(null)
 
-  const fill = (c: EmailCopy | null | undefined, k: Kind): Record<CopyField, string> => ({ subject: c?.subject ?? STANDARD[k].subject, heading: c?.heading ?? STANDARD[k].heading, body: c?.body ?? STANDARD[k].body, button: c?.button ?? STANDARD[k].button })
+  const fill = (c: EmailCopy | null | undefined, k: Kind): Record<ReviewField, string> => ({ subject: c?.subject ?? STANDARD[k].subject, heading: c?.heading ?? STANDARD[k].heading, body: c?.body ?? STANDARD[k].body, button: c?.button ?? STANDARD[k].button })
   React.useEffect(() => {
     if (loaded.data && !draft) setDraft({ request: fill(loaded.data.copy.request, "request"), reminder: fill(loaded.data.copy.reminder, "reminder") })
   }, [loaded.data, draft])
@@ -332,7 +334,7 @@ function RequestEmailCard({ onSaved, onError }: { onSaved: (m: string) => void; 
     return () => window.clearTimeout(t)
   }, [kind, words])
 
-  const set = (f: CopyField, v: string) => setDraft((d) => (d ? { ...d, [kind]: { ...d[kind], [f]: v.slice(0, COPY_LIMITS[f]) } } : d))
+  const set = (f: ReviewField, v: string) => setDraft((d) => (d ? { ...d, [kind]: { ...d[kind], [f]: v.slice(0, COPY_LIMITS[f]) } } : d))
   const insert = (key: string) => {
     const at = focused.current
     const f = at?.field ?? "body"

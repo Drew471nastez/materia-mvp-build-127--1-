@@ -220,7 +220,7 @@ async function main() {
     await j.cron()
     const conf = j.net.to("bea@example.com").find((m) => /confirmed/i.test(m.subject))
     const text = conf ? words(conf.html) : ""
-    check("the confirmation email: €64.39, subtotal €65.97, the lines after the code (€35.98, €23.39), delivery €5.02, no lei", !!conf && /Total €64\.39/.test(text) && /Subtotal €65\.97/.test(text) && /Discount -€6\.60/.test(text) && /€35\.98/.test(text) && /€23\.39/.test(text) && /Shipping €5\.02/.test(text) && !/lei|RON/.test(text), conf ? text.replace(/(&#\d+;\s*)+/g, " ").slice(0, 1500) : j.net.to("bea@example.com").map((m) => m.subject))
+    check("the confirmation email: €64.39, subtotal €65.97, the lines after the code (€35.98, €23.39), delivery €5.02, no lei", !!conf && /Total €64\.39/.test(text) && /Subtotal €65\.97/.test(text) && /* Changed on purpose (order documents round): the code is named on its row, as at checkout. */ /Discount \(VARA10\) -€6\.60/.test(text) && /€35\.98/.test(text) && /€23\.39/.test(text) && /Shipping €5\.02/.test(text) && !/lei|RON/.test(text), conf ? text.replace(/(&#\d+;\s*)+/g, " ").slice(0, 1500) : j.net.to("bea@example.com").map((m) => m.subject))
     const so = await j.call(`GET /api/physical/orders/${co!.id}`, { as: seller })
     check("the order in /app: EUR, €64.39", so.status === 200 && String(so.json?.order?.currency ?? "").toUpperCase() === "EUR" && so.json?.order?.totalCents === 6439, so.json?.order && { currency: so.json.order.currency, total: so.json.order.totalCents })
     const sellerMail = j.net.to("hello@lia.example").find((m) => /Cana/.test(m.subject))

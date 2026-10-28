@@ -27,6 +27,7 @@ import { ignoreError } from "@/lib/supabase/ignore-error"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { buyerRefundMail, leadMagnetEmail, reviewNoticeEmail, sellerRefundEmail } from "@/lib/emails/notices"
 import { formatMinor } from "@/lib/markets/money"
+import { buyerMoneyLocale } from "@/lib/markets/buyer-language"
 
 // MUST be a real mailbox on your verified domain in Amazon SES
 const FROM_EMAIL = EMAIL_FROM
@@ -468,8 +469,11 @@ async function receiptEmailModel(
      * (sellerName) and photo, for one on Storelib.
      */
     signer?: "shop" | "creator"
+    /** The locale its money is written in: the email's language's (lib/markets/buyer-language buyerMoneyLocale), "214,00 lei" in Romanian. */
+    moneyLocale?: string
   },
 ): Promise<ReceiptEmailModel> {
+  const loc = params.moneyLocale || "en-US"
   const { loadReceiptByToken } = await import("@/lib/receipts/load")
   /* The creator's photo and logo as their campaigns read them, so the receipt shows the same one picture. */
   const brand = params.creatorId ? await loadBrand(admin, params.creatorId).catch(() => null) : null
@@ -504,8 +508,22 @@ async function receiptEmailModel(
   }
 
   if (loaded) {
-    const v = loaded.view
-    const money = (c: number) => (c === 0 ? "Free" : formatMoney(c, v.currency, "en-US"))
+    /*
+      THE SAME ROWS AS THE RECEIPT PAGE AND THE CHECKOUT. A code's saving and
+      each offer's are kept on the payment, not the order rows: the receipt
+      page asks the invoice for them (app/receipt/[token]/page.tsx) and so
+      does this, bounded, so a slow Stripe costs the email its discount rows
+      and nothing else. The store's time zone for the date, as the PDF.
+    */
+    const [{ splitSavings, withDiscount, withinTime }, { invoiceForReceipt }, { creatorTimeZone }] = await Promise.all([import("@/lib/receipts/discount"), import("@/lib/checkout/invoice"), import("@/lib/account/time-zone")])
+    const [invoice, timeZone] = await Promise.all([
+      loaded.view.invoice ? withinTime(() => invoiceForReceipt(admin, params.receiptToken), 2500) : Promise.resolve(null),
+      params.creatorId ? creatorTimeZone(admin, params.creatorId).catch(() => null) : Promise.resolve(null),
+    ])
+    const v = withDiscount(loaded.view, invoice)
+    const discount = v.discountCents ?? 0
+    const saved = splitSavings(discount, v.savings)
+    const money = (c: number) => (c === 0 ? "Free" : formatMoney(c, v.currency, loc))
     const notes: Record<string, string | null> = {
       open: null,
       pending: "Waiting for payment",
@@ -523,24 +541,34 @@ async function receiptEmailModel(
       orderNumber: v.number,
       dateText: dateOf(v.createdAt),
       dateIso: v.createdAt,
-      items: v.items.map((i) => ({
-        title: i.title,
-        /* The option, the buyer's own words on the line (an engraving) and the offers that saved on it, by the name the checkout showed: under the title, as the receipt page writes them. */
-        variantName: [i.variantName, ...(i.properties ?? []).map(([k, val]) => `${k}: ${val}`), ...(i.offers ?? []).map((o) => `${o.title} −${formatMoney(o.cents, v.currency, "en-US")}`)].filter(Boolean).join(" · ") || null,
-        /* A membership's line is one period of it, "$9.00/month", as the receipt page writes it. */
-        amountText: i.priceInterval && i.subtotalCents > 0 ? `${money(i.subtotalCents)}/${i.priceInterval}` : money(i.subtotalCents),
-        note: notes[i.state] ?? null,
-        thumbnailUrl: i.thumbnailUrl,
-      })),
-      subtotalText: v.tipCents > 0 || v.items.length > 1 || (v.taxCents ?? 0) > 0 ? money(v.subtotalCents) : null,
+      items: v.items.map((i) => {
+        /* At its price before the code, as the receipt page shows it, so the lines add up to the Subtotal above the discount rows. */
+        const shown = typeof i.listCents === "number" && i.listCents > i.subtotalCents ? i.listCents : i.subtotalCents
+        return {
+          title: i.title,
+          /* The option, the buyer's own words on the line (an engraving) and the offers that saved on it, by the name the checkout showed: under the title, as the receipt page writes them. */
+          variantName: [i.variantName, ...(i.properties ?? []).map(([k, val]) => `${k}: ${val}`), ...(i.offers ?? []).map((o) => `${o.title} −${formatMoney(o.cents, v.currency, loc)}`)].filter(Boolean).join(" · ") || null,
+          /* A membership's line is one period of it, "$9.00/month", as the receipt page writes it. */
+          amountText: i.priceInterval && shown > 0 ? `${money(shown)}/${i.priceInterval}` : money(shown),
+          note: notes[i.state] ?? null,
+          thumbnailUrl: i.thumbnailUrl,
+        }
+      }),
+      /* Before the code and the offers, when the payment recorded them: the lines at their list price, as the page's Subtotal. */
+      subtotalText: v.tipCents > 0 || discount > 0 || v.items.length > 1 || (v.taxCents ?? 0) > 0 ? money(v.subtotalCents + discount) : null,
+      savings: saved.rows.map((r) => ({ label: r.label, text: formatMoney(r.cents, v.currency, loc) })),
+      discountText: saved.rest > 0 ? formatMoney(saved.rest, v.currency, loc) : null,
+      discountCode: saved.rest > 0 ? (v.discountCode ?? null) : null,
+      payment: v.totalCents > 0 && v.state === "open" ? v.payment : null,
+      timeZone,
       tipText: v.tipCents > 0 ? money(v.tipCents) : null,
-      taxText: (v.taxCents ?? 0) > 0 ? formatMoney(v.taxCents ?? 0, v.currency, "en-US") : null,
+      taxText: (v.taxCents ?? 0) > 0 ? formatMoney(v.taxCents ?? 0, v.currency, loc) : null,
       taxIncluded: v.taxIncluded === true,
       /* The tax's own name and the business behind the store, when the receipt read them (SQL part 153). */
       taxLabel: (v as { taxLabel?: string | null }).taxLabel ?? null,
       legal: (v.seller as { legal?: ReceiptEmailModel["legal"] } | undefined)?.legal ?? null,
       totalText: money(v.totalCents),
-      refundedText: v.refundedCents > 0 ? formatMoney(v.refundedCents, v.currency, "en-US") : null,
+      refundedText: v.refundedCents > 0 ? formatMoney(v.refundedCents, v.currency, loc) : null,
       link: params.receiptLink,
       buttonLabel: v.state === "open" && hasFiles ? "Download your files" : "View your receipt",
       supportEmail: params.supportEmail,
@@ -560,7 +588,7 @@ async function receiptEmailModel(
   const known = orderRow as { amount_cents?: number | null; currency?: string | null } | null
   const currency = typeof known?.currency === "string" && /^[a-z]{3}$/i.test(known.currency) ? known.currency.toUpperCase() : null
   const amount = Number(known?.amount_cents ?? params.fallback.amountCents) || 0
-  const amountText = currency === null ? "" : amount === 0 ? "Free" : formatMoney(amount, currency, "en-US")
+  const amountText = currency === null ? "" : amount === 0 ? "Free" : formatMoney(amount, currency, loc)
   return {
     heldForCurrency: currency === null && amount > 0,
     firstName: params.buyerFirstName,
@@ -906,6 +934,11 @@ export async function sendBuyerDownloadEmail(
 
   /* One email per payment: a basket's lines are read together and listed in
      it, with the same totals the receipt page shows. */
+  /* The email's language first: its money is written that language's way ("214,00 lei"). */
+  const [language, saved] = await Promise.all([
+    creatorId ? import("@/lib/emails/words-server").then((m) => m.buyerEmailLanguage(creatorId, channel, params.lang ?? where.origin?.lang)).catch(() => null) : null,
+    creatorId ? import("@/lib/emails/customer-copy-server").then((m) => m.loadCustomerEmailCopy(admin, creatorId)).catch(() => ({}) as Record<string, undefined>) : ({} as Record<string, undefined>),
+  ])
   const model = await receiptEmailModel(admin, {
     receiptToken,
     receiptLink,
@@ -915,6 +948,7 @@ export async function sendBuyerDownloadEmail(
     creatorId,
     fallback: { productTitle, variantName, amountCents: params.amountCents, orderId },
     signer: signedBy(channel),
+    moneyLocale: buyerMoneyLocale(language?.lang),
   })
   /* The inbox shows who signs it: the shop on its website, the creator on Storelib. */
   const fromName = model.sellerName || identity?.fromName || PLATFORM_BRAND_NAME
@@ -934,10 +968,6 @@ export async function sendBuyerDownloadEmail(
     }
   }
   /* The same build as its preview in Emails (lib/receipts/receipt-mail.ts): the language, then the store's own words when the email is in its website's language. */
-  const [language, saved] = await Promise.all([
-    creatorId ? import("@/lib/emails/words-server").then((m) => m.buyerEmailLanguage(creatorId, channel, params.lang ?? where.origin?.lang)).catch(() => null) : null,
-    creatorId ? import("@/lib/emails/customer-copy-server").then((m) => m.loadCustomerEmailCopy(admin, creatorId)).catch(() => ({}) as Record<string, undefined>) : ({} as Record<string, undefined>),
-  ])
   const { subject, html, text } = buildReceiptEmail(model, language, saved.receipt)
 
   try {
@@ -1000,6 +1030,12 @@ export async function sendReceiptCopyEmail(
   /* The same language and signature as the receipt itself (lib/emails/buyer-channel.ts). */
   const where = await purchasePlace(admin, params.orderId, params)
   const channel = buyerChannel({ family: "digital", source: where.source, surface: where.origin?.surface, lang: params.lang ?? where.origin?.lang, siteBase })
+  const creatorId = params.creatorId
+  /* The email's language first: its money is written that language's way ("214,00 lei"). */
+  const [language, saved] = await Promise.all([
+    creatorId ? import("@/lib/emails/words-server").then((m) => m.buyerEmailLanguage(creatorId, channel, params.lang ?? where.origin?.lang)).catch(() => null) : null,
+    creatorId ? import("@/lib/emails/customer-copy-server").then((m) => m.loadCustomerEmailCopy(admin, creatorId)).catch(() => ({}) as Record<string, undefined>) : ({} as Record<string, undefined>),
+  ])
   const model = await receiptEmailModel(admin, {
     receiptToken: params.receiptToken,
     receiptLink: siteBase ? new URL(`/receipt/${encodeURIComponent(params.receiptToken)}`, siteBase).toString() : buildUrl(`/receipt/${encodeURIComponent(params.receiptToken)}`, params.baseUrl),
@@ -1009,17 +1045,13 @@ export async function sendReceiptCopyEmail(
     creatorId: params.creatorId,
     fallback: { productTitle: params.productTitle, variantName: params.variantName, amountCents: params.amountCents, orderId: params.orderId },
     signer: signedBy(channel),
+    moneyLocale: buyerMoneyLocale(language?.lang),
   })
   const fromName = model.sellerName || identity?.fromName || PLATFORM_BRAND_NAME
   if (model.heldForCurrency) {
     await flagHeldEmail({ email: "Receipt copy", orderId: params.orderId })
     return { success: false, error: CURRENCY_UNKNOWN_HOLD }
   }
-  const creatorId = params.creatorId
-  const [language, saved] = await Promise.all([
-    creatorId ? import("@/lib/emails/words-server").then((m) => m.buyerEmailLanguage(creatorId, channel, params.lang ?? where.origin?.lang)).catch(() => null) : null,
-    creatorId ? import("@/lib/emails/customer-copy-server").then((m) => m.loadCustomerEmailCopy(admin, creatorId)).catch(() => ({}) as Record<string, undefined>) : ({} as Record<string, undefined>),
-  ])
   const { subject, html, text } = buildReceiptEmail(model, language, saved.receipt)
   try {
     const sent = await sendEmail({

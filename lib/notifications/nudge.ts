@@ -4,18 +4,21 @@
  * ===========================================================================
  *  ASKING FOR NOTIFICATIONS WHERE THEY MATTER
  * ===========================================================================
- * The phone's prompt is asked at the first launch after an install
- * (components/platform/notifications-ask.tsx). These are the moments after
- * that where a notification is the obvious next thing: someone just joined a
+ * The app asks for notifications at moments they matter
+ * (components/platform/notifications-ask.tsx): a seller's /app, and these,
+ * where a notification is the obvious next thing: someone just joined a
  * community, posted, commented, or put a product on sale. Each one calls
- * nudgeNotifications, and NotificationsAsk decides:
+ * nudgeNotifications, and NotificationsAsk decides
+ * (lib/native-permissions-rule.ts permissionAskStep):
  *
  *   granted       nothing
- *   not asked     the phone's own prompt, right there
+ *   not asked     a short sheet in this moment's words, then the phone's
+ *                 own prompt from its button
  *   refused       the "Notifications are off" sheet in this moment's words,
- *                 with Open Settings, on the same budget as the launch
- *                 reminder (lib/notifications/push-ask-rule), so a person is
- *                 told at most every few days however much they post
+ *                 with Open Settings
+ *
+ * One sheet per launch, each kind at most every seven days, never before
+ * sign in, however much they post.
  *
  * Nothing happens in a browser or on a published website.
  */

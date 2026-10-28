@@ -51,8 +51,10 @@ console.log("\nK  The page bar: sticky only where it is worked from\n")
   check("an order's or an email's bar (OrderBarFrame: Back and the actions) is sticky", /orders-bar sticky top-0/.test(order))
   const parts = raw("app/app/orders/order-parts.tsx")
   check("  the scroll is only listened to on a sticky bar", /const pane = sticky \? bar\?\.closest<HTMLElement>\("\.orders-pane"\) : null/.test(parts))
-  const stickyPages = ["app/app/emails/emails-home.tsx", "components/email/compose/composer.tsx", "components/memberships/creator-screen.tsx", "components/help/app-help-frame.tsx"]
-  check("sticky where the bar is how the page is worked: Emails' tabs, the composer, a membership, a Help article", stickyPages.every((f) => /<PaneBar width=\{[A-Z_]+\} sticky className=/.test(raw(f))), stickyPages.filter((f) => !/<PaneBar width=\{[A-Z_]+\} sticky/.test(raw(f))))
+  /* Changed on purpose (round 28, the owner: "do not make the page header sticky"): Emails' title, buttons and tabs scroll away with the page, as every list's. */
+  const stickyPages = ["components/email/compose/composer.tsx", "components/memberships/creator-screen.tsx", "components/help/app-help-frame.tsx"]
+  check("Emails' bar is flat now", /<PaneBar width=\{LIST_WIDTH\} className=/.test(raw("app/app/emails/emails-home.tsx")) && !/<PaneBar [^>]*\bsticky\b/.test(raw("app/app/emails/emails-home.tsx")))
+  check("sticky where the bar is how the page is worked: the composer, a membership, a Help article", stickyPages.every((f) => /<PaneBar width=\{[A-Z_]+\} sticky className=/.test(raw(f))), stickyPages.filter((f) => !/<PaneBar width=\{[A-Z_]+\} sticky/.test(raw(f))))
   const listPages = ["app/app/integrations/integrations-client.tsx", "app/app/orders/orders-list.tsx", "app/app/products/products-client.tsx", "app/app/files/files-client.tsx", "app/app/coupons/coupons-client.tsx", "app/app/offers/offers-client.tsx", "app/app/inventory/inventory-client.tsx", "app/app/support/support-client.tsx"]
   check("flat on a list (title and one action): Integrations, Orders, Products, Files, Coupons, Offers, Inventory, Support", listPages.every((f) => /<PaneBar /.test(raw(f)) && !/<PaneBar [^>]*\bsticky\b/.test(raw(f))), listPages.filter((f) => /<PaneBar [^>]*\bsticky\b/.test(raw(f))))
   check("the hairline and shadow are still the sticky bar's (app/globals.css)", /\.orders-bar\[data-scrolled="true"\] \{\s*box-shadow: 0 1px 0 rgba\(17, 24, 39, 0\.07\)/.test(raw("app/globals.css")))

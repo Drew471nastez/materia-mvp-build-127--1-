@@ -75,6 +75,8 @@ import type { ComposerSpace } from "@/components/community/member/view-types"
 import { Toasts } from "@/components/community/member/toast"
 import { UpgradeSheet } from "./upgrade-sheet"
 import { tt } from "@/lib/i18n/text"
+import { isPlainClick } from "@/lib/ui/app-navigation"
+import { communitiesReturn } from "./list-return"
 
 const TYPES: { value: CommunityType; title: string; detail: string }[] = [
   { value: "free", get title() { return tt("Free") }, get detail() { return tt("Anyone can join.") } },
@@ -408,6 +410,8 @@ type AddressState = { slug: string; state: "checking" | "free" | "taken" | "inva
 
 export function CreateCommunity({ limitReached = false, me = null }: { limitReached?: boolean; me?: WizardMe | null }) {
   const router = useRouter()
+  /* Opened from the list one entry after it (./list-return): the community made here keeps that, for its way back. */
+  communitiesReturn.useOrigin()
   const [draft, setDraft] = React.useState<WizardDraft>(emptyDraft)
   const [reach, setReach] = React.useState(0)
   const [restored, setRestored] = React.useState(false)
@@ -581,7 +585,11 @@ export function CreateCommunity({ limitReached = false, me = null }: { limitReac
     } catch {
       /* nothing kept */
     }
-    router.push(`/app/community/${made.slug}?created=1`)
+    /*
+      In the wizard's own entry (./list-return): the community takes its place, one entry after the list, and its back
+      arrow is one back to the list, scroll and all. A push left the wizard behind it to come back to.
+    */
+    router.replace(`/app/community/${made.slug}?created=1`)
   }, [made, router])
 
   const skip = () => {
@@ -608,13 +616,20 @@ export function CreateCommunity({ limitReached = false, me = null }: { limitReac
     [made, finish],
   )
 
+  /* Cancel and the arrow: back to the list it was opened from, as a community's own back arrow (./list-return). */
+  const leaveToList = (e: React.MouseEvent) => {
+    if (!isPlainClick(e)) return
+    e.preventDefault()
+    communitiesReturn.leave(router, { id: null })
+  }
+
   const forward = () => (step === "review" ? void create() : next())
   const back = () => go(draft.step - 1)
   const err = (f: string) => errors[f] ?? null
   const cents = centsFromInput(draft.price)
   const priceText = cents && Number.isFinite(cents) ? (draft.interval === "once" ? tt("{amount} once, for lifetime access", { amount: money(cents) }) : pricePer(cents, draft.interval)) : null
   const leftAction = welcome ? null : draft.step === 0 ? (
-    <Link href="/app/community" className={barButton} data-create-cancel="">
+    <Link href="/app/community" onClick={leaveToList} className={barButton} data-create-cancel="">
       {tt("Cancel")}
     </Link>
   ) : (
@@ -653,7 +668,7 @@ export function CreateCommunity({ limitReached = false, me = null }: { limitReac
         {/* THE HEADER, FROM 1024px: back to Community, the title, the steps. */}
         <header data-create-head="" className="mb-6 hidden lg:block">
           <div className="mb-5 flex min-h-9 items-center gap-2">
-            <Link href="/app/community" aria-label={tt("Back to Community")} title={tt("Community")} className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
+            <Link href="/app/community" onClick={leaveToList} aria-label={tt("Back to Community")} title={tt("Community")} className={cn(iconButton, "-ml-1.5 h-9 w-9 shrink-0 hover:bg-[#eceef1] active:bg-[#e4e6ea]")}>
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <h1 className="min-w-0 truncate text-[24px] font-bold leading-9 text-[#1a1a2e] sm:text-[28px]">{tt("New community")}</h1>

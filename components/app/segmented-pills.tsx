@@ -20,6 +20,13 @@
  * padding under 360px), so four in English fit a 320px phone whole; a row
  * that still does not fit (a longer language) scrolls and fades where it is
  * cut (components/app/use-edge-fade) instead of slicing a label.
+ *
+ * `variant="filter"` is the control drawn as one of Analytics' filter chips
+ * (the owner: "must look like the filter chips"): the same 36px white pill
+ * with the same hairline ring as Last 7 days, All pages and All products
+ * (app/globals.css [data-analytics-controls]), its options inside it and the
+ * chosen one a dark pill that slides between them. It never scrolls by
+ * itself: it sits in the filters' own row, which does.
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
@@ -31,9 +38,10 @@ export interface PillOption<T extends string> {
   label: React.ReactNode
 }
 
-export function SegmentedPills<T extends string>({ options, value, onChange, onIntent, label, className, size = "md", variant = "track" }: { options: PillOption<T>[]; value: T; onChange: (value: T) => void; onIntent?: (value: T) => void; label: string; className?: string; size?: "sm" | "md"; variant?: "track" | "chips" }) {
+export function SegmentedPills<T extends string>({ options, value, onChange, onIntent, label, className, size = "md", variant = "track" }: { options: PillOption<T>[]; value: T; onChange: (value: T) => void; onIntent?: (value: T) => void; label: string; className?: string; size?: "sm" | "md"; variant?: "track" | "chips" | "filter" }) {
   const track = useEdgeFade<HTMLDivElement>()
-  const chips = variant === "chips"
+  const filter = variant === "filter"
+  const chips = variant === "chips" || filter
   const refs = React.useRef<(HTMLButtonElement | null)[]>([])
   const [box, setBox] = React.useState<{ x: number; w: number } | null>(null)
   const index = Math.max(0, options.findIndex((o) => o.value === value))
@@ -69,20 +77,22 @@ export function SegmentedPills<T extends string>({ options, value, onChange, onI
       role="tablist"
       aria-label={label}
       className={cn(
-        "orders-strip relative inline-flex max-w-full items-center overflow-x-auto",
-        chips ? "edge-fade gap-1 py-0.5 min-[360px]:gap-1.5" : "gap-0.5 rounded-full bg-[#eceef1] p-1",
+        filter
+          ? "relative inline-flex h-9 shrink-0 items-center gap-0.5 rounded-full bg-white p-[3px] shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_1px_2px_rgba(17,24,39,0.05)]"
+          : "orders-strip relative inline-flex max-w-full items-center overflow-x-auto",
+        filter ? null : chips ? "edge-fade gap-1 py-0.5 min-[360px]:gap-1.5" : "gap-0.5 rounded-full bg-[#eceef1] p-1",
         className,
       )}
-      style={chips ? { overflowY: "hidden", touchAction: "pan-x pan-y", overscrollBehaviorX: "contain" } : undefined}
-      data-segmented-pills={chips ? "chips" : ""}
-      data-scroll-x={chips ? "" : undefined}
+      style={chips && !filter ? { overflowY: "hidden", touchAction: "pan-x pan-y", overscrollBehaviorX: "contain" } : undefined}
+      data-segmented-pills={filter ? "filter" : chips ? "chips" : ""}
+      data-scroll-x={chips && !filter ? "" : undefined}
     >
       {box ? (
         <span
           aria-hidden
           className={cn(
             "pointer-events-none absolute left-0 rounded-full transition-[translate,width] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-            chips ? "bottom-0.5 top-0.5 bg-[#1a1a2e]" : "bottom-1 top-1 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_1px_4px_rgba(16,24,40,0.06)]",
+            filter ? "bottom-[3px] top-[3px] bg-[#1a1a2e]" : chips ? "bottom-0.5 top-0.5 bg-[#1a1a2e]" : "bottom-1 top-1 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_1px_4px_rgba(16,24,40,0.06)]",
           )}
           style={{ translate: `${box.x}px 0`, width: box.w }}
         />
@@ -112,7 +122,9 @@ export function SegmentedPills<T extends string>({ options, value, onChange, onI
             }}
             className={cn(
               "relative z-[1] shrink-0 whitespace-nowrap rounded-full font-semibold outline-none transition-colors duration-150 [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20",
-              chips
+              filter
+                ? cn("h-[30px] px-3 text-[14px]", on ? "text-white" : "text-[#6b7280] pointer-fine:hover:text-[#1a1a2e]", on && !box && "bg-[#1a1a2e]")
+                : chips
                 ? cn("h-8 px-2.5 text-[13px] min-[360px]:px-3.5", on ? "text-white" : "text-[#4b5563] pointer-fine:hover:bg-[#1a1a2e]/[0.05] pointer-fine:hover:text-[#1a1a2e]", on && !box && "bg-[#1a1a2e]")
                 : cn(size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-[14px]", on ? "text-[#1a1a2e]" : "text-[#6b7280]", on && !box && "bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08)]"),
             )}

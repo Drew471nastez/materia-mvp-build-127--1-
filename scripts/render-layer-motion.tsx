@@ -85,12 +85,22 @@ const cover = (hue: number) => {
   return pics.get(key) as string
 }
 
+/*
+  A PRODUCT AS A SHOP HAS ONE (round 41): pictures and a video, variants with
+  their files, custom fields and personalization, and the three kinds of
+  saved category the editor meets: an older name the lists no longer have
+  ("Photography"), none at all (the suggestion fills it in), and one of the
+  list's own. It must open reading as untouched (data-unsaved-fields empty),
+  so its Back goes straight back without "Discard changes?".
+*/
+const CATEGORIES = ["Photography", null, "Photo Presets"]
 function loadedFor(id: string): LoadedProduct {
+  const n = Number(id.replace(/\D/g, "")) || 0
   return {
     product: {
       id,
       creator_id: "c1",
-      title: `Product ${id}`,
+      title: `Lightroom portrait presets ${id}`,
       description: "<p>Forty presets made on real client sessions, with before and after files for each one.</p>".repeat(4),
       price_cents: 2900,
       compare_at_cents: null,
@@ -103,15 +113,25 @@ function loadedFor(id: string): LoadedProduct {
       seo_title: null,
       seo_description: null,
       call_to_action: "Buy Now",
-      category: "Photography",
+      category: CATEGORIES[n % 3],
       pay_what_you_want: false,
+      video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       thumbnail_url: pic(260),
       gallery_urls: [pic(260), pic(20)],
       whats_included: ["40 presets", "Before and after files"],
       faqs: [{ question: "Which apps?", answer: "Lightroom and Capture One." }],
+      custom_fields: { Format: { value: "XMP and DNG", type: "text", show: true }, Presets: { value: "40", type: "number", show: true } },
+      personalization: [{ id: "pf1", label: "Name on the cover", type: "text", required: true, maxLength: 40, placeholder: "Ana", help: "" }],
     },
-    assets: [],
-    variants: [],
+    assets: [
+      { id: "a1", file_name: "presets.zip", file_path: "c1/presets.zip", file_size: 48_000_000, mime_type: "application/zip", scan_status: "clean" },
+      { id: "a2", file_name: "guide.pdf", file_path: "c1/guide.pdf", file_size: 2_400_000, mime_type: "application/pdf", scan_status: "clean" },
+    ],
+    variants: [
+      { id: "v1", name: "Lightroom", description: "XMP files", price_cents: 2900, compare_at_price_cents: 3900, max_purchases: null, position: 0, pay_what_you_want: false, product_variant_files: [{ digital_asset_id: "a1" }] },
+      { id: "v2", name: "Lightroom and the guide", description: "", price_cents: 3900, compare_at_price_cents: null, max_purchases: 100, position: 1, pay_what_you_want: false, product_variant_files: [{ digital_asset_id: "a1" }, { digital_asset_id: "a2" }] },
+    ],
+    sales: { limit: null, sold: 12, missing: false },
   } as unknown as LoadedProduct
 }
 
@@ -156,6 +176,14 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       upgraded: true,
     })
   }
+  /* The editor's cards that read their own state once it opens (collections, sales channels, the store's currency). */
+  if (url.startsWith("/api/collections/product")) {
+    return reply(200, { collections: [{ id: "col1", title: "Presets", kind: "manual", member: true }, { id: "col2", title: "Guides", kind: "manual", member: false }, { id: "col3", title: "Best sellers", kind: "smart", member: true }] })
+  }
+  if (url.startsWith("/api/store/channels/product")) {
+    return reply(200, { ready: true, defaultKey: "creator_page", channels: [{ id: null, kind: "creator_page", name: "Your page", description: null, enabled: true }, { id: "ch1", kind: "storefront", name: "Website", description: null, enabled: true }, { id: "ch2", kind: "marketplace", name: "Explore", description: null, enabled: true }], off: ["ch2"] })
+  }
+  if (url.startsWith("/api/store/currency")) return reply(200, { currency: "USD" })
   if (url.startsWith("/api/")) return reply(404, { error: "Not in the probe" })
   return realFetch(input, init)
 }
@@ -202,7 +230,7 @@ function Page({ path }: { path: string }) {
   if (path.startsWith("/app/products/")) {
     const id = path.split("/").pop() as string
     return (
-      <PageLayer pill inset="bar" phoneOnly>
+      <PageLayer pill inset="bar" phoneOnly moves>
         <ProductEditor key={path} creator={{ id: "c1", slug: "astrid", username: "astrid" }} loaded={id === "new" ? null : loadedFor(id)} />
       </PageLayer>
     )

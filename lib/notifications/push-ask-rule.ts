@@ -1,21 +1,18 @@
 /**
- * HOW OFTEN THE APP SAYS NOTIFICATIONS ARE OFF.
+ * HOW OFTEN THE APP ASKS ABOUT NOTIFICATIONS.
  *
- * The phone's own prompt is asked on every install
- * (components/platform/notifications-ask.tsx). After a "Don't Allow" only the
- * phone's settings can turn them back on, so a sheet that opens those
- * settings comes back every few days, a limited number of times per install.
+ * The one rule for every permission the app asks for now lives in
+ * lib/native-permissions-rule.ts (permissionAskStep): never before sign in,
+ * one sheet per launch, each kind at most every seven days and a limited
+ * number of times per install. These names are kept for what still reads
+ * them.
  */
+import { ASK_AT_MOST_TIMES, ASK_EVERY_MS, type PermissionAskRecord } from "../native-permissions-rule"
 
-export const ASK_AGAIN_AFTER_MS = 4 * 24 * 3600 * 1000
-export const ASK_AT_MOST = 8
+export const ASK_AGAIN_AFTER_MS = ASK_EVERY_MS
+export const ASK_AT_MOST = ASK_AT_MOST_TIMES
 
-export interface AskRecord {
-  /** When they were last reminded. */
-  at: number
-  /** How many times in all, on this install. */
-  count: number
-}
+export type AskRecord = PermissionAskRecord
 
 export function shouldAsk(record: AskRecord | null, now: number): boolean {
   if (!record) return true
