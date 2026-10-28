@@ -45,7 +45,7 @@ import { BlockPickerHandle, BlockPickerProvider, type BlockPickerRequest } from 
 import { CanvasBlockInserter, canvasAnchorAt, type CanvasBlockPlace } from "@/components/website-builder/editor/canvas-block-insert"
 import { insertIndexFor } from "@/lib/website-builder/block-gaps"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
-import { SectionLibrary, holdPreviewsForAi } from "@/components/website-builder/editor/section-library"
+import { SectionLibrary, deferPreviewsForChange, holdPreviewsForAi } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
@@ -170,6 +170,8 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { compatFilesChanged, forgetCompatFiles, loadCompatFiles, patchCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { sameFiles } from "@/lib/website-builder/source-revisions"
 import { noteCanvasScroll, shiftWithScroll, whenCanvasRests } from "@/lib/website-builder/scroll-rest"
+import { shareSettings, shareUnchanged } from "@/lib/website-builder/incoming-diff"
+import { useStableHandlers } from "@/lib/website-builder/stable-handlers"
 import { editorSpares, prefetchPlan } from "@/lib/nav/prefetch-policy"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { assetAddresses, compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
@@ -711,7 +713,40 @@ function ThemeGroupRow({ group, onOpen }: { group: (typeof THEME_SETTINGS_GROUPS
   )
 }
 
-function FieldEditor({ label, ...props }: Parameters<typeof FieldControl>[0] & { label?: string }) {
+/**
+ * ===========================================================================
+ *  A FIELD DRAWS AGAIN WHEN ITS FIELD, ITS VALUE OR ITS LABEL CHANGES
+ * ===========================================================================
+ * Every render of the editor drew every field of the open section again,
+ * about 25 components each with their tooltips and popovers: 19 fields were
+ * some 500 of the 530 components an agent's edit to another section cost, and
+ * the same for each Ask Storelib line, each canvas click and each push
+ * (scripts/check-editor-perf.mjs, TOP=1). The callers pass a new `onChange`
+ * each time (`val => updateSectionSetting(section.id, field.id, val)`), so the
+ * body is memoized on the rest and handed one stable function that calls the
+ * newest `onChange`, which this thin wrapper keeps as each render passes it.
+ * What a field reads from context (the language being edited, the sibling
+ * settings, the collections) still reaches it through the context.
+ */
+function FieldEditor(props: Parameters<typeof FieldControl>[0] & { label?: string }) {
+  const latest = useRef(props.onChange)
+  latest.current = props.onChange
+  const onChange = useCallback((v: unknown) => latest.current(v), [])
+  return <FieldEditorBody label={props.label} field={props.field} value={props.value} onChange={onChange} />
+}
+
+/** One function per section or block for its texts' translation keys, so a field's context stays the same across renders. */
+const textKeysFor = new Map<string, (fieldId: string) => string | null>()
+function stableTextKey(scope: string, make: () => (fieldId: string) => string | null): (fieldId: string) => string | null {
+  let keyFor = textKeysFor.get(scope)
+  if (!keyFor) {
+    keyFor = make()
+    textKeysFor.set(scope, keyFor)
+  }
+  return keyFor
+}
+
+const FieldEditorBody = memo(function FieldEditorBody({ label, ...props }: Parameters<typeof FieldControl>[0] & { label?: string }) {
   /*
     ANOTHER LANGUAGE BEING EDITED (the language switch in the top bar or the
     sidebar): a text setting shows and writes that language's translation,
@@ -731,7 +766,7 @@ function FieldEditor({ label, ...props }: Parameters<typeof FieldControl>[0] & {
       </CollectionBoundField>
     </DynamicSourceField>
   )
-}
+})
 
 function FieldControl({
   field,
@@ -2593,7 +2628,7 @@ function BlockFields({
     return <p className="text-[12.5px] leading-5 text-muted-foreground">This block has no settings of its own.</p>
   }
   /* Its texts in another language, by the key the website lays over; a block the section places but has not saved yet has none until it is. */
-  const keyFor = virtual ? null : (id: string) => translationBlockKey(section.id, block.id, id)
+  const keyFor = virtual ? null : stableTextKey(`block\u0000${section.id}\u0000${block.id}`, () => (id: string) => translationBlockKey(section.id, block.id, id))
   return (
     <TranslationScope keyFor={keyFor}>
     <SiblingSettingsProvider settings={block.settings}>
@@ -4420,8 +4455,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* One render, and a low priority one: the page stays usable while it takes the draft. */
     if (quiet) {
       startTransition(() => {
-        setSettingsDraft(loadedSettings)
-        setSections(loaded)
+        /* Laid over what is on screen: only the sections and values that differ are new objects, so only they draw again (incoming-diff.ts). */
+        setSettingsDraft((prev) => shareSettings(prev, loadedSettings))
+        setSections((prev) => shareUnchanged(prev, loaded))
         alongside?.()
       })
     } else {
@@ -7627,6 +7663,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       edit made here.
     */
     if (events.length > 0) setUnpublished(true)
+    /* The library's drawing ahead waits while this lands (section-library.tsx). */
+    if (events.length > 0) deferPreviewsForChange()
     /* Any page may have been written: each is read afresh when it is next opened (pageCache). */
     if (events.length > 0) forgetPage()
     /*
@@ -8753,7 +8791,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               }
               if (clean.length === 0) return null
               return (
-                <TranslationScope keyFor={(id) => translationSectionKey(section.id, id)}>
+                <TranslationScope keyFor={stableTextKey(`section\u0000${section.id}`, () => (id) => translationSectionKey(section.id, id))}>
                 <SiblingSettingsProvider settings={section.settings}>
                 <div className="px-3.5 py-3.5 space-y-3.5">
                   {clean.map(field => (
@@ -12392,7 +12430,24 @@ function ToolbarItem({
 /** How long the section toolbar takes to arrive, and to leave. */
 const TOOLBAR_FADE_MS = 200
 
-function SectionToolbar({
+/**
+ * The toolbar draws again when what it shows changes, not on every render of
+ * the editor: its handlers are written inline there, so they are passed on
+ * through useStableHandlers (lib/website-builder/stable-handlers.ts).
+ */
+function SectionToolbar(props: Parameters<typeof SectionToolbarBody>[0]) {
+  const handlers = useStableHandlers({
+    onMoveUp: props.onMoveUp,
+    onMoveDown: props.onMoveDown,
+    onDuplicate: props.onDuplicate,
+    onToggleHide: props.onToggleHide,
+    onRemove: props.onRemove,
+    onAskAi: props.onAskAi,
+  })
+  return <SectionToolbarBody {...props} {...handlers} />
+}
+
+const SectionToolbarBody = memo(function SectionToolbarBody({
   sectionId,
   target = "section",
   hidden,
@@ -12686,7 +12741,7 @@ function SectionToolbar({
       )}
     </div>
   )
-}
+})
 
 /**
  * ===========================================================================
