@@ -24,6 +24,18 @@
  *   so a list of forty products costs four rows on the first draw.
  *
  * Under reduced motion it opens and closes at once.
+ *
+ * ROUND 41, A BLOCK'S SETTINGS IN THE LINKS TAB ("when I click on a block
+ * to close its settings, make it smoother and cleaner"). They were there or
+ * not, so a close took the whole panel away in one frame and every card
+ * under it jumped up. They open and close in this box now, with two more
+ * things a list of forty cards needs:
+ *
+ *   `unmountWhenShut`  what is inside is let go once a close has finished,
+ *                      so a closed card keeps no editor alive.
+ *   `data-reveal-closing` while a close runs, so a scroll worked out at the
+ *                      same moment (the next card opening under it) can take
+ *                      off the height that is about to go (revealSettledTop).
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
@@ -42,6 +54,7 @@ export function Reveal({
   id,
   className,
   returnFocus,
+  unmountWhenShut = false,
   children,
 }: {
   open: boolean
@@ -49,6 +62,8 @@ export function Reveal({
   className?: string
   /** Where focus goes when the box closes with focus inside it (the button that closed it). */
   returnFocus?: React.RefObject<HTMLElement | null>
+  /** Let go of the children once a close has finished (they are built again on the next open). */
+  unmountWhenShut?: boolean
   children: React.ReactNode
 }) {
   const [built, setBuilt] = React.useState(open)
@@ -79,8 +94,14 @@ export function Reveal({
     const done = () => {
       box.style.height = open ? "auto" : "0px"
       box.style.willChange = ""
-      if (!open) setShut(true)
+      delete box.dataset.revealClosing
+      if (!open) {
+        setShut(true)
+        if (unmountWhenShut) setBuilt(false)
+      }
     }
+    if (!open) box.dataset.revealClosing = ""
+    else delete box.dataset.revealClosing
     box.style.height = `${to}px`
     inner.style.opacity = open ? "1" : "0"
     if (reducedMotion() || typeof box.animate !== "function" || Math.abs(to - from) < 1) {
@@ -115,6 +136,22 @@ export function Reveal({
       </div>
     </div>
   )
+}
+
+/**
+ * Where `el`'s top will be once every box that is closing right now has
+ * closed: its top now, less the height still to go of each closing box above
+ * it. A scroll to a card that opens while the one above it closes aims there.
+ */
+export function revealSettledTop(el: HTMLElement): number {
+  const top = el.getBoundingClientRect().top
+  let gone = 0
+  for (const box of Array.from(document.querySelectorAll<HTMLElement>("[data-reveal-closing]"))) {
+    if (el.contains(box)) continue
+    const r = box.getBoundingClientRect()
+    if (r.bottom <= top + 0.5) gone += r.height
+  }
+  return top - gone
 }
 
 /**

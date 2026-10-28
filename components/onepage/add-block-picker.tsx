@@ -609,9 +609,12 @@ export function AddBlockPicker({
   onPick,
   atLimit,
   open,
+  lead,
 }: {
-  /** Adding into a group: only links and images go in one. */
+  /** Adding into a group: only what a group holds (lib/onepage/group canGoInGroup). */
   inGroup: boolean
+  /** Round 41: a section over the catalogue in All (Add to group's blocks already on the page, ./group-add-existing). */
+  lead?: React.ReactNode
   onPick: (entry: PickerEntry) => void
   /** A type the page has as many of as it may (two rows of social icons). */
   atLimit: (type: OnePageBlockType) => boolean
@@ -741,6 +744,7 @@ export function AddBlockPicker({
             </div>
           )
         ) : null}
+        {lead && !searching && category === "all" ? lead : null}
         {recentEntries.length ? (
           <PickerSection id="recent" title={tt("Recently used")} entries={recentEntries} limited={limited} hidden={searching || category !== "all"} onPick={pick} prefix="r-" />
         ) : null}
