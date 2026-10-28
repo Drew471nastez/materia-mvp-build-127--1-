@@ -511,17 +511,15 @@ export const AppSearch = memo(
             className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(12px,env(safe-area-inset-bottom,0px))] md:max-h-[min(460px,calc(100vh-140px))] md:flex-none md:pb-2"
           >
             {sections.map((section) => (
-              <div key={section.id} role="group" aria-labelledby={`app-search-h-${section.id}`} className="pt-2">
-                <div className="flex items-center justify-between px-5 pb-1 pt-1">
-                  <p id={`app-search-h-${section.id}`} className="text-[12px] font-semibold text-[#6b7280]">
-                    {section.label}
-                  </p>
-                  {section.id === "recent" ? (
-                    <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={forgetRecent} className="-mr-2 h-7 rounded-md px-2 text-[12px] font-medium text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]" data-search-recent-clear="">
-                      {tt("Clear")}
-                    </button>
-                  ) : null}
-                </div>
+              <div key={section.id} role="group" aria-labelledby={`app-search-h-${section.id}`} className="relative pt-2">
+                <p id={`app-search-h-${section.id}`} className="px-5 pb-1 pt-1 text-[12px] font-semibold text-[#6b7280]">
+                  {section.label}
+                </p>
+                {section.id === "recent" ? (
+                  <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={forgetRecent} className="absolute right-3 top-2 h-7 rounded-md px-2 text-[12px] font-medium text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]" data-search-recent-clear="">
+                    {tt("Clear")}
+                  </button>
+                ) : null}
                 {section.items.map((item) => {
                   const lit = active?.key === item.key
                   return (

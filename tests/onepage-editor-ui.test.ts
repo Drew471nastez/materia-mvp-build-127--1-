@@ -383,10 +383,12 @@ function main() {
       reduced motion. Measured by scripts/check-onepage-addblock-r11.mjs.
     */
     const plus = read("components/onepage/add-block-picker.tsx")
-    check("its + turns a quarter under a mouse, to an x while the sheet is up, never on touch, and not under reduced motion",
+    /* Changed on purpose (round 42): "when clicked, rotate the + icon smoothly (45 degrees to an x)", for a finger as for a mouse, with a haptic tick in the apps. No hover turn, so the click is the only one. */
+    check("its + turns 45 degrees to an x while the sheet is up, for every pointer, no hover turn, not under reduced motion, a tick in the apps",
       /<AddBlockButton\n\s*fromButton=\{addSheetFromButton\}/.test(add) && /<AddBlockPlus open=\{open\} \/>/.test(plus) && /const open = useAddSheetOpen\(\) && fromButton/.test(plus)
       && /transition-\[rotate\] duration-\[280ms\] ease-\[cubic-bezier\(0\.32,0\.72,0,1\)\] motion-reduce:transition-none/.test(plus)
-      && /open \? "pointer-fine:rotate-\[135deg\]" : "group-hover\/add:rotate-90"/.test(plus)
+      && /open \? "rotate-45" : "rotate-0"/.test(plus) && !/group-hover\/add:rotate/.test(plus) && !/pointer-fine:rotate/.test(plus)
+      && /if \(isNativeApp\(\)\) hapticTap\("light"\)/.test(plus)
       && /className=\{cn\("group\/add", className\)\}/.test(plus)
       && !/rotate-\[(360|405)deg\]/.test(plus)
       && /const addSheetFromButton = insertAfterId === null && addToGroupId === null/.test(links))

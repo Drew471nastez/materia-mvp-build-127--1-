@@ -11418,7 +11418,21 @@ const words: Record<string, string> = {
  "View full page": "Ver página completa",
  "Link to the full page under the button": "Link para a página completa abaixo do botão",
  "Pay without leaving your page": "Pagar sem sair da sua página",
- "Off: they go to the checkout page instead.": "Desligado: eles vão para a página de pagamento."
+ "Off: they go to the checkout page instead.": "Desligado: eles vão para a página de pagamento.",
+ "The photo went up, but your profile did not take it: {reason}": "A foto foi enviada, mas seu perfil não a aceitou: {reason}",
+ "The photo went up, but your session ended. Sign in again and try again.": "A foto foi enviada, mas sua sessão terminou. Entre de novo e tente outra vez.",
+ "The photo went up, but it was too large to save. Try a smaller one.": "A foto foi enviada, mas era grande demais para salvar. Tente uma menor.",
+ "The photo went up, but too many changes were made at once. Wait a moment and try again.": "A foto foi enviada, mas muitas alterações foram feitas de uma vez. Aguarde um momento e tente de novo.",
+ "The photo went up, but Storelib could not save it to your profile ({status}). Try again in a moment.": "A foto foi enviada, mas a Storelib não conseguiu salvá-la no seu perfil ({status}). Tente de novo em instantes.",
+ "The photo went up, but your profile did not take it ({status}). Try again.": "A foto foi enviada, mas seu perfil não a aceitou ({status}). Tente de novo.",
+ "The photo went up, but saving it did not reach Storelib. Check your connection and try again.": "A foto foi enviada, mas o salvamento não chegou à Storelib. Verifique sua conexão e tente de novo.",
+ "How product blocks show on the page": "Como os blocos de produto aparecem na página",
+ "How products show": "Como os produtos aparecem",
+ "As set": "Como definido",
+ "Rows": "Linhas",
+ "Cover picture": "Imagem de capa",
+ "The wide picture at the top of your page": "A imagem larga no topo da sua página",
+ "Remove cover": "Remover capa"
 }
 
 export default words

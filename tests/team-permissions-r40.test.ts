@@ -70,18 +70,19 @@ const BEN_ROW = "77777777-7777-4777-8777-777777777777"
 async function main() {
   console.log("\nThe keys")
   {
-    const want = ["onepage", "website", "creator_pages", "community", "products", "orders", "customers", "analytics", "marketing", "payouts_billing", "settings", "team"]
+    /* Changed on purpose (round 42 team): payouts and billing are four keys, to see and to change each (lib/team/money). */
+    const want = ["onepage", "website", "creator_pages", "community", "products", "orders", "customers", "analytics", "marketing", "payouts", "payouts_manage", "billing", "billing_manage", "settings", "team"]
     check("every key the owner asked for is a permission", same(TEAM_PERMISSIONS, want), TEAM_PERMISSIONS)
     check("anything else is not", !isTeamPermission("store") && !isTeamPermission("refunds") && !isTeamPermission("") && !isTeamPermission(null))
     check("a list is cleaned: unknown keys, repeats and closed areas dropped, in one order", normalizePermissions(["team", "orders", "refunds", "orders", 4, null]).join() === ["orders", "team"].filter((p) => OPEN_TO_TEAM.has(p as TeamPermission)).join())
     check("  and anything that is not a list is nothing", normalizePermissions("orders").length === 0 && normalizePermissions(null).length === 0)
-    check("the invite form groups every key once", same(permissionGroups().flatMap((g) => g.keys), TEAM_PERMISSIONS) && permissionGroups().length === 4)
+    check("the invite form groups every key once", same(permissionGroups().flatMap((g) => g.keys), TEAM_PERMISSIONS) && permissionGroups().length === 5) // Changed on purpose (round 42 team): a Money group
   }
 
   console.log("\nPresets and sensible defaults")
   {
     check("four presets: Full access, Content editor, Support, Custom", TEAM_PRESETS.join() === "full,content,support,custom")
-    check("payouts and billing and the team are off in every preset", (["full", "content", "support"] as const).every((p) => OFF_BY_DEFAULT.every((k) => !presetPermissions(p).includes(k))) && same(OFF_BY_DEFAULT, ["payouts_billing", "team"]))
+    check("payouts and billing and the team are off in every preset", (["full", "content", "support"] as const).every((p) => OFF_BY_DEFAULT.every((k) => !presetPermissions(p).includes(k))) && same(OFF_BY_DEFAULT, ["payouts", "payouts_manage", "billing", "billing_manage", "team"])) // Changed on purpose (round 42 team)
     check("Full access is everything open but money and the team", same(presetPermissions("full"), [...OPEN_TO_TEAM].filter((p) => !OFF_BY_DEFAULT.includes(p))))
     check("Support is orders and customers", same(presetPermissions("support"), ["orders", "customers"].filter((p) => OPEN_TO_TEAM.has(p as TeamPermission))))
     check("Custom starts from nothing", presetPermissions("custom").length === 0)
@@ -118,8 +119,9 @@ async function main() {
       ["/app/website-builder", "website"],
       ["/app/onepage", "onepage"],
       ["/creator-page", "creator_pages"],
-      ["/app/payouts", "payouts_billing"],
-      ["/app/settings/billing", "payouts_billing"],
+      /* Changed on purpose (round 42 team): seeing payouts and billing are their own permissions. */
+      ["/app/payouts", "payouts"],
+      ["/app/settings/billing", "billing"],
       /* Changed on purpose (round 41 team): Store settings is Store details alone; Integrations and its keys stay the owner's. */
       ["/app/integrations", "store"],
       ["/app/something-new", "store"],
@@ -263,7 +265,8 @@ async function main() {
     check("the helper answers 401 signed out and 403 without the permission", /export async function requireTeamPermission\(area: TeamArea\)/.test(server) && /status: 401/.test(server) && /error: NO_ACCESS \}, \{ status: 403/.test(server))
     check("  and the permission is read from the database on each request (actingStoreIn)", /\.from\("store_team_members"\)\.select\(cols\)\.eq\("creator_id", chosen\)\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server))
     check("refunds stay the owner's", /canRefund=\{found\.role === "owner"\}/.test(read("app/app/orders/sales/page.tsx")) && !/lib\/team/.test(read("app/api/stripe/refund/route.ts")))
-    check("payouts and billing pages are not taught about the team: a member reads their own account there", !/lib\/team/.test(read("app/app/payouts/page.tsx")) && !/lib\/team/.test(read("app/app/settings/billing/page.tsx")))
+    /* Changed on purpose (round 42 team): Payouts reads the store for a member with Payouts (tests/team-areas-r42.test.ts); the old Billing address only redirects. */
+    check("the payouts page is taught about the team, the old billing address only redirects", /teamPageStore\("payouts"\)/.test(read("app/app/payouts/page.tsx")) && !/lib\/team/.test(read("app/app/settings/billing/page.tsx")))
   }
 
   console.log("\nThe screens follow")
@@ -290,7 +293,7 @@ async function main() {
     check("the run-now part and the migration are the same text", sql === read("supabase/migrations/20271028_team_permissions.sql"))
     check("adds the column only when it is not there", /ADD COLUMN IF NOT EXISTS permissions text\[\]/.test(sql))
     check("everyone already on a team keeps what they could use: a Manager Orders, Staff nothing", /SET permissions = CASE WHEN role = 'manager' THEN ARRAY\['orders'\]::text\[\] ELSE '\{\}'::text\[\] END WHERE permissions IS NULL/.test(sql))
-    check("only known keys, the constraint added once", /IF NOT EXISTS \(SELECT 1 FROM pg_constraint WHERE conname = 'store_team_members_permissions_check'/.test(sql) && TEAM_PERMISSIONS.every((k) => sql.includes(`'${k}'`)))
+    check("only known keys, the constraint added once", /IF NOT EXISTS \(SELECT 1 FROM pg_constraint WHERE conname = 'store_team_members_permissions_check'/.test(sql) && TEAM_PERMISSIONS.every((k) => (sql + read("supabase/sql/run-now/333_team_money_areas.sql")).includes(`'${k}'`))) // Changed on purpose (round 42 team): part 333 knows the new keys
     check("still server only: row level security on, nothing for the browser", /ENABLE ROW LEVEL SECURITY/.test(sql) && /REVOKE ALL ON public\.store_team_members FROM PUBLIC, anon, authenticated/.test(sql))
     check("skips itself, said, before part 135", /to_regclass\('public\.store_team_members'\) IS NULL THEN RAISE NOTICE/.test(sql))
     check("the check after knows it", /as p320_team_permissions/.test(read("supabase/sql/run-now/99_check_after.sql")))

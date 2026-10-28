@@ -11418,7 +11418,21 @@ const words: Record<string, string> = {
  "View full page": "Voir la page complète",
  "Link to the full page under the button": "Lien vers la page complète sous le bouton",
  "Pay without leaving your page": "Payer sans quitter ta page",
- "Off: they go to the checkout page instead.": "Désactivé : ils vont sur la page de paiement."
+ "Off: they go to the checkout page instead.": "Désactivé : ils vont sur la page de paiement.",
+ "The photo went up, but your profile did not take it: {reason}": "La photo a été envoyée, mais votre profil ne l'a pas prise : {reason}",
+ "The photo went up, but your session ended. Sign in again and try again.": "La photo a été envoyée, mais votre session a expiré. Reconnectez-vous et réessayez.",
+ "The photo went up, but it was too large to save. Try a smaller one.": "La photo a été envoyée, mais elle était trop grande pour être enregistrée. Essayez une photo plus petite.",
+ "The photo went up, but too many changes were made at once. Wait a moment and try again.": "La photo a été envoyée, mais trop de modifications ont été faites à la fois. Attendez un instant et réessayez.",
+ "The photo went up, but Storelib could not save it to your profile ({status}). Try again in a moment.": "La photo a été envoyée, mais Storelib n'a pas pu l'enregistrer dans votre profil ({status}). Réessayez dans un instant.",
+ "The photo went up, but your profile did not take it ({status}). Try again.": "La photo a été envoyée, mais votre profil ne l'a pas prise ({status}). Réessayez.",
+ "The photo went up, but saving it did not reach Storelib. Check your connection and try again.": "La photo a été envoyée, mais l'enregistrement n'a pas atteint Storelib. Vérifiez votre connexion et réessayez.",
+ "How product blocks show on the page": "Comment les blocs produit s'affichent sur la page",
+ "How products show": "Affichage des produits",
+ "As set": "Comme réglé",
+ "Rows": "Lignes",
+ "Cover picture": "Image de couverture",
+ "The wide picture at the top of your page": "La grande image en haut de votre page",
+ "Remove cover": "Retirer la couverture"
 }
 
 export default words

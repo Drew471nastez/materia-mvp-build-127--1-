@@ -11418,7 +11418,21 @@ const words: Record<string, string> = {
  "View full page": "Vedi pagina completa",
  "Link to the full page under the button": "Link alla pagina completa sotto il pulsante",
  "Pay without leaving your page": "Paga senza lasciare la tua pagina",
- "Off: they go to the checkout page instead.": "Disattivato: vanno alla pagina di pagamento."
+ "Off: they go to the checkout page instead.": "Disattivato: vanno alla pagina di pagamento.",
+ "The photo went up, but your profile did not take it: {reason}": "La foto è stata caricata, ma il tuo profilo non l'ha presa: {reason}",
+ "The photo went up, but your session ended. Sign in again and try again.": "La foto è stata caricata, ma la sessione è scaduta. Accedi di nuovo e riprova.",
+ "The photo went up, but it was too large to save. Try a smaller one.": "La foto è stata caricata, ma era troppo grande per essere salvata. Provane una più piccola.",
+ "The photo went up, but too many changes were made at once. Wait a moment and try again.": "La foto è stata caricata, ma sono state fatte troppe modifiche insieme. Attendi un momento e riprova.",
+ "The photo went up, but Storelib could not save it to your profile ({status}). Try again in a moment.": "La foto è stata caricata, ma Storelib non è riuscito a salvarla nel tuo profilo ({status}). Riprova tra un momento.",
+ "The photo went up, but your profile did not take it ({status}). Try again.": "La foto è stata caricata, ma il tuo profilo non l'ha presa ({status}). Riprova.",
+ "The photo went up, but saving it did not reach Storelib. Check your connection and try again.": "La foto è stata caricata, ma il salvataggio non ha raggiunto Storelib. Controlla la connessione e riprova.",
+ "How product blocks show on the page": "Come appaiono i blocchi prodotto sulla pagina",
+ "How products show": "Come appaiono i prodotti",
+ "As set": "Come impostato",
+ "Rows": "Righe",
+ "Cover picture": "Immagine di copertina",
+ "The wide picture at the top of your page": "L'immagine larga in cima alla tua pagina",
+ "Remove cover": "Rimuovi copertina"
 }
 
 export default words

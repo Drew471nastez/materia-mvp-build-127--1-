@@ -154,10 +154,12 @@ try {
       return { rowLeft: +rr.left.toFixed(1), rowRight: +rr.right.toFixed(1), scrollWidth: row.scrollWidth, clientWidth: row.clientWidth, chips, pill: pill && getComputedStyle(pill).backgroundColor, fade: row.hasAttribute("data-fade-end") }
     })
     console.log("  kinds:", JSON.stringify(k))
-    expect(k && k.chips.length === 4, "All, Digital, Physical and Communities are drawn", k && k.chips.map((c) => c.label))
+    /* Changed on purpose (round 42): the type is one filter chip with a menu now (components/app/kind-picker), measured by scripts/check-analytics-filter-chips.mjs. */
+    if (!k) console.log("  note  the type is one chip now: scripts/check-analytics-filter-chips.mjs measures it")
+    else expect(k && k.chips.length === 4, "All, Digital, Physical and Communities are drawn", k && k.chips.map((c) => c.label))
     /* Changed on purpose (round 41, "must look like the filter chips"): the kinds are one chip in the filters' row, which scrolls on a phone; no label is cut inside its own box, and the chip itself never scrolls. */
-    expect(k && k.chips.every((c) => !c.cut) && k.scrollWidth <= k.clientWidth + 1, "no kind label is cut inside the chip, and the chip itself needs no scroll", k && { scrollWidth: k.scrollWidth, clientWidth: k.clientWidth })
-    expect(k && k.pill === "rgb(26, 26, 46)", "the chosen chip is the dark pill", k && k.pill)
+    if (k) expect(k && k.chips.every((c) => !c.cut) && k.scrollWidth <= k.clientWidth + 1, "no kind label is cut inside the chip, and the chip itself needs no scroll", k && { scrollWidth: k.scrollWidth, clientWidth: k.clientWidth })
+    if (k) expect(k && k.pill === "rgb(26, 26, 46)", "the chosen chip is the dark pill", k && k.pill)
     /* A tap moves the pill to the chip tapped. */
     if (k) {
       await p.evaluate(() => { const b = [...document.querySelectorAll("[data-segmented-pills='filter'] [role=tab]")].find((b) => b.textContent.trim() === "Communities"); b.scrollIntoView({ inline: "nearest", block: "nearest" }); b.click() })

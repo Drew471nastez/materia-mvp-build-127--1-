@@ -142,10 +142,15 @@ async function measureEmbeds(p, label) {
       return { id: f.dataset.r42, src: f.src.slice(0, 70), w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10, blockW: Math.round(br.width * 10) / 10, scrolling: f.getAttribute("scrolling"), radius: getComputedStyle(f.parentElement).borderTopLeftRadius }
     }),
   )
-  const frames = p.frames().slice(1)
   for (const o of outer) {
-    const fr = frames.find((f) => f.url().startsWith(o.src.slice(0, 60)))
-    const inner = fr ? await fr.evaluate(() => { const d = document.documentElement; return { sw: d.scrollWidth, cw: d.clientWidth, sh: d.scrollHeight, ch: d.clientHeight } }).catch(() => null) : null
+    /* A frame scrolled in last may still be loading: ask again for a few seconds before calling it missing. */
+    let fr = null
+    for (let i = 0; i < 10 && !fr; i++) {
+      fr = p.frames().slice(1).find((f) => f.url().startsWith(o.src.slice(0, 60))) || null
+      if (!fr) await sleep(300)
+    }
+    if (!fr && process.env.DEBUG) console.log("    frames:", p.frames().map((f) => f.url().slice(0, 80)), "wanted", o.src)
+    const inner = fr ? await fr.evaluate(() => { const d = document.documentElement; return { sw: d.scrollWidth, cw: d.clientWidth, sh: d.scrollHeight, ch: d.clientHeight } }).catch((e) => (process.env.DEBUG && console.log("    eval:", String(e).slice(0, 200)), null)) : null
     const name = o.src.replace(/^https:\/\//, "").split(/[/?]/)[0]
     const noScroll = !!inner && ((inner.sw <= inner.cw && inner.sh <= inner.ch) || (o.scrolling === "no" && inner.sh - inner.ch <= 1 && inner.sw <= inner.cw))
     const inherent = /docs\.google\.com/.test(o.src)

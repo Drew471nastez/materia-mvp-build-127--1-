@@ -713,6 +713,8 @@ const SUITES = [
   "tests/onepage-theme-apply.test.ts",
   /* Round 40: five more themes, block layouts, hover colours, the themed product sheet and checkout window, the wallpaper library and the gradient direction. */
   "tests/onepage-themes-r40.test.ts",
+  /* Round 42: two more themes (a cover page, a price list), products shown the theme's way, one-row pill rows with arrows, + Add's turn, the steady tab bar, the photo save's reasons, the OnePage SQL in one file. */
+  "tests/onepage-themes-r42.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",
@@ -982,6 +984,8 @@ const SUITES = [
   /* Round 40, second pass: OnePage and Community open to the team (lib/team/onepage, lib/communities/server/team.ts), uploads in the store's folder, SQL part 319; website, creator page, products and settings still closed. */
   "tests/team-areas-r40.test.ts",
   "tests/team-areas-r41.test.ts",
+  /* Round 42: the website, the creator page, payouts and billing open to the team (lib/team/website, creator-page, money), money as see and change, SQL part 333. */
+  "tests/team-areas-r42.test.ts",
   "tests/integrations-y2.test.ts",
   /* Round X4: taxes end to end, part refunds and currencies in Tax collected, shipped and membership orders keep their tax, Who does what in a Modal (SQL part 243; scripts/check-tax-modal.mjs measures it) */
   "tests/taxes-x.test.ts",

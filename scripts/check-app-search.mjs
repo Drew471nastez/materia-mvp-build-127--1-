@@ -97,6 +97,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setViewport(vp)
     await p.goto(`file://${join(stubs, "index.html")}`)
+    /* Round 42: what was opened is kept in this browser (Recent); each width starts with none. */
+    await p.evaluate(() => { try { localStorage.clear() } catch {} })
     await sleep(300)
     if (errors.length) fail(`The page threw: ${errors[0]}`)
 
@@ -184,6 +186,9 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
     await sleep(250)
     const reopened = await p.evaluate(() => ({ open: document.querySelector("[data-app-search]").hasAttribute("data-open"), value: document.querySelector("[data-app-search] input").value }))
     expect(reopened.open && reopened.value === "", phone ? "opens again, empty" : "Ctrl and K opens it again, empty", reopened)
+    /* Round 42: the customer opened a moment ago is offered first, under Recent, above Go to. */
+    const recentRows = await p.evaluate(() => ({ heads: [...document.querySelectorAll("#app-search-list [role=group] > p")].map((x) => x.textContent.trim()), first: document.querySelector("#app-search-list [role=option] p")?.textContent.trim() }))
+    expect(recentRows.heads.join("|") === "Recent|Go to" && recentRows.first === "Jane Doe", "what was opened last is offered first, under Recent", recentRows)
     await p.type("[data-app-search] input", "#1043")
     await p.keyboard.press("Enter")
     await sleep(450)

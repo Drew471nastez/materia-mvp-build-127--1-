@@ -11418,7 +11418,21 @@ const words: Record<string, string> = {
  "View full page": "Ver página completa",
  "Link to the full page under the button": "Enlace a la página completa bajo el botón",
  "Pay without leaving your page": "Pagar sin salir de tu página",
- "Off: they go to the checkout page instead.": "Desactivado: van a la página de pago."
+ "Off: they go to the checkout page instead.": "Desactivado: van a la página de pago.",
+ "The photo went up, but your profile did not take it: {reason}": "La foto se subió, pero tu perfil no la tomó: {reason}",
+ "The photo went up, but your session ended. Sign in again and try again.": "La foto se subió, pero tu sesión terminó. Inicia sesión de nuevo y vuelve a intentarlo.",
+ "The photo went up, but it was too large to save. Try a smaller one.": "La foto se subió, pero era demasiado grande para guardarla. Prueba con una más pequeña.",
+ "The photo went up, but too many changes were made at once. Wait a moment and try again.": "La foto se subió, pero se hicieron demasiados cambios a la vez. Espera un momento y vuelve a intentarlo.",
+ "The photo went up, but Storelib could not save it to your profile ({status}). Try again in a moment.": "La foto se subió, pero Storelib no pudo guardarla en tu perfil ({status}). Vuelve a intentarlo en un momento.",
+ "The photo went up, but your profile did not take it ({status}). Try again.": "La foto se subió, pero tu perfil no la tomó ({status}). Vuelve a intentarlo.",
+ "The photo went up, but saving it did not reach Storelib. Check your connection and try again.": "La foto se subió, pero el guardado no llegó a Storelib. Revisa tu conexión y vuelve a intentarlo.",
+ "How product blocks show on the page": "Cómo se muestran los bloques de producto en la página",
+ "How products show": "Cómo se muestran los productos",
+ "As set": "Como están",
+ "Rows": "Filas",
+ "Cover picture": "Imagen de portada",
+ "The wide picture at the top of your page": "La imagen ancha en la parte superior de tu página",
+ "Remove cover": "Quitar portada"
 }
 
 export default words

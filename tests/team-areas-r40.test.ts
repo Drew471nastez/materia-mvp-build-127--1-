@@ -58,18 +58,22 @@ async function main() {
   {
     check("OnePage and Community are open to the team now", OPEN_TO_TEAM.has("onepage") && OPEN_TO_TEAM.has("community"))
     /* Changed on purpose (round 41 team): Products and Store settings opened (tests/team-areas-r41.test.ts); the website and the creator page stay closed. */
-    const closed: TeamPermission[] = ["website", "creator_pages"]
-    check("the website, the creator page, products and store settings are still closed (browser writes under owner-only row level security)", closed.every((p) => !OPEN_TO_TEAM.has(p)) && OPEN_TO_TEAM.has("products") && OPEN_TO_TEAM.has("settings"))
+    /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing are open (tests/team-areas-r42.test.ts). */
+    const opened: TeamPermission[] = ["website", "creator_pages", "products", "settings"]
+    check("the website, the creator page, products and store settings are open", opened.every((p) => OPEN_TO_TEAM.has(p)))
     check("  and payouts and billing", !OPEN_TO_TEAM.has("payouts_billing"))
-    check("an invite can now give OnePage and Community, and they are kept", same(normalizePermissions(["onepage", "community", "website"]), ["onepage", "community"]))
+    /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing are open (tests/team-areas-r42.test.ts). */
+    check("an invite can now give OnePage and Community, and they are kept", same(normalizePermissions(["onepage", "community", "website"]), ["website", "onepage", "community"]))
     /* Changed on purpose (round 41 team): Products is open, so Content editor gives it too. */
-    check("Content editor gives what of it is open: OnePage and Community", same(presetPermissions("content"), ["onepage", "products", "community"]))
+    /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing are open (tests/team-areas-r42.test.ts). */
+    check("Content editor gives what of it is open: OnePage and Community", same(presetPermissions("content"), ["website", "onepage", "creator_pages", "products", "community"]))
     check("Full access includes them, never money or the team", presetPermissions("full").includes("onepage") && presetPermissions("full").includes("community") && !presetPermissions("full").includes("payouts_billing") && !presetPermissions("full").includes("team"))
     check("the sidebar shows OnePage and Community to a member who has them", memberSees(["onepage"], "/app/onepage") && memberSees(["community"], "/app/community") && memberSees(["community"], "/app/community/my-club/feed") && !memberSees(["onepage"], "/app/community"))
     check("a member with only Community lands on it", homeFor(["community"]) === "/app/community" && homeFor(["onepage"]) === "/app/onepage")
     const picker = read("components/app/settings/team-permissions.tsx")
     check("the picker's \"Not open to the team yet\" follows the same set, so it is gone for these two", /!open\.includes\(p\) \? tt\("Not open to the team yet"\)/.test(picker))
-    check("every permission is still a key the SQL constraint knows", TEAM_PERMISSIONS.every((k) => read("supabase/sql/run-now/320_team_permissions.sql").includes(`'${k}'`)))
+    /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing are open (tests/team-areas-r42.test.ts). */
+    check("every permission is still a key the SQL constraint knows", TEAM_PERMISSIONS.every((k) => read("supabase/sql/run-now/333_team_money_areas.sql").includes(`'${k}'`)))
   }
 
   console.log("\nOnePage: whose page a route edits (lib/team/onepage)")

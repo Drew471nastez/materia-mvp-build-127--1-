@@ -11418,7 +11418,21 @@ const words: Record<string, string> = {
  "View full page": "Zobacz całą stronę",
  "Link to the full page under the button": "Link do całej strony pod przyciskiem",
  "Pay without leaving your page": "Płatność bez opuszczania strony",
- "Off: they go to the checkout page instead.": "Wyłączone: przechodzą do strony płatności."
+ "Off: they go to the checkout page instead.": "Wyłączone: przechodzą do strony płatności.",
+ "The photo went up, but your profile did not take it: {reason}": "Zdjęcie zostało przesłane, ale profil go nie przyjął: {reason}",
+ "The photo went up, but your session ended. Sign in again and try again.": "Zdjęcie zostało przesłane, ale sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.",
+ "The photo went up, but it was too large to save. Try a smaller one.": "Zdjęcie zostało przesłane, ale było za duże, by je zapisać. Spróbuj mniejszego.",
+ "The photo went up, but too many changes were made at once. Wait a moment and try again.": "Zdjęcie zostało przesłane, ale wprowadzono naraz zbyt wiele zmian. Poczekaj chwilę i spróbuj ponownie.",
+ "The photo went up, but Storelib could not save it to your profile ({status}). Try again in a moment.": "Zdjęcie zostało przesłane, ale Storelib nie mógł zapisać go w profilu ({status}). Spróbuj ponownie za chwilę.",
+ "The photo went up, but your profile did not take it ({status}). Try again.": "Zdjęcie zostało przesłane, ale profil go nie przyjął ({status}). Spróbuj ponownie.",
+ "The photo went up, but saving it did not reach Storelib. Check your connection and try again.": "Zdjęcie zostało przesłane, ale zapis nie dotarł do Storelib. Sprawdź połączenie i spróbuj ponownie.",
+ "How product blocks show on the page": "Jak bloki produktów wyglądają na stronie",
+ "How products show": "Jak wyglądają produkty",
+ "As set": "Jak ustawiono",
+ "Rows": "Wiersze",
+ "Cover picture": "Zdjęcie w tle",
+ "The wide picture at the top of your page": "Szerokie zdjęcie u góry strony",
+ "Remove cover": "Usuń zdjęcie w tle"
 }
 
 export default words

@@ -73,7 +73,8 @@ const page = { id: "p", theme: { template_id: "swiss", block_layout: "grid", hea
 const after = lookFromTemplate(page, { id: "air", category: "light", theme_config: { background_color: "#eef0f3" } }).theme as unknown as Record<string, unknown>
 check("from Swiss to a theme that names none, the page is a list, centred, regular, the old Fill", after.block_layout === null && after.header_align === null && after.button_size === null && after.button_hover_fill === null)
 const merged = withR40Themes([{ id: "a", category: "light" }, { id: "b", category: "gradient" }, { id: "c", category: "dark" }, { id: "d", category: "image" }])
-check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,b,lagoon,c,ember,d,atlas")
+/* Changed on purpose (round 42): Folio (light) and Ledger (dark) join after round 40's, each in its kind. */
+check("each lands in its own kind, after that kind's old ones", merged.map((t) => t.id).join(",") === "a,gallery,swiss,folio,b,lagoon,c,ember,ledger,d,atlas")
 
 /* ─── Block layouts ───────────────────────────────────────────────────── */
 console.log("\nBlocks can be laid out four ways")

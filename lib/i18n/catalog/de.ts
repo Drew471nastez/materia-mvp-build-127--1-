@@ -11418,7 +11418,21 @@ const words: Record<string, string> = {
  "View full page": "Ganze Seite ansehen",
  "Link to the full page under the button": "Link zur ganzen Seite unter der Schaltfläche",
  "Pay without leaving your page": "Bezahlen, ohne deine Seite zu verlassen",
- "Off: they go to the checkout page instead.": "Aus: Sie gehen stattdessen zur Kasse."
+ "Off: they go to the checkout page instead.": "Aus: Sie gehen stattdessen zur Kasse.",
+ "The photo went up, but your profile did not take it: {reason}": "Das Foto wurde hochgeladen, aber dein Profil hat es nicht übernommen: {reason}",
+ "The photo went up, but your session ended. Sign in again and try again.": "Das Foto wurde hochgeladen, aber deine Sitzung ist abgelaufen. Melde dich erneut an und versuche es noch einmal.",
+ "The photo went up, but it was too large to save. Try a smaller one.": "Das Foto wurde hochgeladen, war aber zu groß zum Speichern. Versuche ein kleineres.",
+ "The photo went up, but too many changes were made at once. Wait a moment and try again.": "Das Foto wurde hochgeladen, aber es gab zu viele Änderungen auf einmal. Warte kurz und versuche es erneut.",
+ "The photo went up, but Storelib could not save it to your profile ({status}). Try again in a moment.": "Das Foto wurde hochgeladen, aber Storelib konnte es nicht in deinem Profil speichern ({status}). Versuche es gleich noch einmal.",
+ "The photo went up, but your profile did not take it ({status}). Try again.": "Das Foto wurde hochgeladen, aber dein Profil hat es nicht übernommen ({status}). Versuche es erneut.",
+ "The photo went up, but saving it did not reach Storelib. Check your connection and try again.": "Das Foto wurde hochgeladen, aber das Speichern hat Storelib nicht erreicht. Prüfe deine Verbindung und versuche es erneut.",
+ "How product blocks show on the page": "Wie Produktblöcke auf der Seite erscheinen",
+ "How products show": "Wie Produkte erscheinen",
+ "As set": "Wie eingestellt",
+ "Rows": "Zeilen",
+ "Cover picture": "Titelbild",
+ "The wide picture at the top of your page": "Das breite Bild oben auf deiner Seite",
+ "Remove cover": "Titelbild entfernen"
 }
 
 export default words
