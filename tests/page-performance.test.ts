@@ -1917,8 +1917,9 @@ check(
       if (diluted !== 5) missing.push(`unreviewed products are dragging the rating down — got ${diluted}`)
     }
 
-    if (!/\.eq\("following_id", profile\.id\)/.test(page))
-      missing.push("followers are not counted against the profile the follow points at")
+    /* Changed on purpose (r40): a creator page has no Follow and reads nothing of the follow graph, so there is no follow lookup here to check. */
+    if (/\.from\("follows"\)/.test(page))
+      missing.push("the creator page reads the follow graph again, though it draws no Follow")
     if (!/head: true/.test(page)) missing.push("the follower count is fetching rows instead of a count")
 
     // The API must never take the follower from the body.

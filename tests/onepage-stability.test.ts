@@ -213,18 +213,16 @@ function main() {
 
   console.log("\nPressing away closes the subscribe panel")
 
-  check("it listens while it is open", /if \(!isOpen\) return\s*\n\s*const away = \(e: PointerEvent\)/.test(live))
-  check(
-    "on pointerdown, and outside its own root",
-    /document\.addEventListener\("pointerdown", away, true\)/.test(live)
-      && /!rootRef\.current\.contains\(el\)\) setIsOpen\(false\)/.test(live),
-    "the bell is inside that root, so its own toggle is not fighting a close on the same press",
-  )
-  check("Escape closes it too", /if \(e\.key === "Escape"\) setIsOpen\(false\)/.test(live))
-  check(
-    "and it still eases out rather than vanishing",
-    /"absolute top-0 right-0 overflow-hidden transition-all duration-300 ease-out rounded-2xl"/.test(live),
-  )
+  /*
+    Changed on purpose (r40): the panel is a sheet now (components/onepage/subscribe-sheet over
+    components/onepage/onepage-dialog). Its scrim, Escape and the drag close it, and it eases out;
+    the bell no longer listens for a press elsewhere, which would have counted a press inside the sheet.
+  */
+  const dialog = read("components/onepage/onepage-dialog.tsx")
+  check("it is the shared dialog, opened by the bell", /<OnePageSubscribeSheet\s+open=\{isOpen\}\s+onClose=\{\(\) => setIsOpen\(false\)\}/.test(live))
+  check("a press on the scrim closes it", /onClick=\{onClose\}\s+className="absolute inset-0 bg-black\/45"/.test(dialog))
+  check("Escape closes it too", /if \(e\.key === "Escape"\) closeRef\.current\(\)/.test(dialog))
+  check("and it still eases out rather than vanishing", /window\.setTimeout\(\(\) => setMounted\(false\), OUT_MS\)/.test(dialog))
 
   console.log("\nA slide is the right width on its first frame")
 
