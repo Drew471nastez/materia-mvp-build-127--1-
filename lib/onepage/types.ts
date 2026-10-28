@@ -45,11 +45,17 @@ export interface OnePageTheme {
   button_shadow?: "none" | "subtle" | "strong" | "hard"
   button_shadow_color?: string | null
   /* "default" (or nothing) is Lift. */
-  button_hover_animation?: "default" | "none" | "lift" | "fade" | "zoom" | "glow" | "fill" | "underline" | null
+  button_hover_animation?: "default" | "none" | "lift" | "fade" | "zoom" | "glow" | "fill" | "pop" | "underline" | null
+  /* Round 40: the colours Fill and Pop turn a button to. Missing is the old Fill (lib/onepage/button-style). */
+  button_hover_fill?: string | null
+  button_hover_text?: string | null
   /* Missing means what every button had before: regular, centred, icon on the left. */
   button_size?: "compact" | "regular" | "large"
   button_text_align?: "center" | "left"
   button_icon_position?: "left" | "right"
+  /* Round 40 (lib/onepage/theme-layout): how the blocks are laid out, and the classic header's alignment. Missing is a list, centred. */
+  block_layout?: "list" | "grid" | "cards" | "compact" | null
+  header_align?: "center" | "left" | null
   font_family: string
   // Title customization
   title_font?: string | null

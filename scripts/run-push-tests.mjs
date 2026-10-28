@@ -674,6 +674,8 @@ const SUITES = [
   "tests/onepage-editor-shell.test.ts",
   "tests/onepage-leave.test.ts",
   "tests/onepage-theme-apply.test.ts",
+  /* Round 40: five more themes, block layouts, hover colours, the themed product sheet and checkout window, the wallpaper library and the gradient direction. */
+  "tests/onepage-themes-r40.test.ts",
   /* Round 10 buttons: every saved button draws as before, the hover system, one drawing for page, preview and Design tab; a social link typed any way saved as the right address. scripts/check-onepage-buttons.mjs measures them. */
   "tests/onepage-buttons.test.ts",
   "tests/onepage-social-input.test.ts",

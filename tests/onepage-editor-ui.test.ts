@@ -316,7 +316,13 @@ function main() {
     check("Settings' section chips are Storelib's pills", /<PillTabs\s+dataRow="settings-pills"/.test(read("components/onepage/tabs/settings-tab.tsx")) && /cn\(PILL_FILL, on \? "opacity-100" : "opacity-0"\)/.test(read("components/onepage/pill-tabs.tsx")) && /pressPill\(e\.currentTarget\)/.test(read("components/onepage/pill-tabs.tsx")))
     check("a link's stats are asked for once its sheet has arrived on a phone, as the notifications are", /sheet=\{\{ onOpened: \(\) => setStatsSheetArrived\(true\) \}\}/.test(linksSrc) && /!isMobileStatsViewport \|\| statsSheetArrived/.test(linksSrc))
     check("the day and time sheet sits on the keyboard", /<BottomSheet isOpen=\{open\} onClose=\{\(\) => setOpen\(false\)\} title=\{label\} aboveKeyboard>/.test(read("components/onepage/date-time-field.tsx")))
-    check("the dial turns with pointer events and keeps its rotation on a touch screen", /function DirectionDial[\s\S]{0,2400}setPointerCapture[\s\S]{0,2400}data-keep-transform=""/.test(design))
+    /*
+      Changed on purpose (round 40): "the gradient adjuster (the clock ring thing) is very cheap UI". The dial is gone;
+      the direction is eight painted swatches and the editor's own slider (components/onepage/themes/gradient-direction),
+      which keeps its finger from the sheet itself (editor-kit RangeRow). tests/onepage-themes-r40.test.ts pins the rest.
+    */
+    const direction = read("components/onepage/themes/gradient-direction.tsx")
+    check("the gradient's direction is swatches and a slider, not a dial", !/function DirectionDial/.test(design) && /<GradientDirection\b/.test(design) && /GRADIENT_DIRECTIONS\.map/.test(direction) && /<RangeRow\b/.test(direction))
   }
 
   section("The creator's picture is a circle")

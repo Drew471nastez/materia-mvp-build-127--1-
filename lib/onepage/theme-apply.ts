@@ -62,6 +62,12 @@ export const LOOK_RESET: Record<string, unknown> = {
   laser_glow_intensity: null,
   social_icon_style: null,
   social_icon_color: null,
+  /* Round 40: what themes now set as well (lib/onepage/theme-layout). Null is a list, centred, regular buttons, the old Fill. */
+  block_layout: null,
+  header_align: null,
+  button_size: null,
+  button_hover_fill: null,
+  button_hover_text: null,
 }
 
 /** The colours a block can keep of its own, by block type. */

@@ -31,7 +31,7 @@ export type ButtonShape = "square" | "rounded" | "pill"
 export type ButtonSize = "compact" | "regular" | "large"
 export type ButtonAlign = "center" | "left"
 export type ButtonIconSide = "left" | "right"
-export type ButtonHover = "none" | "lift" | "fade" | "zoom" | "glow" | "fill" | "underline"
+export type ButtonHover = "none" | "lift" | "fade" | "zoom" | "glow" | "fill" | "pop" | "underline"
 
 /** The fields of a theme this reads. Everything is optional: a page saved years ago has half of them. */
 export interface ButtonThemeLike {
@@ -47,6 +47,9 @@ export interface ButtonThemeLike {
   button_size?: string | null
   button_text_align?: string | null
   button_icon_position?: string | null
+  /* Round 40: the colours Fill and Pop turn a button to. Missing is what Fill always did. */
+  button_hover_fill?: string | null
+  button_hover_text?: string | null
 }
 
 /** A pill is drawn with this radius; anything at or past PILL_FROM reads as a pill. */
@@ -104,6 +107,7 @@ export function buttonHover(theme: ButtonThemeLike): ButtonHover {
     case "zoom":
     case "glow":
     case "fill":
+    case "pop":
     case "underline":
     case "lift":
       return h
@@ -171,6 +175,14 @@ function luminance(color: string): number | null {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255
 }
 
+/** A hover colour as saved: #rrggbb (or #rgb), else nothing, so a hand edited value cannot break the page. */
+function validColour(v: unknown): string | null {
+  if (typeof v !== "string") return null
+  const s = v.trim()
+  if (/^#[0-9a-f]{6}$/i.test(s)) return s
+  return /^#[0-9a-f]{3}$/i.test(s) ? "#" + s.slice(1).split("").map((c) => c + c).join("") : null
+}
+
 /**
  * What the hover layers need, as CSS variables on the button. The layers
  * themselves are in app/globals.css (`.op-btn`), so the page and the editor's
@@ -186,9 +198,17 @@ export function buttonHoverVars(theme: ButtonThemeLike): CSSProperties {
     shadow === "hard"
       ? `6px 6px 0px ${hexToRgba(shadowColor, 0.9)}`
       : `0 10px 24px -8px ${hexToRgba(shadowColor, 0.28)}, 0 3px 8px -3px ${hexToRgba(shadowColor, 0.16)}`
-  /* Fill: a solid button turns to its text colour, anything else fills with the button colour. */
-  const fillWith = fill === "filled" ? (theme.button_text_color as string) : accent
-  const fillText = fill === "filled" ? accent : (luminance(accent) ?? 0) > 0.6 ? "#111113" : "#ffffff"
+  /*
+    Fill (and Pop, which is Fill with Lift's rise): a solid button turns to
+    its text colour, anything else fills with the button colour, unless the
+    page chose its own hover colours (round 40), which win. A chosen fill
+    with no chosen words gets words that read on it.
+  */
+  const ownFill = validColour(theme.button_hover_fill)
+  const ownText = validColour(theme.button_hover_text)
+  const inkOn = (c: string) => ((luminance(c) ?? 0) > 0.6 ? "#111113" : "#ffffff")
+  const fillWith = ownFill ?? (fill === "filled" ? (theme.button_text_color as string) : accent)
+  const fillText = ownText ?? (ownFill ? inkOn(ownFill) : fill === "filled" ? accent : inkOn(accent))
   return {
     ["--op-bw" as string]: `${width}px`,
     ["--op-accent" as string]: accent,
