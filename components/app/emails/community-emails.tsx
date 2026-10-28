@@ -46,21 +46,21 @@ export interface CommunityRef {
   slug: string
 }
 
-type Words = { subject: string; heading: string; intro: string; button: string }
+type Words = { subject: string; heading: string; intro: string; button: string; preheader: string; footer: string }
 type WordField = keyof Words
 type Broadcast = { id: string; subject: string; status: "sending" | "sent" | "failed"; sentCount: number; createdAt: string; sentAt: string | null; authorName: string | null }
 type Loaded = { emails: { ready: boolean; audience: number; nextAt: string | null; recent: Broadcast[] }; words: { ready: boolean; words: Partial<Record<string, Partial<Words>>> } }
 
-const EMPTY: Words = { subject: "", heading: "", intro: "", button: "" }
+const EMPTY: Words = { subject: "", heading: "", intro: "", button: "", preheader: "", footer: "" }
 const LIMITS = COMMUNITY_WORD_LIMITS
-const WORD_FIELDS: WordField[] = ["subject", "heading", "intro", "button"]
+const WORD_FIELDS: WordField[] = ["subject", "preheader", "heading", "intro", "button", "footer"]
 const SUBJECT_MAX = 120
 const MESSAGE_MAX = 4000
 const PHONE_SAFE = "text-[16px] sm:text-[14px]"
 
 /** Saved words with every field there (a row from before the button reads as no button). */
-const full = (w: Partial<Words> | undefined): Words => ({ subject: w?.subject ?? "", heading: w?.heading ?? "", intro: w?.intro ?? "", button: w?.button ?? "" })
-const edited = (w: Partial<Words> | undefined) => !!w && (!!w.subject || !!w.heading || !!w.intro || !!w.button)
+const full = (w: Partial<Words> | undefined): Words => ({ subject: w?.subject ?? "", heading: w?.heading ?? "", intro: w?.intro ?? "", button: w?.button ?? "", preheader: w?.preheader ?? "", footer: w?.footer ?? "" })
+const edited = (w: Partial<Words> | undefined) => !!w && (!!w.subject || !!w.heading || !!w.intro || !!w.button || !!w.preheader || !!w.footer)
 
 /* What each community's list read, kept for the page's life: switching families or tabs and back draws it at once, read again behind it (round 28). */
 const loadedKept = new Map<string, Loaded>()
@@ -242,6 +242,9 @@ function CommunityEmailSheet({ community, email: asked, saved, onSaved, onClose 
         {/* Emptied, the standard words go out: they show here as the hint. */}
         <TextInput id="community-email-subject" value={draft.subject} maxLength={LIMITS.subject} onChange={set("subject")} onFocus={remember("subject")} onSelect={remember("subject")} placeholder={hints.subject} autoComplete="off" className={PHONE_SAFE} data-email-field="subject" />
       </Field>
+      <Field label={tt("Preview text")} htmlFor="community-email-preheader" hint={tt("Shown after the subject in most inboxes. Empty, the email's first line is shown.")}>
+        <TextInput id="community-email-preheader" value={draft.preheader} maxLength={LIMITS.preheader} onChange={set("preheader")} onFocus={remember("preheader")} onSelect={remember("preheader")} placeholder={tt("The email's first line")} autoComplete="off" className={PHONE_SAFE} data-email-field="preheader" />
+      </Field>
       <Field label={tt("Heading")} htmlFor="community-email-heading">
         <TextInput id="community-email-heading" value={draft.heading} maxLength={LIMITS.heading} onChange={set("heading")} onFocus={remember("heading")} onSelect={remember("heading")} placeholder={hints.heading} autoComplete="off" className={PHONE_SAFE} data-email-field="heading" />
       </Field>
@@ -250,6 +253,9 @@ function CommunityEmailSheet({ community, email: asked, saved, onSaved, onClose 
       </Field>
       <Field label={tt("Button")} htmlFor="community-email-button">
         <TextInput id="community-email-button" value={draft.button} maxLength={LIMITS.button} onChange={set("button")} onFocus={remember("button")} onSelect={remember("button")} placeholder={hints.button} autoComplete="off" className={PHONE_SAFE} data-email-field="button" />
+      </Field>
+      <Field label={tt("Footer note")} htmlFor="community-email-footer" hint={tt("A line of your own at the foot of the email. The links and the note on why it came stay.")}>
+        <textarea id="community-email-footer" value={draft.footer} maxLength={LIMITS.footer} rows={2} onChange={set("footer")} onFocus={remember("footer")} onSelect={remember("footer")} placeholder={tt("No footer note")} className={cn(FIELD, PHONE_SAFE, "h-auto min-h-[64px] resize-y py-2.5 leading-[21px] sm:h-auto")} data-email-field="footer" />
       </Field>
       <div>
         <p className="text-[12.5px] text-[#6b7280]">{tt("Values fill in for each member. Tap one to add it where you're typing.")}</p>

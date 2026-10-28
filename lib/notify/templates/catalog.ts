@@ -2290,7 +2290,8 @@ function withOwnWords(m: Message, d: Data, fill: (text: string) => string): Mess
     subject: subject ? cleanText(subject, 90) : m.subject,
     heading: heading || m.heading,
     preview: preheader ? preheader.slice(0, 150) : intro.length ? intro[0].slice(0, 120) : m.preview,
-    ...(footer ? { note: footer } : {}),
+    /* The owner's line first, then the template's own note (why it came, how to stop), which always stays. */
+    ...(footer ? { note: m.note ? `${footer} ${m.note}` : footer } : {}),
     paragraphs: intro.length ? (body ? [...intro, ...m.paragraphs.slice(1)] : [...intro, ...m.paragraphs]) : drop ? m.paragraphs.slice(1) : m.paragraphs,
     action: m.action && button ? { ...m.action, label: button } : m.action,
   }

@@ -7,6 +7,7 @@ import "server-only"
  * a database without the column included, and every email goes out with its
  * default words, never not at all.
  */
+import { COMMUNITY_EXTRAS_KEY } from "./community-words"
 import { isCopyLanguage, readCopy, readSavedCopy, withWords, type CustomerEmailsCopy } from "./customer-custom"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,7 +49,9 @@ export async function saveCustomerEmailCopy(db: Db, creatorId: string, id: unkno
   const merged = withWords(next[id], read.copy, typeof lang === "string" ? lang : null)
   if (merged) next[id] = merged
   else delete next[id]
-  const { error: saveError } = await db.from("store_settings").upsert({ creator_id: creatorId, customer_emails: next, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
+  /* A community's preview text and footer note live beside these words (lib/emails/community-words.ts COMMUNITY_EXTRAS_KEY): kept as they are. */
+  const extras = data?.customer_emails && typeof data.customer_emails === "object" ? (data.customer_emails as Record<string, unknown>)[COMMUNITY_EXTRAS_KEY] : undefined
+  const { error: saveError } = await db.from("store_settings").upsert({ creator_id: creatorId, customer_emails: extras ? { ...next, [COMMUNITY_EXTRAS_KEY]: extras } : next, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
   if (saveError) return { ok: false, error: MISSING.has(saveError.code) ? EMAILS_NEED_PART : "That could not be saved. Try again in a moment.", status: MISSING.has(saveError.code) ? 409 : 500 }
   return { ok: true, copy: next }
 }

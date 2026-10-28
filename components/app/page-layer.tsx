@@ -528,7 +528,7 @@ function pageStill(): HTMLElement | null {
   that page, which is the page it is a copy of, scrolled where the copy was.
   Anywhere else, or with no copy, the drop waits for the commit as before.
 */
-type PageCopy = { parts: Array<{ copy: HTMLElement; rect: DOMRect; scrolls: Array<[number, number]> }>; path: string }
+type PageCopy = { parts: Array<{ copy: HTMLElement; rect: DOMRect; scrolls: Array<[number, number]> }>; path: string; box?: HTMLElement | null }
 let pageCopy: PageCopy | null = null
 /** The scroll of every box a copy starts at the top of, in the order STILL_SCROLLERS finds them. */
 function scrollsOf(el: HTMLElement): Array<[number, number]> {
@@ -558,6 +558,21 @@ function keepPageCopy() {
   }
   pageCopy = { path: window.location.pathname, parts: parts.map((el) => ({ copy: unpressed(el), rect: el.getBoundingClientRect(), scrolls: scrollsOf(el) })) }
 }
+/*
+  LAID OUT AHEAD. Putting the copy in the document and laying it out is a
+  list's worth of style and layout, and in Back's own frame it held the drop
+  for a frame or two (293ms from the press at a quarter of the CPU). So once
+  the layer has risen and the page is quiet, the copy is laid out under the
+  layer, hidden, and Back only uncovers it. It goes when the layer does.
+*/
+const COPY_AHEAD_MS = 400
+function layCopyAhead() {
+  const kept = pageCopy
+  if (!kept || kept.box?.isConnected) return
+  kept.box = showPageCopy(kept)
+  kept.box.style.visibility = "hidden"
+}
+
 /** The kept copy laid out under a dropping layer, where its page stood, scrolled where it was. */
 function showPageCopy(kept: PageCopy): HTMLElement {
   const box = stillBox(false)
@@ -841,7 +856,9 @@ function undoEarly(want: Drop) {
 */
 function dropEarly(want: Drop, layer: HTMLElement, kept: PageCopy): Animation {
   const html = document.documentElement
-  want.under = showPageCopy(kept)
+  if (kept.box?.isConnected) kept.box.style.visibility = ""
+  else kept.box = showPageCopy(kept)
+  want.under = kept.box
   dropping = true
   html.dataset.layerMotion = "leave"
   html.dataset.layerHand = ""
@@ -1377,7 +1394,20 @@ export function PageLayer({
         if (html.dataset.layerMotion === "stay") delete html.dataset.layerMotion
       })
     }
+    /* The page it was opened from, laid out ahead under it, for a way back that starts at once (THE PAGE A LAYER WAS OPENED FROM). */
+    let ahead = 0
+    const cancelAhead = asked ? afterLayerMove(() => { ahead = window.setTimeout(layCopyAhead, COPY_AHEAD_MS) }) : null
     return () => {
+      cancelAhead?.()
+      window.clearTimeout(ahead)
+      /* Gone without a way back of ours: the copy laid ahead goes, and the copy itself unless another layer that moves stands in for this one in the same commit (a new product's first save). */
+      if (asked && !dropWant) {
+        pageCopy?.box?.remove()
+        if (pageCopy) pageCopy.box = null
+        window.setTimeout(() => {
+          if (!document.querySelector(`[${LAYER_MOVES_ATTR}]`)) pageCopy = null
+        }, 0)
+      }
       release()
       /* ...or it has gone, and the page under it is in the same commit: a way back of our own drops a still of it now, before this frame is painted. */
       releasePresses()

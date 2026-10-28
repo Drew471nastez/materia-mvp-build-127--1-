@@ -20,12 +20,20 @@
  *   BLANK     a frame with no section, or only the waiting spinner
  *   LONG      the browser's long tasks in the 500ms after the press
  *
+ * Then a tab from before a deploy: the sections' code split into files the
+ * way the app's is, those files answered 404 after the page has loaded, and
+ * Taxes pressed. The whole page must not load again (it did: the section
+ * threw into app/app/error.tsx, whose error screen reloads for stale code);
+ * the column stays and Taxes says, in its own place, that Storelib updated.
+ *
  * Then every section is opened once more in a development build of React,
  * and every console error and warning is reported (a key warning, a
  * setState in render, a crash). Plan is measured centred in the sheet on a
  * computer (its column's centre within 2px of the panel's centre).
  *
- *   node scripts/check-settings-switch.mjs            (SWITCH_DELAY=ms, CPU_SLOWDOWN=4)
+ *   node scripts/check-settings-switch.mjs            (SWITCH_DELAY=ms, CPU_SLOWDOWN=4,
+ *                                                      SWITCH_ONLY=switch|stale|dev, SWITCH_BEFORE=c18b792,
+ *                                                      SWITCH_PROFILE=security,taxes, SWITCH_SHOT=dir)
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
@@ -71,12 +79,13 @@ const bundle = (env, out) => execFileSync("npx", ["--no-install", "esbuild", joi
   A TAB FROM BEFORE A DEPLOY. The same page split the way the app is: every
   section's code a file of its own, fetched when Settings asks for it, so the
   probe can answer those files as a deploy that renamed them does (404).
-  SWITCH_BEFORE=1 builds it against the committed lazy-panels and no section
-  boundary, to see what the press did before.
+  SWITCH_BEFORE=<commit> builds it against that commit's lazy-panels and no
+  section boundary, to see what the press did before (c18b792 is the last
+  one without the boundary: the page loads again).
 */
-const before = process.env.SWITCH_BEFORE === "1"
+const before = process.env.SWITCH_BEFORE || ""
 if (before) {
-  writeFileSync(join(dir, "lazy-before.tsx"), execFileSync("git", ["show", "HEAD:components/app/settings/lazy-panels.tsx"]))
+  writeFileSync(join(dir, "lazy-before.tsx"), execFileSync("git", ["show", `${before}:components/app/settings/lazy-panels.tsx`]))
   writeFileSync(join(dir, "boundary-before.tsx"), `export function SettingsSectionBoundary({ children }) { return children }\n`)
 }
 const split = () => execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-settings-switch.tsx"),
@@ -280,7 +289,7 @@ for (const [name, vp, phone] of only && only !== "switch" ? [] : [["desktop", { 
 
 /* ── A TAB FROM BEFORE A DEPLOY: a section whose code is gone ── */
 if (!only || only === "stale") {
-console.log(`\na press on a section whose code a deploy removed${before ? " (committed code)" : ""}`)
+console.log(`\na press on a section whose code a deploy removed${before ? ` (as of ${before})` : ""}`)
   html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};window.__nav={back:0,push:[],replace:[],refresh:0};window.__path="/app";window.__physical=false</script><script type="module" src="/split/entry.js"></script></body></html>`
   const p = await browser.newPage()
   await p.setViewport({ width: 1440, height: 900 })
