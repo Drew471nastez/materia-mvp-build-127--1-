@@ -667,7 +667,7 @@ function Settings({ screen, onSaved }: { screen: CreatorMembershipScreen; onSave
           ))}
           <div>
             <label htmlFor="m-trial" className="mb-1.5 block text-[13px] font-medium text-[#4b5563]">{tt("Free trial")}</label>
-            <select id="m-trial" value={s.trialDays} onChange={(e) => set("trialDays", e.target.value)} aria-invalid={bad("trial") || undefined} className={cn(field, "h-11 appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236b7280%22 stroke-width=%222%22><path d=%22m6 9 6 6 6-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-8")}>
+            <select id="m-trial" value={s.trialDays} onChange={(e) => set("trialDays", e.target.value)} aria-invalid={bad("trial") || undefined} className={cn(field, "h-11 appearance-none bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2212%22%20height=%2212%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%236b7280%22%20stroke-width=%222%22><path%20d=%22m6%209%206%206%206-6%22/></svg>')] bg-[length:12px] bg-[right_12px_center] bg-no-repeat pr-8")}>
               {[...new Set<number>([...TRIAL_CHOICES, trialDaysOf(s.trialDays)])].sort((a, b) => a - b).map((d) => (
                 <option key={d} value={String(d)}>
                   {d === 0 ? tt("No trial") : tt("{d} days", { d })}
