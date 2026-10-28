@@ -51,6 +51,7 @@ import { flushSync } from "react-dom"
 
 import { hapticTap } from "@/lib/native-bridge"
 import { tt } from "@/lib/i18n/text"
+import { whenFingerGone } from "@/lib/website-builder/touch-target"
 
 /**
  * One live region for every list, made on first use: a list that mounts and
@@ -427,10 +428,15 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     grip.addEventListener("pointermove", move)
     grip.addEventListener("pointerup", up)
     grip.addEventListener("pointercancel", up)
+    /* The finger lifted without the grip hearing it (the grip left the document, the system took the touch, the app was put away): put back, saved nothing. See lib/website-builder/touch-target.ts. */
+    const gone = whenFingerGone(window, document, () => {
+      if (live.current?.pointerId === e.pointerId) finish(false)
+    })
     live.current.detach = () => {
       grip.removeEventListener("pointermove", move)
       grip.removeEventListener("pointerup", up)
       grip.removeEventListener("pointercancel", up)
+      gone()
     }
   }
 

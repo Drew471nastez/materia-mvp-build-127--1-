@@ -56,6 +56,8 @@ const SUITES = [
   "tests/editor-live-updates.test.ts",
   /* Round 1023: the sidebar's drag (a trackpad scroll under a held row, Escape, a drag that always ends clean, each move said aloud) and every select setting's one rule, buttons for one to three options, the dropdown past that; scripts/check-sidebar-dnd.mjs and scripts/check-segmented.mjs measure them. */
   "tests/sidebar-dnd.test.ts",
+  /* Round 1026: a swipe in the editor scrolls what is under the finger (from an icon, after a drag, a theme's hold in the canvas, the native guard, leftovers let go); scripts/check-editor-touch.mjs measures it. */
+  "tests/editor-touch-scroll.test.ts",
   "tests/segmented-select.test.ts",
   /* Round canvas-1023: the canvas that stopped scrolling (a held page with nothing open, a preloader's wait that never ended, a page that left the frame), the toolbar over a selected block, Add section between an imported theme's sections; scripts/check-canvas-freeze.mjs and check-canvas-toolbar.mjs measure them. */
   "tests/editor-canvas-freeze.test.ts",
