@@ -120,9 +120,24 @@ export function settingsPanelReady(tab: string): boolean {
 }
 
 /** Every section's code, one after another so none of them competes with what the person is doing. */
+/*
+  AT IDLE, AND ALL OF THEM, THE FIRST TIME SETTINGS OPENS. The native apps keep
+  one web view for days, across many deploys; a section whose code was never
+  fetched before the next deploy can no longer be fetched once that deploy's
+  skew window has passed. Every chunk is asked for while the browser has
+  nothing else to do (at most a second's wait each), and once here it stays
+  for the life of the tab (`loaded`), so a later deploy strands none of them.
+*/
+const idle = () =>
+  new Promise<void>((resolve) => {
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }
+    if (w.requestIdleCallback) w.requestIdleCallback(() => resolve(), { timeout: 1000 })
+    else window.setTimeout(resolve, 50)
+  })
+
 export function preloadSettingsPanels(): void {
-  const keys = (Object.keys(LOADERS) as SettingsPanelKey[]).filter((k) => !loading.has(k))
-  void keys.reduce<Promise<unknown>>((chain, k) => chain.then(() => load(k).catch(() => null)), Promise.resolve())
+  const keys = (Object.keys(LOADERS) as SettingsPanelKey[]).filter((k) => !loading.has(k) && !loaded.has(k))
+  void keys.reduce<Promise<unknown>>((chain, k) => chain.then(idle).then(() => (loaded.has(k) ? null : load(k).catch(() => null))), Promise.resolve())
 }
 
 function lazyPanel<P extends object>(key: SettingsPanelKey): ComponentType<P> {

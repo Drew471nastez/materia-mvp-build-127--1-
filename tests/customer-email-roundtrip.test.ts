@@ -20,6 +20,44 @@ import { loadCustomerEmailCopy, saveCustomerEmailCopy } from "@/lib/emails/custo
 import { COPY_FIELDS, DEFAULT_COPY, pickCopy, readSavedCopy, resolveCopy, withWords } from "@/lib/emails/customer-custom"
 import { previewCustomerEmail } from "@/lib/emails/customer-catalog"
 import { withOwnFrame } from "@/lib/emails/layout"
+import { emailWordsFor, loadEmailWords, previewEmailWords, saveEmailWords, wordsInput, wordsPayload } from "@/lib/communities/server/email-templates"
+import { COMMUNITY_WORD_FIELDS, readCommunityExtras } from "@/lib/emails/community-words"
+
+/* Any table, in memory, with eq filters, upsert on a conflict key and delete: enough for the community words' reads and writes. */
+function tableDb(seed: Record<string, Array<Record<string, unknown>>>) {
+  const tables: Record<string, Array<Record<string, unknown>>> = JSON.parse(JSON.stringify(seed))
+  return {
+    tables,
+    from(name: string) {
+      const rows = (tables[name] ??= [])
+      const filters: Array<[string, unknown]> = []
+      let mode: "select" | "delete" = "select"
+      const match = (r: Record<string, unknown>) => filters.every(([k, v]) => r[k] === v)
+      const q: Record<string, unknown> = {
+        select: () => q,
+        eq: (k: string, v: unknown) => (filters.push([k, v]), q),
+        delete: () => ((mode = "delete"), q),
+        maybeSingle: async () => ({ data: rows.find(match) ?? null, error: null }),
+        upsert: async (row: Record<string, unknown>, opts?: { onConflict?: string }) => {
+          const keys = (opts?.onConflict ?? "id").split(",")
+          const i = rows.findIndex((r) => keys.every((k) => r[k] === row[k]))
+          const copy = JSON.parse(JSON.stringify(row))
+          if (i >= 0) rows[i] = { ...rows[i], ...copy }
+          else rows.push(copy)
+          return { error: null }
+        },
+        then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => {
+          if (mode === "delete") {
+            for (let i = rows.length - 1; i >= 0; i--) if (match(rows[i])) rows.splice(i, 1)
+            return Promise.resolve({ data: null, error: null }).then(res, rej)
+          }
+          return Promise.resolve({ data: rows.filter(match), error: null }).then(res, rej)
+        },
+      }
+      return q
+    },
+  }
+}
 
 let passed = 0
 let failed = 0
@@ -116,6 +154,39 @@ async function main() {
   const dirty = readSavedCopy({ receipt: { footer: "<i>hi</i>", langs: { fr: { subject: "Reçu" }, "../x": { subject: "no" }, de: "nope" } }, nope: { subject: "x" } })
   check("a stored footer loses its tags; an odd language key or value is dropped; an unknown email is dropped", dirty.receipt?.footer === "hi" && dirty.receipt?.langs?.fr?.subject === "Reçu" && Object.keys(dirty.receipt?.langs ?? {}).join() === "fr" && !dirty.nope, dirty)
   check("withWords keeps the other part when one is replaced", withWords({ subject: "A", langs: { fr: { subject: "B" } } }, { heading: "C" }, null)?.langs?.fr?.subject === "B" && withWords({ subject: "A" }, { subject: "D" }, "de")?.subject === "A")
+
+  console.log("\nA community's emails: the same six parts, saved and read back, drawn as sent\n")
+  {
+    const COMM = "11111111-1111-4111-8111-111111111111"
+    const db = tableDb({ communities: [{ id: COMM, creator_id: CREATOR, name: "Makers Club", slug: "makers" }], community_email_templates: [], store_settings: [{ creator_id: CREATOR, customer_emails: { receipt: { subject: "Kept {{items}}" } } }] })
+    check("the editor's six parts, in order", COMMUNITY_WORD_FIELDS.join() === "subject,preheader,heading,intro,button,footer")
+    const typed = wordsInput({ subject: "Welcome to {{community_name}}, {{first_name}}", preheader: "Your first week in {{community_name}}", heading: "Hi {{first_name}}", intro: "Say hello in the intros thread.", button: "Come in", footer: "Questions? Reply to this email.\nWe read every one." }, "welcome")
+    check("what is typed is read, the footer note keeping its line break", !("error" in typed) && typed.preheader === "Your first week in {{community_name}}" && typed.footer === "Questions? Reply to this email.\nWe read every one.", typed)
+    if (!("error" in typed)) {
+      const saved = await saveEmailWords(db, COMM, "welcome", typed, "u-1")
+      check("saved", "ok" in saved, saved)
+      const loaded = await loadEmailWords(db, COMM)
+      const w = loaded.words.welcome
+      check("read back: all six parts as typed", !!w && w.subject === typed.subject && w.heading === typed.heading && w.intro === typed.intro && w.button === typed.button && w.preheader === typed.preheader && w.footer === typed.footer, w)
+      check("  the four in their table, the preview text and footer note beside the store's words", db.tables.community_email_templates.length === 1 && Object.keys(readCommunityExtras(db.tables.store_settings[0].customer_emails, COMM).welcome ?? {}).join() === "preheader,footer")
+      check("  the store's own words untouched by it", (db.tables.store_settings[0].customer_emails as Record<string, { subject?: string }>).receipt?.subject === "Kept {{items}}")
+      await saveCustomerEmailCopy(db, CREATOR, "receipt", { subject: "Changed {{items}}" })
+      check("saving the store's words keeps the community's preview text and footer note", Object.keys(readCommunityExtras(db.tables.store_settings[0].customer_emails, COMM).welcome ?? {}).join() === "preheader,footer" && (await loadCustomerEmailCopy(db, CREATOR)).receipt?.subject === "Changed {{items}}")
+      const sender = await emailWordsFor(db, COMM, "welcome")
+      check("the sender reads all six, and hands them to the template", sender?.footer === typed.footer && wordsPayload(sender).tplPreheader === typed.preheader && wordsPayload(sender).tplFooter === typed.footer)
+      const mail = previewEmailWords("welcome", sender!, { id: COMM, name: "Makers Club", slug: "makers", creatorName: "Ana" })
+      check("drawn as a member gets it: the inbox line is the preview text, filled in", /class="e-preheader"[^>]*>Your first week in Makers Club/.test(mail.html), mail.html.match(/class="e-preheader"[^>]*>.{0,50}/)?.[0])
+      check("  the footer note is in the email and its text part, before the email's own note", /Questions\? Reply to this email\./.test(mail.html) && /Questions\? Reply to this email\./.test(mail.text), mail.text.slice(-300))
+      check("  the subject and button are the owner's", mail.subject.startsWith("Welcome to Makers Club") && /Come in/.test(mail.html))
+      const four = { ...typed, preheader: "", footer: "" }
+      await saveEmailWords(db, COMM, "welcome", four, "u-1")
+      const again = (await loadEmailWords(db, COMM)).words.welcome
+      check("the preview text and footer note emptied: gone, the four kept", !!again && !again.preheader && !again.footer && again.subject === typed.subject && !readCommunityExtras(db.tables.store_settings[0].customer_emails, COMM).welcome)
+      await saveEmailWords(db, COMM, "welcome", { subject: "", heading: "", intro: "", button: "", preheader: "", footer: "" }, "u-1")
+      check("all six emptied: the community's standard words, nothing kept", !(await loadEmailWords(db, COMM)).words.welcome && db.tables.community_email_templates.length === 0)
+    }
+    check("an unknown value in the footer note is refused", "error" in wordsInput({ footer: "{{ordr}}" }, "welcome"))
+  }
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) process.exit(1)

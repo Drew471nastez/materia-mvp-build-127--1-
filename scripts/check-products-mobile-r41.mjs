@@ -298,7 +298,7 @@ async function recordWhile(p, cdp, act, ms = 1400) {
     const state = await p.evaluate(() => {
       const f = window.__frames
       const seen = f.some((x) => x.y !== null)
-      const resting = f.length > 0 && f[f.length - 1].y === null && !document.documentElement.dataset.layerMotion && !document.querySelector("[data-layer-still]")
+      const resting = f.length > 0 && f[f.length - 1].y === null && !document.documentElement.dataset.layerMotion && ![...document.querySelectorAll("[data-layer-still]")].some((n) => n.style.visibility !== "hidden")
       return { seen, resting }
     })
     if (state.seen && state.resting) break
@@ -452,6 +452,8 @@ try {
       console.log(`  ${trip} in (${rise.which}): ${rise.frames} frames, ${rise.partway} part way, ${rise.late} late, largest gap ${rise.maxGap}ms, held ${rise.held}ms first; translateY ${rise.ys.join(" ")}`)
       expect(up.layer && up.motion === null, `${trip} in: the editor is up and the move has cleaned up`, up)
       expect(rise.partway >= 8 && rise.ys.every((y, i) => i === 0 || y <= rise.ys[i - 1] + 1), `${trip} in: rises from the bottom edge, 8 frames or more part way, never backwards`, { partway: rise.partway })
+      /* A moment on the editor before Back, as anyone takes (and the layer lays the list's copy out ahead, page-layer COPY_AHEAD_MS). */
+      await sleep(800)
       let asked = false
       const drop = await recordWhile(p, cdp, async () => {
         asked = await goBack(p)

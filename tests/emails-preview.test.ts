@@ -110,7 +110,8 @@ async function main() {
   const ownConfirm = previewCustomerEmail("order_confirmation", { ...shop, phone: null }, saved, { language: { lang: "en", words: {}, own: true } })!
   check("in its own language it carries the store's words, as the job does", ownConfirm.html.includes("Thanks, Maria") && resolveCopy(saved, { customer_name: "Maria", items: itemsText(["x"]) })?.heading === "Thanks, Maria")
   const jobs = read("lib/physical/jobs-server.ts")
-  check("the job builds each email inside the buyer's language, its words only in the website's", /const say = <T,>\(build: \(\) => T\): T => inEmailLanguage\(language\.lang, language\.words, build\)/.test(jobs) && /id && language\.own \? resolveCopy/.test(jobs))
+  /* Changed on purpose (round 28, the owner: "per language"): the main words in the website's language, a language's own words in that one (pickCopy). */
+  check("the job builds each email inside the buyer's language, with the words written for that language", /const say = <T,>\(build: \(\) => T\): T => inEmailLanguage\(language\.lang, language\.words, build\)/.test(jobs) && /resolveCopy\(pickCopy\(saved\[id\], language\)/.test(jobs))
 
   console.log("\nA community's email\n")
   const t = await import("@/lib/communities/server/email-templates")

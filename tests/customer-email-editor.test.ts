@@ -120,7 +120,7 @@ console.log("\nSaved per store, used by the senders\n")
   check("the receipt sender and the receipt copy both use the store's receipt words", (email.match(/buildReceiptEmail\(model, language, saved\.receipt\)/g) ?? []).length === 2 && /resolveCopy\(pickCopy\(saved, language\), \{ customer_name: model\.firstName/.test(read("lib/receipts/receipt-mail.ts")))
   check("the checkout reminder uses its words", /resolveCopy\(pickCopy\(saved\.checkout_reminder, language\),/.test(read("lib/automations/abandoned-reminder.ts")))
   const server = read("lib/emails/customer-copy-server.ts")
-  check("saved on the caller's own store_settings row, read back cleaned", /from\("store_settings"\)\.upsert\(\{ creator_id: creatorId, customer_emails: next/.test(server) && /readSavedCopy\(data\?\.customer_emails\)/.test(server))
+  check("saved on the caller's own store_settings row, read back cleaned", /from\("store_settings"\)\.upsert\(\{ creator_id: creatorId, customer_emails: extras \? \{ \.\.\.next, \[COMMUNITY_EXTRAS_KEY\]: extras \} : next/.test(server) /* Changed on purpose (round 28): a community's preview text and footer note, kept beside these words, are kept on save */ && /readSavedCopy\(data\?\.customer_emails\)/.test(server))
   check("  a read that fails sends the default words, never nothing", /if \(error\) return \{\}/.test(server))
   const route = read("app/api/store/emails/route.ts")
   /* Changed on purpose (round 40 team permissions): shopCaller("marketing") is the owner as before, or a team member given Marketing, for the store they work in; both read on the server on each request (lib/team/server creatorFor). */
