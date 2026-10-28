@@ -11356,7 +11356,11 @@ const words: Record<string, string> = {
  "{count} failed": "{count} nieudanych",
  "Signups go to your MailerLite group": "Zapisy trafiają do Twojej grupy w MailerLite",
  "Signups go to your Brevo list": "Zapisy trafiają na Twoją listę w Brevo",
- "Signups go to your Flodesk segment": "Zapisy trafiają do Twojego segmentu we Flodesk"
+ "Signups go to your Flodesk segment": "Zapisy trafiają do Twojego segmentu we Flodesk",
+ "Move {title} into this group": "Przenieś {title} do tej grupy",
+ "Move a block from your page, or add a new one.": "Przenieś blok ze swojej strony albo dodaj nowy.",
+ "Remove this block from the group?": "Usunąć ten blok z grupy?",
+ "Back on your page, under the group": "Z powrotem na stronie, pod grupą"
 }
 
 export default words

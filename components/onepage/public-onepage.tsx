@@ -4859,6 +4859,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const pdfButtonStyles: React.CSSProperties = {
+        ...buttonHoverVars(theme),
         backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
@@ -4908,15 +4909,18 @@ function PublicBlockRenderer({
       }
 
       const textColor = theme.button_text_color
-      const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
+      /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
+      const hoverEffect = "op-btn"
+      const pageHover = { "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
         return (
           <button
             onClick={handleOpenPdf}
+            {...pageHover}
             className={cn(
-              "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
+              "w-full overflow-hidden font-medium text-sm sm:text-base cursor-pointer",
               hoverEffect,
               getAnimationClass(data.animation_type)
             )}
@@ -4984,8 +4988,9 @@ function PublicBlockRenderer({
       return (
         <button
           onClick={handleOpenPdf}
+            {...pageHover}
           className={cn(
-            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
+            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
             hoverEffect,
             getAnimationClass(data.animation_type)
           )}
@@ -5040,6 +5045,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const menuButtonStyles: React.CSSProperties = {
+        ...buttonHoverVars(theme),
         backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
@@ -5089,15 +5095,18 @@ function PublicBlockRenderer({
       }
 
       const textColor = theme.button_text_color
-      const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
+      /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
+      const hoverEffect = "op-btn"
+      const pageHover = { "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Featured (Pro) layout with thumbnail, title, description
       if (isPro) {
         return (
           <button
             onClick={handleOpenMenu}
+            {...pageHover}
             className={cn(
-              "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
+              "w-full overflow-hidden font-medium text-sm sm:text-base cursor-pointer",
               hoverEffect,
               getAnimationClass(data.animation_type)
             )}
@@ -5165,8 +5174,9 @@ function PublicBlockRenderer({
       return (
         <button
           onClick={handleOpenMenu}
+            {...pageHover}
           className={cn(
-            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
+            "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
             hoverEffect,
             getAnimationClass(data.animation_type)
           )}
@@ -5222,6 +5232,7 @@ function PublicBlockRenderer({
         hard: `4px 4px 0px ${hexToRgba(shadowColor, 0.9)}`,
       }
       const calendlyButtonStyles: React.CSSProperties = {
+        ...buttonHoverVars(theme),
         backgroundColor: buttonBackground(theme),
         color: theme.button_text_color,
         borderRadius: `${theme.button_border_radius}px`,
@@ -5279,7 +5290,9 @@ function PublicBlockRenderer({
       }
 
       const textColor = theme.button_text_color
-      const hoverEffect = !isInsideCarousel ? "hover:opacity-90" : ""
+      /* Round 41: the page's own hover (Design › Buttons), as a link button has it, still inside a group or a carousel. */
+      const hoverEffect = "op-btn"
+      const pageHover = { "data-hover": isInsideCarousel || isInsideGroup ? "none" : buttonHover(theme), "data-shadow": themeButtonShadow(theme) }
 
       // Check if inline embed mode
       const isInlineEmbed = data.embed_mode === 'embedded' && data.embed_type === 'inline' && calendlyUrl
@@ -5315,8 +5328,9 @@ function PublicBlockRenderer({
           <>
             <button
               onClick={handleOpenCalendly}
+            {...pageHover}
               className={cn(
-                "w-full overflow-hidden font-medium text-sm sm:text-base transition-all cursor-pointer",
+                "w-full overflow-hidden font-medium text-sm sm:text-base cursor-pointer",
                 hoverEffect,
                 getAnimationClass(data.animation_type)
               )}
@@ -5418,8 +5432,9 @@ function PublicBlockRenderer({
         <>
           <button
             onClick={handleOpenCalendly}
+            {...pageHover}
             className={cn(
-              "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base transition-all cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
+              "w-full flex flex-col items-center justify-center font-medium text-sm sm:text-base cursor-pointer py-3.5 sm:py-4 px-5 sm:px-6",
               hoverEffect,
               getAnimationClass(data.animation_type)
             )}
@@ -5497,10 +5512,10 @@ function PublicBlockRenderer({
     case "countdown":
     case "map":
     case "video":
-      return <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId }} />
+      return <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId, still: isInsideCarousel || isInsideGroup }} />
 
     default:
       /* Round 40: the shelf, lead magnets, posts, followers and codes (components/onepage/storelib-blocks), and any later block in that list, with no case of their own here. */
-      return isExtraBlock(block) ? <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId }} /> : null
+      return isExtraBlock(block) ? <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId, still: isInsideCarousel || isInsideGroup }} /> : null
   }
 }

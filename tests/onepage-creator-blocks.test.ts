@@ -138,8 +138,8 @@ async function main() {
 
     const live = read("components/onepage/public-onepage.tsx")
     check("the live page sends the four to the one drawing, with the page's creator for the contact form",
-      /* Round 11 put the embed block (lib/onepage/creator-blocks embedSource) beside them on purpose. Round 40: the page's id goes too, for the lead magnet (pin updated on purpose). */
-      /case "course":\s*case "music":\s*case "testimonials":\s*case "contact_form":\s*case "embed":\s*case "heading":[\s\S]{0,120}return <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId, onepageId \}\} \/>/.test(live))
+      /* Round 11 put the embed block (lib/onepage/creator-blocks embedSource) beside them on purpose. Round 40: the page's id goes too, for the lead magnet (pin updated on purpose). Changed on purpose (round 41): and whether it sits in a group or a carousel, where its buttons keep still as a link does. */
+      /case "course":\s*case "music":\s*case "testimonials":\s*case "contact_form":\s*case "embed":\s*case "heading":[\s\S]{0,120}return <ExtraBlock block=\{block\} look=\{\{ theme, scale: "live", sellerId, onepageId, still: isInsideCarousel \|\| isInsideGroup \}\} \/>/.test(live))
     check("and the preview is that live page, in a frame", /<PublicOnePage onepage=\{page as never\} \/>/.test(read("components/onepage/preview-document.tsx")))
     const module = read("components/onepage/creator-blocks.tsx")
     check("a contact message goes through the website's contact pipeline, with its spam checks", /sendContactMessage\(\{/.test(module) && /company,/.test(module) && /elapsed: Date\.now\(\) - shownAt\.current/.test(module) && /page: "onepage"/.test(module))

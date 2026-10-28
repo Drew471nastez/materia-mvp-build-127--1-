@@ -20,9 +20,13 @@
  *                Archive (it can come back, from the Archive at the top of
  *                the list) and Delete (for good, in red). Cancel under them,
  *                and Escape does the same.
+ *
+ * Round 41: a block inside a group has the same foot. Its first choice is
+ * Move out (back on the page, under the group) instead of Archive, through
+ * `keep`; Delete takes it out of the group for good.
  */
 import * as React from "react"
-import { Archive, ChevronDown, ChevronUp, Trash2 } from "lucide-react"
+import { Archive, ArrowUpRight, ChevronDown, ChevronUp, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { hapticTap } from "@/lib/native-bridge"
@@ -45,6 +49,7 @@ export function BlockFootActions({
   onMoveDown,
   onRemove,
   onArchive,
+  keep,
 }: {
   /** "Remove this block?", or what a group's removal means for its blocks. */
   question: string
@@ -55,6 +60,8 @@ export function BlockFootActions({
   onMoveDown: () => void
   onRemove: () => void
   onArchive?: () => void
+  /** Round 41: the first choice when it is not Archive (a group's block: Move out). */
+  keep?: { label: string; line: string; onPick: () => void }
 }) {
   const [asking, setAsking] = React.useState(false)
   const removeRef = React.useRef<HTMLButtonElement>(null)
@@ -69,7 +76,8 @@ export function BlockFootActions({
   }, [asking])
 
   const cancel = () => setAsking(false)
-  const archive = onArchive && canArchive
+  const archive = onArchive && canArchive && !keep
+  const first = !!archive || !!keep
 
   return (
     <div data-block-foot="" className="border-t border-[#eef0f2] pt-3">
@@ -112,7 +120,7 @@ export function BlockFootActions({
         >
           <div role="group" aria-label={question} className="rounded-2xl border border-[#ececf1] bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04)]" data-delete-question="">
             <p className="px-0.5 pb-2.5 text-[13.5px] font-medium text-[#1a1a2e]">{question}</p>
-            <div className={cn("grid gap-2", archive ? "grid-cols-2" : "grid-cols-1")}>
+            <div className={cn("grid gap-2", first ? "grid-cols-2" : "grid-cols-1")}>
               {archive ? (
                 <button
                   ref={firstChoiceRef}
@@ -135,9 +143,31 @@ export function BlockFootActions({
                   </span>
                   <span className="text-[12.5px] leading-[1.35] text-[#6b7280]">{tt("Off the page, back any time")}</span>
                 </button>
+              ) : keep ? (
+                <button
+                  ref={firstChoiceRef}
+                  type="button"
+                  data-block-keep=""
+                  onClick={() => {
+                    hapticTap("light")
+                    setAsking(false)
+                    keep.onPick()
+                  }}
+                  className={cn(
+                    "flex min-h-[64px] flex-col items-start justify-center gap-0.5 rounded-xl bg-[#f6f6f7] px-3 py-2.5 text-left transition-[background-color,box-shadow] duration-150 [-webkit-tap-highlight-color:transparent]",
+                    "hover:bg-[#efeff2] active:bg-[#e9e9ed]",
+                    focusRing,
+                  )}
+                >
+                  <span className="flex items-center gap-1.5 text-[14px] font-semibold text-[#1a1a2e]">
+                    <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={1.8} />
+                    {keep.label}
+                  </span>
+                  <span className="text-[12.5px] leading-[1.35] text-[#6b7280]">{keep.line}</span>
+                </button>
               ) : null}
               <button
-                ref={archive ? undefined : firstChoiceRef}
+                ref={first ? undefined : firstChoiceRef}
                 type="button"
                 data-block-delete=""
                 onClick={() => {

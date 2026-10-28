@@ -89,7 +89,6 @@ import {
   Plus,
   GripVertical,
   Trash2,
-  ChevronUp,
   ChevronDown,
   Link,
   Type,
@@ -145,12 +144,12 @@ import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
 import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow, isExtraBlock } from "@/components/onepage/extra-blocks"
 import { BlockFootActions } from "@/components/onepage/block-remove"
-import { AutoHeight } from "@/components/onepage/reveal"
+import { AutoHeight, Reveal, revealSettledTop } from "@/components/onepage/reveal"
 import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
 import { ProductPicker } from "@/components/onepage/product-picker"
 import { AddBlockButton, AddBlockPicker, AddSheetGate, isAddSheetOpen, setAddSheetOpen } from "@/components/onepage/add-block-picker"
 import { IconLibrary, IconLibraryGate, setIconLibraryOpen } from "@/components/onepage/icon-library"
-import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText } from "@/components/onepage/block-icons"
+import { GlyphBooking, GlyphDivider, GlyphDocument, GlyphEmail, GlyphGroup, GlyphHeader, GlyphImage, GlyphLink, GlyphMenu, GlyphProduct, GlyphSocial, GlyphText, type Glyph } from "@/components/onepage/block-icons"
 import { bookingProviderName, bookingSource } from "@/lib/onepage/creator-blocks"
 import { hasRealUrl } from "@/lib/onepage/editor-state"
 import { SignupDestination } from "@/components/onepage/creator-blocks"
@@ -171,7 +170,8 @@ import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBad
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 import { EmailLayoutThumb } from "@/components/onepage/email-signup"
 import { emailSignupImage, emailSignupLayout, type EmailSignupLayout } from "@/lib/onepage/email-signup"
-import { canGoInGroup, findBlockDeep, moveIntoGroup, moveOutOfGroup, updatePlanDeep } from "@/lib/onepage/group"
+import { canGoInGroup, deleteFromGroup, findBlockDeep, groupCandidates, moveIntoGroup, moveOutOfGroup, updatePlanDeep } from "@/lib/onepage/group"
+import { GroupExistingBlocks } from "@/components/onepage/group-add-existing"
 
 /**
  * A SOCIAL LINK IS READ THE WAY ITS PLATFORM IS TYPED (lib/onepage/social-input):
@@ -1116,7 +1116,7 @@ export function LinksTab() {
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string; icon?: string }, data?: Record<string, unknown>) => {
     // If adding to a group, handle differently
     if (addToGroupId) {
-      // Only what a group can hold (lib/onepage/group): links, images and products
+      // Only what a group can hold (lib/onepage/group canGoInGroup): every block but the header, a group and the social icons
       if (!canGoInGroup(type)) {
         closeAddSheet()
         return
@@ -1126,7 +1126,9 @@ export function LinksTab() {
       if (groupBlock && groupBlock.type === "group") {
         const groupData = groupBlock.data as GroupBlockData
         // Use createDefaultBlock to get proper default data for any block type
-        const newBlock = createDefaultBlock(type)
+        const created = createDefaultBlock(type)
+        /* What the picker entry starts it with (a coaching call's title, a shelf's source), as on the page (round 41). */
+        const newBlock: OnePageBlock = data && !preset ? { ...created, data: { ...created.data, ...data } as OnePageBlock["data"] } : created
         newBlock.sort_order = groupData.children?.length || 0
 
         // Override Image block defaults when added to a Group (use single instead of carousel)
@@ -1235,6 +1237,22 @@ export function LinksTab() {
   const handleMoveChildToMainList = (childBlock: OnePageBlock, groupId: string) => {
     const next = moveOutOfGroup(blocksInOrder(), groupId, childBlock.id)
     if (next) reorderBlocks(next)
+  }
+
+  /* Round 41: a group's child deleted for good, in one edit (lib/onepage/group deleteFromGroup). */
+  const handleDeleteChild = (childId: string, groupId: string) => {
+    const next = deleteFromGroup(blocksInOrder(), groupId, childId)
+    if (next) reorderBlocks(next)
+  }
+
+  /* Round 41: Add to group's "On your page": a block already on the page moved in, the same one edit a drop makes. */
+  const moveExistingIntoGroup = (id: string) => {
+    const groupId = addToGroupId
+    if (!groupId) return
+    const next = moveIntoGroup(blocksInOrder(), id, groupId)
+    if (next) reorderBlocks(next)
+    closeAddSheet()
+    focusAndScrollToBlock(groupId)
   }
 
   const handleAddSocial = () => {
@@ -1522,10 +1540,11 @@ export function LinksTab() {
                       }
                       // Scroll so the block's top is near the top of the visible area
                       // with a small offset (header clearance)
-                      const elRect = el.getBoundingClientRect()
+                      /* Where the card will be once a card above it has finished closing (components/onepage/reveal revealSettledTop), not where it is mid close. */
+                      const elTop = revealSettledTop(el)
                       const parentRect = scrollParent.getBoundingClientRect()
                       const offset = 12 // breathing room from top
-                      const targetScrollTop = scrollParent.scrollTop + (elRect.top - parentRect.top) - offset
+                      const targetScrollTop = scrollParent.scrollTop + (elTop - parentRect.top) - offset
                       scrollParent.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" })
                     }))
                   }
@@ -1567,6 +1586,7 @@ export function LinksTab() {
                 }}
                 onGripKeyDown={(e, name) => moveWithKeys(e, block.id, name)}
                 onMoveChildToMainList={handleMoveChildToMainList}
+                onDeleteChild={handleDeleteChild}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
                   setAddSheetOpen(true)
@@ -1632,7 +1652,7 @@ export function LinksTab() {
             </SheetDialogTitle>
             {addToGroupId && (
               <p className="text-[12.5px] text-[#6b7280] mt-0.5">
-                {tt("Links, images and products go in a group.")}
+                {tt("Move a block from your page, or add a new one.")}
               </p>
             )}
           </DialogHeader>
@@ -1640,6 +1660,15 @@ export function LinksTab() {
           <AddBlockPicker
             open={showAddModal}
             inGroup={!!addToGroupId}
+            lead={addToGroupId ? (
+              <GroupExistingBlocks
+                rows={groupCandidates(onepage.draft_blocks, addToGroupId).map((b) => {
+                  const p = getBlockPreviewData(b, sellerMoney) as { title: string; subtitle: string; icon: Glyph; thumbnail_url?: string | null }
+                  return { id: b.id, title: p.title, subtitle: p.subtitle, icon: p.icon, thumbnail_url: p.thumbnail_url ?? null }
+                })}
+                onMove={moveExistingIntoGroup}
+              />
+            ) : null}
             atLimit={isBlockTypeAtLimit}
             onPick={(entry) => handleAddBlock(entry.type, entry.preset, entry.data)}
           />
@@ -3169,6 +3198,7 @@ interface BlockItemProps {
   /** The grip's keys: the arrows move the card (LinksTab moveWithKeys). */
   onGripKeyDown?: (e: React.KeyboardEvent, name: string) => void
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
+  onDeleteChild?: (childId: string, groupId: string) => void
   onOpenAddBlockModal?: (groupId: string) => void
 }
 
@@ -3191,6 +3221,7 @@ function BlockItem({
   onOpenStreamingModal,
   onGripKeyDown,
   onMoveChildToMainList,
+  onDeleteChild,
   onOpenAddBlockModal,
 }: BlockItemProps) {
   const shopMoney = useProductMoney()
@@ -3220,6 +3251,8 @@ function BlockItem({
   const pendingAnimationRef = useRef<string | null>(null)
   const animationMenuRef = useRef<HTMLDivElement>(null)
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
+  const titleRef = useRef<HTMLDivElement>(null)
+  const settingsId = `block-settings-${block.id}`
 
   const animationOptions = [
     { id: 'none', label: tt("None") },
@@ -3475,8 +3508,28 @@ function BlockItem({
           </div>
         )}
 
-        {/* Title and subtitle - clickable to select block */}
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={onSelect}>
+        {/*
+          Title and subtitle: the press that opens and closes the settings
+          (round 41: a key for a keyboard too, and where focus lands when
+          they close with focus inside them).
+        */}
+        <div
+          ref={titleRef}
+          role="button"
+          tabIndex={0}
+          aria-expanded={isSelected}
+          aria-controls={settingsId}
+          data-block-open={block.id}
+          className="flex-1 min-w-0 cursor-pointer rounded-lg outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.35)]"
+          onClick={onSelect}
+          onKeyDown={(e) => {
+            if (e.target !== e.currentTarget) return
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              onSelect()
+            }
+          }}
+        >
           <p className="font-medium text-sm truncate">{preview.title}</p>
           <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
             <span className={cn("truncate", ((preview as any).incomplete || productGone) && "font-medium text-[#b54708]")} data-row-incomplete={(preview as any).incomplete ? "" : undefined}>{productGone ? tt("Not on your page") : preview.subtitle}</span>
@@ -3684,7 +3737,12 @@ function BlockItem({
         <BlockToggle checked={block.enabled} onCheckedChange={onToggle} label={tt("Show {title}", { title: preview.title })} />
       </div>
 
-      {isSelected && (
+      {/*
+        Round 41: the settings open to their measured height and close back to
+        nothing (components/onepage/reveal), so the cards under them glide
+        instead of jumping; a closed card lets its editor go.
+      */}
+      <Reveal open={isSelected} id={settingsId} returnFocus={titleRef} unmountWhenShut className="rounded-b-2xl">
         <div className="space-y-4 rounded-b-2xl border-t border-[#eef0f2] bg-[#fafafb] p-4" data-block-settings="">
           <BlockEditor
             block={block}
@@ -3696,6 +3754,7 @@ function BlockItem({
             onOpenStreamingModal={onOpenStreamingModal}
             onOpenAddBlockModal={onOpenAddBlockModal}
             onMoveChildToMainList={onMoveChildToMainList}
+            onDeleteChild={onDeleteChild}
           />
           {!isHeaderBlock && (
             /* Move, archive or delete (components/onepage/block-remove): the question opens under the row to its height. */
@@ -3710,7 +3769,7 @@ function BlockItem({
             />
           )}
         </div>
-      )}
+      </Reveal>
     </div>
   )
 }
@@ -3740,6 +3799,7 @@ function BlockEditor({
   onOpenStreamingModal,
   onOpenAddBlockModal,
   onMoveChildToMainList,
+  onDeleteChild,
   updateBlockOverride,
   sellerProducts,
 }: {
@@ -3752,12 +3812,13 @@ function BlockEditor({
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onOpenAddBlockModal?: (groupId: string) => void
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
+  onDeleteChild?: (childId: string, groupId: string) => void
   updateBlockOverride?: (blockId: string, updates: Partial<OnePageBlock>) => void
   sellerProducts?: SellerProduct[]
 }) {
   /* The store's own currency: a lei store's product reads 49.00 lei here (components/platform/price-currency). */
   const shopMoney = useProductMoney()
-  const { updateBlock: contextUpdateBlock, updateBlockData, updateSocialLinks, setActiveSection, onepage, removeBlock } = useOnePage()
+  const { updateBlock: contextUpdateBlock, updateBlockData, updateSocialLinks, setActiveSection, onepage, removeBlock, getLatestOnePage } = useOnePage()
   const updateBlock = updateBlockOverride || contextUpdateBlock
 
   /* Products for the product block's picker, with their status: read once for the whole editor (./product-block-editor). */
@@ -6432,8 +6493,11 @@ function BlockEditor({
           const d = child.data as EmailCaptureBlockData
           return { title: d.headline || tt("Email Signup"), icon: GlyphEmail, thumbnail_url: null, iconId: null }
         }
-        default:
-          return { title: child.type.replace('_', ' '), icon: GlyphLink, thumbnail_url: null, iconId: null }
+        default: {
+          /* Round 41: any block can be in a group; its row reads as it does on the page's list. */
+          const p = getBlockPreviewData(child, shopMoney) as { title: string; icon: Glyph; thumbnail_url?: string | null }
+          return { title: p.title, icon: p.icon, thumbnail_url: p.thumbnail_url ?? null, iconId: null }
+        }
       }
     }
 
@@ -6492,8 +6556,18 @@ function BlockEditor({
       }
     }
 
+    /* Round 41: deleted for good ("blocks I add into a group cannot be deleted from that group"). */
+    const deleteChild = (childId: string) => {
+      if (onDeleteChild) onDeleteChild(childId, block.id)
+      else updateData({ children: (groupData.children || []).filter((c) => c.id !== childId).map((c, i) => ({ ...c, sort_order: i })) })
+      if (selectedGroupChildId === childId) setSelectedGroupChildId(null)
+    }
+
+    /* The group as it is now (lib/onepage/context getLatestOnePage), so an upload that lands after another edit to the group keeps both. */
     const updateChildBlock = (childId: string, updates: Partial<OnePageBlock>) => {
-      const newChildren = (groupData.children || []).map(c =>
+      const latest = getLatestOnePage()?.draft_blocks.find((b) => b.id === block.id)
+      const current = ((latest?.data as GroupBlockData | undefined) ?? groupData).children || []
+      const newChildren = current.map(c =>
         c.id === childId ? { ...c, ...updates, data: { ...c.data, ...(updates.data || {}) } as OnePageBlockData } : c
       )
       updateData({ children: newChildren })
@@ -6699,7 +6773,7 @@ function BlockEditor({
                           )}
                         >
                           <div className={cn(
-                            "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
+                            "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-[translate]",
                             child.enabled ? "translate-x-3.5" : "translate-x-0.5"
                           )} />
                         </button>
@@ -6732,42 +6806,17 @@ function BlockEditor({
 
             {/* Selected Child Settings - Full Block Settings */}
             {selectedChild && (
-              <div className="border rounded-xl p-3 bg-white space-y-3">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium capitalize">{selectedChild.type.replace('_', ' ')} {tt("Settings")}</span>
-                  <div className="flex items-center gap-1">
-                    {(() => {
-                      const at = (groupData.children || []).findIndex((c) => c.id === selectedChild.id)
-                      const last = (groupData.children || []).length - 1
-                      return (
-                        <>
-                          <button type="button" data-group-child-up="" aria-label={tt("Move up")} disabled={at <= 0} onClick={() => moveChild(selectedChild.id, -1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#4b5563] transition-colors disabled:opacity-30 [@media(hover:hover)]:hover:bg-[#f4f4f6]">
-                            <ChevronUp className="h-4 w-4" />
-                          </button>
-                          <button type="button" data-group-child-down="" aria-label={tt("Move down")} disabled={at >= last} onClick={() => moveChild(selectedChild.id, 1)} className="grid h-8 w-8 place-items-center rounded-lg text-[#4b5563] transition-colors disabled:opacity-30 [@media(hover:hover)]:hover:bg-[#f4f4f6]">
-                            <ChevronDown className="h-4 w-4" />
-                          </button>
-                        </>
-                      )
-                    })()}
-                    <button
-                      type="button"
-                      onClick={() => removeChildFromGroup(selectedChild.id)}
-                      data-group-child-out=""
-                      className="ml-1 flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium text-[#1a1a2e] transition-colors [@media(hover:hover)]:hover:bg-[#f4f4f6]"
-                    >
-                      <ArrowUpRight className="h-3 w-3" />
-                      {tt("Move out")}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={tt("Close")}
-                      onClick={() => setSelectedGroupChildId(null)}
-                      className="grid h-8 w-8 place-items-center rounded-lg text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
+              <div className="border rounded-xl p-3 bg-white space-y-3" data-group-child-settings={selectedChild.id}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e]">{getChildBlockPreview(selectedChild).title}</span>
+                  <button
+                    type="button"
+                    aria-label={tt("Close")}
+                    onClick={() => setSelectedGroupChildId(null)}
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
                 {/* Render full BlockEditor for child with custom update function */}
                 {/* Note: onUrlChangeWithAutoFetch is NOT passed because it looks for blocks in main list, not group children */}
@@ -6787,6 +6836,26 @@ function BlockEditor({
                     updateChildBlock(childId, updates)
                   }}
                 />
+                {/*
+                  Round 41: the foot every block has (components/onepage/block-remove):
+                  move it within the group, then Move out or Delete.
+                */}
+                {(() => {
+                  const at = (groupData.children || []).findIndex((c) => c.id === selectedChild.id)
+                  const last = (groupData.children || []).length - 1
+                  return (
+                    <BlockFootActions
+                      key={selectedChild.id}
+                      question={tt("Remove this block from the group?")}
+                      isFirst={at <= 0}
+                      isLast={at >= last}
+                      onMoveUp={() => moveChild(selectedChild.id, -1)}
+                      onMoveDown={() => moveChild(selectedChild.id, 1)}
+                      onRemove={() => deleteChild(selectedChild.id)}
+                      keep={{ label: tt("Move out"), line: tt("Back on your page, under the group"), onPick: () => removeChildFromGroup(selectedChild.id) }}
+                    />
+                  )
+                })()}
               </div>
             )}
           </div>

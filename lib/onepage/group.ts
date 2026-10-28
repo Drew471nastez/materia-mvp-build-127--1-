@@ -23,11 +23,54 @@
  *                    inside a group where the page leaves it out anywhere
  *                    else. Children are read by the page's one rule now
  *                    (lib/onepage/extra-blocks isBlockShown).
+ *
+ * ROUND 41, the owner: "Blocks I add into a group cannot be deleted from that
+ * group", and "when I click to add a block in a group, show me the blocks I
+ * already have so I can add them there, or the rest of the blocks from the
+ * whole picker." So:
+ *
+ *   ANY BLOCK BUT THREE  a group holds every block of the Add block sheet but
+ *                    the profile header, another group and the social icons
+ *                    (the page keeps those where they are). The page draws a
+ *                    child with the very renderer it uses anywhere else, and
+ *                    the server reads children for signups, lead magnets and
+ *                    live shelves (signup-server publishedBlock,
+ *                    storelib-blocks-server), so each works inside one too.
+ *   DELETE           deleteFromGroup takes a child off for good, one edit.
+ *   ALREADY THERE    groupCandidates: the page's own blocks that may move in.
  */
 import type { GroupBlockData, OnePageBlock, OnePageBlockType } from "@/lib/onepage/types"
 
-/** The blocks a group can hold. */
-export const GROUP_CHILD_TYPES: readonly OnePageBlockType[] = ["link_button", "image", "product"]
+/** What a group never holds: the profile header, another group, the social icons. */
+export const GROUP_NEVER: readonly OnePageBlockType[] = ["header", "group", "social_row"]
+
+/** The blocks a group can hold: every other block. */
+export const GROUP_CHILD_TYPES: readonly OnePageBlockType[] = [
+  "link_button",
+  "product",
+  "text",
+  "image",
+  "divider",
+  "email_capture",
+  "pdf_document",
+  "food_menu",
+  "calendly",
+  "heading",
+  "faq",
+  "countdown",
+  "map",
+  "video",
+  "course",
+  "music",
+  "testimonials",
+  "contact_form",
+  "embed",
+  "storelib_shelf",
+  "lead_magnet",
+  "social_posts",
+  "followers",
+  "promo_code",
+]
 
 export function canGoInGroup(type: unknown): boolean {
   return typeof type === "string" && (GROUP_CHILD_TYPES as readonly string[]).includes(type)
@@ -94,4 +137,25 @@ export function updatePlanDeep(
   const data = group.data as GroupBlockData
   const children = (data.children || []).map((c) => (c.id === id ? { ...c, ...updates } : c))
   return { id: group.id, updates: { data: { ...data, children } } }
+}
+
+/** The page's list with a group's child gone for good, or null when it is not there. */
+export function deleteFromGroup(blocks: OnePageBlock[], groupId: string, childId: string): OnePageBlock[] | null {
+  const at = blocks.findIndex((b) => b.id === groupId)
+  const group = blocks[at]
+  if (!group || group.type !== "group") return null
+  const data = group.data as GroupBlockData
+  const before = data.children || []
+  if (!before.some((c) => c.id === childId)) return null
+  const children = before.filter((c) => c.id !== childId).map((c, i) => (c.sort_order === i ? c : { ...c, sort_order: i }))
+  const next = [...blocks]
+  next[at] = { ...group, data: { ...data, children } }
+  return next
+}
+
+/** The page's own blocks that may move into this group, in the page's order. */
+export function groupCandidates(blocks: OnePageBlock[] | null | undefined, groupId: string): OnePageBlock[] {
+  return [...(blocks || [])]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .filter((b) => b.id !== groupId && canGoInGroup(b.type))
 }
