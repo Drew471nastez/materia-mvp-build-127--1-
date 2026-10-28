@@ -110,6 +110,16 @@ export function togglePermission(perms: readonly TeamPermission[], p: TeamPermis
 }
 
 /**
+ * THE OLD payouts_billing KEY (before round 42). It was never open to the
+ * team, so a row that holds it could use nothing of payouts or billing. It
+ * is not a key any more and is dropped here like any unknown string: such a
+ * member keeps exactly what they had (their other permissions), and is never
+ * given Payouts or Billing in its place. SQL part 333 still allows it in the
+ * column so no row stops being valid.
+ */
+export const RETIRED_PERMISSIONS: readonly string[] = ["payouts_billing"]
+
+/**
  * A member's permissions as the server keeps them: known keys only, each
  * once, in the order of TEAM_PERMISSIONS, and only what is open to the team.
  * Anything else (a string, an unknown key, null) is dropped.

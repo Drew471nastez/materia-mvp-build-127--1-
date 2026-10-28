@@ -672,7 +672,7 @@ check(
     const placed = headerSrc.indexOf("{undoRedo}")
     const insp = headerSrc.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
     /* Ask Storelib is built once (askButton) and placed by size: beside the menu on a phone, here on a computer. */
-    const ai = headerSrc.indexOf("{!isMobileView && askButton}")
+    const ai = headerSrc.indexOf("{!isMobileView && !teamMember && askButton}") /* Changed on purpose (round 42 team): not for a team member, who gets none of the store owner's AI or connections. */
     const pub = headerSrc.indexOf("const live = install?.status")
     const left = headerSrc.indexOf("Desktop: sidebar mode toggles")
     return (
@@ -1674,7 +1674,7 @@ check(
 check(
   "the phone's AI sheet stays mounted, so closing it is a slide and not a vanish",
   /const \[aiMounted, setAiMounted\] = useState\(false\)/.test(editor) &&
-    /\{isMobileView && aiMounted && \(/.test(editor) &&
+    /\{isMobileView && aiMounted && !teamMember && \(/.test(editor) &&
     // Anchored on the brace: `!isMobileView && aiOpen` is the desktop column.
     !/\{isMobileView && aiOpen && \(/.test(editor),
 )
@@ -1685,7 +1685,7 @@ check(
   (() => {
     const header = editor.slice(editor.indexOf("<header"), editor.indexOf("</header>"))
     const menu = header.indexOf("<ResponsiveActionMenu")
-    const ai = header.indexOf("{isMobileView && askButton}")
+    const ai = header.indexOf("{isMobileView && !teamMember && askButton}") /* Changed on purpose (round 42 team): not for a team member, who gets none of the store owner's AI or connections. */
     const pair = header.indexOf("{undoRedo}")
     const insp = header.indexOf('aria-label={inspectorEnabled ? "Disable section inspector"')
     const pub = header.indexOf("const live = install?.status")

@@ -1646,7 +1646,7 @@ section("Two at once still make five, and an import that says what went wrong")
   check("  a tick under the finger as it opens", /* Changed on purpose (round 12, WBPERF): the sheet is mounted on the first touch, so the tick is followed by the open (or by mounting it first, for a click with no touch before it). */ /hapticTap\("soft"\)[\s\S]{0,260}?setSheetOpen\(true\)/.test(menu))
   check("the editor's Actions list is memoised on what it says, and calls through a ref",
     /const actionItems = useMemo<ActionMenuItem\[\]>\(\(\) => \{/.test(editor) &&
-      /* Changed on purpose (round AE): a phone's preview language. Changed on purpose (the owner: currency in the builder like the live site): and its preview currency. */ /* Changed on purpose (round AJ: GitHub and your own AI, no connection mark of its own) */ /\}, \[inCode, githubRepo, websiteUrl, siteLive, installId\]\)/.test(editor) &&
+      /* Changed on purpose (round AE): a phone's preview language. Changed on purpose (the owner: currency in the builder like the live site): and its preview currency. */ /* Changed on purpose (round AJ: GitHub and your own AI, no connection mark of its own) */ /\}, \[inCode, githubRepo, websiteUrl, siteLive, installId(, teamMember)?\]\)/.test(editor) /* round 42 team */ &&
       /trigger=\{actionsTrigger\}\s*items=\{actionItems\}/.test(editor) && /const actionsTrigger = useMemo\(/.test(editor))
 
   check("the inspector: a press on scale, a tick, and a canvas that trails it by one fade",

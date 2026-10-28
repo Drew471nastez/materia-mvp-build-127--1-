@@ -2239,7 +2239,7 @@ section("Ask Storelib on a phone: the keyboard, and nothing sideways")
      */
     // Mounted on first open and kept, so closing it is a slide and not a
     // vanish; `open` follows aiOpen.
-    /\{isMobileView && aiMounted && \(\s*<MobileEditorSheet open=\{aiOpen\}/.test(editor) &&
+    /\{isMobileView && aiMounted && !teamMember && \(\s*<MobileEditorSheet open=\{aiOpen\}/.test(editor) &&
       // and the button is no longer hidden below the `sm` breakpoint
       !/"h-8 w-8 hidden sm:flex items-center justify-center rounded-lg border transition-colors/.test(
         editor,

@@ -27,11 +27,13 @@ import {
   OFF_BY_DEFAULT,
   OPEN_TO_TEAM,
   PERMISSION_HINT,
+  RETIRED_PERMISSIONS,
   areaOfPath,
   homeFor,
   memberSees,
   normalizePermissions,
   permissionGroups,
+  permissionsOfRow,
   permits,
   presetPermissions,
   togglePermission,
@@ -83,6 +85,12 @@ async function main() {
   {
     check("every key is open to the team now", ["website", "creator_pages", "payouts", "payouts_manage", "billing", "billing_manage"].every((p) => OPEN_TO_TEAM.has(p as TeamPermission)))
     check("the old payouts_billing key is gone and never kept", !normalizePermissions(["payouts_billing"]).length)
+    /* A member saved before round 42 with the old key: exactly what they had (it was never open, so nothing of money), never Payouts or Billing in its place. */
+    const oldRow = permissionsOfRow({ permissions: ["orders", "payouts_billing", "products"], role: "manager" })
+    check("a member with the old payouts_billing key keeps exactly what they had, nothing of money", same(oldRow, ["orders", "products"]) && !oldRow.some((p) => ["payouts", "payouts_manage", "billing", "billing_manage"].includes(p)), oldRow)
+    check("  and the money areas refuse them", !permits(oldRow, "payouts") && !permits(oldRow, "billing") && RETIRED_PERMISSIONS.includes("payouts_billing"))
+    const oldStore = await moneyStoreFor(world(), ANA, "payouts", "view", acting(oldRow))
+    check("  even on the server, read as the row holds it", oldStore.kind === "denied")
     check("money is never in a preset", (["full", "content", "support"] as const).every((p) => !presetPermissions(p).some((k) => ["payouts", "payouts_manage", "billing", "billing_manage"].includes(k))) && OFF_BY_DEFAULT.includes("billing_manage"))
     check("Content editor gives the website and the creator page too", same(presetPermissions("content"), ["website", "onepage", "creator_pages", "products", "community"]))
     check("changing gives seeing: payouts_manage keeps payouts, billing_manage keeps billing", same(normalizePermissions(["payouts_manage"]), ["payouts", "payouts_manage"]) && same(normalizePermissions(["billing_manage"]), ["billing", "billing_manage"]))
@@ -138,6 +146,12 @@ async function main() {
     check("what stays the owner's keeps asking by account: GitHub, a Supabase project, agent tokens, Ask Storelib's AI, export, import", ["github/route.ts", "agent-connections/route.ts", "agent/route.ts", "chat/route.ts", "export/route.ts"].every((r) => !/lib\/team\/website/.test(read(`${T}/${r}`))) && !/lib\/team\/website/.test(read("app/api/website-builder/themes/import/route.ts")))
     check("a member's picture goes into the store owner's folder, signed by the server when storage refuses", /setWebsiteUploadOwner\(typeof data\.storeOwner === "string"/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /storeOwner: isOwner \? null : ownerUserId/.test(read(`${T}/route.ts`)) && /\$\{owner \?\? user\.id\}\/\$\{folder\}/.test(read("components/website-builder/editor/image-picker.tsx")) && /teamSignedUpload\(bucket, filePath, body, file\.type\)/.test(read("components/website-builder/editor/image-picker.tsx")))
     check("  storage signs that path only for Website in the store owner's folder", teamUploadPathOk(acting(["website"]), "store-builder-images", `${OWNER}/theme-images/1.jpg`) && !teamUploadPathOk(acting(["website"]), "store-builder-images", `${OTHER_OWNER}/theme-images/1.jpg`) && !teamUploadPathOk(acting(["orders"]), "store-builder-images", `${OWNER}/theme-images/1.jpg`))
+    const editorSrc = read("app/website-builder/editor/[installId]/page.tsx")
+    check("the editor knows a team member from the install's read, and offers them none of the owner's controls", /setTeamMember\(typeof data\.storeOwner === "string"\)/.test(editorSrc) && /\{!isMobileView && !teamMember && askButton\}/.test(editorSrc) && /\{isMobileView && !teamMember && askButton\}/.test(editorSrc) && /aiMounted && !teamMember/.test(editorSrc) && /\{!isMobileView && !teamMember && \(\s*<ConnectionButton/.test(editorSrc) && /\.\.\.\(teamMember \? \[\] : \[\s*\{\s*label: githubRepo/.test(editorSrc) && (editorSrc.match(/onAskAi=\{teamMember \? undefined :/g) ?? []).length === 2 && /if \(teamMember\) return\s*openConnections\(\)/.test(editorSrc) && /teamMember=\{teamMember\}/.test(editorSrc))
+    check("  Website settings lists no Connections for them (GitHub, Supabase, agent tokens, an AI key)", /teamMember \? SETTINGS_SECTIONS\.filter\(\(s\) => s\.id !== "connections"\)/.test(read("components/website-builder/project-settings.tsx")) && /section === "connections" && !teamMember/.test(read("components/website-builder/project-settings.tsx")))
+    check("  the code editor offers no Solve with AI to them", /setTeamMember\(typeof data\.storeOwner === "string"\)/.test(read("app/website-builder/code/[installId]/page.tsx")) && /\{teamMember \? null : \(\s*<button\s*type="button"\s*onClick=\{\(\) => void solveWithAi\(\)\}/.test(read("app/website-builder/code/[installId]/page.tsx")))
+    const listSrc = read("app/app/website-builder/website-builder-client.tsx")
+    check("  the Website page offers them no Import, Export or Remove", /teamMember=\{!access\.isOwner\}/.test(read("app/app/website-builder/page.tsx")) && /\.\.\.\(teamMember \? \[\] : \[\{ label: tt\("Export theme"\)/.test(listSrc) && /installs\.length > 1 && !teamMember/.test(listSrc) && /\{teamMember \? null : \(\s*<Button\s*variant="ghost"/.test(listSrc) && /if \(teamMember\) return\n/.test(listSrc) && /onDrop=\{teamMember \? undefined : onLibraryDrop\}/.test(listSrc))
     check("publishing and restoring by a member are on the record", /recordTeamAction\(site, user\.id, "website", "website_published"/.test(read(`${T}/publish/route.ts`)) && /"website_restored"/.test(read(`${T}/releases/[releaseId]/restore/route.ts`)) && /"website_restored"/.test(read(`${T}/backups/[backupId]/restore/route.ts`)))
   }
 
