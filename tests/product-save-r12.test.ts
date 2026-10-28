@@ -211,7 +211,8 @@ console.log("\nThe editor's state, enumerated: each piece is in the form, a card
   const editor = read("app/app/products/new/product-editor.tsx")
   const body = bodyOf(editor, "export function ProductEditor(")
   const literal = body.match(/const currentForm: DirtyFields = \{([\s\S]*?)\n {2}\}/)?.[1] ?? ""
-  const inForm = new Set(literal.split(/[\s,]+/).filter(Boolean))
+  /* Changed on purpose (round 41): a field may be written `name: value`, as selectedCategory is (the category counts as a change only once it is picked or cleared). */
+  const inForm = new Set(literal.split(/[\s,]+/).filter(Boolean).map((t) => t.replace(/:$/, "")))
   const formKeys = (Object.keys(form) as string[]).filter((k) => !(NOT_SAVED_WITH_FORM as readonly string[]).includes(k))
   check("the editor's current form names every field of the form", formKeys.every((k) => inForm.has(k)), formKeys.filter((k) => !inForm.has(k)))
   /* Not a value Save writes, each with its reason. */

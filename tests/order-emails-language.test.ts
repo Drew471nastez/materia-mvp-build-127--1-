@@ -79,7 +79,7 @@ check("the checkout sends it with the order", /origin: pageLang \? \{ \.\.\.\(ch
 const jobs = read("lib/physical/jobs-server.ts")
 /* Changed on purpose: by where it was bought (lib/emails/buyer-channel.ts): the website's language for an order on the website, English for one on Storelib (tests/emails-language.test.ts). */
 check("every order email is built in it", /buyerEmailLanguage\(co\.creator_id, buyerChannel\(\{ family: "physical", surface: co\.origin\?\.surface, lang: co\.origin\?\.lang \}\), co\.origin\?\.lang\)/.test(jobs) && (jobs.match(/mail = say\(\(\) =>/g) ?? []).length === 8)
-check("  and the store's own wording only in its own language", /id && language\.own \? resolveCopy/.test(jobs))
+check("  and the store's own wording only in its own language", /* Changed on purpose (emails round): pickCopy gives the words written for the buyer's language, else the main ones, else the standard ones. */ /id \? resolveCopy\(pickCopy\(saved\[id\], language\)/.test(jobs))
 /* Changed on purpose: the receipt follows the same rule, a website order in its language, one on Storelib in English. */
 check("the download receipt too", /lang: s\.buyerLang \?\? null/.test(read("lib/checkout/fulfil-cart-session.ts")) && /buyerEmailLanguage\(creatorId, channel, params\.lang \?\? where\.origin\?\.lang\)/.test(read("lib/email.tsx")))
 
