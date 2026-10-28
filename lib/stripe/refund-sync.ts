@@ -388,8 +388,9 @@ async function sellerPicture(db: Db, creatorId: string | null | undefined): Prom
 }
 
 /** The buyer's link to a credit note: their receipt token is the key (app/api/checkout/credit-note). */
-export function creditNoteLink(row: { receipt_token?: unknown }, note: Pick<CreditNoteRow, "id" | "seq">): { number: string; url: string } | null {
-  const token = typeof row.receipt_token === "string" ? row.receipt_token : null
+export function creditNoteLink(row: object, note: Pick<CreditNoteRow, "id" | "seq">): { number: string; url: string } | null {
+  const raw = (row as { receipt_token?: unknown }).receipt_token
+  const token = typeof raw === "string" ? raw : null
   if (!token) return null
   const base = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").replace(/\/$/, "")
   return { number: creditNoteNumber(note.seq), url: `${base}${creditNotePath(token, note.id)}` }

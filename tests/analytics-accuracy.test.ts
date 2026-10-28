@@ -423,7 +423,7 @@ console.log("\nThe page morphs to what the store sells")
     choice: All counts both kinds, a kind narrows to it, and ?kind= is kept
     in the address (dropped for All).
   */
-  check("  the kind pills only when there is a choice, All counting both kinds, ?kind= in the address", /const kindPills = useMemo/.test(client) && /\{kindPills\.length \? <SegmentedPills /.test(client) && /: "all"\s*$/m.test(client.split("const mode: SalesMode =")[1]?.split("\n")[0] ?? "") && /if \(next === "all"\) url\.searchParams\.delete\("kind"\)/.test(client))
+  check("  the kind pills only when there is a choice, All counting both kinds, ?kind= in the address", /const kindPills = useMemo/.test(client) && /* Changed on purpose (round 42): one filter chip (components/app/kind-picker), not segments. */ /\{kindPills\.length \? <KindPicker /.test(client) && /: "all"\s*$/m.test(client.split("const mode: SalesMode =")[1]?.split("\n")[0] ?? "") && /if \(next === "all"\) url\.searchParams\.delete\("kind"\)/.test(client))
   check("  and the split is drawn where it matters: the breakdown's kind columns, the kind of each top product, Shipping only with a physical order", /showKinds=\{sections\.productKinds\}/.test(client) && /data-kind-columns/.test(read("app/app/analytics/commerce-reports.tsx")) && /physicalOrders > 0/.test(read("app/app/analytics/commerce-reports.tsx")) && /data-kind-split/.test(read("app/app/analytics/analytics-reports.tsx")))
 }
 

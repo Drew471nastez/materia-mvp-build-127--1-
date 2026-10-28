@@ -218,7 +218,8 @@ check(
 )
 check(
   "the tab reads from one endpoint rather than a page render",
-  /fetch\("\/api\/billing\/overview"\)/.test(settings) &&
+  /* Changed on purpose (round net-1028): the read has a deadline (lib/net/request fetchWithDeadline). */
+  /fetchWithDeadline\("\/api\/billing\/overview"/.test(settings) &&
     /export async function GET/.test(read("app/api/billing/overview/route.ts")),
 )
 check(

@@ -25,7 +25,7 @@ export async function POST() {
     const stripeCustomerId = await getOrCreateStripeCustomer({
       creatorId: creator.id,
       existingCustomerId: creator.stripe_customer_id,
-      email: who.ownerEmail,
+      email: who.ownerEmail ?? undefined,
       userId: who.ownerUserId,
       username: creator.username || creator.slug,
     })

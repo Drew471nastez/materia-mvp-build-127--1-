@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
 import "server-only"
 import { areaStore, areaStoreFor, type AreaStore } from "./areas"
 import type { ActingStore } from "./server"
@@ -22,9 +23,11 @@ import type { ActingStore } from "./server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
+/** What a route is handed: the owner's own client, or the service role (named on the record lines) for a member. */
+type StoreDb = SupabaseClient
 
 export type CreatorPageStore =
-  | { kind: "page"; db: Db; profileId: string; creatorId: string | null; isOwner: boolean; acting: ActingStore | null }
+  | { kind: "page"; db: StoreDb; profileId: string; creatorId: string | null; isOwner: boolean; acting: ActingStore | null }
   | { kind: "denied" }
   | { kind: "unreachable" }
 
@@ -56,7 +59,7 @@ export async function creatorPageStoreFor(own: Db, admin: Db, userId: string, ac
  * so no team bar is over them). "none": no store, the page's own path.
  */
 export type CreatorPagePage =
-  | { kind: "page"; db: Db; creatorId: string; profileId: string; userId: string; isOwner: boolean }
+  | { kind: "page"; db: StoreDb; creatorId: string; profileId: string; userId: string; isOwner: boolean }
   | { kind: "closed"; store: string; permissions: ActingStore["permissions"] }
   | { kind: "signed_out" }
   | { kind: "none" }

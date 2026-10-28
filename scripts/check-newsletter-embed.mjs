@@ -133,7 +133,10 @@ try {
   const base = `http://127.0.0.1:${port}`
   for (const width of [390, 1280]) {
     console.log(`\nImported theme, Storelib Newsletter as the bar, ${width}px`)
-    const page = await browser.newPage()
+    /* A fresh visitor each time: one who subscribed is not shown the bar again (its own storage). */
+    const page = await (await browser.createBrowserContext()).newPage()
+    /* tsx, which draws these pages here, names functions with a helper the page does not have; the website's build does not. */
+    await page.evaluateOnNewDocument(() => { globalThis.__name = (f) => f })
     page.on("pageerror", (e) => expect(false, "no script error on the page", String(e)))
     await page.setViewport({ width, height: 800 })
     await page.goto(`${base}/`, { waitUntil: "networkidle0" })
@@ -155,11 +158,13 @@ try {
     const sent = posts.find((p) => p.body?.email === `bar${width}@example.com`)
     expect(sent?.route === "subscribe" && sent.body.creator_id === CREATOR && sent.body.placement === "bar", "  and the subscribe route was asked for this creator, this address, from the bar", sent)
     if (SHOTS) await page.screenshot({ path: join(SHOTS, `imported-bar-${width}.png`) })
+    await page.goto(`${base}/`, { waitUntil: "networkidle0" })
+    expect(await page.evaluate(() => document.querySelector(".slnl--bar")?.hidden === true), "  and the next visit does not show the bar to somebody already on the list")
     await page.close()
   }
 
   console.log("\nStorelib theme, Newsletter Signup (promo_newsletter) in StorelibSection")
-  const page = await browser.newPage()
+  const page = await (await browser.createBrowserContext()).newPage()
   page.on("pageerror", (e) => expect(false, "no script error on the page", String(e)))
   await page.setViewport({ width: 1280, height: 800 })
   await page.goto(`${base}/storelib`, { waitUntil: "networkidle0" })

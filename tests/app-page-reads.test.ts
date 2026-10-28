@@ -101,11 +101,12 @@ section("Who is signed in: asked once per request")
      still found on the caller's own client; the service role reads only the private columns of
      the row that client returned, by its id. */
   check("the creator row it shares is read on the caller's own client, by their own user id; the service role only adds its private columns",
-    /creatorForRequest = cache\(async \(userId: string\)[\s\S]{0,200}const supabase = await createClient\(\)[\s\S]{0,200}\.from\("creators"\)\.select\(SHELL_CREATOR_COLUMNS\)\.eq\("user_id", userId\)/.test(scope)
+    /* Changed on purpose (round net-1028): the read is creatorRow, behind creatorForRequest and creatorOrThrowForRequest, which keep a failed read apart from no row. */
+    /async function creatorRow\(userId: string\)[\s\S]{0,200}const supabase = await createClient\(\)[\s\S]{0,800}\.from\("creators"\)\.select\(SHELL_CREATOR_COLUMNS\)\.eq\("user_id", userId\)/.test(scope)
       /* Round 18: both halves are asked at once, the private one by the same signed in user's id
          (creators.user_id is unique, so it is the same row), and it is used only when the caller's
          own client returned the row (lib/perf/optimizations.ts). */
-      && /createAdminClient\(\)\.from\("creators"\)\.select\(SHELL_PRIVATE_CREATOR_COLUMNS\)\.eq\("user_id", userId\)\.maybeSingle\(\),\s*\]\)\s*if \(!data\) return null/.test(scope)
+      && /createAdminClient\(\)\.from\("creators"\)\.select\(SHELL_PRIVATE_CREATOR_COLUMNS\)\.eq\("user_id", userId\)\.maybeSingle\(\),\s*\]\)[\s\S]{0,700}const privateCols = privateHalf\.error \? null : privateHalf\.data\s*if \(!data\) return null/.test(scope)
       && (scope.match(/createAdminClient\(\)/g) || []).length === 1)
   {
     const cols = (name: string) => (scope.match(new RegExp(`const ${name} =\\s*"([^"]+)"`)) || [])[1]?.split(",").map((c) => c.trim()) ?? []
@@ -120,9 +121,10 @@ section("The layout: everything that needs only the user, together")
   /* Changed on purpose (round AA, Team): the account's own creator row is
      ownCreator, and a team member's store (lib/team/server teamStoreForRequest,
      checked against the membership in the database) is read in the same batch. */
-  const first = batchAfter(layout, /const \[gateCheck, ownCreator/)
+  /* Changed on purpose (round net-1028): the batch is criticalShellReads, whose profile and creator reads throw on a failed read instead of reading as no row. */
+  const first = batchAfter(layout, /function criticalShellReads/)
   check("the gates, the creator row and the OnePage are one batch",
-    /profileForRequest\(user\.id\)/.test(first) && /creatorForRequest\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first) && /teamStoreForRequest\(user\.id\)/.test(first))
+    /profileOrThrowForRequest\(userId\)/.test(first) && /creatorOrThrowForRequest\(userId\)/.test(first) && /\.from\("onepages"\)/.test(first) && /teamStoreForRequest\(userId\)/.test(first))
   /* The header's photo is the profile's own (lib/account/avatar): the store
      header was read only to fall back to its photo, so it is not read at all. */
   check("and the store header is not read for a photo any more", !/store_builder_configs/.test(layout) && /profileAvatar\(profile\?\.avatar_url\)/.test(layout))

@@ -462,16 +462,16 @@ const drawnKey = (id: string, channel: BuyerChannel, lang: string, version: stri
 const defaultLangOf = (data: CustomerEmailsData | null | undefined) => data?.languages?.defaultLanguage ?? data?.language?.lang ?? "en"
 
 /** Read one email's preview as the server draws it, for its saved words, unless it is kept or on its way. */
-export function prefetchStorePreview(id: string, data: CustomerEmailsData | null | undefined, asked?: BuyerChannel, askedLang?: string): Promise<DrawnPreview | null> {
+export function prefetchStorePreview(id: string, data: CustomerEmailsData | null | undefined, askedChannel?: BuyerChannel, askedLang?: string): Promise<DrawnPreview | null> {
   /* A membership is only ever bought on Storelib, in English (usePreviewPlace below); everything else opens as bought on the website, in its language. */
-  const channel: BuyerChannel = asked ?? (id.startsWith("membership_") ? "storelib" : "website")
+  const channel: BuyerChannel = askedChannel ?? (id.startsWith("membership_") ? "storelib" : "website")
   const lang = askedLang ?? (channel === "storelib" ? "en" : defaultLangOf(data))
   const version = previewVersion(data?.copy[id])
   const key = drawnKey(id, channel, lang, version)
   const have = drawnKept.get(key)
   if (have) return Promise.resolve(have)
-  const asked = drawnAsked.get(key)
-  if (asked) return asked
+  const pending = drawnAsked.get(key)
+  if (pending) return pending
   const q = new URLSearchParams({ id, v: version, channel, lang })
   const p = api<DrawnPreview>(`${CUSTOMER_EMAILS_PATH}/preview?${q}`).then((r) => {
     drawnAsked.delete(key)

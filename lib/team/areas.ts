@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js"
 import "server-only"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -29,9 +30,11 @@ import { teamStampDb } from "./audit"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
+/** What a route is handed: the owner's own client, or the service role (named on the record lines) for a member. */
+type StoreDb = SupabaseClient
 
 export type AreaStore =
-  | { kind: "store"; db: Db; creatorId: string; isOwner: boolean; ownerUserId: string; acting: ActingStore | null }
+  | { kind: "store"; db: StoreDb; creatorId: string; isOwner: boolean; ownerUserId: string; acting: ActingStore | null }
   | { kind: "denied" }
   | { kind: "none" }
   | { kind: "unreachable" }

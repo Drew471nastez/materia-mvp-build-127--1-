@@ -878,7 +878,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   useEffect(() => {
     /* One request shared by everything on screen (lib/billing/plan-client.ts); after a plan change, a fresh one. */
     void fetchBillingSubscription({ fresh: planTick > 0 })
-      .then((data) => setUserPlan((plan) => (data ? data.currentPlan?.id || "free" : plan ?? "free")))
+      .then((data) => (data ? setUserPlan(data.currentPlan?.id || "free") : setUserPlan((plan) => plan ?? "free")))
       .finally(() => setPlanLoading(false))
   }, [planTick])
 

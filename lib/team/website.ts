@@ -1,5 +1,5 @@
 import "server-only"
-import type { User } from "@supabase/supabase-js"
+import type { SupabaseClient, User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/server"
 import { editorUser, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { areaStore, storeInstall } from "./areas"
@@ -30,9 +30,11 @@ import { NO_ACCESS } from "./server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
+/** What a route is handed: the owner's own client, or the service role (named on the record lines) for a member. */
+type StoreDb = SupabaseClient
 
 export type WebsiteCaller =
-  | { error: null; status: 200; supabase: Db; user: User; userId: string; creatorId: string; creator: { id: string }; isOwner: boolean; ownerUserId: string; acting: ActingStore | null }
+  | { error: null; status: 200; supabase: StoreDb; user: User; userId: string; creatorId: string; creator: { id: string }; isOwner: boolean; ownerUserId: string; acting: ActingStore | null }
   | { error: string; status: number; supabase: null; user: null; userId: null; creatorId: null; creator: null; isOwner: false; ownerUserId: null; acting: null }
 
 function refused(error: string, status: number): WebsiteCaller {
@@ -70,7 +72,7 @@ export async function websiteInstallCaller<T = { id: string; creator_id: string 
  * team bar over the page says so); "none" is the page's own no-store path.
  */
 export type WebsitePage =
-  | { kind: "store"; db: Db; creatorId: string; userId: string; ownerUserId: string; isOwner: boolean; viewer: string }
+  | { kind: "store"; db: StoreDb; creatorId: string; userId: string; ownerUserId: string; isOwner: boolean; viewer: string }
   | { kind: "closed" }
   | { kind: "none" }
 
