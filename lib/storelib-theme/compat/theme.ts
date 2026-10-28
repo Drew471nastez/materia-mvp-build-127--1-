@@ -836,6 +836,8 @@ export class CompatTheme {
       customer: page.customer ?? null,
       /* Storelib's own words in the page's language (Translate › Shop words): Storelib Reviews' section and blocks (./storelib-reviews.ts). */
       storelib_words: shopWords(page.i18n?.uiWords),
+      /* Drawn for the builder (its canvas, a card): Storelib's own sections draw an overlay open, in the page (./storelib-newsletter.ts). Not request.design_mode, which the canvas sets false. */
+      storelib_in_builder: page.designMode === true,
       /* Storelib Reviews (./storelib-reviews.ts): the page's, or in the builder before any arrive, sample ones. */
       storelib_reviews: page.reviews ?? (page.designMode ? { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), "", page.product ? { id: page.product.id, title: String(page.product.settings?.title ?? "") } : null), enabled: true } : null),
       page: page.pageObject ? { [OUTPUT]: page.pageObject.title, ...page.pageObject, id: page.pageObject.handle, template_suffix: page.suffix ?? null, metafields: {} } : null,
@@ -1945,7 +1947,9 @@ function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: stri
   if (type === "contact" || type === "customer") attrs.push(`data-storelib-form="${type === "customer" ? "subscribe" : "contact"}"`)
   const hidden = [`<input type="hidden" name="form_type" value="${escapeHtml(type)}">`, `<input type="hidden" name="utf8" value="✓">`]
   /* A newsletter form says whether it is the footer's or a section's, so the sign up is recorded as the box it came from (site.ts formSubmit). */
-  if (type === "customer") hidden.push(`<input type="hidden" name="storelib_placement" value="${/footer/i.test(`${toOutput((ctx.registers.sectionInstance as O | undefined)?.type ?? "")} ${toOutput(section?.id ?? "")}`) ? "footer" : "newsletter"}">`)
+  /* Storelib's own Newsletter names its look itself (bar, popup or in the page, ./storelib-newsletter.ts). */
+  const instanceType = toOutput((ctx.registers.sectionInstance as O | undefined)?.type ?? "")
+  if (type === "customer" && instanceType !== "storelib-newsletter") hidden.push(`<input type="hidden" name="storelib_placement" value="${/footer/i.test(`${instanceType} ${toOutput(section?.id ?? "")}`) ? "footer" : "newsletter"}">`)
   if (type === "product" && obj && typeof obj === "object") {
     const variant = (obj as O).selected_or_first_available_variant as O | undefined
     if (variant?.id) hidden.push(`<input type="hidden" name="product-id" value="${escapeHtml(toOutput((obj as O).id))}">`)

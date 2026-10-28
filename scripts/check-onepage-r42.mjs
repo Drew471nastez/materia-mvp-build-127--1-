@@ -284,17 +284,30 @@ console.log("\nSlideshow and carousel, dragged with a mouse at 1280")
     expect(selected === "", `${name}: the drag selects no text`, selected.slice(0, 40))
   }
   /* A drag over a linked picture does not open it; a click does. */
-  const before = opened.length
+  await p.evaluate(() => { const el = document.querySelector("[data-onepage-slides]"); el.style.scrollBehavior = "auto"; el.scrollLeft = el.children[1].offsetLeft })
+  await sleep(400)
   const linked = await p.evaluate(() => {
-    const a = [...document.querySelectorAll("[data-onepage-slides] a[href]")].find((e) => e.getBoundingClientRect().width > 0)
+    const a = [...document.querySelectorAll("[data-onepage-slides] a[href]")].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.left >= 0 && r.right <= innerWidth })
     if (!a) return null
     a.target = "_self"
-    a.scrollIntoView({ block: "center" })
     const r = a.getBoundingClientRect()
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
   })
-  expect(opened.length === before, "drag did not open a link", opened.slice(before))
-  void linked
+  if (!linked) expect(false, "a linked slide in view", null)
+  else {
+    const before = opened.length
+    await p.mouse.move(linked.x, linked.y)
+    await p.mouse.down()
+    for (let i = 1; i <= 6; i++) { await p.mouse.move(linked.x + i * 12, linked.y); await sleep(16) }
+    await p.mouse.up()
+    await sleep(900)
+    expect(opened.length === before, "a drag over a linked slide does not open it", opened.slice(before))
+    await p.evaluate(() => { const el = document.querySelector("[data-onepage-slides]"); el.style.scrollBehavior = "auto"; el.scrollLeft = el.children[1].offsetLeft })
+    await sleep(400)
+    await p.mouse.click(linked.x, linked.y)
+    await sleep(600)
+    expect(opened.length > before, "a plain click on it still opens it", opened.slice(before))
+  }
   await p.close()
 }
 

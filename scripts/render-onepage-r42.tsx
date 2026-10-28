@@ -63,7 +63,7 @@ const sets: Record<string, never[]> = {
     b("group", { title: "Also", layout: "stack", children: [b("product", { ...product, style: "button", cta_text: "Get My Guide" }, "s_p"), link("s_l1", "Newsletter")] }, "g_stack"),
   ],
   slides: [
-    b("image", { image_url: pic(1), display_style: "carousel", carousel_view: "1", images: [1, 2, 3, 4].map((n) => ({ id: `i${n}`, image_url: pic(n), alt_text: `Picture ${n}`, link_url: n === 2 ? "https://example.com/two" : null })) }, "slides"),
+    b("image", { image_url: pic(1), clickable: true, display_style: "carousel", carousel_view: "1", images: [1, 2, 3, 4].map((n) => ({ id: `i${n}`, image_url: pic(n), alt_text: `Picture ${n}`, link_url: n === 2 ? "https://example.com/two" : null })) }, "slides"),
     b("group", { title: "Links", layout: "carousel", carousel_view: "1", children: [link("gc1", "First"), link("gc2", "Second"), link("gc3", "Third")] }, "g_slides"),
     b("text", { content: "<p>" + "Words to select. ".repeat(40) + "</p>", alignment: "left" }, "words"),
   ],

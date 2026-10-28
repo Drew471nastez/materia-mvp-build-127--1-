@@ -29,6 +29,11 @@ import { CompatTheme, wrapCompatTemplate } from "../lib/storelib-theme/compat/th
 import { answer, type SiteData, type SiteRequest } from "../lib/storelib-theme/compat/site"
 import { sourceView } from "../lib/contacts/contact-source"
 import { signupMode } from "../lib/website-builder/subscribe-client"
+import { withStorelibReviewsSection } from "../lib/storelib-theme/compat/storelib-reviews"
+import { NEWSLETTER_SECTION_TYPE } from "../lib/storelib-theme/compat/storelib-newsletter"
+import { customAddableSections, customSectionSchemas } from "../lib/website-builder/storelib-schemas"
+import { appForSection } from "../lib/website-builder/app-sections"
+import { isStorelibNativeSection } from "../lib/storelib-theme/compat/native-sections"
 
 let passed = 0
 let failed = 0
@@ -179,10 +184,49 @@ async function importedChecks(route: { POST: (r: Request) => Promise<Response> }
   check("a page with nothing to send it with (a preview link) still says it did not go", /form_error=failed/.test(preview.headers?.Location ?? ""))
 }
 
+async function embedChecks(route: { POST: (r: Request) => Promise<Response> }) {
+  console.log("\nStorelib Newsletter, the Email app's embed, in a theme with no newsletter of its own")
+  const bare = withStorelibReviewsSection({
+    "layout/theme.storelib": wrapCompatTemplate(`<html><head>{{ content_for_header }}</head><body style="--color-button: 200,0,0"><main>{{ content_for_layout }}</main></body></html>`),
+    "sections/hero.storelib": section("hero", `<h1>Home</h1>`),
+  })
+  const schemas = customSectionSchemas(bare)
+  check("every imported theme has it, in Add section, filed under the Email app (App embeds)", !!bare[`sections/${NEWSLETTER_SECTION_TYPE}.storelib`] && customAddableSections(schemas).includes(NEWSLETTER_SECTION_TYPE) && appForSection(NEWSLETTER_SECTION_TYPE)?.app.id === "email", Object.keys(schemas))
+  check("  a bar, a popup and a band in the page", (schemas[NEWSLETTER_SECTION_TYPE]?.presets ?? []).map((p: any) => p.settings?.look).join() === "bar,popup,inline")
+  check("  kept by an import and a GitHub push like Storelib Reviews' sections", isStorelibNativeSection(NEWSLETTER_SECTION_TYPE))
+  const site = (look: string, extra: Partial<SiteData> = {}): SiteData => ({ ...siteOf(extra), theme: new CompatTheme(bare, {}, { assetUrl: (n) => `/a/${n}` }), pages: { home: [{ id: "hero", type: "hero" }, { id: "nl", type: NEWSLETTER_SECTION_TYPE, settings: { look, heading: "Join us", consent: "Unsubscribe any time." } }] } as never })
+  const live = String((await call(site("bar"), "GET", "/")).body)
+  const bar = /<div class="slnl slnl--bar"[\s\S]*?<\/script>\s*<\/div>/.exec(live)?.[0] ?? ""
+  check("on the website: a slim bar with its heading, an email box, the button and the consent line", !!bar && /Join us/.test(bar) && /type="email" name="contact\[email\]"/.test(bar) && /class="slnl__b"/.test(bar) && /Unsubscribe any time\./.test(bar), live.slice(0, 400))
+  check("  a Storelib sign up, posted to the website's /contact, naming the bar", /data-storelib-form="subscribe"/.test(bar) && /action="\/contact#storelib-newsletter-nl"/.test(bar) && fieldsOf(bar).storelib_placement === "bar" && (bar.match(/name="storelib_placement"/g) ?? []).length === 1, fieldsOf(bar))
+  check("  in the theme's colours and font: its button colour, inherited type", /var\(--color-button/.test(live) && /\.slnl\{font:inherit;color:inherit/.test(live))
+  check("  with its script, which closes it and opens a popup after its delay", /<script>\(function\(\)\{var s=document\.currentScript/.test(bar))
+  const canvas = String((await call(site("popup", { designMode: true }), "GET", "/")).body)
+  check("in the builder's canvas: drawn open in the page, no script", /class="slnl slnl--popup slnl--canvas"/.test(canvas) && /data-canvas="1"/.test(canvas) && !/var s=document\.currentScript/.test(canvas))
+
+  const d = db()
+  S.admin = d
+  const submit = async (_kind: "subscribe" | "contact", payload: Record<string, unknown>) => {
+    const r = await route.POST(post(payload) as never)
+    return { ok: r.ok, status: r.status }
+  }
+  const sent = await call(site("bar"), "POST", "/contact", { body: { ...fieldsOf(bar), "contact[email]": "ivy@example.com" }, ajax: true, submit })
+  const ivy = d.tables.subscribers.find((x: any) => x.email === "ivy@example.com")
+  check("subscribing from the bar creates the subscriber, recorded as the sign-up bar", sent.status === 200 && ivy?.status === "subscribed" && ivy?.source_detail?.form === "bar" && /sign-up bar/.test(String(ivy?.consent_text)), ivy)
+  check("  Emails reads it as this website's Subscribe bar", sourceView(ivy?.source_detail, ivy?.source).detail === "Subscribe bar")
+  const popupHtml = String((await call(site("popup"), "GET", "/")).body)
+  await call(site("popup"), "POST", "/contact", { body: { ...fieldsOf(popupHtml), "contact[email]": "jo@example.com" }, ajax: true, submit })
+  const jo = d.tables.subscribers.find((x: any) => x.email === "jo@example.com")
+  check("  from the popup: a sign-up form, its consent line the popup's", fieldsOf(popupHtml).storelib_placement === "popup" && jo?.source_detail?.form === "section" && /popup/.test(String(jo?.consent_text)), jo)
+  const thanks = String((await call(site("bar"), "GET", "/?customer_posted=true")).body)
+  check("  and the bar then says thank you in place of the box", /<p class="slnl__ok" role="status">Thanks for subscribing\.<\/p>/.test(thanks) && !/class="slnl__i"/.test(thanks))
+}
+
 async function main() {
   const route = (await import(await bundleRoute("app/api/website-builder/subscribe/route.ts"))) as { POST: (r: Request) => Promise<Response> }
   await routeChecks(route)
   await importedChecks(route)
+  await embedChecks(route)
   console.log(`\n  ${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(`  failing: ${failures.join(", ")}`)

@@ -308,7 +308,7 @@ function main() {
     check("a crop keeps its finger from the sheet", /data-sheet-no-drag=""/.test(read("components/onepage/media-cropper.tsx")) && (linksSrc.match(/<CropUpload\b/g) ?? []).length >= 2 && (design.match(/<CropUpload\b/g) ?? []).length >= 4)
     check("Add block, the social link and Share are built ahead and kept, as the notifications sheet is",
       /* Round 11: the social sheet keeps one height whose top the keyboard never moves (SOCIAL_SHEET_HEIGHT), on purpose. */
-      /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /sheet=\{\{ keepMounted: true, height: SOCIAL_SHEET_HEIGHT \}\}/.test(linksSrc)
+      /sheet=\{\{ keepMounted: true, height: SHEET_DIALOG_MAX_HEIGHT \}\}/.test(linksSrc) && /* Changed on purpose (round 42): SOCIAL_SHEET_HEIGHT for the list only, a field sized to itself. */ /sheet=\{\{ keepMounted: true, height: selectedSocial \? undefined : SOCIAL_SHEET_HEIGHT/.test(linksSrc)
       && /title="Share your OnePage" hideFrom="md" keepMounted/.test(read("components/onepage/onepage-editor.tsx")))
     check("a block's layout, display and divider cards fade their mark, and the radio dot scales in", /* 11 since round 11: the email signup's two hand-written cards became one card drawn for each of its five layouts. */ (linksSrc.match(/<CardMark on=\{/g) ?? []).length >= 11 && !/\? "border-\[#1a1a2e\] bg-\[#f7f7f8\]"/.test(linksSrc) && /scale-0 opacity-0/.test(linksSrc))
     /* Settings' sections are the editor's one pill-tab row now: the pill slides from the press, instead of each chip fading its own fill where it stands. */

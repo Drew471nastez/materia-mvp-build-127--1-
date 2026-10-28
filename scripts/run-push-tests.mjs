@@ -35,6 +35,8 @@ const SUITES = [
   "tests/explore25.test.ts",
   "tests/proxy-auth-speed.test.ts",
   "tests/net-request.test.ts",
+  /* Round net-1028: every Supabase request has a deadline, a read that hit a blip is asked again (never a write), a failed read is not "no row", auth that did not answer falls back to the token's signature, request ids and clean log lines; scripts/check-settings-switch.mjs SWITCH_ONLY=hang measures a Settings section whose code never comes. */
+  "tests/net-resilience.test.ts",
   "tests/live-speed-view.test.ts",
   "tests/translate-ai-speed.test.ts",
   "tests/open-translate.test.ts",
@@ -204,6 +206,8 @@ const SUITES = [
   "tests/orders-detail.test.ts",
   "tests/analytics-reports.test.ts",
   "tests/analytics-collection.test.ts",
+  /* Round 42: each row's own line in an opened report (lib/analytics/row-series), clicks between pages of the same site (nav_click, lib/analytics/site-clicks), and the type filter as one chip. */
+  "tests/analytics-row-series.test.ts",
   "tests/analytics-rollup-sql.test.ts",
   "tests/analytics-report-sql.test.ts",
   "tests/analytics-review.test.ts",
@@ -997,6 +1001,12 @@ const SUITES = [
   "tests/wb-ux-r12.test.ts",
   /* Round 12 (live websites): a made up server action refused by the proxy, a Publish followed by its own pages drawn; scripts/check-site-perf-r12.mjs measures load and navigation. */
   "tests/site-perf-r12.test.ts",
+  /* Round cn-1028: a credit note for every refund, in the store's invoice sequence (lib/checkout/credit-note.ts, SQL part 329), its lines and tax by rate negative, in the buyer's language; linked from the refund email, the receipt, the order page and the seller's menu. */
+  "tests/credit-notes.test.ts",
+  /* Round cn-1028: View in browser in campaign emails, a signed public page with the reader's own unsubscribe link and no tracking (lib/email-campaigns/view-online.ts). */
+  "tests/view-online.test.ts",
+  /* Round cn-1028: community emails and automations edited from Emails itself, Customer emails' family pills without the slide, the editor's preview drawn once per version and shown at once. */
+  "tests/emails-community-in-place.test.ts",
 ]
 
 /**
@@ -1099,6 +1109,8 @@ const STRICT_SUITES = [
   "tests/legal-and-onepage-settings-r40.test.ts",
   /* Round 41: a OnePage's button edges (the fill stops inside the border), X posts at their card's width and corners, social icons that do not grow, Share as it was with the creator's photo and Subscribe with it, neither touching the page's scrollbar; three choices for a product tap, the sheet's own button, option and quantity before paying; a new profile video with no gap. scripts/check-onepage-r41.mjs measures them. */
   "tests/onepage-public-r41.test.ts",
+  /* Round 42: a OnePage's embeds with no scrollbar inside them (heights said and rounded up, Tally and Calendly asked for theirs, TikTok's player), buttons with room on every side in a carousel, one copy of a video playing, the social sheet as tall as it holds, a slideshow a mouse drags. scripts/check-onepage-r42.mjs measures them. */
+  "tests/onepage-r42.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

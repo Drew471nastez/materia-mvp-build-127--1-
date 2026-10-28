@@ -45,7 +45,7 @@ import { storelibApps, type AppState, type StorelibApp } from "@/lib/integration
 import { tt } from "@/lib/i18n/text"
 import { pillOrder, weave, type DirectoryPill, type Lane } from "@/lib/integrations/directory-order"
 import { holdLanding, isTraversing, prefetchAppPage } from "@/lib/ui/app-navigation"
-import { LAYER_MOTION_EASE, LAYER_PHONE } from "@/components/app/page-layer"
+import { LAYER_MOTION_EASE, LAYER_PHONE, startWhenFramesFlow } from "@/components/app/page-layer"
 
 /* All, then the pills the owner placed, then every other category (lib/integrations/directory-order). */
 type Filter = DirectoryPill
@@ -461,7 +461,9 @@ export function IntegrationsDirectory({ page = false, only = null, initial: serv
     if (!reduced() && typeof el.animate === "function") {
       const phone = window.matchMedia(LAYER_PHONE).matches
       const from = how === "push" ? (phone ? PAGE_RISE_PHONE : PAGE_RISE) : -(phone ? LIST_SETTLE_PHONE : LIST_SETTLE)
-      el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: "translate3d(0, 0, 0)" }], { duration: how === "push" ? PAGE_IN_MS : LIST_IN_MS, easing: LAYER_MOTION_EASE })
+      const move = el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: "translate3d(0, 0, 0)" }], { duration: how === "push" ? PAGE_IN_MS : LIST_IN_MS, easing: LAYER_MOTION_EASE })
+      /* Held where it starts until the page's own first drawing has landed and frames arrive a frame apart, as a layer's move played by hand is, so the whole of it is seen. */
+      startWhenFramesFlow([move], 2)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewKey])

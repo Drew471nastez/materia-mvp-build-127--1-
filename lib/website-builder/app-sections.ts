@@ -77,6 +77,8 @@ const ENTRIES: AppSectionEntry[] = [
   { app: "reviews", kind: "block", type: "rating", in: ["product"], description: "Stars under the product's name." },
   { app: "email", kind: "section", type: "promo_newsletter", description: "Sign ups go to your contacts." },
   { app: "email", kind: "section", type: "newsletter", description: "Sign ups go to your contacts." },
+  /* Every imported theme's (lib/storelib-theme/compat/storelib-newsletter.ts): a bar, a popup or a band. */
+  { app: "email", kind: "section", type: "storelib-newsletter", description: "A sign up bar, popup or band. Sign ups go to your contacts." },
   /* The product section's Bundles and upsells block, added to every product page while offers run (product-page.ts withOffersBlock). */
   { app: "offers", kind: "block", type: "offers", in: ["product"], description: "Bundles and upsells set up in Offers." },
   { app: "wishlist", kind: "block", type: "wishlist", in: ["product"], description: "Save for later, on the product." },

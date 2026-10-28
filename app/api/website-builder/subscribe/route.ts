@@ -50,6 +50,8 @@ const CONSENT: Record<string, string> = {
   contact: "Ticked \"Keep me updated\" on the contact form of this creator's website",
   section: "Subscribed via a sign-up form on this creator's website",
   password: "Asked to be told when this creator's website opens, on its coming soon page",
+  bar: "Subscribed via the sign-up bar on this creator's website",
+  popup: "Subscribed via a sign-up popup on this creator's website",
 }
 
 function consentFor(placement: unknown): string {
@@ -149,7 +151,8 @@ export async function POST(req: NextRequest) {
    * (a site's forms post to their own origin), never one the page claims;
    * what the page adds is where its visit came from. lib/contacts/contact-source.
    */
-  const placement: ContactForm = typeof body.placement === "string" && body.placement in CONSENT ? (body.placement as ContactForm) : "newsletter"
+  /* A website's popup is a sign-up form to Emails: "popup" there is the profile's Subscribe button (lib/contacts/contact-source FORM_NAME). */
+  const placement: ContactForm = body.placement === "popup" ? "section" : typeof body.placement === "string" && body.placement in CONSENT ? (body.placement as ContactForm) : "newsletter"
   const source = contactSourceFrom({ request: req, surface: "website", form: placement, sent: body.origin })
   await recordContactSource(db, creatorId, email, source)
   /* And onto the same contact, this website and the visit's touches (lib/attribution). */

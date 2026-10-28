@@ -44,6 +44,7 @@ import { toOutput, type Ctx } from "./runtime"
 import { renderReviewWidgetSection, type WidgetReviews } from "@/lib/reviews/widgets/render"
 import { reviewWidgetScript } from "@/lib/reviews/widgets/enhance"
 import { WIDGET_INFO, WIDGET_TYPES } from "@/lib/reviews/widgets/config"
+import { NEWSLETTER_SECTION_PATH, NEWSLETTER_SECTION_TYPE, newsletterSectionSource } from "./storelib-newsletter"
 
 import { REVIEWS_SECTION_TYPE, REVIEW_WIDGET_SECTION_TYPE, STORELIB_APP_SECTION_TYPES } from "./native-sections"
 
@@ -381,6 +382,8 @@ export function withStorelibReviewsSection(files: Record<string, string>): Recor
   const add: Record<string, string> = {}
   if (files[REVIEWS_SECTION_PATH] === undefined && files[`sections/${REVIEWS_SECTION_TYPE}.liquid`] === undefined) add[REVIEWS_SECTION_PATH] = reviewsSectionSource()
   if (files[REVIEW_WIDGET_SECTION_PATH] === undefined && files[`sections/${REVIEW_WIDGET_SECTION_TYPE}.liquid`] === undefined) add[REVIEW_WIDGET_SECTION_PATH] = reviewWidgetSectionSource()
+  /* And Storelib Email's Newsletter (./storelib-newsletter.ts), the Email app's embed, in every imported theme. */
+  if (files[NEWSLETTER_SECTION_PATH] === undefined && files[`sections/${NEWSLETTER_SECTION_TYPE}.liquid`] === undefined) add[NEWSLETTER_SECTION_PATH] = newsletterSectionSource()
   return Object.keys(add).length ? { ...files, ...add } : files
 }
 

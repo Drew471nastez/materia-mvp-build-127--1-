@@ -389,14 +389,16 @@ export function internalTargetOf(win: Win, anchor: HTMLAnchorElement): string | 
   const raw = anchor.getAttribute("href")
   if (!raw || anchor.hasAttribute("download")) return null
   let target: URL
+  let here: URL
   try {
-    target = new URL(anchor.href || raw, win.location.href)
+    here = new URL(win.location.href)
+    target = new URL(anchor.href || raw, here)
   } catch {
     return null
   }
-  if ((target.protocol !== "http:" && target.protocol !== "https:") || target.host !== win.location.host) return null
+  if ((target.protocol !== "http:" && target.protocol !== "https:") || target.host !== here.host) return null
   const to = normalizePath(target.pathname) ?? "/"
-  if (to === (normalizePath(win.location.pathname) ?? "/")) return null
+  if (to === (normalizePath(here.pathname) ?? "/")) return null
   if (/^\/api(\/|$)/.test(to) || /\/cart\/add(\/|$)/.test(to)) return null
   return `${target.protocol}//${target.host}${target.pathname}`
 }
@@ -421,7 +423,7 @@ export function watchInternalLinks(win: Win, input: { creatorId: string; ids: ()
       const targetHref = internalTargetOf(win, anchor)
       if (!targetHref) return
       const label = linkWords(anchor)
-      const key = `${normalizePath(win.location.pathname)}|${targetHref}|${label ?? ""}`
+      const key = `${normalizePath(new URL(win.location.href).pathname)}|${targetHref}|${label ?? ""}`
       if (clicked.has(key)) return
       clicked.add(key)
       void send(win, "/api/track-event", { eventType: "nav_click", creatorId: input.creatorId, href: win.location.href, targetHref, label: label ?? undefined, ...input.ids() }, { beacon: true })

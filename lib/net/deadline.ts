@@ -195,7 +195,8 @@ async function transientRetry(
     }
     if (ms !== null && Date.now() - started + wait >= ms) return res
     if (caller?.aborted || ours?.aborted) return res
-    await res.body?.cancel().catch(() => {})
+    /* Let the unread body go without waiting on it: a cancel can wait on another reader of the same stream. */
+    void res.body?.cancel().catch(() => {})
     await sleep(wait)
   }
 }

@@ -1867,7 +1867,7 @@ async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteRespons
   const email = flat("email")
   const subscribe = type === "customer"
   /* Which box it was, for the consent line and Emails' source: the form says (theme.ts formMarkup); a page drawn before it did is the footer's, as it always was. */
-  const placement = b.storelib_placement === "newsletter" ? "newsletter" : "footer"
+  const placement = b.storelib_placement === "newsletter" || b.storelib_placement === "bar" || b.storelib_placement === "popup" ? b.storelib_placement : "footer"
   const payload = subscribe
     ? { creator_id: site.creatorId, email, placement }
     : { creator_id: site.creatorId, name: flat("name") || [flat("first_name"), flat("last_name")].filter(Boolean).join(" "), email, message: flat("body") || flat("message") || flat("comment"), consent: false, company: "", elapsed: 15000, ...contactContext(flat) }

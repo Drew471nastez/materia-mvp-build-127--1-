@@ -15,7 +15,7 @@
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 
 /** Where on the page the address was given, for the consent record. */
-export type SignupPlacement = "newsletter" | "footer" | "contact" | "section" | "password"
+export type SignupPlacement = "newsletter" | "footer" | "contact" | "section" | "password" | "bar" | "popup"
 
 export type SignupResult = { ok: true } | { ok: false; error: string }
 

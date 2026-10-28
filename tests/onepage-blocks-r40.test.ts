@@ -265,7 +265,8 @@ async function main() {
   section("Embeds: the post's own width, no jump")
   {
     check("X and Instagram are as wide as their cards, not the page", EMBED_MAX_WIDTH.x === 550 && EMBED_MAX_WIDTH.instagram === 540)
-    check("the first height is taken; a settling change is not", nextEmbedHeight(420, 610, true) === 610 && nextEmbedHeight(610, 612, false) === 610 && nextEmbedHeight(610, 610 + EMBED_SETTLE_PX + 1, false) === 615)
+    /* Changed on purpose (round 42): any growth is taken (a frame a pixel short of its document scrolls it); only a small shrink is settled. */
+    check("the first height is taken; a settling shrink is not, a growth always is", nextEmbedHeight(420, 610, true) === 610 && nextEmbedHeight(612, 610, false) === 612 && nextEmbedHeight(610, 612, false) === 612 && nextEmbedHeight(620, 620 - EMBED_SETTLE_PX - 1, false) === 615)
     const frame = read("components/onepage/embed-frame.tsx")
     check("no fill of its own behind the post, hidden until it is measured", !/bg-black\/\[0\.04\]/.test(frame) && /opacity: shown \? 1 : 0/.test(frame) && /loading="lazy"/.test(frame))
     check("the embed block uses it", /<EmbedFrame src=\{src\}/.test(read("components/onepage/creator-blocks.tsx")))
