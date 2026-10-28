@@ -22,7 +22,13 @@
  *                          purpose creator_page), which the page is served on
  *                          and its share links use. GET /api/domains.
  *
- * Only reads. Nothing here is a second copy of a setting.
+ * Those three only read. Nothing here is a second copy of a setting.
+ *
+ *   SENT AS THEY SIGN UP   round 40: Mailchimp, Kit, beehiiv, Zapier, Make,
+ *                          Google Sheets and a webhook belong to the page
+ *                          (its signups, as they happen), so they are
+ *                          connected here (./page-integrations,
+ *                          GET/POST /api/onepage/integrations, SQL part 315).
  */
 
 import * as React from "react"
@@ -30,6 +36,7 @@ import { ChevronRight, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { tt } from "@/lib/i18n/text"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
+import { PageIntegrationsSection } from "@/components/onepage/page-integrations"
 
 type Tracking = Partial<Record<string, string | null>>
 type MarketingRow = { provider: "klaviyo" | "omnisend"; connected: boolean; listName?: string | null }
@@ -148,6 +155,9 @@ export function OnePageIntegrations() {
           </div>
         )}
       </section>
+
+      {/* Round 40: Mailchimp, Kit, beehiiv, Zapier, Make, Sheets and a webhook, connected here, each sent every signup as it happens (./page-integrations). */}
+      <PageIntegrationsSection />
 
       <a
         href="/app/integrations"

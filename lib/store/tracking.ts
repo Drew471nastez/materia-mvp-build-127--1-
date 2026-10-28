@@ -169,6 +169,27 @@ export function readTracking(stored: unknown): Tracking {
 }
 
 /**
+ * ROUND 40: THE AD PIXELS ASK FIRST. Meta, TikTok and Pinterest are
+ * advertising (lib/consent/consent.ts, "marketing"), and they loaded for
+ * every visitor whatever the cookie banner was told. Now each one reads the
+ * visitor's own answer, the same cookie Google's consent mode reads
+ * (gaConsentJs): a yes lets it send, a no keeps it quiet. With no answer
+ * yet, on a page that shows the banner (`asks`), a browser whose time zone
+ * is in Europe (the regions that need a yes first, as CONSENT_REGIONS is
+ * for Google) waits; elsewhere it sends, as before. Meta waits with its own
+ * consent call (fbq('consent','revoke'), then 'grant'), TikTok with its own
+ * (ttq.holdConsent, then grantConsent), Pinterest by not loading until the
+ * yes. A change on the banner (storelib:consent-changed) is followed at once.
+ */
+export function marketingConsentJs(asks: boolean): string {
+  return (
+    "window.__slMkOk=window.__slMkOk||function(asks){var m=document.cookie.match(/(?:^|;\\s*)storelib_consent=(\\d{1,3})(?:\\.|%2E)p[01](?:\\.|%2E)a[01](?:\\.|%2E)m([01])/);" +
+    "if(m&&m[1]==='2')return m[2]==='1';if(!asks)return true;var z='';try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(e){}return !/^(Europe|Atlantic\\/(Reykjavik|Canary|Madeira|Azores|Faroe))\\//.test(z)};" +
+    `window.__slMkAsks=${asks ? "true" : "false"};`
+  )
+}
+
+/**
  * The tags for a page: each service's own snippet, with its checked ID in
  * it. `src` is loaded as a script; `inline` runs once. Nothing here comes
  * from the store but the IDs, and each is checked again here.
@@ -200,22 +221,24 @@ export function trackingTags(stored: unknown, opts: { creatorId?: string | null;
       inline: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer',${JSON.stringify(t.gtm)});`,
     })
   }
+  const mk = marketingConsentJs(opts.asks !== false)
   if (t.meta_pixel) {
     tags.push({
       key: "meta",
-      inline: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init',${JSON.stringify(t.meta_pixel)});fbq('track','PageView');`,
+      inline: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');${mk}if(!__slMkOk(__slMkAsks))fbq('consent','revoke');fbq('init',${JSON.stringify(t.meta_pixel)});fbq('track','PageView');try{window.addEventListener('storelib:consent-changed',function(){fbq('consent',__slMkOk(__slMkAsks)?'grant':'revoke')})}catch(e){}`,
     })
   }
   if (t.tiktok_pixel) {
     tags.push({
       key: "tiktok",
-      inline: `!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=d.createElement("script");o.type="text/javascript",o.async=!0,o.src=i+"?sdkid="+e+"&lib="+t;var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};ttq.load(${JSON.stringify(t.tiktok_pixel)});ttq.page();}(window,document,'ttq');`,
+      inline: `!function(w,d,t){w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"];ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e};ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=d.createElement("script");o.type="text/javascript",o.async=!0,o.src=i+"?sdkid="+e+"&lib="+t;var a=d.getElementsByTagName("script")[0];a.parentNode.insertBefore(o,a)};${mk}if(!__slMkOk(__slMkAsks))ttq.holdConsent();ttq.load(${JSON.stringify(t.tiktok_pixel)});ttq.page();try{w.addEventListener('storelib:consent-changed',function(){__slMkOk(__slMkAsks)?ttq.grantConsent():ttq.revokeConsent()})}catch(e){}}(window,document,'ttq');`,
     })
   }
   if (t.pinterest_tag) {
     tags.push({
       key: "pinterest",
-      inline: `!function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");pintrk('load',${JSON.stringify(t.pinterest_tag)});pintrk('page');`,
+      /* Pinterest has no consent call of its own: it loads once there is a yes (marketingConsentJs). */
+      inline: `${mk}(function(){var go=function(){if(window.__slPinOn||!__slMkOk(__slMkAsks))return;window.__slPinOn=1;!function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");pintrk('load',${JSON.stringify(t.pinterest_tag)});pintrk('page');};go();try{window.addEventListener('storelib:consent-changed',go)}catch(e){}})();`,
     })
   }
   if (t.clarity) {

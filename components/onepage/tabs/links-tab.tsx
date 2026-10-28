@@ -40,6 +40,7 @@ import {
   type CalendlyBlockData,
   type CalendlyEmbedMode,
   type CalendlyEmbedType,
+  type OnePageBlockData,
 } from "@/lib/onepage/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -141,7 +142,7 @@ import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-ran
 import { createClient } from "@/lib/supabase/client"
 import { readFileHeader, scanFile } from "@/lib/storage/security"
 import { precheckUpload } from "@/lib/security/uploads"
-import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow } from "@/components/onepage/extra-blocks"
+import { BlockBadges, BlockExtras, ExtraBlockEditor, extraBlockRow, isExtraBlock } from "@/components/onepage/extra-blocks"
 import { BlockFootActions } from "@/components/onepage/block-remove"
 import { AutoHeight } from "@/components/onepage/reveal"
 import { ModeChoice, QuietAction, SettingsGroup } from "@/components/onepage/block-settings-kit"
@@ -329,7 +330,8 @@ function getBlockPreviewData(block: OnePageBlock, shopMoney: (cents: number, pro
     case "video":
       return extraBlockRow(block)
     default:
-      return { title: block.type, subtitle: "", icon: GlyphLink }
+      /* Round 40: any block of components/onepage/extra-blocks' list without a case here (the shelf, lead magnets, posts, followers, codes). */
+      return isExtraBlock(block) ? extraBlockRow(block) : { title: block.type, subtitle: "", icon: GlyphLink }
   }
 }
 
@@ -3356,7 +3358,7 @@ function BlockItem({
       case "video":
         return extraBlockRow(block)
       default:
-        return { title: block.type, subtitle: "", icon: GlyphLink }
+        return isExtraBlock(block) ? extraBlockRow(block) : { title: block.type, subtitle: "", icon: GlyphLink }
     }
   }
 
@@ -5031,7 +5033,7 @@ function BlockEditor({
 
               {/* Where the addresses go: Emails › Subscribers, and Klaviyo or Omnisend when connected (components/onepage/creator-blocks). */}
               <div className="pt-3 border-t">
-                <SignupDestination />
+                <SignupDestination suggest={data.integration_hint ?? null} />
               </div>
             </TabsContent>
 
@@ -6383,6 +6385,7 @@ function BlockEditor({
       }
 
       default:
+        if (isExtraBlock(block)) return <ExtraBlockEditor block={block} updateData={updateData} />
         return <p className="text-xs text-muted-foreground">{tt("No settings available")}</p>
     }
   }
@@ -6477,7 +6480,7 @@ function BlockEditor({
 
     const updateChildBlock = (childId: string, updates: Partial<OnePageBlock>) => {
       const newChildren = (groupData.children || []).map(c =>
-        c.id === childId ? { ...c, ...updates, data: { ...c.data, ...(updates.data || {}) } } : c
+        c.id === childId ? { ...c, ...updates, data: { ...c.data, ...(updates.data || {}) } as OnePageBlockData } : c
       )
       updateData({ children: newChildren })
     }

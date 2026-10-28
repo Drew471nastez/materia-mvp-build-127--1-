@@ -38,7 +38,7 @@ import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile } from "@/lib/downloads/download-file"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, SensitiveLinkQuestion } from "@/components/onepage/extra-blocks"
-import { isIncompleteLink } from "@/lib/onepage/extra-blocks"
+import { isExtraBlock, isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
@@ -5494,9 +5494,10 @@ function PublicBlockRenderer({
     case "countdown":
     case "map":
     case "video":
-      return <ExtraBlock block={block} look={{ theme, scale: "live", sellerId }} />
+      return <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId }} />
 
     default:
-      return null
+      /* Round 40: the shelf, lead magnets, posts, followers and codes (components/onepage/storelib-blocks), and any later block in that list, with no case of their own here. */
+      return isExtraBlock(block) ? <ExtraBlock block={block} look={{ theme, scale: "live", sellerId, onepageId }} /> : null
   }
 }

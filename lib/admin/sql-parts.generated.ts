@@ -204,5 +204,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "307", file: "307_product_personalization.sql", sha256: "c1641d127b9f2553927e5f511ea3f4c68e522e092593639d598c7fc9a2634b64" },
   { part: "308", file: "308_cart_uploads.sql", sha256: "9169f708b6a985282676b02e1ed8102b9c7df1a827badc9d65cb99a28034bc14" },
   { part: "309", file: "309_size_chart_rules.sql", sha256: "c25b897e8cca72e7052a3f246d68c035aa713b6aa92ff0ed4d72356c780d91b7" },
+  { part: "315", file: "315_onepage_integrations.sql", sha256: "1892c8279ddba3df7fce27a4ccebe790102c48298b5a605f607c6ad62101d3f8" },
+  { part: "316", file: "316_onepage_lead_magnets.sql", sha256: "e12ce21392053524798b722562ebb30e4cd9432439149a8f2830a690d6d87727" },
   { part: "320", file: "320_team_permissions.sql", sha256: "e9804b7c41d653dd2f00d2cd0652e01e39c4da35ce6043c86eb3e63da2053e7c" },
 ]
