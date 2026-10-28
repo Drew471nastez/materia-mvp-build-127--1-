@@ -7,7 +7,9 @@
  * Written from the code and checked against it on the day in REVIEWED:
  *
  *   The list               app/app/offers/offers-client.tsx
- *   The editor             app/app/offers/offer-editor.tsx, offer-draft.ts
+ *   The editor             app/app/offers/offer-editor.tsx, offer-fields.tsx,
+ *                          offer-parts.tsx, offer-draft.ts, its pages
+ *                          new/page.tsx and [id]/page.tsx, list-return.ts
  *   What an offer takes    lib/offers/offers.ts (applyOffers, stackWithCode,
  *                          triggered, suggestionsFor, bundleCompletions)
  *   Quantity breaks        lib/offers/pricing.ts (tiers, blocks, labels)
@@ -69,6 +71,15 @@ const ARTICLES: Article[] = [
       ] },
       { type: "p", text: "Before your first offer the page has one button for each kind: Create bundle, Create upsell and Create quantity break." },
       shot("offers-empty", "Upsells and bundles with no offers yet: No offers yet, and the buttons Create bundle, Create upsell and Create quantity break."),
+      { type: "h", text: "Open, save and go back" },
+      { type: "list", items: [
+        "Press an offer's row, or Edit in its menu, and the offer opens on a page of its own. New offer opens a new one as a bundle, and you pick the kind at the top. Create bundle, Create upsell and Create quantity break start on that kind.",
+        "On a computer the offer's name and status are at the top, its settings on the left, and Active, the Preview and Try it in a cart on the right. On a phone it's one column, with Cancel and Save in the bar at the top.",
+        "Press Save, or Create for a new offer. Ctrl or Cmd and S works too. You go back to Upsells and bundles, which says the offer was saved and highlights its row. On a saved offer, Save stays gray until you change something.",
+        "If something needs fixing, the page says how many things and shows each one under its own field.",
+        "To leave without saving, press Cancel, or the arrow beside the name on a computer. With changes, it asks Discard changes? first, and Keep editing stays on the page. When nothing has changed the button says Back.",
+        "Delete offer is under the preview. It asks first, then goes back to the list.",
+      ] },
       { type: "h", text: "Which one to use" },
       { type: "list", items: [
         "People buy one of something and could use more: a quantity break. See " + link("quantity-breaks", "Set up a quantity break") + ".",
@@ -100,16 +111,16 @@ const ARTICLES: Article[] = [
       shot("product-page-offers", "A website product page for the Speckled mug with a quantity break box, Buy more mugs, save more: Buy 1 at $32.00, Buy 2 get 1 free at $64.00 marked Most popular, and Buy 4, save 30% at $89.60. Under it the Breakfast set bundle and an apron upsell.", "The quantity break, a bundle and an upsell on one product page.", "product-page-offers-phone"),
       { type: "h", text: "Make a quantity break" },
       { type: "steps", items: [
-        "Open Products > Upsells and bundles and press New offer (or Create quantity break if you have no offers yet).",
+        "Open Products > Upsells and bundles and press New offer (or Create quantity break if you have no offers yet). The new offer opens on its own page.",
         "Choose Quantity break at the top.",
         "Type the Name buyers see. It's the heading above the tiers, like Buy more mugs, save more.",
         "Under Applies to, pick the product. If you have collections, you can choose A collection instead: every product in it gets the same tiers, each at its own price.",
         "Set the tiers, pressing Add tier for each one after the first. Each has Buy (how many they pay for), Free (how many come free), and a Discount of None, Percent off or Amount off on the ones they pay for.",
         "Leave Label empty to use the tier's own words, like Buy 2 get 1 free, or type your own. Add a short Badge, like Most popular, to one tier if you want.",
-        "Check the Preview and press Price this cart under Try it in a cart.",
-        "Press Create.",
+        "Check the Preview and press Price this cart under Try it in a cart. On a computer both are on the right.",
+        "Press Create. You're back on Upsells and bundles, with the new offer in the list.",
       ] },
-      shot("offer-quantity-break-editor", "The quantity break editor: the Speckled mug chosen, three tiers (Buy 1; Buy 2 get 1 free with the badge Most popular; Buy 4 with 30% off), Show it on Product page and Cart, the preview with each tier's total, two warnings and Try it in a cart."),
+      shot("offer-quantity-break-editor", "The page of the quantity break Buy more mugs, save more: the Speckled mug under Applies to, three tiers (Buy 1; Buy 2 get 1 free with the badge Most popular; Buy 4 with 30% off), Show it on Product page and Cart, and on the right Active, the preview with each tier's total, two warnings and Try it in a cart. Back and Save at the foot."),
       { type: "h", text: "The rules for tiers" },
       { type: "list", items: [
         "Up to six tiers. Buy is 1 to 99, Free is 0 to 10, a percent is up to 90.",
@@ -136,16 +147,16 @@ const ARTICLES: Article[] = [
       { type: "p", text: "A bundle is a set of two to five of your products at a better price together. Each product's page shows the set, its price together and Add all to cart. A buyer who has only part of the set in the cart is shown the rest, with what they'd save." },
       { type: "h", text: "Make a bundle" },
       { type: "steps", items: [
-        "Open Products > Upsells and bundles and press New offer (or Create bundle).",
+        "Open Products > Upsells and bundles and press New offer (or Create bundle). The new offer opens on its own page.",
         "Keep Bundle chosen at the top.",
         "Type the Name buyers see, like Breakfast set.",
         "Under Products in the bundle, tick two to five products.",
         "Choose the Discount: Percent comes off every product in each complete set, Amount comes off each complete set, and None shows the set at its normal price. Free shipping, where selling things that ship is available, makes the whole order ship free once the set is in the cart.",
         "Under Show it on, keep Product page, Cart or both.",
         "Check the Preview. It shows the set's price with the full price struck through.",
-        "Press Create.",
+        "Press Create. You're back on Upsells and bundles, with the new bundle in the list.",
       ] },
-      shot("offer-new", "A new offer with Bundle chosen: Name buyers see, Products in the bundle with four products to tick, Discount set to 10 percent off every product in each complete set, Show it on Product page and Cart, Dates and limits, and the Create button."),
+      shot("offer-new", "The New offer page with Bundle chosen: Name buyers see, Products in the bundle with four products to tick, Discount set to 10 percent off every product in each complete set, Show it on Product page and Cart, Dates and limits, Active and the Preview on the right, and Cancel and Create at the foot."),
       { type: "h", text: "What the buyer sees" },
       { type: "list", items: [
         "On each product's page: the products in the set, This item first, then Together with both prices and Add all to cart. The product the buyer is on goes in with the option they picked; another product with options gets a small choice of its own.",
@@ -174,7 +185,7 @@ const ARTICLES: Article[] = [
       { type: "p", text: "An upsell suggests one product to someone already buying, at a lower price. It shows on a product page under the buy buttons, in the cart, and at checkout under Add to your order. One press adds it, and the checkout takes the discount off while the cart still qualifies." },
       { type: "h", text: "Make an upsell" },
       { type: "steps", items: [
-        "Open Products > Upsells and bundles and press New offer (or Create upsell).",
+        "Open Products > Upsells and bundles and press New offer (or Create upsell). The new offer opens on its own page.",
         "Choose Upsell at the top.",
         "Type the Name buyers see. It's the line above the product, like Add an apron.",
         "Under Product to offer, pick one product.",
@@ -182,9 +193,9 @@ const ARTICLES: Article[] = [
         "If you want a minimum, fill in And the rest of the order is at least. The product you offer doesn't count toward it.",
         "Choose the Discount: Percent or Amount off the product it offers, Free shipping on the whole order once it's added (where selling things that ship is available), or None to suggest it at its own price.",
         "Under Show it on, keep Product page, Cart, Checkout or any of them.",
-        "Press Create.",
+        "Press Create. You're back on Upsells and bundles, with the new upsell in the list.",
       ] },
-      shot("offer-upsell-editor", "The upsell editor for Add an apron: the Linen apron as the product to offer, shown when the cart has the Speckled mug or the Serving bowl and the rest of the order is at least $30.00, $5.00 off, shown on product page, cart and checkout, with a preview at $33 instead of $38."),
+      shot("offer-upsell-editor", "The page of the upsell Add an apron: the Linen apron as the product to offer, shown when the cart has the Speckled mug or the Serving bowl and the rest of the order is at least $30.00, $5.00 off, shown on product page, cart and checkout, with a preview at $33 instead of $38 on the right."),
       { type: "h", text: "Upsell or cross sell" },
       { type: "p", text: "They're the same offer. Anything suggests the product to every cart. Certain products or A collection makes it a cross sell: an apron for people buying mugs, a case for people buying a camera. On a product page, an upsell shows only on the pages of the products that bring it up (every page, with Anything)." },
       { type: "h", text: "Where buyers see it" },
@@ -285,9 +296,9 @@ const ARTICLES: Article[] = [
         "Turn it off and a buyer with a code gets whichever saves more on the whole order: the code, or the offer. When the offer wins, checkout says the code can't be used with that offer, which already saves more on this order.",
         "Nothing ever takes an item below zero.",
       ] },
-      shot("offer-bundle-editor", "The editor of the Breakfast set bundle: the Speckled mug and the Serving bowl ticked, 10% off, a preview of the set at $68.40 instead of $76.00, and under Dates and limits the Starts and Ends fields, Discounted sets per order, and the switches Discount codes can be used too and Active."),
+      shot("offer-bundle-editor", "The page of the Breakfast set bundle: the Speckled mug and the Serving bowl ticked, 10% off, and under Dates and limits the Starts and Ends fields, Discounted sets per order and the switch Discount codes can be used too. On the right the Active switch and a preview of the set at $68.40 instead of $76.00."),
       { type: "h", text: "Dates" },
-      { type: "p", text: "Under Dates and limits, Starts and Ends are optional. Before the start an offer is Scheduled, after the end it's Ended: either way it neither shows nor applies. Turn an offer off from its menu without deleting it. Deleting stops it at once, and orders already placed keep their discount." },
+      { type: "p", text: "Under Dates and limits, Starts and Ends are optional. Before the start an offer is Scheduled, after the end it's Ended: either way it neither shows nor applies. Turn an offer off without deleting it: Turn off in its menu in the list, or the Active switch on its page, then Save. Deleting stops it at once, and orders already placed keep their discount." },
       { type: "h", text: "Currency" },
       { type: "list", items: [
         "You type amounts in your store's currency, set in Settings.",
@@ -327,7 +338,7 @@ const ARTICLES: Article[] = [
       { type: "h", text: "Why was a discount code refused?" },
       { type: "p", text: "The offer has Discount codes can be used too turned off, and it saves more than the code. Turn it on to let codes come off on top." },
       { type: "h", text: "Why does a list row say A product in it was deleted?" },
-      { type: "p", text: "One of its products is gone from your store, so the offer can't apply. Open it, pick another product, and save." },
+      { type: "p", text: "One of its products is gone from your store, so the offer can't apply. Open it, pick another product, and press Save." },
       { type: "h", text: "Why is there no Free shipping choice?" },
       { type: "p", text: "Free shipping is offered only where selling things that ship is available on Storelib. Use a percent or an amount instead." },
       { type: "h", text: "Why don't offers show on my home page's featured product?" },

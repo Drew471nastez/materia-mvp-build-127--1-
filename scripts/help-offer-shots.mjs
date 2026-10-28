@@ -102,7 +102,7 @@ window.__rect = (els, pad = 12) => {
 const sel = (...selectors) => (p) => p.evaluate((s) => window.__rect(s.map((x) => document.querySelector(x)), 16), selectors)
 const O = (n) => `a1000000-0000-4000-8000-00000000000${n}`
 /* An offer's own page (/app/offers/new, /app/offers/<id>) as a computer draws it from 1024px: header, two columns and the foot bar with Cancel and Save. */
-const editor = sel("[data-offer-editor]")
+const editor = (p) => p.evaluate(() => window.__rect([document.querySelector("[data-offer-editor]")], 0))
 
 const SHOTS = [
   { name: "offers-list", view: "list", width: 1200, height: 760, clip: sel("#shot h1", "[data-offers-card]") },
