@@ -111,10 +111,11 @@ async function main() {
       check(`  ${f} is there`, existsSync(f))
     }
     const one = code("app/app/memberships/[id]/page.tsx")
-    check("the creator's screen still reads and draws its membership", /loadCreatorMembership\(createAdminClient\(\), creator\.id, id,/.test(one) && /<CreatorMembershipScreenView screen=\{read\.screen\}/.test(one))
+    /* Changed on purpose (round 41 team): the store is the one the team gate answers (teamPageStore("products")), the owner's own store for the owner. */
+    check("the creator's screen still reads and draws its membership", /teamPageStore\("products"\)/.test(one) && /loadCreatorMembership\(createAdminClient\(\), access\.creatorId, id,/.test(one) && /<CreatorMembershipScreenView screen=\{read\.screen\}/.test(one))
     const list = code("app/app/memberships/page.tsx")
     check("/app/memberships sends a creator with none to Community, or Products while the switch is off", /if \(!list\.available \|\| list\.rows\.length === 0\) redirect\(\(await communitiesEnabled\(\)\.catch\(\(\) => false\)\) \? "\/app\/community" : "\/app\/products"\)/.test(list))
-    check("and lists them for a creator who has some", /return <CreatorMembershipsList rows=\{list\.rows\} \/>/.test(list) && /loadCreatorMemberships\(createAdminClient\(\), creator\.id\)/.test(list))
+    check("and lists them for a creator who has some", /return <CreatorMembershipsList rows=\{list\.rows\} \/>/.test(list) && /teamPageStore\("products"\)/.test(list) && /loadCreatorMemberships\(createAdminClient\(\), access\.creatorId\)/.test(list))
     check("a membership product's own address still opens its screen", /if \(load\.loaded\?\.product\.type === "membership"\) redirect\(`\/app\/memberships\/\$\{encodeURIComponent\(id\)\}`\)/.test(code("app/app/products/[id]/page.tsx")))
     const member = code("app/account/library/memberships/[id]/page.tsx")
     check("the buyer's membership page still loads it", /loadMembershipPage|viewerMembership|MemberPage/.test(member))

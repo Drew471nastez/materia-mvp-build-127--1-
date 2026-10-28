@@ -97,7 +97,8 @@ async function main() {
   ]
   for (const id of ["lnk", "prd", "off"]) blocks = moveIntoGroup(blocks, id, "grp") ?? blocks
   check("a link, a product and a switched-off link go in, one edit each", blocks.length === 3 && ((blocks[1].data as GroupBlockData).children || []).map((c) => c.id).join() === "lnk,prd,off", blocks.map((b) => b.id))
-  check("an email signup does not (the Add sheet does not offer it either)", moveIntoGroup(blocks, "sig", "grp") === null)
+  /* Changed on purpose (round 41): any block goes in a group except the header, another group and the social icons (lib/onepage/group.ts); the server reads a group's children for signups, so an email signup goes in too. The header still does not. */
+  check("the header does not go in a group", moveIntoGroup(blocks, "hdr", "grp") === null)
   const out = moveOutOfGroup(blocks, "grp", "prd")!
   check("moving one out puts it right under the group, gone from the group", out.map((b) => b.id).join() === "hdr,grp,prd,sig" && !((out[1].data as GroupBlockData).children || []).some((c) => c.id === "prd"))
   blocks = moveIntoGroup(out, "prd", "grp")!
