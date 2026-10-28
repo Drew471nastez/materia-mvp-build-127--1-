@@ -454,7 +454,8 @@ async function main() {
     const sql = read("supabase/sql/run-now/308_cart_uploads.sql")
     check("a private bucket, row level security on, nothing for anon or signed in users", /'cart-uploads', 'cart-uploads', false/.test(sql) && /ENABLE ROW LEVEL SECURITY/.test(sql) && /REVOKE ALL ON public\.cart_uploads FROM PUBLIC, anon, authenticated/.test(sql) && !/CREATE POLICY/i.test(sql))
     check("new things only: nothing dropped, safe to run again", !/\bDROP\b|\bTRUNCATE\b|\bDELETE FROM\b|\bALTER TABLE public\.(?!cart_uploads)/i.test(sql) && /CREATE TABLE IF NOT EXISTS/.test(sql) && /ON CONFLICT \(id\) DO UPDATE/.test(sql))
-    check("the same as the migration, listed in the README, checked last in 99", read("supabase/migrations/20270201_ag3_cart_uploads.sql") === sql && read("supabase/sql/run-now/README.md").includes("`308_cart_uploads.sql`") && read("supabase/sql/run-now/99_check_after.sql").trim().endsWith("as p308_cart_uploads;"))
+    /* Changed on purpose (round 40): later parts (315, 316, 320) now follow 308 in 99, so it is checked there, not last. */
+    check("the same as the migration, listed in the README, checked in 99", read("supabase/migrations/20270201_ag3_cart_uploads.sql") === sql && read("supabase/sql/run-now/README.md").includes("`308_cart_uploads.sql`") && /as p308_cart_uploads[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

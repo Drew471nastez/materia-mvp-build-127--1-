@@ -60,10 +60,12 @@ const code = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
   check("the live page's title logos are drawn at their size", (live.match(/onePageImageSrc\(\(theme as any\)\.title_logo_url, 320\)/g) || []).length === 2)
   check("no live page avatar or photo block draws the stored file itself", !/src=\{profile\.avatar_url/.test(live) && !/src=\{img\.image_url \|\|/.test(live))
   const links = code("components/onepage/tabs/links-tab.tsx")
-  check("the editor's avatar is a thumbnail, not the stored photo", !/<img src=\{avatar_url\}/.test(links) && (links.match(/onePageImageSrc\(avatar_url, 64\)/g) || []).length === 2)
-  check("the editor's photo block thumbnails are thumbnails", /onePageImageSrc\(img\.image_url, 160\)/.test(links))
+  /* Changed on purpose (round 40 media): the blurred photo drawn under a video is gone (the video fades in from its own first frame, components/onepage/poster-video), so one thumbnail of the photo is left. */
+  check("the editor's avatar is a thumbnail, not the stored photo", !/<img src=\{avatar_url\}/.test(links) && (links.match(/onePageImageSrc\(avatar_url, 64\)/g) || []).length === 1)
+  /* Changed on purpose (round 40 media): a photo block's picture is one compact row (components/onepage/image-field), its preview a thumbnail at twice its 56px. */
+  check("the editor's photo block thumbnails are thumbnails", /<OnePageImageField\b/.test(links) && /onePageImageSrc\(value, THUMB_PX \* 2\)/.test(code("components/onepage/image-field.tsx")) && /const THUMB_PX = 56\b/.test(code("components/onepage/image-field.tsx")))
   const design = code("components/onepage/tabs/design-tab.tsx")
-  check("the Design tab's avatar, wallpaper card and wallpaper cover are drawn at their size", (design.match(/onePageImageSrc\(onepage\.avatar_url, 96\)/g) || []).length === 2 && /onePageImageSrc\(theme\.background_image_url, 160\)/.test(design) && /src=\{onePageImageSrc\(coverImage, 400\)\}/.test(design))
+  check("the Design tab's avatar, wallpaper card and wallpaper cover are drawn at their size", /* one: the blurred copy under a video is gone (round 40 media) */ (design.match(/onePageImageSrc\(onepage\.avatar_url, 96\)/g) || []).length === 1 && /onePageImageSrc\(theme\.background_image_url, 160\)/.test(design) && /src=\{onePageImageSrc\(coverImage, 400\)\}/.test(design))
   const editor = code("components/onepage/onepage-editor.tsx")
   check("the editor's share card avatar is a thumbnail", /src=\{onePageImageSrc\(onepage\.avatar_url, 64\)\}/.test(editor))
 }

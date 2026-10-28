@@ -36,7 +36,17 @@ const RETURN_RULE = "[data-onepage-enter]{animation:none!important;opacity:1!imp
 
 const ARRIVAL_SCRIPT = `(function(){try{var k="op-seen:"+location.pathname,n=performance.getEntriesByType&&performance.getEntriesByType("navigation")[0],back=!!n&&n.type==="back_forward",seen=false;try{seen=sessionStorage.getItem(k)==="1";sessionStorage.setItem(k,"1")}catch(e){}var r=document.referrer||"";if(back||seen||/checkout|\\/pay\\//i.test(r)){var s=document.createElement("style");s.setAttribute("data-onepage-return","");s.textContent=${JSON.stringify(RETURN_RULE)};document.head.appendChild(s)}}catch(e){}})();`
 
-const ARRIVAL_STYLE = `@media (prefers-reduced-motion:reduce){[data-onepage-enter]{animation:none!important}}`
+/*
+  THE LIVE PAGE'S SCROLLBAR: slim, in the page's own text colour faded into
+  its ground (--op-scroll-thumb, lib/onepage/sheet-theme.ts), on no track,
+  where a pointer drives it; a phone keeps none. Here, on the public route
+  only, it can name <html> itself: the same rule in globals.css needed
+  html:has(.onepage-live), which tests/editor-css-v.test.ts forbids because
+  a :has() on the root restyled the whole editor on every insertion.
+*/
+const SCROLL_STYLE = `@media (hover:hover) and (pointer:fine){html{scrollbar-width:thin;scrollbar-color:var(--op-scroll-thumb,rgba(156,163,175,.5)) transparent}}`
+
+const ARRIVAL_STYLE = `@media (prefers-reduced-motion:reduce){[data-onepage-enter]{animation:none!important}}${SCROLL_STYLE}`
 
 /** The rule and the check, placed before the page in the route. */
 export function OnePageArrival() {
@@ -49,4 +59,4 @@ export function OnePageArrival() {
 }
 
 /** Exported for tests/onepage-media-r40.test.ts, which runs the check against fake navigations. */
-export const ONEPAGE_ARRIVAL = { script: ARRIVAL_SCRIPT, style: ARRIVAL_STYLE, returnRule: RETURN_RULE }
+export const ONEPAGE_ARRIVAL = { script: ARRIVAL_SCRIPT, style: ARRIVAL_STYLE, returnRule: RETURN_RULE, scroll: SCROLL_STYLE }

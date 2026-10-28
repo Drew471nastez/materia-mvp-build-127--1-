@@ -2992,10 +2992,6 @@ html.capacitor .subscribe-bar-spacer {
 /* A long sheet scrolls on a slim bar in its own ink, no track. */
 :where(.op-sheet, .op-sheet *).overflow-y-auto { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--opk-ink, #1a1a2e) 28%, transparent) transparent; }
 
-/* THE LIVE PAGE'S SCROLLBAR: slim, in the page's own text colour faded into its ground, on no track, where a pointer drives it. A phone keeps none. */
-@media (hover: hover) and (pointer: fine) {
-  html:has(.onepage-live) { scrollbar-width: thin; scrollbar-color: var(--op-scroll-thumb, rgba(156, 163, 175, 0.5)) transparent; }
-}
 
 /* Shimmer animation for skeleton loading */
 @keyframes shimmer {

@@ -9,6 +9,7 @@
  * Run with:  npx tsx --conditions=react-server tests/onepage-themes-r40.test.ts
  */
 import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { R40_THEMES, withR40Themes } from "@/components/onepage/themes/r40-themes"
 import { LOOK_RESET, contrastRatio, lookFromTemplate } from "@/lib/onepage/theme-apply"
 import { buttonHover, buttonHoverVars } from "@/lib/onepage/button-style"
@@ -122,7 +123,8 @@ for (const t of all) {
 check("a dark page draws a dark window, a light one a light window", sheetPalette({ background_color: "#1b1612" }).dark && !sheetPalette({ background_color: "#f7f6f2" }).dark)
 check("the variables go on :root, scrollbar included", /^:root\{--opk-surface:#[0-9a-f]{6};.*--op-scroll-thumb:#[0-9a-f]{6}\}$/.test(sheetRootCss({ background_color: "#123b66", text_color: "#f3f8fd" })))
 check("the sheet rules map surfaces, words, hairlines and the main button", [".bg-white", ".text-\\[\\#1a1a2e\\]", ".border-\\[\\#e5e7eb\\]", ".bg-\\[\\#1a1a2e\\]"].every((c) => css.includes(c)) && /var\(--opk-accent-ink/.test(css))
-check("the live page's scrollbar is slim, in its own ink, pointer screens only", /@media \(hover: hover\) and \(pointer: fine\) \{\s*html:has\(\.onepage-live\) \{ scrollbar-width: thin; scrollbar-color: var\(--op-scroll-thumb/.test(css))
+/* Changed on purpose (round 40 merge): the rule moved from globals.css (html:has(.onepage-live), forbidden by tests/editor-css-v) to the public route's own style (components/onepage/page-arrival.tsx). */
+check("the live page's scrollbar is slim, in its own ink, pointer screens only", /@media \(hover:hover\) and \(pointer:fine\)\{html\{scrollbar-width:thin;scrollbar-color:var\(--op-scroll-thumb/.test(readFileSync(join(process.cwd(), "components/onepage/page-arrival.tsx"), "utf8")) && !/html:has\(\.onepage-live\)/.test(css))
 
 /* ─── The wallpaper ───────────────────────────────────────────────────── */
 console.log("\nThe wallpaper library and the photo")
