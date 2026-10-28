@@ -402,8 +402,9 @@ async function main() {
     const client = read("app/app/offers/offers-client.tsx")
     check("the list: views with counts, a search, phone rows, a table, a menu per row", /role="tablist"/.test(client) && /data-offer-search=""/.test(client) && /md:hidden/.test(client) && /md:table/.test(client) && /<ResponsiveActionMenu/.test(client))
     check("no made up numbers: nothing about views, accepts or revenue", !/revenue|accepts|accepted|conversion|impressions/i.test(client.replace(/\/\*[\s\S]*?\*\//g, "")))
-    check("the editor: the shared sheet on a phone and a dialog on a computer, Save with Ctrl or Cmd and Enter", /<SheetDialog/.test(read("app/app/offers/offer-editor.tsx")) && /e\.metaKey \|\| e\.ctrlKey/.test(read("app/app/offers/offer-editor.tsx")))
-    check("changes kept: closing with edits asks first", /Discard changes\?/.test(client))
+    /* Changed on purpose: the owner asked for an offer to open as a sub page, as an order does, not a dialog or a bottom sheet (tests/offers-subpages.test.ts). */
+    check("the editor: a page of its own, Save with Ctrl or Cmd and S or Enter", !/<SheetDialog/.test(read("app/app/offers/offer-editor.tsx")) && /e\.metaKey \|\| e\.ctrlKey/.test(read("app/app/offers/offer-editor.tsx")) && existsSync(join(root, "app/app/offers/[id]/page.tsx")) && existsSync(join(root, "app/app/offers/new/page.tsx")))
+    check("changes kept: leaving with edits asks first", /Discard changes\?/.test(read("app/app/offers/offer-editor.tsx")))
     check("in the menu for every store, beside Coupons", /mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\([\s\S]{0,200}\{ href: "\/app\/offers", label: tt\("Upsells and bundles"\) \}/.test(read("components/app/sidebar.tsx")) && !/if \(physicalCommerce\) mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.splice\(/.test(read("components/app/sidebar.tsx")))
   }
 
