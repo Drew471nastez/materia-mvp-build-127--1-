@@ -49,6 +49,11 @@ export interface PublicBreak {
   productId: string
   title: string
   tiers: PublicTier[]
+  /** What the tiers are priced at: the product's default option (defaultPrice), so a section with no option picker of its own (Storelib's Featured products and Product spotlight) shows and adds exactly that. */
+  priceCents?: number
+  compareAtCents?: number | null
+  variantId?: string | null
+  variantName?: string | null
 }
 
 export interface PublicBundle {
@@ -88,17 +93,17 @@ export const OFFERS_CACHE = { "Cache-Control": "public, max-age=60, s-maxage=60"
  * first on sale, in the editor's order), else the product's own; with the
  * compare at price beside it. Null for a product that has no price to show.
  */
-export async function defaultPrice(db: Db, product: { id: string; price_cents?: number | null; compare_at_cents?: number | null }): Promise<{ priceCents: number; compareAtCents: number | null } | null> {
-  const { data } = await selectTolerant("offer default variant", "id, price_cents, active, position, compare_at_price_cents", ["position", "compare_at_price_cents"], (columns) =>
+export async function defaultPrice(db: Db, product: { id: string; price_cents?: number | null; compare_at_cents?: number | null }): Promise<{ priceCents: number; compareAtCents: number | null; variantId: string | null; variantName: string | null } | null> {
+  const { data } = await selectTolerant("offer default variant", "id, name, price_cents, active, position, compare_at_price_cents", ["position", "compare_at_price_cents"], (columns) =>
     db.from("product_variants").select(columns).eq("product_id", product.id),
   )
-  const variants = ((data ?? []) as { price_cents: number | null; active: boolean | null; position?: number | null; compare_at_price_cents?: number | null }[]).filter((v) => v.active !== false)
+  const variants = ((data ?? []) as { id?: string; name?: string | null; price_cents: number | null; active: boolean | null; position?: number | null; compare_at_price_cents?: number | null }[]).filter((v) => v.active !== false)
   variants.sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0))
   const first = variants[0]
   const price = Math.round(Number(first ? first.price_cents : product.price_cents))
   if (!Number.isFinite(price) || price < 0) return null
   const compare = Math.round(Number(first?.compare_at_price_cents ?? product.compare_at_cents))
-  return { priceCents: price, compareAtCents: Number.isFinite(compare) && compare > price ? compare : null }
+  return { priceCents: price, compareAtCents: Number.isFinite(compare) && compare > price ? compare : null, variantId: typeof first?.id === "string" ? first.id : null, variantName: first && variants.length > 1 ? (first.name ?? "").trim() || null : null }
 }
 
 /** A quantity break's tiers at one price, as the theme shows them. */
@@ -162,7 +167,7 @@ export async function productOffers(db: Db, productId: unknown, opts: { only?: (
   const breakTiers = (tiers: Tier[]) => (oneEach(p.type) ? singleUnitTiers(tiers) : tiers)
   const quantityBreaks: PublicBreak[] = price ? breaks.flatMap((o) => {
     const tiers = breakTiers(o.tiers ?? [])
-    return tiers.length ? [{ offerId: o.id, productId: p.id, title: o.title, tiers: publicTiers(tiers, price.priceCents, price.compareAtCents) }] : []
+    return tiers.length ? [{ offerId: o.id, productId: p.id, title: o.title, tiers: publicTiers(tiers, price.priceCents, price.compareAtCents), priceCents: price.priceCents, compareAtCents: price.compareAtCents, variantId: price.variantId, variantName: price.variantName }] : []
   }) : []
   return { bundles: bundleCards, quantityBreaks, checkoutOffers }
 }
