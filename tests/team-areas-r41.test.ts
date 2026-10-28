@@ -65,10 +65,10 @@ async function main() {
     check("Products and Store settings are open to the team", OPEN_TO_TEAM.has("products") && OPEN_TO_TEAM.has("settings"))
     /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing opened (tests/team-areas-r42.test.ts). */
     check("the website and the creator page are open now", OPEN_TO_TEAM.has("website") && OPEN_TO_TEAM.has("creator_pages"))
-    check("payouts and billing stay the owner's", !OPEN_TO_TEAM.has("payouts_billing") && !normalizePermissions(["payouts_billing"]).length)
+    check("payouts and billing stay the owner's", !OPEN_TO_TEAM.has("payouts_billing" as never) && !normalizePermissions(["payouts_billing" as never]).length)
     check("an invite keeps Products, Store settings and the website", same(normalizePermissions(["products", "settings", "website"]), ["website", "products", "settings"])) // Changed on purpose (round 42 team)
     check("Content editor now gives Products too", same(presetPermissions("content"), ["website", "onepage", "creator_pages", "products", "community"])) // Changed on purpose (round 42 team)
-    check("Full access gives Products and Store settings, never money or the team", presetPermissions("full").includes("products") && presetPermissions("full").includes("settings") && !presetPermissions("full").includes("payouts_billing") && !presetPermissions("full").includes("team"))
+    check("Full access gives Products and Store settings, never money or the team", presetPermissions("full").includes("products") && presetPermissions("full").includes("settings") && !presetPermissions("full").includes("payouts_billing" as never) && !presetPermissions("full").includes("team"))
     check("the sidebar shows every Products page to a member who has it", ["/app/products", "/app/products/collections", "/app/inventory", "/app/reviews", "/app/files", "/app/memberships"].every((h) => memberSees(["products"], h)) && !memberSees(["onepage"], "/app/products"))
     check("a member with Products lands on Products", homeFor(["products"]) === "/app/products")
     check("Integrations is the owner's now (Store settings is Store details alone)", areaOfPath("/app/integrations") === "store" && !memberSees(["settings"], "/app/integrations"))

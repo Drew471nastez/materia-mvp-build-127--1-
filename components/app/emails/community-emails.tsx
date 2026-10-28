@@ -215,7 +215,7 @@ function CommunityEmailSheet({ community, email: asked, saved, onSaved, onClose 
     if (!kind || test?.state === "sending") return
     setTest({ state: "sending" })
     const r = await api<{ sentTo: string }>(`/api/app/community/${community.id}/emails/test`, { method: "POST", body: { kind, ...(editable && !unknown ? draft : {}) } })
-    setTest(r.ok ? { state: "sent", to: r.data.sentTo } : { state: "failed", error: r.error })
+    setTest(r.ok ? { state: "sent", to: r.data.sentTo } : { state: "failed", error: "error" in r ? r.error : "" })
   }
 
   const save = async (next: Words) => {
@@ -224,7 +224,7 @@ function CommunityEmailSheet({ community, email: asked, saved, onSaved, onClose 
     const r = await api(`/api/app/community/${community.id}/emails/templates`, { method: "PUT", body: { kind, ...next } })
     if (!r.ok) {
       setState("idle")
-      return setError(r.error)
+      return setError("error" in r ? r.error : null)
     }
     setDraft(next)
     setState("saved")
@@ -382,7 +382,7 @@ function BroadcastSheet({ community, open, loaded, onSent, onClose }: { communit
     const r = await api<{ broadcast: Broadcast; nextAt: string }>(`/api/app/community/${community.id}/emails`, { method: "POST", body: { subject, message } })
     setBusy(false)
     setConfirming(false)
-    if (!r.ok) return setError(r.error || tt("Could not send that. Try again."))
+    if (!r.ok) return setError(("error" in r && r.error) || tt("Could not send that. Try again."))
     onSent(r.data.broadcast, r.data.nextAt)
     setSubject("")
     setMessage("")

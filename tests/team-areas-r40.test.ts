@@ -61,13 +61,13 @@ async function main() {
     /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing are open (tests/team-areas-r42.test.ts). */
     const opened: TeamPermission[] = ["website", "creator_pages", "products", "settings"]
     check("the website, the creator page, products and store settings are open", opened.every((p) => OPEN_TO_TEAM.has(p)))
-    check("  and payouts and billing", !OPEN_TO_TEAM.has("payouts_billing"))
+    check("  and payouts and billing", !OPEN_TO_TEAM.has("payouts_billing" as never))
     /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing are open (tests/team-areas-r42.test.ts). */
     check("an invite can now give OnePage and Community, and they are kept", same(normalizePermissions(["onepage", "community", "website"]), ["website", "onepage", "community"]))
     /* Changed on purpose (round 41 team): Products is open, so Content editor gives it too. */
     /* Changed on purpose (round 42 team): the website, the creator page, payouts and billing are open (tests/team-areas-r42.test.ts). */
     check("Content editor gives what of it is open: OnePage and Community", same(presetPermissions("content"), ["website", "onepage", "creator_pages", "products", "community"]))
-    check("Full access includes them, never money or the team", presetPermissions("full").includes("onepage") && presetPermissions("full").includes("community") && !presetPermissions("full").includes("payouts_billing") && !presetPermissions("full").includes("team"))
+    check("Full access includes them, never money or the team", presetPermissions("full").includes("onepage") && presetPermissions("full").includes("community") && !presetPermissions("full").includes("payouts_billing" as never) && !presetPermissions("full").includes("team"))
     check("the sidebar shows OnePage and Community to a member who has them", memberSees(["onepage"], "/app/onepage") && memberSees(["community"], "/app/community") && memberSees(["community"], "/app/community/my-club/feed") && !memberSees(["onepage"], "/app/community"))
     check("a member with only Community lands on it", homeFor(["community"]) === "/app/community" && homeFor(["onepage"]) === "/app/onepage")
     const picker = read("components/app/settings/team-permissions.tsx")

@@ -114,7 +114,7 @@ function CommunityAutomationRows({ community, bare, titled, onOpen }: { communit
     const r = await api(communityAutomationsPath(community.id), { method: "POST", body: { action: on ? "resume" : "pause", id: a.id } })
     if (!r.ok) {
       put(was)
-      setError(r.error)
+      setError("error" in r ? r.error : null)
     } else setError(null)
   }
 
