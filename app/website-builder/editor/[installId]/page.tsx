@@ -138,6 +138,7 @@ import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementL
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
+import { FROZEN_ATTRIBUTE, healTouchLeftovers, watchTouchLeftovers } from "@/lib/website-builder/touch-heal"
 import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, mergeLazy, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
 import { blocksIntoDetails, staysInDetails, PRODUCT_DETAILS_BLOCK } from "@/lib/website-builder/product-details-rule"
 import { blockAt, blockSteps, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, stepBlock, updateAt, withChildren } from "@/lib/website-builder/block-tree"
@@ -9913,6 +9914,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     */
     if (cleared.some((what) => !/overscroll-behavior|touch-action/.test(what))) window.dispatchEvent(new Event("resize"))
   }), [])
+
+  /**
+   * WHAT A GESTURE HELD IS LET GO ONCE THE FINGER LIFTS (round 1026). A
+   * sheet's frozen list, the canvas held for a menu no drawer counts any
+   * more, a page lock with nothing open: after the last finger of every
+   * gesture and when the app comes back into view, a frame after the
+   * listeners that end gestures properly. See lib/website-builder/touch-heal.ts.
+   */
+  useEffect(() => {
+    let down = 0
+    const count = (e: TouchEvent) => { down = e.touches.length }
+    window.addEventListener("touchstart", count, { capture: true, passive: true })
+    window.addEventListener("touchend", count, { capture: true, passive: true })
+    window.addEventListener("touchcancel", count, { capture: true, passive: true })
+    const stop = watchTouchLeftovers(window, document, () => {
+      healTouchLeftovers({
+        frozen: () => Array.from(document.querySelectorAll<HTMLElement>(`[${FROZEN_ATTRIBUTE}]`)),
+        touchesDown: () => down,
+        releaseCanvas: () => {
+          const el = document.getElementById("wb-preview-root")
+          return el ? releaseStrayDrawerHold(el, lockHolders(el)) : false
+        },
+        releaseDocument: () => clearStaleDocumentLocks(document),
+      })
+    }, (cb) => { window.requestAnimationFrame(() => cb()) })
+    return () => {
+      stop()
+      window.removeEventListener("touchstart", count, { capture: true })
+      window.removeEventListener("touchend", count, { capture: true })
+      window.removeEventListener("touchcancel", count, { capture: true })
+    }
+  }, [])
 
   // Coming back from the code pane or from project settings.
   const coveredRef = useRef(false)
