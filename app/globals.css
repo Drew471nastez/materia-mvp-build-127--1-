@@ -7119,7 +7119,9 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
 [data-fill-in][data-fill-axis="y"] { transform-origin: center bottom; }
 [data-fill-in="wait"] { transform: scaleX(0); }
 [data-fill-in="wait"][data-fill-axis="y"] { transform: scaleY(0); }
-[data-fill-in="go"] {
+/* The bars carry data-keep-transform, and this outranks `.group *[data-keep-transform]` (the touch rule above that
+   stops every transition inside a `.group`, which a list row is), so the fill runs on a phone too. */
+[data-bar][data-keep-transform][data-fill-in="go"] {
   transition: transform 700ms cubic-bezier(0.33, 1, 0.68, 1) var(--fill-delay, 0ms) !important;
 }
 @media (prefers-reduced-motion: reduce) {

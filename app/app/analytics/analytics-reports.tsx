@@ -302,6 +302,7 @@ function Fill({ share, className, min = 0.02, thin = false }: { share: number; c
       aria-hidden
       data-bar=""
       data-fill="grey"
+      data-keep-transform=""
       data-share={s.toFixed(3)}
       className={cn(thin ? GREY_FILL_THIN : GREY_FILL, "transition-[width,filter] duration-500 group-hover:brightness-[0.975] motion-reduce:transition-none", className)}
       style={{ width: `${(s * 100).toFixed(2)}%`, transitionTimingFunction: EASE }}
@@ -318,6 +319,7 @@ function StepFill({ height }: { height: number }) {
       data-bar=""
       data-fill="grey"
       data-fill-axis="y"
+      data-keep-transform=""
       className={cn(GREY_FILL_THIN, "block w-6 max-w-[calc(100%-8px)] rounded-t-[4px] transition-[height,filter] duration-500 group-hover:brightness-[0.93] motion-reduce:transition-none")}
       style={{ height, transitionTimingFunction: EASE }}
     />

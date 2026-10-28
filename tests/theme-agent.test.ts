@@ -3892,8 +3892,9 @@ section("A setting is one way to make a change, not the limit of what is possibl
       /onSourcesChanged\?\.\(\)/.test(untt(readFileSync(join(process.cwd(), "components/website-builder/theme-chat.tsx"), "utf8"), "components/website-builder/theme-chat.tsx")) &&
       /* A stable callback now, so the memoised chat is not re-rendered by a new arrow every edit. */
       /* Changed on purpose (the owner: GitHub and AI schema edits reach the sidebar): an imported theme's canvas files and Theme settings are read again too. */
+      /* Changed on purpose (a run's files show without a refresh): the copy read when the editor opened is dropped first (compatFilesChanged). */
       ((editor: string) =>
-        /const reloadAiSources = useCallback\(\(\) => \{\s*void loadStorelibSources\(\)\s*(?:\/\*[\s\S]*?\*\/\s*)?if \(compatInstall\) \{\s*setCompatFilesVersion\(\(n\) => n \+ 1\)\s*setCompatPanelVersion\(\(n\) => n \+ 1\)\s*\}\s*\}, \[loadStorelibSources, compatInstall\]\)/.test(editor) &&
+        /const reloadAiSources = useCallback\(\(\) => \{\s*void loadStorelibSources\(\)\s*(?:\/\*[\s\S]*?\*\/\s*)?(?:compatFilesChanged\(installId\)\s*)?(?:\/\*[\s\S]*?\*\/\s*)?if \(compatInstall\) \{\s*setCompatFilesVersion\(\(n\) => n \+ 1\)\s*setCompatPanelVersion\(\(n\) => n \+ 1\)\s*\}\s*\}, \[loadStorelibSources, compatInstall(?:, installId)?\]\)/.test(editor) &&
         (editor.match(/onSourcesChanged=\{reloadAiSources\}/g) ?? []).length === 2)(
         untt(readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8"), "app/website-builder/editor/[installId]/page.tsx"),
       ),

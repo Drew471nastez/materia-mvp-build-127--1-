@@ -134,7 +134,8 @@ async function main() {
     check("no other page", !loadsAsDocumentWhenStalled("/app") && !loadsAsDocumentWhenStalled("/app/products") && !loadsAsDocumentWhenStalled("/app/onepage-preview") && !loadsAsDocumentWhenStalled(null))
     const stage = code("components/app/app-stage.tsx")
     check("at the cap the stage loads it as a document, while it is still the navigation underway and the tab is in view",
-      /if \(loadsAsDocumentWhenStalled\(nav\.href\) && getAppNavigation\(\) === nav && document\.visibilityState === "visible"\) \{[\s\S]{0,200}window\.location\.assign\(nav\.href as string\)\s*return/.test(stage))
+      /if \(loadsAsDocumentWhenStalled\(nav\.href\) && getAppNavigation\(\) === nav && document\.visibilityState === "visible"\) \{[\s\S]{0,200}window\.location\.assign\(nav\.href as string\)[\s\S]{0,1200}?\}, DOCUMENT_LOAD_CAP_MS\)\)\s*return/.test(stage))
+    /* And that load has an end: past DOCUMENT_LOAD_CAP_MS it is stopped and the page you were on is back (tests/editor-live-follow.test.ts). */
     const sidebar = code("components/app/sidebar.tsx")
     check("on a phone the shell fetches the editor whole once idle, for a creator who has one",
       /if \(!onePagePublished \|\| !isPhoneShell\(\)\) return/.test(sidebar) && /prefetchAppPage\(router, "\/app\/onepage"\)/.test(sidebar) && /requestIdleCallback\(warm, \{ timeout: 5000 \}\)/.test(sidebar))
