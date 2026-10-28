@@ -15,6 +15,7 @@ import { dropColumns, selectTolerant } from "@/lib/supabase/tolerant-select"
 import { MAX_OFFERS, PLACEMENTS_FOR, discountLabel, offerUnitPrice, type Offer } from "@/lib/offers/offers"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { shopMoneyIn } from "@/lib/store/shop-money"
+import { personalizationOf } from "@/lib/products/personalization-read"
 import { BASE_COLUMNS, COLUMNS, PART_230, PART_304, PART_304_COLUMNS, loadOffers, offerOf, type Row } from "./offers-read"
 
 export { collectionsOf, loadOffers, offerLinesFor, offerOf, PART_230, PART_230_COLUMNS, PART_304 } from "./offers-read"
@@ -150,6 +151,8 @@ export interface OfferProduct {
   variants: { id: string; name: string; priceCents: number }[]
   /** Pay what you want: shown at its minimum, counted in a set, never discounted by an offer (lib/offers applyOffers). */
   payWhatYouWant?: boolean
+  /** It asks the buyer for a required answer (lib/products/personalization): it can only be added from its own page, where the answer is typed. */
+  personalized?: boolean
 }
 
 const VARIANT_COLUMNS = "id, product_id, name, price_cents, active, track_inventory, inventory_policy"
@@ -188,6 +191,8 @@ export async function offerProducts(db: Db, creatorId: string, ids: string[]): P
       variantsOf.set(v.product_id, options)
     }
   }
+  /* A required personalization answer can only be given on the product's page (lib/products/personalization-read; empty where the column isn't there). */
+  const fieldsOf = await personalizationOf(db, products.map((p) => p.id))
   for (const p of products) {
     const variants = p.type === "physical" ? (variantsOf.get(p.id) ?? []) : []
     if (p.type === "physical" && variants.length === 0) continue
@@ -195,7 +200,7 @@ export async function offerProducts(db: Db, creatorId: string, ids: string[]): P
     const own = p.pay_what_you_want ? Number(p.pwyw_min_price_cents) || 0 : Number(p.price_cents) || 0
     const priceCents = variants.length ? Math.min(...variants.map((v) => v.priceCents)) : Math.max(0, Math.round(own))
     if (priceCents <= 0) continue
-    out.set(p.id, { id: p.id, title: p.title, slug: p.slug, imageUrl: p.thumbnail_url ? mediaUrl(p.thumbnail_url) : null, type: p.type, priceCents, variants, ...(p.pay_what_you_want === true && p.type !== "physical" ? { payWhatYouWant: true } : {}) })
+    out.set(p.id, { id: p.id, title: p.title, slug: p.slug, imageUrl: p.thumbnail_url ? mediaUrl(p.thumbnail_url) : null, type: p.type, priceCents, variants, ...(p.pay_what_you_want === true && p.type !== "physical" ? { payWhatYouWant: true } : {}), ...((fieldsOf.get(p.id) ?? []).some((f) => f.required) ? { personalized: true } : {}) })
   }
   return out
 }

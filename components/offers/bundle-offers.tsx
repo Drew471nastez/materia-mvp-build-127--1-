@@ -39,6 +39,8 @@ interface Item {
   variants: { id: string; name: string; priceCents: number }[]
   /** Pay what you want: counted in a set, never discounted (lib/offers bundlePrice). */
   payWhatYouWant?: boolean
+  /** It asks a required personalization answer (lib/offers/offers-server offerProducts): only its own page can add it. */
+  personalized?: boolean
 }
 export interface BundleCard {
   offerId: string
@@ -64,6 +66,8 @@ export interface ProductOffersData {
   upsells: UpsellCard[]
   /** The product's quantity breaks (components/offers/quantity-breaks.tsx), from GET /api/offers. */
   quantityBreaks?: BreakCard[]
+  /** The product itself (lib/offers/offers-public.ts ProductOffers.product): a required answer, and how many options it has. */
+  product?: { personalized: boolean; options: number }
 }
 
 /** Each element's colour. Unset ones follow `ink`, `muted` and `accent`. */
@@ -89,8 +93,9 @@ export function useProductOffers(productId: string | null | undefined, enabled =
     /* One read for the three (lib/offers/offers-public.ts): its checkout offers are the upsells this page shows. */
     fetch(`/api/offers?product=${encodeURIComponent(productId)}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { bundles?: BundleCard[]; checkoutOffers?: UpsellCard[]; quantityBreaks?: BreakCard[] } | null) => {
-        if (!gone) setData({ bundles: Array.isArray(d?.bundles) ? d!.bundles : [], upsells: Array.isArray(d?.checkoutOffers) ? d!.checkoutOffers : [], quantityBreaks: Array.isArray(d?.quantityBreaks) ? d!.quantityBreaks : [] })
+      .then((d: { bundles?: BundleCard[]; checkoutOffers?: UpsellCard[]; quantityBreaks?: BreakCard[]; product?: { personalized?: unknown; options?: unknown } } | null) => {
+        const self = d?.product && typeof d.product === "object" ? { personalized: d.product.personalized === true, options: Number(d.product.options) || 0 } : undefined
+        if (!gone) setData({ bundles: Array.isArray(d?.bundles) ? d!.bundles : [], upsells: Array.isArray(d?.checkoutOffers) ? d!.checkoutOffers : [], quantityBreaks: Array.isArray(d?.quantityBreaks) ? d!.quantityBreaks : [], ...(self ? { product: self } : {}) })
       })
       .catch(() => undefined)
     return () => {
@@ -117,6 +122,7 @@ export function BundleOffers({
   money: givenMoney,
   display = null,
   bare = false,
+  pageFor,
 }: {
   productId: string
   /** This product as the buy box has it: the option chosen, or null while one still has to be. */
@@ -141,6 +147,13 @@ export function BundleOffers({
   display?: PageDisplay | null
   /** Without a box around each offer, a line between them instead: inside a card that already is one (Storelib's Featured products, ./featured-offers.tsx). */
   bare?: boolean
+  /**
+   * Where an item has to be chosen instead of added from here (a section
+   * with no buy box: ./featured-offers.tsx): its page's address, or null
+   * when it can be added. A set or an upsell with such an item opens that
+   * page, Choose options, rather than going in without the answer.
+   */
+  pageFor?: (i: Item) => string | null
 }) {
   /* Else in the store's own currency, on its page and in its editor alike (components/platform/price-currency). */
   const sellerMoney = useSellerMoney()
@@ -232,6 +245,8 @@ export function BundleOffers({
     <div className="space-y-4" data-bundle-offers="">
       {bundles.map((b) => {
         const lines = b.items.map((i) => lineFor(i, `${b.offerId}:${i.id}`))
+        /* The first item that has to be chosen on its own page, when this section can't. */
+        const setPage = b.items.map((i) => pageFor?.(i) ?? null).find(Boolean) ?? null
         const ready = lines.every(Boolean) && !disabled
         /* The set as chosen right now: an option with its own price changes it. */
         const units = b.items.map((i, k) => lines[k]?.priceCents ?? i.priceCents)
@@ -289,15 +304,22 @@ export function BundleOffers({
                 </span>
               </span>
             </div>
-            <button type="button" disabled={!ready} aria-live="polite" onClick={() => press(b.offerId, lines as CartLine[])} className="mt-3 w-full border-2 py-3 text-[14.5px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50" style={button} data-bundle-add="">
-              {added === b.offerId ? w("added_to_cart") : chosen ? labels.addAll || w("offer_add_all") : w("offer_choose_options")}
-            </button>
+            {setPage ? (
+              <a href={setPage} className="mt-3 block w-full border-2 py-3 text-center text-[14.5px] font-semibold" style={button} data-bundle-choose="">
+                {w("offer_choose")}
+              </a>
+            ) : (
+              <button type="button" disabled={!ready} aria-live="polite" onClick={() => press(b.offerId, lines as CartLine[])} className="mt-3 w-full border-2 py-3 text-[14.5px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-50" style={button} data-bundle-add="">
+                {added === b.offerId ? w("added_to_cart") : chosen ? labels.addAll || w("offer_add_all") : w("offer_choose_options")}
+              </button>
+            )}
           </section>
         )
       })}
       {upsells.map((u) => {
         const p = u.product
         const line = lineFor(p, u.offerId)
+        const upPage = pageFor?.(p) ?? null
         const shownPrice = p.variants.length > 1 ? (optionOf(p, u.offerId)?.priceCents ?? p.priceCents) : p.priceCents
         const offerPrice = shownPrice === p.priceCents ? u.offerPriceCents : offerUnitPrice(u, shownPrice, p.payWhatYouWant === true)
         /* In a market's currency: the unit's converted price less its discount's share of it, as checkout charges it. */
@@ -326,6 +348,11 @@ export function BundleOffers({
                 </p>
                 {choice(p, u.offerId)}
               </div>
+              {upPage ? (
+                <a href={upPage} className="inline-flex h-9 shrink-0 items-center border px-3 text-[13.5px] font-semibold" style={button} data-upsell-choose="">
+                  {w("offer_choose")}
+                </a>
+              ) : (
               <button type="button" disabled={!line || disabled} aria-live="polite" onClick={() => line && press(u.offerId, [line])} className="inline-flex h-9 shrink-0 items-center gap-1 border px-3 text-[13.5px] font-semibold transition-opacity disabled:opacity-50" style={button} data-upsell-add="">
                 {added === u.offerId ? (
                   w("offer_added")
@@ -336,6 +363,7 @@ export function BundleOffers({
                   </>
                 )}
               </button>
+              )}
             </div>
           </section>
         )

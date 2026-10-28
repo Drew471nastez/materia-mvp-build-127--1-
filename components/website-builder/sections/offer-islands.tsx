@@ -6,7 +6,7 @@
  * a product marks where its offers go:
  *
  *   <div data-storelib-island data-storelib-offers="{{ product id }}"
- *        data-title=… data-slug=… data-kind=… data-image=… data-pwyw=…
+ *        data-title=… data-slug=… data-url=… data-kind=… data-image=… data-pwyw=…
  *        data-layout="card" | "open"></div>
  *
  * and this draws components/offers/featured-offers.tsx into each mark, on the
@@ -32,6 +32,7 @@ export interface OfferIsland {
   payWhatYouWant: boolean
   layout: "card" | "open"
   radius: number
+  url: string | null
 }
 
 /** Every offers mark under `root`, read off its attributes. */
@@ -42,11 +43,11 @@ export function offerIslandsIn(root: ParentNode): OfferIsland[] {
     const a = (n: string) => (el.getAttribute(n) ?? "").trim()
     /* The section's corner radius, as its root sets it (--s-radius, theme.radius.medium). */
     const radius = Number.parseFloat(a("data-radius") || (typeof getComputedStyle === "function" ? getComputedStyle(el).getPropertyValue("--s-radius") : ""))
-    return [{ el, productId, title: a("data-title"), slug: a("data-slug"), kind: a("data-kind"), image: a("data-image") || null, payWhatYouWant: a("data-pwyw") === "true", layout: a("data-layout") === "card" ? "card" : "open", radius: Number.isFinite(radius) ? radius : 10 }]
+    return [{ el, productId, title: a("data-title"), slug: a("data-slug"), kind: a("data-kind"), image: a("data-image") || null, payWhatYouWant: a("data-pwyw") === "true", layout: a("data-layout") === "card" ? "card" : "open", radius: Number.isFinite(radius) ? radius : 10, url: a("data-url") || null }]
   })
 }
 
-export function OfferIslands({ root, html, inert }: { root: HTMLElement | null; html: string; inert: boolean }) {
+export function OfferIslands({ root, html, inert, codes = false }: { root: HTMLElement | null; html: string; inert: boolean; codes?: boolean }) {
   const [islands, setIslands] = useState<OfferIsland[]>([])
   useLayoutEffect(() => {
     if (!root || !html.includes("data-storelib-offers")) {
@@ -61,7 +62,7 @@ export function OfferIslands({ root, html, inert }: { root: HTMLElement | null; 
       {islands.map((i, n) =>
         createPortal(
           <Suspense fallback={null}>
-            <FeaturedOffers productId={i.productId} title={i.title} slug={i.slug} kind={i.kind} image={i.image} payWhatYouWant={i.payWhatYouWant} layout={i.layout} inert={inert} radius={i.radius} />
+            <FeaturedOffers productId={i.productId} title={i.title} slug={i.slug} kind={i.kind} image={i.image} payWhatYouWant={i.payWhatYouWant} layout={i.layout} inert={inert} radius={i.radius} url={i.url} codes={codes} />
           </Suspense>,
           i.el,
           `${n}:${i.productId}`,

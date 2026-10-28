@@ -11,6 +11,11 @@
  *             option), and a tier's total there is the checkout's
  *   MARKET    a tier and a set drawn in a market's currency by the section say
  *             what the imported theme's block and the checkout say
+ *   CHOOSE    a product that asks a required answer, or this product with
+ *             options to pick, opens its page (Choose options) instead of
+ *             going in from a card; the checkout refuses a line without the
+ *             answer whatever a page lets through
+ *   MONEY     card prices follow Show currency codes, as the product block's
  *   WIRING    the marks are drawn into on the live page and on the canvas,
  *             and an edit in the sidebar leaves what is drawn in them
  *
@@ -79,7 +84,11 @@ async function main() {
     const spot = marks(draw("product_spotlight", { button_url: "/products/tee", button_text: "Buy it" }))
     check("Product spotlight: one mark for its product, laid out on the section", spot.length === 1 && spot[0].id === TEE && /data-layout="open"/.test(spot[0].tag) && /data-slug="tee"/.test(spot[0].tag), spot)
     check("  none with no product chosen, none with it off", marks(draw("product_spotlight", { button_text: "Buy it" })).length === 0 && marks(draw("product_spotlight", { button_url: "/products/tee", button_text: "Buy it", show_offers: false })).length === 0)
-    for (const type of ["product_featured", "product_spotlight"]) {
+    const hero = marks(draw("hero_product", { button_url: "/products/tee", button_text: "Buy it" }))
+    check("Product hero: one mark for its product, laid out on the section, with its page's address", hero.length === 1 && hero[0].id === TEE && /data-layout="open"/.test(hero[0].tag) && /data-url="\/products\/tee"/.test(hero[0].tag), hero)
+    check("  none with it off", marks(draw("hero_product", { button_url: "/products/tee", button_text: "Buy it", show_offers: false })).length === 0)
+    check("  every card's mark carries its page's address", marks(draw("product_featured", { source: "shop", product_count: 2 })).every((m) => /data-url="\/products\/(tee|mug)"/.test(m.tag)))
+    for (const type of ["product_featured", "product_spotlight", "hero_product"]) {
       const f = schemaOf(type).settings.find((s) => s.id === "show_offers")
       check(`  ${type}: Show bundles and upsells is a toggle, on by default (a section saved before it shows offers)`, f?.type === "toggle" && f.default === true, f)
     }
@@ -132,6 +141,55 @@ async function main() {
     check("  and the set's price is too", !!m && m.write(m.totalMinor) === theirs.bundles[0].at[TEEV].price && m.write(m.totalMinor) === formatMinor(m.totalMinor, "EUR", "en"), [m && m.write(m.totalMinor), theirs.bundles[0].at[TEEV].price])
   }
 
+  console.log("\nCHOOSE: what needs an answer or an option goes to its page, and checkout refuses it without")
+  {
+    const { productOffers } = await import("../lib/offers/offers-public")
+    const engrave = [{ id: "f1", label: "Name to engrave", type: "text", required: true, maxLength: 20, placeholder: "", help: "" }]
+    const bundleRow = { id: "b0000000-0000-4000-8000-000000000001", creator_id: SHOP, kind: "bundle", title: "Tee and mug", product_ids: [TEE, MUG], trigger_product_ids: [], discount_type: "percent", discount_value: 20, active: true, position: 0, created_at: "2026-10-01", trigger_collection_ids: [], placements: ["product", "cart"], starts_at: null, ends_at: null, combines_with_codes: true, max_per_order: null, min_subtotal_cents: null, tiers: [] }
+    const dbOf = (mugFields: unknown[], teeVariants: number) => fakeDb({
+      products: [
+        { id: TEE, creator_id: SHOP, title: "Tee", slug: "tee", type: "physical", status: "published", price_cents: 2900, thumbnail_url: null, pay_what_you_want: false, track_inventory: false, continue_selling: true, compare_at_cents: null, personalization: [] },
+        { id: MUG, creator_id: SHOP, title: "Mug", slug: "mug", type: "physical", status: "published", price_cents: 1000, thumbnail_url: null, pay_what_you_want: false, track_inventory: false, continue_selling: true, compare_at_cents: null, personalization: mugFields },
+      ],
+      product_variants: [
+        ...Array.from({ length: teeVariants }, (_, i) => ({ id: i === 0 ? TEEV : TEEV2, product_id: TEE, name: i === 0 ? "Small" : "Large", price_cents: 2900, active: true, track_inventory: false, inventory_policy: "continue", position: i })),
+        { id: MUGV, product_id: MUG, name: "Default", price_cents: 1000, active: true, track_inventory: false, inventory_policy: "continue", position: 0 },
+      ],
+      inventory_levels: [],
+      store_settings: [{ creator_id: SHOP, currency: "RON", default_country: "RO" }],
+      store_offers: [bundleRow],
+    })
+    const plain = await productOffers(dbOf([], 1), TEE, { now: NOW })
+    check("a product with one option and no required answer can be added from a card", plain.product?.personalized === false && plain.product.options === 1 && plain.bundles[0]?.items.every((i) => !i.personalized), plain.product)
+    const asks = await productOffers(dbOf(engrave, 2), TEE, { now: NOW })
+    check("  one with two options says so, and a set's item with a required answer is flagged", asks.product?.options === 2 && asks.bundles[0]?.items.find((i) => i.id === MUG)?.personalized === true, { product: asks.product, items: asks.bundles[0]?.items })
+    const mugPage = await productOffers(dbOf(engrave, 1), MUG, { now: NOW })
+    check("  and the product's own required answer is said for its own page", mugPage.product?.personalized === true, mugPage.product)
+    const featured = strip(read("components/offers/featured-offers.tsx"))
+    const bundleSrc = strip(read("components/offers/bundle-offers.tsx"))
+    check("the card's tiers open the product's page, Choose options, when it asks an answer or has options", /const selfChoose = !!data\.product && \(data\.product\.personalized \|\| data\.product\.options > 1\)/.test(featured) && /selfChoose && ownPage \? \(\s*<a href=\{ownPage\}[\s\S]*?\{w\("offer_choose"\)\}/.test(featured))
+    check("  a set or an upsell with such an item opens that item's page instead of adding it", /i\.personalized && i\.slug \? `\/products\/\$\{encodeURIComponent\(i\.slug\)\}`/.test(featured) && /pageFor=\{pageFor\}/.test(featured) && /setPage \? \(\s*<a href=\{setPage\}/.test(bundleSrc) && /upPage \? \(\s*<a href=\{upPage\}/.test(bundleSrc))
+    check("  Choose options is a Shop word", (await import("../lib/markets/ui-words")).UI_WORDS.offer_choose === "Choose options")
+    check("  on the canvas the link doesn't leave the editor", /if \(storefront\.inEditor && \(e\.target as HTMLElement\)\.closest\("a"\)\) e\.preventDefault\(\)/.test(featured))
+    const { checkLines } = await import("../lib/products/personalization-server")
+    const fieldsOf = new Map([[MUG, engrave as never]])
+    const refused = checkLines([{ productId: MUG, title: "Mug", properties: {} }], fieldsOf)
+    const taken = checkLines([{ productId: MUG, title: "Mug", properties: { "Name to engrave": "Ana" } }], fieldsOf)
+    check("the checkout refuses a line missing a required answer, and takes it with one", refused.ok === false && /Mug: /.test(refused.ok === false ? refused.error : "") && taken.ok === true, { refused, taken })
+    const start = read("lib/physical/checkout-server.ts")
+    check("  every checkout of things that ship holds its lines to that before payment", /const personalized = await personalizedLines\(db, priced\.lines\)\s*\n\s*if \(personalized\.ok === false\) return \{ ok: false, status: 400/.test(start) && /startCheckout\(admin, \{/.test(read("app/api/checkout/site/route.ts")))
+    check("  and only a product that ships can ask for one", /personalization: productType === "physical" \? storedPersonalization\(personalization\) : \[\]/.test(read("app/app/products/new/product-editor.tsx")))
+  }
+
+  console.log("\nMONEY: card prices follow Show currency codes, as the product page block's")
+  {
+    const featured = strip(read("components/offers/featured-offers.tsx"))
+    check("the store's price with its code when the theme asks, the market's when the page shows one", /productMoney\(cents, \{ code: codes, currency: storefront\.currency \}\)/.test(featured) && /pricing\.format\(cents, storefront\.display\?\.locale\)/.test(featured))
+    check("  the theme's setting reaches every mark", /codes=\{theme\.currency_code_enabled === true\}/.test(read("components/website-builder/sections/StorelibSection.tsx")) && /codes=\{codes\}/.test(read("components/website-builder/sections/offer-islands.tsx")))
+    const { money } = await import("../lib/products/product-page-model")
+    check("  written as the product block writes it", money(2900, { code: true, currency: "USD" }) === "$29.00 USD" && money(2900, { code: false, currency: "USD" }) === "$29.00", [money(2900, { code: true, currency: "USD" })])
+  }
+
   console.log("\nWIRING: drawn into on the live page and on the canvas, by the product page block's pieces")
   {
     const featured = strip(read("components/offers/featured-offers.tsx"))
@@ -143,7 +201,7 @@ async function main() {
     check("  nothing is pressed on the canvas with the inspector on, or off a live cart", /const canAdd = !inert && cart\.live/.test(featured))
     check("  in a card it draws no box of its own (no card in a card)", /bare=\{card\}/.test(featured) && /bare \? undefined : "border p-4"/.test(read("components/offers/quantity-breaks.tsx")) && /bare \? \{ className: "border-t pt-4"/.test(read("components/offers/bundle-offers.tsx")))
     const section = read("components/website-builder/sections/StorelibSection.tsx")
-    check("every .storelib section draws its marks, published and in the editor (one component for both)", /<OfferIslands root=\{scriptRoot\} html=\{onPage\} inert=\{isEditing === true\} \/>/.test(section))
+    check("every .storelib section draws its marks, published and in the editor (one component for both)", /<OfferIslands root=\{scriptRoot\} html=\{onPage\} inert=\{isEditing === true\} codes=/.test(section))
     check("  the offers' code loads only where there is a mark", /lazy\(\(\) => import\("@\/components\/offers\/featured-offers"\)\)/.test(read("components/website-builder/sections/offer-islands.tsx")))
     check("  an edit in the sidebar leaves what is drawn in a mark", /if \(eh\.hasAttribute\("data-storelib-island"\)\) return\s*\n\s*morphChildren\(eh, ew\)/.test(read("lib/website-builder/morph-html.ts")))
   }

@@ -311,6 +311,8 @@ export const UI_WORDS = {
   offer_together: "Together",
   offer_add_all: "Add all to cart",
   offer_choose_options: "Choose your options above",
+  /* A button with no buy box above it (Featured products, Product spotlight, Product hero) whose product needs an answer or an option chosen: it opens the product's page. */
+  offer_choose: "Choose options",
   offer_add: "Add",
   offer_added: "Added",
   offer_each: "{price} each",

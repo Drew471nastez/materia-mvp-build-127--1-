@@ -19,8 +19,9 @@
  *                          lib/website-builder/product-page.ts withOffersBlock,
  *                          components/offers/* (cart, checkout)
  *   Featured products      components/offers/featured-offers.tsx, themes/
- *                          default/sections/product_featured.storelib and
- *                          product_spotlight.storelib (show_offers)
+ *                          default/sections/product_featured.storelib,
+ *                          product_spotlight.storelib and
+ *                          hero_product.storelib (show_offers)
  *   An imported theme      lib/storelib-theme/compat/offers-app-block.ts
  *   Words                  lib/markets/ui-words.ts (Shop words),
  *                          lib/markets/checkout-words.ts (Checkout)
@@ -77,7 +78,7 @@ const ARTICLES: Article[] = [
       { type: "h", text: "How it connects to your store" },
       { type: "list", items: [
         "Offers use your products as they are now: their prices, their options, whether they're published.",
-        "Your website shows them by itself. The product page has a Bundles and upsells block, Featured products and Product spotlight sections show them for their products, and the cart and checkout show savings and suggestions. An imported theme shows them once you add its Bundles and upsells block. See " + link("offers-on-your-website", "Show offers on your website") + ".",
+        "Your website shows them by itself. The product page has a Bundles and upsells block, Featured products, Product spotlight and Product hero sections show them for their products, and the cart and checkout show savings and suggestions. An imported theme shows them once you add its Bundles and upsells block. See " + link("offers-on-your-website", "Show offers on your website") + ".",
         "The checkout works out every discount again on Storelib's server from your offers and your prices. A buyer can't change a price in their browser.",
         "Each order keeps which offer saved what. It's on the receipt, the order and the order emails.",
         "Discount codes, other currencies and languages work alongside offers. See " + link("how-offers-are-priced", "How offers are priced") + ".",
@@ -206,13 +207,13 @@ const ARTICLES: Article[] = [
     slug: "offers-on-your-website",
     title: "Show offers on your website: product page, cart and checkout",
     summary: "The Bundles and upsells block, Featured products and Product spotlight, an imported theme's block, and what the cart and checkout show by themselves.",
-    keywords: ["bundles and upsells block", "offers block", "product page", "website builder", "theme", "block", "cart drawer", "cart page", "checkout", "featured product", "featured products", "product spotlight", "imported theme", "app block", "add block", "colors", "button"],
+    keywords: ["bundles and upsells block", "offers block", "product page", "website builder", "theme", "block", "cart drawer", "cart page", "checkout", "featured product", "featured products", "product spotlight", "product hero", "choose options", "imported theme", "app block", "add block", "colors", "button"],
     related: ["offers", "offers-common-problems", "website-builder/build-your-website"],
     body: [
       { type: "p", text: "On Storelib's own theme you don't place offers by hand. Each offer has Show it on in its editor, and your website reads that. On an imported theme you add one block. This is where each place comes from." },
       { type: "table", head: ["Place", "What shows", "Where it comes from"], rows: [
         ["Product page", "Quantity break tiers, bundles with this product, upsells this product brings up", "The Bundles and upsells block in the Product section"],
-        ["Featured products, Product spotlight", "The same, for each product the section shows", "The section itself, while Show bundles and upsells is on"],
+        ["Featured products, Product spotlight, Product hero", "The same, for each product the section shows", "The section itself, while Show bundles and upsells is on"],
         ["An imported theme", "The same, on a product page or a Featured product", "The Bundles and upsells block, once you add it"],
         ["Cart drawer", "Each saving above the subtotal, upsells to add, bundles to finish", "The cart itself, on your live website"],
         ["Cart page", "The same as the cart drawer", "The cart page itself"],
@@ -239,14 +240,14 @@ const ARTICLES: Article[] = [
       ] },
       { type: "p", text: "In the editor, the builder's stand in product shows a sample quantity break, bundle and upsell, so you can set the colors before you have offers. A real product with no offer shows one quiet line instead: No bundle, quantity break or upsell shows this product yet." },
       shot("product-page-offers", "The Bundles and upsells block on a product page, under Add to cart and Buy now: quantity break tiers, the Breakfast set bundle with Add all to cart, and the Add an apron upsell with Add.", undefined, "product-page-offers-phone"),
-      { type: "h", text: "Featured products and Product spotlight" },
-      { type: "p", text: "Storelib's Featured products section shows each product's offers on its card, under the price. Product spotlight shows its product's offers under its button. Both show offers with Product page ticked under Show it on, at the same prices the cart and checkout charge, in the visitor's currency." },
+      { type: "h", text: "Featured products, Product spotlight and Product hero" },
+      { type: "p", text: "Storelib's Featured products section shows each product's offers on its card, under the price. Product spotlight and Product hero show their product's offers under the button. They show offers with Product page ticked under Show it on, at the same prices the cart and checkout charge, in the visitor's currency." },
       { type: "list", items: [
         "Quantity break: the tiers, with Add to cart under them. Picking a tier sets how many Add to cart puts in the cart.",
         "Bundle: the set and Add all to cart, which puts the whole set in the cart.",
         "Upsell: the product and Add.",
-        "These sections have no option picker, so a product with options goes in at its first option, the one the tiers are priced at.",
-        "Product spotlight's own button still opens checkout for one. A tier or a set goes in through Add to cart or Add all to cart.",
+        "These sections have no option picker and no personalization fields. A product with options to pick, or one that asks for a required answer like a name to engrave, shows Choose options instead, which opens its page. The same goes for a set or an upsell with a product that asks for a required answer.",
+        "The section's own button still opens checkout for one. A tier or a set goes in through Add to cart or Add all to cart.",
         "To hide them, turn off Show bundles and upsells in the section's settings.",
       ] },
       shot("featured-products-offers", "A Featured products section with three cards. The Speckled mug's card shows the tiers Buy 1, Buy 2 get 1 free and Buy 4, save 30% with Add to cart, the Breakfast set with Add all to cart, and the Add an apron upsell. The Serving bowl's card shows the Breakfast set and the apron upsell. The Linen apron's card shows none."),
@@ -295,7 +296,7 @@ const ARTICLES: Article[] = [
       ] },
       { type: "h", text: "Language" },
       { type: "p", text: "The words Storelib writes around an offer follow your website's language: This item, Together, Add all to cart, Add, a price each, the cart's suggestions and savings, and the checkout's Add to your order. A tier left without a label, like Buy 2 get 1 free, is said in the visitor's language too, with its amount in their currency." },
-      { type: "p", text: "To change those words, open Translate (Settings > Languages & Currency, a language's menu, Review and edit). The product page, Featured products and cart words are under Shop words, and the checkout's under Checkout." },
+      { type: "p", text: "To change those words, open Translate (Settings > Languages & Currency, a language's menu, Review and edit). The product page, Featured products, Choose options and cart words are under Shop words, and the checkout's under Checkout." },
       { type: "p", text: "The words you type for an offer (its name, a tier's own label and its badge) are shown as you typed them, in every language. Write them in the language most of your buyers read. Button words you type in the Product section's Bundles and upsells block are translated with the rest of the page." },
       { type: "h", text: "On the order" },
       { type: "p", text: "Each order line keeps which offer saved what, by the name the checkout showed. The receipt and the order show those savings, and Upsells and bundles counts the units each offer sold in its Sold, 90 days column." },
@@ -330,7 +331,7 @@ const ARTICLES: Article[] = [
       { type: "h", text: "Why is there no Free shipping choice?" },
       { type: "p", text: "Free shipping is offered only where selling things that ship is available on Storelib. Use a percent or an amount instead." },
       { type: "h", text: "Why don't offers show on my home page's featured product?" },
-      { type: "p", text: "Featured products and Product spotlight show them when Show bundles and upsells is on in the section's settings and the offer has Product page ticked. Product grid, product list and carousel sections show only the card. On an imported theme, add the Bundles and upsells block to its Featured product section from Add block." },
+      { type: "p", text: "Featured products, Product spotlight and Product hero show them when Show bundles and upsells is on in the section's settings and the offer has Product page ticked. Product grid, product list and carousel sections show only the card. On an imported theme, add the Bundles and upsells block to its Featured product section from Add block." },
       { type: "h", text: "Why won't my offer save after I changed the store currency?" },
       { type: "p", text: "It was open before the change. Reload the page to see the converted amounts, then edit it again." },
     ],

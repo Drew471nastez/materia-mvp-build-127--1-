@@ -460,7 +460,7 @@ export function StorelibSection({
         dangerouslySetInnerHTML={htmlProp}
       />
       {/* A featured product's offers, drawn into the marks its markup leaves for them (./offer-islands.tsx). */}
-      <OfferIslands root={scriptRoot} html={onPage} inert={isEditing === true} />
+      <OfferIslands root={scriptRoot} html={onPage} inert={isEditing === true} codes={theme.currency_code_enabled === true} />
       {asksDrawers && (
         <StorefrontHooks
           trigger={drawerTrigger}

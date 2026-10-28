@@ -23,7 +23,7 @@
         <div class="s__btns"><a class="s__btn s__btn--primary" href="{{ settings.button_url.checkout_url | default: settings.button_url | default: '#' | url }}">{{ settings.button_text }}</a></div>
       {% endif %}
       {# The product's quantity breaks, bundles and upsells (components/offers/featured-offers.tsx draws them here): a tier sets how many its Add to cart puts in the cart, Add all to cart puts the set in. #}
-      {% if settings.show_offers and settings.button_url.id %}<div data-storelib-island="" data-storelib-offers="{{ settings.button_url.id }}" data-layout="open" data-title="{{ settings.button_url.title }}" data-slug="{{ settings.button_url.slug }}" data-kind="{{ settings.button_url.kind }}" data-image="{{ settings.button_url.image | asset }}" data-pwyw="{{ settings.button_url.pay_what_you_want }}"></div>{% endif %}
+      {% if settings.show_offers and settings.button_url.id %}<div data-storelib-island="" data-storelib-offers="{{ settings.button_url.id }}" data-layout="open" data-title="{{ settings.button_url.title }}" data-slug="{{ settings.button_url.slug }}" data-url="{{ settings.button_url | url }}" data-kind="{{ settings.button_url.kind }}" data-image="{{ settings.button_url.image | asset }}" data-pwyw="{{ settings.button_url.pay_what_you_want }}"></div>{% endif %}
     </div>
   </div>
 </section>

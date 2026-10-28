@@ -3,8 +3,8 @@
 /**
  * A FEATURED PRODUCT'S OFFERS, ON STORELIB'S OWN SECTIONS: Featured products
  * (themes/default/sections/product_featured.storelib, a card per product)
- * and Product spotlight (product_spotlight.storelib, one product with a
- * button straight to checkout). Drawn into the section's mark by
+ * and Product spotlight and Product hero (product_spotlight.storelib,
+ * hero_product.storelib: one product with a button straight to checkout). Drawn into the section's mark by
  * components/website-builder/sections/offer-islands.tsx, on the live page and
  * on the builder's canvas.
  *
@@ -22,6 +22,12 @@
  *   bundle           Add all to cart puts the set in, this product at that
  *                    same option
  *   upsell           Add puts it in
+ *   has to be chosen a product that asks a required personalization answer,
+ *                    or this product when it has options to pick, can't go
+ *                    in from here: its button opens the product's page,
+ *                    Choose options (the checkout refuses a line missing a
+ *                    required answer too: lib/physical/checkout-server
+ *                    personalizedLines)
  *
  * The cart and the checkout then price the lines again on the server and say
  * the same saving. Its colours are the section's scheme (the `--s-*`
@@ -32,9 +38,11 @@ import { useMemo, useState } from "react"
 import { BundleOffers, useProductOffers, type BundleCard } from "./bundle-offers"
 import { QuantityBreaks, type BreakCard } from "./quantity-breaks"
 import { fillWords, tierNameIn } from "@/lib/offers/pricing"
-import { useMoney, useStorefront, useWord } from "@/components/website-builder/theme/storefront-context"
+import { useStorefront, useWord } from "@/components/website-builder/theme/storefront-context"
 import { useSiteCart } from "@/components/website-builder/site-cart"
 import type { CartLine } from "@/lib/website-builder/cart"
+import { pricingFor } from "@/lib/markets/pricing"
+import { money as productMoney } from "@/lib/products/product-page-model"
 
 /** The section's scheme, as every Storelib section's root sets it. */
 const SCHEME = {
@@ -65,12 +73,18 @@ export interface FeaturedOffersProps {
   inert: boolean
   /** The section's corner radius in px (theme.radius.medium). */
   radius?: number
+  /** The product's page on this website (the card's link). */
+  url?: string | null
+  /** Theme settings › Currency format › Show currency codes, as the product page block follows it. */
+  codes?: boolean
 }
 
-export default function FeaturedOffers({ productId, title, slug, kind, image, payWhatYouWant, layout, inert, radius = 10 }: FeaturedOffersProps) {
+export default function FeaturedOffers({ productId, title, slug, kind, image, payWhatYouWant, layout, inert, radius = 10, url = null, codes = false }: FeaturedOffersProps) {
   const storefront = useStorefront()
   const w = useWord()
-  const money = useMoney()
+  /* A price as the product page block writes it: in the visitor's market's currency when it shows its own, else the store's, with its code when the theme asks (ProductSection ctx.money). */
+  const pricing = useMemo(() => (storefront.display && !payWhatYouWant ? pricingFor(storefront.display.market, storefront.display.base, storefront.display.fx) : null), [storefront.display, payWhatYouWant])
+  const money = (cents: number) => (pricing ? pricing.format(cents, storefront.display?.locale) : null) ?? productMoney(cents, { code: codes, currency: storefront.currency })
   const cart = useSiteCart()
   const data = useProductOffers(productId)
   /* The visitor's market, as the product page's block hands it on: none for pay what you want, which is typed in the store's currency. */
@@ -113,6 +127,15 @@ export default function FeaturedOffers({ productId, title, slug, kind, image, pa
     )
   }
 
+  /*
+    WHAT HAS TO BE CHOSEN ON ITS PAGE. This product, when it asks a required
+    answer or has options to pick (neither section has a buy box to do it
+    in); another item in a set or an upsell, when it asks a required answer
+    (its option it can pick here). Its button opens that page instead.
+  */
+  const ownPage = url || (slug ? `/products/${encodeURIComponent(slug)}` : null)
+  const selfChoose = !!data.product && (data.product.personalized || data.product.options > 1)
+  const pageFor = (i: { id: string; slug: string; personalized?: boolean }) => (i.id === productId ? (selfChoose ? ownPage : null) : i.personalized && i.slug ? `/products/${encodeURIComponent(i.slug)}` : null)
   const units = quantity ?? (brk ? brk.tiers[0].quantity + brk.tiers[0].freeQuantity : 1)
   const chosenPrice = option?.priceCents ?? brk?.priceCents ?? own?.priceCents ?? 0
   const chosenVariant = option?.id ?? brk?.variantId ?? null
@@ -127,7 +150,13 @@ export default function FeaturedOffers({ productId, title, slug, kind, image, pa
   const card = layout === "card"
 
   return (
-    <div data-featured-offers={productId} className={card ? "mt-4 space-y-4" : "mt-6 space-y-4"} style={{ color: SCHEME.text, maxWidth: card ? undefined : 480 }}>
+    <div
+      data-featured-offers={productId}
+      className={card ? "mt-4 space-y-4" : "mt-6 space-y-4"}
+      style={{ color: SCHEME.text, maxWidth: card ? undefined : 480 }}
+      /* On the builder's canvas a Choose options link shows where it goes, and doesn't leave the editor. */
+      onClickCapture={(e) => { if (storefront.inEditor && (e.target as HTMLElement).closest("a")) e.preventDefault() }}
+    >
       {brk ? (
         <div className={card ? "border-t pt-4" : undefined} style={card ? { borderColor: SCHEME.border } : undefined}>
           <QuantityBreaks
@@ -147,6 +176,11 @@ export default function FeaturedOffers({ productId, title, slug, kind, image, pa
             each={(price) => fillWords(w("offer_each"), { price })}
             bare={card}
           />
+          {selfChoose && ownPage ? (
+            <a href={ownPage} className="mt-3 block w-full border py-3 text-center text-[14.5px] font-semibold" style={{ background: "var(--s-btn)", color: "var(--s-btn-text)", borderColor: "var(--s-btn)", borderRadius: r }} data-tier-choose="">
+              {w("offer_choose")}
+            </a>
+          ) : (
           <button
             type="button"
             disabled={!canAdd}
@@ -158,6 +192,7 @@ export default function FeaturedOffers({ productId, title, slug, kind, image, pa
           >
             {added ? w("added_to_cart") : w("add_to_cart")}
           </button>
+          )}
         </div>
       ) : null}
       <BundleOffers
@@ -174,6 +209,7 @@ export default function FeaturedOffers({ productId, title, slug, kind, image, pa
         money={money}
         display={display}
         bare={card}
+        pageFor={pageFor}
       />
     </div>
   )

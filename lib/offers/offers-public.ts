@@ -31,6 +31,7 @@ import { selectTolerant } from "@/lib/supabase/tolerant-select"
 import { breakCovers, bundlePrice, bundlesWith, offerLive, offerUnitPrice, placementsOf, upsellsFor, type Offer } from "./offers"
 import { tierDiscounts, tierTotals, type Tier } from "./pricing"
 import { collectionsOf, loadOffers, offerLabeler, offerProducts, type OfferProduct } from "./offers-server"
+import { personalizationOf } from "@/lib/products/personalization-read"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -81,6 +82,13 @@ export interface ProductOffers {
   bundles: PublicBundle[]
   quantityBreaks: PublicBreak[]
   checkoutOffers: PublicCheckoutOffer[]
+  /**
+   * The product itself, for a section with no buy box (Storelib's Featured
+   * products, Product spotlight, Product hero): whether it asks a required
+   * personalization answer, and how many options it has to choose from.
+   * Either sends its Add buttons to the product's page instead.
+   */
+  product?: { personalized: boolean; options: number }
 }
 
 export const NO_OFFERS: ProductOffers = { bundles: [], quantityBreaks: [], checkoutOffers: [] }
@@ -144,10 +152,11 @@ export async function productOffers(db: Db, productId: unknown, opts: { only?: (
   const breaks = want.has("quantityBreaks") ? offers.filter((o) => o.kind === "quantity_break" && offerLive(o, now) && placementsOf(o).includes("product") && (o.tiers?.length ?? 0) > 0 && breakCovers(o, p.id, mine)) : []
   if (bundles.length === 0 && upsells.length === 0 && breaks.length === 0) return NO_OFFERS
 
-  const [label, products, price] = await Promise.all([
+  const [label, products, price, self] = await Promise.all([
     bundles.length || upsells.length ? offerLabeler(db, creatorId) : Promise.resolve(() => null),
     bundles.length || upsells.length ? offerProducts(db, creatorId, [...new Set([...bundles.flatMap((b) => b.productIds), ...upsells.map((u) => u.productIds[0])])]) : Promise.resolve(new Map<string, OfferProduct>()),
     breaks.length ? defaultPrice(db, p) : Promise.resolve(null),
+    productChoice(db, p.id),
   ])
   const bundleCards: PublicBundle[] = bundles.flatMap((b) => {
     const items = b.productIds.map((id) => products.get(id))
@@ -169,7 +178,16 @@ export async function productOffers(db: Db, productId: unknown, opts: { only?: (
     const tiers = breakTiers(o.tiers ?? [])
     return tiers.length ? [{ offerId: o.id, productId: p.id, title: o.title, tiers: publicTiers(tiers, price.priceCents, price.compareAtCents), priceCents: price.priceCents, compareAtCents: price.compareAtCents, variantId: price.variantId, variantName: price.variantName }] : []
   }) : []
-  return { bundles: bundleCards, quantityBreaks, checkoutOffers }
+  return { bundles: bundleCards, quantityBreaks, checkoutOffers, product: self }
+}
+
+/** Whether a product asks a required personalization answer, and how many options it has on sale (ProductOffers.product). */
+async function productChoice(db: Db, productId: string): Promise<{ personalized: boolean; options: number }> {
+  const [fields, variants] = await Promise.all([
+    personalizationOf(db, [productId]),
+    Promise.resolve(db.from("product_variants").select("id, name, active").eq("product_id", productId)).then((r: { data?: { name?: string | null; active?: boolean | null }[] | null }) => (r?.data ?? []).filter((v) => v.active !== false && !/^Archived /.test(v.name ?? "")).length).catch(() => 0),
+  ])
+  return { personalized: (fields.get(productId) ?? []).some((f) => f.required), options: variants }
 }
 
 /** The most products a catalogue reads offers for at once (catalogOffers): a store's offers name a handful; one shown on every product is capped here. */
