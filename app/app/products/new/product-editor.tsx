@@ -68,7 +68,7 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { askBeforeLeaving } from "@/lib/ui/leave-guard"
 import { num } from "@/lib/forms/dirty"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
-import { holdLayerLanding } from "@/components/app/page-layer"
+import { afterLayerMove, holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { CustomFieldsCard } from "./custom-fields-card"
@@ -1800,9 +1800,18 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     window.setTimeout(() => {
       leavingRef.current = false
     }, 10_000)
-    startTransition(() => setLeaving(true))
+    /*
+      The leaving state draws the whole editor again, which on a phone landed
+      inside the first frames of the drop as one long task (146ms at a
+      quarter of the CPU, scripts/check-layer-motion.mjs). The button has
+      already answered (LeaveButton), so on a phone that moves it waits for
+      the move (page-layer afterLayerMove), queued after the drop has begun.
+    */
+    const drawLeaving = () => afterLayerMove(() => startTransition(() => setLeaving(true)))
     startNavigationLoading(PRODUCTS_HREF)
     returnToProducts(router, productId)
+    if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(() => window.setTimeout(drawLeaving, 0))
+    else drawLeaving()
   }
 
   /** Saves and publishes. True when it saved. */

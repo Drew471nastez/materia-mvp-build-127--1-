@@ -12,10 +12,11 @@
  * the menu that is a dropdown on a desktop and a sheet on a phone.
  *
  * THE BAR HOLDS STILL. The title, New automation and New email, and the
- * five tabs are all in the pane's bar, which is never unmounted and never
+ * tabs are all in the pane's bar, which is never unmounted and never
  * changes height, so switching tabs moves nothing above the content: the
  * tab row keeps its own sideways scroll on a phone, and only what is under
- * the bar changes.
+ * the bar changes. It scrolls away with the page, as every list's bar does
+ * (round 28, the owner: not sticky).
  *
  * A ROW ANSWERS THE FINGER. Every row that opens something darkens while it
  * is pressed, and starts reading what it opens as the pointer arrives on it

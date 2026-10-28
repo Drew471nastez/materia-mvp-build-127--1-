@@ -349,7 +349,7 @@ for (const [label, viewport] of [
       if (watch) await record(p)
       await pressRow(p, "[data-row-open], tr[data-row]")
       await p.waitForSelector("[data-page=editor]", { timeout: 4000 })
-      await wait(700)
+      await wait(watch ? 1200 : 700)
       if (!watch) return
       const frames = await stop(p)
       const before = frames.filter((f) => f.page === "list")

@@ -1,1 +1,0 @@
-{"compilerOptions":{"outDir":"/tmp/storelib-push-zRf9ZD","rootDir":".","target":"es2022","module":"esnext","moduleResolution":"bundler","jsx":"react-jsx","skipLibCheck":true,"strict":true,"baseUrl":".","paths":{"@/*":["./*"]}},"files":["tests/community-lifecycle-round33.test.ts","tests/cards26.test.ts"]}
