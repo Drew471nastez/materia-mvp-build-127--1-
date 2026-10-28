@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils"
 import { ShimmerBlock, ShimmerRows, ShimmerSwap } from "@/components/ui/shimmer"
 import { ScrollEdge } from "@/components/app/scroll-edge"
 import { SegmentedPills } from "@/components/app/segmented-pills"
+import { EDGE_FADE_FIRST, useEdgeFade } from "@/components/app/use-edge-fade"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
@@ -353,9 +354,12 @@ export function EmailsHome(props: EmailsHomeProps) {
 
 function Tabs({ tab, onTab, onIntent, counts }: { tab: EmailsTab; onTab: (t: EmailsTab) => void; onIntent?: (t: EmailsTab) => void; counts?: Partial<Record<EmailsTab, number>> }) {
   /* Analytics' sliding pill (round 24, the owner: "the pill shapes of the analytics"); the strip scrolls sideways on a phone and keeps the chosen one in view. */
+  /* Wider than a phone: the end with more fades instead of a label cut mid word at the track's rounded end (components/app/use-edge-fade). */
+  const host = useEdgeFade<HTMLDivElement>("[data-segmented-pills]", tab)
   return (
-    <div className="flex h-11 items-center" data-email-tabs="">
+    <div ref={host} className="flex h-11 items-center" data-email-tabs="">
       <SegmentedPills
+        className={EDGE_FADE_FIRST}
         label={tt("Views")}
         value={tab}
         onChange={onTab}

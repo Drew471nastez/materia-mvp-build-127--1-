@@ -26,6 +26,15 @@ import { tt } from "@/lib/i18n/text"
  *
  * No "use client": it has no state, so a server page (Payouts) renders it as
  * it is and a client page (Analytics, Emails) the same.
+ *
+ * NOT ON A PHONE. The owner asked for Try Pro to go on mobile ("get rid of
+ * it", Emails first). Below md TryProStrip is `display: none`, by CSS rather
+ * than by reading the width, so the server's markup is already right and
+ * nothing shows for a frame and then goes. It was in the flow at the top of
+ * each page's own scroller and nothing measured it (no CSS variable, no
+ * sticky offset), so the page simply starts at the black bar's rounded
+ * corners, as Orders and Products do. Upgrade stays one press away in the
+ * phone header's bolt (components/app/upgrade-bolt.tsx) and in Settings.
  */
 export const STRIP_TINT = "bg-[#8b5cf6] text-white"
 export const STRIP_TITLE = "font-semibold text-white"
@@ -35,9 +44,9 @@ export const STRIP_ACTION =
 /** The pill's sparkle, beside Upgrade. */
 export const STRIP_SPARKLE = "h-3 w-3 shrink-0 md:h-3.5 md:w-3.5"
 
-export function AnnouncementBarMobile({ children }: { children: React.ReactNode }) {
+export function AnnouncementBarMobile({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div data-page-strip="" className={`w-full select-none ${STRIP_TINT}`} style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}>
+    <div data-page-strip="" className={`w-full select-none ${STRIP_TINT} ${className}`} style={{ WebkitUserSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}>
       {/* 38px on a phone, 40px wider: the same height as Home's (components/app/dashboard-client). */}
       <div className="h-[38px] md:h-[40px] flex items-center justify-center px-4">
         {children}
@@ -46,10 +55,10 @@ export function AnnouncementBarMobile({ children }: { children: React.ReactNode 
   )
 }
 
-/** Try Pro and the way to the plans, as Analytics, Emails and Payouts show it. */
+/** Try Pro and the way to the plans, as Analytics, Emails and Payouts show it: from md up only. */
 export function TryProStrip() {
   return (
-    <AnnouncementBarMobile>
+    <AnnouncementBarMobile className="hidden md:block">
       <div className="mx-auto flex max-w-[1200px] items-center justify-center gap-2 text-center md:gap-3">
         <span className="text-[12px] md:text-[14px]">
           <span className={STRIP_TITLE}>{tt("Try Pro")}</span>

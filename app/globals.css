@@ -7089,20 +7089,10 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
   justify-content: center;
 }
 [data-analytics-controls] button[aria-haspopup="dialog"] svg { color: #9ca3af; }
-@media (max-width: 639px) {
-  /* Every chip whole on a phone (round 24, "the pill shapes there gets cutted"): the row wraps onto a second line
-     rather than running off the screen. */
-  [data-analytics-pickers] {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    row-gap: 8px;
-    overflow: visible;
-    margin-left: 0;
-    padding-left: 0;
-  }
-  [data-analytics-pickers] > div { flex-wrap: wrap; }
-  [data-analytics-controls] { align-items: flex-start; }
-}
+/* On a phone the chips are ONE row that scrolls sideways (the owner: "they wrap onto two rows ... put them all in one
+   row"), Export pinned at its right end. Where the row is cut it fades out (.edge-fade, below), so no chip is ever
+   sliced at a hard edge, and the pickers open their sheets through a portal, so the scroller clips none of them. */
+
 [data-analytics-controls] button[aria-haspopup="dialog"][data-open],
 [data-analytics-controls] button[aria-haspopup="dialog"][data-state="open"] {
   background-color: #f1f2f4;
@@ -7120,26 +7110,35 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
   opacity: 0;
   transform: translateY(14px);
 }
-[data-reveal="wait"] [data-bar] {
-  width: 0 !important;
+/* AND EACH BAR FILLS AS IT IS REACHED, like a gauge filling (the owner: "the grey progress bars ... should fill
+   smoothly when they come into view"). A bar that mounts below the screen, or before its card is in view, waits at
+   nothing (`data-fill-in="wait"`) and grows from its start when it is reached: transform only, on the compositor,
+   700ms on an ease out, each row 45ms after the one above (app/app/analytics/analytics-reports.tsx useFillIn). Once
+   per bar: a new period moves a bar by its width, as before. */
+[data-fill-in] { transform-origin: left center; }
+[data-fill-in][data-fill-axis="y"] { transform-origin: center bottom; }
+[data-fill-in="wait"] { transform: scaleX(0); }
+[data-fill-in="wait"][data-fill-axis="y"] { transform: scaleY(0); }
+[data-fill-in="go"] {
+  transition: transform 700ms cubic-bezier(0.33, 1, 0.68, 1) var(--fill-delay, 0ms) !important;
 }
-/* And fills as it is reached, a row at a time (round 24, "the progress fills bars should feel very smooth, like
-   filling"): 700ms on an ease out, each of the first eight rows 45ms after the one above. */
-[data-reveal-armed] [data-bar] {
-  transition-duration: 700ms !important;
-  transition-timing-function: cubic-bezier(0.33, 1, 0.68, 1) !important;
-}
-[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(2) [data-bar] { transition-delay: 45ms; }
-[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(3) [data-bar] { transition-delay: 90ms; }
-[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(4) [data-bar] { transition-delay: 135ms; }
-[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(5) [data-bar] { transition-delay: 180ms; }
-[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(6) [data-bar] { transition-delay: 225ms; }
-[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(7) [data-bar] { transition-delay: 270ms; }
-[data-reveal-armed] :is(li, [data-row], [data-channel]):nth-child(n+8) [data-bar] { transition-delay: 315ms; }
 @media (prefers-reduced-motion: reduce) {
   [data-reveal-armed] { transition: none; }
   [data-reveal="wait"] { opacity: 1; transform: none; }
+  [data-fill-in] { transform: none !important; transition: none !important; }
 }
+
+/* A ROW THAT SCROLLS SIDEWAYS FADES WHERE IT IS CUT (components/app/use-edge-fade): 24px at whichever end has more
+   past it, nothing at an end that is whole, and no mask at all on a row that fits. */
+.edge-fade[data-fade-start],
+.edge-fade[data-fade-end] {
+  --fade-l: 0px;
+  --fade-r: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+}
+.edge-fade[data-fade-start] { --fade-l: 24px; }
+.edge-fade[data-fade-end] { --fade-r: 24px; }
 
 /* A new period's orders, in (app/app/orders/orders-list.tsx REVEAL, round 24): a 260ms fade from a shade, opacity only,
    so nothing moves and nothing is laid out again. */

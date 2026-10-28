@@ -243,20 +243,83 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * A FILL: GREY_FILL at its share of the width, grown from the left (its
- * width, 500ms, on a box placed on its own). `share` is 0 to 1; `min` keeps
- * a counted row visible.
+ * A BAR FILLS AS IT IS REACHED. Mounted under the screen (or before its card
+ * is in view), it waits at nothing (`data-fill-in="wait"`, app/globals.css)
+ * and grows from its start the first time a sliver of it is in the page's
+ * scroller: a scale on the compositor, not its width, each row a beat after
+ * the one above. Once per bar: it is never emptied again, and a new period
+ * moves it by its width as before. Under reduced motion it is simply there.
+ */
+const FILL_STAGGER_MS = 45
+const FILL_MS = 700
+function useFillIn<T extends HTMLElement>() {
+  const ref = React.useRef<T>(null)
+  React.useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === "undefined") return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.setAttribute("data-fill-in", "wait")
+    /* Its place in its list: a row's bar a beat after the row above, the eighth and on together. */
+    const row = el.closest("li, [data-row-key], [data-channel], [data-step]")
+    const index = row?.parentElement ? Math.min(7, Array.prototype.indexOf.call(row.parentElement.children, row)) : 0
+    let done = 0
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return
+        io.disconnect()
+        const delay = Math.max(0, index) * FILL_STAGGER_MS
+        el.style.setProperty("--fill-delay", `${delay}ms`)
+        void el.offsetWidth
+        el.setAttribute("data-fill-in", "go")
+        done = window.setTimeout(() => {
+          el.removeAttribute("data-fill-in")
+          el.style.removeProperty("--fill-delay")
+        }, delay + FILL_MS + 60)
+      },
+      { root: el.closest<HTMLElement>(".page-scroll"), rootMargin: "0px 0px -6% 0px", threshold: 0 },
+    )
+    io.observe(el)
+    return () => {
+      io.disconnect()
+      window.clearTimeout(done)
+      el.removeAttribute("data-fill-in")
+    }
+  }, [])
+  return ref
+}
+
+/**
+ * A FILL: GREY_FILL at its share of the width. It fills in as it is reached
+ * (useFillIn), and a new share moves its width, 500ms, on a box placed on
+ * its own. `share` is 0 to 1; `min` keeps a counted row visible.
  */
 function Fill({ share, className, min = 0.02, thin = false }: { share: number; className?: string; min?: number; thin?: boolean }) {
   const s = Math.max(min, Math.min(1, Number.isFinite(share) ? share : 0))
+  const ref = useFillIn<HTMLDivElement>()
   return (
     <div
+      ref={ref}
       aria-hidden
       data-bar=""
       data-fill="grey"
       data-share={s.toFixed(3)}
       className={cn(thin ? GREY_FILL_THIN : GREY_FILL, "transition-[width,filter] duration-500 group-hover:brightness-[0.975] motion-reduce:transition-none", className)}
       style={{ width: `${(s * 100).toFixed(2)}%`, transitionTimingFunction: EASE }}
+    />
+  )
+}
+
+/** A funnel step's column, filled upwards as it is reached. */
+function StepFill({ height }: { height: number }) {
+  const ref = useFillIn<HTMLSpanElement>()
+  return (
+    <span
+      ref={ref}
+      data-bar=""
+      data-fill="grey"
+      data-fill-axis="y"
+      className={cn(GREY_FILL_THIN, "block w-6 max-w-[calc(100%-8px)] rounded-t-[4px] transition-[height,filter] duration-500 group-hover:brightness-[0.93] motion-reduce:transition-none")}
+      style={{ height, transitionTimingFunction: EASE }}
     />
   )
 }
@@ -519,12 +582,7 @@ function Funnel({ steps }: { steps: FunnelStep[] }) {
               <span className="h-5 text-[13px] font-semibold tabular-nums text-[#1a1a2e]">{s.recorded ? fmtStep(s.value) : "–"}</span>
               <span aria-hidden className="relative mt-1 flex w-full items-end justify-center" style={{ height: FUNNEL_PLOT }}>
                 {s.recorded ? (
-                  <span
-                    data-bar=""
-                    data-fill="grey"
-                    className={cn(GREY_FILL_THIN, "block w-6 max-w-[calc(100%-8px)] rounded-t-[4px] transition-[height,filter] duration-500 group-hover:brightness-[0.93] motion-reduce:transition-none")}
-                    style={{ height: h, transitionTimingFunction: EASE }}
-                  />
+                  <StepFill height={h} />
                 ) : (
                   <span data-bar="" data-unrecorded="" className="block h-full w-6 max-w-[calc(100%-8px)] rounded-t-[4px] border border-dashed border-[#d1d5db]" />
                 )}

@@ -12,18 +12,28 @@
  * option is kept in view without moving the page. `onIntent` hears a
  * pointer resting on an option, or a finger landing on it, so what it opens
  * can be read ahead (Emails).
+ *
+ * `variant="chips"` is the same control without the track (Analytics' All /
+ * Digital / Physical / Communities, the owner: "the last item gets cut
+ * off"): separate quiet chips on the page, the chosen one a dark pill that
+ * slides between them. Narrower than the track (no 4px inset, tighter
+ * padding under 360px), so four in English fit a 320px phone whole; a row
+ * that still does not fit (a longer language) scrolls and fades where it is
+ * cut (components/app/use-edge-fade) instead of slicing a label.
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
+import { useEdgeFade } from "@/components/app/use-edge-fade"
 
 export interface PillOption<T extends string> {
   value: T
   label: React.ReactNode
 }
 
-export function SegmentedPills<T extends string>({ options, value, onChange, onIntent, label, className, size = "md" }: { options: PillOption<T>[]; value: T; onChange: (value: T) => void; onIntent?: (value: T) => void; label: string; className?: string; size?: "sm" | "md" }) {
-  const track = React.useRef<HTMLDivElement>(null)
+export function SegmentedPills<T extends string>({ options, value, onChange, onIntent, label, className, size = "md", variant = "track" }: { options: PillOption<T>[]; value: T; onChange: (value: T) => void; onIntent?: (value: T) => void; label: string; className?: string; size?: "sm" | "md"; variant?: "track" | "chips" }) {
+  const track = useEdgeFade<HTMLDivElement>()
+  const chips = variant === "chips"
   const refs = React.useRef<(HTMLButtonElement | null)[]>([])
   const [box, setBox] = React.useState<{ x: number; w: number } | null>(null)
   const index = Math.max(0, options.findIndex((o) => o.value === value))
@@ -58,13 +68,22 @@ export function SegmentedPills<T extends string>({ options, value, onChange, onI
       ref={track}
       role="tablist"
       aria-label={label}
-      className={cn("orders-strip relative inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-[#eceef1] p-1", className)}
-      data-segmented-pills=""
+      className={cn(
+        "orders-strip relative inline-flex max-w-full items-center overflow-x-auto",
+        chips ? "edge-fade gap-1 py-0.5 min-[360px]:gap-1.5" : "gap-0.5 rounded-full bg-[#eceef1] p-1",
+        className,
+      )}
+      style={chips ? { overflowY: "hidden", touchAction: "pan-x pan-y", overscrollBehaviorX: "contain" } : undefined}
+      data-segmented-pills={chips ? "chips" : ""}
+      data-scroll-x={chips ? "" : undefined}
     >
       {box ? (
         <span
           aria-hidden
-          className="pointer-events-none absolute bottom-1 left-0 top-1 rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_1px_4px_rgba(16,24,40,0.06)] transition-[translate,width] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+          className={cn(
+            "pointer-events-none absolute left-0 rounded-full transition-[translate,width] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+            chips ? "bottom-0.5 top-0.5 bg-[#1a1a2e]" : "bottom-1 top-1 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_1px_4px_rgba(16,24,40,0.06)]",
+          )}
           style={{ translate: `${box.x}px 0`, width: box.w }}
         />
       ) : null}
@@ -93,9 +112,9 @@ export function SegmentedPills<T extends string>({ options, value, onChange, onI
             }}
             className={cn(
               "relative z-[1] shrink-0 whitespace-nowrap rounded-full font-semibold outline-none transition-colors duration-150 [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20",
-              size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-[14px]",
-              on ? "text-[#1a1a2e]" : "text-[#6b7280]",
-              on && !box && "bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08)]",
+              chips
+                ? cn("h-8 px-2.5 text-[13px] min-[360px]:px-3.5", on ? "text-white" : "text-[#4b5563] pointer-fine:hover:bg-[#1a1a2e]/[0.05] pointer-fine:hover:text-[#1a1a2e]", on && !box && "bg-[#1a1a2e]")
+                : cn(size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-[14px]", on ? "text-[#1a1a2e]" : "text-[#6b7280]", on && !box && "bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08)]"),
             )}
           >
             {o.label}

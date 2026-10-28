@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 
 import { hapticTap } from "@/lib/native-bridge"
+import { PULL_SPIN_MAX_MS, spinUntil } from "@/lib/ui/pull-refresh-cap"
 
 export type PullPhase = "idle" | "pulling" | "ready" | "refreshing"
 
@@ -70,6 +71,11 @@ export const PULL_TO_REFRESH = {
    * glitch rather than as work.
    */
   minSpin: 300,
+  /**
+   * And at most this long (lib/ui/pull-refresh-cap): the gesture ends here
+   * whether or not the refresh has, and the refresh carries on behind it.
+   */
+  maxSpin: PULL_SPIN_MAX_MS,
 } as const
 
 /**
@@ -232,6 +238,8 @@ interface Options {
   refreshHold?: number
   /** Minimum time the spinner stays up (default: PULL_TO_REFRESH.minSpin) */
   minSpin?: number
+  /** Maximum time the spinner stays up; the refresh keeps running past it (default: PULL_TO_REFRESH.maxSpin) */
+  maxSpin?: number
   /** Called on every phase change, outside React's render. */
   onPhaseChange?: (phase: PullPhase) => void
   /**
@@ -303,6 +311,7 @@ export function usePullToRefresh(
     tension = PULL_TO_REFRESH.tension,
     refreshHold = PULL_TO_REFRESH.refreshHold,
     minSpin = PULL_TO_REFRESH.minSpin,
+    maxSpin = PULL_TO_REFRESH.maxSpin,
     onPhaseChange,
     listenOn,
     axisFirst = false,
@@ -717,18 +726,18 @@ export function usePullToRefresh(
         setPhase("idle")
       })
     }
-    Promise.resolve()
-      .then(() => refreshRef.current())
-      .catch(() => { /* a failed refresh still has to put the spinner away */ })
-      .then(() => {
-        const rest = minSpin - (performance.now() - started)
-        if (rest > 0) {
-          spinTimerRef.current = window.setTimeout(finish, rest)
-        } else {
-          finish()
-        }
-      })
-  }, [minSpin, parts, refreshHold, setLifted, setPhase, settle])
+    /* Done when the refresh is, or at maxSpin, whichever is first: a slow read lands on the page after the
+       spinner has gone, never holds the page pulled down for it (lib/ui/pull-refresh-cap). A failed refresh
+       still puts the spinner away. */
+    void spinUntil(() => refreshRef.current(), maxSpin).then(() => {
+      const rest = minSpin - (performance.now() - started)
+      if (rest > 0) {
+        spinTimerRef.current = window.setTimeout(finish, rest)
+      } else {
+        finish()
+      }
+    })
+  }, [maxSpin, minSpin, parts, refreshHold, setLifted, setPhase, settle])
 
   const forceIdle = useCallback(() => {
     cancelFrame()
