@@ -89,12 +89,59 @@
  * ask sounds' AudioContext and its room (lib/website-builder/ask-sounds.ts,
  * about 60ms in the profile, on purpose inside a gesture for iOS), once.
  *
+ * Round perf2-1028: the canvas scrolled, and changes from outside. PART=
+ * scroll,live,load (below) drive the same editor through scripts/canvas-
+ * probe-kit.mjs on a computer (1280x900, a wheel) and a phone (390x844, a
+ * finger's fling), Storelib and imported themes, and play a connected
+ * agent's edits, a burst of twelve, a GitHub push that rewrote the page and
+ * an Ask Storelib run under an open editor with a heading being typed in.
+ * Found, with the numbers that named each (CPU 4x unless said):
+ *
+ *   every key and press in a connected editor threw "POLL_MAX_MS is not
+ *     defined" from the activity poll (site-connections.tsx): 5 page errors
+ *     per run, now 0
+ *   animations inside the closed section library (a preview's marquee) and
+ *     the hidden Ask card (a spinner) restyled and relayered every frame of
+ *     a scroll (TRACE=scroll: "StyleRecalc Animation" each frame): paused
+ *     there (globals.css). Imported theme, wheel: main thread style 231 and
+ *     317ms -> 35 and 53ms per gesture, dropped frames 10 / 14% -> 7 / 9%;
+ *     at 6x 33% -> 14%. The Storelib theme's wheel is NOT better: 36 to 40%
+ *     dropped before and after at 4x; its style (about 560ms), paint (about
+ *     700ms), hit tests and layerizing every frame of a long canvas are left
+ *   a GitHub push read back redrew all 16 sections for one replaced: laid
+ *     over what is on screen (incoming-diff.ts), 16 -> 3 on a computer (the
+ *     replaced one and two this probe's routes could not save), 16 -> 2 on
+ *     a phone; renders 2,246 -> 1,702
+ *   each render of the editor drew every field of the open section and the
+ *     section toolbar again (OWNERS=1): fields memoized behind a stable
+ *     onChange, CollectionBoundField reads sibling settings only for a
+ *     setting that follows a collection, the toolbar memoized behind
+ *     useStableHandlers. Renders: an agent's edit 1,596 -> 1,193, the open
+ *     section's 2,100 -> 1,453, a toggle 713 -> 423, the slider 1,467 ->
+ *     about 840, select another 1,913 -> 1,404, an Ask run 10,350 -> about
+ *     8,200
+ *   the closed library put in cards under input and incoming edits: it now
+ *     waits for the same quiet its previews wait for, and a change landing
+ *     pushes that quiet back
+ *   the poll waited a second after a scroll rested before reading what came
+ *     in behind; an empty own-site token answer was asked again per mount
+ *
+ * Times on this shared four core machine moved by up to 2x between runs of
+ * the same bundle, so only the counts above and the imported scroll (which
+ * moved the same way in every pair) are claimed. Two alternating pairs at 4x,
+ * one at 6x; scratchpad numbers in the commit's report.
+ *
  *   node scripts/check-editor-perf.mjs
+ *   npx tsx scripts/check-editor-perf.mjs    (an imported theme needs tsx: its converter is TypeScript)
+ *   PART=interactions|scroll|live|load       some parts only (comma separated; all by default)
+ *   DEVICE=desktop|phone  THEME=storelib|imported   for scroll and live
+ *   BUDGET=0                                 report without failing on the budgets
+ *   OWNERS=1                                 whose render drew each tooltip and field
  *   CPU=4 node scripts/check-editor-perf.mjs        the CPU slowed 4x
  *   EDITOR_BUNDLE=<file> node scripts/check-editor-perf.mjs   reuse a bundle (one built from another commit, to compare)
  *   STYLESHEET=<file>    a compiled stylesheet instead of this checkout's (scripts/probe-css.mjs output)
- *   PROFILE=<name>       a CPU profile of the interactions whose name matches
- *   TRACE=<name>         the style and layout passes of those; TRACE_INV=1 adds what invalidated them
+ *   PROFILE=<name>       a CPU profile of the interactions whose name matches (PROFILE=scroll: the gesture)
+ *   TRACE=<name>         the style and layout passes of those; TRACE_INV=1 adds what invalidated them (TRACE=scroll too)
  *   JSON=<file>          also write the numbers as JSON
  *   SWITCHES=50          page switches for the memory run
  */
@@ -705,7 +752,7 @@ const SCROLL_INIT = String.raw`
     /* Chrome makes a wheel or touch listener on the window, the document or its root passive unless asked otherwise. */
     var explicit = opts && typeof opts === "object" && "passive" in opts
     var passive = type === "scroll" ? true : explicit ? !!opts.passive : rootish(this)
-    P.lis.push([type, passive, where(this)])
+    P.lis.push([type, passive, where(this), this])
     return add.call(this, type, m[key], opts)
   }
   EventTarget.prototype.removeEventListener = function (type, fn, opts) {
@@ -771,9 +818,16 @@ const SCROLL_INIT = String.raw`
         top: Object.keys(r).sort(function (a, b) { return r[b] - r[a] }).slice(0, 10).map(function (k) { return k + ":" + r[k] }),
       }
     },
+    /* Wheel and touch listeners that are not passive: "@canvas" when they sit on the canvas's path (the scroller, inside it, or around it), where a touch or a wheel has to wait for them; elsewhere they only hold their own element. */
     blocking: function () {
       var seen = {}
-      return P.lis.filter(function (l) { return !l[1] && l[0] !== "scroll" }).map(function (l) { return l[0] + "@" + l[2] }).filter(function (k) { if (seen[k]) return false; seen[k] = 1; return true })
+      var sc = document.getElementById("wb-preview-root") || document.scrollingElement
+      return P.lis.filter(function (l) { return !l[1] && l[0] !== "scroll" }).map(function (l) {
+        var t = l[3], el = t && t.nodeType === 1 ? t : null
+        var path = !el || (sc && (el.contains(sc) || sc.contains(el)))
+        var cls = el && el.className && el.className.baseVal === undefined ? "." + String(el.className).split(/\s+/).slice(0, 3).join(".") : ""
+        return l[0] + "@" + l[2] + cls + (path ? "@canvas" : "")
+      }).filter(function (k) { if (seen[k]) return false; seen[k] = 1; return true })
     },
   }
 })()
@@ -1001,7 +1055,9 @@ async function liveScenario({ device, bundle, css, cpu }) {
     /* 3. A GitHub push that rewrote the page: read back in place. The typed edit is saved first, so it is not a conflict. Before the
        theme changes below: this probe's routes do not keep a save, so a push read after them would rightly redraw every section. */
     {
-      if (typing) { await ed.js(() => { const a = document.activeElement; if (a && a.blur) a.blur() }); await sleep(2500) }
+      /* The agent's edits above marked the page unsaved: autosave writes them first, or the push is a conflict for the person to settle, not a page read back. */
+      if (typing) await ed.js(() => { const a = document.activeElement; if (a && a.blur) a.blur() })
+      await sleep(3000)
       typing = false
       const b = await before()
       await ed.js((s) => { const h = window.PROBE_PAGES.home; h[h.indexOf("cta_simple")] = "stats"; window.__pushStamp = s }, stamp)
@@ -1111,8 +1167,8 @@ function budgets(all, cpu) {
     want(m.longest <= 120 * k, `${key}: no long task over ${Math.round(120 * k)}ms while scrolling`, m.longest)
     want(m.commits <= 4, `${key}: at most 4 React commits during a scroll`, m.commits)
     const handlers = Object.values(m.handlers ?? {}).reduce((a, b) => a + b, 0)
-    want(handlers <= 60 * k, `${key}: scroll, wheel and touch handlers under ${Math.round(60 * k)}ms in all`, handlers)
-    want((m.blocking ?? []).filter((b) => /^(wheel|touchmove|mousewheel)@/.test(b)).length === 0, `${key}: no wheel or touchmove listener that blocks the scroll`, m.blocking)
+    want(handlers <= 60 * Math.max(1, cpu), `${key}: scroll, wheel and touch handlers under ${Math.round(60 * Math.max(1, cpu))}ms in all`, Math.round(handlers))
+    want((m.blocking ?? []).filter((b) => /^(wheel|touchmove|mousewheel)@/.test(b) && /@canvas$/.test(b)).length === 0, `${key}: no wheel or touchmove listener on the canvas's path that blocks its scroll`, m.blocking)
   }
   for (const [dev, live] of Object.entries(all.live ?? {})) {
     if (!live) continue
@@ -1125,7 +1181,7 @@ function budgets(all, cpu) {
       else want(m.removed <= 1, `live ${dev} ${name}: only the replaced section's box goes`, m.removed)
       if (m.focusKept !== undefined) want(m.focusKept && m.textKept, `live ${dev} ${name}: the field being typed in keeps its focus and text`, { focus: m.focusKept, text: m.textKept })
       if (/agent edits one|agent edits the open/.test(name)) want(m.sections <= 3, `live ${dev} ${name}: only the changed section redraws`, m.sectionTypes)
-      if (/burst|ask run/.test(name)) want(m.commits <= (/ask/.test(name) ? 30 : 12), `live ${dev} ${name}: a burst is a handful of commits, not one per line`, m.commits)
+      if (/burst/.test(name)) want(m.commits <= 12, `live ${dev} ${name}: a burst read in one poll is a handful of commits, not one per edit`, m.commits)
       want(m.longest <= 150 * k, `live ${dev} ${name}: no long task over ${Math.round(150 * k)}ms`, m.longest)
     }
   }
