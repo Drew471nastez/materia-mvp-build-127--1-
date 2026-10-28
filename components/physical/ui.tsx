@@ -13,6 +13,7 @@
 import * as React from "react"
 import { Check, ChevronDown, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { FAIL_COPY, requestJson } from "@/lib/net/request"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "@/hooks/use-toast"
@@ -45,14 +46,17 @@ export const FIELD =
  */
 export const FIELD_COMPACT =
   "h-10 w-full min-w-0 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] disabled:bg-[#f8f9fa] disabled:text-[#9ca3af] sm:h-9 sm:text-[14px]"
-export const BTN_PRIMARY =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(16,24,40,0.12)] outline-none transition-colors hover:bg-[#2a2a44] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 disabled:pointer-events-none disabled:opacity-50 [-webkit-tap-highlight-color:transparent]"
-export const BTN_SECONDARY =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-4 text-[14px] font-medium text-[#1a1a2e] shadow-[inset_0_-1px_0_rgba(0,0,0,0.04)] outline-none transition-colors hover:bg-[#f7f7f8] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 disabled:pointer-events-none disabled:opacity-50 [-webkit-tap-highlight-color:transparent]"
+/*
+ * The buttons wear the app's depth (components/ui/depth-button.ts), as the
+ * product, coupon and offer editors do: a near black primary with a line of
+ * light on top and a darker line under it, a white secondary with a soft foot,
+ * both flat and a step darker while pressed. Sizes stay as they were here.
+ */
+export const BTN_PRIMARY = cn(primaryDepth, "h-10 gap-2 rounded-lg px-4 text-[14px] font-medium disabled:pointer-events-none disabled:opacity-50")
+export const BTN_SECONDARY = cn(secondaryDepth, "h-10 gap-2 rounded-lg px-4 text-[14px] disabled:pointer-events-none")
 export const BTN_GHOST =
   "inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 disabled:pointer-events-none disabled:opacity-50 [-webkit-tap-highlight-color:transparent]"
-export const BTN_DANGER =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#fecaca] bg-white px-4 text-[14px] font-medium text-[#b42318] outline-none transition-colors hover:bg-[#fef2f2] disabled:pointer-events-none disabled:opacity-50"
+export const BTN_DANGER = cn(secondaryDepth, "h-10 gap-2 rounded-lg border-[#f3c4bd] px-4 text-[14px] text-[#b42318] hover:bg-[#fef2f2] disabled:pointer-events-none")
 
 /*
  * ===========================================================================

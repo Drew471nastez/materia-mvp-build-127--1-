@@ -604,6 +604,8 @@ const SUITES = [
   "tests/coupon-editor.test.ts",
   "tests/coupon-checkout.test.ts",
   "tests/cart-coupons.test.ts",
+  /* Offers, coupons and size charts as sub pages (not dialogs or sheets), a code's collections and "physical only" in every checkout, the size chart table's keys and paste, Inventory's batched reads. */
+  "tests/offers-subpages.test.ts",
   "tests/product-page-t.test.ts",
   "tests/home-cards.test.ts",
   "tests/home-announcements.test.ts",
