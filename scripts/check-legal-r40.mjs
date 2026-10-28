@@ -167,12 +167,14 @@ export const notFound = () => {}
           }
         })
         expect(errors.length === 0, `${tag}: no page errors`, errors.slice(0, 2))
-        expect(m.kind === (name === "phone" ? "sheet" : "card"), `${tag}: ${name === "phone" ? "the app's bottom sheet" : "a centred card"}`, m.kind)
-        expect(dark ? m.bg === "rgb(24, 24, 28)" : m.bg === "rgb(255, 255, 255)", `${tag}: the page's ${dark ? "dark" : "light"}`, m.bg)
-        expect(m.edge === 0, `${tag}: nothing inside reaches the corners in another colour`, m.edge)
+        /* Round 41: Share is the centred card at every width again, with no surface of its own (its band and body are their own colours, cut by the card's clip): scripts/check-onepage-r41.mjs measures it. */
+        const shareCard = view === "share"
+        expect(m.kind === (name === "phone" && !shareCard ? "sheet" : "card"), `${tag}: ${name === "phone" && !shareCard ? "the app's bottom sheet" : "a centred card"}`, m.kind)
+        if (!shareCard) expect(dark ? m.bg === "rgb(24, 24, 28)" : m.bg === "rgb(255, 255, 255)", `${tag}: the page's ${dark ? "dark" : "light"}`, m.bg)
+        if (!shareCard) expect(m.edge === 0, `${tag}: nothing inside reaches the corners in another colour`, m.edge)
         expect(m.sideways <= 0, `${tag}: no sideways scroll`, m.sideways)
-        if (name === "phone") expect(m.width === 390 && m.bottomGap <= 1, `${tag}: full width, on the bottom edge`, { width: m.width, gap: m.bottomGap })
-        else expect(Math.abs(m.left - (1440 - m.width) / 2) <= 1, `${tag}: centred`, { left: m.left, width: m.width })
+        if (name === "phone" && !shareCard) expect(m.width === 390 && m.bottomGap <= 1, `${tag}: full width, on the bottom edge`, { width: m.width, gap: m.bottomGap })
+        else expect(Math.abs(m.left - (vp.width - m.width) / 2) <= 1, `${tag}: centred`, { left: m.left, width: m.width })
         if (view === "legal") expect(m.legalLoaded && /Terms of service/.test(m.text), `${tag}: the terms, read in the sheet`, m.text)
         await p.screenshot({ path: join(shots, `${tag.replace(/ /g, "-")}.png`) })
         await p.close()

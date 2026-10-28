@@ -74,7 +74,8 @@ console.log("\nOnePage: the legal text in a sheet, Share and Subscribe as one di
   check("links inside the sheet stay inside it", /onKind\(m\[1\] as LegalKind, m\[2\]\)/.test(reader) && /href\.startsWith\("#"\)\) return go/.test(reader) && /window\.open\(a\.href, "_blank", "noopener"\)/.test(reader))
 
   const dialog = code("components/onepage/onepage-dialog.tsx")
-  check("a phone gets the app's sheet, a wider window the centred card, never both", /if \(phone\) \{\s*return \(\s*<BottomSheet/.test(dialog) && /<CenteredCard /.test(dialog) && /\(max-width: 639px\)/.test(dialog))
+  /* Changed on purpose (round 41): a dialog can ask for the centred card at every width (Share, as it was before round 40); the rest still get the app's sheet on a phone. */
+  check("a phone gets the app's sheet, a wider window the centred card, never both", /if \(phone && !centered\) \{\s*return \(\s*<BottomSheet/.test(dialog) && /<CenteredCard /.test(dialog) && /\(max-width: 639px\)/.test(dialog))
   check("the card is one surface: its own background and radius, nothing edge to edge behind it", /overflow-hidden rounded-\[24px\] bg-\[var\(--sheet-bg\)\]/.test(dialog))
   const light = sheetTokens(false) as Record<string, string>
   const dark = sheetTokens(true) as Record<string, string>
@@ -84,8 +85,9 @@ console.log("\nOnePage: the legal text in a sheet, Share and Subscribe as one di
   check("Subscribe opens the new sheet; the 220px panel and its press-away listener are gone", /<OnePageSubscribeSheet[\s\S]{0,80}dark=\{!onLight\}/.test(live) && !/width: isOpen \? 220 : 44/.test(live) && !/document\.addEventListener\("pointerdown", away, true\)/.test(live))
   check("glass on a light page is still ink glass for both buttons", /const s = inkGlass \? GLASS_ON_LIGHT_BELL/.test(live) && /const s = inkGlass \? GLASS_ON_LIGHT_SHARE/.test(live))
   const share = code("components/onepage/share-sheet.tsx")
-  check("Share: the address with Copy, the places to send it, the way to make a page", /data-share-url=""/.test(share) && /copied \? "Copied" : "Copy"/.test(share) && /name: "WhatsApp"/.test(share) && /<StorelibLogo size=\{28\} \/>/.test(share))
-  check("  a share never leaves the editor's preview", (share.match(/isOnePagePreview\(\)/g) ?? []).length >= 3)
+  /* Changed on purpose (round 41): Share is the card from before round 40 again (the owner asked for it back), with Copy link among the places and the Storelib card (tests/onepage-public-r41). */
+  check("Share: the address with Copy, the places to send it, the way to make a page", /data-share-url=""/.test(share) && /copied \? "Copied" : "Copy link"/.test(share) && /name: "WhatsApp"/.test(share) && /<StorelibLogo size=\{40\} \/>/.test(share))
+  check("  a share never leaves the editor's preview", (share.match(/isOnePagePreview\(\)/g) ?? []).length >= 2)
   const sub = code("components/onepage/subscribe-sheet.tsx")
   check("Subscribe: the same request as before", /fetch\("\/api\/subscribe"/.test(sub) && /source: "onepage", source_id: onepageId, creator_id: sellerId, origin: pageOrigin\(\)/.test(sub))
   check("  a labelled field, at 16px so a phone does not zoom, that says what went wrong", /htmlFor="onepage-subscribe-email"/.test(sub) && /text-\[16px\]/.test(sub) && /role="alert"/.test(sub))

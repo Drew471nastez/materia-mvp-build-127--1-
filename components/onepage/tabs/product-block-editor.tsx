@@ -18,8 +18,8 @@ import { teamStoreForProducts } from "@/lib/onepage/team-context"
 import { Switch } from "@/components/onepage/editor-kit"
 import { ChoiceMark } from "@/components/onepage/choice-marks"
 import { tt } from "@/lib/i18n/text"
-import type { ProductBlockData, ProductBlockStyle, ProductTapAction } from "@/lib/onepage/types"
-import { PRODUCT_LAYOUTS, editorProductState, productLayoutOf, productTapAction, sellsInstantly, type EditorProductState } from "@/lib/onepage/product-block"
+import type { ProductBlockData, ProductBlockStyle } from "@/lib/onepage/types"
+import { PRODUCT_LAYOUTS, editorProductState, productLayoutOf, productSheetAction, productTapChoice, sellsInstantly, shipsProduct, tapChoicePatch, type EditorProductState, type ProductTapChoice } from "@/lib/onepage/product-block"
 
 /* ── The creator's products, read once for the whole editor ─────────────── */
 
@@ -175,14 +175,22 @@ export function ProductEditLinks({ productId }: { productId: string }) {
 
 /* ── When someone taps it ───────────────────────────────────────────────── */
 
+/*
+  ROUND 41, the owner: "Give the option so a product button can: open the sheet (see the product, choose options) then
+  check out, or check out instantly, or go to the product page." Three choices, said as what the visitor gets
+  (lib/onepage/product-block PRODUCT_TAP_CHOICES), each with what follows from it under it: the sheet's own button,
+  and whether instant checkout pays on the page.
+*/
 export function ProductTapSetting({ data, onChange }: { data: ProductBlockData; onChange: (patch: Partial<ProductBlockData>) => void }) {
-  const action = productTapAction(data)
+  const choice = productTapChoice(data)
   const instantKind = sellsInstantly(data.product_type ?? null)
+  const ships = shipsProduct(data.product_type ?? null)
   const instantOn = (data.instant_checkout === true || (data.quick_checkout === true && !(data.product_price_cents ?? 0))) && instantKind
-  const options: { id: ProductTapAction; icon: typeof CreditCard; label: string; hint: string }[] = [
-    { id: "checkout", icon: CreditCard, label: tt("Go to checkout"), hint: tt("Straight to paying") },
-    { id: "sheet", icon: PanelBottom, label: tt("Open in a sheet"), hint: tt("It slides up over your page") },
-    { id: "page", icon: ExternalLink, label: tt("Open product page"), hint: tt("Its full page") },
+  const sheetAction = productSheetAction(data)
+  const options: { id: ProductTapChoice; icon: typeof CreditCard; label: string; hint: string }[] = [
+    { id: "sheet", icon: PanelBottom, label: tt("Open product sheet"), hint: tt("They see it, choose options, then check out") },
+    { id: "instant", icon: Zap, label: tt("Instant checkout"), hint: ships ? tt("Products that ship open their page to choose delivery") : tt("Straight to paying") },
+    { id: "page", icon: ExternalLink, label: tt("Product page"), hint: tt("Its full page") },
   ]
   return (
     <div className="space-y-2.5 border-t pt-3" data-product-tap-setting="">
@@ -190,7 +198,7 @@ export function ProductTapSetting({ data, onChange }: { data: ProductBlockData; 
       {/* One column that is the panel's width: a long hint is cut with an ellipsis, it never widens the column (min-w-0). */}
       <div role="radiogroup" aria-label={tt("When someone taps it")} className="grid grid-cols-[minmax(0,1fr)] gap-1.5">
         {options.map((o) => {
-          const on = action === o.id
+          const on = choice === o.id
           const Icon = o.icon
           return (
             <button
@@ -198,7 +206,7 @@ export function ProductTapSetting({ data, onChange }: { data: ProductBlockData; 
               type="button"
               role="radio"
               aria-checked={on}
-              onClick={() => onChange({ tap_action: o.id })}
+              onClick={() => onChange(tapChoicePatch(o.id))}
               className="relative flex min-h-12 w-full min-w-0 items-center gap-3 rounded-xl border border-[#e3e4e8] bg-white px-3 py-2 text-left outline-none transition-colors hover:border-[#c9cbd1] focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)]"
               data-tap-choice={o.id}
             >
@@ -214,14 +222,47 @@ export function ProductTapSetting({ data, onChange }: { data: ProductBlockData; 
           )
         })}
       </div>
-      {instantKind && action !== "page" ? (
-        <div className="flex items-start gap-3 rounded-xl bg-[#f7f7f8] px-3 py-2.5 shadow-[inset_0_0_0_1px_rgba(16,24,40,0.06)]" data-instant-setting="">
-          <Zap className="mt-0.5 h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={1.8} />
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("Instant checkout")}</p>
-            <p className="text-[12px] leading-snug text-[#6b7280]">{tt("They pay in a window on your page, like joining a community. For downloads and courses.")}</p>
+
+      {choice === "sheet" ? (
+        <div className="space-y-2 rounded-xl bg-[#f7f7f8] px-3 py-2.5 shadow-[inset_0_0_0_1px_rgba(16,24,40,0.06)]" data-sheet-action-setting="">
+          <p className="text-[12.5px] font-medium text-[#1a1a2e]">{tt("Button in the sheet")}</p>
+          <div role="radiogroup" aria-label={tt("Button in the sheet")} className="grid grid-cols-2 gap-1 rounded-lg bg-white p-1 shadow-[inset_0_0_0_1px_rgba(16,24,40,0.08)]">
+            {(["checkout", "page"] as const).map((a) => (
+              <button
+                key={a}
+                type="button"
+                role="radio"
+                aria-checked={sheetAction === a}
+                onClick={() => onChange({ sheet_action: a })}
+                className={cn("h-8 min-w-0 truncate rounded-md px-2 text-[12.5px] font-medium transition-colors", sheetAction === a ? "bg-[#1a1a2e] text-white" : "text-[#4b5563] hover:text-[#1a1a2e]")}
+                data-sheet-action={a}
+              >
+                {a === "checkout" ? tt("Check out now") : tt("View full page")}
+              </button>
+            ))}
           </div>
-          <Switch checked={instantOn} onChange={(on) => onChange({ instant_checkout: on, quick_checkout: false })} label={tt("Instant checkout")} />
+          {sheetAction === "checkout" ? (
+            <div className="flex items-center gap-3 pt-0.5">
+              <p className="min-w-0 flex-1 text-[12px] leading-snug text-[#6b7280]">{tt("Link to the full page under the button")}</p>
+              <Switch checked={data.sheet_page_link !== false} onChange={(on) => onChange({ sheet_page_link: on })} label={tt("Link to the full page under the button")} />
+            </div>
+          ) : null}
+          {instantKind && sheetAction === "checkout" ? (
+            <div className="flex items-center gap-3">
+              <p className="min-w-0 flex-1 text-[12px] leading-snug text-[#6b7280]">{tt("Pay without leaving your page")}</p>
+              <Switch checked={instantOn} onChange={(on) => onChange({ instant_checkout: on, quick_checkout: false })} label={tt("Pay without leaving your page")} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {choice === "instant" && instantKind ? (
+        <div className="flex items-start gap-3 rounded-xl bg-[#f7f7f8] px-3 py-2.5 shadow-[inset_0_0_0_1px_rgba(16,24,40,0.06)]" data-instant-setting="">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium text-[#1a1a2e]">{tt("Pay without leaving your page")}</p>
+            <p className="text-[12px] leading-snug text-[#6b7280]">{tt("Off: they go to the checkout page instead.")}</p>
+          </div>
+          <Switch checked={instantOn} onChange={(on) => onChange({ instant_checkout: on, quick_checkout: false })} label={tt("Pay without leaving your page")} />
         </div>
       ) : null}
     </div>

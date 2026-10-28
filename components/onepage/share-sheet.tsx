@@ -16,16 +16,34 @@
  *
  * How each place is opened (an app first, the web if it is not installed)
  * is unchanged from the card it replaces.
+ *
+ * ROUND 41, the owner: "Bring back the share modal how it was before (using
+ * the actual avatar of the creator)". So it is the card from before round 40
+ * again, at every width: a band in the page's own colour with the creator's
+ * photo (or their video) large in the middle, their name and address, the
+ * four round places to send it, and the Storelib card under them. What was
+ * wrong with it is fixed, not brought back:
+ *
+ *   THE WHITE CORNERS  the band was drawn inside a white card of the same
+ *                      radius, so white showed round its top corners. The
+ *                      card has no surface of its own now (OnePageDialog
+ *                      `bare`): the band and the body are each their own
+ *                      colour, and the card's rounded clip cuts both, with
+ *                      nothing behind to show at the edge.
+ *   THE JUMP           opening it hid the page's scrollbar. Nothing on the page
+ *                      is touched now (onepage-dialog useStillPage).
+ *   THE BOUNCE         its buttons grew on hover; now only their tint changes.
  */
 import { useEffect, useState } from "react"
-import { Check, Link2 } from "lucide-react"
+import { Check, Link2, X as Close } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { isNativeApp } from "@/lib/platform-utils"
 import { navigateInApp } from "@/lib/native-bridge"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { onePageImageSrc } from "@/lib/onepage/display-image"
-import { OnePageDialog, SheetClose } from "./onepage-dialog"
+import { PosterVideo } from "./poster-video"
+import { OnePageDialog } from "./onepage-dialog"
 
 async function copyText(text: string) {
   try {
@@ -100,6 +118,53 @@ function Brand({ d }: { d: string }) {
   )
 }
 
+/* ── The band's colour and its words ─────────────────────────────────── */
+
+export interface ShareBandInput {
+  backgroundType?: "solid" | "gradient" | "image" | "video" | string | null
+  backgroundColor?: string | null
+  backgroundGradient?: string | null
+  accentColor?: string | null
+}
+
+function hex6(c: string): string | null {
+  const m = /#([0-9a-f]{6}|[0-9a-f]{3})\b/i.exec(c)
+  if (!m) return null
+  return m[1].length === 3 ? m[1].split("").map((x) => x + x).join("") : m[1]
+}
+
+function nearWhite(c: string): boolean {
+  const h = hex6(c)
+  if (!h) return false
+  return [0, 2, 4].every((i) => parseInt(h.slice(i, i + 2), 16) > 200)
+}
+
+/**
+ * The band's background, as before round 40: the page's gradient, else its
+ * own colour (white is no band), else the button colour (unless near white),
+ * else Storelib's ink. Pure, for the tests.
+ */
+export function shareBandBackground(t: ShareBandInput): string {
+  if (t.backgroundType === "gradient" && t.backgroundGradient) return t.backgroundGradient
+  if (t.backgroundType === "solid" && t.backgroundColor && t.backgroundColor.toLowerCase() !== "#ffffff") return t.backgroundColor
+  /* A photo or a video page: the colour it was given as its ground. */
+  if ((t.backgroundType === "image" || t.backgroundType === "video") && t.backgroundColor && !nearWhite(t.backgroundColor)) return t.backgroundColor
+  if (t.accentColor && hex6(t.accentColor) && !nearWhite(t.accentColor)) return t.accentColor
+  return "#1a1a2e"
+}
+
+/** White words on a dark band, ink on a light one (the first colour of a gradient decides). */
+export function shareBandInk(band: string): "light" | "dark" {
+  const h = hex6(band)
+  if (!h) return "dark"
+  const lin = (i: number) => {
+    const c = parseInt(h.slice(i, i + 2), 16) / 255
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  }
+  const L = 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4)
+  return L > 0.35 ? "dark" : "light"
+}
+
 export function OnePageShareSheet({
   open,
   onClose,
@@ -108,6 +173,7 @@ export function OnePageShareSheet({
   pageTitle,
   avatarUrl,
   avatarVideoUrl,
+  band: bandInput = {},
 }: {
   open: boolean
   onClose: () => void
@@ -116,10 +182,10 @@ export function OnePageShareSheet({
   pageTitle: string
   avatarUrl?: string | null
   avatarVideoUrl?: string | null
+  /** The page's colours, for the band (shareBandBackground). */
+  band?: ShareBandInput
 }) {
   const [copied, setCopied] = useState(false)
-  const [canNativeShare, setCanNativeShare] = useState(false)
-  useEffect(() => setCanNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function"), [])
   useEffect(() => {
     if (!copied) return
     const t = window.setTimeout(() => setCopied(false), 1800)
@@ -132,112 +198,102 @@ export function OnePageShareSheet({
   }
   const shareText = `${pageTitle} ${pageUrl}`
   const shown = pageUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")
+  const band = shareBandBackground(bandInput)
+  const onBand = shareBandInk(band) === "light"
 
   const targets = [
     {
+      name: copied ? "Copied" : "Copy link",
+      color: copied ? "#22c55e" : dark ? "#d4d4d8" : "#6b7280",
+      icon: copied ? <Check aria-hidden className="h-5 w-5" /> : <Link2 aria-hidden className="h-5 w-5" />,
+      go: copy,
+      live: true,
+    },
+    {
       name: "X",
+      color: dark ? "#f4f4f5" : "#000000",
       icon: <Brand d={X_ICON} />,
       go: () => openShareTarget(`twitter://post?message=${encodeURIComponent(shareText)}`, `https://x.com/intent/post?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent(pageTitle)}`),
     },
     {
       name: "Facebook",
+      color: "#1877F2",
       icon: <Brand d={FB_ICON} />,
       /* The system browser, so a Universal Link or App Link can hand it to the Facebook app; fb:// is unreliable. */
       go: () => openShareTarget(null, `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}&quote=${encodeURIComponent(pageTitle)}`, true),
     },
     {
       name: "WhatsApp",
+      color: "#25D366",
       icon: <Brand d={WA_ICON} />,
       go: () => openShareTarget(`whatsapp://send?text=${encodeURIComponent(shareText)}`, `https://wa.me/?text=${encodeURIComponent(shareText)}`),
     },
-    {
-      name: "Email",
-      icon: (
-        <svg aria-hidden className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="5" width="18" height="14" rx="2.5" />
-          <path d="m4 7 8 6 8-6" />
-        </svg>
-      ),
-      go: () => {
-        if (isOnePagePreview()) return showPreviewNotice("link")
-        window.location.href = `mailto:?subject=${encodeURIComponent(pageTitle)}&body=${encodeURIComponent(pageUrl)}`
-      },
-    },
-    ...(canNativeShare
-      ? [
-          {
-            name: "More",
-            icon: (
-              <svg aria-hidden className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="5" cy="12" r="1.8" />
-                <circle cx="12" cy="12" r="1.8" />
-                <circle cx="19" cy="12" r="1.8" />
-              </svg>
-            ),
-            go: () => {
-              if (isOnePagePreview()) return showPreviewNotice("link")
-              navigator.share({ title: pageTitle, url: pageUrl }).catch(() => {})
-            },
-          },
-        ]
-      : []),
   ]
 
   return (
-    <OnePageDialog open={open} onClose={onClose} dark={dark} label={`Share ${pageTitle}`} width={400}>
-      <div className="px-5 pb-5 pt-1 sm:px-6 sm:pt-6" data-onepage-share-sheet="">
-        <div className="flex items-start gap-3.5">
-          {avatarVideoUrl && !avatarUrl ? (
-            <video src={avatarVideoUrl} muted autoPlay loop playsInline className="h-14 w-14 shrink-0 rounded-full object-cover" />
-          ) : (
-            <AppAvatar src={onePageImageSrc(avatarUrl, 56)} name={pageTitle} alt="" size={56} tone={dark ? "dark" : "light"} kind="mark" className="shrink-0" />
-          )}
-          <div className="min-w-0 flex-1 pt-1.5">
-            <p className="truncate text-[17px] font-semibold leading-tight text-[var(--sheet-ink)]">{pageTitle}</p>
-            <p className="mt-1 truncate text-[13.5px] text-[var(--sheet-muted)]">{shown}</p>
-          </div>
-          <SheetClose onClose={onClose} />
-        </div>
-
-        <div className="mt-5 flex h-12 items-center gap-2 rounded-2xl bg-[var(--sheet-field)] pl-4 pr-1.5">
-          <Link2 aria-hidden className="h-4 w-4 shrink-0 text-[var(--sheet-muted)]" />
-          <span className="min-w-0 flex-1 truncate text-[14px] text-[var(--sheet-ink)]" data-share-url="">
-            {shown}
-          </span>
+    <OnePageDialog open={open} onClose={onClose} dark={dark} label={`Share ${pageTitle}`} width={380} centered bare>
+      <div data-onepage-share-sheet="">
+        {/* The band: the page's own colour, its corners the card's (the card clips; nothing is behind it). */}
+        <div className="relative px-6 pb-9 pt-8 text-center" style={{ background: band }} data-share-band="">
           <button
             type="button"
-            onClick={copy}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-[var(--sheet-ink)] px-3.5 text-[13.5px] font-medium text-[var(--sheet-on-ink)] transition-opacity hover:opacity-90 active:scale-[0.98]"
-            aria-live="polite"
+            onClick={onClose}
+            aria-label="Close"
+            className={`absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-full transition-colors ${onBand ? "bg-white/20 text-white hover:bg-white/30" : "bg-black/10 text-[#1f2937] hover:bg-black/15"}`}
           >
-            {copied ? <Check aria-hidden className="h-3.5 w-3.5" /> : null}
-            {copied ? "Copied" : "Copy"}
+            <Close aria-hidden className="h-4 w-4" />
           </button>
+          <div className="relative mx-auto mb-4 h-20 w-20 overflow-hidden rounded-full shadow-[0_0_0_4px_rgba(255,255,255,0.3),0_12px_28px_rgba(0,0,0,0.22)]" data-share-avatar="">
+            {avatarVideoUrl ? (
+              <PosterVideo src={avatarVideoUrl} fallback={onePageImageSrc(avatarUrl, 160)} alt={pageTitle} />
+            ) : (
+              <AppAvatar src={onePageImageSrc(avatarUrl, 160)} name={pageTitle} alt={pageTitle} size={80} kind="mark" sizedByClass className={`flex h-20 w-20 bg-white/25 text-3xl font-bold ${onBand ? "text-white" : "text-[#1f2937]"}`} />
+            )}
+          </div>
+          <p className={`truncate text-[20px] font-bold leading-tight ${onBand ? "text-white" : "text-[#111827]"}`}>{pageTitle}</p>
+          <p className={`mx-auto mt-1 max-w-[240px] truncate text-[14px] ${onBand ? "text-white/80" : "text-[#4b5563]"}`} data-share-url="">
+            {shown}
+          </p>
         </div>
 
-        <div className="mt-5 flex justify-between gap-1">
-          {targets.map((t) => (
-            <button key={t.name} type="button" onClick={t.go} className="group flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-2xl py-1.5 transition-colors">
-              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--sheet-field)] text-[var(--sheet-ink)] transition-transform group-hover:scale-[1.04] group-active:scale-95">{t.icon}</span>
-              <span className="text-[12px] text-[var(--sheet-muted)]">{t.name}</span>
-            </button>
-          ))}
-        </div>
+        {/* The body: one surface in the page's light or dark, under the band with a straight seam. */}
+        <div className="bg-[var(--sheet-bg)] px-5 pb-6 pt-2">
+          <div className="flex items-start justify-center gap-3">
+            {targets.map((t) => (
+              <button
+                key={t.name === "Copied" ? "Copy link" : t.name}
+                type="button"
+                onClick={t.go}
+                aria-live={t.live ? "polite" : undefined}
+                className="flex w-[68px] flex-col items-center gap-1.5 rounded-xl p-2 transition-opacity duration-150 hover:opacity-75 active:opacity-60"
+                data-share-target={t.name}
+              >
+                <span className="grid h-[46px] w-[46px] place-items-center rounded-full" style={{ backgroundColor: `${t.color}1f`, color: t.color }}>
+                  {t.icon}
+                </span>
+                <span className="text-[11px] font-medium text-[var(--sheet-muted)]">{t.name}</span>
+              </button>
+            ))}
+          </div>
 
-        <button
-          type="button"
-          onClick={() => openExternalUrl("https://storelib.com")}
-          className="mt-5 flex w-full items-center gap-3 border-t border-[var(--sheet-rule)] pt-4 text-left"
-          data-share-join=""
-        >
-          <StorelibLogo size={28} />
-          <span className="min-w-0 flex-1 text-[13.5px] text-[var(--sheet-muted)]">
-            Make a page like this on <span className="font-medium text-[var(--sheet-ink)]">Storelib</span>
-          </span>
-          <span aria-hidden className="text-[var(--sheet-muted)]">
-            &rarr;
-          </span>
-        </button>
+          <div
+            role="link"
+            tabIndex={0}
+            onClick={() => openExternalUrl("https://storelib.com")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") openExternalUrl("https://storelib.com")
+            }}
+            className="mt-3 flex cursor-pointer items-center gap-3 rounded-2xl bg-[var(--sheet-field)] p-4"
+            data-share-join=""
+          >
+            <StorelibLogo size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-semibold text-[var(--sheet-ink)]">Create your own page</p>
+              <p className="truncate text-[12px] text-[var(--sheet-muted)]">Build your store with Storelib</p>
+            </div>
+            <span className="inline-flex h-9 shrink-0 items-center rounded-xl bg-[var(--sheet-ink)] px-4 text-[14px] font-semibold text-[var(--sheet-on-ink)]">Join</span>
+          </div>
+        </div>
       </div>
     </OnePageDialog>
   )

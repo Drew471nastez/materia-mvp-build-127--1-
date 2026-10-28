@@ -26,6 +26,15 @@
  *   stayed hidden until a fallback timer), so reduced motion and data saver
  *   are asked first, and so it pauses off screen, in a background tab, and
  *   resumes when the page comes back from the back/forward cache.
+ *
+ *   A NEW VIDEO REPLACES THE OLD ONE WITHOUT A GAP (round 41, "when I upload
+ *   a video, make it smooth and clean"). Saving a new profile video changed
+ *   the address under a video that was playing: the old one was dropped at
+ *   once, the new poster was still on its way, and for a moment the circle
+ *   was empty (or the photo flashed) before the new video faded in. Now the
+ *   old video stays where it is, still playing, under the new one; the new
+ *   poster fades in over it once it has loaded, the new video over that on
+ *   `playing`, and only then is the old one taken away.
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
@@ -71,12 +80,27 @@ export function PosterVideo({
   const [blocked, setBlocked] = React.useState(false)
   /* A new video starts hidden again, decided while rendering rather than a frame later. */
   const [forSrc, setForSrc] = React.useState(src)
+  /* The video being replaced, kept playing under the new one until the new one shows (A NEW VIDEO ...). */
+  const [prev, setPrev] = React.useState<{ src: string; style?: React.CSSProperties } | null>(null)
+  const lastStyle = React.useRef(mediaStyle)
+  const [baseReady, setBaseReady] = React.useState(false)
   if (forSrc !== src) {
+    if (shown && !failed) setPrev({ src: forSrc, style: lastStyle.current })
     setForSrc(src)
     setShown(false)
     setFailed(false)
     setBlocked(false)
+    setBaseReady(false)
   }
+  React.useEffect(() => {
+    lastStyle.current = mediaStyle
+  })
+  /* The new one is showing: the old one goes once the fade over it has finished. */
+  React.useEffect(() => {
+    if (!prev || !shown) return
+    const t = window.setTimeout(() => setPrev(null), 340)
+    return () => window.clearTimeout(t)
+  }, [prev, shown])
 
   const plan = posterPlan({ poster: poster || null, fallback: fallback || null, still: still || blocked, failed })
 
@@ -125,42 +149,69 @@ export function PosterVideo({
   }, [src, still, blocked, plan.video])
 
   const base = plan.base === "poster" ? poster : plan.base === "fallback" ? fallback : null
+  /*
+    One keyed list, in this order, so the video being replaced keeps its own element (and goes on playing) when the
+    address changes: the picture, the old video, the new one. Which is over which is z-index, so nothing moves.
+  */
+  const layers: React.ReactNode[] = []
+  if (base)
+    layers.push(
+      <img
+        key="base"
+        src={base}
+        alt={alt}
+        draggable={false}
+        decoding="async"
+        loading={priority ? "eager" : undefined}
+        fetchPriority={priority ? "high" : undefined}
+        className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ease-out motion-reduce:transition-none"
+        /* Over a video being replaced it fades in once it has loaded; otherwise it is simply there. */
+        style={{ ...(plan.base === "poster" ? mediaStyle : fallbackStyle), zIndex: 1, opacity: prev && !baseReady ? 0 : 1 }}
+        onLoad={() => setBaseReady(true)}
+        onError={(e) => {
+          e.currentTarget.style.visibility = "hidden"
+        }}
+      />,
+    )
+  if (prev && prev.src !== src)
+    layers.push(
+      <video
+        key={prev.src}
+        src={prev.src}
+        muted
+        loop
+        playsInline
+        disablePictureInPicture
+        aria-hidden
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ ...prev.style, zIndex: 0, opacity: 1 }}
+        data-poster-video-prev=""
+      />,
+    )
+  if (plan.video)
+    layers.push(
+      <video
+        key={src}
+        ref={ref}
+        src={poster ? src : firstFrameSrc(src)}
+        poster={poster || undefined}
+        muted
+        loop
+        playsInline
+        disablePictureInPicture
+        preload="metadata"
+        aria-label={alt || undefined}
+        aria-hidden={alt ? undefined : true}
+        className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-out motion-reduce:transition-none"
+        style={{ ...mediaStyle, zIndex: 2, opacity: shown ? 1 : 0 }}
+        onPlaying={() => setShown(true)}
+        onLoadedData={plan.reveal === "loadeddata" ? () => setShown(true) : undefined}
+        onError={() => setFailed(true)}
+      />,
+    )
   return (
     <span className={cn("absolute inset-0 isolate block overflow-hidden", className)} data-poster-video={shown ? "playing" : "poster"}>
-      {base ? (
-        <img
-          src={base}
-          alt={alt}
-          draggable={false}
-          decoding="async"
-          loading={priority ? "eager" : undefined}
-          fetchPriority={priority ? "high" : undefined}
-          className="absolute inset-0 h-full w-full object-cover"
-          style={plan.base === "poster" ? mediaStyle : fallbackStyle}
-          onError={(e) => {
-            e.currentTarget.style.visibility = "hidden"
-          }}
-        />
-      ) : null}
-      {plan.video ? (
-        <video
-          ref={ref}
-          src={poster ? src : firstFrameSrc(src)}
-          poster={poster || undefined}
-          muted
-          loop
-          playsInline
-          disablePictureInPicture
-          preload="metadata"
-          aria-label={alt || undefined}
-          aria-hidden={alt ? undefined : true}
-          className="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ease-out motion-reduce:transition-none"
-          style={{ ...mediaStyle, opacity: shown ? 1 : 0 }}
-          onPlaying={() => setShown(true)}
-          onLoadedData={plan.reveal === "loadeddata" ? () => setShown(true) : undefined}
-          onError={() => setFailed(true)}
-        />
-      ) : null}
+      {layers}
     </span>
   )
 }

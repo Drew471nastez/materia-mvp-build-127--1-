@@ -34,7 +34,7 @@
  * an archived or deleted one leaves the page. The editor says which with
  * `editorProductState`.
  */
-import type { ProductBlockData, ProductBlockStyle, ProductTapAction } from "./types"
+import type { ProductBlockData, ProductBlockStyle, ProductSheetAction, ProductTapAction } from "./types"
 
 export const PRODUCT_TAP_ACTIONS: readonly ProductTapAction[] = ["page", "sheet", "checkout"]
 
@@ -106,6 +106,68 @@ export function productTapPlan(data: Pick<ProductBlockData, "tap_action" | "inst
 export function productSheetHash(slug: string | null | undefined): string | null {
   const s = (slug ?? "").trim()
   return s ? `#product-${encodeURIComponent(s)}` : null
+}
+
+/* ── Round 41: the three choices the editor offers, and the sheet's button ── */
+
+/**
+ * What the editor calls the three things a tap can do. "instant" is the
+ * stored `checkout` (straight to paying: in the window on the page for a
+ * download or a course with instant checkout on, else the checkout page; a
+ * product that ships goes to its page, where its options are chosen).
+ */
+export type ProductTapChoice = "sheet" | "instant" | "page"
+export const PRODUCT_TAP_CHOICES: readonly ProductTapChoice[] = ["sheet", "instant", "page"]
+
+export function productTapChoice(data: Pick<ProductBlockData, "tap_action"> | null | undefined): ProductTapChoice {
+  const a = productTapAction(data)
+  return a === "checkout" ? "instant" : a
+}
+
+/** What picking a choice writes. Instant checkout turns the window on, which is what "instantly" means. */
+export function tapChoicePatch(choice: ProductTapChoice): Partial<ProductBlockData> {
+  if (choice === "instant") return { tap_action: "checkout", instant_checkout: true, quick_checkout: false }
+  return { tap_action: choice }
+}
+
+/** The sheet's main button: check out (unset, as before), or the full page. */
+export function productSheetAction(data: Pick<ProductBlockData, "sheet_action"> | null | undefined): ProductSheetAction {
+  return data?.sheet_action === "page" ? "page" : "checkout"
+}
+
+/** The quiet "See full page" under the checkout button: shown unless turned off, never beside a page button. */
+export function sheetShowsPageLink(data: Pick<ProductBlockData, "sheet_action" | "sheet_page_link"> | null | undefined): boolean {
+  return productSheetAction(data) === "checkout" && data?.sheet_page_link !== false
+}
+
+export interface SheetBuyState {
+  /** The product's facts have arrived. */
+  loaded: boolean
+  soldOut: boolean
+  /** Options it has to choose between (one option is chosen for the buyer). */
+  variantCount: number
+  variantChosen: boolean
+  quantity: number
+  maxQuantity: number
+}
+
+/**
+ * Whether the sheet's checkout button can go, and if not why, in the words
+ * the button shows. An option and a quantity are chosen before anything is
+ * paid; a sold out or unpublished product cannot be bought. Pure, for tests.
+ */
+export function sheetBuyBlocker(s: SheetBuyState): "loading" | "sold out" | "choose option" | "quantity" | null {
+  if (!s.loaded) return "loading"
+  if (s.soldOut) return "sold out"
+  if (s.variantCount > 1 && !s.variantChosen) return "choose option"
+  if (!(s.quantity >= 1 && s.quantity <= Math.max(1, s.maxQuantity))) return "quantity"
+  return null
+}
+
+/** The quantity a stepper may reach: the product's limit per order, else 10, never under 1. */
+export function sheetMaxQuantity(limit: number | null | undefined): number {
+  const n = Math.floor(Number(limit))
+  return Number.isFinite(n) && n >= 1 ? Math.min(n, 99) : 10
 }
 
 /* ── Prices ─────────────────────────────────────────────────────────────── */

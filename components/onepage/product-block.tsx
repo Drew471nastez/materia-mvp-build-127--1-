@@ -55,7 +55,7 @@ import { shopMoneyIn } from "@/lib/store/shop-money"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { backThen } from "@/lib/navigation/go-back"
-import { instantCheckoutOn, productHref, productLayoutOf, productPriceParts, productSheetHash, productTapPlan, shipsProduct } from "@/lib/onepage/product-block"
+import { instantCheckoutOn, productHref, productLayoutOf, productPriceParts, productSheetAction, productSheetHash, productTapPlan, sheetShowsPageLink, shipsProduct } from "@/lib/onepage/product-block"
 import { onePageOutboundHref, platformOrigin, currentOnePageAddress } from "@/lib/onepage/return-address"
 import { isOnePagePreview, showPreviewNotice } from "@/lib/onepage/preview-notice"
 import { ProductSheet } from "./product-sheet"
@@ -532,6 +532,9 @@ export function OnePageProductBlock({ block, theme, quiet = false, inPair = fals
           onBuy={(variantId) => setCheckout({ variantId, fromSheet: true })}
           onCheckoutLink={(to) => trackClick(block.id, to)}
           back={back}
+          /* Round 41: the creator's choice of the sheet's button (lib/onepage/product-block). */
+          action={productSheetAction(data)}
+          pageLink={sheetShowsPageLink(data)}
         />
       ) : null}
       {checkout && data.product_id ? (

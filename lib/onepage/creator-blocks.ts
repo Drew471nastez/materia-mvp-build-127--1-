@@ -366,6 +366,30 @@ export function embedHeightFromMessage(kind: EmbedKind, origin: string, data: un
   return Number.isFinite(n) && n > 40 && n < 4000 ? Math.round(n) : null
 }
 
+/**
+ * How wide an X post says its card is (round 41): X's resize message carries
+ * the card's width beside its height. The frame is then made exactly that
+ * wide, so nothing of the frame shows beside the card. Instagram says only
+ * its height (null). Only from X's own origin.
+ */
+export function embedWidthFromMessage(kind: EmbedKind, origin: string, data: unknown): number | null {
+  if (kind !== "x" || origin !== "https://platform.twitter.com") return null
+  let msg: unknown = data
+  if (typeof msg === "string") {
+    try {
+      msg = JSON.parse(msg)
+    } catch {
+      return null
+    }
+  }
+  if (!msg || typeof msg !== "object") return null
+  const e = (msg as Record<string, unknown>)["twttr.embed"] as { method?: string; params?: { width?: unknown }[] } | undefined
+  if (e?.method !== "twttr.private.resize") return null
+  const w = e.params?.[0]?.width
+  const n = typeof w === "number" ? w : typeof w === "string" ? Number.parseFloat(w) : NaN
+  return Number.isFinite(n) && n >= 200 && n <= 600 ? Math.round(n) : null
+}
+
 /* ─── Course ──────────────────────────────────────────────────────────── */
 
 /** "12 lessons", or null while the count is unknown. */

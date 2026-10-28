@@ -2892,6 +2892,12 @@ html.capacitor .subscribe-bar-spacer {
   .op-card:hover::after { opacity: 1; }
   .op-card:hover .op-media { scale: 1.03; }
 }
+/* Round 41: a post or player from another service draws its own light document. A frame whose color-scheme differs
+   from its document gets an opaque canvas (a white band beside the card on a dark page); `normal` matches theirs, so
+   the canvas stays transparent and only their card shows (components/onepage/embed-frame, THE CANVAS). */
+iframe:is([src*="youtube.com/embed"], [src*="youtube-nocookie.com/embed"], [src*="tiktok.com/embed"], [src*="instagram.com/"], [src*="platform.twitter.com/"]) {
+  color-scheme: normal;
+}
 @media (prefers-reduced-motion: reduce) {
   .op-btn, .op-media { transition-duration: 0ms; }
   .op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn { translate: none !important; scale: none !important; }

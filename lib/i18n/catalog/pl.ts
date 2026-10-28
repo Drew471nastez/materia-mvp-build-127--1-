@@ -11280,7 +11280,16 @@ const words: Record<string, string> = {
  "People who join get a file to download": "Osoby, które dołączą, dostaną plik do pobrania",
  "Upload the file. Until then, people who join get nothing to download.": "Prześlij plik. Do tego czasu osoby, które dołączą, nie dostaną nic do pobrania.",
  "Its style is in Design, under Layout.": "Jego styl znajdziesz w Wyglądzie, w Układzie.",
- "This store has no communities yet. The owner makes them.": "Ten sklep nie ma jeszcze społeczności. Tworzy je właściciel."
+ "This store has no communities yet. The owner makes them.": "Ten sklep nie ma jeszcze społeczności. Tworzy je właściciel.",
+ "Open product sheet": "Otwórz kartę produktu",
+ "They see it, choose options, then check out": "Oglądają, wybierają opcje i płacą",
+ "Products that ship open their page to choose delivery": "Produkty wysyłkowe otwierają swoją stronę, by wybrać dostawę",
+ "Button in the sheet": "Przycisk na karcie",
+ "Check out now": "Zapłać teraz",
+ "View full page": "Zobacz całą stronę",
+ "Link to the full page under the button": "Link do całej strony pod przyciskiem",
+ "Pay without leaving your page": "Płatność bez opuszczania strony",
+ "Off: they go to the checkout page instead.": "Wyłączone: przechodzą do strony płatności."
 }
 
 export default words
