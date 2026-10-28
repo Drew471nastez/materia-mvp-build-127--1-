@@ -94,14 +94,20 @@ export function gaPurchase(win: Window | undefined, p: { transactionId: string; 
   gaStep(w, "purchase", { transaction_id: p.transactionId, ...(p.currency ? { currency: p.currency, value: majorValue(p.valueCents, p.currency) } : {}), items: p.items, transport_type: "beacon" }, 0)
 }
 
-export function pixelEvent(win: Window | undefined, step: PixelStep, productId?: string | null): void {
+/**
+ * `price`: what the page itself knows (round 41: the OnePage's product
+ * sheet and its checkout window read the product's price), so Meta and
+ * TikTok get value and currency on ViewContent and InitiateCheckout too.
+ */
+export function pixelEvent(win: Window | undefined, step: PixelStep, productId?: string | null, price?: { valueCents: number; currency: string | null } | null): void {
   if (!win) return
   const w = win as PixelWindow
   const id = typeof productId === "string" && /^[A-Za-z0-9-]{1,64}$/.test(productId) ? productId : null
   /* The product's name and price when the page registered it (components/analytics/ga-route), so GA's ecommerce reports have them. */
   const known = id ? w.__slGaItems?.[id] : undefined
   const items = id ? [known ? { ...known.item, quantity: 1 } : { item_id: id }] : []
-  const priced = known && typeof known.item.price === "number" && known.currency ? { currency: known.currency, value: known.item.price } : {}
+  const own = price && price.currency && /^[A-Za-z]{3}$/.test(price.currency) ? { currency: price.currency.toUpperCase(), value: majorValue(price.valueCents, price.currency.toUpperCase()) } : null
+  const priced = own ?? (known && typeof known.item.price === "number" && known.currency ? { currency: known.currency, value: known.item.price } : {})
   try {
     if (step === "begin_checkout") w.sessionStorage?.setItem("sl_ga_bc", String(Date.now()))
   } catch {
@@ -109,18 +115,117 @@ export function pixelEvent(win: Window | undefined, step: PixelStep, productId?:
   }
   gaStep(w, step, { ...priced, items }, 0)
   try {
-    if (typeof w.fbq === "function") w.fbq("track", META[step], id ? { content_ids: [id], content_type: "product" } : {})
+    if (typeof w.fbq === "function") w.fbq("track", META[step], { ...(id ? { content_ids: [id], content_type: "product" } : {}), ...priced })
   } catch {
     /* as above */
   }
   try {
-    if (w.ttq && typeof w.ttq.track === "function") w.ttq.track(META[step], id ? { content_id: id, content_type: "product" } : {})
+    if (w.ttq && typeof w.ttq.track === "function") w.ttq.track(META[step], { ...(id ? { content_id: id, content_type: "product", contents: [{ content_id: id, quantity: 1 }] } : {}), ...priced })
   } catch {
     /* as above */
   }
   try {
     const pin = PINTEREST[step]
     if (pin && typeof w.pintrk === "function") w.pintrk("track", pin, id ? { product_id: id } : {})
+  } catch {
+    /* as above */
+  }
+}
+
+/* ─── Round 41: a signup and a purchase made on the page itself ─────────── */
+
+/**
+ * "sl-" and sixteen hex characters of the reference's SHA-256: the same
+ * order is the same id, and the reference (a receipt token, a credential)
+ * cannot be read back from it. GA's transaction_id, Meta's eventID and
+ * TikTok's event_id are all this, so a server event sent later with the
+ * same id is dropped as a repeat by each service.
+ */
+export async function paidEventId(ref: string): Promise<string> {
+  try {
+    const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ref)))
+    return `sl-${Array.from(bytes.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("")}`
+  } catch {
+    /* No SubtleCrypto (a page that is not https): two FNV-1a passes, the same sixteen characters every time for the same reference. */
+    const fnv = (seed: number) => {
+      let h = seed >>> 0
+      for (let i = 0; i < ref.length; i++) h = Math.imul(h ^ ref.charCodeAt(i), 16777619) >>> 0
+      return h.toString(16).padStart(8, "0")
+    }
+    return `sl-${fnv(2166136261)}${fnv(0x811c9dc5 ^ 0x5bd1e995)}`
+  }
+}
+
+const EVENT_ID = /^[A-Za-z0-9_-]{1,64}$/
+
+/**
+ * A signup on the page (the email signup, a lead magnet, Subscribe): GA4
+ * generate_lead, Tag Manager's data layer, Meta Lead, TikTok SubmitForm,
+ * Pinterest lead. `eventId` is the lead's own id when the server gave one,
+ * as Meta's eventID and TikTok's event_id, so a server event for the same
+ * lead can be matched to it. Nothing about the person goes.
+ */
+export function pixelLead(win: Window | undefined, p: { form: string; eventId?: string | null }): void {
+  if (!win) return
+  const w = win as PixelWindow
+  const form = /^[a-z_]{1,32}$/.test(p.form) ? p.form : "signup"
+  const eventId = p.eventId && EVENT_ID.test(p.eventId) ? p.eventId : `lead-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  try {
+    if (typeof w.gtag === "function") w.gtag("event", "generate_lead", { lead_source: form, event_id: eventId })
+    else if (Array.isArray(w.dataLayer)) w.dataLayer.push({ event: "generate_lead", lead_source: form, event_id: eventId })
+  } catch {
+    /* a service's own error is its own */
+  }
+  try {
+    if (typeof w.fbq === "function") w.fbq("track", "Lead", { content_name: form }, { eventID: eventId })
+  } catch {
+    /* as above */
+  }
+  try {
+    if (w.ttq && typeof w.ttq.track === "function") w.ttq.track("SubmitForm", { content_name: form }, { event_id: eventId })
+  } catch {
+    /* as above */
+  }
+  try {
+    if (typeof w.pintrk === "function") w.pintrk("track", "lead", { lead_type: form, event_id: eventId })
+  } catch {
+    /* as above */
+  }
+}
+
+/**
+ * Paid on the page (the OnePage's checkout window, Storelib's checkout):
+ * every pixel's purchase, once per order in this browser. GA4 through
+ * gaPurchase (its own once, the same id); Meta Purchase, TikTok
+ * CompletePayment and Pinterest checkout with value, currency and the
+ * order's id as their dedup id, as purchaseTags does on a thank you page.
+ */
+export function pixelPurchase(win: Window | undefined, p: { eventId: string; valueCents: number; currency: string | null; productIds?: string[]; items?: Record<string, unknown>[] }): void {
+  if (!win || !EVENT_ID.test(p.eventId)) return
+  const w = win as PixelWindow
+  const currency = p.currency && /^[A-Za-z]{3}$/.test(p.currency) ? p.currency.toUpperCase() : null
+  const ids = (p.productIds ?? []).filter((x) => /^[A-Za-z0-9-]{1,64}$/.test(x)).slice(0, 50)
+  gaPurchase(win, { transactionId: p.eventId, valueCents: p.valueCents, currency, items: p.items ?? ids.map((item_id) => ({ item_id, quantity: 1 })) })
+  try {
+    const k = `sl_px:${p.eventId}`
+    if (w.localStorage?.getItem(k)) return
+    w.localStorage?.setItem(k, "1")
+  } catch {
+    /* storage off: each service drops a repeat by its event id */
+  }
+  const value = currency ? { value: majorValue(p.valueCents, currency), currency } : {}
+  try {
+    if (typeof w.fbq === "function") w.fbq("track", "Purchase", { ...value, ...(ids.length ? { content_ids: ids, content_type: "product", num_items: ids.length } : {}) }, { eventID: p.eventId })
+  } catch {
+    /* as above */
+  }
+  try {
+    if (w.ttq && typeof w.ttq.track === "function") w.ttq.track("CompletePayment", { ...value, content_type: "product", ...(ids.length ? { contents: ids.map((content_id) => ({ content_id, quantity: 1 })) } : {}) }, { event_id: p.eventId })
+  } catch {
+    /* as above */
+  }
+  try {
+    if (typeof w.pintrk === "function") w.pintrk("track", "checkout", { ...value, order_quantity: Math.max(1, ids.length), order_id: p.eventId })
   } catch {
     /* as above */
   }

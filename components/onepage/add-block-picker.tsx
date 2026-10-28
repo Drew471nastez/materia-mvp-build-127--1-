@@ -254,7 +254,7 @@ const tool = (id: string, label: string, mark: string, description: () => string
 })
 
 /* i18n-ignore-start: names of services, and the English words a search also answers to (each entry's own name and line are translated). */
-const BRAND = { sheets: "Google Sheets", kit: "Kit", make: "Make", webhook: "Webhook", booking: "Calendly / Cal.com", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo" }
+const BRAND = { sheets: "Google Sheets", kit: "Kit", mailerlite: "MailerLite", brevo: "Brevo", flodesk: "Flodesk", make: "Make", webhook: "Webhook", booking: "Calendly / Cal.com", email: "Klaviyo / Omnisend", threads: "Threads", applemusic: "Apple Music", podcasts: "Apple Podcasts", gforms: "Google Forms", gcal: "Google Calendar", bmac: "Buy Me a Coffee", cashapp: "Cash App", loom: "Loom", bandcamp: "Bandcamp", mixcloud: "Mixcloud", typeform: "Typeform", tally: "Tally", bluesky: "Bluesky", snapchat: "Snapchat", venmo: "Venmo" }
 const KEYWORDS = {
   heading: "title section",
   faq: "questions answers help",
@@ -302,6 +302,9 @@ const KEYWORDS = {
   int_mailchimp: "newsletter email marketing audience list",
   int_kit: "convertkit newsletter email creator",
   int_beehiiv: "newsletter email publication",
+  int_mailerlite: "newsletter email group automation",
+  int_brevo: "sendinblue newsletter email sms list",
+  int_flodesk: "newsletter email creator segment",
   int_zapier: "automation webhook zap apps",
   int_make: "automation webhook integromat scenario",
   int_sheets: "spreadsheet google sheet rows export",
@@ -419,6 +422,9 @@ export const PICKER_ENTRIES: PickerEntry[] = [
   tool("int_mailchimp", "Mailchimp", "mailchimp", () => tt("Signups go to your audience"), KEYWORDS.int_mailchimp),
   tool("int_kit", BRAND.kit, "kit", () => tt("Signups go to your Kit account"), KEYWORDS.int_kit),
   tool("int_beehiiv", "beehiiv", "beehiiv", () => tt("Signups go to your publication"), KEYWORDS.int_beehiiv),
+  tool("int_mailerlite", BRAND.mailerlite, "mailerlite", () => tt("Signups go to your MailerLite group"), KEYWORDS.int_mailerlite),
+  tool("int_brevo", BRAND.brevo, "brevo", () => tt("Signups go to your Brevo list"), KEYWORDS.int_brevo),
+  tool("int_flodesk", BRAND.flodesk, "flodesk", () => tt("Signups go to your Flodesk segment"), KEYWORDS.int_flodesk),
   tool("int_zapier", "Zapier", "zapier", () => tt("Send each signup to any app"), KEYWORDS.int_zapier),
   tool("int_make", BRAND.make, "make", () => tt("Send each signup to a scenario"), KEYWORDS.int_make),
   tool("int_sheets", BRAND.sheets, "sheets", () => tt("Each signup as a new row"), KEYWORDS.int_sheets),

@@ -21,7 +21,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import type { GaItem } from "@/lib/store/ga"
-import { gaBeginCheckout, gaPurchase } from "@/lib/analytics/pixels"
+import { gaBeginCheckout, gaPurchase, paidEventId } from "@/lib/analytics/pixels"
 
 type GaWindow = Window & {
   __slGaPage?: (ids: string[]) => void
@@ -92,7 +92,7 @@ export function GaRoute({ ids, product, checkout }: { ids: string[]; product?: {
     const onPaid = (e: Event) => {
       const d = (e as CustomEvent<{ ref?: string; totalCents?: number }>).detail
       if (!d?.ref) return
-      void fingerprint(d.ref).then((id) => gaPurchase(window, { transactionId: id, valueCents: typeof d.totalCents === "number" ? d.totalCents : checkout.valueCents, currency: checkout.currency, items: checkout.items }))
+      void paidEventId(d.ref).then((id) => gaPurchase(window, { transactionId: id, valueCents: typeof d.totalCents === "number" ? d.totalCents : checkout.valueCents, currency: checkout.currency, items: checkout.items }))
     }
     window.addEventListener("storelib:paid", onPaid)
     return () => window.removeEventListener("storelib:paid", onPaid)
@@ -100,20 +100,4 @@ export function GaRoute({ ids, product, checkout }: { ids: string[]; product?: {
   }, [begun])
 
   return null
-}
-
-/** "sl-" and sixteen hex characters of the reference's SHA-256: the same order is the same id, and the reference cannot be read back from it. */
-async function fingerprint(ref: string): Promise<string> {
-  try {
-    const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ref)))
-    return `sl-${Array.from(bytes.slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("")}`
-  } catch {
-    /* No SubtleCrypto (a page that is not https): two FNV-1a passes, the same sixteen characters every time for the same reference. */
-    const fnv = (seed: number) => {
-      let h = seed >>> 0
-      for (let i = 0; i < ref.length; i++) h = Math.imul(h ^ ref.charCodeAt(i), 16777619) >>> 0
-      return h.toString(16).padStart(8, "0")
-    }
-    return `sl-${fnv(2166136261)}${fnv(0x811c9dc5 ^ 0x5bd1e995)}`
-  }
 }

@@ -208,4 +208,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "316", file: "316_onepage_lead_magnets.sql", sha256: "e12ce21392053524798b722562ebb30e4cd9432439149a8f2830a690d6d87727" },
   { part: "319", file: "319_team_store_areas.sql", sha256: "a2ef77929675c44f56b54b1b06fe549c04c7b9126e3b99cfbf1732ea973851f4" },
   { part: "320", file: "320_team_permissions.sql", sha256: "e9804b7c41d653dd2f00d2cd0652e01e39c4da35ce6043c86eb3e63da2053e7c" },
+  { part: "323", file: "323_onepage_integrations_more_tools.sql", sha256: "587203ab415208526b9a823367141cbb253c4a8f9b39676bb6cbca5e8870c02c" },
+  { part: "324", file: "324_onepage_integration_sends.sql", sha256: "f2685220f8adb7606dde956256f2bb1159042c3a4090eb84dfba52c52723dfa4" },
 ]

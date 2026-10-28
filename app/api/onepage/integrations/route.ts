@@ -7,7 +7,8 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 /**
- * Mailchimp, Kit, beehiiv, Zapier, Make, Google Sheets and a webhook of the
+ * Mailchimp, Kit, beehiiv, MailerLite, Brevo, Flodesk, Zapier, Make, Google
+ * Sheets and a webhook of the
  * creator's own, connected to their OnePage's signups
  * (lib/onepage/integrations). The owner's own store only. Keys go in and come
  * back as their last four characters; webhook addresses come back as their

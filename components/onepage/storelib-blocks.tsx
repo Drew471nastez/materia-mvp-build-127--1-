@@ -49,6 +49,7 @@ import { usePageMoney } from "@/components/platform/price-currency"
 import { createClient } from "@/lib/supabase/client"
 import { platformHref } from "@/lib/onepage/return-address"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
+import { pixelLead } from "@/lib/analytics/pixels"
 import { tt } from "@/lib/i18n/text"
 import { SocialIcon } from "@/components/onepage/brand-icons"
 import { GlyphEmail, GlyphProduct, GlyphSocial, GlyphStore, GlyphTestimonials, type Glyph } from "@/components/onepage/block-icons"
@@ -351,6 +352,8 @@ function LeadMagnetView({ block, look }: { block: OnePageBlock; look: StorelibBl
       if (!res.ok) throw new Error(typeof out?.error === "string" ? out.error : tt("That did not work. Try again."))
       const result: MagnetDone = { code: typeof out.code === "string" ? out.code : null, ended: out.ended === true, downloadLink: typeof out.downloadLink === "string" ? out.downloadLink : null }
       setDone(result)
+      /* Round 41: the store's pixels hear the signup (lib/analytics/pixels pixelLead). */
+      pixelLead(window, { form: "lead_magnet", eventId: typeof out.lead_id === "string" ? out.lead_id : null })
       try {
         window.localStorage.setItem(storeKey, JSON.stringify(result))
       } catch {

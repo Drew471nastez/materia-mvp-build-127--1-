@@ -18,6 +18,8 @@ import {
   accountRequest,
   isPageIntegration,
   isWebhookIntegration,
+  needsList,
+  offersDoubleOptin,
   keyProblem,
   kitTagsFrom,
   kitTagsRequest,
@@ -28,6 +30,7 @@ import {
   webhookSignature,
   webhookTestPayload,
   type ConnectionConfig,
+  type KeyIntegration,
   type PageIntegration,
   type ProviderList,
   type ProviderRequest,
@@ -135,7 +138,7 @@ async function askJson(req: ProviderRequest): Promise<Answer> {
 export type ListsAnswer = { ok: true; lists: ProviderList[]; tags: ProviderList[] } | { ok: false; error: string; status: number }
 
 /** The lists (Mailchimp audiences, Kit forms and tags, beehiiv publications) a key can reach. */
-export async function listsFor(provider: "mailchimp" | "kit" | "beehiiv", key: string, asker: (r: ProviderRequest) => Promise<Answer> = askJson): Promise<ListsAnswer> {
+export async function listsFor(provider: KeyIntegration, key: string, asker: (r: ProviderRequest) => Promise<Answer> = askJson): Promise<ListsAnswer> {
   const shape = keyProblem(provider, key)
   if (shape) return { ok: false, error: shape, status: 400 }
   const req = accountRequest(provider, key)
@@ -169,6 +172,7 @@ function tableMissing(error: { code?: string } | null | undefined): boolean {
   return !!error && (error.code === "42P01" || error.code === "PGRST205" || error.code === "PGRST204" || error.code === "42703")
 }
 const NEEDS_SQL = "Connecting needs SQL part 315 run in Supabase first."
+const NEEDS_SQL_323 = "Connecting this one needs SQL part 323 run in Supabase first."
 
 /** Send a webhook its test event. */
 export async function testWebhook(provider: WebhookIntegration, url: string, secret: string, post: (u: string, b: string, h: Record<string, string>) => Promise<Answer> = (u, b, h) => postPublic(u, b, h, SEND_TIMEOUT_MS)): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -223,11 +227,12 @@ export async function savePageIntegration(db: Db, creatorId: string, body: Recor
     return { ok: true, signingSecret: secret }
   }
 
-  const given = clean(body.apiKey, 200)
+  /* A MailerLite token is a long signed token (about a thousand characters). */
+  const given = clean(body.apiKey, 2000)
   const key = given ?? (existing ? openSecret(existing.secret_ciphertext) : null)
   if (!key) return { ok: false, error: `Paste your ${name} API key.`, status: 400 }
 
-  const found = await listsFor(provider as "mailchimp" | "kit" | "beehiiv", key)
+  const found = await listsFor(provider, key)
   if (found.ok === false) {
     if (existing && step === "test") await db.from("onepage_integrations").update({ last_error: found.error.slice(0, 500), last_error_at: now, updated_at: now }).eq("id", existing.id)
     return { ok: false, error: found.error, status: found.status }
@@ -249,16 +254,18 @@ export async function savePageIntegration(db: Db, creatorId: string, body: Recor
   const tagId = provider === "kit" ? clean(body.tagId, 40) : null
   const tagRow = tagId ? found.tags.find((t) => t.id === tagId) : null
   /* Mailchimp and beehiiv put a member on a list; Kit takes a form, a tag, or neither (a subscriber on the account). */
-  if (provider !== "kit" && !list) return { ok: false, error: provider === "mailchimp" ? "Choose an audience." : "Choose a publication.", status: 400 }
+  /* Mailchimp, beehiiv and Brevo put a person on a list; Kit, MailerLite and Flodesk take a form, group or segment, or the account alone. */
+  if (needsList(provider) && !list) return { ok: false, error: provider === "mailchimp" ? "Choose an audience." : provider === "beehiiv" ? "Choose a publication." : "Choose a list.", status: 400 }
   if (listId && !list) return { ok: false, error: "That list is not on this account.", status: 400 }
   const config: ConnectionConfig = {
     list_id: list?.id ?? null,
     list_name: list?.name ?? null,
     ...(provider === "kit" ? { tag_id: tagRow?.id ?? null, tag_name: tagRow?.name ?? null } : {}),
-    ...(provider === "mailchimp" ? { double_optin: body.doubleOptin === true, tag: clean(body.tag, 100) } : {}),
+    ...(offersDoubleOptin(provider) ? { double_optin: body.doubleOptin === true } : {}),
+    ...(provider === "mailchimp" ? { tag: clean(body.tag, 100) } : {}),
   }
   const row = { creator_id: creatorId, provider, status: "connected", account_label: list?.name ?? null, config, secret_ciphertext: sealSecret(key), last_error: null, last_error_at: null, updated_at: now }
   const { error } = await db.from("onepage_integrations").upsert(row, { onConflict: "creator_id,provider" })
-  if (error) return { ok: false, error: tableMissing(error) ? NEEDS_SQL : "That could not be saved. Try again.", status: tableMissing(error) ? 409 : 500 }
+  if (error) return { ok: false, error: tableMissing(error) ? NEEDS_SQL : error.code === "23514" ? NEEDS_SQL_323 : "That could not be saved. Try again.", status: tableMissing(error) || error.code === "23514" ? 409 : 500 }
   return { ok: true }
 }

@@ -67,6 +67,7 @@ import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
 import { OnePageSubscribeSheet } from "@/components/onepage/subscribe-sheet"
 import { OnePageShareSheet } from "@/components/onepage/share-sheet"
 import { emailSignupImage, emailSignupLayout, emailSignupStacked } from "@/lib/onepage/email-signup"
+import { pixelLead } from "@/lib/analytics/pixels"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -4572,6 +4573,8 @@ function PublicBlockRenderer({
           const result = await response.json()
           if (response.ok) {
             setEmailSubmitted(true)
+            /* Round 41: the store's pixels hear the signup (Meta Lead, TikTok SubmitForm, GA4 generate_lead), by the lead's own id. */
+            pixelLead(window, { form: "signup", eventId: typeof result?.lead_id === "string" ? result.lead_id : null })
             // Record the subscription attempt for rate limiting
             recordSubscriptionAttempt()
             // Store the download link directly from data if digital product is enabled

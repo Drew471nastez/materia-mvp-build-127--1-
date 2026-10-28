@@ -28,6 +28,7 @@ import { loadProductFacts, type ProductFacts } from "@/components/checkout/insta
 import { productCheckoutUrl } from "@/lib/onepage/product-block"
 import { onePageOutboundHref, platformHref } from "@/lib/onepage/return-address"
 import { ProductQuestions, SizeChartPanel } from "@/components/product/size-chart-panel"
+import { pixelEvent } from "@/lib/analytics/pixels"
 
 /** Under 768px the sheet; above it the window. Known before the first paint, so it never swaps on screen. */
 export function usePhoneWidth(): boolean {
@@ -84,7 +85,16 @@ export function ProductSheet({ open, onClose, warm = false, productId, title, im
   }, [open, warm, productId])
 
   const p = facts?.product ?? null
-  const fmt = (cents: number) => shopMoneyIn(cents, p?.currency || "usd")
+  /* Round 41: the sheet opened on its product is a product view to the store's pixels (Meta and TikTok ViewContent, GA4 view_item), once per opening. */
+  const toldView = React.useRef(false)
+  React.useEffect(() => {
+    if (!open) toldView.current = false
+    else if (p && !toldView.current) {
+      toldView.current = true
+      pixelEvent(window, "view_item", productId, { valueCents: p.priceCents, currency: p.currency })
+    }
+  }, [open, p, productId])
+  const fmt =(cents: number) => shopMoneyIn(cents, p?.currency || "usd")
   const variant = p?.variants.find((v) => v.id === variantId) ?? null
   const price = !p
     ? priceText ?? null

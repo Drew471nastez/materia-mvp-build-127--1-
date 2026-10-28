@@ -21,6 +21,7 @@
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
+import { pixelLead } from "@/lib/analytics/pixels"
 import { OnePageDialog, SheetClose } from "./onepage-dialog"
 
 export function OnePageSubscribeSheet({
@@ -83,6 +84,8 @@ export function OnePageSubscribeSheet({
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || "That did not go through. Try again.")
       setDone(true)
+      /* Round 41: the store's pixels hear the signup (lib/analytics/pixels pixelLead). */
+      pixelLead(window, { form: "subscribe" })
     } catch (err) {
       setError(err instanceof Error ? err.message : "That did not go through. Try again.")
     } finally {
