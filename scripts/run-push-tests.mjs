@@ -866,6 +866,8 @@ const SUITES = [
   "tests/communities-admin32.test.ts",
   /* Round 33: the Page section after Overview, Settings without the page, the /app badge, one save bar, covers from the logo (scripts/check-community-admin-round33.mjs measures them). */
   "tests/communities-admin33.test.ts",
+  /* Round 41: the list and a community there and back, New community and Create in one entry, Approve all in one request (scripts/check-community-roundtrip.mjs measures it). */
+  "tests/community-roundtrip-r41.test.ts",
   "tests/communities-admin-nav32.test.ts",
   "tests/editor-r6.test.ts",
   "tests/favicon-sync.test.ts",

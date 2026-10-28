@@ -126,9 +126,11 @@ function List({ rows: given, available, limit, canCreate = true }: { rows: Commu
   const openCommunity = React.useCallback((href: string) => communitiesReturn.open(router, href), [router])
   /* At the limit, New community asks first: the link still points at the form, for a middle click or a screen reader. */
   const askNew = (e: React.MouseEvent) => {
-    if (room) return
+    if (!isPlainClick(e)) return
     e.preventDefault()
-    setUpgrade(true)
+    if (!room) return setUpgrade(true)
+    /* One entry after the list (./list-return): the wizard gives that entry to the community it makes. */
+    communitiesReturn.open(router, "/app/community/new")
   }
 
   const duplicate = React.useCallback(

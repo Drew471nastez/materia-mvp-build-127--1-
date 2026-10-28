@@ -18,6 +18,8 @@
  * AUDIT=1 opens every section instead (and every Settings panel) and reports, per section: errors in the console,
  * anything wider than the window (a sideways scroll of the page), boxes cut off at the right edge, and presses under
  * 32px on a phone. SHOTS=dir keeps a screenshot of each.
+ * CREATE=1 opens New community from the list instead, presses Create (the wizard replaces its own entry with the
+ * community it made), then the shell's back arrow: once back, on the list's own entry, its scroll as it was.
  * NONAV=1 measures an engine without the Navigation API (WebKit before 26.2): one back, then the list put up in place.
  *
  *   node scripts/check-community-roundtrip.mjs
@@ -150,6 +152,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           path: location.pathname,
           list: !!list,
           shell: !!shell,
+          wizard: !!document.querySelector("[data-create-standin]"),
           listTop: list ? list.scrollTop : null,
           op: Math.min(op(outer) ?? 1, op(list) ?? 1, op(shell) ?? 1, kidsOp),
           tf: outer ? getComputedStyle(outer).transform : "",
@@ -236,10 +239,20 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         return window.__rec.frames
       })
     }
-    /* IN */
-    const inF = await film(() => tap('[data-community-card="6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"] [data-card-name]'), 900)
+    /* IN: the card, or New community and Create (CREATE=1) */
+    const inF = process.env.CREATE
+      ? await film(async () => {
+          await p.evaluate(() => { const l = document.querySelector("[data-community-list]"); l.scrollTop = 0; l.dispatchEvent(new Event("scroll")) })
+          await sleep(200)
+          await tap("[data-new-community]")
+          await p.waitForSelector("[data-create-finish]")
+          await sleep(300)
+          await tap("[data-create-finish]")
+        }, 900)
+      : await film(() => tap('[data-community-card="6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"] [data-card-name]'), 900)
+    const scrolledAt = process.env.CREATE ? 0 : scrolledTo
     const firstShell = inF.findIndex((f) => f.shell)
-    const inBlank = inF.filter((f) => !f.list && !f.shell).length
+    const inBlank = inF.filter((f) => !f.list && !f.shell && !f.wizard).length
     const inOps = inF.slice(firstShell, firstShell + 14).map((f) => f.op)
     const afterIn = await nav()
     /* TABS */
@@ -264,7 +277,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         path: back.path,
         framesToList: firstList,
         blankFrames: outBlank,
-        scrollBefore: scrolledTo,
+        scrollBefore: scrolledAt,
         scrollFirstFrame: listFrames[0]?.listTop ?? null,
         scrollEnd: listFrames.at(-1)?.listTop ?? null,
         minOpacity: Math.min(...listFrames.map((f) => f.op)),
@@ -274,7 +287,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       },
       errors,
     }
-    const ok = r.out.path === "/app/community" && r.out.blankFrames === 0 && r.in.blankFrames === 0 && Math.abs((r.out.scrollFirstFrame ?? -1) - scrolledTo) <= 1 && r.out.minOpacity >= 0.99 && r.out.entryIsList && errors.length === 0
+    const ok = r.out.path === "/app/community" && r.out.blankFrames === 0 && r.in.blankFrames === 0 && Math.abs((r.out.scrollFirstFrame ?? -1) - scrolledAt) <= 1 && r.out.minOpacity >= 0.99 && r.out.entryIsList && errors.length === 0
     r.ok = ok
     if (!ok) failed = true
     out.push(r)

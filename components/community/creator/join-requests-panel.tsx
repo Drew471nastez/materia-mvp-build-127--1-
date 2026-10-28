@@ -29,6 +29,7 @@ import { answerText, type JoinAnswer, type JoinQuestion } from "@/lib/communitie
 import { relativeTime } from "@/lib/communities/format"
 import { MemberAvatar } from "@/components/community/member/member-avatar"
 import type { CommunityHead } from "./view-types"
+import { APPROVE_MANY } from "./logic"
 import { Confirm, Empty, ListLoading, Notice, Section, buttonPrimary, buttonSecondary, errorText, send, useToast } from "./parts"
 
 interface RequestRow {
@@ -94,18 +95,33 @@ export function JoinRequestsPanel({ head }: { head: CommunityHead }) {
     }
   }
 
+  /*
+    APPROVE ALL, IN ONE REQUEST (up to APPROVE_MANY at a time; a longer queue in parts). It was one PATCH per person, in
+    turn: a queue of 200 was 200 round trips. The server approves each one exactly as the PATCH does (its permission,
+    the rank check, the audit line), and says which it could not.
+  */
   const approveAll = async () => {
     const list = (data?.rows ?? []).filter((r) => !r.approved)
     setAll(false)
     setProgress({ done: 0, of: list.length })
     let done = 0
-    for (const r of list) {
-      if (!(await act(r, "approve"))) break
-      done++
+    let problem: string | null = null
+    for (let i = 0; i < list.length && !problem; i += APPROVE_MANY) {
+      const part = list.slice(i, i + APPROVE_MANY).map((r) => r.userId)
+      const res = await send<{ approved?: string[]; failed?: { userId: string; error: string }[] }>(`/api/app/community/${head.id}/join-requests`, "POST", { action: "approve", userIds: part })
+      if (!res.ok) {
+        problem = errorText(res.data.error)
+        break
+      }
+      const approved = new Set(res.data.approved ?? [])
+      done += approved.size
+      setData((d) => (d ? { ...d, rows: d.rows.filter((r) => !approved.has(r.userId)), total: Math.max(0, d.total - approved.size) } : d))
       setProgress({ done, of: list.length })
+      if (res.data.failed?.length) problem = errorText(res.data.failed[0].error)
     }
     setProgress(null)
-    toast(tt("{n, plural, one {# request approved} other {# requests approved}}", { n: done }))
+    const said = tt("{n, plural, one {# request approved} other {# requests approved}}", { n: done })
+    toast(problem ? `${said}. ${problem}` : said)
     router.refresh()
     void load()
   }

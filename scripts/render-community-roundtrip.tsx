@@ -10,6 +10,8 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { AppStage } from "@/components/app/app-stage"
 import { NavigationLoadingBar } from "@/components/app/navigation-loading-bar"
+import { useRouter } from "next/navigation"
+import { communitiesReturn } from "@/components/community/creator/list-return"
 import { allowedActions } from "@/lib/communities/permissions"
 import { CommunityShell, SectionSeed } from "@/components/community/creator/community-shell"
 import { Overview } from "@/components/community/creator/overview"
@@ -352,11 +354,27 @@ function App() {
       <aside className="fixed bottom-0 left-0 top-[58px] hidden w-[240px] bg-[#131316] md:block" />
       <main className="h-svh overflow-hidden bg-[#f8f9fa] pt-[68px] md:bg-white md:pl-[240px] md:pt-[58px]">
         <div className="app-content-scroll h-[calc(100svh-68px)] overflow-hidden md:h-[calc(100svh-58px)]">
-          {onList ? <CommunityList key="list" available rows={MANY} limit={{ max: null, owned: MANY.length }} /> : <CommunityShell key="shell" head={head}>{page}</CommunityShell>}
+          {state.routed.split("?")[0] === "/app/community/new" ? <NewStandIn key="new" /> : onList ? <CommunityList key="list" available rows={MANY} limit={{ max: null, owned: MANY.length }} /> : <CommunityShell key="shell" head={head}>{page}</CommunityShell>}
         </div>
       </main>
       <AppStage />
       <NavigationLoadingBar />
+    </div>
+  )
+}
+
+/**
+ * The wizard, as far as the way back is concerned (components/community/creator/create-flow.tsx): it notes that the
+ * list opened it, and Create ends in a replace with the community it made, as its finish() does.
+ */
+function NewStandIn() {
+  const router = useRouter()
+  communitiesReturn.useOrigin()
+  return (
+    <div className="orders-pane h-full overflow-y-auto bg-[#f8f9fa] p-6" data-create-standin="">
+      <button type="button" data-create-finish="" className="h-10 rounded-lg bg-[#1a1a2e] px-4 text-white" onClick={() => router.replace(`/app/community/${head.slug}?created=1`)}>
+        Create
+      </button>
     </div>
   )
 }
