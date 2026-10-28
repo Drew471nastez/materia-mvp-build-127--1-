@@ -174,6 +174,7 @@
  *   slide first, the parent a frame later.
  */
 
+import { FROZEN_ATTRIBUTE } from "@/lib/website-builder/touch-heal"
 import { SCRIM } from "@/components/ui/scrim"
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -1068,6 +1069,8 @@ export function BottomSheet({
         const bounce = Math.max(0, -scroller.scrollTop)
         if (!frozenRef.current) frozenRef.current = { el: scroller, overflowY: scroller.style.overflowY }
         scroller.style.overflowY = "hidden"
+        /* Marked, so a freeze whose thaw is missed (the sheet gone mid-gesture) is let go by the editor's touch heal (lib/website-builder/touch-heal.ts). */
+        scroller.setAttribute(FROZEN_ATTRIBUTE, "")
         offsetRef.current += bounce
         sheet.style.willChange = "transform"
         startYRef.current = y - offsetRef.current
@@ -1141,6 +1144,7 @@ export function BottomSheet({
       if (!frozen) return
       frozenRef.current = null
       frozen.el.style.overflowY = frozen.overflowY
+      frozen.el.removeAttribute(FROZEN_ATTRIBUTE)
     }
 
     /* `null` is a gesture cut short (a second finger): no speed, no flick. */

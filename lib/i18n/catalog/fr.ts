@@ -11265,7 +11265,8 @@ const words: Record<string, string> = {
  "SoundCloud": "SoundCloud",
  "People who join get a file to download": "Les personnes qui s'inscrivent reçoivent un fichier à télécharger",
  "Upload the file. Until then, people who join get nothing to download.": "Importez le fichier. D'ici là, les personnes qui s'inscrivent n'ont rien à télécharger.",
- "Its style is in Design, under Layout.": "Son style se trouve dans Design, sous Mise en page."
+ "Its style is in Design, under Layout.": "Son style se trouve dans Design, sous Mise en page.",
+ "This store has no communities yet. The owner makes them.": "Cette boutique n'a pas encore de communauté. C'est le propriétaire qui les crée."
 }
 
 export default words
