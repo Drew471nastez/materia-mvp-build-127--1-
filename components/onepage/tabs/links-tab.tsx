@@ -116,6 +116,7 @@ import {
   Check,
   Calendar,
   Info,
+  FolderOpen,
 } from "lucide-react"
 import { LinkStatsChart } from "@/components/onepage/link-stats-chart"
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
@@ -141,6 +142,11 @@ import { tt } from "@/lib/i18n/text"
 import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia, classifyMedia } from "@/lib/onepage/media-rules"
 import { UploadError, openableImage, prepareImage, uploadErrorText, uploadMessage, uploadOnePageMedia } from "@/lib/onepage/media-upload"
 import { CropUpload } from "@/components/onepage/crop-upload"
+import { OnePageImageField } from "@/components/onepage/image-field"
+import { PosterVideo } from "@/components/onepage/poster-video"
+import { videoPoster } from "@/lib/onepage/poster-video"
+import { croppedMediaStyle } from "@/lib/onepage/media-crop"
+import { FilesLibraryChooser, LibraryRow, fileFromLibrary } from "@/components/onepage/library-pick"
 import { ProductEditLinks, ProductLayoutPicker, ProductRowBadge, ProductStateBadge, ProductStateNote, ProductTapSetting, layoutHasCard, useCreatorProducts } from "@/components/onepage/tabs/product-block-editor"
 import { editorProductState, pickableProducts, productLayoutOf, removePlanFor } from "@/lib/onepage/product-block"
 import { EmailLayoutThumb } from "@/components/onepage/email-signup"
@@ -382,6 +388,8 @@ export function LinksTab() {
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
   const [showIconLibraryInModal, setShowIconLibraryInModal] = useState(false)
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
+  /* "Your files" for a link thumbnail, a product image or a thumbnail field: which block and field the pick goes to. */
+  const [fieldLibrary, setFieldLibrary] = useState<{ blockId: string | null; field: string | null } | null>(null)
 
   // Pull-to-refresh prevention is handled by the Dialog/Sheet components themselves
   // (scoped to their portals, so it doesn't block normal page interactions)
@@ -418,9 +426,14 @@ export function LinksTab() {
   const [showVideoCropModal, setShowVideoCropModal] = useState(false)
   /* What the profile croppers show and upload (components/onepage/crop-upload.tsx). */
   const [tempAvatar, setTempAvatar] = useState<{ url: string; blob: Blob } | null>(null)
-  const [tempAvatarVideo, setTempAvatarVideo] = useState<{ url: string; file: File } | null>(null)
+  const [tempAvatarVideo, setTempAvatarVideo] = useState<{ url: string; file: File | null; existing?: string } | null>(null)
   /* Why a chosen file cannot be used, in the sheet it was chosen from. */
   const [avatarPickError, setAvatarPickError] = useState<string | null>(null)
+  /* "Your files" for the profile photo or video: the chooser lives outside the sheets, which unmount what they hold when they close. */
+  const [avatarLibrary, setAvatarLibrary] = useState<null | "image" | "video">(null)
+  /* Kept while the chooser slides away, so its list does not switch under it. */
+  const avatarLibraryKind = useRef<"image" | "video">("image")
+  if (avatarLibrary) avatarLibraryKind.current = avatarLibrary
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -449,9 +462,25 @@ export function LinksTab() {
   const closeVideoCrop = () => {
     setShowVideoCropModal(false)
     setTempAvatarVideo((old) => {
-      if (old) URL.revokeObjectURL(old.url)
+      if (old && !old.existing) URL.revokeObjectURL(old.url)
       return null
     })
+  }
+  /* A picture from Files goes through the same cropper as one from the device; a video from Files is cropped where it is stored, not uploaded again. */
+  const pickAvatarFromLibrary = async (url: string) => {
+    if (avatarLibrary === "video") {
+      setTempAvatarVideo({ url, file: null, existing: url })
+      setShowVideoCropModal(true)
+      return
+    }
+    setAvatarPickError(null)
+    try {
+      setTempAvatar(await openableImage(await fileFromLibrary(url)))
+      setShowAvatarCropModal(true)
+    } catch (err) {
+      setAvatarPickError(uploadMessage(err))
+      setShowAvatarUploadModal(true)
+    }
   }
 
   const [insertAfterId, setInsertAfterId] = useState<string | null>(null)
@@ -1224,33 +1253,23 @@ export function LinksTab() {
       <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
         <div className="relative group shrink-0 cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
           {/* A circle whatever the row beside it holds: its own width and height, never shrunk. */}
-          <div data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0 border overflow-hidden rounded-full relative bg-gray-100">
+          {/* Its own stacking context, so the pencil on hover is drawn over a video too (the video used to carry z-index 1 above it). */}
+          <div data-editor-avatar="" className="h-14 w-14 aspect-square shrink-0 border overflow-hidden rounded-full relative isolate bg-gray-100">
             {onepage.avatar_video_url ? (
-              <>
-                {avatar_url ? (
-                  <img src={onePageImageSrc(avatar_url, 64)} alt={title || tt("Avatar")} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
-                ) : (
-                  <div className="absolute inset-0 bg-gray-200 animate-pulse" />
-                )}
-                <video
-                  src={onepage.avatar_video_url}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
-                  onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                  onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                  onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                />
-              </>
+              /* The page's own element: the video's first frame, then the video over it (components/onepage/poster-video). */
+              <PosterVideo
+                src={onepage.avatar_video_url}
+                poster={videoPoster((onepage.settings as any)?.avatar_video_crop)}
+                alt={title || tt("Avatar")}
+                mediaStyle={croppedMediaStyle((onepage.settings as any)?.avatar_video_crop) as React.CSSProperties | undefined}
+              />
             ) : avatar_url ? (
               <img src={onePageImageSrc(avatar_url, 64)} alt={title || tt("Avatar")} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">{title?.trim() ? title.charAt(0) : <AvatarMark name="" size={72} />}</div>
             )}
           </div>
-          <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <div className="absolute inset-0 z-[2] bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <Pencil className="h-4 w-4 text-white" />
           </div>
         </div>
@@ -2147,6 +2166,22 @@ export function LinksTab() {
                   </div>
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => { if (thumbnailBlockId) setFieldLibrary({ blockId: thumbnailBlockId, field: 'link_thumbnail' }); closeThumbnailSheet() }}
+                  disabled={thumbnailUploading}
+                  data-library-pick="image"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-[#f4f4f6] flex items-center justify-center">
+                    <FolderOpen className="w-5 h-5 text-[#1a1a2e]" strokeWidth={1.75} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{tt("Choose from your files")}</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                </button>
+
                 {/* Icon library button - only for link_button blocks */}
                 {getThumbnailBlockType() === 'link_button' && (
                   <button
@@ -2650,6 +2685,9 @@ export function LinksTab() {
                     </p>
                   </div>
                 </label>
+                {(imageFieldType === 'product_image' || imageFieldType === 'thumbnail_url') && !imageUploading ? (
+                  <LibraryRow className="mt-3" onClick={() => { setFieldLibrary({ blockId: imageBlockId, field: imageFieldType }); setShowImageLibrary(false) }} />
+                ) : null}
 
                 {/* Show current file/image if exists */}
                 {imageBlockId && (() => {
@@ -2856,6 +2894,7 @@ export function LinksTab() {
               {!isDragOver && <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>}
               <p className="text-sm text-gray-400 mt-2">{tt("Please upload an image")}</p>
             </div>
+            <LibraryRow className="mt-3" onClick={() => { setAvatarPickError(null); setShowAvatarUploadModal(false); setAvatarLibrary("image") }} />
             {avatarPickError ? <p role="alert" className="mt-3 text-[13px] leading-snug text-[#b42318]">{avatarPickError}</p> : null}
             <input
               ref={fileInputRef}
@@ -2943,6 +2982,7 @@ export function LinksTab() {
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
+            <LibraryRow kind="video" onClick={() => { setAvatarPickError(null); setShowVideoModal(false); setAvatarLibrary("video") }} />
             {avatarPickError ? <p role="alert" className="text-[13px] leading-snug text-[#b42318]">{avatarPickError}</p> : null}
             <input
               ref={videoFileInputRef}
@@ -2986,7 +3026,8 @@ export function LinksTab() {
               <CropUpload
                 kind="video"
                 src={tempAvatarVideo.url}
-                file={tempAvatarVideo.file}
+                file={tempAvatarVideo.file ?? new Blob()}
+                existingUrl={tempAvatarVideo.existing}
                 aspect={1}
                 shape="circle"
                 prefix="avatar-video"
@@ -2999,6 +3040,33 @@ export function LinksTab() {
             ) : null}
           </div>
         </SheetDialog>
+
+      {/* "Your files" for the profile photo or video, outside the sheets it is asked for from (components/onepage/library-pick). */}
+      <FilesLibraryChooser
+        kind={avatarLibraryKind.current}
+        open={avatarLibrary !== null}
+        onClose={() => setAvatarLibrary(null)}
+        onPick={(url) => void pickAvatarFromLibrary(url)}
+      />
+      {/* "Your files" for a thumbnail or a product image: written where the upload beside it writes. */}
+      <FilesLibraryChooser
+        open={fieldLibrary !== null}
+        onClose={() => setFieldLibrary(null)}
+        onPick={(url) => {
+          const target = fieldLibrary
+          const found = target?.blockId ? findBlockDeep(onepage.draft_blocks, target.blockId)?.block : null
+          if (!target?.blockId || !found) return
+          const was = found.data as Record<string, unknown>
+          const next: Record<string, unknown> | null =
+            target.field === 'link_thumbnail' ? (found.type === 'product' ? { ...was, custom_thumbnail: url } : { ...was, thumbnail_url: url, icon: null })
+            : target.field === 'product_image' ? { ...was, product_image: url }
+            : target.field === 'thumbnail_url' ? { ...was, thumbnail_url: url }
+            : null
+          if (next) updateBlockDeep(target.blockId, { data: next as unknown as OnePageBlock["data"] })
+          setImageBlockId(null)
+          setImageFieldType(null)
+        }}
+      />
     </div>
   )
 }
@@ -3692,6 +3760,9 @@ function BlockEditor({
   const [imageUploading, setImageUploading] = useState<string | null>(null) // stores image item id being uploaded
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [currentImageItemId, setCurrentImageItemId] = useState<string | null>(null)
+  /* The block as it is now, for an upload or a pick that finishes after the render that started it. */
+  const blockRef = useRef(block)
+  blockRef.current = block
 
   // Drag state for social icons reordering
   const [draggedSocialId, setDraggedSocialId] = useState<string | null>(null)
@@ -5329,36 +5400,19 @@ function BlockEditor({
                       )}
                     </div>
 
-                    {/* Image Preview or Upload */}
+                    {/* One row per picture: the picture, Upload or Replace, Your files, Remove (components/onepage/image-field). */}
                     <div className="space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCurrentImageItemId(img.id)
-                          imageInputRef.current?.click()
+                      <OnePageImageField
+                        value={img.image_url}
+                        prefix={`image_${block.id}_${img.id}`}
+                        onChange={(url, size) => {
+                          /* Read the block as it is now: the upload may finish after other edits to it. */
+                          const now = (blockRef.current.data || {}) as ImageBlockData
+                          const list = now.images || (now.image_url ? [{ id: '1', image_url: now.image_url, alt_text: now.alt_text, link_url: now.link_url }] : [])
+                          const next = list.map((it) => it.id === img.id ? { ...it, image_url: url || '', width: size?.width, height: size?.height } : it)
+                          updateData({ images: next, image_url: next.find((it) => it.image_url)?.image_url || '' })
                         }}
-                        disabled={imageUploading === img.id}
-                        className="group relative w-full aspect-video rounded-lg border-2 border-dashed border-gray-200 hover:border-gray-300 flex items-center justify-center overflow-hidden transition-all bg-white disabled:opacity-60"
-                      >
-                        {imageUploading === img.id ? (
-                          <div className="flex flex-col items-center gap-2 text-gray-400">
-                            <div className="w-8 h-8 border-2 border-gray-300 border-t-[#1a1a2e] rounded-full animate-spin" />
-                            <span className="text-xs font-medium">{tt("Uploading...")}</span>
-                          </div>
-                        ) : img.image_url ? (
-                          <img src={onePageImageSrc(img.image_url, 160)} alt={img.alt_text || ''} className="w-full h-full object-cover rounded-lg" />
-                        ) : (
-                          <div className="flex flex-col items-center gap-2 text-gray-400">
-                            <ImageIcon className="w-8 h-8" />
-                            <span className="text-xs font-medium">{tt("Click to upload")}</span>
-                          </div>
-                        )}
-                        {!imageUploading && (
-                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                            <Upload className="w-6 h-6 text-white" />
-                          </div>
-                        )}
-                      </button>
+                      />
 
                       <Input
                         value={img.title || ''}

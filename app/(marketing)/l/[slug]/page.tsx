@@ -20,6 +20,7 @@ import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { findPublishedOnePage, liveBlocksFor, onePageOwner, publishedOnePageSeo, publishedShape, resolveOnePage } from "@/lib/onepage/published-page"
 import { creatorPageUrl } from "@/lib/onepage/resolve-address"
 import { onePageMetadataFrom, resolveOnePageSeo } from "@/lib/onepage/seo"
+import { OnePageArrival } from "@/components/onepage/page-arrival"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -304,6 +305,8 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
   return (
     <>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
+      {/* Before the page: a return to it (Back from checkout, a second visit in this tab) shows it in place, without the entrance (components/onepage/page-arrival). */}
+      <OnePageArrival />
       {/* Its products are its seller's, in the seller's store currency (components/platform/price-currency). */}
       <PriceCurrency currency={transformedOnepage.seller_id ? await cachedStoreCurrency(transformedOnepage.seller_id) : null}>
         <PublicOnePage onepage={transformedOnepage} />

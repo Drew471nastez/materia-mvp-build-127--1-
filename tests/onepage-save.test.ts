@@ -256,7 +256,8 @@ async function main() {
       !/JSON\.stringify\(\{ \.\.\.onepage/.test(settings),
       "it carried the archived blocks the editor opened with, and put archived blocks back",
     )
-    check("the image writes send only the id and their settings", (settings.match(/JSON\.stringify\(\{ id: onepage\.id, settings: /g) ?? []).length === 1 && /const writeImage = async \(imageSettings/.test(settings) && (settings.match(/await writeImage\(|void writeImage\(/g) ?? []).length === 2)
+    /* Round 40: three writers now, the upload, Remove, and a picture picked from Files (seo-panel's FilesLibraryChooser), all through the one writeImage. */
+    check("the image writes send only the id and their settings", (settings.match(/JSON\.stringify\(\{ id: onepage\.id, settings: /g) ?? []).length === 1 && /const writeImage = async \(imageSettings/.test(settings) && (settings.match(/await writeImage\(|void writeImage\(/g) ?? []).length === 3)
     check("the fields are not refilled on every change to the page", !/\}, \[onepage\]\)/.test(settings) && /\}, \[fromPageKey\]\)/.test(settings))
     check("a field somebody typed in is left alone", /if \(!typedIn\) setField\[key\]\(incoming\)/.test(settings))
     /* No "Saved!" of its own any more: the words beside Save are the page's own save state, "All changes saved" only when nothing is left unsaved. */

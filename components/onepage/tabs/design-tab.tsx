@@ -35,6 +35,9 @@ import { ONEPAGE_IMAGE_ACCEPT, ONEPAGE_VIDEO_ACCEPT, checkMedia } from "@/lib/on
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
 import { openableImage, uploadErrorText, uploadMessage } from "@/lib/onepage/media-upload"
 import { CropUpload } from "@/components/onepage/crop-upload"
+import { PosterVideo } from "@/components/onepage/poster-video"
+import { videoPoster } from "@/lib/onepage/poster-video"
+import { FilesLibraryChooser, LibraryButton, LibraryRow, fileFromLibrary } from "@/components/onepage/library-pick"
 import { UploadProgress, useMediaUpload } from "@/components/onepage/upload-progress"
 import { DialogHeader } from "@/components/ui/dialog"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
@@ -1625,7 +1628,7 @@ function HeaderSection() {
   // Video selection states
   const [showVideoModal, setShowVideoModal] = useState(false)
   const [showVideoCropModal, setShowVideoCropModal] = useState(false)
-  const [tempVideo, setTempVideo] = useState<{ url: string; file: File } | null>(null)
+  const [tempVideo, setTempVideo] = useState<{ url: string; file: File | null; existing?: string } | null>(null)
   const videoFileInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -1638,6 +1641,11 @@ function HeaderSection() {
   // Pattern/Hero conflict dialog state
   const [showPatternHeroConflict, setShowPatternHeroConflict] = useState(false)
 
+  /* "Your files" for the photo, the video or the logo: the chooser lives outside the sheets, which unmount what they hold when they close. */
+  const [library, setLibrary] = useState<null | "avatar" | "video" | "logo">(null)
+  /* Kept while the chooser slides away, so its list does not switch under it. */
+  const libraryKind = useRef<"image" | "video">("image")
+  if (library) libraryKind.current = library === "video" ? "video" : "image"
 
   if (!onepage) return null
 
@@ -1645,6 +1653,8 @@ function HeaderSection() {
   const headerLayout = (theme as any).header_layout || "classic"
   const effectiveLayout = (theme.background_type === "image" || theme.background_type === "video") ? "classic" : headerLayout
   const avatarVideoUrl = (onepage as any).avatar_video_url
+  /* The crop (and its first frame) is kept in settings (lib/onepage/context updateProfile); read there, not off the page row. */
+  const avatarVideoCrop = (onepage.settings as any)?.avatar_video_crop ?? (onepage as any).avatar_video_crop ?? null
 
   /* A picture chosen for a cropper: checked, made drawable (a HEIC becomes a JPEG), or the reason in plain words. */
   const pickImage = async (file: File | undefined, then: (img: { url: string; blob: Blob }) => void) => {
@@ -1675,13 +1685,55 @@ function HeaderSection() {
 
   const closeVideoCrop = () => {
     setShowVideoCropModal(false)
-    if (tempVideo) URL.revokeObjectURL(tempVideo.url)
+    if (tempVideo && !tempVideo.existing) URL.revokeObjectURL(tempVideo.url)
     setTempVideo(null)
   }
 
-  const handleRemoveVideo = async () => {
-    updateProfile({ avatar_video_url: null })
+  /*
+    REMOVE IS ONE STEP AND IT STICKS. It was two edits (the photo, then the
+    video), so Undo brought half of it back, and the photo came straight
+    back anyway: the page draws the account's photo (lib/account/identity),
+    which only the page's own copy was cleared from. Now the account's photo
+    is removed the way Settings removes it, and the page's photo, video and
+    crop go in one edit, while the sheet closes at once.
+  */
+  const handleRemoveMedia = () => {
+    const hadPhoto = !!onepage.avatar_url
     setShowEditModal(false)
+    updateProfile({ avatar_url: null, avatar_video_url: null, avatar_video_crop: null })
+    if (hadPhoto) {
+      announceAvatar(null)
+      void fetch("/api/account/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: null }),
+      }).catch(() => null)
+    }
+  }
+
+  /* A picture from Files goes through the same cropper as one from the device; a video from Files is cropped where it is stored, not uploaded again. */
+  const pickFromLibrary = async (url: string) => {
+    const kind = library
+    setPickError(null)
+    if (kind === "video") {
+      setTempVideo({ url, file: null, existing: url })
+      setShowVideoCropModal(true)
+      return
+    }
+    try {
+      const img = await openableImage(await fileFromLibrary(url))
+      if (kind === "logo") {
+        setTempLogo(img)
+        setShowLogoCropModal(true)
+      } else {
+        setTempImage(img)
+        setShowCropModal(true)
+      }
+    } catch (err) {
+      setPickError(uploadMessage(err))
+      if (kind === "logo") setShowLogoUploadModal(true)
+      else setShowUploadModal(true)
+    }
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1716,17 +1768,9 @@ function HeaderSection() {
     updateProfile({ avatar_url: url, avatar_video_url: null })
   }
 
-  const handleRemoveImage = () => {
-    updateProfile({ avatar_url: null })
-    setShowEditModal(false)
-  }
-
   const handleLayoutChange = (layout: string) => {
     if (layout === "hero" && (theme.background_type === "image" || theme.background_type === "gradient" || theme.background_type === "video")) return
-    // Block switching to Hero if pattern is active
-    if (layout === "hero" && (theme as any).background_pattern && (theme as any).background_pattern !== "none") {
-      return // Silently block - pattern takes precedence
-    }
+    /* A pattern no longer stops Hero: the picture fades into the page through a mask, so the pattern shows under it (lib/onepage/poster-video HERO_FADE_MASK). */
     if (layout === "hero") {
       updateTheme({ header_layout: layout, laser_glow_enabled: false } as any)
       return
@@ -1765,37 +1809,30 @@ function HeaderSection() {
             onClick={() => setShowEditModal(true)}
             aria-label={tt("Change profile image")}
             data-avatar-edit
-            className="relative aspect-square h-[88px] w-[88px] shrink-0 cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
+            className="relative isolate aspect-square h-[88px] w-[88px] shrink-0 cursor-pointer rounded-full outline-none focus-visible:shadow-[0_0_0_2px_#fff,0_0_0_4px_rgba(26,26,46,0.45)] disabled:cursor-wait"
           >
-            {/* A circle, as the page draws it and as the theme cards do. */}
-            <span data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
+            {/*
+              A circle, as the page draws it and as the theme cards do. Its
+              own stacking context (isolate) under the pencil: the video in it
+              carried z-index 1, which painted it over the pencil, so the
+              round button sat half hidden behind the picture.
+            */}
+            <span data-editor-avatar="" className="absolute inset-0 overflow-hidden rounded-full isolate z-0 bg-[#f1f2f4] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]">
           {avatarVideoUrl ? (
-                <>
-                  {onepage.avatar_url ? (
-                    <img src={onePageImageSrc(onepage.avatar_url, 96)} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
-                  ) : (
-                    <div className="absolute inset-0 bg-gray-200 animate-pulse" />
-                  )}
-                  <video
-                    src={avatarVideoUrl}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
-                    style={croppedMediaStyle((onepage as any).avatar_video_crop) as React.CSSProperties | undefined}
-                    onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                    onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                    onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
-                  />
-                </>
+                /* The same element the page draws, from the video's own first frame (components/onepage/poster-video). */
+                <PosterVideo
+                  src={avatarVideoUrl}
+                  poster={videoPoster(avatarVideoCrop)}
+                  alt={onepage.title}
+                  mediaStyle={croppedMediaStyle(avatarVideoCrop) as React.CSSProperties | undefined}
+                />
               ) : onepage.avatar_url ? (
                 <img src={onePageImageSrc(onepage.avatar_url, 96)} alt={onepage.title} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[28px] font-semibold text-[#6b7280] bg-[#f1f2f4]">{onepage.title?.trim() ? onepage.title.charAt(0) : <AvatarMark name="" size={72} />}</div>
               )}
             </span>
-            <span aria-hidden className="absolute -bottom-1 -right-1 grid h-9 w-9 place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
+            <span aria-hidden data-avatar-pencil="" className="absolute bottom-0 right-0 z-[2] grid h-8 w-8 place-items-center rounded-full border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
               <Pencil className="h-4 w-4" strokeWidth={1.75} />
             </span>
           </button>
@@ -1824,7 +1861,7 @@ function HeaderSection() {
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
             {(onepage.avatar_url || avatarVideoUrl) && (
-              <button onClick={() => { handleRemoveImage(); handleRemoveVideo(); }} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors">
+              <button onClick={handleRemoveMedia} className="w-full flex items-center justify-center gap-2 p-3 rounded-xl text-red-600 hover:bg-red-50 transition-colors">
                 <Trash2 className="h-4 w-4" /><span className="font-medium">{tt("Remove current media")}</span>
               </button>
             )}
@@ -1852,6 +1889,7 @@ function HeaderSection() {
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </button>
+            <LibraryRow kind="video" onClick={() => { setPickError(null); setShowVideoModal(false); setLibrary("video") }} />
             {pickError ? <p role="alert" className="text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
             <input ref={videoFileInputRef} type="file" accept={ONEPAGE_VIDEO_ACCEPT} onChange={handleVideoFileSelect} className="hidden" />
           </div>
@@ -1875,7 +1913,8 @@ function HeaderSection() {
               <CropUpload
                 kind="video"
                 src={tempVideo.url}
-                file={tempVideo.file}
+                file={tempVideo.file ?? new Blob()}
+                existingUrl={tempVideo.existing}
                 aspect={1}
                 shape="circle"
                 prefix="avatar-video"
@@ -1901,12 +1940,26 @@ function HeaderSection() {
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Upload media")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
-            <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
-              <Upload className="h-12 w-12 text-gray-300 mb-4" />
+            {/* Said "or drag-and-drop" with nothing listening for a drop; it does now. */}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                void pickImage(e.dataTransfer.files?.[0], (img) => {
+                  setTempImage(img)
+                  setShowUploadModal(false)
+                  setShowCropModal(true)
+                })
+              }}
+              className="border-2 border-dashed border-gray-300 rounded-xl px-5 py-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
+            >
+              <Upload className="h-7 w-7 text-gray-300 mb-2.5" />
               <p className="font-medium text-gray-600">{tt("Select file to upload,")}</p>
               <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>
-              <p className="text-sm text-gray-400 mt-2">{tt("Please upload an image")}</p>
+              <p className="text-sm text-gray-400 mt-1.5">{tt("Please upload an image")}</p>
             </div>
+            <LibraryRow className="mt-3" onClick={() => { setPickError(null); setShowUploadModal(false); setLibrary("avatar") }} />
             {pickError ? <p role="alert" className="mt-3 text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
             <input ref={fileInputRef} type="file" accept={ONEPAGE_IMAGE_ACCEPT} onChange={handleFileSelect} className="hidden" />
           </div>
@@ -1958,12 +2011,25 @@ function HeaderSection() {
             <SheetDialogTitle className="text-lg font-semibold flex-1 text-center pr-8">{tt("Upload Logo")}</SheetDialogTitle>
           </DialogHeader>
           <div className="p-5">
-            <div onClick={() => logoFileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
-              <Upload className="h-12 w-12 text-gray-300 mb-4" />
+            <div
+              onClick={() => logoFileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault()
+                void pickImage(e.dataTransfer.files?.[0], (img) => {
+                  setTempLogo(img)
+                  setShowLogoUploadModal(false)
+                  setShowLogoCropModal(true)
+                })
+              }}
+              className="border-2 border-dashed border-gray-300 rounded-xl px-5 py-6 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
+            >
+              <Upload className="h-7 w-7 text-gray-300 mb-2.5" />
               <p className="font-medium text-gray-600">{tt("Select logo to upload,")}</p>
               <p className="font-medium text-gray-600">{tt("or drag-and-drop file")}</p>
-              <p className="text-sm text-gray-400 mt-2">{tt("PNG with transparent background recommended")}</p>
+              <p className="text-sm text-gray-400 mt-1.5">{tt("PNG with transparent background recommended")}</p>
             </div>
+            <LibraryRow className="mt-3" onClick={() => { setPickError(null); setShowLogoUploadModal(false); setLibrary("logo") }} />
             {pickError ? <p role="alert" className="mt-3 text-[13px] leading-snug text-[#b42318]">{pickError}</p> : null}
             <input ref={logoFileInputRef} type="file" accept={ONEPAGE_IMAGE_ACCEPT} onChange={handleLogoFileSelect} className="hidden" />
           </div>
@@ -2003,15 +2069,27 @@ function HeaderSection() {
           </div>
         </SheetDialog>
 
+      {/* "Your files" for the photo, the video or the logo, outside the sheets it is asked for from (components/onepage/library-pick). */}
+      <FilesLibraryChooser
+        kind={libraryKind.current}
+        open={library !== null}
+        onClose={() => setLibrary(null)}
+        onPick={(url) => void pickFromLibrary(url)}
+      />
+
       <PanelSection>
         <SectionTitle title={tt("Profile image layout")} />
         {(() => {
-          /* Hero puts the picture behind the top of the page, so it cannot sit on a gradient, a photo, a video or a pattern. */
+          /*
+            Hero puts the picture behind the top of the page, so it cannot sit
+            on a gradient, a photo or a video wallpaper. A pattern is fine
+            since round 40: the picture fades out through a mask, and the
+            pattern carries on under it.
+          */
           const heroBlockedBy =
             theme.background_type === "image" ? tt("an image wallpaper") :
             theme.background_type === "gradient" ? tt("a gradient wallpaper") :
-            theme.background_type === "video" ? tt("a video wallpaper") :
-            (theme as any).background_pattern && (theme as any).background_pattern !== "none" ? tt("a pattern") : null
+            theme.background_type === "video" ? tt("a video wallpaper") : null
           return (
             <>
               <div className="grid grid-cols-2 gap-3">
@@ -2033,14 +2111,18 @@ function HeaderSection() {
                   {tt("Hero is off while the page uses {heroBlockedBy}.", { heroBlockedBy })}{" "}
                   <button
                     type="button"
-                    onClick={() => (heroBlockedBy === "a pattern" ? updateTheme({ background_pattern: "none" } as any) : updateTheme({ background_type: "solid" }))}
+                    onClick={() => updateTheme({ background_type: "solid" })}
                     className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2"
                   >
-                    {heroBlockedBy === "a pattern" ? tt("Remove the pattern") : tt("Use a flat colour")}
+                    {tt("Use a flat colour")}
                   </button>
                 </p>
               ) : effectiveLayout === "hero" ? (
-                <p className="mt-3 text-[13.5px] text-[#6b7280]">{tt("Your picture fills the top of the page and fades into it.")}</p>
+                <p className="mt-3 text-[13.5px] text-[#6b7280]">
+                  {onepage.avatar_url || avatarVideoUrl
+                    ? tt("Your picture fills the top of the page and fades into it.")
+                    : tt("Add a profile image above and it fills the top of the page.")}
+                </p>
               ) : null}
             </>
           )
@@ -2751,6 +2833,8 @@ function WallpaperSection() {
   useEffect(() => () => {
     if (localImageRef.current) URL.revokeObjectURL(localImageRef.current)
   }, [])
+  /* "Your files" for the wallpaper picture. */
+  const [wallpaperLibrary, setWallpaperLibrary] = useState(false)
 
   if (!onepage) return null
   const { theme } = onepage
@@ -3116,6 +3200,7 @@ function WallpaperSection() {
                       <Upload className="h-4 w-4" />
                       {tt("Replace")}
                     </button>
+                    <LibraryButton onClick={() => setWallpaperLibrary(true)} className={cn(secondaryDepth, "h-10 rounded-full border-0 px-4 text-[13.5px]")} />
                     <button type="button" data-wallpaper-delete="" aria-label={tt("Remove image")} onClick={removeWallpaperImage} className={cn(secondaryDepth, "h-10 w-10 rounded-full")}><Trash2 className="h-4 w-4" /></button>
                   </div>
                 )}
@@ -3127,8 +3212,15 @@ function WallpaperSection() {
                 <span className="text-[13px] text-[#6b7280]">{tt("JPG, PNG, GIF or HEIC. Tall pictures fit a phone best")}</span>
               </button>
             )}
+            {!coverImage ? <LibraryRow className="mt-3" onClick={() => setWallpaperLibrary(true)} /> : null}
             {imageUp.state.phase === "error" ? <UploadProgress state={imageUp.state} className="mt-3" /> : null}
             <input ref={fileInputRef} type="file" accept={ONEPAGE_IMAGE_ACCEPT} onChange={handleImageUpload} className="hidden" />
+            <FilesLibraryChooser
+              open={wallpaperLibrary}
+              onClose={() => setWallpaperLibrary(false)}
+              selectedUrl={theme.background_image_url || null}
+              onPick={(url) => updateTheme({ background_type: "image", background_image_url: url })}
+            />
           </PanelSection>
           {theme.background_image_url ? (
             <PanelSection>
