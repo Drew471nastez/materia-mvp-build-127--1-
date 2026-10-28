@@ -22,7 +22,8 @@
  *
  * The result is exactly the markup asked for: after `morphInto(el, html)`,
  * `el.innerHTML` is what a template given `html` would hold, apart from the
- * few attributes the page itself wrote (PAGE_OWNED_ATTRIBUTES below).
+ * few attributes the page itself wrote (PAGE_OWNED_ATTRIBUTES below) and
+ * what the page drew inside an island (`data-storelib-island`, morphNode).
  * scripts/check-section-morph.mjs holds that, and that unchanged nodes stay.
  */
 
@@ -80,6 +81,8 @@ function morphNode(have: Node, want: Node): void {
     return
   }
   syncAttributes(eh, ew)
+  /* An island the page draws into (`data-storelib-island`: a Featured product's offers, components/website-builder/sections/offer-islands.tsx): its children are React's, and the markup states none. */
+  if (eh.hasAttribute("data-storelib-island")) return
   morphChildren(eh, ew)
 }
 

@@ -11,6 +11,9 @@
  *   empty      the same page before the first offer
  *   product    a website product page: the Price, Quantity, Buy buttons and
  *              Bundles and upsells blocks of Storelib's product section
+ *   featured   Storelib's Featured products section (the real .storelib
+ *              template), each card with its product's offers drawn in by
+ *              components/website-builder/sections/offer-islands.tsx
  *   cart       the website's cart page, with a quantity break saving, an
  *              upsell to add and a bundle to finish
  *   checkout   the website's checkout, with the offers' savings and Add to
@@ -33,6 +36,7 @@ import { cartStorageKey, serializeCart, type CartLine } from "@/lib/website-buil
 import { applyOffers, bundleCompletions, bundlePrice, bundlesWith, discountLabel, offerUnitPrice, suggestionsFor, upsellsFor, type Offer } from "@/lib/offers/offers"
 import { tierTotals } from "@/lib/offers/pricing"
 import { tryCart, DRAFT_ID } from "@/lib/offers/try-cart"
+import { OfferIslands } from "@/components/website-builder/sections/offer-islands"
 
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "list"
@@ -118,6 +122,8 @@ function productOffers(productId: string) {
   const quantityBreaks = OFFERS.filter((o) => o.kind === "quantity_break" && o.productIds[0] === productId).map((o) => ({
     offerId: o.id, productId, title: o.title,
     tiers: (o.tiers ?? []).map((t) => ({ ...t, ...tierTotals(price, t, null) })),
+    /* What the tiers are priced at, as lib/offers/offers-public.ts says it: the product's default option. */
+    priceCents: price, compareAtCents: null, variantId: productId === MUG ? MUG_V : null, variantName: null,
   }))
   return { bundles, checkoutOffers, quantityBreaks }
 }
@@ -251,6 +257,29 @@ function CartView() {
   )
 }
 
+/**
+ * Storelib's Featured products section on a home page: its own template, drawn
+ * by the theme engine in Node (scripts/help-offer-shots.mjs featuredSection,
+ * handed in as window.__featured: the engine is not bundled for a browser
+ * here), and its cards' offers drawn into the marks it leaves.
+ */
+function FeaturedView() {
+  const out = (window as unknown as { __featured?: { html: string; css: string } }).__featured ?? { html: "", css: "" }
+  const [root, setRoot] = React.useState<HTMLDivElement | null>(null)
+  const [html] = React.useState(() => ({ __html: out.html }))
+  return (
+    <StorefrontProvider value={{ currency: "USD", creatorId: SHOP } as never}>
+      <SiteCartProvider shopId={SHOP} currency="USD" cartType="drawer">
+        <div id="shot" style={{ background: "#fff", minHeight: "100vh" }}>
+          <style>{out.css}</style>
+          <div ref={setRoot} dangerouslySetInnerHTML={html} />
+          <OfferIslands root={root} html={out.html} inert={false} />
+        </div>
+      </SiteCartProvider>
+    </StorefrontProvider>
+  )
+}
+
 const SITE_LOGO = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><text x="0" y="56" font-size="44" font-family="Georgia" font-weight="700" fill="#1c1917">Fern &amp; Clay</text></svg>')
 
 /** A Stripe.js stand in: a card form drawn as boxes, so the page shows where the card goes. Nothing is ever paid. */
@@ -300,6 +329,8 @@ function App() {
       return <div id="shot" style={{ height: "100vh" }}><OffersClient initialOffers={area.offers} products={area.products} collections={[]} currency="USD" ready settingsReady breaksReady sold={{ [O1]: 14, [O2]: 9, [O3]: 23 }} physical /></div>
     case "product":
       return <ProductPage />
+    case "featured":
+      return <FeaturedView />
     case "cart":
       return <CartView />
     case "checkout":

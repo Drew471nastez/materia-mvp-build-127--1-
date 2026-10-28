@@ -56,10 +56,22 @@ try {
   rmSync(out, { recursive: true, force: true })
   throw e
 }
+/*
+  Storelib's Featured products section, drawn by the theme engine here in Node
+  (the browser bundle above has no engine) with the demo's mug, bowl and apron,
+  and handed to the page as window.__featured.
+*/
+const featuredSection = execFileSync("npx", ["tsx", "-e", `
+  const { renderStorelibSection } = require(${JSON.stringify(join(root, "lib/website-builder/storelib-runtime.ts"))})
+  const demo = [["0f3a9c2e-2222-4222-8333-444455556666", "Speckled mug", "speckled-mug", 3200, "#efe6da"], ["0f3a9c2e-3333-4222-8333-444455556666", "Serving bowl", "serving-bowl", 4400, "#e9e5df"], ["0f3a9c2e-4444-4222-8333-444455556666", "Linen apron", "linen-apron", 3800, "#e6e8ea"]]
+  const cards = demo.map(([id, title, slug, cents, bg]) => ({ id, type: "product", settings: { title, price: "$" + (cents / 100).toFixed(2), compare_price: "", currency: "USD", free: false, pay_what_you_want: false, image: "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="720" height="540"><rect width="720" height="540" fill="' + bg + '"/></svg>'), url: "/products/" + slug, slug, kind: "physical", available: true, tag: "", checkout_url: "/checkout?productId=" + id + "&src=website", variants: [] } }))
+  const r = renderStorelibSection({ id: "featured", type: "product_featured", name: "Featured Products", settings: { source: "shop", product_count: 3, heading: "From the studio", show_rating: false }, blocks: [] }, {}, { template: "index" }, undefined, cards, { catalog: cards })
+  process.stdout.write(JSON.stringify(r.ok ? { html: r.html, css: r.css } : { html: "", css: "" }))
+`], { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024 })
 const css = await appCss(root)
 /* Inter from a build when there is one; otherwise the Inter installed on the machine, by its name. */
 const inter = interFaces(root).replace(/url\(file:\/\/[^)]*\/static\/media\//g, "url(/media/")
-const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style></head><body><div id="app"></div><script src="/probe.js"></script></body></html>`
+const html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}</style></head><body><div id="app"></div><script>window.__featured=${featuredSection.replace(/</g, "\\u003c")}</script><script src="/probe.js"></script></body></html>`
 const bundle = readFileSync(join(out, "probe.js"))
 rmSync(out, { recursive: true, force: true })
 
@@ -118,6 +130,7 @@ const SHOTS = [
   },
   { name: "product-page-offers", view: "product", width: 1100, height: 1200, settle: 1800, clip: sel("#shot") },
   { name: "product-page-offers-phone", view: "product", width: 390, height: 844, phone: true, grow: false, settle: 1800, clip: sel("[data-offers-block]") },
+  { name: "featured-products-offers", view: "featured", width: 1200, height: 1400, settle: 2400, clip: sel("#shot section") },
   { name: "cart-page-offers", view: "cart", width: 1100, height: 1100, settle: 2200, clip: sel("#shot main, #shot > div") },
   { name: "checkout-offers", view: "checkout", width: 1200, height: 1100, settle: 2200, clip: async () => ({ x: 80, y: 96, width: 480, height: 716 }) },
 ]

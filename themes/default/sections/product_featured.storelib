@@ -9,7 +9,10 @@
       </div>
     {% endif %}
     {# Four sources, one card: the shop, a collection, products chosen in the
-       sidebar, and cards picked one by one. See sections/product_grid.storelib. #}
+       sidebar, and cards picked one by one. See sections/product_grid.storelib.
+       Each card leaves a mark for its product's quantity breaks, bundles and
+       upsells (data-storelib-offers), which components/offers/featured-offers.tsx
+       draws into on the live page and in the builder. #}
     {% if settings.source == 'shop' %}
       {% if products.size == 0 %}
         {% if page.in_editor %}<p class="empty">Your published products appear here</p>{% endif %}
@@ -28,6 +31,7 @@
               {% if block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
               {% endif %}
+              {% if settings.show_offers and block.id %}<div data-storelib-island="" data-storelib-offers="{{ block.id }}" data-layout="card" data-title="{{ block.settings.title }}" data-slug="{{ block.settings.slug }}" data-kind="{{ block.settings.kind }}" data-image="{{ block.settings.image | asset }}" data-pwyw="{{ block.settings.pay_what_you_want }}"></div>{% endif %}
               {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
             </div>
           </article>
@@ -51,6 +55,7 @@
               {% if block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
               {% endif %}
+              {% if settings.show_offers and block.id %}<div data-storelib-island="" data-storelib-offers="{{ block.id }}" data-layout="card" data-title="{{ block.settings.title }}" data-slug="{{ block.settings.slug }}" data-kind="{{ block.settings.kind }}" data-image="{{ block.settings.image | asset }}" data-pwyw="{{ block.settings.pay_what_you_want }}"></div>{% endif %}
               {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
             </div>
           </article>
@@ -75,6 +80,7 @@
               {% if block.settings.price %}
                 <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
               {% endif %}
+              {% if settings.show_offers and block.id %}<div data-storelib-island="" data-storelib-offers="{{ block.id }}" data-layout="card" data-title="{{ block.settings.title }}" data-slug="{{ block.settings.slug }}" data-kind="{{ block.settings.kind }}" data-image="{{ block.settings.image | asset }}" data-pwyw="{{ block.settings.pay_what_you_want }}"></div>{% endif %}
               {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
             </div>
           </article>
@@ -101,6 +107,7 @@
               {% if block.settings.price or block.settings.url.price %}
                 <p class="card__price">{{ block.settings.url.price | default: block.settings.price }}{% if block.settings.url.title %}{% if block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}{% elsif block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
               {% endif %}
+              {% if settings.show_offers and block.settings.url.id %}<div data-storelib-island="" data-storelib-offers="{{ block.settings.url.id }}" data-layout="card" data-title="{{ block.settings.url.title }}" data-slug="{{ block.settings.url.slug }}" data-kind="{{ block.settings.url.kind }}" data-image="{{ block.settings.url.image | asset }}" data-pwyw="{{ block.settings.url.pay_what_you_want }}"></div>{% endif %}
               {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
             </div>
           </article>
@@ -332,6 +339,13 @@
       "label": "Show star ratings",
       "default": true,
       "info": "From Storelib Reviews, when it is on and a product has reviews."
+    },
+    {
+      "type": "toggle",
+      "id": "show_offers",
+      "label": "Show bundles and upsells",
+      "info": "Each product's quantity breaks, bundles and upsells from Products › Upsells and bundles.",
+      "default": true
     },
     {
       "type": "text",

@@ -58,6 +58,7 @@ export function QuantityBreaks({
   display = null,
   name = (t) => t.label,
   each = (price) => `${price} each`,
+  bare = false,
 }: {
   breaks: BreakCard[]
   /** The option chosen in the buy box, at its price: the tiers are priced at it. */
@@ -78,12 +79,14 @@ export function QuantityBreaks({
   name?: (t: Tier) => string
   /** "{price} each" in the page's language. */
   each?: (price: string) => string
+  /** Without its own box: inside a card that already is one (Storelib's Featured products, components/offers/featured-offers.tsx). */
+  bare?: boolean
 }) {
   const c = { heading: palette.heading || ink, text: palette.text || ink, price: palette.price || ink, border: palette.border || "rgba(0,0,0,0.12)", muted, badgeBg: palette.badgeBg || "#dcfce7", badgeText: palette.badgeText || "#166534" }
   const first = breaks.find((b) => b.tiers.length > 0)
   if (!first) return null
   return (
-    <section className="border p-4" style={{ borderColor: c.border, borderRadius: radius + 4 }} data-quantity-breaks={first.offerId} aria-label={first.title}>
+    <section className={bare ? undefined : "border p-4"} style={bare ? undefined : { borderColor: c.border, borderRadius: radius + 4 }} data-quantity-breaks={first.offerId} aria-label={first.title}>
       <h3 className="mb-3 text-[15px] font-semibold" style={{ color: c.heading }}>
         {first.title}
       </h3>

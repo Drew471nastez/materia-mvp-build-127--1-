@@ -19,6 +19,7 @@
 export const OFFER_SHOTS = {
   "cart-page-offers": [1100, 1017],
   "checkout-offers": [480, 716],
+  "featured-products-offers": [1200, 1377],
   "offer-bundle-editor": [672, 1661],
   "offer-new": [672, 1307],
   "offer-quantity-break-editor": [672, 2092],

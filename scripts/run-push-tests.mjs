@@ -658,6 +658,8 @@ const SUITES = [
   "tests/offers-ag.test.ts",
   /* Offers, one number everywhere: the checkout's saving rows, the cart's and the product page's in a market that rounds; pay what you want never shown discounted; a break on a download; the offers' words translated. */
   "tests/offers-parity.test.ts",
+  /* Storelib's own Featured products and Product spotlight show the featured product's offers, with the product page block's pieces and figures (components/offers/featured-offers.tsx). */
+  "tests/offers-featured.test.ts",
   /* Round AG3: a buyer's words and pictures on a cart line: uploads checked by their bytes, drawn again without EXIF, kept privately per store and browser, refused on another store or cart, copied to the order when paid, shown in emails, slips, exports and the order page, sent to print partners, swept after 14 days; the Storelib theme's Personalization block; SQL part 308. */
   "tests/cart-uploads.test.ts",
   "tests/round-v.test.ts",

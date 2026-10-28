@@ -116,6 +116,7 @@ export function BundleOffers({
   labels = {},
   money: givenMoney,
   display = null,
+  bare = false,
 }: {
   productId: string
   /** This product as the buy box has it: the option chosen, or null while one still has to be. */
@@ -138,6 +139,8 @@ export function BundleOffers({
   money?: (cents: number) => string
   /** The visitor's market, when the page shows its currency: a set's and an upsell's price then say what checkout charges in it (lib/markets/cart-money chargedInMarket). */
   display?: PageDisplay | null
+  /** Without a box around each offer, a line between them instead: inside a card that already is one (Storelib's Featured products, ./featured-offers.tsx). */
+  bare?: boolean
 }) {
   /* Else in the store's own currency, on its page and in its editor alike (components/platform/price-currency). */
   const sellerMoney = useSellerMoney()
@@ -198,6 +201,8 @@ export function BundleOffers({
     window.setTimeout(() => setAdded(null), 2400)
   }
   const button = { background: c.buttonBg, color: c.buttonText, borderColor: c.buttonBorder, borderRadius: radius }
+  /* Each offer's own box, or in a card only a line above it. */
+  const box = (padding: string) => (bare ? { className: "border-t pt-4", style: { borderColor: c.line } } : { className: `rounded-xl border ${padding}`, style: { borderColor: c.border, borderRadius: radius + 4 } })
   const picture = (i: Item, size: number) =>
     i.imageUrl ? (
       // eslint-disable-next-line @next/next/no-img-element
@@ -238,7 +243,7 @@ export function BundleOffers({
         const fullText = inMarket ? inMarket.write(inMarket.fullMinor) : money(fullCents)
         const priceText = inMarket ? inMarket.write(inMarket.totalMinor) : money(priceCents)
         return (
-          <section key={b.offerId} className="rounded-xl border p-4" style={{ borderColor: c.border, borderRadius: radius + 4 }} data-bundle={b.offerId} aria-label={b.title}>
+          <section key={b.offerId} {...box("p-4")} data-bundle={b.offerId} aria-label={b.title}>
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <h3 className="text-[15px] font-semibold" style={{ color: c.heading }}>
                 {b.title}
@@ -298,7 +303,7 @@ export function BundleOffers({
         /* In a market's currency: the unit's converted price less its discount's share of it, as checkout charges it. */
         const upMarket = chargedInMarket([{ unitCents: shownPrice, quantity: 1, discountCents: shownPrice - offerPrice }], display)
         return (
-          <section key={u.offerId} className="rounded-xl border p-3" style={{ borderColor: c.border, borderRadius: radius + 4 }} data-upsell={u.offerId} aria-label={u.title}>
+          <section key={u.offerId} {...box("p-3")} data-upsell={u.offerId} aria-label={u.title}>
             <p className="mb-2 flex items-center justify-between gap-2 text-[13px] font-medium" style={{ color: c.heading }}>
               <span className="truncate">{u.title}</span>
               {u.label ? badge(u.label) : null}
