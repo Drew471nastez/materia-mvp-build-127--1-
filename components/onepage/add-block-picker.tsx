@@ -81,7 +81,6 @@ import { canGoInGroup } from "@/lib/onepage/group"
 import { tt } from "@/lib/i18n/text"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { landContent } from "@/lib/ui/pill-switch"
-import { tintOf } from "@/components/onepage/block-tints"
 
 /* ─── The + on + Add ──────────────────────────────────────────────────── */
 
@@ -521,8 +520,9 @@ export function rememberRecent(id: string): void {
 const RESET_AFTER_CLOSE_MS = 420
 
 /*
-  ROUND 40: EACH KIND IN ITS OWN TINT (./block-tints). A block's own icon sits
-  on its category's wash in its ink; a brand keeps its colours on white.
+  Round 41, the owner: "bring them back how they were, light gray". Every
+  block's own icon sits on the one light grey tile in near black; a brand
+  keeps its colours on white. No category has a colour of its own.
 */
 function EntryIcon({ entry }: { entry: PickerEntry }) {
   if (entry.mark) {
@@ -534,7 +534,7 @@ function EntryIcon({ entry }: { entry: PickerEntry }) {
   }
   if (entry.brandIcon) {
     const B = entry.brandIcon
-    return <BlockTile tint={entry.category}><B size={18} color={tintOf(entry.category).ink} /></BlockTile>
+    return <BlockTile><B size={18} color="#1a1a2e" /></BlockTile>
   }
   if (entry.brand) {
     /* Round 11: in the brand's own colour, as the owner asked ("use their actual icons"); a black mark stays the tile's near black. */
@@ -544,7 +544,7 @@ function EntryIcon({ entry }: { entry: PickerEntry }) {
       </BlockTile>
     )
   }
-  return <BlockTile icon={entry.icon ?? GlyphLink} tint={entry.category} />
+  return <BlockTile icon={entry.icon ?? GlyphLink} />
 }
 
 /**
@@ -593,10 +593,7 @@ const PickerSection = React.memo(function PickerSection({ id, title, entries, li
   const atLimit = limited ? limited.split(",") : []
   return (
     <section data-picker-section={id} data-shown={hidden ? undefined : ""} aria-hidden={hidden || undefined} style={hidden ? SECTION_OFF : undefined} className="pb-2">
-      <h3 className="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[12px] font-semibold uppercase tracking-[0.04em]" style={{ color: tintOf(id).ink }} data-picker-heading={id}>
-        <span aria-hidden className="h-[7px] w-[7px] rounded-full" style={{ backgroundColor: tintOf(id).ink, opacity: 0.85 }} />
-        {title}
-      </h3>
+      <h3 className="px-2 pb-1 pt-2 text-[12px] font-semibold uppercase tracking-[0.04em] text-[#9ca3af]" data-picker-heading={id}>{title}</h3>
       <div className="grid grid-cols-1 gap-0.5 sm:grid-cols-2">
         {entries.map((e) => {
           const full = atLimit.includes(e.type)
@@ -680,8 +677,8 @@ export function AddBlockPicker({
     setCategory(id)
     if (listRef.current) listRef.current.scrollTop = 0
   }
-  /* Each category's chip carries its tint as a dot (./block-tints); All has none. */
-  const chips = React.useMemo(() => [{ id: "all" as const, label: tt("All") }, ...categories.map((c) => ({ id: c.id, label: c.label, dot: tintOf(c.id).ink }))], [categories])
+  /* Round 41: the chips are words only, no dot before them. */
+  const chips = React.useMemo(() => [{ id: "all" as const, label: tt("All") }, ...categories.map((c) => ({ id: c.id, label: c.label }))], [categories])
 
   return (
     <div data-add-block-picker="" className="flex min-h-0 flex-1 flex-col bg-white">
