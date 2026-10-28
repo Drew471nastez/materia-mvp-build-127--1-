@@ -591,8 +591,15 @@ async function productsTrip(p, cdp, label, { isNew }) {
       rows[0]?.querySelector("a[data-row-link]")?.setAttribute("data-probe-pick", "")
     })
   }
-  const openSel = isNew ? open : "a[data-probe-pick]"
-  const up = await timedMove(p, cdp, { sel: openSel, pressed: isNew ? "[data-new-product][data-layer-press]" : "[data-row][data-layer-press], [data-row][data-opening]", kind: "enter" })
+  /* Round 41: New product asks first, in a sheet (app/app/products/new/kind-chooser.tsx); the editor rises from the pick, once the sheet has gone. */
+  const chooseKind = async () => {
+    await p.touchscreen.tap(...Object.values(await p.$eval("[data-new-product]", (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 } })))
+    await p.waitForSelector("[data-new-product-chooser] [data-kind]")
+    await sleep(600)
+  }
+  if (isNew) await chooseKind()
+  const openSel = isNew ? "[data-new-product-chooser] [data-kind]" : "a[data-probe-pick]"
+  const up = await timedMove(p, cdp, { sel: openSel, pressed: isNew ? "[data-new-product-chooser] [data-kind][data-layer-press], [data-new-product-chooser] [data-kind]" : "[data-row][data-layer-press], [data-row][data-opening]", kind: "enter" })
   const onScreen = await p.evaluate(() => ({ layer: !!document.querySelector("[data-page-layer]"), motion: document.documentElement.dataset.layerMotion ?? null, path: window.__path }))
   report(`${trip} in`, up, "enter")
   expect(onScreen.layer && onScreen.motion === null, "the editor is up, and the move has cleaned up after itself", onScreen)
@@ -607,6 +614,7 @@ async function productsTrip(p, cdp, label, { isNew }) {
   expect(Math.abs(after.outer - before.outer) <= 2 && Math.abs(after.inner - before.inner) <= 2, "the list is where it was left", { before, after })
 
   /* Frozen, for the pictures: in, then out. */
+  if (isNew) await chooseKind()
   const shotIn = await frozenMove(p, cdp, { sel: openSel === "a[data-probe-pick]" ? "[data-row]:not([hidden]) a[data-row-link]" : openSel, label: `${trip}-in-${label}`, layer: true, which: "::view-transition-new(page-layer)" })
   pictures(`${trip} in`, shotIn, "enter")
   await sleep(250)
