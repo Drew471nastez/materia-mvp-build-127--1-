@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { teamStoreIdFor } from "@/lib/team/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { checkReplyInput } from "@/lib/reviews/rules"
@@ -42,7 +43,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
   if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400 })
 
   const admin = createAdminClient()
-  const mine = await sellersReview(admin, id, await userId())
+  const who = await userId()
+  const mine = await sellersReview(admin, id, who, await teamStoreIdFor(who, "products"))
   if (!mine.ok) return NextResponse.json({ error: mine.error }, { status: mine.status })
 
   const { data, error } = await admin
@@ -62,7 +64,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
 export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params
   const admin = createAdminClient()
-  const mine = await sellersReview(admin, id, await userId())
+  const who = await userId()
+  const mine = await sellersReview(admin, id, who, await teamStoreIdFor(who, "products"))
   if (!mine.ok) return NextResponse.json({ error: mine.error }, { status: mine.status })
   const { error } = await admin.from("reviews").update({ seller_reply: null, seller_reply_at: null }).eq("id", mine.review.id)
   if (error) {

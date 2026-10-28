@@ -29,14 +29,14 @@ type Kind = keyof typeof REQUEST_EMAIL_IDS
 const kindOf = (v: unknown): Kind | null => (v === "request" || v === "reminder" ? v : null)
 
 export async function GET() {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const [ready, copy] = await Promise.all([customerEmailCopyReady(c.db, c.creatorId), loadCustomerEmailCopy(c.db, c.creatorId)])
   return physicalJson({ ready, copy: { request: copy[REQUEST_EMAIL_IDS.request] ?? null, reminder: copy[REQUEST_EMAIL_IDS.reminder] ?? null } })
 }
 
 export async function POST(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   const kind = kindOf(body?.kind)
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const c = await shopCaller()
+  const c = await shopCaller("products")
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   const kind = kindOf(body?.kind)

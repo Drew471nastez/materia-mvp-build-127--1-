@@ -1,7 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { creatorForRequest } from "@/lib/auth/request-scope"
-import { pageUser } from "@/lib/auth/page-user"
+import { teamPageStore } from "@/lib/team/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadCreatorMemberships } from "@/lib/memberships/creator"
 import { communitiesEnabled } from "@/lib/communities/flag"
@@ -27,12 +26,11 @@ export async function generateMetadata(): Promise<Metadata> {
  * switched off, where /app/community would be a 404.
  */
 export default async function CreatorMembershipsPage() {
-  const user = await pageUser()
-  /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
-  if (!user) return null
-  const creator = await creatorForRequest(user.id)
-  if (!creator) redirect("/app")
-  const list = await loadCreatorMemberships(createAdminClient(), creator.id)
+  /* Whose store (round 41): the owner's own, or the store a team member with Products works in (memberships are products; their routes ask requireCreator("products")). Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
+  const access = await teamPageStore("products")
+  if (access.kind === "signed_out" || access.kind === "denied") return null
+  if (access.kind === "none") redirect("/app")
+  const list = await loadCreatorMemberships(createAdminClient(), access.creatorId)
   if (!list.available || list.rows.length === 0) redirect((await communitiesEnabled().catch(() => false)) ? "/app/community" : "/app/products")
   return <CreatorMembershipsList rows={list.rows} />
 }

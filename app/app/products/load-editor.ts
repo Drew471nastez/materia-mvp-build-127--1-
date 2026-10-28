@@ -8,6 +8,10 @@ import { paymentsReadyFrom } from "@/lib/home/progress"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { readSalesLimit } from "@/lib/products/sales-limit"
 import { copiesSold } from "@/lib/products/sales-standings"
+import { teamStoreForRequest, type ActingStore } from "@/lib/team/server"
+import { permits } from "@/lib/team/permissions"
+import { storeHandle } from "@/lib/team/store-handle"
+import type { RequestCreator } from "@/lib/auth/request-scope"
 
 /**
  * ===========================================================================
@@ -97,6 +101,21 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
   const authed = performance.now()
   if (!user) return { state: "signed-out" }
 
+  /*
+    A TEAM MEMBER (round 41). Working in a store with Products, the editor is
+    the store's: its row, its owner's handle, and the product read with the
+    service role by its id, kept only when it is that store's. Without
+    Products, nothing (the team bar draws "You don't have access"). The
+    answer the /app layout already asked for this request, so the owner pays
+    no read here (no cookie, no query).
+  */
+  const team = await teamStoreForRequest(user.id).catch(() => null)
+  if (team) {
+    productReads.catch(() => {})
+    if (!permits(team.acting.permissions, "products")) return { state: "signed-out" }
+    return loadForMember(team.acting, team.store, id, productId)
+  }
+
   /* The creator and profiles rows through the request's own copies (lib/auth/request-scope): on a full load the /app layout has already asked for both, and the editor now shares those answers instead of asking again. */
   const [creatorRow, profileRow, [productRes, assetsRes, variantsRes, limitRead, sold]] = await Promise.all([
     creatorForRequest(user.id),
@@ -161,5 +180,53 @@ async function readLimitColumn(supabase: Awaited<ReturnType<typeof createClient>
     return { limit: readSalesLimit((data as { sales_limit?: unknown } | null)?.sales_limit), missing: false }
   } catch {
     return { limit: null, missing: false }
+  }
+}
+
+/**
+ * The editor for a team member with Products (round 41): the store's row and
+ * its owner's handle, and the product, its files and its variants read with
+ * the service role by the product's id, used only when the product is the
+ * store's. The editor's saves then go from the browser under the row level
+ * security of SQL part 327 (team_can(creator_id, 'products')).
+ */
+async function loadForMember(acting: ActingStore, store: RequestCreator, id: string | null, productId: string | null): Promise<EditorLoad> {
+  const admin = createAdminClient()
+  const [username, currency, productRes, assetsRes, variantsRes, limitRead, sold] = await Promise.all([
+    storeHandle(admin, acting.creatorId, acting.ownerUserId),
+    readStoreCurrency(admin, acting.creatorId),
+    id ? admin.from("products").select(PRODUCT_COLUMNS).eq("id", id).eq("creator_id", acting.creatorId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    id ? admin.from("digital_assets").select("id, file_name, file_path, file_size, mime_type, scan_status").eq("product_id", id) : Promise.resolve({ data: [] }),
+    id ? admin.from("product_variants").select(VARIANT_COLUMNS).eq("product_id", id).order("position") : Promise.resolve({ data: [], error: null }),
+    id ? readLimitColumn(admin as never, id) : Promise.resolve({ limit: null, missing: false }),
+    id ? copiesSold(admin, id) : Promise.resolve(null),
+  ])
+  const [productRow, variantsRead] = await Promise.all([
+    id && missingColumn(productRes.error) ? admin.from("products").select("*").eq("id", id).eq("creator_id", acting.creatorId).maybeSingle() : productRes,
+    id && missingColumn(variantsRes.error) ? admin.from("product_variants").select(VARIANT_COLUMNS_BASIC).eq("product_id", id).order("position") : variantsRes,
+  ])
+  const creator: EditorCreator = {
+    id: acting.creatorId,
+    slug: store.slug,
+    stripe_account_id: store.stripe_account_id,
+    stripe_onboarding_status: store.stripe_onboarding_status,
+    username: username,
+    payments_ready: paymentsReadyFrom(store),
+    currency: currency.currency,
+    team_owner: acting.ownerUserId,
+  }
+  if (!productId) return { state: "ready", creator, loaded: null }
+  const product = productRow.data as EditorProductRow | null
+  if (!product || product.creator_id !== acting.creatorId) return { state: "missing", creator }
+  return {
+    state: "ready",
+    creator,
+    loaded: {
+      product,
+      assets: ((assetsRes.data as EditorAssetRow[] | null) ?? []),
+      variants: ((variantsRead.data as EditorVariantRow[] | null) ?? []),
+      variantsUnread: !!variantsRead.error && variantsRead.error.code !== "42P01" && variantsRead.error.code !== "PGRST205",
+      sales: { limit: limitRead.limit, missing: limitRead.missing, sold },
+    },
   }
 }

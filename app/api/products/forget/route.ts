@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createClient } from "@/lib/supabase/server"
+import { requireTeamPermission } from "@/lib/team/server"
 import { forgetDeletedProduct, purgeProductCaches, refreshPublishedSite } from "@/lib/products/forget-product"
 import { queueProductFanout } from "@/lib/notifications/fanout"
 
@@ -30,11 +30,9 @@ const SLUG = /^[A-Za-z0-9][A-Za-z0-9._~-]{0,199}$/
  * so a stranger's id or slug reaches nothing. lib/products/forget-product.ts.
  */
 export async function POST(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  /* Whose store: the signed in owner's, or (round 41) the store a team member with Products works in. */
+  const gate = await requireTeamPermission("products")
+  if (gate instanceof NextResponse) return gate.status === 401 ? NextResponse.json({ error: "Unauthorized" }, { status: 401 }) : gate
 
   const body = (await request.json().catch(() => null)) as { productId?: unknown; productSlug?: unknown } | null
   const productId = typeof body?.productId === "string" && UUID.test(body.productId) ? body.productId : null
@@ -42,12 +40,12 @@ export async function POST(request: Request) {
   if (!productId && !askedSlug) return NextResponse.json({ error: "Nothing to forget" }, { status: 400 })
 
   const admin = createAdminClient()
-  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  const creatorId = (creator as { id?: string } | null)?.id
-  if (!creatorId) return NextResponse.json({ ok: true })
+  const creatorId = gate.creatorId
+  /* The account the store belongs to: the owner's own id, or the store owner's for a team member. */
+  const ownerId = gate.ownerUserId ?? ""
 
-  /* The address the product had on storelib.com is under the creator's handle. */
-  const { data: profile } = await admin.from("profiles").select("username").eq("id", user.id).maybeSingle()
+  /* The address the product had on storelib.com is under the creator's (the store owner's) handle. */
+  const { data: profile } = await admin.from("profiles").select("username").eq("id", ownerId).maybeSingle()
   const handle = (profile as { username?: string | null } | null)?.username?.trim().toLowerCase() || null
 
   /*
@@ -78,7 +76,7 @@ export async function POST(request: Request) {
     productId: productId ?? "",
     slug,
     handle,
-    ownerId: user.id,
+    ownerId,
   })
   return NextResponse.json({ ok: true, deleted: true, pagesChanged }, { status: 202 })
 }

@@ -14,7 +14,7 @@ const PAGE = 50
  * email; checkout, shipments, returns and partners are named by their source.
  */
 export async function GET(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("products")
   if (c instanceof NextResponse) return c
   const url = new URL(request.url)
   const variantId = url.searchParams.get("variantId")

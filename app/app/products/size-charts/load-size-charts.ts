@@ -1,7 +1,6 @@
 import "server-only"
 
-import { pageUser } from "@/lib/auth/page-user"
-import { creatorForRequest } from "@/lib/auth/request-scope"
+import { teamPageStore } from "@/lib/team/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { requirePhysicalPage } from "@/lib/physical/gate"
 import { listSizeCharts } from "@/lib/size-charts/server"
@@ -15,10 +14,10 @@ import { listSizeCharts } from "@/lib/size-charts/server"
  */
 export async function loadSizeChartArea() {
   await requirePhysicalPage()
-  const user = await pageUser()
-  if (!user) return { state: "signed-out" as const }
-  const creator = await creatorForRequest(user.id)
-  if (!creator) return { state: "no-creator" as const }
-  const area = await listSizeCharts(createAdminClient(), creator.id)
-  return { state: "ok" as const, creatorId: creator.id as string, ...area }
+  /* Whose store (round 41): the owner's own, or the store a team member with Products works in. A member without it draws nothing; the team bar says why. */
+  const access = await teamPageStore("products")
+  if (access.kind === "signed_out" || access.kind === "denied") return { state: "signed-out" as const }
+  if (access.kind === "none") return { state: "no-creator" as const }
+  const area = await listSizeCharts(createAdminClient(), access.creatorId)
+  return { state: "ok" as const, creatorId: access.creatorId, ...area }
 }

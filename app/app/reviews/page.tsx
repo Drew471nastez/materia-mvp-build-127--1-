@@ -1,8 +1,7 @@
 import type { Metadata } from "next"
-import { currentCreatorId } from "@/lib/creators/current"
 import { getServerTt } from "@/lib/i18n/server"
 import { ReviewsClient } from "./reviews-client"
-import { noStorePage } from "@/lib/team/server"
+import { noStorePage, teamPageStore } from "@/lib/team/server"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -28,7 +27,9 @@ export async function generateMetadata(): Promise<Metadata> {
  * (components/reviews/manage/reviews-manage.tsx reads them).
  */
 export default async function ReviewsPage() {
-  const creatorId = await currentCreatorId()
-  if (!creatorId) return noStorePage("/app/reviews")
+  /* Whose store (round 41): the owner's own, or the store a team member with Products works in; the page's own reads go through the API, which asks the same. */
+  const access = await teamPageStore("products")
+  if (access.kind === "signed_out" || access.kind === "denied") return null
+  if (access.kind === "none") return noStorePage("/app/reviews")
   return <ReviewsClient />
 }

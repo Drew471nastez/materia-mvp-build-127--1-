@@ -5,6 +5,9 @@ import { ProductsClient } from "./products-client"
 import type { Metadata } from "next"
 import { pageUser } from "@/lib/auth/page-user"
 import { getServerTt } from "@/lib/i18n/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { teamPageStore } from "@/lib/team/server"
+import { storeHandle } from "@/lib/team/store-handle"
 
 export async function generateMetadata(): Promise<Metadata> {
   const { tt } = await getServerTt()
@@ -22,6 +25,19 @@ export async function generateMetadata(): Promise<Metadata> {
  * layout's answers and not a second trip. All on the caller's own client.
  */
 export default async function ProductsPage() {
+  /* Round 41: a team member with Products works in the store's catalogue. Read with the service role, filtered by the store's id; the owner's path below is the one it was. */
+  const team = await teamPageStore("products")
+  if (team.kind === "denied") return null
+  if (team.kind === "store" && !team.isOwner) {
+    const admin = createAdminClient()
+    const [{ data: rows }, handle] = await Promise.all([
+      admin.from("products").select("*").eq("creator_id", team.creatorId).order("created_at", { ascending: false }),
+      storeHandle(admin, team.creatorId, team.ownerUserId),
+    ])
+    const listed = (rows || []).filter((p: { community_id?: string | null }) => !p.community_id)
+    return <ProductsClient products={listed} creatorUsername={handle ?? ""} creatorId={team.creatorId} />
+  }
+
   const user = await pageUser()
   /* Supabase did not answer in time: the layout's gate recovers the
      session in the browser. Not /login (lib/auth/page-user.ts). */
@@ -47,6 +63,7 @@ export default async function ProductsPage() {
     <ProductsClient
       products={listed}
       creatorUsername={creatorUsername}
+      creatorId={creator.id}
     />
   )
 }

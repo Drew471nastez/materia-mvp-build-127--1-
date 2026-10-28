@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { teamStoreIdFor } from "@/lib/team/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureProductBundle } from "@/lib/bundles"
@@ -45,7 +46,8 @@ export async function POST(request: Request) {
     }
 
     const creatorOwner = (product as any).creator
-    if (!creatorOwner || creatorOwner.user_id !== user.id) {
+    /* The owner, or (round 41) a team member with Products working in this product's store. */
+    if (!creatorOwner || (creatorOwner.user_id !== user.id && creatorOwner.id !== (await teamStoreIdFor(user.id, "products")))) {
       return NextResponse.json({ error: "Not your product" }, { status: 403 })
     }
 

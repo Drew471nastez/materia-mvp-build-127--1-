@@ -191,6 +191,8 @@ export interface EditorCreator {
   payments_ready?: boolean
   /** The store's currency for every price field, "USD" or "RON" (lib/store/currency.ts); missing reads as US dollars. */
   currency?: string
+  /** Round 41: set when a team member edits the store's product: the store owner's account, whose folder a video goes into. Missing for the owner. */
+  team_owner?: string | null
 }
 
 /* ── Rows to fields ───────────────────────────────────────────────────── */

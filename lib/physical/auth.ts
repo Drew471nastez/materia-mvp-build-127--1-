@@ -29,6 +29,10 @@ export interface PhysicalCaller {
   creatorId: string
   userId: string
   db: Db
+  /** Round 41: false for a team member working in the store. */
+  isOwner?: boolean
+  /** The account the store belongs to: the signed in owner, or the store's owner for a team member. What is kept by account (a Files folder, a handle) is read with this, never userId. */
+  ownerUserId?: string | null
 }
 
 const NO_STORE = { "Cache-Control": "no-store" }
@@ -65,7 +69,7 @@ export async function shopCaller(area: TeamArea = "store"): Promise<PhysicalCall
   const found = await creatorFor(db, user.id, area)
   if (found.kind === "denied") return physicalJson({ error: "Your role on this store's team does not include this. Ask the store's owner." }, 403)
   if (found.kind === "none") return physicalJson({ error: "Set up your store first." }, 403)
-  return { creatorId: found.creator.id, userId: user.id, db }
+  return { creatorId: found.creator.id, userId: user.id, db, isOwner: !found.acting, ownerUserId: found.acting ? found.acting.ownerUserId : user.id }
 }
 
 /** The JSON body of a request, or null when it is not an object. */

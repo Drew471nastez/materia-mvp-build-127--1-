@@ -5,6 +5,7 @@ import { productTag } from "@/lib/commerce/product-page-cache"
 import { uploadRateLimit } from "@/lib/storage/upload-guard"
 import { ManageError, applyAction, completeUpload, editorTree, ownerOf, prepareUpload } from "@/lib/courses/manage"
 import { PRIVATE, sessionUserId } from "@/lib/courses/route-auth"
+import { teamStoreIdFor } from "@/lib/team/server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
   if (!userId) return NextResponse.json({ error: "Sign in first." }, { status: 401, headers: PRIVATE })
   try {
     const db = createAdminClient()
-    const owner = await ownerOf(db, userId, new URL(request.url).searchParams.get("productId"))
+    const owner = await ownerOf(db, userId, new URL(request.url).searchParams.get("productId"), await teamStoreIdFor(userId, "products"))
     return NextResponse.json({ tree: await editorTree(db, owner.productId) }, { headers: PRIVATE })
   } catch (error) {
     return failure(error)
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
   }
   try {
     const db = createAdminClient()
-    const owner = await ownerOf(db, userId, body.productId)
+    const owner = await ownerOf(db, userId, body.productId, await teamStoreIdFor(userId, "products"))
     const action = typeof body.action === "string" ? body.action : ""
 
     if (action === "upload-prepare") {
