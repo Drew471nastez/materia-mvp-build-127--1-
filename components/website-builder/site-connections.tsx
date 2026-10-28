@@ -59,6 +59,8 @@ const CATCH_UP_AWAY_MS = 8_000
 /** How many pages of the log one pass will fold together. */
 const CATCH_UP_PAGES = 6
 const ACTIVITY_PAGE = 20
+/** The next read after an apply that had to wait (a scroll resting, a page read back): straight after, so a change made meanwhile lands with it. */
+export const HELD_UP_MS = 50
 
 /**
  * The app coming back to the front, or going to the back, in the iOS and
@@ -260,6 +262,8 @@ export function useSiteActivity({
       /* Timers frozen with no visibilitychange (sleep, a suspended web view): that is an absence too. */
       const away = slept(dueAt, Date.now(), CATCH_UP_AWAY_MS)
       const pending = catchUpPending
+      /* Applying waited (the canvas was being scrolled, a page was read back): the log may have grown meanwhile. */
+      let heldUp = false
       catchUpPending = false
       let catchUp = pending || away
       try {
@@ -307,6 +311,7 @@ export function useSiteActivity({
           eventsFull = fresh.length >= ACTIVITY_PAGE * CATCH_UP_PAGES
           /* Taken before applying: a throw or a timeout below still counts them, so none is applied twice. */
           remember(seen.current, events.map((ev) => ev.id))
+          const appliedFrom = Date.now()
           try {
             /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
             const applying = (async () => { await onEventsRef.current(events, { catchUp }) })()
@@ -315,6 +320,7 @@ export function useSiteActivity({
           } catch {
             try { onStaleRef.current?.() } catch { /* the cursor still moves; the next read is the new lines */ }
           }
+          heldUp = Date.now() - appliedFrom >= POLL_ACTIVE_MS
           const last = events[events.length - 1]
           setBrief((b) => (b ? { ...b, latest: { name: last.agent_name, at: last.created_at ?? new Date().toISOString() } } : b))
         }
@@ -343,6 +349,8 @@ export function useSiteActivity({
          A full page of the log means more is waiting, so that one is immediate. */
       delay = document.visibilityState === "visible" ? (arrived && eventsFull ? 200 : POLL_ACTIVE_MS) : (arrived && eventsFull ? 200 : paced)
       if (retry) delay = POLL_ACTIVE_MS
+      /* The lines just applied waited for a scroll to rest: what came in behind them is read now, not a second after the rest. */
+      else if (heldUp) delay = HELD_UP_MS
       schedule(delay)
     }
     let woke = 0

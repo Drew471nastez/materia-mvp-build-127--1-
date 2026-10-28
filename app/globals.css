@@ -5805,6 +5805,24 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
 [data-section-library="phone"]:not([data-library-open]) .wb-preview-shimmer::after {
   animation: none;
 }
+
+/* NOTHING MOVES IN A SHELL NOBODY CAN SEE (round perf2-1028). The library,
+   the block picker and Ask Storelib's conversation are kept in the page while
+   closed, hidden. Hidden is not still: a preview's marquee and a spinner
+   inside them went on animating, a style pass and a layering pass on every
+   frame of every canvas scroll (scripts/check-editor-perf.mjs, TRACE=scroll:
+   "StyleRecalc Animation" each frame, 13ms of it at a quarter speed). Paused,
+   not taken off, so each is where it was when the shell opens again. */
+.wb-library-layer[data-state="closed"] *,
+.wb-library-layer[data-state="closed"] *::before,
+.wb-library-layer[data-state="closed"] *::after,
+[data-section-library="phone"]:not([data-library-open]) *,
+[data-block-picker-layer][data-state="closed"] *,
+[data-ask-card][aria-hidden="true"] *,
+[data-ask-card][aria-hidden="true"] *::before,
+[data-ask-card][aria-hidden="true"] *::after {
+  animation-play-state: paused !important;
+}
 @media (prefers-reduced-motion: reduce) {
   .wb-preview-shimmer::after { animation: none; }
 }

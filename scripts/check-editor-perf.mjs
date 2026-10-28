@@ -89,12 +89,59 @@
  * ask sounds' AudioContext and its room (lib/website-builder/ask-sounds.ts,
  * about 60ms in the profile, on purpose inside a gesture for iOS), once.
  *
+ * Round perf2-1028: the canvas scrolled, and changes from outside. PART=
+ * scroll,live,load (below) drive the same editor through scripts/canvas-
+ * probe-kit.mjs on a computer (1280x900, a wheel) and a phone (390x844, a
+ * finger's fling), Storelib and imported themes, and play a connected
+ * agent's edits, a burst of twelve, a GitHub push that rewrote the page and
+ * an Ask Storelib run under an open editor with a heading being typed in.
+ * Found, with the numbers that named each (CPU 4x unless said):
+ *
+ *   every key and press in a connected editor threw "POLL_MAX_MS is not
+ *     defined" from the activity poll (site-connections.tsx): 5 page errors
+ *     per run, now 0
+ *   animations inside the closed section library (a preview's marquee) and
+ *     the hidden Ask card (a spinner) restyled and relayered every frame of
+ *     a scroll (TRACE=scroll: "StyleRecalc Animation" each frame): paused
+ *     there (globals.css). Imported theme, wheel: main thread style 231 and
+ *     317ms -> 35 and 53ms per gesture, dropped frames 10 / 14% -> 7 / 9%;
+ *     at 6x 33% -> 14%. The Storelib theme's wheel is NOT better: 36 to 40%
+ *     dropped before and after at 4x; its style (about 560ms), paint (about
+ *     700ms), hit tests and layerizing every frame of a long canvas are left
+ *   a GitHub push read back redrew all 16 sections for one replaced: laid
+ *     over what is on screen (incoming-diff.ts), 16 -> 3 on a computer (the
+ *     replaced one and two this probe's routes could not save), 16 -> 2 on
+ *     a phone; renders 2,246 -> 1,702
+ *   each render of the editor drew every field of the open section and the
+ *     section toolbar again (OWNERS=1): fields memoized behind a stable
+ *     onChange, CollectionBoundField reads sibling settings only for a
+ *     setting that follows a collection, the toolbar memoized behind
+ *     useStableHandlers. Renders: an agent's edit 1,596 -> 1,193, the open
+ *     section's 2,100 -> 1,453, a toggle 713 -> 423, the slider 1,467 ->
+ *     about 840, select another 1,913 -> 1,404, an Ask run 10,350 -> about
+ *     8,200
+ *   the closed library put in cards under input and incoming edits: it now
+ *     waits for the same quiet its previews wait for, and a change landing
+ *     pushes that quiet back
+ *   the poll waited a second after a scroll rested before reading what came
+ *     in behind; an empty own-site token answer was asked again per mount
+ *
+ * Times on this shared four core machine moved by up to 2x between runs of
+ * the same bundle, so only the counts above and the imported scroll (which
+ * moved the same way in every pair) are claimed. Two alternating pairs at 4x,
+ * one at 6x; scratchpad numbers in the commit's report.
+ *
  *   node scripts/check-editor-perf.mjs
+ *   npx tsx scripts/check-editor-perf.mjs    (an imported theme needs tsx: its converter is TypeScript)
+ *   PART=interactions|scroll|live|load       some parts only (comma separated; all by default)
+ *   DEVICE=desktop|phone  THEME=storelib|imported   for scroll and live
+ *   BUDGET=0                                 report without failing on the budgets
+ *   OWNERS=1                                 whose render drew each tooltip and field
  *   CPU=4 node scripts/check-editor-perf.mjs        the CPU slowed 4x
  *   EDITOR_BUNDLE=<file> node scripts/check-editor-perf.mjs   reuse a bundle (one built from another commit, to compare)
  *   STYLESHEET=<file>    a compiled stylesheet instead of this checkout's (scripts/probe-css.mjs output)
- *   PROFILE=<name>       a CPU profile of the interactions whose name matches
- *   TRACE=<name>         the style and layout passes of those; TRACE_INV=1 adds what invalidated them
+ *   PROFILE=<name>       a CPU profile of the interactions whose name matches (PROFILE=scroll: the gesture)
+ *   TRACE=<name>         the style and layout passes of those; TRACE_INV=1 adds what invalidated them (TRACE=scroll too)
  *   JSON=<file>          also write the numbers as JSON
  *   SWITCHES=50          page switches for the memory run
  */
@@ -116,9 +163,9 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAF0lEQVR
  * the way React DevTools does. A subtree whose child list is the same object
  * as before was not visited in this commit, so it is not walked.
  */
-const INIT = String.raw`
+const INIT_RAW = String.raw`
 (function () {
-  var P = window.__perf = { commits: 0, lastCommit: 0, counting: false, renders: {}, sectionTypes: {}, longs: [], firstCanvas: null, canvasReady: null }
+  var P = window.__perf = { owners: __OWNERS__ ? {} : null, commits: 0, lastCommit: 0, counting: false, renders: {}, sectionTypes: {}, longs: [], firstCanvas: null, canvasReady: null }
   var COMP = { 0: 1, 1: 1, 11: 1, 15: 1 }
   function nameOf(f) {
     var t = f.type
@@ -135,6 +182,13 @@ const INIT = String.raw`
         P.renders[nm] = (P.renders[nm] || 0) + 1
         /* Which sections ran, by type: a change to one section should run that one. */
         if (nm === "SectionRendererInner" && n.memoizedProps && n.memoizedProps.section) { var st = n.memoizedProps.section.type; P.sectionTypes[st] = (P.sectionTypes[st] || 0) + 1 }
+        /* OWNERS=1: whose render drew each tooltip and field, by the nearest component of the editor's own above it. */
+        if (P.owners && (nm === "Tooltip" || nm === "FieldControl" || nm === "Popper")) {
+          var o = n.return, on = "?"
+          while (o) { var onm = COMP[o.tag] ? nameOf(o) : ""; if (onm && !/^(Tooltip|Popper|Primitive|Slot|Presence|ForwardRef|Anonymous|Portal|DismissableLayer|Provider|FieldEditor|Collection|DynamicSource|SharedIn|Translation|Sibling)/.test(onm)) { on = onm; break } o = o.return }
+          var key = nm + "<" + on
+          P.owners[key] = (P.owners[key] || 0) + 1
+        }
       }
       if (p && n.child === p.child) continue
       for (var c = n.child; c; c = c.sibling) stack.push(c, c.alternate)
@@ -154,6 +208,11 @@ const INIT = String.raw`
   try {
     new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { P.longs.push([e.startTime, e.duration]) }) }).observe({ type: "longtask", buffered: true })
   } catch (e) {}
+  /* Event Timing: from an input to the frame painted after it (what INP is made of), its wait, and its handlers. */
+  P.ev = []
+  try {
+    new PerformanceObserver(function (l) { l.getEntries().forEach(function (e) { P.ev.push([e.startTime, e.duration, e.name, Math.round(e.processingStart - e.startTime), Math.round(e.processingEnd - e.processingStart)]) }) }).observe({ type: "event", durationThreshold: 16, buffered: true })
+  } catch (e) {}
   /* The first frame with the page's sections drawn and the loader gone. */
   function look() {
     var sc = document.getElementById("wb-preview-root")
@@ -161,11 +220,15 @@ const INIT = String.raw`
     if (n >= 1 && P.firstCanvas === null) P.firstCanvas = performance.now()
     var loader = document.querySelector(".wb-canvas-loader:not([data-leaving=true])")
     if (n >= 8 && !loader) { P.canvasReady = performance.now(); return }
+    /* An imported theme draws in a frame and never reaches eight boxes here: stop looking rather than run a frame loop for ever. */
+    if (performance.now() > 60000) return
     requestAnimationFrame(look)
   }
   requestAnimationFrame(look)
 })()
 `
+
+const INIT = INIT_RAW.replace("__OWNERS__", process.env.OWNERS ? "true" : "false")
 
 /** In the page once it is up: windows of measurement, and the few ways in. */
 const TOOLS = String.raw`
@@ -179,7 +242,8 @@ window.__pt = (function () {
     P.counting = true
     P.renders = {}
     P.sectionTypes = {}
-    w = { c0: P.commits, l0: P.longs.length, t0: performance.now() }
+    if (P.owners) P.owners = {}
+    w = { c0: P.commits, l0: P.longs.length, t0: performance.now(), e0: P.ev.length }
   }
   /* Until nothing has committed and no long task has run for quietMs. */
   async function quiet(quietMs, capMs) {
@@ -199,7 +263,13 @@ window.__pt = (function () {
     var total = 0
     for (var k in r) total += r[k]
     var top = Object.keys(r).sort(function (a, b) { return r[b] - r[a] }).slice(0, 12).map(function (k) { return k + ":" + r[k] })
+    /* The slowest input to next paint in the window (one interaction's INP), and the slowest handler. */
+    var evs = P.ev.slice(w.e0).filter(function (e) { return e[0] >= w.t0 - 5 && /^(keydown|keyup|keypress|input|beforeinput|pointerdown|pointerup|pointermove|click|mousedown|mouseup|mousemove)$/.test(e[2]) })
+    var inp = evs.reduce(function (a, e) { return Math.max(a, e[1]) }, 0)
+    var handler = evs.reduce(function (a, e) { return Math.max(a, e[4]) }, 0)
     return {
+      inp: Math.round(inp),
+      handler: Math.round(handler),
       commits: P.commits - w.c0,
       renders: total,
       editor: r.StoreEditorPage || 0,
@@ -211,6 +281,7 @@ window.__pt = (function () {
       wall: Math.round(Math.max(P.lastCommit - w.t0, 0)),
       top: top,
       sectionTypes: P.sectionTypes,
+      owners: P.owners ? Object.keys(P.owners).sort(function (a, b) { return P.owners[b] - P.owners[a] }).slice(0, 14).map(function (k) { return k + ":" + P.owners[k] }) : null,
     }
   }
   function side() { return document.querySelector("[data-wb-sidebar-scroll]") }
@@ -349,7 +420,7 @@ function printTrace(ev) {
   console.log("      biggest: " + big.map((e) => `${e.name === "Layout" ? "layout" : "style"} ${(e.dur / 1000).toFixed(1)}ms/${e.args?.elementCount ?? e.args?.beginData?.dirtyObjects ?? "?"}`).join("  "))
 }
 
-async function main() {
+async function interactions() {
   const harness = await import("./editor-probe-harness.mjs")
   const bundle = harness.bundle
   /* STYLESHEET=<file>: a compiled stylesheet to measure instead of this checkout's (an older one, to compare). */
@@ -445,8 +516,9 @@ async function main() {
       if (tracing) printTrace(JSON.parse(Buffer.from(await page.tracing.stop()).toString("utf8")).traceEvents)
       if (note !== undefined && note !== true) m.note = note
       report[name] = m
-      console.log(`  ${name.padEnd(18)} ${String(m.commits).padStart(4)} commits  ${String(m.renders).padStart(6)} renders (editor ${m.editor}, canvas ${m.canvas}, sections ${m.sections})  long ${m.longTasks} (max ${m.longest}ms) blocking ${m.tbt}ms  wall ${m.wall}ms${m.note ? `  [${m.note}]` : ""}`)
+      console.log(`  ${name.padEnd(18)} ${String(m.commits).padStart(4)} commits  ${String(m.renders).padStart(6)} renders (editor ${m.editor}, canvas ${m.canvas}, sections ${m.sections})  long ${m.longTasks} (max ${m.longest}ms) blocking ${m.tbt}ms  input to paint ${m.inp}ms  wall ${m.wall}ms${m.note ? `  [${m.note}]` : ""}`)
       if (process.env.TOP) console.log(`      ${m.top.join("  ")}\n      sections by type: ${JSON.stringify(m.sectionTypes)}`)
+      if (m.owners) console.log(`      drawn by: ${m.owners.join("  ")}`)
       return m
     }
     const clickAt = async (p) => { await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.up() }
@@ -613,8 +685,546 @@ async function main() {
   } finally {
     await browser.close()
   }
-  if (process.env.JSON) writeFileSync(process.env.JSON, JSON.stringify(report, null, 2))
-  if (broken) { console.log(`\n${broken} part(s) could not be measured`); process.exit(1) }
+  all.interactions = report
+  return broken
 }
 
-await main()
+/* ───────────────────────────────────────────────────────────────────────────
+   SCROLLING THE CANVAS, AND CHANGES ARRIVING FROM OUTSIDE (round perf2-1028)
+   ───────────────────────────────────────────────────────────────────────────
+   The same editor through scripts/canvas-probe-kit.mjs (served over http, so
+   an imported theme's frame loads its own files), on a computer (1280x900, a
+   mouse wheel) and on a phone (390x844, a touch screen, a finger's fling
+   through Input.synthesizeScrollGesture), with the CPU slowed as CPU says.
+
+   SCROLL   frame intervals while the canvas moves (p50, p95, longest, the
+            share of frames dropped), long tasks, React commits, the time the
+            page's own scroll, wheel and touch handlers and its Resize,
+            Intersection and Mutation observers took during the gesture, the
+            wheel and touch listeners that are not passive, and from a trace
+            of a second pass the main thread's style, layout (and how many of
+            those layouts a script forced) and paint.
+   LIVE     a connected agent's edits and a GitHub push, read by the editor's
+            own poll of the activity log (render-editor-probe.tsx
+            PROBE_ACTIVITY), while a section is open and its heading is being
+            typed in: the commits and renders each costs, how many section
+            boxes were thrown away, the longest frame, whether the canvas kept
+            its scroll, and whether the field being typed in kept its focus
+            and its text. And an Ask Storelib run whose edits stream in faster
+            than the screen draws.
+*/
+
+const SCROLL_INIT = String.raw`
+;(function () {
+  var P = window.__perf
+  if (!P) return
+  P.timing = false
+  P.frames = []
+  P.hTime = {}
+  P.obs = { ro: 0, io: 0, mo: 0 }
+  P.obsN = { ro: 0, io: 0, mo: 0 }
+  P.lis = []
+  var WATCHED = { scroll: 1, wheel: 1, mousewheel: 1, touchstart: 1, touchmove: 1 }
+  var add = EventTarget.prototype.addEventListener, rem = EventTarget.prototype.removeEventListener
+  var wrapped = new WeakMap()
+  function where(t) {
+    if (t === window) return "window"
+    if (t === document) return "document"
+    if (t && t.nodeType === 1) return t.tagName.toLowerCase() + (t.id ? "#" + t.id : "") + (t.getAttribute && t.getAttribute("data-section-box") !== null ? "[section]" : "")
+    return "other"
+  }
+  function rootish(t) { return t === window || t === document || t === document.documentElement || t === document.body }
+  function keyOf(type, opts) { return type + ((typeof opts === "boolean" ? opts : !!(opts && opts.capture)) ? "1" : "0") }
+  EventTarget.prototype.addEventListener = function (type, fn, opts) {
+    if (!WATCHED[type] || !fn) return add.call(this, type, fn, opts)
+    var key = keyOf(type, opts)
+    var m = wrapped.get(fn)
+    if (!m) { m = {}; wrapped.set(fn, m) }
+    if (!m[key]) {
+      var orig = fn
+      m[key] = function (e) {
+        var call = function (self) { return typeof orig === "function" ? orig.call(self, e) : orig.handleEvent(e) }
+        if (!P.timing) return call(this)
+        var t0 = performance.now()
+        try { return call(this) } finally { P.hTime[type] = (P.hTime[type] || 0) + performance.now() - t0 }
+      }
+    }
+    /* Chrome makes a wheel or touch listener on the window, the document or its root passive unless asked otherwise. */
+    var explicit = opts && typeof opts === "object" && "passive" in opts
+    var passive = type === "scroll" ? true : explicit ? !!opts.passive : rootish(this)
+    P.lis.push([type, passive, where(this), this])
+    return add.call(this, type, m[key], opts)
+  }
+  EventTarget.prototype.removeEventListener = function (type, fn, opts) {
+    if (WATCHED[type] && fn) {
+      var m = wrapped.get(fn)
+      var w = m && m[keyOf(type, opts)]
+      if (w) return rem.call(this, type, w, opts)
+    }
+    return rem.call(this, type, fn, opts)
+  }
+  ;[["ResizeObserver", "ro"], ["IntersectionObserver", "io"], ["MutationObserver", "mo"]].forEach(function (pair) {
+    var C = window[pair[0]]
+    if (!C) return
+    var W = function (cb, o) {
+      var timed = function (a, b) {
+        if (!P.timing) return cb.call(this, a, b)
+        var t0 = performance.now()
+        try { return cb.call(this, a, b) } finally { P.obs[pair[1]] += performance.now() - t0; P.obsN[pair[1]]++ }
+      }
+      return new C(timed, o)
+    }
+    W.prototype = C.prototype
+    window[pair[0]] = W
+  })
+  var tick = function (t) { if (P.timing) P.frames.push(t); requestAnimationFrame(tick) }
+  requestAnimationFrame(tick)
+  /* Section boxes thrown away from the canvas (a redraw of the page where one section changed). */
+  P.removed = 0
+  var watchBoxes = function () {
+    var root = document.getElementById("wb-preview-root")
+    if (!root) return setTimeout(watchBoxes, 300)
+    new (window.MutationObserver)(function (list) {
+      if (!P.timing) return
+      list.forEach(function (m) { m.removedNodes.forEach(function (n) { if (n.nodeType === 1 && (n.matches("[data-section-box]") || n.querySelector("[data-section-box]"))) P.removed++ }) })
+    }).observe(root, { childList: true, subtree: true })
+  }
+  if (window === window.top) watchBoxes()
+  window.__sw = {
+    start: function () {
+      P.timing = true; P.frames = []; P.hTime = {}; P.obs = { ro: 0, io: 0, mo: 0 }; P.obsN = { ro: 0, io: 0, mo: 0 }; P.removed = 0
+      P.counting = true; P.renders = {}; P.sectionTypes = {}
+      P.w = { c0: P.commits, l0: P.longs.length, t0: performance.now(), e0: P.ev.length }
+    },
+    stop: function () {
+      P.timing = false; P.counting = false
+      var f = [], F = 1000 / 60, dropped = 0
+      for (var i = 1; i < P.frames.length; i++) { var d = P.frames[i] - P.frames[i - 1]; f.push(d); dropped += Math.max(0, Math.round(d / F) - 1) }
+      var sorted = f.slice().sort(function (a, b) { return a - b })
+      var q = function (p) { return sorted.length ? +sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))].toFixed(1) : 0 }
+      var longs = P.longs.slice(P.w.l0).filter(function (l) { return l[0] >= P.w.t0 - 5 })
+      var r = P.renders, total = 0
+      for (var k in r) total += r[k]
+      var hTime = {}
+      for (var h in P.hTime) hTime[h] = +P.hTime[h].toFixed(1)
+      return {
+        frames: f.length, p50: q(0.5), p95: q(0.95), max: sorted.length ? Math.round(sorted[sorted.length - 1]) : 0,
+        droppedPct: f.length ? Math.round(dropped / (f.length + dropped) * 1000) / 10 : 0,
+        longTasks: longs.length, longest: longs.length ? Math.round(Math.max.apply(null, longs.map(function (l) { return l[1] }))) : 0,
+        tbt: Math.round(longs.reduce(function (a, l) { return a + Math.max(0, l[1] - 50) }, 0)),
+        commits: P.commits - P.w.c0, renders: total, editor: r.StoreEditorPage || 0, sections: r.SectionRendererInner || 0, sectionTypes: P.sectionTypes,
+        handlers: hTime, observers: { ro: +P.obs.ro.toFixed(1), io: +P.obs.io.toFixed(1), mo: +P.obs.mo.toFixed(1) }, observerCalls: P.obsN,
+        removed: P.removed,
+        top: Object.keys(r).sort(function (a, b) { return r[b] - r[a] }).slice(0, 10).map(function (k) { return k + ":" + r[k] }),
+      }
+    },
+    /* Wheel and touch listeners that are not passive: "@canvas" when they sit on the canvas's path (the scroller, inside it, or around it), where a touch or a wheel has to wait for them; elsewhere they only hold their own element. */
+    blocking: function () {
+      var seen = {}
+      var sc = document.getElementById("wb-preview-root") || document.scrollingElement
+      return P.lis.filter(function (l) { return !l[1] && l[0] !== "scroll" }).map(function (l) {
+        var t = l[3], el = t && t.nodeType === 1 ? t : null
+        var path = !el || (sc && (el.contains(sc) || sc.contains(el)))
+        var cls = el && el.className && el.className.baseVal === undefined ? "." + String(el.className).split(/\s+/).slice(0, 3).join(".") : ""
+        return l[0] + "@" + l[2] + cls + (path ? "@canvas" : "")
+      }).filter(function (k) { if (seen[k]) return false; seen[k] = 1; return true })
+    },
+  }
+})()
+`
+
+const PHONE = { width: 390, height: 844 }
+const DESKTOP = { width: 1280, height: 900 }
+const LIVE_GLOBALS = `window.PROBE_ACTIVITY={events:[{id:1000,agent_name:"Claude Code",path:"pages/home",action:"page",detail:{page:"home",ops:[]},created_at:"2026-10-01T00:00:00.000Z"}],syncAt:"2026-10-01T00:00:00.000Z"};window.PROBE_CONNECTIONS={agents:[{name:"Claude Code",kind:"claude"}],github:{repo:"owner/site"},latest:null};`
+/* A longer Storelib home page than the kit's, so a fling has somewhere to go: the probe's own ten, the product grid and five more. */
+const LONG_HOME = ["header", "hero_centered", "features_grid", "product_grid", "text_rich", "faq_accordion", "proof_testimonials", "text_image", "promo_newsletter", "cta_simple", "gallery", "about_image", "image_banner", "logo_bar", "process_steps", "footer"]
+const STORELIB_PAGE = `window.PROBE_PAGES={home:${JSON.stringify(LONG_HOME)},about:["header","text_rich","faq_accordion","cta_simple","footer"]};window.PROBE_PAGE_DELAY_MS=0;window.PROBE_HEADER={links:3};`
+const id = (type) => `${type}-${LONG_HOME.indexOf(type)}`
+
+/* Main thread time by kind, from a trace: style, layout (and the layouts a script forced), paint, script. */
+function traceSummary(ev) {
+  const mains = ev.filter((e) => e.name === "thread_name" && e.args?.name === "CrRendererMain")
+  const busy = (m) => ev.reduce((a, e) => a + (e.ph === "X" && e.pid === m.pid && e.tid === m.tid ? e.dur ?? 0 : 0), 0)
+  const main = mains.sort((a, b) => busy(b) - busy(a))[0]
+  const on = (e) => e.ph === "X" && e.dur && (!main || (e.pid === main.pid && e.tid === main.tid))
+  const sum = (names) => +(ev.filter((e) => on(e) && names.includes(e.name)).reduce((a, e) => a + e.dur, 0) / 1000).toFixed(1)
+  const layouts = ev.filter((e) => on(e) && e.name === "Layout")
+  const forced = layouts.filter((e) => (e.args?.beginData?.stackTrace ?? []).length > 0)
+  return {
+    style: sum(["UpdateLayoutTree"]),
+    layout: sum(["Layout"]),
+    layouts: layouts.length,
+    forcedLayouts: forced.length,
+    forcedBy: [...new Set(forced.map((e) => (e.args.beginData.stackTrace[0] ?? {}).functionName || "(anon)"))].slice(0, 6),
+    paint: sum(["Paint", "PaintImage", "PrePaint"]),
+    layerize: sum(["Layerize", "UpdateLayer", "CompositeLayers"]),
+    script: sum(["FunctionCall", "EventDispatch", "TimerFire", "FireAnimationFrame", "EvaluateScript", "v8.callFunction", "RunMicrotasks"]),
+  }
+}
+
+async function scrollGesture(ed, cdp, device) {
+  const at = await ed.js(() => {
+    const el = document.querySelector("[data-compat-frame='front']") ?? document.getElementById("wb-preview-root")
+    const r = el.getBoundingClientRect()
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + Math.min(r.height / 2, 300)), h: r.height }
+  })
+  if (device === "phone") {
+    /* A finger's fling down and back, as a phone sends it. */
+    for (const dy of [-2600, 2600, -2600]) {
+      await cdp.send("Input.synthesizeScrollGesture", { x: at.x, y: at.y, yDistance: dy, speed: 1800, gestureSourceType: "touch", repeatCount: 1 })
+      await sleep(250)
+    }
+  } else {
+    await ed.page.mouse.move(at.x, at.y)
+    for (const dir of [1, -1, 1]) {
+      for (let k = 0; k < 40; k++) { await ed.page.mouse.wheel({ deltaY: 100 * dir }); await sleep(16) }
+      await sleep(150)
+    }
+  }
+}
+
+const fmtScroll = (m) => `frames p50 ${m.p50}ms p95 ${m.p95}ms max ${m.max}ms, dropped ${m.droppedPct}%; long ${m.longTasks} (max ${m.longest}ms); ${m.commits} commits; handlers ${JSON.stringify(m.handlers)}; observers ${JSON.stringify(m.observers)}`
+
+async function scrollScenario({ theme, device, bundle, css, cpu }) {
+  const { openEditor, importedTheme } = await import("./canvas-probe-kit.mjs")
+  const view = device === "phone" ? PHONE : DESKTOP
+  const ed = await openEditor({
+    kind: theme === "imported" ? "imported" : "native", bundle, css,
+    compat: theme === "imported" ? await importedTheme({ store: true }) : undefined,
+    globals: theme === "imported" ? LIVE_GLOBALS : STORELIB_PAGE + LIVE_GLOBALS,
+    init: INIT + SCROLL_INIT, cpu, width: view.width, height: view.height, touch: device === "phone", settle: 6000,
+  })
+  try {
+    const cdp = await ed.page.createCDPSession()
+    if (cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpu })
+    await settleQuiet(ed)
+    const front = theme === "imported" ? await ed.front() : null
+    const docs = front ? [ed.page, front] : [ed.page]
+    for (const d of docs) await d.evaluate(() => window.__sw && window.__sw.start())
+    /* PROFILE=scroll: where the main thread's time went during the gesture. */
+    const profiling = process.env.PROFILE && /scroll/i.test(process.env.PROFILE)
+    if (profiling) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await cdp.send("Profiler.start") }
+    await scrollGesture(ed, cdp, device)
+    const m = await ed.js(() => window.__sw.stop())
+    if (profiling) { console.log(`  profile, scroll ${theme} ${device}`); printProfile((await cdp.send("Profiler.stop")).profile) }
+    /* The frame's own handlers and observers (an imported theme's scripts), added to the editor's. */
+    if (front) {
+      const f = await front.evaluate(() => window.__sw ? window.__sw.stop() : null).catch(() => null)
+      if (f) {
+        m.frameHandlers = f.handlers
+        m.frameObservers = f.observers
+        m.frameLongTasks = f.longTasks
+      }
+    }
+    m.blocking = (await Promise.all(docs.map((d) => d.evaluate(() => window.__sw ? window.__sw.blocking() : []).catch(() => [])))).flat()
+    /* Again, under a trace, for where the main thread's time went. */
+    const inv = process.env.TRACE_INV ? ["disabled-by-default-devtools.timeline.invalidationTracking"] : []
+    await ed.page.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.stack", ...inv] })
+    await scrollGesture(ed, cdp, device)
+    const events = JSON.parse(Buffer.from(await ed.page.tracing.stop()).toString("utf8")).traceEvents
+    m.trace = traceSummary(events)
+    /* TRACE=scroll: the main thread by event and the biggest style and layout passes (TRACE_INV=1: what invalidated them). */
+    if (process.env.TRACE && /scroll/i.test(process.env.TRACE)) printTrace(events)
+    m.errors = ed.errors.slice(0, 5)
+    console.log(`  scroll  ${theme.padEnd(8)} ${device.padEnd(7)} ${fmtScroll(m)}`)
+    console.log(`          trace: style ${m.trace.style}ms, layout ${m.trace.layout}ms in ${m.trace.layouts} (${m.trace.forcedLayouts} forced${m.trace.forcedBy.length ? ` by ${m.trace.forcedBy.join(", ")}` : ""}), paint ${m.trace.paint}ms, script ${m.trace.script}ms; not passive: ${m.blocking.length ? m.blocking.join(" ") : "none"}${m.frameHandlers ? `; frame handlers ${JSON.stringify(m.frameHandlers)} observers ${JSON.stringify(m.frameObservers)}` : ""}`)
+    return m
+  } finally {
+    await ed.close()
+  }
+}
+
+/*
+  Until React has not committed and no long task has run for two seconds
+  (cap 45s): the library's drawing ahead and the first reads are over, so
+  what is measured next is the gesture or the change alone. Without this a
+  slow CPU measured the warm-up's card batches inside an agent's edit.
+*/
+async function settleQuiet(ed) {
+  return ed.js(async () => {
+    const P = window.__perf
+    const t0 = performance.now()
+    while (performance.now() - t0 < 45000) {
+      await new Promise((r) => setTimeout(r, 200))
+      const ll = P.longs.length ? P.longs[P.longs.length - 1][0] + P.longs[P.longs.length - 1][1] : 0
+      if (performance.now() - Math.max(P.lastCommit, ll) > 2000) break
+    }
+    return Math.round(performance.now() - t0)
+  })
+}
+
+/* ── Changes from outside, under an open editor ── */
+async function pushActivity(ed, events) {
+  await ed.js((evs) => {
+    const a = window.PROBE_ACTIVITY
+    let n = a.events.length ? a.events[a.events.length - 1].id : 1000
+    for (const e of evs) a.events.push({ ...e, id: ++n, created_at: new Date().toISOString() })
+  }, events)
+}
+
+/* Until `seen()` is true in the page (checked every frame), then until React has been quiet for `quiet` ms. */
+async function arrival(ed, seen, arg, cap = 20000) {
+  return ed.js(async (src, a, cap) => {
+    const test = new Function("a", `return (${src})(a)`)
+    const t0 = performance.now()
+    let at = null
+    while (performance.now() - t0 < cap) {
+      await new Promise((r) => requestAnimationFrame(r))
+      if (test(a)) { at = performance.now() - t0; break }
+    }
+    const P = window.__perf
+    const q0 = performance.now()
+    while (performance.now() - q0 < 6000) {
+      await new Promise((r) => setTimeout(r, 100))
+      const ll = P.longs.length ? P.longs[P.longs.length - 1][0] + P.longs[P.longs.length - 1][1] : 0
+      if (performance.now() - Math.max(P.lastCommit, ll) > 600) break
+    }
+    return at === null ? null : Math.round(at)
+  }, seen.toString(), arg, cap)
+}
+
+const textIn = (a) => { const el = document.getElementById(`wb-section-${a.id}`); return !!el && (el.textContent || "").includes(a.text) }
+
+async function liveScenario({ device, bundle, css, cpu }) {
+  const { openEditor } = await import("./canvas-probe-kit.mjs")
+  const view = device === "phone" ? PHONE : DESKTOP
+  const ed = await openEditor({ kind: "native", bundle, css, globals: STORELIB_PAGE + LIVE_GLOBALS, init: INIT + SCROLL_INIT, cpu, width: view.width, height: view.height, touch: device === "phone", settle: 6000 })
+  const out = {}
+  try {
+    const cdp = await ed.page.createCDPSession()
+    if (cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpu })
+    await settleQuiet(ed)
+    const stamp = `L${Date.now() % 100000}`
+    /* A section open and its heading being typed in, on the computer; on the phone the canvas alone. */
+    let typing = false
+    if (device === "desktop") {
+      const hero = await ed.js((hid) => { const b = document.getElementById(`wb-section-${hid}`); if (!b) return null; b.scrollIntoView({ block: "center" }); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + Math.min(60, r.height / 2) } }, id("hero_centered"))
+      if (hero) {
+        await ed.page.mouse.click(hero.x, hero.y)
+        /* The section's settings, given the time a slow CPU takes to draw them. */
+        await ed.page.waitForFunction(() => [...(document.querySelector("[data-wb-sidebar-scroll]")?.querySelectorAll("input, textarea") ?? [])].some((i) => /^Section \d+:/.test(i.value || "")), { timeout: 20000, polling: 200 }).catch(() => {})
+        await settleQuiet(ed)
+        const input = await ed.js(() => {
+          const s = document.querySelector("[data-wb-sidebar-scroll]")
+          const all = s ? s.querySelectorAll("input[type=text], input:not([type]), textarea") : []
+          for (const i of all) if (/^Section \d+:/.test(i.value || "")) { i.setAttribute("data-probe-typing", ""); i.scrollIntoView({ block: "center" }); const r = i.getBoundingClientRect(); return { x: r.left + r.width - 8, y: r.top + r.height / 2 } }
+          return null
+        })
+        if (input) {
+          await ed.page.mouse.click(input.x, input.y)
+          await ed.page.keyboard.press("End")
+          await ed.page.keyboard.type(" typing", { delay: 40 })
+          typing = true
+        }
+      }
+    }
+    /* The canvas a way down the page, so a jump would show. */
+    await ed.js(() => { const sc = document.getElementById("wb-preview-root"); sc.scrollTop = Math.min(1400, sc.scrollHeight - sc.clientHeight - 10) })
+    await sleep(600)
+    const before = async () => ed.js(() => {
+      const f = document.querySelector("[data-probe-typing]")
+      return { scroll: document.getElementById("wb-preview-root").scrollTop, focused: !!f && document.activeElement === f, value: f ? f.value : null }
+    })
+    const after = async (b, name, m, at) => {
+      const a = await before()
+      m.latency = at
+      m.scrollMoved = Math.round(a.scroll - b.scroll)
+      if (typing) { m.focusKept = a.focused; m.textKept = a.value === b.value }
+      out[name] = m
+      if (process.env.TOP) console.log(`      ${m.top.join("  ")}`)
+      console.log(`  live    ${device.padEnd(7)} ${name.padEnd(26)} ${at === null ? "NEVER ARRIVED" : `on the canvas after ${at}ms`}; ${m.commits} commits, ${m.renders} renders (editor ${m.editor}, sections ${m.sections} ${JSON.stringify(m.sectionTypes)}); boxes thrown away ${m.removed}; long ${m.longTasks} (max ${m.longest}ms); frame max ${m.max}ms; scroll moved ${m.scrollMoved}px${typing ? `; focus ${m.focusKept ? "kept" : "LOST"}, text ${m.textKept ? "kept" : "LOST"}` : ""}`)
+    }
+    const agent = (ops) => ({ agent_name: "Claude Code", path: "pages/home", action: "page", detail: { page: "home", ops } })
+
+    /* 1. One agent edit to one section. */
+    {
+      const b = await before()
+      await ed.js(() => window.__sw.start())
+      await pushActivity(ed, [agent([{ kind: "update_section", id: id("features_grid"), settings: { heading: `${stamp} one` } }])])
+      const at = await arrival(ed, textIn, { id: id("features_grid"), text: `${stamp} one` })
+      await after(b, "agent edits one section", await ed.js(() => window.__sw.stop()), at)
+    }
+    /* 2. An agent edit to the section whose heading is being typed in (another field of it). */
+    if (typing) {
+      const b = await before()
+      await ed.js(() => window.__sw.start())
+      await pushActivity(ed, [agent([{ kind: "update_section", id: id("hero_centered"), settings: { subheading: `${stamp} beside` } }])])
+      const at = await arrival(ed, textIn, { id: id("hero_centered"), text: `${stamp} beside` })
+      await after(b, "agent edits the open one", await ed.js(() => window.__sw.stop()), at)
+    }
+    /* 3. A GitHub push that rewrote the page: read back in place. The typed edit is saved first, so it is not a conflict. Before the
+       theme changes below: this probe's routes do not keep a save, so a push read after them would rightly redraw every section. */
+    {
+      /* The agent's edits above marked the page unsaved: autosave writes them first, or the push is a conflict for the person to settle, not a page read back. */
+      if (typing) await ed.js(() => { const a = document.activeElement; if (a && a.blur) a.blur() })
+      await sleep(3000)
+      typing = false
+      const b = await before()
+      await ed.js((s) => { const h = window.PROBE_PAGES.home; h[h.indexOf("cta_simple")] = "stats"; window.__pushStamp = s }, stamp)
+      await ed.js(() => window.__sw.start())
+      await pushActivity(ed, [{ agent_name: "GitHub", path: "pages/home", action: "page", detail: { page: "home", replaced: true } }])
+      const at = await arrival(ed, (a) => !!document.getElementById(`wb-section-${a.id}`), { id: id("cta_simple").replace("cta_simple", "stats") })
+      await after(b, "github push rewrote the page", await ed.js(() => window.__sw.stop()), at)
+    }
+    /* 4. A burst: twelve writes in one read of the log, over six sections and the theme. */
+    {
+      const b = await before()
+      const targets = ["features_grid", "text_rich", "faq_accordion", "promo_newsletter", "cta_simple", "text_image"].map(id)
+      const evs = []
+      for (let k = 0; k < 12; k++) evs.push(k === 5 ? agent([{ kind: "update_theme", settings: { primary_color: k % 2 ? "#0f766e" : "#1d4ed8" } }]) : agent([{ kind: "update_section", id: targets[k % targets.length], settings: { heading: `${stamp} burst ${k}` } }]))
+      await ed.js(() => window.__sw.start())
+      await pushActivity(ed, evs)
+      const at = await arrival(ed, textIn, { id: targets[11 % targets.length], text: `${stamp} burst 11` })
+      await after(b, "agent burst of 12", await ed.js(() => window.__sw.stop()), at)
+    }
+    /* 5. Changes arriving while the canvas is being scrolled: they wait for the gesture to rest, then land. */
+    {
+      const b0 = await before()
+      await ed.js(() => window.__sw.start())
+      const scrolling = scrollGesture(ed, cdp, device)
+      await sleep(300)
+      await pushActivity(ed, [agent([{ kind: "update_section", id: id("text_rich"), settings: { heading: `${stamp} mid` } }])])
+      await scrolling
+      const restAt = Date.now()
+      const at = await arrival(ed, textIn, { id: id("text_rich"), text: `${stamp} mid` })
+      const m = await ed.js(() => window.__sw.stop())
+      m.afterRest = at === null ? null : Math.max(0, at - 0)
+      m.restAt = restAt
+      await after({ ...b0, scroll: (await before()).scroll }, "agent edit during a scroll", m, at)
+    }
+    /* 6. Ask Storelib's edits streaming in faster than frames (a run's lines can arrive a few ms apart). */
+    if (device === "desktop") {
+      const lines = [{ type: "subject", text: "Editing the page" }]
+      const targets = ["features_grid", "text_rich", "faq_accordion", "promo_newsletter", "text_image", "gallery"].map(id)
+      for (let k = 0; k < 24; k++) lines.push({ type: "op", op: { kind: "update_section", id: targets[k % targets.length], settings: { heading: `${stamp} ask ${k}` } } })
+      lines.push({ type: "message", text: "Done." })
+      await ed.js((l) => { window.PROBE_AGENT_STREAM = { lines: l, gapMs: 4 } }, lines)
+      const box = await ed.page.$("[data-ask-pill] textarea")
+      if (box) {
+        await box.click()
+        await ed.page.keyboard.type("Headings")
+        const b = await before()
+        await ed.js(() => window.__sw.start())
+        await ed.page.keyboard.press("Enter")
+        const at = await arrival(ed, textIn, { id: targets[23 % targets.length], text: `${stamp} ask 23` })
+        await after(b, "ask run, 24 edits 4ms apart", await ed.js(() => window.__sw.stop()), at)
+      } else console.log("  (no Ask box)")
+    }
+    out.errors = ed.errors.slice(0, 5)
+    if (ed.errors.length) console.log(`  page errors: ${ed.errors.slice(0, 3).join(" | ")}`)
+    return out
+  } finally {
+    await ed.close()
+  }
+}
+
+/* ── First load on a slow network: every API route answering after a Slow 4G round trip ── */
+async function slowLoad({ bundle, css, cpu, device }) {
+  const { openEditor } = await import("./canvas-probe-kit.mjs")
+  const view = device === "phone" ? PHONE : DESKTOP
+  const t0 = Date.now()
+  const ed = await openEditor({
+    kind: "native", bundle, css, globals: STORELIB_PAGE + LIVE_GLOBALS + "window.PROBE_API_DELAY_MS=600;",
+    init: INIT + SCROLL_INIT, cpu, width: view.width, height: view.height, touch: device === "phone", settle: 4000,
+    beforeOpen: async (page) => {
+      const c = await page.createCDPSession()
+      /* Slow 4G's round trip as Lighthouse throttles it (150ms x 3.75). Not its 1.6Mbit: this bundle is the unminified editor, eight
+         times what ships, and its download would be the whole measurement. scripts/perf-budget.mjs holds the shipped weight. */
+      await c.send("Network.enable")
+      await c.send("Network.emulateNetworkConditions", { offline: false, latency: 562, downloadThroughput: -1, uploadThroughput: -1 })
+    },
+  })
+  try {
+    const r = await ed.js(() => {
+      const P = window.__perf
+      const calls = window.probeCalls || []
+      const seen = {}
+      for (const c of calls) seen[c] = (seen[c] || 0) + 1
+      const longs = P.longs
+      return {
+        firstCanvas: Math.round(P.firstCanvas ?? -1), canvasReady: Math.round(P.canvasReady ?? -1), commits: P.commits,
+        apiCalls: calls.length, repeated: Object.entries(seen).filter(([, n]) => n > 1).map(([k, n]) => `${n}x ${k.slice(0, 80)}`),
+        longTasks: longs.length, longest: longs.length ? Math.round(Math.max(...longs.map((l) => l[1]))) : 0,
+        skeleton: !!document.querySelector(".wb-canvas-loader, [data-builder-loader]"),
+      }
+    })
+    r.wallMs = Date.now() - t0
+    console.log(`  load    ${device.padEnd(7)} slow 4G: first canvas ${r.firstCanvas}ms, ready ${r.canvasReady}ms; API calls ${r.apiCalls}, repeated ${r.repeated.length ? r.repeated.join("; ") : "none"}; long tasks ${r.longTasks} (max ${r.longest}ms)`)
+    return r
+  } finally {
+    await ed.close()
+  }
+}
+
+/* ── Budgets: what each scenario must stay under at this CPU (they scale with it) ── */
+function budgets(all, cpu) {
+  const k = Math.max(1, cpu / 2)
+  const fails = []
+  const want = (ok, what, got) => { console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}   (${JSON.stringify(got)})`); if (!ok) fails.push(what) }
+  for (const [key, m] of Object.entries(all.scroll ?? {})) {
+    if (!m) continue
+    want(m.p95 <= 34 * k, `${key}: scroll frames p95 under ${Math.round(34 * k)}ms`, m.p95)
+    want(m.longest <= 120 * k, `${key}: no long task over ${Math.round(120 * k)}ms while scrolling`, m.longest)
+    want(m.commits <= 4, `${key}: at most 4 React commits during a scroll`, m.commits)
+    const handlers = Object.values(m.handlers ?? {}).reduce((a, b) => a + b, 0)
+    want(handlers <= 60 * Math.max(1, cpu), `${key}: scroll, wheel and touch handlers under ${Math.round(60 * Math.max(1, cpu))}ms in all`, Math.round(handlers))
+    want((m.blocking ?? []).filter((b) => /^(wheel|touchmove|mousewheel)@/.test(b) && /@canvas$/.test(b)).length === 0, `${key}: no wheel or touchmove listener on the canvas's path that blocks its scroll`, m.blocking)
+  }
+  for (const [dev, live] of Object.entries(all.live ?? {})) {
+    if (!live) continue
+    for (const [name, m] of Object.entries(live)) {
+      if (name === "errors") { want(m.length === 0, `live ${dev}: nothing thrown`, m); continue }
+      want(m.latency !== null, `live ${dev} ${name}: arrives without a refresh`, m.latency)
+      /* An Ask run brings its first changed section into view when it is over (aiRunFinished), on purpose. */
+      if (!/ask run/.test(name)) want(Math.abs(m.scrollMoved) <= 2 || /during a scroll/.test(name), `live ${dev} ${name}: the canvas keeps its scroll`, m.scrollMoved)
+      if (!/github/.test(name)) want(m.removed === 0, `live ${dev} ${name}: no section box thrown away`, m.removed)
+      else want(m.removed <= 1, `live ${dev} ${name}: only the replaced section's box goes`, m.removed)
+      if (m.focusKept !== undefined) want(m.focusKept && m.textKept, `live ${dev} ${name}: the field being typed in keeps its focus and text`, { focus: m.focusKept, text: m.textKept })
+      if (/agent edits one|agent edits the open/.test(name)) want(m.sections <= 3, `live ${dev} ${name}: only the changed section redraws`, m.sectionTypes)
+      if (/burst/.test(name)) want(m.commits <= 12, `live ${dev} ${name}: a burst read in one poll is a handful of commits, not one per edit`, m.commits)
+      want(m.longest <= 150 * k, `live ${dev} ${name}: no long task over ${Math.round(150 * k)}ms`, m.longest)
+    }
+  }
+  for (const [name, m] of Object.entries(all.interactions ?? {})) {
+    if (!m || typeof m !== "object" || !("inp" in m)) continue
+    if (/^(type 20 keys|toggle switch|slider 60 steps)$/.test(name)) want(m.inp <= 100 * k, `${name}: input to next paint under ${Math.round(100 * k)}ms`, m.inp)
+  }
+  return fails
+}
+
+const all = { cpu: CPU }
+const PART = (process.env.PART ?? "interactions,scroll,live,load").split(",")
+const DEVICES = (process.env.DEVICE ?? "desktop,phone").split(",")
+const THEMES = (process.env.THEME ?? "storelib,imported").split(",")
+let unmeasured = 0
+if (PART.includes("interactions")) unmeasured += await interactions()
+if (PART.some((p) => p !== "interactions")) {
+  process.env.PROBE_CSS = process.env.PROBE_CSS ?? "source"
+  const harness = await import("./editor-probe-harness.mjs")
+  const css = process.env.STYLESHEET ? readFileSync(process.env.STYLESHEET, "utf8") : harness.css
+  console.log(`\nCPU ${CPU}x, scrolling and changes from outside`)
+  if (PART.includes("scroll")) {
+    all.scroll = {}
+    for (const theme of THEMES) for (const device of DEVICES) {
+      try { all.scroll[`${theme} ${device}`] = await scrollScenario({ theme, device, bundle: harness.bundle, css, cpu: CPU }) } catch (e) { console.log(`  scroll ${theme} ${device} did not run: ${String(e).slice(0, 200)}`); unmeasured++ }
+    }
+  }
+  if (PART.includes("live")) {
+    all.live = {}
+    for (const device of DEVICES) {
+      try { all.live[device] = await liveScenario({ device, bundle: harness.bundle, css, cpu: CPU }) } catch (e) { console.log(`  live ${device} did not run: ${String(e).slice(0, 300)}`); unmeasured++ }
+    }
+  }
+  if (PART.includes("load")) {
+    all.load = {}
+    for (const device of DEVICES) {
+      try { all.load[device] = await slowLoad({ device, bundle: harness.bundle, css, cpu: CPU }) } catch (e) { console.log(`  load ${device} did not run: ${String(e).slice(0, 200)}`); unmeasured++ }
+    }
+  }
+}
+if (process.env.JSON) writeFileSync(process.env.JSON, JSON.stringify(all, null, 2))
+const over = process.env.BUDGET === "0" ? [] : (console.log("\nbudgets"), budgets(all, CPU))
+if (unmeasured) console.log(`\n${unmeasured} part(s) could not be measured`)
+if (over.length) console.log(`\n${over.length} over budget`)
+process.exit(unmeasured || over.length ? 1 : 0)
+
