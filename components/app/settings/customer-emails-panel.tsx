@@ -251,8 +251,8 @@ export function CustomerEmailsPanel({
   const list = (
     <div className={cn(bare ? "pb-1" : "")} data-customer-email-list="">
       <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between", bare ? "border-b border-[#f1f2f4] px-4 py-3 sm:px-5" : "mb-4")}>
-        {/* Analytics' own family chips (SegmentedPills chips): quiet words, the chosen one a dark pill that slides. No grey track. */}
-        <SegmentedPills variant="chips" value={shown} onChange={setView} options={tabs} label={tt("Email families")} className="-ml-1 max-w-full self-start sm:self-auto" />
+        {/* Analytics' own family chips (SegmentedPills chips): quiet words, the chosen one a dark pill. It does not slide (the owner): the choice changes at once, nothing moves. No grey track. */}
+        <SegmentedPills variant="chips" value={shown} slide={false} onChange={setView} options={tabs} label={tt("Email families")} className="-ml-1 max-w-full self-start sm:self-auto" />
         {shown === "communities" && communities.length > 1 && community ? (
           <label className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[13px] text-[#6b7280]">{tt("Community")}</span>
