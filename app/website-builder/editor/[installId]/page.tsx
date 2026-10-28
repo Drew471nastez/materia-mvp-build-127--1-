@@ -3161,6 +3161,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   /** Which path Connections opens on: GitHub from the GitHub button, else the default. */
   const [connectVia, setConnectVia] = useState<ConnectVia | null>(null)
   const openGitHub = () => {
+    /* Connections are the store owner's (round 42): nothing opens for a team member. */
+    if (teamMember) return
     openConnections()
     setConnectVia("github")
   }
@@ -3173,6 +3175,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (isMobileView) setAiOpen(false)
   }
   const openConnections = () => {
+    if (teamMember) return
     setConnectVia(null)
     setSettingsSection("connections")
     setPreviewMode("settings")
@@ -3294,6 +3297,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [aiOpen, setAiOpen] = useState(false)
   /**
+   * ROUND 42: A TEAM MEMBER WITH WEBSITE, working in the store (the install's
+   * read names the store owner for them, `storeOwner`). What stays the
+   * owner's (lib/team/website) is not offered at all: Ask Storelib and the
+   * section's Ask AI (they spend the owner's plan), GitHub, an AI key and the
+   * rest of Connections. The routes refuse them anyway.
+   */
+  const [teamMember, setTeamMember] = useState(false)
+  /**
    * Bumped to ask the computer's dock to open its conversation and put the
    * cursor in it: the Ask AI button on a section, or an answer to read.
    */
@@ -3323,8 +3334,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [aiMounted, setAiMounted] = useState(false)
   useEffect(() => {
-    if (aiOpen) setAiMounted(true)
-  }, [aiOpen])
+    if (aiOpen && !teamMember) setAiMounted(true)
+  }, [aiOpen, teamMember])
+  useEffect(() => {
+    if (teamMember) setAiOpen(false)
+  }, [teamMember])
   /**
    * A REQUEST TO THE AI IS NOT STOPPED BY CLOSING ITS PANEL. On a desktop the
    * panel was drawn only while open, so closing it unmounted the chat and the
@@ -4348,6 +4362,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const inst: ThemeInstall = data.install
     /* A team member's pictures go into the store owner's folder (lib/website-builder/team-upload-owner). */
     setWebsiteUploadOwner(typeof data.storeOwner === "string" ? data.storeOwner : null)
+    setTeamMember(typeof data.storeOwner === "string")
     setInstall(inst)
     if (data.username) setUsername(data.username)
     if (data.creatorFacts && typeof data.creatorFacts === "object") setCreatorFacts(data.creatorFacts as CreatorFacts)
@@ -10414,18 +10429,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         is linked, so the state is right there) and your own AI key. Claude
         Code and Codex are one fold away inside Connections.
       */
-      {
-        label: githubRepo ? "GitHub" : "Connect GitHub",
-        hint: githubRepo ?? "Recommended",
-        icon: <ConnectionMarkIcon kind="github" className="h-4 w-4" />,
-        onClick: () => actionCalls.current.openGitHub(),
-      },
-      {
-        label: "Your own AI",
-        hint: "Claude or OpenAI key",
-        icon: <KeyRound className="h-4 w-4" />,
-        onClick: () => actionCalls.current.openConnections(),
-      },
+      /* The store owner's alone (round 42): not in a team member's menu. */
+      ...(teamMember ? [] : [
+        {
+          label: githubRepo ? "GitHub" : "Connect GitHub",
+          hint: githubRepo ?? "Recommended",
+          icon: <ConnectionMarkIcon kind="github" className="h-4 w-4" />,
+          onClick: () => actionCalls.current.openGitHub(),
+        },
+        {
+          label: "Your own AI",
+          hint: "Claude or OpenAI key",
+          icon: <KeyRound className="h-4 w-4" />,
+          onClick: () => actionCalls.current.openConnections(),
+        },
+      ]),
       {
         label: "Undo",
         icon: <Undo2 className="h-4 w-4" />,
@@ -10461,7 +10479,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         separatorBefore: !websiteUrl,
       },
     ]
-  }, [inCode, githubRepo, websiteUrl, siteLive, installId])
+  }, [inCode, githubRepo, websiteUrl, siteLive, installId, teamMember])
   /**
    * The three dots. 32px drawn, and on a phone a 44px press area around it
    * (an invisible band, so the bar does not move). It presses in the way the
@@ -10789,7 +10807,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             Storelib beside it); what you do to the page on the right (undo and redo, the inspector, Publish as an
             icon). Every one of them a 40px key with a little depth, so a thumb finds it without looking.
           */}
-          {isMobileView && askButton}
+          {isMobileView && !teamMember && askButton}
           {/* No running commentary on the save. The Publish button already
               says whether the public site is behind, in the one place
               somebody goes to do something about it, and a sentence of grey
@@ -10973,7 +10991,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               live, pulsing while it is working. It opens Connections on the
               path that connection lives on. A phone reaches it from the menu.
               The notice of what is changing hangs from it. */}
-          {!isMobileView && (
+          {!isMobileView && !teamMember && (
             <ConnectionButton
               mark={connection}
               working={!!liveBatch}
@@ -10990,7 +11008,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           />
 
           {/* Ask Storelib: here on a computer, beside the menu on a phone (askButton). */}
-          {!isMobileView && askButton}
+          {!isMobileView && !teamMember && askButton}
           {/* The button says what is actually true.
               On a LIVE theme it is Publish: the draft is saved automatically,
               so "Save" would be a button for something that has already
@@ -11092,6 +11110,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           setPreviewMode("preview")
         }}
         initialSection={settingsSection}
+        teamMember={teamMember}
         githubReturned={githubReturned}
         connectVia={connectVia}
         installId={installId}
@@ -11528,7 +11547,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             a full height panel half see-through over the canvas while it
             rose and fell. Now a solid slide on the sidebar's curve and time,
             nothing else changing. */}
-        {isMobileView && aiMounted && (
+        {isMobileView && aiMounted && !teamMember && (
           <MobileEditorSheet open={aiOpen} onOpenChange={(next) => setAiOpen(next)} openFull layer="raised" peekHeight={0} detents={AI_SHEET_DETENTS} keyboard="composer">
             <ThemeChat
               variant="sheet"
@@ -12245,7 +12264,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   onMoveUp={() => moveBlockBy(sid, blockKey, -1)}
                   onMoveDown={() => moveBlockBy(sid, blockKey, 1)}
                   onDuplicate={() => duplicateBlock(sid, blockKey)}
-                  onAskAi={() => {
+                  onAskAi={teamMember ? undefined : () => {
                     setAiOpen(true)
                     rememberAskDockClosed(false)
                     setAiAsk((n) => n + 1)
@@ -12265,7 +12284,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onMoveUp={() => shownSectionId && moveSectionBy(shownSectionId, -1)}
                 onMoveDown={() => shownSectionId && moveSectionBy(shownSectionId, 1)}
                 onDuplicate={() => shownSectionId && duplicateSection(shownSectionId, true)}
-                onAskAi={() => {
+                onAskAi={teamMember ? undefined : () => {
                   setAiOpen(true)
                   if (isMobileView) setMobileSidebarOpen(false)
                   else {
@@ -12289,7 +12308,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               mounted, so a change it is making keeps going. The selected
               section's toolbar is drawn above it, and the pill steps out of
               its way when they meet. See components/website-builder/theme-chat.tsx. */}
-          {!isMobileView && aiMounted && (
+          {!isMobileView && aiMounted && !teamMember && (
             <ThemeChat
               variant="dock"
               hidden={!aiOpen}
@@ -12608,7 +12627,8 @@ const SectionToolbarBody = memo(function SectionToolbarBody({
   onToggleHide: () => void
   onRemove: () => void
   /** Opens the assistant on the section this toolbar belongs to. */
-  onAskAi: () => void
+  /** Absent for a team member (round 42): Ask AI is the store owner's. */
+  onAskAi?: () => void
   /** The page's own section (round BC): Delete's tooltip says why it is hidden instead, and pressing it says so too. */
   removeNote?: string
 }) {
@@ -12835,10 +12855,14 @@ const SectionToolbarBody = memo(function SectionToolbarBody({
        * in words, which is the same job by another route, so it sits with
        * them rather than in a menu somewhere else.
        */}
-      <Item label="Ask AI" onClick={onAskAi}>
-        <StorelibLogo size={16} alt="" />
-      </Item>
-      <span aria-hidden className="mx-0.5 h-5 w-px bg-neutral-200" />
+      {onAskAi ? (
+        <>
+          <Item label="Ask AI" onClick={onAskAi}>
+            <StorelibLogo size={16} alt="" />
+          </Item>
+          <span aria-hidden className="mx-0.5 h-5 w-px bg-neutral-200" />
+        </>
+      ) : null}
       {!isChrome && (
         <>
           <Item label="Move up" onClick={onMoveUp} disabled={!canMoveUp}>

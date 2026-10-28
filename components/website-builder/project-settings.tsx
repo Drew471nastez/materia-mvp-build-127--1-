@@ -89,6 +89,7 @@ export function ProjectSettings({
   onHoldDraft,
   onEditPage,
   initialSection = null,
+  teamMember = false,
   githubReturned = null,
   connectVia = null,
   settings = {},
@@ -143,7 +144,14 @@ export function ProjectSettings({
   onNavigate?: (href: string) => void
   /** The header, the footer and the editor's writers for them: Navigation. */
   navigation?: Pick<SettingsContext, "header" | "footer" | "onSectionSetting" | "onBlockSetting" | "onAddBlock" | "onRemoveBlock" | "onReorderBlocks" | "linkTargets" | "linkSections" | "currentPageKey" | "currentSections" | "onPageDraftSaved" | "preview">
+  /**
+   * Round 42: a team member with Website, working in the store. Connections
+   * (GitHub, a Supabase project, agent tokens, an AI key) stay the store
+   * owner's (lib/team/website), so that section is not listed for them.
+   */
+  teamMember?: boolean
 }) {
+  const sections = teamMember ? SETTINGS_SECTIONS.filter((s) => s.id !== "connections") : SETTINGS_SECTIONS
   const [section, setSection] = useState<SettingsSection>("general")
   /** Light or dark: the person's own choice (website-settings/parts.tsx useSettingsLookChoice). */
   const look = useSettingsLookChoice()
@@ -167,7 +175,8 @@ export function ProjectSettings({
   if (seen !== openedAs) {
     setSeen(openedAs)
     if (open) {
-      setSection(initialSection ?? "general")
+      /* A member opened on Connections (a link, GitHub's return) lands on General instead. */
+      setSection(initialSection && !(teamMember && initialSection === "connections") ? initialSection : "general")
       setPicked(initialSection !== null)
     }
   }
@@ -296,7 +305,7 @@ export function ProjectSettings({
     onAddressChanged,
   }
 
-  const current = SETTINGS_SECTIONS.find((s) => s.id === section)
+  const current = sections.find((s) => s.id === section)
 
   return createPortal(
     <SettingsLookContext.Provider value={look}>
@@ -347,12 +356,12 @@ export function ProjectSettings({
         </div>
         <p className="px-5 pt-5 text-[20px] font-semibold text-white md:px-6 md:pt-6 md:text-[17px]">{tt("Website settings")}</p>
         <nav aria-label={tt("Website settings")} className="flex flex-col px-3 pb-6">
-          {SETTINGS_SECTIONS.map(({ id, label, group }, i) => {
+          {sections.map(({ id, label, group }, i) => {
             const active = section === id
             /* Each group under its own heading: the site, what is on it,
                going live, and Connections, which is how code reaches the
                site rather than a setting of it. */
-            const startsGroup = SETTINGS_SECTIONS[i - 1]?.group !== group
+            const startsGroup = sections[i - 1]?.group !== group
             return (
               <Fragment key={id}>
               {startsGroup && (
@@ -421,7 +430,7 @@ export function ProjectSettings({
           {section === "publishing" && <PublishingSettings ctx={ctx} />}
           {section === "performance" && <PerformanceSettings ctx={ctx} />}
           {section === "backups" && <BackupSettings ctx={ctx} />}
-          {section === "connections" && <ConnectionsSettings ctx={ctx} />}
+          {section === "connections" && !teamMember && <ConnectionsSettings ctx={ctx} />}
         </div>
       </main>
       </div>
