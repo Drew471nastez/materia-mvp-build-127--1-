@@ -1,5 +1,6 @@
+import { moneyCaller } from "@/lib/team/money"
+import { recordTeamAction } from "@/lib/team/areas"
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { readCancelFeedback, stripeCancellationDetails } from "@/lib/billing/cancel-reasons"
@@ -21,23 +22,20 @@ export async function POST(request: Request) {
     const feedback = readCancelFeedback(await request.json().catch(() => null))
     const cancellationDetails = stripeCancellationDetails(feedback)
 
-    const supabase = await createClient()
+    /* The store's rows, by the store's id (lib/team/money), for the owner and a team member alike. */
+    const supabase = createAdminClient()
 
     // Get current user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    /* The owner, or a team member who may change the store's billing (round 42, lib/team/money): the store's own plan and Stripe customer, never the member's. */
+    const who = await moneyCaller("billing", "manage")
+    if (!who.ok) return who.response
+    const user = who.user
 
     // Get creator record
     const { data: creator, error: creatorError } = await supabase
       .from("creators")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("id", who.creatorId)
       .single()
 
     if (creatorError || !creator) {
@@ -150,6 +148,8 @@ export async function POST(request: Request) {
       })
     if (recordError) console.warn("[Cancel] plan_cancellations not written:", recordError.message)
 
+    /* A team member's change to the owner's plan is on the record with their name (lib/team/areas). */
+    await recordTeamAction(who, who.userId, "billing_manage", "billing_cancelled", {})
     return NextResponse.json({
       success: true,
       message: "Subscription will be canceled at the end of the current billing period",

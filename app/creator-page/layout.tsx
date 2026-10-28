@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
+import { creatorPagePage } from "@/lib/team/creator-page"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
@@ -72,11 +74,11 @@ export default async function CreatorPageLayout({
     from here to that question.
   */
 
-  const { data: creator } = await supabase.from("creators").select("id, slug").eq("user_id", user.id).single()
-
-  if (!creator) {
-    redirect("/onboarding")
-  }
+  /* Round 42: the owner's own store, or the one a team member with Creator page works in (lib/team/creator-page). */
+  const page = await creatorPagePage()
+  if (page.kind === "closed") return <TeamAreaClosed area="creator_pages" store={page.store} permissions={page.permissions} />
+  if (page.kind !== "page") redirect("/onboarding")
+  const creator = { id: page.creatorId }
 
   /* The store's currency for the prices this editor lists (lib/store/currency-context), as /app has it. */
   const storeCurrency = await cachedStoreCurrency(creator.id).catch(() => null)

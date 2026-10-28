@@ -1944,6 +1944,8 @@ function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: stri
   if (type === "product") attrs.push(`enctype="multipart/form-data"`, `data-type="add-to-cart-form"`)
   if (type === "contact" || type === "customer") attrs.push(`data-storelib-form="${type === "customer" ? "subscribe" : "contact"}"`)
   const hidden = [`<input type="hidden" name="form_type" value="${escapeHtml(type)}">`, `<input type="hidden" name="utf8" value="✓">`]
+  /* A newsletter form says whether it is the footer's or a section's, so the sign up is recorded as the box it came from (site.ts formSubmit). */
+  if (type === "customer") hidden.push(`<input type="hidden" name="storelib_placement" value="${/footer/i.test(`${toOutput((ctx.registers.sectionInstance as O | undefined)?.type ?? "")} ${toOutput(section?.id ?? "")}`) ? "footer" : "newsletter"}">`)
   if (type === "product" && obj && typeof obj === "object") {
     const variant = (obj as O).selected_or_first_available_variant as O | undefined
     if (variant?.id) hidden.push(`<input type="hidden" name="product-id" value="${escapeHtml(toOutput((obj as O).id))}">`)

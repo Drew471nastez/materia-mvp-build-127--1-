@@ -320,7 +320,8 @@ export function IconLibrary({
             onChange={choose}
             keepInView
             itemAttr="data-icon-chip"
-            className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            scroll={{ wrapClassName: "-mx-4" }}
+            className="flex gap-2 px-4 py-0.5"
             itemClassName="h-10 px-4 text-[13px] sm:h-9"
           />
         </div>

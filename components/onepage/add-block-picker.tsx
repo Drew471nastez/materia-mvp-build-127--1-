@@ -45,8 +45,8 @@
  * state is a store here, not the Links tab's), the rows are built once and
  * never render again, a chip only hides sections, the chips are the app
  * settings' pills, a row's press is a tint with no scale, brand marks are in
- * their own colours, and the + turns a little under a mouse and never under
- * a finger.
+ * their own colours, and the + turns 45 degrees into an x while the sheet
+ * it opened is up (round 42).
  */
 
 import * as React from "react"
@@ -81,26 +81,29 @@ import { canGoInGroup } from "@/lib/onepage/group"
 import { tt } from "@/lib/i18n/text"
 import { PillTabs } from "@/components/onepage/pill-tabs"
 import { landContent } from "@/lib/ui/pill-switch"
+import { hapticTap, isNativeApp } from "@/lib/native-bridge"
 
 /* ─── The + on + Add ──────────────────────────────────────────────────── */
 
 /**
- * THE + TURNS A LITTLE, AND ONLY UNDER A MOUSE.
- * Round 10 turned it a full circle on hover and rested it at 405 while the
- * sheet was up: "it rotates too much", and on a phone the tap that opened
- * the sheet set it spinning. Now:
+ * THE + TURNS INTO THE SHEET'S x (round 42).
+ * Round 10 turned it a full circle on hover and rested it at 405 ("it
+ * rotates too much"); round 11 stopped it turning under a finger at all, so
+ * on a phone the press had no answer of its own. The owner, round 42: "when
+ * clicked, rotate the + icon smoothly (45 degrees to an x)". Now:
  *
- *   TOUCH       it never turns. Not on the tap, not while the sheet is up,
- *               not when it closes. A finger gets the button's own press.
- *   MOUSE       a quarter turn under the pointer (90, still a +), and on to
- *               135 while the sheet it opened is up (an x), so a click from
- *               a hover goes on forward by 45 rather than back.
+ *   OPEN        45 degrees, a + become an x, for a finger and a mouse alike,
+ *               while the sheet this button opened is up; back to 0 as it
+ *               goes. Nothing turns on hover, so the click is the only turn.
+ *   HAPTICS     a light tick on the press inside the iOS and Android apps
+ *               (lib/native-bridge hapticTap, Capacitor Haptics); nothing in
+ *               a browser.
  *
  * One property (`rotate`, on the compositor), one curve and one time
- * (ADD_PLUS_MS on ADD_PLUS_EASE) for every move. Both turns sit behind
- * (hover: hover) and (pointer: fine) (`pointer-fine:` and `hover:` in
- * app/globals.css), so a phone never matches either.
- * Under reduced motion it does not move at all.
+ * (ADD_PLUS_MS on ADD_PLUS_EASE), the same as the sheet's own rise, so the
+ * x lands as the sheet does. It sits in a named group (`group/add`), which
+ * app/globals.css's touch rule for `.group` does not reach. Under reduced
+ * motion it does not move at all.
  */
 export const ADD_PLUS_MS = 280
 export const ADD_PLUS_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
@@ -111,15 +114,8 @@ export function AddBlockPlus({ open }: { open: boolean }) {
       aria-hidden
       data-add-plus={open ? "open" : ""}
       className={cn(
-        "h-5 w-5 shrink-0 rotate-0 transition-[rotate] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none motion-reduce:!rotate-0",
-        /*
-          app/globals.css's own variants: `pointer-fine:` is (hover: hover) and
-          (pointer: fine), and every `hover:` (group-hover too) asks the same.
-          Round 10 wrote these as `[@media(hover:hover)_and_(pointer:fine)]:`,
-          an arbitrary variant Tailwind never generated, so the hover turn
-          never existed and the open's 405 turned under a finger as well.
-        */
-        open ? "pointer-fine:rotate-[135deg]" : "group-hover/add:rotate-90",
+        "h-5 w-5 shrink-0 transition-[rotate] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none motion-reduce:!rotate-0",
+        open ? "rotate-45" : "rotate-0",
       )}
       strokeWidth={2.25}
     />
@@ -174,7 +170,17 @@ export function AddSheetGate({ children }: { children: (open: boolean) => React.
 export function AddBlockButton({ fromButton, className, onPress, children }: { fromButton: boolean; className?: string; onPress: () => void; children: React.ReactNode }) {
   const open = useAddSheetOpen() && fromButton
   return (
-    <button type="button" data-add-block="" aria-expanded={open} onClick={onPress} className={cn("group/add", className)}>
+    <button
+      type="button"
+      data-add-block=""
+      aria-expanded={open}
+      onClick={() => {
+        /* A light tick in the iOS and Android apps; a browser feels nothing (lib/native-bridge). */
+        if (isNativeApp()) hapticTap("light")
+        onPress()
+      }}
+      className={cn("group/add", className)}
+    >
       <AddBlockPlus open={open} />
       {children}
     </button>
@@ -721,7 +727,8 @@ export function AddBlockPicker({
               onChange={choose}
               keepInView
               itemAttr="data-picker-chip"
-              className="-mx-4 flex gap-2 overflow-x-auto px-4 py-0.5 [scrollbar-width:none] sm:-mx-5 sm:px-5 [&::-webkit-scrollbar]:hidden"
+              scroll={{ wrapClassName: "-mx-4 sm:-mx-5" }}
+              className="flex gap-2 px-4 py-0.5 sm:px-5"
               itemClassName="h-10 px-4 text-[13px] sm:h-9"
             />
           </div>

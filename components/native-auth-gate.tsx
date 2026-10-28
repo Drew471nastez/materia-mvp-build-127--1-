@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, type ReactNode } from "react"
+import { useState, useEffect, useRef, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { nativeAppReadyForce } from "@/lib/native-bridge"
@@ -75,6 +75,37 @@ function noteRecovery() {
   }
 }
 
+/**
+ * THE TOKENS GO IN A FORM BODY, NEVER THE ADDRESS. This used to navigate to
+ * /auth/sync-session?access_token=…&refresh_token=…, and a request's address
+ * is written to Vercel's request log: every recovery, on the web and in the
+ * app, put a working refresh token in the logs. A same origin form post is
+ * the same top level navigation (the cookies land on its redirect), with the
+ * tokens in the body (app/auth/sync-session POST).
+ */
+export function postSessionSync(session: { access_token: string; refresh_token: string }, nextPath: string): void {
+  const form = document.createElement("form")
+  form.method = "POST"
+  form.action = "/auth/sync-session"
+  form.style.display = "none"
+  for (const [name, value] of [
+    ["access_token", session.access_token],
+    ["refresh_token", session.refresh_token],
+    ["next", nextPath],
+  ] as const) {
+    const input = document.createElement("input")
+    input.type = "hidden"
+    input.name = name
+    input.value = value
+    form.appendChild(input)
+  }
+  document.body.appendChild(form)
+  form.submit()
+}
+
+/** Why the screen gave up, for the one report it sends (never a token, never an address). */
+type StuckWhy = "tries" | "renewal" | "threw" | "slow read" | "sync"
+
 /** Cleared the moment a layout renders normally, which is the success signal. */
 function clearRecoveries() {
   try {
@@ -99,6 +130,7 @@ export function NativeAuthGate({
   const [authChecked, setAuthChecked] = useState(!requireAuth)
   /** Set when recovery has been tried enough times and is not working. */
   const [stuck, setStuck] = useState(false)
+  const why = useRef<StuckWhy>("tries")
 
   // ── Mode 2: Capacitor full-page reload — restore session from Preferences ──
   useEffect(() => {
@@ -109,6 +141,7 @@ export function NativeAuthGate({
      */
     if (recoveryCount() >= MAX_RECOVERIES) {
       setStuck(true)
+      why.current = "tries"
       return
     }
 
@@ -134,6 +167,7 @@ export function NativeAuthGate({
          */
         if (!session && !isSignedOutAnswer(false, error)) {
           setStuck(true)
+          why.current = "renewal"
           return
         }
 
@@ -143,17 +177,13 @@ export function NativeAuthGate({
           // session as Set-Cookie headers so the full server layout (sidebar,
           // user data, etc.) renders correctly on the next request.
           const currentPath = window.location.pathname + window.location.search
-          const syncUrl =
-            `/auth/sync-session` +
-            `?access_token=${encodeURIComponent(session.access_token)}` +
-            `&refresh_token=${encodeURIComponent(session.refresh_token)}` +
-            `&next=${encodeURIComponent(currentPath)}`
           /** Counted BEFORE navigating, or a reload loop never counts itself. */
           noteRecovery()
-          window.location.assign(syncUrl)
+          postSessionSync(session, currentPath)
           /* A navigation that never commits leaves this page up: it ends in the retry screen, not a spinner. */
           window.setTimeout(() => {
             if (!cancelled) setStuck(true)
+            why.current = "sync"
           }, SYNC_NAVIGATION_MS)
           // Do not unblock — we are navigating away.
           // The destination page's NativeAuthGate (mode 1) will call
@@ -167,6 +197,7 @@ export function NativeAuthGate({
            stored, keep it and offer a retry; only an empty device goes to
            the login form. */
         if (cancelled) return
+        why.current = "threw"
         if (hasStoredSessionToken()) setStuck(true)
         else router.replace("/login")
       }
@@ -176,6 +207,7 @@ export function NativeAuthGate({
     // (slow devices + cold start + large session can take longer than 4s)
     const timeout = window.setTimeout(() => {
       if (cancelled) return
+      why.current = "slow read"
       /**
        * A SLOW READ IS NOT A SIGN-OUT — lib/auth/session-read.ts says exactly
        * this, and this timeout was the pattern it was written against. If the
@@ -237,6 +269,24 @@ export function NativeAuthGate({
     }
   }, [blocked, requireAuth])
 
+  /*
+    SAID ONCE, SO THE LOGS KNOW WHY THIS SCREEN SHOWS (the owner sees it at /app/settings and nobody could say
+    which of five ways it got here). One report per screen, the path only, never a token.
+  */
+  useEffect(() => {
+    if (!stuck) return
+    try {
+      void fetch("/api/client-errors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({ message: `[auth-gate] cannot reach the server: ${why.current}; online ${navigator.onLine !== false}`, digest: null, path: window.location.pathname.slice(0, 200), stale: false }),
+      }).catch(() => {})
+    } catch {
+      /* reporting is never what breaks the screen */
+    }
+  }, [stuck])
+
   /**
    * NOT SIGNED OUT, AND NOT PRETENDING OTHERWISE.
    *
@@ -247,7 +297,7 @@ export function NativeAuthGate({
   if (stuck) {
     return (
       <div className="flex min-h-svh w-full items-center justify-center bg-[#f8f9fa] p-6">
-        <div className="w-full max-w-sm text-center">
+        <div className="w-full max-w-sm text-center" data-auth-stuck={why.current}>
           <h1 className="text-[20px] font-bold text-[#1a1a2e]">Cannot reach the server</h1>
           <p className="mt-2 text-[14px] text-[#6b7280]">
             You are still signed in. The connection dropped while loading this page.

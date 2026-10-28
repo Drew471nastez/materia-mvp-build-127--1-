@@ -22,6 +22,7 @@ import { NextResponse } from "next/server"
 import { isResponse, noStore, requireCreator, UUID } from "@/lib/email-campaigns/route-auth"
 import { countRecipients, isModernSchema, lastFailure, loadSender, prepareContent, previewEmail } from "@/lib/email-campaigns/queue"
 import { readStatus } from "@/lib/email-campaigns/state"
+import { viewOnlineUrl } from "@/lib/email-campaigns/view-online"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -141,6 +142,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         : null,
       links,
       html,
+      /* The email's public page (View in browser) once it is scheduled or sent; a draft has none. */
+      view_url: status === "draft" ? null : viewOnlineUrl({ kind: "campaign", id: c.id }),
       sender: sender ? { name: sender.name, from: sender.from, replyTo: sender.replyTo, address: sender.brand.address } : null,
       upgraded: modern,
     },

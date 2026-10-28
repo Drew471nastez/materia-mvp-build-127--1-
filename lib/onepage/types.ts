@@ -63,6 +63,9 @@ export interface OnePageTheme {
   /* Round 40 (lib/onepage/theme-layout): how the blocks are laid out, and the classic header's alignment. Missing is a list, centred. */
   block_layout?: "list" | "grid" | "cards" | "compact" | null
   header_align?: "center" | "left" | null
+  /* Round 42 (lib/onepage/theme-layout): how product blocks are shown, and a wide cover picture over the classic header. Missing is each block's own layout, and no cover. */
+  product_layout?: "own" | "grid" | "rows" | null
+  cover_image_url?: string | null
   font_family: string
   // Title customization
   title_font?: string | null
@@ -225,6 +228,8 @@ export interface ProductBlockData {
   show_description: boolean
   cta_text: string
   style: ProductBlockStyle
+  /** Round 42: the layout was picked in the block's own Layout list, so a theme's product_layout leaves it alone. */
+  style_chosen?: boolean
   // Cached product data for display
   product_title?: string | null
   product_thumbnail?: string | null

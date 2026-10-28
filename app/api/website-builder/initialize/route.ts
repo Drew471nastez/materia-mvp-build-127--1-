@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { mainProductSection } from "@/lib/website-builder/product-page"
 import { ensureStarterWebsite } from "@/lib/website-builder/starter-website"
@@ -135,19 +135,11 @@ const DEFAULT_PRODUCT_SECTIONS = [
 // Idempotently gives a creator with no website the default theme, as a draft.
 // Also ensures product page templates exist for all installs.
 export async function POST() {
-  const supabase = await createClient()
   const admin = createAdminClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: creator } = await supabase
-    .from("creators")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+  /* The owner, or a team member with Website working in the store (lib/team/website). */
+  const site = await websiteCaller()
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  const creator = site.creator
 
   /* The default theme as a draft when the library is empty, never published
      here: the same seed the website page runs (lib/website-builder/starter-website.ts). */

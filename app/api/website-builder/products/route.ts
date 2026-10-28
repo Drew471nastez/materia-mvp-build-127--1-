@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { editorUser } from "@/lib/website-builder/owned-install"
+import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
 import { catalogCards, shopProducts } from "@/lib/website-builder/shop-products"
@@ -9,26 +8,18 @@ import { pageFactsFor } from "@/lib/storelib-theme/compat/product-facts-server"
 // GET - Fetch creator's products for the website builder editor
 export async function GET(request: Request) {
   try {
-    const supabase = await createClient()
     const { searchParams } = new URL(request.url)
     const productId = searchParams.get("id")
     const limit = parseInt(searchParams.get("limit") ?? "100", 10)
 
-    /* A blip reading the sign in is a 503, never "signed out" (owned-install.ts editorUser). */
-    const { user, status: authStatus, error: authError } = await editorUser(supabase)
-    if (!user) {
-      return NextResponse.json({ error: authError }, { status: authStatus })
+    /* The owner, or a team member with Website working in the store (lib/team/website): the store's products, by the store's id. */
+    const site = await websiteCaller()
+    if (site.error !== null) {
+      if (site.status === 404) return NextResponse.json({ products: [] })
+      return NextResponse.json({ error: site.error }, { status: site.status })
     }
-
-    const { data: creator } = await supabase
-      .from("creators")
-      .select("id")
-      .eq("user_id", user.id)
-      .single()
-
-    if (!creator) {
-      return NextResponse.json({ products: [] })
-    }
+    const supabase = site.supabase
+    const creator = site.creator
 
     // Single product with full details (for product page preview)
     if (productId) {

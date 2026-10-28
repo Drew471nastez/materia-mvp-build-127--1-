@@ -1,5 +1,6 @@
 "use client"
 
+import { STORE_SIDE_ACCOUNT_TABS } from "@/lib/team/settings"
 import { publicHelpUrl } from "@/lib/help/paths"
 import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
@@ -77,6 +78,7 @@ import { SettingsLeaveGuard } from "@/components/app/settings/leave-guard"
 import { SettingsSectionBoundary } from "@/components/app/settings/section-boundary"
 import { markDirty, requestLeave } from "@/lib/settings/unsaved-guard"
 import { WAIT_MS, fetchWithDeadline } from "@/lib/net/request"
+import { fetchBillingSubscription } from "@/lib/billing/plan-client"
 import { tt } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 
@@ -151,6 +153,8 @@ const TAB_FADE_MS = 150
 const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 /** The longest a press waits for a section's data that is still on its way, before the section shows with its own placeholder. */
 const DATA_WAIT_MS = 160
+/** How long a press waits for a section's code in place before the section's own waiting spinner shows. */
+const CODE_SLOW_MS = 600
 /*
   A SECTION PRESSED WHILE SCROLLED DOWN GLIDES UP TO ITS TOP (round 20, the
   owner: "when I click in the sidebar, it should auto scroll up smoothly,
@@ -518,7 +522,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const searchParams = useSearchParams()
   const addressTab = tabFromAddress(searchParams?.get("tab") ?? null, searchParams?.get("section") ?? null)
   const allowed = (tab: string | null): tab is TabId =>
-    !!tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce) && (!teamActing || TABS.find((x) => x.id === tab)?.group === "account" || teamTabs.includes(tab))
+    !!tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce) && (!teamActing || (TABS.find((x) => x.id === tab)?.group === "account" && !STORE_SIDE_ACCOUNT_TABS.includes(tab)) || teamTabs.includes(tab))
   const [activeTab, setActiveTab] = useState<TabId>(() => (allowed(addressTab) ? addressTab : TAB_IDS.includes(initialTab) && allowed(initialTab) ? initialTab : "general"))
   /*
     BELOW 1024px, PILLS (round V, the owner: "like it was before, the whole
@@ -529,7 +533,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   */
   /* The sections this account has: Shipping and Integrations only while physical commerce is on. */
   /* Every store refunds; only a store with physical products takes returns, so without them the section is Refunds. */
-  const shownTabs = TABS.filter((tab) => (!COMMERCE_TABS.has(tab.id) || physicalCommerce) && (!teamActing || tab.group === "account" || teamTabs.includes(tab.id))).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: tt("Refunds"), line: tt("Why you refund") } : tab))
+  const shownTabs = TABS.filter((tab) => (!COMMERCE_TABS.has(tab.id) || physicalCommerce) && (!teamActing || (tab.group === "account" && !STORE_SIDE_ACCOUNT_TABS.includes(tab.id)) || teamTabs.includes(tab.id))).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: tt("Refunds"), line: tt("Why you refund") } : tab))
   /* Each section's own name, from the one list (a name missing from a chain of cases used to fall through to "Domains"). */
   const labelOf = (id: TabId): string =>
     id === "general" ? t("settings.general") === "General" ? tt("Profile") : t("settings.general") :
@@ -561,7 +565,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     billingAsked.current = true
     setBillingError(false)
     try {
-      const response = await fetch("/api/billing/overview")
+      /* Bounded (lib/net/request): the route asks Stripe, and an answer that never came held Plan on its loading state for as long as the function ran (300s in the logs of Oct 28). */
+      const response = await fetchWithDeadline("/api/billing/overview", {}, WAIT_MS.read)
       if (!response.ok) throw new Error("billing")
       setBillingData(await response.json())
     } catch {
@@ -659,7 +664,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       /* Never drawn half loaded: a section whose code is still on its way swaps in the moment it lands (once; a chunk that failed is the section's own boundary's, components/app/settings/section-boundary.tsx). */
       if (!waitedForCode && !settingsPanelReady(activeTab)) {
         waitedForCode = true
-        return void whenSettingsPanel(activeTab).then(show)
+        /*
+          NOT A PRESS THAT DOES NOTHING. Code still on its way after CODE_SLOW_MS is shown as on its way: the
+          section swaps in outside a transition, so the form's Suspense draws its waiting spinner in the
+          section's place, and the section draws itself when its code lands, or says it took too long
+          (lazy-panels CODE_WAIT_MS, section-boundary). Before, the pill lit and the section before stayed up
+          for as long as the chunk request hung, with nothing to say why.
+        */
+        const slow = window.setTimeout(() => {
+          if (live && !settingsPanelReady(activeTab)) setPanelTab(activeTab)
+        }, CODE_SLOW_MS)
+        return void whenSettingsPanel(activeTab).then(() => {
+          window.clearTimeout(slow)
+          show()
+        })
       }
       if (live) startTransition(() => setPanelTab(activeTab))
     }
@@ -858,10 +876,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     return () => window.removeEventListener("storelib:plan-changed", again)
   }, [])
   useEffect(() => {
-    fetch("/api/billing/subscription")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUserPlan((plan) => data?.currentPlan?.id || (data ? "free" : plan ?? "free")))
-      .catch(() => setUserPlan((plan) => plan ?? "free"))
+    /* One request shared by everything on screen (lib/billing/plan-client.ts); after a plan change, a fresh one. */
+    void fetchBillingSubscription({ fresh: planTick > 0 })
+      .then((data) => setUserPlan((plan) => (data ? data.currentPlan?.id || "free" : plan ?? "free")))
       .finally(() => setPlanLoading(false))
   }, [planTick])
 

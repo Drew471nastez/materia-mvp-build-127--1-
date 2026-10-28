@@ -26,6 +26,25 @@ import * as React from "react"
 import { buildReport, isStaleCodeError } from "@/lib/client-errors"
 import { newDeployKnown } from "@/lib/ui/new-deploy"
 import { tt } from "@/lib/i18n/text"
+import { forgetFailedSettingsPanels } from "@/components/app/settings/lazy-panels"
+
+/**
+ * WHAT WENT WRONG, NOT ONE ANSWER FOR ALL OF IT.
+ *
+ *   offline  the device has no connection: Try again, never Reload (a reload
+ *            while offline swaps Settings for the browser's own error page)
+ *   slow     the section's code was asked for and did not come in time
+ *            (lazy-panels CODE_WAIT_MS): Try again asks afresh
+ *   stale    code a deploy removed: Reload
+ *   fault    the section itself threw: Try again
+ */
+export type SectionFailure = "offline" | "slow" | "stale" | "fault"
+
+export function sectionFailure(error: unknown, online: boolean, newDeploy: boolean): SectionFailure {
+  if ((error as { name?: unknown } | null)?.name === "SettingsCodeTimeout") return online ? "slow" : "offline"
+  if (isStaleCodeError(error, newDeploy)) return online ? "stale" : "offline"
+  return "fault"
+}
 
 interface Props {
   children: React.ReactNode
@@ -57,25 +76,34 @@ export class SettingsSectionBoundary extends React.Component<Props, { error: unk
   render() {
     const { error } = this.state
     if (!error) return this.props.children
-    const stale = isStaleCodeError(error, newDeployKnown())
+    const online = typeof navigator === "undefined" || navigator.onLine !== false
+    const kind = sectionFailure(error, online, newDeployKnown())
+    const name = this.props.name
+    /* Sentences the catalogue already has (lib/i18n/catalog), so every language says it from the first deploy. */
+    const title = kind === "stale" ? tt("Storelib was updated while Settings was open.") : tt("{name} could not be shown.", { name })
+    const line =
+      kind === "stale" ? tt("Reload to open {name}. Everything you saved is kept.", { name }) :
+      kind === "offline" ? tt("You're offline. Check your connection and try again.") :
+      kind === "slow" ? tt("That took too long. Check your connection and try again.") :
+      tt("Nothing you saved is lost. Try again, or open another section.")
     return (
       <div
         role="alert"
-        data-settings-section-failed={stale ? "stale" : "fault"}
+        data-settings-section-failed={kind}
         className="rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
       >
-        <p className="text-[14px] font-medium text-[#1a1a2e]">
-          {stale ? tt("Storelib was updated while Settings was open.") : tt("{name} could not be shown.", { name: this.props.name })}
-        </p>
-        <p className="mt-1 text-[13px] text-[#6b7280]">
-          {stale ? tt("Reload to open {name}. Everything you saved is kept.", { name: this.props.name }) : tt("Nothing you saved is lost. Try again, or open another section.")}
-        </p>
+        <p className="text-[14px] font-medium text-[#1a1a2e]">{title}</p>
+        <p className="mt-1 text-[13px] text-[#6b7280]">{line}</p>
         <button
           type="button"
-          onClick={() => (stale ? window.location.reload() : this.setState({ error: null }))}
+          onClick={() => {
+            if (kind === "stale") return window.location.reload()
+            forgetFailedSettingsPanels()
+            this.setState({ error: null })
+          }}
           className="mt-3 h-9 cursor-pointer rounded-lg bg-[#1a1a2e] px-4 text-[13px] font-semibold text-white"
         >
-          {stale ? tt("Reload") : tt("Try again")}
+          {kind === "stale" ? tt("Reload") : tt("Try again")}
         </button>
       </div>
     )

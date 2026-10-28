@@ -1,3 +1,4 @@
+import { teamStoreIdFor } from "@/lib/team/server"
 import { marketplacePricer, type MarketplaceRowPatch } from "@/lib/money/marketplace-server"
 import { personName } from "@/lib/profile/display-name"
 import { salesStandings } from "@/lib/products/sales-standings"
@@ -654,7 +655,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const communityCards = await communitiesPromise
   const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${profile.username || username}`
 
-  const viewerIsOwner = !!viewer && viewer.id === profile.id
+  /*
+    THE OWNER'S CONTROLS: the owner, or (round 42) a team member with Creator
+    page working in this very store (lib/team/server teamStoreIdFor, read again
+    from the database; no cookie, no read). Every save they make goes through
+    the routes, which ask the same (lib/team/creator-page).
+  */
+  const viewerIsOwner = !!viewer && (viewer.id === profile.id || (await teamStoreIdFor(viewer.id, "creator_pages").catch(() => null)) === creator.id)
 
   /*
     ═══════════════════════════════════════════════════════════════════════

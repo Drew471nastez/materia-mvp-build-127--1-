@@ -18,7 +18,11 @@
  *   Space         the gap between blocks (theme.spacing, as it always was).
  *                 The Compact layout has its own tight gap, so it is not
  *                 offered there.
- *   Header        the classic header centred or flush left.
+ *   Products      round 42: each product block as it is set, or every one
+ *                 left as the Callout drawn as tiles two to a row (Grid) or
+ *                 as list rows (Rows). A layout picked on a block stays.
+ *   Header        the classic header centred or flush left, and, when the
+ *                 theme brings a cover picture, a way to take it off.
  *   Share and     glass, white or black, the same two settings fields
  *   Subscribe     (settings.share_style, settings.subscribe_style) the
  *                 Settings tab used to set. Settings keeps the switches.
@@ -27,7 +31,7 @@ import type * as React from "react"
 import { useOnePage } from "@/lib/onepage/context"
 import { tt } from "@/lib/i18n/text"
 import { buttonStyleOf, type ButtonStyle } from "@/lib/onepage/settings-rules"
-import { BLOCK_LAYOUTS, blockLayoutOf, blockSpacingOf, headerAlignOf, layoutUpdates, type BlockLayout, type BlockSpacing, type HeaderAlign } from "@/lib/onepage/theme-layout"
+import { BLOCK_LAYOUTS, blockLayoutOf, blockSpacingOf, coverImageOf, headerAlignOf, layoutUpdates, themeProductLayoutOf, type BlockLayout, type BlockSpacing, type HeaderAlign, type ThemeProductLayout } from "@/lib/onepage/theme-layout"
 import { ChoiceCard, PanelSection, SectionTitle, Segmented, SettingRow } from "@/components/onepage/editor-kit"
 import { ThemeCardBlocks } from "@/components/onepage/themes/theme-card-blocks"
 
@@ -47,6 +51,7 @@ export function LayoutSection() {
   const spacing = blockSpacingOf(t)
   const align = headerAlignOf(t)
   const hero = t.header_layout === "hero"
+  const cover = coverImageOf(t)
   const pageBg = theme.background_type === "gradient" && theme.background_gradient ? theme.background_gradient : theme.background_color || "#f7f7f8"
   const s = settings as unknown as Record<string, unknown>
   const shareOn = s.share_enabled !== false
@@ -99,8 +104,33 @@ export function LayoutSection() {
         </PanelSection>
       ) : null}
 
+      <PanelSection>
+        <SettingRow label={tt("Products")} description={tt("How product blocks show on the page")} stackOnPhone>
+          <Segmented
+            className="w-full sm:w-[300px]"
+            label={tt("How products show")}
+            value={themeProductLayoutOf(t)}
+            options={[{ id: "own", label: tt("As set") }, { id: "grid", label: tt("Grid") }, { id: "rows", label: tt("Rows") }] as { id: ThemeProductLayout; label: string }[]}
+            onChange={(id) => updateTheme({ product_layout: id === "own" ? null : id } as never)}
+          />
+        </SettingRow>
+      </PanelSection>
+
       {hero ? null : (
         <PanelSection>
+          {cover ? (
+            <SettingRow label={tt("Cover picture")} description={tt("The wide picture at the top of your page")} stackOnPhone>
+              <button
+                type="button"
+                data-layout-cover-remove=""
+                onClick={() => updateTheme({ cover_image_url: null } as never)}
+                className="h-10 w-full cursor-pointer rounded-xl border border-[#e3e4e8] bg-white px-4 text-[13.5px] font-medium text-[#1a1a2e] sm:w-auto"
+              >
+                {tt("Remove cover")}
+              </button>
+            </SettingRow>
+          ) : null}
+          <div className={cover ? "mt-4" : undefined}>
           <SettingRow label={tt("Header")} description={tt("Your picture, name, bio and social icons")} stackOnPhone>
             <Segmented
               className="w-full sm:w-[220px]"
@@ -110,6 +140,7 @@ export function LayoutSection() {
               onChange={(id) => updateTheme({ header_align: id })}
             />
           </SettingRow>
+          </div>
         </PanelSection>
       )}
 

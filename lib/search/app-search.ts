@@ -42,19 +42,34 @@ import { formatOrderMoney, orderCurrency } from "@/lib/orders/money"
 import { SHOP_CURRENCY } from "@/lib/store/shop-money"
 import { readStoreCurrency } from "@/lib/store/selling-currency-read"
 import { productPriceCurrency } from "@/lib/money/product-currency"
+import { CATEGORY_NAMES, visibleIntegrations } from "@/lib/integrations/catalog"
+import { searchHelp } from "@/lib/help/search"
+import { helpArticlePath } from "@/lib/help/articles"
+import { APP_HELP_BASE, HELP_BASE } from "@/lib/help/paths"
 
-export type SearchGroupId = "orders" | "customers" | "products" | "collections" | "coupons" | "emails" | "automations"
+export type SearchGroupId = "orders" | "customers" | "products" | "collections" | "offers" | "coupons" | "size_charts" | "emails" | "automations" | "communities" | "integrations" | "help"
 
-export const SEARCH_GROUPS: readonly SearchGroupId[] = ["orders", "customers", "products", "collections", "coupons", "emails", "automations"]
+/*
+  ROUND 42: upsells and bundles, size charts, the communities a person runs,
+  the integrations and the Help Center's articles found too, beside what was
+  found before. The last two are read from the code (lib/integrations/catalog,
+  lib/help/articles), never a table: nothing of anybody's is in them.
+*/
+export const SEARCH_GROUPS: readonly SearchGroupId[] = ["orders", "customers", "products", "collections", "offers", "coupons", "size_charts", "emails", "automations", "communities", "integrations", "help"]
 
 export const GROUP_LABELS: Record<SearchGroupId, string> = {
   get orders() { return tt("Orders") },
   get customers() { return tt("Customers") },
   get products() { return tt("Products") },
   get collections() { return tt("Collections") },
+  get offers() { return tt("Upsells and bundles") },
   get coupons() { return tt("Coupons") },
+  get size_charts() { return tt("Size charts") },
   get emails() { return tt("Emails") },
   get automations() { return tt("Automations") },
+  get communities() { return tt("Communities") },
+  get integrations() { return tt("Integrations") },
+  get help() { return tt("Help") },
 }
 
 /** At most this many of each kind. A search is for finding one thing, not a list. */
@@ -78,7 +93,7 @@ export interface SearchResult {
 }
 
 export function emptyResult(): SearchResult {
-  return { groups: { orders: [], customers: [], products: [], collections: [], coupons: [], emails: [], automations: [] }, unavailable: [] }
+  return { groups: { orders: [], customers: [], products: [], collections: [], offers: [], coupons: [], size_charts: [], emails: [], automations: [], communities: [], integrations: [], help: [] }, unavailable: [] }
 }
 
 /** Trimmed, one space between words, and no longer than MAX_QUERY_LENGTH. */
@@ -235,7 +250,13 @@ async function readOrderRows(db: Db, creatorId: string, products: ProductIndex[]
   keyed by the store, and two searches at once share one read. Never the
   query, never sent anywhere: the same rows the search was about to read.
 */
-const ORDER_INDEX_MS = 20_000
+/*
+  SHORT, AND FORGOTTEN ON A CHANGE (round 42, the owner: results must
+  reflect recent changes without a reload). Long enough for one burst of
+  typing; a search the browser asks for after something was saved says so
+  (`fresh`, components/app/app-search.tsx) and reads the orders again.
+*/
+const ORDER_INDEX_MS = 6_000
 const ORDER_INDEX_MAX = 50
 const orderIndex = new Map<string, { at: number; read: Promise<Order[]> }>()
 
@@ -253,9 +274,10 @@ function cachedOrders(db: Db, creatorId: string, products: ProductIndex[], now =
   return read
 }
 
-/** For tests: forget what was kept. */
-export function forgetOrderIndex(): void {
-  orderIndex.clear()
+/** For tests: forget what was kept. With a store: forget that store's alone (a search asked for fresh). */
+export function forgetOrderIndex(creatorId?: string): void {
+  if (creatorId) orderIndex.delete(creatorId)
+  else orderIndex.clear()
 }
 
 function orderHit(order: Order): SearchHit {
@@ -445,6 +467,112 @@ async function readCoupons(db: Db, creatorId: string, q: string, currency: Promi
   })
 }
 
+/* ─── Upsells and bundles, size charts ───────────────────────────────── */
+
+const OFFER_KIND: Record<string, string> = { get bundle() { return tt("Bundle") }, get checkout() { return tt("Checkout upsell") }, get quantity_break() { return tt("Quantity break") } }
+
+async function readOffers(db: Db, creatorId: string, q: string): Promise<SearchHit[]> {
+  const rows = await readWithFallback(
+    "offers",
+    (columns) =>
+      db
+        .from("store_offers")
+        .select(columns)
+        .eq("creator_id", creatorId)
+        .ilike("title", containsPattern(q))
+        .order("created_at", { ascending: false })
+        .limit(GROUP_LIMIT),
+    "id, title, kind, active",
+  )
+  return rows.map((r) => ({
+    id: text(r.id),
+    title: text(r.title) || tt("Untitled offer"),
+    detail: [OFFER_KIND[text(r.kind)] ?? "", r.active === false ? tt("Off") : tt("On")].filter(Boolean).join(" · "),
+    href: `/app/offers/${encodeURIComponent(text(r.id))}`,
+  }))
+}
+
+async function readSizeCharts(db: Db, creatorId: string, q: string): Promise<SearchHit[]> {
+  const rows = await readWithFallback(
+    "size_charts",
+    (columns) =>
+      db
+        .from("size_charts")
+        .select(columns)
+        .eq("creator_id", creatorId)
+        .ilike("name", containsPattern(q))
+        .order("name", { ascending: true })
+        .limit(GROUP_LIMIT),
+    "id, name, unit",
+  )
+  return rows.map((r) => ({
+    id: text(r.id),
+    title: text(r.name) || tt("Untitled size chart"),
+    detail: text(r.unit) === "in" ? tt("Inches") : text(r.unit) === "cm" ? tt("Centimetres") : tt("Size chart"),
+    href: `/app/products/size-charts/${encodeURIComponent(text(r.id))}`,
+  }))
+}
+
+/* ─── Communities: the person's own, by the user who owns them ───────── */
+
+async function readCommunities(db: Db, ownerUserId: string, q: string): Promise<SearchHit[]> {
+  const rows = await readWithFallback(
+    "communities",
+    (columns) =>
+      db
+        .from("communities")
+        .select(columns)
+        .eq("owner_user_id", ownerUserId)
+        .ilike("name", containsPattern(q))
+        .order("created_at", { ascending: false })
+        .limit(GROUP_LIMIT),
+    "id, name, status",
+  )
+  return rows.map((r) => ({
+    id: text(r.id),
+    title: text(r.name) || tt("Community"),
+    detail: sentenceCase(text(r.status)) || tt("Community"),
+    href: `/app/community/${encodeURIComponent(text(r.id))}`,
+  }))
+}
+
+/* ─── Integrations and help: from the code, no table ─────────────────── */
+
+/** Every integration whose name, category or line says what was typed, each opening its own page (?integration=). */
+export function integrationHits(q: string, physical: boolean): SearchHit[] {
+  const needle = q.trim().toLowerCase()
+  if (!needle) return []
+  const all = visibleIntegrations(physical)
+  const scored = all
+    .map((i, at) => {
+      const name = i.name.toLowerCase()
+      const category = (CATEGORY_NAMES[i.category] ?? "").toLowerCase()
+      const score = name.startsWith(needle) ? 3 : name.includes(needle) ? 2 : category.includes(needle) || i.summary.toLowerCase().includes(needle) ? 1 : 0
+      return { i, at, score }
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.at - b.at)
+  return scored.slice(0, GROUP_LIMIT).map(({ i }) => ({
+    id: i.id,
+    title: i.name,
+    detail: [CATEGORY_NAMES[i.category], i.comingSoon ? tt("Coming soon") : null].filter(Boolean).join(" · "),
+    href: i.id === "storelib-reviews" ? "/app/reviews" : `/app/integrations?integration=${encodeURIComponent(i.id)}`,
+  }))
+}
+
+/** The Help Center's articles, ranked as its own search ranks them, opened inside the app (/app/help). */
+export function helpHits(q: string, physical: boolean): SearchHit[] {
+  return searchHelp(q, GROUP_LIMIT, { physical }).map(({ article }) => {
+    const path = helpArticlePath(article)
+    return {
+      id: `${article.category}/${article.slug}`,
+      title: article.title,
+      detail: article.summary,
+      href: path.startsWith(HELP_BASE) ? `${APP_HELP_BASE}${path.slice(HELP_BASE.length)}` : path,
+    }
+  })
+}
+
 /* ─── Products ───────────────────────────────────────────────────────── */
 
 function productHits(products: ProductIndex[], q: string, currency: string): SearchHit[] {
@@ -473,12 +601,21 @@ export async function searchCreator(
   creatorId: string,
   rawQuery: string,
   /** `groups`: only these are read (a teammate's role, app/api/app/search); every group when left out. */
-  opts: { groups?: ReadonlySet<SearchGroupId> } = {},
+  opts: {
+    groups?: ReadonlySet<SearchGroupId>
+    /** The signed in owner's user id, for the communities they run (owned by a user, not a store). Left out: no communities. */
+    ownerUserId?: string | null
+    /** Physical commerce is on (lib/platform/physical-commerce): its integrations and help articles are found too. */
+    physical?: boolean
+    /** Something was saved since the last search: nothing kept is used (the orders are read again). */
+    fresh?: boolean
+  } = {},
 ): Promise<SearchResult> {
   const result = emptyResult()
   const q = normalizeQuery(rawQuery)
   if (!creatorId || !isSearchable(q)) return result
   const wants = (g: SearchGroupId) => !opts.groups || opts.groups.has(g)
+  if (opts.fresh) forgetOrderIndex(creatorId)
 
   const failed = (group: SearchGroupId, err: unknown) => {
     if (!result.unavailable.includes(group)) result.unavailable.push(group)
@@ -561,9 +698,14 @@ export async function searchCreator(
     productsFound,
     group("collections", () => readCollections(db, creatorId, q)),
     group("coupons", () => readCoupons(db, creatorId, q, storeCurrency)),
+    group("offers", () => readOffers(db, creatorId, q)),
+    group("size_charts", () => (opts.physical ? readSizeCharts(db, creatorId, q) : Promise.resolve([]))),
     group("emails", () => readEmails(db, creatorId, q)),
     group("automations", () => readAutomations(db, creatorId, q)),
+    group("communities", () => (opts.ownerUserId ? readCommunities(db, opts.ownerUserId, q) : Promise.resolve([]))),
   ])
+  if (wants("integrations")) result.groups.integrations = integrationHits(q, !!opts.physical)
+  if (wants("help")) result.groups.help = helpHits(q, !!opts.physical)
   result.unavailable.sort((a, b) => SEARCH_GROUPS.indexOf(a) - SEARCH_GROUPS.indexOf(b))
   return result
 }

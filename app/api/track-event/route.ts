@@ -8,12 +8,13 @@ export const runtime = "nodejs"
 
 /**
  * Everything a visitor does on a page that is not opening it: a link out of
- * the page, and the steps towards a sale. Judged by the same pipeline as a
+ * the page, a link or button to another page of the same site (nav_click),
+ * and the steps towards a sale. Judged by the same pipeline as a
  * page view (lib/analytics/collect.ts): a real creator, a product that is
  * theirs, not the creator on their own checkout, not a robot, consent read
  * from the visitor's own record, one step per visit.
  */
-const EVENTS = ["buy_click", "checkout_start", "checkout_complete", "download", "link_click"] as const
+const EVENTS = ["buy_click", "checkout_start", "checkout_complete", "download", "link_click", "nav_click"] as const
 
 export async function POST(req: NextRequest) {
   const body = await readBody(req)

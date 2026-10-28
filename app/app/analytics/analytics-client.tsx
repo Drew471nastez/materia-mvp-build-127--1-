@@ -72,14 +72,14 @@ import { viewerTimeZone } from "@/lib/orders/time-zone"
 import { boundsOf, compareBounds, compareRange, rangeLabel, type CompareValue, type DateRange } from "@/lib/date-range/range"
 import { kindOfProduct, modeFor, profileOf, reportOptions, reportShown, sectionsFor, sellsOf, type ReportId, type SalesMode } from "@/lib/analytics/sections"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { SegmentedPills } from "@/components/app/segmented-pills"
+import { KindPicker } from "@/components/app/kind-picker"
 import { EXPORT_REPORTS, type ExportReport } from "@/lib/analytics/export-csv"
 import { propertyLabel } from "@/lib/analytics/properties"
 import { bucketLabel, bucketStarts, grainFor, type Span } from "@/lib/analytics/buckets"
 import { DEFAULT_PROPERTY, ownsProperty, parseProperty, propertyOptions, propertyParam, type CreatorProperties, type PropertySelector } from "@/lib/analytics/properties"
 import { AnalyticsReports, ReportDetailHost, prefetchReports, useAnalyticsReports } from "./analytics-reports"
 import { prefetchCommerce } from "./commerce-reports"
-import { reportNow } from "@/lib/analytics/report-cache"
+import { reportKey, reportNow } from "@/lib/analytics/report-cache"
 import { ViewReport } from "./report-detail"
 import { AnalyticsChartWithTooltip, CHART_COLORS, type AnalyticsChartData } from "@/components/app/analytics-chart"
 import { MetricTab, MetricTabLine } from "@/components/app/metric-tab"
@@ -326,7 +326,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
     if (profile.digital || profile.membership) out.push({ value: "digital", label: tt("Digital") })
     if (profile.physical && physicalOn) out.push({ value: "physical", label: tt("Physical") })
     if (communities.length > 0) out.push({ value: "communities", label: tt("Communities") })
-    return out.length >= 2 || (out.length === 1 && out[0].value === "communities") ? [{ value: "all" as AnalyticsView, label: tt("All") }, ...out] : []
+    return out.length >= 2 || (out.length === 1 && out[0].value === "communities") ? [{ value: "all" as AnalyticsView, label: tt("All types") }, ...out] : []
   }, [profile.digital, profile.membership, profile.physical, physicalOn, communities.length])
   const [view, setViewState] = useState<AnalyticsView>(() => {
     const raw = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("kind")
@@ -427,6 +427,11 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
     [sections.sales, sections.topProducts, sections.subscribers],
   )
   const exportRange = `${rangeLabel(period)} · ${propertyLabel(properties, property)}${chosenProduct ? ` · ${chosenProduct.title}` : ""}`
+  /* The page's question as the reports ask it: an opened report asks its rows' own lines with it (analytics-reports ReportDetailHost). */
+  const rowsQuestion = useMemo(
+    () => reportKey({ start: safeSpan.start, end: safeSpan.end, compare: against, product: selectedProduct, property: propertyKey, timeZone, currency: storeCurrency, kind: mode }),
+    [safeSpan, against, selectedProduct, propertyKey, timeZone, storeCurrency, mode],
+  )
   const reportsState = useAnalyticsReports({
     start: safeSpan.start,
     end: safeSpan.end,
@@ -635,7 +640,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
       */}
       <PullToRefreshEvent scope="app-analytics">
       {/* Every card and every figure opens its report beside the page (./report-detail, analytics-reports ReportDetailHost). */}
-      <ReportDetailHost state={reportsState} range={rangeLabel(period)} against={compareLabel}>
+      <ReportDetailHost state={reportsState} range={rangeLabel(period)} against={compareLabel} question={rowsQuestion}>
       <div ref={revealRef} className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
         {/* The heading alone. Add report is the tile under the last card; Export is the last control in the row below. */}
         <div className="flex items-center gap-3" data-analytics-head="">
@@ -643,14 +648,17 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
         </div>
 
         {/* THE FILTERS, ONE ROW IN ONE ORDER (the owner: "arrange the whole control area with UX in mind"): the
-            period, the place, the product, then what is shown (All, Digital, Physical, Communities), every one the
-            same 36px white chip with the same 8px between them, and Export, the one action, at the row's end.
+            period, the place, the product, then what is shown (All types, Digital, Physical, Communities), and
+            Export, the one action, at the row's end. Round 42 (the owner: "like the Emails subscribers filters"):
+            every filter is the Emails toolbar's chip, 28px, small text and a chevron, dashed while it is at its
+            default (All pages, All products, All types) and filled once it narrows the page, so a glance says
+            which filters are on; the period always is (app/globals.css [data-filter-chips]).
             On a phone the filters are ONE row that scrolls sideways, with momentum and no bar, fading where it is
             cut (components/app/use-edge-fade), and Export stays put at its right end as an icon, so it never
             scrolls off the screen. On a computer they sit together from the left and Export says its name. Each
             picker opens its sheet through a portal, so the scroller clips none of them. The 4px around the
             strip are the chips' rings. */}
-        <div className="flex items-center gap-2" data-analytics-controls="">
+        <div className="flex items-center gap-2" data-analytics-controls="" data-filter-chips="">
           <div
             ref={pickersRef}
             data-scroll-x
@@ -661,8 +669,8 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
             <PropertyPicker options={options} value={property} onChange={setProperty} />
             {/* Which product: the date picker's button, list and sheet (components/app/product-picker). */}
             {products.length ? <ProductPicker products={products} value={selectedProduct} onChange={setSelectedProduct} align="start" /> : null}
-            {/* What is shown, when there is a choice (round 24): the chips' own shape, the chosen one dark (components/app/segmented-pills "filter"). A pointer resting on one reads it ahead. */}
-            {kindPills.length ? <SegmentedPills options={kindPills} value={shownView} onChange={setView} onIntent={warmView} label={tt("What to show")} variant="filter" /> : null}
+            {/* What is shown, when there is a choice: one chip like the others, its list in a popover or the sheet (components/app/kind-picker). A pointer resting on a row reads it ahead. */}
+            {kindPills.length ? <KindPicker options={kindPills} value={shownView} onChange={setView} onIntent={warmView} allLabel={tt("All types")} /> : null}
           </div>
           <ExportButton query={exportQuery} name={exportName} options={exportOptions} range={exportRange} />
         </div>

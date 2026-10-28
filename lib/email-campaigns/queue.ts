@@ -68,6 +68,7 @@ import { readStoredBody } from "./stored"
 import { themeOf, type Brand } from "./brand"
 import { loadBrand } from "./brand-server"
 import { trackLinks } from "./link-sign"
+import { viewOnlineUrl } from "./view-online"
 import { esc } from "./rich"
 import { fitsPlan, monthlyLimit, monthStart } from "./limits"
 import {
@@ -232,9 +233,14 @@ export function prepareContent(input: { subject?: unknown; preview_text?: unknow
  * The email as a reader with no name on file gets it, with no tracking: for
  * the email's own page and the copy kept when a send starts.
  */
-export function previewEmail(content: Pick<PreparedContent, "subject" | "previewText" | "blocks">, sender: Pick<Sender, "brand" | "avatarUrl"> & { name?: string }): string {
-  const page = `${APP_URL}/unsubscribe`
-  const reader = { name: null, email: null, creatorName: sender.name ?? sender.brand.name, storeName: sender.brand.name, storeUrl: sender.brand.storeUrl, unsubscribeUrl: page }
+export function previewEmail(
+  content: Pick<PreparedContent, "subject" | "previewText" | "blocks">,
+  sender: Pick<Sender, "brand" | "avatarUrl"> & { name?: string },
+  /** The email's page for one reader (./view-online.ts): their name in it and their own unsubscribe link. Still no tracking. */
+  as?: { name: string | null; email: string | null; unsubscribeToken: string | null },
+): string {
+  const page = as?.unsubscribeToken ? unsubscribeUrlFor(as.unsubscribeToken) : `${APP_URL}/unsubscribe`
+  const reader = { name: as?.name ?? null, email: as?.email ?? null, creatorName: sender.name ?? sender.brand.name, storeName: sender.brand.name, storeUrl: sender.brand.storeUrl, unsubscribeUrl: page }
   const body = personalizeHtml(renderBlocks(content.blocks, themeOf(sender.brand)), reader).replace(/\{\{\s*unsubscribe_url\s*\}\}/gi, esc(page))
   return buildEmail({
     subject: personalizeSubject(content.subject, reader),
@@ -810,6 +816,8 @@ export function messageFor(frame: Frame, campaignId: string, row: Claimed, unsub
     kind: "marketing",
     unsubscribeUrl: page,
     openPixelUrl: frame.trackOpens ? `${APP_URL}/api/email/track?t=${encodeURIComponent(row.tracking_token)}` : null,
+    /* This reader's own page of the email: their name and their unsubscribe link, no pixel (./view-online.ts). */
+    viewOnlineUrl: viewOnlineUrl({ kind: "recipient", id: row.id }),
   })
   const headers: Record<string, string> = {}
   if (oneClick) {

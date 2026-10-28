@@ -1,7 +1,8 @@
+import { moneyCaller } from "@/lib/team/money"
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
+import { stripe } from "@/lib/stripe"
+import { STRIPE_READ_TIMEOUT_MS } from "@/lib/billing/subscription-state"
 
 function safeTimestamp(ts: any): string {
   if (!ts) return new Date().toISOString()
@@ -16,47 +17,33 @@ function safeTimestamp(ts: any): string {
 
 export async function GET() {
   try {
-    const supabase = await createClient()
+    /* The store's rows, by the store's id (lib/team/money), for the owner and a team member alike. */
+    const supabase = createAdminClient()
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    /* The owner, or a team member who may see the store's billing (round 42, lib/team/money): the store's own plan and Stripe customer, never the member's. */
+    const who = await moneyCaller("billing", "view")
+    if (!who.ok) return who.response
 
     const { data: creator, error: creatorError } = await createAdminClient()
       .from("creators")
       .select("id, stripe_customer_id, slug, username")
-      .eq("user_id", user.id)
+      .eq("id", who.creatorId)
       .single()
 
     if (creatorError || !creator) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
     }
 
-    // Fetch directly from Stripe (source of truth)
-    let stripeCustomerId: string | null = null
-    try {
-      stripeCustomerId = await getOrCreateStripeCustomer({
-        creatorId: creator.id,
-        existingCustomerId: creator.stripe_customer_id,
-        email: user.email,
-        userId: user.id,
-        username: creator.username || creator.slug || "creator",
-      })
-    } catch (err) {
-      console.error("[Invoices API] Error getting Stripe customer:", err)
-    }
+    /* A read: the stored customer only. A customer is never created to list its invoices (there are none). */
+    const stripeCustomerId: string | null =
+      typeof creator.stripe_customer_id === "string" && creator.stripe_customer_id.startsWith("cus_") ? creator.stripe_customer_id : null
 
     if (!stripeCustomerId) {
       return NextResponse.json({ invoices: [] })
     }
 
     try {
-      const stripeInvoices = await stripe.invoices.list({ customer: stripeCustomerId, limit: 20 })
+      const stripeInvoices = await stripe.invoices.list({ customer: stripeCustomerId, limit: 20 }, { timeout: STRIPE_READ_TIMEOUT_MS })
       const invoices = stripeInvoices.data.map((inv) => ({
         id: inv.id,
         stripe_invoice_id: inv.id,

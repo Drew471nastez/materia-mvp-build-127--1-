@@ -310,8 +310,9 @@ function LayoutSketch({ id }: { id: ProductBlockStyle }) {
   }
 }
 
-export function ProductLayoutPicker({ data, onPick }: { data: ProductBlockData; onPick: (id: ProductBlockStyle) => void }) {
-  const current = productLayoutOf(data)
+export function ProductLayoutPicker({ data, theme, onPick }: { data: ProductBlockData; theme?: { product_layout?: unknown } | null; onPick: (id: ProductBlockStyle) => void }) {
+  /* What the page draws: under a theme that shows products its own way, a block left as the Callout is drawn as the theme says. */
+  const current = productLayoutOf(data, theme)
   return (
     <div className="space-y-2.5" data-product-layouts="">
       <div>

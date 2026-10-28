@@ -10,6 +10,7 @@ import { emit } from "@/lib/notify/outbox"
 import { postLedger } from "@/lib/payments/ledger"
 import { ledgerAmountText, toLedger } from "@/lib/payments/ledger-currency"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
+import { creditNoteNumber, creditNotePath, issueCreditNote, type CreditNoteRow } from "@/lib/checkout/credit-note"
 
 /**
  * ===========================================================================
@@ -345,11 +346,24 @@ export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Ch
       result.applied++
     }
 
+    /* The refund's credit note (lib/checkout/credit-note.ts), in the store's
+       invoice sequence: once per refund, whichever of the Orders page, a
+       retried webhook or this delivery gets here first. */
+    let note: CreditNoteRow | null = null
+    const credited = events.filter((e) => e.stripe_refund_id === refund.id && (e.amount_cents || 0) > 0)
+    if (credited.length > 0) {
+      try {
+        note = await issueCreditNote(db, { creatorId: await creatorOf(db, rows[0].product_id), orderId: rows[0].id, refundKey: refund.id, currency, shares: credited.map((e) => ({ orderId: e.order_id, cents: e.amount_cents || 0 })) })
+      } catch (e) {
+        console.error("[refund-sync] credit note not issued:", e instanceof Error ? e.message : e)
+      }
+    }
+
     /* One email per refund, for a refund Storelib did not start (the Orders
        page sends its own). In cents: sendRefundEmails formats them. */
     if (touched.length > 0) {
       try {
-        await emailRefund(db, touched, refund, currency)
+        await emailRefund(db, touched, refund, currency, note ? creditNoteLink(rows[0], note) : null)
       } catch (e) {
         console.error("[refund-sync] refund email failed:", e instanceof Error ? e.message : e)
       }
@@ -373,7 +387,15 @@ async function sellerPicture(db: Db, creatorId: string | null | undefined): Prom
   }
 }
 
-async function emailRefund(db: Db, touched: Array<{ row: OrderRow; cents: number }>, refund: Stripe.Refund, currency: string) {
+/** The buyer's link to a credit note: their receipt token is the key (app/api/checkout/credit-note). */
+export function creditNoteLink(row: { receipt_token?: unknown }, note: Pick<CreditNoteRow, "id" | "seq">): { number: string; url: string } | null {
+  const token = typeof row.receipt_token === "string" ? row.receipt_token : null
+  if (!token) return null
+  const base = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").replace(/\/$/, "")
+  return { number: creditNoteNumber(note.seq), url: `${base}${creditNotePath(token, note.id)}` }
+}
+
+async function emailRefund(db: Db, touched: Array<{ row: OrderRow; cents: number }>, refund: Stripe.Refund, currency: string, creditNote: { number: string; url: string } | null) {
   const first = touched[0].row
   const { data: product } = await db
     .from("products")
@@ -401,6 +423,7 @@ async function emailRefund(db: Db, touched: Array<{ row: OrderRow; cents: number
     storeName: creator?.display_name || creator?.username || "Storelib",
     orderDate: first.created_at || undefined,
     sellerAvatarUrl: await sellerPicture(db, (product as any)?.creator_id),
+    creditNote,
   })
 }
 

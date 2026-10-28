@@ -89,6 +89,8 @@ const SUITES = [
   "tests/storelib-reviews.test.ts",
   "tests/reviews-manage.test.ts",
   "tests/review-widgets.test.ts",
+  /* Storelib Reviews › Add to website: the builder adds the widget once the page asked for is open (lib/reviews/widgets/arrival.ts). */
+  "tests/review-widget-arrival.test.ts",
   "tests/reviews-import-v.test.ts",
   "tests/reviews-product-page.test.ts",
   /* Round reviews-1023: Storelib Reviews in an imported theme as a Shopify reviews app (the review metafields everywhere, Star rating and Reviews app blocks, Shop words, aggregateRating); scripts/check-compat-reviews.mjs measures them. */
@@ -493,6 +495,8 @@ const SUITES = [
   "tests/ops-safety.test.ts",
   "tests/public-abuse.test.ts",
   "tests/section-signups.test.ts",
+  /* The Email app's newsletter end to end: the subscribe route against an in-memory database, an imported theme's form naming its box, and the canvas sending nothing. */
+  "tests/newsletter-signup.test.ts",
   "tests/developer-hub.test.ts",
   "tests/ai-section-placement.test.ts",
   "tests/email-automation.test.ts",
@@ -877,6 +881,7 @@ const SUITES = [
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",
   "tests/billing-cancel19.test.ts",
+  "tests/billing-fail-closed.test.ts",
   "tests/physical-w7.test.ts",
   "tests/fulfil23.test.ts",
   "tests/tracking24.test.ts",

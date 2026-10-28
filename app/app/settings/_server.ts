@@ -11,6 +11,7 @@ import { businessGroup } from "@/lib/businesses/server"
 import { groupIds } from "@/lib/businesses/rules"
 import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
 import { memberSettingsTabs } from "@/lib/team/settings"
+import { dataOrThrow } from "@/lib/net/service-error"
 
 export type SettingsTab = "general" | "security" | "privacy" | "billing" | "payments" | "domains"
 
@@ -33,7 +34,12 @@ export async function loadSettingsData() {
      recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return null
 
-  const [{ data: profile }, { data: creator }, { data: onepage }, newsletter, group] = await Promise.all([
+  /*
+    A FAILED READ IS NOT A MISSING ROW (lib/net/service-error.ts). The creator read failing used to read as "no
+    store" and sent a seller to /onboarding; the profile read failing made a fresh profile row with an upsert.
+    Both throw a ServiceUnavailable now, which SettingsForm (./_view) draws in Settings' own place with Try again.
+  */
+  const [profileRead, creatorRead, { data: onepage }, newsletter, group] = await Promise.all([
     createAdminClient().from("profiles").select("*").eq("id", user.id).maybeSingle(),
     createAdminClient().from("creators").select("*").eq("user_id", user.id).maybeSingle(),
     /* The share pill: whether the OnePage is live, and the platforms it links to. */
@@ -60,6 +66,8 @@ export async function loadSettingsData() {
     */
     businessGroup(user.id).catch(() => null),
   ])
+  const profile = dataOrThrow("settings profile", profileRead)
+  const creator = dataOrThrow("settings creator", creatorRead)
 
   /*
     A TEAM MEMBER WITH NO STORE OF THEIR OWN still has Settings: the Team

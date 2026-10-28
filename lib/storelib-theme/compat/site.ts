@@ -1866,10 +1866,19 @@ async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteRespons
   }
   const email = flat("email")
   const subscribe = type === "customer"
+  /* Which box it was, for the consent line and Emails' source: the form says (theme.ts formMarkup); a page drawn before it did is the footer's, as it always was. */
+  const placement = b.storelib_placement === "newsletter" ? "newsletter" : "footer"
   const payload = subscribe
-    ? { creator_id: site.creatorId, email, placement: "footer" }
+    ? { creator_id: site.creatorId, email, placement }
     : { creator_id: site.creatorId, name: flat("name") || [flat("first_name"), flat("last_name")].filter(Boolean).join(" "), email, message: flat("body") || flat("message") || flat("comment"), consent: false, company: "", elapsed: 15000, ...contactContext(flat) }
-  const result = req.submit ? await req.submit(subscribe ? "subscribe" : "contact", payload).catch(() => ({ ok: false, status: 503 })) : { ok: false, status: 503 }
+  /*
+    THE BUILDER'S CANVAS SENDS NOTHING AND SAYS IT WORKED (designMode, no
+    submit): designing a page is not signing up to it, as a Storelib
+    theme's canvas shows its form's success state (lib/website-builder/
+    subscribe-client signupMode). It answered "It did not send" here, so the
+    theme's newsletter looked broken in the editor.
+  */
+  const result = req.submit ? await req.submit(subscribe ? "subscribe" : "contact", payload).catch(() => ({ ok: false, status: 503 })) : site.designMode === true ? { ok: true, status: 200 } : { ok: false, status: 503 }
   const code = result.ok ? null : result.status === 400 ? (subscribe || !/@/.test(email) ? "email" : "check") : result.status === 429 ? "limit" : "failed"
   if (req.ajax) return json(result.ok ? { ok: true, form_type: type } : { ok: false, form_type: type, code, message: FORM_ERRORS[code ?? "failed"] }, result.ok ? 200 : result.status >= 400 ? result.status : 500)
   /*

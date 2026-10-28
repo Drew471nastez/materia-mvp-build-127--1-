@@ -213,4 +213,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "324", file: "324_onepage_integration_sends.sql", sha256: "f2685220f8adb7606dde956256f2bb1159042c3a4090eb84dfba52c52723dfa4" },
   { part: "327", file: "327_team_products.sql", sha256: "530216cdacce417d2b693be13ebcc2ea658a32594a306ea8eaedce3fd98237fb" },
   { part: "328", file: "328_analytics_test_sales_and_refund_reads.sql", sha256: "b103748ef74f967ec4c6ac595f71e243c3c52c570818f0b64746db21d652a5f0" },
+  { part: "329", file: "329_store_credit_notes.sql", sha256: "abf126c22a8973a1a4c918b31bac012fed9d818ed50b042e012e5d57f4b32b7a" },
+  { part: "331", file: "331_analytics_clicks_between_pages_and_row_lines.sql", sha256: "d4e8d4f5f6d05e91c7f1ac9bc23cea08a50910338f02c1d23c1f0871a6c666fc" },
 ]

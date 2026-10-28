@@ -32,7 +32,7 @@
  * computer (its column's centre within 2px of the panel's centre).
  *
  *   node scripts/check-settings-switch.mjs            (SWITCH_DELAY=ms, CPU_SLOWDOWN=4,
- *                                                      SWITCH_ONLY=switch|stale|dev, SWITCH_BEFORE=c18b792,
+ *                                                      SWITCH_ONLY=switch|stale|hang|dev, SWITCH_BEFORE=c18b792,
  *                                                      SWITCH_PROFILE=security,taxes, SWITCH_SHOT=dir)
  */
 import { execFileSync } from "node:child_process"
@@ -137,9 +137,13 @@ const API = {
 let html = ""
 /* While true, every split file but the page's own entry is gone, as after a deploy. */
 let staleChunks = false
+/* While true, every split file but the entry is asked for and never answered: a phone whose connection stalled mid fetch. */
+let hangChunks = false
+const hung = []
 const server = createServer((req, res) => {
   if (req.url.startsWith("/split/")) {
     const f = req.url.slice(7).split("?")[0]
+    if (hangChunks && f !== "entry.js") { hung.push(res); return }
     if (!splitFiles.has(f) || (staleChunks && f !== "entry.js")) { res.writeHead(404); res.end(""); return }
     res.writeHead(200, { "content-type": "text/javascript" })
     res.end(splitFiles.get(f))
@@ -319,6 +323,54 @@ console.log(`\na press on a section whose code a deploy removed${before ? ` (as 
   say(after.column && !after.errorScreen, "the column, and Settings round it, stay on screen")
   say(after.failed === "stale" && after.lit, "Taxes is the open section and says, in its own place, that Storelib was updated, with a Reload of its own")
   staleChunks = false
+  await p.close()
+}
+
+/* ── A SECTION WHOSE CODE NEVER ARRIVES: the request is taken and never answered ── */
+if (!only || only === "hang") {
+  console.log("\na press on a section whose code is asked for and never answered")
+  html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};window.__nav={back:0,push:[],replace:[],refresh:0};window.__path="/app";window.__physical=false</script><script type="module" src="/split/entry.js"></script></body></html>`
+  const p = await browser.newPage()
+  await p.setViewport({ width: 1440, height: 900 })
+  await p.evaluateOnNewDocument(INSTRUMENT)
+  await p.goto(`${base}/app`)
+  await p.waitForFunction(() => typeof window.__open === "function")
+  hangChunks = true
+  await p.evaluate(() => window.__open())
+  await wait(1200)
+  const t0 = Date.now()
+  await p.evaluate(() => document.querySelector('[data-settings-side-tab="taxes"]')?.click())
+  /* What the section's place says, sampled until it says something other than the section before. */
+  let state = null
+  let left = null
+  while (Date.now() - t0 < 15000) {
+    state = await p.evaluate(() => ({
+      /* The section on screen: one Suspense hid stays in the page under display none. */
+      panel: [...document.querySelectorAll("[data-settings-panel]")].find((n) => n.offsetParent !== null || n.getClientRects().length)?.getAttribute("data-settings-panel") ?? null,
+      waiting: !!document.querySelector("[data-settings-content] [data-waiting-area], [data-settings-content] [role=progressbar]"),
+      failed: document.querySelector("[data-settings-section-failed]")?.getAttribute("data-settings-section-failed") ?? null,
+      lit: !!document.querySelector('[data-settings-side-tab="taxes"][aria-current="page"]'),
+    }))
+    if (left === null && state.panel !== "general" && (state.waiting || state.panel === "taxes")) left = Date.now() - t0
+    if (state.failed) break
+    await wait(100)
+  }
+  const ms = Date.now() - t0
+  console.log(`    General gone after ${left}ms; after ${ms}ms the section says ${state?.failed ?? "nothing"}; Taxes lit: ${state?.lit}`)
+  say(left !== null && left < 1500, `the press leaves the section before within 1.5s, for a spinner in its place (${left}ms)`)
+  say(state?.failed === "slow" && ms < 12000, `within 12s Taxes says it took too long, with Try again (${ms}ms, ${state?.failed ?? "nothing"})`)
+  /* The connection comes back: the stalled requests drop, and Try again in the section's own place draws Taxes. */
+  hangChunks = false
+  for (const r of hung.splice(0)) r.destroy()
+  await wait(300)
+  await p.evaluate(() => document.querySelector("[data-settings-section-failed] button")?.click())
+  let drawn = false
+  for (let i = 0; i < 40 && !drawn; i++) {
+    await wait(100)
+    drawn = await p.evaluate(() => !document.querySelector("[data-settings-section-failed]") && !!document.querySelector('[data-settings-panel="taxes"]') && document.querySelector('[data-settings-panel="taxes"]').getBoundingClientRect().height > 40)
+  }
+  say(drawn, "with the connection back, Try again draws Taxes in place, without a reload")
+  /* Another section pressed while one is stuck is never held behind it. */
   await p.close()
 }
 

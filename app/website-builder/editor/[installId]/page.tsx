@@ -67,6 +67,7 @@ import { ConnectionMarkIcon } from "@/components/website-builder/connection-mark
 import { PanelBack } from "@/components/website-builder/panel-back"
 import { describeChange, pageEventPlan, pickConnection, sectionTypeOf, type ActivityEvent } from "@/lib/agent-access/connection-mark"
 import { createClient } from "@/lib/supabase/client"
+import { setWebsiteUploadOwner } from "@/lib/website-builder/team-upload-owner"
 import { GradientEditor } from "@/components/website-builder/editor/gradient-editor"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import type {
@@ -191,8 +192,7 @@ import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
 import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
-import { isWidgetType } from "@/lib/reviews/widgets/config"
-import { REVIEW_WIDGET_SECTION_TYPE, isMainProductSectionType } from "@/lib/storelib-theme/compat/storelib-reviews"
+import { planWidgetArrival, readWidgetArrival, type WidgetArrival } from "@/lib/reviews/widgets/arrival"
 import { CountdownControl, DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
 import { countdownGroup } from "@/lib/storelib-theme/countdown"
 import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
@@ -4346,6 +4346,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     const data = await res.json()
     const inst: ThemeInstall = data.install
+    /* A team member's pictures go into the store owner's folder (lib/website-builder/team-upload-owner). */
+    setWebsiteUploadOwner(typeof data.storeOwner === "string" ? data.storeOwner : null)
     setInstall(inst)
     if (data.username) setUsername(data.username)
     if (data.creatorFacts && typeof data.creatorFacts === "object") setCreatorFacts(data.creatorFacts as CreatorFacts)
@@ -7392,30 +7394,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * with its settings open, unsaved like any section just added. The words
    * are taken off the address so a reload does not add it again.
    */
-  const widgetArrival = useRef<{ widget: string; config: string; placement: string } | null | undefined>(undefined)
+  const widgetArrival = useRef<WidgetArrival | null | undefined>(undefined)
   useEffect(() => {
     if (widgetArrival.current === undefined) {
-      const url = new URL(window.location.href)
-      const widget = url.searchParams.get("addReviewWidget")
-      widgetArrival.current = widget && isWidgetType(widget) ? { widget, config: url.searchParams.get("reviewConfig") ?? "", placement: url.searchParams.get("placement") ?? "" } : null
-      if (widget) {
-        for (const k of ["addReviewWidget", "reviewConfig", "placement"]) url.searchParams.delete(k)
-        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
-      }
+      const read = readWidgetArrival(window.location.href)
+      widgetArrival.current = read.want
+      if (read.cleaned !== null) window.history.replaceState(window.history.state, "", read.cleaned)
     }
     const want = widgetArrival.current
-    if (!want || loading || sections.length === 0) return
-    const type = compatInstall ? REVIEW_WIDGET_SECTION_TYPE : "reviews_widget"
-    const schema = librarySchemas[type]
-    if (!schema) return
+    if (!want) return
+    /* Not while a page is still being put in: a product page from the address is the generic template first, then the product's own page over it (lib/reviews/widgets/arrival.ts). */
+    const plan = planWidgetArrival(want, {
+      busy: loading || canvasLoading || sectionsLoading,
+      sections,
+      headerCount: splitGroups(sections).header.length,
+      compat: compatInstall || importedTheme.current,
+      schemaOf: (t) => librarySchemas[t],
+    })
+    if (!plan) return
     widgetArrival.current = null
-    const presetIndex = Math.max(0, (schema.presets ?? []).findIndex((p) => (p.settings as Record<string, unknown> | undefined)?.widget === want.widget))
-    const header = splitGroups(sections).header.length
-    const main = sections.findIndex((x) => isMainProductSectionType(x.type))
-    const at = want.placement === "top" ? header : want.placement === "below_product" && main >= 0 ? main + 1 : null
-    addSection(type, presetIndex, true, { settings: { widget: want.widget, review_config: /^[0-9a-f-]{36}$/i.test(want.config) ? want.config : "" }, at })
+    addSection(plan.type, plan.presetIndex, true, { settings: plan.settings, at: plan.at })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, sections, librarySchemas, compatInstall])
+  }, [loading, canvasLoading, sectionsLoading, sections, librarySchemas, compatInstall])
 
   /**
    * Everywhere on this site a link can point, for the link fields.

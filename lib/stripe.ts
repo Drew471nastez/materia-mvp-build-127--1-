@@ -1,6 +1,7 @@
 import "server-only"
 import Stripe from "stripe"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { checkStripeCustomer, resolveStripeCustomer, type CustomerCheck, type CustomerDeps } from "@/lib/billing/stripe-customer"
 
 /*
   MADE ON FIRST USE, NOT WHEN THE FILE LOADS. A build reads every route to collect its page data, and a Preview environment
@@ -21,57 +22,42 @@ export const stripe: Stripe = new Proxy({} as Stripe, {
 })
 
 /**
- * Validates an existing Stripe customer ID, or creates a new one if it's
- * stale/invalid (e.g. created with test keys but now using live keys).
- * Updates the creators table with the new customer ID if recreated.
+ * The creator's Stripe customer: the stored one while Stripe says it exists,
+ * a new one only when Stripe verifies the stored one is deleted or missing
+ * (lib/billing/stripe-customer.ts). A timeout or a Stripe error is thrown,
+ * never answered with a replacement customer. For routes that are about to
+ * charge or attach a card (checkout, setup, portal, payment method). Reads
+ * use `checkStripeCustomer` and never create.
  */
-export async function getOrCreateStripeCustomer({
-  creatorId,
-  existingCustomerId,
-  email,
-  userId,
-  username,
-}: {
+export async function getOrCreateStripeCustomer(args: {
   creatorId: string
   existingCustomerId: string | null
   email: string | undefined
   userId: string
   username: string
 }): Promise<string> {
-  // If we have a stored customer ID, validate it against the current Stripe keys
-  if (existingCustomerId) {
-    try {
-      const existing = await stripe.customers.retrieve(existingCustomerId)
-      if ((existing as any).deleted) {
-        console.warn(
-          `Stripe customer ${existingCustomerId} was deleted. Creating new live customer.`
-        )
-      } else {
-        return existingCustomerId // Valid customer, use it
-      }
-    } catch (err: any) {
-      // Customer doesn't exist on current keys (test→live migration, etc.)
-      console.warn(
-        `Stripe customer ${existingCustomerId} not found (likely test-mode ID). Creating new live customer.`
-      )
-    }
-  }
+  return resolveStripeCustomer(customerDeps(), args)
+}
 
-  // Create a fresh customer on the current (live) keys
-  const customer = await stripe.customers.create({
-    email,
-    metadata: {
-      creator_id: creatorId,
-      user_id: userId,
-      username,
+/** What Stripe says about a stored customer id ("present", "deleted", "missing"). Throws when Stripe could not be asked. */
+export async function checkStoredStripeCustomer(id: string): Promise<CustomerCheck> {
+  return checkStripeCustomer(customerDeps(), id)
+}
+
+function customerDeps(): CustomerDeps {
+  return {
+    retrieve: (id, options) => stripe.customers.retrieve(id, {}, options) as Promise<{ id: string; deleted?: boolean }>,
+    create: (params, options) => stripe.customers.create(params, options),
+    async persist(creatorId, expected, next) {
+      const admin = createAdminClient()
+      /* A server owned column: only the service role may write it (run-now part 63). Only over the id that was checked. */
+      let q = admin.from("creators").update({ stripe_customer_id: next }).eq("id", creatorId)
+      q = expected ? q.eq("stripe_customer_id", expected) : q.is("stripe_customer_id", null)
+      const { data, error } = await q.select("stripe_customer_id")
+      if (error) throw new Error(`creators.stripe_customer_id not written: ${error.message}`)
+      if (Array.isArray(data) && data.length) return { stored: next }
+      const { data: row } = await admin.from("creators").select("stripe_customer_id").eq("id", creatorId).maybeSingle()
+      return { stored: (row?.stripe_customer_id as string | null) ?? null }
     },
-  })
-
-  // Persist the new customer ID. A server owned column: only the service role may write it (run-now part 63).
-  await createAdminClient()
-    .from("creators")
-    .update({ stripe_customer_id: customer.id })
-    .eq("id", creatorId)
-
-  return customer.id
+  }
 }

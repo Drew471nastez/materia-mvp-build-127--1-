@@ -335,10 +335,13 @@ export function ReceiptView({
   help,
   account = null,
   timeZone = null,
+  creditNotes = [],
 }: {
   receipt: Receipt
   viewer: ReceiptViewer
   locale: string
+  /** The refunds' credit notes (lib/checkout/credit-note.ts), each its number and its PDF's link, oldest first. */
+  creditNotes?: { number: string; href: string }[]
   /** The store's time zone (Settings › Account), the order's date is written in it; null for the buyer's own. */
   timeZone?: string | null
   /**
@@ -707,6 +710,27 @@ export function ReceiptView({
                     {ct("Download invoice (PDF)")}
                   </a>
                 ) : null}
+              </div>
+            ) : null}
+            {/* Each refund's credit note, which corrects the invoice above: in the same sequence, in the same language. */}
+            {creditNotes.length > 0 ? (
+              <div className="flex flex-wrap justify-end gap-x-4 gap-y-1 text-[13px] print:hidden" data-credit-notes="">
+                {creditNotes.map((n) => (
+                  <a
+                    key={n.number}
+                    href={n.href}
+                    download
+                    onClick={(e) => {
+                      if (platform === "web") return
+                      e.preventDefault()
+                      void downloadFile({ url: e.currentTarget.getAttribute("href") || "", fileName: `Credit note ${n.number}.pdf` })
+                    }}
+                    className={`${TEXT_LINK} -my-0.5 inline-flex min-h-9 items-center gap-1.5`}
+                  >
+                    <FileText className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
+                    {ct("Credit note {number}", { number: n.number })}
+                  </a>
+                ))}
               </div>
             ) : null}
           </dl>

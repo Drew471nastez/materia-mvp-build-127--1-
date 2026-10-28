@@ -23,8 +23,18 @@
  * before dashed (components/analytics/trend-mini-chart, the cards' own chart),
  * and then every row the answer has, not the top five, each with this
  * period, the period before and the change. A list long enough to look
- * through gets a search. Only what the answer already has is drawn: a row's
- * line over time is not in it, so a row has its numbers, not a chart.
+ * through gets a search.
+ *
+ * EACH ROW'S OWN LINE (round 42, the owner: "each row can show its own small
+ * trend over the period"). A section that names its rows' dimension
+ * (`lines`: page, link, source, country...) draws a small line per row, the
+ * row over the chart's buckets, beside its number. The lines are not in the
+ * page's answer: they are asked for when the report opens
+ * (app/api/analytics/rows, lib/analytics/row-series), one dimension at a
+ * time, and kept for the question, so the page itself reads nothing more.
+ * Until they come the column holds a faint rule in its place, so nothing
+ * moves when they land; a row with no line (Other, a removed page) keeps the
+ * rule.
  */
 import * as React from "react"
 import { Search, X } from "lucide-react"
@@ -53,8 +63,19 @@ export interface DetailRow {
   previousText?: string
 }
 
+/** A dimension's lines, by row key, one number per bucket of the chart; "loading" while asked, "failed" when they could not be read. */
+export type RowLines = { state: "loading" | "failed" } | { state: "ready"; series: Record<string, number[]> }
+
+/**
+ * The lines of the opened report's sections, by dimension (ReportDetailHost
+ * in ./analytics-reports reads them). Without a provider no column is drawn.
+ */
+export const RowLinesContext = React.createContext<Record<string, RowLines> | null>(null)
+
 export interface DetailSection {
   title: string
+  /** The rows' dimension (lib/analytics/row-series RowDim): each row then draws its own line over the period. */
+  lines?: string
   rows: DetailRow[]
   format: (n: number) => string
   /** Draws each row's size as a thin bar under its name. */
@@ -196,8 +217,41 @@ function ChangeCell({ now, before, invert }: { now: number; before: number | und
 const folded = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
 const SEARCH_FROM = 9
 
+/**
+ * A ROW'S LINE: its numbers over the period as one thin stroke, scaled to
+ * the row's own highest, on a faint base. A row with nothing in it, or whose
+ * line has not come yet, is the base alone.
+ */
+const SPARK_W = 64
+const SPARK_H = 20
+function RowLine({ values, ready }: { values: number[] | undefined; ready: boolean }) {
+  const ys = values && values.length > 1 ? values : null
+  const max = ys ? Math.max(...ys.map((v) => Math.max(0, v))) : 0
+  const points = ys && max > 0 ? ys.map((v, i) => `${((i / (ys.length - 1)) * SPARK_W).toFixed(1)},${(SPARK_H - 1.5 - (Math.max(0, v) / max) * (SPARK_H - 3)).toFixed(1)}`).join(" ") : null
+  return (
+    <svg aria-hidden viewBox={`0 0 ${SPARK_W} ${SPARK_H}`} preserveAspectRatio="none" data-row-line={points ? "" : "empty"} className="block h-5 w-[48px] overflow-visible sm:w-[64px]">
+      <line x1="0" x2={SPARK_W} y1={SPARK_H - 0.5} y2={SPARK_H - 0.5} stroke="#eef0f2" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+      {points ? (
+        <polyline
+          points={points}
+          fill="none"
+          stroke="#8b5cf6"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          vectorEffect="non-scaling-stroke"
+          className={cn("transition-opacity duration-300 motion-reduce:transition-none", ready ? "opacity-100" : "opacity-0")}
+        />
+      ) : null}
+    </svg>
+  )
+}
+
 function Section({ s, compared }: { s: DetailSection; compared: boolean }) {
   const [query, setQuery] = React.useState("")
+  const allLines = React.useContext(RowLinesContext)
+  const lines = s.lines && allLines ? allLines[s.lines] ?? { state: "loading" as const } : null
+  const series = lines && lines.state === "ready" ? lines.series : null
   const withPrevious = compared && s.rows.some((r) => r.previous !== undefined || r.previousText !== undefined)
   const q = folded(query.trim())
   const rows = q ? s.rows.filter((r) => folded(`${r.label} ${r.note ?? ""}`).includes(q)) : s.rows
@@ -237,6 +291,11 @@ function Section({ s, compared }: { s: DetailSection; compared: boolean }) {
               <th className="font-medium">
                 <span className="sr-only">{tt("Name")}</span>
               </th>
+              {lines ? (
+                <th className="w-[60px] font-medium sm:w-[76px]">
+                  <span className="sr-only">{tt("Over the period")}</span>
+                </th>
+              ) : null}
               <th className="w-[96px] text-right font-medium sm:w-[112px]">{s.valueLabel ?? tt("This period")}</th>
               {withPrevious ? <th className="hidden w-[96px] text-right font-medium sm:table-cell">{tt("Previous")}</th> : null}
               {withPrevious ? <th className="w-[60px] text-right font-medium">{tt("Change")}</th> : null}
@@ -255,6 +314,13 @@ function Section({ s, compared }: { s: DetailSection; compared: boolean }) {
                     <span aria-hidden data-detail-bar="" className="mt-1.5 block h-1 rounded-full bg-[linear-gradient(180deg,#e8eaee_0%,#dcdfe4_100%)]" style={{ width: `${Math.max(2, (Math.abs(r.value) / max) * 100).toFixed(1)}%` }} />
                   ) : null}
                 </td>
+                {lines ? (
+                  <td className="py-2.5 pr-1" data-detail-line={lines.state}>
+                    <span className="flex justify-end">
+                      <RowLine values={series?.[r.key]} ready={!!series} />
+                    </span>
+                  </td>
+                ) : null}
                 <td className="py-2.5 text-right font-medium tabular-nums text-[#1a1a2e]">{r.text ?? s.format(r.value)}</td>
                 {withPrevious ? <td className="hidden py-2.5 text-right tabular-nums text-[#6b7280] sm:table-cell">{r.previousText ?? (r.previous === undefined ? "" : s.format(r.previous))}</td> : null}
                 {withPrevious ? (
@@ -266,7 +332,7 @@ function Section({ s, compared }: { s: DetailSection; compared: boolean }) {
             ))}
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="h-20 text-center text-[13px] text-[#6b7280]">
+                <td colSpan={5} className="h-20 text-center text-[13px] text-[#6b7280]">
                   {tt("Nothing matches “{query}”.", { query: query.trim() })}
                 </td>
               </tr>

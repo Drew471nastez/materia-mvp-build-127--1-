@@ -3,7 +3,9 @@ import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
-import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
+import { creatorForRequest, creatorOrThrowForRequest, currentUserForRequest, profileOrThrowForRequest } from "@/lib/auth/request-scope"
+import { isServiceUnavailable } from "@/lib/net/service-error"
+import { ServiceUnavailable } from "@/components/app/service-unavailable"
 import { cachedStoreCurrency } from "@/lib/store/selling-currency-server"
 import { LiveStoreCurrency } from "@/lib/store/currency-context"
 import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
@@ -165,22 +167,28 @@ export default async function AppLayout({
   })
   /* A redirect below leaves it unawaited: never an unhandled rejection. */
   setupRead.catch(() => {})
-  const [gateCheck, ownCreator, { data: onepage }, businesses, team, memberOf] = await Promise.all([
-    profileForRequest(user.id),
-    creatorForRequest(user.id),
-    supabase
-      .from("onepages")
-      .select("id, avatar_url, published, draft_blocks, bio")
-      .eq("owner_id", user.id)
-      .maybeSingle(),
-    /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
-       shell draws no later; an error reads as this business alone, as it always was. */
-    listBusinesses(user.id).catch(() => []),
-    /* Working in a store they were invited to (lib/team): read from the database again on every request. */
-    teamStoreForRequest(user.id).catch(() => null),
-    /* The stores they are on as a team member, for the account menu's switcher. */
-    teamStoresForRequest(user.id),
-  ])
+  /*
+    A READ THAT FAILED IS NOT "NO ROW" (lib/net/service-error.ts). The profile and the creator row decide where
+    somebody belongs: a profile read that timed out used to read as an unverified email and sent a seller to
+    /signup/verify, a creator read that failed sent them to /sell. Now a failure of either is said as one
+    (components/app/service-unavailable.tsx, Try again in place, once by itself), and no gate below is decided
+    from it. Everything else here keeps falling back as it did: those rows only decorate the shell.
+  */
+  let critical: Awaited<ReturnType<typeof criticalShellReads>>
+  try {
+    critical = await criticalShellReads(user.id, supabase)
+  } catch (e) {
+    if (!isServiceUnavailable(e)) throw e
+    return (
+      <>
+        {arrival}
+        <NativeAuthGate loadingFallback={<AppColdStart />}>
+          <ServiceUnavailable />
+        </NativeAuthGate>
+      </>
+    )
+  }
+  const [gateCheck, ownCreator, { data: onepage }, businesses, team, memberOf] = critical
   const profile = gateCheck
   /*
     A TEAM MEMBER'S DASHBOARD IS THE STORE'S. The chrome (its name, its
@@ -320,4 +328,24 @@ export default async function AppLayout({
     </NativeAuthGate>
     </>
   )
+}
+
+/** The reads the shell's gates are decided from, together. The profile and the creator row throw a ServiceUnavailable when they could not be read. */
+function criticalShellReads(userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
+  return Promise.all([
+    profileOrThrowForRequest(userId),
+    creatorOrThrowForRequest(userId),
+    supabase
+      .from("onepages")
+      .select("id, avatar_url, published, draft_blocks, bio")
+      .eq("owner_id", userId)
+      .maybeSingle(),
+    /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
+       shell draws no later; an error reads as this business alone, as it always was. */
+    listBusinesses(userId).catch(() => []),
+    /* Working in a store they were invited to (lib/team): read from the database again on every request. */
+    teamStoreForRequest(userId).catch(() => null),
+    /* The stores they are on as a team member, for the account menu's switcher. */
+    teamStoresForRequest(userId),
+  ])
 }

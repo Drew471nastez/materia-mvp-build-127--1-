@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { loadBillingOverview } from "@/lib/billing/overview"
+import { moneyCaller } from "@/lib/team/money"
 
 /**
  * GET /api/billing/overview
@@ -18,9 +19,14 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const overview = await loadBillingOverview()
+  /* The owner, or a team member who may see the store's plan (round 42, lib/team/money): the store's plan and invoices, never the member's own. */
+  const who = await moneyCaller("billing", "view")
+  if (!who.ok) return who.response.status === 401 ? NextResponse.json({ error: "Not signed in" }, { status: 401 }) : who.response
+  const canManage = who.isOwner || !!who.acting?.permissions.includes("billing_manage")
+  const overview = await loadBillingOverview({ creatorId: who.creatorId })
   if (!overview) return NextResponse.json({ error: "Not signed in" }, { status: 401 })
-  return NextResponse.json(overview, {
+  /* canManage: whether the tab shows the buttons that change the plan; the change routes ask again. */
+  return NextResponse.json({ ...overview, canManage }, {
     /* Private and never cached: this is one person's invoices. */
     headers: { "Cache-Control": "private, no-store" },
   })

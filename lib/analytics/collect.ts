@@ -5,7 +5,7 @@ import { createHmac } from "node:crypto"
 import { CONSENT_COOKIE, allows, parse } from "@/lib/consent/consent"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { anonSession, anonVisitorId, clientIp, dailyKey } from "./anon-visit"
-import { EVENT, EXPLORE_SOURCE, PAGE_VIEW_REPEAT_MS, SESSION_TIMEOUT_MS, normalizeLinkUrl, normalizePath, type PropertyType } from "./events"
+import { EVENT, EXPLORE_SOURCE, PAGE_VIEW_REPEAT_MS, SESSION_TIMEOUT_MS, normalizeLinkLabel, normalizeLinkUrl, normalizePath, type PropertyType } from "./events"
 import { resolveProperty, type ResolvedProperty } from "./property"
 import { categorizeServerSource, detectClientAppFromUA, isInternalReferrer, referrerHost, sourceParamOf } from "./sources"
 import { OWN_MARKER_COOKIE, OWN_MARKER_DOMAIN_COOKIE, consumeOwnHandoff, readOwnToken, signOwnMarker } from "./own-marker"
@@ -58,7 +58,7 @@ function handoffHost(href: unknown, requestHost: string | null): string {
   return requestHost ?? ""
 }
 
-export type CollectKind = "view" | "link_click" | "buy_click" | "checkout_start" | "checkout_complete" | "download"
+export type CollectKind = "view" | "link_click" | "nav_click" | "buy_click" | "checkout_start" | "checkout_complete" | "download"
 export const FUNNEL_KINDS = ["buy_click", "checkout_start", "checkout_complete", "download"] as const
 
 export type CollectReason =
@@ -259,6 +259,10 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
   const linkUrl = kind === "link_click" ? normalizeLinkUrl(body.linkUrl) : null
   const linkId = kind === "link_click" && typeof body.linkId === "string" && ID.test(body.linkId) ? body.linkId : null
   if (kind === "link_click" && !linkUrl && !linkId) return { recorded: false, reason: "invalid" }
+  /* An internal click (nav_click): the page it leads to, as a full address on the same host, and the button's words. */
+  const targetHref = kind === "nav_click" && typeof body.targetHref === "string" && body.targetHref.length <= 2000 ? body.targetHref : null
+  const linkLabel = kind === "nav_click" ? normalizeLinkLabel(body.label) : null
+  if (kind === "nav_click" && !targetHref) return { recorded: false, reason: "invalid" }
 
   /* 2 to 4. A person, looking, on the page itself. */
   const ua = req.headers.get("user-agent")
@@ -326,10 +330,24 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     return last?.property_type ? { type: last.property_type, id: last.property_id ?? null } : null
   }
 
-  if (kind === "view" || kind === "link_click") {
+  if (kind === "view" || kind === "link_click" || kind === "nav_click") {
     const resolved = await resolveHref()
     if (!resolved.ok) return { recorded: false, reason: "no_property", detail: resolved.reason }
     property = resolved.property
+  }
+  /*
+    An internal click's target is placed by the same rules as a page: it has
+    to be another page of the very property the click was on (a website's
+    shop from its home page), never a page of another site, a preview or the
+    page itself. Its path is then the path a view of it is stored under, so
+    the report can read "from this page to that page".
+  */
+  let targetPath: string | null = null
+  if (kind === "nav_click" && property) {
+    const target = await resolveProperty(db, { requestHost: req.headers.get("host"), href: targetHref, creatorId, creatorUserId: ownerUserId, mainDomain: deps.mainDomain }, now)
+    if (!target.ok || target.property.type !== property.type || (target.property.id ?? null) !== (property.id ?? null)) return { recorded: false, reason: "invalid", detail: target.ok ? "other_property" : target.reason }
+    if (target.property.path === property.path) return { recorded: false, reason: "invalid", detail: "same_page" }
+    targetPath = target.property.path
   }
 
   /* 9, second half. The visitor and the visit. */
@@ -350,7 +368,7 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     (the checkout, on storelib.com, belongs to wherever the buyer came from).
     Unplaced, it is still recorded, with no property, as it always was.
   */
-  if (kind !== "view" && kind !== "link_click") {
+  if (kind !== "view" && kind !== "link_click" && kind !== "nav_click") {
     const href = typeof body.href === "string" ? body.href : null
     const fromHref = href ? await resolveHref() : null
     if (fromHref && !fromHref.ok && fromHref.reason === "preview") return { recorded: false, reason: "no_property", detail: "preview" }
@@ -393,7 +411,14 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
     q = linkId ? q.eq("link_id", linkId) : q.eq("link_url", linkUrl)
     const { data } = await q.limit(1)
     if (Array.isArray(data) && data.length > 0) return { recorded: false, reason: "duplicate" }
-  } else if (kind !== "view" && kind !== "link_click" && sessionId) {
+  } else if (kind === "nav_click" && property && (sessionId || visitorId)) {
+    /* One per visit, page, target and words: a second tap on Shop now from the home page is the same click. */
+    let q = db.from("analytics_events").select("id").eq("creator_id", creatorId).eq("event_type", EVENT.navClick).eq("property_type", property.type).eq("path", property.path).eq("link_url", targetPath).gte("created_at", repeatSince)
+    q = sessionId ? q.eq("session_id", sessionId) : q.eq("visitor_id", visitorId)
+    q = linkLabel ? q.eq("link_label", linkLabel) : q.is("link_label", null)
+    const { data, error } = await q.limit(1)
+    if (!error && Array.isArray(data) && data.length > 0) return { recorded: false, reason: "duplicate" }
+  } else if (kind !== "view" && kind !== "link_click" && kind !== "nav_click" && sessionId) {
     /* One step per visit and product: a refresh of the checkout is not a second buyer. */
     let q = db.from("analytics_events").select("id").eq("creator_id", creatorId).eq("event_type", kind).eq("session_id", sessionId).gte("created_at", repeatSince)
     q = productId ? q.eq("product_id", productId) : q.is("product_id", null)
@@ -419,6 +444,10 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
   if (kind === "link_click") {
     base.link_url = linkUrl
     base.link_id = linkId
+  }
+  if (kind === "nav_click") {
+    base.link_url = targetPath
+    if (linkLabel) base.link_label = linkLabel
   }
 
   let row = base
@@ -498,7 +527,7 @@ async function run(req: CollectRequest, deps: CollectDeps): Promise<CollectOutco
       creator page view: so it waits for the part. Anything else is written
       as it was before the part, then with the core columns only.
     */
-    if (property?.type === "onepage" || kind === "link_click") return { recorded: false, reason: "not_ready" }
+    if (property?.type === "onepage" || kind === "link_click" || kind === "nav_click") return { recorded: false, reason: "not_ready" }
     const legacy = Object.fromEntries(Object.entries(row).filter(([k]) => !(NEW_COLUMNS as readonly string[]).includes(k)))
     error = await insert(legacy)
     if (error && missingColumn(error)) {

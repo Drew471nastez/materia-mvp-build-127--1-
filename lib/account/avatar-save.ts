@@ -79,7 +79,9 @@ export async function saveProfilePhoto(
   const { data: rows, error } = await supabase.from("profiles").update({ avatar_url: url }).eq("id", user.id).select("avatar_url")
   if (error) {
     console.error(`[account/avatar] not saved (${error.code ?? "unknown"})`)
-    return { ok: false, status: 500, error: url ? "The photo did not save. Try again in a moment." : "The photo was not removed. Try again in a moment." }
+    /* The database's code goes with the words (42501 is a refused write, 42703 a column the database does not have), so a report says which. */
+    const code = error.code ? ` (${error.code})` : ""
+    return { ok: false, status: 500, error: url ? `The photo did not save${code}. Try again in a moment.` : `The photo was not removed${code}. Try again in a moment.` }
   }
   const saved = Array.isArray(rows) ? rows[0] : null
   if (!saved) {

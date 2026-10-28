@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIBRARY_FULL_CODE, LIBRARY_FULL_MESSAGE, isLibraryFullError, keptWithinLimit, librarySlotsLeft, nextSortOrder } from "@/lib/website-builder/library-limit"
 import { copyCover, coverForNewWebsite, renderOrigin } from "@/lib/website-builder/cover-take"
@@ -14,15 +14,11 @@ type Params = { params: Promise<{ installId: string }> }
 // Clones the install (settings + pages) as a new draft
 export async function POST(req: Request, { params }: Params) {
   const { installId } = await params
-  const supabase = await createClient()
   const admin = createAdminClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data: creator } = await supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+  /* The owner, or a team member with Website working in the store (lib/team/website): the new website is the store's. */
+  const site = await websiteCaller()
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
+  const { supabase, user, creator } = site
 
   // Load source install
   const { data: source } = await supabase
@@ -130,8 +126,8 @@ export async function POST(req: Request, { params }: Params) {
     the answer so the card is right the moment it appears, then a photograph
     of the copy itself. A source with no picture yet is photographed now.
   */
-  const owner = { installId: newInstall.id as string, userId: user.id, creatorId: creator.id as string }
-  const first = await coverForNewWebsite(owner, renderOrigin(req.url), "duplicate", await copyCover(user.id, installId, owner))
+  const owner = { installId: newInstall.id as string, userId: site.ownerUserId, creatorId: creator.id as string }
+  const first = await coverForNewWebsite(owner, renderOrigin(req.url), "duplicate", await copyCover(site.ownerUserId, installId, owner))
 
   return NextResponse.json({ install: newInstall, ...first })
 }

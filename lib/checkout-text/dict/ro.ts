@@ -962,6 +962,21 @@ const ro: Record<string, string> = {
   "Amounts are in {currency}.": "Sumele sunt în {currency}.",
   "US dollars": "dolari americani",
   "Questions about this purchase: {email}.": "Întrebări despre această comandă: {email}.",
+  /* ── A refund's credit note (lib/checkout/credit-note.ts), "factură de stornare" as Romanian accounting calls it ── */
+  "Credit note": "Factură de stornare",
+  "Credit note {number}": "Factură de stornare {number}",
+  "Credit note number": "Numărul facturii de stornare",
+  "Original invoice": "Factura inițială",
+  "Original receipt": "Chitanța inițială",
+  "Refund reference": "Referința rambursării",
+  "{amount} {currency} credited on {date}": "{amount} {currency} stornați pe {date}",
+  "Partial refund": "Rambursare parțială",
+  "Total credited": "Total stornat",
+  "Tax rate": "Cota de taxă",
+  "Net": "Valoare netă",
+  "Refund of invoice {number}.": "Rambursarea facturii {number}.",
+  "Refund of receipt {number}.": "Rambursarea chitanței {number}.",
+  "Download the credit note": "Descarcă factura de stornare",
 }
 
 export default ro

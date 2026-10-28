@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-import { createClient } from "@/lib/supabase/server"
+import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { validateFile } from "@/lib/storage"
 import { storageExtension } from "@/lib/storage/validation"
@@ -50,14 +50,15 @@ function safeStem(fileName: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: "Sign in to upload a file." }, { status: 401, headers: UPLOAD_HEADERS })
-
+    /* The owner, or a team member with Website working in the store (lib/team/website): the file goes in the store's folder. */
+    const site = await websiteCaller()
+    if (site.error !== null) {
+      const message = site.status === 401 ? "Sign in to upload a file." : site.status === 404 ? "Only a seller account can add files to a website." : site.error
+      return NextResponse.json({ error: message }, { status: site.status === 404 ? 403 : site.status, headers: UPLOAD_HEADERS })
+    }
+    const user = site.user
     const admin = createAdminClient()
-    const { data: creator } = await admin.from("creators").select("id, subscription_plan_id").eq("user_id", user.id).single()
+    const { data: creator } = await admin.from("creators").select("id, subscription_plan_id").eq("id", site.creatorId).single()
     if (!creator) return NextResponse.json({ error: "Only a seller account can add files to a website." }, { status: 403, headers: UPLOAD_HEADERS })
 
     const limited = await uploadRateLimit(user.id, creator.subscription_plan_id)

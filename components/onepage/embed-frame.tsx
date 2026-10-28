@@ -49,11 +49,34 @@
  *                 through and only the card is drawn. X's own dark look is
  *                 asked for with &theme=dark (creator-blocks EmbedView).
  *
+ * ROUND 42, the owner: "Embeds show inside a box with ugly horizontal and
+ * vertical scrollbars, and the width doesn't adapt to the page column".
+ *
+ *   THE SCROLLBARS  the frame was a scroller. X says a height like 611.4,
+ *                   it was rounded to 611, and the settle rule above kept a
+ *                   frame 2px short of a card that had grown 2px: either is
+ *                   a document taller than its frame, which a desktop
+ *                   browser answers with a vertical scrollbar, and the
+ *                   vertical bar's 15px then pushes the card sideways into
+ *                   a horizontal one. Now a height is rounded up, any growth
+ *                   is taken (only a small shrink is settled), and a frame
+ *                   that says its own height cannot scroll (scrolling="no",
+ *                   what X's and Instagram's own widget scripts set).
+ *                   Tally says its height too now (dynamicHeight=1), and a
+ *                   Calendly page drawn inline (BookingFrame below).
+ *   THE WIDTH       the frame was locked to the width X said, and X says
+ *                   the width of the frame it is in, so once said it could
+ *                   never grow: a post first drawn in a narrow column (a
+ *                   sheet, a phone preview) stayed narrow. The width X says
+ *                   is kept only for the column it was said in; the column
+ *                   changes width, the frame is the column's again and X
+ *                   says the new one.
+ *
  * Lazy (loading="lazy"): a page with five posts opens as fast as one without.
  */
 
 import * as React from "react"
-import { embedHeightFromMessage, embedWidthFromMessage, type EmbedKind } from "@/lib/onepage/creator-blocks"
+import { bookingFrameUrl, bookingHeightFromMessage, embedHeightFromMessage, embedWidthFromMessage, type EmbedKind } from "@/lib/onepage/creator-blocks"
 
 /** The widest each service draws its card. Wider than this, the service centres it in white. */
 export const EMBED_MAX_WIDTH: Partial<Record<EmbedKind, number>> = { instagram: 540, x: 550 }
@@ -96,7 +119,24 @@ function remember(src: string, h: number): void {
  */
 export function nextEmbedHeight(current: number | null, measured: number, first: boolean): number {
   if (first || current === null) return measured
-  return Math.abs(measured - current) > EMBED_SETTLE_PX ? measured : current
+  /* Growth is always taken: a frame even a pixel short of its document scrolls it (ROUND 42). */
+  if (measured > current) return measured
+  return current - measured > EMBED_SETTLE_PX ? measured : current
+}
+
+/** The width a frame's parent column has, kept current. */
+function useColumnWidth(ref: React.RefObject<HTMLElement | null>): number | null {
+  const [w, setW] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    const col = ref.current?.parentElement
+    if (!col || typeof ResizeObserver !== "function") return
+    const read = () => setW(Math.round(col.clientWidth))
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(col)
+    return () => ro.disconnect()
+  }, [ref])
+  return w
 }
 
 export function EmbedFrame({
@@ -119,8 +159,14 @@ export function EmbedFrame({
   maxWidth?: number
 }) {
   const frameRef = React.useRef<HTMLIFrameElement>(null)
+  const wrapRef = React.useRef<HTMLDivElement>(null)
   const [h, setH] = React.useState<number | null>(null)
-  const [w, setW] = React.useState<number | null>(null)
+  /* The card's width X said, and the column's width it was said in (THE WIDTH). */
+  const [said, setSaid] = React.useState<{ w: number; column: number | null } | null>(null)
+  const column = useColumnWidth(wrapRef)
+  const columnRef = React.useRef(column)
+  columnRef.current = column
+  const w = said && said.column === column ? said.w : null
   const post = isPostEmbed(kind)
   const [shown, setShown] = React.useState(false)
   const measuredOnce = React.useRef(false)
@@ -140,7 +186,7 @@ export function EmbedFrame({
       const m = embedHeightFromMessage(kind, e.origin, e.data)
       if (!m) return
       const width = embedWidthFromMessage(kind, e.origin, e.data)
-      if (width) setW((cur) => (cur === width ? cur : width))
+      if (width) setSaid((cur) => (cur && cur.w === width && cur.column === columnRef.current ? cur : { w: width, column: columnRef.current }))
       const first = !measuredOnce.current
       measuredOnce.current = true
       if (settle.current) window.clearTimeout(settle.current)
@@ -186,6 +232,7 @@ export function EmbedFrame({
 
   return (
     <div
+      ref={wrapRef}
       data-embed-frame={kind}
       data-embed-shown={shown ? "" : undefined}
       /* A post is not clipped (its corners are the service's own); a player takes the page's corners. */
@@ -201,11 +248,55 @@ export function EmbedFrame({
         referrerPolicy="strict-origin-when-cross-origin"
         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture; web-share"
         allowFullScreen
+        /* A frame that says its own height is exactly as tall as its document: it never scrolls (THE SCROLLBARS). */
+        scrolling={resizes ? "no" : undefined}
         onLoad={onLoad}
         className="absolute inset-0 block h-full w-full border-0 bg-transparent transition-opacity duration-200"
         /* `normal` is the services' own scheme: matched, the frame's canvas stays transparent (see THE CANVAS). */
         style={{ colorScheme: "normal", opacity: shown ? 1 : 0 }}
       />
+    </div>
+  )
+}
+
+/**
+ * A BOOKING PAGE DRAWN INLINE (round 42): a Calendly page in the page's
+ * column, as tall as Calendly says it is (lib/onepage/creator-blocks
+ * bookingFrameUrl, bookingHeightFromMessage), so it never scrolls inside
+ * its frame. Until Calendly says, and for Cal.com, which says nothing, it
+ * is the height it always was and scrolls as it did.
+ */
+const noHost = () => () => {}
+const readHost = () => (typeof window === "undefined" ? null : window.location.hostname)
+const serverHost = () => null
+
+export function BookingFrame({ url, title, radius, fallbackHeight = 650 }: { url: string; title: string; radius: number; fallbackHeight?: number }) {
+  /* The page's host is read after the first render (the server has none), and the frame is drawn once it is known, so it loads once. */
+  const host = React.useSyncExternalStore(noHost, readHost, serverHost)
+  const src = host ? bookingFrameUrl(url, host) : null
+  const frameRef = React.useRef<HTMLIFrameElement>(null)
+  const [h, setH] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.source !== frameRef.current?.contentWindow) return
+      const m = bookingHeightFromMessage(e.origin, e.data)
+      if (m) setH((cur) => nextEmbedHeight(cur, m, cur === null))
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [src])
+  return (
+    <div data-booking-frame="" className="relative w-full overflow-hidden" style={{ borderRadius: radius, height: h ?? fallbackHeight }}>
+      {src ? (
+        <iframe
+          ref={frameRef}
+          src={src}
+          title={title}
+          loading="lazy"
+          scrolling={h ? "no" : undefined}
+          className="absolute inset-0 block h-full w-full border-0"
+        />
+      ) : null}
     </div>
   )
 }

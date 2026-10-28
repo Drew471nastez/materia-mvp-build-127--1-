@@ -252,12 +252,121 @@ export const R40_THEMES = [
   },
 ]
 
+/**
+ * ===========================================================================
+ *  TWO MORE (ROUND 42): A COVER PAGE AND A PRICE LIST
+ * ===========================================================================
+ * The owner: "Themes should differ in layout style too, not just colours:
+ * some with an image hero, some that display product blocks differently".
+ * Each sets the two things a theme can now set (lib/onepage/theme-layout):
+ *
+ *   Folio     a printed catalogue: warm stone, a wide cover photograph across
+ *             the top with the round photo set over its edge, a newspaper
+ *             serif title, ink buttons, and products as tiles two to a row.
+ *   Ledger    a price list: near black, mono title, the header flush left,
+ *             tight rows of small light buttons, and products as list rows
+ *             with the price on a pill at the end.
+ *
+ * Folio's photo: Unsplash photo-1507400492013-162706c8c05e, the "Ocean"
+ * picture the editor's wallpaper library already offers (Unsplash License).
+ * tests/onepage-themes-r42.test.ts measures every text and button pair.
+ */
+export const R42_THEMES = [
+  {
+    id: "folio",
+    name: "Folio",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#f5f2ec",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#1d2329",
+      secondary_text_color: "#4d5560",
+      button_color: "#1d2329",
+      button_text_color: "#f5f2ec",
+      button_style: "filled" as const,
+      button_border_radius: 10,
+      button_border_width: 0,
+      button_border_color: "#1d2329",
+      button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#3a4f63",
+      button_hover_text: "#ffffff",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Newsreader', serif",
+      title_color: "#1d2329",
+      social_icon_color: "#1d2329",
+      social_icon_style: "outline",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "list",
+      header_align: "center",
+      cover_image_url: "https://images.unsplash.com/photo-1507400492013-162706c8c05e?w=1600&q=80",
+      product_layout: "grid",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#1d2329",
+    solid_button_text_color: "#f5f2ec",
+    outline_button_text_color: "#1d2329",
+    glass_button_text_color: "#1d2329",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
+    id: "ledger",
+    name: "Ledger",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#121412",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#ecebe4",
+      secondary_text_color: "#a7a69d",
+      button_color: "#ecebe4",
+      button_text_color: "#121412",
+      button_style: "filled" as const,
+      button_border_radius: 6,
+      button_border_width: 0,
+      button_border_color: "#ecebe4",
+      button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#9fd3c7",
+      button_hover_text: "#121412",
+      button_size: "compact",
+      font_family: "'Geist', sans-serif",
+      title_font: "'Geist Mono', monospace",
+      title_color: "#ecebe4",
+      social_icon_color: "#ecebe4",
+      social_icon_style: "minimal",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "compact",
+      header_align: "left",
+      product_layout: "rows",
+    },
+    profile_layout: "classic" as const,
+    solid_button_text_color: "#121412",
+    outline_button_text_color: "#ecebe4",
+    glass_button_text_color: "#ecebe4",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+]
+
 /** The order the kinds are listed in, in All: light, gradient, dark, then pictures, as the catalogue always was. */
 export const THEME_KIND_ORDER = ["light", "gradient", "dark", "image"] as const
 
-/** The catalogue with these laid into their kinds, each kind keeping its own order and the new ones at its end. */
+/** The catalogue with these (and round 42's) laid into their kinds, each kind keeping its own order and the new ones at its end. */
 export function withR40Themes<T extends { category: string }>(base: readonly T[]): T[] {
-  const all = [...base, ...(R40_THEMES as unknown as T[])]
+  const all = [...base, ...(R40_THEMES as unknown as T[]), ...(R42_THEMES as unknown as T[])]
   const rank = (c: string) => {
     const i = (THEME_KIND_ORDER as readonly string[]).indexOf(c)
     return i < 0 ? THEME_KIND_ORDER.length : i

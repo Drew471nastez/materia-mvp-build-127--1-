@@ -1,5 +1,5 @@
+import { moneyCaller } from "@/lib/team/money"
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import type Stripe from "stripe"
@@ -9,20 +9,17 @@ import { getStorelibPaymentsStatus, statusFactsOf } from "@/lib/payments/stripe/
 
 export async function GET() {
   try {
-    const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    /* The owner, or a team member who may see the store's payouts (round 42, lib/team/money): the store's own Stripe account, never the member's. */
+    const who = await moneyCaller("payouts", "view")
+    if (!who.ok) return who.response
 
     // Strict isolation — only this user's creator row
     const { data: creator } = await adminSupabase
       .from("creators")
       .select("id, stripe_account_id, default_currency, stripe_connected_at")
-      .eq("user_id", user.id)
+      .eq("id", who.creatorId)
       .single()
 
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })

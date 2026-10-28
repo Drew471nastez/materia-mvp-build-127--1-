@@ -106,7 +106,7 @@ export interface RefundFacts {
  * the store's website reads in the buyer's language, like its receipt; each
  * sentence is a line of Translate › Order emails.
  */
-export function buyerRefundEmail(p: RefundFacts & { contactEmail: string; sellerPictureUrl?: string | null; copy?: ResolvedCopy | null }): Mail {
+export function buyerRefundEmail(p: RefundFacts & { contactEmail: string; sellerPictureUrl?: string | null; copy?: ResolvedCopy | null; /** The refund's credit note: its number, and the link to its PDF (lib/checkout/credit-note.ts). */ creditNote?: { number: string; url: string } | null }): Mail {
   const store = clean(p.storeName, 80) || "Store"
   const product = clean(p.productTitle)
   /* The store's own words (Settings › Customer emails › Refund), when it wrote any: the facts, the bank's days and the contact stay. */
@@ -121,6 +121,7 @@ export function buyerRefundEmail(p: RefundFacts & { contactEmail: string; seller
     { label: et("Refund date"), value: p.refundDate },
     { label: et("Reason"), value: clean(p.reason) || et("Not given") },
     { label: et("Order"), value: p.orderRef },
+    ...(p.creditNote ? [{ label: et("Credit note"), value: p.creditNote.number }] : []),
   ]
   const lead = own?.introText !== undefined ? own.introText : et("{store} refunded {amount} for {product}. You don't need to do anything.", { store, amount: p.amount, product })
   const heading = own?.heading || et("Your refund is on its way")
@@ -136,6 +137,7 @@ export function buyerRefundEmail(p: RefundFacts & { contactEmail: string; seller
       k.heading(heading),
       own?.introHtml !== undefined ? (own.introHtml ? k.html(own.introHtml) : "") : k.text(lead),
       k.facts(facts),
+      p.creditNote && /^https:\/\//.test(p.creditNote.url) ? k.link(et("Download the credit note"), p.creditNote.url, { below: 16 }) : "",
       k.notice({ text: bank }),
       k.small(downloads, { below: 20 }),
       k.button(contact, `mailto:${p.contactEmail}`),
@@ -143,7 +145,7 @@ export function buyerRefundEmail(p: RefundFacts & { contactEmail: string; seller
     ],
     footer: { reason: et("You're getting this email because of your order with {shop}.", { shop: store }), legal: sold },
   })
-  const text = emailText([heading, lead || null, facts.map((f) => `${f.label}: ${f.value}`).join("\n"), bank, downloads, et("Questions? Write to {store} at {email}", { store, email: p.contactEmail })], [store, sold])
+  const text = emailText([heading, lead || null, facts.map((f) => `${f.label}: ${f.value}`).join("\n"), p.creditNote ? `${et("Download the credit note")}: ${p.creditNote.url}` : null, bank, downloads, et("Questions? Write to {store} at {email}", { store, email: p.contactEmail })], [store, sold])
   return { subject, html, text }
 }
 
@@ -175,7 +177,7 @@ export function refundOrderRef(orderId: string): string {
  * Refund (lib/emails/customer-catalog.ts) both call this.
  */
 export function buyerRefundMail(
-  p: { storeName: string; productTitle: string; amountCents: number; currency: string; orderId: string; reason: string; orderDate?: string | null; refundDate: string; contactEmail: string; sellerPictureUrl?: string | null },
+  p: { storeName: string; productTitle: string; amountCents: number; currency: string; orderId: string; reason: string; orderDate?: string | null; refundDate: string; contactEmail: string; sellerPictureUrl?: string | null; creditNote?: { number: string; url: string } | null },
   language?: { lang: string; words: Record<string, string> | null; own?: boolean } | null,
   /** The store's own words for it (lib/emails/customer-custom.ts digital_refund); used only in the store's own language, as every email's are. */
   words?: EmailCopy | null,
@@ -202,6 +204,7 @@ export function buyerRefundMail(
       orderRef: refundOrderRef(p.orderId),
       contactEmail: p.contactEmail,
       sellerPictureUrl: p.sellerPictureUrl ?? null,
+      creditNote: p.creditNote ?? null,
     }), copy)
   })
 }

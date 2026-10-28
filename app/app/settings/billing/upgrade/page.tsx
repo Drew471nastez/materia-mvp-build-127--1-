@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { stripe } from "@/lib/stripe"
+import { loadSubscriptionView } from "@/lib/billing/subscription-reader"
+import { ENTITLED_STATUSES } from "@/lib/billing/subscription-state"
 import { effectivePlanId, readPlanOverride } from "@/lib/billing/plan-override"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 import { pageUser } from "@/lib/auth/page-user"
 import { FREE_STANDARD_RATE, ratePercentLabel } from "@/lib/payments/fees/config"
-import { STRIPE_RENDER_WAIT_MS } from "@/lib/stripe-wait"
 import { msg } from "@/lib/i18n/text"
 
 const FREE_PLAN = {
@@ -49,20 +49,6 @@ const PRO_PLAN = {
 
 const FALLBACK_PLANS = [FREE_PLAN, GROWTH_PLAN, PRO_PLAN]
 
-// LIVE Stripe Price IDs (hardcoded fallbacks since env vars may not be set)
-const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
-const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
-
-function getPlanIdFromPriceId(priceId: string): string | null {
-  if (!priceId) return null
-  if (priceId === PRICE_GROWTH) return "growth"
-  if (priceId === PRICE_PRO) return "pro"
-  // Partial match fallback
-  if (priceId.includes("SzBWa")) return "growth"
-  if (priceId.includes("SzBXS")) return "pro"
-  return null
-}
-
 export default async function UpgradePage() {
   const supabase = await createClient()
 
@@ -99,49 +85,14 @@ export default async function UpgradePage() {
       plans = dbPlans
     }
 
-    // Fetch live subscription status from Stripe
-    if (creator.stripe_customer_id) {
-      try {
-        /* One call, bounded. A customers.retrieve used to come first and its answer was thrown away: a second round trip to
-           Stripe in series, each with Stripe's 80s default, before the page could draw. A missing customer fails this list the
-           same way, into the catch below. */
-        const stripeSubs = await stripe.subscriptions.list(
-          {
-            customer: creator.stripe_customer_id,
-            status: "active",
-            limit: 1,
-          },
-          { timeout: STRIPE_RENDER_WAIT_MS },
-        )
-
-        const activeSub = stripeSubs.data[0]
-        if (activeSub) {
-          hasActiveSubscription = true
-          const priceId = activeSub.items.data[0]?.price?.id
-          const planId = priceId ? getPlanIdFromPriceId(priceId) : (activeSub.metadata?.plan_id || null)
-          currentPlanId = planId || creator.subscription_plan_id || "free"
-          // Check for pending downgrade or cancel
-          pendingPlanId = activeSub.metadata?.pending_plan_id || null
-          cancelAtPeriodEnd = activeSub.cancel_at_period_end === true
-        } else {
-          currentPlanId = creator.subscription_plan_id || "free"
-        }
-      } catch {
-        // Fallback to DB data
-        currentPlanId = creator.subscription_plan_id || "free"
-      }
-    } else {
-      currentPlanId = creator.subscription_plan_id || "free"
-
-      // Check subscription in DB as fallback
-      const { data: sub } = await supabase
-        .from("subscriptions")
-        .select("status")
-        .eq("creator_id", creator.id)
-        .maybeSingle()
-
-      hasActiveSubscription = sub?.status === "active"
-    }
+    /* Through the shared billing reader (lib/billing/subscription-reader.ts): cached, single flight, bounded, and the
+       stored plan when Stripe does not answer. A past_due or trialing subscription is a subscription here too, so this
+       page never offers a second checkout to someone already paying. */
+    const view = await loadSubscriptionView(createAdminClient(), creator)
+    currentPlanId = view.planId
+    hasActiveSubscription = !!view.subscription && ENTITLED_STATUSES.has(view.subscription.status)
+    pendingPlanId = hasActiveSubscription ? view.subscription?.pending_plan_id ?? null : null
+    cancelAtPeriodEnd = hasActiveSubscription && view.subscription?.cancel_at_period_end === true
     /* A plan set from /admin is the plan, whatever Stripe sells them (lib/billing/plan-override.ts). */
     currentPlanId = effectivePlanId(currentPlanId, await readPlanOverride(createAdminClient(), creator.id))
   } catch (error) {

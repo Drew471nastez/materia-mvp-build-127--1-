@@ -1,5 +1,6 @@
+import { moneyCaller } from "@/lib/team/money"
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { recordTeamAction } from "@/lib/team/areas"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 /**
@@ -11,21 +12,16 @@ import { createAdminClient } from "@/lib/supabase/admin"
  */
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    /* The owner, or a team member who may change the store's payouts (round 42, lib/team/money): the store's own Stripe account, never the member's. */
+    const who = await moneyCaller("payouts", "manage")
+    if (!who.ok) return who.response
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { data: creator, error: creatorError } = await supabase
+    const { data: creator, error: creatorError } = await adminSupabase
       .from("creators")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("id", who.creatorId)
       .single()
 
     if (creatorError || !creator) {
@@ -50,6 +46,7 @@ export async function POST(request: Request) {
       })
       .eq("id", creator.id)
 
+    await recordTeamAction(who, who.userId, "payouts_manage", "payout_schedule_changed", { payout_threshold: payoutThreshold || 0 })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[Payout Settings Update Error]", error)
@@ -62,20 +59,15 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const supabase = await createClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    /* The owner, or a team member who may see the store's payouts (round 42, lib/team/money): the store's own Stripe account, never the member's. */
+    const who = await moneyCaller("payouts", "view")
+    if (!who.ok) return who.response
 
     const { data: creator, error: creatorError } = await createAdminClient()
       .from("creators")
       .select("payout_schedule, payout_threshold, instant_payouts_enabled")
-      .eq("user_id", user.id)
+      .eq("id", who.creatorId)
       .single()
 
     if (creatorError || !creator) {

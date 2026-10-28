@@ -30,14 +30,13 @@ import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/
 import { subscriptionIdOf } from "@/lib/memberships/sync"
 import { timed } from "@/lib/perf/server-timing"
 import { existingSessionOrder, isUniqueViolation } from "@/lib/orders/session-order"
+import { stripeListForSync, syncFromSubscriptionEvent, WEBHOOK_STRIPE_TIMEOUT_MS, type SyncDeps } from "@/lib/billing/subscription-sync"
+import { invalidateBillingRead } from "@/lib/billing/subscription-reader"
+import { recordPaidPlan } from "@/lib/billing/plan-override"
 
 export const runtime = "nodejs"
 
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-
-// LIVE Stripe Price IDs
-const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
-const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
 
 function safeTimestamp(ts: any): string {
   if (!ts) return new Date().toISOString()
@@ -50,15 +49,6 @@ function safeTimestamp(ts: any): string {
   return new Date().toISOString()
 }
 
-function planIdFromPriceId(priceId?: string): "free" | "growth" | "pro" {
-  if (!priceId) return "free"
-  if (priceId === PRICE_GROWTH) return "growth"
-  if (priceId === PRICE_PRO) return "pro"
-  if (priceId.includes("SzBWa")) return "growth"
-  if (priceId.includes("SzBXS")) return "pro"
-  return "free"
-}
-
 /**
  * A Storelib plan event for the creator who pays for it (lib/notify/outbox).
  * The engine reads the creator's user itself. Never throws: the webhook's
@@ -66,6 +56,19 @@ function planIdFromPriceId(priceId?: string): "free" | "growth" | "pro" {
  */
 async function raiseForCreator(creatorId: string, event: Omit<EmitInput, "userId" | "creatorId">): Promise<boolean> {
   return (await emit({ ...event, creatorId })).ok
+}
+
+/** What the plan sync needs (lib/billing/subscription-sync.ts): the admin database and Stripe, bounded in time. */
+function subscriptionSyncDeps(): SyncDeps {
+  return {
+    db: supabaseAdmin,
+    listSubscriptions: stripeListForSync((params, options) => stripe.subscriptions.list(params, options) as any),
+    clearPendingPlan: async (id, metadata) => {
+      await stripe.subscriptions.update(id, { metadata: { ...metadata, pending_plan_id: "" } }, { timeout: WEBHOOK_STRIPE_TIMEOUT_MS })
+    },
+    recordPaidPlan: (creatorId, planId, status) => recordPaidPlan(supabaseAdmin, creatorId, planId, status),
+    log: (message, detail) => console.log(message, detail ?? ""),
+  }
 }
 
 /** When a scheduled cancellation takes effect, from whichever field this API version fills. */
@@ -979,136 +982,55 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
   // SUBSCRIPTION EVENTS
   // ============================================================================
 
-  if (event.type === "customer.subscription.created") {
+  /*
+    A CREATOR'S PLAN, WRITTEN FROM WHAT STRIPE SAYS NOW (lib/billing/subscription-sync.ts).
+    The event only names the subscription: its copy can be older than the
+    truth (events come late, twice, out of order), so the sync lists every
+    subscription on the creator's customers and writes that. A paying
+    subscription keeps its plan; Free is written only when Stripe answered
+    and nothing is paying. A Stripe or database failure throws: this answers
+    500, the event is recorded as failed (public.stripe_webhook_events) and
+    Stripe sends it again. It used to be caught and answered 200, so a failed
+    write was never retried.
+  */
+  if (
+    event.type === "customer.subscription.created" ||
+    event.type === "customer.subscription.updated" ||
+    event.type === "customer.subscription.deleted"
+  ) {
     const subscription = event.data.object as any
-    const metadata = subscription.metadata || {}
-    const creatorId = metadata.creator_id
-    const planId = metadata.plan_id
+    console.log("[Subscription]", event.type, subscription.id, "Status:", subscription.status)
 
-    console.log("[Subscription] Created:", subscription.id, "creator:", creatorId, "plan:", planId)
-
-    if (!creatorId || !planId) {
-      console.error("[Subscription] Missing metadata")
-      return NextResponse.json({ received: true, message: "Missing metadata" })
+    const synced = await syncFromSubscriptionEvent(subscriptionSyncDeps(), subscription)
+    if (!synced) {
+      /* No creator's subscription (metadata, row and customer all unknown): nothing of ours to change. */
+      console.warn("[Subscription] No creator for this subscription:", subscription.id)
+      return NextResponse.json({ received: true, message: "No creator for this subscription" })
     }
+    const { creator, plan } = synced
+    invalidateBillingRead(creator.stripe_customer_id)
+    for (const c of plan.customersRead) invalidateBillingRead(c)
+    console.log("[Subscription] Creator plan synced:", {
+      creatorId: creator.id,
+      outcome: plan.outcome,
+      planId: plan.planId,
+      status: plan.status,
+      chosen: plan.chosenSubscriptionId,
+      changed: !!plan.creatorUpdate,
+    })
 
-    try {
-      const subAny = subscription as any
-      let periodStart = subAny.current_period_start || subAny.current_period?.start_date || null
-      let periodEnd = subAny.current_period_end || subAny.current_period?.end_date || null
-      // Fallback to latest_invoice period
-      if (!periodStart || !periodEnd) {
-        const inv = typeof subAny.latest_invoice === "object" ? subAny.latest_invoice : null
-        if (inv?.period_start) periodStart = periodStart || inv.period_start
-        if (inv?.period_end) periodEnd = periodEnd || inv.period_end
-      }
-
-      // Upsert subscription record (may already exist from a previous attempt)
-      await supabaseAdmin.from("subscriptions").upsert({
-        creator_id: creatorId,
-        stripe_subscription_id: subscription.id,
-        stripe_customer_id: subscription.customer as string,
-        plan_id: planId,
-        status: subscription.status,
-        current_period_start: safeTimestamp(periodStart),
-        current_period_end: safeTimestamp(periodEnd),
-        cancel_at_period_end: subscription.cancel_at_period_end,
-      }, { onConflict: "creator_id" })
-
-      await supabaseAdmin
-        .from("creators")
-        .update({
-          subscription_plan_id: planId,
-          subscription_status: subscription.status,
-          stripe_customer_id: subscription.customer as string,
-        })
-        .eq("id", creatorId)
-
-      console.log("[Subscription] Created successfully")
-
-      await raiseForCreator(creatorId, {
+    if (event.type === "customer.subscription.created") {
+      await raiseForCreator(creator.id, {
         name: "subscription.created",
         key: `subscription:${subscription.id}:created`,
         entityType: "subscription",
         entityId: subscription.id,
         correlationId: event.id,
-        payload: { subscriptionId: subscription.id, planId, status: subscription.status },
+        payload: { subscriptionId: subscription.id, planId: plan.planId ?? subscription.metadata?.plan_id ?? null, status: subscription.status },
       })
-    } catch (error) {
-      console.error("[Subscription] Error creating:", error)
     }
 
-    return NextResponse.json({ received: true })
-  }
-
-  if (event.type === "customer.subscription.updated") {
-    const subscription = event.data.object as any
-
-    console.log("[Subscription] Updated:", subscription.id, "Status:", subscription.status)
-
-    try {
-      const { data: existingSubscription } = await supabaseAdmin
-        .from("subscriptions")
-        .select("id, creator_id, plan_id")
-        .eq("stripe_subscription_id", subscription.id)
-        .maybeSingle()
-
-      if (!existingSubscription) {
-        console.log("[Subscription] No existing record found")
-        return NextResponse.json({ received: true, message: "No existing subscription" })
-      }
-
-      const currentPriceId = subscription.items?.data?.[0]?.price?.id
-      let planId = planIdFromPriceId(currentPriceId)
-      const metadata = subscription.metadata || {}
-      if (metadata.pending_plan_id && subscription.status === "active") {
-        planId = metadata.pending_plan_id
-      } else if (metadata.plan_id) {
-        planId = metadata.plan_id
-      }
-
-      let updPeriodStart = subscription.current_period_start || subscription.current_period?.start_date || null
-      let updPeriodEnd = subscription.current_period_end || subscription.current_period?.end_date || null
-      if (!updPeriodStart || !updPeriodEnd) {
-        const inv = typeof subscription.latest_invoice === "object" ? subscription.latest_invoice : null
-        if (inv?.period_start) updPeriodStart = updPeriodStart || inv.period_start
-        if (inv?.period_end) updPeriodEnd = updPeriodEnd || inv.period_end
-      }
-
-      await supabaseAdmin
-        .from("subscriptions")
-        .update({
-          status: subscription.status,
-          plan_id: planId,
-          current_period_start: safeTimestamp(updPeriodStart),
-          current_period_end: safeTimestamp(updPeriodEnd),
-          cancel_at_period_end: subscription.cancel_at_period_end,
-          pending_plan_id: metadata.pending_plan_id && subscription.status !== "active" ? metadata.pending_plan_id : null,
-          canceled_at: subscription.canceled_at ? safeTimestamp(subscription.canceled_at) : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("stripe_subscription_id", subscription.id)
-
-      // If subscription is no longer active/trialing, force plan to "free"
-      // so fee calculation always defaults correctly
-      const isSubscriptionActive = ["active", "trialing"].includes(subscription.status)
-      const creatorPlanId = isSubscriptionActive ? planId : "free"
-
-      await supabaseAdmin
-        .from("creators")
-        .update({
-          subscription_plan_id: creatorPlanId,
-          subscription_status: isSubscriptionActive ? subscription.status : "active",
-        })
-        .eq("id", existingSubscription.creator_id)
-
-      console.log("[Subscription] Creator plan synced:", {
-        creatorId: existingSubscription.creator_id,
-        stripeStatus: subscription.status,
-        resolvedPlanId: creatorPlanId,
-        isActive: isSubscriptionActive,
-      })
-
+    if (event.type === "customer.subscription.updated") {
       /* A cancellation scheduled for the period's end (Settings, Billing, or
          a downgrade to free): told once for that end date, so a cancel that
          is undone and made again is told again. The end itself is
@@ -1116,7 +1038,7 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
       const previous = (event.data as any).previous_attributes || {}
       if (subscription.cancel_at_period_end === true && previous.cancel_at_period_end === false) {
         const endsAt = periodEndOf(subscription)
-        await raiseForCreator(existingSubscription.creator_id, {
+        await raiseForCreator(creator.id, {
           name: "subscription.cancelled",
           key: `subscription:${subscription.id}:cancel_at:${endsAt ?? event.id}`,
           entityType: "subscription",
@@ -1124,72 +1046,23 @@ async function handleStripeEvent(request: Request, held: { claimed: boolean } = 
           correlationId: event.id,
           payload: {
             subscriptionId: subscription.id,
-            planId: existingSubscription.plan_id ?? planId,
+            planId: creator.row?.plan_id ?? plan.planId,
             atPeriodEnd: true,
             endsAt: endsAt ? new Date(endsAt * 1000).toISOString() : null,
           },
         })
       }
-
-      if (subscription.status === "active" && metadata.pending_plan_id) {
-        await stripe.subscriptions.update(subscription.id, {
-          metadata: { ...metadata, pending_plan_id: "" },
-        })
-      }
-
-      console.log("[Subscription] Updated successfully")
-    } catch (error) {
-      console.error("[Subscription] Error updating:", error)
     }
 
-    return NextResponse.json({ received: true })
-  }
-
-  if (event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as Stripe.Subscription & { current_period_start: number; current_period_end: number }
-
-    console.log("[Subscription] Deleted:", subscription.id)
-
-    try {
-      const { data: existingSubscription } = await supabaseAdmin
-        .from("subscriptions")
-        .select("id, creator_id")
-        .eq("stripe_subscription_id", subscription.id)
-        .maybeSingle()
-
-      if (!existingSubscription) {
-        return NextResponse.json({ received: true, message: "No existing subscription" })
-      }
-
-      await supabaseAdmin
-        .from("subscriptions")
-        .update({
-          status: "canceled",
-          canceled_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("stripe_subscription_id", subscription.id)
-
-      await supabaseAdmin
-        .from("creators")
-        .update({
-          subscription_plan_id: "free",
-          subscription_status: "active",
-        })
-        .eq("id", existingSubscription.creator_id)
-
-      console.log("[Subscription] Reverted to free plan")
-
-      await raiseForCreator(existingSubscription.creator_id, {
+    if (event.type === "customer.subscription.deleted") {
+      await raiseForCreator(creator.id, {
         name: "subscription.cancelled",
         key: `subscription:${subscription.id}:ended`,
         entityType: "subscription",
         entityId: subscription.id,
         correlationId: event.id,
-        payload: { subscriptionId: subscription.id, atPeriodEnd: false, ended: true, planId: "free" },
+        payload: { subscriptionId: subscription.id, atPeriodEnd: false, ended: true, planId: plan.planId ?? "free" },
       })
-    } catch (error) {
-      console.error("[Subscription] Error handling deletion:", error)
     }
 
     return NextResponse.json({ received: true })

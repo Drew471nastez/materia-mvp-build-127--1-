@@ -44,7 +44,7 @@ import { fontStack } from "@/lib/onepage/fonts"
 import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
 /* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
 import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
-import { blockGapClass, blockLayoutOf, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
+import { blockGapClass, blockLayoutOf, coverImageOf, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
 import { sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
@@ -52,7 +52,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getOrCreateSessionId, getOrCreateVisitorId } from "@/lib/analytics-utils"
 import { canvasRule, heroHeaderShown } from "@/lib/onepage/page-frame"
 import { PosterVideo } from "@/components/onepage/poster-video"
-import { HERO_FADE_MASK, videoPoster } from "@/lib/onepage/poster-video"
+import { HERO_FADE_MASK, firstFrameSrc, videoPoster } from "@/lib/onepage/poster-video"
 import { readableOn } from "@/lib/onepage/theme-apply"
 import { OnePageProductBlock, type LegacyQuickCheckout } from "@/components/onepage/product-block"
 import { pairProductTiles } from "@/lib/onepage/product-block"
@@ -60,7 +60,9 @@ import { tt } from "@/lib/i18n/text"
 import { useLiveLayout } from "@/lib/onepage/live-layout"
 import { ONEPAGE_COLUMN_PX, onePageImageSrc } from "@/lib/onepage/display-image"
 import { croppedMediaStyle } from "@/lib/onepage/media-crop"
-import { bookingSource } from "@/lib/onepage/creator-blocks"
+import { bookingSource, tiktokPlayerUrl } from "@/lib/onepage/creator-blocks"
+import { BookingFrame } from "@/components/onepage/embed-frame"
+import { useMouseDragScroll } from "@/components/onepage/drag-scroll"
 import { BUTTON_ICON_CLASS, BUTTON_ICON_INSET, BUTTON_SIZE_CLASS, buttonAlign, buttonBackground, buttonHover, buttonHoverVars, buttonIconSide, buttonShadow as themeButtonShadow, buttonShape, buttonSize, themeButtonStripFill, themeButtonStyle } from "@/lib/onepage/button-style"
 import { EmailSignupView, type EmailSignupFormOptions } from "@/components/onepage/email-signup"
 import { OnePageLegalLinks } from "@/components/onepage/onepage-legal-links"
@@ -115,6 +117,7 @@ function SmoothAvatarVideo({
   videoStyle,
   imageStyle,
   priority,
+  still,
 }: {
   videoUrl: string
   imageUrl?: string | null
@@ -124,9 +127,12 @@ function SmoothAvatarVideo({
   videoStyle?: React.CSSProperties
   imageStyle?: React.CSSProperties
   priority?: boolean
+  /** A still, not played: the wallpaper is this same video and already plays (round 42). */
+  still?: boolean
 }) {
   return (
     <PosterVideo
+      still={still}
       src={videoUrl}
       poster={poster}
       fallback={imageUrl}
@@ -1291,7 +1297,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         /* No top padding only above a hero that is really drawn: without a
            picture the header is the classic one and needs the same 50px it
            always has (lib/onepage/page-frame heroHeaderShown). */
-        paddingTop: isDesktop ? "0" : heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) ? "0" : "50px",
+        paddingTop: isDesktop ? "0" : heroHeaderShown(safeTheme, { avatar_url, avatar_video_url }) || coverImageOf(safeTheme) ? "0" : "50px",
         paddingBottom: "20px",
         minHeight: isDesktop ? "100%" : "100vh",
       }}
@@ -1305,7 +1311,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {pairLinkTiles(pairProductTiles(safeBlocks
           /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
           .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
-          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0))), blockLayoutOf(safeTheme))
+          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)), safeTheme), blockLayoutOf(safeTheme))
           .map((item, index) => {
             const animClass = !hasBlocksAnimated ? "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both" : ""
             const animStyle = !hasBlocksAnimated ? { animationDelay: `${index * 50}ms` } : undefined
@@ -1903,10 +1909,37 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           />
         )}
 
-        {/* Video background for desktop - BLURRED in background outside card */}
-        {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
+        {/*
+          AROUND THE CARD, THE WALLPAPER'S FIRST FRAME, BLURRED (round 42). It
+          was the same video a second time, playing beside the one in the
+          card: two copies of one clip running at once. Under a 20px blur a
+          moving picture reads as a flicker, not as video, so it is the
+          frame saved with the video (its poster), or the video's own first
+          frame, paused.
+        */}
+        {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (videoPoster((safeTheme as any).background_video_crop) ? (
+          <WallpaperPhoto
+            url={videoPoster((safeTheme as any).background_video_crop)!}
+            style={{
+              position: "fixed",
+              top: "-50px",
+              left: "-50px",
+              right: "-50px",
+              bottom: "-50px",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              zIndex: 0,
+              filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(20px)`,
+            }}
+          />
+        ) : (
           <video
-            src={(safeTheme as any).background_video_url}
+            data-wallpaper-still=""
+            src={firstFrameSrc((safeTheme as any).background_video_url)}
+            preload="metadata"
+            muted
+            playsInline
+            aria-hidden
             style={wallpaperVideoStyle(safeTheme, {
               position: "fixed",
               top: "-50px",
@@ -1919,12 +1952,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               zIndex: 0,
               filter: `brightness(${(safeTheme as any).video_brightness || 100}%) blur(20px)`,
             })}
-            autoPlay
-            loop
-            muted
-            playsInline
           />
-        )}
+        ))}
 
         {/* Noise overlay for gradient backgrounds */}
         {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <WallpaperNoise strength={(safeTheme as any).noise_strength} />}
@@ -2299,9 +2328,6 @@ function GroupBlockRenderer({
 }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isHovering, setIsHovering] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
-  const [startX, setStartX] = useState(0)
-  const [scrollStart, setScrollStart] = useState(0)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(true)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -2332,7 +2358,7 @@ function GroupBlockRenderer({
       const scrollPosition = container.scrollLeft
       const containerWidth = container.clientWidth
       const scrollWidth = container.scrollWidth
-      const itemWidth = (containerWidth * itemWidthPercent) / 100
+      const itemWidth = carouselSlideWidth(container, itemWidthPercent)
       const newIndex = Math.round(scrollPosition / (itemWidth + gap))
       
       setCurrentIndex(Math.min(Math.max(0, newIndex), enabledChildren.length - 1))
@@ -2350,8 +2376,7 @@ function GroupBlockRenderer({
   const scrollToIndex = (index: number) => {
     if (!scrollContainerRef.current) return
     const container = scrollContainerRef.current
-    const containerWidth = container.clientWidth
-    const itemWidth = (containerWidth * itemWidthPercent) / 100
+    const itemWidth = carouselSlideWidth(container, itemWidthPercent)
     const targetScroll = index * (itemWidth + gap)
     container.scrollTo({ left: targetScroll, behavior: 'smooth' })
   }
@@ -2372,31 +2397,10 @@ function GroupBlockRenderer({
     scrollToIndex(newIndex)
   }
 
-  // Mouse drag handlers for desktop
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollContainerRef.current) return
-    setIsDragging(true)
-    setStartX(e.pageX)
-    setScrollStart(scrollContainerRef.current.scrollLeft)
-    scrollContainerRef.current.style.scrollBehavior = 'auto'
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !scrollContainerRef.current) return
-    e.preventDefault()
-    const diff = e.pageX - startX
-    scrollContainerRef.current.scrollLeft = scrollStart - diff
-  }
-
-  const handleMouseUp = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.style.scrollBehavior = 'smooth'
-    }
-    setIsDragging(false)
-  }
+  /* A mouse drags the row in real time, as a finger swipes it (components/onepage/drag-scroll, round 42). */
+  useMouseDragScroll(scrollContainerRef)
 
   const handleMouseLeave = () => {
-    handleMouseUp()
     setIsHovering(false)
   }
 
@@ -2410,8 +2414,10 @@ function GroupBlockRenderer({
     once from JavaScript — against a snap that was trying to settle it
     somewhere else. That fight is what the slider looked like on a phone.
 
-    The mouse handlers stay. Drag-to-scroll with a pointer is a real feature
-    and nothing else provides it.
+    A mouse is the one thing a scroller does not drag by itself:
+    useMouseDragScroll does that, with the snap off while the button is
+    down (it used to write scrollLeft against a mandatory snap, which
+    pulled the row back to a slide on every move).
   */
 
   // Render carousel layout
@@ -2454,31 +2460,35 @@ function GroupBlockRenderer({
         {/* Scrollable Container - use negative margins to allow shadow overflow */}
         <div
           ref={scrollContainerRef}
-          className={cn(
-            "w-full scrollbar-hide snap-x snap-mandatory",
-            isDragging ? "cursor-grabbing select-none" : "cursor-grab"
-          )}
+          data-group-carousel=""
+          className="w-full scrollbar-hide snap-x snap-mandatory select-none cursor-grab data-[dragging]:cursor-grabbing"
+          /*
+            ROOM FOR EVERY EDGE (round 42, "buttons still have cut borders").
+            A scroller clips on all four sides, and the first slide used to
+            snap flush to its left edge with 5px of room that the snap
+            scrolled away: a glow, a hard shadow or a lifted button was cut
+            at the side, and a tall one at the top and bottom. The scroller
+            now reaches CAROUSEL_ROOM past the slides on every side, the
+            snap stops that far in (scroll-padding), and negative margins
+            take the room back out, so the slides sit exactly where they
+            did and nothing of a button is ever drawn outside its clip.
+          */
           style={{
             scrollSnapType: 'x mandatory',
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             overflowX: 'auto',
-            marginTop: '-8px',
-            marginBottom: '-8px',
-            paddingTop: '8px',
-            paddingBottom: '8px',
+            margin: `-${CAROUSEL_ROOM}px -${CAROUSEL_ROOM - 8}px`,
+            padding: `${CAROUSEL_ROOM + 12}px ${CAROUSEL_ROOM}px ${CAROUSEL_ROOM + 20}px`,
+            scrollPaddingInline: `${CAROUSEL_ROOM}px`,
           }}
           onScroll={handleScroll}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
         >
           <div
             className="flex"
             style={{
               gap: `${gap}px`,
-              padding: '12px 5px 20px 5px',
             }}
           >
             {enabledChildren.map((child) => (
@@ -2608,6 +2618,14 @@ function GroupBlockRenderer({
       {data.layout === "carousel" ? renderCarousel() : renderStack()}
     </div>
   )
+}
+
+/** The room a group carousel's scroller keeps around its slides: the widest glow or hard shadow a button draws, and a lift. */
+const CAROUSEL_ROOM = 16
+
+/** One slide's width, asked of the slide itself (the scroller's padding is not the slides' room). */
+function carouselSlideWidth(container: HTMLElement, percent: number): number {
+  return (container.firstElementChild?.firstElementChild as HTMLElement | null)?.offsetWidth || (container.clientWidth * percent) / 100
 }
 
 // Public Image Carousel Component with transform-based positioning for smooth, reliable swiping
@@ -2875,6 +2893,7 @@ function PublicImageCarousel({
   }, [autoplay, isHovered, inView, images.length, currentIndex, goToSlide])
 
   const hold = useCallback(() => { heldUntilRef.current = Date.now() + 3000 }, [])
+  useMouseDragScroll(scrollerRef, images.length > 1)
 
   const goToPrev = useCallback((e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation()
@@ -2908,11 +2927,13 @@ function PublicImageCarousel({
       onPointerEnter={(e) => { if (e.pointerType === "mouse") setIsHovered(true) }}
       onPointerLeave={(e) => { if (e.pointerType === "mouse") setIsHovered(false) }}
     >
-      {/* The row itself: a scroller, snapping, with its scrollbar hidden. */}
+      {/* The row itself: a scroller, snapping, with its scrollbar hidden; a mouse drags it as a finger does (useMouseDragScroll). */}
       <div
         ref={scrollerRef}
         onTouchStart={hold}
-        className="w-full scrollbar-hide"
+        onPointerDown={hold}
+        data-onepage-slides=""
+        className={cn("w-full scrollbar-hide select-none", images.length > 1 && "cursor-grab data-[dragging]:cursor-grabbing")}
         style={{
           display: 'flex',
           gap: `${gap}px`,
@@ -3223,6 +3244,14 @@ function PublicBlockRenderer({
     case "header": {
       const data = (block.data || {}) as HeaderBlockData
       const hasVideo = !!profile.avatar_video_url
+      /*
+        ONE COPY OF A VIDEO PLAYS (round 42, "two copies of the video play: in
+        the avatar and in the background"). With the profile video also the
+        wallpaper, the wallpaper plays it and the avatar shows its first
+        frame, still: the same clip running twice, a few frames apart, is
+        the thing the eye catches.
+      */
+      const avatarStill = hasVideo && (theme as any).background_type === "video" && (theme as any).background_video_url === profile.avatar_video_url
 
       // Hero layout: the picture fades into the page itself (a mask), so any wallpaper under it, a pattern included, carries on
       if (heroHeaderShown(theme as any, profile)) {
@@ -3253,6 +3282,7 @@ function PublicBlockRenderer({
                   videoUrl={profile.avatar_video_url!}
                   imageUrl={onePageImageSrc(profile.avatar_url, ONEPAGE_COLUMN_PX)}
                   poster={videoPoster(profile.avatar_video_crop)}
+                  still={avatarStill}
                   alt={profile.title || "Avatar"}
                   videoStyle={heroPosition}
                   imageStyle={heroPosition}
@@ -3361,9 +3391,50 @@ function PublicBlockRenderer({
       const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
       // Avatar size increased by 3px
       const avatarSize = isDesktop ? 121 : 114
+      /* The theme's cover picture, over the classic header (lib/onepage/theme-layout). */
+      const cover = coverImageOf(theme)
 
       return (
-        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")} data-op-header="">
+        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")} data-op-header="" data-op-cover={cover ? "" : undefined}>
+          {cover && (
+            /*
+              THE COVER (round 42, lib/onepage/theme-layout coverImageOf). A
+              wide picture the theme brings, across the top of the page to its
+              edges as the Hero's photo goes, with the round photo set over its
+              lower edge: the cover is pulled up under it by half the photo
+              (and the photo's own top margin on a computer) plus the column's
+              gap, so nothing below it moves. On a solid page a ring of the
+              page's colour parts the photo from the picture.
+            */
+            <div
+              data-cover-image=""
+              className={cn(
+                isDesktop ? "-mx-7 w-[calc(100%+56px)]" : "-mx-5 -mt-8 w-[calc(100%+40px)]",
+                "relative",
+                data.show_avatar !== false ? "mb-[calc(-1*var(--cover-pull)-0.75rem)] sm:mb-[calc(-1*var(--cover-pull)-1rem)]" : "",
+              )}
+              style={{ ["--cover-pull" as string]: `${avatarSize / 2 + (isDesktop ? 25 : 0)}px` }}
+            >
+              <div className="relative w-full overflow-hidden" style={{ aspectRatio: isDesktop ? "2 / 1" : "16 / 10", backgroundColor: `color-mix(in srgb, ${theme.text_color || "#000000"} 8%, transparent)` }}>
+                <img
+                  src={cover}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover"
+                  style={{ objectPosition: `50% ${(theme as any).cover_position_y ?? 50}%` }}
+                  loading="eager"
+                  decoding="async"
+                  onError={(e) => { e.currentTarget.style.display = "none" }}
+                />
+              </div>
+              {data.show_avatar !== false && theme.background_type === "solid" && theme.background_color ? (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-full"
+                  style={{ width: avatarSize + 8, height: avatarSize + 8, bottom: -(avatarSize / 2 + 4), backgroundColor: theme.background_color }}
+                />
+              ) : null}
+            </div>
+          )}
           {data.show_avatar !== false && (
             /* A circle whatever the column around it does: its own size, never shrunk by the flex column (flex-shrink 0). */
             <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0 }}>
@@ -3420,6 +3491,7 @@ function PublicBlockRenderer({
                       videoUrl={profile.avatar_video_url!}
                       imageUrl={onePageImageSrc(profile.avatar_url, 160)}
                       poster={videoPoster(profile.avatar_video_crop)}
+                      still={avatarStill}
                       alt={profile.title || "Avatar"}
                       imageStyle={{
                         translate: `0 ${(theme as any).avatar_offset_y || 0}px`,
@@ -3781,7 +3853,8 @@ function PublicBlockRenderer({
         // TikTok embed handling
         const tiktokVideoId = getTikTokVideoId(data.url) || data.tiktok_video_id
         const shouldEmbedTikTok = isTikTokVideoUrl(data.url) && data.tiktok_show_embed !== false && tiktokVideoId
-        const tiktokEmbedUrl = data.tiktok_embed_url || (tiktokVideoId ? `https://www.tiktok.com/embed/v2/${tiktokVideoId}` : null)
+        /* Round 42: TikTok's player (the video alone, 9:16), not its post card, which is taller than the box and scrolled inside it. */
+        const tiktokEmbedUrl = tiktokVideoId ? tiktokPlayerUrl(tiktokVideoId, false) : data.tiktok_embed_url || null
 
         // Pro layout content (shared between button and link)
         const proLayoutContent = (
@@ -3801,8 +3874,7 @@ function PublicBlockRenderer({
                   title="TikTok video player"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
-                  className="w-full h-full border-0"
-                  style={{ minHeight: '400px' }}
+                  className="absolute inset-0 h-full w-full border-0 bg-black"
                 />
               </div>
             ) : null}
@@ -5329,13 +5401,10 @@ function PublicBlockRenderer({
               borderRadius: `${theme.button_border_radius}px`,
             }}
           >
-            <iframe
-              src={calendlyUrl}
-              className="w-full border-0"
-              style={{
-                minHeight: '650px',
-                borderRadius: `${theme.button_border_radius}px`,
-              }}
+            {/* Round 42: as tall as Calendly says, so it never scrolls inside its frame (components/onepage/embed-frame BookingFrame). */}
+            <BookingFrame
+              url={calendlyUrl}
+              radius={Number(theme.button_border_radius) || 0}
               title={data.title || "Schedule a Meeting"}
             />
           </div>

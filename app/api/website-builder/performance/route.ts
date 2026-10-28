@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { websiteCaller } from "@/lib/team/website"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isTimeZone } from "@/lib/orders/time-zone"
 import { websitePerformanceFor } from "@/lib/website-builder/site-performance-read"
@@ -17,15 +17,12 @@ export const runtime = "nodejs"
  * website from the creator.
  */
 export async function GET(request: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
+  /* The owner, or a team member with Website working in the store (lib/team/website). */
+  const site = await websiteCaller()
+  if (site.error !== null) return NextResponse.json({ error: site.error }, { status: site.status })
   const admin = createAdminClient()
-  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+  const supabase = site.supabase
+  const creator = site.creator
 
   const url = new URL(request.url)
   const tz = url.searchParams.get("tz")

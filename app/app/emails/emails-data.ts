@@ -167,6 +167,8 @@ export interface EmailReport {
   } | null
   links: { url: string; clicks: number; people: number }[]
   html: string | null
+  /** The email's public page (View in browser), once it is scheduled or sent. */
+  view_url?: string | null
   sender: { name: string; from: string; replyTo: string; address: string | null } | null
   upgraded: boolean
 }

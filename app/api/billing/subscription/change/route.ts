@@ -1,5 +1,6 @@
+import { moneyCaller } from "@/lib/team/money"
+import { recordTeamAction } from "@/lib/team/areas"
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 
@@ -123,7 +124,8 @@ function getSubscriptionPeriod(sub: any): { periodStart: number; periodEnd: numb
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    /* The store's rows, by the store's id (lib/team/money), for the owner and a team member alike. */
+    const supabase = createAdminClient()
     const { newPlanId, previewOnly } = await request.json()
 
     if (!newPlanId) {
@@ -132,18 +134,14 @@ export async function POST(request: Request) {
 
     // Handle downgrade to Free as a cancellation (cancel at period end, keep features until then)
     if (newPlanId === "free") {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser()
-      if (authError || !user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-      }
+      /* The owner, or a team member who may change the store's billing (round 42, lib/team/money): the store's own plan and Stripe customer, never the member's. */
+      const who = await moneyCaller("billing", "manage")
+      if (!who.ok) return who.response
 
       const { data: creator } = await createAdminClient()
         .from("creators")
         .select("id, subscription_plan_id")
-        .eq("user_id", user.id)
+        .eq("id", who.creatorId)
         .single()
 
       if (!creator) {
@@ -217,6 +215,8 @@ export async function POST(request: Request) {
         })
         .eq("id", subscriptionRecord.id)
 
+      /* A team member's change to the owner's plan is on the record with their name (lib/team/areas). */
+      await recordTeamAction(who, who.userId, "billing_manage", "billing_plan_changed", { plan_id: newPlanId })
       return NextResponse.json({
         success: true,
         type: "downgrade",
@@ -228,19 +228,14 @@ export async function POST(request: Request) {
       })
     }
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    /* The owner, or a team member who may change the store's billing (round 42, lib/team/money): the store's own plan and Stripe customer, never the member's. */
+    const who = await moneyCaller("billing", "manage")
+    if (!who.ok) return who.response
 
     const { data: creator } = await createAdminClient()
       .from("creators")
       .select("id, subscription_plan_id")
-      .eq("user_id", user.id)
+      .eq("id", who.creatorId)
       .single()
 
     if (!creator) {
@@ -342,6 +337,8 @@ export async function POST(request: Request) {
         .update({ subscription_plan_id: newPlanId, subscription_status: updatedSubscription.status })
         .eq("id", creator.id)
 
+      /* A team member's change to the owner's plan is on the record with their name (lib/team/areas). */
+      await recordTeamAction(who, who.userId, "billing_manage", "billing_plan_changed", { plan_id: newPlanId })
       return NextResponse.json({
         success: true,
         type: "upgrade",
@@ -431,6 +428,8 @@ export async function POST(request: Request) {
         })
         .eq("id", subscriptionRecord.id)
 
+      /* A team member's change to the owner's plan is on the record with their name (lib/team/areas). */
+      await recordTeamAction(who, who.userId, "billing_manage", "billing_plan_changed", { plan_id: newPlanId })
       return NextResponse.json({
         success: true,
         type: "downgrade",

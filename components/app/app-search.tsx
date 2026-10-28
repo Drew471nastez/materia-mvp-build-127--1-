@@ -26,12 +26,21 @@
  * answer has arrived, opens the first result when it does, which is what
  * somebody typing an order number and pressing Enter at once meant.
  *
+ * ALWAYS THE STORE AS IT IS NOW (round 42). An answer is kept a few seconds
+ * so backspacing draws it at once, and an answer older than ANSWER_FRESH_MS
+ * is drawn and asked for again behind it. Anything saved anywhere in the app
+ * (lib/search/search-freshness: a write through fetch) forgets every kept
+ * answer, and the next search asks the server for fresh rows.
+ *
+ * RECENT. An empty field offers what was opened last (lib/search/
+ * recent-searches, this browser only), then the places people go most.
+ *
  * OPENED BY REFERENCE, like the notifications (components/app/sidebar.tsx):
  * its open state lives here, so opening it does not render the whole sidebar
  * again. On a phone the field is focused in the tap itself, which is the only
  * moment iOS will raise the keyboard for it.
  */
-import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from "react"
 import { createPortal, flushSync } from "react-dom"
 import { usePathname, useRouter } from "next/navigation"
 import { Search, X, Loader2 } from "lucide-react"
@@ -42,6 +51,9 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { useLockAppScroll } from "@/components/app/sidebar-mobile-nav"
 import { APP_PAGES, GO_TO, matchPages } from "@/lib/search/app-pages"
 import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
+import { onSearchStale, takeSearchStale, watchWrites } from "@/lib/search/search-freshness"
+import { readRecent, withRecent, writeRecent, type RecentItem } from "@/lib/search/recent-searches"
 import { GROUP_LABELS, SEARCH_GROUPS, isSearchable, normalizeQuery, type SearchResult } from "@/lib/search/app-search"
 import { useNewProductChooser } from "@/app/app/products/new/kind-chooser"
 import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
@@ -57,8 +69,10 @@ const EXTERNAL: Record<string, string> = {
 export const SEARCH_DEBOUNCE_MS = 200
 /** How long one search is waited for before it says so and offers Try again. */
 export const SEARCH_WAIT_MS = 10_000
-/** How long an answer is drawn again for the same words without asking. */
+/** How long an answer is drawn again for the same words. */
 export const ANSWER_KEEP_MS = 30_000
+/** An answer older than this is drawn and asked for again behind it, so a change made since shows up a moment later. */
+export const ANSWER_FRESH_MS = 2_000
 
 export type AppSearchHandle = { open: () => void }
 
@@ -104,6 +118,7 @@ export const AppSearch = memo(
     const movedByKeys = useRef(false)
     const [mounted, setMounted] = useState(false)
     useEffect(() => setMounted(true), [])
+    const [recent, setRecent] = useState<RecentItem[]>([])
 
     useLockAppScroll(open && phone)
 
@@ -114,6 +129,7 @@ export const AppSearch = memo(
          focus made inside the gesture. */
       flushSync(() => {
         setPhone(isPhone())
+        setRecent(readRecent())
         setOpen(true)
       })
       inputRef.current?.focus({ preventScroll: true })
@@ -165,8 +181,24 @@ export const AppSearch = memo(
       page only, and a Try again always asks.
     */
     const answers = useRef(new Map<string, { at: number; result: SearchResult }>())
+    /* Something saved since the last search: the server is asked to read everything again, once. */
+    const askFresh = useRef(false)
+    const [saved, setSaved] = useState(0)
+    useEffect(() => {
+      watchWrites()
+      return onSearchStale(() => {
+        answers.current.clear()
+        askFresh.current = true
+        /* An open search with words in it asks again at once. */
+        setSaved((n) => n + 1)
+      })
+    }, [])
     useEffect(() => {
       if (!open) return
+      if (takeSearchStale()) {
+        answers.current.clear()
+        askFresh.current = true
+      }
       if (!searchable) {
         setRemote({ status: "idle" })
         return
@@ -175,7 +207,8 @@ export const AppSearch = memo(
       /* Only answers are kept, and Try again only follows a failure, so it always asks. */
       if (kept && Date.now() - kept.at < ANSWER_KEEP_MS) {
         setRemote({ status: "done", q, result: kept.result })
-        return
+        /* Still fresh: nothing to ask. Older: it stays on screen while the same words are asked again behind it. */
+        if (Date.now() - kept.at < ANSWER_FRESH_MS) return
       }
       const controller = new AbortController()
       /* Never a spinner for good: a search with no answer in SEARCH_WAIT_MS says so and offers Try again. */
@@ -194,7 +227,7 @@ export const AppSearch = memo(
           const res = await fetch("/api/app/search", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ q }),
+            body: JSON.stringify(askFresh.current ? { q, fresh: true } : { q }),
             signal: controller.signal,
             cache: "no-store",
           })
@@ -214,6 +247,7 @@ export const AppSearch = memo(
             setRemote({ status: "error", q, message })
             return
           }
+          askFresh.current = false
           answers.current.set(q, { at: Date.now(), result: data as SearchResult })
           setRemote({ status: "done", q, result: data as SearchResult })
         } catch {
@@ -232,24 +266,28 @@ export const AppSearch = memo(
         window.clearTimeout(deadline)
         controller.abort()
       }
-    }, [open, q, searchable, retry])
+    }, [open, q, searchable, retry, saved])
 
     /* ── What is drawn ─────────────────────────────────────────────────── */
     /* Community is offered only while the platform switch is on (lib/search/app-pages.ts flag). */
     const communities = useCommunitiesEnabled()
+    const physical = usePhysicalCommerceEnabled()
     const sections = useMemo<Section[]>(() => {
       if (!q) {
         const items = GO_TO.map((href) => APP_PAGES.find((p) => p.href === href)!).map((p) => ({ key: `go:${p.href}`, title: p.label, href: p.href }))
-        return [{ id: "go", label: tt("Go to"), items }]
+        const out: Section[] = []
+        if (recent.length) out.push({ id: "recent", label: tt("Recent"), items: recent.map((r) => ({ key: `recent:${r.href}`, title: r.title, detail: r.detail, href: r.href })) })
+        out.push({ id: "go", label: tt("Go to"), items })
+        return out
       }
       /* Pages first: they are matched here at once, so they are on screen
          before the server answers, and what it answers is added below them
          rather than pushing them down under the pointer. */
       const out: Section[] = []
-      const pages = matchPages(q, 5, { communities })
+      const pages = matchPages(q, 6, { communities, physical })
       const nav = pages.filter((p) => p.group === "Pages")
       const settings = pages.filter((p) => p.group === "Settings")
-      if (nav.length) out.push({ id: "pages", label: tt("Pages"), items: nav.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
+      if (nav.length) out.push({ id: "pages", label: tt("Pages"), items: nav.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, detail: p.under, href: p.href })) })
       if (settings.length) out.push({ id: "settings", label: tt("Settings"), items: settings.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
       const result = remote.status === "done" ? remote.result : remote.status === "loading" ? remote.last : null
       if (searchable && result) {
@@ -259,7 +297,7 @@ export const AppSearch = memo(
         }
       }
       return out
-    }, [q, searchable, remote, communities])
+    }, [q, searchable, remote, communities, physical, recent])
 
     const flat = useMemo(() => sections.flatMap((s) => s.items), [sections])
     const activeIndex = Math.max(0, activeKey ? flat.findIndex((i) => i.key === activeKey) : 0)
@@ -276,6 +314,17 @@ export const AppSearch = memo(
     /* New product asks what is being sold, over the page it was searched from (app/app/products/new/kind-chooser). */
     const newProduct = useNewProductChooser()
     const askNew = newProduct.open
+    /* What was opened, kept first for next time (lib/search/recent-searches): only from a search, never the Go to list itself. */
+    const remember = useCallback((item: Item | null) => {
+      if (!item || item.key.startsWith("go:")) return
+      const next = withRecent(readRecent(), { title: item.title, detail: item.detail, href: item.href })
+      writeRecent(next)
+    }, [])
+    const forgetRecent = useCallback(() => {
+      writeRecent([])
+      setRecent([])
+      inputRef.current?.focus({ preventScroll: true })
+    }, [])
     const go = useCallback(
       (href: string) => {
         close()
@@ -307,8 +356,11 @@ export const AppSearch = memo(
     useEffect(() => {
       if (remote.status !== "done" || pendingEnter.current !== remote.q) return
       pendingEnter.current = null
-      if (flat[0]) go(flat[0].href)
-    }, [remote, flat, go])
+      if (flat[0]) {
+        remember(flat[0])
+        go(flat[0].href)
+      }
+    }, [remote, flat, go, remember])
 
     const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -317,10 +369,21 @@ export const AppSearch = memo(
         const step = e.key === "ArrowDown" ? 1 : -1
         movedByKeys.current = true
         setActiveKey(flat[(activeIndex + step + flat.length) % flat.length].key)
+      } else if ((e.key === "PageDown" || e.key === "PageUp") && flat.length) {
+        /* A section at a time: the first result of the next one, or of this one and then the one before. */
+        e.preventDefault()
+        const starts = sections.reduce<number[]>((acc, sec, i) => [...acc, i === 0 ? 0 : acc[i - 1] + sections[i - 1].items.length], [])
+        const here = starts.filter((st) => st <= activeIndex).length - 1
+        const to = e.key === "PageDown" ? starts[Math.min(here + 1, starts.length - 1)] : starts[activeIndex > starts[here] ? here : Math.max(0, here - 1)]
+        movedByKeys.current = true
+        setActiveKey(flat[to].key)
       } else if (e.key === "Enter") {
         if (e.nativeEvent.isComposing) return
         e.preventDefault()
-        if (active) go(active.href)
+        if (active) {
+          remember(active)
+          go(active.href)
+        }
         else if (searchable && remote.status !== "done" && remote.status !== "error") pendingEnter.current = q
       }
     }
@@ -404,7 +467,7 @@ export const AppSearch = memo(
                 aria-controls="app-search-list"
                 aria-activedescendant={active && flat.length ? optionId(active.key) : undefined}
                 aria-autocomplete="list"
-                aria-label={tt("Search orders, customers, products, collections, coupons, emails and pages")}
+                aria-label={tt("Search orders, customers, products, offers, emails, integrations, help and pages")}
                 placeholder={tt("Search orders, customers, products")}
                 autoComplete="off"
                 autoCorrect="off"
@@ -449,9 +512,16 @@ export const AppSearch = memo(
           >
             {sections.map((section) => (
               <div key={section.id} role="group" aria-labelledby={`app-search-h-${section.id}`} className="pt-2">
-                <p id={`app-search-h-${section.id}`} className="px-5 pb-1 pt-1 text-[12px] font-semibold text-[#6b7280]">
-                  {section.label}
-                </p>
+                <div className="flex items-center justify-between px-5 pb-1 pt-1">
+                  <p id={`app-search-h-${section.id}`} className="text-[12px] font-semibold text-[#6b7280]">
+                    {section.label}
+                  </p>
+                  {section.id === "recent" ? (
+                    <button type="button" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={forgetRecent} className="-mr-2 h-7 rounded-md px-2 text-[12px] font-medium text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]" data-search-recent-clear="">
+                      {tt("Clear")}
+                    </button>
+                  ) : null}
+                </div>
                 {section.items.map((item) => {
                   const lit = active?.key === item.key
                   return (
@@ -465,9 +535,12 @@ export const AppSearch = memo(
                         if (!lit) setActiveKey(item.key)
                       }}
                       onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => go(item.href)}
+                      onClick={() => {
+                        remember(item)
+                        go(item.href)
+                      }}
                       className={cn(
-                        "mx-2 flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl px-3 py-2 md:min-h-[44px]",
+                        "mx-2 flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl px-3 py-2 transition-colors duration-100 active:bg-[#eceef1] md:min-h-[44px] [-webkit-tap-highlight-color:transparent]",
                         lit ? "bg-[#f3f4f6]" : "",
                       )}
                     >
@@ -508,6 +581,12 @@ export const AppSearch = memo(
               <p className="px-5 py-6 text-[14px] text-[#6b7280]">{tt("Keep typing to search orders and customers.")}</p>
             ) : null}
           </div>
+          {/* The keys, once, at the foot on a computer: a phone has no keys to name. */}
+          <div className="hidden shrink-0 items-center gap-4 border-t border-[#eef0f2] px-5 py-2 text-[12px] text-[#6b7280] md:flex" aria-hidden="true" data-search-keys="">
+            <span><Kbd>↑</Kbd> <Kbd>↓</Kbd> {tt("to move")}</span>
+            <span><Kbd>{tt("Enter")}</Kbd> {tt("to open")}</span>
+            <span className="ml-auto"><Kbd>Esc</Kbd> {tt("to close")}</span>
+          </div>
         </div>
       </>
     )
@@ -539,3 +618,7 @@ export const AppSearch = memo(
     )
   }),
 )
+
+function Kbd({ children }: { children: ReactNode }) {
+  return <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded border border-[#e5e7eb] bg-[#f9fafb] px-1 font-sans text-[11px] text-[#4b5563]">{children}</kbd>
+}

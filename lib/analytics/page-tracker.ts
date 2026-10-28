@@ -360,3 +360,79 @@ export function watchOutboundLinks(win: Win, input: { creatorId: string; mainDom
     win.document.removeEventListener("auxclick", onClick, true)
   }
 }
+
+/** The most a button's words are read from the page before the server trims them (lib/analytics/events normalizeLinkLabel). */
+const LABEL_READ_MAX = 200
+
+/**
+ * A LINK'S WORDS, as a visitor reads them: its aria-label, else its text,
+ * else the alt of the picture inside it, else its title. Whitespace made one
+ * space. The server decides what of it is kept.
+ */
+export function linkWords(anchor: Element): string | null {
+  const pick = (v: string | null | undefined) => (v || "").replace(/\s+/g, " ").trim()
+  const words =
+    pick(anchor.getAttribute("aria-label")) ||
+    pick((anchor as HTMLElement).innerText ?? anchor.textContent) ||
+    pick(anchor.querySelector?.("img[alt]")?.getAttribute("alt")) ||
+    pick(anchor.getAttribute("title"))
+  return words ? words.slice(0, LABEL_READ_MAX) : null
+}
+
+/**
+ * Where an internal link leads, or null when it is not one: an http(s)
+ * address on this very host, another path than the page's own (a link to
+ * #reviews on the same page is not a move), and not a download or one of the
+ * site's own endpoints (/api/, the cart's add). Query and hash are left off.
+ */
+export function internalTargetOf(win: Win, anchor: HTMLAnchorElement): string | null {
+  const raw = anchor.getAttribute("href")
+  if (!raw || anchor.hasAttribute("download")) return null
+  let target: URL
+  try {
+    target = new URL(anchor.href || raw, win.location.href)
+  } catch {
+    return null
+  }
+  if ((target.protocol !== "http:" && target.protocol !== "https:") || target.host !== win.location.host) return null
+  const to = normalizePath(target.pathname) ?? "/"
+  if (to === (normalizePath(win.location.pathname) ?? "/")) return null
+  if (/^\/api(\/|$)/.test(to) || /\/cart\/add(\/|$)/.test(to)) return null
+  return `${target.protocol}//${target.host}${target.pathname}`
+}
+
+/**
+ * CLICKS BETWEEN PAGES OF THE SAME SITE (nav_click). A link or a button that
+ * leads to another page of this site (Shop now, a product card, the menu's
+ * About) is recorded with the page it leads to and its words, so Analytics
+ * can say which buttons move people and from where to where. Once per page,
+ * target and words here; the server keeps one per visit, checks that both
+ * pages are the same property's, leaves robots and the creator out, and
+ * keeps the visit's ids only with consent, as for every other event.
+ */
+export function watchInternalLinks(win: Win, input: { creatorId: string; ids: () => { sessionId?: string; visitorId?: string } }): () => void {
+  if (skipReason(win)) return () => {}
+  const clicked = new Set<string>()
+  const onClick = (event: MouseEvent) => {
+    try {
+      if (event.button > 1) return
+      const anchor = event.composedPath().find((n): n is HTMLAnchorElement => typeof (n as HTMLAnchorElement).href === "string" && (n as Element).tagName === "A")
+      if (!anchor) return
+      const targetHref = internalTargetOf(win, anchor)
+      if (!targetHref) return
+      const label = linkWords(anchor)
+      const key = `${normalizePath(win.location.pathname)}|${targetHref}|${label ?? ""}`
+      if (clicked.has(key)) return
+      clicked.add(key)
+      void send(win, "/api/track-event", { eventType: "nav_click", creatorId: input.creatorId, href: win.location.href, targetHref, label: label ?? undefined, ...input.ids() }, { beacon: true })
+    } catch {
+      /* never in the way of the click */
+    }
+  }
+  win.document.addEventListener("click", onClick, true)
+  win.document.addEventListener("auxclick", onClick, true)
+  return () => {
+    win.document.removeEventListener("click", onClick, true)
+    win.document.removeEventListener("auxclick", onClick, true)
+  }
+}

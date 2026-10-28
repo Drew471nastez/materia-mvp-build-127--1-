@@ -32,7 +32,7 @@ import { AUTOMATION_VARIABLES, renderAutomation, type AutomationSegment, type Au
 import type { CommunityHead } from "./view-types"
 import { Confirm, Dialog, EditorCard, Notice, RowMenu, SelectField, Segmented, buttonPrimary, buttonSecondary, errorText, field, label, send, useToast } from "./parts"
 
-interface Automation {
+export interface Automation {
   id: string
   name: string
   trigger: AutomationTrigger
@@ -143,7 +143,7 @@ function payloadOf(d: Draft): Record<string, unknown> {
   }
 }
 
-function statusWord(a: Automation): string {
+export function statusWord(a: Automation): string {
   switch (a.status) {
     case "paused":
       return tt("Paused")
@@ -159,7 +159,7 @@ function statusWord(a: Automation): string {
 }
 
 /** One line for when a row sends, and where. */
-function whenLine(a: Automation, channel: string | null): string {
+export function whenLine(a: Automation, channel: string | null): string {
   const when =
     a.trigger === "join"
       ? tt("When someone joins")
@@ -187,7 +187,8 @@ const TRIGGERS: { value: AutomationTrigger; get label(): string }[] = [
   { value: "broadcast", get label() { return tt("Once, now or at a time") } },
 ]
 
-export function AutomationsPanel({ head }: { head: CommunityHead }) {
+/** Only the community's id and name are read, so Emails › Automations can open it in place with a community from its own list. */
+export function AutomationsPanel({ head }: { head: Pick<CommunityHead, "id" | "name"> }) {
   const toast = useToast()
   const base = `/api/app/community/${head.id}/chat/automations`
   const [d, setD] = React.useState<Data | null>(null)

@@ -27,7 +27,13 @@ import {
   isSearchable,
   normalizeQuery,
   searchCreator,
+  integrationHits,
+  helpHits,
+  SEARCH_GROUPS,
 } from "@/lib/search/app-search"
+import { matchPages, APP_PAGES } from "@/lib/search/app-pages"
+import { isWrite, markSearchStale, takeSearchStale, onSearchStale } from "@/lib/search/search-freshness"
+import { withRecent, parseRecent, RECENT_MAX } from "@/lib/search/recent-searches"
 
 let passed = 0
 let failed = 0
@@ -192,16 +198,29 @@ function world() {
       { id: "fa1", creator_id: A, name: "Launch welcome", status: "active", created_at: day(1) },
       { id: "fb1", creator_id: B, name: "Launch welcome B", status: "active", created_at: day(1) },
     ],
+    /* Round 42: upsells and bundles, size charts and the communities a person runs. */
+    store_offers: [
+      { id: "xa1", creator_id: A, title: "Launch bundle deal", kind: "bundle", active: true, created_at: day(1) },
+      { id: "xb1", creator_id: B, title: "Launch bundle deal B", kind: "bundle", active: true, created_at: day(1) },
+    ],
+    size_charts: [
+      { id: "za1", creator_id: A, name: "Launch tees", unit: "cm" },
+      { id: "zb1", creator_id: B, name: "Launch tees B", unit: "in" },
+    ],
+    communities: [
+      { id: "ka1", owner_user_id: "user-a", name: "Launch club", status: "published", created_at: day(1) },
+      { id: "kb1", owner_user_id: "user-b", name: "Launch club B", status: "published", created_at: day(1) },
+    ],
   }
 }
 
-const B_IDS = ["pb1", "ob1", "sb1", "eb1", "fb1", "cb1", "qb1", "LAUNCHB", "jane.b@example.com", "jane.sub@b.com"]
+const B_IDS = ["pb1", "ob1", "sb1", "eb1", "fb1", "cb1", "qb1", "xb1", "zb1", "kb1", "LAUNCHB", "jane.b@example.com", "jane.sub@b.com"]
 /* store_settings: the store's currency, which prices and fixed coupons are written in (Settings › Country & Currency). */
-const CREATOR_TABLES = ["products", "subscribers", "email_campaigns", "email_flows", "product_collections", "coupons", "store_settings"]
+const CREATOR_TABLES = ["products", "subscribers", "email_campaigns", "email_flows", "product_collections", "coupons", "store_offers", "size_charts", "store_settings"]
 
 function leaks(result: Awaited<ReturnType<typeof searchCreator>>): string[] {
   const text = JSON.stringify(result)
-  return B_IDS.filter((id) => text.includes(id)).concat(/Launch course B|Launch week B|Launch welcome B|Launch bundle B|Jane Bee|Jane Sub/.test(text) ? ["B's words"] : [])
+  return B_IDS.filter((id) => text.includes(id)).concat(/Launch course B|Launch week B|Launch welcome B|Launch bundle B|Launch bundle deal B|Launch tees B|Launch club B|Jane Bee|Jane Sub/.test(text) ? ["B's words"] : [])
 }
 
 function everyQueryScoped(calls: Call[], creator: string, ownProducts: string[]): string[] {
@@ -209,6 +228,9 @@ function everyQueryScoped(calls: Call[], creator: string, ownProducts: string[])
   for (const c of calls) {
     if (CREATOR_TABLES.includes(c.table)) {
       if (!c.filters.some(([op, col, v]) => op === "eq" && col === "creator_id" && v === creator)) bad.push(`${c.table} without creator_id`)
+    } else if (c.table === "communities") {
+      /* A community is owned by a user, not a store: the signed in owner's own. */
+      if (!c.filters.some(([op, col, v]) => op === "eq" && col === "owner_user_id" && v === (creator === A ? "user-a" : "user-b"))) bad.push("communities without owner_user_id")
     } else if (c.table === "orders") {
       const scope = c.filters.find(([op, col]) => op === "in" && col === "product_id")
       if (!scope || !(scope[2] as string[]).every((id) => ownProducts.includes(id))) bad.push("orders not scoped to own products")
@@ -364,14 +386,104 @@ async function main() {
   const route = readCode("app/api/app/search/route.ts")
   check("a POST, so the query is not in an address a log keeps", /export async function POST\(/.test(route) && !/export async function GET\(/.test(route))
   /* Changed on purpose: a teammate searches the store they work in, through the service role, held to it by actingStore and the role's areas. The owner is still on their own client. */
-  check("signed in; the owner on their own client", /from "@\/lib\/supabase\/server"/.test(route) && /auth\.getUser\(\)/.test(route) && /searchCreator\(supabase, creator\.id, q\)/.test(route))
-  check("a teammate: the store they work in, only what their role opens", /const acting = await actingStore\(admin, user\.id\)/.test(route) && /permits\(acting\.permissions, GROUP_AREA\[g\]\)/.test(route) && /searchCreator\(admin, acting\.creatorId, q, \{ groups \}\)/.test(route) && /orders: "orders"/.test(route) && /customers: "customers"/.test(route) && /coupons: "marketing"/.test(route)) /* Round 40: a member's own permissions; coupons are Marketing. */
+  check("signed in; the owner on their own client", /from "@\/lib\/supabase\/server"/.test(route) && /auth\.getUser\(\)/.test(route) && /searchCreator\(supabase, creator\.id, q, \{ ownerUserId: communities \? user\.id : null, physical, fresh \}\)/.test(route)) /* Changed on purpose (round 42): the owner's communities, the physical switch and a fresh read go with it. */
+  check("a teammate: the store they work in, only what their role opens", /* Changed on purpose (round 42): the role is read beside the platform switches, help is everyone's, and the owner's communities are never a teammate's. */ /actingStore\(admin, user\.id\)/.test(route) && /area === null \|\| permits\(acting\.permissions, area\)/.test(route) && /g !== "communities"/.test(route) && /searchCreator\(admin, acting\.creatorId, q, \{ groups, physical, fresh \}\)/.test(route) && /orders: "orders"/.test(route) && /customers: "customers"/.test(route) && /coupons: "marketing"/.test(route)) /* Round 40: a member's own permissions; coupons are Marketing. */
   check("the creator from the session's user, not the request", /\.eq\("user_id", user\.id\)/.test(route) && !/body\??\.creator/.test(route))
   check("rate limited per person", /rateLimit\(\{[\s\S]*subjects: \[`user:\$\{user\.id\}`\][\s\S]*LIMITS\.search/.test(route))
   check("never answers from a cache", /no-store/.test(route))
   const logs = [...route.matchAll(/console\.\w+\(([^)]*)\)/g), ...readCode("lib/search/app-search.ts").matchAll(/console\.\w+\(([^)]*)\)/g)].map((m) => m[1])
   check("no log line carries the query", logs.length > 0 && logs.every((l) => !/\bq\b|query|rawQuery|body/.test(l)), logs)
   check("no database error text goes back to the browser", !/error\.message|\.message\s*\}/.test(route))
+
+  console.log("\nRound 42: more kinds, each its own and nobody else's")
+  {
+    const db = fakeDb(world())
+    const r = await searchCreator(db, A, "launch", { ownerUserId: "user-a", physical: true })
+    check("an upsell or bundle by its name, its kind and whether it is on, opening its page", r.groups.offers[0]?.title === "Launch bundle deal" && r.groups.offers[0]?.detail === "Bundle · On" && r.groups.offers[0]?.href === "/app/offers/xa1", r.groups.offers)
+    check("a size chart by its name, opening its page", r.groups.size_charts[0]?.title === "Launch tees" && r.groups.size_charts[0]?.href === "/app/products/size-charts/za1", r.groups.size_charts)
+    check("a community the owner runs, opening its dashboard", r.groups.communities[0]?.title === "Launch club" && r.groups.communities[0]?.href === "/app/community/ka1", r.groups.communities)
+    check("nothing of creator B or user B in any of them", leaks(r).length === 0, leaks(r))
+    check("every query names creator A, and communities the owner's user", everyQueryScoped(db.calls, A, ["pa1", "pa2", "pa3"]).length === 0, everyQueryScoped(db.calls, A, ["pa1", "pa2", "pa3"]))
+    const off = fakeDb(world())
+    const r2 = await searchCreator(off, A, "launch")
+    check("without the owner's user, no community is read", !off.calls.some((c) => c.table === "communities") && r2.groups.communities.length === 0)
+    check("with physical commerce off, no size chart is read", !off.calls.some((c) => c.table === "size_charts") && r2.groups.size_charts.length === 0)
+    const missing = fakeDb(world(), { missingTables: ["store_offers"] })
+    const r3 = await searchCreator(missing, A, "launch", { physical: true })
+    check("before the offers table exists, offers are unavailable and the rest answered", r3.unavailable.includes("offers") && r3.groups.size_charts.length === 1 && r3.groups.products.length > 0, r3.unavailable)
+    check("the groups come in one order, offers beside coupons, help last", SEARCH_GROUPS.join() === "orders,customers,products,collections,offers,coupons,size_charts,emails,automations,communities,integrations,help")
+  }
+
+  console.log("\nIntegrations and the Help Center, from the code")
+  {
+    const ga = integrationHits("google", false)
+    check("an integration by its name opens its own page", ga.some((h) => h.title === "Google Analytics" && h.href === "/app/integrations?integration=google-analytics"), ga)
+    check("Storelib Reviews opens its own page", integrationHits("reviews", false).some((h) => h.href === "/app/reviews"))
+    check("a physical one only while physical commerce is on", !integrationHits("printful", false).length && integrationHits("printful", true).some((h) => h.id === "printful"))
+    check("a category finds the ones in it", integrationHits("advertising", false).length > 0)
+    const help = helpHits("refund", true)
+    check("a help article opens inside the app", help.length > 0 && help.every((h) => h.href.startsWith("/app/help/")), help.map((h) => h.href))
+    const db = fakeDb(world())
+    const r = await searchCreator(db, A, "refund")
+    check("help is answered with no table read for it", r.groups.help.length > 0 && !db.calls.some((c) => !CREATOR_TABLES.includes(c.table) && c.table !== "orders"))
+    const roles = await searchCreator(fakeDb(world()), A, "refund", { groups: new Set(["help"]) })
+    check("a teammate with no area still finds help", roles.groups.help.length > 0 && roles.groups.orders.length === 0)
+  }
+
+  console.log("\nResults follow a change at once")
+  {
+    const db = fakeDb(world())
+    await searchCreator(db, A, "jan")
+    await searchCreator(db, A, "jane", { fresh: true })
+    check("a search asked for fresh reads the orders again", db.calls.filter((c) => c.table === "orders").length === 2, db.calls.filter((c) => c.table === "orders").length)
+    check("the orders are kept only seconds, a burst of typing", /const ORDER_INDEX_MS = [0-9_]+/.test(readCode("lib/search/app-search.ts")) && Number(readCode("lib/search/app-search.ts").match(/const ORDER_INDEX_MS = ([0-9_]+)/)![1].replace(/_/g, "")) <= 10_000)
+    check("a write to the API is a change", isWrite("POST", "/api/products/1") && isWrite("PATCH", "https://x.supabase.co/rest/v1/products?id=eq.1") && isWrite("delete", "/api/store/offers/1"))
+    check("a read is not, and neither is the search's own route", !isWrite("GET", "/api/products") && !isWrite(undefined, "/api/x") && !isWrite("POST", "/api/app/search") && !isWrite("POST", "/_next/data/x"))
+    let heard = 0
+    const off = onSearchStale(() => heard++)
+    markSearchStale()
+    off()
+    markSearchStale()
+    check("a change is heard by the open search, once per listener", heard === 1, heard)
+    check("and remembered for the next search, once", takeSearchStale() === true && takeSearchStale() === false)
+    const box = readCode("components/app/app-search.tsx")
+    check("the box watches writes and asks with fresh after one", /watchWrites\(\)/.test(box) && /fresh: true/.test(box) && /onSearchStale\(/.test(box))
+    check("an older answer is drawn and asked for again behind it", /ANSWER_FRESH_MS/.test(box))
+    check("the route passes fresh to the search", /body\?\.fresh === true/.test(readCode("app/api/app/search/route.ts")))
+  }
+
+  console.log("\nEvery place in the app, by its own name")
+  {
+    const all = { communities: true, physical: true }
+    const first = (q: string, f = all) => matchPages(q, 6, f)[0]?.href
+    check("size charts", first("size chart") === "/app/products/size-charts")
+    check("and not while physical commerce is off", !matchPages("size chart", 6, { communities: true }).some((p) => p.href.includes("size-charts")))
+    check("upsells and bundles", first("bundle") === "/app/offers" || matchPages("bundle", 6, all).some((p) => p.href === "/app/offers"))
+    check("an emails tab", first("scheduled") === "/app/emails?tab=scheduled")
+    check("two words, each the start of one", first("email sent") === "/app/emails?tab=published")
+    check("a settings section by another name", first("vat") === "/app/settings?tab=taxes")
+    check("an analytics report", first("traffic sources") === "/app/analytics?report=traffic")
+    check("a OnePage section", first("seo") === "/app/onepage#settings-seo")
+    check("integrations and collections", first("integrations") === "/app/integrations" && first("collections") === "/app/products/collections")
+    check("every place says where it is, or is a page of its own", APP_PAGES.every((p) => !/[#]|[?&](tab|report|category)=/.test(p.href) || p.group === "Settings" || !!p.under), APP_PAGES.filter((p) => /[#]|[?&](tab|report|category)=/.test(p.href) && p.group !== "Settings" && !p.under).map((p) => p.href))
+    check("no two places share an address and a name", new Set(APP_PAGES.map((p) => `${p.href}|${p.label}`)).size === APP_PAGES.length)
+    const reports = readCode("app/app/analytics/analytics-reports.tsx")
+    check("analytics opens the report the address names", /params\?\.get\("report"\)/.test(reports) && /openDetail\(askedReport\)/.test(reports))
+  }
+
+  console.log("\nRecent")
+  {
+    const a = { title: "Order #1002", href: "/app/orders?order=oa2" }
+    const b = { title: "Taxes", href: "/app/settings?tab=taxes" }
+    const list = withRecent(withRecent([], a), b)
+    check("newest first", list.map((r) => r.title).join() === "Taxes,Order #1002")
+    check("the same place opened again moves up, once", withRecent(list, a).map((r) => r.title).join() === "Order #1002,Taxes")
+    check(`at most ${RECENT_MAX}`, Array.from({ length: 9 }, (_, i) => ({ title: `x${i}`, href: `/app/x${i}` })).reduce((l, x) => withRecent(l, x), [] as ReturnType<typeof withRecent>).length === RECENT_MAX)
+    check("a stored list that is not one is no list", parseRecent("{") .length === 0 && parseRecent('[{"title":1}]').length === 0 && parseRecent('[{"title":"x","href":"https://evil"}]').length === 0)
+    const box = readCode("components/app/app-search.tsx")
+    check("an empty field offers Recent before Go to, with Clear", /id: "recent"/.test(box) && /data-search-recent-clear/.test(box))
+    check("Page Up and Page Down move a section at a time", /"PageDown"/.test(box) && /"PageUp"/.test(box))
+  }
 
   console.log("\nThe search box")
   const box = readCode("components/app/app-search.tsx")
