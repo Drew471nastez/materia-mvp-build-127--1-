@@ -141,6 +141,7 @@ const stubs: Record<string, string> = {
     "website",
     `export const websiteInstallCaller = async (installId) => {
   const S = globalThis.__policyStubs, user = S.user
+  if (!user) return { error: "Unauthorized", status: 401, supabase: null, install: null }
   const { data: c } = await S.db.from("creators").select("id").eq("user_id", user.id).maybeSingle()
   const { data: install } = c ? await S.db.from("store_theme_installs").select("id, creator_id").eq("id", installId).eq("creator_id", c.id).maybeSingle() : { data: null }
   if (!install) return { error: "Theme not found", status: 404, supabase: null, install: null }
