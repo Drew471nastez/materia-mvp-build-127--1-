@@ -614,6 +614,8 @@ const SUITES = [
   "tests/cart-coupons.test.ts",
   /* Offers, coupons and size charts as sub pages (not dialogs or sheets), a code's collections and "physical only" in every checkout, the size chart table's keys and paste, Inventory's batched reads. */
   "tests/offers-subpages.test.ts",
+  /* Round 41: community MRR and payments received agree everywhere, collections as pages, Edit profile, a code's minimum after offers, Low includes 0. */
+  "tests/community-revenue-collections-r41.test.ts",
   "tests/product-page-t.test.ts",
   "tests/home-cards.test.ts",
   "tests/home-announcements.test.ts",

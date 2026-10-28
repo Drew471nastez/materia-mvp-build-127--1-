@@ -11280,7 +11280,18 @@ const words: Record<string, string> = {
  "People who join get a file to download": "Quienes se unan reciben un archivo para descargar",
  "Upload the file. Until then, people who join get nothing to download.": "Sube el archivo. Hasta entonces, quienes se unan no reciben nada para descargar.",
  "Its style is in Design, under Layout.": "Su estilo está en Diseño, en Disposición.",
- "This store has no communities yet. The owner makes them.": "Esta tienda aún no tiene comunidades. Las crea el propietario."
+ "This store has no communities yet. The owner makes them.": "Esta tienda aún no tiene comunidades. Las crea el propietario.",
+ "Community revenue": "Ingresos de la comunidad",
+ "Payments received is the money paid in this period, less refunds. MRR is what the plans being paid for bring in a month, a yearly plan counted as a twelfth.": "Pagos recibidos es el dinero pagado en este periodo, menos reembolsos. El MRR es lo que aportan al mes los planes que se pagan; un plan anual cuenta como una doceava parte.",
+ "Payments received": "Pagos recibidos",
+ "MRR now": "MRR ahora",
+ "MRR at the end": "MRR al final",
+ "Paying members": "Miembros que pagan",
+ "Discard this collection?": "¿Descartar esta colección?",
+ "Edit collection {title}": "Editar colección {title}",
+ "Going back to collections": "Volviendo a colecciones",
+ "Back to collections": "Volver a colecciones",
+ "Yearly plans counted monthly": "Planes anuales contados por mes"
 }
 
 export default words
