@@ -1,0 +1,266 @@
+/**
+ * ===========================================================================
+ *  FIVE MORE THEMES (ROUND 40), EACH A DIFFERENT KIND OF PAGE
+ * ===========================================================================
+ * The owner: "Create five more themes, the best and clean, more unique and
+ * different styles", "let themes control more things". Each one sets what a
+ * theme could always set, and now also how the blocks are laid out
+ * (block_layout), the button's hover colours (button_hover_fill and
+ * button_hover_text, with the Fill or Pop hover), the button size, the
+ * spacing and the header's alignment (lib/onepage/theme-layout). Picking any
+ * other theme resets all of it (lib/onepage/theme-apply LOOK_RESET).
+ *
+ *   Gallery   a white gallery wall: warm off white, a soft serif title, thin
+ *             framed buttons, pictures shown large as cards; a press turns a
+ *             frame to ink.
+ *   Swiss     a poster: concrete white, black bars with square ends, links
+ *             two to a row, the header set flush left, and one signal red
+ *             that each button turns to under the pointer.
+ *   Ember     a room lit low: deep brown with grain, a fashion serif, amber
+ *             outlined pills that fill with amber and rise.
+ *   Lagoon    shallow water: a pale sea glass gradient, deep teal words and
+ *             small rounded buttons in tight rows that turn a brighter teal.
+ *   Atlas     a night range: the mountain photograph from the editor's own
+ *             library, printed dark, a tall condensed title, white pills,
+ *             links with pictures as large cards.
+ *
+ * No violet, no gradient buttons. Every text colour reads at 4.5:1 or more
+ * on what is behind it, and every button's words on the button, at rest and
+ * on hover (tests/onepage-themes-r40.test.ts measures each pair).
+ *
+ * Atlas's photo: Unsplash photo-1519681393784-d120267933ba, the "Mountains"
+ * picture the Links tab's image library already offers. Unsplash License:
+ * free for commercial use, no permission or credit needed
+ * (https://unsplash.com/license).
+ */
+
+export const R40_THEMES = [
+  {
+    id: "gallery",
+    name: "Gallery",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#f7f6f2",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#16150f",
+      secondary_text_color: "#55524a",
+      button_color: "#ffffff",
+      button_text_color: "#16150f",
+      button_style: "filled" as const,
+      button_border_radius: 4,
+      button_border_width: 1,
+      button_border_color: "#e2ded3",
+      button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#16150f",
+      button_hover_text: "#f7f6f2",
+      font_family: "'Inter', sans-serif",
+      title_font: "'Fraunces', serif",
+      title_color: "#16150f",
+      social_icon_color: "#16150f",
+      social_icon_style: "outline",
+      spacing: "comfortable" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "cards",
+      header_align: "center",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#16150f",
+    solid_button_text_color: "#16150f",
+    outline_button_text_color: "#16150f",
+    glass_button_text_color: "#16150f",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
+    id: "swiss",
+    name: "Swiss",
+    category: "light",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#f2f1ec",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#0b0b0b",
+      secondary_text_color: "#45443f",
+      button_color: "#0b0b0b",
+      button_text_color: "#f2f1ec",
+      button_style: "filled" as const,
+      button_border_radius: 0,
+      button_border_width: 0,
+      button_border_color: "#0b0b0b",
+      button_shadow: "none",
+      button_hover_animation: "fill",
+      button_hover_fill: "#d42d17",
+      button_hover_text: "#ffffff",
+      font_family: "'Geist', sans-serif",
+      title_font: "'Geist', sans-serif",
+      title_color: "#0b0b0b",
+      social_icon_color: "#0b0b0b",
+      social_icon_style: "minimal",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "grid",
+      header_align: "left",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#0b0b0b",
+    solid_button_text_color: "#f2f1ec",
+    outline_button_text_color: "#0b0b0b",
+    glass_button_text_color: "#0b0b0b",
+    share_style: "black",
+    subscribe_style: "black",
+  },
+  {
+    id: "ember",
+    name: "Ember",
+    category: "dark",
+    theme_config: {
+      background_type: "solid" as const,
+      background_color: "#1b1612",
+      background_gradient: "",
+      background_image_url: "",
+      text_color: "#f4ece2",
+      secondary_text_color: "#c2b5a6",
+      button_color: "#f0a24a",
+      button_text_color: "#f0a24a",
+      button_style: "outline" as const,
+      button_border_radius: 999,
+      button_border_width: 2,
+      button_border_color: "#f0a24a",
+      button_shadow: "none",
+      button_hover_animation: "pop",
+      button_hover_fill: "#f0a24a",
+      button_hover_text: "#1b1612",
+      font_family: "'Manrope', sans-serif",
+      title_font: "'Bodoni Moda', serif",
+      title_color: "#f4ece2",
+      social_icon_color: "#f0a24a",
+      social_icon_style: "outline",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "grain",
+      pattern_color: "#ffffff80",
+      pattern_opacity: "low",
+      block_layout: "list",
+      header_align: "center",
+    },
+    profile_layout: "classic" as const,
+    solid_button_text_color: "#1b1612",
+    outline_button_text_color: "#f0a24a",
+    glass_button_text_color: "#f4ece2",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+  {
+    id: "lagoon",
+    name: "Lagoon",
+    category: "gradient",
+    theme_config: {
+      background_type: "gradient" as const,
+      background_color: "#cfeae3",
+      background_gradient: "linear-gradient(175deg, #e7f5f1 0%, #bfe3da 100%)",
+      background_image_url: "",
+      text_color: "#0c3b35",
+      secondary_text_color: "#23524b",
+      button_color: "#0c3b35",
+      button_text_color: "#eaf6f2",
+      button_style: "filled" as const,
+      button_border_radius: 14,
+      button_border_width: 0,
+      button_border_color: "#0c3b35",
+      button_shadow: "subtle",
+      button_shadow_color: "#0c3b35",
+      button_hover_animation: "fill",
+      button_hover_fill: "#12695e",
+      button_hover_text: "#ffffff",
+      button_size: "compact",
+      font_family: "'Nunito', sans-serif",
+      title_font: "'Fredoka', sans-serif",
+      title_color: "#0c3b35",
+      social_icon_color: "#0c3b35",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      laser_glow_enabled: false,
+      background_pattern: "none",
+      block_layout: "compact",
+      header_align: "center",
+    },
+    profile_layout: "classic" as const,
+    light_button_text_color: "#0c3b35",
+    solid_button_text_color: "#eaf6f2",
+    outline_button_text_color: "#0c3b35",
+    glass_button_text_color: "#0c3b35",
+    share_style: "white",
+    subscribe_style: "white",
+  },
+  {
+    id: "atlas",
+    name: "Atlas",
+    category: "image",
+    theme_config: {
+      background_type: "image" as const,
+      background_color: "#101a2b",
+      background_gradient: "",
+      background_image_url: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80",
+      text_color: "#ffffff",
+      secondary_text_color: "#dbe4f0",
+      button_color: "#ffffff",
+      button_text_color: "#101a2b",
+      button_style: "filled" as const,
+      button_border_radius: 999,
+      button_border_width: 0,
+      button_border_color: "#ffffff",
+      button_shadow: "subtle",
+      button_shadow_color: "#000000",
+      button_hover_animation: "pop",
+      button_hover_fill: "#101a2b",
+      button_hover_text: "#ffffff",
+      font_family: "'Figtree', sans-serif",
+      title_font: "'Big Shoulders', sans-serif",
+      title_color: "#ffffff",
+      social_icon_color: "#ffffff",
+      social_icon_style: "filled",
+      spacing: "normal" as const,
+      card_width: "standard" as const,
+      header_layout: "classic",
+      /* Printed down to 40% so white words read on the snow, with a fine grain. */
+      image_brightness: 40,
+      image_noise: true,
+      noise_strength: 20,
+      block_layout: "cards",
+      header_align: "center",
+    },
+    profile_layout: "classic" as const,
+    solid_button_text_color: "#101a2b",
+    outline_button_text_color: "#ffffff",
+    glass_button_text_color: "#ffffff",
+    share_style: "glassmorphism",
+    subscribe_style: "glassmorphism",
+  },
+]
+
+/** The order the kinds are listed in, in All: light, gradient, dark, then pictures, as the catalogue always was. */
+export const THEME_KIND_ORDER = ["light", "gradient", "dark", "image"] as const
+
+/** The catalogue with these laid into their kinds, each kind keeping its own order and the new ones at its end. */
+export function withR40Themes<T extends { category: string }>(base: readonly T[]): T[] {
+  const all = [...base, ...(R40_THEMES as unknown as T[])]
+  const rank = (c: string) => {
+    const i = (THEME_KIND_ORDER as readonly string[]).indexOf(c)
+    return i < 0 ? THEME_KIND_ORDER.length : i
+  }
+  return all.map((t, i) => ({ t, i })).sort((a, b) => rank(a.t.category) - rank(b.t.category) || a.i - b.i).map((x) => x.t)
+}

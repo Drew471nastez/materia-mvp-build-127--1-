@@ -41,7 +41,11 @@ import { ExtraBlock, ExtraBlockPreviewContext, IncompleteLinkPlaceholder, Sensit
 import { isIncompleteLink } from "@/lib/onepage/extra-blocks"
 import { OnePageFonts } from "@/components/onepage/onepage-fonts"
 import { fontStack } from "@/lib/onepage/fonts"
-import { WallpaperNoise, WallpaperPattern, wallpaperImage } from "@/components/onepage/wallpaper-layers"
+import { WallpaperNoise, WallpaperPattern } from "@/components/onepage/wallpaper-layers"
+/* Round 40: the photo wallpaper, block layouts, the header's alignment and the themed sheets (components/onepage/themes, lib/onepage/theme-layout, lib/onepage/sheet-theme). */
+import { WallpaperPhoto } from "@/components/onepage/themes/wallpaper-photo"
+import { blockGapClass, blockLayoutOf, headerAlignOf, isLinkTilePair, linkDrawnAsCard, pairLinkTiles } from "@/lib/onepage/theme-layout"
+import { sheetRootCss } from "@/lib/onepage/sheet-theme"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { isBlockShown } from "@/lib/onepage/extra-blocks"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
@@ -1279,23 +1283,43 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         minHeight: isDesktop ? "100%" : "100vh",
       }}
     >
+      {/* The gap is the page's spacing, tighter on the Compact layout; the alignment is the classic header's (lib/onepage/theme-layout). */}
       <div
-        className={cn(
-          "flex flex-col items-center",
-          safeTheme.spacing === "compact"
-            ? "gap-3 sm:gap-4"
-            : safeTheme.spacing === "comfortable"
-              ? "gap-5 sm:gap-6"
-              : "gap-4 sm:gap-5",
-        )}
+        className={cn("flex flex-col items-center", blockGapClass(safeTheme))}
+        data-block-layout={blockLayoutOf(safeTheme)}
+        data-op-align={headerAlignOf(safeTheme)}
       >
-        {pairProductTiles(safeBlocks
+        {pairLinkTiles(pairProductTiles(safeBlocks
           /* In the editor's preview a new link still waiting for its address is drawn as a placeholder; never live. */
           .filter((b) => isBlockVisible(b) || (inEditorPreview && isIncompleteLink(b)))
-          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0)))
+          .sort((a, b) => (a?.sort_order || 0) - (b?.sort_order || 0))), blockLayoutOf(safeTheme))
           .map((item, index) => {
             const animClass = !hasBlocksAnimated ? "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both" : ""
             const animStyle = !hasBlocksAnimated ? { animationDelay: `${index * 50}ms` } : undefined
+            /* The Grid layout: plain links that follow one another, two to a row, each a tile (app/globals.css [data-link-tile]). */
+            if (isLinkTilePair(item)) {
+              return (
+                <div key={item.key} className={cn("grid w-full grid-cols-2 gap-3", animClass)} style={animStyle} data-link-pair="">
+                  {(item.links as OnePageBlock[]).map((block) => (
+                    <div key={block.id} className="min-w-0" data-link-tile="" data-sensitive-label={sensitiveLabel(block)}>
+                      {inEditorPreview && isIncompleteLink(block) ? (
+                        <IncompleteLinkPlaceholder label={(block.data as LinkButtonBlockData)?.label} theme={safeTheme} />
+                      ) : (
+                        <PublicBlockRenderer
+                          block={block}
+                          theme={safeTheme}
+                          profile={{ title, bio, avatar_url, avatar_video_url, avatar_video_crop, social_links }}
+                          onepageId={onepage.id}
+                          sellerId={seller_id}
+                          isDesktop={isDesktop}
+                          settings={safeSettings}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            }
             /* Product tiles that follow one another, two to a row (lib/onepage/product-block pairProductTiles). */
             if ("tiles" in item) {
               return (
@@ -1741,6 +1765,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       <OnePageDynamicFavicon avatarUrl={avatar_url} videoUrl={avatar_video_url} />
       {/* The document's canvas in the page's own colour: no white under the footer, in the home indicator's band or past the end of a pull (lib/onepage/page-frame) */}
       <style dangerouslySetInnerHTML={{ __html: canvasRule(safeTheme) }} />
+      {/* The product sheet's, the checkout window's and the scrollbar's colours, from the theme (lib/onepage/sheet-theme, the .op-sheet rules in app/globals.css) */}
+      <style dangerouslySetInnerHTML={{ __html: sheetRootCss(safeTheme) }} />
       {/* Asks before a link marked sensitive opens (data-sensitive-label on its box) */}
       <SensitiveLinkQuestion />
       {/* The theme's body and title fonts, the same links the editor's preview renders */}
@@ -1840,8 +1866,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           overscrollBehavior: "none",
         }}
       >
+        {/* The photo, fetched first and faded in whole when it changes (components/onepage/themes/wallpaper-photo). */}
         {safeTheme.background_type === "image" && safeTheme.background_image_url && (
-          <div
+          <WallpaperPhoto
+            url={safeTheme.background_image_url}
             style={{
               position: "fixed",
               top: 0,
@@ -1850,10 +1878,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               bottom: 0,
               width: "100vw",
               height: "100vh",
-              backgroundImage: wallpaperImage(safeTheme.background_image_url),
               backgroundSize: "cover",
               backgroundPosition: "center",
-              backgroundAttachment: "fixed",
               zIndex: 0,
               filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
               transform: "translateZ(0)",
@@ -1905,14 +1931,14 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             }}
           >
             {safeTheme.background_type === "image" && safeTheme.background_image_url && (
-              <div
+              <WallpaperPhoto
+                url={safeTheme.background_image_url}
                 style={{
                   position: "absolute",
                   top: "-50px",
                   left: "-50px",
                   right: "-50px",
                   bottom: "-50px",
-                  backgroundImage: wallpaperImage(safeTheme.background_image_url),
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                   zIndex: 0,
@@ -1979,7 +2005,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       >
         <div className="relative min-h-screen">
           {safeTheme.background_type === "image" && safeTheme.background_image_url && (
-            <div
+            <WallpaperPhoto
+              url={safeTheme.background_image_url}
               style={{
                 position: "absolute",
                 top: 0,
@@ -1988,7 +2015,6 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
                 bottom: 0,
                 width: "100%",
                 height: "100%",
-                backgroundImage: wallpaperImage(safeTheme.background_image_url),
                 backgroundSize: "cover",
                 backgroundPosition: "center",
                 zIndex: 0,
@@ -2095,6 +2121,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           onClose={() => setQuickCheckoutModalOpen(false)}
           label={quickCheckoutModalData?.productTitle ?? "Get it free"}
           hideFrom="sm"
+          className="op-sheet"
           fill
           aboveKeyboard
           maxHeight="90svh"
@@ -2111,7 +2138,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
           {/* Modal */}
           <div
-            className="relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
+            className="op-sheet relative w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom sm:zoom-in-95 duration-300 max-h-[90vh] sm:max-h-[85vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {quickCheckoutBody(quickCheckoutModalData)}
@@ -3321,7 +3348,7 @@ function PublicBlockRenderer({
       const avatarSize = isDesktop ? 121 : 114
 
       return (
-        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")}>
+        <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")} data-op-header="">
           {data.show_avatar !== false && (
             /* A circle whatever the column around it does: its own size, never shrunk by the flex column (flex-shrink 0). */
             <div className="relative" data-page-avatar="" style={{ width: avatarSize, height: avatarSize, aspectRatio: "1 / 1", flexShrink: 0, marginTop: isDesktop ? 25 : 0 }}>
@@ -3519,6 +3546,8 @@ function PublicBlockRenderer({
             isHeroLayout && "relative z-[1]",
             !hasCustomPadding && isHeroLayout && "md:mt-[-20px] md:mb-7"
           )}
+          /* Under a classic header set flush left, the icons are too (app/globals.css [data-op-socials]). */
+          data-op-socials={isHeroLayout ? undefined : ""}
           style={{
             marginTop: `${paddingTop}px`,
             marginBottom: `${paddingBottom}px`
@@ -3609,8 +3638,8 @@ function PublicBlockRenderer({
       /* A featured card on a Pill page: a pill's 999px would make the card an oval and crop its picture to one, so a card stops at 28px. */
       const cardRadius = buttonShape(theme.button_border_radius) === "pill" ? 28 : theme.button_border_radius
 
-      // Pro Layout - Featured display with larger thumbnail
-      if (data.layout_type === 'pro') {
+      // Pro Layout - Featured display with larger thumbnail (and, on the Cards layout, every link with a picture: lib/onepage/theme-layout)
+      if (data.layout_type === 'pro' || linkDrawnAsCard(theme, data)) {
         const displayMode = data.display_mode || 'cover'
 
         // Check if this is a YouTube URL and extract video ID

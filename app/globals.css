@@ -2825,7 +2825,7 @@ html.capacitor .subscribe-bar-spacer {
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.op-btn[data-hover="fill"]:not(.animate-onepage-swipe)::after {
+.op-btn:is([data-hover="fill"], [data-hover="pop"]):not(.animate-onepage-swipe)::after {
   background: var(--op-fill, currentColor);
 }
 .op-btn[data-hover="underline"] .op-label {
@@ -2884,6 +2884,10 @@ html.capacitor .subscribe-bar-spacer {
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"] { color: var(--op-fill-text, inherit) !important; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="fill"]:not(.animate-onepage-swipe)::after { opacity: 1; }
   :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="underline"] .op-label::after { scale: 1 1; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"] { translate: 0 -2px; color: var(--op-fill-text, inherit) !important; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"][data-shadow="hard"] { translate: -2px -2px; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"]::before { opacity: 1; }
+  :is(.op-btn:hover, .op-demo:hover .op-btn, .op-host:hover .op-btn)[data-hover="pop"]:not(.animate-onepage-swipe)::after { opacity: 1; }
   .op-btn[data-hover]:not([data-hover="none"]):active { scale: 0.985; translate: 0 0; }
   .op-card:hover::after { opacity: 1; }
   .op-card:hover .op-media { scale: 1.03; }
@@ -2930,6 +2934,67 @@ html.capacitor .subscribe-bar-spacer {
   );
   animation: btn-shine 5s ease-in-out infinite;
   animation-delay: 1s;
+}
+
+/* ===========================================================================
+   OnePage round 40: block layouts, the header's alignment, the themed
+   product sheet and checkout window, and the page's own scrollbar
+   ===========================================================================
+   Read by components/onepage/public-onepage.tsx (the live page and the
+   editor's preview, the same component) from lib/onepage/theme-layout and
+   lib/onepage/sheet-theme. Outside every @layer, so these win over the
+   Tailwind utilities they adjust. */
+
+/* GRID: two plain links to a row, each a tile, its icon or picture above its words. Only static things change; nothing here moves. */
+[data-link-tile] { display: flex; min-width: 0; }
+[data-link-tile] > * { flex: 1 1 auto; min-width: 0; }
+[data-link-tile] .op-btn {
+  height: 100%;
+  min-height: 96px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding-block: 16px;
+  padding-inline: 12px;
+}
+[data-link-tile] .op-btn > :not(div) { position: static; }
+[data-link-tile] .op-btn > div { padding-inline: 0; padding-left: 0; padding-right: 0; align-items: center; text-align: center; }
+[data-link-tile] .op-btn .op-label { text-align: center; }
+
+/* HEADER, FLUSH LEFT: the classic header's picture, name and bio, and the social icons under them. The hero header keeps its own layout. */
+[data-op-align="left"] [data-op-header] { align-items: flex-start; text-align: left; }
+[data-op-align="left"] [data-op-header] > h1 { justify-content: flex-start; text-align: left; }
+[data-op-align="left"] [data-op-header] > :is(p, img) { margin-left: 0; margin-right: 0; text-align: left; }
+[data-op-align="left"] [data-op-socials] { justify-content: flex-start; }
+
+/* THE SHEET AND THE WINDOW IN THE PAGE'S COLOURS. The variables are on :root (sheetRootCss); the class is on the sheet, the checkout window and the free checkout. */
+:where(.op-sheet, .op-sheet *):is(.bg-white, .bg-\[\#fbfbfc\]) { background-color: var(--opk-surface, #ffffff); }
+:where(.op-sheet, .op-sheet *):is(.bg-\[\#f8f9fa\], .bg-\[\#f3f4f6\], .bg-\[\#f7f7f8\], .bg-\[\#f4f4f6\], .bg-\[\#f1f2f4\], .bg-\[\#eceef1\]) { background-color: var(--opk-raised, #f4f4f6); }
+:where(.op-sheet, .op-sheet *):is(.text-\[\#1a1a2e\], .text-\[\#111113\], .text-gray-900) { color: var(--opk-ink, #1a1a2e); }
+:where(.op-sheet, .op-sheet *):is(.text-\[\#4b5563\], .text-\[\#6b7280\], .text-\[\#374151\], .text-\[\#8b919a\], .text-\[\#9ca3af\], .text-gray-600, .text-gray-500, .text-gray-400) { color: var(--opk-muted, #6b7280); }
+:where(.op-sheet, .op-sheet *):is(.border-\[\#eef0f2\], .border-\[\#e5e7eb\], .border-\[\#e1e3e7\], .border-\[\#f1f2f4\], .border-\[\#e3e4e8\], .border-\[\#f0f0f3\], .border-\[\#ececf1\], .border-\[\#c9ccd2\], .border-gray-200, .border-gray-100) { border-color: var(--opk-line, #e5e7eb); }
+:where(.op-sheet, .op-sheet *):is(.border-\[\#1a1a2e\], .border-\[\#111113\]) { border-color: var(--opk-ink, #1a1a2e); }
+:where(.op-sheet, .op-sheet *):is(.bg-gray-50, .bg-gray-100) { background-color: var(--opk-raised, #f4f4f6); }
+:where(.op-sheet, .op-sheet *).from-gray-50 { background-image: none; background-color: var(--opk-raised, #f8f9fa); }
+:where(.op-sheet) :where(input:not([type="checkbox"], [type="radio"]), textarea) { background-color: var(--opk-surface, #ffffff); color: var(--opk-ink, #1a1a2e); }
+:where(.op-sheet, .op-sheet *) input::placeholder { color: var(--opk-muted, #9ca3af); }
+:where(.op-sheet, .op-sheet *) :is(input, textarea) { caret-color: var(--opk-ink, #1a1a2e); }
+/* The main button: the page's own button colour, its words, its corners (kept between 8 and 16px). */
+:where(.op-sheet, .op-sheet *):is(.bg-\[\#1a1a2e\], .bg-\[\#111113\], .bg-gray-900) { background-color: var(--opk-accent, #1a1a2e); color: var(--opk-accent-ink, #ffffff); }
+:where(.op-sheet, .op-sheet *):is(.bg-\[\#1a1a2e\], .bg-\[\#111113\], .bg-gray-900).text-white,
+:where(.op-sheet, .op-sheet *):is(.bg-\[\#1a1a2e\], .bg-\[\#111113\], .bg-gray-900) .text-white { color: var(--opk-accent-ink, #ffffff); }
+:where(.op-sheet, .op-sheet *):is([data-pay-submit], [data-product-sheet-buy], [data-instant-receipt]) { border-radius: var(--opk-radius, 12px); }
+@media (hover: hover) and (pointer: fine) {
+  :where(.op-sheet, .op-sheet *):is(.hover\:bg-\[\#2a2a40\], .hover\:bg-gray-800):hover { background-color: var(--opk-accent, #2a2a40); opacity: 0.9; }
+  :where(.op-sheet, .op-sheet *):is(.hover\:bg-\[\#f7f7f8\], .hover\:bg-\[\#f3f4f6\], .hover\:bg-gray-50, .hover\:bg-gray-100):hover { background-color: var(--opk-raised, #f7f7f8); }
+  :where(.op-sheet, .op-sheet *):is(.hover\:text-\[\#1a1a2e\], .hover\:text-\[\#111113\]):hover { color: var(--opk-ink, #1a1a2e); }
+}
+/* A long sheet scrolls on a slim bar in its own ink, no track. */
+:where(.op-sheet, .op-sheet *).overflow-y-auto { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--opk-ink, #1a1a2e) 28%, transparent) transparent; }
+
+/* THE LIVE PAGE'S SCROLLBAR: slim, in the page's own text colour faded into its ground, on no track, where a pointer drives it. A phone keeps none. */
+@media (hover: hover) and (pointer: fine) {
+  html:has(.onepage-live) { scrollbar-width: thin; scrollbar-color: var(--op-scroll-thumb, rgba(156, 163, 175, 0.5)) transparent; }
 }
 
 /* Shimmer animation for skeleton loading */

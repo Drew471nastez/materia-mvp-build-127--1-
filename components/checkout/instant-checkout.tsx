@@ -107,6 +107,8 @@ export interface InstantCheckoutProps {
   variantId?: string | null
   /** The page behind is dark: the window is the community's dark one. */
   dark?: boolean
+  /** Round 40: the window wears the OnePage's own colours (CheckoutWindow `themed`); `dark` then only tells the card field. */
+  themed?: boolean
   /** This page and where its visit came from, for the order's Source (lib/orders/checkout-origin-browser). */
   origin?: () => unknown
   onClose: () => void
@@ -116,7 +118,7 @@ export interface InstantCheckoutProps {
   back?: string | null
 }
 
-export function InstantCheckout({ productId, title, sellerName, sellerAvatar, variantId: initialVariant = null, dark = false, origin, onClose, onBack = null, back = null }: InstantCheckoutProps) {
+export function InstantCheckout({ productId, title, sellerName, sellerAvatar, variantId: initialVariant = null, dark = false, themed = false, origin, onClose, onBack = null, back = null }: InstantCheckoutProps) {
   /*
     IN THE EDITOR'S PREVIEW NOTHING IS CHARGED (round 11). The window opens
     exactly as it does live, so the creator sees it, and Pay says it is a
@@ -288,6 +290,7 @@ export function InstantCheckout({ productId, title, sellerName, sellerAvatar, va
       onClose={onClose}
       busy={busy}
       dark={dark}
+      themed={themed}
       dataName="instant-checkout"
       labelId="instant-checkout-title"
     >
