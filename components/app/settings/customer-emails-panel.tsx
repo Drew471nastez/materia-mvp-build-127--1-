@@ -59,7 +59,7 @@ import { EmailRow, PHONE_SHEET_HEIGHT, PaneSwitch, PreviewFrame, languageName, s
 import { FAMILY_NAMES, GROUP_NAMES, GROUP_ORDER, emailsOf, type CustomerEmail, type EmailFamily } from "@/lib/emails/customer-list"
 import type { PreviewShop } from "@/lib/emails/customer-catalog"
 import { ShimmerBlock } from "@/components/ui/shimmer"
-import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, placeholdersFor, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
+import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, pickCopy, placeholdersFor, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy, type EmailWords } from "@/lib/emails/customer-custom"
 import { ownWordsApply, type BuyerChannel } from "@/lib/emails/buyer-channel"
 import { TRIGGERS, isTriggerType } from "@/lib/automations/flow-model"
 import type { EmailActivity, FlowActivity } from "@/lib/emails/activity-server"
@@ -450,12 +450,35 @@ function PreviewSkeleton() {
   )
 }
 
-type Draft = Required<EmailCopy>
-const LABELS: Record<CopyField, string> = { get subject() { return tt("Subject") }, get heading() { return tt("Heading") }, get body() { return tt("Text") }, get button() { return tt("Button") } }
+type Draft = Required<EmailWords>
+const LABELS: Record<CopyField, string> = {
+  get subject() { return tt("Subject") },
+  get preheader() { return tt("Preview text") },
+  get heading() { return tt("Heading") },
+  get body() { return tt("Text") },
+  get button() { return tt("Button") },
+  get footer() { return tt("Footer note") },
+}
+/** What a field says about itself, under it, where its job is not plain from its name. */
+const HINTS: Partial<Record<CopyField, string>> = {
+  get preheader() { return tt("Shown after the subject in most inboxes. Empty, the email's first line is shown.") },
+  get footer() { return tt("A line of your own above the footer, such as a returns note. The address and links stay.") },
+}
 
-function draftOf(id: string | undefined, saved: EmailCopy | undefined): Draft {
+/**
+ * The fields as they open. The main words start from the saved ones, or
+ * the defaults. Another language's start empty where nothing was written
+ * for it: an empty part goes out in the standard words of that language.
+ */
+function draftOf(id: string | undefined, saved: EmailWords | undefined, other = false): Draft {
+  if (other) return { subject: saved?.subject ?? "", preheader: saved?.preheader ?? "", heading: saved?.heading ?? "", body: saved?.body ?? "", button: saved?.button ?? "", footer: saved?.footer ?? "" }
   const def = id ? DEFAULT_COPY[id] : undefined
-  return { subject: saved?.subject || def?.subject || "", heading: saved?.heading || def?.heading || "", body: saved?.body ?? def?.body ?? "", button: saved?.button || def?.button || "" }
+  return { subject: saved?.subject || def?.subject || "", preheader: saved?.preheader || "", heading: saved?.heading || def?.heading || "", body: saved?.body ?? def?.body ?? "", button: saved?.button || def?.button || "", footer: saved?.footer || "" }
+}
+/** What is sent for a draft: another language sends only the parts written for it, so an empty text is the standard one there, never no text. */
+function payloadOf(draft: Draft, other: boolean): Partial<Draft> {
+  if (!other) return draft
+  return Object.fromEntries(COPY_FIELDS.filter((f) => draft[f].trim() !== "").map((f) => [f, draft[f]])) as Partial<Draft>
 }
 const sameDraft = (a: Draft, b: Draft) => COPY_FIELDS.every((f) => a[f] === b[f])
 
@@ -522,7 +545,17 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const id = email?.id
   const editable = !!id && !!DEFAULT_COPY[id]
   const membership = !!id?.startsWith("membership_")
-  const start = React.useMemo(() => draftOf(id, saved), [id, saved])
+  const where = usePreviewPlace(email, data)
+  /*
+    WHICH WORDS ARE BEING WRITTEN (round 28, the owner: "per language where
+    the product supports it"). The main words go to buyers in the website's
+    own language; the preview's language picker, set to another of the
+    website's languages, writes that language's words (saved under `langs`,
+    lib/emails/customer-custom.ts pickCopy), the main ones left as they are.
+  */
+  const otherLang = where.language.own === false ? where.language.lang : null
+  const savedWords = React.useMemo(() => (otherLang ? saved?.langs?.[otherLang.toLowerCase().split("-")[0]] : pickCopy(saved, null)), [saved, otherLang])
+  const start = React.useMemo(() => draftOf(id, savedWords, !!otherLang), [id, savedWords, otherLang])
   const [draft, setDraft] = React.useState<Draft>(start)
   const [tab, setTab] = React.useState<"preview" | "edit">("preview")
   const [busy, setBusy] = React.useState(false)
@@ -561,16 +594,25 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
 
   /* The preview follows the typing a beat behind, so a long email never holds a key up. */
   const shown = React.useDeferredValue(draft)
-  const checked = React.useMemo(() => (id && editable ? readCopy(id, shown) : null), [id, editable, shown])
-  const where = usePreviewPlace(email, data)
+  const checked = React.useMemo(() => (id && editable ? readCopy(id, payloadOf(shown, !!otherLang)) : null), [id, editable, shown, otherLang])
+  /* The words the preview draws: the ones being typed in the part being written, the saved ones in every other. */
+  const previewWords = React.useMemo<EmailCopy | null | undefined>(() => {
+    if (!checked?.ok) return saved
+    if (!otherLang) return { ...(checked.copy ?? {}), ...(saved?.langs ? { langs: saved.langs } : {}) }
+    const langs = { ...(saved?.langs ?? {}) }
+    const key = otherLang.toLowerCase().split("-")[0]
+    if (checked.copy) langs[key] = checked.copy
+    else delete langs[key]
+    return { ...(pickCopy(saved, null) ?? {}), langs }
+  }, [checked, saved, otherLang])
   const creator = data?.creator ?? null
   const templates = usePreviewModule(!!asked)
   const mail = React.useMemo(
-    () => (id && templates ? templates.previewCustomerEmail(id, shop, checked?.ok ? checked.copy : saved, { channel: where.channel, language: where.language, creator }) : null),
-    [id, templates, shop, checked, saved, where.channel, where.language, creator],
+    () => (id && templates ? templates.previewCustomerEmail(id, shop, previewWords, { channel: where.channel, language: where.language, creator }) : null),
+    [id, templates, shop, previewWords, where.channel, where.language, creator],
   )
   const dirty = !sameDraft(draft, start)
-  const isDefault = !saved
+  const isDefault = !savedWords
 
   const close = () => {
     if (dirty && !window.confirm(tt("Leave without saving your changes to this email?"))) return
@@ -580,7 +622,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const save = async (copy: Draft | null) => {
     if (!id) return
     setBusy(true)
-    const r = await api<{ copy: CustomerEmailsCopy }>(CUSTOMER_EMAILS_PATH, { method: "PUT", body: { id, copy } })
+    const r = await api<{ copy: CustomerEmailsCopy }>(CUSTOMER_EMAILS_PATH, { method: "PUT", body: { id, copy: copy ? payloadOf(copy, !!otherLang) : null, ...(otherLang ? { lang: otherLang } : {}) } })
     setBusy(false)
     if (!r.ok) return setError(r.error)
     setError(null)
@@ -592,13 +634,13 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const sendTest = async () => {
     if (!id || test?.state === "sending") return
     setTest({ state: "sending" })
-    const r = await api<{ sentTo: string }>("/api/store/emails/test", { method: "POST", body: { id, channel: where.channel, lang: where.lang, ...(editable && checked?.ok ? { copy: draft } : {}) } })
+    const r = await api<{ sentTo: string }>("/api/store/emails/test", { method: "POST", body: { id, channel: where.channel, lang: where.lang, ...(editable && checked?.ok ? { copy: payloadOf(draft, !!otherLang), ...(otherLang ? { copyLang: otherLang } : {}) } : {}) } })
     setTest(r.ok ? { state: "sent", to: r.data.sentTo } : { state: "failed", error: r.error })
   }
 
   const reset = () => {
     if (isDefault) {
-      setDraft(draftOf(id, undefined))
+      setDraft(draftOf(id, undefined, !!otherLang))
       return
     }
     void save(null)
@@ -679,7 +721,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
       {checked && checked.ok === false ? <Notice>{checked.error}</Notice> : null}
       {error ? <Notice>{error}</Notice> : null}
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">{membership ? tt("The price, the dates, the card and the link stay as they are, filled in from each membership.") : tt("The items, totals, tracking and links stay as they are, filled in from each order.")}</p>
-      <button type="button" className={cn(BTN_GHOST, "-ml-3 sm:hidden")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset}>
+      <button type="button" className={cn(BTN_GHOST, "-ml-3 sm:hidden")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined, !!otherLang)))} onClick={reset}>
         {tt("Reset to default")}
       </button>
     </div>
@@ -764,7 +806,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
     <div className="flex shrink-0 items-center justify-between gap-2 border-t border-[#f1f2f4] bg-white px-4 py-3 sm:px-5" data-email-footer="">
       <div className="flex min-w-0 items-center gap-1">
         {editable ? (
-          <button type="button" className={cn(BTN_GHOST, "hidden sm:inline-flex")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined)))} onClick={reset} data-email-reset="">
+          <button type="button" className={cn(BTN_GHOST, "hidden sm:inline-flex")} disabled={busy || (isDefault && sameDraft(draft, draftOf(id, undefined, !!otherLang)))} onClick={reset} data-email-reset="">
             {tt("Reset to default")}
           </button>
         ) : null}
