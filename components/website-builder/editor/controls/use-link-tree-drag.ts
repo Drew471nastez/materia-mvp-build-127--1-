@@ -39,6 +39,7 @@ import * as React from "react"
 import { flushSync } from "react-dom"
 
 import { hapticTap } from "@/lib/native-bridge"
+import { whenFingerGone } from "@/lib/website-builder/touch-target"
 
 export interface TreeLink {
   id: string
@@ -100,6 +101,8 @@ interface Live {
   capture: HTMLElement
   /** The listeners this drag added, so the same ones come off whatever has rendered since. */
   on: { move: (e: PointerEvent) => void; up: (e: PointerEvent) => void; key: (e: KeyboardEvent) => void }
+  /** Stops listening for the touch ending (whenFingerGone). */
+  gone?: () => void
 }
 
 const EDGE = 56
@@ -263,6 +266,7 @@ export function useLinkTreeDrag(opts: TreeDragOptions) {
 
   const cleanup = (d: Live) => {
     cancelAnimationFrame(d.raf)
+    d.gone?.()
     window.removeEventListener("pointermove", d.on.move, true)
     window.removeEventListener("pointerup", d.on.up, true)
     window.removeEventListener("pointercancel", d.on.up, true)
@@ -402,6 +406,14 @@ export function useLinkTreeDrag(opts: TreeDragOptions) {
     window.addEventListener("pointerup", onUpEvt, true)
     window.addEventListener("pointercancel", onUpEvt, true)
     window.addEventListener("keydown", onKeyEvt, true)
+    /*
+      AND THE TOUCH ITSELF ENDING. While a row is held the list cancels every
+      touchmove (below), so a hold whose pointerup never came cancelled every
+      swipe on the list after it. See lib/website-builder/touch-target.ts.
+    */
+    live.current.gone = whenFingerGone(window, document, () => {
+      if (live.current?.pointerId === pointerId) finish(false)
+    })
     hapticTap("medium")
     setDragging(id)
     live.current.raf = requestAnimationFrame(frame)

@@ -33,6 +33,7 @@ import * as React from "react"
 import { createPortal, flushSync } from "react-dom"
 import { sheetBottomReserve } from "@/lib/website-builder/sheet-reserve"
 import { cn } from "@/lib/utils"
+import { scrollersBetween } from "@/lib/website-builder/touch-target"
 import { hapticTap } from "@/lib/native-bridge"
 import {
   COAST_STOP_SPEED,
@@ -284,15 +285,17 @@ function eventTime(e: { timeStamp?: number } | null | undefined): number {
  * would leave that part of the sheet undraggable for no reason.
  */
 function scrollersUnder(target: EventTarget | null, sheet: HTMLElement | null): HTMLElement[] {
-  const out: HTMLElement[] = []
-  let node = target instanceof HTMLElement ? target : null
-  while (node && node !== sheet) {
-    const style = window.getComputedStyle(node)
-    const scrolls = /(auto|scroll|overlay)/.test(style.overflowY)
-    if (scrolls && node.scrollHeight > node.clientHeight + 1) out.push(node)
-    node = node.parentElement
-  }
-  return out
+  /*
+    FROM WHATEVER THE FINGER LANDED ON, an icon's <path> included. This
+    started at `target instanceof HTMLElement`, so a swipe from the chevron
+    of a select or a row's icon found no scroller and was taken as a drag of
+    the sheet: lib/website-builder/touch-target.ts.
+  */
+  return scrollersBetween<HTMLElement>(target, sheet, (node) => {
+    if (!(node instanceof HTMLElement)) return false
+    const scrolls = /(auto|scroll|overlay)/.test(window.getComputedStyle(node).overflowY)
+    return scrolls && node.scrollHeight > node.clientHeight + 1
+  })
 }
 
 /**
@@ -2296,6 +2299,17 @@ export function MobileEditorSheet({
        * drag never starts, so `moveDrag` returns immediately and nothing
        * about the sheet moves for the length of the gesture.
        */
+      /*
+        A DRAG NOBODY ENDED IS ENDED BY THE NEXT FINGER (round 1026). A
+        touchend is delivered to the element the touch began on, and one
+        that React replaced meanwhile (a row turned into its settings)
+        takes the touchend out of the document with it, window and all. The
+        drag stayed active, and the next touch on a control that owns its
+        finger (a grip, a slider) returned above without starting a new one:
+        its moves ran the old drag, decided "sheet", and every one was
+        cancelled. Whatever the last finger left is settled first.
+      */
+      if (drag.current.active) endDrag(eventTime(e), true)
       if (ownsItsTouch(e.target, sheet, handleRef.current)) return
       const touch = e.touches[0]
       const onHandle = !!handleRef.current?.contains(e.target as Node)
