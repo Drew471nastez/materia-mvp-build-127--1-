@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { requireTeamPermission, type TeamGate } from "@/lib/team/server"
+import { REPLY_PAGE, threadRows } from "@/lib/site-contact/reply"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -21,7 +22,8 @@ export const dynamic = "force-dynamic"
  *   GET  ?part=subscribers        { rows, buyers }
  *   GET  ?part=messages           { available, rows }
  *   GET  ?part=flows              FlowRow[] with each one's totals
- *   GET  ?part=contact&email=     { runs, messages }: one contact's last twenty of each
+ *   GET  ?part=contact&email=     { runs, messages, customer }: one contact's last twenty runs and
+ *                                 messages, and what they bought here (ContactCustomer)
  *   GET  ?part=sender             who the composer draws as sending, for this store
  *   POST { action: "unsubscribe", id }       a subscriber taken off the list
  *   POST { action: "delete_campaign", id }   an email that has not been sent, deleted
@@ -39,7 +41,8 @@ async function clientFor(gate: TeamGate): Promise<Db> {
   return gate.isOwner ? await createClient() : gate.db
 }
 
-const MESSAGE_COLUMNS = "id, email, name, subject, message, site, page, consent, subscriber_id, created_at"
+/* source_detail says which message a reply answers (lib/site-contact/reply.ts); threadRows takes it off again. */
+const MESSAGE_COLUMNS = "id, email, name, subject, message, site, page, consent, subscriber_id, source_detail, created_at"
 
 async function subscribers(db: Db, creatorId: string) {
   /* The products are asked for alongside the list, not after it: one round trip fewer on every read, a pull to refresh's included. `.then` sends it now; a query is not sent until something waits on it. */
@@ -76,14 +79,15 @@ async function messages(db: Db, creatorId: string) {
   let { data, error } = await read(`${MESSAGE_COLUMNS}, read_at`)
   if (error && /read_at|42703|PGRST204/i.test(`${error.code} ${error.message}`)) {
     ;({ data, error } = await read(MESSAGE_COLUMNS))
-    if (!error) return json({ available: true, rows: ((data ?? []) as Array<{ created_at: string }>).map((m) => ({ ...m, read_at: m.created_at })) })
+    if (!error) return json({ available: true, rows: threadRows(((data ?? []) as Array<{ id: string; message: string; created_at: string }>).map((m) => ({ ...m, read_at: m.created_at }))) })
   }
   if (error) {
     /* Before the contact form's own part has run there is no table: nothing to show, said plainly. */
     if (/42P01|PGRST205|does not exist/i.test(`${error.code} ${error.message}`)) return json({ available: false, rows: [] })
     return json({ error: "Could not load your messages." }, 500)
   }
-  return json({ available: true, rows: data ?? [] })
+  /* The replies sent from here hang under the message they answer, never in the list as messages of their own. */
+  return json({ available: true, rows: threadRows((data ?? []) as Array<{ id: string; message: string; created_at: string }>) })
 }
 
 type Totals = { sent: number; opened: number; clicked: number; failed: number; in_progress: number }
@@ -130,10 +134,63 @@ async function flows(db: Db, gate: TeamGate) {
   return json(rows.map((f) => ({ ...f, totals: totals.get(f.id) ?? null })))
 }
 
+/** One contact as a customer of this store: orders, spend by currency, the last order, where they are, their tags. Every read fails open. */
+interface ContactCustomer {
+  /** Paid orders (completed, refunded or partly refunded). */
+  orders: number
+  /** What they paid less what went back, per currency, largest first. */
+  spent: Array<{ currency: string; cents: number }>
+  lastOrderAt: string | null
+  location: { city: string | null; region: string | null; country: string | null } | null
+  tags: string[]
+}
+
+const likeExact = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`)
+const PAID = new Set(["completed", "refunded", "partially_refunded"])
+
+async function customerOf(db: Db, creatorId: string, key: string): Promise<ContactCustomer> {
+  const safe = <T,>(p: PromiseLike<{ data: T | null; error: unknown }>): Promise<T | null> =>
+    Promise.resolve(p).then((r) => (r.error ? null : r.data), () => null)
+  const [products, shipped, tagged] = await Promise.all([
+    safe<{ id: string }[]>(db.from("products").select("id").eq("creator_id", creatorId)),
+    /* Where an order that ships went: the latest address on file (commerce_checkouts). */
+    safe<{ shipping_address: Record<string, unknown> | null }[]>(
+      db.from("commerce_checkouts").select("shipping_address, created_at").eq("creator_id", creatorId).ilike("buyer_email", likeExact(key)).not("shipping_address", "is", null).order("created_at", { ascending: false }).limit(1),
+    ),
+    safe<{ tags: string[] | null }[]>(db.from("subscribers").select("tags").eq("creator_id", creatorId).ilike("email", likeExact(key)).limit(1)),
+  ])
+  const ids = (products ?? []).map((p) => p.id)
+  const orders = ids.length
+    ? ((await safe<Array<{ created_at: string; status: string | null; amount_cents: number | null; refund_amount_cents: number | null; currency: string | null; tax_country: string | null }>>(
+        db.from("orders").select("created_at, status, amount_cents, refund_amount_cents, currency, tax_country").in("product_id", ids).ilike("buyer_email", likeExact(key)).order("created_at", { ascending: false }).limit(500),
+      )) ?? [])
+    : []
+  const paid = orders.filter((o) => PAID.has(String(o.status)))
+  const by = new Map<string, number>()
+  for (const o of paid) {
+    const amount = Math.max(0, Number(o.amount_cents) || 0)
+    const back = Number(o.refund_amount_cents) > 0 ? Math.min(Number(o.refund_amount_cents), amount) : o.status === "refunded" ? amount : 0
+    const cur = (o.currency || "USD").toUpperCase()
+    by.set(cur, (by.get(cur) ?? 0) + amount - back)
+  }
+  const a = shipped?.[0]?.shipping_address ?? null
+  const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim().slice(0, 80) : null)
+  const country = text(a?.country) ?? text(a?.country_code) ?? text(paid[0]?.tax_country ?? orders[0]?.tax_country)
+  const city = text(a?.city)
+  const region = text(a?.state) ?? text(a?.region) ?? text(a?.province)
+  return {
+    orders: paid.length,
+    spent: [...by.entries()].sort((x, y) => y[1] - x[1]).map(([currency, cents]) => ({ currency, cents })),
+    lastOrderAt: paid[0]?.created_at ?? null,
+    location: city || region || country ? { city, region, country } : null,
+    tags: ((tagged?.[0]?.tags ?? []) as unknown[]).filter((t): t is string => typeof t === "string" && t.trim() !== "").slice(0, 20),
+  }
+}
+
 async function contact(db: Db, creatorId: string, email: string) {
   const key = email.trim().toLowerCase()
-  if (!key || key.length > 254) return json({ runs: [], messages: [] })
-  const [runs, msgs] = await Promise.all([
+  if (!key || key.length > 254) return json({ runs: [], messages: [], customer: null })
+  const [runs, msgs, customer] = await Promise.all([
     db
       .from("email_flow_runs")
       .select("id, status, exit_reason, started_at, flow_id, email_flows(name)")
@@ -149,9 +206,11 @@ async function contact(db: Db, creatorId: string, email: string) {
       .eq("email", key)
       .order("created_at", { ascending: false })
       .limit(20)
-      .then((r: { data: unknown; error: unknown }) => (r.error ? [] : (r.data ?? [])), () => []),
+      /* What they wrote, not the replies sent to them (lib/site-contact/reply.ts). */
+      .then((r: { data: Array<{ page?: string | null }> | null; error: unknown }) => (r.error ? [] : (r.data ?? []).filter((m) => m.page !== REPLY_PAGE)), () => []),
+    customerOf(db, creatorId, key).catch(() => null),
   ])
-  return json({ runs, messages: msgs })
+  return json({ runs, messages: msgs, customer })
 }
 
 /** The store's sender: its owner's name and photo, its support address for replies, and the signed in person's own address for a test. */

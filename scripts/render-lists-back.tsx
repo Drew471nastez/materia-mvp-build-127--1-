@@ -20,6 +20,15 @@
  *                        returnToCoupons)
  *   /app/payouts         somewhere else in the app, left by the browser's
  *                        back, for Orders: the link in its payouts note
+ *
+ * And the other commerce lists whose rows open pages of their own, each
+ * through the one shared round trip (components/app/list-return.ts
+ * createListReturn), for check-lists-back's OFFERS, COLLECTIONS and SIZE
+ * CHARTS readings:
+ *
+ *   /app/offers/<id>                   offersReturn
+ *   /app/products/collections/<id>     collectionsReturn
+ *   /app/products/size-charts/<id>     sizeChartsReturn
  */
 import React, { Suspense } from "react"
 import { createRoot } from "react-dom/client"
@@ -33,6 +42,15 @@ import { CouponsClient, type Coupon } from "@/app/app/coupons/coupons-client"
 import { returnToProducts, useListOrigin } from "@/app/app/products/list-return"
 import { returnToCoupons, useCouponListOrigin } from "@/app/app/coupons/list-return"
 import { fixtureRows } from "./render-orders-probe"
+import { OffersClient } from "@/app/app/offers/offers-client"
+import { offersReturn } from "@/app/app/offers/list-return"
+import { CollectionsClient } from "@/app/app/products/collections/collections-client"
+import { collectionsReturn } from "@/app/app/products/collections/list-return"
+import { SizeChartsClient } from "@/app/app/products/size-charts/size-charts-client"
+import { sizeChartsReturn } from "@/app/app/products/size-charts/list-return"
+import type { Offer } from "@/lib/offers/offers"
+import type { Collection } from "@/app/app/products/collections/collection-parts"
+import type { SavedSizeChart } from "@/components/physical/size-chart-editor"
 
 const NOW = Date.now()
 const ORDER_ROWS = fixtureRows(NOW)
@@ -58,6 +76,42 @@ const coupons: Coupon[] = Array.from({ length: 30 }, (_, i) => ({
   code: `CODE${String(i).padStart(2, "0")}`,
   discount_type: i % 2 ? "fixed" : "percentage",
   discount_value: 5 + i,
+}))
+
+const offerProducts = products.slice(0, 12).map((p) => ({ id: p.id, title: p.title, type: "physical", published: true, priceCents: p.price_cents, imageUrl: null, payWhatYouWant: false }))
+const offers: Offer[] = Array.from({ length: 30 }, (_, i) => ({
+  id: `o${i}`,
+  kind: i % 3 === 0 ? "bundle" : "checkout",
+  title: `Offer ${i + 1}`,
+  productIds: i % 3 === 0 ? ["p1", "p2"] : ["p3"],
+  triggerIds: [],
+  discountType: "percent",
+  discountValue: 10,
+  active: true,
+}))
+const collections: Collection[] = Array.from({ length: 30 }, (_, i) => ({
+  id: `k${i}`,
+  title: `Collection ${i + 1}`,
+  slug: `collection-${i}`,
+  description: null,
+  imageUrl: null,
+  kind: "manual",
+  rules: [],
+  match: "all",
+  sort: "manual",
+  published: i % 4 !== 0,
+  productIds: ["p1", "p2", "p3"].slice(0, (i % 3) + 1),
+}))
+const collectionProducts = products.map((p) => ({ id: p.id, title: p.title, thumbnail_url: null, type: p.type, status: p.status, price_cents: p.price_cents }))
+const charts: SavedSizeChart[] = Array.from({ length: 30 }, (_, i) => ({
+  id: `s${i}`,
+  name: `Chart ${i + 1}`,
+  unit: "cm",
+  columns: [{ name: "Size", measure: false }, { name: "Chest", measure: true }, { name: "Length", measure: true }],
+  rows: [["S", "92", "69"], ["M", "98", "71"]],
+  notes: "",
+  imageUrl: null,
+  productCount: i,
 }))
 
 window.fetch = (async () => new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch
@@ -88,6 +142,23 @@ function CouponEditorStandIn() {
   return <EditorBody onBack={() => returnToCoupons(router, { id: null })} />
 }
 
+/* The other lists' pages, each through the shared round trip. */
+function OfferStandIn() {
+  const router = useRouter()
+  offersReturn.useOrigin()
+  return <EditorBody onBack={() => offersReturn.leave(router, { id: null })} />
+}
+function CollectionStandIn() {
+  const router = useRouter()
+  collectionsReturn.useOrigin()
+  return <EditorBody onBack={() => collectionsReturn.leave(router, { id: null })} />
+}
+function SizeChartStandIn() {
+  const router = useRouter()
+  sizeChartsReturn.useOrigin()
+  return <EditorBody onBack={() => sizeChartsReturn.leave(router, { id: null })} />
+}
+
 function Elsewhere() {
   return (
     <div data-page="elsewhere" className="page-scroll h-full overflow-y-auto bg-[#f8f9fa] p-8">
@@ -116,6 +187,13 @@ function Page({ path }: { path: string }) {
         now={NOW}
       />
     )
+  if (path === "/app/offers")
+    return <OffersClient key="offers" initialOffers={offers} products={offerProducts} collections={[]} currency="USD" ready settingsReady breaksReady sold={{}} physical />
+  if (path.startsWith("/app/offers/")) return <OfferStandIn key={path} />
+  if (path === "/app/products/collections") return <CollectionsClient key="collections" initialCollections={collections} products={collectionProducts} />
+  if (path.startsWith("/app/products/collections/")) return <CollectionStandIn key={path} />
+  if (path === "/app/products/size-charts") return <SizeChartsClient key="size-charts" creatorId="c1" ready initialCharts={charts} />
+  if (path.startsWith("/app/products/size-charts/")) return <SizeChartStandIn key={path} />
   if (path === "/app/products") return <ProductsClient key="products" products={products} creatorUsername="astrid" />
   if (path === "/app/coupons") return <CouponsClient key="coupons" creatorId="c1" initialCoupons={coupons} products={[]} />
   if (path.startsWith("/app/products/")) return <ProductEditorStandIn key={path} />

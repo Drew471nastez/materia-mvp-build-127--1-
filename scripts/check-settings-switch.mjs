@@ -29,7 +29,7 @@
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { appCss } from "./probe-css.mjs"
@@ -67,10 +67,32 @@ const bundle = (env, out) => execFileSync("npx", ["--no-install", "esbuild", joi
   `--alias:@/lib/supabase/client=${join(dir, "supabase.js")}`,
   `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
   { stdio: ["ignore", "ignore", "inherit"] })
+/*
+  A TAB FROM BEFORE A DEPLOY. The same page split the way the app is: every
+  section's code a file of its own, fetched when Settings asks for it, so the
+  probe can answer those files as a deploy that renamed them does (404).
+  SWITCH_BEFORE=1 builds it against the committed lazy-panels and no section
+  boundary, to see what the press did before.
+*/
+const before = process.env.SWITCH_BEFORE === "1"
+if (before) {
+  writeFileSync(join(dir, "lazy-before.tsx"), execFileSync("git", ["show", "HEAD:components/app/settings/lazy-panels.tsx"]))
+  writeFileSync(join(dir, "boundary-before.tsx"), `export function SettingsSectionBoundary({ children }) { return children }\n`)
+}
+const split = () => execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-settings-switch.tsx"),
+  "--bundle", "--splitting", "--format=esm", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outdir=${join(dir, "split")}`,
+  '--define:process.env.NODE_ENV="production"', "--entry-names=entry", "--chunk-names=chunk-[hash]",
+  `--alias:next/navigation=${join(dir, "navigation.js")}`, `--alias:next/link=${join(dir, "link.jsx")}`, `--alias:next/image=${join(dir, "image.jsx")}`,
+  `--alias:@/lib/supabase/client=${join(dir, "supabase.js")}`,
+  ...(before ? [`--alias:@/components/app/settings/lazy-panels=${join(dir, "lazy-before.tsx")}`, `--alias:@/components/app/settings/section-boundary=${join(dir, "boundary-before.tsx")}`] : []),
+  `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
+  { stdio: ["ignore", "ignore", "inherit"] })
 try {
   bundle("production", "prod.js")
   bundle("development", "dev.js")
+  split()
 } catch { rmSync(dir, { recursive: true, force: true }); fail("the probe did not bundle") }
+const splitFiles = new Map(readdirSync(join(dir, "split")).map((f) => [f, readFileSync(join(dir, "split", f), "utf8")]))
 const css = await appCss(root)
 const page = (js, physical) => `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
   `<style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
@@ -102,7 +124,16 @@ const API = {
   "/api/integrations/popularity": { scores: {} },
 }
 let html = ""
+/* While true, every split file but the page's own entry is gone, as after a deploy. */
+let staleChunks = false
 const server = createServer((req, res) => {
+  if (req.url.startsWith("/split/")) {
+    const f = req.url.slice(7).split("?")[0]
+    if (!splitFiles.has(f) || (staleChunks && f !== "entry.js")) { res.writeHead(404); res.end(""); return }
+    res.writeHead(200, { "content-type": "text/javascript" })
+    res.end(splitFiles.get(f))
+    return
+  }
   if (req.url.startsWith("/api/")) {
     const path = req.url.split("?")[0]
     /* What the probe has no real answer for is answered as a failure, which every section has its own state for (an answer of {} would be a shape no route sends). */
@@ -160,6 +191,8 @@ async function press(p, tab, phone) {
   const sel = phone ? `[data-settings-tab="${tab}"]` : `[data-settings-side-tab="${tab}"]`
   const nodes = await p.evaluate(() => { window.__shell = [document.querySelector("[data-settings-groups]"), document.querySelector("[data-settings-tabs]"), document.querySelector("[data-settings-header]")] })
   void nodes
+  const asked = p.__asked ?? []
+  const askedFrom = asked.length
   const tp = await p.evaluate((sel, tab) => { const el = document.querySelector(sel); if (!el) return null; window.__record(tab); const t = performance.now(); el.click(); return t }, sel, tab)
   if (tp === null) return { on: null, shown: null, blank: 0, same: true, long: [], gone: true }
   await wait(DELAY + 450)
@@ -169,16 +202,19 @@ async function press(p, tab, phone) {
   const shown = frames.find((f) => f.tab === tab)
   const blank = frames.filter((f) => !f.tab || f.spin).length
   const long = (await p.evaluate(() => window.__long)).filter(([s, d]) => s + d >= tp && s <= tp + 500).map(([, d]) => d)
-  return { on: on ? Math.round(on.t - tp) : null, shown: shown ? Math.round(shown.t - tp) : null, blank, same, long }
+  return { on: on ? Math.round(on.t - tp) : null, shown: shown ? Math.round(shown.t - tp) : null, blank, same, long, asked: asked.slice(askedFrom) }
 }
 
 const results = {}
-for (const [name, vp, phone] of [["desktop", { width: 1440, height: 900 }, false], ["phone", { width: 390, height: 844, isMobile: true, hasTouch: true }, true]]) {
+const only = process.env.SWITCH_ONLY ?? ""
+for (const [name, vp, phone] of only && only !== "switch" ? [] : [["desktop", { width: 1440, height: 900 }, false], ["phone", { width: 390, height: 844, isMobile: true, hasTouch: true }, true]]) {
   console.log(`\n${name} (${vp.width}x${vp.height}), every /api answer ${DELAY}ms late`)
   html = page(prodJs, true)
   const p = await browser.newPage()
   await p.setViewport(vp)
   const errors = []
+  p.__asked = []
+  p.on("request", (r) => { const u = r.url(); if (u.includes("/api/")) p.__asked.push(u.replace(/^https?:\/\/[^/]+/, "")) })
   p.on("pageerror", (e) => { errors.push(String(e)); if (process.env.SWITCH_VERBOSE) console.log("    pageerror", String(e.stack || e).slice(0, 600)) })
   await p.evaluateOnNewDocument(INSTRUMENT)
   const open = await openSheet(p)
@@ -199,6 +235,7 @@ for (const [name, vp, phone] of [["desktop", { width: 1440, height: 900 }, false
     if (pass === "warm") say(worstShown < 100, `${name} warm: every section is in the page within 100ms of its press (worst ${worstShown}ms; ${rows.filter(([, r]) => (r.shown ?? 9999) >= 100).map(([t, r]) => `${t} ${r.shown}`).join(", ") || "none slower"})`)
     else say(worstShown < DELAY + 200, `${name} cold: every section is in the page before its data could have been fetched from scratch (worst ${worstShown}ms)`)
     say(rows.every(([, r]) => r.blank === 0), `${name} ${pass}: never a frame with no section (${rows.filter(([, r]) => r.blank).map(([t, r]) => `${t} ${r.blank}`).join(", ") || "none"})`)
+    if (pass === "warm") console.log(`    asked again on a warm press: ${rows.filter(([, r]) => r.asked.length).map(([t, r]) => `${t} [${[...new Set(r.asked)].join(" ")}]`).join(", ") || "nothing"}`)
     results[`${name}-${pass}`] = rows
   }
   if (!phone) {
@@ -218,9 +255,44 @@ for (const [name, vp, phone] of [["desktop", { width: 1440, height: 900 }, false
   await p.close()
 }
 
+/* ── A TAB FROM BEFORE A DEPLOY: a section whose code is gone ── */
+if (!only || only === "stale") {
+console.log(`\na press on a section whose code a deploy removed${before ? " (committed code)" : ""}`)
+  html = `<!doctype html><html class="app-layout"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}};window.__nav={back:0,push:[],replace:[],refresh:0};window.__path="/app";window.__physical=false</script><script type="module" src="/split/entry.js"></script></body></html>`
+  const p = await browser.newPage()
+  await p.setViewport({ width: 1440, height: 900 })
+  let loads = 0
+  p.on("load", () => { loads++ })
+  await p.evaluateOnNewDocument(INSTRUMENT)
+  /* The deploy lands after the page loaded and before Settings fetched its sections. */
+  await p.goto(`${base}/app`)
+  await p.waitForFunction(() => typeof window.__open === "function")
+  staleChunks = true
+  const loadsBefore = loads
+  await p.evaluate(() => { window.__marker = 1; window.__open() })
+  await wait(1200)
+  await p.evaluate(() => { window.__column = document.querySelector("[data-settings-groups]") })
+  await p.evaluate(() => document.querySelector('[data-settings-side-tab="taxes"]')?.click())
+  await wait(2500)
+  const after = await p.evaluate(() => ({
+    same: window.__marker === 1,
+    column: !!window.__column && window.__column.isConnected,
+    failed: document.querySelector("[data-settings-section-failed]")?.getAttribute("data-settings-section-failed") ?? null,
+    errorScreen: !!document.querySelector("[data-app-error-screen]"),
+    lit: !!document.querySelector('[data-settings-side-tab="taxes"][aria-current="page"]'),
+  }))
+  const reloaded = loads > loadsBefore || !after.same
+  console.log(`    page loaded again: ${reloaded}; the column still there: ${after.column}; the app's error screen: ${after.errorScreen}; the section says: ${after.failed ?? "nothing"}`)
+  say(!reloaded, "the press does not load the whole page again")
+  say(after.column && !after.errorScreen, "the column, and Settings round it, stay on screen")
+  say(after.failed === "stale" && after.lit, "Taxes is the open section and says, in its own place, that Storelib was updated, with a Reload of its own")
+  staleChunks = false
+  await p.close()
+}
+
 /* ── EVERY SECTION IN A DEVELOPMENT BUILD: what React says ── */
-console.log("\nevery section, development React")
-for (const physical of [false, true]) {
+if (!only || only === "dev") console.log("\nevery section, development React")
+for (const physical of only && only !== "dev" ? [] : [false, true]) {
   html = page(devJs, physical)
   const p = await browser.newPage()
   await p.setViewport({ width: 1440, height: 900 })

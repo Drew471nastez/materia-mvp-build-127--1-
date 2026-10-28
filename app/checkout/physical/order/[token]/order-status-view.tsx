@@ -20,6 +20,7 @@ import { sellerMailto } from "@/lib/physical/seller-mailto"
 import { estimateText, useCheckoutLang, useCt } from "@/app/checkout/parts/words"
 import { checkoutMsg, type CheckoutT } from "@/lib/markets/checkout-words"
 import { LiveStatus } from "./live-status"
+import { splitSavings } from "@/lib/receipts/discount"
 
 interface Props {
   token: string
@@ -48,6 +49,10 @@ interface Props {
     delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null; kind?: "ship" | "local"; note?: string | null } | null
     /** The discount code used, when one was. */
     coupon?: string | null
+    /** The store's offers inside `totals.discount`, each by the name the checkout showed it; the rest is the code's. */
+    savings?: { label: string; cents: number }[]
+    /** A receipt token of the order's, which opens its invoice PDF; null when it has none (cash, free). */
+    invoiceToken?: string | null
     /** Collected by the buyer instead of shipped. */
     pickup: { name: string; address: string[]; instructions: string | null; ready: string; hours?: string | null } | null
     processing: boolean
@@ -190,6 +195,8 @@ export function OrderStatusView({ token, justPaid, shop, orderUrl, order, canRet
   }
   const local = order.delivery?.kind === "local"
   const money = (c: number) => moneyIn(c, order.totals.currency, lang)
+  /* The discount as the checkout listed it: each offer, then the code's part. */
+  const saved = splitSavings(order.totals.discount, order.savings)
   const shipped = order.shipments.some((s) => s.shippedAt)
   /* Every parcel so far arrived and nothing is left to send: one delivered parcel of a partly shipped order is not the order (lib/physical/status fulfillmentStatusOf, as the shop reads it). */
   const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered") && order.fulfillmentStatus !== "partially_fulfilled"
@@ -434,12 +441,27 @@ export function OrderStatusView({ token, justPaid, shop, orderUrl, order, canRet
             </ul>
             <dl className="mt-5 space-y-2 border-t border-[#eef0f2] pt-4 text-[14px]">
               <Row label={ct("Subtotal")} value={money(order.totals.subtotal)} />
-              {order.totals.discount ? <Row label={order.coupon ? ct("Discount ({code})", { code: order.coupon }) : ct("Discount")} value={`-${money(order.totals.discount)}`} /> : null}
+              {/* Each offer by its own name, then the code's part named by the code: the checkout's rows (lib/checkout/summary-rows), never the offers counted as the code's. */}
+              {saved.rows.map((s) => (
+                <Row key={s.label} label={s.label} value={`-${money(s.cents)}`} />
+              ))}
+              {saved.rest > 0 ? <Row label={order.coupon ? ct("Discount ({code})", { code: order.coupon }) : ct("Discount")} value={`-${money(saved.rest)}`} /> : null}
               {needsShipping ? <Row label={pickup ? ct("Pickup") : ct("Shipping")} value={order.totals.shipping ? money(order.totals.shipping) : ct("Free")} /> : null}
               {order.totals.tax ? <Row label={order.totals.taxIncluded ? (order.totals.taxLabel && !/^tax$/i.test(order.totals.taxLabel.trim()) ? ct("Including {tax}", { tax: includedTaxLabel(order.totals.taxLabel).replace(/^Including /, "") }) : ct("Including tax")) : order.totals.taxLabel ? ct(order.totals.taxLabel) : ct("Tax")} value={money(order.totals.tax)} /> : null}
               <Row label={ct("Total")} value={`${money(order.totals.total)}${order.totals.currency && order.totals.currency.toUpperCase() === "USD" ? " USD" : ""}`} strong />
               {order.totals.refunded ? <Row label={ct("Refunded")} value={`-${money(order.totals.refunded)}`} /> : null}
             </dl>
+            {order.invoiceToken ? (
+              <a
+                data-order-invoice=""
+                href={`/api/checkout/invoice?token=${encodeURIComponent(order.invoiceToken)}`}
+                download
+                className="mt-3 inline-flex min-h-9 items-center gap-1.5 text-[13.5px] font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-2 hover:decoration-[#1a1a2e] print:hidden"
+              >
+                <Download className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
+                {ct("Download invoice (PDF)")}
+              </a>
+            ) : null}
             {order.cash && !order.cancelled ? (
               <p data-cash-payment="" className="mt-3 rounded-[10px] bg-[#f8f9fa] px-3.5 py-2.5 text-[14px] leading-5 text-[#4b5563]">
                 {order.cash === "paid" ? ct("Paid in cash.") : pickup ? ct("Pay {amount} in cash when you pick it up.", { amount: money(left) }) : ct("Pay {amount} in cash when it's delivered.", { amount: money(left) })}

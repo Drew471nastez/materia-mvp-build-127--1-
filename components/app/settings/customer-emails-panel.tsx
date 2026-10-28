@@ -614,6 +614,8 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const dirty = !sameDraft(draft, start)
   const isDefault = !savedWords
 
+  /* A switch of language changes which words are being written: unsaved ones are asked about first. */
+  const keepTyping = () => !dirty || window.confirm(tt("Leave without saving your changes to this email?"))
   const close = () => {
     if (dirty && !window.confirm(tt("Leave without saving your changes to this email?"))) return
     onClose()
@@ -667,19 +669,24 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
   const fields = editable ? (
     <div className="space-y-3.5" data-email-editor={id}>
       {!ready ? <Notice tone="amber">{tt("Saving changes needs the database update (SQL part 129). You can try words out here meanwhile.")}</Notice> : null}
+      {otherLang ? (
+        <p className="rounded-lg bg-[#f4f5f7] px-3 py-2 text-[12.5px] leading-[18px] text-[#374151]" data-email-editing-lang={otherLang}>
+          {tt("Words for buyers who read this email in {language}. A part left empty goes out in the standard {language} words.", { language: languageName(otherLang) })}
+        </p>
+      ) : null}
       {COPY_FIELDS.map((f) => (
-        <Field key={f} label={LABELS[f]} htmlFor={`email-${f}`}>
-          {f === "body" ? (
+        <Field key={f} label={LABELS[f]} htmlFor={`email-${f}`} hint={HINTS[f]}>
+          {f === "body" || f === "footer" ? (
             <textarea
               id={`email-${f}`}
-              value={draft.body}
-              maxLength={COPY_LIMITS.body}
-              rows={6}
+              value={draft[f]}
+              maxLength={COPY_LIMITS[f]}
+              rows={f === "body" ? 6 : 2}
               onFocus={remember(f)}
               onSelect={remember(f)}
-              onChange={(e) => setDraft((d) => ({ ...d, body: e.target.value }))}
-              className={cn(FIELD, PHONE_SAFE, "h-auto min-h-[132px] resize-y py-2.5 leading-[21px] sm:h-auto")}
-              placeholder={tt("No opening text")}
+              onChange={(e) => setDraft((d) => ({ ...d, [f]: e.target.value }))}
+              className={cn(FIELD, PHONE_SAFE, "h-auto resize-y py-2.5 leading-[21px] sm:h-auto", f === "body" ? "min-h-[132px]" : "min-h-[64px]")}
+              placeholder={otherLang ? tt("Standard {language} words", { language: languageName(otherLang) }) : f === "body" ? tt("No opening text") : tt("No footer note")}
               data-email-field={f}
             />
           ) : (
@@ -691,8 +698,8 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
               onFocus={remember(f)}
               onSelect={remember(f)}
               onChange={(e) => setDraft((d) => ({ ...d, [f]: e.target.value }))}
-              /* Emptied, the default goes out: it shows here as the hint. */
-              placeholder={id ? DEFAULT_COPY[id][f] : undefined}
+              /* Emptied, the default goes out: it shows here as the hint (in another language, the standard words of that one). */
+              placeholder={otherLang ? tt("Standard {language} words", { language: languageName(otherLang) }) : f === "preheader" ? tt("The email's first line") : id ? DEFAULT_COPY[id][f] : undefined}
               className={PHONE_SAFE}
               data-email-field={f}
             />
@@ -734,7 +741,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
         {where.digital ? (
           <SegmentedTabs
             value={where.channel}
-            onChange={where.setChannel}
+            onChange={(v) => keepTyping() && where.setChannel(v)}
             label={tt("Bought on")}
             idPrefix="preview-place"
             className="sm:w-auto"
@@ -747,7 +754,7 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
         {where.channel === "website" && where.langs.length > 1 ? (
           <select
             value={where.lang}
-            onChange={(e) => where.setLang(e.target.value)}
+            onChange={(e) => keepTyping() && where.setLang(e.target.value)}
             aria-label={tt("Language")}
             className="h-9 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-8 sm:text-[13px]"
             data-preview-language=""
@@ -769,13 +776,14 @@ export function EmailSheet({ email: asked, shop, data, saved: savedAsked, ready,
         : null
   /* A membership is bought on Storelib: from the creator, in English (lib/memberships/sync.ts membershipVoice). */
   const membershipNote = membership ? tt("Bought on your creator page: in English, from {name}.", { name: creator?.name || shop.name }) : null
-  const ownNote = editable && !where.language.own ? tt("Your own words go out in {language}, your website's language. Buyers in other languages get the standard words in theirs.", { language: languageName(where.def) }) : null
+  /* Which buyers the words on the left reach, when the website has more than one language. */
+  const ownNote = editable && where.langs.length > 1 && !otherLang && where.channel === "website" ? tt("These words go to buyers in {language}, your website's language. Pick another language above to write its own.", { language: languageName(where.def) }) : null
 
   const preview = (active: boolean) => (
     <div className="space-y-2.5" data-email-preview={id}>
       {placeControls}
       {placeNote || membershipNote ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-preview-place-note="">{placeNote || membershipNote}</p> : null}
-      {ownNote ? <p className="text-[12.5px] leading-[18px] text-[#92400e]" data-preview-own-note="">{ownNote}</p> : null}
+      {ownNote ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-preview-own-note="">{ownNote}</p> : null}
       {mail ? (
         <p className="text-[13px] text-[#6b7280]" data-email-subject="">
           <span className="font-medium text-[#374151]">{tt("Subject:")}</span> {mail.subject}

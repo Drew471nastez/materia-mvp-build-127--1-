@@ -7236,6 +7236,34 @@ html[data-tab-hidden] .wb-ai-work::before { animation-play-state: paused; }
   [data-fill-in] { transform: none !important; transition: none !important; }
 }
 
+/* THE REPORTS FILL THEIR ROWS (round 41, the owner: "the report cards leave a big empty area on the right"). In the
+   grid of report cards (app/app/analytics/analytics-reports.tsx ReportsView) the last card of a row that is not full
+   takes the room left in it: one alone across the whole width, the second of two across two columns of three. Counted
+   among the cards only (`of section[data-card]`), so the notes under the grid change nothing. */
+@media (min-width: 768px) and (max-width: 1279.98px) {
+  [data-analytics-cards] > section[data-card]:nth-child(2n + 1 of section[data-card]):nth-last-child(1 of section[data-card]) { grid-column: 1 / -1; }
+}
+@media (min-width: 1280px) {
+  [data-analytics-cards] > section[data-card]:nth-child(3n + 1 of section[data-card]):nth-last-child(1 of section[data-card]) { grid-column: 1 / -1; }
+  [data-analytics-cards] > section[data-card]:nth-child(3n + 2 of section[data-card]):nth-last-child(1 of section[data-card]) { grid-column: span 2; }
+}
+
+/* A REPORT, OPENED, ON A COMPUTER (app/app/analytics/report-detail.tsx): the panel slides in from the right edge on the
+   /app curve and back out quicker, by transform alone; Radix keeps it mounted until the way out has played. */
+@keyframes analytics-detail-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes analytics-detail-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+.analytics-detail[data-state="open"] { animation: analytics-detail-in 340ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.analytics-detail[data-state="closed"] { animation: analytics-detail-out 220ms cubic-bezier(0.4, 0, 1, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .analytics-detail[data-state="open"], .analytics-detail[data-state="closed"] { animation-duration: 1ms; }
+}
+
 /* A ROW THAT SCROLLS SIDEWAYS FADES WHERE IT IS CUT (components/app/use-edge-fade): 24px at whichever end has more
    past it, nothing at an end that is whole, and no mask at all on a row that fits. */
 .edge-fade[data-fade-start],

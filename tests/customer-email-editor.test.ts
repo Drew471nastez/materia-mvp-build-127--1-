@@ -116,8 +116,9 @@ console.log("\nSaved per store, used by the senders\n")
   ] as const) check(`  ${template} passes them to its template`, pattern.test(jobs))
   const email = read("lib/email.tsx")
   /* Changed on purpose: both build through lib/receipts/receipt-mail.ts buildReceiptEmail, which applies the words (only in the website's own language), the same build the preview draws. */
-  check("the receipt sender and the receipt copy both use the store's receipt words", (email.match(/buildReceiptEmail\(model, language, saved\.receipt\)/g) ?? []).length === 2 && /resolveCopy\(saved, \{ customer_name: model\.firstName/.test(read("lib/receipts/receipt-mail.ts")))
-  check("the checkout reminder uses its words", /resolveCopy\(saved\.checkout_reminder,/.test(read("lib/automations/abandoned-reminder.ts")))
+  /* Changed on purpose (round 28, the owner: "per language"): the words go through pickCopy, the buyer's language's part of them. */
+  check("the receipt sender and the receipt copy both use the store's receipt words", (email.match(/buildReceiptEmail\(model, language, saved\.receipt\)/g) ?? []).length === 2 && /resolveCopy\(pickCopy\(saved, language\), \{ customer_name: model\.firstName/.test(read("lib/receipts/receipt-mail.ts")))
+  check("the checkout reminder uses its words", /resolveCopy\(pickCopy\(saved\.checkout_reminder, language\),/.test(read("lib/automations/abandoned-reminder.ts")))
   const server = read("lib/emails/customer-copy-server.ts")
   check("saved on the caller's own store_settings row, read back cleaned", /from\("store_settings"\)\.upsert\(\{ creator_id: creatorId, customer_emails: next/.test(server) && /readSavedCopy\(data\?\.customer_emails\)/.test(server))
   check("  a read that fails sends the default words, never nothing", /if \(error\) return \{\}/.test(server))
@@ -140,7 +141,7 @@ console.log("\nThe sheet opens at once, as a bottom sheet on a phone\n")
   check("  closing with unsaved words asks first", /Leave without saving your changes/.test(panel))
   /* Round AD. */
   check("it closes the way it opened: the last email stays in it while it slides away", /const email = asked \?\? kept\.current/.test(panel) && /const saved = asked \? savedAsked : keptSaved\.current/.test(panel))
-  check("Send test, on every email, with the words on screen", /data-email-test=""/.test(panel) && /\/api\/store\/emails\/test/.test(panel) && /copy: draft/.test(panel))
+  check("Send test, on every email, with the words on screen", /data-email-test=""/.test(panel) && /\/api\/store\/emails\/test/.test(panel) && /copy: payloadOf\(draft, !!otherLang\)/.test(panel)) // Changed on purpose (round 28): another language sends only its written parts
   const test = read("app/api/store/emails/test/route.ts")
   /* Changed on purpose (round 40 team permissions): shopCaller("marketing"); c.userId is still the person who pressed it. */
   check("  only to the inbox of the person who pressed it, rate limited, marked [Test]", /await shopCaller\("marketing"\)/.test(test) && /getUserById\(c\.userId\)/.test(test) && /bucket: "customer-email-test"/.test(test) && /subject: `\[Test\] \$\{mail\.subject\}`/.test(test) && /maskEmail\(to\)/.test(test))

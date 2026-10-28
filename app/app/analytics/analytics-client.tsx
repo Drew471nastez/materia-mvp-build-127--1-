@@ -654,7 +654,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
           <div
             ref={pickersRef}
             data-scroll-x
-            className="orders-strip edge-fade -my-1 -ml-[var(--app-gutter)] flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain py-1 pl-[var(--app-gutter)] pr-1 touch-pan-x touch-pan-y sm:-ml-1 sm:pl-1"
+            className="orders-strip edge-fade -my-1 -ml-[var(--app-gutter)] flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain py-1 pl-[var(--app-gutter)] pr-1 [&>*]:shrink-0 touch-pan-x touch-pan-y sm:-ml-1 sm:pl-1"
             data-analytics-pickers=""
           >
             <DateRangePicker value={period} onChange={setPeriod} today={today} />
@@ -704,6 +704,7 @@ export function AnalyticsClient({ products, userId, creatorId, properties, commu
                 /* The placeholder is not blurred: the frame IS the loading
                    state. The blur belongs to a refetch, where real numbers
                    are being replaced and going soft says so. */
+                data-chart-soft=""
                 className={`transition-opacity duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] ${
                   chartIsLoading ? "opacity-100" : softLate ? "opacity-60" : "opacity-100"
                 }`}

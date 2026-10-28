@@ -232,7 +232,8 @@ export function shippedParts(rows: OrderRow[], co: ShippedCheckout | null): Ship
     discountCode: code,
     shippingCents: shipping,
     shippingMethod: pickup ? null : (typeof co?.shipping_rate?.name === "string" && co.shipping_rate.name.trim()) || null,
-    shipTo: pickup || !co?.shipping_address ? [] : shipAddressLines(co.shipping_address as never),
+    /* The parcel's name and address; its phone is the courier's business, not the invoice's. */
+    shipTo: pickup || !co?.shipping_address ? [] : shipAddressLines({ ...co.shipping_address, phone: null } as never),
     taxCents: tax,
     taxIncluded,
     taxLabel: tax > 0 ? label : null,

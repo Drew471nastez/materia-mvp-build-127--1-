@@ -413,8 +413,8 @@ async function readCollections(db: Db, creatorId: string, q: string): Promise<Se
     id: text(r.id),
     title: text(r.title) || tt("Untitled collection"),
     detail: r.published === false ? tt("Hidden") : tt("Published"),
-    /* The collection opens in its editor (app/app/products/collections ?collection=). */
-    href: `/app/products/collections?collection=${encodeURIComponent(text(r.id))}`,
+    /* The collection's own page (app/app/products/collections/[id]). */
+    href: `/app/products/collections/${encodeURIComponent(text(r.id))}`,
   }))
 }
 

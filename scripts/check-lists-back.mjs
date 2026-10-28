@@ -19,6 +19,12 @@
  *   PRODUCTS  a product opened from the list, and the editor's Back (a
  *             history back), and the browser's back
  *   COUPONS   the same with a coupon
+ *   OFFERS, COLLECTIONS, SIZE CHARTS
+ *             the same with an offer, a collection and a size chart, all
+ *             three through the one shared round trip
+ *             (components/app/list-return.ts); and the way in, frame by
+ *             frame: the list stays whole until the page is there, no frame
+ *             is without a page, and the page lands as every page does
  *
  * On every one: from the first frame the list is there it is whole
  * (everything in it at opacity 1, nothing moved up or down) on every frame
@@ -198,6 +204,8 @@ const record = (p) =>
         offset: kids.length ? Math.max(...kids.map(offsetOf)) : null,
         scrollTop: list ? list.scrollTop : null,
         rows: shown ? list.querySelectorAll("[data-order-id], [data-row]").length : 0,
+        /* The stage fades what is IN a page that scrolls in its own box (components/app/app-stage playEntrance), so its children are read. */
+        pageOpacity: other ? Math.min(opacityOf(other), ...[...other.children].filter((c) => c.getClientRects().length).map(opacityOf)) : null,
       })
     }
     drawn.port1.onmessage = () => {
@@ -322,6 +330,53 @@ for (const [label, viewport] of [
     await open()
     await wait(200)
     await visitLands(p, `/app/${kind}`, kind === "products" ? "Products" : "Coupons")
+  }
+
+
+  /* The lists the shared round trip serves (components/app/list-return.ts). */
+  for (const [kind, href, label] of [
+    ["offers", "/app/offers", "Upsells and bundles"],
+    ["collections", "/app/products/collections", "Collections"],
+    ["size-charts", "/app/products/size-charts", "Size charts"],
+  ]) {
+    if (only && !only.includes(kind)) continue
+    console.log(`\n${label}, ${viewport.width} wide`)
+    await p.goto(`${base}${href}`)
+    await p.waitForSelector("[data-row]", { timeout: 8000 })
+    await wait(700)
+    const left = await leaveAt(p)
+    const open = async (watch) => {
+      if (watch) await record(p)
+      await pressRow(p, "[data-row-open], tr[data-row]")
+      await p.waitForSelector("[data-page=editor]", { timeout: 4000 })
+      await wait(700)
+      if (!watch) return
+      const frames = await stop(p)
+      const before = frames.filter((f) => f.page === "list")
+      const blank = frames.filter((f) => f.page === null).length
+      const inFrames = frames.filter((f) => f.page === "editor")
+      const firstOpacity = inFrames[0]?.pageOpacity ?? null
+      const lastOpacity = inFrames.at(-1)?.pageOpacity ?? null
+      const rising = inFrames.every((f, i) => i === 0 || f.pageOpacity >= inFrames[i - 1].pageOpacity - 0.001)
+      console.log(`  ..    the way in: ${before.length} frames of the list first (lowest opacity ${before.length ? Math.min(...before.map((f) => f.opacity)) : null}), ${blank} without a page, then the page from opacity ${firstOpacity?.toFixed(2)} to ${lastOpacity} over ${inFrames.filter((f) => f.pageOpacity < 1).length} frames`)
+      expect(before.every((f) => f.opacity === 1 && f.offset < 0.01), `${label}: the list stays whole until the page is there`, before.length)
+      expect(blank === 0, `${label}: no frame without a page on the way in`, blank)
+      expect(inFrames.length > 10 && lastOpacity === 1 && rising, `${label}: the page lands in one even fade, and stays`, { firstOpacity, lastOpacity, rising })
+    }
+    await open(true)
+    await record(p)
+    await p.click("[data-editor-back]")
+    await wait(1100)
+    judge("the page's own back", await stop(p), left)
+    await open(false)
+    await record(p)
+    await p.goBack()
+    await wait(1100)
+    judge("the browser's back from the page", await stop(p), left)
+    if (label && viewport.width === 390) await p.screenshot({ path: join(shots, `${kind}-back-${label.replace(/ /g, "-")}.png`) })
+    await open(false)
+    await wait(200)
+    await visitLands(p, href, label)
   }
 
   expect(errors.length === 0, `${label}: no errors on the page`, errors.slice(0, 3))

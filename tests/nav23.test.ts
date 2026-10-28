@@ -112,9 +112,11 @@ console.log("\nRELOADS: a whole page load only when nothing else can work, never
 console.log("\nMOTION: a page is there, or fades in once; nothing slides")
 {
   const layer = code("components/app/page-layer.tsx")
-  check("a page layer moves no more: LAYER_MOVES is off and asked first", /const LAYER_MOVES: boolean = false/.test(layer) && /function layerMotionOn\(\): boolean \{\s*\n\s*if \(!LAYER_MOVES\) return false/.test(layer))
-  check("a layer over the whole screen is drawn whole on its first frame, coming and going (no fade from an empty frame)",
-    /const whole = \(\) => !LAYER_MOVES && \(!phoneOnly \|\| !!window\.matchMedia\?\.\(LAYER_PHONE\)\.matches\)\s*\n\s*if \(whole\(\)\) holdLanding\(\)/.test(layer) && /release\(\)\s*\n\s*if \(whole\(\)\) holdLanding\(\)/.test(layer))
+  /* Changed on purpose (round 41): LAYER_MOVES is still off for every layer, but a layer can ask to move (the product editor's, `moves`), and layerMotionOn reads that ask first. */
+  check("a page layer moves no more unless it asks to: LAYER_MOVES is off and asked first", /const LAYER_MOVES: boolean = false/.test(layer) && /function layerMotionOn\(moves: boolean = LAYER_MOVES\): boolean \{\s*\n\s*if \(!moves\) return false/.test(layer))
+  /* Changed on purpose (round 41): whole whenever this commit plays no move, read after the drop is decided on the way out. */
+  check("a layer over the whole screen is drawn whole on its first frame, coming and going, whenever it does not move (no fade from an empty frame)",
+    /const whole = \(\) => !moving\(\) && \(!phoneOnly \|\| !!window\.matchMedia\?\.\(LAYER_PHONE\)\.matches\)\s*\n\s*if \(whole\(\)\) holdLanding\(\)/.test(layer) && /if \(!dropAtCommit\(\)\) markReactMotion\("leave", asked\)\s*\n(\s*\/\*[^*]*\*\/\s*\n)?\s*if \(whole\(\)\) holdLanding\(\)/.test(layer))
   const css = readSource("app/globals.css").replace(/\/\*[\s\S]*?\*\//g, "")
   const leaving = css.match(/\.wb-leaving \{[\s\S]*?\n {2}\}/)?.[0] ?? ""
   check("the editor's leaving glass waits 300ms, so a quick way back never shows it", /animation: wb-leaving-in 200ms cubic-bezier\(0\.32, 0\.72, 0, 1\) 300ms both;/.test(leaving))

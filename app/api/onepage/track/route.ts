@@ -118,9 +118,10 @@ export async function POST(request: NextRequest) {
         .eq("onepage_id", onepage_id)
         .eq("ip_hash", ipHash)
         .gte("created_at", todayStr)
-        .maybeSingle()
+        /* limit(1), not maybeSingle(): two rows from a race made maybeSingle an error, read as "none", and a third was written. */
+        .limit(1)
 
-      if (!existingView) {
+      if (!existingView?.length) {
         await supabase.from("onepage_views").insert({
           onepage_id,
           visitor_id: visitorId,
@@ -153,9 +154,9 @@ export async function POST(request: NextRequest) {
         .eq("block_id", block_id)
         .eq("visitor_id", visitorId)
         .gte("created_at", todayStr)
-        .maybeSingle()
+        .limit(1)
 
-      if (!existingClick) {
+      if (!existingClick?.length) {
         await supabase.from("onepage_clicks").insert({
           onepage_id,
           block_id,

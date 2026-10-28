@@ -126,7 +126,7 @@ await build({
       name: "stubs",
       setup(b) {
         b.onResolve({ filter: /description-action$/ }, () => ({ path: join(stubs, "description-action.js") }))
-        if (oldClient) b.onResolve({ filter: /^@\/app\/app\/products\/products-client$/ }, () => ({ path: oldClient }))
+        if (oldClient) b.onResolve({ filter: /app\/app\/products\/products-client$/ }, () => ({ path: oldClient }))
       },
     },
   ],

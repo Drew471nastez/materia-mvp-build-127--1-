@@ -67,6 +67,8 @@ export interface MessageRow {
   created_at: string
   /** When the creator opened it. Null is new. */
   read_at: string | null
+  /** The replies sent from its page, oldest first (lib/site-contact/reply.ts). */
+  replies?: { id: string; message: string; created_at: string; pending?: boolean }[]
 }
 
 export interface SubscriberRow {

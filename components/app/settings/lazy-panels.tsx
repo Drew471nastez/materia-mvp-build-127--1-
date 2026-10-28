@@ -45,24 +45,47 @@ export type SettingsPanelKey = keyof typeof LOADERS
 const loaded = new Map<SettingsPanelKey, ComponentType<AnyProps>>()
 const loading = new Map<SettingsPanelKey, Promise<ComponentType<AnyProps>>>()
 
+/** Once more after a moment: a phone that dropped the connection for a second gets the section rather than its failure. */
+function fetchCode(key: SettingsPanelKey): Promise<ComponentType<AnyProps>> {
+  return (LOADERS[key]() as Promise<ComponentType<AnyProps>>).catch(
+    () => new Promise<ComponentType<AnyProps>>((resolve, reject) => window.setTimeout(() => (LOADERS[key]() as Promise<ComponentType<AnyProps>>).then(resolve, reject), 400)),
+  )
+}
+
+/*
+  A chunk that still fails (a deploy renamed it, and this tab is from before)
+  rejects, and the section that draws it throws where it is drawn: caught by
+  the section's own boundary (components/app/settings/section-boundary.tsx),
+  never by the /app error boundary that reloaded the whole page for it.
+*/
 function load(key: SettingsPanelKey): Promise<ComponentType<AnyProps>> {
   let p = loading.get(key)
   if (!p) {
-    p = (LOADERS[key]() as Promise<ComponentType<AnyProps>>).then(
+    p = fetchCode(key).then(
       (c) => {
         loaded.set(key, c)
         return c
       },
       (e) => {
-        /* A chunk that failed (a dropped connection) is asked again next time. */
-        loading.delete(key)
+        /*
+          A chunk that failed is asked again next time, but not by the swap
+          that follows straight after the failure: that one is handed this same
+          failed answer, so the section's boundary says so at once instead of
+          the press waiting through a second fetch of a file that is gone.
+        */
+        window.setTimeout(() => {
+          if (loading.get(key) === p) loading.delete(key)
+        }, FAILED_KEPT_MS)
         throw e
       },
     )
+    /* Nobody may be waiting on a preload: its failure is the section's to report, not an unhandled rejection. */
+    p.catch(() => undefined)
     loading.set(key, p)
   }
   return p
 }
+const FAILED_KEPT_MS = 3000
 
 /** The settings tab ids whose section is one of these chunks. Returns are two sections (shipping's and the reasons). */
 const TAB_PANELS: Record<string, SettingsPanelKey[]> = {

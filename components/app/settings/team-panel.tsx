@@ -21,7 +21,7 @@
  */
 import * as React from "react"
 import { MoreHorizontal, RotateCw, LogOut, UserMinus, X, SlidersHorizontal } from "lucide-react"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Empty, Modal, Notice, Pill, TextInput, api } from "@/components/physical/ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Empty, Modal, Notice, Pill, TextInput, api, peekGet } from "@/components/physical/ui"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { toast } from "@/hooks/use-toast"
@@ -108,7 +108,8 @@ const DOTS =
 const sameAccess = (a: readonly TeamPermission[], b: readonly TeamPermission[]) => normalizePermissions(a).join() === normalizePermissions(b).join()
 
 export function TeamPanel() {
-  const [data, setData] = React.useState<TeamData | null>(null)
+  /* Drawn from what Settings fetched ahead (settings-form-new TAB_WARM), so Team opens with its people rather than empty; read again as it opens. */
+  const [data, setData] = React.useState<TeamData | null>(() => peekGet<TeamData>("/api/team"))
   const [error, setError] = React.useState<string | null>(null)
   const [email, setEmail] = React.useState("")
   const [touched, setTouched] = React.useState(false)

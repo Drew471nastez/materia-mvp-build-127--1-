@@ -223,6 +223,8 @@ const SUITES = [
   /* Round AD1: bugs found by reading every analytics path, each a failing check first: Home's revenue line and the chart axis in the currency's own decimals, a product's orders as payments, kept answers of one period shown as another's, the jsonb origin, GA's purchase value in yen, the creator's own connected domain opened from the app. */
   "tests/analytics-ad1.test.ts",
   "tests/analytics-filters.test.ts",
+  /* Round ana-1028: test sales out of every Analytics figure (and part 324's all time line), a community's money in the store's currency at each row's own day's rate, and the refund reads beside the orders (SQL part 324's indexes). */
+  "tests/analytics-r1028.test.ts",
   "tests/home-figures.test.ts",
   "tests/auth-session.test.ts",
   "tests/library-depth.test.ts",
@@ -272,6 +274,8 @@ const SUITES = [
   /* Track X2: checkout speed (the server reads side by side, Stripe from the head, the physical cart priced first; scripts/check-checkout-speed.mjs times it). */
   "tests/checkout-speed-x.test.ts",
   "tests/checkout-receipt.test.ts",
+  /* Round docs-1028: every document a sale makes (the receipt and invoice PDF, the receipt email, the order confirmation, the packing slip) drawn from fixture orders: a download, a parcel with options and an engraving, a bundle and a code, a market order in lei, a refund; invoice numbers in sequence per store (SQL part 321). */
+  "tests/order-documents.test.ts",
   "tests/return-to.test.ts",
   "tests/sell-intent.test.ts",
   "tests/no-image-transforms.test.ts",
@@ -635,6 +639,8 @@ const SUITES = [
   "tests/analytics-ad.test.ts",
   "tests/tax-settings-wiring.test.ts",
   "tests/customer-email-editor.test.ts",
+  /* Round 28: a customer email's six parts, per language, saved and read back, drawn as sent (preview text, footer note), reset. */
+  "tests/customer-email-roundtrip.test.ts",
   "tests/abandoned-cart-reminder.test.ts",
   "tests/reasons-t.test.ts",
   "tests/channels-t.test.ts",

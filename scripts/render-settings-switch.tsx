@@ -13,6 +13,19 @@ import { LanguageProvider } from "@/lib/i18n"
 import { SettingsFormNew } from "@/components/app/settings-form-new"
 import { SettingsSheet } from "@/components/app/settings-sheet"
 import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
+import { ErrorScreen } from "@/components/platform/error-screen"
+
+/* What app/app/error.tsx is to the sheet in the app: the boundary over it, with the app's own error screen. */
+class AppBoundary extends React.Component<{ children: React.ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null }
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+  render() {
+    if (this.state.error) return <div data-app-error-screen=""><ErrorScreen error={this.state.error} home="/app" /></div>
+    return this.props.children
+  }
+}
 
 const profile = {
   id: "user-1",
@@ -74,11 +87,13 @@ function App() {
     <>
       <Dashboard />
       {open ? (
-        <SettingsSheet overlay>
-          <div>
-            <SettingsFormNew profile={profile} creator={creator} websitePublished initialTab="general" />
-          </div>
-        </SettingsSheet>
+        <AppBoundary>
+          <SettingsSheet overlay>
+            <div>
+              <SettingsFormNew profile={profile} creator={creator} websitePublished initialTab="general" />
+            </div>
+          </SettingsSheet>
+        </AppBoundary>
       ) : null}
     </>
   )

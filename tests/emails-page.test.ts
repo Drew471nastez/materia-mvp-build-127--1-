@@ -27,10 +27,12 @@ check("a send that is not simply done says so in the Sent list", /function SendB
 check("the old pill tabs, stat boxes and flow cards are gone", !/Tabs - Pill Style/.test(page) && !/grid grid-cols-2 sm:grid-cols-4 gap-4/.test(page) && !/rounded-full transition-all whitespace-nowrap/.test(page))
 check("it is drawn with the Orders page's own parts", /from "\.\.\/orders\/order-parts"/.test(home) && /<PaneBar /.test(home) && /StatusBadge/.test(home))
 /* Round 24: the views are Analytics' sliding pill (components/app/segmented-pills.tsx, a tablist). */
-check("the views are tabs in the pane's bar, which never unmounts", /<SegmentedPills\s+label="Views"/.test(home) && /role="tablist"/.test(read("components/app/segmented-pills.tsx")) && /<PaneBar [^>]*>[\s\S]{0,1600}<Tabs tab=\{tab\}/.test(home))
+check("the views are tabs in the pane's bar, which never unmounts", /<SegmentedPills\s+label="Views"/.test(home) && /role="tablist"/.test(read("components/app/segmented-pills.tsx")) && /<PaneBar [^>]*>[\s\S]{0,1600}<Tabs tab=\{props\.chosenTab \?\? tab\}/.test(home)) // Changed on purpose (round 28): the bar shows the chosen tab while the last one's content waits for its rows
 check("New automation sits beside New email, on a phone too", /href="\/app\/emails\/flow\/new"[^>]*data-new-automation/.test(home) && /<span className="sm:hidden">Automation<\/span>/.test(home) && /href="\/app\/emails\/new"[^>]*data-new-email/.test(home))
 check("a tab switch replaces ?tab= in the address, with no request and no scroll to the top", /writeAddress\(\(p\) => p\.set\("tab", next\), "replace"\)/.test(page) && !/router\.replace/.test(page.replace(/\/\*[\s\S]*?\*\//g, "")))
-check("each tab keeps its scroll, and the bar never drops back down", /scrolls\.current\.set\(tab/.test(page) && /pane\.scrollTop = Math\.max\(saved \?\? stick, stick\)/.test(page) && /min-h-full/.test(home))
+/* Changed on purpose (round 28, the owner: the header is not sticky): the bar scrolls with the page, a switch places no scroll, the content keeps the last tab's until the next has its rows. */
+check("the bar is flat, and a tab switch leaves the scroll where it is", /<PaneBar width=\{LIST_WIDTH\} className=/.test(home) && !/<PaneBar [^>]*\bsticky\b/.test(home) && !/scrolls\.current/.test(page) && /min-h-full/.test(home))
+check("  the last tab's content stays until the chosen one has its rows, then a skeleton after HOLD_MS", /if \(shown !== tab && \(wanted\.data !== undefined \|\| wanted\.error !== null \|\| heldOut === tab\)\) setShown\(tab\)/.test(page) && /const HOLD_MS = \d+/.test(page) && /tab=\{shown\}\s+chosenTab=\{tab\}/.test(page))
 check("each tab's data is read once and kept, and read again behind what is shown", /export function useCached/.test(cache) && /Date\.now\(\) - e\.at > FRESH_MS/.test(cache) && /useCached<unknown>\(keyFor\(tab\)/.test(page))
 check("the other tabs are read while the browser is idle", /requestIdleCallback/.test(page) && /prefetch\(keyFor\(t\), loaderFor\(t\)/.test(page))
 check("rows darken while pressed and read ahead on hover or touch", /data-\[pressed=true\]:bg-\[#f4f5f7\]/.test(home) && /setTimeout\(intent, HOVER_PREFETCH_MS\)/.test(home) && /onTouchStart: intent/.test(home))
@@ -163,8 +165,8 @@ console.log("\nBack to the list is the list, as it was")
   const nav = code("lib/ui/app-navigation.ts")
   check("the hold lets go on its own, two frames on, so it cannot swallow the next page's landing",
     /requestAnimationFrame\(\(\) => requestAnimationFrame\(release\)\)/.test(nav) && /window\.setTimeout\(release, 500\)/.test(nav))
-  check("the first draw leaves the scroll the stage put back; only a switch of tab places it",
-    /if \(!tabShown\.current\) \{\s*tabShown\.current = true\s*return\s*\}/.test(client))
+  /* Changed on purpose (round 28): no switch places a scroll any more, so the first draw never can either. */
+  check("the first draw leaves the scroll the stage put back; a switch of tab places none", !/tabShown/.test(client) && !/pane\.scrollTop =/.test(client))
   check("the list notes its address for the composer's way back", /noteListAddress\(address\)/.test(client))
   check("the composer goes back in history when the list is right behind it on the right tab, and pushes it otherwise",
     /if \(tab && listBehindShows\(tab, canReturnTo\("\/app\/emails"\)\)\) backThen\(\(\) => router\.replace\(list\)\)\s*else router\.push\(list\)/.test(code("components/email/compose/compose-page.tsx")))

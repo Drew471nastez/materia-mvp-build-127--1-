@@ -466,6 +466,27 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     if (!quiet) onNotice(read ? tt("Marked as read") : tt("Marked as new"))
   }
   const toggleRead = (m: MessageRow) => void setRead(m, !m.read_at)
+  /*
+    A REPLY, SENT FROM THE MESSAGE'S PAGE (app/api/email/messages/[id]/reply).
+    It shows in the thread at once, marked as sending, and the message reads
+    as read; the server's answer puts the kept reply in its place, or takes
+    it away again with the reason when it did not go.
+  */
+  const replyTo = async (m: MessageRow, text: string): Promise<string | null> => {
+    const temp = `pending-${Date.now()}`
+    const at = new Date().toISOString()
+    writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, read_at: r.read_at ?? at, replies: [...(r.replies ?? []), { id: temp, message: text, created_at: at, pending: true }] } : r)))
+    const res = await fetch(`/api/email/messages/${encodeURIComponent(m.id)}/reply`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) }).catch(() => null)
+    const out = res ? ((await res.json().catch(() => ({}))) as { reply?: { id: string; message: string; created_at: string }; error?: string }) : { error: tt("You seem to be offline. Try again.") }
+    if (!res || !res.ok || !out.reply) {
+      writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, replies: (r.replies ?? []).filter((x) => x.id !== temp) } : r)))
+      return out.error || tt("Your reply was not sent. Try again.")
+    }
+    const kept = out.reply
+    writeMessages((rows) => rows.map((r) => (r.id === m.id ? { ...r, replies: (r.replies ?? []).map((x) => (x.id === temp ? kept : x)) } : r)))
+    onNotice(tt("Reply sent to {email}", { email: m.email }))
+    return null
+  }
   const deleteMessage = async (id: string) => {
     const res = await fetch(`/api/email/messages/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null)
     if (!res || !res.ok) return onNotice(tt("Not deleted. Try again."))
@@ -663,6 +684,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
               onBack={onBack}
               onCopy={copyEmail}
               onToggleRead={toggleRead}
+              onReply={replyTo}
               onDelete={(id) => setConfirm({ type: "message", id })}
               onOpenContact={(m) => {
                 if (!m.subscriber_id) return

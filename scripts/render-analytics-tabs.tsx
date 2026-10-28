@@ -105,7 +105,10 @@ w.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const selector = parseProperty(q.get("property"))
   const wanted = q.get("product")
   const product = wanted && wanted !== "all" && titles[wanted] ? wanted : null
-  const mine = product ? orders.filter((o) => o.product_id === product) : orders
+  /* The Digital / Physical switch narrows the orders to that kind, as the routes do (scripts/check-analytics-drill.mjs switches it). */
+  const kind = parseMode(q.get("kind"))
+  const ofKind = kind === "physical" ? orders.filter((o) => types[o.product_id as string] === "physical") : kind === "digital" ? orders.filter((o) => types[o.product_id as string] !== "physical") : orders
+  const mine = product ? ofKind.filter((o) => o.product_id === product) : ofKind
   if (commerce) {
     const start = Number(q.get("from") || Date.parse(q.get("start") || ""))
     const end = Number(q.get("to") || Date.parse(q.get("end") || ""))

@@ -41,6 +41,7 @@ import { GUTTER, ORDER_WIDTH, OrderBarFrame, StatusBadge, buttonSecondary, card,
 import type { SubscriberRow } from "./emails-home"
 import { tt, ttx } from "@/lib/i18n/text"
 import { appLocale, zoned } from "@/lib/i18n/format"
+import { formatMinor } from "@/lib/markets/money"
 
 interface RunLite {
   id: string
@@ -67,16 +68,37 @@ const keyOf = (email: string) => email.toLowerCase()
   given Marketing works in. It was read here under row level security, which
   answers only for the owner. Both lists in one request, asked once.
 */
-const contactAsked = new Map<string, Promise<{ runs: RunLite[]; messages: MessageLite[] } | null>>()
-function readContact(key: string): Promise<{ runs: RunLite[]; messages: MessageLite[] } | null> {
+/** What they bought from this store, read with the rest (app/api/email/area customerOf). */
+export interface CustomerLite {
+  orders: number
+  spent: Array<{ currency: string; cents: number }>
+  lastOrderAt: string | null
+  location: { city: string | null; region: string | null; country: string | null } | null
+  tags: string[]
+}
+const customersKept = new Map<string, { at: number; customer: CustomerLite | null }>()
+
+type ContactRead = { runs: RunLite[]; messages: MessageLite[]; customer?: CustomerLite | null }
+const contactAsked = new Map<string, Promise<ContactRead | null>>()
+function readContact(key: string): Promise<ContactRead | null> {
   const asked = contactAsked.get(key)
   if (asked) return asked
   const request = fetch(`/api/email/area?part=contact&email=${encodeURIComponent(key)}`, { cache: "no-store" })
-    .then((r) => (r.ok ? (r.json() as Promise<{ runs: RunLite[]; messages: MessageLite[] }>) : null))
+    .then((r) => (r.ok ? (r.json() as Promise<ContactRead>) : null))
+    .then((got) => {
+      if (got) customersKept.set(key, { at: Date.now(), customer: got.customer ?? null })
+      return got
+    })
     .catch(() => null)
     .finally(() => contactAsked.delete(key))
   contactAsked.set(key, request)
   return request
+}
+
+/** undefined: not read yet; null: read, nothing bought or not readable. */
+function keptCustomer(email: string): CustomerLite | null | undefined {
+  const hit = customersKept.get(keyOf(email))
+  return hit && Date.now() - hit.at < FRESH_MS ? hit.customer : undefined
 }
 
 function keptRuns(email: string): RunLite[] | null {
@@ -195,6 +217,29 @@ function day(iso?: string | null): string {
   return d.toLocaleDateString(appLocale(), zoned({ month: "short", day: "numeric", year: "numeric" }))
 }
 
+/** "Cluj-Napoca, Romania": the city and the country, by its name in the dashboard's language. */
+function placeOf(l: NonNullable<CustomerLite["location"]>): string {
+  let country = l.country
+  if (country && /^[A-Za-z]{2}$/.test(country)) {
+    try {
+      country = new Intl.DisplayNames([appLocale(), "en"], { type: "region" }).of(country.toUpperCase()) ?? country
+    } catch {
+      /* The code as it is. */
+    }
+  }
+  return [l.city, l.city ? null : l.region, country].filter(Boolean).join(", ")
+}
+
+/** "€120.00" or "€120.00 + $30.00": each currency apart, never added together at a guess. */
+function moneyOf(spent: CustomerLite["spent"]): string {
+  if (spent.length === 0) return "–"
+  return spent
+    .slice(0, 2)
+    /* In each currency's own decimals ("¥1,200", "25.00 lei"), as Orders writes money (lib/markets/money). */
+    .map((s) => formatMinor(s.cents, s.currency, appLocale()))
+    .join(" + ")
+}
+
 export const RUN_STATUS: Record<string, { label: string; tone: "neutral" | "attention" | "critical" | "success" }> = {
   active: { get label() { return tt("In progress") }, tone: "attention" },
   completed: { get label() { return tt("Finished") }, tone: "success" },
@@ -283,6 +328,7 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
   /* What the tap already read, so the sheet rises with it in place. */
   const [runs, setRuns] = React.useState<RunLite[] | null>(() => keptRuns(contact.email))
   const [messages, setMessages] = React.useState<MessageLite[] | null>(() => keptMessages(contact.email))
+  const [customer, setCustomer] = React.useState<CustomerLite | null | undefined>(() => keptCustomer(contact.email))
 
   React.useEffect(() => {
     /* Kept runs come back as the same list, which draws nothing again. */
@@ -291,7 +337,9 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
       if (alive) setRuns(list)
     })
     readMessages(contact.email).then((list) => {
-      if (alive) setMessages(list)
+      if (!alive) return
+      setMessages(list)
+      setCustomer(keptCustomer(contact.email) ?? null)
     })
     return () => {
       alive = false
@@ -382,12 +430,48 @@ function ContactBody({ contact }: { contact: SubscriberRow }) {
             <span className={cn("block break-words font-medium", source.recorded ? "text-[#1a1a2e]" : "text-[#6b7280]")}>{source.label}</span>
             {source.detail ? <span className="block break-words text-[#6b7280]">{source.detail}</span> : null}
           </dd>
-          {contact.consent_text ? (
+          {/* What they agreed to, in the words they saw; "Not recorded" for a sign-up kept before consent was. */}
+          <dt className="text-[#6b7280]">{tt("Consent")}</dt>
+          <dd className={cn("break-words", contact.consent_text ? "text-[#4b5563]" : "text-[#6b7280]")} data-contact-consent="">
+            {contact.consent_text || (contact.status === "subscribed" ? tt("Signed up for your emails") : tt("Not recorded"))}
+          </dd>
+          {customer?.location ? (
             <>
-              <dt className="text-[#6b7280]">{tt("Consent")}</dt>
-              <dd className="break-words text-[#4b5563]">{contact.consent_text}</dd>
+              <dt className="text-[#6b7280]">{tt("Location")}</dt>
+              <dd className="min-w-0 break-words text-[#1a1a2e]" data-contact-location="">{placeOf(customer.location)}</dd>
             </>
           ) : null}
+          {customer && customer.tags.length > 0 ? (
+            <>
+              <dt className="text-[#6b7280]">{tt("Tags")}</dt>
+              <dd className="flex min-w-0 flex-wrap gap-1" data-contact-tags="">
+                {customer.tags.map((t) => (
+                  <span key={t} className="rounded-md bg-[#f1f2f4] px-1.5 py-0.5 text-[12px] text-[#374151]">
+                    {t}
+                  </span>
+                ))}
+              </dd>
+            </>
+          ) : null}
+        </dl>
+      </section>
+
+      {/* What they bought here: the three figures Shopify puts on a customer, in a fixed height so the card does not grow when they come. */}
+      <section className={cn(card, "min-w-0 px-4 pb-4 pt-3.5 lg:col-start-2")} data-contact-orders="">
+        <h2 className="text-[14px] font-semibold text-[#1a1a2e]">{tt("Purchases")}</h2>
+        <dl className="mt-3 grid grid-cols-3 gap-3">
+          {[
+            { label: tt("Orders"), value: customer === undefined ? null : (customer?.orders ?? 0).toLocaleString(appLocale()) },
+            { label: tt("Total spent"), value: customer === undefined ? null : moneyOf(customer?.spent ?? []) },
+            { label: tt("Last order"), value: customer === undefined ? null : customer?.lastOrderAt ? day(customer.lastOrderAt) : "–" },
+          ].map((f) => (
+            <div key={f.label} className="min-w-0">
+              <dt className="truncate text-[12px] text-[#6b7280]">{f.label}</dt>
+              <dd className="mt-0.5 flex h-6 items-center text-[15px] font-semibold tabular-nums text-[#1a1a2e]">
+                {f.value === null ? <span aria-hidden className="h-3.5 w-12 rounded-full bg-[#f1f2f4]" /> : <span className="truncate">{f.value}</span>}
+              </dd>
+            </div>
+          ))}
         </dl>
       </section>
     </div>

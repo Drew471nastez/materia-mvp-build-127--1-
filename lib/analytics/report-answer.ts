@@ -30,6 +30,7 @@ import {
   readDownloads,
   readOrders,
   readSubscribers,
+  ratesFrom,
   rpc,
   startingAt,
   withColumns,
@@ -242,7 +243,8 @@ export async function allTimeOf(admin: Admin, creatorId: string) {
       )),
     ),
   )
-  const rows = (await inStoreCurrency(admin, creatorId, read, storeCurrency)).rows
+  /* The day rates through the same client as the orders (report-read ratesFrom), as the period's figures read them. */
+  const rows = (await inStoreCurrency(admin, creatorId, read, storeCurrency, { rates: ratesFrom(admin) })).rows
   const sales = groupOrders(rows).filter(isSale)
   return { orders: sales.length, salesCents: sales.reduce((sum, o) => sum + moneyOf(o).net, 0) }
 }

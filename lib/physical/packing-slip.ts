@@ -111,8 +111,8 @@ export function slipLines(order: SlipOrder, pick: { shipmentId?: string | null; 
     sku: l.sku,
     imageUrl: l.imageUrl,
     quantity,
-    /* A picture the buyer sent, by its file name (lib/cart-uploads): the picture itself is on the order page. */
-    properties: Object.entries(l.properties ?? {}).filter(([k, v]) => k.trim() && String(v).trim()).map(([k, v]): [string, string] => [k, propertyText(String(v))]),
+    /* A picture the buyer sent, by its file name (lib/cart-uploads): the picture itself is on the order page. A theme's own note ("_sl_group", a name starting with "_") is the store's, never printed for the parcel, as Shopify's slips leave it out. */
+    properties: Object.entries(l.properties ?? {}).filter(([k, v]) => k.trim() && !k.trim().startsWith("_") && String(v).trim()).map(([k, v]): [string, string] => [k, propertyText(String(v))]),
     unitCents: typeof l.unitCents === "number" && Number.isFinite(l.unitCents) ? l.unitCents : null,
   })
   const shipment = pick.shipmentId ? order.shipments.find((s) => s.id === pick.shipmentId) : null

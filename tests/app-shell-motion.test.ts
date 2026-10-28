@@ -385,7 +385,7 @@ section("Pages drawn over the whole shell")
   const newLayout = code("app/app/products/new/layout.tsx")
   const idLayout = code("app/app/products/[id]/layout.tsx")
   check("the plans page and both editor addresses use the one shared layer; the editor keeps the pill, its bar clears the status bar itself, and it is a layer on a phone only",
-    /<PageLayer inset="white">/.test(upgrade) && /<PageLayer pill inset="bar" phoneOnly>/.test(newLayout) && /<PageLayer pill inset="bar" phoneOnly>/.test(idLayout))
+    /<PageLayer inset="white">/.test(upgrade) && /* Changed on purpose (round 41): the product editor's layers ask to move. */ /<PageLayer pill inset="bar" phoneOnly moves>/.test(newLayout) && /<PageLayer pill inset="bar" phoneOnly moves>/.test(idLayout))
   const layer = code("components/app/page-layer.tsx")
   check("the layer is the whole window, between the header and the pill, and pads itself under the status bar",
     /"fixed inset-0 z-\[52\] flex flex-col bg-\[#f8f9fa\]"/.test(layer) && /"pt-\[env\(safe-area-inset-top,0px\)\]"/.test(layer)
@@ -434,10 +434,11 @@ section("Pages drawn over the whole shell")
   */
   check("where there are no view transitions the layer moves itself, both ways, on transform and on the same numbers",
     /const canViewTransition = \(\) =>\s*typeof \(document as WithViewTransitions\)\.startViewTransition === "function" && !!ReactViewTransition/.test(layer)
-      && /else if \(layerMotionOn\(\) && !canViewTransition\(\)\) raiseByHand\(navigate\)/.test(layer)
+      /* Changed on purpose (round 41): the press says whether the layer it opens moves. */
+      && /else if \(layerMotionOn\(LAYER_MOVES \|\| moves\) && !canViewTransition\(\)\) raiseByHand\(navigate\)/.test(layer)
       /* Changed on purpose: the way back is played by the layer in every engine now (dropAtCommit), not only where there are no view transitions, and it fades a little as it goes down (LAYER_LEAVE_FADE). */
-      && /if \(!dropAtCommit\(\)\) markReactMotion\("leave"\)/.test(layer)
-      && /if \(!markReactMotion\("enter"\)\) riseByHand\(box\.current\)/.test(layer)
+      && /if \(!dropAtCommit\(\)\) markReactMotion\("leave", asked\)/.test(layer)
+      && /if \(!markReactMotion\("enter", asked\)\) riseByHand\(box\.current\)/.test(layer)
       && /\[\{ transform: "translateY\(100%\)" \}, \{ transform: "translateY\(0\)" \}\]\s*: \[\{ transform: "translateY\(0\)", opacity: 1 \}, \{ transform: "translateY\(100%\)", opacity: LAYER_LEAVE_FADE \}\]/.test(layer)
       && /export const LAYER_LEAVE_FADE = 0\.85/.test(layer)
       && /duration: ms, easing: LAYER_MOTION_EASE/.test(layer)

@@ -67,7 +67,7 @@ import Link from "next/link"
 import { AppLink } from "@/components/app/app-link"
 import { isPlainClick, prefetchAppPage, sameStageFrame, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { connectionFacts, readAheadAllowed } from "@/lib/communities/client/place-cache"
-import { ArrowLeft, Copy, ExternalLink, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, ExternalLink, MoreHorizontal, Share } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { iconButton } from "@/app/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
@@ -80,6 +80,7 @@ import { OWN_SCREEN_ATTR } from "./page-editor/screen"
 import { tt } from "@/lib/i18n/text"
 import { appLocale } from "@/lib/i18n/format"
 import { communitiesReturn } from "./list-return"
+import { shareCommunity } from "./share-link"
 
 /*
   NO ARRIVAL (round 37). A section used to arrive from 55% and 3px lower over 150ms. Filmed, that was a dip in every
@@ -221,6 +222,7 @@ export function SectionSeed({ id, stamp = "", children }: { id: AdminSection; st
 
 function usePublish(head: CommunityHead) {
   const router = useRouter()
+  const toast = useToast()
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const can = head.status === "draft" && !head.archived && !head.suspended && head.can.manage_settings === true
@@ -230,6 +232,8 @@ function usePublish(head: CommunityHead) {
     const res = await send(`/api/app/community/${head.id}`, "PATCH", { publish: true })
     setBusy(false)
     if (!res.ok) return setError(errorText(res.data.error, tt("It could not be published. Try again.")))
+    /* Said at once: the badge only turns once the refresh is back. */
+    toast(tt("Published"))
     router.refresh()
   }
   return { can, busy, error, publish }
@@ -241,18 +245,28 @@ function CommunityBar({ head }: { head: CommunityHead }) {
   const pub = usePublish(head)
   const viewable = head.status === "published" || head.can.manage_settings === true
   const pageUrl = `/community/${head.slug}`
+  /*
+    Share as the list's card does (./share-link): storelib.com's address (only that one opens the app), the share sheet
+    on a phone, and only once it is published: a draft's link is a 404 to everyone else. It copied the address of the
+    host the admin was open on, and with no clipboard (an older webview) it threw and said nothing.
+  */
+  const shareable = communityState(head) === "published"
   const menu: ActionMenuItem[] = [
     ...(viewable ? [{ label: tt("View page"), icon: <ExternalLink className="h-4 w-4" aria-hidden />, href: pageUrl, target: "_blank" as const }] : []),
-    {
-      label: tt("Copy link"),
-      icon: <Copy className="h-4 w-4" aria-hidden />,
-      onClick: () => {
-        void navigator.clipboard?.writeText(`${window.location.origin}${pageUrl}`).then(
-          () => toast(tt("Link copied")),
-          () => toast(tt("The link could not be copied")),
-        )
-      },
-    },
+    ...(shareable
+      ? [
+          {
+            label: tt("Share"),
+            icon: <Share className="h-4 w-4" aria-hidden />,
+            onClick: () => {
+              void shareCommunity({ name: head.name, tagline: head.tagline, slug: head.slug }).then((done) => {
+                if (done === "copied") toast(tt("Link copied"))
+                else if (done === "failed") toast(tt("The link could not be copied."))
+              })
+            },
+          },
+        ]
+      : []),
   ]
   return (
     <div data-community-bar="" className="grid min-h-[52px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 py-1.5 sm:min-h-14 sm:gap-x-3">

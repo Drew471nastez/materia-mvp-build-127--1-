@@ -14,13 +14,18 @@
  *            a fade is a flash), the card tinted
  *   honest   after the way back, the entry is the list's own (Navigation API index), so the browser's Back leaves it
  *
+ * BASE=<git ref> measures the list, the shell and the way back as they were at that commit (a before and after).
+ * AUDIT=1 opens every section instead (and every Settings panel) and reports, per section: errors in the console,
+ * anything wider than the window (a sideways scroll of the page), boxes cut off at the right edge, and presses under
+ * 32px on a phone. SHOTS=dir keeps a screenshot of each.
  * NONAV=1 measures an engine without the Navigation API (WebKit before 26.2): one back, then the list put up in place.
  *
  *   node scripts/check-community-roundtrip.mjs
  *   SIZES=390 NONAV=1 node scripts/check-community-roundtrip.mjs
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
+import { execFileSync } from "node:child_process"
 import puppeteer from "puppeteer-core"
 import { appCss, interFaces } from "./probe-css.mjs"
 
@@ -51,8 +56,8 @@ const ahead = new Set()
 const withRouted = (s) => ({ ...(s || {}), __routed: (s && s.__routed) || (history.state && history.state.__routed) || state.routed })
 history.pushState = (s, u, url) => { push0(withRouted(s), u, url); set({ pathname: location.pathname, search: location.search }) }
 history.replaceState = (s, u, url) => { replace0(withRouted(s), u, url); set({ pathname: location.pathname, search: location.search }) }
-/* A back or forward is drawn from the router's cache at once, the page that entry had. */
-window.addEventListener("popstate", () => set({ pathname: location.pathname, search: location.search, routed: (history.state && history.state.__routed) || location.pathname + location.search }))
+/* A back or forward is drawn from the router's cache, the page that entry had, in a render of its own after the event (Next's is a transition), so every popstate listener has run first. */
+window.addEventListener("popstate", () => setTimeout(() => set({ pathname: location.pathname, search: location.search, routed: (history.state && history.state.__routed) || location.pathname + location.search }), 0))
 window.__probeRouter = { subscribe: (f) => (listeners.add(f), () => listeners.delete(f)), get: () => state }
 const wait = (h) => (ahead.has(h.split("?")[0]) ? 30 : DELAY)
 const router = {
@@ -96,7 +101,23 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     jsx: "automatic",
     define: { "process.env.NODE_ENV": '"production"' },
     alias: { "@": ".", "next/navigation": "./.community-roundtrip-probe/navigation.js", "next/link": "./.community-roundtrip-probe/link.jsx", "next/image": "./.community-roundtrip-probe/image.jsx" },
-    plugins: [{ name: "supabase-stub", setup(b) { b.onResolve({ filter: /lib\/supabase\/client$/ }, () => ({ path: join(stubs, "supabase-client.js") })) } }],
+    plugins: [
+      { name: "supabase-stub", setup(b) { b.onResolve({ filter: /lib\/supabase\/client$/ }, () => ({ path: join(stubs, "supabase-client.js") })) } },
+      ...(process.env.BASE
+        ? [{
+            name: "base",
+            setup(b) {
+              const files = ["components/community/creator/community-list.tsx", "components/community/creator/community-shell.tsx", "components/community/creator/delete-community.tsx", "components/app/list-return.ts", "lib/navigation/go-back.ts"]
+              b.onLoad({ filter: /\.(tsx?|ts)$/ }, (args) => {
+                const rel = args.path.slice(root.length + 1)
+                if (process.env.DEBUG && rel.includes("community-list")) console.log("BASE load", rel)
+                if (!files.includes(rel)) return undefined
+                return { contents: execFileSync("git", ["show", `${process.env.BASE}:${rel}`], { cwd: root, encoding: "utf8" }), loader: rel.endsWith("x") ? "tsx" : "ts", resolveDir: dirname(args.path) }
+              })
+            },
+          }]
+        : []),
+    ],
     banner: { js: "var process={env:{NODE_ENV:'production',NEXT_PUBLIC_SUPABASE_URL:'https://placeholder.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:'placeholder'}};" },
     loader: { ".css": "empty" },
     outfile: join(stubs, "app.js"),
@@ -120,14 +141,17 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         const shell = document.querySelector("[data-community-shell]")
         const outer = document.querySelector(".app-content-scroll")
         const op = (el) => (el ? Math.round(Number(getComputedStyle(el).opacity) * 100) / 100 : null)
-        const card = document.querySelector('[data-row="6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"]')
+        /* What the stage's landing moves: the boxes inside the page's scroller (app-stage playEntrance). */
+        const kids = [...(list || shell)?.children || []].filter((k) => k.getClientRects().length)
+        const kidsOp = kids.length ? Math.min(...kids.map(op)) : 1
+        const card = document.querySelector('[data-community-card="6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"]')
         window.__rec.frames.push({
           now,
           path: location.pathname,
           list: !!list,
           shell: !!shell,
           listTop: list ? list.scrollTop : null,
-          op: Math.min(op(outer) ?? 1, op(list) ?? 1, op(shell) ?? 1),
+          op: Math.min(op(outer) ?? 1, op(list) ?? 1, op(shell) ?? 1, kidsOp),
           tf: outer ? getComputedStyle(outer).transform : "",
           anims: document.getAnimations().filter((a) => a.playState === "running").length,
           tint: card ? getComputedStyle(card).backgroundColor : null,
@@ -139,6 +163,11 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   }
   const sizes = (process.env.SIZES || "1280,390").split(",")
   const out = []
+  if (process.env.AUDIT) {
+    for (const size of sizes) await audit(browser, ALL[size], size === "390", size, html)
+    await browser.close()
+    process.exit(failed ? 1 : 0)
+  }
   for (const size of sizes) {
     const vp = ALL[size]
     const phone = size === "390"
@@ -146,7 +175,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     await p.setViewport(vp)
     const errors = []
     p.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
-    p.on("console", (m) => m.type() === "error" && errors.push(`console: ${m.text().slice(0, 300)}`))
+    /* The probe's own page cannot load the built fonts from disk: not the app's. */
+    p.on("console", (m) => m.type() === "error" && !/Not allowed to load local resource/.test(m.text()) && errors.push(`console: ${m.text().slice(0, 300)}`))
     await p.setRequestInterception(true)
     p.on("request", (r) => {
       const url = r.url()
@@ -166,7 +196,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     /* The list scrolled so the last card is in view. */
     const scrolledTo = await p.evaluate(() => {
       const list = document.querySelector("[data-community-list]")
-      const card = document.querySelector('[data-row="6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"]')
+      const card = document.querySelector('[data-community-card="6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"]')
       list.scrollTop = card.offsetTop - 120
       list.dispatchEvent(new Event("scroll"))
       return list.scrollTop
@@ -176,6 +206,13 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const c = await p.evaluate((sel) => {
         const el = document.querySelector(sel)
         if (!el) return null
+        /* A tab out of the strip's view is swiped into it first, as a finger would. */
+        const strip = el.closest("[data-section-tabs]")
+        if (strip) {
+          const tb = el.getBoundingClientRect()
+          const sb = strip.getBoundingClientRect()
+          if (tb.left < sb.left + 8 || tb.right > sb.right - 8) strip.scrollLeft += tb.left - sb.left - (sb.width - tb.width) / 2
+        }
         const b = el.getBoundingClientRect()
         return { x: b.left + b.width / 2, y: b.top + Math.min(b.height / 2, 40) }
       }, sel)
@@ -200,10 +237,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       })
     }
     /* IN */
-    const inF = await film(() => tap('[data-row="6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"] [data-card-name]'), 900)
+    const inF = await film(() => tap('[data-community-card="6f1c2b9e-1d4f-4c55-9a0b-3f1e2d4c5b6a"] [data-card-name]'), 900)
     const firstShell = inF.findIndex((f) => f.shell)
     const inBlank = inF.filter((f) => !f.list && !f.shell).length
-    const inOps = inF.slice(firstShell, firstShell + 12).map((f) => f.op)
+    const inOps = inF.slice(firstShell, firstShell + 14).map((f) => f.op)
     const afterIn = await nav()
     /* TABS */
     await tap('[data-tab="members"]')
@@ -250,3 +287,84 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   rmSync(stubs, { recursive: true, force: true })
 }
 process.exit(failed ? 1 : 0)
+
+/* ── AUDIT=1: every section at this size ── */
+async function audit(browser, vp, phone, size, html) {
+  const p = await browser.newPage()
+  await p.setViewport(vp)
+  const errors = []
+  p.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
+  p.on("console", (m) => m.type() === "error" && !/Not allowed to load local resource/.test(m.text()) && errors.push(`console: ${m.text().slice(0, 300)}`))
+  await p.setRequestInterception(true)
+  p.on("request", (r) => {
+    const url = r.url()
+    if (url.startsWith(`${ORIGIN}/api/`)) return void setTimeout(() => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ rows: [], next: null, capped: false, words: [], ready: true, domains: [], communities: [] }) }).catch(() => {}), 120)
+    if (url.startsWith(`${ORIGIN}/`)) return r.respond({ status: 200, contentType: "text/html", body: html })
+    if (url.startsWith("data:")) return r.continue()
+    return r.respond({ status: 204, body: "" })
+  })
+  await p.goto(`${ORIGIN}/app/community/${SLUG}`, { waitUntil: "load" })
+  await p.waitForSelector("[data-community-shell]")
+  await sleep(900)
+  const tabs = await p.$$eval("[data-tab]", (els) => els.map((e) => e.getAttribute("data-tab")).filter((t) => t !== "page"))
+  const shots = process.env.SHOTS
+  if (shots) mkdirSync(shots, { recursive: true })
+  const measure = (phone) =>
+    p.evaluate((phone) => {
+      const vw = document.documentElement.clientWidth
+      const pane = document.querySelector("[data-community-shell]")
+      const screen = [...pane.querySelectorAll("[data-section-screen]")].find((el) => !el.hidden && el.getClientRects().length)
+      /* Inside a box that scrolls sideways on purpose (the row of tabs, a wide table): not cut off. */
+      const scrollsX = (el) => {
+        for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+          const ox = getComputedStyle(a).overflowX
+          if ((ox === "auto" || ox === "scroll") && a.scrollWidth > a.clientWidth + 1) return true
+          if (ox === "hidden" || ox === "clip") return a !== pane
+        }
+        return false
+      }
+      const who = (el) => `${el.nodeName.toLowerCase()}${[...el.attributes].filter((a) => a.name.startsWith("data-") || a.name === "aria-label").slice(0, 2).map((a) => `[${a.name}${a.value ? `=${a.value.slice(0, 24)}` : ""}]`).join("")} "${(el.textContent || "").trim().slice(0, 30)}"`
+      const cut = []
+      const small = []
+      for (const el of screen ? screen.querySelectorAll("*") : []) {
+        const b = el.getBoundingClientRect()
+        if (!b.width || !b.height) continue
+        const cs = getComputedStyle(el)
+        if (cs.visibility === "hidden" || cs.position === "fixed") continue
+        if (b.right > vw + 1 && !scrollsX(el)) cut.push(`${who(el)} right ${Math.round(b.right)}`)
+        if (phone && (el.matches("button, a[href], [role=button], input[type=checkbox], select")) && (b.height < 32 || b.width < 32)) {
+          /* A press made bigger by its ::after (the app's 44px rule) counts as big enough. */
+          const after = getComputedStyle(el, "::after")
+          const grown = after.content !== "none" && after.position === "absolute"
+          if (!grown && !el.closest("p, li > span") ) small.push(`${who(el)} ${Math.round(b.width)}x${Math.round(b.height)}`)
+        }
+      }
+      return { wide: pane.scrollWidth > pane.clientWidth + 1 ? pane.scrollWidth : 0, cut: [...new Set(cut)].slice(0, 8), small: [...new Set(small)].slice(0, 8), height: screen ? Math.round(screen.getBoundingClientRect().height) : 0, text: screen ? (screen.innerText || "").trim().slice(0, 80).replace(/\s+/g, " ") : "" }
+    }, phone)
+  const rows = []
+  for (const id of tabs) {
+    await p.evaluate((id) => {
+      const el = document.querySelector(`[data-tab="${id}"]`)
+      const strip = el.closest("[data-section-tabs]")
+      const tb = el.getBoundingClientRect()
+      const sb = strip.getBoundingClientRect()
+      if (tb.left < sb.left + 8 || tb.right > sb.right - 8) strip.scrollLeft += tb.left - sb.left - (sb.width - tb.width) / 2
+    }, id)
+    await sleep(150)
+    const c = await p.$eval(`[data-tab="${id}"]`, (el) => { const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 } })
+    const before = errors.length
+    if (phone) await p.touchscreen.tap(c.x, c.y)
+    else await p.mouse.click(c.x, c.y)
+    await sleep(1000)
+    const m = await measure(phone)
+    rows.push({ id, ...m, errors: errors.slice(before) })
+    if (shots) await p.screenshot({ path: join(shots, `${size}-${id}.png`), fullPage: false })
+  }
+  for (const r of rows) {
+    const bad = r.wide || r.cut.length || r.errors.length
+    if (bad) failed = true
+    console.log(`${size} ${r.id.padEnd(11)} ${bad ? "CHECK" : "ok   "} wide ${r.wide} cut ${r.cut.length} small ${r.small.length} errors ${r.errors.length}`)
+    for (const x of [...r.cut, ...r.small.map((s) => `small: ${s}`), ...r.errors]) console.log(`    ${x}`)
+  }
+  await p.close()
+}

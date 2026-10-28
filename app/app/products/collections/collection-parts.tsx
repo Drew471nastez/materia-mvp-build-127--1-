@@ -4,13 +4,11 @@
  * ===========================================================================
  *  PRODUCTS › COLLECTIONS: THE PIECES THE LIST AND THE EDITOR SHARE
  * ===========================================================================
- * The words a collection is described with, its cover, and the phone
- * breakpoint the editor's sheet opens at. Everything here is drawn the way
- * the products list draws a product (../products-client.tsx Thumb), so a
+ * The words a collection is described with and its cover. Everything here
+ * is drawn the way the products list draws a product (../products-client.tsx Thumb), so a
  * collection sits beside its products as one of them.
  */
 
-import * as React from "react"
 import { cn } from "@/lib/utils"
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { readRules, type CollectionRule, type RuleField, type RuleOp, type RuleProduct } from "@/lib/physical/collections"
@@ -122,25 +120,6 @@ export function ruleProduct(p: CollectionProduct): RuleProduct {
 export const finishedRules = (rules: CollectionRule[]) => readRules(rules)
 
 /** The editor's phone breakpoint, the app's confirm sheet's (../new/confirm-sheet.tsx). */
-const PHONE = "(max-width: 639px)"
-
-/**
- * Read on the first render, not after it: the editor is only ever mounted by
- * a press in the browser, and a first frame that guessed "computer" would
- * draw the dialog on a phone for one frame before the sheet.
- */
-export function usePhone(): boolean {
-  const [phone, setPhone] = React.useState(() => typeof window !== "undefined" && !!window.matchMedia?.(PHONE).matches)
-  React.useEffect(() => {
-    const mql = window.matchMedia(PHONE)
-    const check = () => setPhone(mql.matches)
-    check()
-    mql.addEventListener("change", check)
-    return () => mql.removeEventListener("change", check)
-  }, [])
-  return phone
-}
-
 /* ─── Pictures ─────────────────────────────────────────────────────────── */
 
 export type CoverSize = "phone" | "table" | "pick"

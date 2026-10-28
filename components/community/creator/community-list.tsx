@@ -54,6 +54,7 @@ import { tintReturnedRow } from "@/components/app/list-return"
 import { LAYER_LEAVE_MS } from "@/components/app/page-layer"
 import { whenIdle } from "@/app/app/products/list-return"
 import { communitiesReturn } from "./list-return"
+import { shareCommunity } from "./share-link"
 
 /** New community: the Products page's violet New product, at the bar's 32px (35 from 1024px) with a 44px press on a phone. */
 const NEW_LOOK = cn(accentDepth, "relative h-8 gap-1.5 rounded-lg px-3 text-[13px] max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-[''] lg:h-[35px] lg:px-[13px] lg:text-[14.5px]")
@@ -68,46 +69,6 @@ const stateOf = (r: CommunityListRow): CommunityState => communityState(r)
 function shortDate(iso: string): string {
   const t = Date.parse(iso)
   return Number.isFinite(t) ? new Intl.DateTimeFormat(appLocale(), { month: "short", day: "numeric", year: "numeric" }).format(t) : ""
-}
-
-/**
- * The address a card shares and opens: storelib.com, always. Only a
- * storelib.com address opens the Storelib app (lib/platform/app-links.ts),
- * so a share from a creator's own domain or a preview host would hand out a
- * link that can never do that.
- */
-function publicUrl(slug: string): string {
-  return `https://storelib.com/community/${slug}`
-}
-
-/** The system share sheet where there is one on a touch screen, otherwise the address copied. */
-async function shareCommunity(r: CommunityListRow): Promise<"shared" | "copied" | "failed"> {
-  const url = publicUrl(r.slug)
-  const touch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
-  if (touch && typeof navigator.share === "function") {
-    try {
-      await navigator.share({ title: r.name, text: r.tagline ?? undefined, url })
-      return "shared"
-    } catch (e) {
-      if ((e as { name?: string })?.name === "AbortError") return "shared"
-    }
-  }
-  try {
-    await navigator.clipboard.writeText(url)
-    return "copied"
-  } catch {
-    /* An older webview, or a page without clipboard permission: a hidden field and the old command. */
-    const ta = document.createElement("textarea")
-    ta.value = url
-    ta.setAttribute("readonly", "")
-    ta.style.position = "fixed"
-    ta.style.opacity = "0"
-    document.body.appendChild(ta)
-    ta.select()
-    const ok = document.execCommand("copy")
-    ta.remove()
-    return ok ? "copied" : "failed"
-  }
 }
 
 /** `canCreate`: false for a store's team member (lib/communities/server/team.ts), who runs the store's communities but makes none. */
@@ -200,7 +161,7 @@ function List({ rows: given, available, limit, canCreate = true }: { rows: Commu
 
   const share = React.useCallback(
     async (r: CommunityListRow) => {
-      const done = await shareCommunity(r)
+      const done = await shareCommunity({ name: r.name, tagline: r.tagline, slug: r.slug })
       if (done === "copied") toast(tt("Link copied"))
       else if (done === "failed") toast(tt("The link could not be copied."))
     },
@@ -291,13 +252,13 @@ const CommunityCard = React.memo(function CommunityCard({
   const items = React.useMemo<ActionMenuItem[]>(() => {
     const out: ActionMenuItem[] = [{ label: tt("Open"), icon: <ExternalLink className="h-4 w-4" />, href: `/community/${r.slug}`, target: "_blank" }]
     /* Round 33: Edit opens the community's page in its own section; Settings is a tab beside it. */
-    if (r.can.edit) out.push({ label: tt("Edit page"), icon: <Pencil className="h-4 w-4" />, href: `${base}/page` })
+    if (r.can.edit) out.push({ label: tt("Edit page"), icon: <Pencil className="h-4 w-4" />, onClick: () => onOpen(`${base}/page`) })
     /* Round 26: a draft's link is a 404 to everyone else, and an archived one or one being deleted takes nobody new. */
     if (state === "published") out.push({ label: tt("Share"), icon: <Share className="h-4 w-4" />, onClick: () => onShare(r) })
-    if (r.can.analytics) out.push({ label: tt("Analytics"), icon: <BarChart3 className="h-4 w-4" />, href: `${base}/analytics` })
+    if (r.can.analytics) out.push({ label: tt("Analytics"), icon: <BarChart3 className="h-4 w-4" />, onClick: () => onOpen(`${base}/analytics`) })
     if (r.can.duplicate) out.push({ label: tt("Duplicate settings"), icon: <Copy className="h-4 w-4" />, onClick: () => onDuplicate(r), separatorBefore: true })
     /* Round 26: one being deleted comes back only through Keep, on the card that says when it goes (Settings, Publish and archive). */
-    if (r.deleting?.canKeep) out.push({ label: tt("Keep the community"), icon: <RotateCcw className="h-4 w-4" />, href: `${base}/settings?tab=advanced`, separatorBefore: !r.can.duplicate })
+    if (r.deleting?.canKeep) out.push({ label: tt("Keep the community"), icon: <RotateCcw className="h-4 w-4" />, onClick: () => onOpen(`${base}/settings?tab=advanced`), separatorBefore: !r.can.duplicate })
     else if (r.can.archive && state !== "suspended" && state !== "deleting")
       out.push(
         r.archived
@@ -305,7 +266,7 @@ const CommunityCard = React.memo(function CommunityCard({
           : { label: tt("Archive"), icon: <Archive className="h-4 w-4" />, onClick: () => onArchive(r), variant: "warning", separatorBefore: !r.can.duplicate },
       )
     return out
-  }, [r, base, state, onShare, onDuplicate, onArchive])
+  }, [r, base, state, onOpen, onShare, onDuplicate, onArchive])
   const line = r.deleting
     ? tt("Deleting on {date}", { date: shortDate(r.deleting.deleteAt) })
     : r.tagline?.trim() || (r.role !== "owner" ? tt("You are {value} here", { value: r.role === "admin" ? tt("an admin") : tt("a moderator") }) : r.priceLine) || ""
