@@ -43,7 +43,8 @@ import "server-only"
 
 import { unstable_cache } from "next/cache"
 import { siteSeo } from "@/lib/website-builder/site-seo-data"
-import { bannedCreatorIds } from "./bans"
+import { bannedCreatorIds, confirmedSpamUserIds } from "./bans"
+import { onePageRowListable, type OnePagePresenceRow } from "@/lib/onepage/page-presence"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { STORELIB_CATEGORIES, categoryToSlug } from "@/lib/blog-categories"
 import { CATEGORIES } from "@/lib/marketplace/categories"
@@ -63,6 +64,7 @@ import {
   creatorIndexable,
   lastmodOf,
   newestOf,
+  onePageIndexable,
   productIndexable,
   siteOrigin,
   websiteIndexable,
@@ -243,8 +245,10 @@ export function parseSitemapName(
  */
 export async function communitiesSitemap(chunk: number): Promise<SitemapEntry[]> {
   if (!(await communitiesEnabled())) return []
-  const rows = await sitemapCommunities(chunk * SITEMAP_CHUNK, SITEMAP_CHUNK, createAdminClient())
-  return rows.map((r) => ({ url: `${BASE}/community/${r.slug}`, lastModified: lastmodOf(r.updated_at), images: [r.cover_url] }))
+  const admin = createAdminClient()
+  const [rows, banned] = await Promise.all([sitemapCommunities(chunk * SITEMAP_CHUNK, SITEMAP_CHUNK, admin), bannedCreatorIds(admin)])
+  /* Round 41: a banned creator's community is not listed, as their pages are not. */
+  return rows.filter((r) => !r.creator_id || !banned.has(r.creator_id)).map((r) => ({ url: `${BASE}/community/${r.slug}`, lastModified: lastmodOf(r.updated_at), images: [r.cover_url] }))
 }
 
 /* ── Pages ─────────────────────────────────────────────────────────────── */
@@ -374,10 +378,11 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
     SITEMAP_CHUNK,
     "products",
   )
-  const [usernameByUserId, banned, ownDomain] = await Promise.all([
+  const [usernameByUserId, banned, ownDomain, spam] = await Promise.all([
     usernames(admin, rows.map(userIdOf).filter(Boolean) as string[]),
     bannedCreatorIds(admin),
     liveCreatorPageDomains(admin, [...new Set(rows.map((r) => r.creator_id).filter(Boolean) as string[])]),
+    confirmedSpamUserIds(admin),
   ])
   if (rows.length > 0 && usernameByUserId.size === 0) {
     /* Every product would fall back to the old address. That is the failure
@@ -389,7 +394,7 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
     const userId = userIdOf(row)
     const username = userId ? usernameByUserId.get(userId) : undefined
     /* Banned: the ban took it down, and republishing it does not put it back here. */
-    if (!productIndexable(row, username) || (row.creator_id && banned.has(row.creator_id))) continue
+    if (!productIndexable(row, username, userId && spam.has(userId) ? "confirmed" : null) || (row.creator_id && banned.has(row.creator_id))) continue
     /* Canonical on its creator page's own domain, and listed by that domain's sitemap (lib/seo/creator-domain.ts). */
     if (row.creator_id && ownDomain.has(row.creator_id)) continue
     entries.push({
@@ -406,9 +411,11 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
 
 /**
  * SELLER STOREFRONTS, ONLY THE ONES THAT SELL SOMETHING. An account with
- * nothing published has no storefront worth crawling, which is true of a
- * link farm and of the seller who signed up and never finished. The rule is
- * `deservesIndexing`, the same one app/(marketing)/u/[username] reads for its
+ * nothing published has an empty shop, which is not a page worth a search
+ * result. Any published product counts, a physical one too (round 41: this
+ * file counted only the others while the page's robots tag counted all, so
+ * a seller of physical goods said index and was never listed). The rule is
+ * creatorIndexable, the one app/(marketing)/u/[username] reads for its
  * robots tag. A creator page's date is its newest published product's.
  */
 export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
@@ -417,11 +424,12 @@ export async function creatorsSitemap(chunk: number): Promise<SitemapEntry[]> {
 
 /**
  * ONE FILE OF storelib.me's SITEMAP: the published OnePages of the same
- * chunk of creators, at storelib.me/<handle> (lib/onepage/address). Under
- * the same gate as the creator page they belong to, because a page of
- * outbound links is exactly what a link farm signs up for. storelib.com's
- * own files no longer list a OnePage: its address is on another host, and
- * storelib.me/sitemap.xml names these (app/sitemap/[name], proxy.ts).
+ * chunk of creators, at storelib.me/<handle> (lib/onepage/address). Round 41:
+ * every published OnePage that shows something and has no sensitive link,
+ * whether or not its owner sells anything, under the same rules its robots
+ * tag reads (onePageIndexable, lib/onepage/page-presence onePageRowListable).
+ * storelib.com's own files do not list a OnePage: its address is on another
+ * host, and storelib.me/sitemap.xml names these (app/sitemap/[name], proxy.ts).
  */
 export async function onePagesSitemap(chunk: number): Promise<SitemapEntry[]> {
   return (await creatorChunk(chunk)).onePages
@@ -435,6 +443,46 @@ export async function onePagesSitemapIndex(origin: string): Promise<SitemapEntry
   return Array.from({ length: chunks }, (_, i) => ({ url: `${origin}/sitemap/onepages-${i}.xml` }))
 }
 
+/** The rows of one chunk, for a test to drive the rule without a database. */
+export interface CreatorChunkRows {
+  creators: { id: string; user_id: string | null; cover_url?: string | null }[]
+  /** creator id → how many published products (any type) and the newest one's date */
+  products: Map<string, { n: number; at: string | null }>
+  sellers: Map<string, Seller>
+  /** creator id → its published OnePage's date, for a page that is listable (onePageRowListable) */
+  onePages: Map<string, string | null>
+  banned: Set<string>
+  ownDomain: Set<string>
+  /** user ids an operator confirmed as spam */
+  spam: Set<string>
+}
+
+/**
+ * The rule, pure: which creator pages and which OnePages a chunk lists.
+ * A banned creator, a confirmed spammer and a page canonical on its own
+ * domain list neither; a handle the spam score refuses lists neither.
+ */
+export function creatorChunkEntries(rows: CreatorChunkRows, onePageAddress: (handle: string) => string = onePageUrl): { creators: SitemapEntry[]; onePages: SitemapEntry[] } {
+  const creators: SitemapEntry[] = []
+  const onePages: SitemapEntry[] = []
+  for (const c of rows.creators) {
+    if (!c.user_id || rows.banned.has(c.id) || rows.ownDomain.has(c.id)) continue
+    const spamState = rows.spam.has(c.user_id) ? ("confirmed" as const) : null
+    const seller = rows.sellers.get(c.user_id)
+    const handle = seller?.username
+    if (!handle) continue
+    const sold = rows.products.get(c.id)
+    if (sold && creatorIndexable({ publishedProducts: sold.n, handle, spamState })) {
+      /* The face and the cover the page opens with. */
+      creators.push({ url: `${BASE}/${handle}`, lastModified: sold.at, images: [seller?.avatar_url, c.cover_url] })
+    }
+    if (rows.onePages.has(c.id) && onePageIndexable({ status: "published", handle, spamState })) {
+      onePages.push({ url: onePageAddress(handle), lastModified: rows.onePages.get(c.id) })
+    }
+  }
+  return { creators, onePages }
+}
+
 async function creatorChunk(chunk: number): Promise<{ creators: SitemapEntry[]; onePages: SitemapEntry[] }> {
   const admin = createAdminClient()
   const creators = await readRange<{ id: string; user_id: string | null; cover_url?: string | null }>(
@@ -443,7 +491,7 @@ async function creatorChunk(chunk: number): Promise<{ creators: SitemapEntry[]; 
     SITEMAP_CHUNK,
     "creators",
   )
-  const newestProduct = new Map<string, { n: number; at: string | null }>()
+  const products = new Map<string, { n: number; at: string | null }>()
   const ids = creators.map((c) => c.id)
   const batches = await eachBatch(ids, (batch) =>
     readRange<{ creator_id: string; updated_at: string | null }>(
@@ -453,7 +501,6 @@ async function creatorChunk(chunk: number): Promise<{ creators: SitemapEntry[]; 
           .select("creator_id, updated_at")
           .in("creator_id", batch)
           .eq("status", "published")
-          .neq("type", "physical")
           .order("id", { ascending: true })
           .range(a, b),
       0,
@@ -462,44 +509,31 @@ async function creatorChunk(chunk: number): Promise<{ creators: SitemapEntry[]; 
     ),
   )
   for (const p of batches.flat()) {
-    const seen = newestProduct.get(p.creator_id) ?? { n: 0, at: null }
-    newestProduct.set(p.creator_id, { n: seen.n + 1, at: newestOf(seen.at, p.updated_at) })
+    const seen = products.get(p.creator_id) ?? { n: 0, at: null }
+    products.set(p.creator_id, { n: seen.n + 1, at: newestOf(seen.at, p.updated_at) })
   }
-  const [banned, ownDomain] = await Promise.all([bannedCreatorIds(admin), liveCreatorPageDomains(admin, ids)])
-  /* A creator page on its own live domain is canonical there, and that domain's
-     /sitemap.xml lists it, its products and its OnePage (lib/seo/creator-domain.ts). */
-  const selling = creators.filter((c) => newestProduct.has(c.id) && c.user_id && !banned.has(c.id) && !ownDomain.has(c.id))
-  const sellerByUserId = await sellers(admin, selling.map((c) => c.user_id as string))
-  const onePages = await publishedOnePages(admin, selling.map((c) => c.id))
-  const entries: SitemapEntry[] = []
-  const pages: SitemapEntry[] = []
-  for (const c of selling) {
-    const seller = sellerByUserId.get(c.user_id as string)
-    const profile = { username: seller?.username, ...newestProduct.get(c.id)! }
-    // The spam verdict as well as the publication gate: a farm that files
-    // one decoy listing to buy its way in still does not get in.
-    if (!profile.username || !creatorIndexable({ publishedProducts: profile.n, handle: profile.username })) continue
-    /* The face and the cover the page opens with. */
-    entries.push({ url: `${BASE}/${profile.username}`, lastModified: profile.at, images: [seller?.avatar_url, c.cover_url] })
-    /* Their published OnePage, under the same gate: a page of outbound
-       links is exactly what a link farm signs up for. */
-    if (onePages.has(c.id)) pages.push({ url: onePageUrl(profile.username), lastModified: onePages.get(c.id) })
-  }
-  return { creators: entries, onePages: pages }
+  const [banned, ownDomain, spam] = await Promise.all([bannedCreatorIds(admin), liveCreatorPageDomains(admin, ids), confirmedSpamUserIds(admin)])
+  const open = creators.filter((c) => c.user_id && !banned.has(c.id) && !ownDomain.has(c.id))
+  const [sellerByUserId, onePages] = await Promise.all([
+    sellers(admin, open.map((c) => c.user_id as string)),
+    publishedOnePages(admin, open.map((c) => c.id)),
+  ])
+  return creatorChunkEntries({ creators, products, sellers: sellerByUserId, onePages, banned, ownDomain, spam })
 }
 
-/** creator id → when their published OnePage last changed, for these creators. */
+/** creator id → when their published OnePage last changed, for these creators, when the page is one to list (onePageRowListable). */
 async function publishedOnePages(admin: Admin, creatorIds: string[]): Promise<Map<string, string | null>> {
   const out = new Map<string, string | null>()
+  const now = Date.now()
   /* Half a batch: each id is in the URL twice, once per column. */
   const found = await eachBatch(
     creatorIds,
     (batch) =>
-      readRange<{ creator_id: string | null; seller_id: string | null; updated_at: string | null }>(
+      readRange<{ creator_id: string | null; seller_id: string | null; updated_at: string | null } & OnePagePresenceRow>(
         (a, b) =>
           admin
             .from("onepages")
-            .select("creator_id, seller_id, updated_at")
+            .select("creator_id, seller_id, updated_at, bio, social_links, published_blocks, draft_blocks, published_profile, published_social_links")
             .eq("status", "published")
             .or(`creator_id.in.(${batch.join(",")}),seller_id.in.(${batch.join(",")})`)
             .order("id", { ascending: true })
@@ -511,6 +545,7 @@ async function publishedOnePages(admin: Admin, creatorIds: string[]): Promise<Ma
     IDS_PER_QUERY / 2,
   )
   for (const p of found.flat()) {
+    if (!onePageRowListable(p, now)) continue
     for (const id of [p.creator_id, p.seller_id]) if (id) out.set(id, newestOf(out.get(id), p.updated_at))
   }
   return out
@@ -639,7 +674,7 @@ export async function websitesSitemap(chunk: number): Promise<SitemapEntry[]> {
     SITEMAP_CHUNK,
     "websites",
   )
-  const banned = await bannedCreatorIds(admin)
+  const [banned, spam] = await Promise.all([bannedCreatorIds(admin), confirmedSpamUserIds(admin)])
   const open = installs.filter((i) => websiteIndexable(settingsOf(i)) && !banned.has(i.creator_id))
   const creatorIds = [...new Set(open.map((i) => i.creator_id))]
   /*
@@ -663,7 +698,8 @@ export async function websitesSitemap(chunk: number): Promise<SitemapEntry[]> {
     /* The name the site was given, else its creator's username: the host it is canonical at. */
     const handle = chosen.get(i.creator_id) ?? names.get(userOf.get(i.creator_id) ?? "")
     /* The site's own rule, word for word: its switch, and not a farm's handle (siteSeo reads the same). */
-    if (!handle || domains.has(i.creator_id) || !builtSiteIndexable(settingsOf(i), handle)) continue
+    const owner = userOf.get(i.creator_id)
+    if (!handle || domains.has(i.creator_id) || !builtSiteIndexable(settingsOf(i), handle, owner && spam.has(owner) ? "confirmed" : null)) continue
     entries.push({ url: `${siteOrigin({ handle, mainDomain: main })}/`, lastModified: newestOf(i.published_at, i.updated_at) })
   }
   return entries

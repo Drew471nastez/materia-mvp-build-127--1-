@@ -376,6 +376,8 @@ const SUITES = [
   "tests/onepage-share-image.test.ts",
   /* Round 40: the OnePage editor's link stats are Analytics' own figures, each social icon its own click, noindex for a page that shows nothing. */
   "tests/onepage-analytics-seo-r40.test.ts",
+  /* Round 41: every published OnePage, community and website indexed by one rule each, nofollow until an account sells, each website's sitemap, robots and its own icon on its own host. */
+  "tests/indexing-r41.test.ts",
   "tests/onepage-host.test.ts",
   "tests/memory-r12.test.ts",
   "tests/onepage-old-links.test.ts",

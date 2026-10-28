@@ -294,7 +294,8 @@ async function favicon() {
   check("both write through the editor's one writer, which carries an imported theme's copy along", /onChange=\{url => updateSetting\("favicon_url", url \?\? ""\)\}/.test(editor) && /ctx\.onSettingChange\("favicon_url", url \?\? ""\)/.test(code("components/website-builder/website-settings/general.tsx")) && /onSettingChange=\{updateSetting\}/.test(editor) && /faviconFollows\(prev as Record<string, unknown>, key, value\)/.test(editor))
   const general = code("components/website-builder/website-settings/general.tsx")
   check("Website settings' Favicon card: upload, drop, replace and remove, no browser tab drawn beside it", /layout="icon"/.test(general) && !/BrowserTabPreview/.test(general) && !/aside=/.test(general))
-  check("an imported theme's live page carries the site's icon", /icon: siteIconUrl\(settings as Record<string, unknown>\) \|\| undefined/.test(code("lib/website-builder/compat-site.ts")) && /withSiteIcon\(/.test(code("lib/storelib-theme/compat/site.ts")))
+  /* Changed on purpose (round 41): at the site's own host, /favicon.ico?v=… (lib/website-builder/site-favicon.ts). */
+  check("an imported theme's live page carries the site's icon", /icon: ownIconPath\(siteIconUrl\(settings as Record<string, unknown>\)\) \|\| undefined/.test(code("lib/website-builder/compat-site.ts")) && /withSiteIcon\(/.test(code("lib/storelib-theme/compat/site.ts")))
 }
 
 async function platformPrefetch() {

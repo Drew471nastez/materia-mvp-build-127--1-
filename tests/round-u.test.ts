@@ -110,7 +110,8 @@ async function main() {
 
   console.log("\nPhysical products stay off the marketplace\n")
   {
-    check("the sitemap, the seller's marketplace profile and More from this seller leave them out", /\.neq\("type", "physical"\)/.test(read("lib/seo/sitemaps.ts")) && (read("app/(marketing)/u/[username]/page.tsx").match(/\.neq\("type", "physical"\)/g) ?? []).length >= 2 && /\.neq\("type", "physical"\)/.test(read("lib/commerce/product-page-cache.ts")))
+    /* Changed on purpose (round 41): the creator page's robots count reads every product type, so a seller of physical goods is indexed; the products it lists still leave them out (one filter left on that page). */
+    check("the sitemap, the seller's marketplace profile and More from this seller leave them out", /\.neq\("type", "physical"\)/.test(read("lib/seo/sitemaps.ts")) && (read("app/(marketing)/u/[username]/page.tsx").match(/\.neq\("type", "physical"\)/g) ?? []).length >= 1 && /\.neq\("type", "physical"\)/.test(read("lib/commerce/product-page-cache.ts")))
   }
 
   console.log("\nHelp, the 404 and the header\n")

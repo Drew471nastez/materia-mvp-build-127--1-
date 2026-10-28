@@ -17,14 +17,14 @@ import { getLinksInternalPath, getMainDomain } from "@/lib/url-helpers"
 import { isOnePageHost, onePageUrl } from "@/lib/onepage/address"
 import { isResolvableOnePageName } from "@/lib/onepage/username"
 import { primaryHostFor } from "@/lib/custom-domains/store"
-import { onePageIndexable } from "@/lib/seo/indexing"
+import { onePageIndexable, pageRobots } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
 import { findPublishedOnePage, liveBlocksFor, onePageOwner, publishedOnePageSeo, publishedShape, resolveOnePage } from "@/lib/onepage/published-page"
 import { creatorPageUrl } from "@/lib/onepage/resolve-address"
 import { onePageMetadataFrom, resolveOnePageSeo } from "@/lib/onepage/seo"
 import { OnePageArrival } from "@/components/onepage/page-arrival"
-import { onePageShowsSomething, onePageSocialLinks } from "@/lib/onepage/page-presence"
+import { onePageSensitive, onePageShowsSomething, onePageSocialLinks } from "@/lib/onepage/page-presence"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -83,14 +83,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   /* The description names the page's products as the body draws them, read live (liveProducts). */
   const { seo, drawn } = await publishedOnePageSeo(onepage, owner, slug, { liveProducts: true })
 
-  /* The sitemap's rule, so a page it does not list does not ask to be listed.
-     Not listed means not indexed, and not followed: the links are the whole
-     page, and on a farm's page they are what it was made for. */
+  /* The sitemap's rule, so a page it does not list does not ask to be listed. */
   /* And a page that shows nothing past its name and photo (every block off or out of its schedule) is not listed either (lib/onepage/page-presence). */
-  const indexable = !owner.banned && onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle }) &&
-    onePageShowsSomething({ blocks: drawn.blocks, bio: drawn.bio, socialLinks: drawn.social_links })
+  /* Round 41: no product is needed, and a page with a link marked sensitive is not listed. */
+  const indexable = !owner.banned && onePageIndexable({ status: onepage.status, handle: owner.handle, spamState: owner.spamState }) &&
+    onePageShowsSomething({ blocks: drawn.blocks, bio: drawn.bio, socialLinks: drawn.social_links }) && !onePageSensitive({ blocks: drawn.blocks })
+  /* What a farm came for, the links' authority, waits until the account sells something or an operator clears it (lib/seo/indexing pageRobots). */
+  const { follow } = pageRobots({ indexable, publishedProducts: owner.publishedProducts, spamState: owner.spamState })
 
-  return onePageMetadataFrom(seo, { handle: owner.handle, indexable, icon: drawn.avatar_url }) as Metadata
+  return onePageMetadataFrom(seo, { handle: owner.handle, indexable, follow, icon: drawn.avatar_url }) as Metadata
 }
 
 export default async function PublicOnePageRoute({ params, searchParams }: Props) {
@@ -302,8 +303,9 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
   */
   const structured =
     owner.canonical &&
-    onePageIndexable({ status: onepage.status, publishedProducts: owner.publishedProducts, handle: owner.handle }) &&
-    onePageShowsSomething({ blocks: transformedOnepage.blocks, bio: transformedOnepage.bio, socialLinks: transformedOnepage.social_links })
+    onePageIndexable({ status: onepage.status, handle: owner.handle, spamState: owner.spamState }) &&
+    onePageShowsSomething({ blocks: transformedOnepage.blocks, bio: transformedOnepage.bio, socialLinks: transformedOnepage.social_links }) &&
+    !onePageSensitive({ blocks: transformedOnepage.blocks })
       ? jsonLdScript(
           profilePageJsonLd({
             url: owner.canonical,

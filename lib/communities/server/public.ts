@@ -943,7 +943,7 @@ export async function communityAddressForProduct(communityId: string, db: Db = a
  * domain, whose own sitemap names it (lib/custom-domains/community.ts), and
  * a sitemap may only name addresses on its own host.
  */
-export async function sitemapCommunities(offset: number, limit: number, db: Db = admin()): Promise<{ slug: string; updated_at: string | null; cover_url: string | null }[]> {
+export async function sitemapCommunities(offset: number, limit: number, db: Db = admin()): Promise<{ slug: string; updated_at: string | null; cover_url: string | null; creator_id: string | null }[]> {
   const found = await rows<{ id: string; creator_id: string | null; slug: string; updated_at: string | null; cover_url: string | null }>("sitemap communities", () =>
     db
       .from("communities")
@@ -958,7 +958,7 @@ export async function sitemapCommunities(offset: number, limit: number, db: Db =
       .range(offset, offset + limit - 1),
   )
   const [onOwnDomain, deleting] = await Promise.all([communitiesOnOwnDomain(db, found), communitiesDeleting(db, found)])
-  return found.filter((c) => !onOwnDomain.has(c.id) && !deleting.has(c.id)).map((c) => ({ slug: c.slug, updated_at: c.updated_at, cover_url: c.cover_url }))
+  return found.filter((c) => !onOwnDomain.has(c.id) && !deleting.has(c.id)).map((c) => ({ slug: c.slug, updated_at: c.updated_at, cover_url: c.cover_url, creator_id: c.creator_id }))
 }
 
 /** Which of these communities wait to be deleted (part 202, W1's community_deletions), read softly: before part 202, none. A scheduled deletion archives the community already; this holds whatever the status says. */

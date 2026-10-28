@@ -31,6 +31,7 @@ import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 import { skipsSessionRefresh } from "@/lib/auth/no-session-paths"
 import { CSP_REPORT_PATH, keepsCspReport } from "@/lib/security/csp"
 import { refusesSiteAction, SITE_ACTION_GUARD } from "@/lib/website-builder/site-action-guard"
+import { isSiteIconPath, SITE_ICON_PATH } from "@/lib/website-builder/site-favicon"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -1551,6 +1552,14 @@ async function routeRequest(request: NextRequest) {
     }
   }
 
+  /*
+    STORELIB'S OWN /favicon.ico, passed on as it was before the matcher let it
+    in: no session, no lookup. A website's host answers its own, below.
+  */
+  if (pathname === SITE_ICON_PATH && (bareHost === MAIN_DOMAIN || bareHost === "www." + MAIN_DOMAIN || bareHost.startsWith("localhost"))) {
+    return NextResponse.next()
+  }
+
   /**
    * ═══════════════════════════════════════════════════════════════════════════
    *  AN API CALL IS NOT A PAGE VIEW, AND MUST NOT BE REDIRECTED FOR TIDINESS
@@ -1714,6 +1723,16 @@ async function routeRequest(request: NextRequest) {
       if (pathname.startsWith("/review/")) return NextResponse.next()
       /* A buyer's conversation with the shop about an order: its own page, on the website's host, where its emails send the buyer (app/order-help, lib/support/cases-server.ts). */
       if (pathname.startsWith("/order-help/")) return NextResponse.next()
+      /*
+        THE WEBSITE'S OWN ICON (round 41): /favicon.ico, /apple-touch-icon and
+        /site.webmanifest are the website's (app/(site)/w/[username]), never
+        Storelib's, on the subdomain as on its domain. A live AI site keeps
+        its own files.
+      */
+      if (isSiteIconPath(pathname)) {
+        if (await hasLiveAiSite(subdomain)) return NextResponse.rewrite(new URL(`/site/${subdomain}${pathname}${search}`, request.url))
+        return NextResponse.rewrite(new URL(`/w/${subdomain}${pathname}${search}`, request.url))
+      }
       /*
         Every question this page asks below, started together
         (startSiteQuestions), and before the domain question rather than
@@ -2112,6 +2131,17 @@ async function routeRequest(request: NextRequest) {
     if (website) seoUrl.pathname = `/w/${username}${pathname}`
     else seoUrl.pathname = `/u/${username}${pathname}`
     return NextResponse.rewrite(seoUrl)
+  }
+
+  /*
+    A CONNECTED DOMAIN'S ICON (round 41): a published website's own, square,
+    from this host (lib/website-builder/site-favicon.ts). A domain showing the
+    creator page passes it on as before.
+  */
+  if (username && isCustomDomain && isSiteIconPath(pathname)) {
+    const website = domainPurpose === "website" && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
+    if (website) return NextResponse.rewrite(new URL(`/w/${username}${pathname}${search}`, request.url))
+    return NextResponse.next()
   }
 
   /*
@@ -2668,5 +2698,11 @@ async function routeRequest(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  /*
+    /favicon.ico is NOT left out (round 41): on a website's host it is the
+    website's own icon (lib/website-builder/site-favicon.ts), which only this
+    proxy can send there. On storelib.com it is passed straight on, before
+    any session is read (routeRequest).
+  */
+  matcher: ["/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 }

@@ -234,7 +234,8 @@ section("IndexNow: off without a key, never in the way of a save, one notice per
   check("products and profiles are announced from the server, after the answer, for the signed in creator only",
     /after\(\(\) => announce\(\(\) => productAddresses\(productId, creatorId\)\)\)/.test(api) && /after\(\(\) => announce\(\(\) => profileAddresses\(creatorId\)\)\)/.test(api) && /\.eq\("user_id", user\.id\)/.test(api))
   const announce = code("lib/seo/announce.ts")
-  check("a link farm's pages are never announced", /deservesIndexing\(\{ publishedProducts: 1, handle \}\)/.test(announce) && /if \(!p\?\.slug \|\| p\.creator_id !== creatorId \|\| !notSpam\(handle\)\) return \[\]/.test(announce))
+  /* Changed on purpose (round 41): deservesIndexing no longer takes a product count. */
+  check("a link farm's pages are never announced", /deservesIndexing\(\{ handle \}\)/.test(announce) && /if \(!p\?\.slug \|\| p\.creator_id !== creatorId \|\| !notSpam\(handle\)\) return \[\]/.test(announce))
   check("announcing never throws into the caller", /try \{\s*await submitToIndexNow\(await addresses\(\)\)\s*\} catch/.test(announce))
   const client = code("lib/seo/announce-client.ts")
   check("the screens that save call it only after the save succeeded, and never wait for it",
@@ -360,9 +361,11 @@ async function bansAndOneRule() {
   const maps = code("lib/seo/sitemaps.ts")
   /* Changed on purpose (round BA): a fourth reader, the published websites warmed after a deploy (publishedWebsiteOrigins), leaves them out too. */
   check("products, creator pages, websites and the websites warmed after a deploy all leave banned creators out",
-    (maps.match(/bannedCreatorIds\(admin\)/g) ?? []).length === 4 && /creatorIds = \[\.\.\.new Set\(installs\.map\(\(i\) => i\.creator_id\)\.filter\(\(id\) => !banned\.has\(id\)\)\)\]/.test(maps) && /banned\.has\(row\.creator_id\)/.test(maps) &&
+    /* Changed on purpose (round 41): a fifth reader, the communities file, leaves a banned creator's community out. */
+    (maps.match(/bannedCreatorIds\(admin\)/g) ?? []).length === 5 && /creatorIds = \[\.\.\.new Set\(installs\.map\(\(i\) => i\.creator_id\)\.filter\(\(id\) => !banned\.has\(id\)\)\)\]/.test(maps) && /banned\.has\(row\.creator_id\)/.test(maps) &&
       /!banned\.has\(c\.id\)/.test(maps) && /!banned\.has\(i\.creator_id\)/.test(maps))
-  check("storelib.com's websites sitemap reads the site's own rule", /!builtSiteIndexable\(settingsOf\(i\), handle\)/.test(maps))
+  /* Changed on purpose (round 41): with the owner's spam verdict beside the handle. */
+  check("storelib.com's websites sitemap reads the site's own rule", /!builtSiteIndexable\(settingsOf\(i\), handle, owner && spam\.has\(owner\) \? "confirmed" : null\)/.test(maps))
   const published = code("lib/website-builder/published-site.ts")
   check("a banned creator's website answers as no site, from rows read whole",
     (published.match(/if \(isBanned\(/g) ?? []).length === 3 && !/\.select\("id, slug, display_name"\)/.test(published))
@@ -374,7 +377,8 @@ async function bansAndOneRule() {
     /if \(owner\.banned\) notFound\(\)/.test(onepage) && onepage.indexOf("if (owner.banned) notFound()") < onepage.indexOf("onepage_views") &&
       /const indexable = !owner\.banned && onePageIndexable\(/.test(onepage))
   check("a banned creator's page and a product they put back are noindex",
-    /deservesIndexing\(\{ publishedProducts, handle \}\) && !isBanned\(creator\)/.test(code("app/(marketing)/u/[username]/page.tsx")) &&
+    /* Changed on purpose (round 41): creatorIndexable, with the spam verdict. */
+    /creatorIndexable\(\{ publishedProducts, handle, spamState \}\) && !isBanned\(creator\)/.test(code("app/(marketing)/u/[username]/page.tsx")) &&
       /index: productIndexable\(product, sellerHandle \?\? null\) && !sellerBanned/.test(code("app/(marketing)/p/[slug]/page.tsx")))
   const announce = code("lib/seo/announce.ts")
   check("and nothing of theirs is announced", /if \(isBanned\(c\)\) return null/.test(announce) && /isBanned\(creator as \{ banned_at\?: string \| null \} \| null\)\) return \[\]/.test(announce))

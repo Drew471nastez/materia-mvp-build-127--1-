@@ -6,7 +6,8 @@ import { productUrl } from "@/lib/website-builder/site-seo"
 import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { siteLocale } from "@/lib/website-builder/site-language"
-import { siteIcons } from "@/lib/website-builder/site-icon"
+import { siteIconUrl } from "@/lib/website-builder/site-icon"
+import { ownHostIcons } from "@/lib/website-builder/site-favicon"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { splitSiteName } from "@/lib/markets/site-name"
 import { languageAlternates, siteLanguages, siteLocalizer } from "@/lib/markets/live"
@@ -60,11 +61,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const localizer = await siteLocalizer(creator.creatorId, pageLocale)
   const meta = await productMetadata(slug, { inLanguage: localizer ? (p) => localizer.product(p) : undefined, url: pageLocale ? `${origin}${localizedPath(path, pageLocale, langs.defaultLanguage)}` : productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })
   /* The site's own icon in the tab, as on its other pages: the favicon, or its logo (site-icon.ts). */
-  const icons = found.kind === "site" ? siteIcons(settings, found.site.pages.home ?? found.site.sections) : undefined
+  /* The site's own icon, on its own host (lib/website-builder/site-favicon.ts). */
+  const ownIcons = found.kind === "site" ? ownHostIcons(origin, siteIconUrl(settings, found.site.pages.home ?? found.site.sections)) : undefined
   /* The product in every language of the website, for search engines (hreflang). */
   const languages = await languageAlternates(creator.creatorId, origin, path)
   const withLanguages = languages ? { ...meta, alternates: { ...(meta.alternates ?? {}), languages } } : meta
-  return icons ? { ...withLanguages, icons } : withLanguages
+  return ownIcons ? { ...withLanguages, icons: ownIcons.icons, manifest: ownIcons.manifest } : withLanguages
 }
 
 /**
