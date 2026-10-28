@@ -99,8 +99,10 @@ const configs = [...design.matchAll(/\n  \{\n    id: "([a-z0-9-]+)",[\s\S]*?them
 check(`the theme catalogue was read (${configs.length} themes)`, configs.length >= 15 && configs.every((c) => "button_style" in c.theme))
 for (const { id, theme } of configs) {
   const old = oldButtonStyles(theme)
-  const now = themeButtonStyle(theme as any)
-  check(`${id}: the same button`, same(old, now), `${JSON.stringify(old)} vs ${JSON.stringify(now)}`)
+  /* Changed on purpose (round 41): a bordered button now stops its fill inside its border (backgroundClip, lib/onepage/button-style), so the rounded edge is the border's alone. Everything else is the same button as before. */
+  const { backgroundClip, ...now } = themeButtonStyle(theme as any) as Record<string, unknown>
+  check(`${id}: the same button`, same(old, now as any), `${JSON.stringify(old)} vs ${JSON.stringify(now)}`)
+  check(`${id}: the fill stops inside a border, and only then`, (backgroundClip === "padding-box") === (parseFloat(String(now.borderWidth)) > 0))
   check(`${id}: the same size, alignment and icon place`, buttonSize(theme as any) === "regular" && buttonAlign(theme as any) === "center" && buttonIconSide(theme as any) === "left")
 }
 
@@ -125,7 +127,9 @@ for (const style of ["filled", "outline", "glass", undefined, "something-old"]) 
               button_shadow_color: shadowColor,
             }
             combos++
-            if (!same(oldButtonStyles(theme), themeButtonStyle(theme as any))) mismatches.push(JSON.stringify(theme))
+            /* Changed on purpose (round 41): backgroundClip is new (the fill stops inside a border); everything else matches the old drawing. */
+            const { backgroundClip: _clip, ...drawn } = themeButtonStyle(theme as any) as Record<string, unknown>
+            if (!same(oldButtonStyles(theme), drawn as any)) mismatches.push(JSON.stringify(theme))
           }
         }
       }

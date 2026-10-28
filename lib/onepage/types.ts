@@ -216,6 +216,8 @@ export type ProductBlockStyle = 'button' | 'callout' | 'preview' | 'row' | 'side
 /** What a tap on a product block does. Unset is what it always did: the checkout (a product that ships: its page). */
 export type ProductTapAction = 'page' | 'sheet' | 'checkout'
 export type ProductButtonStyle = 'default' | 'filled'
+/** The main button inside a product's sheet: check out there, or go on to its full page. */
+export type ProductSheetAction = 'checkout' | 'page'
 
 export interface ProductBlockData {
   product_id: string
@@ -253,6 +255,10 @@ export interface ProductBlockData {
   tap_action?: ProductTapAction
   /** A download or a course is paid for in a window on this page, the community's checkout window (components/onepage/instant-checkout). */
   instant_checkout?: boolean
+  /** Round 41: the sheet's main button (lib/onepage/product-block productSheetAction). Unset: check out. */
+  sheet_action?: ProductSheetAction
+  /** Round 41: with checkout as the main button, a quiet link to the full page under it. Unset: shown. */
+  sheet_page_link?: boolean
   /** Refreshed from the product row (lib/onepage/live-products): a sale price's "was", and pay what you want. */
   product_compare_at_cents?: number | null
   product_pwyw?: boolean | null

@@ -57,7 +57,13 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   const [userRead, variantsRead, creatorRead, store, config, taxSetup, storeName, standing, sizeChart] = await Promise.all([
     supabase.auth.getUser().catch(() => ({ data: { user: null } })),
-    admin.from("product_variants").select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents").eq("product_id", id).order("price_cents", { ascending: true }),
+    /* Round 41: with `active`, so an option taken off a product that ships is not offered in the sheet; without it where the column is missing. */
+    admin
+      .from("product_variants")
+      .select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents, active")
+      .eq("product_id", id)
+      .order("price_cents", { ascending: true })
+      .then((r) => (r.error ? admin.from("product_variants").select("id, name, description, price_cents, pay_what_you_want, pwyw_min_price_cents").eq("product_id", id).order("price_cents", { ascending: true }) : r)),
     admin.from("creators").select("id, user_id, slug").eq("id", creatorId).maybeSingle(),
     readStoreCurrency(admin, creatorId),
     loadCheckoutConfig(admin, creatorId),
@@ -72,7 +78,7 @@ export async function GET(request: Request) {
   const { data: profile } = creator ? await admin.from("profiles").select("display_name, avatar_url, username").eq("id", creator.user_id).maybeSingle() : { data: null }
   const prof = profile as { display_name?: string | null; avatar_url?: string | null; username?: string | null } | null
 
-  const variants = ((variantsRead.data ?? []) as Row[]).map((v) => ({
+  const variants = ((variantsRead.data ?? []) as Row[]).filter((v) => v.active !== false).map((v) => ({
     id: String(v.id),
     name: String(v.name ?? ""),
     description: typeof v.description === "string" ? v.description : null,
@@ -133,6 +139,9 @@ export async function GET(request: Request) {
         left: left !== null && left > 0 && left < 10 ? left : null,
         pageUrl: productPageUrl(typeof p.slug === "string" ? p.slug : null),
         ships: shipsProduct(type),
+        /* Round 41: a product that ships is checked out from the sheet in the cart checkout (lib/physical/cart-link), which needs its shop and the most one order may hold. */
+        shopId: creatorId,
+        maxQuantity: typeof p.max_per_order === "number" && p.max_per_order > 0 ? p.max_per_order : null,
         /* Round 13: the product editor's questions, plain text in their order, and its size chart, so the sheet shows what the product page shows. */
         faqs: productFaqs(p.faqs),
         sizeChart,

@@ -65,6 +65,9 @@ export interface ProductFacts {
     left: number | null
     pageUrl: string
     ships: boolean
+    /** Round 41: the shop a product that ships is checked out from, and the most one order may hold (null: no limit). */
+    shopId?: string
+    maxQuantity?: number | null
     /** Round 13: the product's own questions, plain text (lib/products/product-faqs.ts). */
     faqs?: { question: string; answer: string }[]
     /** Round 13: the size chart it shows (lib/size-charts/storefront.ts), or null. */

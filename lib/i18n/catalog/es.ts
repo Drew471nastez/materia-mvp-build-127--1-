@@ -11360,7 +11360,16 @@ const words: Record<string, string> = {
  "Move {title} into this group": "Mover {title} a este grupo",
  "Move a block from your page, or add a new one.": "Mueve un bloque de tu página o añade uno nuevo.",
  "Remove this block from the group?": "¿Quitar este bloque del grupo?",
- "Back on your page, under the group": "De vuelta en tu página, debajo del grupo"
+ "Back on your page, under the group": "De vuelta en tu página, debajo del grupo",
+ "Open product sheet": "Abrir ficha del producto",
+ "They see it, choose options, then check out": "Lo ven, eligen opciones y pagan",
+ "Products that ship open their page to choose delivery": "Los productos con envío abren su página para elegir la entrega",
+ "Button in the sheet": "Botón en la ficha",
+ "Check out now": "Pagar ahora",
+ "View full page": "Ver página completa",
+ "Link to the full page under the button": "Enlace a la página completa bajo el botón",
+ "Pay without leaving your page": "Pagar sin salir de tu página",
+ "Off: they go to the checkout page instead.": "Desactivado: van a la página de pago."
 }
 
 export default words
