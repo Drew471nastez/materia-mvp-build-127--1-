@@ -17,7 +17,8 @@
  */
 import { BundleOffers, useProductOffers, type ProductOffersData } from "@/components/offers/bundle-offers"
 import { QuantityBreaks } from "@/components/offers/quantity-breaks"
-import { tierLabel } from "@/lib/offers/pricing"
+import { fillWords, tierLabel, tierNameIn } from "@/lib/offers/pricing"
+import { useWord } from "@/components/website-builder/theme/storefront-context"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { schemeTokenName } from "@/lib/storelib-theme/color-schemes"
 import type { ProductCtx } from "./product-blocks"
@@ -89,6 +90,9 @@ const SAMPLE: ProductOffersData = {
 export function OffersBlock({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const productId = ctx.sample ? null : ctx.product.id || null
   const live = useProductOffers(productId, !ctx.sample)
+  /* The block's words in the page's language (Translate › Shop words): a tier with no name of its own, and "each". */
+  const w = useWord()
+  const tierWords = { free: w("offer_tier_free"), percent: w("offer_tier_percent"), amount: w("offer_tier_amount"), plain: w("offer_tier_plain") }
   const data = ctx.sample ? SAMPLE : live
   const show = { bundles: on(s.show_bundles, true), upsells: on(s.show_upsells, true) }
   const showBreaks = on(s.show_breaks, true)
@@ -136,6 +140,8 @@ export function OffersBlock({ s, ctx }: { s: S; ctx: ProductCtx }) {
           radius={Math.min(24, radiusPx)}
           disabled={ctx.inert}
           display={ctx.sample || ctx.product.pay_what_you_want ? null : (ctx.product.display ?? null)}
+          name={(t) => tierNameIn(t.label, (kind, vars) => fillWords(tierWords[kind], vars), t, ctx.money)}
+          each={(price) => fillWords(w("offer_each"), { price })}
         />
       ) : null}
       <BundleOffers

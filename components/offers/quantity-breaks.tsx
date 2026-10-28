@@ -17,7 +17,6 @@ import { tierDiscounts, tierTotals, type Tier } from "@/lib/offers/pricing"
 import { applyOffers } from "@/lib/offers/offers"
 import { chargedInMarket, type PageDisplay } from "@/lib/markets/cart-money"
 import type { OfferPalette } from "./bundle-offers"
-import { useWord } from "@/components/website-builder/theme/storefront-context"
 
 export interface BreakCard {
   offerId: string
@@ -57,6 +56,8 @@ export function QuantityBreaks({
   radius = 10,
   disabled = false,
   display = null,
+  name = (t) => t.label,
+  each = (price) => `${price} each`,
 }: {
   breaks: BreakCard[]
   /** The option chosen in the buy box, at its price: the tiers are priced at it. */
@@ -73,9 +74,12 @@ export function QuantityBreaks({
   disabled?: boolean
   /** The visitor's market, when the page shows its currency: the tiers then say what checkout charges in it. */
   display?: PageDisplay | null
+  /** A tier's name as the page says it (lib/offers/pricing.ts tierNameIn: a default name in the page's language). No hooks here, so the caller hands its words in. */
+  name?: (t: Tier) => string
+  /** "{price} each" in the page's language. */
+  each?: (price: string) => string
 }) {
   const c = { heading: palette.heading || ink, text: palette.text || ink, price: palette.price || ink, border: palette.border || "rgba(0,0,0,0.12)", muted, badgeBg: palette.badgeBg || "#dcfce7", badgeText: palette.badgeText || "#166534" }
-  const w = useWord()
   const first = breaks.find((b) => b.tiers.length > 0)
   if (!first) return null
   return (
@@ -104,7 +108,7 @@ export function QuantityBreaks({
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="text-[14px] font-medium" style={{ color: c.text }}>
-                    {t.label}
+                    {name(t)}
                   </span>
                   {t.badge ? (
                     <span className="rounded-full px-2 py-0.5 text-[12px] font-medium" style={{ background: c.badgeBg, color: c.badgeText }}>
@@ -114,7 +118,7 @@ export function QuantityBreaks({
                 </span>
                 {units > 1 ? (
                   <span className="mt-0.5 block text-[12.5px] tabular-nums" style={{ color: c.muted }}>
-                    {w("offer_each").replace("{price}", shown.each)}
+                    {each(shown.each)}
                   </span>
                 ) : null}
               </span>

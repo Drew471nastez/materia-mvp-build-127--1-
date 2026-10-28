@@ -9,6 +9,7 @@
 import * as React from "react"
 import { Package, Plus } from "lucide-react"
 import { useCt } from "@/app/checkout/parts/words"
+import { tierNameIn } from "@/lib/offers/pricing"
 
 export interface Suggestion {
   offerId: string
@@ -16,6 +17,20 @@ export interface Suggestion {
   label: string | null
   offerPriceCents: number
   product: { id: string; title: string; slug: string; imageUrl: string | null; type: string; priceCents: number; variants: { id: string; name: string; priceCents: number }[] }
+}
+
+/**
+ * A saving row's name as the checkout says it: a quantity break tier saved
+ * with no name of its own ("Buy 2 get 1 free") in the visitor's language,
+ * anything the store typed as typed (lib/offers/pricing.ts tierNameIn). The
+ * website checkout's and the physical checkout's summaries both use it.
+ */
+export function useOfferTitle(): (title: string) => string {
+  const ct = useCt()
+  return (title) =>
+    tierNameIn(title, (kind, vars) =>
+      kind === "free" ? ct("Buy {quantity} get {free} free", vars) : kind === "percent" ? ct("Buy {quantity}, save {percent}%", vars) : kind === "amount" ? ct("Buy {quantity}, save {amount}", vars) : ct("Buy {quantity}", vars),
+    )
 }
 
 export function CheckoutSuggestions({ suggestions, onAdd, busy = false, money }: { suggestions: Suggestion[]; onAdd: (s: Suggestion, variant: { id: string; name: string; priceCents: number } | null) => void; busy?: boolean; /** The checkout's own money: every amount in what the card is charged in (app/checkout/parts/ui useMoney). */ money: (cents: number) => string }) {

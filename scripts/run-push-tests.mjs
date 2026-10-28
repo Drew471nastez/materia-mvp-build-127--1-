@@ -417,6 +417,8 @@ const SUITES = [
   "tests/store-menus.test.ts",
   "tests/theme-breadcrumbs.test.ts",
   "tests/date-control.test.ts",
+  /* An imported theme's countdown: one calendar, time and zone for its end_date/end_hour/end_minute/utc_offset, end_iso or countdown_date, written back in the shape stored; scripts/check-countdown-restart.mjs measures the canvas. */
+  "tests/countdown.test.ts",
   "tests/media-url.test.ts",
   "tests/navigation-and-collections.test.ts",
   "tests/collections-ui.test.ts",

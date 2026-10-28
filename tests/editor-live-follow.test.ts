@@ -29,13 +29,19 @@ import {
   BRIEF_WAKE_GAP_MS,
   CATCH_UP_AWAY_MS,
   CATCH_UP_PAGES,
+  LATE_WINDOW_MS,
+  SEEN_MAX,
   briefDue,
   isPile,
+  lateRows,
+  mergeLines,
   nextCursor,
   readMore,
+  remember,
   slept,
   withinTime,
 } from "@/lib/website-builder/live-follow"
+import { reloadWhileAway } from "@/lib/ui/new-deploy"
 
 let passed = 0
 let failed = 0
@@ -86,6 +92,23 @@ console.log("\nNothing connected is asked about again")
   check("a return asks sooner, but not on every focus", briefDue(t, t + BRIEF_WAKE_GAP_MS, "wake") && !briefDue(t, t + 2_000, "wake"))
 }
 
+console.log("\nA line that committed after a later one is applied, once")
+{
+  const now = Date.parse("2026-10-28T12:00:30Z")
+  const at = (s: number) => new Date(now - s * 1000).toISOString()
+  const back = [{ id: 102, created_at: at(1) }, { id: 101, created_at: at(2) }, { id: 90, created_at: at(LATE_WINDOW_MS / 1000 + 5) }]
+  check("the look back keeps the young rows, oldest first", JSON.stringify(lateRows(back, now).map((r) => r.id)) === "[101,102]")
+  check("  and never a row with no time", lateRows([{ id: 5, created_at: null }], now).length === 0)
+  const seen = new Set<number>([102])
+  const lines = mergeLines([{ id: 101 }, { id: 102 }], [{ id: 103 }], seen, 100)
+  check("the late one is taken, the applied one is not, oldest first", JSON.stringify(lines.map((r) => r.id)) === "[101,103]")
+  check("nothing at or below where the editor started", mergeLines([{ id: 99 }, { id: 100 }], [], new Set(), 100).length === 0)
+  check("a line read twice in one pass is one line", mergeLines([{ id: 7 }], [{ id: 7 }], new Set(), null).length === 1)
+  const many = new Set<number>()
+  remember(many, Array.from({ length: SEEN_MAX + 50 }, (_, i) => i + 1))
+  check("the ids kept are bounded, the newest kept", many.size === SEEN_MAX && many.has(SEEN_MAX + 50) && !many.has(1))
+}
+
 /** The editor's loop against an in-memory log: the same decisions in the same order as site-connections.tsx. */
 async function drive(log: number[], cursor: number, opts: { pending: boolean; dueAt: number; now: number; applyHangs?: boolean; ceiling?: number }) {
   const applied: { ids: number[]; catchUp: boolean }[] = []
@@ -125,6 +148,32 @@ async function loop() {
   const one = await drive([301, 302], 300, { pending: false, dueAt: 10_000, now: 10_100 })
   check("two lines are drawn as they come, not as a pile", one.applied.length === 1 && one.applied[0].catchUp === false)
 
+  console.log("\nTwo writers at once: 102 is read before 101 commits")
+  {
+    /* The editor's state across passes, as site-connections.tsx keeps it. */
+    const seen = new Set<number>()
+    const floor = 100
+    const applied: number[] = []
+    const t = Date.parse("2026-10-28T12:00:00Z")
+    const committed = [{ id: 102, created_at: new Date(t).toISOString() }]
+    const pass = (now: number, cursor: number) => {
+      const fresh = committed.filter((r) => r.id > cursor).sort((a, b) => a.id - b.id)
+      const late = lateRows(committed.filter((r) => r.id <= cursor).sort((a, b) => b.id - a.id).slice(0, 20), now)
+      const lines = mergeLines(late, fresh, seen, floor)
+      remember(seen, lines.map((r) => r.id))
+      applied.push(...lines.map((r) => r.id))
+      return nextCursor(cursor, fresh.length ? fresh[fresh.length - 1].id : cursor, false, fresh.length)
+    }
+    let cursor = pass(t + 500, floor)
+    committed.push({ id: 101, created_at: new Date(t - 50).toISOString() })
+    cursor = pass(t + 1_500, cursor)
+    cursor = pass(t + 6_500, cursor)
+    cursor = pass(t + 12_000, cursor)
+    check("101 is applied though the cursor had passed it", applied.includes(101), applied)
+    check("  every line exactly once", JSON.stringify(applied) === "[102,101]", applied)
+    check("  and the cursor stays at the newest", cursor === 102)
+  }
+
   console.log("\nAn apply that never answers")
   const t0 = Date.now()
   const h = await drive([401], 400, { pending: false, dueAt: 10_000, now: 10_100, applyHangs: true, ceiling: 30 })
@@ -146,9 +195,26 @@ function wiring() {
   check("a timer that slept is an absence", /const away = slept\(dueAt, Date\.now\(\), CATCH_UP_AWAY_MS\)/.test(hook) && /dueAt = Date\.now\(\) \+ ms/.test(hook))
   check("a full page reads on in the same pass", /while \(after !== null && pages < CATCH_UP_PAGES\)/.test(hook) && /if \(!readMore\(batch\.length, pages, CATCH_UP_PAGES, ACTIVITY_PAGE\)\) break/.test(hook))
   check("the apply has a ceiling", /withinTime\(applying, APPLY_CEILING_MS\)\) === "late"\) onStaleRef\.current\?\.\(\)/.test(hook))
-  check("the cursor through nextCursor", /cursor\.current = nextCursor\(cursor\.current, after, retry, events\.length\)/.test(hook))
+  check("the cursor through nextCursor", /cursor\.current = nextCursor\(cursor\.current, after, retry, fresh\.length\)/.test(hook))
   check("nothing connected: the brief is asked again", /setBriefAsk\(\(n\) => n \+ 1\)/.test(hook) && /\[installId, recheck, briefAsk\]/.test(hook) && /if \(!installId \|\| connected \|\| missing \|\| !settled\) return/.test(hook))
   check("the restored page paints, and the browser has a moment, before the pile lands", /requestIdleCallback\(finish, \{ timeout: 800 \}\)/.test(hook) && /if \(catchUp\) await afterPaint\(\)/.test(hook))
+
+  check("the look back every few seconds and on a return, each line once",
+    /const look = pages === 0 && \(catchUp \|\| Date\.now\(\) - lookedBack >= LOOKBACK_EVERY_MS\)/.test(hook) && /\$\{look \? "&lookback=1" : ""\}/.test(hook) &&
+      /const events = mergeLines\(late, fresh, seen\.current, floor\.current\)/.test(hook) && /remember\(seen\.current, events\.map\(\(ev\) => ev\.id\)\)/.test(hook))
+  const route = read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")
+  check("  the route looks back down the same index, twenty rows, and a failed look back drops nothing",
+    /\.lte\("id", after\)\.order\("id", \{ ascending: false \}\)\.limit\(20\)/.test(route) && /lateRows\(/.test(route) && /back && !back\.error \?/.test(route) && /events, late, sync_at/.test(route))
+
+  console.log("\nThe ground under the editor, and no reload from under it")
+  const ground = read("components/website-builder/editor-ground.tsx")
+  check("the editor's grey under it however it was opened, never the bar's near black", /EDITOR_GROUND = "#eef1f5"/.test(ground) && /if \(!h\.style\.backgroundColor\) h\.style\.backgroundColor = EDITOR_GROUND/.test(ground) && /useLayoutEffect/.test(ground))
+  check("  the same grey the frame and the head script paint", /bg-\[#eef1f5\]/.test(read("components/website-builder/editor-frame.tsx")) && read("app/layout.tsx").includes("_wb.style.backgroundColor='#eef1f5'"))
+  check("the app does not reload in the background under the website builder", !reloadWhileAway("/website-builder/editor/0f0c0a5e-0000-4000-8000-000000000000", false) && !reloadWhileAway("/store/ana/themes/abc/editor", false))
+  check("  nor under OnePage or checkout", !reloadWhileAway("/app/onepage", false) && !reloadWhileAway("/checkout/site", false))
+  check("  nor anywhere with unsaved work", !reloadWhileAway("/app/products", true))
+  check("  and elsewhere it still does", reloadWhileAway("/app", false) && reloadWhileAway("/app/products", false) && reloadWhileAway("/app/onepages-help", false))
+  check("  the check is the one the listener uses", /reloadWhileAway\(window\.location\.pathname, !!leaveGuard\(\)\)/.test(read("lib/ui/new-deploy.ts")))
 
   console.log("\nWhat a push waits on has an end, and lands even when the draft read fails")
   const editor = read("app/website-builder/editor/[installId]/page.tsx")

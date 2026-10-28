@@ -317,6 +317,11 @@ export const UI_WORDS = {
   offer_save_on_set: "Save {amount} on the set",
   offer_suggestions: "You may also like",
   offer_option: "{title} option",
+  /* A quantity break tier saved with no name of its own (lib/offers/pricing.ts tierNameIn). */
+  offer_tier_free: "Buy {quantity} get {free} free",
+  offer_tier_percent: "Buy {quantity}, save {percent}%",
+  offer_tier_amount: "Buy {quantity}, save {amount}",
+  offer_tier_plain: "Buy {quantity}",
   bundles_and_offers: "Bundles and offers",
   discount: "Discount",
 } as const

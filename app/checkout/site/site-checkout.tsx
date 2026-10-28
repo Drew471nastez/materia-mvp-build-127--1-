@@ -63,7 +63,7 @@ import { BusinessFields } from "../parts/business-fields"
 import { PaidOverlay } from "../parts/success"
 import { StripePay, type IntentResult } from "../parts/stripe-pay"
 import { VariantEdit } from "../parts/variant-edit"
-import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
+import { CheckoutSuggestions, useOfferTitle, type Suggestion } from "@/components/offers/checkout-suggestions"
 import { CheckoutPhone } from "../parts/phone-input"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { HtmlClass } from "@/components/platform/html-class"
@@ -233,6 +233,8 @@ export function SiteCheckout({
   const chargeCurrency = useCheckoutCurrency()
   /* The page's words in the visitor's language (../parts/words.tsx), and the countries in it too. */
   const ct = useCt()
+  /* A quantity break tier's default name in the visitor's language (components/offers/checkout-suggestions useOfferTitle). */
+  const offerTitle = useOfferTitle()
   const lang = useCheckoutLang()
   const countryName = useCountryName()
   /* ── The cart ────────────────────────────────────────────────────── */
@@ -1228,7 +1230,7 @@ export function SiteCheckout({
           <dl className="mt-3 space-y-3 text-[14px]">
             {(rows?.offers ?? []).map((o, i) => (
               <div key={`${o.title}:${i}`} className="flex justify-between gap-4" data-offer-saving="">
-                <dt className="truncate text-[#6b7280]">{o.title}</dt>
+                <dt className="truncate text-[#6b7280]">{offerTitle(o.title)}</dt>
                 <dd className="shrink-0 tabular-nums text-[#6b7280]">−{money(o.cents)}</dd>
               </div>
             ))}

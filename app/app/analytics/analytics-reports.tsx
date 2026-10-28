@@ -33,10 +33,10 @@
  * MOTION IS TRANSFORM AND OPACITY, but for the fills. A switcher's one pill
  * slides to the tab chosen (round 39), a card arrives by rising and fading, and a card
  * moved in the order slides from where it was (FLIP). A fill (GREY_FILL)
- * grows its own width: it is placed on its own (absolute, or a box nothing
- * else depends on), so nothing around it is laid out again, and its rounded
- * end and its soft edge stay whole, which a slide inside a clipped track
- * could not keep.
+ * fills in from its start by a scale the first time it is reached
+ * (useFillIn), and a new share grows its own width: it is placed on its own
+ * (absolute, or a box nothing else depends on), so nothing around it is laid
+ * out again.
  *
  * ROUND 38, THE OWNER: "the progress fills in the analytics in /app and in
  * the community: back in the day it was that light gray gradient, not the
@@ -250,6 +250,8 @@ function Empty({ children }: { children: React.ReactNode }) {
  * the one above. Once per bar: it is never emptied again, and a new period
  * moves it by its width as before. Under reduced motion it is simply there.
  */
+/* Keeps the scale inside a list row (`.group`), which app/globals.css otherwise strips on a touch screen. */
+const KEEP_SCALE = { "data-keep-transform": "" }
 const FILL_STAGGER_MS = 45
 const FILL_MS = 700
 function useFillIn<T extends HTMLElement>() {
@@ -302,7 +304,7 @@ function Fill({ share, className, min = 0.02, thin = false }: { share: number; c
       aria-hidden
       data-bar=""
       data-fill="grey"
-      data-keep-transform=""
+      {...KEEP_SCALE}
       data-share={s.toFixed(3)}
       className={cn(thin ? GREY_FILL_THIN : GREY_FILL, "transition-[width,filter] duration-500 group-hover:brightness-[0.975] motion-reduce:transition-none", className)}
       style={{ width: `${(s * 100).toFixed(2)}%`, transitionTimingFunction: EASE }}
@@ -319,7 +321,7 @@ function StepFill({ height }: { height: number }) {
       data-bar=""
       data-fill="grey"
       data-fill-axis="y"
-      data-keep-transform=""
+      {...KEEP_SCALE}
       className={cn(GREY_FILL_THIN, "block w-6 max-w-[calc(100%-8px)] rounded-t-[4px] transition-[height,filter] duration-500 group-hover:brightness-[0.93] motion-reduce:transition-none")}
       style={{ height, transitionTimingFunction: EASE }}
     />

@@ -21,6 +21,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { isMissingActivityTable, type ConnectionsBrief } from "@/lib/agent-access/connection-mark"
+import { lateRows } from "@/lib/website-builder/live-follow"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -77,14 +78,30 @@ export async function GET(req: Request, { params }: Params) {
     supabase.from("theme_agent_activity").select(cols).eq("install_id", installId).gt("id", after).order("id", { ascending: true }).limit(20)
   /* One more indexed read by the link's key, beside the log's. */
   const linkRead = supabase.from("theme_github_links").select("updated_at").eq("install_id", installId).maybeSingle()
-  let { data, error } = await read("id, agent_name, path, action, created_at, detail")
-  if (error) ({ data, error } = await read("id, agent_name, path, action, created_at"))
+  /*
+    ?lookback=1: also the newest rows at or below `after`, the ones young
+    enough to have committed after a later id was read (lib/website-builder/
+    live-follow.ts lateRows). Twenty rows down the same index, every few
+    seconds; the editor applies only the ones it has not.
+  */
+  const lookback = new URL(req.url).searchParams.get("lookback") === "1"
+  const behind = (cols: string) =>
+    supabase.from("theme_agent_activity").select(cols).eq("install_id", installId).lte("id", after).order("id", { ascending: false }).limit(20)
+  let cols = "id, agent_name, path, action, created_at, detail"
+  let { data, error } = await read(cols)
+  if (error) {
+    cols = "id, agent_name, path, action, created_at"
+    ;({ data, error } = await read(cols))
+  }
   if (error) {
     if (isMissingActivityTable(error)) return NextResponse.json({ ready: false, missing: true, cursor: after, events: [] }, { headers: NO_STORE })
     return NextResponse.json({ ready: true, retry: true, cursor: after, events: [] }, { status: 503, headers: NO_STORE })
   }
   const events = (data ?? []) as unknown as { id: number }[]
+  /* A look back that fails is no late rows: the new ones still go. */
+  const back = lookback ? await behind(cols) : null
+  const late = back && !back.error ? lateRows((back.data ?? []) as unknown as { id: number; created_at?: string | null }[], Date.now()) : []
   const linked = await linkRead
   const syncAt = linked.error || !linked.data ? null : ((linked.data as { updated_at?: string | null }).updated_at ?? null)
-  return NextResponse.json({ ready: true, cursor: events.length ? events[events.length - 1].id : after, events, sync_at: syncAt }, { headers: NO_STORE })
+  return NextResponse.json({ ready: true, cursor: events.length ? events[events.length - 1].id : after, events, late, sync_at: syncAt }, { headers: NO_STORE })
 }

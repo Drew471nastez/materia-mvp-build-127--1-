@@ -97,3 +97,54 @@ export function withinTime<T>(work: Promise<T>, ms: number): Promise<T | "late">
     )
   })
 }
+
+/*
+  A LINE THAT COMMITS AFTER A LATER ONE. The log is read by id, and an id is
+  taken when a row is inserted, not when it commits: two writers at once (a
+  push and an agent) can commit 101 after 102 has been read, and 101 was
+  behind the cursor for good. So every few seconds the read also looks back
+  at the newest rows at or below the cursor that are younger than
+  LATE_WINDOW_MS (`lateRows`, in the route), and the editor keeps the ids it
+  has applied (`remember`), so each line is applied exactly once
+  (`mergeLines`).
+*/
+
+/** How young a row at or below the cursor must be to be looked at again. */
+export const LATE_WINDOW_MS = 30_000
+/** How often a read looks back. */
+export const LOOKBACK_EVERY_MS = 5_000
+/** How many applied ids the editor keeps. */
+export const SEEN_MAX = 400
+
+type Line = { id: number; created_at?: string | null }
+
+/** The rows of a look back that are young enough to have committed late, oldest first. */
+export function lateRows<T extends Line>(rows: T[], now: number, windowMs: number = LATE_WINDOW_MS): T[] {
+  return rows
+    .filter((r) => {
+      const at = r.created_at ? Date.parse(r.created_at) : NaN
+      return Number.isFinite(at) && now - at <= windowMs
+    })
+    .sort((a, b) => a.id - b.id)
+}
+
+/**
+ * The lines to apply: the new ones and any late ones, each once, oldest
+ * first. Nothing already applied, and nothing at or below `floor` (where the
+ * editor started: older lines are what it loaded with).
+ */
+export function mergeLines<T extends Line>(late: T[], fresh: T[], seen: ReadonlySet<number>, floor: number | null): T[] {
+  const out = new Map<number, T>()
+  for (const r of late) if (!seen.has(r.id) && (floor === null || r.id > floor)) out.set(r.id, r)
+  for (const r of fresh) if (!seen.has(r.id)) out.set(r.id, r)
+  return [...out.values()].sort((a, b) => a.id - b.id)
+}
+
+/** Keeps the ids applied, the newest SEEN_MAX of them. */
+export function remember(seen: Set<number>, ids: number[], max: number = SEEN_MAX): void {
+  for (const id of ids) seen.add(id)
+  if (seen.size <= max) return
+  const keep = [...seen].sort((a, b) => b - a).slice(0, max)
+  seen.clear()
+  for (const id of keep) seen.add(id)
+}

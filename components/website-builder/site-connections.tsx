@@ -47,7 +47,7 @@ import {
   type ConnectionsBrief,
 } from "@/lib/agent-access/connection-mark"
 import { tt } from "@/lib/i18n/text"
-import { APPLY_CEILING_MS, BRIEF_RECHECK_MS, briefDue, isPile, nextCursor, readMore, slept, withinTime } from "@/lib/website-builder/live-follow"
+import { APPLY_CEILING_MS, BRIEF_RECHECK_MS, LOOKBACK_EVERY_MS, briefDue, isPile, mergeLines, nextCursor, readMore, remember, slept, withinTime } from "@/lib/website-builder/live-follow"
 
 /* ── The channel ───────────────────────────────────────────────────────── */
 
@@ -130,6 +130,10 @@ export function useSiteActivity({
   /** The first read has come back, with an answer or without one. */
   const [settled, setSettled] = useState(false)
   const cursor = useRef<number | null>(null)
+  /** Where the editor started in the log: a late line below it is what the editor loaded with. */
+  const floor = useRef<number | null>(null)
+  /** The lines applied, by id, so a late line looked at again is applied once (live-follow.ts mergeLines). */
+  const seen = useRef(new Set<number>())
   const onEventsRef = useRef(onEvents)
   onEventsRef.current = onEvents
   const onSyncRef = useRef(onSyncChanged)
@@ -172,7 +176,10 @@ export function useSiteActivity({
           /* Kept across a re-read, so a change made while settings were open
              is not skipped; only the first answer sets where to start. A failed
              read must not set it: its cursor is 0 and would replay the log. */
-          if (cursor.current === null && d.ready !== false && typeof d.cursor === "number") cursor.current = d.cursor
+          if (cursor.current === null && d.ready !== false && typeof d.cursor === "number") {
+            cursor.current = d.cursor
+            floor.current = d.cursor
+          }
           setReady(d.ready !== false)
         })
         .catch(() => {
@@ -232,6 +239,8 @@ export function useSiteActivity({
     let catchUpPending = false
     /** When the scheduled read was due: one that runs far later slept through it (a lid closed, the app put away). */
     let dueAt = 0
+    /** When a read last looked back for a line that committed late. */
+    let lookedBack = 0
 
     const schedule = (ms: number) => {
       if (timer) clearTimeout(timer)
@@ -255,17 +264,21 @@ export function useSiteActivity({
       try {
         /* Coming back after a while: let the restored page paint before the catch-up draws over it. */
         if (catchUp) await afterPaint()
-        const events: ActivityEvent[] = []
+        const fresh: ActivityEvent[] = []
+        const late: ActivityEvent[] = []
         let after = cursor.current
         let pages = 0
         let syncSeen: string | null | undefined
         /* A full page means more is waiting: read it now and apply the lot once, however the pile came about. */
         while (after !== null && pages < CATCH_UP_PAGES) {
+          /* The first page looks back every few seconds, and on a return, for a line that committed after a later one. */
+          const look = pages === 0 && (catchUp || Date.now() - lookedBack >= LOOKBACK_EVERY_MS)
+          if (look) lookedBack = Date.now()
           const res = await fetch(
-            `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${after}`,
+            `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${after}${look ? "&lookback=1" : ""}`,
             { cache: "no-store", signal: AbortSignal.timeout(12_000) },
           )
-          const d = (await res.json().catch(() => null)) as { ready?: boolean; missing?: boolean; retry?: boolean; cursor?: number; events?: ActivityEvent[]; sync_at?: string | null } | null
+          const d = (await res.json().catch(() => null)) as { ready?: boolean; missing?: boolean; retry?: boolean; cursor?: number; events?: ActivityEvent[]; late?: ActivityEvent[]; sync_at?: string | null } | null
           const follow = activityFollowUp(res.status, d)
           /* The table is not there: nothing to follow. Any other failure is asked again, cursor unmoved. */
           if (follow === "stop") {
@@ -279,15 +292,20 @@ export function useSiteActivity({
           if (typeof d.cursor === "number") after = d.cursor
           if (d.sync_at !== undefined) syncSeen = d.sync_at
           const batch = d.events ?? []
-          for (const ev of batch) events.push(ev)
+          for (const ev of batch) fresh.push(ev)
+          if (Array.isArray(d.late)) for (const ev of d.late) late.push(ev)
           pages++
           if (!readMore(batch.length, pages, CATCH_UP_PAGES, ACTIVITY_PAGE)) break
         }
         catchUp = isPile({ pending, slept: away, pagesRead: pages })
+        /* Each line once, oldest first: the new ones and any that committed late. */
+        const events = mergeLines(late, fresh, seen.current, floor.current)
         /* Apply before moving the cursor. A throw used to skip the lines and never read them again. */
         if (events.length) {
           arrived = true
-          eventsFull = events.length >= ACTIVITY_PAGE * CATCH_UP_PAGES
+          eventsFull = fresh.length >= ACTIVITY_PAGE * CATCH_UP_PAGES
+          /* Taken before applying: a throw or a timeout below still counts them, so none is applied twice. */
+          remember(seen.current, events.map((ev) => ev.id))
           try {
             /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
             const applying = (async () => { await onEventsRef.current(events, { catchUp }) })()
@@ -301,7 +319,7 @@ export function useSiteActivity({
         }
         /* A failed page is not consumed: `after` is the last page that was read.
            With no events and a failure, the cursor stays so the same read is asked again. */
-        cursor.current = nextCursor(cursor.current, after, retry, events.length)
+        cursor.current = nextCursor(cursor.current, after, retry, fresh.length)
         if (syncSeen !== undefined && syncSeen !== syncAt.current) {
           const first = syncAt.current === undefined
           syncAt.current = syncSeen

@@ -20,6 +20,7 @@ import * as React from "react"
 import { Package, Plus } from "lucide-react"
 import { checkoutItems, type CartLine } from "@/lib/website-builder/cart"
 import type { CartOffersAnswer, OfferItem } from "@/lib/offers/contract"
+import { fillWords, tierNameIn } from "@/lib/offers/pricing"
 import { offerRowKey, offerSavingsShown, shownMoney, type CartDiscountCents } from "@/lib/markets/cart-money"
 import { useStorefront, useWord } from "@/components/website-builder/theme/storefront-context"
 
@@ -100,6 +101,9 @@ export interface CartOfferColors {
 export function CartOfferSavings({ data, money, className }: { data: CartOffersData | null; money: (cents: number) => string; className?: string }) {
   /* In a market's currency each saving is converted line by line, as checkout lists it (lib/markets/cart-money offerSavingsShown); `money` writes the store's own. */
   const { display, currency } = useStorefront()
+  /* A quantity break tier with no name of its own, in the page's language (lib/offers/pricing.ts tierNameIn). */
+  const w = useWord()
+  const tierWords = { free: w("offer_tier_free"), percent: w("offer_tier_percent"), amount: w("offer_tier_amount"), plain: w("offer_tier_plain") }
   const saving = (data?.offers ?? []).filter((o) => o.savedCents > 0)
   if (saving.length === 0) return null
   const shown = offerSavingsShown(data?.lines ?? [], saving, display)
@@ -108,7 +112,7 @@ export function CartOfferSavings({ data, money, className }: { data: CartOffersD
     <div className={className} data-cart-offer-savings="">
       {saving.map((o) => (
         <div key={offerRowKey(o)} className="flex items-baseline justify-between gap-3">
-          <span className="min-w-0 truncate opacity-70">{o.title}</span>
+          <span className="min-w-0 truncate opacity-70">{tierNameIn(o.title, (kind, vars) => fillWords(tierWords[kind], vars))}</span>
           <span className="shrink-0 tabular-nums">&minus;{shown && write && shown.has(offerRowKey(o)) ? write(shown.get(offerRowKey(o))!) : money(o.savedCents)}</span>
         </div>
       ))}

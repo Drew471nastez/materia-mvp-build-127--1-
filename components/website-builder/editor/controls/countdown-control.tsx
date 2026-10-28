@@ -149,12 +149,13 @@ export function CountdownControl({
           )}
         </div>
         <div className="space-y-1.5 border-t border-border bg-[#fafafa] p-1.5 dark:bg-white/[0.02]">
-          <div className={cn("grid gap-1.5", state.canTime ? "grid-cols-2" : "grid-cols-1")}>
+          {/* Side by side while both fit their whole value ("11/03/2026", "11:59 PM" in a 12 hour locale), one under the other when they do not: never clipped. */}
+          <div className="flex flex-wrap gap-1.5">
             <input
               type="date"
               aria-label={label ? `${label}: ${tt("Date")}` : tt("Date")}
               data-countdown-date=""
-              className={field}
+              className={cn(field, "min-w-[9.5rem] flex-[1.25_1_0%] max-sm:min-w-[10.5rem]")}
               value={date}
               min="1000-01-01"
               max="9999-12-31"
@@ -168,7 +169,7 @@ export function CountdownControl({
                 type="time"
                 aria-label={label ? `${label}: ${tt("Time")}` : tt("Time")}
                 data-countdown-time=""
-                className={field}
+                className={cn(field, "min-w-[7.5rem] flex-[1_1_0%] max-sm:min-w-[8.75rem]")}
                 value={time}
                 disabled={!state.date}
                 onChange={(e) => {
