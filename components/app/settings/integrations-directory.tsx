@@ -189,17 +189,30 @@ function takesOrders(i: Integration): boolean {
  * (round 27: Products › Reviews is /app/reviews, Storelib Reviews' page, not
  * Integrations): no list behind it and no Back to integrations.
  */
-export function IntegrationsDirectory({ page = false, only = null }: { page?: boolean; only?: string | null } = {}) {
+/**
+ * What the page read on the server, for the first frame (app/app/integrations/page.tsx, round 41): the
+ * order (scores, /admin's overrides) and what is connected (tracking, Klaviyo and Omnisend), so no card
+ * moves and no pill comes or goes once the browser's own reads arrive. Any of it null: read as before.
+ */
+export interface DirectoryInitial {
+  scores: Record<string, number> | null
+  overrides: CatalogOverride[] | null
+  tracking: Tracking | null
+  trackingReady: boolean | null
+  marketing: MarketingState[] | null
+}
+
+export function IntegrationsDirectory({ page = false, only = null, initial: served = null }: { page?: boolean; only?: string | null; initial?: DirectoryInitial | null } = {}) {
   const physical = usePhysicalCommerceEnabled()
   const router = useRouter()
   /* First, so every read below finds its answer kept (or on its way) and shares it. */
   React.useEffect(() => prefetchGet(keptReads(physical)), [physical])
   const all = React.useMemo(() => visibleIntegrations(physical), [physical])
-  const [tracking, setTracking] = React.useState<Tracking | null>(() => peekGet<{ tracking: Tracking }>("/api/store/integrations")?.tracking ?? null)
-  const [trackingReady, setTrackingReady] = React.useState(() => peekGet<{ ready: boolean }>("/api/store/integrations")?.ready ?? true)
+  const [tracking, setTracking] = React.useState<Tracking | null>(() => served?.tracking ?? peekGet<{ tracking: Tracking }>("/api/store/integrations")?.tracking ?? null)
+  const [trackingReady, setTrackingReady] = React.useState(() => served?.trackingReady ?? peekGet<{ ready: boolean }>("/api/store/integrations")?.ready ?? true)
   const [states, setStates] = React.useState<IntegrationState[] | null>(() => (physical ? (peekGet<{ integrations: IntegrationState[] }>("/api/physical/integrations")?.integrations ?? null) : []))
   /* Klaviyo and Omnisend connected with a key: subscribers and orders go there (lib/integrations/marketing). */
-  const [marketing, setMarketing] = React.useState<MarketingState[] | null>(() => peekGet<{ marketing: MarketingState[] }>(MARKETING_PATH)?.marketing ?? null)
+  const [marketing, setMarketing] = React.useState<MarketingState[] | null>(() => served?.marketing ?? peekGet<{ marketing: MarketingState[] }>(MARKETING_PATH)?.marketing ?? null)
   React.useEffect(() => {
     void api<{ marketing: MarketingState[] }>(MARKETING_PATH).then((r) => {
       if (r.ok) setMarketing(r.data.marketing)
@@ -252,7 +265,7 @@ export function IntegrationsDirectory({ page = false, only = null }: { page?: bo
     from the first frame; a directory opened without it keeps the order below
     until it comes, and only then takes it, once.
   */
-  const [scores, setScores] = React.useState<Record<string, number> | null>(() => peekGet<{ scores: Record<string, number> }>("/api/integrations/popularity")?.scores ?? null)
+  const [scores, setScores] = React.useState<Record<string, number> | null>(() => served?.scores ?? peekGet<{ scores: Record<string, number> }>("/api/integrations/popularity")?.scores ?? null)
   React.useEffect(() => {
     if (scores) return
     void api<{ scores: Record<string, number> }>("/api/integrations/popularity").then((r) => {
@@ -260,7 +273,7 @@ export function IntegrationsDirectory({ page = false, only = null }: { page?: bo
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  const [overrides, setOverrides] = React.useState<CatalogOverride[]>(() => peekGet<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog")?.overrides ?? [])
+  const [overrides, setOverrides] = React.useState<CatalogOverride[]>(() => served?.overrides ?? peekGet<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog")?.overrides ?? [])
   /* Storelib's own apps: on or off (Storelib Reviews, lib/reviews/app-settings.ts). */
   const [appsOn, setAppsOn] = React.useState<Record<string, boolean>>(() => ({ storelib_reviews: peekGet<{ settings: { enabled: boolean } }>("/api/store/reviews-app")?.settings?.enabled === true }))
   React.useEffect(() => {
@@ -304,7 +317,8 @@ export function IntegrationsDirectory({ page = false, only = null }: { page?: bo
   const appState = (id: string): AppState | null => appStates?.states[id] ?? null
   React.useEffect(() => {
     void api<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog").then((r) => {
-      if (r.ok) setOverrides(r.data.overrides ?? [])
+      /* The same answer is the same array: nothing is drawn again, nothing moves. */
+      if (r.ok) setOverrides((had) => (JSON.stringify(had) === JSON.stringify(r.data.overrides ?? []) ? had : (r.data.overrides ?? [])))
     })
   }, [])
   React.useEffect(() => {

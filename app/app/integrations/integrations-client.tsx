@@ -2,7 +2,7 @@
 
 import { Suspense } from "react"
 import { cn } from "@/lib/utils"
-import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
+import { IntegrationsDirectory, type DirectoryInitial } from "@/components/app/settings/integrations-directory"
 import { HowItWorks } from "@/components/app/settings/how-it-works"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar } from "../orders/order-parts"
 import { tt } from "@/lib/i18n/text"
@@ -25,7 +25,7 @@ import { tt } from "@/lib/i18n/text"
 */
 const NO_BAR_ON_A_PAGE = "[&:has([data-integrations-view=page])>[data-orders-bar]]:hidden"
 
-export function IntegrationsClient() {
+export function IntegrationsClient({ initial = null }: { initial?: DirectoryInitial | null } = {}) {
   return (
     <div className={cn("orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter", NO_BAR_ON_A_PAGE)} data-integrations-scroll="">
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
@@ -35,7 +35,7 @@ export function IntegrationsClient() {
       <div className={cn("mx-auto pt-1 pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
         {/* The directory reads ?integration= to open one's page, and ?category=&q=&status=&by= for the list. */}
         <Suspense fallback={null}>
-          <IntegrationsDirectory page />
+          <IntegrationsDirectory page initial={initial} />
         </Suspense>
       </div>
     </div>

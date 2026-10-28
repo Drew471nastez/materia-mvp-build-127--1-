@@ -96,7 +96,8 @@ async function main() {
     const mc = signupRequests("mailchimp", MC_KEY, { list_id: "a1b2c3", double_optin: false, tag: "OnePage" }, SIGNUP)
     const hash = createHash("md5").update("ana@example.com").digest("hex")
     const body = JSON.parse(mc[0].body ?? "{}")
-    check("Mailchimp: a PUT by the address's hash, so a second signup is the same member", mc[0].method === "PUT" && mc[0].url === `https://us21.api.mailchimp.com/3.0/lists/a1b2c3/members/${hash}`)
+    /* Changed on purpose (round 41): ?skip_merge_validation=true, so an audience with a required field of its own still takes the signup (tests/onepage-integrations-r41.test.ts). */
+    check("Mailchimp: a PUT by the address's hash, so a second signup is the same member", mc[0].method === "PUT" && mc[0].url === `https://us21.api.mailchimp.com/3.0/lists/a1b2c3/members/${hash}?skip_merge_validation=true`)
     check("  status_if_new only: someone who left in Mailchimp stays left", body.status_if_new === "subscribed" && !("status" in body) && body.merge_fields?.FNAME === "Ana")
     check("  the tag in a second call", mc.length === 2 && mc[1].url.endsWith("/tags") && JSON.parse(mc[1].body ?? "{}").tags[0].name === "OnePage")
     check("  double opt in is pending", JSON.parse(signupRequests("mailchimp", MC_KEY, { list_id: "a1b2c3", double_optin: true }, SIGNUP)[0].body ?? "{}").status_if_new === "pending")

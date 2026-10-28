@@ -991,6 +991,8 @@ const STRICT_SUITES = [
   "tests/onepage-creator-blocks.test.ts",
   /* Round 40: OnePage integrations (Mailchimp, Kit, beehiiv, webhooks), consent-aware pixels, embeds without a jump, and the shelf, lead magnet, posts, followers and code blocks. */
   "tests/onepage-blocks-r40.test.ts",
+  /* Round 41: every OnePage integration end to end with a fake transport (Mailchimp, Kit, beehiiv, MailerLite, Brevo, Flodesk, the webhooks), one delivery per signup, Klaviyo and Omnisend at once, the pixels' Lead, ViewContent, InitiateCheckout and Purchase, the directory's order on the first paint, SQL 323 and 324. */
+  "tests/onepage-integrations-r41.test.ts",
   /* Round 10: a OnePage email signup and contact message through the real routes, to the one subscriber list (tests/_journey). */
   "tests/e2e-onepage-signup.test.ts",
   /* Round 11: a signup from each of the five layouts on a page served on storelib.me, and a group through Save, reload and Publish (tests/_journey). */

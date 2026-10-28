@@ -84,7 +84,7 @@ import {
   SiX,
   SiYoutube,
 } from "react-icons/si"
-import { SiCaldotcom, SiGoogleanalytics, SiGooglesheets, SiKit, SiMailchimp, SiMake, SiMeta, SiZapier } from "react-icons/si"
+import { SiBrevo, SiCaldotcom, SiGoogleanalytics, SiGooglesheets, SiKit, SiMailchimp, SiMake, SiMeta, SiZapier } from "react-icons/si"
 import { Globe, Link as LinkGlyph, Mail, Webhook, type LucideIcon } from "lucide-react"
 
 import { canonicalSocialPlatform } from "@/lib/onepage/social-url"
@@ -519,7 +519,29 @@ function BeehiivMark({ size = 20, color = "currentColor", className }: MarkProps
   )
 }
 
+/* Round 41: MailerLite and Flodesk have no mark in the set either. MailerLite's green tile with its open "ml" strokes; Flodesk's near black tile with its "f". Brevo is in the set. */
+function MailerLiteMark({ size = 20, color = "currentColor", className }: MarkProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden focusable="false" data-mark="mailerlite">
+      <rect x="2" y="3.5" width="20" height="17" rx="5" fill={color} />
+      <path d="M6.6 15.5v-4.2a1.6 1.6 0 0 1 3.2 0v4.2M9.8 11.3a1.6 1.6 0 0 1 3.2 0v4.2M15.6 8.2v6a1.3 1.3 0 0 0 1.9 1.15" fill="none" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function FlodeskMark({ size = 20, color = "currentColor", className }: MarkProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden focusable="false" data-mark="flodesk">
+      <rect x="2" y="2" width="20" height="20" rx="5.5" fill={color} />
+      <path d="M14.8 6.6c-1.9-.4-3.4.4-3.4 2.6V18M8.8 11h5.4" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 const INTEGRATION_ICONS: Record<string, { brand?: IconType; draw?: (p: MarkProps) => React.ReactElement; color: string; line?: boolean }> = {
+  mailerlite: { draw: MailerLiteMark, color: "#09C269" },
+  brevo: { brand: SiBrevo, color: "#0B996E" },
+  flodesk: { draw: FlodeskMark, color: "#111113" },
   tally: { draw: TallyMark, color: "#111113" },
   klaviyo: { draw: KlaviyoMark, color: "#232426" },
   omnisend: { draw: OmnisendMark, color: "#111113" },

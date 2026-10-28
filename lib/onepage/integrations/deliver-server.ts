@@ -26,6 +26,7 @@ import { openSecret } from "@/lib/physical/secrets"
 import { publicLookup, publicUrlProblem } from "@/lib/api/public-fetch"
 import {
   PAGE_INTEGRATION_NAME,
+  deliveryKey,
   isPageIntegration,
   isWebhookIntegration,
   outcomeOf,
@@ -150,7 +151,7 @@ export async function sendToConnection(row: ConnectionRow, signup: PageSignup, t
     }
     const key = openSecret(row.secret_ciphertext)
     if (!key) return { outcome: "refused", error: `${name} needs connecting again.` }
-    const requests = signupRequests(provider as "mailchimp" | "kit" | "beehiiv", key, row.config ?? {}, signup)
+    const requests = signupRequests(provider, key, row.config ?? {}, signup)
     if (requests.length === 0) return { outcome: "refused", error: `Choose a list for ${name}.` }
     for (const req of requests) {
       const a = await transport.ask(req)
@@ -188,28 +189,85 @@ export async function noteResult(db: Db, rowId: string, result: SendResult): Pro
   }
 }
 
+/*
+  ONE SIGNUP, ONE DELIVERY (SQL part 324, onepage_integration_sends). The
+  same address on the same block again is not a second Zapier run or a
+  second Sheets row: a claim is written before the send, keyed by a hash of
+  the signup (./providers deliveryKey), and taken back when the send did not
+  go, so a later signup tries again. Until part 324 runs there is no claim
+  and every signup is sent, as before.
+*/
+async function claim(db: Db, rowId: string, key: string): Promise<"claimed" | "sent" | "none"> {
+  try {
+    const { error } = await db.from("onepage_integration_sends").insert({ integration_id: rowId, send_key: key })
+    if (!error) return "claimed"
+    if (error.code === "23505") return "sent"
+    return "none"
+  } catch {
+    return "none"
+  }
+}
+
+async function release(db: Db, rowId: string, key: string): Promise<void> {
+  try {
+    await db.from("onepage_integration_sends").delete().eq("integration_id", rowId).eq("send_key", key)
+  } catch {
+    /* kept: this address on this block is not sent again, nothing worse */
+  }
+}
+
+/**
+ * KLAVIYO AND OMNISEND, NOW. They read the store's subscriber list on their
+ * own sync (lib/integrations/marketing/sync-server), every 15 minutes; a
+ * OnePage signup asks for that sync straight away, so the person is there
+ * within the minute, with the consent the list already records. One sync a
+ * minute per store and provider at most (the job's key), however many sign up.
+ */
+export type MarketingNudge = (db: Db, creatorId: string) => Promise<number>
+
+const nudgeMarketing: MarketingNudge = async (db, creatorId) => {
+  try {
+    const { queueMarketingSignup } = await import("@/lib/integrations/marketing/sync-server")
+    return await queueMarketingSignup(db, creatorId)
+  } catch {
+    return 0
+  }
+}
+
+export type DeliveryResult = SendResult | { ok: true; skipped: "already_sent" }
+
 /**
  * Every connected tool, at once. Never throws. Returns what happened per
  * provider for the caller's log line and the tests.
  */
-export async function deliverSignup(db: Db, creatorId: string | null | undefined, signup: PageSignup, transport: Transport = realTransport): Promise<Partial<Record<PageIntegration, SendResult>>> {
-  const out: Partial<Record<PageIntegration, SendResult>> = {}
+export async function deliverSignup(db: Db, creatorId: string | null | undefined, signup: PageSignup, transport: Transport = realTransport, nudge: MarketingNudge = nudgeMarketing): Promise<Partial<Record<PageIntegration, DeliveryResult>>> {
+  const out: Partial<Record<PageIntegration, DeliveryResult>> = {}
   if (!creatorId || !signup.email) return out
+  await nudge(db, creatorId)
   let rows: ConnectionRow[] = []
   try {
     rows = await connectedRows(db, creatorId)
   } catch {
     return out
   }
+  const key = deliveryKey(signup)
+  /* One delivery id per signup: our retry carries the same X-Storelib-Delivery, so a receiver can drop a repeat. */
+  const deliveryId = randomUUID()
   await Promise.all(
     rows.map(async (row) => {
+      const claimed = await claim(db, row.id, key)
+      if (claimed === "sent") {
+        out[row.provider as PageIntegration] = { ok: true, skipped: "already_sent" }
+        return
+      }
       let result: SendResult
       try {
-        result = await sendToConnection(row, signup, transport)
+        result = await sendToConnection(row, signup, transport, deliveryId)
       } catch {
         result = { ok: false, error: "That could not be sent." }
       }
       out[row.provider as PageIntegration] = result
+      if ("error" in result && claimed === "claimed") await release(db, row.id, key)
       await noteResult(db, row.id, result)
       if ("error" in result) console.warn(`[onepage-integrations] ${row.provider} for ${creatorId}: ${result.error}`)
     }),

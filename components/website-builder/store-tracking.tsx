@@ -5,6 +5,7 @@ import { publishedTracking } from "@/lib/store/tracking-server"
 import { purchaseTags, readTracking, trackingTags } from "@/lib/store/tracking"
 import type { GaItem } from "@/lib/store/ga"
 import { GaRoute, type GaCheckout } from "@/components/analytics/ga-route"
+import { PixelPaid } from "@/components/analytics/pixel-paid"
 import { gaProductFor, storeCurrencyFor } from "@/lib/store/ga-server"
 
 type Purchase = { id: string; valueCents: number; currency: string; quantity: number; items?: GaItem[] }
@@ -49,6 +50,8 @@ async function StoreTrackingTags({ creatorId, purchase, product, productSlug, pr
           </Script>
         ),
       )}
+      {/* Round 41: a payment on the page (the OnePage's checkout window, Storelib's checkout) told to every pixel, not only Google (components/analytics/pixel-paid). */}
+      {t.meta_pixel || t.tiktok_pixel || t.pinterest_tag || t.gtm || gtagIds.length ? <PixelPaid currency={checkout?.currency ?? null} /> : null}
       {gtagIds.length ? <GaRoute ids={gtagIds} product={shown} checkout={checkout ? { ...checkout, currency: checkout.currency ?? (await storeCurrencyFor(creatorId)) } : null} /> : null}
     </>
   )
