@@ -237,6 +237,8 @@ const STRUCTURAL: Record<string, string[]> = {
   collections_grid: ["image", "title", "products_count", "description", "url"],
   /* The search page draws the shop's own products, which arrive block-shaped; it has no blocks of its own. */
   search: ["image", "title", "tag", "compare_price", "price", "url"],
+  /* Changed on purpose (offers round): Featured products' shop, collection and chosen cards are the shop's own products, block-shaped (lib/website-builder/shop-products.ts toCard), and each card's offers mark reads the product's slug, kind and pay what you want from them; none is a setting. */
+  product_featured: ["slug", "kind", "pay_what_you_want"],
 }
 
 /**
