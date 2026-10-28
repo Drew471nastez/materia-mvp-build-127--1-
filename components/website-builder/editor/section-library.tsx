@@ -492,6 +492,14 @@ function watchInput() {
   (scripts/check-wb-write-r16.mjs). Held for the run, and let go after it.
 */
 let aiAtWork = false
+/**
+ * A change from outside is landing (a push, an agent's edit): drawing ahead
+ * steps aside for INPUT_QUIET_MS as it does for a key, so its batches are not
+ * laid out in the frames that change is drawn in.
+ */
+export function deferPreviewsForChange() {
+  if (typeof performance !== "undefined") lastInput = performance.now()
+}
 export function holdPreviewsForAi(on: boolean) {
   if (aiAtWork === on) return
   aiAtWork = on
@@ -1222,9 +1230,24 @@ export const SectionLibrary = memo(function SectionLibrary({
     if (!open && editorSpares()) return
     let cancelled = false
     let raf = 0
+    let later = 0
     const batch = prefetchPlan().tier === "rich" ? FILL_PER_FRAME : 2
     const step = () => {
       if (cancelled) return
+      /*
+        Closed, the cards are put in only while nobody is using the editor
+        (the same quiet the previews wait for, busyFor). Each batch is a
+        commit that mounts cards, a long task on a slow device, and they
+        were landing under a scroll, a key typed and an agent's edit
+        arriving (scripts/check-editor-perf.mjs, PART=live: the library's
+        cards among the renders of a one section edit).
+      */
+      watchInput()
+      const wait = open ? 0 : busyFor()
+      if (wait > 0) {
+        later = window.setTimeout(step, wait)
+        return
+      }
       const next = new Set(liveRef.current)
       let added = 0
       for (const k of orderRef.current) {
@@ -1242,6 +1265,7 @@ export const SectionLibrary = memo(function SectionLibrary({
     return () => {
       cancelled = true
       cancelAnimationFrame(raf)
+      window.clearTimeout(later)
     }
   }, [built, open, phone, entries])
 

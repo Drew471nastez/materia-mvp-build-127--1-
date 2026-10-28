@@ -34,6 +34,7 @@ import { ConnectionMarkIcon } from "@/components/website-builder/connection-mark
 import {
   POLL_ACTIVE_MS,
   POLL_BASE_MS,
+  POLL_MAX_MS,
   RECENT_MS,
   actedRecently,
   activityFollowUp,
@@ -57,6 +58,8 @@ const CATCH_UP_AWAY_MS = 8_000
 /** How many pages of the log one pass will fold together. */
 const CATCH_UP_PAGES = 6
 const ACTIVITY_PAGE = 20
+/** The next read after an apply that had to wait (a scroll resting, a page read back): straight after, so a change made meanwhile lands with it. */
+export const HELD_UP_MS = 50
 
 export function useSiteActivity({
   installId,
@@ -160,6 +163,8 @@ export function useSiteActivity({
       let arrived = false
       let eventsFull = false
       let retry = false
+      /* Applying waited (the canvas was being scrolled, a page was read back): the log may have grown meanwhile. */
+      let heldUp = false
       const catchUp = catchUpPending
       catchUpPending = false
       try {
@@ -196,12 +201,14 @@ export function useSiteActivity({
         if (events.length) {
           arrived = true
           eventsFull = events.length >= ACTIVITY_PAGE * (catchUp ? CATCH_UP_PAGES : 1)
+          const applying = Date.now()
           try {
             /* One pass for the whole pile. A page of the log per poll reloaded the canvas each time: the freeze and the blank frame on the way back. */
             await onEventsRef.current(events, { catchUp })
           } catch {
             try { onStaleRef.current?.() } catch { /* the cursor still moves; the next read is the new lines */ }
           }
+          heldUp = Date.now() - applying >= POLL_ACTIVE_MS
           const last = events[events.length - 1]
           setBrief((b) => (b ? { ...b, latest: { name: last.agent_name, at: last.created_at ?? new Date().toISOString() } } : b))
         }
@@ -230,6 +237,8 @@ export function useSiteActivity({
          A full page of the log means more is waiting, so that one is immediate. */
       delay = document.visibilityState === "visible" ? (arrived && eventsFull ? 200 : POLL_ACTIVE_MS) : (arrived && eventsFull ? 200 : paced)
       if (retry) delay = POLL_ACTIVE_MS
+      /* The lines just applied waited for a scroll to rest: what came in behind them is read now, not a second after the rest. */
+      else if (heldUp) delay = HELD_UP_MS
       schedule(delay)
     }
     let woke = 0

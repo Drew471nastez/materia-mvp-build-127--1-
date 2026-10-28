@@ -50,6 +50,9 @@ let token: string | null = null
 let sitesDomain: string | null = null
 let mintedAt = 0
 let asking: Promise<void> | null = null
+/* When an ask came back without a token (signed out, a blip): asked again after a while, not on every mount (the editor mounts three links at once). */
+let refusedAt = 0
+export const RETRY_AFTER_MS = 30_000
 const waiting = new Set<() => void>()
 
 /**
@@ -60,6 +63,7 @@ export function primeOwnMarker(): void {
   if (typeof window === "undefined") return
   if (token && Date.now() - mintedAt < REFRESH_MS) return
   if (asking) return
+  if (refusedAt && Date.now() - refusedAt < RETRY_AFTER_MS) return
   asking = fetch("/api/analytics/own/token", { credentials: "same-origin", cache: "no-store" })
     .then((res) => (res.ok ? res.json() : null))
     .then((data: { token?: string | null; sitesMarked?: boolean; sitesDomain?: string } | null) => {
@@ -67,11 +71,13 @@ export function primeOwnMarker(): void {
         token = data.token
         sitesDomain = data.sitesMarked === true && typeof data.sitesDomain === "string" && data.sitesDomain ? data.sitesDomain.toLowerCase() : null
         mintedAt = Date.now()
+        refusedAt = 0
         for (const draw of waiting) draw()
-      }
+      } else refusedAt = Date.now()
     })
     .catch(() => {
       /* No token, so links open as they always did. */
+      refusedAt = Date.now()
     })
     .finally(() => {
       asking = null

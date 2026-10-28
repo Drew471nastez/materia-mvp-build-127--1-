@@ -28,18 +28,26 @@ import { useEditorFieldEnv, useSiblingSettings } from "./context"
 import { TEXT_BUTTON } from "./styles"
 import { tt } from "@/lib/i18n/text"
 
-export function CollectionBoundField({
-  field,
-  value,
-  onChange,
-  children,
-}: {
+type BoundProps = {
   field: SchemaField
   value: unknown
   onChange: (v: unknown) => void
   /** The control itself, drawn with the field (and the value) it should show. */
   children: (shown: { field: SchemaField; value: unknown }) => ReactNode
-}) {
+}
+
+/*
+  Only a setting that can follow a collection (`from`) reads the section's
+  other settings. Every field used to, so a switch flipped or a key typed in
+  one field drew every other field of the section again with its tooltips
+  (scripts/check-editor-perf.mjs, OWNERS=1: 19 controls a toggle).
+*/
+export function CollectionBoundField(props: BoundProps) {
+  if (!props.field.from) return <>{props.children({ field: props.field, value: props.value })}</>
+  return <FollowsCollection {...props} />
+}
+
+function FollowsCollection({ field, value, onChange, children }: BoundProps) {
   const env = useEditorFieldEnv()
   const siblings = useSiblingSettings()
   const state = field.from ? boundState(field, value, siblings, env?.collections ?? null) : null

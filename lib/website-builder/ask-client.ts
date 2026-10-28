@@ -130,6 +130,51 @@ function lines(buffer: string, onLine: (event: Record<string, unknown>) => void)
   return rest
 }
 
+/** The longest a line waits when no frame comes (a tab in the background draws none). */
+export const LINE_FALLBACK_MS = 100
+
+/**
+ * WHAT ARRIVED, HANDED ON ONCE A FRAME.
+ *
+ * A run's lines can come a few milliseconds apart, each in its own read, and
+ * each was its own render of the whole editor: 24 edits were 146 commits and
+ * the canvas redrawn for every one (scripts/check-editor-perf.mjs, "ask run").
+ * Text is gathered as it arrives and split into lines in the next animation
+ * frame, so everything that came in between two frames is one task, which
+ * React renders once. Nothing is reordered or dropped: `finish` hands on the
+ * rest, and `drain` what has arrived so far (before a throw).
+ */
+export function frameLines(onLine: (event: Record<string, unknown>) => void): { push: (text: string) => void; drain: () => void; finish: () => void } {
+  let pending = ""
+  let buffer = ""
+  let frame = 0
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const drain = () => {
+    if (frame && typeof cancelAnimationFrame === "function") cancelAnimationFrame(frame)
+    if (timer) clearTimeout(timer)
+    frame = 0
+    timer = null
+    if (!pending) return
+    const text = pending
+    pending = ""
+    buffer = lines(buffer + text, onLine)
+  }
+  return {
+    push(text: string) {
+      pending += text
+      if (frame || timer) return
+      if (typeof requestAnimationFrame === "function") frame = requestAnimationFrame(drain)
+      timer = setTimeout(drain, LINE_FALLBACK_MS)
+    },
+    drain,
+    finish() {
+      drain()
+      lines(buffer + "\n", onLine)
+      buffer = ""
+    },
+  }
+}
+
 function aborted(): DOMException {
   return new DOMException("The run was stopped.", "AbortError")
 }
@@ -155,13 +200,19 @@ export async function streamPost(url: string, body: string, options: StreamOptio
   }
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
-  let buffer = ""
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (value) buffer = lines(buffer + decoder.decode(value, { stream: true }), options.onLine)
-    if (done) break
+  const feed = frameLines(options.onLine)
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (value) feed.push(decoder.decode(value, { stream: true }))
+      if (done) break
+    }
+  } catch (error) {
+    /* What arrived before the stop or the lost connection is handed on first, as it was when each line went on at once. */
+    feed.drain()
+    throw error
   }
-  lines(buffer + "\n", options.onLine)
+  feed.finish()
   return { ok: true, status: response.status }
 }
 
@@ -173,7 +224,7 @@ function streamWithProgress(url: string, body: string, options: StreamOptions): 
     }
     const xhr = new XMLHttpRequest()
     let read = 0
-    let buffer = ""
+    const feed = frameLines(options.onLine)
     let sent = false
     const markSent = () => {
       if (sent) return
@@ -185,7 +236,7 @@ function streamWithProgress(url: string, body: string, options: StreamOptions): 
       if (xhr.status < 200 || xhr.status >= 300) return
       const text = xhr.responseText
       if (text.length > read) {
-        buffer = lines(buffer + text.slice(read), options.onLine)
+        feed.push(text.slice(read))
         read = text.length
       }
     }
@@ -216,15 +267,17 @@ function streamWithProgress(url: string, body: string, options: StreamOptions): 
         return
       }
       drain()
-      lines(buffer + "\n", options.onLine)
+      feed.finish()
       resolve({ ok: true, status: xhr.status })
     }
     xhr.onerror = () => {
       options.signal.removeEventListener("abort", onAbort)
+      feed.drain()
       reject(new TypeError("The connection was lost."))
     }
     xhr.onabort = () => {
       options.signal.removeEventListener("abort", onAbort)
+      feed.drain()
       reject(aborted())
     }
     xhr.send(body)
